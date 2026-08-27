@@ -28,6 +28,16 @@ describe("buildTeamBanners", () => {
     assert.deepEqual(ids(build()), []);
   });
 
+  /* One shape across the four retirable editors: the title names the exclusion, the body names what
+     survives, and the way back is the header's own control rather than a sentence pointing at it. */
+  it("states the retirement as the exclusion plus what survives, and points at no control", () => {
+    const [banner] = build({ isRetired: true });
+
+    assert.match(banner?.title ?? "", /erscheint in keiner Auswahlliste/);
+    assert.match(banner?.body ?? "", /Kürzel bleibt reserviert/, "the body stopped naming what survives");
+    assert.ok(!/reaktivieren|Kopf der Seite/i.test(banner?.body ?? ""));
+  });
+
   it("names the season the club is missing from, in the title", () => {
     const [banner] = build({ isMember: false });
 
@@ -125,19 +135,43 @@ describe("buildTeamBanners", () => {
     assert.equal(resolveBlockingBanners(build({ hasAustritt: true, storedAustritt: record, draftGrund: record.grund })), null);
   });
 
+  /* The pair `raisedBy` exists for: the record already stands and is on screen at page load, while
+     the words this draft would put on the public page are the save's doing. */
+  it("classifies the standing austritt as state and a rewritten reason as change", () => {
+    const record = { type: "disqualifikation", grund: "Nicht angetreten", datum: "2026-03-12" } as const;
+    const raised = build({ hasAustritt: true, storedAustritt: record, draftGrund: "Wiederholt nicht angetreten" });
+
+    assert.equal(raised.find(({ id }) => id === "team.austritt-standing")?.raisedBy, "state");
+    assert.equal(raised.find(({ id }) => id === "team.austritt-entering")?.raisedBy, "change");
+  });
+
+  /* Colour and confirmation are separate switches: a banner the page load already carries asks
+     nothing at save time, and one graded `change` here would confirm every later edit forever. */
+  it("classifies every banner a page load already carries as state", () => {
+    const record = { type: "rueckzug", grund: "Schule aufgelöst", datum: "2026-03-12" } as const;
+    const atLoad = [
+      ...build({ isRetired: true }),
+      ...build({ isMember: false }),
+      ...build({ isMember: false, isRetired: true, saisonStatus: "active" }),
+      ...build({ hasAustritt: true, storedAustritt: record, draftGrund: record.grund }),
+    ];
+
+    for (const banner of atLoad) assert.equal(banner.raisedBy, "state", `${banner.id} would confirm a situation the save did not cause`);
+  });
+
   it("keeps the group warning off a locked group, whatever the draft says", () => {
     assert.deepEqual(ids(build({ isGruppeChanged: true })), ["team.gruppe-changed"]);
     assert.deepEqual(ids(build({ isGruppeChanged: true, isGruppeLocked: true })), []);
   });
 
-  it("names the window the move refusal leaves open, rather than whether play has started", () => {
+  it("states the move's one certain outcome and leaves the window it was allowed under unsaid", () => {
     const [banner] = build({ isGruppeChanged: true });
 
-    // `REQ-ENTER-004` turns on drawn fixtures alone, and a `future` season is drawn before it is
-    // activated — so a sentence about play, or about the season not having begun, promises a move
-    // the endpoint refuses.
+    // The picker is open only where `REQ-ENTER-004` already permits the move, so a sentence about
+    // that window is reassurance, and one about the seeding promises a change no result decides yet.
     assert.equal(banner?.id, "team.gruppe-changed");
-    assert.match(banner?.body ?? "", /noch keine Spiele angelegt sind/);
-    assert.doesNotMatch(banner?.body ?? "", /gespielt|begonnen/);
+    assert.match(banner?.title ?? "", /Tabellen beider Gruppen/);
+    assert.equal(banner?.body, undefined);
+    assert.equal(banner?.raisedBy, "change", "the picker's own move stopped reaching the save confirmation");
   });
 });

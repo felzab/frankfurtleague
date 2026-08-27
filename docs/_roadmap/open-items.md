@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `6669079e`, 2026-08-26\
+**Verified against:** `22805a09`, 2026-08-27\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -93,11 +93,14 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 38  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
 | 39  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Open     | —          |
 | 40  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
-| 41  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Open     | —          |
-| 42  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Open     | —          |
-| 43  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
-| 44  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
-| 45  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
+| 41  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
+| 42  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Open     | —          |
+| 43  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
+| 44  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Open     | —          |
+| 45  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Open     | —          |
+| 46  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
+| 47  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
+| 48  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -791,16 +794,18 @@ season began, derived from the chosen season's status rather than asked
 (`fl_frontend/src/features/spieler/components/forms/AdminCreateSpielerForm.tsx`), and a
 self-registration into a running season is precisely that case.
 
-**The squad number is reported rather than refused, and this page owes the same report.** A shared
-shirt is a permitted state on every write path (`fl_backend/app/core/domain.py :: UNENFORCED`), so
-nothing here has a refusal to inherit — what it inherits is the obligation to say so where the entry
-happens. The admin surfaces do that in two shapes:
-`fl_frontend/src/features/spieler/utils.ts :: isSquadNummerNewlyShared` decides only on a state the
-draft introduces, and the squad editor raises it as a `warning`, which routes the save through the
-confirmation.
+**Nothing refuses a shared squad number and nothing reports one, so this page inherits a question
+rather than a pattern.** A shared shirt is a permitted state on every write path
+(`fl_backend/app/core/domain.py :: UNENFORCED`). The squad editor's rail raises no banner about a number
+(`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts :: buildSpielerBanners`),
+and the create form judges `nummer` on its format alone
+(`fl_frontend/src/features/spieler/components/forms/AdminCreateSpielerForm.tsx`); the editor's save
+routes through a confirmation for any banner above `info`
+(`fl_frontend/src/shared/components/ui/railBanner.ts :: resolveBlockingBanners`), and the only one it
+raises is `spieler.team-changed` — a transfer rather than a shirt.
 A page where a whole team enters itself multiplies those writes and has no admin reading them, so
 whether a self-registered player may take a shirt somebody in the squad already wears — and who is
-told — is a product call this entry owns.
+told — is a product call this entry owns, and no admin surface answers it first.
 
 **What the Saison page and its editor inherit.** The create form is a dialog today
 (`fl_frontend/src/features/saisons/components/modals/AdminCreateSaisonModal.tsx` over
@@ -1304,8 +1309,8 @@ the two of them is not the same.
 entry the squad-role work answered.
 `fl_frontend/src/app/admin/spieler/[spieler_id]/page.tsx` reads every player's memberships for the
 season and folds them per club through
-`fl_frontend/src/features/spieler/utils.ts :: collectTakenSquadNummern` and `:: collectHeldRollen`, so
-the live row count is a fold away; the season it reads beside them carries `rules.max_kadergroesse`.
+`fl_frontend/src/features/spieler/utils.ts :: collectHeldRollen`, so the live row count is a fold
+away; the season it reads beside them carries `rules.max_kadergroesse`.
 `REQ-SQUAD-004` is the worked precedent — a per-club, per-season fact computed on that page and raised
 in the rail as `spieler.rolle-vergeben` before any press. **What the editor's half needs is that fold
 and a banner**, not new page data.
@@ -1763,7 +1768,7 @@ way the `Mannschaft` sweep was run — a find-and-replace is what breaks it, bec
 not interchangeable in every sentence position.
 
 **`bereits` and `schon` both mean _already_, and the product spells both.** `schon` carries the
-larger share — 46 occurrences against 16, measured 2026-08-26 — so what is left is a minority
+larger share — 45 occurrences against 16, measured 2026-08-27 — so what is left is a minority
 spelling rather than an even split. `docs/frontend/spec.md` §1.12 asks for one German word per
 concept, and this is the same defect the `Mannschaft` sweep closed for _Team_, one register lower.
 
@@ -1891,7 +1896,7 @@ should be guessed.
 **Path:** Independent of every entry here. What it waits on is a product ruling per entity rather
 than a page or another item.
 
-**The Fehlt and Empfohlen markers exist on the match editor alone, and putting them on the other
+**The Fehlt and Offen markers exist on the match editor alone, and putting them on the other
 entity editors is a domain question before it is a UI one.**
 `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/ExpectedMarker.tsx :: ExpectedMarker`
 renders a marker only where a field is empty **and** a triage category is waiting on it. Those
@@ -2031,7 +2036,55 @@ words the same membership, so the register states both readings and matches the 
 them. The constant's own comment argues that a called-off fixture is one that never took place,
 which points at the summaries; that remains a domain call rather than a recorded decision.
 
-### 41 · BE-24 — An unnarrowed squad read scans an unindexed collection to learn what it may not serve
+### 41 · BE-39 — A refusal composes a repair the product refuses to perform
+
+**Status:** Open\
+**Surfaces:** FE, BE, Docs\
+**Effort:** S\
+**Path:** Independent — the composed message, its German arm and the pages repeating the loop move
+together. **OPS-74** on [`tooling-items.md`](tooling-items.md) guards the pairing of the first two and
+says nothing about what either claims.
+
+**`REQ-RULES-011` names an undraw whose window is narrower than the refusal's own.**
+`fl_backend/app/api/saisons/services.py :: find_rules_refusal` composes a repair per moved field, and
+the one for `number_of_groups` and `teams_per_group` tells an admin to undraw the Spielplan, change the
+entries, then draw it again. `fl_backend/app/api/saisons/services.py :: find_undraw_refusal` permits
+that undraw only while the season is `future` and no fixture carries anything recorded against it;
+every other season is answered `REQ-SPIELPLAN-006`. **The refusal itself is under no such window** —
+`fl_backend/tests/api/test_rules_refusal.py :: TestADrawnSeasonKeepsTheShapeItWasDrawnFrom` pins it
+holding whatever the season is doing — so on a running season, and on a planned one carrying a result,
+the repair names a write nothing will perform. `REQ-RULES-012`'s own window sits inside that set and is
+not the size of it: a played knockout fixture is a recorded one, and so is a called-off group fixture
+in a season nobody has activated.
+
+**What an admin meets is a closed control rather than a second refusal.**
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/blockedReasons.ts :: spielplanUndrawBlockedReason`
+mirrors the same window and answers _"Zurücknehmen lässt sich der Spielplan nur, solange die Saison
+geplant ist."_, which contradicts the sentence that sent them there.
+[`docs/frontend/spec.md`](../frontend/spec.md)'s copy standard exempts the continuation of a repair a
+refusal has already started, on the ground that a loop broken at its second step leaves an admin
+exactly where the refusal sent them; this is that loop broken at its second step.
+
+**The claim is repeated where it is not owned**, so whatever is decided moves those with it:
+[`docs/domain.md`](../domain.md)'s reading of what an undraw opens,
+[`docs/logging/error-codes.md`](../logging/error-codes.md)'s draw-freeze paragraph and
+[`docs/frontend/spec.md`](../frontend/spec.md)'s undraw loop each state it as the way back from a group
+shape guessed wrong — true in the planning window it was written for, and in no other.
+
+**This entry picks no repair.** The sentence could narrow to the window it holds in, leaving a season
+past that window told plainly that the two numbers are fixed for the rest of its life. Or the undraw's
+window is the half that is wrong, a season that has drawn and recorded nothing being arguably still in
+setup whatever `status` says — which is a domain call about what an `active` season may become, and not
+a message fix. **The German is a hand-written second copy either way**
+(`fl_frontend/src/features/saisons/actions.ts`, its `REQ-RULES-011` arm), so a repair that stops at the
+backend leaves an admin reading the old instruction.
+
+**What ranks it here.** Above **BE-24** and **BE-37**: those cost a read that runs and an operator who
+has already reached for the database, where this misleads an admin on a path the product offers them.
+Below **BE-26**: a summary wrong there may be covering a constant that lets a fixture nobody will replay
+through a refusal, which is a behaviour to settle rather than a sentence to correct.
+
+### 42 · BE-24 — An unnarrowed squad read scans an unindexed collection to learn what it may not serve
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -2071,7 +2124,54 @@ What pays is a caller reaching the API directly.
 `LIST_LIMIT_DEFAULT` and raises where it gets it, because a truncated set narrows on fewer seasons than
 exist ([`docs/backend/spec.md`](../backend/spec.md) I45).
 
-### 42 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
+### 43 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
+
+**Status:** Open\
+**Surfaces:** FE, BE, Docs\
+**Effort:** M\
+**Path:** Independent — nothing on this page blocks it. A fault variant reaches
+`fl_backend/openapi.json` and the hand-written mirror beside it, which puts the gate at
+`--backend --db --frontend --docs`.
+
+**I27's shapes and I28's faults do not line up, and the difference is what nothing states.**
+`fl_backend/app/api/spiele/services.py :: find_wiring_refusal` judges each side on the source the
+save moves, which is what keeps a fixture wired out of rule editable in every other respect — and it
+leaves the read path as the only thing that could name a shape already in storage.
+`fl_backend/app/api/spiele/services.py :: resolve_bracket` derives a fault for two of I27's shapes: a
+`spiel` source naming no match in the season, and a chain of references that closes on itself.
+
+**What falls between them.** A `quelle` on a Gruppenphase fixture, a `spiel` source naming a
+Gruppenphase match, and a group placing seeding a round past the one this season's bracket opens on
+each resolve cleanly, so the walk reaches no fault and the triage page has nothing to show. Two more
+are covered only in part: a source not strictly earlier in the running order is named only where it
+closes a cycle, and one outcome feeding two slots only where both slots sit on one fixture — and
+then as `same_team`, which states that two sources resolve to one club
+(`fl_backend/app/api/spiele/schemas.py :: FLBracketFaultSpiel`) rather than that one source is read
+twice.
+
+**Only a hand edit puts a fixture in that state, and that is what ranks it here.** The draw composes
+its wiring from the bracket's own shape rather than from a caller
+(`fl_backend/app/api/saisons/spielplan.py :: draw_spielplan`), and a save that INTRODUCES a shape is
+refused, so neither product path reaches one. What stands in the gap is a row written into the
+database directly — the route [`docs/backend/spec.md`](../backend/spec.md) §4 already assumes when it
+asks for `python -m app.core.constraints --check` after a hand edit to `spiele`, and the case an
+operator repairing by hand has the least help with.
+
+**A variant costs more than a `reason` string.** A fault is a member of
+`fl_backend/app/api/spiele/schemas.py :: FLBracketFault`, a case in
+`fl_backend/app/api/spiele/services.py :: _fault_order`, a mirror in
+`fl_frontend/src/features/spiele/schemas.ts` that `.claude/CLAUDE.md` §7 holds to hand-writing, a
+published property in `fl_backend/openapi.json`, and a German sentence in each of
+`fl_frontend/src/features/spiele/utils.ts :: formatBracketFault` and `:: describeBracketFaultOnCard`.
+Both switches are exhaustive, so the compiler names them; nothing names the German. I28's own
+enumeration moves in the same commit.
+
+**What ranks it below BE-24 and above FE-20.** It removes real doubt — an operator repairing wiring
+by hand gets no signal for most of what the write path calls unholdable — where FE-20 removes almost
+none. It sits under BE-24 because that entry's cost is measured on a read that runs today, and this
+one's is paid only after somebody edits the database.
+
+### 44 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2101,7 +2201,53 @@ I rejected is that the framework may omit the value on some render path, which n
 is what a reader has to decide about every time this function is edited, and this function is what
 every season-scoped page opens with.
 
-### 43 · FE-32 — A banner's id names a derivation its own sentence does not state
+### 45 · BE-38 — A squad-number helper has no caller, and its docstring is the only record of the rule it states
+
+**Status:** Open\
+**Surfaces:** BE\
+**Effort:** S\
+**Path:** Independent — FB-17 is where a comparison between two squad numbers would first be wanted,
+and it neither waits on this entry nor settles it.
+
+**`fl_backend/app/api/spieler/services.py :: normalised_nummer` is reached by no production module.** Its
+readers are `fl_backend/tests/api/test_containment_refusals.py :: TestASquadEntry` and the audit pages that
+recorded it. Nothing calls it under a name built from a string either: every `getattr` in `fl_backend/app`
+resolves a model attribute from a literal or from a declared field tuple, and no module there is imported by
+name.
+
+**What it would decide, against what decides it now.** It trims a value and turns an empty one into `None`,
+and it keeps leading zeros, so `07` and `7` are different shirts. The trim cannot reach a value the API
+admits: `fl_backend/app/api/spieler/schemas.py :: SQUAD_NUMMER_PATTERN` is anchored and digits only, so no
+`nummer` a write path accepts carries whitespace or is empty. The zeros half is what storage does unasked —
+the string is kept as typed, and `:: FLSpielerSortOptions` offers `nummer` as a sort key, which orders those
+strings in the database, where `07` stands before `7`.
+
+**Nothing else in the corpus states the rule.** `fl_backend/app/core/domain.py :: UNENFORCED` declares that
+two players in one team and one season may wear the same number, and that no read compares one squad row's
+number with another's; it does not say what counts as the same number. The docstring is the one place `07`
+is written down as a shirt of its own.
+
+**Leaving it costs a reader.** A helper carrying a docstring and a parametrised test reads as a rule the
+product applies somewhere, and establishing that no write path applies it takes a search of the whole
+backend. **Taking it out costs the judgement.** Whoever next has to compare two shirt numbers reaches for
+the numeric comparison, which calls `07` and `7` one shirt, and with the docstring gone nothing in the
+repository contradicts them. Neither cost is plainly the larger, which is why this is filed rather than
+taken.
+
+**Three routes, and this entry picks none.** Delete the function and the test that pins it. Or move the
+sentence somewhere that survives the deletion — the `UNENFORCED` entry above, or a
+[`docs/backend/spec.md`](../backend/spec.md) invariant — and then delete. Or keep it until a surface exists
+that compares two numbers, on the ground that a rule already carrying a test is cheaper than one derived
+again from scratch.
+
+**What ranks it here.** Above **FE-32**: each costs a maintainer rather than a user, but that one's doubt is
+settled by reading the sentence beside the id, and this one's only by searching the backend for a caller.
+Below **FE-20**: the same shape of code no caller reaches, sitting in the function every season-scoped page
+opens with rather than among one slice's helpers, so it is re-decided far more often. Deliberately not near
+**BE-34**, which reads like the same finding and is not — that index's unserved half is a read somebody
+wants built, so landing it adds a capability, and nothing here adds one.
+
+### 46 · FE-32 — A banner's id names a derivation its own sentence does not state
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2135,7 +2281,7 @@ when they were written, so rewriting an id there falsifies a record instead of c
 of leaving it is one maintainer's minute in a module that is read whenever a venue's banners change,
 and that is less than every entry above it.
 
-### 44 · BE-7 — `typing` imports instead of `collections.abc`
+### 47 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -2148,7 +2294,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 45 · BE-14 — The certainty walk gives up in a group of six or more
+### 48 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\

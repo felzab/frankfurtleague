@@ -126,12 +126,7 @@ export function FormErgebnisSection({
               lead: "Die Tore beider Seiten.",
               points: [
                 { term: "Ausschalten", text: "setzt das Ergebnis auf den gespeicherten Stand zurück." },
-                {
-                  term: "Unentschieden im KO-Spiel:",
-                  text: "das Elfmeterschießen bringt eine Seite weiter, für die Tabelle bleibt es ein Unentschieden.",
-                },
-                // What the forfeit is worth belongs to the Sonderereignis panel, which states it there.
-                { term: "Nichtantreten", text: "schließt ein Elfmeterschießen aus." },
+                { term: "Das Elfmeterschießen", text: "bleibt für die Tabelle ein Unentschieden." },
               ],
             }}
           />
@@ -146,9 +141,9 @@ export function FormErgebnisSection({
             isDisabled={!bothSidesResolved}
             isSelected={ergebnisCanBeEdited}
             onChange={handleErgebnisCanBeEditedToggle}>
-            <Switch.Content className="fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+            <Switch.Content className={styles.switchContent()}>
               Spielergebnis eintragen
-              <Switch.Control>
+              <Switch.Control className={styles.switchControl()}>
                 <Switch.Thumb />
               </Switch.Control>
             </Switch.Content>
@@ -181,8 +176,7 @@ export function FormErgebnisSection({
               name={`${slot}.tore`}
               value={value}
               onChange={handleToreChange(slot)}
-              onBlur={() => onValidateFields(TORE_PATHS)}
-              className={ergebnisIsEditable ? "" : "opacity-50"}>
+              onBlur={() => onValidateFields(TORE_PATHS)}>
               {/* The team's name alone: the panel title already says these are goals. */}
               <FieldLabel
                 path={`${slot}.tore`}
@@ -206,9 +200,9 @@ export function FormErgebnisSection({
             <Switch
               isSelected={elfmeterschiessen !== null}
               onChange={handleElfmeterschiessenToggle}>
-              <Switch.Content className="fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+              <Switch.Content className={styles.switchContent()}>
                 Im Elfmeterschießen entschieden
-                <Switch.Control>
+                <Switch.Control className={styles.switchControl()}>
                   <Switch.Thumb />
                 </Switch.Control>
               </Switch.Content>

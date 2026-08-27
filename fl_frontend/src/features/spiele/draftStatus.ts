@@ -106,13 +106,14 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
 export type FLSpielFieldGroup = "Ansetzung" | "Begegnung" | "Ergebnis" | "Notiz" | "Sonderereignis";
 
 /**
- * A fixture cannot HAPPEN without a date, a time, an occupied slot or a result, while a venue and a
- * referee are organisational. Marker colours and the open-items badges both read this.
+ * Named for what is still waited on rather than for how loud it is: a fixture with an unresolvable
+ * slot or an unrecorded score cannot be SCORED, while a date, a time, a venue and a referee are what
+ * arranging it takes. Marker colours and the open-items badges both read this.
  */
-export type FLExpectedSeverity = "required" | "recommended";
+export type FLExpectedSeverity = "scoring" | "scheduling";
 
 const severityFor = (category: ActionRequiredCategory): FLExpectedSeverity =>
-  category === "ort_missing" || category === "schiedsrichter_missing" ? "recommended" : "required";
+  category === "besetzung_missing" || category === "ergebnis_pending" ? "scoring" : "scheduling";
 
 /**
  * The whole of what a waited-on field hands `SpielExpectedContext.tsx` — no draft status beside it,

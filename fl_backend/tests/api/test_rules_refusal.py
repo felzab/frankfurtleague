@@ -16,6 +16,8 @@ from app.api.saisons.services import (
     RULES_QUALIFIERS_BELOW_WIRING,
     RULES_SAISON_FINISHED,
     RULES_SHAPE_AFTER_DRAW,
+    RULES_TIEBREAK_AFTER_KNOCKOUT,
+    SEEDING_RULES_FIELD,
     SHAPE_RULES_FIELDS,
     find_rules_refusal,
 )
@@ -66,6 +68,7 @@ def judge(
     largest_squad: int = 0,
     attached: Mapping[FLSaisonPhase, int] | None = None,
     drawn: int = 0,
+    played_knockout: int = 0,
 ) -> WriteRefusal | None:
     return find_rules_refusal(
         saison_status=status,
@@ -76,6 +79,7 @@ def judge(
         largest_squad=largest_squad,
         attached_by_phase=attached,
         drawn_fixtures=drawn,
+        played_knockout_fixtures=played_knockout,
     )
 
 
@@ -632,6 +636,91 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
         """Both freezes cover `qualifiers_per_group`, and `REQ-RULES-005` also explains why the points beside it will not move."""
 
         refusal = judge(status="past", stored=rules(), proposed=rules(qualifiers=1), drawn=DRAWN_FIXTURES)
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_SAISON_FINISHED
+
+
+# A season whose bracket is under way: one knockout fixture has left a record. Its fixtures were
+# drawn from the same rules, so every case below carries the draw the played fixture implies.
+PLAYED_KNOCKOUT_FIXTURES = 1
+DRAWN_BEFORE_THE_KNOCKOUT = 24
+
+# The other tiebreak of the closed set, so a case moves the field to a value the model accepts.
+OTHER_TIEBREAK = "direkter_vergleich"
+
+
+class TestAStartedKnockoutFreezesTheTiebreak:
+    """`REQ-RULES-012`: the bracket was seeded from the group placings this order decides.
+
+    The window is the SEASON's knockout fixtures, not one club's: a bracket slot consumed a standing
+    whoever it named, which is `REQ-SWAP-002`'s reading of the same fact.
+    """
+
+    def test_refuses_moving_the_order_once_a_knockout_fixture_has_a_record(self):
+        refusal = judge(
+            stored=rules(),
+            proposed=rules(tiebreak=OTHER_TIEBREAK),
+            drawn=DRAWN_BEFORE_THE_KNOCKOUT,
+            played_knockout=PLAYED_KNOCKOUT_FIXTURES,
+        )
+
+        assert refusal is not None
+        assert refusal.error_code == RULES_TIEBREAK_AFTER_KNOCKOUT
+
+    def test_permits_the_same_move_while_no_knockout_fixture_has_been_played(self):
+        """The boundary: a drawn bracket whose fixtures are all still open re-seeds cleanly, so nothing is retroactive yet."""
+
+        assert judge(stored=rules(), proposed=rules(tiebreak=OTHER_TIEBREAK), drawn=DRAWN_BEFORE_THE_KNOCKOUT) is None
+
+    def test_permits_resubmitting_the_stored_order_unchanged(self):
+        """`rules` is required on the patch, so a dates-only edit resubmits it and the season would otherwise be unpatchable."""
+
+        assert judge(stored=rules(), proposed=rules(), drawn=DRAWN_BEFORE_THE_KNOCKOUT, played_knockout=PLAYED_KNOCKOUT_FIXTURES) is None
+
+    def test_leaves_every_other_rule_editable(self):
+        """Narrower than `REQ-RULES-005` on purpose: the season is still running, and only the seeding order is spent."""
+
+        assert judge(stored=rules(), proposed=rules(kader=25), drawn=DRAWN_BEFORE_THE_KNOCKOUT, played_knockout=1) is None
+
+    def test_does_not_reach_a_create(self):
+        """`stored=None` is the create and the draw's own reading, neither of which has an order to move away from."""
+
+        refusal = find_rules_refusal(
+            saison_status="active",
+            stored=None,
+            proposed=rules(tiebreak=OTHER_TIEBREAK),
+            occupancy_by_gruppe={},
+            highest_wired_platz=0,
+            played_knockout_fixtures=PLAYED_KNOCKOUT_FIXTURES,
+        )
+
+        assert refusal is None
+
+    def test_the_refusal_names_the_field_and_the_count(self):
+        """The message is the log line: the field says which control is spent, the count says how far the bracket has run."""
+
+        refusal = judge(
+            stored=rules(),
+            proposed=rules(tiebreak=OTHER_TIEBREAK),
+            drawn=DRAWN_BEFORE_THE_KNOCKOUT,
+            played_knockout=PLAYED_KNOCKOUT_FIXTURES,
+        )
+
+        assert refusal is not None
+        assert SEEDING_RULES_FIELD in refusal.message
+        assert str(PLAYED_KNOCKOUT_FIXTURES) in refusal.message
+
+    def test_a_finished_season_is_reported_as_finished_first(self):
+        """Both freezes cover `tiebreak_order`, and `REQ-RULES-005` also explains why the points beside it will not move."""
+
+        refusal = judge(
+            status="past",
+            stored=rules(),
+            proposed=rules(tiebreak=OTHER_TIEBREAK),
+            drawn=DRAWN_BEFORE_THE_KNOCKOUT,
+            played_knockout=PLAYED_KNOCKOUT_FIXTURES,
+        )
 
         assert refusal is not None
         assert refusal.error_code == RULES_SAISON_FINISHED

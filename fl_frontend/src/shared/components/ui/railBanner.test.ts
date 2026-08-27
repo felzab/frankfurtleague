@@ -5,12 +5,19 @@ import { inlineBannersAt, resolveBlockingBanners, resolveRailBanners } from "./r
 
 import type { RailBanner } from "./railBanner.ts";
 
-const banner = (id: string, severity: RailBanner["severity"], supersedes?: readonly string[]): RailBanner => ({
+const banner = (
+  id: string,
+  severity: RailBanner["severity"],
+  supersedes?: readonly string[],
+  // Defaulted here alone, so the ordering cases stay about ordering. `RailBanner` keeps it required.
+  raisedBy: RailBanner["raisedBy"] = "change",
+): RailBanner => ({
   id,
   severity,
   title: id,
   body: id,
   inline: null,
+  raisedBy,
   ...(supersedes === undefined ? {} : { supersedes }),
 });
 
@@ -133,6 +140,28 @@ describe("resolveBlockingBanners", () => {
 
   it("drops a warning a surviving banner supersedes, so one situation is never asked about twice", () => {
     assert.deepEqual(ids(blockingOf([banner("general", "warning"), banner("specific", "warning", ["general"])])), ["specific"]);
+  });
+
+  it("never confirms a situation the save did not cause, however grave it is", () => {
+    // The rule this gate exists for: a slot an admin has already lived with would otherwise re-ask on
+    // every unrelated edit, forever. Severity is what it looks like; `raisedBy` is what it asks.
+    const standing = resolveBlockingBanners([banner("hand-set-slot", "danger", undefined, "state")]);
+
+    assert.equal(standing, null);
+  });
+
+  it("asks about the consequence and not the company it keeps", () => {
+    const blocking = blockingOf([banner("hand-set-slot", "danger", undefined, "state"), banner("kickoff-moved", "warning")]);
+
+    // The danger outranks the warning on the rail and still says nothing here, so the dialog names
+    // the one thing this save does rather than leading with the loudest thing on the page.
+    assert.deepEqual(ids(blocking), ["kickoff-moved"]);
+  });
+
+  it("leaves a standing banner its severity, which is what the rail paints", () => {
+    const [first] = resolveRailBanners([banner("hand-set-slot", "danger", undefined, "state")]);
+
+    assert.equal(first?.severity, "danger");
   });
 
   it("leaves the input untouched", () => {

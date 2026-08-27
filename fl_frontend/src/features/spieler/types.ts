@@ -89,16 +89,10 @@ export type SpielerTeamOption = {
   name: string;
   shorthand: string;
   /**
-   * Live squad numbers worn in this team this season, bar the edited player's own.
-   *
-   * **Absent means UNKNOWN, not none** — the team facet supplies none, so absent must warn nothing.
-   */
-  takenNummern?: readonly string[];
-  /**
    * Who already holds each role in this team this season, bar the edited player's own row.
    *
-   * **Absent means UNKNOWN, not free**, as `takenNummern` is: a caller that cannot answer must not
-   * make the editor offer a role the write path would refuse.
+   * **Absent means UNKNOWN, not free**: a caller that cannot answer must not make the editor offer
+   * a role the write path would refuse.
    */
   heldRollen?: Partial<Record<FLSpielerRolle, string>>;
 };

@@ -30,10 +30,7 @@ export function FormSpielortSection({
           <Hint
             mode="reveal"
             label="Hinweis zum Namen"
-            body={{
-              lead: "So heißt der Ort bei jedem Spiel.",
-              points: [{ term: "Auch längst gespielte Spiele", text: "zeigen danach den neuen Namen." }],
-            }}
+            body={{ lead: "So heißt der Ort bei jedem Spiel." }}
           />
         </h2>
       </div>

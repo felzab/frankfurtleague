@@ -59,10 +59,7 @@ export function FormAustragenSection({
             label="Hinweis zum Austragen"
             body={{
               lead: "Der Weg aus dem Kader einer Saison.",
-              points: [
-                { term: "Jede andere Saison", text: "behält den Spieler." },
-                { term: "Stilllegen", text: "ist etwas anderes und steht in der Spielerliste." },
-              ],
+              points: [{ term: "Jede andere Saison", text: "behält den Spieler." }],
             }}
           />
         </h2>

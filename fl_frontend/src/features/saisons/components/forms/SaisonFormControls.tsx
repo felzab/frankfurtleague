@@ -154,6 +154,8 @@ export function SaisonRuleNumberField({
       minValue={minValue}
       maxValue={maxValue}
       value={value}
+      // Its dimming is `globals.css`'s, keyed on `[data-readonly="true"]`, so every frozen number
+      // field in the product dims by the same amount — an `opacity-*` added here would double it.
       isReadOnly={isReadOnly}
       onChange={(next) => onChange(Number.isNaN(next) ? minValue : next)}
       onBlur={onBlur}>

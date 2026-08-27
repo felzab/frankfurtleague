@@ -9,7 +9,6 @@ import { patchSaisonSpielerAction, patchSpielerAction } from "@/features/spieler
 import { rolleLabel } from "@/features/spieler/constants";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
 import { deriveSpielerDraftStatus } from "@/features/spieler/spielerDraftStatus";
-import { isSquadNummerNewlyShared } from "@/features/spieler/utils";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
@@ -189,17 +188,7 @@ export function AdminSpielerEditForm({
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
 
-  // Judged on every keystroke rather than on blur: unlike the field's own bounds this is a fact about
-  // the squad, so the answer changes when the team picker moves and the number does not.
-  const newlySharedNummer = isSquadNummerNewlyShared({
-    draft: { teamId, nummer },
-    stored: storedMembership === null ? null : { teamId: storedMembership.team_id, nummer: storedMembership.nummer },
-    takenInDraftTeam: teams.find((team) => team.teamId === teamId)?.takenNummern ?? [],
-  })
-    ? nummer.trim()
-    : null;
-
-  // Read off the DRAFT's team, as the shirt warning is: moving the picker moves who already leads.
+  // Read off the DRAFT's team: moving the picker moves who already leads.
   const heldRollen = teams.find((team) => team.teamId === teamId)?.heldRollen ?? {};
   const heldBy = rolle === null ? undefined : heldRollen[rolle];
   // Only where SOMEBODY ELSE holds it. The current holder keeps the control so they can give it up.
@@ -221,7 +210,6 @@ export function AdminSpielerEditForm({
     isRowTeamInSaison,
     isNachgetragen,
     isTeamChanged: isChanged("team_id"),
-    newlySharedNummer,
     blockedRolle,
   });
 

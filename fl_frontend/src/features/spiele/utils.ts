@@ -209,16 +209,23 @@ export const isDirectlyPrecedingRound = (feeder: Pick<FLSpiel, "saison_phase">, 
  * Strictly earlier is what makes a cycle unpickable: every offered edge points backwards, so no
  * chain of them closes. The season filter matters because the caller's list can span seasons.
  */
+const feedsInto = (spiel: FLSpiel, target: Pick<FLSpiel, "id" | "saison_id" | "saison_phase">): boolean =>
+  spiel.saison_id === target.saison_id &&
+  spiel.id !== target.id &&
+  spiel.saison_phase !== "gruppenphase" &&
+  PHASE_RANK[spiel.saison_phase] < PHASE_RANK[target.saison_phase];
+
+/** Sorted, because the picker lists them in bracket order. */
 export const listFeederSpiele = (saisonSpiele: readonly FLSpiel[], target: Pick<FLSpiel, "id" | "saison_id" | "saison_phase">): FLSpiel[] =>
-  saisonSpiele
-    .filter(
-      (spiel) =>
-        spiel.saison_id === target.saison_id &&
-        spiel.id !== target.id &&
-        spiel.saison_phase !== "gruppenphase" &&
-        PHASE_RANK[spiel.saison_phase] < PHASE_RANK[target.saison_phase],
-    )
-    .sort((a, b) => a.spiel_nr - b.spiel_nr);
+  saisonSpiele.filter((spiel) => feedsInto(spiel, target)).sort((a, b) => a.spiel_nr - b.spiel_nr);
+
+/**
+ * The one round a group placing may seed, every later slot being fed by a match. Read off the
+ * rounds the season HOLDS and never a phase name: a bracket of four opens at the Halbfinale, one
+ * of sixteen at the Achtelfinale.
+ */
+export const isFirstKnockoutRound = (saisonSpiele: readonly FLSpiel[], target: Pick<FLSpiel, "id" | "saison_id" | "saison_phase">): boolean =>
+  target.saison_phase !== "gruppenphase" && !saisonSpiele.some((spiel) => feedsInto(spiel, target));
 
 /**
  * Structural typing accepts the joined side wherever the stored shape is asked for, so without this

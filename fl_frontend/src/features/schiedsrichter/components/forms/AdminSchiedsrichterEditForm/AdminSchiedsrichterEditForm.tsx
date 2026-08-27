@@ -140,8 +140,6 @@ export function AdminSchiedsrichterEditForm({
   const banners = buildSchiedsrichterBanners({
     isRetired,
     isNameChanged: isChanged("name"),
-    isPaymentChanged: isChanged("default_payment"),
-    hasKontakt: kontakt.email !== null || kontakt.telefon !== null,
   });
 
   const leavePage = () => {
@@ -306,14 +304,12 @@ export function AdminSchiedsrichterEditForm({
             kontakt={kontakt}
             onChange={setKontakt}
             onFieldLeft={validateFields}
-            banners={banners}
           />
 
           <FormHonorarSection
             defaultPayment={defaultPayment}
             onChange={setDefaultPayment}
             onFieldChanged={validatePicked}
-            banners={banners}
           />
 
           {/* Last on the page, the position the season editor's rollover holds: the one control here

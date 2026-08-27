@@ -71,25 +71,21 @@ export function FormAnonymisierenSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Kontaktdaten löschen
-          {/* The bullet stands first so „das“ points at the lead's deletion and at nothing offered after it. What is
-              deleted, and what survives it, is the panel's own body below. */}
+          {/* What is deleted and what survives it is the panel's own body below, and the danger panel
+              with its two-press control is what says the press is final. */}
           <Hint
             mode="reveal"
             label="Hinweis zum Löschen der Kontaktdaten"
             body={{
               lead: "Der Weg, Kontaktdaten ganz aus der Verwaltung zu entfernen.",
-              points: [
-                { text: "Zurückholen lässt sich das nicht." },
-                { term: "Die Felder oben zu leeren", text: "ist etwas anderes: Die alten Angaben bleiben im Änderungsprotokoll." },
-                { term: "Neue Kontaktdaten", text: "kannst Du jederzeit wieder eintragen." },
-              ],
+              points: [{ term: "Die Felder oben zu leeren", text: "ist etwas anderes: Die alten Angaben bleiben im Änderungsprotokoll." }],
             }}
           />
         </h2>
       </div>
 
       <div className={panel.body()}>
-        <p className="fluid-sm text-foreground font-medium">
+        <p className="muted-hint">
           Das Löschen entfernt E-Mail und Telefonnummer von <strong>{name}</strong>. Im Änderungsprotokoll wird dazu der gesicherte Stand jeder
           Zeile gelöscht, die ihn betrifft. Gelöscht wird damit auch alles andere, was dort noch von ihm steht. Was wann geschehen ist, bleibt
           lesbar. Der Schiedsrichter selbst bleibt mit seinem Namen bestehen, und jedes Spiel behält ihn.

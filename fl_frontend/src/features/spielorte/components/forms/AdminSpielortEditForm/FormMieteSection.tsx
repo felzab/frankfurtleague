@@ -6,9 +6,6 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
-import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-
-import type { SpielortBanner } from "./banners";
 
 /**
  * A default and never a stored copy: what a match cost is its own `mietpreis`, and the backend's
@@ -19,12 +16,10 @@ export function FormMieteSection({
   defaultMietpreis,
   onChange,
   onFieldChanged,
-  banners,
 }: {
   defaultMietpreis: number;
   onChange: (next: number) => void;
   onFieldChanged: (paths: readonly string[], picked: { default_mietpreis: number }) => void;
-  banners: readonly SpielortBanner[];
 }) {
   const panel = formPanel();
 
@@ -36,20 +31,12 @@ export function FormMieteSection({
           <Hint
             mode="reveal"
             label="Hinweis zur Miete"
-            body={{
-              lead: "Diese Miete gilt für neue Spiele.",
-              points: [{ text: "0 € kannst Du eintragen." }],
-            }}
+            body={{ lead: "Diese Miete gilt für neue Spiele." }}
           />
         </h2>
       </div>
 
       <div className={panel.body()}>
-        <InlineBanners
-          banners={banners}
-          spot="miete"
-        />
-
         <NumberField
           isRequired
           minValue={0}

@@ -18,7 +18,7 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { confirmButton } from "@/shared/components/ui/formButtons";
-import { FIELD_LABEL, FIELD_TRIO, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_LABEL, FIELD_TRIO, FORM_SECTION_HEADING, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
@@ -115,6 +115,10 @@ export function FormSpielplanSection({
         ? drawBlockedReason
         : undrawBlockedReason;
 
+  // The closure the callout below states as a rule, which is the whole of what a reader in this state
+  // needs: a hint and a banner on one panel never carry the same fact (`docs/frontend/spec.md` §1.12).
+  const isClosureCalledOut = holdsADraw && saisonStatus === "active";
+
   // Graded on the act ON OFFER, so a first draw stays neutral: it destroys nothing. Read off the two
   // reasons rather than off `closedReason`, which the unchosen prompt fills while both acts stand open.
   const isDestructiveOnOffer = holdsADraw && (drawBlockedReason === null || undrawBlockedReason === null);
@@ -176,20 +180,23 @@ export function FormSpielplanSection({
             panel established the treatment. */}
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
           {holdsADraw ? (
-            <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Spielplan steht</span>
+            <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Spielplan steht</span>
           ) : (
-            <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Kein Spielplan</span>
+            /* Warning rather than the neutral grey: a season with no fixtures cannot be played, so this
+               is a state to leave rather than one of two equal ones. */
+            <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong`}>Kein Spielplan</span>
           )}
         </span>
         <h2 className={panel.heading()}>
           Spielplan
+          {/* The two bullets are the second half of the repair `REQ-RULES-011` sends an admin on, so
+              this hint keeps its wayfinding where an ordinary one would lose it. */}
           <Hint
             mode="reveal"
             label="Hinweis zum Spielplan"
             body={{
               lead: "Der Spielplan umfasst die Spieltage und Spiele dieser Saison.",
               points: [
-                { term: "Er entsteht", text: "aus den Gruppen dieser Saison, und jede braucht genau so viele Teams, wie die Regeln vorsehen." },
                 { term: "Die Teams", text: "verteilst Du über die Teamseite." },
                 {
                   term: "Gruppen, Teams pro Gruppe und Qualifikanten",
@@ -213,6 +220,16 @@ export function FormSpielplanSection({
           </Callout>
         )}
 
+        {/* The rule behind the closure, in the panel rather than on the control alone. Scoped to
+            `active` because the sentence is: a finished season is closed by its own branch of
+            `spielplanBlockedReason`, in words about the state it stands in. */}
+        {isClosureCalledOut && (
+          <Callout
+            severity="info"
+            title="Der Spielplan lässt sich für laufende Saisons nicht neu anlegen"
+          />
+        )}
+
         {/* Offered only where BOTH stand open, which is a drawn planned season with nothing recorded.
             In every other state one operation is the whole offer and a picker would be a control with
             one reachable position. */}
@@ -231,7 +248,7 @@ export function FormSpielplanSection({
               cancel();
               setPicked(next === "anlegen" || next === "zuruecknehmen" ? next : null);
             }}
-            className="flex w-full flex-row flex-wrap gap-2">
+            className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
             <ToggleButton
               id="anlegen"
               className={STUFE_CHIP}>
@@ -246,7 +263,7 @@ export function FormSpielplanSection({
         )}
 
         {closedReason === null ? (
-          <p className="fluid-sm text-foreground font-medium">
+          <p className="muted-hint">
             {isDrawing ? (
               replacesDraw ? (
                 <>
@@ -265,8 +282,9 @@ export function FormSpielplanSection({
           </p>
         ) : (
           /* In the body as well as on the control: a refusal hint opens on hover and on focus alone,
-             so a reader who never points at a closed button would otherwise never learn why. */
-          <p className="fluid-sm text-foreground-muted font-medium">{closedReason}</p>
+             so a reader who never points at a closed button would never learn why. Except where the
+             callout above already serves that reader. */
+          !isClosureCalledOut && <p className="muted-hint">{closedReason}</p>
         )}
 
         {/* Offered on a REPLACE alone, which is where the endpoint takes them: a first draw runs off
@@ -275,12 +293,6 @@ export function FormSpielplanSection({
         {isDrawing && replacesDraw && (
           <div className="flex w-full flex-col gap-y-3">
             <h3 className={FORM_SECTION_HEADING}>Aufbau des neuen Spielplans</h3>
-            {/* Said beside the boxes, not only in the hint: after a draw every offered group holds
-                exactly its full count, so the two upper numbers move only once the groups do. */}
-            <p className="fluid-xs text-foreground-muted font-medium">
-              <strong>Qualifikanten</strong> kannst Du hier allein ändern. <strong>Gruppen</strong> und <strong>Teams pro Gruppe</strong> gelten
-              erst, wenn die Gruppen dieser Saison genau dazu passen. Verteile die Teams also vorher über die <strong>Teamseite</strong>.
-            </p>
             <div className={FIELD_TRIO}>
               {SHAPE_FIELDS.map(({ key: shapeKey, label, minValue, maxValue }) => (
                 <SaisonRuleNumberField

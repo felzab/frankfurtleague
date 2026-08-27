@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `d6be7a6f`, 2026-08-26\
+**Verified against:** `db3bec2f`, 2026-08-27\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -211,6 +211,12 @@ payload, so a redraw carries it in one step. `number_of_groups` and `teams_per_g
 which clubs stand in the season, and `REQ-SPIELPLAN-004` asks every offered group for exactly
 `teams_per_group`, so after a legal draw no club can be entered and a redraw asking for a different
 group shape is refused for the groups then off their size. Their repair is the undraw below.
+**The tie-break beside them is the panel's own freeze**: `REQ-RULES-012` closes it once a knockout
+fixture of the season has left a record, and `FormRegelnSection` is HANDED that fact as the count
+`FormGruppenSwapSection` closes on for `REQ-SWAP-002`, rather than reading the season's fixtures again, so
+the two panels cannot disagree about when the bracket began.
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/regelnFreeze.test.ts` pins the closed
+control, the hand-off and the absence of a reading of its own.
 
 **The undraw reopens the two the replace cannot move**:
 `DELETE /saisons/{saison_id}/spielplan` returns the season to undrawn, where the patch and the entry
@@ -743,6 +749,13 @@ against at the rule**, so the next upgrade knows what to re-read.
 
 ### 1.12 The copy rules
 
+**Every rule here was generalised from a worked example, and the example outranks the rule** (my
+rule, 2026-08-27). Where a rule below and a sentence I dictated disagree, the rule is what is wrong,
+and it is amended here rather than the sentence rewritten. A sweep that corrects a source sentence
+against the generalisation drawn from it has inverted the two — which is how several rules below came
+to argue against the very lines they were derived from, and how one banner was reworded four times.
+A dictated line says so at the line it constrains, so the next reader finds the reason before the rule.
+
 **The reader is `Du` — informal, and capitalised everywhere** (my rule, 2026-08-04): `Du`, `Dein`,
 `Dir`, `Dich`, and never `Sie` or `Ihr`. When auditing, a sentence-initial `Du` is capitalised whatever
 the convention holds, so it is evidence of nothing.
@@ -822,40 +835,67 @@ field that is not on screen, a sentence explaining how a value is stored or rege
 about when something is recalculated.** Cut the mechanism and keep the consequence sharp, because
 several of these strings exist precisely because something is irreversible.
 
-**A hint that enumerates what a page offers is complete, or it does not enumerate.** A list short by one
-reads as the whole offer rather than as a sample, so the reader concludes the item it misses is not there
-and never tries it. `fl_frontend/src/features/admin/constants.ts :: ADMIN_SIDEMENU_STRUCTURE` carries such
-lists: the season editor's panels, named by their own headings in the order the page renders them, and the
-fixture search's keys, which
-`fl_frontend/src/features/spiele/components/views/SpielsucheView.tsx :: SEARCH_KEYS` decides and
-`fl_frontend/src/features/dashboard/constants.ts :: DASHBOARD_SIDEMENU_STRUCTURE` names again for the
-public route — so the second goes stale in two places from one change. **The list is counted against what
-the reader can reach, never against the array**: both `ort.*` keys are the venue, and `Ort` names them
-once. Where a list would have to track a surface that keeps growing, name the class and enumerate nothing.
+**An enumeration is of what the reader can do, or there is no enumeration** (my rule, 2026-08-27). A list
+of a thing's parts tells a reader standing on that thing what is already in front of them, and it comes
+out whole: the columns of a table, the panels of a page, the fields of a record, the stages an operation
+runs through. What survives is a list whose every item is something the reader can reach for and would not
+have guessed. The fixture search's keys are that case —
+`fl_frontend/src/features/spiele/components/views/SpielsucheView.tsx :: SEARCH_KEYS` matches an origin as
+the label a reader sees, so „Sieger 25.“ finds the fixture fed by match 25 and no other search term would.
+
+**Such a list is complete, or it does not exist.** A list short by one reads as the whole offer rather than
+as a sample, so the reader concludes the item it misses is not there and never tries it. **The list is
+counted against what the reader can reach, never against the array**: both `ort.*` keys are the venue, and
+`Ort` names them once. `fl_frontend/src/features/dashboard/constants.ts :: DASHBOARD_SIDEMENU_STRUCTURE`
+names those same keys again for the public route, so one change to the search goes stale in two places.
+Where a list would have to track a surface that keeps growing, name the class and enumerate nothing.
 
 **And no copy line calls an operation impossible that the product performs.** The write path decides that,
 not the panel the sentence sits in, and a door shut in prose that the code leaves open turns a reader away
 from a repair they could have made. The tell is a scope word — `nie`, `kein`, `nicht mehr` — reached for
-about the whole product from inside one surface: `ADMIN_SIDEMENU_STRUCTURE`'s Teams note is about the
-season exit entered on the team page, while the replacement that also takes a club out of a season is a
-control on the season page. **Where a state can be left, the sentence says so.**
+about the whole product from inside one surface. **The repair is to drop the scope word, never to add a
+second sentence naming where the other route is**: a claim narrowed to what this panel does needs no
+correction, and the sentence that would have corrected it fails diagnostic 8 on its own account. **Where a
+state can be left, the sentence says so.**
 `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/blockedReasons.ts :: spielplanBlockedReason`
 splits the draw's one window for exactly that reason: the recorded half a fixture edit reopens
 ([`docs/backend/spec.md`](../backend/spec.md) I46) is worded as a state, and the half `status` closes as a
 boundary.
 
-**A hint says what a thing is or does, in the league's own words** (my rule, 2026-08-26). It is capped
-at a lead and at most four single-sentence bullets, together about 350 characters; longer is a document
-rather than a popover, and `fl_frontend/src/shared/components/ui/hintCap.test.ts` refuses it. **A closing note counts
-against those four** (my rule, 2026-08-26), because a cap carrying one exception is how a hint reaches 1,180
-characters. **Meeting the cap means cutting, never compressing** (my rule, 2026-08-26). Compression keeps every
+**A hint says what the thing in front of the reader is, and then at most one thing it does that the
+surface cannot show them** (my rule, 2026-08-27). The rollover panel's is that shape:
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx` names the
+operation, and beside it stands the one outcome a reader would guess wrong, that the previous season stays
+editable afterwards. **The reader is standing on the surface**, so whatever they would learn by reading it,
+by pressing what is on it, or by opening the thing they are about to open is already told, and telling it
+again is the second telling. What survives is said in the league's own words.
+
+**The cap is a ceiling and never a target** (my rule, 2026-08-27) — COR-5 says the same of every bound in
+this corpus, and a hint is where it is hardest to obey. The ceiling is a lead and at most four
+single-sentence bullets, together about 350 characters; longer is a document rather than a popover, and
+`fl_frontend/src/shared/components/ui/hintCap.test.ts` refuses it. **A closing note counts against those
+four** (my rule, 2026-08-26), because a cap carrying one exception is how a hint reaches 1,180 characters.
+**What a hint renders from a label table is not counted**, the sweep reading literals and nothing an
+element computes — so a legend is written out by hand rather than mapped over its set, which is what puts
+it back under the cap. `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormSonderereignisSection.tsx`
+is the one that had to move: its five members are four lines, the two Nichtantreten rows counting once
+under the clause above, because either of them is the same award to the side that turned up.
+What the ceiling does not license is a hint written up to it. **The ordinary hint is a lead alone, or a
+lead and one sentence.** Two bullets is already unusual; three asserts that a reader acts on each of them,
+which is a claim to defend at review rather than a budget to spend.
+
+**Meeting the cap means cutting, never compressing** (my rule, 2026-08-26). Compression keeps every
 fact and makes the prose denser, which is how a hint becomes a paragraph nobody reads and how a shortened
 sentence starts asserting something false. Cutting decides what the reader does not need here and deletes
 it. The question is never "how do I say this in fewer words" but "which of these does a reader act on".
 Where a sentence cannot be shortened without becoming untrue, that is the sentence to delete, not the one
 to squeeze: saying less is always available, saying something false is not.
 
-Six diagnostics decide _whether_ a sentence belongs:
+**One question decides a sentence, and the diagnostics below are how it is asked**: delete it, and what
+does the reader then do wrong? "They look a moment longer" is not an answer to it, and neither is
+"nothing". Only "they would have expected the opposite" keeps a sentence.
+
+Eight diagnostics decide _whether_ a sentence belongs:
 
 1. **No justification.** A sentence opening `Damit`, `So`, `Dadurch` or `weil`, or an `aber` walking back
    the sentence before it, explains the design rather than the thing.
@@ -864,26 +904,200 @@ Six diagnostics decide _whether_ a sentence belongs:
 3. **No hypothetical the reader is not about to cause.** "Ohne Kontakt erreichst Du ihn nicht, wenn ein
    Spiel verlegt wird." narrates a future the reader has not entered.
 4. **Nothing the interface already carries.** An optional field is said by the absence of a required
-   marker, a destructive act by the danger panel and the two-press control. A sentence repeating either
-   is the second telling.
+   marker, a destructive act by the danger panel and the two-press control, what a control does by the
+   verb written on the control, and what a chip means by the words inside the chip. A sentence repeating
+   any of them is the second telling. **A control that names itself gets no sentence at all**, so
+   `Bearbeiten` and a field labelled `Qualifikanten` are explained by being read.
 5. **Nothing that follows from what the reader knows.** A price applying only to what comes after it is
    how prices work. The test is whether deleting the sentence would leave any reader with a wrong
    expectation.
 6. **No two sentences where a clause carries it.** "Bereits angesetzte Spiele behalten ihre Miete. Der
    neue Preis gilt nur für Spiele, die Du danach ansetzt." is one fact stated twice from opposite sides.
+7. **No inventory, and no mechanism.** The parts of a thing and the way it works are the same failure
+   twice: a reader who has the thing in front of them has its parts, and the machine behind it is never
+   what they act on. The enumeration rule above says which single kind of list survives, and the
+   consequence rule above it says what replaces a described mechanism.
+8. **Nowhere but here.** A sentence naming another page, another panel or another control as the place
+   to do something is wayfinding, which the navigation does better and does not go stale. Two things are
+   exempt. **An absence this surface cannot explain**: "Spieltage entstehen zusammen mit dem Spielplan."
+   stands on a list with no create control, where a reader would otherwise hunt for one that does not
+   exist. And **the continuation of a repair a refusal has already started, wherever that continuation
+   is written** (my rule, 2026-08-27) — the fence below exempts the refusal itself, and a loop broken at
+   its second step leaves the admin exactly where the refusal sent them. `REQ-RULES-011` says to take the
+   Spielplan back, and what to change before drawing again is named on the panel they arrive at, so
+   `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx`'s
+   hint keeps both of its destinations.
 
-The seventh decides _how_ it is said, and it outranks the cap: **the reader runs a school football
+The ninth decides _how_ it is said, and it outranks the cap: **the reader runs a school football
 league, not this system.** No field name, code or endpoint, and no `Eintrag` or `Datensatz` where
-`Spiel`, `Spieltag`, `Team`, `Kader` or `Gruppe` exists. No derivation, `wird berechnet aus`,
+`Spiel`, `Spieltag`, `Spieler`, `Team`, `Kader` or `Gruppe` exists — **`where … exists` is the whole
+of the test**, so a `Kadereintrag` stands: it is one player's place in a squad, which `Kader` names as
+little as `Spieler` does. No derivation, `wird berechnet aus`,
 `ergibt sich aus` and `wird abgeleitet` all describing the machine where only the consequence can matter.
 No conditional chain: `wenn X, dann Y, es sei denn Z` is a specification, and a hint states the common
 case while the refusal handles the rest. Prefer the shorter everyday word, and check a German compound
 past about four syllables against two plain words. **A sentence needing a second reading is too
 complicated, and where being short and being plain pull apart, plain wins.**
 
+**What the ninth rule bars is describing how the machine works, never saying that it has stopped
+acting.** The hand-set slot in
+`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/banners.ts` names the
+product for that reason: the league has no word for the product ceasing to maintain something, and
+that is the whole of what a reader needs there.
+
+**The hint rules end at the hint** (my rule, 2026-08-27). A refusal, a banner, a toast and an empty
+state each answer a question the reader has already been made to ask, and cutting one to a hint's
+length takes the answer away with it. What binds each instead:
+
+- **A refusal names the repair wherever one exists.** The FORM shape stated above is its floor and
+  not its ceiling, and a refusal shortened past its second sentence has become a dead end. Diagnostic
+  8 does not reach it either: naming the panel that holds the repair IS the repair. **Where the
+  closure is a boundary with no route back**, as a finished season is, the refusal says so and stops:
+  a second sentence there would be wayfinding to a route that does not exist, which is worse than
+  brevity.
+- **A banner names the one thing the reader would otherwise get wrong about the act in front of
+  them.** That is the consequence only where a save raised it; the block below this fence decides
+  which of four things it is, and the register rule binds the body either way — a conditional chain
+  is a specification wherever it is written.
+- **A toast's title says what happened, and its body what it cost.** Where the server sent a message,
+  that message is the body and nothing is written over it.
+- **An empty state says which narrowing emptied the list**, so a reader who searched, a reader who
+  filtered and a reader who has entered nothing yet each meet a different sentence.
+
+**Four questions raise a banner, and a banner answers the one that raised it** (my rule, 2026-08-27).
+A save raises _what will this do to what is already there_, and the answer is the consequence. A
+control this panel cannot offer raises _why not_, and the answer is the rule behind the closure. A
+control that lives on another page raises _where_, and the answer is that page. A gap in the record
+raises _what should I add_, and the answer is the instruction. **The answer is a title and at most one
+sentence under it**, and a banner needing two has answered a second question nobody asked.
+
+**That cap reaches an entry built in a `banners.ts` and stops there** (my rule, 2026-08-27). A rail
+entry is one of a stacked list and renders twice, on the rail and at its inline spot, so a second
+sentence is paid for twice over. A `Callout` written into a panel section is neither of those: it
+stands alone in the branch it fronts, and each of the two shapes it takes there earns a second
+sentence — a closure states the rule that shut the control and then the way out, and the outcome of an
+operation committing on its own control states what it does and what moves with it.
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx`
+holds both. **Two is the ceiling there as well**, a readout not counted:
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx` reads
+back what the draw produced and then names the steps that follow it.
+
+**Write the rule, never the situation that met it.** A closed control is closed by a rule, and the rule
+is the half a reader can carry away and predict from: `Nach dem Beginn der KO-Runde ist ein
+Gruppentausch nicht mehr möglich` is the shape, rather than how many knockout fixtures have been played
+and how the seeding came out of the groups. **The tell is a figure or a clause about rows other than the
+one being edited** — a count, a date, or a measurement of today's data against the rule (`und das trifft
+auf keines mehr zu`). What the reader is standing on is not that tell: the season's own status, the
+group's own letter and the reason they have just typed are the subject and stay. **A readout is not
+prose and none of this reaches it** — a stored value shown back, or the pair of counts the
+interpolation rule above prescribes in place of a sentence agreeing with both, is data a reader
+compares rather than a sentence they read.
+
+**A banner's title is written from where the reader stands, never from where the write lands** (my rule,
+2026-08-27). Three things decide it. **Its subject is the thing in the league the reader would point at**
+— the table, the qualifiers, the player — and never the row holding it: `Dieser Spieler wurde
+nachgetragen` where `Dieser Eintrag ist nachgetragen` named the record, which is the ninth rule above
+reaching a sentence's subject rather than only its vocabulary. **Its verb is what becomes different for
+the reader**, never the step the machine takes to get there: `wird neu gerechnet` and `entscheidet sich
+neu` state the recalculation, where `könnte sich ändern` states the table an admin will open. **And its
+mood is the one the code can keep** — the scoring is redone for certain, while whether the table comes
+out different depends on what has been played, and the difference is what the reader went to check. A
+certainty the save cannot deliver is spent the first time an admin looks and finds nothing moved, and
+the page's other banners are believed less afterwards.
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/banners.ts :: buildSaisonBanners`
+holds the conditional pair, and
+`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts :: buildSpielerBanners`
+the named subject.
+
+**One line survives only where the two would say one thing.** The cap above — a title and at most one
+sentence — bounds the answer rather than pushing toward the title alone. A title naming what a field
+bounds, over a body naming what happens to the rows that already hold a value, is inverted: the body is
+the line to keep and the title goes with the mechanism it states. Where the title already holds the
+consequence, the body is the one that goes, and it goes because it restates the title from the other
+side (diagnostic 6). **A body reaching a fact the title cannot stays** — the played-fixture clause
+below is the commonest, and what a term the interface only spells back as a badge actually means is
+another. Neither is the second question the cap refuses: each completes the one answer the title
+began, which without it leaves the reader holding the wrong half.
+
+**A third arrangement keeps both lines: a title naming the act and when it lands, over a body naming
+what the reader will see change** (my rule, 2026-08-27). `spieler.team-changed` is the instance. Read
+against the inversion above it looks like a mechanism over a consequence, and reading it that way is
+what deleted its title once already — but `wirkt sofort` answers _when_ and the body answers _what_,
+so neither restates the other and the cap permits exactly this shape.
+
+**Say what is now true rather than what stopped being true** — a negation makes the reader invert it
+to learn the state they are in, and a bracket slot taken off its source is set by hand whichever way
+the sentence is written. **A prohibition is exempt**: where the rule itself is that something may no
+longer be done, `nicht mehr möglich` IS what is now true, and the positive form describes the world
+instead of the rule the reader has just met.
+
+**These come out of a banner wherever they appear**: the causal tail (`deshalb`, `damit`, `so`), which
+is diagnostic 1 in a banner; the scope tail (`auf der ganzen Seite`, `überall`), widening a claim past
+anything the reader acts on; a trailing `auch …` naming the edge case the sentence before it already
+covers; `sobald Du speicherst`, which restates the precondition of a banner the pending save raises
+(diagnostic 4) and misdescribes one whose situation is already true; emphasis on
+a verb that carries itself, `Wort für Wort` beside `angezeigt`; and reassurance (`trotzdem`, `das ist
+erlaubt`), which tells the reader the banner did not need writing. A derived value is already gone under
+the consequence rule above.
+
+**The trailing `auch` has two exceptions. The first is the clause naming that a change reaches fixtures
+that are already played** (my rule, 2026-08-27). It is not the edge case of the sentence before it but the
+half the sentence before it does not carry, because a reader who has just typed a value reads a save as
+forward-looking and expects what is already recorded to keep the old one. The consequence rule above
+already names the venue banner as the worked instance, so the two would otherwise contradict each other.
+**It reaches that clause and nothing else** — not a second `auch` on the same banner, not rows
+the save leaves alone, and not a banner whose save cannot reach a played fixture in the first place,
+which is a claim to check against the write path rather than to assume. The test is whether deleting the
+clause would leave the reader expecting the old value to stand wherever the fixture has been played.
+
+**The second is the clause naming the rows a title's enumeration stops short of** (my rule, 2026-08-27).
+The enumeration rule above ends a list at what the reader can reach for, and a consequence can run past
+that: `fl_frontend/src/features/spiele/utils.ts :: listDependentSpiele` matches a source naming this
+fixture's own number and never walks on, so the bracket banner names the fixtures an admin would go and
+fill by hand, while the rounds behind those stay open too. **A list complete against what the reader can
+reach is still read as complete against the consequence**, which is what makes this bite rather than
+merely leave something out: a title naming three fixtures asserts that a fourth is untouched. The test is
+whether the consequence outruns the list, and **the repair is one clause naming the rest as a class,
+never more numbers** — filling the named slot by hand is what releases every round behind it, so no
+further number is one an admin acts on, and a fixture two rounds on loses one side while the other fills
+normally, which the longer title would state falsely. It reaches no clause that merely rarefies the
+title, none about rows the save leaves alone, and none where the list already carries the whole
+consequence.
+
+**Both exceptions name a subject the sentence before them cannot reach**, and that is what separates them
+from the rarer instance of that sentence's own subject which the rule removes. A third case answering the
+same description is the signal to restate the rule around that test, never to write a third carve-out.
+
+**A banner nothing raised is deleted rather than shortened.** One that stands whatever the reader does
+answers no question, and where a conditional banner states the same fact at the moment it matters, the
+standing one is the second telling. A value the page renders as plain text raises nothing either: a
+reader who never meets a control does not ask why it is closed.
+
+**A banner's colour says how serious the situation is, and only a consequence the pending save causes
+raises the confirmation** (my rule, 2026-08-27). Once a thing is set the banner keeps its colour and
+stops asking: a dialog puts a question about a change, and a state the reader has already been living
+with has no question in it however grave it is. So `danger` is free to be as loud as a situation
+deserves without buying a confirmation step on every unrelated edit of that record ever after.
+
+**`raisedBy` is where that is recorded, and it is required.**
+`fl_frontend/src/shared/components/ui/railBanner.ts :: RailBanner` gives every entry `"state"` or
+`"change"`, and `:: resolveBlockingBanners` opens the dialog for a non-`info` banner only where that
+field says `change`. Severity does not imply it, which is the whole reason the two are separate fields.
+`fl_frontend/src/shared/components/ui/Callout.tsx :: Callout` states what the three colours mean.
+**The test is what the page would have shown on load,
+before the admin touched anything** — a banner already on screen then is `state` however grave, and one that
+needs the draft compared against the stored record, or a field the admin typed, is `change`.
+`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/banners.ts :: buildSpielBanners`
+grades a hand-set side `danger` and `state` on exactly that reading: the slot is as wrong as the
+colour says and as old as the stored fixture.
+
 **A hint and a banner on one panel never carry the same fact.** The hint carries the rule that stands
 whatever is typed; the banner carries what this save will do. Only review enforces this, a check having
-to read two files and recognise a paraphrase, so it is stated here rather than mechanised.
+to read two files and recognise a paraphrase, so it is stated here rather than mechanised. **The
+one-sentence body is the half a check could reach**, as a second sentence-final stop in a `banners.ts`
+body — exempting the refusal remedies that ride the rail, which
+`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/banners.ts :: isSpielRefusalBannerId`
+already marks and whose floor is two sentences under the refusal rule above.
 
 **Four of these rules are held mechanically, by the documentation gate's `copy-dash`, `copy-term`,
 `copy-formal` and `copy-informal` checks** — the dash rule with its date-range exception, the
@@ -903,7 +1117,9 @@ flattened text spells identically.
 **Every other rule here holds by review.** A lint over grammatical agreement or over register would
 first have to know which string reaches a reader and in what company; one over a list's completeness
 would additionally have to know what the surface it describes offers, which sits in a different file
-from the sentence describing it every time.
+from the sentence describing it every time. Diagnostic 4's self-naming control is the one half that
+needs no surface: in the sidemenu tables a bullet's `term` and a navigation entry's `label` are both
+string literals of one corpus, and equality between them is the whole test.
 
 ### 1.13 Metadata and indexing
 

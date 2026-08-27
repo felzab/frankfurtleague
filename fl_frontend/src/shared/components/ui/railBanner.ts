@@ -6,8 +6,14 @@ export type RailBanner<Id extends string = string> = {
   /** Stable across renders and independent of the title, which is interpolated. Also the React key. */
   id: Id;
   severity: "info" | "warning" | "danger";
+  /**
+   * Whether the situation predates this editor's draft or is one the pending save causes. Required, and severity does
+   * not imply it: a `danger` a reader has already lived with is still `state`, and only `change` reaches the dialog.
+   */
+  raisedBy: "state" | "change";
   title: string;
-  body: string;
+  /** Omitted where the title is the whole banner, which is what a body repeating the panel leaves behind. */
+  body?: string;
   /**
    * The panel spot that also renders this inline, or `null` for rail-only. `InlineBanner` types the name against this
    * union, so a misspelling is a type error rather than a banner that silently never appears.
@@ -44,10 +50,10 @@ export type BlockingBanners<B extends RailBanner = RailBanner> = readonly [B, ..
 
 /**
  * The save confirmation's gate in one place: the submit confirms exactly when this is non-null and `ConfirmSaveModal`
- * renders what it returned. An `info` is a standing property rather than a consequence, so it never raises the dialog.
+ * renders what it returned. A dialog asks about a consequence, so a standing situation asks nothing, however grave.
  */
 export function resolveBlockingBanners<B extends RailBanner>(banners: readonly B[]): BlockingBanners<B> | null {
-  const [first, ...rest] = resolveRailBanners(banners).filter((banner) => banner.severity !== "info");
+  const [first, ...rest] = resolveRailBanners(banners).filter((banner) => banner.severity !== "info" && banner.raisedBy === "change");
 
   return first === undefined ? null : [first, ...rest];
 }

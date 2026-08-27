@@ -17,7 +17,6 @@ const build = (overrides: Partial<Parameters<typeof buildSpielerBanners>[0]> = {
     isRowTeamInSaison: true,
     isNachgetragen: false,
     isTeamChanged: false,
-    newlySharedNummer: null,
     blockedRolle: null,
     ...overrides,
   });
@@ -27,6 +26,16 @@ const ids = (banners: readonly SpielerBanner[]): string[] => banners.map((banner
 describe("buildSpielerBanners", () => {
   it("raises nothing for a settled squad row with no pending edit", () => {
     assert.deepEqual(ids(build()), []);
+  });
+
+  /* One shape across the four retirable editors: the title names the exclusion, the body names what
+     survives, and the way back is the header's own control rather than a sentence pointing at it. */
+  it("states the retirement as the exclusion plus what survives, and points at no control", () => {
+    const [banner] = build({ isRetired: true });
+
+    assert.match(banner?.title ?? "", /erscheint in keiner Auswahlliste/);
+    assert.match(banner?.body ?? "", /Plätze im Kader bleiben erhalten/, "the body stopped naming what survives");
+    assert.ok(!/reaktivieren|Kopf der Seite/i.test(banner?.body ?? ""));
   });
 
   it("offers the entry remedy for a player no squad holds", () => {
@@ -51,11 +60,11 @@ describe("buildSpielerBanners", () => {
 
     assert.match(kept?.body ?? "", /kehren beim Reaktivieren zurück/, "the settled arm stopped saying the values come back");
     assert.doesNotMatch(gone?.body ?? "", /kehren beim Reaktivieren zurück/, "the blocked arm promises a return the endpoint refuses");
-    assert.ok(gone?.body.includes(REACTIVATION_NEEDS_A_TEAM_IN_SAISON), "the blocked arm names no repair");
+    assert.ok((gone?.body ?? "").includes(REACTIVATION_NEEDS_A_TEAM_IN_SAISON), "the blocked arm names no repair");
   });
 
-  /* `info` and not `warning`: nothing this save destroys, and a `warning` would route every save of
-     the player through `ConfirmSaveModal` for a state the form did not cause. */
+  /* `info` and not `warning`: nothing this save destroys. Keeping it out of `ConfirmSaveModal` is
+     `raisedBy: "state"`'s job below, so the colour answers only how gravely the row reads. */
   it("leaves the blocked arm an info", () => {
     const [banner] = build({ rowInactiveSince: "2026-03-12", isRowTeamInSaison: false });
 
@@ -64,29 +73,29 @@ describe("buildSpielerBanners", () => {
   });
 
   it("announces the derived nachgetragen flag only where there is no row to enter into yet", () => {
+    /* Both name the player, and both spell the word out: „nachgetragen“ is what the player list
+       spells back as a badge, and no surface but this one says what it means. */
+    const entering = build({ isMember: false, saisonStatus: "active" }).find(({ id }) => id === "spieler.entry-nachgetragen");
+    const standing = build({ isNachgetragen: true }).find(({ id }) => id === "spieler.nachgetragen");
+
+    assert.match(entering?.title ?? "", /Dieser Spieler wird nachgetragen/);
+    assert.match(standing?.title ?? "", /Dieser Spieler wurde nachgetragen/);
+    assert.match(entering?.body ?? "", /Zu Beginn der Saison war er nicht im Kader/);
+    assert.match(standing?.body ?? "", /Zu Beginn der Saison war er nicht im Kader/);
     assert.ok(ids(build({ isMember: false, saisonStatus: "active" })).includes("spieler.entry-nachgetragen"));
     assert.ok(!ids(build({ isMember: false, saisonStatus: "future" })).includes("spieler.entry-nachgetragen"));
     assert.ok(!ids(build({ saisonStatus: "active" })).includes("spieler.entry-nachgetragen"));
   });
 
-  it("grades a transfer as a warning", () => {
+  /* Dictated copy, so both lines are pinned literally rather than by a loosened pattern: a sweep
+     re-deriving either of them from the copy rules is what this test is here to fail. */
+  it("grades a transfer as a warning and names the timing over the move it makes", () => {
     const [banner] = build({ isTeamChanged: true });
 
     assert.equal(banner?.id, "spieler.team-changed");
     assert.equal(banner?.severity, "warning");
-  });
-
-  // `warning` is what routes it through the confirmation; `info` would let the save pass in silence.
-  it("grades a newly shared shirt as a warning naming the number", () => {
-    const [banner] = build({ newlySharedNummer: "1" });
-
-    assert.equal(banner?.id, "spieler.nummer-geteilt");
-    assert.equal(banner?.severity, "warning");
-    assert.match(banner?.body ?? "", /Nummer 1\b/);
-  });
-
-  it("raises nothing for a duplicate the row already stands in", () => {
-    assert.deepEqual(ids(build({ newlySharedNummer: null })), []);
+    assert.equal(banner?.title, "Teamwechsel wirkt sofort");
+    assert.equal(banner?.body, "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen.");
   });
 
   it("names the role and its holder where the draft team has already given it away", () => {
@@ -101,5 +110,25 @@ describe("buildSpielerBanners", () => {
   // nothing to confirm.
   it("raises no save confirmation for a blocked role", () => {
     assert.equal(build({ blockedRolle: { label: "Co-Kapitän", heldBy: "Nils Kraus" } })[0]?.severity, "info");
+  });
+
+  /* Both are read off a DRAFT field and neither is this save's doing: the flag is derived at entry
+     and never offered here, and the role is one another squad row already holds. */
+  it("classifies the nachgetragen flag and a taken role as state", () => {
+    assert.equal(build({ isNachgetragen: true })[0]?.raisedBy, "state");
+    assert.equal(build({ blockedRolle: { label: "Kapitän", heldBy: "Jonas Weber" } })[0]?.raisedBy, "state");
+  });
+
+  /* Colour and confirmation are separate switches: a banner the page load already carries asks
+     nothing at save time, and only the transfer is a consequence this save has. */
+  it("classifies every banner a page load already carries as state, and the transfer as change", () => {
+    const atLoad = [
+      ...build({ isRetired: true }),
+      ...build({ isMember: false, saisonStatus: "active" }),
+      ...build({ rowInactiveSince: "2026-03-12", isRowTeamInSaison: false }),
+    ];
+
+    for (const banner of atLoad) assert.equal(banner.raisedBy, "state", `${banner.id} would confirm a situation the save did not cause`);
+    assert.equal(build({ isTeamChanged: true })[0]?.raisedBy, "change");
   });
 });

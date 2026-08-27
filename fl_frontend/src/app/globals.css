@@ -349,7 +349,7 @@
   --motion-fast: 150ms;
   --motion-base: 200ms;
   /* Tuned against the card cascade's settling profile, not counted off the code. The counted answer
-     was 200ms and the owner rejected it on the screen. Change it against the cascade. */
+     was 200ms and read wrong on the screen. Change it against the cascade. */
   --motion-slow: 300ms;
   /* The cascade's own curve, shared rather than duplicated. Emphasized-decelerate:
      90% of the travel in the first 37%, so the eye reads the arrival early while
@@ -549,7 +549,7 @@ input:focus:placeholder-shown {
    Unlayered, so nothing in a layer can put a ring back. */
 /* 1. FIELD-SHAPED CONTROLS match :focus-visible on a plain mouse click, by the
       selectors spec's exception for text entry. Substitute: the border turns
-      brand. Only --tw-ring-shadow goes, leaving the field's own shadow-sm. */
+      brand. Only the ring goes; --tw-shadow is untouched, so the field keeps its own. */
 /* 2. COLLECTION OPTIONS. react-aria focuses the first option as you type in a combobox, ringing a
       result nobody chose. Substitute: a background highlight, as every native picker does. */
 /* 3. BUTTONS INSIDE A FIELD GROUP. The group's border is already brand by then.
@@ -563,6 +563,12 @@ input:focus:placeholder-shown {
 [data-slot="autocomplete-trigger"],
 [data-slot="select-trigger"],
 [data-slot="textarea"] {
+  /* THE RING GOES WITH NO STATE SELECTOR, so a state the arms below skip cannot let it back in —
+     a read-only field is such a state. BOTH properties, for the list-box rule's reason: kill one
+     and the offset band is left, which is the white line. */
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-ring-offset-shadow: 0 0 #0000;
+
   /* `:not([data-invalid="true"])` matters: without it this stripped HeroUI's danger
      ring at the moment `useServerFieldErrors` focuses the rejected field, so a
      field the server had just refused looked normally focused. */
@@ -572,12 +578,17 @@ input:focus:placeholder-shown {
   /* `[data-border-on-open="true"]` opts a trigger out of the FOCUS arms only:
      react-aria restores focus after the popover's exit animation, and the brand
      border stuck on a control the user had clicked away from. */
+  /* TWO shapes because react-aria marks only the field's ROOT read-only: `[readonly]` is the slot
+     that IS the control, `:has(input[readonly])` the group holding one. The invalid arm below takes
+     neither -- a server refusal reaches a frozen field too. */
+  /* IN `:where()`, so the pair weighs NOTHING: the picker and date-group resets below out-specify
+     this arm at (0,4,0), and a plain `:not()` here would outrank every one of them. A condition
+     added to this arm belongs inside `:where()` too. */
   &:is(:focus, :focus-visible, :focus-within, [data-focused="true"], [data-focus-visible="true"], [data-focus-within="true"]):not(
       [data-invalid="true"]
-    ):not([data-border-on-open="true"]),
+    ):not([data-border-on-open="true"]):not(:where([readonly], :has(input[readonly]))),
   &[aria-expanded="true"]:not([data-invalid="true"]),
   &:has([aria-expanded="true"]):not([data-invalid="true"]) {
-    --tw-ring-shadow: 0 0 #0000;
     border-color: var(--accent-brand);
     outline: none;
   }
@@ -585,7 +596,6 @@ input:focus:placeholder-shown {
   /* A rejected field says so with its border, focused or not — same language as the brand border,
      different colour, so the two states are told apart by hue rather than by shape. */
   &[data-invalid="true"] {
-    --tw-ring-shadow: 0 0 #0000;
     border-color: var(--accent-danger);
     outline: none;
   }
@@ -666,6 +676,34 @@ input:focus:placeholder-shown {
    segment inside it. A clear control's own focus IS counted here, where the
    border rule above excludes it: that rule asks whether a caret is in the field. */
 [data-slot="date-input-group"][data-focus-visible="true"]:not(:has(:focus)):not(:has([aria-expanded="true"])):not([data-invalid="true"]) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* A FROZEN FIELD reads as one at rest, react-aria styling nothing for read-only: at full strength
+   it looks editable until somebody types into it. 0.5 is HeroUI's own `--disabled-opacity`, so a
+   frozen field and a disabled one dim alike. */
+[data-slot="number-field"][data-readonly="true"] {
+  opacity: 0.5;
+}
+
+/* WHERE THE ARMS ABOVE PAINT NOTHING, focus must still show (WCAG 2.4.7): a frozen field and a
+   closed picker are both tab stops that reach neither border. react-aria's attribute, not
+   `:focus-visible`, so this outline answers a key press, not a click. */
+/* A CLICK on a frozen group stays quiet for a second reason: HeroUI's `[data-focus-within]`
+   border and fill match it and lose, out-layered by the `utilities` classes
+   `formFieldStyles.ts :: FIELD_GROUP` puts on the group. */
+:is(
+    [data-slot="input"],
+    [data-slot="input-group"],
+    [data-slot="number-field-group"],
+    [data-slot="search-field-group"],
+    [data-slot="date-input-group"],
+    [data-slot="textarea"]
+  ):is([readonly], :has(input[readonly]))[data-focus-visible="true"]:not([data-invalid="true"]),
+:is([data-slot="autocomplete-trigger"], [data-slot="select-trigger"])[data-focus-visible="true"]:not([aria-expanded="true"]):not(
+    :has([aria-expanded="true"])
+  ):not([data-invalid="true"]) {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }

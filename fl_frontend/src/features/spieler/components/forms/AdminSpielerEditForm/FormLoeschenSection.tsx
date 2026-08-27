@@ -70,17 +70,14 @@ export function FormLoeschenSection({
           <Hint
             mode="reveal"
             label="Hinweis zum Löschen"
-            body={{
-              lead: "Der Weg, eine Person ganz aus der Verwaltung zu entfernen.",
-              points: [{ term: "Das Änderungsprotokoll", text: "behält seine Zeilen und verliert nur die Angaben zur Person." }],
-            }}
+            body={{ lead: "Der Weg, eine Person ganz aus der Verwaltung zu entfernen." }}
           />
         </h2>
       </div>
 
       <div className={panel.body()}>
         {blockedReason === null ? (
-          <p className="fluid-sm text-foreground font-medium">
+          <p className="muted-hint">
             Das Löschen entfernt <strong>{fullName}</strong> endgültig aus der Verwaltung: die Person selbst, alle ihre Kadereinträge und ihre
             Angaben im Änderungsprotokoll. Die Spiele bleiben unverändert.
           </p>

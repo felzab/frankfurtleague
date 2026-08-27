@@ -83,6 +83,9 @@ export function FormSchiedsrichterSection({
       <NumberField
         minValue={0}
         name="schiedsrichter.payment"
+        // Frozen without a referee, the Mietpreis field's reason: `handlePaymentChange` no-ops on a
+        // null payload.
+        isReadOnly={!schiedsrichterPayload}
         value={schiedsrichterPayload?.payment ?? NaN}
         onChange={handlePaymentChange}
         // On blur, for the Mietpreis field's reason: the same box with the same NaN window.

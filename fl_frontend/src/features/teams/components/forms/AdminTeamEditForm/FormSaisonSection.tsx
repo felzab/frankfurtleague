@@ -120,44 +120,35 @@ function GruppenTauschControl({
     <div className="border-border flex w-full flex-col gap-y-3 border-t pt-5">
       {/* A sub-group, not a panel of its own: it edits the row above it, and a second bordered box
           for one picker would read as a second subject. */}
-      <p className={FORM_SECTION_HEADING}>Gruppe tauschen</p>
+      <h3 className={FORM_SECTION_HEADING}>Gruppe tauschen</h3>
 
       {/* The whole-control closures, in the endpoint's own order. Each refuses every pair alike, so
-          none of them is a row. */}
+          none of them is a row. Each title states the rule that shut it rather than the state that
+          met it. Dictated wording, shared with the season panel. */}
       {saisonStatus === "past" ? (
         <Callout
           severity="info"
-          title="Die Saison ist abgeschlossen">
-          Auch ein Tausch geht jetzt nicht mehr. Die Tabellen dieser Saison bleiben so, wie sie am Saisonende standen.
+          title="In einer abgeschlossenen Saison ist ein Gruppentausch nicht mehr möglich">
+          Die Tabellen dieser Saison bleiben so, wie sie am Saisonende standen.
         </Callout>
       ) : swap.playedKnockoutSpiele > 0 ? (
         <Callout
           severity="info"
-          title="Die KO-Runde hat begonnen">
-          {swap.playedKnockoutSpiele === 1
-            ? "Ein Spiel der KO-Runde wurde schon gespielt oder abgesagt."
-            : `${String(swap.playedKnockoutSpiele)} Spiele der KO-Runde wurden schon gespielt oder abgesagt.`}{" "}
-          Die Setzung ist aus diesen Gruppen entstanden, deshalb lässt sich jetzt keine Gruppe mehr tauschen.
-        </Callout>
+          title="Nach dem Beginn der KO-Runde ist ein Gruppentausch nicht mehr möglich"
+        />
       ) : self.gespielteGruppenSpiele > 0 ? (
         <Callout
           severity="info"
-          title={`${self.name} hat in seiner Gruppe schon gespielt`}>
-          {self.gespielteGruppenSpiele === 1
-            ? `Ein Spiel in Gruppe ${self.gruppe} wurde schon gespielt oder abgesagt.`
-            : `${String(self.gespielteGruppenSpiele)} Spiele in Gruppe ${self.gruppe} wurden schon gespielt oder abgesagt.`}{" "}
-          Wer in einer Gruppe schon gespielt hat, bleibt in ihr.
-        </Callout>
+          title="Wer in seiner Gruppe schon gespielt hat, bleibt in ihr"
+        />
       ) : !hasAPartner ? (
         <Callout
           severity="info"
-          title="Zurzeit ist kein Team wählbar">
-          Tauschen kann nur ein Team, das in einer anderen Gruppe dieser Saison steht und dort noch kein Spiel gespielt oder abgesagt bekommen
-          hat.
-        </Callout>
+          title="Ein Gruppentausch braucht ein Team aus einer anderen Gruppe, das dort noch kein Spiel gespielt hat"
+        />
       ) : (
         <>
-          <p className="fluid-sm text-foreground font-medium">
+          <p className="muted-hint">
             Wähle das Team, mit dem <strong>{self.name}</strong> die Gruppe tauscht.
           </p>
 
@@ -174,7 +165,7 @@ function GruppenTauschControl({
 
             {/* Why an expected club is missing, answered where the picker raises it. A greyed row
             carries its own reason, so nothing here restates the refusal labels. */}
-            <p className="fluid-xxs text-foreground-muted leading-normal font-medium">
+            <p className="fluid-xxs text-foreground leading-normal font-medium">
               Teams, die nicht in dieser Saison stehen, erscheinen hier nicht.
             </p>
           </div>
@@ -182,8 +173,7 @@ function GruppenTauschControl({
           {partner !== null && (
             <Callout
               severity="warning"
-              title="Das passiert beim Tausch">
-              <strong>{self.name}</strong> steht danach in Gruppe {partner.gruppe}, <strong>{partner.name}</strong> in Gruppe {self.gruppe}.
+              title={`${self.name} steht danach in Gruppe ${partner.gruppe}, ${partner.name} in Gruppe ${self.gruppe}`}>
               Beide übernehmen dabei die angesetzten Spiele des anderen, mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
               sofort.
             </Callout>
@@ -192,8 +182,8 @@ function GruppenTauschControl({
           {isConfirming && partner !== null && (
             <ConfirmReveal>
               <p className="fluid-xxs text-foreground leading-normal font-medium">
-                Der Tausch gilt sofort, unabhängig vom Speichern-Knopf unten, und ist auf jeder Tabelle dieser Saison sichtbar. Rückgängig
-                machst Du ihn, indem Du dieselben beiden Teams noch einmal tauschst.
+                Der Tausch gilt unabhängig vom Speichern-Knopf unten. Rückgängig machst Du ihn, indem Du dieselben beiden Teams noch einmal
+                tauschst.
               </p>
             </ConfirmReveal>
           )}
@@ -319,10 +309,7 @@ export function FormSaisonSection({
           <Hint
             mode="reveal"
             label="Hinweis zur Saison-Zugehörigkeit"
-            body={{
-              lead: "Dieser Bereich gilt für die Saison aus dem Seitenmenü.",
-              points: [{ term: "Denselben Gruppentausch", text: "startest Du auf der Saisonseite mit zwei frei gewählten Teams." }],
-            }}
+            body={{ lead: "Dieser Bereich gilt für die Saison aus dem Seitenmenü." }}
           />
         </h2>
       </div>

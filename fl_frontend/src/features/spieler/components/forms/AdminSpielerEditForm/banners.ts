@@ -11,7 +11,6 @@ export type SpielerBannerId =
   | "spieler.nachgetragen"
   | "spieler.entry-nachgetragen"
   | "spieler.team-changed"
-  | "spieler.nummer-geteilt"
   | "spieler.rolle-vergeben";
 
 export type SpielerBannerSpot = "kader-eintritt" | "kader-nachgetragen" | "kader-rolle" | "austragen";
@@ -28,7 +27,6 @@ export function buildSpielerBanners({
   isRowTeamInSaison,
   isNachgetragen,
   isTeamChanged,
-  newlySharedNummer,
   blockedRolle,
 }: {
   isRetired: boolean;
@@ -41,8 +39,6 @@ export function buildSpielerBanners({
   isRowTeamInSaison: boolean;
   isNachgetragen: boolean;
   isTeamChanged: boolean;
-  /** The shirt this draft would put a SECOND wearer on, or `null` — never a number already shared. */
-  newlySharedNummer: string | null;
   /** A role the DRAFT's team has already given away, with the label and the holder, or `null`. */
   blockedRolle: { label: string; heldBy: string } | null;
 }): readonly SpielerBanner[] {
@@ -52,8 +48,10 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.retired",
       severity: "info",
-      title: "Dieser Spieler steht nicht mehr zur Auswahl",
-      body: "Seine Kadereinträge bleiben bestehen. Reaktivieren kannst Du ihn oben auf dieser Seite.",
+      raisedBy: "state",
+      title: "Dieser Spieler erscheint in keiner Auswahlliste",
+      // The way back is the header's own Reaktivieren control, on screen beside this.
+      body: "Seine Plätze im Kader bleiben erhalten.",
       inline: null,
     });
   }
@@ -62,18 +60,23 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.not-in-kader-entry",
       severity: "info",
+      raisedBy: "state",
       title: `In Saison ${saisonId} erscheint dieser Spieler auf keiner Seite`,
       body: "Wähle unten ein Team und nimm ihn auf.",
       inline: "kader-eintritt",
     });
 
     // `is_nachgetragen` is derived from the season's status rather than asked — see `FormKaderSection`.
+    // The body is the word's meaning, which its sibling below owes the reader for the same reason.
     if (saisonStatus !== "future") {
       banners.push({
         id: "spieler.entry-nachgetragen",
         severity: "info",
-        title: "Wird als nachgetragen markiert",
-        body: `Die Saison ${saisonId} läuft bereits.`,
+        // `state` though it reads as a consequence: the panel's Aufnehmen button writes the flag on
+        // its own, and nothing here waits on the editor's save.
+        raisedBy: "state",
+        title: "Dieser Spieler wird nachgetragen",
+        body: "Zu Beginn der Saison war er nicht im Kader.",
         inline: "kader-nachgetragen",
       });
     }
@@ -83,6 +86,7 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.row-retired-since",
       severity: "info",
+      raisedBy: "state",
       title: `Ausgetragen seit ${formatSpielDatum(rowInactiveSince)}`,
       // The promise splits where the reactivate does: it names the row's STORED club, and a
       // replacement can have taken that club out of the season since the row was written.
@@ -93,36 +97,30 @@ export function buildSpielerBanners({
     });
   }
 
+  // The person rather than the row, and the body says what the word means: the player list spells it
+  // back as a badge, and no surface but this one tells a reader what it stands for.
   if (isNachgetragen) {
     banners.push({
       id: "spieler.nachgetragen",
       severity: "info",
-      title: "Dieser Eintrag ist nachgetragen",
-      body: `Der Spieler kam erst nach dem Start der Saison ${saisonId} dazu.`,
+      // `isNachgetragen` is a draft field the edit path never offers — `FormKaderSection` derives it
+      // at entry — so this can only report the flag the row loaded with.
+      raisedBy: "state",
+      title: "Dieser Spieler wurde nachgetragen",
+      body: "Zu Beginn der Saison war er nicht im Kader.",
       inline: null,
     });
   }
 
+  // Both lines are dictated copy. Where they and `docs/frontend/spec.md` §1.12's title rules
+  // disagree the copy wins, §1.12 having been derived from sentences like these.
   if (isTeamChanged) {
     banners.push({
       id: "spieler.team-changed",
       severity: "warning",
+      raisedBy: "change",
       title: "Teamwechsel wirkt sofort",
-      body: "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen, auch auf den öffentlichen Seiten.",
-      inline: null,
-    });
-  }
-
-  // A `warning` and never a refusal: the state is permitted on every write path
-  // (`fl_backend/app/core/domain.py :: UNENFORCED`), and the grade routes the save through confirmation.
-  if (newlySharedNummer !== null) {
-    banners.push({
-      id: "spieler.nummer-geteilt",
-      severity: "warning",
-      title: "Zwei Spieler tragen dann dieselbe Nummer",
-      body:
-        `Im gewählten Kader trägt bereits jemand die Nummer ${newlySharedNummer}. Das ist erlaubt. ` +
-        `Beide erscheinen in der Saison ${saisonId} mit ihr auf den öffentlichen Seiten.`,
+      body: "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen.",
       inline: null,
     });
   }
@@ -131,6 +129,9 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.rolle-vergeben",
       severity: "info",
+      // `state` off a draft-read map: the picker disables a taken role and a team switch clears one,
+      // so the clash reaching here is one the season's stored rows already hold.
+      raisedBy: "state",
       title: `${blockedRolle.label} ist im gewählten Team schon vergeben`,
       body: `In der Saison ${saisonId} hat ${blockedRolle.heldBy} diese Rolle. Nimm sie dort zuerst ab, wenn Du sie hier vergeben willst.`,
       inline: "kader-rolle",

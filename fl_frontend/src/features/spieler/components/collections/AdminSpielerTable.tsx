@@ -3,16 +3,17 @@
 import { memo, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Pencil, Person } from "@gravity-ui/icons";
+import { Pencil, Person, Persons } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
 import { LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, rolleKuerzel, rolleLabel } from "@/features/spieler/constants";
 import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
+import { TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
+import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
-import { Hint } from "@/shared/components/ui/Hint";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
@@ -55,6 +56,8 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
   const saisonQuery = selectedFromUrl ? `?saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
+  // The same value as a second parameter, for the one row link that carries a narrowing of its own.
+  const saisonParam = selectedFromUrl ? `&saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
 
   // No confirmation step: reactivation is undone by the delete control that takes its place.
   const handleReactivatePerson = (spieler: AdminSpielerRow) => {
@@ -85,20 +88,14 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
           Ausgetragen seit {formatSpielDatum(spieler.selected.inactive_since)}
         </span>
       )}
-      {spieler.selected?.is_nachgetragen === true && spieler.selected.inactive_since === null && (
-        /* A hint, not `IconTooltip` — `Hint.tsx` carries why. The badge acts on nothing, so the press is free. */
-        <Hint
-          mode="reveal"
-          label="Nachgetragen"
-          body={{ lead: "Der Spieler kam erst nach dem Start der Saison dazu." }}
-          trigger={<span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Nachgetragen</span>}
-        />
-      )}
       {spieler.inactive_since === null && spieler.selected !== null && spieler.selected.inactive_since === null && (
         /* The ROW's standing, never the season's status: it holds only while the person, the squad
            row and the season entry are all live, so it is narrower than
            `fl_frontend/src/features/spieler/facets.ts`'s „Person“ bucket. */
         <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Aktiv</span>
+      )}
+      {spieler.selected?.is_nachgetragen === true && spieler.selected.inactive_since === null && (
+        <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Nachgetragen</span>
       )}
     </div>
   );
@@ -114,6 +111,22 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
     return (
       <RowActions>
+        {/* The club list narrows by `q=` and by no id, so the name is what the link can carry. Its Saison
+            facet is on by default and a squad row can name a club the season no longer holds, so the link
+            turns that facet off. */}
+        {row !== null && row.teamName !== null && (
+          <RowActionLink
+            href={`/admin/teams?q=${encodeURIComponent(row.teamName)}&${TEAMS_ANY_SAISON_QUERY}${saisonParam}`}
+            label="Team anzeigen"
+            ariaLabel={`Team ${row.teamName} anzeigen`}>
+            <Persons
+              aria-hidden="true"
+              width={18}
+              height={18}
+            />
+          </RowActionLink>
+        )}
+
         <RowActionLink
           href={`/admin/spieler/${spieler.id}${saisonQuery}`}
           label="Bearbeiten"
@@ -181,12 +194,6 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     );
   };
 
-  const emptyState = (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
-    </div>
-  );
-
   /**
    * EMPTY rather than absent when the player has none: a missing chip leaves a ragged hole in the
    * column and reads as a rendering fault rather than as "not filled in".
@@ -208,7 +215,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
       {/* The table below `md` forced the whole grid sideways; a stacked card holds the same data and
           the same controls at reading width. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
-        {filteredSpieler.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}
+        {filteredSpieler.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredSpieler.map((spieler) => (
           <div
             key={spieler.id}
@@ -233,23 +240,32 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          <Table.ScrollContainer className="scrollbar-hide">
-            <Table.Content aria-label="Tabelle aller Spieler">
+          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
+              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          <Table.ScrollContainer>
+            {/* Fixed layout holds the columns when the rows go. The minimum is the five declared
+                columns plus 176 each for the two free-text ones, under which they get nothing. */}
+            <Table.Content
+              aria-label="Tabelle aller Spieler"
+              className="min-w-5xl table-fixed">
               <Table.Header>
+                {/* UNDECLARED, and so is Team: fixed layout splits what the declared columns leave
+                equally between them, which is the only pair here holding free text. */}
                 <Table.Column
                   isRowHeader
                   className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Spieler
                 </Table.Column>
-                {/* PINNED to their content's width with one `px-3` inset each, so the leftover
-                width all goes to the name column — the club list's rule. */}
+                {/* Declared to the column's content or to its own heading, whichever is wider:
+                under fixed layout a surplus here comes out of the two free-text columns rather than
+                going unused. */}
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-16 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Nr.
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-3 py-4 pr-6 font-bold tracking-wider uppercase lg:pr-10">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Team
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-32 border-b px-3 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-28 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Position
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-20 border-b px-3 py-4 font-bold tracking-wider uppercase">
@@ -258,7 +274,9 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Status
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+                {/* Four controls at most — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
+                holds the arithmetic, and it is the count a new action changes. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-60 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen
                 </Table.Column>
               </Table.Header>
@@ -266,7 +284,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
               {/* `items` + a render function, not mapped children — see the memo note above. */}
               <Table.Body
                 items={filteredSpieler}
-                renderEmptyState={() => emptyState}>
+                renderEmptyState={() => <AdminCrudEmptyRow message={EMPTY_MESSAGES[emptiness]} />}>
                 {(spieler: AdminSpielerRow) => {
                   const isRetired = spieler.inactive_since !== null;
                   return (
@@ -287,7 +305,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
                       <Table.Cell className="px-3 py-4">{renderNummer(spieler)}</Table.Cell>
 
-                      <Table.Cell className="px-3 py-4 pr-6 lg:pr-10">
+                      <Table.Cell className="px-3 py-4">
                         {spieler.selected?.teamName ? (
                           <div className="flex items-center gap-2">
                             {/* The TeamCard's chip colour, so a Kürzel wears one tint everywhere. */}

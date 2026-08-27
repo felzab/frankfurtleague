@@ -50,10 +50,15 @@ RULES_DRAW_OUTVALUES_WIN = "REQ-RULES-008"
 RULES_KADER_BELOW_USE = "REQ-RULES-009"
 RULES_FORFEIT_DRAWS_A_KNOCKOUT = "REQ-RULES-010"
 RULES_SHAPE_AFTER_DRAW = "REQ-RULES-011"
+RULES_TIEBREAK_AFTER_KNOCKOUT = "REQ-RULES-012"
 
 # `erlaubte_stufen` stays editable because it bounds what a form offers, never what a stored squad
 # row holds.
 FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "qualifiers_per_group", "tiebreak_order")
+
+# The one `REQ-RULES-012` freezes, and a field rather than a tuple: the bracket is seeded from the
+# placings this order decides, and nothing else in `rules` re-sorts a group that is already ranked.
+SEEDING_RULES_FIELD = "tiebreak_order"
 
 # The three the fixtures were drawn from. A RAISE is what nothing else refuses: `anzahl_spiele` is
 # derived per matchday, so every matchday would then expect matches nobody drew, and
@@ -86,12 +91,14 @@ def find_rules_refusal(
     largest_squad: int = 0,
     attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
     drawn_fixtures: int = 0,
+    played_knockout_fixtures: int = 0,
 ) -> WriteRefusal | None:
     """Why these rules must be refused, or `None`.
 
     `stored` is `None` on a create, whose whole rules object is the step
     (`docs/backend/spec.md :: I44`). `attached_by_phase` is the LARGEST count any single matchday of
-    a phase holds, not the sum.
+    a phase holds, not the sum, and `played_knockout_fixtures` is counted over
+    `app/api/teams/services.py :: has_taken_place`, as `REQ-SWAP-002`'s own window is.
     """
 
     # The freeze first: no point naming a bound when the whole edit is refused anyway.
@@ -130,6 +137,18 @@ def find_rules_refusal(
                 error_code=RULES_SHAPE_AFTER_DRAW,
                 message=f"the season's {drawn_fixtures} fixtures are already drawn from these rules; {'; '.join(repairs)}",
             )
+
+    # Compared by value, so a dates-only edit resubmitting the stored order passes
+    # (`docs/backend/spec.md :: I44`). After `REQ-RULES-011`, whose fields this one does not touch,
+    # so neither refusal can misdirect about the other's.
+    if stored is not None and played_knockout_fixtures > 0 and getattr(stored, SEEDING_RULES_FIELD) != getattr(proposed, SEEDING_RULES_FIELD):
+        noun = "fixture has" if played_knockout_fixtures == 1 else "fixtures have"
+
+        return WriteRefusal(
+            error_code=RULES_TIEBREAK_AFTER_KNOCKOUT,
+            message=f"{played_knockout_fixtures} knockout {noun} already left a record; the bracket was seeded from the group placings "
+            f"{SEEDING_RULES_FIELD} decides, so re-ordering them now would re-seed a bracket that has been part-played",
+        )
 
     # Before the bracket rule, being narrower: it names two fields an admin can compare, where the
     # bracket's answer is a property of their product.

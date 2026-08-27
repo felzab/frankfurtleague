@@ -43,6 +43,12 @@ const EMPTY_DRAFT: FLPostSaisonPayload = {
  */
 const asCalendarDate = (value: string) => (value === "" ? null : parseDate(value));
 
+/** Names the forfeit pair for a screen reader, the heading over it belonging to no control of its own. */
+const FORFEIT_LABEL_ID = "neue-saison-nichtantreten";
+
+/** Names the level chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
+const STUFEN_LABEL_ID = "neue-saison-erlaubte-stufen";
+
 /**
  * Creates a season, always `future`: making one live is a separate deliberate step, so a typo in a new
  * id cannot become a silent rollover of the live one. **The id is typed rather than generated** — the
@@ -96,50 +102,67 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
 
           {/* Grouped as the season editor groups them, so the two forms describe one set of rules:
               all four say what a single fixture is worth. */}
-          <div className="flex w-full flex-col gap-y-3">
-            <h3 className={FORM_SECTION_HEADING}>Wertung eines Spiels</h3>
-            <div className={FIELD_PAIR}>
-              <SaisonRuleNumberField
-                name="rules.win_points"
-                label={<Label className={FIELD_LABEL}>Punkte für einen Sieg</Label>}
-                minValue={1}
-                value={draft.rules.win_points}
-                onChange={(win_points) => setDraft((current) => ({ ...current, rules: { ...current.rules, win_points } }))}
-              />
-              <SaisonRuleNumberField
-                name="rules.draw_points"
-                label={<Label className={FIELD_LABEL}>Punkte für ein Unentschieden</Label>}
-                minValue={0}
-                value={draft.rules.draw_points}
-                onChange={(draw_points) => setDraft((current) => ({ ...current, rules: { ...current.rules, draw_points } }))}
-              />
+          {/* The dialog's own step between children, which is the ceiling here: a wider break inside
+              this group would part the pair further than whole groups are parted. */}
+          <div className="flex w-full flex-col gap-y-4">
+            <div className="flex w-full flex-col gap-y-3">
+              <h3 className={FORM_SECTION_HEADING}>Wertung eines Spiels</h3>
+              <div className={FIELD_PAIR}>
+                <SaisonRuleNumberField
+                  name="rules.win_points"
+                  label={<Label className={FIELD_LABEL}>Punkte für einen Sieg</Label>}
+                  minValue={1}
+                  value={draft.rules.win_points}
+                  onChange={(win_points) => setDraft((current) => ({ ...current, rules: { ...current.rules, win_points } }))}
+                />
+                <SaisonRuleNumberField
+                  name="rules.draw_points"
+                  label={<Label className={FIELD_LABEL}>Punkte für ein Unentschieden</Label>}
+                  minValue={0}
+                  value={draft.rules.draw_points}
+                  onChange={(draw_points) => setDraft((current) => ({ ...current, rules: { ...current.rules, draw_points } }))}
+                />
+              </div>
             </div>
-            <Label className={FIELD_LABEL}>Ergebnis eines Spiels, zu dem ein Team nicht antritt</Label>
-            <div className={FIELD_PAIR}>
-              <SaisonRuleNumberField
-                name="rules.forfeit_ergebnis.sieger_tore"
-                label={<Label className={FIELD_LABEL}>Tore für den Sieger</Label>}
-                minValue={0}
-                value={draft.rules.forfeit_ergebnis.sieger_tore}
-                onChange={(sieger_tore) =>
-                  setDraft((current) => ({
-                    ...current,
-                    rules: { ...current.rules, forfeit_ergebnis: { ...current.rules.forfeit_ergebnis, sieger_tore } },
-                  }))
-                }
-              />
-              <SaisonRuleNumberField
-                name="rules.forfeit_ergebnis.verlierer_tore"
-                label={<Label className={FIELD_LABEL}>Tore für den Verlierer</Label>}
-                minValue={0}
-                value={draft.rules.forfeit_ergebnis.verlierer_tore}
-                onChange={(verlierer_tore) =>
-                  setDraft((current) => ({
-                    ...current,
-                    rules: { ...current.rules, forfeit_ergebnis: { ...current.rules.forfeit_ergebnis, verlierer_tore } },
-                  }))
-                }
-              />
+
+            <div className="flex w-full flex-col gap-y-3">
+              {/* The heading recipe and no `Label`: it governs the pair below it rather than any one
+                  control, so the pair is named through `aria-labelledby` instead of by a label with
+                  nothing to bind to. */}
+              <span
+                id={FORFEIT_LABEL_ID}
+                className={FORM_SECTION_HEADING}>
+                Ergebnis eines Spiels, zu dem ein Team nicht antritt
+              </span>
+              <div
+                role="group"
+                aria-labelledby={FORFEIT_LABEL_ID}
+                className={FIELD_PAIR}>
+                <SaisonRuleNumberField
+                  name="rules.forfeit_ergebnis.sieger_tore"
+                  label={<Label className={FIELD_LABEL}>Tore für den Sieger</Label>}
+                  minValue={0}
+                  value={draft.rules.forfeit_ergebnis.sieger_tore}
+                  onChange={(sieger_tore) =>
+                    setDraft((current) => ({
+                      ...current,
+                      rules: { ...current.rules, forfeit_ergebnis: { ...current.rules.forfeit_ergebnis, sieger_tore } },
+                    }))
+                  }
+                />
+                <SaisonRuleNumberField
+                  name="rules.forfeit_ergebnis.verlierer_tore"
+                  label={<Label className={FIELD_LABEL}>Tore für den Verlierer</Label>}
+                  minValue={0}
+                  value={draft.rules.forfeit_ergebnis.verlierer_tore}
+                  onChange={(verlierer_tore) =>
+                    setDraft((current) => ({
+                      ...current,
+                      rules: { ...current.rules, forfeit_ergebnis: { ...current.rules.forfeit_ergebnis, verlierer_tore } },
+                    }))
+                  }
+                />
+              </div>
             </div>
           </div>
 
@@ -196,9 +219,14 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
               value={draft.rules.max_kadergroesse}
               onChange={(max_kadergroesse) => setDraft((current) => ({ ...current, rules: { ...current.rules, max_kadergroesse } }))}
             />
-            <Label className={FIELD_LABEL}>Welche Stufen diese Saison spielen</Label>
+            <span
+              id={STUFEN_LABEL_ID}
+              className={FIELD_LABEL}>
+              Welche Stufen diese Saison spielen
+            </span>
             <StufenPicker
               name="rules.erlaubte_stufen"
+              labelledBy={STUFEN_LABEL_ID}
               value={draft.rules.erlaubte_stufen}
               onChange={(erlaubte_stufen) => setDraft((current) => ({ ...current, rules: { ...current.rules, erlaubte_stufen } }))}
             />

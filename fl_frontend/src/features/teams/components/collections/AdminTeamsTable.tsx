@@ -3,12 +3,13 @@
 import { memo, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Calendar, Globe, Pencil, Persons } from "@gravity-ui/icons";
+import { Calendar, Globe, Pencil, Person, Persons } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
 import { reactivateTeamAction } from "@/features/teams/actions";
 import { austrittZustand } from "@/features/teams/constants";
+import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
@@ -80,6 +81,18 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
 
   const renderActions = (team: AdminTeamRow) => (
     <RowActions>
+      {/* `team` as `buildSpielerFacets` declares it, keyed by the club's id. The season's own clubs
+          are that facet's options, so a club outside the season drops out and the link widens. */}
+      <RowActionLink
+        href={`/admin/spieler?team=${team.id}${saisonParam}`}
+        label="Spieler anzeigen"
+        ariaLabel={`Spieler von ${team.name} anzeigen`}>
+        <Person
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
       {/* `team` as `buildSpielFacets` declares it, and it reads both sides — so this finds the club's
           fixtures whichever slot it occupies. */}
       <RowActionLink
@@ -133,18 +146,12 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
     </RowActions>
   );
 
-  const emptyState = (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
-    </div>
-  );
-
   return (
     <>
       {/* The table below `md` forced the whole grid sideways; a stacked card holds the same data and
           the same controls at reading width. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
-        {filteredTeams.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}
+        {filteredTeams.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredTeams.map((team) => (
           <div
             key={team.id}
@@ -169,16 +176,25 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          <Table.ScrollContainer className="scrollbar-hide">
-            <Table.Content aria-label="Tabelle aller Teams">
+          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
+              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          <Table.ScrollContainer>
+            {/* Fixed layout holds the columns when the rows go. The minimum is the four declared
+                columns plus 256 for the free-text one, under which it gets nothing. */}
+            <Table.Content
+              aria-label="Tabelle aller Teams"
+              className="min-w-4xl table-fixed">
               <Table.Header>
+                {/* UNDECLARED: fixed layout gives it everything the columns beside it leave, and it
+                is the only one here holding free text. */}
                 <Table.Column
                   isRowHeader
                   className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Team
                 </Table.Column>
-                {/* PINNED to their content's width with one `px-3` inset each, so the leftover
-                width all goes to the name column rather than to whichever auto layout picks. */}
+                {/* Declared to the column's content or to its own heading, whichever is wider:
+                under fixed layout a surplus here comes out of the name column rather than going
+                unused. */}
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-24 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Kürzel
                 </Table.Column>
@@ -188,7 +204,9 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-40 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Status
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+                {/* Five controls at most — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
+                holds the arithmetic, and it is the count a new action changes. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-72 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen
                 </Table.Column>
               </Table.Header>
@@ -196,7 +214,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
               {/* `items` + a render function, not mapped children — see the memo note above. */}
               <Table.Body
                 items={filteredTeams}
-                renderEmptyState={() => emptyState}>
+                renderEmptyState={() => <AdminCrudEmptyRow message={EMPTY_MESSAGES[emptiness]} />}>
                 {(team: AdminTeamRow) => {
                   const isRetired = team.inactive_since !== null;
                   return (

@@ -11,6 +11,7 @@ import {
   FIELD_ERROR,
   FIELD_GROUP,
   FIELD_INPUT,
+  TOGGLE_GROUP_ALIGN,
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -21,6 +22,9 @@ import type { FLAustrittType } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react";
 import type { CalendarDate } from "@internationalized/date";
 import type { TeamBanner } from "./banners";
+
+/** Names the exit-type chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
+const ART_LABEL_ID = "austritt-art";
 
 /**
  * **No hover or press variant**: HeroUI's own fills are `@layer components` and these utilities are
@@ -73,11 +77,7 @@ export function FormAustrittSection({
             label="Hinweis zum Austritt"
             body={{
               lead: "Das Team scheidet aus dieser Saison aus; seine Spiele bleiben bei ihm.",
-              points: [
-                { term: "Eine Disqualifikation", text: "spricht die Liga aus, einen Rückzug erklärt das Team selbst." },
-                { term: "Die Tabelle", text: "überspringt das Team bei der Platzvergabe, seine Ergebnisse bleiben gewertet." },
-                { term: "Team ersetzen", text: "auf der Saisonseite gibt die Spiele an ein anderes Team weiter." },
-              ],
+              points: [{ term: "Die Tabelle", text: "überspringt das Team bei der Platzvergabe, seine Ergebnisse bleiben gewertet." }],
             }}
           />
         </h2>
@@ -85,12 +85,11 @@ export function FormAustrittSection({
 
       <div className={styles.body()}>
         <Switch
-          size="md"
           isSelected={hasAustritt}
           onChange={onHasAustrittChange}>
-          <Switch.Content className="fluid-sm text-danger flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+          <Switch.Content className={styles.switchContent()}>
             Team ist ausgeschieden
-            <Switch.Control className={hasAustritt ? "bg-danger" : ""}>
+            <Switch.Control className={styles.switchControl()}>
               <Switch.Thumb />
             </Switch.Control>
           </Switch.Content>
@@ -105,9 +104,17 @@ export function FormAustrittSection({
               value={art ?? ""}
               onChange={() => undefined}
               className="flex w-full flex-col gap-y-1">
-              <FieldLabel path="austritt">Art</FieldLabel>
+              {/* A `Label` and not a plain span: it names the enclosing `TextField`, which carries no
+                  `aria-label`, so `useLabel` would warn without it. The id sits on the text alone, keeping
+                  the changed-field marker out of the group's name. */}
+              <FieldLabel path="austritt">
+                <span id={ART_LABEL_ID}>Art</span>
+              </FieldLabel>
+              {/* Named from the heading rather than by a wrapper: react-aria already renders
+                  `role="radiogroup"` here, so a second grouping element around it would nest one group in
+                  another and leave the chips with two accessible names. */}
               <ToggleButtonGroup
-                aria-label="Art des Austritts"
+                aria-labelledby={ART_LABEL_ID}
                 size="sm"
                 isDetached
                 selectionMode="single"
@@ -119,7 +126,7 @@ export function FormAustrittSection({
                   const [picked] = [...keys].map(String);
                   if (picked !== undefined) onArtChange(picked as FLAustrittType);
                 }}
-                className="flex w-full flex-row flex-wrap gap-2">
+                className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
                 {AUSTRITT_OPTIONS.map((option) => (
                   <ToggleButton
                     key={option.value}

@@ -4,7 +4,14 @@ import { Autocomplete, FieldError, Label, ListBox, SearchField, useFilter } from
 
 import { dismissControl } from "@/core/dismissControl";
 import { PHASE_LABELS } from "@/features/saisons/constants";
-import { formatQuelle, isDirectlyPrecedingRound, listFeederSpiele, quelleKey, toStoredSide } from "@/features/spiele/utils";
+import {
+  formatQuelle,
+  isDirectlyPrecedingRound,
+  isFirstKnockoutRound,
+  listFeederSpiele,
+  quelleKey,
+  toStoredSide,
+} from "@/features/spiele/utils";
 import { austrittZustand } from "@/features/teams/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
@@ -142,20 +149,26 @@ export function FormTeamPicker({
   // Empty for the first knockout round, which is seeded from the group phase and fed by nothing.
   const feederSpiele = listFeederSpiele(saisonSpiele, spielData);
 
-  // The stored value stays listed even where it should not exist, so hand-edited data renders
-  // truthfully rather than as an empty control.
+  const storedQuelle = fieldName === "team1" ? spielData.team1_quelle : spielData.team2_quelle;
+
+  // A group placing seeds the bracket's entrance; from there an earlier match feeds the slot, so no
+  // later round lists one. `REQ-WIRING-002` refuses a save that moves a source into that shape.
+  const seedsFromTheGroups = isFirstKnockoutRound(saisonSpiele, spielData);
+
+  // The current choice always keeps its row, so a fixture wired past that rule reads truthfully
+  // rather than as an empty control, and re-sending it unchanged is a save the write path takes.
   const availableChoices = QUELLE_CHOICES.filter(
-    (item) => item.key === "manuell" || item.key === "gruppe" || feederSpiele.length > 0 || item.key === choice,
+    (item) => item.key === "manuell" || item.key === choice || (item.key === "gruppe" ? seedsFromTheGroups : feederSpiele.length > 0),
   );
 
   const recommendedChoice = recommendedChoiceFor(feederSpiele.length > 0);
 
-  // Danger however the side came to be manual, the cost of missing it not depending on when.
-  // Only the ANNOUNCEMENT is graded: a takeover made in THIS edit is the only event.
-  const storedQuelle = fieldName === "team1" ? spielData.team1_quelle : spielData.team2_quelle;
   // The source decides what is editable: a team picked against a source would be reverted by the
   // same request that reported success, so only the manual answer shows a team picker.
   const isManual = isKnockout && quelle === null;
+
+  // Danger however the side came to be manual, the cost of missing it not depending on when.
+  // Only the ANNOUNCEMENT is graded: a takeover made in THIS edit is the only event.
   const hasJustBeenTakenOver = isManual && storedQuelle !== null;
 
   const handleTeamSelection = (key: Key | null) => {
@@ -192,7 +205,10 @@ export function FormTeamPicker({
    * stored occupant, so a manual detour's team cannot ride along.
    */
   const handleChoiceSelection = (key: Key | null) => {
-    const selected = (key ?? "manuell") as QuelleChoice;
+    // The list decides and never the event, which is what the absent row rests on: a keyboard pick,
+    // or a list a render old, must not seat a source this round does not offer.
+    const selected = availableChoices.find((item) => item.key === (key?.toString() ?? "manuell"))?.key;
+    if (selected === undefined) return;
 
     if (selected === "manuell") {
       onQuelleChange(null);
@@ -215,11 +231,9 @@ export function FormTeamPicker({
     onQuelleChange({ type: "spiel", spiel_nr: keptIsFree ? kept : NaN, ausgang: selected });
   };
 
+  // The fall-through every card renders a side with, so this box prints what the Spielplan will.
   // No completeness gate: `formatQuelle` answers `null` for an unpicked number by itself.
-  const derivedLabel = formatQuelle(quelle);
-
-  // The occupant the resolution wrote, or the honest empty state until it produces one.
-  const occupantLabel = teamPayload?.name ?? PLACEHOLDER.slot;
+  const occupantLabel = teamPayload?.name ?? formatQuelle(quelle) ?? PLACEHOLDER.slot;
 
   // The STORED side, which is what `REQ-RESULT-001` keys on: the rule is about destroying a
   // recorded result, and a draft that already cleared the goals is the edit doing exactly that.
@@ -367,33 +381,39 @@ export function FormTeamPicker({
 
         <Autocomplete.Popover className={overlayPanel()}>
           <ListBox className="p-1">
-            {availableChoices.map((item) => (
-              <ListBox.Item
-                key={item.key}
-                id={item.key}
-                // Also in `textValue`, so a screen reader reads the recommendation too.
-                textValue={item.key === recommendedChoice ? `${item.label} (empfohlen)` : item.label}
-                className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
-                {/* Success-tinted, not brand: brand on brand was the least readable chip here.
-                    `ml-auto` like every list chip, or two lists park it in two places. */}
-                <span className="min-w-0 truncate">{item.label}</span>
-                {item.key === recommendedChoice && (
-                  <span className={`${LABEL_BADGE} bg-success/15 text-success-strong ml-auto shrink-0`}>Empfohlen</span>
-                )}
-              </ListBox.Item>
-            ))}
+            {availableChoices.map((item) => {
+              const isRecommended = item.key === recommendedChoice;
+
+              return (
+                <ListBox.Item
+                  key={item.key}
+                  id={item.key}
+                  // Also in `textValue`, so a screen reader reads the note the row carries too.
+                  textValue={isRecommended ? `${item.label} (Empfohlen)` : item.label}
+                  className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
+                  <span className="min-w-0 truncate">{item.label}</span>
+                  {/* Success-tinted, not brand: brand on brand was the least readable chip here.
+                      `ml-auto` like every list chip, or two lists park it in two places. */}
+                  {isRecommended && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong ml-auto shrink-0`}>Empfohlen</span>}
+                </ListBox.Item>
+              );
+            })}
           </ListBox>
         </Autocomplete.Popover>
-        {/* No `Description`: the Begegnung panel's `Hint` explains all four answers once. */}
+        {/* No `Description`: the Begegnung panel's `Hint` explains the wiring once. */}
         <FieldError className={FIELD_ERROR} />
       </Autocomplete>
 
       {/* Rendered per variant, so no box belongs to a shape the source is not in. */}
       {quelle?.type === "gruppe" && (
         <div className={FIELD_PAIR}>
+          {/* Closed rather than dropped: the stored placing is the only readout of what this side is
+              wired to, and only a save MOVING the source is refused, so it must come back unchanged.
+              The banner below names the way out. */}
           <Autocomplete
             name={`${fieldName}_quelle.gruppe`}
             className="w-full"
+            isDisabled={!seedsFromTheGroups}
             selectionMode="single"
             value={quelle.gruppe}
             // The platz survives the group change unless the new group already seeds it.
@@ -431,6 +451,7 @@ export function FormTeamPicker({
           <Autocomplete
             name={`${fieldName}_quelle.platz`}
             className="w-full"
+            isDisabled={!seedsFromTheGroups}
             selectionMode="single"
             placeholder="Platz wählen"
             value={Number.isInteger(quelle.platz) ? String(quelle.platz) : null}
@@ -525,6 +546,13 @@ export function FormTeamPicker({
         </Autocomplete>
       )}
 
+      {/* Never announced: the picker above cannot produce this shape, so it is there from first
+          paint or not at all, which makes it a property rather than an event. */}
+      <InlineBanners
+        banners={banners}
+        spot={`${fieldName}-herkunft`}
+      />
+
       {/* Danger on the state, so a slot taken over in any edit carries it; `isAnnounced` keys on
           the act, only this edit's takeover being an event worth announcing. */}
       <InlineBanners
@@ -552,14 +580,6 @@ export function FormTeamPicker({
           {/* The control above is labelled Herkunft, so the note names it rather than the machinery behind it. */}
           <p className="fluid-xxs text-foreground-muted leading-normal font-medium">Folgt der Herkunft.</p>
         </div>
-      )}
-
-      {/* The same derivation the public cards use, so the admin reads what the bracket will
-          print. Only while UNRESOLVED — an occupied slot prints the team's name instead. */}
-      {derivedLabel !== null && teamPayload === null && (
-        <p className="fluid-xxs text-foreground-muted leading-normal font-medium">
-          Im Spielplan erscheint: <strong className="text-foreground">{derivedLabel}</strong>
-        </p>
       )}
     </div>
   );

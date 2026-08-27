@@ -14,6 +14,12 @@ import type { FLSaisonRules } from "@/features/saisons/schemas";
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SaisonBanner } from "./banners";
 
+/** Names the forfeit pair for a screen reader: the heading over it is a `Label` bound to no control of its own. */
+const FORFEIT_LABEL_ID = "nichtantreten-ergebnis";
+
+/** Names the level chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
+const STUFEN_LABEL_ID = "erlaubte-stufen";
+
 /**
  * **`erlaubte_stufen` narrows what a squad form OFFERS and never what a stored row holds.** No
  * validator holds `saison_spieler.stufe` against a season's list, deliberately: narrowing a season
@@ -29,6 +35,7 @@ export function FormRegelnSection({
   onFieldLeft,
   onStufenChange,
   isFinishedSaison,
+  isKnockoutStarted,
   isDrawnSaison,
   banners,
 }: {
@@ -42,6 +49,12 @@ export function FormRegelnSection({
    * (`REQ-RULES-005`). The endpoint refuses a change to any of them; this stops the page offering one.
    */
   isFinishedSaison: boolean;
+  /**
+   * Whether a knockout fixture has been played, which freezes the tiebreak (`REQ-RULES-012`).
+   * **Handed in, never derived here**: the group swap grades the same fact (`REQ-SWAP-002`), and a
+   * second reading would offer what the endpoint refuses.
+   */
+  isKnockoutStarted: boolean;
   /**
    * Whether the season's fixtures exist, which freezes the three they were drawn from
    * (`REQ-RULES-011`). Not a later stage of the freeze above: a season is drawn long before it is
@@ -60,13 +73,7 @@ export function FormRegelnSection({
           <Hint
             mode="reveal"
             label="Hinweis zu den Regeln"
-            body={{
-              lead: "Diese Werte legen fest, wie die Saison gespielt wird.",
-              points: [
-                { term: "Gruppen", text: "und Teams pro Gruppe begrenzen, wohin ein Team aufgenommen werden kann." },
-                { term: "Qualifikanten", text: "sind die Teams jeder Gruppe, die die KO-Runde erreichen." },
-              ],
-            }}
+            body={{ lead: "Die Regeln gelten nur für diese Saison." }}
           />
         </h2>
       </div>
@@ -74,48 +81,66 @@ export function FormRegelnSection({
       <div className={panel.body()}>
         {/* One group and not two: all four answer what a single fixture is worth, and the forfeit
             result is that same question asked of a fixture nobody played. */}
-        <div className="flex w-full flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Wertung eines Spiels</h3>
-          <div className={FIELD_PAIR}>
-            <SaisonRuleNumberField
-              name="rules.win_points"
-              isReadOnly={isFinishedSaison}
-              label={<FieldLabel path="rules.win_points">Punkte für einen Sieg</FieldLabel>}
-              minValue={1}
-              value={rules.win_points}
-              onChange={(win_points) => onRulesChange({ ...rules, win_points })}
-              onBlur={() => onFieldLeft(["rules.win_points"])}
-            />
-            <SaisonRuleNumberField
-              name="rules.draw_points"
-              isReadOnly={isFinishedSaison}
-              label={<FieldLabel path="rules.draw_points">Punkte für ein Unentschieden</FieldLabel>}
-              minValue={0}
-              value={rules.draw_points}
-              onChange={(draw_points) => onRulesChange({ ...rules, draw_points })}
-              onBlur={() => onFieldLeft(["rules.draw_points"])}
-            />
+        {/* The panel body's own between-group step, so the one break inside this group is not its smallest gap. */}
+        <div className="flex w-full flex-col gap-y-5">
+          <div className="flex w-full flex-col gap-y-3">
+            <h3 className={FORM_SECTION_HEADING}>Wertung eines Spiels</h3>
+            <div className={FIELD_PAIR}>
+              <SaisonRuleNumberField
+                name="rules.win_points"
+                isReadOnly={isFinishedSaison}
+                label={<FieldLabel path="rules.win_points">Punkte für einen Sieg</FieldLabel>}
+                minValue={1}
+                value={rules.win_points}
+                onChange={(win_points) => onRulesChange({ ...rules, win_points })}
+                onBlur={() => onFieldLeft(["rules.win_points"])}
+              />
+              <SaisonRuleNumberField
+                name="rules.draw_points"
+                isReadOnly={isFinishedSaison}
+                label={<FieldLabel path="rules.draw_points">Punkte für ein Unentschieden</FieldLabel>}
+                minValue={0}
+                value={rules.draw_points}
+                onChange={(draw_points) => onRulesChange({ ...rules, draw_points })}
+                onBlur={() => onFieldLeft(["rules.draw_points"])}
+              />
+            </div>
           </div>
-          {/* One label over the pair, mirroring its one row in the change list: the season regulates
-              both sides' goals together, so neither number is a decision on its own. */}
-          <FieldLabel path="rules.forfeit_ergebnis">Ergebnis eines Spiels, zu dem ein Team nicht antritt</FieldLabel>
-          <div className={FIELD_PAIR}>
-            <SaisonRuleNumberField
-              name="rules.forfeit_ergebnis.sieger_tore"
-              label={<Label className={FIELD_LABEL}>Tore für den Sieger</Label>}
-              minValue={0}
-              value={rules.forfeit_ergebnis.sieger_tore}
-              onChange={(sieger_tore) => onRulesChange({ ...rules, forfeit_ergebnis: { ...rules.forfeit_ergebnis, sieger_tore } })}
-              onBlur={() => onFieldLeft(["rules.forfeit_ergebnis.sieger_tore"])}
-            />
-            <SaisonRuleNumberField
-              name="rules.forfeit_ergebnis.verlierer_tore"
-              label={<Label className={FIELD_LABEL}>Tore für den Verlierer</Label>}
-              minValue={0}
-              value={rules.forfeit_ergebnis.verlierer_tore}
-              onChange={(verlierer_tore) => onRulesChange({ ...rules, forfeit_ergebnis: { ...rules.forfeit_ergebnis, verlierer_tore } })}
-              onBlur={() => onFieldLeft(["rules.forfeit_ergebnis.verlierer_tore"])}
-            />
+
+          <div className="flex w-full flex-col gap-y-3">
+            {/* One label over the pair, mirroring its one row in the change list: the season regulates
+                both sides' goals together, so neither number is a decision on its own. Still a
+                `FieldLabel`, which is what carries the Geändert marker and the row's anchor. */}
+            <FieldLabel path="rules.forfeit_ergebnis">
+              {/* The heading recipe on the text rather than on the `Label`: it governs the pair below it,
+                  and at `FIELD_LABEL` it wore the same weight as the two field labels it governs. */}
+              <span
+                id={FORFEIT_LABEL_ID}
+                className={FORM_SECTION_HEADING}>
+                Ergebnis eines Spiels, zu dem ein Team nicht antritt
+              </span>
+            </FieldLabel>
+            <div
+              role="group"
+              aria-labelledby={FORFEIT_LABEL_ID}
+              className={FIELD_PAIR}>
+              <SaisonRuleNumberField
+                name="rules.forfeit_ergebnis.sieger_tore"
+                label={<Label className={FIELD_LABEL}>Tore für den Sieger</Label>}
+                minValue={0}
+                value={rules.forfeit_ergebnis.sieger_tore}
+                onChange={(sieger_tore) => onRulesChange({ ...rules, forfeit_ergebnis: { ...rules.forfeit_ergebnis, sieger_tore } })}
+                onBlur={() => onFieldLeft(["rules.forfeit_ergebnis.sieger_tore"])}
+              />
+              <SaisonRuleNumberField
+                name="rules.forfeit_ergebnis.verlierer_tore"
+                label={<Label className={FIELD_LABEL}>Tore für den Verlierer</Label>}
+                minValue={0}
+                value={rules.forfeit_ergebnis.verlierer_tore}
+                onChange={(verlierer_tore) => onRulesChange({ ...rules, forfeit_ergebnis: { ...rules.forfeit_ergebnis, verlierer_tore } })}
+                onBlur={() => onFieldLeft(["rules.forfeit_ergebnis.verlierer_tore"])}
+              />
+            </div>
           </div>
         </div>
 
@@ -127,11 +152,20 @@ export function FormRegelnSection({
           <h3 className={FORM_SECTION_HEADING}>Tiebreak</h3>
           <SaisonTiebreakSelect
             name="rules.tiebreak_order"
-            isDisabled={isFinishedSaison}
+            isDisabled={isFinishedSaison || isKnockoutStarted}
             label={<FieldLabel path="rules.tiebreak_order">Was zuerst entscheidet</FieldLabel>}
             value={rules.tiebreak_order}
             onChange={(tiebreak_order) => onRulesChange({ ...rules, tiebreak_order })}
           />
+
+          {/* Panel-local for the reason the redraw note at the foot of this panel is: on the rail it
+              would name a control the reader cannot see. Only while the season still runs -- a
+              finished one is answered by the standing banner this panel already carries. */}
+          {isKnockoutStarted && !isFinishedSaison && (
+            <p className="fluid-xxs text-foreground-muted w-full font-medium">
+              Nach dem Beginn der KO-Runde lässt sich der Tiebreak nicht mehr ändern.
+            </p>
+          )}
         </div>
 
         <Separator className="bg-border" />
@@ -198,9 +232,12 @@ export function FormRegelnSection({
             onChange={(max_kadergroesse) => onRulesChange({ ...rules, max_kadergroesse })}
             onBlur={() => onFieldLeft(["rules.max_kadergroesse"])}
           />
-          <FieldLabel path="rules.erlaubte_stufen">Welche Stufen diese Saison spielen</FieldLabel>
+          <FieldLabel path="rules.erlaubte_stufen">
+            <span id={STUFEN_LABEL_ID}>Welche Stufen diese Saison spielen</span>
+          </FieldLabel>
           <StufenPicker
             name="rules.erlaubte_stufen"
+            labelledBy={STUFEN_LABEL_ID}
             value={rules.erlaubte_stufen}
             onChange={onStufenChange}
           />
@@ -213,30 +250,14 @@ export function FormRegelnSection({
           spot="regeln-status"
         />
 
-        {/* Panel-local, not a banner: which of THESE fields are frozen is a fact about the inputs
-            directly above, and on the rail it would describe controls the reader cannot see. The
-            `past` freeze is the banner's above, which names the same three fields. */}
-        {(isFinishedSaison || isDrawnSaison) && (
-          <div className="fluid-xxs text-foreground-muted flex w-full flex-col gap-y-1 font-medium">
-            {/* Two repairs and not one, as `find_rules_refusal` composes them per moved field: only
-                the qualifiers move on a redraw, the other two standing on which clubs are entered. */}
-            {isDrawnSaison && (
-              <p>
-                Für diese Saison sind schon Spiele angesetzt, und sie sind aus diesen Zahlen entstanden. Die Qualifikanten änderst Du, indem Du
-                den Spielplan mit der neuen Zahl neu anlegst: Beides entsteht in einem Schritt. Gruppen und Teams pro Gruppe hängen dagegen an
-                den Teams, die in dieser Saison stehen. Nimm dafür zuerst den Spielplan zurück, passe die Teams an und lege ihn danach neu an.
-              </p>
-            )}
-            {/* Spelled out per case rather than listing the always-open fields: under one freeze the
-                other's fields are still editable, and leaving them out would read as closing them. */}
-            <p>
-              {isFinishedSaison && isDrawnSaison
-                ? "Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
-                : isFinishedSaison
-                  ? "Gruppen, Teams pro Gruppe, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."
-                  : "Punkte, Tiebreak, Nichtantreten, Kadergröße, Stufen und der Zeitraum bleiben änderbar."}
-            </p>
-          </div>
+        {/* Panel-local: on the rail it would describe controls the reader cannot see. Two repairs and
+            not one, as `find_rules_refusal` composes them per moved field: only the qualifiers move
+            on a redraw, the other two standing on which clubs are entered. */}
+        {isDrawnSaison && (
+          <p className="fluid-xxs text-foreground-muted w-full font-medium">
+            Die Qualifikanten änderst Du, indem Du den Spielplan mit der neuen Zahl neu anlegst. Für Gruppen und Teams pro Gruppe nimmst Du den
+            Spielplan zurück, passt die Teams an und legst ihn danach neu an.
+          </p>
         )}
       </div>
     </section>

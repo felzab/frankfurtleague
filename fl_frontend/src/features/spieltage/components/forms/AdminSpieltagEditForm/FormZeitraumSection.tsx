@@ -61,10 +61,7 @@ export function FormZeitraumSection({
             label="Hinweis zum Zeitraum"
             body={{
               lead: "Wann der Spieltag gespielt wird.",
-              points: [
-                { term: "Die Reihenfolge", text: "steht mit dem Spielplan fest." },
-                { term: "Tage außerhalb der Saison", text: "sind im Kalender ausgegraut." },
-              ],
+              points: [{ term: "Die Reihenfolge", text: "steht mit dem Spielplan fest." }],
             }}
           />
         </h2>

@@ -28,6 +28,7 @@ import {
   collectKnockoutTeamIds,
   collectSpieltagTeamOccupancy,
   formatUndoScopeWarning,
+  isFirstKnockoutRound,
   listDependentSpiele,
   listMovedSpiele,
   toStoredSide,
@@ -132,6 +133,9 @@ export function AdminEditSpielDataForm({
   const [isLeaving, startLeaving] = useTransition();
 
   const [sonderereignis, setSonderereignis] = useState<FLSonderereignis | null>(spielData.sonderereignis);
+  // Held, never derived from the value: a scalar has no empty-but-present form, so a derived
+  // disclosure would have to seed a member the moment it opened.
+  const [hasSonderereignis, setHasSonderereignis] = useState(spielData.sonderereignis !== null);
   const [ortPayload, setOrtPayload] = useState<FLSpielOrtFieldDraft | null>(spielData.ort);
   const [schiedsrichterPayload, setSchiedsrichterPayload] = useState<FLSpielSchiedsrichterFieldDraft | null>(spielData.schiedsrichter);
 
@@ -297,9 +301,27 @@ export function AdminEditSpielDataForm({
   // so a `null` preview means "no answer yet" and contributes nothing, not "nothing would be lost".
   const banners = buildSpielBanners({
     isKnockout,
+    // The same derivation `FormTeamPicker` closes the group choice on, so the closed row and the
+    // banner explaining it cannot disagree.
+    seedsFromTheGroups: isFirstKnockoutRound(saisonSpiele, spielData),
     sides: [
-      { fieldName: "team1", label: "Team 1", quelle: team1Quelle, team: team1Payload },
-      { fieldName: "team2", label: "Team 2", quelle: team2Quelle, team: team2Payload },
+      // The stored pair rides along so the banners can tell a takeover made here from one inherited.
+      {
+        fieldName: "team1",
+        label: "Team 1",
+        quelle: team1Quelle,
+        team: team1Payload,
+        storedQuelle: spielData.team1_quelle,
+        storedTeam: toStoredSide(spielData.team1),
+      },
+      {
+        fieldName: "team2",
+        label: "Team 2",
+        quelle: team2Quelle,
+        team: team2Payload,
+        storedQuelle: spielData.team2_quelle,
+        storedTeam: toStoredSide(spielData.team2),
+      },
     ],
     knockoutTeamIds,
     // Any pick differing from the stored one, not only a first event: swapping Ausgefallen for
@@ -366,6 +388,7 @@ export function AdminEditSpielDataForm({
     // Every atom listed rather than looped: one added to the `useState` block above and forgotten
     // here leaves `status.changed` non-empty after both exits, silently.
     setSonderereignis(spielData.sonderereignis);
+    setHasSonderereignis(spielData.sonderereignis !== null);
     setOrtPayload(spielData.ort);
     setSchiedsrichterPayload(spielData.schiedsrichter);
     setDatum(spielData.datum ? parseDate(spielData.datum) : null);
@@ -389,9 +412,8 @@ export function AdminEditSpielDataForm({
   };
 
   const requestSave = () => {
-    // Refusal banners are excluded: they report what the server ALREADY refused, where this gate
-    // confirms what a save is about to cause. Left in, a standing one turns the next Save into a
-    // dialog about a failure that has already happened.
+    // Refusal banners are excluded: each names a save the endpoint refuses, where this gate confirms
+    // what a save would cause. Left in, one turns the next Save into a dialog about a failure.
     const blocking = resolveBlockingBanners(banners.filter((banner) => !isSpielRefusalBannerId(banner.id)));
     if (blocking !== null) {
       // Snapshotted, not read live: a background revalidation would move the list under the dialog.
@@ -643,6 +665,13 @@ export function AdminEditSpielDataForm({
 
             <FormSonderereignisSection
               sonderereignis={sonderereignis}
+              hasSonderereignis={hasSonderereignis}
+              onHasSonderereignisChange={(next) => {
+                setHasSonderereignis(next);
+                // Closing it is the only way back to no event, so the value goes with it rather
+                // than surviving out of sight and riding into the save.
+                if (!next) setSonderereignis(null);
+              }}
               // Read off the DRAFT, not the stored fixture: emptying a slot must close the two
               // no-show states in the same tick, or the form offers what the save then refuses.
               hasBothSides={team1Payload !== null && team2Payload !== null}

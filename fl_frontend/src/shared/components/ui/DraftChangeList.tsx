@@ -66,14 +66,21 @@ export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[
                     <span className="text-foreground min-w-0 truncate font-bold">{field.draftText}</span>
                   )}
                   <span className="ml-auto flex shrink-0 items-center">
-                    <InfoHint
-                      label={`${word}: ${field.label}`}
-                      trigger={<Icon className={`size-3.5 ${cls}`} />}>
-                      <p>
-                        <strong>{word}</strong>
-                      </p>
-                      {operation !== "added" && <p>Vorher: {field.storedText}</p>}
-                    </InfoHint>
+                    {/* The previous value is the whole of what the panel carries, so a new entry gets the
+                        glyph alone. The operation word is the span below, which all three arms draw; on a
+                        trigger only two of them have, it would be said twice wherever there is one. */}
+                    {operation === "added" ? (
+                      <Icon
+                        aria-hidden="true"
+                        className={`size-3.5 ${cls}`}
+                      />
+                    ) : (
+                      <InfoHint
+                        label={`Vorheriger Wert von ${field.label}`}
+                        trigger={<Icon className={`size-3.5 ${cls}`} />}>
+                        <p>Vorher: {field.storedText}</p>
+                      </InfoHint>
+                    )}
                   </span>
                   <span className="sr-only">{word}</span>
                 </li>

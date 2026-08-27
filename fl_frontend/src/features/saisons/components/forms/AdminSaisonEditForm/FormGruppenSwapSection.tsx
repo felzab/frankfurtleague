@@ -175,53 +175,42 @@ export function FormGruppenSwapSection({
           <Hint
             mode="reveal"
             label="Hinweis zum Gruppentausch"
-            body={{
-              lead: "Zwei Teams tauschen ihre Gruppen.",
-              points: [
-                { term: "Jede Gruppe", text: "behält ihre Größe." },
-                { term: "Die angesetzten Spiele", text: "tauschen mit, samt Gegner, Termin und Ort." },
-                { term: "Spiele der KO-Runde", text: "bleiben, wo sie sind." },
-                { text: "Verschiebe eines der Spiele, wenn ein Team sonst zweimal an einem Spieltag stünde." },
-              ],
-            }}
+            body={{ lead: "Zwei Teams tauschen ihre Gruppen." }}
           />
         </h2>
       </div>
 
       <div className={panel.body()}>
+        {/* Each title states the rule that shut the control rather than the state that met it: a rule
+            is what a reader carries away and can predict from. Dictated wording, shared with the team
+            panel. */}
         {isFinishedSaison ? (
           <Callout
             severity="info"
-            title="Die Saison ist abgeschlossen">
-            Eine abgeschlossene Saison wird nicht mehr verändert. Ihre Tabellen bleiben so, wie sie am Saisonende standen.
+            title="In einer abgeschlossenen Saison ist ein Gruppentausch nicht mehr möglich">
+            Die Tabellen dieser Saison bleiben so, wie sie am Saisonende standen.
           </Callout>
         ) : isClosed ? (
           <Callout
             severity="info"
-            title="Die KO-Runde hat begonnen">
-            {swap.playedKnockoutSpiele === 1
-              ? "Ein Spiel der KO-Runde wurde schon gespielt oder abgesagt."
-              : `${String(swap.playedKnockoutSpiele)} Spiele der KO-Runde wurden schon gespielt oder abgesagt.`}{" "}
-            Die Setzung ist aus diesen Gruppen entstanden, deshalb lässt sich jetzt keine Gruppe mehr tauschen.
-          </Callout>
+            title="Nach dem Beginn der KO-Runde ist ein Gruppentausch nicht mehr möglich"
+          />
         ) : !hasTwoGruppen ? (
           <Callout
             severity="info"
-            title="Noch nichts zu tauschen">
-            Für einen Tausch müssen Teams in mindestens zwei verschiedenen Gruppen stehen. Nimm die Teams über die Teamseite in die Saison auf.
+            title="Ein Gruppentausch braucht Teams in zwei verschiedenen Gruppen">
+            Nimm die Teams über die Teamseite in die Saison auf.
           </Callout>
         ) : !hasTwoSwappableGruppen ? (
           <Callout
             severity="info"
-            title="Die Gruppenphase ist zu weit">
-            Tauschen können nur Teams, die in ihrer Gruppe noch kein Spiel gespielt oder abgesagt bekommen haben, und die gibt es nicht mehr in
-            zwei verschiedenen Gruppen. Eine Gruppe ist ein Rundenturnier: Wer darin einmal gespielt hat, gehört dorthin.
-          </Callout>
+            title="Ein Gruppentausch braucht zwei Teams, die in ihrer Gruppe noch kein Spiel gespielt haben"
+          />
         ) : (
           <>
             <p
               id={PAIR_LABEL_ID}
-              className="fluid-sm text-foreground font-medium">
+              className="muted-hint">
               Wähle die beiden Teams, die ihre Gruppen tauschen sollen.
             </p>
 
@@ -260,8 +249,7 @@ export function FormGruppenSwapSection({
             {first !== null && second !== null && (
               <Callout
                 severity="warning"
-                title="Das passiert beim Tausch">
-                <strong>{first.name}</strong> steht danach in Gruppe {second.gruppe}, <strong>{second.name}</strong> in Gruppe {first.gruppe}.
+                title={`${first.name} steht danach in Gruppe ${second.gruppe}, ${second.name} in Gruppe ${first.gruppe}`}>
                 Beide übernehmen dabei die angesetzten Spiele des anderen, mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
                 sofort.
               </Callout>
@@ -270,8 +258,7 @@ export function FormGruppenSwapSection({
             {isConfirming && first !== null && second !== null && (
               <ConfirmReveal>
                 <p className="fluid-xxs text-foreground leading-normal font-medium">
-                  Der Tausch gilt sofort und ist auf jeder Tabelle dieser Saison sichtbar. Rückgängig machst Du ihn, indem Du dieselben beiden
-                  Teams noch einmal tauschst.
+                  Rückgängig machst Du den Tausch, indem Du dieselben beiden Teams noch einmal tauschst.
                 </p>
               </ConfirmReveal>
             )}

@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `d6be7a6f`, 2026-08-26\
+**Verified against:** `d53d0461`, 2026-08-27\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation
@@ -46,10 +46,13 @@ and body an id naming nothing gets ([`docs/backend/spec.md`](../backend/spec.md)
 it is never on its own proof that the document is absent.
 
 **A refusal comparing a payload against the document it replaces names a step, never a state**: `REQ-RULES-001`,
-`REQ-RULES-004`, `REQ-RULES-006`, `REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009`, `REQ-RULES-010` and
-`REQ-RULES-011` arrive on the edit that introduces or worsens the violation and let a resubmission of the stored
-values through, because a season patch replaces `rules` wholesale. `REQ-DATE-008` is the same shape one payload
-over: a matchday patch carries `beginn` and `ende` together, so an `ende`-only edit resubmits the stored `beginn`
+`REQ-RULES-004`, `REQ-RULES-006`, `REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009`, `REQ-RULES-010`,
+`REQ-RULES-011` and `REQ-RULES-012` arrive on the edit that introduces or worsens the violation and let a
+resubmission of the stored values through, because a season patch replaces `rules` wholesale.
+`REQ-DATE-008` is the same shape one payload
+over: a matchday patch carries `beginn` and `ende` together, so an `ende`-only edit resubmits the stored `beginn`. The
+two wiring codes read the same way on a third payload: a match patch carries both `quelle` fields, so `REQ-WIRING-001`
+and `REQ-WIRING-002` judge the side whose source the save MOVES and leave a fixture already wired out of rule editable
 (`docs/backend/spec.md :: I44`).
 
 **The draw freezes a season's SHAPE alone**: `REQ-RULES-011` names `number_of_groups`, `teams_per_group` and
@@ -58,7 +61,9 @@ end, but the three do not share one repair, so the refusal composes a repair per
 moves by drawing the season AGAIN with the new number carried on the replace and written in the transaction that redraws
 (`REQ-SPIELPLAN-005`), while the clubs entered fix the other two, whose repair is an undraw (`REQ-SPIELPLAN-006`), a
 change to those entries, and a fresh draw ([`docs/domain.md`](../domain.md)). What a season scores by stays editable
-until the season turns `past`, where `REQ-RULES-005` freezes it.
+until the season turns `past`, where `REQ-RULES-005` freezes it. **The tie-break alone freezes sooner**:
+`REQ-RULES-012` closes `tiebreak_order` once a knockout fixture of the season has left a record, the bracket
+having been seeded from the group placings that order decides.
 
 | Code                  | Status | Meaning                                                                                                                                                |
 | --------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -80,6 +85,7 @@ until the season turns `past`, where `REQ-RULES-005` freezes it.
 | `REQ-RULES-009`       | 409    | `max_kadergroesse` would drop below the largest squad the season already holds                                                                         |
 | `REQ-RULES-010`       | 409    | A step paired a level `forfeit_ergebnis` with rules that produce a knockout round                                                                      |
 | `REQ-RULES-011`       | 409    | A drawn season was patched to change one of the SHAPE rules its fixtures were drawn from; the refusal names the repair each moved field has            |
+| `REQ-RULES-012`       | 409    | A season patch moved `tiebreak_order` with a knockout fixture already played, abandoned, forfeited or holding a goal count                             |
 | `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures with no result and no `sonderereignis` that awards none                                                       |
 | `REQ-ACTIVATE-002`    | 409    | A `past` season was activated — refused unconditionally, since it would reopen the points and groups its table derives from                            |
 | `REQ-ACTIVATE-003`    | 409    | A season holding no fixtures was activated, which would take the league live with nothing to play                                                      |
@@ -116,7 +122,8 @@ until the season turns `past`, where `REQ-RULES-005` freezes it.
 | `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved                                                                          |
 | `REQ-BOOKING-001`     | 409    | A venue or a referee NEWLY assigned to a fixture is unknown or retired — one already stored survives its target's retirement                           |
 | `REQ-CLASH-001`       | 409    | A venue or a referee would serve two fixtures less than four hours apart                                                                               |
-| `REQ-WIRING-001`      | 409    | Bracket wiring the season cannot hold reached the match write path                                                                                     |
+| `REQ-WIRING-001`      | 409    | A save MOVED a side's source to bracket wiring the season cannot hold; a fixture already wired that way stays editable                                 |
+| `REQ-WIRING-002`      | 409    | A save MOVED a side's source to a group placing on a round past the one this season's bracket opens on                                                 |
 | `REQ-ELIGIBILITY-001` | 409    | A team that has left the season stands on a match dated on or after its exit, and the save changed an input the rule reads                             |
 | `REQ-ELIGIBILITY-002` | 409    | A newly fielded team holds no `saison_teams` row for the fixture's season                                                                              |
 | `REQ-RESULT-001`      | 409    | A side carrying goals on a played fixture was emptied rather than switched                                                                             |

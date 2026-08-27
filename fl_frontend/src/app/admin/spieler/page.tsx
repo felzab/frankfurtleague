@@ -7,7 +7,6 @@ import { AdminCreateSpielerModal } from "@/features/spieler/components/modals/Ad
 import { AdminSpielerView } from "@/features/spieler/components/views/AdminSpielerView";
 import { orderStufen, SPIELER_CRUD_COPY } from "@/features/spieler/constants";
 import { getSpielerMemberships } from "@/features/spieler/queries";
-import { collectTakenSquadNummern } from "@/features/spieler/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
@@ -17,14 +16,10 @@ import type { AdminSpielerRow, SpielerCreateSaisonOption, SpielerTeamOption } fr
 import type { FLTeamWithMemberships } from "@/features/teams/schemas";
 import type { NextPageProps } from "@/shared/types/types";
 
-/**
- * The teams entered in one season. `takenByTeam` carries the shirts already worn in each, so the
- * create form can warn about a second wearer — a state the API permits and never refuses.
- */
-function teamsInSaison(teams: FLTeamWithMemberships[], saisonId: string, takenByTeam: Record<string, string[]>): SpielerTeamOption[] {
+function teamsInSaison(teams: FLTeamWithMemberships[], saisonId: string): SpielerTeamOption[] {
   return teams
     .filter((team) => team.memberships.some((membership) => membership.saison_id === saisonId))
-    .map((team) => ({ teamId: team.id, name: team.name, shorthand: team.shorthand, takenNummern: takenByTeam[team.id] ?? [] }));
+    .map((team) => ({ teamId: team.id, name: team.name, shorthand: team.shorthand }));
 }
 
 // Not async, so the chrome never waits on the list. The create modal needs the season and team
@@ -57,7 +52,7 @@ async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPa
   // Repeating the table's read costs nothing: React's `cache` shares one round trip per render pass.
   // Not `"use cache"`, a cross-request store keyed on arguments rather than the caller:
   // `fl_frontend/src/features/saisons/queries.ts :: getAdminSaisons`.
-  const [saisonsRes, teamsRes, spielerRes] = await Promise.all([getAdminSaisons(), getTeamMemberships(), getSpielerMemberships()]);
+  const [saisonsRes, teamsRes] = await Promise.all([getAdminSaisons(), getTeamMemberships()]);
 
   // Running and planned both, unlike the club create's planned-only rule: a squad is filled in
   // during its season.
@@ -66,12 +61,7 @@ async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPa
     .map((saison) => ({
       saisonId: saison.id,
       isNachgetragen: saison.status === "active",
-      // No player to exclude: the create form's subject does not exist yet, so every live row counts.
-      teams: teamsInSaison(
-        teamsRes.teams,
-        saison.id,
-        collectTakenSquadNummern({ spieler: spielerRes.spieler, saisonId: saison.id, exceptSpielerId: "" }),
-      ),
+      teams: teamsInSaison(teamsRes.teams, saison.id),
       // Ordered by the league's (`orderStufen`), so two seasons never present a different sequence.
       erlaubteStufen: orderStufen(saison.rules.erlaubte_stufen),
     }));
@@ -135,10 +125,10 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
   return (
     <AdminSpielerView
       spieler={rows}
-      // The create modal, the facet's options, and the gate on the row reactivate all read this: a
-      // filter naming another season's club narrows to nothing, and a wider list would offer a
-      // reactivate `REQ-SQUAD-001` refuses.
-      teams={teamsInSaison(teamsRes.teams, selectedSaisonId, {})}
+      // The facet's options and the gate on the row reactivate both read this: a filter naming
+      // another season's club narrows to nothing, and a wider list would offer a reactivate
+      // `REQ-SQUAD-001` refuses.
+      teams={teamsInSaison(teamsRes.teams, selectedSaisonId)}
       selectedSaisonId={selectedSaisonId}
     />
   );

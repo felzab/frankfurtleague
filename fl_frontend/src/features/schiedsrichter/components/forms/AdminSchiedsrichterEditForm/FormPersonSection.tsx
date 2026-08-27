@@ -36,10 +36,7 @@ export function FormPersonSection({
           <Hint
             mode="reveal"
             label="Hinweis zu den Personendaten"
-            body={{
-              lead: "Wer der Schiedsrichter ist.",
-              points: [{ term: "Der Name", text: "steht in jedem Spiel, für das er eingeteilt ist." }],
-            }}
+            body={{ lead: "Wer der Schiedsrichter ist." }}
           />
         </h2>
       </div>

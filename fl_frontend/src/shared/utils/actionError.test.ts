@@ -74,6 +74,22 @@ describe("toActionErrorResult", () => {
     assert.doesNotMatch(occupant.error ?? "", /Lade die Seite neu/);
   });
 
+  it("sends the seeding refusal to change the origin, never to reload", () => {
+    // The two wiring codes are 409s from one function and their advice is opposite: a reload rebuilds
+    // a form that never offered the shape, and only closes the answer behind this one.
+    const result = toActionErrorResult(new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode: "REQ-WIRING-002" }));
+
+    assert.equal(result.success, false);
+    assert.doesNotMatch(result.error ?? "", /Lade die Seite neu/);
+    assert.match(result.error ?? "", /Herkunft/);
+    assert.match(result.error ?? "", /ersten KO-Runde/);
+    // The FORM register `docs/frontend/spec.md` §1.12 sets, the action second.
+    assert.equal(result.error?.split(". ").length, 2);
+    assert.match(result.error?.split(". ")[1] ?? "", /^Wähle/);
+    // No side rides back: the failure body names none, so a form placing this on one would guess.
+    assert.equal(result.errorCode, undefined);
+  });
+
   it("maps a 404 onto the vanished-record message", () => {
     const result = toActionErrorResult(new APIBadStatusError({ ...base, message: "bad", statusCode: 404 }));
 

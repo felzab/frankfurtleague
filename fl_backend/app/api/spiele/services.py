@@ -1046,9 +1046,14 @@ def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:
 
 WIRING_UNSUPPORTED = "REQ-WIRING-001"
 
+# Its own code because the repair differs: `REQ-WIRING-001` can mean the season moved and a reload
+# clears it, while nothing moves a fixture's round, so a resend answers the same. The way out is a
+# different source on that side, or a hand-set team.
+WIRING_SEED_PAST_THE_OPENING_ROUND = "REQ-WIRING-002"
+
 
 def _wiring_refusal(message: str) -> WriteRefusal:
-    """Every wiring message shares one code: they are one rule, and one repair."""
+    """One code for every shape with the same repair -- the season moved under the page, so reload."""
 
     return WriteRefusal(error_code=WIRING_UNSUPPORTED, message=message)
 
@@ -1067,10 +1072,20 @@ def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPaylo
         if quelle is not None
     }
 
-    sides = (("team1", payload.team1, payload.team1_quelle), ("team2", payload.team2, payload.team2_quelle))
+    sides = (
+        ("team1", payload.team1, payload.team1_quelle, stored.team1_quelle),
+        ("team2", payload.team2, payload.team2_quelle, stored.team2_quelle),
+    )
 
-    for label, _, quelle in sides:
-        if quelle is None:
+    # A source this payload KEEPS is not judged below, but the season still holds it, so the other
+    # side cannot be pointed at it. Seeded before the loop, so the answer does not depend on which
+    # side the admin moved.
+    used |= {_quelle_key(quelle) for _, _, quelle, stored_quelle in sides if quelle is not None and quelle == stored_quelle}
+
+    for label, _, quelle, stored_quelle in sides:
+        # The payload replaces the fixture wholesale, so a rule reading it alone would latch every
+        # later edit of a fixture already wired this way (`docs/backend/spec.md :: I44`).
+        if quelle is None or quelle == stored_quelle:
             continue
 
         if stored.saison_phase == "gruppenphase":
@@ -1090,12 +1105,26 @@ def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPaylo
                     f"which is not played before this fixture ({stored.saison_phase})"
                 )
 
+        # A group placing seeds the bracket's ENTRANCE; every later slot is fed by a match. Which
+        # round that is comes off the rounds the season HOLDS, never a phase name: a bracket of four
+        # opens at the Halbfinale and one of two at the Finale.
+        if isinstance(quelle, FLSpielQuelleGruppe) and any(
+            other.saison_phase != "gruppenphase" and PHASE_RANK[other.saison_phase] < PHASE_RANK[stored.saison_phase] for other in season
+        ):
+            return WriteRefusal(
+                error_code=WIRING_SEED_PAST_THE_OPENING_ROUND,
+                message=(
+                    f"{label}_quelle seeds from a group placing, and only the round this season's bracket opens on is fed by one; "
+                    f"a {stored.saison_phase} slot is fed by an earlier match"
+                ),
+            )
+
         key = _quelle_key(quelle)
         if key in used:
             return _wiring_refusal(f"{label}_quelle: this source already feeds another slot of the season")
         used.add(key)
 
-    for label, team, quelle in sides:
+    for label, team, quelle, _ in sides:
         if quelle is None:
             continue
 

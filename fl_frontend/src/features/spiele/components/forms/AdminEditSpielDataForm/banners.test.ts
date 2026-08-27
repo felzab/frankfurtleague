@@ -1,25 +1,36 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { resolveRailBanners } from "@/shared/components/ui/railBanner.ts";
+import { resolveBlockingBanners, resolveRailBanners } from "@/shared/components/ui/railBanner.ts";
 
-import { buildSpielBanners, isSpielRefusalCode } from "./banners.ts";
+// Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { SONDEREREIGNIS_LABELS } from "../../../constants.ts";
+import { buildSpielBanners, isSpielRefusalBannerId, isSpielRefusalCode } from "./banners.ts";
 
 import type { SpielBanner, SpielBannerSide } from "./banners.ts";
 
-const side = (fieldName: "team1" | "team2", overrides: Partial<SpielBannerSide> = {}): SpielBannerSide => ({
-  fieldName,
-  label: fieldName === "team1" ? "Team 1" : "Team 2",
-  quelle: null,
-  team: null,
-  ...overrides,
-});
+const side = (fieldName: "team1" | "team2", overrides: Partial<SpielBannerSide> = {}): SpielBannerSide => {
+  const draft = {
+    fieldName,
+    label: fieldName === "team1" ? "Team 1" : "Team 2",
+    quelle: null,
+    team: null,
+    ...overrides,
+  };
+
+  // Stored mirrors the draft unless a case says otherwise, which is a page at first paint. Only a
+  // case about a takeover sets the two apart, so the rest keep reading as inherited situations.
+  return { storedQuelle: draft.quelle, storedTeam: draft.team, ...draft };
+};
 
 const team = (teamId: string, name: string) => ({ team_id: teamId, name, shorthand: name.slice(0, 3), tore: null, austritt: null });
 
 const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {}): readonly SpielBanner[] =>
   buildSpielBanners({
     isKnockout: true,
+    // The permissive default, so every case below that is not about the seeding rule reads as a
+    // fixture on the round its bracket opens on.
+    seedsFromTheGroups: true,
     sides: [],
     knockoutTeamIds: new Set<string>(),
     isNewlyChosen: false,
@@ -51,6 +62,113 @@ describe("buildSpielBanners", () => {
     assert.deepEqual(ids(built), ["spiel.team1-manual", "spiel.team2-manual"]);
   });
 
+  /* Two lines, and the rail is why the title may spell the picker's own choice back: it renders away
+     from that control, so the state is named where it stands and the body carries the reach. */
+  it("names the hand-set state in the title and what it costs in the body", () => {
+    const [banner] = build({ sides: [side("team1")] });
+
+    assert.match(banner?.title ?? "", /Team 1 wird manuell gesetzt/);
+    assert.match(banner?.body ?? "", /nicht mehr verantwortlich für die Auswahl/);
+  });
+
+  /* Why colour and confirmation are two fields: an unwired slot is as wrong as the red says and as
+     old as the stored fixture, so it stays loud on the rail and puts no question to the save. */
+  it("grades a hand-set side danger without confirming a save over it", () => {
+    const built = build({ sides: [side("team1"), side("team2")] });
+
+    assert.equal(built[0]?.severity, "danger");
+    assert.equal(built[0]?.raisedBy, "state");
+    assert.equal(resolveBlockingBanners(built), null);
+  });
+
+  /* The other half of the same banner. Taking a wired slot over is the one moment the fixture stops
+     being maintained, and it is this save that does it — so this is the case that must still ask. */
+  it("confirms the save that takes a wired side over, while the inherited one stays quiet", () => {
+    const takenOver = build({ sides: [side("team1", { storedQuelle: { type: "spiel", spiel_nr: 5, ausgang: "sieger" } })] });
+
+    assert.equal(takenOver[0]?.raisedBy, "change");
+    assert.deepEqual(ids(resolveBlockingBanners(takenOver) ?? []), ["spiel.team1-manual"]);
+    assert.equal(resolveBlockingBanners(build({ sides: [side("team1")] })), null);
+  });
+
+  /* Same split, one banner down: fielding an unqualified team is worth a question when the draft is
+     what fielded it, and nothing when the fixture arrived that way. */
+  it("confirms an unqualified team this draft picked, and not one it inherited", () => {
+    const picked = build({ sides: [side("team1", { team: team("t1", "Falken"), storedTeam: null })] });
+    const inherited = build({ sides: [side("team1", { team: team("t1", "Falken") })] });
+
+    assert.equal(picked.find((banner) => banner.id === "spiel.team1-unqualified")?.raisedBy, "change");
+    assert.equal(inherited.find((banner) => banner.id === "spiel.team1-unqualified")?.raisedBy, "state");
+  });
+
+  /* The rule in one case: a fixture opened on its faults and left alone asks nothing, whatever the
+     rail is showing. Both sides unwired, one of them fielding a team the bracket does not. */
+  it("confirms nothing for a draft whose every fault predates it", () => {
+    const stored = build({
+      sides: [side("team1"), side("team2", { team: team("t2", "Falken") })],
+      sonderereignis: "abgebrochen",
+      hasDecidedErgebnis: true,
+    });
+
+    assert.ok(stored.every((banner) => banner.raisedBy === "state"));
+    assert.equal(resolveBlockingBanners(stored), null);
+  });
+
+  it("confirms once the same draft causes something of its own", () => {
+    const chosen = build({ isNewlyChosen: true, sonderereignis: "ausgefallen" });
+
+    assert.equal(resolveBlockingBanners(chosen)?.[0]?.id, "spiel.sonderereignis-meaning");
+  });
+
+  /* The closed Herkunft row states its reason inside a popover and the two controls under it state
+     none, so the rule they close on stands where the reader meets them. */
+  it("states the rule behind a closed group placing on a round the bracket does not open on", () => {
+    const seeded = side("team1", { quelle: { type: "gruppe", gruppe: "A", platz: 1 } });
+    const [banner, ...rest] = build({ seedsFromTheGroups: false, sides: [seeded] });
+
+    assert.equal(rest.length, 0);
+    assert.equal(banner?.id, "spiel.team1-seed-closed");
+    assert.equal(banner?.inline, "team1-herkunft");
+    assert.match(banner?.title ?? "", /Herkunft von Team 1 nur in der ersten KO-Runde/);
+    // The fixture saves as it stands, so nothing under the title may offer a repair for a block.
+    assert.equal(banner?.body, undefined);
+  });
+
+  it("says it per side, so both sides of a hand-wired fixture carry their own", () => {
+    const gruppe = { type: "gruppe", gruppe: "A", platz: 1 } as const;
+    const built = build({ seedsFromTheGroups: false, sides: [side("team1", { quelle: gruppe }), side("team2", { quelle: gruppe })] });
+
+    assert.deepEqual(ids(built), ["spiel.team1-seed-closed", "spiel.team2-seed-closed"]);
+    assert.match(built[1]?.title ?? "", /Team 2/);
+  });
+
+  it("leaves a match-fed and a hand-set side alone on that same round", () => {
+    const fed = side("team1", { quelle: { type: "spiel", spiel_nr: 29, ausgang: "sieger" } });
+
+    assert.deepEqual(ids(build({ seedsFromTheGroups: false, sides: [fed] })), []);
+    assert.deepEqual(ids(build({ seedsFromTheGroups: false, sides: [side("team2")] })), ["spiel.team2-manual"]);
+  });
+
+  /* A group fixture carrying wiring is refused under `REQ-WIRING-001` instead, whose repair is to
+     drop the wiring rather than to move it onto an earlier match. */
+  it("leaves it off a group-phase fixture, which this rule does not reach", () => {
+    const seeded = side("team1", { quelle: { type: "gruppe", gruppe: "A", platz: 1 } });
+
+    assert.deepEqual(ids(build({ isKnockout: false, seedsFromTheGroups: false, sides: [seeded] })), []);
+  });
+
+  /* `info` is what keeps it off the dialog, so it needs no place on the refusal list: the fixture
+     saves as it stands, and a grade above `info` would confirm every unrelated edit of it. */
+  it("grades the seeding rule as a standing property rather than a refusal", () => {
+    const seeded = side("team1", { quelle: { type: "gruppe", gruppe: "A", platz: 1 } });
+    const built = build({ seedsFromTheGroups: false, sides: [seeded] });
+
+    assert.equal(built[0]?.severity, "info");
+    assert.equal(resolveBlockingBanners(built), null);
+    assert.ok(!isSpielRefusalBannerId("spiel.team1-seed-closed"));
+    assert.ok(!isSpielRefusalBannerId("spiel.team1-manual"));
+  });
+
   it("adds the qualification warning only for a hand-picked team the bracket does not already field", () => {
     const picked = side("team1", { team: team("t1", "Adler") });
 
@@ -67,12 +185,23 @@ describe("buildSpielBanners", () => {
     const refused = build({ sonderereignis: "ausgefallen", hasAnyTore: true });
     assert.ok(!ids(resolveRailBanners(refused)).includes("spiel.sonderereignis-standing"));
 
-    const awarded = build({ sonderereignis: "nichtantreten_team1" });
+    const awarded = build({ sonderereignis: "nichtantreten_team1", hasAnyTore: true });
     assert.ok(!ids(resolveRailBanners(awarded)).includes("spiel.sonderereignis-standing"));
   });
 
   it("keeps the standing note on a fixture called off in an earlier session with nothing else to say", () => {
     assert.deepEqual(ids(resolveRailBanners(build({ sonderereignis: "ausgefallen" }))), ["spiel.sonderereignis-standing"]);
+  });
+
+  /* The title is the whole note, and a body about how the fixture reads elsewhere would be false of
+     a no-show, which reaches this note whenever the award replaces nothing. */
+  it("states the standing note in its title alone, so it holds for a no-show too", () => {
+    for (const sonderereignis of ["ausgefallen", "annulliert", "nichtantreten_team1"] as const) {
+      const [banner] = resolveRailBanners(build({ sonderereignis }));
+
+      assert.equal(banner?.id, "spiel.sonderereignis-standing", sonderereignis);
+      assert.equal(banner?.body, undefined, sonderereignis);
+    }
   });
 
   // **The one member the standing note excludes**: an abandoned fixture IS still chased, so "wird
@@ -84,7 +213,7 @@ describe("buildSpielBanners", () => {
   it("announces a change from one member to another, not only a first event", () => {
     const swapped = build({ isNewlyChosen: true, sonderereignis: "annulliert" });
 
-    assert.match(swapped.find((banner) => banner.id === "spiel.sonderereignis-meaning")?.title ?? "", /Annulliert/);
+    assert.match(swapped.find((banner) => banner.id === "spiel.sonderereignis-meaning")?.title ?? "", /zählt rückwirkend nicht mehr/);
   });
 
   it("gives each member its own meaning rather than one sentence for all five", () => {
@@ -96,12 +225,31 @@ describe("buildSpielBanners", () => {
     assert.equal(new Set(titles).size, titles.length);
   });
 
+  /* The picker above spells the member's own name, so a title opening with it is the second telling
+     (`docs/frontend/spec.md` §1.12, diagnostic 4). */
+  it("never opens a meaning with the label the reader has just picked", () => {
+    for (const sonderereignis of ["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"] as const) {
+      const title = build({ isNewlyChosen: true, sonderereignis }).find((banner) => banner.id === "spiel.sonderereignis-meaning")?.title ?? "";
+
+      assert.ok(!title.includes("heißt"), sonderereignis);
+      assert.ok(!title.startsWith(SONDEREREIGNIS_LABELS[sonderereignis]), sonderereignis);
+    }
+  });
+
   it("names the fixtures an unscored event leaves unoccupied, singular and plural", () => {
     const one = build({ isNewlyChosen: true, sonderereignis: "ausgefallen", dependentSpielNummern: [29] });
     const many = build({ isNewlyChosen: true, sonderereignis: "annulliert", dependentSpielNummern: [29, 30, 31] });
 
     assert.match(one.find((banner) => banner.id === "spiel.knockout-feeds")?.title ?? "", /Spiel 29 unbesetzt/);
     assert.match(many.find((banner) => banner.id === "spiel.knockout-feeds")?.title ?? "", /Spiele 29, 30 und 31 unbesetzt/);
+  });
+
+  /* `fl_frontend/src/features/spiele/utils.ts :: listDependentSpiele` matches a source naming THIS
+     fixture and never walks on, so the title stops one round short of where the emptying stops. */
+  it("names the rounds behind the fixtures the title can enumerate", () => {
+    const built = build({ isNewlyChosen: true, sonderereignis: "ausgefallen", dependentSpielNummern: [29] });
+
+    assert.match(built.find((banner) => banner.id === "spiel.knockout-feeds")?.body ?? "", /Runden danach/);
   });
 
   // A no-show is awarded a result and an abandonment may still be scored, so each RESOLVES the slot
@@ -143,14 +291,16 @@ describe("buildSpielBanners", () => {
     assert.ok(ids(built).includes("spiel.forfeit-awarded"));
   });
 
-  // Info while nothing is lost, warning once typed goals are about to be replaced -- which is also
-  // what makes the save confirm.
-  it("raises the forfeit note only to a warning when it would discard typed goals", () => {
+  /* Silent while the award replaces nothing, a warning once it does. The colour is the whole of what
+     this decides; whether the save confirms is `raisedBy`'s, one case below. */
+  it("raises the forfeit note only where the award would discard entered work", () => {
     const bare = build({ sonderereignis: "nichtantreten_team2" });
     const withGoals = build({ sonderereignis: "nichtantreten_team2", hasAnyTore: true });
+    const withShootOut = build({ sonderereignis: "nichtantreten_team2", dropsShootOut: true });
 
-    assert.equal(bare.find((banner) => banner.id === "spiel.forfeit-awarded")?.severity, "info");
+    assert.ok(!ids(bare).includes("spiel.forfeit-awarded"));
     assert.equal(withGoals.find((banner) => banner.id === "spiel.forfeit-awarded")?.severity, "warning");
+    assert.equal(withShootOut.find((banner) => banner.id === "spiel.forfeit-awarded")?.severity, "warning");
   });
 
   // The record is entered work like the goals are, and the award replaces nothing of it -- so the
@@ -160,8 +310,22 @@ describe("buildSpielBanners", () => {
     const forfeit = built.find((banner) => banner.id === "spiel.forfeit-awarded");
 
     assert.equal(forfeit?.severity, "warning");
+    assert.equal(resolveBlockingBanners(built)?.[0]?.id, "spiel.forfeit-awarded");
+    // The title carries both losses, so nothing under it states the second one again.
     assert.match(forfeit?.title ?? "", /Elfmeterschießen/);
-    assert.match(forfeit?.body ?? "", /Elfmeterschießen wird nicht gespeichert/);
+    assert.equal(forfeit?.body, undefined);
+  });
+
+  /* An award standing over stored goals is how the fixture already reads, so the dialog is owed only
+     where this edit picked the event or throws the shoot-out away. */
+  it("confirms a forfeit only where this edit is what caused it", () => {
+    const standing = build({ sonderereignis: "nichtantreten_team2", hasAnyTore: true });
+    const chosen = build({ isNewlyChosen: true, sonderereignis: "nichtantreten_team2", hasAnyTore: true });
+    const discarding = build({ sonderereignis: "nichtantreten_team2", hasAnyTore: true, dropsShootOut: true });
+
+    assert.equal(standing.find((banner) => banner.id === "spiel.forfeit-awarded")?.raisedBy, "state");
+    assert.equal(chosen.find((banner) => banner.id === "spiel.forfeit-awarded")?.raisedBy, "change");
+    assert.equal(discarding.find((banner) => banner.id === "spiel.forfeit-awarded")?.raisedBy, "change");
   });
 
   it("says nothing about a shoot-out where none is being discarded", () => {
@@ -176,6 +340,11 @@ describe("buildSpielBanners", () => {
     const built = build({ sonderereignis: "abgebrochen", hasDecidedErgebnis: true, hasAnyTore: true });
 
     assert.ok(ids(built).includes("spiel.abandoned-decided"));
+    // Stored that way it is the reader's to reopen; picked here it is this save putting the question.
+    assert.equal(built.find((banner) => banner.id === "spiel.abandoned-decided")?.raisedBy, "state");
+    const picked = build({ isNewlyChosen: true, sonderereignis: "abgebrochen", hasDecidedErgebnis: true, hasAnyTore: true });
+
+    assert.equal(picked.find((banner) => banner.id === "spiel.abandoned-decided")?.raisedBy, "change");
   });
 
   it("puts the void preview's fixture numbers in the title, where the consequence is", () => {
@@ -187,16 +356,14 @@ describe("buildSpielBanners", () => {
 
   it("carries the remedies the two rail-backed refusals leave off their field message", () => {
     // `fl_backend/app/api/spiele/services.py :: find_eligibility_refusal` keys on the austritt date,
-    // so lifting it clears the refusal in every phase. The walkover needs both sides resolved
-    // (`REQ-STATE-003`); calling off is Gruppenphase-only.
+    // so lifting it clears the refusal in every phase, which is what the one repair rests on.
     const eligibility = build({ refusalCode: "REQ-ELIGIBILITY-001" });
     const body = eligibility.find((banner) => banner.id === "spiel.eligibility-refused")?.body ?? "";
 
     assert.deepEqual(ids(eligibility), ["spiel.eligibility-refused"]);
     assert.match(body, /Hebe den Austritt auf/);
-    // The two clauses that carry the risk: each states a precondition, and each was wrong once.
-    assert.match(body, /Stehen beide Seiten fest/);
-    assert.match(body, /in der Gruppenphase/);
+    // The alternative routes are gone: a refusal names the repair, not every other way round it.
+    assert.ok(!/Nichtantreten|Gruppenphase/.test(body));
 
     const spieltag = build({ refusalCode: "REQ-SPIELTAG-001" });
 
@@ -213,7 +380,7 @@ describe("buildSpielBanners", () => {
 
       assert.equal(rest.length, 0, refusalCode);
       assert.equal(banner?.severity, "danger", refusalCode);
-      assert.ok((banner?.body.length ?? 0) > 0, refusalCode);
+      assert.ok((banner?.body ?? "").length > 0, refusalCode);
     }
   });
 

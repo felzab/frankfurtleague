@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+// Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { resolveBlockingBanners } from "../../../../../shared/components/ui/railBanner.ts";
 import { buildSpieltagBanners } from "./banners.ts";
 
 import type { SpieltagBanner } from "./banners.ts";
 
 const build = (overrides: Partial<Parameters<typeof buildSpieltagBanners>[0]> = {}): readonly SpieltagBanner[] =>
   buildSpieltagBanners({
-    label: "2. Spieltag",
     isZeitraumChanged: false,
     isEndeVorBeginn: false,
     spieleAngelegt: 4,
@@ -18,8 +19,10 @@ const build = (overrides: Partial<Parameters<typeof buildSpieltagBanners>[0]> = 
 const ids = (banners: readonly SpieltagBanner[]): string[] => banners.map((banner) => banner.id);
 
 describe("buildSpieltagBanners", () => {
-  it("always states that the name is fixed, because nothing on the page is a field for it", () => {
-    assert.deepEqual(ids(build()), ["spieltag.name-abgeleitet"]);
+  /* Nothing stands unconditionally. The name has no field to be refused at, so a reader never asks
+     why it cannot be changed, and a banner nothing raised is deleted rather than shortened. */
+  it("raises nothing for a settled matchday with no pending edit", () => {
+    assert.deepEqual(ids(build()), []);
   });
 
   it("grades a moved span as a warning, so a save stops on it", () => {
@@ -27,17 +30,18 @@ describe("buildSpieltagBanners", () => {
 
     assert.equal(spanChange?.severity, "warning");
     assert.equal(spanChange?.inline, "zeitraum");
+    assert.equal(spanChange?.raisedBy, "change");
   });
 
-  /* The banner states outright what a save needs, so it reaches both refusals a moved span draws:
-     the fixtures inside the new span, and the beginn in step with the DATED matchdays of its phase,
-     which the body must name or it claims the neighbours. */
+  /* Both refusals a moved span draws, one per slot: the fixtures inside the new span in the title,
+     and the beginn in step with the DATED matchdays of its phase in the body, which has to name
+     them or it claims the neighbours. */
   it("names both save conditions a moved span is held to", () => {
-    const body = build({ isZeitraumChanged: true }).find((banner) => banner.id === "spieltag.zeitraum-changed")?.body ?? "";
+    const banner = build({ isZeitraumChanged: true }).find((entry) => entry.id === "spieltag.zeitraum-changed");
 
-    assert.match(body, /alle Spiele/);
-    assert.match(body, /Beginn/);
-    assert.match(body, /schon einen Zeitraum haben/);
+    assert.match(banner?.title ?? "", /zu den Spielen passen/);
+    assert.match(banner?.body ?? "", /Beginn/);
+    assert.match(banner?.body ?? "", /schon einen Zeitraum haben/);
   });
 
   /* `Zeitraum` is a matchday's span and `Termin` a fixture's date and time, and this banner is about
@@ -54,6 +58,8 @@ describe("buildSpieltagBanners", () => {
 
     assert.equal(banner?.severity, "danger");
     assert.equal(banner?.inline, "zeitraum");
+    // Both dates arrive from the stored row in an order the schema already held, so only a pick reverses them.
+    assert.equal(banner?.raisedBy, "change");
   });
 
   it("reports a fixture count that disagrees with the derived expectation, in both directions", () => {
@@ -63,10 +69,25 @@ describe("buildSpieltagBanners", () => {
   });
 
   /* The repair is a redraw on the season page, so a save stopped here would hold the matchday's dates
-     hostage to a state its own write path neither caused nor reads. */
+     hostage to a state its own write path neither caused nor reads — `state`, both counts being the
+     stored row's. */
   it("keeps the count report out of the confirmation, because nothing on this page repairs it", () => {
-    const banner = build({ spieleAngelegt: 2 }).find((entry) => entry.id === "spieltag.anzahl-offen");
+    const standing = build({ spieleAngelegt: 2 });
+    const banner = standing.find((entry) => entry.id === "spieltag.anzahl-offen");
 
     assert.equal(banner?.severity, "info");
+    assert.equal(banner?.raisedBy, "state");
+    assert.equal(resolveBlockingBanners(standing), null);
+  });
+
+  /* The pair the confirmation exists for, in the order it renders them: a reversed span is refused
+     outright and a moved one is held to conditions no field on the page can show. */
+  it("confirms a save that moves the span, over both entries the move raises", () => {
+    const pending = build({ isZeitraumChanged: true, isEndeVorBeginn: true, spieleAngelegt: 2 });
+
+    assert.deepEqual(
+      resolveBlockingBanners(pending)?.map((banner) => banner.id),
+      ["spieltag.ende-vor-beginn", "spieltag.zeitraum-changed"],
+    );
   });
 });

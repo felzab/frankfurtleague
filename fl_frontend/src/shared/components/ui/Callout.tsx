@@ -31,8 +31,9 @@ const ICONS = {
 } as const;
 
 /**
- * **What each grade means, so the three do not collapse into one:** `info` is a standing property with nothing to undo,
- * `warning` is something a save may destroy and has to name what, `danger` a consequence no later edit reverses.
+ * **What each grade means, so the three stay distinct:** `info` is worth knowing, `warning` worth weighing before
+ * acting, `danger` serious enough to read as an alarm. Loudness alone —
+ * `railBanner.ts :: RailBanner`'s `raisedBy` decides what confirms.
  */
 export function Callout({
   severity = "warning",
@@ -53,7 +54,8 @@ export function Callout({
    * the page quieter by making it less true.
    */
   onDismiss?: () => void;
-  children: ReactNode;
+  /** Absent where the title carries the whole consequence: an empty paragraph would still take its gap. */
+  children?: ReactNode;
 }) {
   const styles = callout({ severity });
   const Icon = ICONS[severity];
@@ -65,7 +67,7 @@ export function Callout({
       <Icon className={styles.icon()} />
       <div className="flex min-w-0 flex-1 flex-col gap-y-1">
         <strong className={styles.title()}>{title}</strong>
-        <p className={styles.body()}>{children}</p>
+        {children !== undefined && <p className={styles.body()}>{children}</p>}
       </div>
       {onDismiss && (
         <CloseButton

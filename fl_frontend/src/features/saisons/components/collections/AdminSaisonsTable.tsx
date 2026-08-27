@@ -6,12 +6,20 @@ import { Calendar, Pencil, Persons } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
+import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminSaisonRow } from "../../types";
+
+const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
+  searched: "Keine Saisons für diese Suche.",
+  filtered: "Keine Saisons für diese Filter.",
+  none: "Es wurden noch keine Saisons angelegt.",
+};
 
 /**
  * Memoised, and load-bearing: `AdminSpielorteTable` carries the collection-identity account. **No
@@ -19,11 +27,12 @@ import type { AdminSaisonRow } from "../../types";
  * and one that is over is `past`.
  */
 export const AdminSaisonsTable = memo(function AdminSaisonsTable({
-  saisonsQuery,
   filteredSaisons,
+  emptiness,
 }: {
-  saisonsQuery: string;
   filteredSaisons: AdminSaisonRow[];
+  /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
+  emptiness: CrudEmptiness;
 }) {
   // One source for both layouts, so the table and the phone cards cannot disagree.
 
@@ -82,18 +91,12 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
     </RowActions>
   );
 
-  const emptyState = (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">{saisonsQuery ? "Keine Saisons für diese Suche." : "Es wurden noch keine Saisons angelegt."}</p>
-    </div>
-  );
-
   return (
     <>
       {/* The phone layout: one card per season, no horizontal scrolling anywhere — the pattern all four
           admin tables follow below `md`. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
-        {filteredSaisons.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}
+        {filteredSaisons.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredSaisons.map((saison) => (
           <div
             key={saison.id}
@@ -112,8 +115,14 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          <Table.ScrollContainer className="scrollbar-hide">
-            <Table.Content aria-label="Tabelle aller Saisons">
+          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
+              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          <Table.ScrollContainer>
+            {/* Fixed layout holds the columns when the rows go. The minimum is the three declared
+                columns plus 304 for the span, which needs 236 to set its two dates on one line. */}
+            <Table.Content
+              aria-label="Tabelle aller Saisons"
+              className="min-w-3xl table-fixed">
               <Table.Header>
                 <Table.Column
                   isRowHeader
@@ -126,7 +135,9 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-40 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Status
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+                {/* Three controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
+                holds the arithmetic, and it is the count a new action changes. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-48 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen
                 </Table.Column>
               </Table.Header>
@@ -134,7 +145,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
               {/* `items` + a render function, not mapped children — see the memo note above. */}
               <Table.Body
                 items={filteredSaisons}
-                renderEmptyState={() => emptyState}>
+                renderEmptyState={() => <AdminCrudEmptyRow message={EMPTY_MESSAGES[emptiness]} />}>
                 {(saison: AdminSaisonRow) => (
                   <Table.Row
                     id={saison.id}

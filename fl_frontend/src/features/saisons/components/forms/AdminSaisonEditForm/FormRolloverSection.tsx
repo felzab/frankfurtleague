@@ -120,15 +120,15 @@ export function FormRolloverSection({
           // question only this control raises.
           <Callout
             severity="info"
-            title="Hier ist nichts umzustellen">
-            Diese Saison läuft schon. Umstellen kannst Du auf der Seite der Saison, die als nächste laufen soll.
+            title="Diese Saison ist aktiv">
+            Umgestellt wird auf der Seite der geplanten Saison.
           </Callout>
         ) : (
           <>
             {/* The outgoing season, named rather than assumed: on a fresh database there is none, and a
                 panel that spoke of "the previous season" regardless would be describing a document
                 that does not exist. */}
-            <p className="fluid-sm text-foreground font-medium">
+            <p className="muted-hint">
               {outgoing === null ? (
                 <>
                   Derzeit ist keine Saison aktiv. Die Umstellung macht <strong>{saisonId}</strong> zur laufenden Saison.

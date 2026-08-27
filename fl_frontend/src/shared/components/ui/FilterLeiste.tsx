@@ -21,9 +21,9 @@ const PILL_SHELL = `${CONTROL_BOX} items-stretch overflow-hidden`;
 /** The same box holding one 16px icon: `px-3` either side makes it 40 wide, its own height. */
 const ICON_SHELL = `${CONTROL_BOX} text-foreground hover:bg-hover cursor-pointer items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
 
-/** Sized by `w-7` rather than by padding: HeroUI's `.button svg` pulls an icon 2px in each side, so content sizing would
- *  make the width a property of the icon's margins. */
-const CLEAR_FACE = "flex h-full w-7 shrink-0 items-center justify-center rounded-none p-0";
+/** Sized by `w-8` rather than by padding: HeroUI's `.button svg` pulls an icon 2px in each side, so content sizing would
+ *  make the width a property of the icon's margins, and the glyph's own side margins are the pill's right gap. */
+const CLEAR_FACE = "flex h-full w-8 shrink-0 items-center justify-center rounded-none p-0";
 
 /**
  * The ceiling on a picked value, in `em` so it holds the same character count at every type size. `min-w-0` is what

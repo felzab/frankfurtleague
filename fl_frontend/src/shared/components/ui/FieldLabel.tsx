@@ -21,7 +21,7 @@ export function FieldLabel({
 }: {
   path: string;
   children: ReactNode;
-  /** A marker only one editor has — the match editor's Fehlt/Empfohlen disc, which needs a status the shared one does not carry. */
+  /** A marker only one editor has — the match editor's Fehlt/Offen disc, which needs a status the shared one does not carry. */
   extraMarker?: ReactNode;
 }) {
   const status = useFieldStatus(path);
@@ -44,7 +44,7 @@ export function FieldLabel({
           <InfoHint
             label="Geändert"
             trigger={
-              <span className={`${FIELD_MARKER} bg-brand/15 text-brand-solid cursor-help`}>
+              <span className={`${FIELD_MARKER} bg-brand/15 text-brand-solid`}>
                 <PencilToLine className="size-3" />
               </span>
             }>

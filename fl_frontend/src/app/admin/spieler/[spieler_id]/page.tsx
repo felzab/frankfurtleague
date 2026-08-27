@@ -8,7 +8,7 @@ import { AdminSpielerEditView } from "@/features/spieler/components/views/AdminS
 import { orderStufen } from "@/features/spieler/constants";
 import { getSpielerMemberships } from "@/features/spieler/queries";
 import { resolveSpielerId } from "@/features/spieler/resolvers";
-import { collectHeldRollen, collectTakenSquadNummern } from "@/features/spieler/utils";
+import { collectHeldRollen } from "@/features/spieler/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
@@ -78,10 +78,6 @@ async function AdminSpielerEditContent({
           },
   };
 
-  // The shirts already worn in each team this season, so the rail can warn about a second wearer.
-  // The edited player's own rows are excluded — their own shirt is not held against them.
-  const takenNummern = collectTakenSquadNummern({ spieler: membershipsRes.spieler, saisonId: selectedSaison.id, exceptSpielerId: spielerId });
-
   // Who leads each team this season, so the editor offers no role the write path would refuse
   // (`REQ-SQUAD-004`). The edited player's own row is excluded: their role is not held against them.
   const heldRollen = collectHeldRollen({ spieler: membershipsRes.spieler, saisonId: selectedSaison.id, exceptSpielerId: spielerId });
@@ -93,7 +89,6 @@ async function AdminSpielerEditContent({
       teamId: team.id,
       name: team.name,
       shorthand: team.shorthand,
-      takenNummern: takenNummern[team.id] ?? [],
       heldRollen: heldRollen[team.id] ?? {},
     }));
 

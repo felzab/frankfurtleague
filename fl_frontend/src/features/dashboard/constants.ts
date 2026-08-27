@@ -1,6 +1,6 @@
 import { Calendar, ClockArrowRotateLeft, LayoutHeaderCells, Magnifier, Medal, Person, Persons } from "@gravity-ui/icons";
 
-import type { SidemenuStructure } from "@/shared/types/types";
+import type { SidemenuHint, SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
 
 /**
@@ -20,6 +20,16 @@ export const DASHBOARD_SIDEMENU_ICONS = {
 export type DashboardIconName = keyof typeof DASHBOARD_SIDEMENU_ICONS;
 
 /**
+ * What the bar reads on `/dashboard` itself, which the nav does not name because every entry below is a section of it.
+ */
+export const DASHBOARD_SHELL_FALLBACK = {
+  label: "Saisonübersicht",
+  hint: {
+    lead: "Alles zur gewählten Saison.",
+  },
+} as const satisfies { label: string; hint: SidemenuHint };
+
+/**
  * `label` is what the nav item and the shell's page title both read, and `hint` is what the info
  * glyph beside that title says — so a route's name and its explanation are declared once, together.
  */
@@ -32,10 +42,10 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         label: "Spielsuche",
         iconName: "Magnifier",
         hint: {
-          lead: "Durchsucht alle Spiele der ausgewählten Saison.",
+          lead: "Alle Spiele der Saison.",
           // The list is counted against what a visitor can reach (`docs/frontend/spec.md` §1.12): both
           // `ort.*` keys are the venue, so `Ort` names them once.
-          points: [{ term: "Gesucht wird in", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." }],
+          points: [{ term: "Gesucht werden kann nach", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." }],
         },
       },
       {
@@ -65,7 +75,6 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         iconName: "LayoutHeaderCells",
         hint: {
           lead: "Der Tabellenstand jeder Gruppe der Saison.",
-          note: "Die Gesamtbilanz eines Teams steht auf seiner eigenen Seite.",
         },
       },
     ],

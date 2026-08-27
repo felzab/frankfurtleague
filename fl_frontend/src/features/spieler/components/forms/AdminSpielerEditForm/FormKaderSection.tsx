@@ -11,7 +11,7 @@ import { NUMMER_MAX_LENGTH, NUMMER_MUST_BE_DIGITS, POSITION_OPTIONS, ROLLE_OPTIO
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
@@ -22,6 +22,9 @@ import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/featur
 import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler/types";
 import type { Key } from "@heroui/react";
 import type { SpielerBanner } from "./banners";
+
+/** Names the role chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
+const ROLLE_LABEL_ID = "kader-rolle";
 
 /** The app's one wording and one palette for a season's state. */
 function SaisonBadge({ status }: { status: SpielerSaisonContext["saisonStatus"] }) {
@@ -130,13 +133,7 @@ export function FormKaderSection({
           <Hint
             mode="reveal"
             label="Hinweis zum Kadereintrag"
-            body={{
-              lead: "Diese Angaben gelten nur für die im Seitenmenü gewählte Saison.",
-              points: [
-                { term: "Ein Teamwechsel", text: "wird hier eingetragen." },
-                { term: "Nummer, Position und Stufe", text: "dürfen leer bleiben." },
-              ],
-            }}
+            body={{ lead: "Diese Angaben gelten nur für die im Seitenmenü gewählte Saison." }}
           />
         </h2>
       </div>
@@ -190,9 +187,17 @@ export function FormKaderSection({
               value={rolle ?? ""}
               onChange={() => undefined}
               className="flex w-full flex-col gap-y-1">
-              <FieldLabel path="rolle">Rolle</FieldLabel>
+              {/* A `Label` and not a plain span: it names the enclosing `TextField`, which carries no
+                  `aria-label`, so `useLabel` would warn without it. The id sits on the text alone, keeping
+                  the changed-field marker out of the group's name. */}
+              <FieldLabel path="rolle">
+                <span id={ROLLE_LABEL_ID}>Rolle</span>
+              </FieldLabel>
+              {/* Named from the heading rather than by a wrapper: react-aria already renders
+                  `role="radiogroup"` here, so a second grouping element around it would nest one group in
+                  another and leave the chips with two accessible names. */}
               <ToggleButtonGroup
-                aria-label="Rolle im Kader"
+                aria-labelledby={ROLLE_LABEL_ID}
                 size="sm"
                 isDetached
                 selectionMode="single"
@@ -201,7 +206,7 @@ export function FormKaderSection({
                   const [picked] = [...keys].map(String);
                   onRolleChange(picked === undefined ? null : (picked as FLSpielerRolle));
                 }}
-                className="flex w-full flex-row flex-wrap gap-2">
+                className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
                 {ROLLE_OPTIONS.map((option) => (
                   <ToggleButton
                     key={option.value}

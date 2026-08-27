@@ -8,6 +8,7 @@ import { Calendar, Globe, MapPin, Pencil } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateSpielortAction } from "@/features/spielorte/actions";
+import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
@@ -150,17 +151,11 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
     </RowActions>
   );
 
-  const emptyState = (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
-    </div>
-  );
-
   return (
     <>
       {/* One card per venue, so nothing scrolls horizontally. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
-        {filteredSpielorte.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}
+        {filteredSpielorte.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredSpielorte.map((ort) => (
           <div
             key={ort.id}
@@ -183,21 +178,31 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          <Table.ScrollContainer className="scrollbar-hide">
-            <Table.Content aria-label="Tabelle aller Spielorte">
+          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
+              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          <Table.ScrollContainer>
+            {/* Fixed layout holds the columns when the rows go. The minimum is the three declared
+                columns plus 224 for the name, under which it gets nothing. */}
+            <Table.Content
+              aria-label="Tabelle aller Spielorte"
+              className="min-w-5xl table-fixed">
               <Table.Header>
                 <Table.Column
                   isRowHeader
                   className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Name
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                {/* PINNED to their content's width, so the leftover all goes to the name column. The action
+                    column is the widest: every row here ends in five controls, one of them a maps link. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-80 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Adresse
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-48 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Std. Mietpreis
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+                {/* Five controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
+                holds the arithmetic, and it is the count a new action changes. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-72 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen
                 </Table.Column>
               </Table.Header>
@@ -206,7 +211,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
                   committing its row collection after a few navigations away and back. */}
               <Table.Body
                 items={filteredSpielorte}
-                renderEmptyState={() => emptyState}>
+                renderEmptyState={() => <AdminCrudEmptyRow message={EMPTY_MESSAGES[emptiness]} />}>
                 {(ort: FLSpielort) => (
                   <Table.Row
                     id={ort.id}

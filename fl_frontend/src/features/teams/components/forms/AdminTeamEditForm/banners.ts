@@ -54,8 +54,10 @@ export function buildTeamBanners({
     banners.push({
       id: "team.retired",
       severity: "info",
+      raisedBy: "state",
       title: "Dieses Team erscheint in keiner Auswahlliste",
-      body: "Sein Kürzel bleibt reserviert; reaktivieren kannst Du es über den Kopf der Seite.",
+      // The way back is the header's own Reaktivieren control, on screen beside this.
+      body: "Sein Kürzel bleibt reserviert.",
       inline: null,
     });
   }
@@ -68,17 +70,18 @@ export function buildTeamBanners({
       banners.push({
         id: "team.not-in-saison-retired",
         severity: "info",
-        // It carries `team.retired`'s reactivate step plus the entry that follows it.
+        raisedBy: "state",
+        // Both banners open on the same retirement, and only this one says what it closes here.
         supersedes: ["team.retired"],
         title: `In Saison ${saisonId} lässt sich dieses Team nicht aufnehmen`,
         // Only a `future` season has the entry control this promises, so past planning the sentence
         // would send the admin after a remedy the panel then withdraws.
         body:
           saisonStatus === "future"
-            ? "Ein stillgelegtes Team kann in keine Saison aufgenommen werden. Reaktiviere es über den Kopf der Seite und nimm es danach hier auf."
+            ? "Reaktiviere das stillgelegte Team und nimm es danach hier auf."
             : saisonStatus === "active"
-              ? "Ein stillgelegtes Team kann in keine Saison aufgenommen werden. Auch reaktiviert ließe es sich nur in eine geplante Saison aufnehmen, und diese läuft bereits."
-              : "Ein stillgelegtes Team kann in keine Saison aufgenommen werden. Auch reaktiviert ließe es sich nur in eine geplante Saison aufnehmen, und diese ist beendet.",
+              ? "Auch reaktiviert ließe sich das stillgelegte Team nur in eine geplante Saison aufnehmen, und diese läuft bereits."
+              : "Auch reaktiviert ließe sich das stillgelegte Team nur in eine geplante Saison aufnehmen, und diese ist beendet.",
         inline: "saison-kein-eintritt",
       });
     } else if (saisonStatus === "future") {
@@ -86,6 +89,7 @@ export function buildTeamBanners({
       banners.push({
         id: "team.not-in-saison-future",
         severity: "info",
+        raisedBy: "state",
         title: `In Saison ${saisonId} erscheint dieses Team auf keiner Seite`,
         body: "Nimm es unten mit einer Gruppe auf.",
         inline: "saison-eintritt",
@@ -94,6 +98,7 @@ export function buildTeamBanners({
       banners.push({
         id: "team.not-in-saison-closed",
         severity: "info",
+        raisedBy: "state",
         title: `In Saison ${saisonId} steht das Teilnehmerfeld fest`,
         body:
           saisonStatus === "active"
@@ -111,8 +116,9 @@ export function buildTeamBanners({
     banners.push({
       id: "team.austritt-entering",
       severity: "danger",
+      raisedBy: "change",
       title: "Der Grund wird veröffentlicht",
-      body: "Sobald Du speicherst, steht er Wort für Wort auf der Teamseite und an jedem Spiel des Teams.",
+      body: "Er steht danach auf der Teamseite und an jedem Spiel des Teams.",
       inline: "austritt-eintrag",
     });
   }
@@ -121,12 +127,10 @@ export function buildTeamBanners({
     banners.push({
       id: "team.austritt-lifting",
       severity: "warning",
-      title: "Aufheben entfernt Art, Grund und Datum",
-      // The window is named because the save IS reversible: the editor builds the stored record into
-      // its undo payload, and `POST /api/admin/teams/undo` patches it back verbatim.
-      body:
-        "Der Grund verschwindet damit von der Teamseite und von jedem Spiel des Teams. Direkt nach dem Speichern kannst Du alle drei " +
-        "fünfzehn Sekunden lang mit „Rückgängig“ unverändert zurückholen.",
+      raisedBy: "change",
+      // The record rather than its three fields, which the panel holds: what a reader would not
+      // expect is that lifting deletes what was typed rather than parking it.
+      title: "Der Austritt verschwindet mit allem, was dazu eingetragen ist",
       inline: "austritt-aufhebung",
     });
   }
@@ -137,20 +141,25 @@ export function buildTeamBanners({
     banners.push({
       id: "team.austritt-standing",
       severity: "info",
+      // `state` under a draft flag: `hasAustritt` can only hide this banner, and every word it prints
+      // comes from the record the page loaded with.
+      raisedBy: "state",
       title: `${austrittZustand(storedAustritt.type)} seit ${formatSpielDatum(storedAustritt.datum)}`,
       body: storedAustritt.grund,
       inline: null,
     });
   }
 
+  // The whole of what is certain: the picker opens only while `REQ-ENTER-004` holds, so this club
+  // has played nothing here and the seeding its group feeds is not decided yet.
   if (!isGruppeLocked && isGruppeChanged) {
     banners.push({
       id: "team.gruppe-changed",
       severity: "warning",
-      title: "Der Gruppenwechsel ändert Tabelle und Setzung",
-      // The window `REQ-ENTER-004` leaves open, in the refusal's own words: the two surfaces are read
-      // minutes apart, and a reader who met both must not have to reconcile two conditions.
-      body: "Vertretbar ist er nur, solange für dieses Team in dieser Saison noch keine Spiele angelegt sind.",
+      // The picker's move, never the swap control's: that one fires its own action and renders only
+      // while the group is locked, which this condition excludes.
+      raisedBy: "change",
+      title: "Die Tabellen beider Gruppen ändern sich",
       inline: "gruppe",
     });
   }

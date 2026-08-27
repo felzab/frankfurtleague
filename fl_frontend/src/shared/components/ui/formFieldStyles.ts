@@ -38,6 +38,12 @@ const INDICATOR_CLEARANCE = "pe-9";
 export const FIELD_TRIGGER = `${FIELD_INPUT} ${INDICATOR_CLEARANCE}`;
 
 /**
+ * The alignment every detached toggle group carries, spelled once so no two of them drift: HeroUI centres
+ * `.toggle-button-group` from `@layer components`, so a group wanting the page's leading edge contradicts it.
+ */
+export const TOGGLE_GROUP_ALIGN = "justify-center sm:justify-start";
+
+/**
  * The one tab appearance. `data-hovered:` rather than `hover:`: react-aria's `useHover` ignores the emulated mouse
  * events a touch device fires, where `:hover` sticks until the next tap.
  */
@@ -72,7 +78,7 @@ export const FIELD_PAIR = "grid w-full grid-cols-1 gap-4 sm:grid-cols-2";
 export const FIELD_TRIO = "grid w-full grid-cols-1 gap-4 sm:grid-cols-3";
 
 /**
- * The one marker disc. Two can share a label row — the match editor's Fehlt/Empfohlen beside Geändert — and a
+ * The one marker disc. Two can share a label row — the match editor's Fehlt/Offen beside Geändert — and a
  * disc that measured differently from its neighbour read as a second idea rather than the same one.
  */
 export const FIELD_MARKER = "inline-flex size-5 shrink-0 items-center justify-center rounded-full";

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { resolveBlockingBanners } from "@/shared/components/ui/railBanner.ts";
+
 import { buildSchiedsrichterBanners } from "./banners.ts";
 
 import type { SchiedsrichterBanner } from "./banners.ts";
@@ -9,8 +11,6 @@ const build = (overrides: Partial<Parameters<typeof buildSchiedsrichterBanners>[
   buildSchiedsrichterBanners({
     isRetired: false,
     isNameChanged: false,
-    isPaymentChanged: false,
-    hasKontakt: true,
     ...overrides,
   });
 
@@ -28,10 +28,21 @@ describe("buildSchiedsrichterBanners", () => {
     assert.equal(banner?.severity, "info");
     // Rail-only: the retirement belongs to no panel's field.
     assert.equal(banner?.inline, null);
+    assert.equal(banner?.raisedBy, "state");
+  });
+
+  /* One shape across the four retirable editors: the title names the exclusion, the body names what
+     survives, and the way back is the header's own control rather than a sentence pointing at it. */
+  it("states the retirement as the exclusion plus what survives, and points at no control", () => {
+    const [banner] = build({ isRetired: true });
+
+    assert.match(banner?.title ?? "", /erscheint in keiner Auswahlliste/);
+    assert.match(banner?.body ?? "", /Einsätze bleiben erhalten/, "the body stopped naming what survives");
+    assert.ok(!/reaktivieren|Kopf der Seite/i.test(banner?.body ?? ""));
   });
 
   it("leads with the retirement, which is what the rest of the page has to be read against", () => {
-    assert.equal(ids(build({ isRetired: true, isNameChanged: true, hasKontakt: false }))[0], "schiedsrichter.retired");
+    assert.equal(ids(build({ isRetired: true, isNameChanged: true }))[0], "schiedsrichter.retired");
   });
 
   it("grades the rename as the one banner that stops a save", () => {
@@ -39,18 +50,13 @@ describe("buildSchiedsrichterBanners", () => {
 
     assert.equal(banner?.id, "schiedsrichter.name-changed");
     assert.equal(banner?.severity, "warning");
+    assert.equal(banner?.raisedBy, "change");
   });
 
-  it("keeps the fee change out of the confirmation, because nothing already agreed is rewritten", () => {
-    const [banner] = build({ isPaymentChanged: true });
-
-    assert.equal(banner?.id, "schiedsrichter.honorar-changed");
-    assert.equal(banner?.severity, "info");
-    assert.equal(banner?.inline, "honorar");
-  });
-
-  it("reports a missing contact from the DRAFT, so filling one in clears it before the save", () => {
-    assert.ok(ids(build({ hasKontakt: false })).includes("schiedsrichter.no-kontakt"));
-    assert.ok(!ids(build({ hasKontakt: true })).includes("schiedsrichter.no-kontakt"));
+  /* Pinned per editor because `raisedBy` is authored here rather than derived: a retirement is on
+     screen before the admin types, so it keeps its rail entry and asks nothing when they save. */
+  it("confirms the save the draft causes and never the situation it inherited", () => {
+    assert.equal(resolveBlockingBanners(build({ isRetired: true })), null);
+    assert.deepEqual(ids(resolveBlockingBanners(build({ isRetired: true, isNameChanged: true })) ?? []), ["schiedsrichter.name-changed"]);
   });
 });

@@ -57,10 +57,7 @@ export function FormZeitraumSection({
             label="Hinweis zum Zeitraum"
             body={{
               lead: "Der Zeitraum umschließt die Spieltage der Saison.",
-              points: [
-                { term: "Ein Spiel", text: "richtet sich nach seinem Spieltag, nicht nach der Saison." },
-                { term: "Auf eine neue Saison", text: "stellst Du von Hand um." },
-              ],
+              points: [{ term: "Ein Spiel", text: "richtet sich nach seinem Spieltag, nicht nach der Saison." }],
             }}
           />
         </h2>

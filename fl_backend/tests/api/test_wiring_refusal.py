@@ -4,7 +4,7 @@ import pytest
 from bson import ObjectId
 
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpielListAdapter
-from app.api.spiele.services import WIRING_UNSUPPORTED, find_wiring_refusal
+from app.api.spiele.services import WIRING_SEED_PAST_THE_OPENING_ROUND, WIRING_UNSUPPORTED, find_wiring_refusal
 from app.core.exceptions import WriteRefusal
 from tests.payloads import spiel_patch_body
 
@@ -124,6 +124,73 @@ class TestPhaseRules:
         assert "not played before" in message_for(season, 29, team1_quelle=sieger(31))
 
 
+# Every bracket a season can play, by qualifier count: `app/api/saisons/schedule.py ::
+# knockout_phases_for` counts back from the Finale, so a different phase opens each one.
+BRACKET_SHAPES: dict[int, tuple[str, ...]] = {
+    16: ("achtelfinale", "viertelfinale", "halbfinale", "finale"),
+    8: ("viertelfinale", "halbfinale", "finale"),
+    4: ("halbfinale", "finale"),
+    2: ("finale",),
+}
+
+OPENING_ROUND = 25
+
+
+@pytest.fixture
+def bracket(fixture_at: FixtureFactory) -> Callable[[int], list[dict[str, Any]]]:
+    def make(qualifiers: int) -> list[dict[str, Any]]:
+        """Two group fixtures, then one unwired fixture per round the bracket plays, numbered in playing order."""
+
+        return [fixture_at(1, "gruppenphase"), fixture_at(2, "gruppenphase")] + [
+            fixture_at(OPENING_ROUND + index, phase, team1=None, team2=None) for index, phase in enumerate(BRACKET_SHAPES[qualifiers])
+        ]
+
+    return make
+
+
+class TestAGroupPlacingSeedsTheOpeningRound:
+    """The group table feeds the round the season's bracket OPENS on; every later slot is fed by a match.
+
+    Read off the rounds the season holds, never a phase name, which is wrong for three of the four
+    shapes a qualifier count produces.
+    """
+
+    @pytest.mark.parametrize("qualifiers", list(BRACKET_SHAPES), ids=lambda qualifiers: f"{qualifiers}-qualifiers")
+    def test_the_opening_round_is_seeded_from_the_groups(self, bracket, qualifiers):
+        """The two-qualifier season included, where the opening round IS the Finale.
+
+        Group fixtures rank below every knockout round, so a rule counting them would close the
+        opening round of every shape here.
+        """
+
+        assert refusal_for(bracket(qualifiers), OPENING_ROUND, team1_quelle=gruppenplatz("A", 1)) is None
+
+    @pytest.mark.parametrize(
+        ("qualifiers", "nr", "phase"),
+        [
+            pytest.param(16, 26, "viertelfinale", id="sixteen-viertelfinale"),
+            pytest.param(16, 27, "halbfinale", id="sixteen-halbfinale"),
+            pytest.param(16, 28, "finale", id="sixteen-finale"),
+            pytest.param(8, 26, "halbfinale", id="eight-halbfinale"),
+            pytest.param(4, 26, "finale", id="four-finale"),
+        ],
+    )
+    def test_a_later_round_is_fed_by_a_match_instead(self, bracket, qualifiers, nr, phase):
+        """The Finale three times over: refused wherever the bracket opens earlier, and legal above in the season that opens on it."""
+
+        message = message_for(bracket(qualifiers), nr, team1_quelle=gruppenplatz("A", 1))
+
+        assert "only the round this season's bracket opens on" in message
+        # The whole phrase: every phase name here ENDS in "finale", so a bare substring would accept
+        # a message naming the wrong round.
+        assert f"a {phase} slot" in message
+
+    def test_a_match_source_on_a_later_round_stays_legal(self, bracket):
+        """So the rule reaches the `gruppe` variant alone rather than every source on a later round."""
+
+        assert refusal_for(bracket(4), 26, team1_quelle=sieger(OPENING_ROUND)) is None
+
+
 class TestOneOutcomeOneSlot:
     def test_an_outcome_already_feeding_another_fixture_is_refused(self, season):
         """Re-pointing match 30 at match 26's winner, which 29 already holds."""
@@ -154,6 +221,70 @@ class TestMaintainedSides:
         assert refusal_for(season, 30, team1=spiel_team_field()) is None
 
 
+def stored_as(season_docs: list[dict[str, Any]], nr: int, **wiring: Any) -> list[dict[str, Any]]:
+    """`season_docs` with fixture `nr` ALREADY holding `wiring`, so a save resubmitting it changes nothing."""
+
+    return [doc if doc["spiel_nr"] != nr else {**doc, **wiring} for doc in season_docs]
+
+
+# Each shape as a fixture stores it, with a SECOND value out of the same rule beside it. A hand
+# edit reaches all six and two saves racing reach the duplicate; no write path repairs any.
+STORED_SHAPES: dict[str, tuple[int, dict[str, Any], dict[str, Any], str]] = {
+    "group-fixture": (1, {"team1_quelle": sieger(2)}, {"team1_quelle": sieger(25)}, WIRING_UNSUPPORTED),
+    "dangling-feeder": (30, {"team1_quelle": sieger(27)}, {"team1_quelle": sieger(28)}, WIRING_UNSUPPORTED),
+    "gruppenphase-feeder": (30, {"team1_quelle": sieger(1)}, {"team1_quelle": sieger(2)}, WIRING_UNSUPPORTED),
+    "same-round-feeder": (29, {"team1_quelle": sieger(30)}, {"team1_quelle": sieger(31)}, WIRING_UNSUPPORTED),
+    "outcome-already-used": (30, {"team1_quelle": sieger(25)}, {"team1_quelle": sieger(26)}, WIRING_UNSUPPORTED),
+    "seed-past-the-opening-round": (
+        30,
+        {"team1_quelle": gruppenplatz("C", 1)},
+        {"team1_quelle": gruppenplatz("D", 1)},
+        WIRING_SEED_PAST_THE_OPENING_ROUND,
+    ),
+}
+
+stored_shape_cases = pytest.mark.parametrize(("nr", "stored_wiring", "moved_to", "code"), list(STORED_SHAPES.values()), ids=list(STORED_SHAPES))
+
+
+class TestAStoredShapeDoesNotLatch:
+    """Every rule above judges a source this payload MOVES (`docs/backend/spec.md :: I44`).
+
+    The classes above judge the same shapes INTRODUCED, which is the step, and none of these is one.
+    """
+
+    @stored_shape_cases
+    def test_resubmitting_a_stored_shape_unchanged_is_legal(self, season, nr, stored_wiring, moved_to, code):
+        """The no-op save of a fixture wired this way -- what a venue or a kick-off-time edit sends."""
+        assert refusal_for(stored_as(season, nr, **stored_wiring), nr) is None
+
+    @stored_shape_cases
+    def test_moving_a_stored_shape_to_another_breach_is_refused(self, season, nr, stored_wiring, moved_to, code):
+        """A second value out of the same rule is no better than the first, and choosing it IS a step."""
+        refusal = refusal_for(stored_as(season, nr, **stored_wiring), nr, **moved_to)
+
+        assert refusal is not None
+        assert refusal.error_code == code
+
+    def test_a_stored_reference_cycle_stays_editable(self, season):
+        """`_fixtures_depending_on_a_cycle` reports a cycle and repairs nothing, so refusing both ends would strand them."""
+
+        cyclic = stored_as(stored_as(season, 29, team1_quelle=sieger(30)), 30, team1_quelle=sieger(29))
+
+        assert refusal_for(cyclic, 29) is None
+        assert refusal_for(cyclic, 30) is None
+
+    def test_the_side_beside_a_stored_shape_stays_repairable(self, season):
+        """The point of judging the step: a stored breach on one side leaves the other side's own wiring free."""
+
+        latched = stored_as(season, 30, team1_quelle=gruppenplatz("C", 1))
+
+        assert refusal_for(latched, 30, team2_quelle=verlierer(25)) is None
+
+    def test_a_kept_source_is_still_taken(self, season):
+        """Match 29 keeps 25's winner rather than being judged on it, and the season holds it either way."""
+        assert "already feeds" in message_for(season, 29, team2_quelle=sieger(25))
+
+
 class TestEveryRefusalCarriesItsCode:
     """The code travels with the refusal: a code named at a call site is a second copy nothing compares against the rule's own."""
 
@@ -180,3 +311,18 @@ class TestEveryRefusalCarriesItsCode:
 
         assert refusal is not None
         assert refusal.error_code == WIRING_UNSUPPORTED
+
+    def test_the_seeding_refusal_carries_a_code_of_its_own(self, season):
+        """Its repair is the opposite of the shared code's reload.
+
+        The season has not moved and the wiring at fault is this fixture's own, so a client mapping
+        the two alike sends the admin round a loop that ends where it began.
+        """
+
+        refusal = refusal_for(season, 30, team1_quelle=gruppenplatz("C", 1))
+
+        assert refusal is not None
+        assert refusal.error_code == WIRING_SEED_PAST_THE_OPENING_ROUND
+        # Not implied by the equality above: one constant spelled as the other passes that and
+        # rejoins the two rules on the wire.
+        assert refusal.error_code != WIRING_UNSUPPORTED

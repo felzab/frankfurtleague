@@ -6,6 +6,7 @@ import { Cpu, Person } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
+import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActions } from "@/shared/components/ui/RowActions";
@@ -159,17 +160,11 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     </RowActions>
   );
 
-  const emptyState = (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
-    </div>
-  );
-
   return (
     <>
       {/* One card per change, so nothing scrolls horizontally. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
-        {filteredAktionen.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}
+        {filteredAktionen.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredAktionen.map((aktion) => (
           <div
             key={aktion.id}
@@ -194,24 +189,34 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          <Table.ScrollContainer className="scrollbar-hide">
-            <Table.Content aria-label="Alle aufgezeichneten Änderungen">
+          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
+              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          <Table.ScrollContainer>
+            {/* Fixed layout holds the columns when the rows go. The minimum is the four declared
+                columns plus 224 for Datensatz, under which it gets nothing. */}
+            <Table.Content
+              aria-label="Alle aufgezeichneten Änderungen"
+              className="min-w-5xl table-fixed">
               <Table.Header>
+                {/* PINNED, with the leftover going to Datensatz rather than to the first column: ids and
+                    filter pairs are `break-all`, so that one column reads at any width it is given. */}
                 <Table.Column
                   isRowHeader
-                  className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  className="bg-muted text-foreground-muted fluid-xs border-border w-40 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Zeitpunkt
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-72 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Wer
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-56 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Art
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Datensatz
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+                {/* One control — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` holds
+                the arithmetic, and here the heading is wider than the control it sits over. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-32 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen
                 </Table.Column>
               </Table.Header>
@@ -220,7 +225,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
                   committing its row collection after a few navigations away and back. */}
               <Table.Body
                 items={filteredAktionen}
-                renderEmptyState={() => emptyState}>
+                renderEmptyState={() => <AdminCrudEmptyRow message={EMPTY_MESSAGES[emptiness]} />}>
                 {(aktion: AdminAktionRow) => (
                   <Table.Row
                     id={aktion.id}

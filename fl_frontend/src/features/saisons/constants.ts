@@ -122,9 +122,25 @@ export function tiebreakLadder(value: FLSaisonTiebreakOrder): readonly TiebreakR
 export const SAISON_ID_LENGTH = 4;
 
 /**
- * Mirrors `fl_backend/app/api/saisons/services.py :: RECORDED_FACT_FIELDS`, which closes both draw windows. Two articles and not one joined list: German inflects the article and the
- * conjunction, so a builder would need to know which sentence it is in.
+ * Mirrors `fl_backend/app/api/saisons/services.py :: RECORDED_FACT_FIELDS`, which closes both draw
+ * windows. Two articles and not one joined list: German inflects the article and the conjunction,
+ * so a builder would need to know which sentence it is in.
  */
 export const RECORDED_FACTS_NONE =
   "kein Ergebnis, kein Ausfall, kein Ort, kein Schiedsrichter, keine Notiz und keine von Hand geänderte Herkunft";
 export const RECORDED_FACTS_ANY = "ein Ergebnis, ein Ausfall, ein Ort, ein Schiedsrichter, eine Notiz oder eine von Hand geänderte Herkunft";
+
+/**
+ * The two of `fl_backend/app/api/saisons/services.py :: FROZEN_RULES_FIELDS` a save has to warn
+ * about, hand-copied and split by reach: one moves every total, the other moves none and only the
+ * order under them.
+ */
+export const RESCORING_RULES_FIELDS: readonly string[] = ["win_points", "draw_points"];
+export const PLACING_RULES_FIELDS: readonly string[] = ["tiebreak_order"];
+
+/**
+ * The rest of that tuple, and warned about nowhere: `REQ-RULES-011` shuts this field the moment the
+ * season holds fixtures, so nothing has been played when it moves. Declared for the sweep, which
+ * partitions the tuple across the three lists.
+ */
+export const PREDRAW_RULES_FIELDS: readonly string[] = ["qualifiers_per_group"];

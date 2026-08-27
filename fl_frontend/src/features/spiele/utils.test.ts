@@ -18,6 +18,7 @@ import {
   formatSpielUpdateMessage,
   formatUndoScopeWarning,
   groupBracketFaultsBySpielId,
+  isFirstKnockoutRound,
   listDependentSpiele,
   listFeederSpiele,
   listMovedSpiele,
@@ -862,6 +863,63 @@ describe("listFeederSpiele", () => {
       feeders.map((spiel) => spiel.id),
       ["id-25"],
     );
+  });
+});
+
+describe("isFirstKnockoutRound", () => {
+  // Sixteen qualifiers: `knockout_phases_for` takes four rounds off the end of the ladder, so the
+  // bracket opens at the Achtelfinale.
+  const sechzehn = [
+    makeBracketSpiel("id-1", 1, "gruppenphase"),
+    makeBracketSpiel("id-17", 17, "achtelfinale"),
+    makeBracketSpiel("id-18", 18, "achtelfinale"),
+    makeBracketSpiel("id-25", 25, "viertelfinale"),
+    makeBracketSpiel("id-29", 29, "halbfinale"),
+    makeBracketSpiel("id-31", 31, "finale"),
+  ];
+
+  // Four qualifiers: two rounds off the same end, so the bracket opens at the HALBFINALE and no
+  // Achtelfinale exists. A rule naming a phase would be wrong for one of these two seasons.
+  const vier = [
+    makeBracketSpiel("id-1", 1, "gruppenphase"),
+    makeBracketSpiel("id-13", 13, "halbfinale"),
+    makeBracketSpiel("id-14", 14, "halbfinale"),
+    makeBracketSpiel("id-15", 15, "finale"),
+  ];
+
+  it("opens a sixteen-team bracket at the Achtelfinale and nowhere later", () => {
+    assert.equal(isFirstKnockoutRound(sechzehn, { id: "id-17", saison_id: "2026", saison_phase: "achtelfinale" }), true);
+    assert.equal(isFirstKnockoutRound(sechzehn, { id: "id-25", saison_id: "2026", saison_phase: "viertelfinale" }), false);
+    assert.equal(isFirstKnockoutRound(sechzehn, { id: "id-29", saison_id: "2026", saison_phase: "halbfinale" }), false);
+    assert.equal(isFirstKnockoutRound(sechzehn, { id: "id-31", saison_id: "2026", saison_phase: "finale" }), false);
+  });
+
+  it("opens a four-team bracket at the Halbfinale, which the wider season answers false for", () => {
+    assert.equal(isFirstKnockoutRound(vier, { id: "id-13", saison_id: "2026", saison_phase: "halbfinale" }), true);
+    assert.equal(isFirstKnockoutRound(vier, { id: "id-15", saison_id: "2026", saison_phase: "finale" }), false);
+    assert.equal(isFirstKnockoutRound(sechzehn, { id: "id-29", saison_id: "2026", saison_phase: "halbfinale" }), false);
+  });
+
+  // Two qualifiers play the final alone, and the group table is the only thing that can seed it.
+  it("opens a two-team bracket at the Finale itself", () => {
+    const zwei = [makeBracketSpiel("id-1", 1, "gruppenphase"), makeBracketSpiel("id-7", 7, "finale")];
+
+    assert.equal(isFirstKnockoutRound(zwei, { id: "id-7", saison_id: "2026", saison_phase: "finale" }), true);
+  });
+
+  // A sibling of the same round feeds nothing, so it must not close the round it stands in.
+  it("is unmoved by a second fixture of the same round", () => {
+    assert.equal(isFirstKnockoutRound(vier, { id: "id-14", saison_id: "2026", saison_phase: "halbfinale" }), true);
+  });
+
+  it("never answers true for a group fixture, which has no source at all", () => {
+    assert.equal(isFirstKnockoutRound(sechzehn, { id: "id-1", saison_id: "2026", saison_phase: "gruppenphase" }), false);
+  });
+
+  it("reads this season's rounds alone", () => {
+    const gemischt = [...vier, makeBracketSpiel("id-90", 90, "achtelfinale", null, null, "2025")];
+
+    assert.equal(isFirstKnockoutRound(gemischt, { id: "id-13", saison_id: "2026", saison_phase: "halbfinale" }), true);
   });
 });
 

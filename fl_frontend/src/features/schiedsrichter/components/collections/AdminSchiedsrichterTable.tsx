@@ -8,6 +8,7 @@ import { Calendar, Pencil, Person } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { reactivateSchiedsrichterAction } from "@/features/schiedsrichter/actions";
+import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
@@ -140,18 +141,12 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     </RowActions>
   );
 
-  const emptyState = (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="muted-hint">{EMPTY_MESSAGES[emptiness]}</p>
-    </div>
-  );
-
   return (
     <>
       {/* One card per referee, so nothing scrolls horizontally. The school column stays table-only:
           on a card it read as an unlabeled stray line, and the edit page carries it. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
-        {filteredSchiedsrichter.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}
+        {filteredSchiedsrichter.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredSchiedsrichter.map((schiedsrichter) => (
           <div
             key={schiedsrichter.id}
@@ -174,24 +169,34 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          <Table.ScrollContainer className="scrollbar-hide">
-            <Table.Content aria-label="Tabelle aller Schiedsrichter">
+          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
+              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          <Table.ScrollContainer>
+            {/* Fixed layout holds the columns when the rows go. The minimum is the four declared
+                columns plus 176 for the name, under which it gets nothing. */}
+            <Table.Content
+              aria-label="Tabelle aller Schiedsrichter"
+              className="min-w-6xl table-fixed">
               <Table.Header>
                 <Table.Column
                   isRowHeader
                   className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Name
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                {/* PINNED to their content's width, so the leftover all goes to the name column. Kontakt is
+                    sized to an e-mail; the two beside it to their headings, which run longer than their cells. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-72 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Kontakt
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-56 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Schule / Verein
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-56 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Standard-Honorar
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+                {/* Four controls at most — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
+                holds the arithmetic, and it is the count a new action changes. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-60 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen
                 </Table.Column>
               </Table.Header>
@@ -200,7 +205,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
                   committing its row collection after a few navigations away and back. */}
               <Table.Body
                 items={filteredSchiedsrichter}
-                renderEmptyState={() => emptyState}>
+                renderEmptyState={() => <AdminCrudEmptyRow message={EMPTY_MESSAGES[emptiness]} />}>
                 {(schiedsrichter: FLSchiedsrichter) => (
                   <Table.Row
                     id={schiedsrichter.id}
