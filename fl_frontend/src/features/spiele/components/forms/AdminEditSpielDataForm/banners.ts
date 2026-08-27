@@ -42,8 +42,8 @@ export type SpielBannerSide = {
 
 /**
  * What the chosen event does, in the admin's words. **Per member and never one sentence for all
- * five**: the consequence differs, and one sentence for all of them is false for most of them. The
- * picker above spells the member's own name, so neither line here repeats it.
+ * five**: the consequence differs, so one would be false for most of them. The picker above spells
+ * the member's own name, so neither line here repeats it.
  */
 const SONDEREREIGNIS_MEANING: Record<FLSonderereignis, { title: string; body?: string }> = {
   ausgefallen: {
@@ -169,10 +169,13 @@ export function buildSpielBanners({
 
     if (side.quelle !== null) continue;
 
+    // The picker's own option spells the choice, so the title carries the half it cannot: only a hand
+    // edit fills this slot again. `info` because the slot is off its source whatever the save does, and
+    // a higher grade would confirm every later edit.
     banners.push({
       id: side.fieldName === "team1" ? "spiel.team1-manual" : "spiel.team2-manual",
-      severity: "danger",
-      title: `${side.label} wird manuell gesetzt`,
+      severity: "info",
+      title: `Spätere Ergebnisse lassen ${side.label} unverändert`,
       inline: side.fieldName === "team1" ? "team1-manuell" : "team2-manuell",
     });
 
@@ -215,6 +218,9 @@ export function buildSpielBanners({
         dependentSpielNummern.length === 1
           ? `Ohne Wertung bleibt Spiel ${nummern} unbesetzt`
           : `Ohne Wertung bleiben die Spiele ${nummern} unbesetzt`,
+      // `listDependentSpiele` matches a source naming this fixture and never walks on, so the title
+      // reaches one round. The rest is a class rather than numbers an admin would not act on.
+      body: "Die Runden danach bleiben ebenfalls offen.",
       inline: "sonderereignis-turnierbaum",
     });
   }

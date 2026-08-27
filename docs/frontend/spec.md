@@ -974,15 +974,33 @@ a verb that carries itself, `Wort für Wort` beside `angezeigt`; and reassurance
 erlaubt`), which tells the reader the banner did not need writing. A derived value is already gone under
 the consequence rule above.
 
-**The trailing `auch` has exactly one exception: the clause naming that a change reaches fixtures that
-are already played** (my rule, 2026-08-27). It is not the edge case of the sentence before it but the
+**The trailing `auch` has two exceptions. The first is the clause naming that a change reaches fixtures
+that are already played** (my rule, 2026-08-27). It is not the edge case of the sentence before it but the
 half the sentence before it does not carry, because a reader who has just typed a value reads a save as
 forward-looking and expects what is already recorded to keep the old one. The consequence rule above
 already names the venue banner as the worked instance, so the two would otherwise contradict each other.
-**The exception reaches that clause and nothing else** — not a second `auch` on the same banner, not rows
+**It reaches that clause and nothing else** — not a second `auch` on the same banner, not rows
 the save leaves alone, and not a banner whose save cannot reach a played fixture in the first place,
 which is a claim to check against the write path rather than to assume. The test is whether deleting the
 clause would leave the reader expecting the old value to stand wherever the fixture has been played.
+
+**The second is the clause naming the rows a title's enumeration stops short of** (my rule, 2026-08-27).
+The enumeration rule above ends a list at what the reader can reach for, and a consequence can run past
+that: `fl_frontend/src/features/spiele/utils.ts :: listDependentSpiele` matches a source naming this
+fixture's own number and never walks on, so the bracket banner names the fixtures an admin would go and
+fill by hand, while the rounds behind those stay open too. **A list complete against what the reader can
+reach is still read as complete against the consequence**, which is what makes this bite rather than
+merely leave something out: a title naming three fixtures asserts that a fourth is untouched. The test is
+whether the consequence outruns the list, and **the repair is one clause naming the rest as a class,
+never more numbers** — filling the named slot by hand is what releases every round behind it, so no
+further number is one an admin acts on, and a fixture two rounds on loses one side while the other fills
+normally, which the longer title would state falsely. It reaches no clause that merely rarefies the
+title, none about rows the save leaves alone, and none where the list already carries the whole
+consequence.
+
+**Both exceptions name a subject the sentence before them cannot reach**, and that is what separates them
+from the rarer instance of that sentence's own subject which the rule removes. A third case answering the
+same description is the signal to restate the rule around that test, never to write a third carve-out.
 
 **A banner nothing raised is deleted rather than shortened.** One that stands whatever the reader does
 answers no question, and where a conditional banner states the same fact at the moment it matters, the

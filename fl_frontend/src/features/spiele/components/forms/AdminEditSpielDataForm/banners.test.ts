@@ -56,13 +56,23 @@ describe("buildSpielBanners", () => {
     assert.deepEqual(ids(built), ["spiel.team1-manual", "spiel.team2-manual"]);
   });
 
-  /* Says what is now TRUE rather than what stopped being true, and in the title alone: a body naming
-     the wiring the slot lost states the same fact from the other side. */
-  it("states a hand-set side as the state it is in, without a body", () => {
+  /* The Herkunft picker's chosen option reads „Manuell gesetzt“, so a title spelling that back is the
+     second telling (`docs/frontend/spec.md` §1.12, diagnostic 4). What it does not show is the reach. */
+  it("states what a hand-set side costs rather than the choice the picker already shows", () => {
     const [banner] = build({ sides: [side("team1")] });
 
     assert.equal(banner?.body, undefined);
-    assert.ok(!/nicht mehr|automatisch/.test(banner?.title ?? ""));
+    assert.ok(!/manuell|von Hand|nicht mehr|automatisch/i.test(banner?.title ?? ""));
+    assert.match(banner?.title ?? "", /Spätere Ergebnisse lassen Team 1 unverändert/);
+  });
+
+  /* A slot is off its source whatever this save does, and `docs/frontend/spec.md` §1.12 grades a
+     standing property `info` — above it, every later edit of the fixture confirms for this. */
+  it("grades a hand-set side as a standing property, clear of the save's confirmation", () => {
+    const built = build({ sides: [side("team1"), side("team2")] });
+
+    assert.equal(built[0]?.severity, "info");
+    assert.equal(resolveBlockingBanners(built), null);
   });
 
   /* The closed Herkunft row states its reason inside a popover and the two controls under it state
@@ -187,6 +197,14 @@ describe("buildSpielBanners", () => {
 
     assert.match(one.find((banner) => banner.id === "spiel.knockout-feeds")?.title ?? "", /Spiel 29 unbesetzt/);
     assert.match(many.find((banner) => banner.id === "spiel.knockout-feeds")?.title ?? "", /Spiele 29, 30 und 31 unbesetzt/);
+  });
+
+  /* `fl_frontend/src/features/spiele/utils.ts :: listDependentSpiele` matches a source naming THIS
+     fixture and never walks on, so the title stops one round short of where the emptying stops. */
+  it("names the rounds behind the fixtures the title can enumerate", () => {
+    const built = build({ isNewlyChosen: true, sonderereignis: "ausgefallen", dependentSpielNummern: [29] });
+
+    assert.match(built.find((banner) => banner.id === "spiel.knockout-feeds")?.body ?? "", /Runden danach/);
   });
 
   // A no-show is awarded a result and an abandonment may still be scored, so each RESOLVES the slot

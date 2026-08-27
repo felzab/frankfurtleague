@@ -1364,22 +1364,25 @@ and one runs 5 lines and 348 characters against 3 and 250. `admin.css` is clean.
 three would fail the gate even with the filter widened**, because `check_comment_bounds` measures
 only a block the branch in hand wrote, which leaves a standing breach to `/docs:audit` (CUR-6).
 
-**One live breach is through the hole and it is not an INC-9 one.** Running the per-file checkers
-over both stylesheets with `.css` wired in as a C-style source raises two findings, both in
-`globals.css`. The first is `owner-voice`: a comment there names this repository's author in the third
-person, which COR-11 permits in no tracked file outside `.claude/`, and the check that exists
-to catch it has never been handed the file. The second is `stamp-format`, and it is false — a
-comment opens on a bold line pinning the vendored HeroUI version, which CUR-3's pattern reads as a
-malformed stamp.
+**The rule this hole covers has already been broken here, and a person caught it rather than the
+check.** `scripts/docs_gate/perkind.py :: check_owner_voice` raises `owner-voice` on
+`fl_frontend/src/app/globals.css` at `acee5209` and raises nothing on the same file at `d4eb0f44`,
+measured 2026-08-27 by handing the checker both revisions with `.css` read as a C-style source.
+Neither verdict is one the gate can reach, that file never being in the corpus. **That is this
+entry's sharpest evidence, and it outweighs any count of what is currently clean**: COR-11 held in
+the stylesheet most read for how this application looks only for as long as somebody swept it by
+hand. Running the same checkers over both files raises one further finding, `stamp-format`, and it
+is false — a comment opens on a bold line pinning the vendored HeroUI version, which CUR-3's
+pattern reads as a malformed stamp.
 
 **Which way the disagreement should be settled is open, and the measurement is why.** Widening the
 filter is not one line: `.css` has to reach `scripts/docs_gate/kernel.py :: CSTYLE_SUFFIXES` as
 well, or `:: comment_style` hands the file to the `#` reader and every check runs over an empty
-body — OPS-29's silence reproduced in a new place. It also lands with a copy repair and a guard on
-the stamp pattern before the gate can go green. The alternative is to say in chapter 2's
-`Applies to` where its checks stop, which is the cheaper change and leaves every block in the two
-stylesheets carrying this application's styling reasoning under no bound at all. A third question
-rides on whichever is taken: both files open on a block INC-2 admits in no stylesheet, and
+body — OPS-29's silence reproduced in a new place. It also lands with a guard on the stamp pattern
+before the gate can go green. The alternative is to say in chapter 2's `Applies to` where its checks
+stop, which is the cheaper change and leaves every block in the two stylesheets carrying this
+application's styling reasoning under no bound at all. A third question rides on whichever is taken:
+both files open on a block INC-2 admits in no stylesheet, and
 `scripts/docs_gate/structure.py :: HEADER_SCOPES` would not bind either on a suffix addition, so a
 widening has to settle that deliberately rather than inherit it — both blocks sit inside INC-9's
 bounds today, so nothing is through that half. **The outcome to avoid is neither**, the enforcement
@@ -1398,10 +1401,14 @@ module header in either file, so nothing is through it.
 
 **Why it ranks where it does.** The first three tests separate it from nothing here: it makes no
 later work possible, no date makes it worse, and nothing done before it has to be redone after it.
-Test 4 places it — an afternoon that clears a rule breach standing in the tree today and brings the
-two stylesheets under bounds they are already claimed to be under. That is above **OPS-29**, the
-same shape of hole measured clean, and below **OPS-72**, whose subject is a test that can pass a
-broken index.
+Test 4 places it — an afternoon that brings the reach measured above under bounds the standard
+already claims bind it, in the one file where a rule is known to have been broken and caught by
+hand rather than by the check written for it. **What it does not do is clear a standing breach**:
+the three INC-9 blocks fail no branch even with the suffix widened, so they stay `/docs:audit`'s
+whichever way this goes. It holds above **OPS-29**, the same shape of hole with nothing
+demonstrated behind it, on that escape alone — the effort tie-break would otherwise take OPS-29
+first, that one riding another change rather than being one. It stays below **OPS-72**, whose
+subject is a test that reports an index proven when it is not.
 
 ### 22 · OPS-29 — The documentation gate reads nothing inside an embedded node one-liner
 

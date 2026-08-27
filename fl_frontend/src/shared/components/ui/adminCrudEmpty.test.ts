@@ -18,7 +18,7 @@ const ACTIONS_WIDTH: Record<number, string> = { 1: "w-32", 2: "w-36", 3: "w-48",
 /**
  * Every admin CRUD list whose empty message sits inside a react-aria table; the markup was
  * byte-identical in all six, which let it drift out of one unnoticed. `alternates` never show
- * together; `freeText` is what ONE undeclared column is owed.
+ * together; `freeText` is owed PER undeclared column, not per table.
  */
 const TABLES = [
   { file: "features/aktionen/components/collections/AdminAktionenTable.tsx", controls: 1, alternates: 0, freeText: 224 },
