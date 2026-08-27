@@ -24,8 +24,8 @@ export function searchWithoutSaisonId(searchParams: Awaited<NextPageProps["searc
 
 /**
  * **Mirrors `fl_backend/app/api/teams/services.py :: has_taken_place`**, which answers
- * `REQ-SWAP-002` and `REQ-SWAP-004`. Wider closes a control the endpoint accepts, narrower offers
- * one it refuses. The replace's window is `holdsARecordedFact` below.
+ * `REQ-SWAP-002`, `REQ-SWAP-004`, `REQ-RULES-012` and `REQ-REPLACE-002`. Wider closes a control the
+ * endpoint accepts, narrower offers one it refuses.
  */
 export function hasTakenPlace(spiel: FLSpiel): boolean {
   // **The set is this question's alone, never `SONDEREREIGNIS_RECORDING_AN_ABSENCE`.** An

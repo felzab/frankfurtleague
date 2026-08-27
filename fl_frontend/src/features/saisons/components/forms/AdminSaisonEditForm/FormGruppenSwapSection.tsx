@@ -257,8 +257,7 @@ export function FormGruppenSwapSection({
             {isConfirming && first !== null && second !== null && (
               <ConfirmReveal>
                 <p className="fluid-xxs text-foreground leading-normal font-medium">
-                  Der Tausch gilt sofort und ist auf jeder Tabelle dieser Saison sichtbar. Rückgängig machst Du ihn, indem Du dieselben beiden
-                  Teams noch einmal tauschst.
+                  Rückgängig machst Du den Tausch, indem Du dieselben beiden Teams noch einmal tauschst.
                 </p>
               </ConfirmReveal>
             )}
