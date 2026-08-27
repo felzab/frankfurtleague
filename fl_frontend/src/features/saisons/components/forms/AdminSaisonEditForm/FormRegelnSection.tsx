@@ -7,6 +7,7 @@ import { StufenPicker } from "@/features/saisons/components/forms/StufenPicker";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_LABEL, FIELD_PAIR, FIELD_TRIO, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
+import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 
 import type { FLSaisonRules } from "@/features/saisons/schemas";
@@ -57,66 +58,79 @@ export function FormRegelnSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>Regeln</h2>
+        <h2 className={panel.heading()}>
+          Regeln
+          <Hint
+            mode="reveal"
+            label="Hinweis zu den Regeln"
+            body={{ lead: "Die Regeln gelten nur für diese Saison." }}
+          />
+        </h2>
       </div>
 
       <div className={panel.body()}>
         {/* One group and not two: all four answer what a single fixture is worth, and the forfeit
             result is that same question asked of a fixture nobody played. */}
-        <div className="flex w-full flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Wertung eines Spiels</h3>
-          <div className={FIELD_PAIR}>
-            <SaisonRuleNumberField
-              name="rules.win_points"
-              isReadOnly={isFinishedSaison}
-              label={<FieldLabel path="rules.win_points">Punkte für einen Sieg</FieldLabel>}
-              minValue={1}
-              value={rules.win_points}
-              onChange={(win_points) => onRulesChange({ ...rules, win_points })}
-              onBlur={() => onFieldLeft(["rules.win_points"])}
-            />
-            <SaisonRuleNumberField
-              name="rules.draw_points"
-              isReadOnly={isFinishedSaison}
-              label={<FieldLabel path="rules.draw_points">Punkte für ein Unentschieden</FieldLabel>}
-              minValue={0}
-              value={rules.draw_points}
-              onChange={(draw_points) => onRulesChange({ ...rules, draw_points })}
-              onBlur={() => onFieldLeft(["rules.draw_points"])}
-            />
+        {/* The panel body's own between-group step, so the one break inside this group is not its smallest gap. */}
+        <div className="flex w-full flex-col gap-y-5">
+          <div className="flex w-full flex-col gap-y-3">
+            <h3 className={FORM_SECTION_HEADING}>Wertung eines Spiels</h3>
+            <div className={FIELD_PAIR}>
+              <SaisonRuleNumberField
+                name="rules.win_points"
+                isReadOnly={isFinishedSaison}
+                label={<FieldLabel path="rules.win_points">Punkte für einen Sieg</FieldLabel>}
+                minValue={1}
+                value={rules.win_points}
+                onChange={(win_points) => onRulesChange({ ...rules, win_points })}
+                onBlur={() => onFieldLeft(["rules.win_points"])}
+              />
+              <SaisonRuleNumberField
+                name="rules.draw_points"
+                isReadOnly={isFinishedSaison}
+                label={<FieldLabel path="rules.draw_points">Punkte für ein Unentschieden</FieldLabel>}
+                minValue={0}
+                value={rules.draw_points}
+                onChange={(draw_points) => onRulesChange({ ...rules, draw_points })}
+                onBlur={() => onFieldLeft(["rules.draw_points"])}
+              />
+            </div>
           </div>
-          {/* One label over the pair, mirroring its one row in the change list: the season regulates
-              both sides' goals together, so neither number is a decision on its own. Still a
-              `FieldLabel`, which is what carries the Geändert marker and the row's anchor. */}
-          <FieldLabel path="rules.forfeit_ergebnis">
-            {/* The heading recipe on the text rather than on the `Label`: it governs the pair below it,
-                and at `FIELD_LABEL` it wore the same weight as the two field labels it governs. */}
-            <span
-              id={FORFEIT_LABEL_ID}
-              className={FORM_SECTION_HEADING}>
-              Ergebnis eines Spiels, zu dem ein Team nicht antritt
-            </span>
-          </FieldLabel>
-          <div
-            role="group"
-            aria-labelledby={FORFEIT_LABEL_ID}
-            className={FIELD_PAIR}>
-            <SaisonRuleNumberField
-              name="rules.forfeit_ergebnis.sieger_tore"
-              label={<Label className={FIELD_LABEL}>Tore für den Sieger</Label>}
-              minValue={0}
-              value={rules.forfeit_ergebnis.sieger_tore}
-              onChange={(sieger_tore) => onRulesChange({ ...rules, forfeit_ergebnis: { ...rules.forfeit_ergebnis, sieger_tore } })}
-              onBlur={() => onFieldLeft(["rules.forfeit_ergebnis.sieger_tore"])}
-            />
-            <SaisonRuleNumberField
-              name="rules.forfeit_ergebnis.verlierer_tore"
-              label={<Label className={FIELD_LABEL}>Tore für den Verlierer</Label>}
-              minValue={0}
-              value={rules.forfeit_ergebnis.verlierer_tore}
-              onChange={(verlierer_tore) => onRulesChange({ ...rules, forfeit_ergebnis: { ...rules.forfeit_ergebnis, verlierer_tore } })}
-              onBlur={() => onFieldLeft(["rules.forfeit_ergebnis.verlierer_tore"])}
-            />
+
+          <div className="flex w-full flex-col gap-y-3">
+            {/* One label over the pair, mirroring its one row in the change list: the season regulates
+                both sides' goals together, so neither number is a decision on its own. Still a
+                `FieldLabel`, which is what carries the Geändert marker and the row's anchor. */}
+            <FieldLabel path="rules.forfeit_ergebnis">
+              {/* The heading recipe on the text rather than on the `Label`: it governs the pair below it,
+                  and at `FIELD_LABEL` it wore the same weight as the two field labels it governs. */}
+              <span
+                id={FORFEIT_LABEL_ID}
+                className={FORM_SECTION_HEADING}>
+                Ergebnis eines Spiels, zu dem ein Team nicht antritt
+              </span>
+            </FieldLabel>
+            <div
+              role="group"
+              aria-labelledby={FORFEIT_LABEL_ID}
+              className={FIELD_PAIR}>
+              <SaisonRuleNumberField
+                name="rules.forfeit_ergebnis.sieger_tore"
+                label={<Label className={FIELD_LABEL}>Tore für den Sieger</Label>}
+                minValue={0}
+                value={rules.forfeit_ergebnis.sieger_tore}
+                onChange={(sieger_tore) => onRulesChange({ ...rules, forfeit_ergebnis: { ...rules.forfeit_ergebnis, sieger_tore } })}
+                onBlur={() => onFieldLeft(["rules.forfeit_ergebnis.sieger_tore"])}
+              />
+              <SaisonRuleNumberField
+                name="rules.forfeit_ergebnis.verlierer_tore"
+                label={<Label className={FIELD_LABEL}>Tore für den Verlierer</Label>}
+                minValue={0}
+                value={rules.forfeit_ergebnis.verlierer_tore}
+                onChange={(verlierer_tore) => onRulesChange({ ...rules, forfeit_ergebnis: { ...rules.forfeit_ergebnis, verlierer_tore } })}
+                onBlur={() => onFieldLeft(["rules.forfeit_ergebnis.verlierer_tore"])}
+              />
+            </div>
           </div>
         </div>
 
