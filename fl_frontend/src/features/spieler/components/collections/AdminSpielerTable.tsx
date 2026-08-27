@@ -3,7 +3,7 @@
 import { memo, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Pencil, Person } from "@gravity-ui/icons";
+import { Pencil, Person, Persons } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
@@ -55,6 +55,8 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
   const saisonQuery = selectedFromUrl ? `?saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
+  // The same value as a second parameter, for the one row link that carries a narrowing of its own.
+  const saisonParam = selectedFromUrl ? `&saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
 
   // No confirmation step: reactivation is undone by the delete control that takes its place.
   const handleReactivatePerson = (spieler: AdminSpielerRow) => {
@@ -108,6 +110,21 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
     return (
       <RowActions>
+        {/* The club list narrows by `q=` and by no id, so the name is what the link can carry — and
+            the search field shows it, which is what lets a reader widen the result again. */}
+        {row !== null && row.teamName !== null && (
+          <RowActionLink
+            href={`/admin/teams?q=${encodeURIComponent(row.teamName)}${saisonParam}`}
+            label="Team anzeigen"
+            ariaLabel={`Team ${row.teamName} anzeigen`}>
+            <Persons
+              aria-hidden="true"
+              width={18}
+              height={18}
+            />
+          </RowActionLink>
+        )}
+
         <RowActionLink
           href={`/admin/spieler/${spieler.id}${saisonQuery}`}
           label="Bearbeiten"
@@ -221,27 +238,32 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          <Table.ScrollContainer className="scrollbar-hide">
-            {/* `table-fixed` so the columns hold their x-positions when the rows go: the empty
-                state is one `<td>` spanning all of them, and auto layout would size them from it. */}
+          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
+              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          <Table.ScrollContainer>
+            {/* Fixed layout holds the columns when the rows go. The minimum is the five declared
+                columns plus 176 each for the two free-text ones, under which they get nothing. */}
             <Table.Content
               aria-label="Tabelle aller Spieler"
-              className="table-fixed">
+              className="min-w-5xl table-fixed">
               <Table.Header>
+                {/* UNDECLARED, and so is Team: fixed layout splits what the declared columns leave
+                equally between them, which is the only pair here holding free text. */}
                 <Table.Column
                   isRowHeader
                   className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Spieler
                 </Table.Column>
-                {/* PINNED to their content's width with one `px-3` inset each, so the leftover
-                width all goes to the name column — the club list's rule. */}
+                {/* Declared to the column's content or to its own heading, whichever is wider:
+                under fixed layout a surplus here comes out of the two free-text columns rather than
+                going unused. */}
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-16 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Nr.
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-3 py-4 pr-6 font-bold tracking-wider uppercase lg:pr-10">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Team
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-32 border-b px-3 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-28 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Position
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-20 border-b px-3 py-4 font-bold tracking-wider uppercase">
@@ -250,7 +272,9 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Status
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-48 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+                {/* Four controls at most — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
+                holds the arithmetic, and it is the count a new action changes. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-60 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen
                 </Table.Column>
               </Table.Header>
@@ -279,7 +303,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
                       <Table.Cell className="px-3 py-4">{renderNummer(spieler)}</Table.Cell>
 
-                      <Table.Cell className="px-3 py-4 pr-6 lg:pr-10">
+                      <Table.Cell className="px-3 py-4">
                         {spieler.selected?.teamName ? (
                           <div className="flex items-center gap-2">
                             {/* The TeamCard's chip colour, so a Kürzel wears one tint everywhere. */}

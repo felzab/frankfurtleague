@@ -115,10 +115,14 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          <Table.ScrollContainer className="scrollbar-hide">
+          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
+              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          <Table.ScrollContainer>
+            {/* Fixed layout holds the columns when the rows go. The minimum is the three declared
+                columns plus 304 for the span, which needs 236 to set its two dates on one line. */}
             <Table.Content
               aria-label="Tabelle aller Saisons"
-              className="table-fixed">
+              className="min-w-3xl table-fixed">
               <Table.Header>
                 <Table.Column
                   isRowHeader
@@ -131,6 +135,8 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-40 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Status
                 </Table.Column>
+                {/* Three controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
+                holds the arithmetic, and it is the count a new action changes. */}
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-48 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen
                 </Table.Column>

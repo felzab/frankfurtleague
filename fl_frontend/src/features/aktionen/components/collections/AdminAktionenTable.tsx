@@ -189,12 +189,14 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          <Table.ScrollContainer className="scrollbar-hide">
-            {/* `table-fixed` so the columns hold their x-positions when the rows go: the empty
-                state is one `<td>` spanning all of them, and auto layout would size them from it. */}
+          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
+              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          <Table.ScrollContainer>
+            {/* Fixed layout holds the columns when the rows go. The minimum is the four declared
+                columns plus 224 for Datensatz, under which it gets nothing. */}
             <Table.Content
               aria-label="Alle aufgezeichneten Änderungen"
-              className="table-fixed">
+              className="min-w-5xl table-fixed">
               <Table.Header>
                 {/* PINNED, with the leftover going to Datensatz rather than to the first column: ids and
                     filter pairs are `break-all`, so that one column reads at any width it is given. */}
@@ -212,7 +214,9 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Datensatz
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+                {/* One control — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` holds
+                the arithmetic, and here the heading is wider than the control it sits over. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-32 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen
                 </Table.Column>
               </Table.Header>

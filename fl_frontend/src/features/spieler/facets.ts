@@ -13,6 +13,9 @@ export const SPIELER_FACETS: readonly Facet<AdminSpielerRow>[] = [
       { value: "ohne_kader", label: "Nicht im Kader" },
       { value: "ausgetragen", label: "Ausgetragen" },
     ],
+    // The rows are every player in every season, so unnarrowed the list answers a question almost
+    // nobody arrives with. The sidemenu's season is the one an admin came here about.
+    defaultValues: ["im_kader"],
     // Three states, not two: no row at all is a different fact from a retired row, which keeps its
     // number, position and stufe.
     read: (spieler) => {

@@ -178,12 +178,14 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          <Table.ScrollContainer className="scrollbar-hide">
-            {/* `table-fixed` so the columns hold their x-positions when the rows go: the empty
-                state is one `<td>` spanning all of them, and auto layout would size them from it. */}
+          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
+              only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          <Table.ScrollContainer>
+            {/* Fixed layout holds the columns when the rows go. The minimum is the three declared
+                columns plus 224 for the name, under which it gets nothing. */}
             <Table.Content
               aria-label="Tabelle aller Spielorte"
-              className="table-fixed">
+              className="min-w-5xl table-fixed">
               <Table.Header>
                 <Table.Column
                   isRowHeader
@@ -198,6 +200,8 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-48 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Std. Mietpreis
                 </Table.Column>
+                {/* Five controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
+                holds the arithmetic, and it is the count a new action changes. */}
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-72 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen
                 </Table.Column>
