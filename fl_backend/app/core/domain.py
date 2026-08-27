@@ -650,8 +650,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SPIELE,
         "team1_quelle",
         Editability.CONDITIONAL,
-        "never on a group-phase fixture, never naming a later or missing match, and never feeding one "
-        "outcome into two slots (`REQ-WIRING-001`)",
+        "never on a group-phase fixture, never naming a later or missing match, never seeding from a group "
+        "placing past the round the bracket opens on, and never feeding one outcome into two slots "
+        "(`REQ-WIRING-001`)",
         "app.api.spiele.services.find_wiring_refusal",
     ),
     FieldPolicy(
@@ -1145,7 +1146,8 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison-Spielplan",
         summary=(
             "the wiring must be one the season can hold: no `quelle` on a group fixture, no dangling or "
-            "later feeder, no outcome feeding two slots, no hand-set team on a maintained side"
+            "later feeder, no group placing past the round the bracket opens on, no outcome feeding two "
+            "slots, no hand-set team on a maintained side"
         ),
         implemented_by="app.api.spiele.services.find_wiring_refusal",
         tested_by="tests/api/test_wiring_refusal.py::TestEveryRefusalCarriesItsCode",

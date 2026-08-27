@@ -1090,6 +1090,17 @@ def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPaylo
                     f"which is not played before this fixture ({stored.saison_phase})"
                 )
 
+        # A group placing seeds the bracket's ENTRANCE; every later slot is fed by a match. Which
+        # round that is comes off the rounds the season HOLDS, never a phase name: a bracket of four
+        # opens at the Halbfinale and one of two at the Finale.
+        if isinstance(quelle, FLSpielQuelleGruppe) and any(
+            other.saison_phase != "gruppenphase" and PHASE_RANK[other.saison_phase] < PHASE_RANK[stored.saison_phase] for other in season
+        ):
+            return _wiring_refusal(
+                f"{label}_quelle seeds from a group placing, and only the round this season's bracket opens on is fed by one; "
+                f"a {stored.saison_phase} slot is fed by an earlier match"
+            )
+
         key = _quelle_key(quelle)
         if key in used:
             return _wiring_refusal(f"{label}_quelle: this source already feeds another slot of the season")

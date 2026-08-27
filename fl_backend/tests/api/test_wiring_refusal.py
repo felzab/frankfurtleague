@@ -124,6 +124,73 @@ class TestPhaseRules:
         assert "not played before" in message_for(season, 29, team1_quelle=sieger(31))
 
 
+# Every bracket a season can play, by qualifier count: `app/api/saisons/schedule.py ::
+# knockout_phases_for` counts back from the Finale, so a different phase opens each one.
+BRACKET_SHAPES: dict[int, tuple[str, ...]] = {
+    16: ("achtelfinale", "viertelfinale", "halbfinale", "finale"),
+    8: ("viertelfinale", "halbfinale", "finale"),
+    4: ("halbfinale", "finale"),
+    2: ("finale",),
+}
+
+OPENING_ROUND = 25
+
+
+@pytest.fixture
+def bracket(fixture_at: FixtureFactory) -> Callable[[int], list[dict[str, Any]]]:
+    def make(qualifiers: int) -> list[dict[str, Any]]:
+        """Two group fixtures, then one unwired fixture per round the bracket plays, numbered in playing order."""
+
+        return [fixture_at(1, "gruppenphase"), fixture_at(2, "gruppenphase")] + [
+            fixture_at(OPENING_ROUND + index, phase, team1=None, team2=None) for index, phase in enumerate(BRACKET_SHAPES[qualifiers])
+        ]
+
+    return make
+
+
+class TestAGroupPlacingSeedsTheOpeningRound:
+    """The group table feeds the round the season's bracket OPENS on; every later slot is fed by a match.
+
+    Read off the rounds the season holds, never a phase name, which is wrong for three of the four
+    shapes a qualifier count produces.
+    """
+
+    @pytest.mark.parametrize("qualifiers", list(BRACKET_SHAPES), ids=lambda qualifiers: f"{qualifiers}-qualifiers")
+    def test_the_opening_round_is_seeded_from_the_groups(self, bracket, qualifiers):
+        """The two-qualifier season included, where the opening round IS the Finale.
+
+        Group fixtures rank below every knockout round, so a rule counting them would close the
+        opening round of every shape here.
+        """
+
+        assert refusal_for(bracket(qualifiers), OPENING_ROUND, team1_quelle=gruppenplatz("A", 1)) is None
+
+    @pytest.mark.parametrize(
+        ("qualifiers", "nr", "phase"),
+        [
+            pytest.param(16, 26, "viertelfinale", id="sixteen-viertelfinale"),
+            pytest.param(16, 27, "halbfinale", id="sixteen-halbfinale"),
+            pytest.param(16, 28, "finale", id="sixteen-finale"),
+            pytest.param(8, 26, "halbfinale", id="eight-halbfinale"),
+            pytest.param(4, 26, "finale", id="four-finale"),
+        ],
+    )
+    def test_a_later_round_is_fed_by_a_match_instead(self, bracket, qualifiers, nr, phase):
+        """The Finale three times over: refused wherever the bracket opens earlier, and legal above in the season that opens on it."""
+
+        message = message_for(bracket(qualifiers), nr, team1_quelle=gruppenplatz("A", 1))
+
+        assert "only the round this season's bracket opens on" in message
+        # The whole phrase: every phase name here ENDS in "finale", so a bare substring would accept
+        # a message naming the wrong round.
+        assert f"a {phase} slot" in message
+
+    def test_a_match_source_on_a_later_round_stays_legal(self, bracket):
+        """So the rule reaches the `gruppe` variant alone rather than every source on a later round."""
+
+        assert refusal_for(bracket(4), 26, team1_quelle=sieger(OPENING_ROUND)) is None
+
+
 class TestOneOutcomeOneSlot:
     def test_an_outcome_already_feeding_another_fixture_is_refused(self, season):
         """Re-pointing match 30 at match 26's winner, which 29 already holds."""
@@ -164,6 +231,7 @@ class TestEveryRefusalCarriesItsCode:
             pytest.param({"team1_quelle": {"type": "spiel", "spiel_nr": 27, "ausgang": "sieger"}}, id="dangling-feeder"),
             pytest.param({"team1_quelle": {"type": "spiel", "spiel_nr": 30, "ausgang": "sieger"}}, id="not-played-first"),
             pytest.param({"team1_quelle": {"type": "spiel", "spiel_nr": 26, "ausgang": "sieger"}}, id="outcome-already-used"),
+            pytest.param({"team1_quelle": {"type": "gruppe", "gruppe": "C", "platz": 1}}, id="group-placing-past-the-opening-round"),
         ],
     )
     def test_a_wiring_refusal_answers_its_own_code(self, season, overrides):
