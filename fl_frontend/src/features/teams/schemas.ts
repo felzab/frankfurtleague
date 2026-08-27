@@ -7,9 +7,12 @@ import {
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   FLAddressSchema,
+  KONTAKT_EMAIL_MAX_LENGTH,
+  PersonNameSchema,
+  PHONE_REGEX,
 } from "@/shared/schemas";
 
-import { DESCRIPTION_MAX_LENGTH } from "./constants";
+import { DESCRIPTION_MAX_LENGTH, EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH } from "./constants";
 
 /**
  * Mirrors `FLGruppenNames` — a closed set, so a group outside it is a malformed response. German
@@ -34,6 +37,125 @@ export const FLAustrittSchema = z.object({
 });
 export type FLAustritt = z.infer<typeof FLAustrittSchema>;
 export type FLAustrittType = FLAustritt["type"];
+
+/**
+ * Mirrors `FLSchulform`. No German error: the club editor offers `Keine Angabe` beside the six, so an
+ * unanswered picker is a null the field accepts rather than a refusal.
+ */
+export const FLSchulformSchema = z.enum([
+  "gymnasium_g8",
+  "gymnasium_g9",
+  "gesamtschule",
+  "privatschule_g8",
+  "privatschule_g9",
+  "oberstufengymnasium",
+]);
+export type FLSchulform = z.infer<typeof FLSchulformSchema>;
+
+/**
+ * Mirrors `FLTrikotFarbe` — the league's sixteen CI colours. The slug is what travels; its German name
+ * and its swatch are `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS`.
+ */
+export const FLTrikotFarbeSchema = z.enum([
+  "weiss",
+  "schwarz",
+  "rot",
+  "braun",
+  "orange",
+  "gelb",
+  "hellgruen",
+  "gruen",
+  "tuerkis",
+  "hellblau",
+  "blau",
+  "dunkelblau",
+  "violett",
+  "magenta",
+  "bordeaux",
+  "grau",
+]);
+export type FLTrikotFarbe = z.infer<typeof FLTrikotFarbeSchema>;
+
+/**
+ * Mirrors `FLKontaktEinwilligung` — what a contact person agreed to, and on whose word it is held.
+ * `umfang` is a one-member set: a second scope is a second agreement, never a widened one.
+ */
+export const FLKontaktEinwilligungSchema = z.object({
+  umfang: z.literal("kontaktdaten"),
+  erteilt_von: z.enum(["person", "administrativ"]),
+  // Unbounded on the read side, as every ceiling in this file is: a stored value over one of them
+  // must still parse, or a single row fails a whole list.
+  text_version: z.string(),
+  datum: CustomDateStringSchema,
+});
+export type FLKontaktEinwilligung = z.infer<typeof FLKontaktEinwilligungSchema>;
+
+/** Mirrors `FLKontaktEinwilligungPayload`. German throughout: the team editor binds it to its inputs. */
+export const FLKontaktEinwilligungPayloadSchema = z.object({
+  // Written by the form from `EINWILLIGUNG_UMFANG` rather than picked: one scope exists, so a control
+  // offering it would ask a question with one answer.
+  umfang: z.literal("kontaktdaten"),
+  erteilt_von: z.enum(["person", "administrativ"], { error: "Bitte wähle, wer die Einwilligung erteilt hat." }),
+  text_version: z
+    .string()
+    .nonempty({ error: "Bitte gib an, welche Fassung unterschrieben wurde." })
+    .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
+      error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
+    }),
+  datum: CustomDateStringSchema,
+});
+export type FLKontaktEinwilligungPayload = z.infer<typeof FLKontaktEinwilligungPayloadSchema>;
+
+/**
+ * Mirrors `FLKontaktperson`. Address and number are shapeless here on purpose: `GET /teams/memberships`
+ * is the only route to a bad row, so a value refused on read would lock itself in
+ * (`docs/backend/spec.md :: I36`).
+ */
+export const FLKontaktpersonSchema = z.object({
+  vorname: z.string().nonempty(),
+  nachname: z.string().nonempty(),
+  email: z.string(),
+  telefon: z.string(),
+  geburtsdatum: CustomDateStringSchema,
+  einwilligung: FLKontaktEinwilligungSchema,
+});
+export type FLKontaktperson = z.infer<typeof FLKontaktpersonSchema>;
+
+/** Mirrors `FLKontaktpersonPayload`. German throughout: the team editor binds it to its inputs. */
+export const FLKontaktpersonPayloadSchema = z.object({
+  vorname: PersonNameSchema,
+  nachname: PersonNameSchema,
+  // The ceiling is stated here rather than left to the address validator, whose refusal carries no
+  // field detail, so nothing would mark the box.
+  email: z
+    .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
+    .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
+  telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
+  geburtsdatum: CustomDateStringSchema,
+  einwilligung: FLKontaktEinwilligungPayloadSchema,
+});
+export type FLKontaktpersonPayload = z.infer<typeof FLKontaktpersonPayloadSchema>;
+
+/**
+ * Mirrors `FLSaisonTeamKontakte`. All three are held even where `trainer_ist_ansprechperson` is set:
+ * the flag records the claim, and the stored copy is what a later edit is compared against.
+ */
+export const FLSaisonTeamKontakteSchema = z.object({
+  trainer: FLKontaktpersonSchema,
+  ansprechperson: FLKontaktpersonSchema,
+  stellvertretung: FLKontaktpersonSchema,
+  trainer_ist_ansprechperson: z.boolean(),
+});
+export type FLSaisonTeamKontakte = z.infer<typeof FLSaisonTeamKontakteSchema>;
+
+/** Mirrors `FLSaisonTeamKontaktePayload` — the write side of the three, with the editor's German. */
+export const FLSaisonTeamKontaktePayloadSchema = z.object({
+  trainer: FLKontaktpersonPayloadSchema,
+  ansprechperson: FLKontaktpersonPayloadSchema,
+  stellvertretung: FLKontaktpersonPayloadSchema,
+  trainer_ist_ansprechperson: z.boolean(),
+});
+export type FLSaisonTeamKontaktePayload = z.infer<typeof FLSaisonTeamKontaktePayloadSchema>;
 
 export const FLTeamStatistikSchema = z.object({
   anzahl_gespielte_spiele: z.int().nonnegative(),
@@ -68,6 +190,9 @@ export const FLTeamSchema = z.object({
   // Rendered straight into an href on a public page -- see ExternalUrlSchema for why not z.url().
   website_url: ExternalUrlSchema,
   address: FLAddressSchema,
+  // Null for a club that has not answered yet, which is why no surface may read a missing school type
+  // as a private one.
+  schulform: FLSchulformSchema.nullable(),
   // The day this CLUB left the league — not the same as leaving one season, which is
   // `austritt` on the junction.
   inactive_since: CustomDateStringSchema.nullable(),
@@ -146,6 +271,9 @@ const teamPayloadFields = {
   full_name: z.string().nonempty({ error: "Bitte gib den vollständigen Namen ein." }),
   website_url: ExternalUrlSchema,
   address: FLAddressPayloadSchema,
+  // Required with no default, as the model states it: `PATCH` replaces the club wholesale, so an
+  // omitted key would clear a stored school form and fan that out as an edit nobody asked for.
+  schulform: FLSchulformSchema.nullable(),
 };
 
 export const FLPostTeamPayloadSchema = z.object(teamPayloadFields);
@@ -193,6 +321,7 @@ export const FLTeamRecordSchema = z.object({
   full_name: z.string().nonempty(),
   website_url: ExternalUrlSchema,
   address: FLAddressSchema,
+  schulform: FLSchulformSchema.nullable(),
   inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLTeamRecord = z.infer<typeof FLTeamRecordSchema>;
@@ -202,6 +331,10 @@ export const FLTeamMembershipSchema = z.object({
   saison_id: z.string(),
   gruppe: FLGruppenNamesSchema,
   austritt: FLAustrittSchema.nullable(),
+  // Per SEASON, not per club: a club plays in the colour it registered for that season, and last
+  // season's kit is not evidence of this season's.
+  trikot_farbe: FLTrikotFarbeSchema.nullable(),
+  kontakte: FLSaisonTeamKontakteSchema.nullable(),
 });
 export type FLTeamMembership = z.infer<typeof FLTeamMembershipSchema>;
 
@@ -254,6 +387,10 @@ export const FLPatchSaisonTeamPayloadSchema = z.object({
   // The whole record, or `null` to lift one. REQUIRED with no default on either side: a form that
   // omits it gets a 422, never a team quietly reinstated.
   austritt: FLAustrittSchema.nullable(),
+  trikot_farbe: FLTrikotFarbeSchema.nullable(),
+  // The three people whole, for `austritt`'s reason: a partial send would leave the row holding one
+  // half of an agreement.
+  kontakte: FLSaisonTeamKontaktePayloadSchema.nullable(),
 });
 export type FLPatchSaisonTeamPayload = z.infer<typeof FLPatchSaisonTeamPayloadSchema>;
 
@@ -277,6 +414,8 @@ export const FLSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
   team_id: CustomObjectIdStringSchema,
   gruppe: FLGruppenNamesSchema,
   austritt: FLAustrittSchema.nullable(),
+  trikot_farbe: FLTrikotFarbeSchema.nullable(),
+  kontakte: FLSaisonTeamKontakteSchema.nullable(),
   // The season's own copy of the club's identity, on no payload: it is seeded from the club at entry
   // and rewritten by a rename only while the season is not `past`, so a client's copy could only be
   // stale.
@@ -296,6 +435,8 @@ export const FLReplaceSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
   // Untouched by the replacement, and echoed because the arriving club has to be told which group it
   // now stands in.
   gruppe: FLGruppenNamesSchema,
+  trikot_farbe: FLTrikotFarbeSchema.nullable(),
+  kontakte: FLSaisonTeamKontakteSchema.nullable(),
   // Reseeded from the incoming club, exactly as entry seeds them.
   name: z.string().nonempty(),
   shorthand: z.string().length(2),

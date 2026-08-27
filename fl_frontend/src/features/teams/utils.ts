@@ -1,12 +1,12 @@
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { computeErgebnisFor, PHASE_RANK } from "@/features/spiele/utils";
 
-import { GRUPPEN_OPTIONS } from "./constants";
+import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN } from "./constants";
 
 import type { FLSaison, FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLSpiel } from "@/features/spiele/schemas";
-import type { FLGruppenTeam, FLTeamMembership } from "./schemas";
-import type { GruppeOffer } from "./types";
+import type { FLGruppenTeam, FLKontaktperson, FLTeamMembership, FLTeamWithMemberships } from "./schemas";
+import type { AdminKontaktRow, GruppeOffer, KontaktpersonDraft, SaisonTeamKontakteDraft } from "./types";
 
 /**
  * Every junction row counts — a disqualified team never leaves its season. The pickers disable what
@@ -197,3 +197,63 @@ const knockoutOutcome = (fixtures: readonly FLSpiel[], teamId: string, standsInA
   // "?" is a fixture carrying no result: a malformed scoreline is refused at the API boundary.
   return results.every((result) => result === "?") ? "pending" : "level";
 };
+
+/**
+ * A blank contact person, for the moment the editor's contact block is switched on. `erteilt_von` and
+ * the date stay unanswered: who agreed, and when, is the one thing nobody may guess for the league.
+ */
+const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
+  vorname: "",
+  nachname: "",
+  email: "",
+  telefon: "",
+  geburtsdatum: "",
+  einwilligung: { umfang: EINWILLIGUNG_UMFANG, erteilt_von: null, text_version: "", datum: "" },
+});
+
+/** The three blank seats, for the same moment. */
+export const buildEmptyKontakte = (): SaisonTeamKontakteDraft => ({
+  trainer: buildEmptyKontaktperson(),
+  ansprechperson: buildEmptyKontaktperson(),
+  stellvertretung: buildEmptyKontaktperson(),
+  trainer_ist_ansprechperson: false,
+});
+
+/**
+ * Whether two seats really hold one person. The flag alone is an assertion the backend never checks,
+ * so badging on it would state as fact that two different people are the same one.
+ */
+const isSamePerson = (a: FLKontaktperson, b: FLKontaktperson): boolean =>
+  a.vorname === b.vorname && a.nachname === b.nachname && a.email === b.email && a.telefon === b.telefon;
+
+/**
+ * Every club's contacts for ONE season, flattened to a row per seat. A club with nothing on file
+ * contributes nothing: a row with no person in it would answer "who can be reached" wrongly.
+ */
+export function buildKontaktRows(teams: readonly FLTeamWithMemberships[], saisonId: string | undefined): AdminKontaktRow[] {
+  return teams.flatMap((team) => {
+    const kontakte = team.memberships.find((membership) => membership.saison_id === saisonId)?.kontakte ?? null;
+    if (kontakte === null) return [];
+
+    return KONTAKT_ROLLEN.map(({ value }) => {
+      const person = kontakte[value];
+
+      return {
+        // The seat is part of the identity: one person can hold two of them, and two rows sharing a
+        // key would collapse into one in the react-aria collection.
+        id: `${team.id}:${value}`,
+        teamId: team.id,
+        teamName: team.name,
+        teamShorthand: team.shorthand,
+        rolle: value,
+        vorname: person.vorname,
+        nachname: person.nachname,
+        email: person.email,
+        telefon: person.telefon,
+        einwilligung: person.einwilligung,
+        istTrainerZugleich:
+          value === "ansprechperson" && kontakte.trainer_ist_ansprechperson && isSamePerson(kontakte.trainer, kontakte.ansprechperson),
+      };
+    });
+  });
+}

@@ -27,6 +27,7 @@ import { buildTeamBanners } from "./banners";
 import { describeSaisonTeamsFanOut, describeSpieleFanOut } from "./fanOutNotes";
 import { FormAdresseSection } from "./FormAdresseSection";
 import { FormAustrittSection } from "./FormAustrittSection";
+import { FormKontakteSection } from "./FormKontakteSection";
 import { FormSaisonSection } from "./FormSaisonSection";
 import { FormVereinSection } from "./FormVereinSection";
 
@@ -37,10 +38,12 @@ import type {
   FLPatchSaisonTeamPayload,
   FLPatchTeamPayload,
   FLPostTeamPayload,
+  FLSchulform,
   FLTeamRecord,
+  FLTrikotFarbe,
 } from "@/features/teams/schemas";
-import type { FLTeamDraftFields } from "@/features/teams/teamDraftStatus";
-import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
+import type { FLTeamDraftFields, FLTeamFieldGroup } from "@/features/teams/teamDraftStatus";
+import type { GruppeOffer, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -112,9 +115,12 @@ export function AdminTeamEditForm({
     website_url: team.website_url,
     description: team.description,
     address: team.address,
+    schulform: team.schulform,
   });
 
   const [gruppe, setGruppe] = useState<FLGruppenNames | null>(storedMembership?.gruppe ?? null);
+  const [trikotFarbe, setTrikotFarbe] = useState<FLTrikotFarbe | null>(storedMembership?.trikot_farbe ?? null);
+  const [kontakte, setKontakte] = useState<SaisonTeamKontakteDraft | null>(storedMembership?.kontakte ?? null);
   const [hasAustritt, setHasAustritt] = useState(storedMembership?.austritt != null);
   // Null until a route is chosen, so a new record accuses nobody; the schema refuses the null.
   const [art, setArt] = useState<FLAustrittType | null>(storedMembership?.austritt?.type ?? null);
@@ -144,11 +150,13 @@ export function AdminTeamEditForm({
     saison_id: saison.saisonId,
     gruppe,
     austritt: draftAustritt,
+    trikot_farbe: trikotFarbe,
+    kontakte,
   });
 
   const draftFields: FLTeamDraftFields = {
     ...clubDraft,
-    membership: storedMembership === null ? null : { gruppe, austritt: draftAustritt },
+    membership: storedMembership === null ? null : { gruppe, austritt: draftAustritt, trikot_farbe: trikotFarbe, kontakte },
   };
   const storedFields: FLTeamDraftFields = {
     name: team.name,
@@ -157,6 +165,7 @@ export function AdminTeamEditForm({
     website_url: team.website_url,
     description: team.description,
     address: team.address,
+    schulform: team.schulform,
     membership: storedMembership,
   };
 
@@ -191,10 +200,19 @@ export function AdminTeamEditForm({
   // Judged with the value that arrived in the event, because state has not committed yet.
   const validateGruppeSelection = (paths: readonly string[], selected: { gruppe: FLGruppenNames }) =>
     validatePaths("saisonTeam", { ...buildSaisonPayload(), ...selected }, paths);
+  const validateSchulformSelection = (paths: readonly string[], selected: { schulform: FLSchulform | null }) =>
+    validatePaths("team", { ...buildClubPayload(), ...selected }, paths);
+  const validateTrikotSelection = (paths: readonly string[], selected: { trikot_farbe: FLTrikotFarbe | null }) =>
+    validatePaths("saisonTeam", { ...buildSaisonPayload(), ...selected }, paths);
+  const validateKontakteSelection = (paths: readonly string[], selected: { kontakte: SaisonTeamKontakteDraft }) =>
+    validatePaths("saisonTeam", { ...buildSaisonPayload(), ...selected }, paths);
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
-  const clubDirty = status.changed.some((field) => field.group !== "Saison");
-  const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Saison");
+  // The junction owns two groups, so both halves read the same partition rather than one naming a
+  // group the other forgets.
+  const isSaisonGroup = (group: FLTeamFieldGroup) => group === "Saison" || group === "Kontakte";
+  const clubDirty = status.changed.some((field) => !isSaisonGroup(field.group));
+  const saisonDirty = storedMembership !== null && status.changed.some((field) => isSaisonGroup(field.group));
 
   // Read by the banners AND by the season panel, whose entry affordance it closes: one derivation,
   // so the sentence and the control it explains cannot disagree.
@@ -241,8 +259,11 @@ export function AdminTeamEditForm({
       website_url: team.website_url,
       description: team.description,
       address: team.address,
+      schulform: team.schulform,
     });
     setGruppe(storedMembership?.gruppe ?? null);
+    setTrikotFarbe(storedMembership?.trikot_farbe ?? null);
+    setKontakte(storedMembership?.kontakte ?? null);
     setHasAustritt(storedMembership?.austritt != null);
     setArt(storedMembership?.austritt?.type ?? null);
     setGrund(storedMembership?.austritt?.grund ?? "");
@@ -343,6 +364,7 @@ export function AdminTeamEditForm({
                 website_url: team.website_url,
                 description: team.description,
                 address: team.address,
+                schulform: team.schulform,
               },
             }
           : {}),
@@ -353,6 +375,8 @@ export function AdminTeamEditForm({
                 saison_id: saison.saisonId,
                 gruppe: storedMembership.gruppe,
                 austritt: storedMembership.austritt,
+                trikot_farbe: storedMembership.trikot_farbe,
+                kontakte: storedMembership.kontakte,
               },
             }
           : {}),
@@ -438,6 +462,7 @@ export function AdminTeamEditForm({
             draft={clubDraft}
             onChange={setClubDraft}
             onFieldLeft={validateClubFields}
+            onValidateSelection={validateSchulformSelection}
           />
 
           <FormAdresseSection
@@ -455,6 +480,9 @@ export function AdminTeamEditForm({
             gruppe={gruppe}
             onGruppeChange={setGruppe}
             onValidateSelection={validateGruppeSelection}
+            trikotFarbe={trikotFarbe}
+            onTrikotFarbeChange={setTrikotFarbe}
+            onValidateTrikotSelection={validateTrikotSelection}
             swap={swap}
             teamId={team.id}
             banners={banners}
@@ -478,6 +506,15 @@ export function AdminTeamEditForm({
               datum={datum}
               onDatumChange={setDatum}
               onValidateFields={validateSaisonFields}
+            />
+          )}
+
+          {storedMembership !== null && (
+            <FormKontakteSection
+              value={kontakte}
+              onChange={setKontakte}
+              onFieldLeft={validateSaisonFields}
+              onValidateSelection={validateKontakteSelection}
             />
           )}
         </EditFormLayout>

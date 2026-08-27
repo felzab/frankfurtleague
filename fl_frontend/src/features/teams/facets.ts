@@ -1,7 +1,7 @@
-import { GRUPPEN_OPTIONS } from "./constants";
+import { EINWILLIGUNG_HERKUNFT_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN } from "./constants";
 
 import type { Facet } from "@/shared/utils/facets";
-import type { AdminTeamRow } from "./types";
+import type { AdminKontaktRow, AdminTeamRow } from "./types";
 
 /** Spelled once so the facet below and a link that has to outrank its default cannot name it differently. */
 const SAISON_PARAM = "zugehoerigkeit";
@@ -58,5 +58,26 @@ export const TEAM_FACETS: readonly Facet<AdminTeamRow>[] = [
       if (held.length === 0) held.push("aktiv");
       return held;
     },
+  },
+];
+
+/**
+ * Module scope, for `TEAM_FACETS`'s reason. No season dimension: the page reads one season already,
+ * so a facet here could only ask the question the sidemenu selector has answered.
+ */
+export const KONTAKTE_FACETS: readonly Facet<AdminKontaktRow>[] = [
+  {
+    param: "rolle",
+    label: "Rolle",
+    options: KONTAKT_ROLLEN.map(({ value, label }) => ({ value, label })),
+    read: (kontakt) => [kontakt.rolle],
+  },
+  {
+    param: "einwilligung",
+    label: "Einwilligung",
+    options: EINWILLIGUNG_HERKUNFT_OPTIONS.map(({ value, label }) => ({ value, label })),
+    // Who stood behind the agreement is the question an audit arrives with; when it was given is on
+    // the row itself, where a range filter would answer worse than reading the column.
+    read: (kontakt) => [kontakt.einwilligung.erteilt_von],
   },
 ];

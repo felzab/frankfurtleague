@@ -238,7 +238,7 @@ for (const slice of readdirSync(FEATURES_DIR, { withFileTypes: true })) {
 
 describe("every facet set in the app", () => {
   // Pinned so a slice's facets quietly dropping out of the walk is a failure rather than a smaller run.
-  const EXPECTED_SETS = 7;
+  const EXPECTED_SETS = 8;
 
   it("discovers every slice's facets", () => {
     assert.equal(

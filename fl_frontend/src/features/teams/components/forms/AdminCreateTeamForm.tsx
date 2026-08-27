@@ -19,6 +19,9 @@ const EMPTY_DRAFT_BASE = {
   full_name: "",
   website_url: "",
   address: { strasse: "", hausnummer: "", plz: "", stadtteil: "", stadt: "" },
+  // Sent as the answer "none": the payload requires the key, and the school form is asked for on the
+  // club's own page rather than at the door.
+  schulform: null,
   gruppe: null,
 } as const;
 

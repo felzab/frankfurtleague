@@ -1,10 +1,14 @@
+import type { KontaktRolle } from "./constants";
 import type {
   FLAustritt,
   FLAustrittType,
   FLCreateTeamFormPayload,
   FLGruppenNames,
+  FLKontaktEinwilligung,
   FLPatchSaisonTeamPayload,
   FLPostSaisonTeamPayload,
+  FLSaisonTeamKontakte,
+  FLTrikotFarbe,
 } from "./schemas";
 
 export type FLTeamsSortingOptions = "name";
@@ -74,10 +78,31 @@ export type AustrittDraft = Omit<FLAustritt, "type"> & {
   type: FLAustrittType | null;
 };
 
+/**
+ * The agreement mid-edit, with its origin widened to `null` so a freshly opened block claims nobody's
+ * word until somebody says whose it is. The schema refuses the null, as it refuses an unpicked route.
+ */
+export type KontaktEinwilligungDraft = Omit<FLKontaktEinwilligung, "erteilt_von"> & {
+  erteilt_von: FLKontaktEinwilligung["erteilt_von"] | null;
+};
+
+/** One contact person mid-edit. Every other field is typed, so an unanswered one is the empty string. */
+export type KontaktpersonDraft = Omit<FLSaisonTeamKontakte["trainer"], "einwilligung"> & {
+  einwilligung: KontaktEinwilligungDraft;
+};
+
+/** The season's three people mid-edit. */
+export type SaisonTeamKontakteDraft = Omit<FLSaisonTeamKontakte, "trainer" | "ansprechperson" | "stellvertretung"> & {
+  trainer: KontaktpersonDraft;
+  ansprechperson: KontaktpersonDraft;
+  stellvertretung: KontaktpersonDraft;
+};
+
 /** The junction editor's membership draft, widened the same way, record included. */
-export type SaisonTeamMembershipDraft = Omit<FLPatchSaisonTeamPayload, "gruppe" | "austritt"> & {
+export type SaisonTeamMembershipDraft = Omit<FLPatchSaisonTeamPayload, "gruppe" | "austritt" | "kontakte"> & {
   gruppe: FLGruppenNames | null;
   austritt: AustrittDraft | null;
+  kontakte: SaisonTeamKontakteDraft | null;
 };
 
 /**
@@ -87,7 +112,12 @@ export type SaisonTeamMembershipDraft = Omit<FLPatchSaisonTeamPayload, "gruppe" 
 export type TeamSaisonMembership = {
   saisonId: string;
   saisonStatus: "past" | "active" | "future";
-  membership: { gruppe: FLGruppenNames; austritt: FLAustritt | null } | null;
+  membership: {
+    gruppe: FLGruppenNames;
+    austritt: FLAustritt | null;
+    trikot_farbe: FLTrikotFarbe | null;
+    kontakte: FLSaisonTeamKontakte | null;
+  } | null;
 };
 
 /** The season the editor addresses — the sidemenu selector's, resolved by the page. */
@@ -136,4 +166,26 @@ export type AdminTeamRow = {
  */
 export type TeamGruppeLock = {
   locked: boolean;
+};
+
+/**
+ * One row of `/admin/kontakte`: one person in one seat of one club, for the selected season. A club
+ * with no contacts on file contributes no rows, so the list never states a person who is not there.
+ */
+export type AdminKontaktRow = {
+  id: string;
+  teamId: string;
+  teamName: string;
+  teamShorthand: string;
+  rolle: KontaktRolle;
+  vorname: string;
+  nachname: string;
+  email: string;
+  telefon: string;
+  einwilligung: FLKontaktEinwilligung;
+  /**
+   * This seat and the Trainer's really hold one person, the assertion having been checked against the
+   * two records. Graded once here, so no cell can restate it from the flag alone.
+   */
+  istTrainerZugleich: boolean;
 };
