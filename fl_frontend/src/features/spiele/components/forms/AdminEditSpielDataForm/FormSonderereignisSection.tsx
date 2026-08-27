@@ -59,15 +59,7 @@ export function FormSonderereignisSection({
           <Hint
             mode="reveal"
             label="Hinweis zum Sonderereignis"
-            body={{
-              lead: "Was mit dem Spiel geschehen ist, über das Spielen hinaus.",
-              points: [
-                { term: "Ausgefallen", text: "wird nicht gewertet." },
-                { term: "Nichtantreten", text: "wird für das angetretene Team gewertet." },
-                { term: "Abgebrochen", text: "zählt wie ein gespieltes Spiel." },
-                { term: "Annulliert", text: "zählt nicht mehr." },
-              ],
-            }}
+            body={{ lead: "Was mit dem Spiel geschehen ist, über das Spielen hinaus." }}
           />
         </h2>
       </div>

@@ -68,7 +68,7 @@ describe("buildSpielBanners", () => {
     const [banner] = build({ sides: [side("team1")] });
 
     assert.match(banner?.title ?? "", /Team 1 wird manuell gesetzt/);
-    assert.match(banner?.body ?? "", /Spätere Ergebnisse lassen diese Seite unverändert/);
+    assert.match(banner?.body ?? "", /nicht mehr verantwortlich für die Auswahl/);
   });
 
   /* Why colour and confirmation are two fields: an unwired slot is as wrong as the red says and as

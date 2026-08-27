@@ -106,27 +106,27 @@ export function buildSaisonBanners({
     });
   }
 
-  // Its sibling and separate from it: nobody's total moves here, only the order under the totals,
-  // and the qualifier cut is read against that order. The body keeps its `auch` under §1.12's
-  // played-fixture exception.
+  // Its sibling and separate from it: nobody's total moves here, only the order under the totals. The
+  // subject is the placings rather than the qualifier cut read off them; conditional because
+  // `tiebreak_order` decides nothing until two teams stand level.
   if (isPlacingChanged) {
     banners.push({
       id: "saison.placing-changed",
       severity: "warning",
       raisedBy: "change",
-      title: "Die Qualifikanten für die KO-Runde könnten sich ändern",
-      body: "Dies betrifft auch längst fertige Gruppen.",
+      title: "Die Platzierungen der Teams könnten sich ändern",
       inline: null,
     });
   }
 
+  // Fixed copy, never re-derived from §1.12: the sentence is the whole entry, since it already
+  // answers what the change raises.
   if (isStufenChanged) {
     banners.push({
       id: "saison.stufen-changed",
       severity: "info",
       raisedBy: "change",
-      title: "Stufen begrenzen nur die Auswahl",
-      body: "Wer schon im Kader steht, behält seine Stufe.",
+      title: "Bestehende Kadereinträge behalten ihre Stufe",
       inline: null,
     });
   }

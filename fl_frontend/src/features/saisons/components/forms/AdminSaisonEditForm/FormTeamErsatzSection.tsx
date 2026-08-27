@@ -123,28 +123,26 @@ export function FormTeamErsatzSection({
         {isFinishedSaison ? (
           <Callout
             severity="info"
-            title="Die Saison ist abgeschlossen">
-            Ihre Spiele halten fest, wer gespielt hat, und ein Wechsel würde das umschreiben. Ersetzen lässt sich ein Team nur in einer
-            laufenden oder geplanten Saison.
-          </Callout>
+            title="In einer abgeschlossenen Saison lässt sich kein Team mehr ersetzen"
+          />
         ) : ersatz.rows.length === 0 ? (
           <Callout
             severity="info"
-            title="Noch kein Team in dieser Saison">
-            Ersetzen lässt sich nur ein Team, das in dieser Saison steht. Nimm die Teams über die Teamseite in die Saison auf.
+            title="Ersetzen lässt sich nur ein Team, das in dieser Saison steht">
+            Nimm die Teams über die Teamseite in die Saison auf.
           </Callout>
         ) : !hasPickableRow ? (
+          /* Dictated copy, whole. It states its rule and names no repair, where `docs/frontend/spec.md` §1.12 gives a
+             refusal two sentences as its floor. Rewriting it needs an instruction naming this sentence. */
           <Callout
             severity="info"
-            title="Die Saison ist zu weit">
-            Ersetzen lässt sich nur ein Team, das in dieser Saison noch nicht gespielt hat.
-          </Callout>
+            title="Nur Teams, die noch kein Spiel gespielt haben, können ersetzt werden"
+          />
         ) : !hasPickableCandidate ? (
           <Callout
             severity="info"
-            title="Kein Team zum Nachrücken">
-            Nachrücken kann nur ein Team, das in dieser Saison noch nicht dabei und nicht stillgelegt ist. Lege über die Teamseite ein neues an
-            oder reaktiviere ein stillgelegtes.
+            title="Nachrücken kann nur ein Team, das in dieser Saison noch nicht dabei und nicht stillgelegt ist">
+            Lege über die Teamseite ein neues an oder reaktiviere ein stillgelegtes.
           </Callout>
         ) : (
           <>

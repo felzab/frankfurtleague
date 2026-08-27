@@ -46,26 +46,24 @@ export function spielplanHoldsADraw({ hasSpielplan, hasDrawnSpiele, spieltageCou
 export function spielplanBlockedReason(input: SpielplanControlInput): string | null {
   const { saisonStatus, hasKoRunden } = input;
 
+  // Ahead of the window, unlike `find_spielplan_refusal`: a season that is over is answered by the
+  // state it stands in, which neither closure has a way out of. `past` alone, or a season
+  // activated undrawn would be unschedulable for good.
+  if (saisonStatus === "past") return "Diese Saison ist abgeschlossen. Für sie wird kein Spielplan mehr angelegt.";
+
   // `REQ-SPIELPLAN-001` and `REQ-SPIELPLAN-002` each step aside for a confirmed replace, and this
   // page confirms one wherever there is something to destroy, so neither closes the control alone.
   // The window below bounds the offer instead.
   const replacesDraw = spielplanHoldsADraw(input);
 
-  // Ahead of the `past` freeze, exactly as `find_spielplan_refusal` orders the two: an admin whose
-  // press would replace reads the whole window rather than the half of it a status names.
   if (replacesDraw && !isReplaceWindowOpen(input)) {
     // One code, two sentences: nothing returns `status` to `future` (`docs/backend/spec.md :: I18`),
     // while `PATCH /spiele/{spiel_id}` rewrites every recorded field. Only the record half has a way
     // back, so only it is worded as a state.
-    return saisonStatus !== "future"
-      ? "Der Spielplan dieser Saison steht. Neu anlegen lässt er sich nur, solange die Saison geplant ist."
+    return saisonStatus === "active"
+      ? "Der Spielplan lässt sich für laufende Saisons nicht neu anlegen."
       : `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. Neu anlegen lässt sich der Spielplan erst wieder, wenn bei keinem Spiel mehr etwas davon eingetragen ist.`;
   }
-
-  // `past` alone, never `future`-only, as
-  // `fl_backend/app/api/saisons/services.py :: find_spielplan_refusal` has it: the rollover is
-  // one-way, so a season activated undrawn would be unschedulable for good if this closed on it.
-  if (saisonStatus === "past") return "Diese Saison ist abgeschlossen. Für sie wird kein Spielplan mehr angelegt.";
 
   // Last, as the endpoint asks it: `find_rules_refusal` runs after the whole spielplan pass, and on
   // its `stored=None` path `REQ-RULES-001` reduces to a qualifier product reaching no bracket, which

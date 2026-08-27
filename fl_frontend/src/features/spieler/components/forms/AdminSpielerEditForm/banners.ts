@@ -112,14 +112,15 @@ export function buildSpielerBanners({
     });
   }
 
-  // One line, and it is the move rather than its timing: this banner is the pending save's own doing,
-  // so a title dating the effect states what the reader already knows.
+  // Both lines are dictated copy. Where they and `docs/frontend/spec.md` §1.12's title rules
+  // disagree the copy wins, §1.12 having been derived from sentences like these.
   if (isTeamChanged) {
     banners.push({
       id: "spieler.team-changed",
       severity: "warning",
       raisedBy: "change",
-      title: "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen",
+      title: "Teamwechsel wirkt sofort",
+      body: "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen.",
       inline: null,
     });
   }

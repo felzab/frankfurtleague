@@ -55,7 +55,9 @@ describe("spielplanBlockedReason", () => {
   /* Both halves of `REQ-SPIELPLAN-005` under one condition, as the endpoint has one code for them.
      Each sentence names the half that closed the window, and the record half names its way back. */
   it("closes the replace outside its window, and says which half closed it", () => {
-    assert.match(spielplanBlock({ ...DRAWN, saisonStatus: "active" }) ?? "", /solange die Saison geplant ist/);
+    // Given copy rather than a sentence derived from the rules: the status half states the rule and
+    // names no way back, there being none. Re-derive it and this fails.
+    assert.match(spielplanBlock({ ...DRAWN, saisonStatus: "active" }) ?? "", /für laufende Saisons nicht neu anlegen/);
 
     const erfasst = spielplanBlock({ ...DRAWN, erfassteSpieleCount: 1 }) ?? "";
     assert.match(erfasst, /schon etwas eingetragen/);
@@ -101,14 +103,15 @@ describe("spielplanBlockedReason", () => {
     assert.match(spielplanBlock({ ...DRAWN, hasKoRunden: false, erfassteSpieleCount: 1 }) ?? "", /schon etwas eingetragen/);
   });
 
-  /* `find_spielplan_refusal` judges `REQ-SPIELPLAN-005` ahead of `REQ-SPIELPLAN-003`, so a drawn
-     `past` season reads the whole replace window rather than the status half of it. The watermark
-     closes no control on its own. */
-  it("names the replace window first where a drawn season is also finished", () => {
+  /* The one place this mirror parts from `find_spielplan_refusal`, which judges `REQ-SPIELPLAN-005`
+     ahead of `REQ-SPIELPLAN-003`: neither closure has a way out, so a finished season reads the state
+     it stands in whether or not it holds a draw. */
+  it("names the finished season's own freeze where a drawn season is also finished", () => {
     const reason = spielplanBlock({ ...DRAWN, saisonStatus: "past", spieltageCount: 4 });
 
-    assert.match(reason ?? "", /solange die Saison geplant ist/);
-    assert.doesNotMatch(reason ?? "", /abgeschlossen/);
+    assert.match(reason ?? "", /abgeschlossen/);
+    // Never the running season's sentence, which is about a state this reader is not in.
+    assert.doesNotMatch(reason ?? "", /laufende Saisons/);
   });
 
   /* Undrawn, so there is nothing for the window to bound — `REQ-SPIELPLAN-003` is what answers, and

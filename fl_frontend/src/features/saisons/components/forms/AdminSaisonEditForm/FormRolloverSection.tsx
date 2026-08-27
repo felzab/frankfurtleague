@@ -120,8 +120,8 @@ export function FormRolloverSection({
           // question only this control raises.
           <Callout
             severity="info"
-            title="Hier ist nichts umzustellen">
-            Diese Saison läuft schon. Umstellen kannst Du auf der Seite der Saison, die als nächste laufen soll.
+            title="Diese Saison ist aktiv">
+            Umgestellt wird auf der Seite der geplanten Saison.
           </Callout>
         ) : (
           <>

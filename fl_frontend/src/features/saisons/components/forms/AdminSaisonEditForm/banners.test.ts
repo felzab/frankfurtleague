@@ -143,19 +143,26 @@ describe("buildSaisonBanners", () => {
     assert.ok(both.every((banner) => banner.severity === "warning" && banner.raisedBy === "change"));
   });
 
-  /* The one `auch` §1.12 keeps, and the reason either entry has a body at all: a reader reads a rules
-     edit as forward-looking unless the already-played half is named. Both saves reach one, `past`
-     being the only status either field is frozen in. */
-  it("names the played-fixture reach on both retroactive entries", () => {
+  /* The one `auch` §1.12 keeps, and the reason this entry has a body at all: a reader reads a rules
+     edit as forward-looking unless the already-played half is named. The save reaches one, `past`
+     being the only status the field is frozen in. */
+  it("names the played-fixture reach on the re-scoring entry", () => {
     assert.match(build({ isRescoringChanged: true })[0]?.body ?? "", /Auch längst gespielte Spiele/);
-    assert.match(build({ isPlacingChanged: true })[0]?.body ?? "", /auch längst fertige Gruppen/);
+  });
+
+  /* Both titles are fixed copy rather than §1.12's output, and each is the whole banner: a body under
+     either would answer a second question, and the placing one would reinstate the tail I struck. */
+  it("carries the placing and the Stufen entry in their titles alone", () => {
+    assert.equal(build({ isPlacingChanged: true })[0]?.body, undefined);
+    assert.equal(build({ isStufenChanged: true })[0]?.body, undefined);
+    assert.equal(build({ isStufenChanged: true })[0]?.title, "Bestehende Kadereinträge behalten ihre Stufe");
   });
 
   /* The mood is the point: the scoring moves for certain, while whether the table a reader then opens
      looks different depends on what has been played. */
   it("states each rules change as an outcome that could follow, never as a recalculation", () => {
     assert.match(build({ isRescoringChanged: true })[0]?.title ?? "", /Die Tabelle könnte sich ändern/);
-    assert.match(build({ isPlacingChanged: true })[0]?.title ?? "", /Die Qualifikanten für die KO-Runde könnten sich ändern/);
+    assert.match(build({ isPlacingChanged: true })[0]?.title ?? "", /Die Platzierungen der Teams könnten sich ändern/);
   });
 
   it("counts the outgoing season's unfinished fixtures into the title, singular and plural", () => {

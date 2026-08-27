@@ -87,13 +87,15 @@ describe("buildSpielerBanners", () => {
     assert.ok(!ids(build({ saisonStatus: "active" })).includes("spieler.entry-nachgetragen"));
   });
 
-  it("grades a transfer as a warning and states the move rather than when it lands", () => {
+  /* Dictated copy, so both lines are pinned literally rather than by a loosened pattern: a sweep
+     re-deriving either of them from the copy rules is what this test is here to fail. */
+  it("grades a transfer as a warning and names the timing over the move it makes", () => {
     const [banner] = build({ isTeamChanged: true });
 
     assert.equal(banner?.id, "spieler.team-changed");
     assert.equal(banner?.severity, "warning");
-    assert.match(banner?.title ?? "", /verschwindet aus dem alten Kader und erscheint im neuen/);
-    assert.equal(banner?.body, undefined);
+    assert.equal(banner?.title, "Teamwechsel wirkt sofort");
+    assert.equal(banner?.body, "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen.");
   });
 
   it("names the role and its holder where the draft team has already given it away", () => {

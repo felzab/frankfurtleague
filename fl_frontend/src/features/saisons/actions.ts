@@ -441,7 +441,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
         if (error.serverErrorCode === "REQ-SWAP-002") {
           return {
             success: false,
-            error: "In der KO-Runde dieser Saison wurde inzwischen gespielt oder abgesagt. Lade die Seite neu.",
+            error: "In der KO-Runde dieser Saison wurde inzwischen gespielt. Lade die Seite neu.",
           };
         }
         if (error.serverErrorCode === "REQ-SWAP-004") {

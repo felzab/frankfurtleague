@@ -220,9 +220,9 @@ export function FormSpielplanSection({
           </Callout>
         )}
 
-        {/* The rule behind the closure, carried in the panel rather than only in the sentence naming
-            this season's own state. Scoped to `active`: a finished season is closed by the same
-            branch of `spielplanBlockedReason` and this sentence would not be about it. */}
+        {/* The rule behind the closure, in the panel rather than on the control alone. Scoped to
+            `active` because the sentence is: a finished season is closed by its own branch of
+            `spielplanBlockedReason`, in words about the state it stands in. */}
         {isClosureCalledOut && (
           <Callout
             severity="info"
@@ -282,8 +282,8 @@ export function FormSpielplanSection({
           </p>
         ) : (
           /* In the body as well as on the control: a refusal hint opens on hover and on focus alone,
-             so a reader who never points at a closed button would otherwise never learn why. The one
-             state the callout above stands in is the one state that reader is already served in. */
+             so a reader who never points at a closed button would never learn why. Except where the
+             callout above already serves that reader. */
           !isClosureCalledOut && <p className="muted-hint">{closedReason}</p>
         )}
 

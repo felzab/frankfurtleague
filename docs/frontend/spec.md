@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `cbdc6320`, 2026-08-27\
+**Verified against:** `db3bec2f`, 2026-08-27\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -749,6 +749,13 @@ against at the rule**, so the next upgrade knows what to re-read.
 
 ### 1.12 The copy rules
 
+**Every rule here was generalised from a worked example, and the example outranks the rule** (my
+rule, 2026-08-27). Where a rule below and a sentence I dictated disagree, the rule is what is wrong,
+and it is amended here rather than the sentence rewritten. A sweep that corrects a source sentence
+against the generalisation drawn from it has inverted the two — which is how several rules below came
+to argue against the very lines they were derived from, and how one banner was reworded four times.
+A dictated line says so at the line it constrains, so the next reader finds the reason before the rule.
+
 **The reader is `Du` — informal, and capitalised everywhere** (my rule, 2026-08-04): `Du`, `Dein`,
 `Dir`, `Dich`, and never `Sie` or `Ihr`. When auditing, a sentence-initial `Du` is capitalised whatever
 the convention holds, so it is evidence of nothing.
@@ -923,20 +930,31 @@ Eight diagnostics decide _whether_ a sentence belongs:
 
 The ninth decides _how_ it is said, and it outranks the cap: **the reader runs a school football
 league, not this system.** No field name, code or endpoint, and no `Eintrag` or `Datensatz` where
-`Spiel`, `Spieltag`, `Spieler`, `Team`, `Kader` or `Gruppe` exists. No derivation, `wird berechnet aus`,
+`Spiel`, `Spieltag`, `Spieler`, `Team`, `Kader` or `Gruppe` exists — **`where … exists` is the whole
+of the test**, so a `Kadereintrag` stands: it is one player's place in a squad, which `Kader` names as
+little as `Spieler` does. No derivation, `wird berechnet aus`,
 `ergibt sich aus` and `wird abgeleitet` all describing the machine where only the consequence can matter.
 No conditional chain: `wenn X, dann Y, es sei denn Z` is a specification, and a hint states the common
 case while the refusal handles the rest. Prefer the shorter everyday word, and check a German compound
 past about four syllables against two plain words. **A sentence needing a second reading is too
 complicated, and where being short and being plain pull apart, plain wins.**
 
+**What the ninth rule bars is describing how the machine works, never saying that it has stopped
+acting.** The hand-set slot in
+`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/banners.ts` names the
+product for that reason: the league has no word for the product ceasing to maintain something, and
+that is the whole of what a reader needs there.
+
 **The hint rules end at the hint** (my rule, 2026-08-27). A refusal, a banner, a toast and an empty
 state each answer a question the reader has already been made to ask, and cutting one to a hint's
 length takes the answer away with it. What binds each instead:
 
-- **A refusal names the repair, always.** The FORM shape stated above is its floor and not its
-  ceiling, and a refusal shortened past its second sentence has become a dead end. Diagnostic 8 does
-  not reach it either: naming the panel that holds the repair IS the repair.
+- **A refusal names the repair wherever one exists.** The FORM shape stated above is its floor and
+  not its ceiling, and a refusal shortened past its second sentence has become a dead end. Diagnostic
+  8 does not reach it either: naming the panel that holds the repair IS the repair. **Where the
+  closure is a boundary with no route back**, as a finished season is, the refusal says so and stops:
+  a second sentence there would be wayfinding to a route that does not exist, which is worse than
+  brevity.
 - **A banner names the one thing the reader would otherwise get wrong about the act in front of
   them.** That is the consequence only where a save raised it; the block below this fence decides
   which of four things it is, and the register rule binds the body either way — a conditional chain
@@ -996,12 +1014,22 @@ sentence — bounds the answer rather than pushing toward the title alone. A tit
 bounds, over a body naming what happens to the rows that already hold a value, is inverted: the body is
 the line to keep and the title goes with the mechanism it states. Where the title already holds the
 consequence, the body is the one that goes, and it goes because it restates the title from the other
-side (diagnostic 6). **A body reaching a fact the title cannot stays** — the two `auch` clauses below
-are the commonest, and what a term the interface only spells back as a badge actually means is another.
-Neither is the second question the cap refuses: each completes the one answer the title began, which
-without it leaves the reader holding the wrong half. **Say what is now true rather than what stopped
-being true** — a negation makes the reader invert it to learn the state they are in, and a bracket slot
-taken off its source is set by hand whichever way the sentence is written.
+side (diagnostic 6). **A body reaching a fact the title cannot stays** — the played-fixture clause
+below is the commonest, and what a term the interface only spells back as a badge actually means is
+another. Neither is the second question the cap refuses: each completes the one answer the title
+began, which without it leaves the reader holding the wrong half.
+
+**A third arrangement keeps both lines: a title naming the act and when it lands, over a body naming
+what the reader will see change** (my rule, 2026-08-27). `spieler.team-changed` is the instance. Read
+against the inversion above it looks like a mechanism over a consequence, and reading it that way is
+what deleted its title once already — but `wirkt sofort` answers _when_ and the body answers _what_,
+so neither restates the other and the cap permits exactly this shape.
+
+**Say what is now true rather than what stopped being true** — a negation makes the reader invert it
+to learn the state they are in, and a bracket slot taken off its source is set by hand whichever way
+the sentence is written. **A prohibition is exempt**: where the rule itself is that something may no
+longer be done, `nicht mehr möglich` IS what is now true, and the positive form describes the world
+instead of the rule the reader has just met.
 
 **These come out of a banner wherever they appear**: the causal tail (`deshalb`, `damit`, `so`), which
 is diagnostic 1 in a banner; the scope tail (`auf der ganzen Seite`, `überall`), widening a claim past

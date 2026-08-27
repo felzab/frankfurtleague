@@ -181,30 +181,31 @@ export function FormGruppenSwapSection({
       </div>
 
       <div className={panel.body()}>
+        {/* Each title states the rule that shut the control rather than the state that met it: a rule
+            is what a reader carries away and can predict from. Dictated wording, shared with the team
+            panel. */}
         {isFinishedSaison ? (
           <Callout
             severity="info"
-            title="Die Saison ist abgeschlossen">
-            Eine abgeschlossene Saison wird nicht mehr verändert. Ihre Tabellen bleiben so, wie sie am Saisonende standen.
+            title="In einer abgeschlossenen Saison ist ein Gruppentausch nicht mehr möglich">
+            Die Tabellen dieser Saison bleiben so, wie sie am Saisonende standen.
           </Callout>
         ) : isClosed ? (
           <Callout
             severity="info"
-            title="Die KO-Runde hat begonnen">
-            Danach lässt sich keine Gruppe mehr tauschen.
-          </Callout>
+            title="Nach dem Beginn der KO-Runde ist ein Gruppentausch nicht mehr möglich"
+          />
         ) : !hasTwoGruppen ? (
           <Callout
             severity="info"
-            title="Noch nichts zu tauschen">
-            Für einen Tausch müssen Teams in mindestens zwei verschiedenen Gruppen stehen. Nimm die Teams über die Teamseite in die Saison auf.
+            title="Ein Gruppentausch braucht Teams in zwei verschiedenen Gruppen">
+            Nimm die Teams über die Teamseite in die Saison auf.
           </Callout>
         ) : !hasTwoSwappableGruppen ? (
           <Callout
             severity="info"
-            title="Die Gruppenphase ist zu weit">
-            Tauschen können nur Teams, die in ihrer Gruppe noch kein Spiel gespielt oder abgesagt bekommen haben.
-          </Callout>
+            title="Ein Gruppentausch braucht zwei Teams, die in ihrer Gruppe noch kein Spiel gespielt haben"
+          />
         ) : (
           <>
             <p

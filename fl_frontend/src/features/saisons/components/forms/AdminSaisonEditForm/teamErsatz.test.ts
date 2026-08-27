@@ -35,10 +35,9 @@ describe("the replacement panel", () => {
     assert.ok(ARMED.includes("Angesetzte Spiele"), "the armed alert's readout is outside its slice");
   });
 
-  /* The draw deletes what it replaces and says so; this endpoint deletes nothing. Borrow that
-     register here and the panel asks an admin to agree to a loss that will not happen. The survival
-     is promised once, in the callout `describeUebernommeneSpiele` writes, and never as its negation
-     in the hint above it (`docs/frontend/spec.md` §1.12). */
+  /* The draw deletes what it replaces and says so; this endpoint deletes nothing, so that register
+     asks an admin to agree to a loss that will not happen. The survival is promised in the callout
+     instead (`docs/frontend/spec.md` §1.12). */
   it("promises the schedule survives through the callout, and never borrows the draw's deletion register", () => {
     assert.match(PANEL, /describeUebernommeneSpiele\(outgoing\.spiele\)/);
     assert.doesNotMatch(PANEL, /gehen dabei verloren|gelöscht oder verschoben|Zurückholen lässt sich/);
@@ -106,6 +105,21 @@ describe("the replacement panel", () => {
      button an admin would then hunt for a way to enable. */
   it("closes on a finished season rather than offering a press it would refuse", () => {
     assert.match(PANEL, /isFinishedSaison \?/);
-    assert.match(PANEL, /Die Saison ist abgeschlossen/);
+    assert.match(PANEL, /In einer abgeschlossenen Saison lässt sich kein Team mehr ersetzen/);
+  });
+
+  /* Each closure names the rule that shut the control, never the situation that met it
+     (`docs/frontend/spec.md` §1.12), so an admin can predict the next season from what they read here. */
+  it("titles all four closures with their rule", () => {
+    assert.match(FLAT, /title="In einer abgeschlossenen Saison lässt sich kein Team mehr ersetzen"/);
+    assert.match(FLAT, /title="Ersetzen lässt sich nur ein Team, das in dieser Saison steht"/);
+    assert.match(FLAT, /title="Nachrücken kann nur ein Team, das in dieser Saison noch nicht dabei und nicht stillgelegt ist"/);
+  });
+
+  /* Dictated verbatim, and the whole callout: a sweep restoring a situation title above it, or a body
+     under it, is the failure this pins. The bare title is the banner-title decision of 2026-08-27. */
+  it("carries the dictated closure as its title alone, without a trailing stop", () => {
+    assert.match(FLAT, /title="Nur Teams, die noch kein Spiel gespielt haben, können ersetzt werden"\s*\/>/);
+    assert.doesNotMatch(PANEL, /Die Saison ist zu weit|und das trifft auf keines mehr zu/);
   });
 });

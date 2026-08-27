@@ -123,32 +123,29 @@ function GruppenTauschControl({
       <h3 className={FORM_SECTION_HEADING}>Gruppe tauschen</h3>
 
       {/* The whole-control closures, in the endpoint's own order. Each refuses every pair alike, so
-          none of them is a row. */}
+          none of them is a row. Each title states the rule that shut it rather than the state that
+          met it. Dictated wording, shared with the season panel. */}
       {saisonStatus === "past" ? (
         <Callout
           severity="info"
-          title="Die Saison ist abgeschlossen">
-          Auch ein Tausch geht jetzt nicht mehr. Die Tabellen dieser Saison bleiben so, wie sie am Saisonende standen.
+          title="In einer abgeschlossenen Saison ist ein Gruppentausch nicht mehr möglich">
+          Die Tabellen dieser Saison bleiben so, wie sie am Saisonende standen.
         </Callout>
       ) : swap.playedKnockoutSpiele > 0 ? (
         <Callout
           severity="info"
-          title="Die KO-Runde hat begonnen">
-          Danach lässt sich keine Gruppe mehr tauschen.
-        </Callout>
+          title="Nach dem Beginn der KO-Runde ist ein Gruppentausch nicht mehr möglich"
+        />
       ) : self.gespielteGruppenSpiele > 0 ? (
         <Callout
           severity="info"
-          title={`${self.name} hat in seiner Gruppe schon gespielt`}>
-          Wer in einer Gruppe schon gespielt hat, bleibt in ihr.
-        </Callout>
+          title="Wer in seiner Gruppe schon gespielt hat, bleibt in ihr"
+        />
       ) : !hasAPartner ? (
         <Callout
           severity="info"
-          title="Zurzeit ist kein Team wählbar">
-          Tauschen kann nur ein Team, das in einer anderen Gruppe dieser Saison steht und dort noch kein Spiel gespielt oder abgesagt bekommen
-          hat.
-        </Callout>
+          title="Ein Gruppentausch braucht ein Team aus einer anderen Gruppe, das dort noch kein Spiel gespielt hat"
+        />
       ) : (
         <>
           <p className="muted-hint">

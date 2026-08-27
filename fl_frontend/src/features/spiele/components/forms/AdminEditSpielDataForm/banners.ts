@@ -175,14 +175,14 @@ export function buildSpielBanners({
 
     if (side.quelle !== null) continue;
 
-    // `danger` for how wrong the state is; whose doing it is decides the dialog. A slot that
-    // arrived unwired asks nothing, but taking a wired one over is this save's own act.
+    // `danger` for the state, `raisedBy` for whose doing it is: an inherited slot asks nothing.
+    // The body names the product on purpose — §1.12's ninth rule allows a stop, not a how.
     banners.push({
       id: side.fieldName === "team1" ? "spiel.team1-manual" : "spiel.team2-manual",
       severity: "danger",
       raisedBy: side.storedQuelle === null ? "state" : "change",
       title: `${side.label} wird manuell gesetzt`,
-      body: "Spätere Ergebnisse lassen diese Seite unverändert.",
+      body: "Das System ist nicht mehr verantwortlich für die Auswahl.",
       inline: side.fieldName === "team1" ? "team1-manuell" : "team2-manuell",
     });
 
