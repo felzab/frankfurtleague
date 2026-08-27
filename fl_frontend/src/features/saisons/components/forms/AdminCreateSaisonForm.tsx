@@ -46,6 +46,9 @@ const asCalendarDate = (value: string) => (value === "" ? null : parseDate(value
 /** Names the forfeit pair for a screen reader, the heading over it belonging to no control of its own. */
 const FORFEIT_LABEL_ID = "neue-saison-nichtantreten";
 
+/** Names the level chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
+const STUFEN_LABEL_ID = "neue-saison-erlaubte-stufen";
+
 /**
  * Creates a season, always `future`: making one live is a separate deliberate step, so a typo in a new
  * id cannot become a silent rollover of the live one. **The id is typed rather than generated** — the
@@ -216,9 +219,14 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
               value={draft.rules.max_kadergroesse}
               onChange={(max_kadergroesse) => setDraft((current) => ({ ...current, rules: { ...current.rules, max_kadergroesse } }))}
             />
-            <Label className={FIELD_LABEL}>Welche Stufen diese Saison spielen</Label>
+            <span
+              id={STUFEN_LABEL_ID}
+              className={FIELD_LABEL}>
+              Welche Stufen diese Saison spielen
+            </span>
             <StufenPicker
               name="rules.erlaubte_stufen"
+              labelledBy={STUFEN_LABEL_ID}
               value={draft.rules.erlaubte_stufen}
               onChange={(erlaubte_stufen) => setDraft((current) => ({ ...current, rules: { ...current.rules, erlaubte_stufen } }))}
             />

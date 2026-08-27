@@ -17,6 +17,9 @@ import type { SaisonBanner } from "./banners";
 /** Names the forfeit pair for a screen reader: the heading over it is a `Label` bound to no control of its own. */
 const FORFEIT_LABEL_ID = "nichtantreten-ergebnis";
 
+/** Names the level chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
+const STUFEN_LABEL_ID = "erlaubte-stufen";
+
 /**
  * **`erlaubte_stufen` narrows what a squad form OFFERS and never what a stored row holds.** No
  * validator holds `saison_spieler.stufe` against a season's list, deliberately: narrowing a season
@@ -213,9 +216,12 @@ export function FormRegelnSection({
             onChange={(max_kadergroesse) => onRulesChange({ ...rules, max_kadergroesse })}
             onBlur={() => onFieldLeft(["rules.max_kadergroesse"])}
           />
-          <FieldLabel path="rules.erlaubte_stufen">Welche Stufen diese Saison spielen</FieldLabel>
+          <FieldLabel path="rules.erlaubte_stufen">
+            <span id={STUFEN_LABEL_ID}>Welche Stufen diese Saison spielen</span>
+          </FieldLabel>
           <StufenPicker
             name="rules.erlaubte_stufen"
+            labelledBy={STUFEN_LABEL_ID}
             value={rules.erlaubte_stufen}
             onChange={onStufenChange}
           />

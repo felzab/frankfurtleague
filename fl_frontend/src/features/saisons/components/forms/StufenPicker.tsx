@@ -32,17 +32,22 @@ export function StufenPicker({
   value,
   onChange,
   name,
+  labelledBy,
 }: {
   value: readonly FLSpielerStufe[];
   onChange: (next: FLSpielerStufe[]) => void;
   /** The field's path in the enclosing payload, so `Form`'s `validationErrors` reach it by name. */
   name: string;
+  /** The id of the heading above the chips, which is what the group is named by. */
+  labelledBy: string;
 }) {
   const errorId = useId();
 
   return (
     <TextField
       name={name}
+      // The proxy's own label and not the group's: `useLabel` warns without one, and this container
+      // carries no role, so nothing announces it beside the heading naming the chips.
       aria-label="Erlaubte Stufen"
       // The proxy submits what the group holds. Read by nothing: the payload comes from the caller's
       // own state, and this field is never typed into.
@@ -51,8 +56,11 @@ export function StufenPicker({
       className="flex w-full flex-col gap-y-1">
       {({ isInvalid }) => (
         <>
+          {/* Named from the heading rather than by a wrapper: react-aria already renders `role="toolbar"`
+              here, so a second grouping element around it would nest one group in another and leave the
+              chips with two accessible names. */}
           <ToggleButtonGroup
-            aria-label="Erlaubte Stufen"
+            aria-labelledby={labelledBy}
             aria-describedby={isInvalid ? errorId : undefined}
             size="sm"
             isDetached
