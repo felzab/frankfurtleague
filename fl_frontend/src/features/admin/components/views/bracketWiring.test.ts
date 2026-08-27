@@ -18,19 +18,46 @@ type Element = {
   tag: string;
   /** An interpolated call contributes none, so a class it hides is unpinned rather than assumed absent. */
   classes: readonly string[];
+  /** The className attribute's own source, which is where a recipe call shows and `classes` cannot. */
+  classSource: string;
   role: string | null;
+  /** Whether it is taken out of the accessibility tree, however the attribute spells it. */
+  isHidden: boolean;
   /** Its whole source, which is what tells one cell of a row from another. */
   body: string;
   /** Its DIRECT children's source, which is what tells the element carrying a string from the box around it. */
   own: string;
+  /** Where it sits in the file, which is what places one element inside another. */
+  start: number;
+  end: number;
 };
 
-function attributeOf(opening: ts.JsxOpeningLikeElement, name: string): ts.JsxAttributeValue | undefined {
+/** A span of the file an element can sit inside. */
+type Range = { start: number; end: number };
+
+function attributeNode(opening: ts.JsxOpeningLikeElement, name: string): ts.JsxAttribute | undefined {
   for (const attribute of opening.attributes.properties) {
-    if (ts.isJsxAttribute(attribute) && attribute.name.getText(source) === name) return attribute.initializer;
+    if (ts.isJsxAttribute(attribute) && attribute.name.getText(source) === name) return attribute;
   }
 
   return undefined;
+}
+
+function attributeOf(opening: ts.JsxOpeningLikeElement, name: string): ts.JsxAttributeValue | undefined {
+  return attributeNode(opening, name)?.initializer;
+}
+
+/** A bare `aria-hidden` is `true`, and `aria-hidden="false"` leaves the element in the tree, so neither is read as its presence. */
+function isHiddenFrom(opening: ts.JsxOpeningLikeElement): boolean {
+  const declared = attributeNode(opening, "aria-hidden");
+  if (declared === undefined) return false;
+
+  const value = declared.initializer;
+  if (value === undefined) return true;
+  if (ts.isStringLiteral(value)) return value.text !== "false";
+  if (ts.isJsxExpression(value) && value.expression !== undefined) return value.expression.kind !== ts.SyntaxKind.FalseKeyword;
+
+  return true;
 }
 
 /** A template's own text counts: an `align-top` written beside an interpolation is still declared. */
@@ -67,9 +94,13 @@ const visit = (node: ts.Node): void => {
     elements.push({
       tag: opening.tagName.getText(source),
       classes: classesOf(opening),
+      classSource: attributeOf(opening, "className")?.getText(source) ?? "",
       role: staticAttribute(opening, "role"),
+      isHidden: isHiddenFrom(opening),
       body: node.getText(source),
       own: ts.isJsxElement(node) ? node.children.map((child) => child.getText(source)).join("") : "",
+      start: node.getStart(source),
+      end: node.getEnd(),
     });
   }
   if (ts.isCallExpression(node)) calls.push(node.expression.getText(source));
@@ -113,6 +144,20 @@ function objectConstant(name: string): ts.ObjectLiteralExpression | null {
   return null;
 }
 
+/** The span a top-level function declaration covers, or `null` where it is no longer one the guard can place. */
+function rangeOfFunction(name: string): Range | null {
+  for (const statement of source.statements) {
+    if (ts.isFunctionDeclaration(statement) && statement.name?.getText(source) === name)
+      return { start: statement.getStart(source), end: statement.getEnd() };
+  }
+
+  return null;
+}
+
+/** `SlotWiring` is declared at top level and drawn nowhere but the pair cell, so what it renders lands in that cell. */
+const inside = (element: Element, ranges: readonly (Range | null)[]): boolean =>
+  ranges.some((range) => range !== null && element.start >= range.start && element.end <= range.end);
+
 /** What a function destructures out of its one props object, empty where it takes none the guard can read. */
 function propsOf(name: string): string[] {
   for (const statement of source.statements) {
@@ -143,6 +188,17 @@ describe("the bracket wiring review", () => {
 
     const cards = [...tags].filter((tag) => tag.endsWith("Card"));
     assert.deepEqual(cards, [], `${VIEW}: renders ${cards.join(", ")}`);
+
+    /* The recipe and not only the component name: a slot or a row rebuilt as `<div className={card()}>`
+       is the same decision, and the round panel around the table is the one card this view owes. */
+    const wiring = [taggedAs("Table.Content")[0] ?? null, rangeOfFunction("SlotWiring")];
+    const recipes = elements.filter((element) => /\bcard\(/.test(element.classSource) && inside(element, wiring));
+
+    assert.deepEqual(
+      recipes.map((element) => element.tag),
+      [],
+      `${VIEW}: ${recipes.map((element) => element.tag).join(", ")} inside the fixtures wears the card recipe`,
+    );
   });
 
   /* Auto layout reads a declared width as a preference, so the longest club name in the pair column
@@ -253,10 +309,22 @@ describe("the bracket wiring review", () => {
     });
 
     /* The shape the doubled number had: a marker drawn for the eye and hidden from the reading, one
-       space from an origin that opens on an ordinal of its own. */
-    it("draws nothing in the pair cell that is hidden from assistive technology", () => {
+       space from an origin that opens on an ordinal of its own. A childless one is decoration. */
+    it("draws no reading in the pair cell that is hidden from assistive technology", () => {
       assert.ok(pairCell[0] !== undefined, `${VIEW}: no pair cell to read`);
-      assert.ok(!pairCell[0].body.includes("aria-hidden"), `${VIEW}: the pair cell draws a marker only the eye sees`);
+
+      const slot = rangeOfFunction("SlotWiring");
+      assert.ok(slot !== null, `${VIEW}: SlotWiring is no longer a declaration the guard can place`);
+
+      const silenced = elements.filter(
+        (element) => element.isHidden && element.own.trim() !== "" && inside(element, [pairCell[0] ?? null, slot]),
+      );
+
+      assert.deepEqual(
+        silenced.map((element) => element.tag),
+        [],
+        `${VIEW}: ${silenced.map((element) => element.tag).join(", ")} in the pair cell draws what only the eye gets`,
+      );
     });
 
     /* Decided 2026-08-27: one cell declaring an alignment the other does not puts the control some

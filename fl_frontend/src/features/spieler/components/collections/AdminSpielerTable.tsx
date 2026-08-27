@@ -10,6 +10,7 @@ import { Table } from "@heroui/react";
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
 import { LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, rolleKuerzel, rolleLabel } from "@/features/spieler/constants";
 import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
+import { TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
@@ -110,11 +111,12 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
     return (
       <RowActions>
-        {/* The club list narrows by `q=` and by no id, so the name is what the link can carry — and
-            the search field shows it, which is what lets a reader widen the result again. */}
+        {/* The club list narrows by `q=` and by no id, so the name is what the link can carry. Its Saison
+            facet is on by default and a squad row can name a club the season no longer holds, so the link
+            turns that facet off. */}
         {row !== null && row.teamName !== null && (
           <RowActionLink
-            href={`/admin/teams?q=${encodeURIComponent(row.teamName)}${saisonParam}`}
+            href={`/admin/teams?q=${encodeURIComponent(row.teamName)}&${TEAMS_ANY_SAISON_QUERY}${saisonParam}`}
             label="Team anzeigen"
             ariaLabel={`Team ${row.teamName} anzeigen`}>
             <Persons

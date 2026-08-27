@@ -66,9 +66,9 @@ export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[
                     <span className="text-foreground min-w-0 truncate font-bold">{field.draftText}</span>
                   )}
                   <span className="ml-auto flex shrink-0 items-center">
-                    {/* The previous value is the whole of what the panel carries, so a new entry gets
-                        the glyph alone: `FieldLabel.tsx` keeps the operation word off the panel for the
-                        same reason, the trigger's own `aria-label` already announcing it. */}
+                    {/* The previous value is the whole of what the panel carries, so a new entry gets the
+                        glyph alone. The operation word is the span below, which all three arms draw; on a
+                        trigger only two of them have, it would be said twice wherever there is one. */}
                     {operation === "added" ? (
                       <Icon
                         aria-hidden="true"
@@ -76,7 +76,7 @@ export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[
                       />
                     ) : (
                       <InfoHint
-                        label={`${word}: ${field.label}`}
+                        label={`Vorheriger Wert von ${field.label}`}
                         trigger={<Icon className={`size-3.5 ${cls}`} />}>
                         <p>Vorher: {field.storedText}</p>
                       </InfoHint>
