@@ -1,6 +1,6 @@
 # Logging — spec
 
-**Verified against:** `22805a09`, 2026-08-27\
+**Verified against:** `a978f4ad`, 2026-08-27\
 **Scope:** the correlation id and the second header the edge controls beside it, the log stream on
 all three surfaces, the browser-crash path, and the development formats.
 

@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `22805a09`, 2026-08-27\
+**Verified against:** `a978f4ad`, 2026-08-27\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
