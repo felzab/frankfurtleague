@@ -1,6 +1,6 @@
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
 
-import { UNKNOWN_REFUSAL } from "./refusal";
+import { buildRefusal, UNKNOWN_REFUSAL } from "./refusal";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -32,9 +32,21 @@ export function toActionErrorResult(error: unknown): NonNullable<FormState> {
       // The form does not offer these shapes, so the request was built against a season that has since moved.
       return { success: false, error: "Die Saison wurde inzwischen geändert. Lade die Seite neu." };
     }
+    if (error.statusCode === 409 && error.serverErrorCode === "REQ-WIRING-002") {
+      // NOT the reload above: the season has not moved, and the stored wiring refuses every save of
+      // this fixture, so a reload returns the admin to the same refusal.
+      return {
+        success: false,
+        error: buildRefusal({
+          reason:
+            "Eine Seite dieses Spiels hat als Herkunft einen Platz in einer Gruppe, und das ist nur in der ersten KO-Runde der Saison möglich",
+          repair: "Wähle für diese Seite stattdessen ein früheres Spiel als Herkunft, oder setze das Team manuell",
+        }),
+      };
+    }
     if (error.statusCode === 409 && error.serverErrorCode !== undefined && error.serverErrorCode in OCCUPANT_REFUSALS) {
-      // Unlike the wiring refusal above, reloading fixes none of these. The code rides back out so the
-      // form can put the message on the side that caused it.
+      // Unlike the stale-form refusal above, reloading fixes none of these. The code rides back out
+      // so the form can put the message on the side that caused it.
       return { success: false, error: OCCUPANT_REFUSALS[error.serverErrorCode], errorCode: error.serverErrorCode };
     }
     if (error.statusCode === 409) {

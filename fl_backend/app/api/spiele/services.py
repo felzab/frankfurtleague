@@ -1046,9 +1046,14 @@ def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:
 
 WIRING_UNSUPPORTED = "REQ-WIRING-001"
 
+# Its own code because its repair is the opposite one: the shapes above reach the endpoint only from
+# a form the season has moved under, and this one is the fixture's OWN stored wiring, refused on
+# every save of it however unrelated the edit.
+WIRING_SEED_PAST_THE_OPENING_ROUND = "REQ-WIRING-002"
+
 
 def _wiring_refusal(message: str) -> WriteRefusal:
-    """Every wiring message shares one code: they are one rule, and one repair."""
+    """One code for the shapes the form cannot build at all: they are one rule, and one repair."""
 
     return WriteRefusal(error_code=WIRING_UNSUPPORTED, message=message)
 
@@ -1096,9 +1101,12 @@ def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPaylo
         if isinstance(quelle, FLSpielQuelleGruppe) and any(
             other.saison_phase != "gruppenphase" and PHASE_RANK[other.saison_phase] < PHASE_RANK[stored.saison_phase] for other in season
         ):
-            return _wiring_refusal(
-                f"{label}_quelle seeds from a group placing, and only the round this season's bracket opens on is fed by one; "
-                f"a {stored.saison_phase} slot is fed by an earlier match"
+            return WriteRefusal(
+                error_code=WIRING_SEED_PAST_THE_OPENING_ROUND,
+                message=(
+                    f"{label}_quelle seeds from a group placing, and only the round this season's bracket opens on is fed by one; "
+                    f"a {stored.saison_phase} slot is fed by an earlier match"
+                ),
             )
 
         key = _quelle_key(quelle)

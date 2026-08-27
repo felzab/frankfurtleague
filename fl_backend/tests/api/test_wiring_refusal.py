@@ -4,7 +4,7 @@ import pytest
 from bson import ObjectId
 
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpielListAdapter
-from app.api.spiele.services import WIRING_UNSUPPORTED, find_wiring_refusal
+from app.api.spiele.services import WIRING_SEED_PAST_THE_OPENING_ROUND, WIRING_UNSUPPORTED, find_wiring_refusal
 from app.core.exceptions import WriteRefusal
 from tests.payloads import spiel_patch_body
 
@@ -231,7 +231,6 @@ class TestEveryRefusalCarriesItsCode:
             pytest.param({"team1_quelle": {"type": "spiel", "spiel_nr": 27, "ausgang": "sieger"}}, id="dangling-feeder"),
             pytest.param({"team1_quelle": {"type": "spiel", "spiel_nr": 30, "ausgang": "sieger"}}, id="not-played-first"),
             pytest.param({"team1_quelle": {"type": "spiel", "spiel_nr": 26, "ausgang": "sieger"}}, id="outcome-already-used"),
-            pytest.param({"team1_quelle": {"type": "gruppe", "gruppe": "C", "platz": 1}}, id="group-placing-past-the-opening-round"),
         ],
     )
     def test_a_wiring_refusal_answers_its_own_code(self, season, overrides):
@@ -248,3 +247,18 @@ class TestEveryRefusalCarriesItsCode:
 
         assert refusal is not None
         assert refusal.error_code == WIRING_UNSUPPORTED
+
+    def test_the_seeding_refusal_carries_a_code_of_its_own(self, season):
+        """Its repair is the opposite of the shared code's reload.
+
+        The season has not moved and the wiring at fault is this fixture's own, so a client mapping
+        the two alike sends the admin round a loop that ends where it began.
+        """
+
+        refusal = refusal_for(season, 30, team1_quelle=gruppenplatz("C", 1))
+
+        assert refusal is not None
+        assert refusal.error_code == WIRING_SEED_PAST_THE_OPENING_ROUND
+        # Not implied by the equality above: one constant spelled as the other passes that and
+        # rejoins the two rules on the wire.
+        assert refusal.error_code != WIRING_UNSUPPORTED
