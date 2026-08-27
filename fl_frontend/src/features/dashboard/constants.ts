@@ -42,10 +42,10 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         label: "Spielsuche",
         iconName: "Magnifier",
         hint: {
-          lead: "Durchsucht alle Spiele der ausgewählten Saison.",
+          lead: "Alle Spiele der ausgewählten Saison.",
           // The list is counted against what a visitor can reach (`docs/frontend/spec.md` §1.12): both
           // `ort.*` keys are the venue, so `Ort` names them once.
-          points: [{ term: "Gesucht wird in", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." }],
+          points: [{ term: "Gesucht werden kann nach", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." }],
         },
       },
       {
