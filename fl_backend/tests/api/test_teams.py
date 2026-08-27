@@ -242,31 +242,29 @@ class TestAContactRecordReadsBackHoweverItWasStored:
     -- and `GET /teams/memberships` is the only route to repairing the row.
     """
 
+    # A title's `.`, an address `EmailStr` refuses, and 21 characters where `PHONE_REGEX` allows 20
+    # -- one per bound the payload adds, so no case below passes on another's refusal.
+    REFUSED = {"nachname": "Dr. Koerner", "email": "not an address", "telefon": "+49 170 1234567 890 12"}
+
+    ACCEPTED = {"nachname": "Koerner", "email": "a.koerner@example.de", "telefon": "+49 170 1234567"}
+
     STORED = {
         "vorname": "Anke",
-        "nachname": "Koerner",
-        # Past `KONTAKT_EMAIL_MAX_LENGTH` and not an address `EmailStr` would take.
-        "email": "not an address",
-        # 24 characters, past the 20 `PHONE_REGEX` allows.
-        "telefon": "+49 170 1234567 ext. 88",
         "geburtsdatum": "1984-05-09",
         "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+        **REFUSED,
     }
 
-    def test_the_read_model_takes_it(self):
+    def test_the_read_model_takes_every_one_of_them(self):
         parsed = FLKontaktperson.model_validate(self.STORED)
 
-        assert parsed.telefon == self.STORED["telefon"]
-        assert parsed.email == self.STORED["email"]
+        assert (parsed.nachname, parsed.email, parsed.telefon) == (self.REFUSED["nachname"], self.REFUSED["email"], self.REFUSED["telefon"])
 
-    @pytest.mark.parametrize("field", ["email", "telefon"])
+    @pytest.mark.parametrize("field", sorted(REFUSED))
     def test_the_payload_refuses_it(self, field):
         """Non-vacuity: without this the case above would pass just as well over a payload that had stopped checking."""
 
-        body = {**self.STORED, field: self.STORED[field]}
-        for other in ("email", "telefon"):
-            if other != field:
-                body[other] = "+49 170 1234567" if other == "telefon" else "a.koerner@example.de"
+        body = {**self.STORED, **self.ACCEPTED, field: self.REFUSED[field]}
 
         with pytest.raises(ValidationError) as failure:
             FLKontaktpersonPayload.model_validate(body)

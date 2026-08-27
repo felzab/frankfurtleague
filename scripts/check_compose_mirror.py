@@ -343,14 +343,39 @@ def shown(value: Any) -> str:
 
 
 def off_host_ports(document: dict[str, Any], name: str) -> list[Finding]:
-    """Every published port that is neither the edge's nor bound to this host alone."""
+    """Every way a service other than the edge becomes reachable from another host."""
     findings: list[Finding] = []
     for service, definition in sorted(document.get("services", {}).items()):
         if service == EDGE_SERVICE or not isinstance(definition, dict):
             continue
+
+        # Host networking declares no `ports` at all and publishes every socket the service listens
+        # on, so reading that key alone answers "nothing published" about the widest exposure there
+        # is.
+        if definition.get("network_mode") == "host":
+            findings.append(
+                Finding(
+                    "fail",
+                    f"{name}: {service} takes the host's own network, publishing everything it listens on\n"
+                    f"{CONTINUATION}only {EDGE_SERVICE} is reachable off this host",
+                )
+            )
+
         published = definition.get("ports")
-        if not isinstance(published, list):
+        if published is None:
             continue
+        # Refused rather than skipped, as an unparsed construct is everywhere else here: a shape
+        # this reader cannot judge is not a shape it may call safe.
+        if not isinstance(published, list):
+            findings.append(
+                Finding(
+                    "fail",
+                    f"{name}: {service} writes `ports` as {published!r}, which this reader cannot judge\n"
+                    f"{CONTINUATION}write it as a block sequence, one published port to an entry",
+                )
+            )
+            continue
+
         for entry in published:
             if not str(entry).startswith(LOOPBACK_PREFIXES):
                 findings.append(

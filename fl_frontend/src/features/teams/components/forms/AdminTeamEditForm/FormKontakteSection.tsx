@@ -35,7 +35,7 @@ const HERKUNFT_CHIP =
   "data-[selected=true]:ring-brand-solid-foreground " +
   "fluid-xs h-9 rounded-lg border px-4 font-extrabold tracking-wide transition-colors";
 
-/** A stored `YYYY-MM-DD`, or null for the empty string a half-entered record holds. */
+/** The empty string is a date nobody has entered yet, which the picker has to show as empty rather than refuse. */
 function toCalendarDate(stored: string): CalendarDate | null {
   return stored === "" ? null : parseDate(stored);
 }
@@ -264,7 +264,7 @@ function KontaktpersonFields({
           {/* A `Label` and not a plain span: it names the enclosing `TextField`, which carries no
               `aria-label`, so `useLabel` would warn without it. */}
           <FieldLabel path={`kontakte.${rolle}.einwilligung`}>
-            <span id={herkunftLabelId}>Erteilt von</span>
+            <span id={herkunftLabelId}>Erteilt</span>
           </FieldLabel>
           <ToggleButtonGroup
             isDisabled={isMirrored}

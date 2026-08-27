@@ -63,6 +63,31 @@ def test_a_service_publishing_nothing_is_not_examined():
     assert mirror.off_host_ports({"services": {"backend": {"image": "x"}}}, "prod") == []
 
 
+def test_host_networking_fails_although_it_declares_no_port():
+    """The widest exposure there is, and the one that answers nothing to a reader of `ports`."""
+    findings = mirror.off_host_ports({"services": {"backend": {"network_mode": "host"}}}, "prod")
+
+    assert [finding.severity for finding in findings] == ["fail"]
+    assert "host's own network" in findings[0].detail
+
+
+def test_a_ports_value_this_reader_cannot_judge_fails_rather_than_passing():
+    """A shape the reader cannot parse is not a shape it may call safe."""
+    findings = mirror.off_host_ports({"services": {"mongo": {"ports": "27017:27017"}}}, "local")
+
+    assert [finding.severity for finding in findings] == ["fail"]
+    assert "cannot judge" in findings[0].detail
+
+
+def test_the_module_under_test_is_this_repository_own():
+    """Names the import-order hazard the withdrawal above prevents, rather than leaving it silent.
+
+    A `checker_kernel` resolved from `test_check_docs.py`'s throwaway copy would root this module at
+    that copy, and every check below would then pass against a fixture instead of the repository.
+    """
+    assert mirror.REPO_ROOT == SCRIPTS.parent
+
+
 def test_the_repository_own_compose_files_are_clean():
     """The check is driven against the real files, so a plant in either is a failure here too."""
     prod = mirror.load(mirror.REPO_ROOT / mirror.PROD)

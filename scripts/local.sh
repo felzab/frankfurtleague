@@ -7,9 +7,10 @@
 # dropped from the image, nor a module-scope `AUTH_URL` read failing in the builder stage.
 #
 #   ./scripts/local.sh              build changed layers, start, wait for health
-#   ./scripts/local.sh --fresh      ALSO delete the volumes, and Next's build cache and the local
-#                                   database with them — for when the stack behaves in a way the
-#                                   code does not explain
+#   ./scripts/local.sh --fresh      ALSO delete the volumes, and with them Next's build cache, the
+#                                   local database and the copy of production under .local-db —
+#                                   for when the stack behaves in a way the code does not explain,
+#                                   and for leaving a machine holding no contact records
 #   ./scripts/local.sh --seed       ALSO fill the local database from production, reusing the copy
 #                                   in .local-db where there is one
 #   ./scripts/local.sh --refresh-db as --seed, but take a new copy from production first
@@ -103,17 +104,40 @@ restore_dump() {
     mongorestore --uri="mongodb://localhost:27017/?directConnection=true" --drop /dump
 }
 
-# DOCUMENTS, not databases: the backend creates the application database and every collection in it
-# at boot, so a node that took no restore at all still holds them, empty. Counting rows is the only
-# question whose answer differs.
-restored_documents() {
-  MSYS_NO_PATHCONV=1 docker compose -f "$COMPOSE" exec -T mongo mongosh --quiet --eval \
-    'db.adminCommand({ listDatabases: 1, nameOnly: true }).databases
-       .filter((entry) => !["admin", "config", "local"].includes(entry.name))
-       .reduce((total, entry) => {
-         const store = db.getSiblingDB(entry.name);
-         return total + store.getCollectionNames().reduce((rows, name) => rows + store[name].countDocuments({}), 0);
-       }, 0)'
+# Asked of the CONTAINER, the one question a host-side test cannot answer: mongorestore pointed at
+# an empty directory writes nothing and exits 0, and counting what the database holds afterwards
+# cannot tell this restore from the one before it.
+dump_collections_seen() {
+  MSYS_NO_PATHCONV=1 docker compose -f "$COMPOSE" exec -T mongo \
+    sh -c 'find /dump -name "*.bson" | wc -l'
+}
+
+# The whole fill. Called before the application services exist, so nothing can read the database
+# between its coming up and its holding something.
+seed_database() {
+  step "A copy to restore from"
+  mkdir -p "$(dirname "$DUMP_LOG")"
+  # The marker and not the directory: an interrupted copy leaves a directory behind.
+  if (( REFRESH_DB )) || [[ ! -f "$DUMP_MARK" ]]; then
+    info "copying from production, one collection at a time — the Flex tier throttles past 500 ops/s"
+    quietly take_dump || die "the copy from production failed, and nothing was written to the
+local database. mongodump's own account is in .local-db/copy.log, which is not printed here and
+not committable: it names the cluster this machine connects to."
+    ok "copied"
+  else
+    info "reusing the copy in .local-db — --refresh-db takes a new one"
+    ok "found"
+  fi
+
+  step "Restoring it into the local database"
+  local seen=""
+  seen="$(dump_collections_seen 2>/dev/null | tr -d '[:space:]')" || seen=""
+  if [[ ! "$seen" =~ ^[0-9]+$ ]] || (( seen == 0 )); then
+    die "the database container sees no collection under /dump, so a restore would write nothing.
+Take a fresh copy with:  ./scripts/local.sh --refresh-db"
+  fi
+  quietly restore_dump || die "the restore failed — mongorestore's own output is above."
+  ok "restored — ${seen} collection(s), and the local stack is reading its own data"
 }
 
 require_platform windows
@@ -126,7 +150,10 @@ if (( DOWN )); then
   if (( FRESH )); then
     step "Stopping the local stack and removing volumes"
     quietly docker compose -f "$COMPOSE" down -v --remove-orphans || die "the stack could not be stopped — the output above is compose's own."
-    ok "stopped — the next start rebuilds Next's cache, and the local database starts empty"
+    # The copy goes with the volume: it is real people's contact records, and a machine done with a
+    # local database should be left holding neither.
+    rm -rf "${REPO_ROOT:?}/.local-db"
+    ok "stopped — Next's cache rebuilds, and the database and the copy of production are both gone"
   else
     step "Stopping the local stack"
     # `--remove-orphans` here as well as on the way up: a service deleted from the compose file
@@ -160,7 +187,9 @@ ok "checked"
 if (( FRESH )); then
   step "Tearing down, including volumes"
   quietly docker compose -f "$COMPOSE" down -v --remove-orphans || die "the stack could not be torn down — the output above is compose's own."
-  ok "volumes removed — Next's cache rebuilds, and the local database starts empty; --seed fills it"
+  # As on the way down, and for the same reason.
+  rm -rf "${REPO_ROOT:?}/.local-db"
+  ok "volumes removed — Next's cache rebuilds and the database starts empty; --seed fills it again"
 fi
 
 section "build"
@@ -168,6 +197,22 @@ section "build"
 step "Building images from source"
 docker compose -f "$COMPOSE" build || die "The image build failed — its own output is above."
 ok "images built"
+
+# Before `start`, not inside it: a page rendered against an empty database caches that read for
+# days, and `take_dump` clears a bind-mounted directory, which is only safe while no container
+# holds the mount.
+if (( SEED )); then
+  section "database"
+
+  step "The database, before anything reads it"
+  quietly docker compose -f "$COMPOSE" up -d --force-recreate --remove-orphans mongo \
+    || die "the database could not be started — compose's own output is above."
+  wait_healthy "$COMPOSE" mongo 150 \
+    || die "the database did not elect itself primary, so there is nothing to restore into."
+  ok "database up"
+
+  seed_database
+fi
 
 section "start"
 
@@ -208,37 +253,6 @@ fi
 
 if (( HEALTHY )); then
   ok "every service is healthy"
-
-  # Only once the stack is up: the restore runs inside the mongo container, and a database that
-  # never elected itself has nothing to restore into.
-  if (( SEED )); then
-    section "database"
-
-    step "A copy to restore from"
-    mkdir -p "$(dirname "$DUMP_LOG")"
-    # The marker and not the directory: an interrupted copy leaves a directory behind.
-    if (( REFRESH_DB )) || [[ ! -f "$DUMP_MARK" ]]; then
-      info "copying from production, one collection at a time — the Flex tier throttles past 500 ops/s"
-      quietly take_dump || die "the copy from production failed, and nothing was written to the
-local database. mongodump's own account is in .local-db/copy.log, which is not printed here and
-not committable: it names the cluster this machine connects to."
-      ok "copied"
-    else
-      info "reusing the copy in .local-db — --refresh-db takes a new one"
-      ok "found"
-    fi
-
-    step "Restoring it into the local database"
-    quietly restore_dump || die "the restore failed — mongorestore's own output is above."
-    # Asked of the database rather than read off mongorestore's wording: a restore that wrote
-    # nothing exits 0, and the point of the seed is that something is there afterwards.
-    RESTORED="$(restored_documents 2>/dev/null | tr -d '[:space:]')"
-    if [[ ! "$RESTORED" =~ ^[0-9]+$ ]] || (( RESTORED == 0 )); then
-      die "the restore reported success and the local database holds no documents.
-Take a fresh copy with:  ./scripts/local.sh --refresh-db"
-    fi
-    ok "restored — ${RESTORED} document(s), and the local stack is reading its own data"
-  fi
 
   end_section
   CLOSING=("Open:               http://localhost:3000")

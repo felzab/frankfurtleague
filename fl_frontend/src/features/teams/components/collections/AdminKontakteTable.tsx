@@ -157,6 +157,8 @@ export const AdminKontakteTable = memo(function AdminKontakteTable({
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-60 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Einwilligung
                 </Table.Column>
+                {/* Two controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` holds
+                the arithmetic, and it is the count a new action changes. */}
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen
                 </Table.Column>

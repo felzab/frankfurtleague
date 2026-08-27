@@ -65,7 +65,7 @@ const readPerson = (rolle: KontaktRolle) => (source: FLTeamDraftFields) => {
 const readEinwilligung = (rolle: KontaktRolle) => (source: FLTeamDraftFields) => {
   const record = seatOf(rolle)(source)?.einwilligung ?? null;
   if (record === null) return null;
-  const herkunft = record.erteilt_von === null ? "Herkunft offen" : einwilligungHerkunftLabel(record.erteilt_von);
+  const herkunft = record.erteilt_von === null ? "Noch offen" : einwilligungHerkunftLabel(record.erteilt_von);
   const fassung = record.text_version === "" ? "ohne Fassung" : `Fassung ${record.text_version}`;
   const datum = record.datum === "" ? "ohne Datum" : `ab ${formatSpielDatum(record.datum)}`;
 

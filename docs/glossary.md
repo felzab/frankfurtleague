@@ -188,23 +188,23 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `schulform` — which kind of school a club is
 
 **Is:** one of six slugs on the season-independent `teams` document, or null where nobody has recorded it. G8 and G9 are told apart because they are two school careers rather than two names for one building.\
-**In code:** `fl_backend/app/api/teams/schemas.py :: FLSchulform`, declared on `:: _TeamWritable` so the payloads, the stored record and the read model state it once; the German for each value is `fl_frontend/src/features/teams/constants.ts :: SCHULFORM_OPTIONS`, which every surface reads rather than spelling its own.\
+**In code:** `fl_backend/app/api/teams/schemas.py :: FLSchulform`, declared on `:: _TeamWritable`, which both write payloads inherit, and re-declared with a default on the two read models so a club whose document predates the field still reads; the German for each value is `fl_frontend/src/features/teams/constants.ts :: SCHULFORM_OPTIONS`, which every surface reads rather than spelling its own.\
 **Trap:** the one `teams` key the validator leaves out of `required`, so a missing key and a stored null both read as unrecorded rather than as a school of no kind. A club's NAME settles at most half of it — `Gymnasium` says nothing about whether that school runs G8 or G9 — so what cannot be derived from a name is left null for a person to set in the editor rather than guessed.\
 **See:** backend spec I16 for why the validator carries the enum and no length, and [`ops/runbooks.md`](ops/runbooks.md) §2 for the order a constraint change runs in.
 
 ### `trikot_farbe` — the kit colour a club plays a season in
 
-**Is:** one of the league's Schulfarben as a slug, held on the `saison_teams` junction and assigned by an administrator, or null before one is.\
+**Is:** one of the league's own colours as a slug, held on the `saison_teams` junction and assigned by an administrator, or null before one is.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLTrikotFarbe`, declared on the junction's `$jsonSchema` in `fl_backend/app/core/constraints.py` because that row has no model of its own; the German name and the hex for each value are `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS`.\
 **Trap:** the vocabulary is the league's corporate identity, not a form's — `Grün` and `Magenta`, never `Dunkelgrün` or `Pink`. The hex beside a slug is drawing data and is stored nowhere, so nothing reads a colour back as a value. It sits outside the validator's `required` for `schulform`'s reason.\
-**See:** backend spec I16, and I19 for why this junction's fields are transcribed by hand.
+**See:** backend spec I16, and [`backend/overview.md`](backend/overview.md) for why this junction's fields are transcribed by hand.
 
 ### `kontakte` — the three people the league reaches a team through
 
 **Is:** a Trainer, an Ansprechperson and a Stellvertretung for one club in one season, embedded on the `saison_teams` junction beside a flag recording that the first two are the same person. Each carries a name, an email address, a telephone number, a date of birth, and the consent record saying on whose word those are held.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLSaisonTeamKontakte` over `:: FLKontaktperson` and `:: FLKontaktEinwilligung`, with the row's own declaration in `fl_backend/app/core/constraints.py`; they are entered in `fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/FormKontakteSection.tsx`.\
 **Trap:** season-scoped and never carried forward — these are one cohort's people, so a new season collects them again rather than inheriting them. `FLKontaktEinwilligung` is deliberately not the `einwilligung` a pupil carries: that one records what may be PUBLISHED about a person, this one only that these details may be held and used, and entangling them would put a club's contacts behind an open question about pupil data. The junction join withholds this block from the base tier inside the `$lookup` rather than at a later stage, a club's public read being one aggregation away from it otherwise.\
-**See:** backend spec I19 for the junction's missing model, and [`domain.md`](domain.md) for where a season-scoped fact belongs.
+**See:** [`backend/overview.md`](backend/overview.md) for the junction having no row model, and [`domain.md`](domain.md) for where a season-scoped fact belongs.
 
 ### `inactive_since` — the day something left
 

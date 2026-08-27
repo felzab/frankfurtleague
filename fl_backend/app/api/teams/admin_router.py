@@ -370,7 +370,7 @@ async def post_saison_team(
 @router.patch(
     f"{by_id('team_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonTeamResponse,
-    summary="Change a team's group or record its exit from the season",
+    summary="Rewrite a team's season row: group, exit record, kit colour and contacts",
 )
 async def patch_saison_team(
     team_id: CustomRouteObjectId,
@@ -381,10 +381,10 @@ async def patch_saison_team(
     spiele_collection: SpieleCollection,
 ) -> FLSaisonTeamResponse:
     """
-    Change which group a team is in for a season, or record that it has left.
+    Rewrite a team's row for one season: group, exit record, kit colour and contacts.
 
-    Both fields are required (`docs/backend/spec.md :: I31`), so an omitted `austritt` is a 422
-    rather than a team quietly reinstated.
+    All four are required, the row being replaced WHOLESALE: an omitted key is a 422 rather than a
+    team reinstated or three contact records dropped (`docs/backend/spec.md :: I31`).
     """
 
     # The identity comes back with the group because this endpoint echoes the whole row and writes

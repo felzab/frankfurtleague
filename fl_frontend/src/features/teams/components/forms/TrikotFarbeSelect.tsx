@@ -1,9 +1,9 @@
 "use client";
 
-import { Label, ListBox, Select } from "@heroui/react";
+import { FieldError, Label, ListBox, Select } from "@heroui/react";
 
 import { TRIKOT_FARBE_OPTIONS, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
-import { FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { FLTrikotFarbe } from "@/features/teams/schemas";
@@ -65,6 +65,7 @@ export function TrikotFarbeSelect({
         </span>
         <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
       </Select.Trigger>
+      <FieldError className={FIELD_ERROR} />
       <Select.Popover className={`${overlayPanel()} mt-2 max-h-80 overflow-y-auto p-1.5`}>
         <ListBox aria-label="Trikotfarben">
           <ListBox.Item

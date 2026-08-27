@@ -107,7 +107,7 @@ export const FLKontaktEinwilligungPayloadSchema = z.object({
 export type FLKontaktEinwilligungPayload = z.infer<typeof FLKontaktEinwilligungPayloadSchema>;
 
 /**
- * Mirrors `FLKontaktperson`. Address and number are shapeless here on purpose: `GET /teams/memberships`
+ * Mirrors `FLKontaktperson`. Mailbox and number are shapeless here on purpose: `GET /teams/memberships`
  * is the only route to a bad row, so a value refused on read would lock itself in
  * (`docs/backend/spec.md :: I36`).
  */

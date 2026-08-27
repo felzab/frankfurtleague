@@ -148,7 +148,7 @@ describe("deriveTeamDraftStatus", () => {
     assert.equal(status.fields.length, 21);
     assert.equal(status.isDirty, false);
     assert.equal(status.byPath.get("kontakte.trainer")?.draftText, "Erika Mustermann, erika@beispiel.de, 069 1234567, geboren am 01.01.1990");
-    assert.equal(status.byPath.get("kontakte.trainer.einwilligung")?.draftText, "Person selbst, Fassung 2025-08 (ab 01.09.2025)");
+    assert.equal(status.byPath.get("kontakte.trainer.einwilligung")?.draftText, "Von der Person selbst, Fassung 2025-08 (ab 01.09.2025)");
     assert.equal(status.byPath.get("kontakte.trainer_ist_ansprechperson")?.draftText, "Ja");
   });
 

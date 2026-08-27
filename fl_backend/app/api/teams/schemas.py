@@ -443,8 +443,8 @@ class FLSaisonTeamResponse(BaseAPIResponse):
 class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     """The junction row as the replacement left it, plus what it reached beyond that row.
 
-    No `austritt`: a replacement clears it, so the field could hold only one value here and would
-    state nothing.
+    Of the three fields a replacement clears, the two that leave a GAP are echoed; `austritt` is
+    not, a club that has not withdrawn needing nothing done about it.
     """
 
     saison_id: str
@@ -453,9 +453,8 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     # Untouched by the replacement, and echoed because the arriving club has to be told which group
     # it now stands in.
     gruppe: FLGruppenNames
-    # CLEARED by the replacement and echoed anyway, where `austritt` is not: the outgoing school's
-    # colour and its three people leave with it, so the admin has to be told the season now has no
-    # way at all to reach this team.
+    # The gap: the outgoing school's colour and its three people leave with it, so the season now
+    # has no way at all to reach this team.
     trikot_farbe: FLTrikotFarbe | None
     kontakte: FLSaisonTeamKontakte | None
     # Reseeded from the incoming club, exactly as entry seeds them.

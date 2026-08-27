@@ -2627,8 +2627,8 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}": {
       "patch": {
-        "summary": "Change a team's group or record its exit from the season",
-        "description": "Change which group a team is in for a season, or record that it has left.\n\nBoth fields are required (`docs/backend/spec.md :: I31`), so an omitted `austritt` is a 422\nrather than a team quietly reinstated.",
+        "summary": "Rewrite a team's season row: group, exit record, kit colour and contacts",
+        "description": "Rewrite a team's row for one season: group, exit record, kit colour and contacts.\n\nAll four are required, the row being replaced WHOLESALE: an omitted key is a 422 rather than a\nteam reinstated or three contact records dropped (`docs/backend/spec.md :: I31`).",
         "operationId": "patch_saison_team_api_v0_teams__team_id__saisons__saison_id__patch",
         "security": [
           {
@@ -6036,7 +6036,7 @@
           "retired_squad_rows"
         ],
         "title": "FLReplaceSaisonTeamResponse",
-        "description": "The junction row as the replacement left it, plus what it reached beyond that row.\n\nNo `austritt`: a replacement clears it, so the field could hold only one value here and would\nstate nothing."
+        "description": "The junction row as the replacement left it, plus what it reached beyond that row.\n\nOf the three fields a replacement clears, the two that leave a GAP are echoed; `austritt` is\nnot, a club that has not withdrawn needing nothing done about it."
       },
       "FLSaison": {
         "properties": {

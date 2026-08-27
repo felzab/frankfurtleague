@@ -119,7 +119,7 @@ export function trikotFarbeLabel(farbe: FLTrikotFarbe): string {
   return trikotFarbeOption(farbe)?.label ?? "";
 }
 
-/** The swatch's fill for a stored kit colour, `transparent` for one the table does not carry. */
+/** The swatch's fill. Falls through to `transparent` so an unknown slug draws no colour at all rather than a wrong one. */
 export function trikotFarbeHex(farbe: FLTrikotFarbe): string {
   return trikotFarbeOption(farbe)?.hex ?? "transparent";
 }
@@ -141,13 +141,17 @@ type EinwilligungHerkunftOption = {
   readonly label: string;
 };
 
-/** Who stands behind the agreement, in the editor's order. */
+/**
+ * How the agreement reached the league, in the editor's order. **Neither label may name a giver other
+ * than the person**: the second is a transcription, and a label naming the school would record the
+ * school as having consented for somebody.
+ */
 export const EINWILLIGUNG_HERKUNFT_OPTIONS: readonly EinwilligungHerkunftOption[] = [
-  { value: "person", label: "Person selbst" },
-  { value: "administrativ", label: "Schule" },
+  { value: "person", label: "Von der Person selbst" },
+  { value: "administrativ", label: "Von der Verwaltung übertragen" },
 ];
 
-/** What every surface renders for a stored agreement's origin. */
+/** What every surface renders for a stored agreement. */
 export function einwilligungHerkunftLabel(herkunft: FLKontaktEinwilligung["erteilt_von"]): string {
   return EINWILLIGUNG_HERKUNFT_OPTIONS.find((option) => option.value === herkunft)?.label ?? "";
 }
