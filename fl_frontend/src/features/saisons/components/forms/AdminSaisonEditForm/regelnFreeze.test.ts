@@ -34,8 +34,7 @@ describe("the rules panel's tiebreak freeze", () => {
   });
 
   /* THE COUPLING. ONE derivation of "a knockout fixture has been played" reaches both panels, and
-     the endpoint counts that fact once over `has_taken_place` — so a form grading it one way while
-     the write path grades it the other is the state this rules out. */
+     the endpoint counts that fact once over `has_taken_place`. */
   it("takes the fact from the same count the group swap closes on", () => {
     assert.ok(EDIT_FORM.includes(`isKnockoutStarted={${PLAYED_KNOCKOUT}}`), "the rules panel is handed a fact of its own");
     assert.ok(SWAP.includes(PLAYED_KNOCKOUT), "the swap panel reads the knockout count some other way");
