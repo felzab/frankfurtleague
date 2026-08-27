@@ -186,6 +186,10 @@ def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules
     if lookup_filters:
         lookup_pipeline.append({"$match": lookup_filters})
 
+    # Withheld at the JOIN rather than downstream: the outer `$project` is an allow-list too, so this
+    # is DEPTH -- two of this pipeline's callers are base-tier and the row carries contact records.
+    lookup_pipeline.append({"$project": {"_id": 0, "saison_id": 1, "gruppe": 1, "austritt": 1, "name": 1, "shorthand": 1}})
+
     pipeline.append(
         {
             "$lookup": {
@@ -227,6 +231,7 @@ def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules
                 "address": 1,
                 "description": 1,
                 "full_name": 1,
+                "schulform": 1,
                 "website_url": 1,
                 "inactive_since": 1,
                 # `$group` emits nothing for an empty input rather than a row of zeros. Left out
@@ -745,7 +750,10 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
                 "from": Collection.SAISON_TEAMS,
                 "localField": "_id",
                 "foreignField": "team_id",
-                "pipeline": [{"$project": {"_id": 0, "saison_id": 1, "gruppe": 1, "austritt": 1}}],
+                # ADMIN-only, unlike `build_team_pipeline`'s join, so the contact records are in --
+                # they are what the club editor edits. Still an allow-list, so the next field added
+                # to the junction reaches this read only when somebody names it.
+                "pipeline": [{"$project": {"_id": 0, "saison_id": 1, "gruppe": 1, "austritt": 1, "trikot_farbe": 1, "kontakte": 1}}],
                 "as": "memberships",
             }
         },

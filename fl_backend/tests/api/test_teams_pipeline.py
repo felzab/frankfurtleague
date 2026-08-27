@@ -15,6 +15,8 @@ from app.api.teams.services import (
     _counted_goals,
     build_team_pipeline,
 )
+from app.core.collections import Collection
+from app.core.constraints import COLLECTION_VALIDATORS
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
@@ -283,6 +285,37 @@ def test_there_is_exactly_one_team_shape():
 
     assert set(projected) == set(projection(build(team_id=ObjectId())))
     assert {"statistik", "gruppe", "description", "full_name", "website_url"} <= set(projected)
+
+
+def inner_projection(pipeline: Pipeline) -> Mapping[str, Any]:
+    """The allow-list the junction join ends on, which is everything it carries out of the row."""
+
+    lookup = next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == AS_NAME)
+
+    return lookup["pipeline"][-1]["$project"]
+
+
+def junction_fields_the_projection_reads(pipeline: Pipeline) -> set[str]:
+    return {value.split(".", 1)[1] for value in projection(pipeline).values() if isinstance(value, str) and value.startswith(f"${AS_NAME}.")}
+
+
+class TestTheJunctionJoinWithholdsTheRestOfTheRow:
+    """Both endpoints running this pipeline are BASE-TIER, and the junction row carries three people's contact records."""
+
+    def test_the_join_carries_back_exactly_what_the_projection_reads(self):
+        """An allow-list at the JOIN rather than downstream: a stage edited below it cannot then put a withheld field on a public response."""
+
+        pipeline = build()
+
+        assert set(inner_projection(pipeline)) - {"_id"} == junction_fields_the_projection_reads(pipeline)
+
+    def test_the_row_really_holds_more_than_that(self):
+        """Non-vacuity: the case above would hold just as well over a junction with nothing worth withholding on it."""
+
+        stored = set(COLLECTION_VALIDATORS[Collection.SAISON_TEAMS]["$jsonSchema"]["properties"])
+
+        assert "kontakte" in stored
+        assert "kontakte" not in inner_projection(build())
 
 
 def test_derives_the_statistics_after_the_strict_junction_join():

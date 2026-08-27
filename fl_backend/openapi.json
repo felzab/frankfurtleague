@@ -4656,6 +4656,165 @@
         ],
         "title": "FLKontakt"
       },
+      "FLKontaktEinwilligung": {
+        "properties": {
+          "umfang": {
+            "type": "string",
+            "const": "kontaktdaten",
+            "title": "Umfang"
+          },
+          "erteilt_von": {
+            "type": "string",
+            "enum": [
+              "person",
+              "administrativ"
+            ],
+            "title": "Erteilt Von"
+          },
+          "text_version": {
+            "type": "string",
+            "title": "Text Version"
+          },
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          }
+        },
+        "type": "object",
+        "required": [
+          "umfang",
+          "erteilt_von",
+          "text_version",
+          "datum"
+        ],
+        "title": "FLKontaktEinwilligung",
+        "description": "What this person agreed to, and which wording they agreed to.\n\nNOT `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, which records what may be\nPUBLISHED about a pupil, is written once, and has an open Datenschutz question in front of it."
+      },
+      "FLKontaktEinwilligungPayload": {
+        "properties": {
+          "umfang": {
+            "type": "string",
+            "const": "kontaktdaten",
+            "title": "Umfang"
+          },
+          "erteilt_von": {
+            "type": "string",
+            "enum": [
+              "person",
+              "administrativ"
+            ],
+            "title": "Erteilt Von"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          },
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "umfang",
+          "erteilt_von",
+          "text_version",
+          "datum"
+        ],
+        "title": "FLKontaktEinwilligungPayload"
+      },
+      "FLKontaktperson": {
+        "properties": {
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Nachname"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "telefon": {
+            "type": "string",
+            "title": "Telefon"
+          },
+          "geburtsdatum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Geburtsdatum"
+          },
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLKontaktEinwilligung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vorname",
+          "nachname",
+          "email",
+          "telefon",
+          "geburtsdatum",
+          "einwilligung"
+        ],
+        "title": "FLKontaktperson",
+        "description": "One person the league reaches this team through, for one season."
+      },
+      "FLKontaktpersonPayload": {
+        "properties": {
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Nachname"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          },
+          "telefon": {
+            "type": "string",
+            "pattern": "^([+]?[ 0-9\\-().]{3,20})$",
+            "title": "Telefon"
+          },
+          "geburtsdatum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Geburtsdatum"
+          },
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLKontaktEinwilligungPayload"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "vorname",
+          "nachname",
+          "email",
+          "telefon",
+          "geburtsdatum",
+          "einwilligung"
+        ],
+        "title": "FLKontaktpersonPayload"
+      },
       "FLPatchSaisonPayload": {
         "properties": {
           "start_date": {
@@ -4810,13 +4969,54 @@
                 "type": "null"
               }
             ]
+          },
+          "trikot_farbe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "weiss",
+                  "schwarz",
+                  "rot",
+                  "braun",
+                  "orange",
+                  "gelb",
+                  "hellgruen",
+                  "gruen",
+                  "tuerkis",
+                  "hellblau",
+                  "blau",
+                  "dunkelblau",
+                  "violett",
+                  "magenta",
+                  "bordeaux",
+                  "grau"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trikot Farbe"
+          },
+          "kontakte": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonTeamKontaktePayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "gruppe",
-          "austritt"
+          "austritt",
+          "trikot_farbe",
+          "kontakte"
         ],
         "title": "FLPatchSaisonTeamPayload"
       },
@@ -5247,6 +5447,25 @@
             "minLength": 1,
             "title": "Full Name"
           },
+          "schulform": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "gymnasium_g8",
+                  "gymnasium_g9",
+                  "gesamtschule",
+                  "privatschule_g8",
+                  "privatschule_g9",
+                  "oberstufengymnasium"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schulform"
+          },
           "website_url": {
             "type": "string",
             "title": "Website Url"
@@ -5262,6 +5481,7 @@
           "shorthand",
           "description",
           "full_name",
+          "schulform",
           "website_url",
           "address"
         ],
@@ -5633,6 +5853,25 @@
             "minLength": 1,
             "title": "Full Name"
           },
+          "schulform": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "gymnasium_g8",
+                  "gymnasium_g9",
+                  "gesamtschule",
+                  "privatschule_g8",
+                  "privatschule_g9",
+                  "oberstufengymnasium"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schulform"
+          },
           "website_url": {
             "type": "string",
             "title": "Website Url"
@@ -5648,6 +5887,7 @@
           "shorthand",
           "description",
           "full_name",
+          "schulform",
           "website_url",
           "address"
         ],
@@ -5723,6 +5963,45 @@
             ],
             "title": "Gruppe"
           },
+          "trikot_farbe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "weiss",
+                  "schwarz",
+                  "rot",
+                  "braun",
+                  "orange",
+                  "gelb",
+                  "hellgruen",
+                  "gruen",
+                  "tuerkis",
+                  "hellblau",
+                  "blau",
+                  "dunkelblau",
+                  "violett",
+                  "magenta",
+                  "bordeaux",
+                  "grau"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trikot Farbe"
+          },
+          "kontakte": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonTeamKontakte"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -5749,6 +6028,8 @@
           "outgoing_team_id",
           "incoming_team_id",
           "gruppe",
+          "trikot_farbe",
+          "kontakte",
           "name",
           "shorthand",
           "fanned_out_to_spiele",
@@ -6089,6 +6370,58 @@
         "title": "FLSaisonSpielplan",
         "description": "What the generator left behind on the season it wrote.\n\nCounts rather than a hash: these are the two numbers an admin can compare against the page in\nfront of them, and a hash answers no question anyone standing there is asking."
       },
+      "FLSaisonTeamKontakte": {
+        "properties": {
+          "trainer": {
+            "$ref": "#/components/schemas/FLKontaktperson"
+          },
+          "ansprechperson": {
+            "$ref": "#/components/schemas/FLKontaktperson"
+          },
+          "stellvertretung": {
+            "$ref": "#/components/schemas/FLKontaktperson"
+          },
+          "trainer_ist_ansprechperson": {
+            "type": "boolean",
+            "title": "Trainer Ist Ansprechperson"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trainer",
+          "ansprechperson",
+          "stellvertretung",
+          "trainer_ist_ansprechperson"
+        ],
+        "title": "FLSaisonTeamKontakte",
+        "description": "The three people a team is reached through, for ONE season.\n\nOn the junction rather than the club: a school's staff turns over between seasons, and a\nfinished season is the record of who was reachable while it ran."
+      },
+      "FLSaisonTeamKontaktePayload": {
+        "properties": {
+          "trainer": {
+            "$ref": "#/components/schemas/FLKontaktpersonPayload"
+          },
+          "ansprechperson": {
+            "$ref": "#/components/schemas/FLKontaktpersonPayload"
+          },
+          "stellvertretung": {
+            "$ref": "#/components/schemas/FLKontaktpersonPayload"
+          },
+          "trainer_ist_ansprechperson": {
+            "type": "boolean",
+            "title": "Trainer Ist Ansprechperson"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "trainer",
+          "ansprechperson",
+          "stellvertretung",
+          "trainer_ist_ansprechperson"
+        ],
+        "title": "FLSaisonTeamKontaktePayload"
+      },
       "FLSaisonTeamResponse": {
         "properties": {
           "acknowledged": {
@@ -6128,6 +6461,45 @@
               }
             ]
           },
+          "trikot_farbe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "weiss",
+                  "schwarz",
+                  "rot",
+                  "braun",
+                  "orange",
+                  "gelb",
+                  "hellgruen",
+                  "gruen",
+                  "tuerkis",
+                  "hellblau",
+                  "blau",
+                  "dunkelblau",
+                  "violett",
+                  "magenta",
+                  "bordeaux",
+                  "grau"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trikot Farbe"
+          },
+          "kontakte": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonTeamKontakte"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -6146,6 +6518,8 @@
           "team_id",
           "gruppe",
           "austritt",
+          "trikot_farbe",
+          "kontakte",
           "name",
           "shorthand"
         ],
@@ -8158,6 +8532,25 @@
             "minLength": 1,
             "title": "Full Name"
           },
+          "schulform": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "gymnasium_g8",
+                  "gymnasium_g9",
+                  "gesamtschule",
+                  "privatschule_g8",
+                  "privatschule_g9",
+                  "oberstufengymnasium"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schulform"
+          },
           "website_url": {
             "type": "string",
             "title": "Website Url"
@@ -8246,6 +8639,45 @@
                 "type": "null"
               }
             ]
+          },
+          "trikot_farbe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "weiss",
+                  "schwarz",
+                  "rot",
+                  "braun",
+                  "orange",
+                  "gelb",
+                  "hellgruen",
+                  "gruen",
+                  "tuerkis",
+                  "hellblau",
+                  "blau",
+                  "dunkelblau",
+                  "violett",
+                  "magenta",
+                  "bordeaux",
+                  "grau"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trikot Farbe"
+          },
+          "kontakte": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonTeamKontakte"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -8279,6 +8711,25 @@
             "type": "string",
             "minLength": 1,
             "title": "Full Name"
+          },
+          "schulform": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "gymnasium_g8",
+                  "gymnasium_g9",
+                  "gesamtschule",
+                  "privatschule_g8",
+                  "privatschule_g9",
+                  "oberstufengymnasium"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schulform"
           },
           "website_url": {
             "type": "string",
@@ -8394,6 +8845,25 @@
             "type": "string",
             "minLength": 1,
             "title": "Full Name"
+          },
+          "schulform": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "gymnasium_g8",
+                  "gymnasium_g9",
+                  "gesamtschule",
+                  "privatschule_g8",
+                  "privatschule_g9",
+                  "oberstufengymnasium"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schulform"
           },
           "website_url": {
             "type": "string",

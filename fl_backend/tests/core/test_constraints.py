@@ -29,7 +29,17 @@ from app.api.spieler.schemas import (
 )
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
-from app.api.teams.schemas import FLAustritt, FLGruppenNames, FLTeam, FLTeamRecord
+from app.api.teams.schemas import (
+    FLAustritt,
+    FLGruppenNames,
+    FLKontaktEinwilligung,
+    FLKontaktperson,
+    FLSaisonTeamKontakte,
+    FLSchulform,
+    FLTeam,
+    FLTeamRecord,
+    FLTrikotFarbe,
+)
 from app.core.collections import Collection
 from app.core.constraints import _AKTION_OPERATIONS, _AKTOR_KINDS, COLLECTION_VALIDATORS, UNIQUE_INDEXES, diagnose_failure
 from app.core.recording import Actor, Operation
@@ -94,8 +104,15 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     # Everything but the two names comes from the saison_spieler junction.
     (Collection.SPIELER, ("einwilligung",), FLEinwilligung, frozenset()),
     (Collection.SPIELER, (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "is_nachgetragen", "rolle"})),
-    # The one sub-document of a modelless row with a model, so the drift check reaches it.
+    # The sub-documents of a modelless row that DO have models, so the drift check reaches them.
     (Collection.SAISON_TEAMS, ("austritt",), FLAustritt, frozenset()),
+    (Collection.SAISON_TEAMS, ("kontakte",), FLSaisonTeamKontakte, frozenset()),
+    (Collection.SAISON_TEAMS, ("kontakte", "trainer"), FLKontaktperson, frozenset()),
+    (Collection.SAISON_TEAMS, ("kontakte", "ansprechperson"), FLKontaktperson, frozenset()),
+    (Collection.SAISON_TEAMS, ("kontakte", "stellvertretung"), FLKontaktperson, frozenset()),
+    (Collection.SAISON_TEAMS, ("kontakte", "trainer", "einwilligung"), FLKontaktEinwilligung, frozenset()),
+    (Collection.SAISON_TEAMS, ("kontakte", "ansprechperson", "einwilligung"), FLKontaktEinwilligung, frozenset()),
+    (Collection.SAISON_TEAMS, ("kontakte", "stellvertretung", "einwilligung"), FLKontaktEinwilligung, frozenset()),
     # The junction's declared shape; nothing validates a stored row through it.
     (Collection.SAISON_SPIELER, (), FLSaisonSpielerRow, frozenset()),
 ]
@@ -114,6 +131,54 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.SAISONS, ("rules",), "tiebreak_order", get_args(FLSaisonRules.model_fields["tiebreak_order"].annotation), False),
     (Collection.SAISON_TEAMS, (), "gruppe", get_args(FLGruppenNames), False),
     (Collection.SAISON_TEAMS, ("austritt",), "type", get_args(FLAustritt.model_fields["type"].annotation), False),
+    # Nullable because the field arrived after the rows did, as `saison_spieler.rolle` is: a season
+    # entered before it holds no key, and the null is what the validator's `enum` has to admit.
+    (Collection.TEAMS, (), "schulform", get_args(FLSchulform), True),
+    (Collection.SAISON_TEAMS, (), "trikot_farbe", get_args(FLTrikotFarbe), True),
+    # One row per person, because the validator declares the block three times over: a sub-schema
+    # shared in Python is still three separate paths to the drift walk.
+    (
+        Collection.SAISON_TEAMS,
+        ("kontakte", "trainer", "einwilligung"),
+        "umfang",
+        get_args(FLKontaktEinwilligung.model_fields["umfang"].annotation),
+        False,
+    ),
+    (
+        Collection.SAISON_TEAMS,
+        ("kontakte", "trainer", "einwilligung"),
+        "erteilt_von",
+        get_args(FLKontaktEinwilligung.model_fields["erteilt_von"].annotation),
+        False,
+    ),
+    (
+        Collection.SAISON_TEAMS,
+        ("kontakte", "ansprechperson", "einwilligung"),
+        "umfang",
+        get_args(FLKontaktEinwilligung.model_fields["umfang"].annotation),
+        False,
+    ),
+    (
+        Collection.SAISON_TEAMS,
+        ("kontakte", "ansprechperson", "einwilligung"),
+        "erteilt_von",
+        get_args(FLKontaktEinwilligung.model_fields["erteilt_von"].annotation),
+        False,
+    ),
+    (
+        Collection.SAISON_TEAMS,
+        ("kontakte", "stellvertretung", "einwilligung"),
+        "umfang",
+        get_args(FLKontaktEinwilligung.model_fields["umfang"].annotation),
+        False,
+    ),
+    (
+        Collection.SAISON_TEAMS,
+        ("kontakte", "stellvertretung", "einwilligung"),
+        "erteilt_von",
+        get_args(FLKontaktEinwilligung.model_fields["erteilt_von"].annotation),
+        False,
+    ),
     (Collection.SPIELER, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
     (Collection.SPIELER, ("einwilligung",), "erteilt_von", get_args(FLEinwilligung.model_fields["erteilt_von"].annotation), False),
     (Collection.SPIELE, (), "saison_phase", get_args(FLSaisonPhase), False),

@@ -307,6 +307,8 @@ async def rename_the_club(
                 "description": "",
                 "full_name": f"{name}-Schule",
                 "website_url": WEBSITE_URL,
+                # Sent because the payload defaults none of its fields, not because a rename touches it.
+                "schulform": "gymnasium_g9",
                 "address": dict(ADDRESS),
             }
         ),

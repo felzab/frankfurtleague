@@ -51,6 +51,27 @@ _QUELLE_AUSGAENGE = ["sieger", "verlierer"]
 _POSITIONEN = ["Tor", "Abwehr", "Mittelfeld", "Angriff"]
 _STUFEN = ["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 _SPIELER_ROLLEN = ["kapitaen", "co_kapitaen"]
+_SCHULFORMEN = ["gymnasium_g8", "gymnasium_g9", "gesamtschule", "privatschule_g8", "privatschule_g9", "oberstufengymnasium"]
+_TRIKOT_FARBEN = [
+    "weiss",
+    "schwarz",
+    "rot",
+    "braun",
+    "orange",
+    "gelb",
+    "hellgruen",
+    "gruen",
+    "tuerkis",
+    "hellblau",
+    "blau",
+    "dunkelblau",
+    "violett",
+    "magenta",
+    "bordeaux",
+    "grau",
+]
+_KONTAKT_EINWILLIGUNG_UMFANG = ["kontaktdaten"]
+_KONTAKT_EINWILLIGUNG_QUELLEN = ["person", "administrativ"]
 
 # Derived, not spelled: these ARE the collection names, and the log never records itself.
 _LOGGED_COLLECTIONS = [str(name) for name in Collection if name is not Collection.AKTIONEN]
@@ -114,6 +135,45 @@ _EINWILLIGUNG = _object(
         "erteilt_von": {"bsonType": "string", "enum": _EINWILLIGUNG_QUELLEN},
         "datum": {"bsonType": _STRING_OR_NULL},
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
+    },
+)
+
+# A CONTACT person's consent, and never `_EINWILLIGUNG` above: that one records what may be
+# published about a pupil, and one shared sub-schema would let either enum widen the other.
+_KONTAKT_EINWILLIGUNG = _object(
+    required=("umfang", "erteilt_von", "text_version", "datum"),
+    properties={
+        "umfang": {"bsonType": "string", "enum": _KONTAKT_EINWILLIGUNG_UMFANG},
+        "erteilt_von": {"bsonType": "string", "enum": _KONTAKT_EINWILLIGUNG_QUELLEN},
+        "text_version": {"bsonType": "string"},
+        "datum": {"bsonType": "string"},
+    },
+)
+
+# Required TOGETHER, as `_EINWILLIGUNG` is: a person the league cannot reach is not a contact, and a
+# set of details carrying no consent is one nobody agreed to be held.
+_KONTAKTPERSON = _object(
+    required=("vorname", "nachname", "email", "telefon", "geburtsdatum", "einwilligung"),
+    properties={
+        "vorname": {"bsonType": "string"},
+        "nachname": {"bsonType": "string"},
+        "email": {"bsonType": "string"},
+        "telefon": {"bsonType": "string"},
+        "geburtsdatum": {"bsonType": "string"},
+        "einwilligung": _KONTAKT_EINWILLIGUNG,
+    },
+)
+
+# The three people TOGETHER: a block holding one of them is a form half filled in, which the PATCH
+# never writes -- it replaces the whole block or stores the null.
+_SAISON_TEAM_KONTAKTE = _object(
+    nullable=True,
+    required=("trainer", "ansprechperson", "stellvertretung", "trainer_ist_ansprechperson"),
+    properties={
+        "trainer": _KONTAKTPERSON,
+        "ansprechperson": _KONTAKTPERSON,
+        "stellvertretung": _KONTAKTPERSON,
+        "trainer_ist_ansprechperson": {"bsonType": "bool"},
     },
 )
 
@@ -250,6 +310,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "full_name": {"bsonType": "string"},
                 "website_url": {"bsonType": "string"},
                 "address": _ADDRESS,
+                # Out of `required` on purpose: no club stored before the field carries the key, so
+                # demanding it would refuse every one of them until a backfill ran. A missing key
+                # and a stored null both read as a school form nobody has recorded.
+                "schulform": {"bsonType": _STRING_OR_NULL, "enum": [*_SCHULFORMEN, None]},
                 # A retired CLUB, not a club out of one season. `uniq_shorthand` keeps indexing it,
                 # so its two letters stay reserved.
                 "inactive_since": _INACTIVE_SINCE,
@@ -268,6 +332,11 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "team_id": {"bsonType": "objectId"},
                 "gruppe": {"bsonType": "string", "enum": _GRUPPEN},
                 "austritt": _AUSTRITT,
+                # Both out of `required` for `teams.schulform`'s reason: every row entered before
+                # these existed carries neither key, and a required one would refuse the lot of them
+                # rather than the season's editor simply finding nothing filled in.
+                "trikot_farbe": {"bsonType": _STRING_OR_NULL, "enum": [*_TRIKOT_FARBEN, None]},
+                "kontakte": _SAISON_TEAM_KONTAKTE,
                 # The name this club was PLAYED under, seeded at entry and rewritten by a rename only
                 # while the season is not `past`. A finished season keeps what it was played under,
                 # which is what makes the copy embedded in its fixtures true rather than merely old.
