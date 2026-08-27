@@ -154,12 +154,11 @@ export function SaisonRuleNumberField({
       minValue={minValue}
       maxValue={maxValue}
       value={value}
+      // Its dimming is `globals.css`'s, keyed on `[data-readonly="true"]`, so every frozen number
+      // field in the product dims by the same amount — an `opacity-*` added here would double it.
       isReadOnly={isReadOnly}
       onChange={(next) => onChange(Number.isNaN(next) ? minValue : next)}
-      onBlur={onBlur}
-      // Dimmed here because react-aria styles nothing for read-only: at full strength a frozen field
-      // reads as an editable one, and the reader learns otherwise only by typing into it.
-      className={isReadOnly === true ? "opacity-50" : undefined}>
+      onBlur={onBlur}>
       {label}
       <NumberField.Group className={FIELD_GROUP}>
         <NumberField.DecrementButton />

@@ -85,6 +85,10 @@ export function FormSpielortSection({
       <NumberField
         minValue={0}
         name="ort.mietpreis"
+        // Frozen without a venue rather than merely unstepped: `handleMietpreisChange` no-ops on a
+        // null payload, so an editable box discards every keystroke. Read-only for
+        // `SaisonRuleNumberField`'s reason — it stays a tab stop and stays in the form.
+        isReadOnly={!ortPayload}
         value={ortPayload?.mietpreis ?? NaN}
         onChange={handleMietpreisChange}
         // On blur: a cleared box is `NaN` until the first digit of its replacement is typed, and

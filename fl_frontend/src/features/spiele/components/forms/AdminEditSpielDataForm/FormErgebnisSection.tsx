@@ -176,8 +176,7 @@ export function FormErgebnisSection({
               name={`${slot}.tore`}
               value={value}
               onChange={handleToreChange(slot)}
-              onBlur={() => onValidateFields(TORE_PATHS)}
-              className={ergebnisIsEditable ? "" : "opacity-50"}>
+              onBlur={() => onValidateFields(TORE_PATHS)}>
               {/* The team's name alone: the panel title already says these are goals. */}
               <FieldLabel
                 path={`${slot}.tore`}
