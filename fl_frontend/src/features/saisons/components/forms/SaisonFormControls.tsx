@@ -161,9 +161,7 @@ export function SaisonRuleNumberField({
       // reads as an editable one, and the reader learns otherwise only by typing into it.
       className={isReadOnly === true ? "opacity-50" : undefined}>
       {label}
-      {/* `!` because the brand-on-focus rule in `globals.css` keys on this group while react-aria marks
-          only the ROOT read-only: an important utility outranks that unlayered normal declaration. */}
-      <NumberField.Group className={isReadOnly === true ? `${FIELD_GROUP} border-border!` : FIELD_GROUP}>
+      <NumberField.Group className={FIELD_GROUP}>
         <NumberField.DecrementButton />
         <NumberField.Input className={FIELD_COUNT_INPUT} />
         <NumberField.IncrementButton />

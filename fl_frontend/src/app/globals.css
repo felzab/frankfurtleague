@@ -572,9 +572,12 @@ input:focus:placeholder-shown {
   /* `[data-border-on-open="true"]` opts a trigger out of the FOCUS arms only:
      react-aria restores focus after the popover's exit animation, and the brand
      border stuck on a control the user had clicked away from. */
+  /* TWO arms because react-aria marks only the field's ROOT read-only: `[readonly]` is the slot that
+     IS the control, `:has(input[readonly])` the group holding one. The invalid arm below takes
+     neither -- a server refusal reaches a frozen field too. */
   &:is(:focus, :focus-visible, :focus-within, [data-focused="true"], [data-focus-visible="true"], [data-focus-within="true"]):not(
       [data-invalid="true"]
-    ):not([data-border-on-open="true"]),
+    ):not([data-border-on-open="true"]):not([readonly]):not(:has(input[readonly])),
   &[aria-expanded="true"]:not([data-invalid="true"]),
   &:has([aria-expanded="true"]):not([data-invalid="true"]) {
     --tw-ring-shadow: 0 0 #0000;
