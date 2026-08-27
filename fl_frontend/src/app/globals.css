@@ -349,7 +349,7 @@
   --motion-fast: 150ms;
   --motion-base: 200ms;
   /* Tuned against the card cascade's settling profile, not counted off the code. The counted answer
-     was 200ms and the owner rejected it on the screen. Change it against the cascade. */
+     was 200ms and read wrong on the screen. Change it against the cascade. */
   --motion-slow: 300ms;
   /* The cascade's own curve, shared rather than duplicated. Emphasized-decelerate:
      90% of the travel in the first 37%, so the eye reads the arrival early while
