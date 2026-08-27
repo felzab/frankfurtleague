@@ -1,13 +1,11 @@
-import { buildRefusal } from "@/shared/utils/refusal";
-
 import type { FLSonderereignis, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
 export type SpielBannerId =
   | "spiel.eligibility-refused"
   | "spiel.spieltag-refused"
-  | "spiel.team1-seed-refused"
-  | "spiel.team2-seed-refused"
+  | "spiel.team1-seed-closed"
+  | "spiel.team2-seed-closed"
   | "spiel.team1-manual"
   | "spiel.team2-manual"
   | "spiel.team1-unqualified"
@@ -90,18 +88,9 @@ const REFUSAL_REMEDIES: Record<SpielRefusalCode, { id: SpielBannerId; title: str
 export const isSpielRefusalCode = (code: string | undefined): code is SpielRefusalCode =>
   code !== undefined && Object.hasOwn(REFUSAL_REMEDIES, code);
 
-/**
- * Refused in advance rather than by the last save: `REQ-WIRING-002` answers every save of a fixture
- * wired this way, so these join the delivered ones in the set below.
- */
-const SEED_REFUSAL_IDS = ["spiel.team1-seed-refused", "spiel.team2-seed-refused"] as const satisfies readonly SpielBannerId[];
-
 // Derived from the remedies, never listed again: a third refusal added above would otherwise reach
 // the rail and be forgotten here.
-const REFUSAL_BANNER_IDS: ReadonlySet<SpielBannerId> = new Set<SpielBannerId>([
-  ...Object.values(REFUSAL_REMEDIES).map((remedy) => remedy.id),
-  ...SEED_REFUSAL_IDS,
-]);
+const REFUSAL_BANNER_IDS: ReadonlySet<SpielBannerId> = new Set<SpielBannerId>(Object.values(REFUSAL_REMEDIES).map((remedy) => remedy.id));
 
 /** Whether this banner names a save the endpoint refuses, rather than a consequence a save would cause. */
 export const isSpielRefusalBannerId = (id: SpielBannerId): boolean => REFUSAL_BANNER_IDS.has(id);
@@ -167,17 +156,13 @@ export function buildSpielBanners({
   for (const side of sides) {
     if (!isKnockout) continue;
 
-    // `REQ-WIRING-002` answers every save carrying this, however unrelated the edit, so the way out
-    // is named before a save that cannot land rather than after it.
+    // A property of the fixture and not of the save: `REQ-WIRING-002` answers only a save that moves
+    // a source into this shape, and the closed controls under it carry no reason of their own.
     if (!seedsFromTheGroups && side.quelle?.type === "gruppe") {
       banners.push({
-        id: side.fieldName === "team1" ? "spiel.team1-seed-refused" : "spiel.team2-seed-refused",
-        severity: "danger",
-        title: `Ein Gruppenplatz besetzt ${side.label} nur in der ersten KO-Runde`,
-        body: buildRefusal({
-          reason: "So lässt sich das Spiel nicht speichern",
-          repair: "Wähle ein früheres Spiel als Herkunft, oder setze das Team manuell",
-        }),
+        id: side.fieldName === "team1" ? "spiel.team1-seed-closed" : "spiel.team2-seed-closed",
+        severity: "info",
+        title: `Ein Platz in einer Gruppe ist als Herkunft von ${side.label} nur in der ersten KO-Runde wählbar`,
         inline: side.fieldName === "team1" ? "team1-herkunft" : "team2-herkunft",
       });
     }

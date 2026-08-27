@@ -36,8 +36,8 @@ describe("the Herkunft picker's group placing", () => {
     assert.match(SOURCE, /pickIfOffered\(quelleOptions, key\?\.toString\(\) \?\? "manuell"\)/);
   });
 
-  /* A stored one is refused by the endpoint on every save of the fixture, so keeping it takeable
-     would offer a change no save can land (`REQ-WIRING-002`). */
+  /* `REQ-WIRING-002` refuses a save that moves a source into the shape, whatever the fixture already
+     stores, so keeping the row takeable would offer a change no save can land. */
   it("closes the row for a side that already holds one", () => {
     assert.match(SOURCE, /const seedsFromTheGroups = isFirstKnockoutRound\(saisonSpiele, spielData\);/);
     assert.doesNotMatch(SOURCE, /seedsFromTheGroups = .*storedQuelle/);
@@ -58,8 +58,8 @@ describe("the Herkunft picker's group placing", () => {
     assert.match(SOURCE, /name=\{`\$\{fieldName\}_quelle\.platz`\}/);
   });
 
-  /* A refusal the reader meets before pressing save rather than after, the endpoint answering every
-     save of the fixture however unrelated the edit. */
+  /* The row's own reason sits inside a popover and the two controls under it carry none, so the rule
+     they close on stands where the reader meets them. */
   it("carries a banner at the source control", () => {
     assert.match(SOURCE, /spot=\{`\$\{fieldName\}-herkunft`\}/);
   });

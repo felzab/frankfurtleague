@@ -75,8 +75,8 @@ describe("toActionErrorResult", () => {
   });
 
   it("sends the seeding refusal to change the origin, never to reload", () => {
-    // The two wiring codes are 409s from one function and their advice is opposite: a reload repairs
-    // a form the season moved under, and repairs nothing when the fixture's own wiring is out of rule.
+    // The two wiring codes are 409s from one function and their advice is opposite: a reload rebuilds
+    // a form that never offered the shape, and only closes the answer behind this one.
     const result = toActionErrorResult(new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode: "REQ-WIRING-002" }));
 
     assert.equal(result.success, false);

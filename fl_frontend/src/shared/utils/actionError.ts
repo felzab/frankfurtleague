@@ -33,8 +33,8 @@ export function toActionErrorResult(error: unknown): NonNullable<FormState> {
       return { success: false, error: "Die Saison wurde inzwischen geändert. Lade die Seite neu." };
     }
     if (error.statusCode === 409 && error.serverErrorCode === "REQ-WIRING-002") {
-      // NOT the reload above: the season has not moved, and the stored wiring refuses every save of
-      // this fixture, so a reload returns the admin to the same refusal.
+      // NOT the reload above: the form offered this answer and a reload only closes it, so what the
+      // admin wanted needs a different source rather than a fresh page.
       return {
         success: false,
         error: buildRefusal({

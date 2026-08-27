@@ -161,9 +161,9 @@ export function FormTeamPicker({
 
   const recommendedChoice = recommendedChoiceFor(feederSpiele.length > 0);
 
-  // A group placing seeds the bracket's entrance, and from there an earlier match feeds the slot.
-  // Absolute, a stored one included: `REQ-WIRING-002` refuses every save carrying one, so leaving it
-  // editable would only offer a change no save can take.
+  // A group placing seeds the bracket's entrance; from there an earlier match feeds the slot.
+  // A stored one included: `REQ-WIRING-002` refuses a save that moves a source into this shape, so
+  // an open group or placing offers only a change no save can take.
   const seedsFromTheGroups = isFirstKnockoutRound(saisonSpiele, spielData);
 
   const quelleOptions: RefusableOption[] = availableChoices.map((item) => ({

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { resolveRailBanners } from "@/shared/components/ui/railBanner.ts";
+import { resolveBlockingBanners, resolveRailBanners } from "@/shared/components/ui/railBanner.ts";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import { SONDEREREIGNIS_LABELS } from "../../../constants.ts";
@@ -65,26 +65,25 @@ describe("buildSpielBanners", () => {
     assert.ok(!/nicht mehr|automatisch/.test(banner?.title ?? ""));
   });
 
-  /* The endpoint refuses every save carrying it, so the reader meets the repair before pressing save
-     rather than after a refusal that names no way out of it. */
-  it("refuses a group placing on a round the bracket does not open on", () => {
+  /* The closed Herkunft row states its reason inside a popover and the two controls under it state
+     none, so the rule they close on stands where the reader meets them. */
+  it("states the rule behind a closed group placing on a round the bracket does not open on", () => {
     const seeded = side("team1", { quelle: { type: "gruppe", gruppe: "A", platz: 1 } });
     const [banner, ...rest] = build({ seedsFromTheGroups: false, sides: [seeded] });
 
     assert.equal(rest.length, 0);
-    assert.equal(banner?.id, "spiel.team1-seed-refused");
-    assert.equal(banner?.severity, "danger");
+    assert.equal(banner?.id, "spiel.team1-seed-closed");
     assert.equal(banner?.inline, "team1-herkunft");
-    assert.match(banner?.title ?? "", /Team 1 nur in der ersten KO-Runde/);
-    // The FORM register `buildRefusal` composes: the reason, then the action, each its own sentence.
-    assert.match(banner?.body ?? "", /^So lässt sich das Spiel nicht speichern\. Wähle .+ manuell\.$/);
+    assert.match(banner?.title ?? "", /Herkunft von Team 1 nur in der ersten KO-Runde/);
+    // The fixture saves as it stands, so nothing under the title may offer a repair for a block.
+    assert.equal(banner?.body, undefined);
   });
 
   it("says it per side, so both sides of a hand-wired fixture carry their own", () => {
     const gruppe = { type: "gruppe", gruppe: "A", platz: 1 } as const;
     const built = build({ seedsFromTheGroups: false, sides: [side("team1", { quelle: gruppe }), side("team2", { quelle: gruppe })] });
 
-    assert.deepEqual(ids(built), ["spiel.team1-seed-refused", "spiel.team2-seed-refused"]);
+    assert.deepEqual(ids(built), ["spiel.team1-seed-closed", "spiel.team2-seed-closed"]);
     assert.match(built[1]?.title ?? "", /Team 2/);
   });
 
@@ -103,11 +102,15 @@ describe("buildSpielBanners", () => {
     assert.deepEqual(ids(build({ isKnockout: false, seedsFromTheGroups: false, sides: [seeded] })), []);
   });
 
-  /* Excluded from the save gate with the delivered refusals: the dialog confirms a consequence, and
-     a save the endpoint answers has none to confirm. */
-  it("keeps the seeding refusal off the save confirmation", () => {
-    assert.ok(isSpielRefusalBannerId("spiel.team1-seed-refused"));
-    assert.ok(isSpielRefusalBannerId("spiel.team2-seed-refused"));
+  /* `info` is what keeps it off the dialog, so it needs no place on the refusal list: the fixture
+     saves as it stands, and a grade above `info` would confirm every unrelated edit of it. */
+  it("grades the seeding rule as a standing property rather than a refusal", () => {
+    const seeded = side("team1", { quelle: { type: "gruppe", gruppe: "A", platz: 1 } });
+    const built = build({ seedsFromTheGroups: false, sides: [seeded] });
+
+    assert.equal(built[0]?.severity, "info");
+    assert.equal(resolveBlockingBanners(built), null);
+    assert.ok(!isSpielRefusalBannerId("spiel.team1-seed-closed"));
     assert.ok(!isSpielRefusalBannerId("spiel.team1-manual"));
   });
 
