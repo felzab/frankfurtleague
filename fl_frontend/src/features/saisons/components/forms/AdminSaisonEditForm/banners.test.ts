@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 // Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { PLACING_RULES_FIELDS, RESCORING_RULES_FIELDS } from "../../../constants.ts";
+import { PLACING_RULES_FIELDS, PREDRAW_RULES_FIELDS, RESCORING_RULES_FIELDS } from "../../../constants.ts";
 import { buildSaisonBanners } from "./banners.ts";
 
 import type { SaisonBanner } from "./banners.ts";
@@ -36,17 +36,32 @@ const BACKEND_FROZEN_FIELDS: string[] = [
   ...(/FROZEN_RULES_FIELDS: tuple\[str, \.\.\.\] = \(([^)]*)\)/.exec(FROZEN_RULES_SOURCE)?.[1] ?? "").matchAll(/"([^"]+)"/g),
 ].flatMap((match) => (match[1] === undefined ? [] : [match[1]]));
 
-/* THE COUPLING. `REQ-RULES-005` freezes exactly these four, and the editor warns about them while
-   the season is still open — so a field added on the backend fails here naming itself. */
-describe("the two retroactive-reach lists against the backend's frozen set", () => {
+/** The three reaches the frozen set is read as, in the order the editor decides them. */
+const MIRRORED_FIELDS: readonly string[] = [...RESCORING_RULES_FIELDS, ...PLACING_RULES_FIELDS, ...PREDRAW_RULES_FIELDS];
+
+/* THE COUPLING. `REQ-RULES-005` freezes exactly these four, and each is read here as one of three
+   reaches — so a field added on the backend fails here naming itself, rather than being absorbed by
+   whichever list happens to hold a superset. */
+describe("the three reach lists against the backend's frozen set", () => {
   it("cuts the tuple out of the module before comparing against it", () => {
     assert.ok(BACKEND_FROZEN_FIELDS.length > 0, "the tuple parsed to nothing, so the comparison below is vacuous");
   });
 
-  it("splits the frozen set in two and covers all of it", () => {
-    assert.deepEqual([...RESCORING_RULES_FIELDS, ...PLACING_RULES_FIELDS].sort(), [...BACKEND_FROZEN_FIELDS].sort());
-    // Disjoint, or one moved field would raise both warnings for one edit.
-    assert.equal(RESCORING_RULES_FIELDS.filter((field) => PLACING_RULES_FIELDS.includes(field)).length, 0);
+  it("covers the frozen set, so a field added on the backend reaches no list", () => {
+    const unplaced = BACKEND_FROZEN_FIELDS.filter((field) => !MIRRORED_FIELDS.includes(field));
+
+    assert.deepEqual(unplaced, [], `frozen on the backend and on none of the three lists: ${unplaced.join(", ")}`);
+  });
+
+  it("names nothing the backend has stopped freezing", () => {
+    const stale = MIRRORED_FIELDS.filter((field) => !BACKEND_FROZEN_FIELDS.includes(field));
+
+    assert.deepEqual(stale, [], `listed here and no longer frozen on the backend: ${stale.join(", ")}`);
+  });
+
+  it("keeps the three disjoint, since one field carries one reach", () => {
+    // A field on two lists would raise two warnings for one edit, or one warning the save cannot reach.
+    assert.equal(new Set(MIRRORED_FIELDS).size, MIRRORED_FIELDS.length, `a field stands on two lists: ${MIRRORED_FIELDS.join(", ")}`);
   });
 });
 
@@ -104,11 +119,12 @@ describe("buildSaisonBanners", () => {
     assert.ok(both.every((banner) => banner.severity === "warning"));
   });
 
-  /* The one `auch` §1.12 keeps, and the reason the scoring entry has a body at all: a reader reads a
-     rules edit as forward-looking unless the already-played half is named. */
-  it("keeps the played-fixture reach on the scoring entry and off the placing one", () => {
-    assert.match(build({ isRescoringChanged: true })[0]?.body ?? "", /längst gespielte Spiele/);
-    assert.equal(build({ isPlacingChanged: true })[0]?.body, undefined);
+  /* The one `auch` §1.12 keeps, and the reason either entry has a body at all: a reader reads a rules
+     edit as forward-looking unless the already-played half is named. Both saves reach one, `past`
+     being the only status either field is frozen in. */
+  it("names the played-fixture reach on both retroactive entries", () => {
+    assert.match(build({ isRescoringChanged: true })[0]?.body ?? "", /Auch längst gespielte Spiele/);
+    assert.match(build({ isPlacingChanged: true })[0]?.body ?? "", /Auch in längst gespielten Gruppen/);
   });
 
   it("counts the outgoing season's unfinished fixtures into the title, singular and plural", () => {

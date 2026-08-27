@@ -162,7 +162,7 @@ export function AdminSaisonEditForm({
     validatePaths("saison", { ...buildPayload(), rules: { ...rules, erlaubte_stufen: next } }, ["rules.erlaubte_stufen"]);
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
-  // Named by the rules field the mirror holds, so a field moved between the two lists needs no second edit here.
+  // Named by the rules field the mirror holds, so a field moved between its lists needs no second edit here.
   const isRuleChanged = (field: string) => isChanged(`rules.${field}`);
   const isEndBeforeStart = startDate !== null && endDate !== null && endDate.compare(startDate) < 0;
 

@@ -130,8 +130,16 @@ export const RECORDED_FACTS_NONE =
 export const RECORDED_FACTS_ANY = "ein Ergebnis, ein Ausfall, ein Ort, ein Schiedsrichter, eine Notiz oder eine von Hand geänderte Herkunft";
 
 /**
- * Together `fl_backend/app/api/saisons/services.py :: FROZEN_RULES_FIELDS`, hand-copied and split by
- * reach: one moves every total, the other moves none and only the order under them.
+ * The two of `fl_backend/app/api/saisons/services.py :: FROZEN_RULES_FIELDS` a save has to warn
+ * about, hand-copied and split by reach: one moves every total, the other moves none and only the
+ * order under them.
  */
 export const RESCORING_RULES_FIELDS: readonly string[] = ["win_points", "draw_points"];
-export const PLACING_RULES_FIELDS: readonly string[] = ["tiebreak_order", "qualifiers_per_group"];
+export const PLACING_RULES_FIELDS: readonly string[] = ["tiebreak_order"];
+
+/**
+ * The rest of that tuple, and warned about nowhere: `REQ-RULES-011` shuts this field the moment the
+ * season holds fixtures, so nothing has been played when it moves. Declared for the sweep, which
+ * partitions the tuple across the three lists.
+ */
+export const PREDRAW_RULES_FIELDS: readonly string[] = ["qualifiers_per_group"];

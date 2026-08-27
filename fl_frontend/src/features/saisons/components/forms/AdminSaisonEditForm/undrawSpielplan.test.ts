@@ -25,6 +25,9 @@ const ARMED = flatten((SOURCE.split("<ConfirmReveal>")[1] ?? "").split("</Confir
 /** The panel's own hint, which stands in the heading and ends with it. */
 const HINWEIS = flatten((SOURCE.split("Hinweis zum Spielplan")[1] ?? "").split("</h2>")[0] ?? "");
 
+/** The whole file, flattened for the two claims that span a line break Prettier is free to move. */
+const FLAT = flatten(SOURCE);
+
 /** The press handler alone, up to the markup that follows it. Both writes live inside it. */
 const HANDLER = (SOURCE.split("const handlePress = () => {")[1] ?? "").split("return (")[0] ?? "";
 
@@ -118,9 +121,12 @@ describe("the undraw half of the Spielplan panel", () => {
   });
 
   /* A refusal hint opens on hover and on focus alone, so a reader who never points at a closed
-     button would otherwise never learn why. Both readers get the same sentence, from one source. */
-  it("puts the reason in the body as well as on the control", () => {
-    assert.match(SOURCE, /<p className="muted-hint">\{closedReason\}<\/p>/);
+     button would otherwise never learn why — except where the callout states the rule already.
+     One flag decides both, or the two states come apart. */
+  it("puts the reason in the body as well as on the control, and drops it only where the callout states it", () => {
+    assert.match(SOURCE, /const isClosureCalledOut = holdsADraw && saisonStatus === "active";/);
+    assert.match(FLAT, /\{isClosureCalledOut && \( <Callout/);
+    assert.match(FLAT, /!isClosureCalledOut && <p className="muted-hint">\{closedReason\}<\/p>/);
     assert.match(SOURCE, /mode="refusal"\s+reason=\{isWriting \? null : closedReason\}/);
   });
 });

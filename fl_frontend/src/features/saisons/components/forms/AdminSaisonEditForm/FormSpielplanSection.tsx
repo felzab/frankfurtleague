@@ -115,6 +115,10 @@ export function FormSpielplanSection({
         ? drawBlockedReason
         : undrawBlockedReason;
 
+  // The closure the callout below states as a rule, which is the whole of what a reader in this state
+  // needs: a hint and a banner on one panel never carry the same fact (`docs/frontend/spec.md` §1.12).
+  const isClosureCalledOut = holdsADraw && saisonStatus === "active";
+
   // Graded on the act ON OFFER, so a first draw stays neutral: it destroys nothing. Read off the two
   // reasons rather than off `closedReason`, which the unchosen prompt fills while both acts stand open.
   const isDestructiveOnOffer = holdsADraw && (drawBlockedReason === null || undrawBlockedReason === null);
@@ -219,7 +223,7 @@ export function FormSpielplanSection({
         {/* The rule behind the closure, carried in the panel rather than only in the sentence naming
             this season's own state. Scoped to `active`: a finished season is closed by the same
             branch of `spielplanBlockedReason` and this sentence would not be about it. */}
-        {holdsADraw && saisonStatus === "active" && (
+        {isClosureCalledOut && (
           <Callout
             severity="info"
             title="Der Spielplan lässt sich für laufende Saisons nicht neu anlegen"
@@ -278,8 +282,9 @@ export function FormSpielplanSection({
           </p>
         ) : (
           /* In the body as well as on the control: a refusal hint opens on hover and on focus alone,
-             so a reader who never points at a closed button would otherwise never learn why. */
-          <p className="muted-hint">{closedReason}</p>
+             so a reader who never points at a closed button would otherwise never learn why. The one
+             state the callout above stands in is the one state that reader is already served in. */
+          !isClosureCalledOut && <p className="muted-hint">{closedReason}</p>
         )}
 
         {/* Offered on a REPLACE alone, which is where the endpoint takes them: a first draw runs off

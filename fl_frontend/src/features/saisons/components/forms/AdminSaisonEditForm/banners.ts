@@ -99,13 +99,15 @@ export function buildSaisonBanners({
     });
   }
 
-  // Its sibling and separate from it: nobody's total moves here, only the order under the totals and
-  // the cut it is read against.
+  // Its sibling and separate from it: nobody's total moves here, only the order under the totals,
+  // and the qualifier cut is read against that order. The body keeps its `auch` under §1.12's
+  // played-fixture exception.
   if (isPlacingChanged) {
     banners.push({
       id: "saison.placing-changed",
       severity: "warning",
       title: "Wer aus einer Gruppe weiterkommt, entscheidet sich neu",
+      body: "Auch in längst gespielten Gruppen kann die Reihenfolge dann anders sein.",
       inline: null,
     });
   }
