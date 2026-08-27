@@ -211,6 +211,12 @@ payload, so a redraw carries it in one step. `number_of_groups` and `teams_per_g
 which clubs stand in the season, and `REQ-SPIELPLAN-004` asks every offered group for exactly
 `teams_per_group`, so after a legal draw no club can be entered and a redraw asking for a different
 group shape is refused for the groups then off their size. Their repair is the undraw below.
+**The tie-break beside them is the panel's own freeze**: `REQ-RULES-012` closes it once a knockout
+fixture of the season has left a record, and `FormRegelnSection` is HANDED that fact as the count
+`FormGruppenSwapSection` closes on for `REQ-SWAP-002`, rather than reading the season's fixtures again, so
+the two panels cannot disagree about when the bracket began.
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/regelnFreeze.test.ts` pins the closed
+control, the hand-off and the absence of a reading of its own.
 
 **The undraw reopens the two the replace cannot move**:
 `DELETE /saisons/{saison_id}/spielplan` returns the season to undrawn, where the patch and the entry

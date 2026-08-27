@@ -204,7 +204,7 @@ against the `$jsonSchema` validators.
 
 ### A season's rules are the interesting case
 
-There are three answers here, and a field can be under more than one of them.
+There are four answers here, and a field can be under more than one of them.
 
 - **Frozen once the season is `past`** (`fl_backend/app/api/saisons/services.py :: FROZEN_RULES_FIELDS`,
   `REQ-RULES-005`) — a finished season's table is derived from these on every read, the order
@@ -226,6 +226,15 @@ There are three answers here, and a field can be under more than one of them.
   with the group moves a drawn season locks (`REQ-ENTER-004`) open again in between. LOWERING either stays
   refused while the clubs stand (`REQ-RULES-002`, `REQ-RULES-003`), no endpoint taking a club back out of a
   season.
+- **Frozen once a knockout fixture of the season has been played**
+  (`fl_backend/app/api/saisons/services.py :: SEEDING_RULES_FIELD`, `REQ-RULES-012`) — `tiebreak_order`
+  alone, the bracket having been seeded from the group placings this order decides, so moving it once a
+  knockout fixture has left a record re-seeds a bracket that has been part-played. A condition of its own
+  rather than one of the freezes above stretched to reach it: the season is still running, its fixtures stay
+  as drawn, and nothing else in `rules` re-sorts a group that is already ranked. **What counts as played is**
+  `fl_backend/app/api/teams/services.py :: has_taken_place` — a stored result, an abandonment, a no-show, or
+  a goal count entered against no result — so a fixture called off or struck out leaves the order open, and
+  `REQ-SWAP-002` reads that same window for the same event.
 - **Never narrowed below what already exists**, because the data below would be stranded. What decides
   membership here is what the field bounds: `max_kadergroesse` caps stored squad rows and so may not drop
   below the largest squad a season holds, while `erlaubte_stufen` narrows freely even on a finished season,
@@ -264,13 +273,15 @@ evaluator.
 
 ### The checks run in the order somebody can act on
 
-Within a rules edit the two freezes are reported first — the `past` one ahead of the draw one, so a finished
-season is told it is finished rather than told to redraw fixtures it will never play — and the check
+Within a rules edit the freezes are reported first, in the order `past`, the draw's, then the tie-break's —
+so a finished season is told it is finished rather than told to redraw fixtures it will never play, or told
+its bracket has started while every rule it scores by is shut anyway — and the check
 computing the season's whole schedule runs last.
 `fl_backend/app/api/saisons/services.py :: find_rules_refusal` carries the sequence and the reason for each
 position at the line;
-`fl_backend/tests/api/test_rules_refusal.py :: test_the_freeze_is_reported_before_a_narrowing` and
-`:: TestADrawnSeasonKeepsTheShapeItWasDrawnFrom` pin both halves.
+`fl_backend/tests/api/test_rules_refusal.py :: test_the_freeze_is_reported_before_a_narrowing`,
+`:: TestADrawnSeasonKeepsTheShapeItWasDrawnFrom` and `:: TestAStartedKnockoutFreezesTheTiebreak` pin one
+freeze each.
 Telling an admin their group count strands a team, watching them fix it, and _then_ saying the season is
 closed anyway is a puzzle rather than an answer.
 

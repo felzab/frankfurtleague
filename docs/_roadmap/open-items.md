@@ -93,13 +93,14 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 38  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
 | 39  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Open     | —          |
 | 40  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
-| 41  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Open     | —          |
-| 42  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
-| 43  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Open     | —          |
-| 44  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Open     | —          |
-| 45  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
-| 46  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
-| 47  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
+| 41  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
+| 42  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Open     | —          |
+| 43  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
+| 44  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Open     | —          |
+| 45  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Open     | —          |
+| 46  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
+| 47  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
+| 48  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -2035,7 +2036,55 @@ words the same membership, so the register states both readings and matches the 
 them. The constant's own comment argues that a called-off fixture is one that never took place,
 which points at the summaries; that remains a domain call rather than a recorded decision.
 
-### 41 · BE-24 — An unnarrowed squad read scans an unindexed collection to learn what it may not serve
+### 41 · BE-39 — A refusal composes a repair the product refuses to perform
+
+**Status:** Open\
+**Surfaces:** FE, BE, Docs\
+**Effort:** S\
+**Path:** Independent — the composed message, its German arm and the pages repeating the loop move
+together. **OPS-74** on [`tooling-items.md`](tooling-items.md) guards the pairing of the first two and
+says nothing about what either claims.
+
+**`REQ-RULES-011` names an undraw whose window is narrower than the refusal's own.**
+`fl_backend/app/api/saisons/services.py :: find_rules_refusal` composes a repair per moved field, and
+the one for `number_of_groups` and `teams_per_group` tells an admin to undraw the Spielplan, change the
+entries, then draw it again. `fl_backend/app/api/saisons/services.py :: find_undraw_refusal` permits
+that undraw only while the season is `future` and no fixture carries anything recorded against it;
+every other season is answered `REQ-SPIELPLAN-006`. **The refusal itself is under no such window** —
+`fl_backend/tests/api/test_rules_refusal.py :: TestADrawnSeasonKeepsTheShapeItWasDrawnFrom` pins it
+holding whatever the season is doing — so on a running season, and on a planned one carrying a result,
+the repair names a write nothing will perform. `REQ-RULES-012`'s own window sits inside that set and is
+not the size of it: a played knockout fixture is a recorded one, and so is a called-off group fixture
+in a season nobody has activated.
+
+**What an admin meets is a closed control rather than a second refusal.**
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/blockedReasons.ts :: spielplanUndrawBlockedReason`
+mirrors the same window and answers _"Zurücknehmen lässt sich der Spielplan nur, solange die Saison
+geplant ist."_, which contradicts the sentence that sent them there.
+[`docs/frontend/spec.md`](../frontend/spec.md)'s copy standard exempts the continuation of a repair a
+refusal has already started, on the ground that a loop broken at its second step leaves an admin
+exactly where the refusal sent them; this is that loop broken at its second step.
+
+**The claim is repeated where it is not owned**, so whatever is decided moves those with it:
+[`docs/domain.md`](../domain.md)'s reading of what an undraw opens,
+[`docs/logging/error-codes.md`](../logging/error-codes.md)'s draw-freeze paragraph and
+[`docs/frontend/spec.md`](../frontend/spec.md)'s undraw loop each state it as the way back from a group
+shape guessed wrong — true in the planning window it was written for, and in no other.
+
+**This entry picks no repair.** The sentence could narrow to the window it holds in, leaving a season
+past that window told plainly that the two numbers are fixed for the rest of its life. Or the undraw's
+window is the half that is wrong, a season that has drawn and recorded nothing being arguably still in
+setup whatever `status` says — which is a domain call about what an `active` season may become, and not
+a message fix. **The German is a hand-written second copy either way**
+(`fl_frontend/src/features/saisons/actions.ts`, its `REQ-RULES-011` arm), so a repair that stops at the
+backend leaves an admin reading the old instruction.
+
+**What ranks it here.** Above **BE-24** and **BE-37**: those cost a read that runs and an operator who
+has already reached for the database, where this misleads an admin on a path the product offers them.
+Below **BE-26**: a summary wrong there may be covering a constant that lets a fixture nobody will replay
+through a refusal, which is a behaviour to settle rather than a sentence to correct.
+
+### 42 · BE-24 — An unnarrowed squad read scans an unindexed collection to learn what it may not serve
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -2075,7 +2124,7 @@ What pays is a caller reaching the API directly.
 `LIST_LIMIT_DEFAULT` and raises where it gets it, because a truncated set narrows on fewer seasons than
 exist ([`docs/backend/spec.md`](../backend/spec.md) I45).
 
-### 42 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
+### 43 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -2122,7 +2171,7 @@ by hand gets no signal for most of what the write path calls unholdable — wher
 none. It sits under BE-24 because that entry's cost is measured on a read that runs today, and this
 one's is paid only after somebody edits the database.
 
-### 43 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
+### 44 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2152,7 +2201,7 @@ I rejected is that the framework may omit the value on some render path, which n
 is what a reader has to decide about every time this function is edited, and this function is what
 every season-scoped page opens with.
 
-### 44 · BE-38 — A squad-number helper has no caller, and its docstring is the only record of the rule it states
+### 45 · BE-38 — A squad-number helper has no caller, and its docstring is the only record of the rule it states
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -2198,7 +2247,7 @@ opens with rather than among one slice's helpers, so it is re-decided far more o
 **BE-34**, which reads like the same finding and is not — that index's unserved half is a read somebody
 wants built, so landing it adds a capability, and nothing here adds one.
 
-### 45 · FE-32 — A banner's id names a derivation its own sentence does not state
+### 46 · FE-32 — A banner's id names a derivation its own sentence does not state
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2232,7 +2281,7 @@ when they were written, so rewriting an id there falsifies a record instead of c
 of leaving it is one maintainer's minute in a module that is read whenever a venue's banners change,
 and that is less than every entry above it.
 
-### 46 · BE-7 — `typing` imports instead of `collections.abc`
+### 47 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -2245,7 +2294,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 47 · BE-14 — The certainty walk gives up in a group of six or more
+### 48 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
