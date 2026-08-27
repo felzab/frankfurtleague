@@ -9,6 +9,7 @@ import { useDebouncedUrlQuery } from "@/shared/hooks/useDebouncedUrlQuery";
 import { useFacetSelection } from "@/shared/hooks/useFacetSelection";
 import { useFuzzySearch } from "@/shared/hooks/useFuzzySearch";
 import { applyFacets, countActiveFacets } from "@/shared/utils/facets";
+import { formatSpielDatum } from "@/shared/utils/format";
 
 import { buildSpielFacets } from "../../facets";
 import { formatQuelle } from "../../utils";
@@ -52,12 +53,12 @@ export function SpielsucheView({
 }) {
   const { urlValue: spielQuery, inputValue, setInputValue } = useDebouncedUrlQuery();
 
-  // Copies of what a user types but the document does not store as text — a date as "14.03."
-  // against a stored `YYYY-MM-DD`. The originals stay, so both spellings match.
+  // A reader types the spelling they have seen, so the rendered date is the only one `SEARCH_KEYS` names.
+  // Formatting it through the site's own date helper is what keeps the searched spelling on the rendered one.
   const processedSpiele = useMemo(() => {
     return spiele.map((s) => ({
       ...s,
-      searchable_datum: s.datum ? s.datum.split("-").reverse().join(".") : null,
+      searchable_datum: s.datum === null ? null : formatSpielDatum(s.datum),
       searchable_team1_quelle: formatQuelle(s.team1_quelle),
       searchable_team2_quelle: formatQuelle(s.team2_quelle),
     }));
