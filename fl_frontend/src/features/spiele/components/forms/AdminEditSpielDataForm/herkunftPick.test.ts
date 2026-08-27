@@ -28,6 +28,12 @@ describe("the Herkunft picker's group placing", () => {
   it("renders no closed row and no reason beside one", () => {
     assert.doesNotMatch(SOURCE, /refusal:/);
     assert.ok(!SOURCE.includes("nur in der ersten KO-Runde"), "a row still names the round");
+
+    /* The team picker is the file's only list that closes a row, so a second `disabledKeys` is the
+       greyed group placing back by the other route. */
+    const closedLists = [...SOURCE.matchAll(/disabledKeys=\{(.+?)\}/g)].map(([, keys]) => keys);
+
+    assert.deepEqual(closedLists, ["disabledTeamKeys"], "a Herkunft row is closed rather than absent");
   });
 
   /* The list is a rendering, and a keyboard pick or a list a render old reaches past what it shows. */

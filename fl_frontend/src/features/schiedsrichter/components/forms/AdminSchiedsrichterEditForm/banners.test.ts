@@ -35,6 +35,7 @@ describe("buildSchiedsrichterBanners", () => {
     const [banner] = build({ isRetired: true });
 
     assert.match(banner?.title ?? "", /erscheint in keiner Auswahlliste/);
+    assert.match(banner?.body ?? "", /Einsätze bleiben erhalten/, "the body stopped naming what survives");
     assert.ok(!/reaktivieren|Kopf der Seite/i.test(banner?.body ?? ""));
   });
 
