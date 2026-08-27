@@ -210,8 +210,7 @@ export function FormTeamErsatzSection({
             {outgoing !== null && incoming !== null && (
               <Callout
                 severity="warning"
-                title="Das passiert beim Wechsel">
-                <strong>{incoming.name}</strong> übernimmt den Platz von <strong>{outgoing.name}</strong> {describePlatz(outgoing.gruppe)}.{" "}
+                title={`${incoming.name} übernimmt den Platz von ${outgoing.name} ${describePlatz(outgoing.gruppe)}`}>
                 {describeUebernommeneSpiele(outgoing.spiele)} Die Kadereinträge von {outgoing.name} werden ausgetragen.
               </Callout>
             )}

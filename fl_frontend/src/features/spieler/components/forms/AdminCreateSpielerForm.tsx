@@ -183,7 +183,7 @@ export function AdminCreateSpielerForm({
 
             {draft.is_nachgetragen && (
               <p className="fluid-xxs text-foreground-muted font-medium">
-                Die Saison {draft.saison_id} läuft bereits, der Eintrag wird deshalb als nachgetragen markiert.
+                Dieser Spieler wird nachgetragen. Zu Beginn der Saison war er nicht im Kader.
               </p>
             )}
           </>

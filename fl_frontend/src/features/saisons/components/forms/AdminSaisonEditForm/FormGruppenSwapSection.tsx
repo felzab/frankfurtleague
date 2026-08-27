@@ -248,8 +248,7 @@ export function FormGruppenSwapSection({
             {first !== null && second !== null && (
               <Callout
                 severity="warning"
-                title="Das passiert beim Tausch">
-                <strong>{first.name}</strong> steht danach in Gruppe {second.gruppe}, <strong>{second.name}</strong> in Gruppe {first.gruppe}.
+                title={`${first.name} steht danach in Gruppe ${second.gruppe}, ${second.name} in Gruppe ${first.gruppe}`}>
                 Beide übernehmen dabei die angesetzten Spiele des anderen, mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
                 sofort.
               </Callout>

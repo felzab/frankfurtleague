@@ -176,8 +176,7 @@ function GruppenTauschControl({
           {partner !== null && (
             <Callout
               severity="warning"
-              title="Das passiert beim Tausch">
-              <strong>{self.name}</strong> steht danach in Gruppe {partner.gruppe}, <strong>{partner.name}</strong> in Gruppe {self.gruppe}.
+              title={`${self.name} steht danach in Gruppe ${partner.gruppe}, ${partner.name} in Gruppe ${self.gruppe}`}>
               Beide übernehmen dabei die angesetzten Spiele des anderen, mit Gegner, Termin und Ort. Die Tabellen beider Gruppen ändern sich
               sofort.
             </Callout>
