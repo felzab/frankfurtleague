@@ -34,7 +34,8 @@ describe("buildSpielerBanners", () => {
     const [banner] = build({ isRetired: true });
 
     assert.match(banner?.title ?? "", /erscheint in keiner Auswahlliste/);
-    assert.ok(!/Reaktivieren/.test(banner?.body ?? ""));
+    assert.match(banner?.body ?? "", /Plätze im Kader bleiben erhalten/, "the body stopped naming what survives");
+    assert.ok(!/reaktivieren|Kopf der Seite/i.test(banner?.body ?? ""));
   });
 
   it("offers the entry remedy for a player no squad holds", () => {
@@ -62,8 +63,8 @@ describe("buildSpielerBanners", () => {
     assert.ok((gone?.body ?? "").includes(REACTIVATION_NEEDS_A_TEAM_IN_SAISON), "the blocked arm names no repair");
   });
 
-  /* `info` and not `warning`: nothing this save destroys, and a `warning` would route every save of
-     the player through `ConfirmSaveModal` for a state the form did not cause. */
+  /* `info` and not `warning`: nothing this save destroys. Keeping it out of `ConfirmSaveModal` is
+     `raisedBy: "state"`'s job below, so the colour answers only how gravely the row reads. */
   it("leaves the blocked arm an info", () => {
     const [banner] = build({ rowInactiveSince: "2026-03-12", isRowTeamInSaison: false });
 
@@ -107,5 +108,25 @@ describe("buildSpielerBanners", () => {
   // nothing to confirm.
   it("raises no save confirmation for a blocked role", () => {
     assert.equal(build({ blockedRolle: { label: "Co-Kapitän", heldBy: "Nils Kraus" } })[0]?.severity, "info");
+  });
+
+  /* Both are read off a DRAFT field and neither is this save's doing: the flag is derived at entry
+     and never offered here, and the role is one another squad row already holds. */
+  it("classifies the nachgetragen flag and a taken role as state", () => {
+    assert.equal(build({ isNachgetragen: true })[0]?.raisedBy, "state");
+    assert.equal(build({ blockedRolle: { label: "Kapitän", heldBy: "Jonas Weber" } })[0]?.raisedBy, "state");
+  });
+
+  /* Colour and confirmation are separate switches: a banner the page load already carries asks
+     nothing at save time, and only the transfer is a consequence this save has. */
+  it("classifies every banner a page load already carries as state, and the transfer as change", () => {
+    const atLoad = [
+      ...build({ isRetired: true }),
+      ...build({ isMember: false, saisonStatus: "active" }),
+      ...build({ rowInactiveSince: "2026-03-12", isRowTeamInSaison: false }),
+    ];
+
+    for (const banner of atLoad) assert.equal(banner.raisedBy, "state", `${banner.id} would confirm a situation the save did not cause`);
+    assert.equal(build({ isTeamChanged: true })[0]?.raisedBy, "change");
   });
 });

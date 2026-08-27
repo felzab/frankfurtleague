@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { resolveBlockingBanners } from "@/shared/components/ui/railBanner.ts";
+
 import { buildSchiedsrichterBanners } from "./banners.ts";
 
 import type { SchiedsrichterBanner } from "./banners.ts";
@@ -9,7 +11,6 @@ const build = (overrides: Partial<Parameters<typeof buildSchiedsrichterBanners>[
   buildSchiedsrichterBanners({
     isRetired: false,
     isNameChanged: false,
-    hasKontakt: true,
     ...overrides,
   });
 
@@ -27,6 +28,7 @@ describe("buildSchiedsrichterBanners", () => {
     assert.equal(banner?.severity, "info");
     // Rail-only: the retirement belongs to no panel's field.
     assert.equal(banner?.inline, null);
+    assert.equal(banner?.raisedBy, "state");
   });
 
   /* One shape across the four retirable editors: the title names the exclusion, the body names what
@@ -40,7 +42,7 @@ describe("buildSchiedsrichterBanners", () => {
   });
 
   it("leads with the retirement, which is what the rest of the page has to be read against", () => {
-    assert.equal(ids(build({ isRetired: true, isNameChanged: true, hasKontakt: false }))[0], "schiedsrichter.retired");
+    assert.equal(ids(build({ isRetired: true, isNameChanged: true }))[0], "schiedsrichter.retired");
   });
 
   it("grades the rename as the one banner that stops a save", () => {
@@ -48,18 +50,13 @@ describe("buildSchiedsrichterBanners", () => {
 
     assert.equal(banner?.id, "schiedsrichter.name-changed");
     assert.equal(banner?.severity, "warning");
+    assert.equal(banner?.raisedBy, "change");
   });
 
-  it("reports a missing contact from the DRAFT, so filling one in clears it before the save", () => {
-    assert.ok(ids(build({ hasKontakt: false })).includes("schiedsrichter.no-kontakt"));
-    assert.ok(!ids(build({ hasKontakt: true })).includes("schiedsrichter.no-kontakt"));
-  });
-
-  /* The title is the whole banner. A body saying the gap stops nothing is reassurance, which tells
-     the reader the banner did not need writing (`docs/frontend/spec.md` §1.12). */
-  it("states the missing contact in its title and writes no body under it", () => {
-    const banner = build({ hasKontakt: false }).find(({ id }) => id === "schiedsrichter.no-kontakt");
-
-    assert.equal(banner?.body, undefined);
+  /* Pinned per editor because `raisedBy` is authored here rather than derived: a retirement is on
+     screen before the admin types, so it keeps its rail entry and asks nothing when they save. */
+  it("confirms the save the draft causes and never the situation it inherited", () => {
+    assert.equal(resolveBlockingBanners(build({ isRetired: true })), null);
+    assert.deepEqual(ids(resolveBlockingBanners(build({ isRetired: true, isNameChanged: true })) ?? []), ["schiedsrichter.name-changed"]);
   });
 });

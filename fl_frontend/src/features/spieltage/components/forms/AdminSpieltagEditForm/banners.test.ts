@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+// Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { resolveBlockingBanners } from "../../../../../shared/components/ui/railBanner.ts";
 import { buildSpieltagBanners } from "./banners.ts";
 
 import type { SpieltagBanner } from "./banners.ts";
@@ -28,6 +30,7 @@ describe("buildSpieltagBanners", () => {
 
     assert.equal(spanChange?.severity, "warning");
     assert.equal(spanChange?.inline, "zeitraum");
+    assert.equal(spanChange?.raisedBy, "change");
   });
 
   /* Both refusals a moved span draws, one per slot: the fixtures inside the new span in the title,
@@ -55,6 +58,8 @@ describe("buildSpieltagBanners", () => {
 
     assert.equal(banner?.severity, "danger");
     assert.equal(banner?.inline, "zeitraum");
+    // Both dates arrive from the stored row in an order the schema already held, so only a pick reverses them.
+    assert.equal(banner?.raisedBy, "change");
   });
 
   it("reports a fixture count that disagrees with the derived expectation, in both directions", () => {
@@ -64,10 +69,25 @@ describe("buildSpieltagBanners", () => {
   });
 
   /* The repair is a redraw on the season page, so a save stopped here would hold the matchday's dates
-     hostage to a state its own write path neither caused nor reads. */
+     hostage to a state its own write path neither caused nor reads — `state`, both counts being the
+     stored row's. */
   it("keeps the count report out of the confirmation, because nothing on this page repairs it", () => {
-    const banner = build({ spieleAngelegt: 2 }).find((entry) => entry.id === "spieltag.anzahl-offen");
+    const standing = build({ spieleAngelegt: 2 });
+    const banner = standing.find((entry) => entry.id === "spieltag.anzahl-offen");
 
     assert.equal(banner?.severity, "info");
+    assert.equal(banner?.raisedBy, "state");
+    assert.equal(resolveBlockingBanners(standing), null);
+  });
+
+  /* The pair the confirmation exists for, in the order it renders them: a reversed span is refused
+     outright and a moved one is held to conditions no field on the page can show. */
+  it("confirms a save that moves the span, over both entries the move raises", () => {
+    const pending = build({ isZeitraumChanged: true, isEndeVorBeginn: true, spieleAngelegt: 2 });
+
+    assert.deepEqual(
+      resolveBlockingBanners(pending)?.map((banner) => banner.id),
+      ["spieltag.ende-vor-beginn", "spieltag.zeitraum-changed"],
+    );
   });
 });

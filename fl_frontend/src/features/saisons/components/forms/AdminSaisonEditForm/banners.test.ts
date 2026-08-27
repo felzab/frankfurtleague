@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 // Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { resolveBlockingBanners } from "../../../../../shared/components/ui/railBanner.ts";
 import { PLACING_RULES_FIELDS, PREDRAW_RULES_FIELDS, RESCORING_RULES_FIELDS } from "../../../constants.ts";
 import { buildSaisonBanners } from "./banners.ts";
 
@@ -93,13 +94,14 @@ describe("buildSaisonBanners", () => {
     assert.deepEqual(ids(build({ saisonStatus: "past", hasDrawnSpiele: true })), ["saison.past", "saison.drawn"]);
   });
 
-  /* An `info`, and this is the whole reason: `resolveBlockingBanners` raises `ConfirmSaveModal` for a
-     `warning`, which would put a dialog in front of every save on a season that holds fixtures. */
+  /* An `info` and rail-only: the freeze is the shape the panel's read-only fields already show, and
+     no field on this page answers it. */
   it("grades the drawn freeze as a standing property rather than as a consequence of the save", () => {
     const [banner] = build({ hasDrawnSpiele: true });
 
     assert.equal(banner?.severity, "info");
     assert.equal(banner?.inline, null);
+    assert.equal(banner?.raisedBy, "state");
   });
 
   it("grades both rule breaches as danger, and only the span one claims the save is barred", () => {
@@ -111,12 +113,34 @@ describe("buildSaisonBanners", () => {
     assert.match(breaches[1]?.body ?? "", /nicht weiter verschlechtert/);
   });
 
+  /* THE SPLIT, over the two dangers worth having it for: an excess `REQ-RULES-007` lets stand
+     (`docs/backend/spec.md :: I44`), and an outgoing season the rollover answers. Both greet a
+     reader who has touched nothing, and `change` would confirm forever. */
+  it("keeps a danger the page opened on out of the confirmation, colour untouched", () => {
+    const standing = [...build({ qualifiersPerGroup: 5 }), ...build({ outgoingSaisonId: "2025", offeneSpieleCount: 3 })];
+
+    assert.deepEqual(ids(standing), ["saison.qualifiers-overflow", "saison.rollover-blocked"]);
+    assert.ok(standing.every((banner) => banner.severity === "danger" && banner.raisedBy === "state"));
+    assert.equal(resolveBlockingBanners(standing), null);
+  });
+
+  /* The other half of the same rule: each of these reads the draft against what is stored, so the
+     save is what causes it — and the `info` pair is dropped by severity, from either side. */
+  it("confirms the save for the draft's own consequences, and for nothing else", () => {
+    const pending = build({ isEndBeforeStart: true, isRescoringChanged: true, isStufenChanged: true, hasDrawnSpiele: true });
+
+    assert.deepEqual(
+      resolveBlockingBanners(pending)?.map((banner) => banner.id),
+      ["saison.end-before-start", "saison.scoring-changed"],
+    );
+  });
+
   it("warns about a moved placing rule on its own entry, since re-sorting is not re-scoring", () => {
     const both = build({ isRescoringChanged: true, isPlacingChanged: true });
 
     assert.deepEqual(ids(both), ["saison.scoring-changed", "saison.placing-changed"]);
-    // A warning, so the save confirms: neither effect is visible at the field that caused it.
-    assert.ok(both.every((banner) => banner.severity === "warning"));
+    // A warning the draft raised, so the save confirms: neither effect is visible at the field that caused it.
+    assert.ok(both.every((banner) => banner.severity === "warning" && banner.raisedBy === "change"));
   });
 
   /* The one `auch` §1.12 keeps, and the reason either entry has a body at all: a reader reads a rules

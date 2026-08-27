@@ -60,8 +60,8 @@ type HintProps =
 
 /**
  * **No severity, deliberately.** A hint written where a blocking banner was owed would never reach
- * the save gate, `resolveBlockingBanners` dropping `info` so it cannot raise the dialog. Grade a
- * consequence in the editor's `banners.ts` instead.
+ * the save gate, which `resolveBlockingBanners` opens only for a consequence the pending save causes.
+ * Grade one in the editor's `banners.ts` instead.
  */
 export function Hint(props: HintProps) {
   if (props.mode === "inline")

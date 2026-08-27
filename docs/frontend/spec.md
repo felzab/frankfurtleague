@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `33bdd47c`, 2026-08-27\
+**Verified against:** `cbdc6320`, 2026-08-27\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -953,6 +953,17 @@ control that lives on another page raises _where_, and the answer is that page. 
 raises _what should I add_, and the answer is the instruction. **The answer is a title and at most one
 sentence under it**, and a banner needing two has answered a second question nobody asked.
 
+**That cap reaches an entry built in a `banners.ts` and stops there** (my rule, 2026-08-27). A rail
+entry is one of a stacked list and renders twice, on the rail and at its inline spot, so a second
+sentence is paid for twice over. A `Callout` written into a panel section is neither of those: it
+stands alone in the branch it fronts, and each of the two shapes it takes there earns a second
+sentence — a closure states the rule that shut the control and then the way out, and the outcome of an
+operation committing on its own control states what it does and what moves with it.
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx`
+holds both. **Two is the ceiling there as well**, a readout not counted:
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx` reads
+back what the draw produced and then names the steps that follow it.
+
 **Write the rule, never the situation that met it.** A closed control is closed by a rule, and the rule
 is the half a reader can carry away and predict from: `Nach dem Beginn der KO-Runde ist ein
 Gruppentausch nicht mehr möglich` is the shape, rather than how many knockout fixtures have been played
@@ -995,7 +1006,8 @@ taken off its source is set by hand whichever way the sentence is written.
 **These come out of a banner wherever they appear**: the causal tail (`deshalb`, `damit`, `so`), which
 is diagnostic 1 in a banner; the scope tail (`auf der ganzen Seite`, `überall`), widening a claim past
 anything the reader acts on; a trailing `auch …` naming the edge case the sentence before it already
-covers; `sobald Du speicherst`, when every banner is about the pending save (diagnostic 4); emphasis on
+covers; `sobald Du speicherst`, which restates the precondition of a banner the pending save raises
+(diagnostic 4) and misdescribes one whose situation is already true; emphasis on
 a verb that carries itself, `Wort für Wort` beside `angezeigt`; and reassurance (`trotzdem`, `das ist
 erlaubt`), which tells the reader the banner did not need writing. A derived value is already gone under
 the consequence rule above.
@@ -1033,13 +1045,23 @@ answers no question, and where a conditional banner states the same fact at the 
 standing one is the second telling. A value the page renders as plain text raises nothing either: a
 reader who never meets a control does not ask why it is closed.
 
-**Severity is a behavioural choice and never a tone.**
-`fl_frontend/src/shared/components/ui/railBanner.ts :: resolveBlockingBanners` raises the save
-confirmation for every `warning` and `danger` on the list, so regrading one banner adds or removes a
-confirmation step for every save on that page, and
-`fl_frontend/src/shared/components/ui/Callout.tsx :: Callout` states what the three grades mean. A
-standing property is `info` however expensive it is to discover, because a `warning` for it confirms
-every unrelated edit on the page.
+**A banner's colour says how serious the situation is, and only a consequence the pending save causes
+raises the confirmation** (my rule, 2026-08-27). Once a thing is set the banner keeps its colour and
+stops asking: a dialog puts a question about a change, and a state the reader has already been living
+with has no question in it however grave it is. So `danger` is free to be as loud as a situation
+deserves without buying a confirmation step on every unrelated edit of that record ever after.
+
+**`raisedBy` is where that is recorded, and it is required.**
+`fl_frontend/src/shared/components/ui/railBanner.ts :: RailBanner` gives every entry `"state"` or
+`"change"`, and `:: resolveBlockingBanners` opens the dialog for a non-`info` banner only where that
+field says `change`. Severity does not imply it, which is the whole reason the two are separate fields.
+`fl_frontend/src/shared/components/ui/Callout.tsx :: Callout` states what the three colours mean.
+**The test is what the page would have shown on load,
+before the admin touched anything** — a banner already on screen then is `state` however grave, and one that
+needs the draft compared against the stored record, or a field the admin typed, is `change`.
+`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/banners.ts :: buildSpielBanners`
+grades a hand-set side `danger` and `state` on exactly that reading: the slot is as wrong as the
+colour says and as old as the stored fixture.
 
 **A hint and a banner on one panel never carry the same fact.** The hint carries the rule that stands
 whatever is typed; the banner carries what this save will do. Only review enforces this, a check having

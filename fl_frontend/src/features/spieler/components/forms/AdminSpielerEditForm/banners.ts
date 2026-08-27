@@ -48,6 +48,7 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.retired",
       severity: "info",
+      raisedBy: "state",
       title: "Dieser Spieler erscheint in keiner Auswahlliste",
       // The way back is the header's own Reaktivieren control, on screen beside this.
       body: "Seine Plätze im Kader bleiben erhalten.",
@@ -59,6 +60,7 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.not-in-kader-entry",
       severity: "info",
+      raisedBy: "state",
       title: `In Saison ${saisonId} erscheint dieser Spieler auf keiner Seite`,
       body: "Wähle unten ein Team und nimm ihn auf.",
       inline: "kader-eintritt",
@@ -70,6 +72,9 @@ export function buildSpielerBanners({
       banners.push({
         id: "spieler.entry-nachgetragen",
         severity: "info",
+        // `state` though it reads as a consequence: the panel's Aufnehmen button writes the flag on
+        // its own, and nothing here waits on the editor's save.
+        raisedBy: "state",
         title: "Dieser Spieler wird nachgetragen",
         body: "Zu Beginn der Saison war er nicht im Kader.",
         inline: "kader-nachgetragen",
@@ -81,6 +86,7 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.row-retired-since",
       severity: "info",
+      raisedBy: "state",
       title: `Ausgetragen seit ${formatSpielDatum(rowInactiveSince)}`,
       // The promise splits where the reactivate does: it names the row's STORED club, and a
       // replacement can have taken that club out of the season since the row was written.
@@ -97,18 +103,22 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.nachgetragen",
       severity: "info",
+      // `isNachgetragen` is a draft field the edit path never offers — `FormKaderSection` derives it
+      // at entry — so this can only report the flag the row loaded with.
+      raisedBy: "state",
       title: "Dieser Spieler wurde nachgetragen",
       body: "Zu Beginn der Saison war er nicht im Kader.",
       inline: null,
     });
   }
 
-  // One line, and it is the move rather than its timing: every banner here is about the pending save,
+  // One line, and it is the move rather than its timing: this banner is the pending save's own doing,
   // so a title dating the effect states what the reader already knows.
   if (isTeamChanged) {
     banners.push({
       id: "spieler.team-changed",
       severity: "warning",
+      raisedBy: "change",
       title: "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen",
       inline: null,
     });
@@ -118,6 +128,9 @@ export function buildSpielerBanners({
     banners.push({
       id: "spieler.rolle-vergeben",
       severity: "info",
+      // `state` off a draft-read map: the picker disables a taken role and a team switch clears one,
+      // so the clash reaching here is one the season's stored rows already hold.
+      raisedBy: "state",
       title: `${blockedRolle.label} ist im gewählten Team schon vergeben`,
       body: `In der Saison ${saisonId} hat ${blockedRolle.heldBy} diese Rolle. Nimm sie dort zuerst ab, wenn Du sie hier vergeben willst.`,
       inline: "kader-rolle",

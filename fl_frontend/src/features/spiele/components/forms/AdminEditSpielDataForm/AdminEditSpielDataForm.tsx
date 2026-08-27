@@ -305,8 +305,23 @@ export function AdminEditSpielDataForm({
     // banner explaining it cannot disagree.
     seedsFromTheGroups: isFirstKnockoutRound(saisonSpiele, spielData),
     sides: [
-      { fieldName: "team1", label: "Team 1", quelle: team1Quelle, team: team1Payload },
-      { fieldName: "team2", label: "Team 2", quelle: team2Quelle, team: team2Payload },
+      // The stored pair rides along so the banners can tell a takeover made here from one inherited.
+      {
+        fieldName: "team1",
+        label: "Team 1",
+        quelle: team1Quelle,
+        team: team1Payload,
+        storedQuelle: spielData.team1_quelle,
+        storedTeam: toStoredSide(spielData.team1),
+      },
+      {
+        fieldName: "team2",
+        label: "Team 2",
+        quelle: team2Quelle,
+        team: team2Payload,
+        storedQuelle: spielData.team2_quelle,
+        storedTeam: toStoredSide(spielData.team2),
+      },
     ],
     knockoutTeamIds,
     // Any pick differing from the stored one, not only a first event: swapping Ausgefallen for

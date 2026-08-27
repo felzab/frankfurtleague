@@ -25,6 +25,7 @@ export function buildSpieltagBanners({
     banners.push({
       id: "spieltag.zeitraum-changed",
       severity: "warning",
+      raisedBy: "change",
       title: "Der neue Zeitraum muss zu den Spielen passen",
       // The half the title cannot reach: a span held to its own fixtures alone reads as the whole
       // condition. Word for word with `mapSpieltagRefusal`, which `actions.test.ts` pins, and
@@ -38,6 +39,7 @@ export function buildSpieltagBanners({
     banners.push({
       id: "spieltag.ende-vor-beginn",
       severity: "danger",
+      raisedBy: "change",
       title: "Das Ende liegt vor dem Beginn",
       body: "Korrigiere eines der beiden Daten.",
       inline: "zeitraum",
@@ -50,6 +52,7 @@ export function buildSpieltagBanners({
     banners.push({
       id: "spieltag.anzahl-offen",
       severity: "info",
+      raisedBy: "state",
       // The counts sit in the body as a readout: a sentence carrying them has to agree with both at
       // once, and one of the two is 1 often enough.
       title: spieleAngelegt < anzahlSpiele ? "Es fehlen noch Spiele" : "Es sind mehr Spiele angelegt als erwartet",

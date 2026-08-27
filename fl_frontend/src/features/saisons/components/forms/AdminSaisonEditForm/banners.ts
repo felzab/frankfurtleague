@@ -48,17 +48,19 @@ export function buildSaisonBanners({
     banners.push({
       id: "saison.past",
       severity: "info",
+      raisedBy: "state",
       title: "Die Wertung bleibt, wie sie gespielt wurde",
       inline: "regeln-status",
     });
   }
 
-  // `info`, never `warning`: the freeze is a standing property of a drawn season rather than something
-  // this save would cause, and a `warning` would raise `ConfirmSaveModal` over every edit on the page.
+  // `info`, never `warning`: the freeze is a standing property of a drawn season rather than
+  // something this save would cause.
   if (hasDrawnSpiele) {
     banners.push({
       id: "saison.drawn",
       severity: "info",
+      raisedBy: "state",
       title: "Der Aufbau der Saison steht fest",
       body: "Gruppen, Teams pro Gruppe und Qualifikanten sind gesperrt, solange der Spielplan steht.",
       inline: null,
@@ -69,18 +71,21 @@ export function buildSaisonBanners({
     banners.push({
       id: "saison.end-before-start",
       severity: "danger",
+      raisedBy: "change",
       title: "Das Ende liegt vor dem Beginn",
       body: "So lässt sich die Saison nicht speichern. Verlege das Ende hinter den Beginn.",
       inline: "zeitraum",
     });
   }
 
-  // The save is NOT blocked, unlike the span banner above: the server refuses only a step that makes
-  // this worse, so a season already over-qualifying still saves its dates (`docs/backend/spec.md :: I44`).
+  // `state` though the two figures are the draft's: a season stored over-qualifying still saves its
+  // dates (`docs/backend/spec.md :: I44`), and the step that would introduce or widen the excess is
+  // refused rather than confirmed.
   if (qualifiersPerGroup > teamsPerGroup) {
     banners.push({
       id: "saison.qualifiers-overflow",
       severity: "danger",
+      raisedBy: "state",
       title: "Mehr Qualifikanten als Teams pro Gruppe",
       body: "Speichern lässt sich die Saison nur, solange sich das nicht weiter verschlechtert. Senke die Qualifikanten oder erhöhe die Teams pro Gruppe.",
       inline: "regeln-qualifikanten",
@@ -94,6 +99,7 @@ export function buildSaisonBanners({
     banners.push({
       id: "saison.scoring-changed",
       severity: "warning",
+      raisedBy: "change",
       title: "Die Tabelle könnte sich ändern",
       body: "Auch längst gespielte Spiele werden nach den neuen Regeln gewertet.",
       inline: null,
@@ -107,6 +113,7 @@ export function buildSaisonBanners({
     banners.push({
       id: "saison.placing-changed",
       severity: "warning",
+      raisedBy: "change",
       title: "Die Qualifikanten für die KO-Runde könnten sich ändern",
       body: "Dies betrifft auch längst fertige Gruppen.",
       inline: null,
@@ -117,6 +124,7 @@ export function buildSaisonBanners({
     banners.push({
       id: "saison.stufen-changed",
       severity: "info",
+      raisedBy: "change",
       title: "Stufen begrenzen nur die Auswahl",
       body: "Wer schon im Kader steht, behält seine Stufe.",
       inline: null,
@@ -124,12 +132,13 @@ export function buildSaisonBanners({
   }
 
   // `future` alone: a `past` season is refused by `REQ-ACTIVATE-002` whatever the outgoing season
-  // holds, so its open fixtures are not the blocker — and this `danger` banner would raise the save
-  // dialog over an unrelated edit.
+  // holds, so its open fixtures are not the blocker. `state`: the rollover is a control of its own,
+  // so this editor's save neither causes nor clears them.
   if (saisonStatus === "future" && outgoingSaisonId !== null && offeneSpieleCount > 0) {
     banners.push({
       id: "saison.rollover-blocked",
       severity: "danger",
+      raisedBy: "state",
       title:
         offeneSpieleCount === 1
           ? `1 Spiel der Saison ${outgoingSaisonId} hat noch kein Ergebnis`

@@ -6,10 +6,8 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
-import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 
 import type { FLKontakt } from "@/shared/schemas";
-import type { SchiedsrichterBanner } from "./banners";
 
 /**
  * Each field submits `null` when emptied. `FLKontaktSchema` accepts a blank string too, so this is
@@ -20,12 +18,10 @@ export function FormKontaktSection({
   kontakt,
   onChange,
   onFieldLeft,
-  banners,
 }: {
   kontakt: FLKontakt;
   onChange: (next: FLKontakt) => void;
   onFieldLeft: (paths: readonly string[]) => void;
-  banners: readonly SchiedsrichterBanner[];
 }) {
   const panel = formPanel();
 
@@ -36,7 +32,7 @@ export function FormKontaktSection({
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
           Kontakt
-          {/* That both fields are optional is said by the missing required marker, and the gap itself by the banner below. */}
+          {/* That both fields are optional is said by the missing required marker. */}
           <Hint
             mode="reveal"
             label="Hinweis zum Kontakt"
@@ -49,11 +45,6 @@ export function FormKontaktSection({
       </div>
 
       <div className={panel.body()}>
-        <InlineBanners
-          banners={banners}
-          spot="kontakt"
-        />
-
         <div className={FIELD_PAIR}>
           <TextField
             type="email"

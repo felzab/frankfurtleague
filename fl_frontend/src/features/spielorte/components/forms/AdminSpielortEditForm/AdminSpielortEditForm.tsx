@@ -137,7 +137,6 @@ export function AdminSpielortEditForm({
     isRetired,
     isNameChanged: isChanged("name"),
     isAddressChanged,
-    hasStadtteil: address.stadtteil.trim() !== "",
   });
 
   const leavePage = () => {

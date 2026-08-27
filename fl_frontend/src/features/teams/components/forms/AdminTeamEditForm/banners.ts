@@ -54,6 +54,7 @@ export function buildTeamBanners({
     banners.push({
       id: "team.retired",
       severity: "info",
+      raisedBy: "state",
       title: "Dieses Team erscheint in keiner Auswahlliste",
       // The way back is the header's own Reaktivieren control, on screen beside this.
       body: "Sein Kürzel bleibt reserviert.",
@@ -69,6 +70,7 @@ export function buildTeamBanners({
       banners.push({
         id: "team.not-in-saison-retired",
         severity: "info",
+        raisedBy: "state",
         // Both banners open on the same retirement, and only this one says what it closes here.
         supersedes: ["team.retired"],
         title: `In Saison ${saisonId} lässt sich dieses Team nicht aufnehmen`,
@@ -87,6 +89,7 @@ export function buildTeamBanners({
       banners.push({
         id: "team.not-in-saison-future",
         severity: "info",
+        raisedBy: "state",
         title: `In Saison ${saisonId} erscheint dieses Team auf keiner Seite`,
         body: "Nimm es unten mit einer Gruppe auf.",
         inline: "saison-eintritt",
@@ -95,6 +98,7 @@ export function buildTeamBanners({
       banners.push({
         id: "team.not-in-saison-closed",
         severity: "info",
+        raisedBy: "state",
         title: `In Saison ${saisonId} steht das Teilnehmerfeld fest`,
         body:
           saisonStatus === "active"
@@ -112,6 +116,7 @@ export function buildTeamBanners({
     banners.push({
       id: "team.austritt-entering",
       severity: "danger",
+      raisedBy: "change",
       title: "Der Grund wird veröffentlicht",
       body: "Er steht danach auf der Teamseite und an jedem Spiel des Teams.",
       inline: "austritt-eintrag",
@@ -122,6 +127,7 @@ export function buildTeamBanners({
     banners.push({
       id: "team.austritt-lifting",
       severity: "warning",
+      raisedBy: "change",
       // The record rather than its three fields, which the panel holds: what a reader would not
       // expect is that lifting deletes what was typed rather than parking it.
       title: "Der Austritt verschwindet mit allem, was dazu eingetragen ist",
@@ -135,6 +141,9 @@ export function buildTeamBanners({
     banners.push({
       id: "team.austritt-standing",
       severity: "info",
+      // `state` under a draft flag: `hasAustritt` can only hide this banner, and every word it prints
+      // comes from the record the page loaded with.
+      raisedBy: "state",
       title: `${austrittZustand(storedAustritt.type)} seit ${formatSpielDatum(storedAustritt.datum)}`,
       body: storedAustritt.grund,
       inline: null,
@@ -147,6 +156,9 @@ export function buildTeamBanners({
     banners.push({
       id: "team.gruppe-changed",
       severity: "warning",
+      // The picker's move, never the swap control's: that one fires its own action and renders only
+      // while the group is locked, which this condition excludes.
+      raisedBy: "change",
       title: "Die Tabellen beider Gruppen ändern sich",
       inline: "gruppe",
     });

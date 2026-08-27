@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { resolveRailBanners } from "@/shared/components/ui/railBanner.ts";
+import { resolveBlockingBanners, resolveRailBanners } from "@/shared/components/ui/railBanner.ts";
 
 import { buildSpielortBanners } from "./banners.ts";
 
@@ -12,7 +12,6 @@ const build = (overrides: Partial<Parameters<typeof buildSpielortBanners>[0]> = 
     isRetired: false,
     isNameChanged: false,
     isAddressChanged: false,
-    hasStadtteil: true,
     ...overrides,
   });
 
@@ -30,6 +29,7 @@ describe("buildSpielortBanners", () => {
     assert.equal(banner?.severity, "info");
     // Rail-only: the retirement belongs to no panel's field.
     assert.equal(banner?.inline, null);
+    assert.equal(banner?.raisedBy, "state");
   });
 
   /* One shape across the four retirable editors: the title names the exclusion, the body names what
@@ -38,11 +38,12 @@ describe("buildSpielortBanners", () => {
     const [banner] = build({ isRetired: true });
 
     assert.match(banner?.title ?? "", /erscheint in keiner Auswahlliste/);
+    assert.match(banner?.body ?? "", /Spiele bleiben erhalten/, "the body stopped naming what survives");
     assert.ok(!/reaktivieren|Kopf der Seite/i.test(banner?.body ?? ""));
   });
 
   it("leads with the retirement, which is what the rest of the page has to be read against", () => {
-    assert.equal(ids(build({ isRetired: true, isNameChanged: true, hasStadtteil: false }))[0], "spielort.retired");
+    assert.equal(ids(build({ isRetired: true, isNameChanged: true }))[0], "spielort.retired");
   });
 
   it("treats a moved address as the same fan-out a rename is", () => {
@@ -61,19 +62,13 @@ describe("buildSpielortBanners", () => {
     const [banner] = resolveRailBanners(build({ isAddressChanged: true }));
 
     assert.equal(banner?.severity, "warning");
+    assert.equal(banner?.raisedBy, "change");
   });
 
-  it("reports a missing district from the DRAFT, so typing one in clears it before the save", () => {
-    assert.ok(ids(build({ hasStadtteil: false })).includes("spielort.kein-stadtteil"));
-    assert.ok(!ids(build({ hasStadtteil: true })).includes("spielort.kein-stadtteil"));
-  });
-
-  /* The title is the whole banner. A body would have to say the field is optional, which the absent
-     required marker says, or where the district is searched, which the panel's own hint says. */
-  it("states the missing district in its title and writes no body under it", () => {
-    const [banner] = build({ hasStadtteil: false });
-
-    assert.equal(banner?.body, undefined);
-    assert.match(banner?.title ?? "", /kein Stadtteil/);
+  /* Pinned per editor because `raisedBy` is authored here rather than derived: a retirement is on
+     screen before the admin types, so it keeps its rail entry and asks nothing when they save. */
+  it("confirms the save the draft causes and never the situation it inherited", () => {
+    assert.equal(resolveBlockingBanners(build({ isRetired: true })), null);
+    assert.deepEqual(ids(resolveBlockingBanners(build({ isRetired: true, isNameChanged: true })) ?? []), ["spielort.maps-link-derived"]);
   });
 });

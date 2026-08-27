@@ -32,12 +32,17 @@ export type SpielBannerSpot =
 
 export type SpielBanner = RailBanner<SpielBannerId> & { inline: SpielBannerSpot | null };
 
-/** One side of the fixture as the draft holds it — the shape both per-side banners are built from. */
+/**
+ * One side of the fixture, draft beside stored — the shape both per-side banners are built from. The
+ * stored pair is what separates a slot this edit took over from one that arrived that way.
+ */
 export type SpielBannerSide = {
   fieldName: "team1" | "team2";
   label: string;
   quelle: FLSpielQuelle | null;
   team: FLSpielTeamField | null;
+  storedQuelle: FLSpielQuelle | null;
+  storedTeam: FLSpielTeamField | null;
 };
 
 /**
@@ -150,7 +155,7 @@ export function buildSpielBanners({
   // The field message states the value's own fault in one sentence, the register `docs/frontend/spec.md`
   // §1.12 sets. What to DO about it needs more room than that allows, so it rides here instead.
   if (refusalCode !== null) {
-    banners.push({ ...REFUSAL_REMEDIES[refusalCode], severity: "danger", inline: null });
+    banners.push({ ...REFUSAL_REMEDIES[refusalCode], severity: "danger", raisedBy: "change", inline: null });
   }
 
   for (const side of sides) {
@@ -162,6 +167,7 @@ export function buildSpielBanners({
       banners.push({
         id: side.fieldName === "team1" ? "spiel.team1-seed-closed" : "spiel.team2-seed-closed",
         severity: "info",
+        raisedBy: "state",
         title: `Ein Platz in einer Gruppe ist als Herkunft von ${side.label} nur in der ersten KO-Runde wählbar`,
         inline: side.fieldName === "team1" ? "team1-herkunft" : "team2-herkunft",
       });
@@ -169,21 +175,24 @@ export function buildSpielBanners({
 
     if (side.quelle !== null) continue;
 
-    // `danger`, so `resolveBlockingBanners` confirms the save: an unwired slot stops being maintained and
-    // diverges from a feeder's later result unreported. The rail carries it away from the picker, so the
-    // title names the state and the body the reach.
+    // `danger` for how wrong the state is; whose doing it is decides the dialog. A slot that
+    // arrived unwired asks nothing, but taking a wired one over is this save's own act.
     banners.push({
       id: side.fieldName === "team1" ? "spiel.team1-manual" : "spiel.team2-manual",
       severity: "danger",
+      raisedBy: side.storedQuelle === null ? "state" : "change",
       title: `${side.label} wird manuell gesetzt`,
       body: "Spätere Ergebnisse lassen diese Seite unverändert.",
       inline: side.fieldName === "team1" ? "team1-manuell" : "team2-manuell",
     });
 
+    // `collectKnockoutTeamIds` skips this fixture, so an inherited side reaches this at first paint
+    // while one picked here is the save's doing. Ids, because the draft rebuilds the object.
     if (side.team !== null && !knockoutTeamIds.has(side.team.team_id)) {
       banners.push({
         id: side.fieldName === "team1" ? "spiel.team1-unqualified" : "spiel.team2-unqualified",
         severity: "warning",
+        raisedBy: side.storedTeam?.team_id === side.team.team_id ? "state" : "change",
         title: `${side.team.name} ist nicht für diese Runde qualifiziert`,
         body: "Prüfe, ob die Auswahl beabsichtigt ist.",
         inline: side.fieldName === "team1" ? "team1-qualifikation" : "team2-qualifikation",
@@ -195,6 +204,7 @@ export function buildSpielBanners({
     banners.push({
       id: "spiel.sonderereignis-meaning",
       severity: "danger",
+      raisedBy: "change",
       title: SONDEREREIGNIS_MEANING[sonderereignis].title,
       body: SONDEREREIGNIS_MEANING[sonderereignis].body,
       inline: "sonderereignis-bedeutung",
@@ -215,6 +225,7 @@ export function buildSpielBanners({
     banners.push({
       id: "spiel.knockout-feeds",
       severity: "danger",
+      raisedBy: "change",
       title:
         dependentSpielNummern.length === 1
           ? `Ohne Wertung bleibt Spiel ${nummern} unbesetzt`
@@ -232,6 +243,7 @@ export function buildSpielBanners({
     banners.push({
       id: "spiel.result-refused",
       severity: "danger",
+      raisedBy: "change",
       title: "Ein nicht gewertetes Spiel kann kein Ergebnis tragen",
       body: "Entferne zuerst die Tore, oder wähle ein anderes Sonderereignis.",
       inline: "sonderereignis-wertung",
@@ -245,6 +257,9 @@ export function buildSpielBanners({
     banners.push({
       id: "spiel.forfeit-awarded",
       severity: "warning",
+      // The award standing over stored goals is how the fixture already reads; only choosing the
+      // event here, or discarding an entered shoot-out, is this save's doing.
+      raisedBy: isNewlyChosen || dropsShootOut ? "change" : "state",
       title: dropsShootOut
         ? "Die Wertung ersetzt das Ergebnis und verwirft das Elfmeterschießen"
         : "Die eingetragenen Tore werden durch die Wertung ersetzt",
@@ -259,6 +274,9 @@ export function buildSpielBanners({
     banners.push({
       id: "spiel.abandoned-decided",
       severity: "warning",
+      // A fixture stored abandoned with its score already reads this way, so the question is the
+      // reader's to reopen; picking the abandonment here is what puts it to them.
+      raisedBy: isNewlyChosen ? "change" : "state",
       title: "Das Ergebnis zählt trotz Abbruch für die Tabelle",
       body: "Prüfe, ob das Ergebnis hier stehen bleiben soll.",
       inline: "sonderereignis-wertung",
@@ -271,6 +289,7 @@ export function buildSpielBanners({
     banners.push({
       id: "spiel.sonderereignis-standing",
       severity: "info",
+      raisedBy: "state",
       title: "Dieses Spiel wird nicht mehr angemahnt",
       inline: null,
     });
@@ -281,6 +300,7 @@ export function buildSpielBanners({
     banners.push({
       id: "spiel.void-preview",
       severity: "danger",
+      raisedBy: "change",
       title:
         voidedSpielNummern.length === 1
           ? `Speichern löscht das Ergebnis in Spiel ${nummern}`
@@ -294,6 +314,7 @@ export function buildSpielBanners({
     banners.push({
       id: "spiel.release-preview",
       severity: "warning",
+      raisedBy: "change",
       title:
         releasedSpielNummern.length === 1 ? `Ein Team wird aus Spiel ${nummern} entfernt` : `Teams werden aus den Spielen ${nummern} entfernt`,
       inline: null,

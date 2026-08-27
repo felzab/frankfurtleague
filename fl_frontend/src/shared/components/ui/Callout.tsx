@@ -31,8 +31,9 @@ const ICONS = {
 } as const;
 
 /**
- * **What each grade means, so the three do not collapse into one:** `info` is a standing property with nothing to undo,
- * `warning` is something a save may destroy and has to name what, `danger` a consequence no later edit reverses.
+ * **What each grade means, so the three stay distinct:** `info` is worth knowing, `warning` worth weighing before
+ * acting, `danger` serious enough to read as an alarm. Loudness alone —
+ * `railBanner.ts :: RailBanner`'s `raisedBy` decides what confirms.
  */
 export function Callout({
   severity = "warning",

@@ -140,7 +140,6 @@ export function AdminSchiedsrichterEditForm({
   const banners = buildSchiedsrichterBanners({
     isRetired,
     isNameChanged: isChanged("name"),
-    hasKontakt: kontakt.email !== null || kontakt.telefon !== null,
   });
 
   const leavePage = () => {
@@ -305,7 +304,6 @@ export function AdminSchiedsrichterEditForm({
             kontakt={kontakt}
             onChange={setKontakt}
             onFieldLeft={validateFields}
-            banners={banners}
           />
 
           <FormHonorarSection
