@@ -21,6 +21,8 @@ type Element = {
   role: string | null;
   /** Its whole source, which is what tells one cell of a row from another. */
   body: string;
+  /** Its DIRECT children's source, which is what tells the element carrying a string from the box around it. */
+  own: string;
 };
 
 function attributeOf(opening: ts.JsxOpeningLikeElement, name: string): ts.JsxAttributeValue | undefined {
@@ -56,6 +58,8 @@ function staticAttribute(opening: ts.JsxOpeningLikeElement, name: string): strin
 }
 
 const elements: Element[] = [];
+const calls: string[] = [];
+const constructed: string[] = [];
 const visit = (node: ts.Node): void => {
   if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
     const opening = ts.isJsxElement(node) ? node.openingElement : node;
@@ -65,14 +69,19 @@ const visit = (node: ts.Node): void => {
       classes: classesOf(opening),
       role: staticAttribute(opening, "role"),
       body: node.getText(source),
+      own: ts.isJsxElement(node) ? node.children.map((child) => child.getText(source)).join("") : "",
     });
   }
+  if (ts.isCallExpression(node)) calls.push(node.expression.getText(source));
+  if (ts.isNewExpression(node) && node.expression.getText(source) === "Map") constructed.push(node.getText(source));
   ts.forEachChild(node, visit);
 };
 visit(source);
 
 const tags = new Set(elements.map((element) => element.tag));
 const taggedAs = (tag: string): Element[] => elements.filter((element) => element.tag === tag);
+/** Whitespace-free, so a prettier reflow of a child expression does not move the element it belongs to. */
+const carries = (element: Element, child: string): boolean => element.own.replace(/\s+/g, "") === child;
 
 function namedImportsFrom(module: string): Set<string> {
   const names = new Set<string>();
@@ -102,6 +111,20 @@ function objectConstant(name: string): ts.ObjectLiteralExpression | null {
   }
 
   return null;
+}
+
+/** What a function destructures out of its one props object, empty where it takes none the guard can read. */
+function propsOf(name: string): string[] {
+  for (const statement of source.statements) {
+    if (!ts.isFunctionDeclaration(statement) || statement.name?.getText(source) !== name) continue;
+
+    const binding = statement.parameters[0]?.name;
+    if (binding === undefined || !ts.isObjectBindingPattern(binding)) return [];
+
+    return binding.elements.map((element) => element.name.getText(source));
+  }
+
+  return [];
 }
 
 describe("the bracket wiring review", () => {
@@ -139,27 +162,69 @@ describe("the bracket wiring review", () => {
     assert.equal(items.length, 1, `${VIEW}: ${String(items.length)} elements carry role="listitem", and the cascade animates each of them`);
   });
 
-  /* Decided 2026-08-07 and re-argued 2026-08-26: four states, four colours, so the ink answers
-     "does this need me?" before it answers "which kind of source?". Flattened, the page reads grey. */
-  it("keeps the four origin inks four distinct values", () => {
-    const record = objectConstant("HERKUNFT_INK");
-    assert.ok(record !== null, `${VIEW}: HERKUNFT_INK is no longer a record the guard can read`);
+  /* Decided 2026-08-07, re-argued twice since: four states, four fills, so a chip answers "does this
+     need me?" first. Flattened to one value the panel reads as one colour; flattened to bare ink it
+     stops being a chip. */
+  it("keeps the four origin tints four distinct fill-and-ink pairs", () => {
+    const record = objectConstant("HERKUNFT_TINTS");
+    assert.ok(record !== null, `${VIEW}: HERKUNFT_TINTS is no longer a record the guard can read`);
 
-    const inks = new Map<string, string>();
+    const tints = new Map<string, string>();
     for (const property of record.properties) {
-      if (ts.isPropertyAssignment(property)) inks.set(property.name.getText(source), property.initializer.getText(source));
+      if (ts.isPropertyAssignment(property)) tints.set(property.name.getText(source), property.initializer.getText(source));
     }
 
     assert.deepEqual(
-      [...inks.keys()].sort(),
+      [...tints.keys()].sort(),
       ["gruppe", "manuell", "offen", "spiel"],
-      `${VIEW}: HERKUNFT_INK no longer names the four origins`,
+      `${VIEW}: HERKUNFT_TINTS no longer names the four origins`,
     );
     assert.equal(
-      new Set(inks.values()).size,
+      new Set(tints.values()).size,
       4,
-      `${VIEW}: the origins no longer read apart — ${[...inks].map(([origin, ink]) => `${origin}: ${ink}`).join(", ")}`,
+      `${VIEW}: the origins no longer read apart — ${[...tints].map(([origin, tint]) => `${origin}: ${tint}`).join(", ")}`,
     );
+
+    for (const [origin, tint] of tints) {
+      // A borrow from `PHASE_TINTS` is a pair by construction, that map's own home carrying the grade.
+      if (tint.startsWith("PHASE_TINTS.")) continue;
+
+      const tokens = tint.split(/\s+/);
+      assert.ok(
+        tokens.some((token) => token.includes("bg-")) && tokens.some((token) => token.includes("text-")),
+        `${VIEW}: the ${origin} origin is ${tint}, which paints no chip`,
+      );
+    }
+  });
+
+  /* A Chip's `color` resolves against HeroUI's own tokens, which this app maps none of, and a Tag
+     renders unstyled — `tag.css` is imported nowhere. Both compile, lint and build. */
+  it("paints the origin with the app's label pill and a class string", () => {
+    assert.ok(namedImportsFrom("@/shared/components/ui/badges").has("LABEL_BADGE"), `${VIEW}: the origin no longer wears the app's label pill`);
+    assert.ok(namedImportsFrom("@/features/saisons/constants").has("PHASE_TINTS"), `${VIEW}: the phase palette is no longer read here`);
+
+    const vendored = [...tags].filter((tag) => tag === "Chip" || tag === "Tag");
+    assert.deepEqual(vendored, [], `${VIEW}: renders HeroUI's ${vendored.join(", ")}`);
+  });
+
+  /* Decided 2026-08-27: the chip names the round a slot is fed FROM, not the round it stands in, so
+     the panel's own phase must never be what colours it — one round can be fed by two. */
+  it("colours a slot from the phase of the fixture feeding it", () => {
+    assert.ok(propsOf("SlotWiring").includes("phaseBySpielNr"), `${VIEW}: a slot is no longer told which phase each fixture number sits in`);
+
+    const index = constructed.filter((expression) => expression.includes("spiel_nr") && expression.includes("saison_phase"));
+    assert.equal(index.length, 1, `${VIEW}: expected one fixture-number to phase index, found ${String(index.length)}`);
+  });
+
+  /* A visible seat digit sits one space from an origin opening on its own ordinal, so "1" and "1. der
+     Gruppe A" read as one doubled number. The chips and the order carry the seat on sight. */
+  it("names each seat once, and only where it cannot be seen", () => {
+    const named = calls.filter((callee) => callee === "sideLabel");
+    assert.equal(named.length, 1, `${VIEW}: ${String(named.length)} seat labels are spelled, and a slot draws one seat`);
+
+    const carriers = elements.filter((element) => carries(element, "{sideLabel(side)}"));
+    assert.equal(carriers.length, 1, `${VIEW}: expected one element carrying the seat name, found ${String(carriers.length)}`);
+    assert.ok(carriers[0]?.classes.includes("sr-only"), `${VIEW}: the seat name is drawn, and it reads as a second number beside the origin`);
   });
 
   /* Decided 2026-08-27: the heading states the phase, and states it with an ordinal a phase chip
@@ -177,14 +242,21 @@ describe("the bracket wiring review", () => {
     const actionCell = cells.filter((cell) => cell.body.includes("adminSpielEditHref"));
     const numberCell = cells.filter((cell) => !cell.body.includes("SlotWiring") && !cell.body.includes("adminSpielEditHref"));
 
-    /* Before the case under it, which reads two of these three: a row the guard cannot take apart
-       would report the alignment of nothing. */
+    /* Before the cases under it, which read all three: a row the guard cannot take apart would report
+       the alignment of nothing. */
     it("is three cells the guard can tell apart", () => {
       assert.equal(cells.length, 3, `${VIEW}: expected three cells in a row, found ${String(cells.length)}`);
       assert.equal(pairCell.length, 1, `${VIEW}: expected one cell drawing SlotWiring, found ${String(pairCell.length)}`);
       assert.equal(actionCell.length, 1, `${VIEW}: expected one cell linking into the editor, found ${String(actionCell.length)}`);
       assert.equal(numberCell.length, 1, `${VIEW}: expected one remaining cell, found ${String(numberCell.length)}`);
       assert.ok(numberCell[0]?.body.includes("spiel.spiel_nr"), `${VIEW}: the remaining cell is not the fixture number's`);
+    });
+
+    /* The shape the doubled number had: a marker drawn for the eye and hidden from the reading, one
+       space from an origin that opens on an ordinal of its own. */
+    it("draws nothing in the pair cell that is hidden from assistive technology", () => {
+      assert.ok(pairCell[0] !== undefined, `${VIEW}: no pair cell to read`);
+      assert.ok(!pairCell[0].body.includes("aria-hidden"), `${VIEW}: the pair cell draws a marker only the eye sees`);
     });
 
     /* Decided 2026-08-27: one cell declaring an alignment the other does not puts the control some
