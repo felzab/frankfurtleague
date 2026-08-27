@@ -23,6 +23,9 @@ import type { Key } from "@heroui/react";
 import type { CalendarDate } from "@internationalized/date";
 import type { TeamBanner } from "./banners";
 
+/** Names the exit-type chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
+const ART_LABEL_ID = "austritt-art";
+
 /**
  * **No hover or press variant**: HeroUI's own fills are `@layer components` and these utilities are
  * declared last, so each state's resting background suppresses them. `StufenPicker`'s chip, widened
@@ -101,9 +104,17 @@ export function FormAustrittSection({
               value={art ?? ""}
               onChange={() => undefined}
               className="flex w-full flex-col gap-y-1">
-              <FieldLabel path="austritt">Art</FieldLabel>
+              {/* A `Label` and not a plain span: it names the enclosing `TextField`, which carries no
+                  `aria-label`, so `useLabel` would warn without it. The id sits on the text alone, keeping
+                  the changed-field marker out of the group's name. */}
+              <FieldLabel path="austritt">
+                <span id={ART_LABEL_ID}>Art</span>
+              </FieldLabel>
+              {/* Named from the heading rather than by a wrapper: react-aria already renders
+                  `role="radiogroup"` here, so a second grouping element around it would nest one group in
+                  another and leave the chips with two accessible names. */}
               <ToggleButtonGroup
-                aria-label="Art des Austritts"
+                aria-labelledby={ART_LABEL_ID}
                 size="sm"
                 isDetached
                 selectionMode="single"

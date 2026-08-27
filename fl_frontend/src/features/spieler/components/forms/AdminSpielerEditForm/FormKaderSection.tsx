@@ -23,6 +23,9 @@ import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler
 import type { Key } from "@heroui/react";
 import type { SpielerBanner } from "./banners";
 
+/** Names the role chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
+const ROLLE_LABEL_ID = "kader-rolle";
+
 /** The app's one wording and one palette for a season's state. */
 function SaisonBadge({ status }: { status: SpielerSaisonContext["saisonStatus"] }) {
   if (status === "active") return <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>;
@@ -184,9 +187,17 @@ export function FormKaderSection({
               value={rolle ?? ""}
               onChange={() => undefined}
               className="flex w-full flex-col gap-y-1">
-              <FieldLabel path="rolle">Rolle</FieldLabel>
+              {/* A `Label` and not a plain span: it names the enclosing `TextField`, which carries no
+                  `aria-label`, so `useLabel` would warn without it. The id sits on the text alone, keeping
+                  the changed-field marker out of the group's name. */}
+              <FieldLabel path="rolle">
+                <span id={ROLLE_LABEL_ID}>Rolle</span>
+              </FieldLabel>
+              {/* Named from the heading rather than by a wrapper: react-aria already renders
+                  `role="radiogroup"` here, so a second grouping element around it would nest one group in
+                  another and leave the chips with two accessible names. */}
               <ToggleButtonGroup
-                aria-label="Rolle im Kader"
+                aria-labelledby={ROLLE_LABEL_ID}
                 size="sm"
                 isDetached
                 selectionMode="single"
