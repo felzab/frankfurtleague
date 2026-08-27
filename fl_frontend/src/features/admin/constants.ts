@@ -106,21 +106,8 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         id: "finalrunden",
         label: "Finalrunden",
         iconName: "Medal",
-        // The caption legend lives in the shell's hint and not on the page, so the surface has one
-        // info glyph rather than two answers to one question.
         hint: {
           lead: "Woher jede Seite jedes KO-Spiels kommt.",
-          // Every caption a reader can reach, so none on the page is missing here.
-          // `fl_frontend/src/features/admin/components/views/AdminBracketWiringView.tsx :: SlotWiring`'s
-          // fallback for a source `formatQuelle` cannot read is unreachable on a stored fixture.
-          points: [
-            { term: "„1. der Gruppe A“", detail: "aus der Tabelle gesetzt." },
-            // Both outcomes, because `formatQuelle` spells the other seat „Verlierer 25.“ and a legend
-            // naming only the winner leaves that caption unexplained on the page.
-            { term: "„Sieger 25.“ und „Verlierer 25.“", detail: "aus einem früheren Spiel." },
-            { term: "„Manuell gesetzt“", detail: "von Hand besetzt." },
-            { term: "„Ohne Herkunft“", detail: "diese Seite füllt niemand." },
-          ],
         },
       },
     ],
