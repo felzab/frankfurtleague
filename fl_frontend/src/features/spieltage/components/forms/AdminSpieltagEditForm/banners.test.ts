@@ -30,15 +30,15 @@ describe("buildSpieltagBanners", () => {
     assert.equal(spanChange?.inline, "zeitraum");
   });
 
-  /* The banner states outright what a save needs, so it reaches both refusals a moved span draws:
-     the fixtures inside the new span, and the beginn in step with the DATED matchdays of its phase,
-     which the body must name or it claims the neighbours. */
+  /* Both refusals a moved span draws, one per slot: the fixtures inside the new span in the title,
+     and the beginn in step with the DATED matchdays of its phase in the body, which has to name
+     them or it claims the neighbours. */
   it("names both save conditions a moved span is held to", () => {
-    const body = build({ isZeitraumChanged: true }).find((banner) => banner.id === "spieltag.zeitraum-changed")?.body ?? "";
+    const banner = build({ isZeitraumChanged: true }).find((entry) => entry.id === "spieltag.zeitraum-changed");
 
-    assert.match(body, /alle Spiele/);
-    assert.match(body, /Beginn/);
-    assert.match(body, /schon einen Zeitraum haben/);
+    assert.match(banner?.title ?? "", /zu den Spielen passen/);
+    assert.match(banner?.body ?? "", /Beginn/);
+    assert.match(banner?.body ?? "", /schon einen Zeitraum haben/);
   });
 
   /* `Zeitraum` is a matchday's span and `Termin` a fixture's date and time, and this banner is about

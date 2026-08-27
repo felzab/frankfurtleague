@@ -25,7 +25,7 @@ export type DashboardIconName = keyof typeof DASHBOARD_SIDEMENU_ICONS;
 export const DASHBOARD_SHELL_FALLBACK = {
   label: "Saisonübersicht",
   hint: {
-    lead: "Alles zur ausgewählten Saison.",
+    lead: "Alles zur gewählten Saison.",
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 
@@ -42,7 +42,7 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         label: "Spielsuche",
         iconName: "Magnifier",
         hint: {
-          lead: "Alle Spiele der ausgewählten Saison.",
+          lead: "Alle Spiele der Saison.",
           // The list is counted against what a visitor can reach (`docs/frontend/spec.md` §1.12): both
           // `ort.*` keys are the venue, so `Ort` names them once.
           points: [{ term: "Gesucht werden kann nach", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." }],

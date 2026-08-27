@@ -122,8 +122,9 @@ export function tiebreakLadder(value: FLSaisonTiebreakOrder): readonly TiebreakR
 export const SAISON_ID_LENGTH = 4;
 
 /**
- * Mirrors `fl_backend/app/api/saisons/services.py :: RECORDED_FACT_FIELDS`, which closes both draw windows. Two articles and not one joined list: German inflects the article and the
- * conjunction, so a builder would need to know which sentence it is in.
+ * Mirrors `fl_backend/app/api/saisons/services.py :: RECORDED_FACT_FIELDS`, which closes both draw
+ * windows. Two articles and not one joined list: German inflects the article and the conjunction,
+ * so a builder would need to know which sentence it is in.
  */
 export const RECORDED_FACTS_NONE =
   "kein Ergebnis, kein Ausfall, kein Ort, kein Schiedsrichter, keine Notiz und keine von Hand geänderte Herkunft";

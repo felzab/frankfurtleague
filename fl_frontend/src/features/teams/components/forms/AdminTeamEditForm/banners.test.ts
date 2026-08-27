@@ -139,14 +139,13 @@ describe("buildTeamBanners", () => {
     assert.deepEqual(ids(build({ isGruppeChanged: true, isGruppeLocked: true })), []);
   });
 
-  it("names the window the move refusal leaves open, rather than whether play has started", () => {
+  it("states the move's one certain outcome and leaves the window it was allowed under unsaid", () => {
     const [banner] = build({ isGruppeChanged: true });
 
-    // `REQ-ENTER-004` turns on drawn fixtures alone, and a `future` season is drawn before it is
-    // activated — so a sentence about play, or about the season not having begun, promises a move
-    // the endpoint refuses.
+    // The picker is open only where `REQ-ENTER-004` already permits the move, so a sentence about
+    // that window is reassurance, and one about the seeding promises a change no result decides yet.
     assert.equal(banner?.id, "team.gruppe-changed");
-    assert.match(banner?.body ?? "", /noch keine Spiele angelegt sind/);
-    assert.doesNotMatch(banner?.body ?? "", /gespielt|begonnen/);
+    assert.match(banner?.title ?? "", /Tabellen beider Gruppen/);
+    assert.equal(banner?.body, undefined);
   });
 });

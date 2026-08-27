@@ -69,17 +69,17 @@ export function buildTeamBanners({
       banners.push({
         id: "team.not-in-saison-retired",
         severity: "info",
-        // It carries `team.retired`'s reactivate step plus the entry that follows it.
+        // Both banners open on the same retirement, and only this one says what it closes here.
         supersedes: ["team.retired"],
         title: `In Saison ${saisonId} lässt sich dieses Team nicht aufnehmen`,
         // Only a `future` season has the entry control this promises, so past planning the sentence
         // would send the admin after a remedy the panel then withdraws.
         body:
           saisonStatus === "future"
-            ? "Ein stillgelegtes Team kann in keine Saison aufgenommen werden. Reaktiviere es über den Kopf der Seite und nimm es danach hier auf."
+            ? "Reaktiviere das stillgelegte Team und nimm es danach hier auf."
             : saisonStatus === "active"
-              ? "Ein stillgelegtes Team kann in keine Saison aufgenommen werden. Auch reaktiviert ließe es sich nur in eine geplante Saison aufnehmen, und diese läuft bereits."
-              : "Ein stillgelegtes Team kann in keine Saison aufgenommen werden. Auch reaktiviert ließe es sich nur in eine geplante Saison aufnehmen, und diese ist beendet.",
+              ? "Auch reaktiviert ließe sich das stillgelegte Team nur in eine geplante Saison aufnehmen, und diese läuft bereits."
+              : "Auch reaktiviert ließe sich das stillgelegte Team nur in eine geplante Saison aufnehmen, und diese ist beendet.",
         inline: "saison-kein-eintritt",
       });
     } else if (saisonStatus === "future") {
@@ -122,7 +122,9 @@ export function buildTeamBanners({
     banners.push({
       id: "team.austritt-lifting",
       severity: "warning",
-      title: "Aufheben entfernt Art, Grund und Datum",
+      // The record rather than its three fields, which the panel holds: what a reader would not
+      // expect is that lifting deletes what was typed rather than parking it.
+      title: "Der Austritt verschwindet mit allem, was dazu eingetragen ist",
       inline: "austritt-aufhebung",
     });
   }
@@ -139,14 +141,13 @@ export function buildTeamBanners({
     });
   }
 
+  // The whole of what is certain: the picker opens only while `REQ-ENTER-004` holds, so this club
+  // has played nothing here and the seeding its group feeds is not decided yet.
   if (!isGruppeLocked && isGruppeChanged) {
     banners.push({
       id: "team.gruppe-changed",
       severity: "warning",
-      title: "Der Gruppenwechsel ändert Tabelle und Setzung",
-      // The window `REQ-ENTER-004` leaves open, in the refusal's own words: the two surfaces are read
-      // minutes apart, and a reader who met both must not have to reconcile two conditions.
-      body: "Vertretbar ist er nur, solange für dieses Team in dieser Saison noch keine Spiele angelegt sind.",
+      title: "Die Tabellen beider Gruppen ändern sich",
       inline: "gruppe",
     });
   }

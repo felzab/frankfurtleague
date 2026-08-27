@@ -26,10 +26,10 @@ export function buildSpieltagBanners({
       id: "spieltag.zeitraum-changed",
       severity: "warning",
       title: "Der neue Zeitraum muss zu den Spielen passen",
-      // Both save refusals a moved span can draw: one naming only the fixtures reads as a promise
-      // about the rest. The second is measured against the DATED matchdays alone, so naming the
-      // neighbours would point past the rows the endpoint reads.
-      body: "Speichern geht nur, wenn alle Spiele des Spieltags im neuen Zeitraum liegen. Der Beginn muss außerdem in die Reihenfolge der Spieltage seiner Phase passen, die schon einen Zeitraum haben.",
+      // The half the title cannot reach: a span held to its own fixtures alone reads as the whole
+      // condition. Word for word with `mapSpieltagRefusal`, which `actions.test.ts` pins, and
+      // measured against the DATED matchdays alone, as the endpoint measures.
+      body: "Der Beginn muss in die Reihenfolge der Spieltage seiner Phase passen, die schon einen Zeitraum haben.",
       inline: "zeitraum",
     });
   }
