@@ -187,7 +187,7 @@ export function buildSpielBanners({
     banners.push({
       id: side.fieldName === "team1" ? "spiel.team1-manual" : "spiel.team2-manual",
       severity: "danger",
-      title: `${side.label} setzt Du von Hand`,
+      title: `${side.label} wird manuell gesetzt`,
       inline: side.fieldName === "team1" ? "team1-manuell" : "team2-manuell",
     });
 
