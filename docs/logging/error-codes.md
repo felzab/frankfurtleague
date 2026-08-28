@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `bcc1de6d`, 2026-08-28\
+**Verified against:** `1455c46b`, 2026-08-28\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation
@@ -144,17 +144,18 @@ having been seeded from the group placings that order decides.
 
 Declared in `fl_frontend/src/core/errors.ts`, plus the call sites named.
 
-| Code            | Meaning                                                                                                                                 |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `FE-API-001`    | The API answered with a bad status (`APIBadStatusError`; `serverErrorCode` carries the backend's code)                                  |
-| `FE-API-002`    | The API answered with an unparseable or schema-violating body (`APIMalformedDataError`)                                                 |
-| `FE-NET-001`    | The network did not answer, timeout included (`APINetworkError`, `isTimeout` distinguishes)                                             |
-| `FE-RSC-001`    | Unhandled server-side error, logged by `fl_frontend/src/core/instrumentation.ts :: onRequestError`                                      |
-| `FE-ACT-001`    | An admin mutation threw something that is not a typed API error (`fl_frontend/src/shared/utils/adminMutation.ts`)                       |
-| `FE-ACT-002`    | A write committed and its cache invalidation did not — a stale read, never a failed write (`fl_frontend/src/shared/utils/undoRoute.ts`) |
-| `FE-AUTH-001`   | Auth.js reported an access denial (`fl_frontend/src/core/auth.ts`)                                                                      |
-| `FE-AUTH-002`   | Auth.js reported any other error (`fl_frontend/src/core/auth.ts`)                                                                       |
-| `FE-CLIENT-001` | A browser-side crash reported through the ingest route (`fl_frontend/src/app/api/client-error/route.ts`)                                |
+| Code            | Meaning                                                                                                                                                                                                                                              |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FE-API-001`    | The API answered with a bad status (`APIBadStatusError`; `serverErrorCode` carries the backend's code)                                                                                                                                               |
+| `FE-API-002`    | The API answered with an unparseable or schema-violating body (`APIMalformedDataError`)                                                                                                                                                              |
+| `FE-NET-001`    | The network did not answer, timeout included (`APINetworkError`, `isTimeout` distinguishes); the mail transport raises it for a stalled send                                                                                                         |
+| `FE-RSC-001`    | Unhandled server-side error, logged by `fl_frontend/src/core/instrumentation.ts :: onRequestError`                                                                                                                                                   |
+| `FE-ACT-001`    | An admin mutation threw something that is not a typed API error (`fl_frontend/src/shared/utils/adminMutation.ts`)                                                                                                                                    |
+| `FE-ACT-002`    | A write committed and its cache invalidation did not — a stale read, never a failed write (`fl_frontend/src/shared/utils/undoRoute.ts`)                                                                                                              |
+| `FE-AUTH-001`   | Auth.js reported an access denial (`fl_frontend/src/core/auth.ts`)                                                                                                                                                                                   |
+| `FE-AUTH-002`   | Auth.js reported any other error (`fl_frontend/src/core/auth.ts`)                                                                                                                                                                                    |
+| `FE-MAIL-001`   | The mail provider refused an outbound message (`MailSendError`, logged by `fl_frontend/src/core/mail.ts :: sendMail`) — a send that never reached it is `FE-NET-001`, and on the sign-in path `FE-AUTH-002` follows it under the same correlation id |
+| `FE-CLIENT-001` | A browser-side crash reported through the ingest route (`fl_frontend/src/app/api/client-error/route.ts`)                                                                                                                                             |
 
 ## 3. The mutation boundary
 

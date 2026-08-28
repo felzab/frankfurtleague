@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `bcc1de6d`, 2026-08-28\
+**Verified against:** `1455c46b`, 2026-08-28\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -1009,10 +1009,13 @@ value is still being chosen.
   collection or a new embedded record — and a new collection is a member of
   `fl_backend/app/core/collections.py :: Collection`, a hand-written `$jsonSchema` and its indexes in
   `fl_backend/app/core/constraints.py`, and a row in every table that mirrors them.
-- **What sends the notification.** Resend is already the transport for the sign-in link, reached
-  through Auth.js's provider rather than as a service anything else can call
-  (`fl_frontend/src/core/auth.ts`, `fl_frontend/src/core/authEmail.ts`). A second sender is either a
-  second call site against the same API or a reason to lift the transport out from under the provider.
+- **What a failed notification does.** Resend is callable
+  outside Auth.js: `fl_frontend/src/core/mail.ts :: sendMail` takes ONE address, the subject and both
+  bodies, and reads the key from `fl_frontend/src/core/config.ts :: frontend_config`. The sign-in link is
+  one caller, through the Resend provider's override in `fl_frontend/src/core/auth.ts`, whose message is
+  `fl_frontend/src/core/authEmail.ts`. A season's representatives are many and that signature is one call
+  each, so the ruling is whether a refused send stops the batch, is retried, or is recorded for an admin
+  to chase — `sendMail` throws, so a plain loop abandons everyone after the first failure.
 - **Whether the flow may enter a club it has just created.** No junction row is ever removed —
   `saison_teams` has a POST, a PATCH and a replace, and no DELETE — but a club does leave a season
   two ways, and the WRONG club is the repairable one:

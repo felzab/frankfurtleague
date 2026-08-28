@@ -6,6 +6,7 @@ import { AuthError } from "next-auth";
 import { z } from "zod";
 
 import { signIn, signOut } from "@/core/auth";
+import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import type { FormState } from "@/shared/types/types";
@@ -37,37 +38,39 @@ async function settleAfterFloor<T>(startedAt: number, result: T): Promise<T> {
  * between this and an open email relay.
  */
 export async function handleSignIn(prevState: FormState | undefined, formData: FormData): Promise<FormState> {
-  const startedAt = Date.now();
+  return runWithIncomingCorrelationId(async () => {
+    const startedAt = Date.now();
 
-  // The only server action reachable without a session, so its input is parsed and never cast.
-  const validated = SignInPayloadSchema.safeParse({ email: formData.get("email") });
-  if (!validated.success) {
-    // Safe to be specific: a format check on what the user typed leaks no membership.
-    return settleAfterFloor(startedAt, {
-      success: false,
-      error: "Gib eine gültige E-Mail-Adresse ein.",
-      fieldErrors: toFieldErrors(validated.error),
-    });
-  }
-
-  try {
-    // `redirect: false` is the other half of `neutralResult`: by default an allowlisted address
-    // navigates and a rejected one does not, so navigating IS the oracle. `redirectTo` is separate.
-    await signIn("resend", { email: validated.data.email, redirectTo: "/admin", redirect: false });
-
-    return settleAfterFloor(startedAt, neutralResult(validated.data.email));
-  } catch (error) {
-    // `unstable_rethrow` stops a future `redirect()` or `notFound()` from being swallowed by the
-    // AuthError branch below.
-    unstable_rethrow(error);
-
-    // AccessDenied from the allowlist check lands here and must not be distinguishable from success.
-    if (error instanceof AuthError) {
-      return settleAfterFloor(startedAt, neutralResult(validated.data.email));
+    // The only server action reachable without a session, so its input is parsed and never cast.
+    const validated = SignInPayloadSchema.safeParse({ email: formData.get("email") });
+    if (!validated.success) {
+      // Safe to be specific: a format check on what the user typed leaks no membership.
+      return settleAfterFloor(startedAt, {
+        success: false,
+        error: "Gib eine gültige E-Mail-Adresse ein.",
+        fieldErrors: toFieldErrors(validated.error),
+      });
     }
 
-    throw error;
-  }
+    try {
+      // `redirect: false` is the other half of `neutralResult`: by default an allowlisted address
+      // navigates and a rejected one does not, so navigating IS the oracle. `redirectTo` is separate.
+      await signIn("resend", { email: validated.data.email, redirectTo: "/admin", redirect: false });
+
+      return settleAfterFloor(startedAt, neutralResult(validated.data.email));
+    } catch (error) {
+      // `unstable_rethrow` stops a future `redirect()` or `notFound()` from being swallowed by the
+      // AuthError branch below.
+      unstable_rethrow(error);
+
+      // AccessDenied from the allowlist check lands here and must not be distinguishable from success.
+      if (error instanceof AuthError) {
+        return settleAfterFloor(startedAt, neutralResult(validated.data.email));
+      }
+
+      throw error;
+    }
+  });
 }
 
 /**
@@ -76,19 +79,21 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
  * reports a failure for a sign-out that succeeded.
  */
 export async function signOutAction(): Promise<FormState> {
-  try {
-    await signOut({ redirect: false });
+  return runWithIncomingCorrelationId(async () => {
+    try {
+      await signOut({ redirect: false });
 
-    return { success: true, message: "Erfolgreich abgemeldet" };
-  } catch (error) {
-    // The same guard as `handleSignIn`: keep a framework redirect from being reported as a failed
-    // sign-out.
-    unstable_rethrow(error);
+      return { success: true, message: "Erfolgreich abgemeldet" };
+    } catch (error) {
+      // The same guard as `handleSignIn`: keep a framework redirect from being reported as a failed
+      // sign-out.
+      unstable_rethrow(error);
 
-    if (error instanceof AuthError) {
-      return { success: false, error: "Versuche es erneut." };
+      if (error instanceof AuthError) {
+        return { success: false, error: "Versuche es erneut." };
+      }
+
+      throw error;
     }
-
-    throw error;
-  }
+  });
 }

@@ -98,3 +98,33 @@ export class APINetworkError extends Error {
     this.isTimeout = isTimeout;
   }
 }
+
+export class MailSendError extends Error {
+  readonly code = "FE-MAIL-001";
+  correlationId: string;
+  statusCode: number;
+  providerErrorName?: string;
+  url: string;
+
+  constructor({
+    message,
+    url,
+    statusCode,
+    providerErrorName,
+    correlationId,
+  }: {
+    message: string;
+    url: string;
+    statusCode: number;
+    providerErrorName?: string;
+    correlationId: string;
+  }) {
+    super(message, { cause: { correlationId, statusCode, providerErrorName, url } });
+
+    this.name = "MailSendError";
+    this.correlationId = correlationId;
+    this.statusCode = statusCode;
+    this.providerErrorName = providerErrorName;
+    this.url = url;
+  }
+}
