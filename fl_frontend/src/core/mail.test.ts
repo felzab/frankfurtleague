@@ -47,6 +47,11 @@ const SRC_ROOT = path.resolve(import.meta.dirname, "..");
 const MAIL_MODULE = path.join(import.meta.dirname, "mail.ts");
 const PROVIDER_ENDPOINT = "https://api.resend.com/emails";
 
+/* The sweep below matches a pattern rather than containing a substring: a URL used as a containment
+   needle reads as a hostname check to static analysis, which is a real defect in a URL guard and
+   noise in a source scan. */
+const PROVIDER_ENDPOINT_PATTERN = /https:\/\/api\.resend\.com\/emails/;
+
 /** The module's own timeout, restated so a change to it has to be made here too. */
 const MAIL_TIMEOUT_MS = 15000;
 
@@ -266,9 +271,11 @@ describe("the mail transport", () => {
   });
 
   it("is the only place in the frontend that names the provider's endpoint", () => {
+    assert.match(PROVIDER_ENDPOINT, PROVIDER_ENDPOINT_PATTERN, "the sweep's pattern and the asserted endpoint disagree");
+
     const naming = readdirSync(SRC_ROOT, { recursive: true, encoding: "utf8" })
       .filter((entry) => entry.endsWith(".ts") || entry.endsWith(".tsx"))
-      .filter((entry) => readFileSync(path.join(SRC_ROOT, entry), "utf8").includes(PROVIDER_ENDPOINT))
+      .filter((entry) => PROVIDER_ENDPOINT_PATTERN.test(readFileSync(path.join(SRC_ROOT, entry), "utf8")))
       .map((entry) => entry.split(path.sep).join("/"))
       .sort();
 
