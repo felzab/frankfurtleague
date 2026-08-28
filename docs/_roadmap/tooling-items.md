@@ -444,8 +444,8 @@ is absent there rather than weak there.
 
 **The refusal is right for prose and wrong at the root, and one line decides both.** A bare
 `` `spec.md` `` names a kind of file rather than one file, which is what the refusal exists to keep
-out; **OPS-82**'s entry states that reasoning and holds `repo_path`'s refusals fixed for the backtick
-route on the strength of it. The root is where the reasoning stops carrying, because
+out; **OPS-82**'s entry states that reasoning, and leaves `repo_path`'s other refusals in place for
+the backtick route on the strength of it. The root is where the reasoning stops carrying, because
 `docker-compose.yml` has no spelling with a `/` in it: the token a page is obliged to write is exactly
 the token the check discards, and no other token on the page can rescue it.
 
