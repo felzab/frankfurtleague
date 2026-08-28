@@ -1,9 +1,9 @@
 # Backend — overview
 
-**Verified against:** `1455c46b`, 2026-08-28\
+**Verified against:** `dbe2978e`, 2026-08-28\
 **Scope:** `fl_backend/`
 
-A FastAPI application over MongoDB, with a read router and a write router per resource. The
+A FastAPI application over MongoDB, with reads and writes in separate routers. The
 single fact that explains most of its shape: **no browser reaches a route here that reads or writes application
 data.** The edge carries exactly one exact-match path to this service, the liveness probe, and routes every other
 `/api` path to the frontend — some by a block naming it, the rest by the catch-all
@@ -24,19 +24,20 @@ fl_backend/
 │   ├── core/          infrastructure: config · db · security · crud · recording · dependencies
 │   │                  routing · exceptions · exception_handlers · middlewares · logging
 │   │                  collections · constraints · domain — the declarations read as data
-│   ├── api/<entity>/  one package per entity: router · admin_router · schemas · services · crud
+│   ├── api/<slice>/   one package per slice: router · admin_router · schemas · services · crud
 │   │                  saisons adds cache · schedule · spielplan · visibility; aktionen has two of the five
 │   └── shared/        schemas reused across entities (addresses, kontakt, custom types)
 └── tests/             pytest — schema constraints by default; `-m db` adds a real mongod
 ```
 
-`api/<entity>/` is the repeating unit: `router.py` declares endpoints and orchestrates, `schemas.py` holds
-the Pydantic models, `services.py` holds pure query-building and computation, and `crud.py` holds
-slice-level database access more than one endpoint needs. A slice carries only the files it needs. Two
-packages carry one router rather than both: `system`, whose endpoints are all reads, and `aktionen` — the
-action log, which serves back what every admin write recorded and has nothing public to offer. All routers
-are mounted under `/api/v{API_VERSION}`, a constant of the code rather than a setting
-([`spec.md`](spec.md) §1.5).
+`api/<slice>/` is the repeating unit — usually one entity, and `kontakte` a concern crossing every collection
+that holds a contact block: `router.py` declares endpoints and orchestrates, `schemas.py` holds the Pydantic
+models, `services.py` holds pure query-building and computation, and `crud.py` holds slice-level database
+access more than one endpoint needs. A slice carries only the files it needs, its routers included: `system` is
+all reads and declares no `admin_router.py`, while `aktionen` — the action log, which serves back what every
+admin write recorded — and `kontakte` — one contact person's erasure — have nothing public to offer and
+declare no `router.py`. All routers are mounted under `/api/v{API_VERSION}`, a constant of the code rather
+than a setting ([`spec.md`](spec.md) §1.5).
 
 ## Authorization
 
@@ -50,7 +51,7 @@ Bearer keys, not user identities:
 
 Guards sit on the `APIRouter` rather than on an endpoint, so an endpoint reaches the wrong authorization only
 by being written in the wrong file ([`spec.md`](spec.md) I7). What the file name does not settle is the tier:
-a read router declares its own, so a reference slice only the admin surfaces read is guarded `admin`
+a read router declares its own, so a slice only the admin surfaces read is guarded `admin`
 throughout. No response shape follows the caller's key either — a tier served less is served by a different
 endpoint, which is why a read carries an `/admin` twin. [`spec.md`](spec.md) §1.1 is which tier answers each
 endpoint, and its `READ-*` rules are what each is served.
@@ -61,9 +62,9 @@ and a probe that needs a secret fails for the wrong reasons. It is also the one 
 service ([`../ops/spec.md`](../ops/spec.md) I13), which is safe because the probe takes no key and touches no
 database ([`spec.md`](spec.md) I7).
 
-Every admin router declares `bind_actor` in that same `dependencies` list, which is what attributes a write to
-the administrator who made it — and refuses one it cannot attribute, before the handler runs
-([`spec.md`](spec.md) I41).
+Every `admin_router.py` declares `bind_actor` in that same `dependencies` list, which is what attributes a write
+to the administrator who made it — and refuses one it cannot attribute, before the handler runs
+([`spec.md`](spec.md) I41). A READ router guarded `admin` declares none, having no write to attribute.
 
 ## Data access
 
@@ -75,9 +76,9 @@ Collections are injected as typed dependencies rather than reached for directly.
 index on every boot ([`spec.md`](spec.md) I9 and I15) — so the cluster cannot hold a set this repository does
 not describe, and a constraint survives a restore. The same pass builds the action log's read indexes, which
 constrain nothing and are declared apart from the unique ones for exactly that reason
-(`fl_backend/app/core/constraints.py :: SupportIndex`). Those validators are a hand-written copy of the schema,
-which keeps the rules where a hand edit lands: `saison_teams` has write payloads but no stored-document
-model, and Compass is reachable whatever the API offers. What holds the copy to its model is
+(`fl_backend/app/core/constraints.py :: SupportIndex`). Those validators are a hand-written copy of the
+Pydantic models, which keeps the rules where a hand edit lands: `saison_teams` has write payloads but no
+stored-document model, and Compass is reachable whatever the API offers. What holds the copy to its model is
 [`spec.md`](spec.md) I17; the database user's `collMod` requirement is §4.
 
 **Shared database access goes through the helpers in `core/crud.py`**, a module in sections. The driver

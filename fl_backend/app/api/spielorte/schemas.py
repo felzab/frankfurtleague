@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
-from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomStrippedNonEmptyString
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -24,6 +24,9 @@ class _SpielortPayload(_SpielortWritable):
     model_config = ConfigDict(extra="forbid")
 
     address: FLAddressPayload
+    # Stripped on the WRITE side alone (`docs/backend/spec.md :: I36`): the name is embedded onto
+    # every fixture at this ground and composed into `maps_link`, so spaces alone reach both.
+    name: CustomStrippedNonEmptyString
 
 
 class FLPatchSpielortPayload(_SpielortPayload):

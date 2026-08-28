@@ -6,7 +6,22 @@ from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
 from app.api.aktionen.schemas import FLAktion, FLAktionRequest, FLAktor
-from app.api.saisons.schemas import FLSaison, FLSaisonForfeitErgebnis, FLSaisonRules, FLSaisonSpielplan, FLSaisonStatus
+from app.api.bewerbungen.schemas import (
+    FLBewerbung,
+    FLBewerbungEntscheidung,
+    FLBewerbungKader,
+    FLBewerbungSchule,
+    FLBewerbungStatus,
+    FLBewerbungTrikot,
+)
+from app.api.saisons.schemas import (
+    FLSaison,
+    FLSaisonBewerbung,
+    FLSaisonForfeitErgebnis,
+    FLSaisonRules,
+    FLSaisonSpielplan,
+    FLSaisonStatus,
+)
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import (
     FLSaisonPhase,
@@ -80,6 +95,7 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.SAISONS, ("rules",), FLSaisonRules, frozenset()),
     (Collection.SAISONS, ("rules", "forfeit_ergebnis"), FLSaisonForfeitErgebnis, frozenset()),
     (Collection.SAISONS, ("spielplan",), FLSaisonSpielplan, frozenset()),
+    (Collection.SAISONS, ("bewerbung",), FLSaisonBewerbung, frozenset()),
     (Collection.SPIELE, (), FLSpiel, frozenset()),
     (Collection.SPIELE, ("team1",), FLSpielTeamField, frozenset()),
     (Collection.SPIELE, ("team2",), FLSpielTeamField, frozenset()),
@@ -113,6 +129,20 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.SAISON_TEAMS, ("kontakte", "trainer", "einwilligung"), FLKontaktEinwilligung, frozenset()),
     (Collection.SAISON_TEAMS, ("kontakte", "ansprechperson", "einwilligung"), FLKontaktEinwilligung, frozenset()),
     (Collection.SAISON_TEAMS, ("kontakte", "stellvertretung", "einwilligung"), FLKontaktEinwilligung, frozenset()),
+    (Collection.BEWERBUNGEN, (), FLBewerbung, frozenset()),
+    (Collection.BEWERBUNGEN, ("schule",), FLBewerbungSchule, frozenset()),
+    (Collection.BEWERBUNGEN, ("schule", "address"), FLAddress, frozenset()),
+    (Collection.BEWERBUNGEN, ("trikot",), FLBewerbungTrikot, frozenset()),
+    (Collection.BEWERBUNGEN, ("kader",), FLBewerbungKader, frozenset()),
+    (Collection.BEWERBUNGEN, ("entscheidung",), FLBewerbungEntscheidung, frozenset()),
+    # The same three people the junction holds, so the block is mirrored on both collections.
+    (Collection.BEWERBUNGEN, ("kontakte",), FLSaisonTeamKontakte, frozenset()),
+    (Collection.BEWERBUNGEN, ("kontakte", "trainer"), FLKontaktperson, frozenset()),
+    (Collection.BEWERBUNGEN, ("kontakte", "ansprechperson"), FLKontaktperson, frozenset()),
+    (Collection.BEWERBUNGEN, ("kontakte", "stellvertretung"), FLKontaktperson, frozenset()),
+    (Collection.BEWERBUNGEN, ("kontakte", "trainer", "einwilligung"), FLKontaktEinwilligung, frozenset()),
+    (Collection.BEWERBUNGEN, ("kontakte", "ansprechperson", "einwilligung"), FLKontaktEinwilligung, frozenset()),
+    (Collection.BEWERBUNGEN, ("kontakte", "stellvertretung", "einwilligung"), FLKontaktEinwilligung, frozenset()),
     # The junction's declared shape; nothing validates a stored row through it.
     (Collection.SAISON_SPIELER, (), FLSaisonSpielerRow, frozenset()),
 ]
@@ -135,6 +165,11 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # entered before it holds no key, and the null is what the validator's `enum` has to admit.
     (Collection.TEAMS, (), "schulform", get_args(FLSchulform), True),
     (Collection.SAISON_TEAMS, (), "trikot_farbe", get_args(FLTrikotFarbe), True),
+    (Collection.BEWERBUNGEN, (), "status", get_args(FLBewerbungStatus), False),
+    # Nullable for `teams.schulform`'s reason on the one, and because a school may state no wish on
+    # the other: the null is a real answer rather than a field nobody filled in.
+    (Collection.BEWERBUNGEN, ("schule",), "schulform", get_args(FLSchulform), True),
+    (Collection.BEWERBUNGEN, ("trikot",), "wunschfarbe", get_args(FLTrikotFarbe), True),
     # One row per person, because the validator declares the block three times over: a sub-schema
     # shared in Python is still three separate paths to the drift walk.
     (
@@ -174,6 +209,48 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     ),
     (
         Collection.SAISON_TEAMS,
+        ("kontakte", "stellvertretung", "einwilligung"),
+        "erteilt_von",
+        get_args(FLKontaktEinwilligung.model_fields["erteilt_von"].annotation),
+        False,
+    ),
+    (
+        Collection.BEWERBUNGEN,
+        ("kontakte", "trainer", "einwilligung"),
+        "umfang",
+        get_args(FLKontaktEinwilligung.model_fields["umfang"].annotation),
+        False,
+    ),
+    (
+        Collection.BEWERBUNGEN,
+        ("kontakte", "trainer", "einwilligung"),
+        "erteilt_von",
+        get_args(FLKontaktEinwilligung.model_fields["erteilt_von"].annotation),
+        False,
+    ),
+    (
+        Collection.BEWERBUNGEN,
+        ("kontakte", "ansprechperson", "einwilligung"),
+        "umfang",
+        get_args(FLKontaktEinwilligung.model_fields["umfang"].annotation),
+        False,
+    ),
+    (
+        Collection.BEWERBUNGEN,
+        ("kontakte", "ansprechperson", "einwilligung"),
+        "erteilt_von",
+        get_args(FLKontaktEinwilligung.model_fields["erteilt_von"].annotation),
+        False,
+    ),
+    (
+        Collection.BEWERBUNGEN,
+        ("kontakte", "stellvertretung", "einwilligung"),
+        "umfang",
+        get_args(FLKontaktEinwilligung.model_fields["umfang"].annotation),
+        False,
+    ),
+    (
+        Collection.BEWERBUNGEN,
         ("kontakte", "stellvertretung", "einwilligung"),
         "erteilt_von",
         get_args(FLKontaktEinwilligung.model_fields["erteilt_von"].annotation),

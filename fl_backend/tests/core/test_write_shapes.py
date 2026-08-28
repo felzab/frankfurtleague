@@ -1,9 +1,11 @@
 import ast
 from typing import Any, Callable
 
+from app.api.bewerbungen.services import parse_new_club
 from app.api.saisons.services import RECORDED_FACT_FIELDS
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.spiele.services import apply_payload_to_spiel
+from app.api.teams.admin_router import post_team
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.domain import AGGREGATES
@@ -38,6 +40,16 @@ SESSION_TAKING_HELPERS = WRITE_HELPERS | REMOVAL_HELPERS
 NOT_A_RECORD: frozenset[str] = frozenset({"datum", "uhrzeit"})
 
 
+def _model_dump_keywords(function: Callable[..., Any]) -> list[frozenset[tuple[str, str]]]:
+    """Every `model_dump` one function calls, as the keywords it passes -- which is what decides the shape of the values dumped."""
+
+    return [
+        frozenset((keyword.arg or "**", ast.unparse(keyword.value)) for keyword in call.keywords)
+        for call in ast.walk(declared(function))
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute) and call.func.attr == "model_dump"
+    ]
+
+
 def _model_copy_keys(function: Callable[..., Any]) -> set[str]:
     """The field names one function's `model_copy(update={...})` literal carries -- the document it composes."""
 
@@ -67,8 +79,9 @@ class TestWhatARemovalFilterMayName:
         assert {removal.helper for removal in found} == REMOVAL_HELPERS
 
         # Derived, so it needs no editing -- and pinned, so a derivation that silently empties is
-        # caught rather than passing the season clause over nothing.
-        assert SEASON_PARTITIONED_ROOTS == {str(Collection.SPIELE), str(Collection.SPIELTAGE)}
+        # caught rather than passing the season clause over nothing. `bewerbungen` is in the set and
+        # contributes nothing to the clause below, no endpoint removing an application at all.
+        assert SEASON_PARTITIONED_ROOTS == {str(Collection.SPIELE), str(Collection.SPIELTAGE), str(Collection.BEWERBUNGEN)}
 
     def test_every_removal_is_keyed_on_a_field_compared_to_a_value(self):
         """Empty either `db_filter` in `undraw_spielplan` and this fails; the whole db tier does not.
@@ -234,3 +247,25 @@ class TestEveryReadInsideATransactionCarriesIt:
         ]
 
         assert loose == []
+
+
+class TestTheTwoPathsIntoTeamsDumpTheClubAlike:
+    """One school makes one club document, so an acceptance owes the dump `post_team` makes.
+
+    Every field of the payload is a string today, which is why the modes agree and why a mode
+    dropped here surfaces only once a club field stops being one.
+    """
+
+    def test_both_paths_dump_the_club_payload_with_the_same_keywords(self):
+        """Drop `mode="json"` from `parse_new_club` and this fails; nothing else in either tier does.
+
+        Read off the source: the calls answer with equal documents today, so nothing asked of
+        the objects at runtime tells them apart.
+        """
+
+        dumped = _model_dump_keywords(parse_new_club)
+
+        # The floor: a matcher that saw neither call would compare empty lists and pass.
+        assert dumped, "no `model_dump` is seen in `parse_new_club`, so the comparison below is vacuous"
+
+        assert dumped == _model_dump_keywords(post_team)

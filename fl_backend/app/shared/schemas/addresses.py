@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.shared.schemas.bounds import (
     ADDRESS_HAUSNUMMER_MAX_LENGTH,
@@ -33,9 +35,10 @@ class FLAddress(BaseModel):
 class FLAddressPayload(FLAddress):
     model_config = ConfigDict(extra="forbid")
 
-    # Redeclared, so the floor `CustomNonEmptyString` carries is restated beside the new ceiling.
-    strasse: str = Field(min_length=1, max_length=ADDRESS_STRASSE_MAX_LENGTH)
-    stadt: str = Field(min_length=1, max_length=ADDRESS_STADT_MAX_LENGTH)
+    # Redeclared, so the floor `CustomNonEmptyString` carries is restated beside the new ceiling --
+    # and STRIPPED first, because a floor counting characters takes spaces alone.
+    strasse: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=ADDRESS_STRASSE_MAX_LENGTH)]
+    stadt: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=ADDRESS_STADT_MAX_LENGTH)]
     # No floor: a district is the one part of an address a place can genuinely lack, so the read
     # model leaves it free and the payload bounds only its length.
     stadtteil: str = Field(max_length=ADDRESS_STADTTEIL_MAX_LENGTH)

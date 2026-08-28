@@ -1,6 +1,6 @@
-from typing import Annotated, Literal, Mapping, Union
+from typing import Annotated, Any, Literal, Mapping, Union
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, RootModel, StringConstraints, TypeAdapter
+from pydantic import BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, RootModel, StringConstraints, TypeAdapter
 
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
@@ -20,6 +20,7 @@ from app.shared.schemas.custom import (
     CustomNonEmptyString,
     CustomObjectId,
     CustomOptionalDateString,
+    CustomStrippedNonEmptyString,
 )
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -76,6 +77,18 @@ class FLAustritt(BaseModel):
     datum: CustomDateString
 
 
+def strip_austritt_grund(value: Any) -> Any:
+    """Strip the reason before `FLAustritt`'s floor counts it, on the WRITE side alone.
+
+    Never on `FLAustritt`, which every read of a club embeds: the strip runs BEFORE the floor, so a
+    stored blank would refuse there (`docs/backend/spec.md :: I36`).
+    """
+
+    if isinstance(value, Mapping) and isinstance(grund := value.get("grund"), str):
+        return {**value, "grund": grund.strip()}
+    return value
+
+
 class FLKontaktEinwilligung(BaseModel):
     """What this person agreed to, and which wording they agreed to.
 
@@ -113,9 +126,11 @@ class FLSaisonTeamKontakte(BaseModel):
     finished season is the record of who was reachable while it ran.
     """
 
-    trainer: FLKontaktperson
-    ansprechperson: FLKontaktperson
-    stellvertretung: FLKontaktperson
+    # Nullable per SLOT: a person's erasure empties the slots naming them and must not reach the
+    # two people beside them.
+    trainer: FLKontaktperson | None
+    ansprechperson: FLKontaktperson | None
+    stellvertretung: FLKontaktperson | None
     # Stored rather than derived by comparing the two blocks: two people can share every field, and
     # what the admin asserted is not the same claim as what happens to match.
     trainer_ist_ansprechperson: bool
@@ -127,15 +142,18 @@ class FLSaisonTeamKontakte(BaseModel):
 class FLKontaktEinwilligungPayload(FLKontaktEinwilligung):
     model_config = ConfigDict(extra="forbid")
 
-    text_version: str = Field(min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)
+    # Stripped before the floor counts it, as the names below are: a record whose wording version is
+    # spaces cites no text at all, and `min_length` counts characters.
+    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
 
 
 class FLKontaktpersonPayload(FLKontaktperson):
     model_config = ConfigDict(extra="forbid")
 
-    # Tightened on the WRITE side alone, as a referee's name is (`docs/backend/spec.md :: I36`).
-    vorname: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
-    nachname: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
+    # Tightened on the WRITE side alone, as a referee's name is (`docs/backend/spec.md :: I36`), and
+    # stripped there for the same reason.
+    vorname: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=PERSON_NAME_PATTERN)]
+    nachname: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=PERSON_NAME_PATTERN)]
     # On the write side, not the read: `GET /teams/memberships` is the ONLY route to repairing a bad
     # row, so a value it refused would lock itself in. The ceiling is stated rather than left to
     # email-validator, whose refusal names no field.
@@ -147,11 +165,19 @@ class FLKontaktpersonPayload(FLKontaktperson):
 
 
 class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
+    """The write side of the three, with the empty slot an erasure leaves.
+
+    Three whole people is the editor's own guarantee
+    (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteSection.tsx`).
+    """
+
     model_config = ConfigDict(extra="forbid")
 
-    trainer: FLKontaktpersonPayload
-    ansprechperson: FLKontaktpersonPayload
-    stellvertretung: FLKontaktpersonPayload
+    # Accepted empty so a row an erasure emptied stays editable; required, any later edit to that row
+    # would re-collect the person who asked to be forgotten.
+    trainer: FLKontaktpersonPayload | None
+    ansprechperson: FLKontaktpersonPayload | None
+    stellvertretung: FLKontaktpersonPayload | None
 
 
 class FLTeamStatistik(BaseModel):
@@ -286,6 +312,13 @@ class _TeamPayload(_TeamWritable):
     model_config = ConfigDict(extra="forbid")
 
     address: FLAddressPayload
+    # Stripped on the WRITE side alone (`docs/backend/spec.md :: I36`). `name` is copied onto the
+    # season's junction row and onto every fixture side, so spaces alone reach the league table.
+    name: CustomStrippedNonEmptyString
+    full_name: CustomStrippedNonEmptyString
+    # Redeclared for that reason too: the width is a floor as well as a ceiling, and what it holds
+    # is the whole of what a league table row names the club by.
+    shorthand: Annotated[str, StringConstraints(strip_whitespace=True, min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)]
 
 
 # Two names for one shape rather than an alias: the create and the edit are free to diverge, and an
@@ -303,19 +336,39 @@ class FLPostSaisonTeamPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+    # Stripped before the width is counted, for `app/shared/schemas/custom.py :: CustomStrippedNonEmptyString`'s reason.
+    saison_id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)]
     gruppe: FLGruppenNames
 
 
 class FLPatchSaisonTeamPayload(BaseModel):
+    """The row's own fields. NO `kontakte`: `FLPatchSaisonTeamKontaktePayload` owns it.
+
+    A stored contact is shapeless on read, bounded on write
+    (`docs/backend/spec.md :: I36`), so round-tripping it here refuses every save a club with one
+    bad row can make.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     gruppe: FLGruppenNames
-    # No `default=None` on any of these: `PATCH` replaces every writable field wholesale, so an
-    # omitted key would silently reinstate a team, clear a colour, or drop three people's contact
-    # records with nobody having asked for it.
-    austritt: FLAustritt | None
+    # No `default=None` on either: `PATCH` replaces every field it takes wholesale, so an omitted key
+    # would silently reinstate a team or clear a colour with nobody having asked for it.
+    austritt: Annotated[FLAustritt, BeforeValidator(strip_austritt_grund)] | None
     trikot_farbe: FLTrikotFarbe | None
+
+
+class FLPatchSaisonTeamKontaktePayload(BaseModel):
+    """The contact block alone, so the editor that owns the people never writes the row's other fields.
+
+    ONE field, `extra="forbid"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value
+    this endpoint was never asked to decide.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Nullable, and required: null CLEARS the block, which is how a team with no recorded contacts is
+    # expressed at entry and must stay expressible here.
     kontakte: FLSaisonTeamKontaktePayload | None
 
 
@@ -430,14 +483,28 @@ class FLSaisonTeamResponse(BaseAPIResponse):
     team_id: CustomObjectId
     gruppe: FLGruppenNames
     austritt: FLAustritt | None
-    # Echoed as the row now stands: entry writes neither, and the PATCH that fills them replaces
-    # both wholesale, so the echo is the only place a client learns what the row ended up holding.
+    # Echoed as the row now stands: entry writes it null and the PATCH replaces it wholesale, so the
+    # echo is the only place a client learns what the row ended up holding.
     trikot_farbe: FLTrikotFarbe | None
+    # Read off the row rather than off a payload: no endpoint answering with this model writes the
+    # block, so what it holds is whatever `PATCH .../kontakte` last put there.
     kontakte: FLSaisonTeamKontakte | None
     # The season's own copy of the club's identity, on no payload: it is seeded from the club at
     # entry and rewritten by the rename fan-out, so a client supplying it could only be stale.
     name: CustomNonEmptyString
     shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
+
+
+class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
+    """The block as STORED after the write, and the row it was written to.
+
+    No other field off that row: the caller sent none of them, and echoing one would invite a client
+    to believe this endpoint owns it.
+    """
+
+    saison_id: str
+    team_id: CustomObjectId
+    kontakte: FLSaisonTeamKontakte | None
 
 
 class FLReplaceSaisonTeamResponse(BaseAPIResponse):

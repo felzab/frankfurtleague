@@ -30,6 +30,10 @@ EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH: Final = 64
 
 TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 
+# Why an application was declined, bounded where an `austritt`'s `grund` is not: this one is composed
+# into an outbound email as well as stored. Named so the frontend mirror refuses at the same length.
+BEWERBUNG_GRUND_MAX_LENGTH: Final = 1000
+
 TEAM_SHORTHAND_LENGTH: Final = 2
 
 SAISON_ID_LENGTH: Final = 4

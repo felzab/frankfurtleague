@@ -72,6 +72,7 @@ _TRIKOT_FARBEN = [
 ]
 _KONTAKT_EINWILLIGUNG_UMFANG = ["kontaktdaten"]
 _KONTAKT_EINWILLIGUNG_QUELLEN = ["person", "administrativ"]
+_BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 
 # Derived, not spelled: these ARE the collection names, and the log never records itself.
 _LOGGED_COLLECTIONS = [str(name) for name in Collection if name is not Collection.AKTIONEN]
@@ -164,16 +165,86 @@ _KONTAKTPERSON = _object(
     },
 )
 
-# The three people TOGETHER: a block holding one of them is a form half filled in, which the PATCH
-# never writes -- it replaces the whole block or stores the null.
-_SAISON_TEAM_KONTAKTE = _object(
+# Nullable per SLOT: an erasure empties the slots naming one person and must not reach the two
+# beside them.
+_KONTAKTPERSON_OR_NULL = {**_KONTAKTPERSON, "bsonType": ["object", "null"]}
+
+_KONTAKTE_REQUIRED = ("trainer", "ansprechperson", "stellvertretung", "trainer_ist_ansprechperson")
+_KONTAKTE_PROPERTIES = {
+    "trainer": _KONTAKTPERSON_OR_NULL,
+    "ansprechperson": _KONTAKTPERSON_OR_NULL,
+    "stellvertretung": _KONTAKTPERSON_OR_NULL,
+    # Kept through an erasure: it records what somebody ASSERTED about the two slots, which stays
+    # true about the form even once one of them is empty.
+    "trainer_ist_ansprechperson": {"bsonType": "bool"},
+}
+
+# The BLOCK is nullable on the junction and required on an application: a season's row is entered
+# before anybody has been recorded, while an application IS the form those people filled in.
+_SAISON_TEAM_KONTAKTE = _object(nullable=True, required=_KONTAKTE_REQUIRED, properties=_KONTAKTE_PROPERTIES)
+
+_BEWERBUNG_KONTAKTE = _object(required=_KONTAKTE_REQUIRED, properties=_KONTAKTE_PROPERTIES)
+
+# The season's application window. Nullable and out of `required` for `saisons.spielplan`'s reason:
+# every stored season predates the field.
+_SAISON_BEWERBUNG = _object(
     nullable=True,
-    required=("trainer", "ansprechperson", "stellvertretung", "trainer_ist_ansprechperson"),
+    required=("offen", "von", "bis"),
     properties={
-        "trainer": _KONTAKTPERSON,
-        "ansprechperson": _KONTAKTPERSON,
-        "stellvertretung": _KONTAKTPERSON,
-        "trainer_ist_ansprechperson": {"bsonType": "bool"},
+        "offen": {"bsonType": "bool"},
+        "von": {"bsonType": "string"},
+        "bis": {"bsonType": "string"},
+    },
+)
+
+# The club this school proposes, filled in only where the applicant picked no existing one. The
+# fields are spelled as `teams` spells them and acceptance copies them across; `description` is
+# not among them, and acceptance writes it empty.
+_BEWERBUNG_SCHULE = _object(
+    nullable=True,
+    required=("team_name", "full_name", "shorthand", "schulform", "address", "website_url"),
+    properties={
+        # `team_name`, not `name`: it becomes the club's SHORT name, beside the school's `full_name`,
+        # and `name` inside a block called `schule` would read as the school's own.
+        "team_name": {"bsonType": "string"},
+        "full_name": {"bsonType": "string"},
+        "shorthand": {"bsonType": "string"},
+        "schulform": {"bsonType": _STRING_OR_NULL, "enum": [*_SCHULFORMEN, None]},
+        "address": _ADDRESS,
+        "website_url": {"bsonType": "string"},
+    },
+)
+
+# What the school says about its kit. Never copied onto the team: `saison_teams.trikot_farbe` is the
+# colour an administrator ASSIGNED, and a wish is not an assignment.
+_BEWERBUNG_TRIKOT = _object(
+    required=("vorhandener_satz", "wunschfarbe"),
+    properties={
+        "vorhandener_satz": {"bsonType": "string"},
+        "wunschfarbe": {"bsonType": _STRING_OR_NULL, "enum": [*_TRIKOT_FARBEN, None]},
+    },
+)
+
+# The school's own estimate of its squad, on the application alone. Nothing checks it against a
+# squad afterwards -- it is what the school expected, not what it fielded.
+_BEWERBUNG_KADER = _object(
+    required=("voraussichtliche_groesse", "gute_spieler"),
+    properties={
+        "voraussichtliche_groesse": {"bsonType": "int"},
+        "gute_spieler": {"bsonType": _INT_OR_NULL},
+    },
+)
+
+# Null exactly while `status` is `eingereicht`, which the triage holds and no validator of types can
+# state. Required TOGETHER as `_EINWILLIGUNG` is: a decision nobody is named for cannot be chased.
+# `grund` is null on an acceptance.
+_BEWERBUNG_ENTSCHEIDUNG = _object(
+    nullable=True,
+    required=("getroffen_am", "von", "grund"),
+    properties={
+        "getroffen_am": {"bsonType": "string"},
+        "von": {"bsonType": "string"},
+        "grund": {"bsonType": _STRING_OR_NULL},
     },
 )
 
@@ -296,6 +367,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                         "spiele": {"bsonType": "int"},
                     },
                 ),
+                # Out of `required` as `spielplan` is, and for its reason. Both halves together: a
+                # switch with no span cannot say when the window closes, and a span with no switch
+                # cannot be shut early.
+                "bewerbung": _SAISON_BEWERBUNG,
             },
         )
     },
@@ -475,6 +550,39 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "default_payment": {"bsonType": "int"},
                 "kontakt": _KONTAKT,
                 "inactive_since": _INACTIVE_SINCE,
+            },
+        )
+    },
+    Collection.BEWERBUNGEN: {
+        "$jsonSchema": _object(
+            # Each nullable, and exactly one carries a value WHILE the application stands
+            # `eingereicht` -- acceptance writes the created club's id beside the school it came
+            # from. The write path holds that; types and enums cannot (`docs/backend/spec.md :: I16`).
+            required=(
+                "_id",
+                "saison_id",
+                "eingereicht_am",
+                "status",
+                "team_id",
+                "schule",
+                "kontakte",
+                "trikot",
+                "kader",
+                "entscheidung",
+            ),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "saison_id": {"bsonType": "string"},
+                "eingereicht_am": {"bsonType": "string"},
+                "status": {"bsonType": "string", "enum": _BEWERBUNG_STATUS},
+                # The club the applicant PICKED, null where they proposed a new school; acceptance
+                # writes the created club's id back here, so a decided application always names one.
+                "team_id": {"bsonType": ["objectId", "null"]},
+                "schule": _BEWERBUNG_SCHULE,
+                "kontakte": _BEWERBUNG_KONTAKTE,
+                "trikot": _BEWERBUNG_TRIKOT,
+                "kader": _BEWERBUNG_KADER,
+                "entscheidung": _BEWERBUNG_ENTSCHEIDUNG,
             },
         )
     },

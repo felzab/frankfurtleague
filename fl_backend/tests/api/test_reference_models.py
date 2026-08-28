@@ -1,15 +1,18 @@
+import copy
 from typing import Any, get_args
 
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from app.api.saisons.schemas import FLSaison
+from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaison
 from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload, FLSchiedsrichter
 from app.api.spiele.schemas import FLSpielBooking
 from app.api.spieler.schemas import (
     FLEinwilligung,
     FLPatchSaisonSpielerPayload,
+    FLPatchSpielerPayload,
     FLPostSaisonSpielerPayload,
+    FLPostSpielerPayload,
     FLSaisonSpielerResponse,
     FLSaisonSpielerRow,
     FLSpieler,
@@ -18,7 +21,14 @@ from app.api.spieler.schemas import (
 from app.api.spieler.services import registration_einwilligung
 from app.api.spielorte.schemas import FLPostSpielortPayload, FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
-from app.api.teams.schemas import FLGruppenNames
+from app.api.teams.schemas import (
+    FLGruppenNames,
+    FLKontaktpersonPayload,
+    FLPatchSaisonTeamPayload,
+    FLPostSaisonTeamPayload,
+    FLPostTeamPayload,
+)
+from app.shared.schemas.bounds import SAISON_ID_LENGTH
 
 
 class TestSpielort:
@@ -421,6 +431,60 @@ class TestSaison:
             FLSaison.model_validate(saison(**{field: "2026-04-31"}))
 
 
+class TestTheSeasonsSpans:
+    """`refuse_reversed_span` under both callers, with the labels each passes it.
+
+    Asserted whole because `fl_frontend/src/features/saisons/schemas.ts` mirrors both sentences word
+    for word.
+    """
+
+    @staticmethod
+    def payload(saison, **overrides: Any) -> dict[str, Any]:
+        """The stored season narrowed to the payload's keys: `extra="forbid"` refuses `_id`, `status` and `schedule`."""
+
+        stored = saison()
+
+        return {
+            "start_date": stored["start_date"],
+            "end_date": stored["end_date"],
+            "rules": stored["rules"],
+            "bewerbung": {"offen": True, "von": "2025-09-01", "bis": "2025-10-31"},
+            **overrides,
+        }
+
+    def test_accepts_a_window_that_runs_forwards(self, saison):
+        """The floor: without it every refusal below could pass for a reason nobody is testing."""
+        parsed = FLPatchSaisonPayload.model_validate(self.payload(saison))
+
+        assert parsed.bewerbung is not None
+        assert parsed.bewerbung.offen is True
+
+    def test_accepts_no_window_at_all(self, saison):
+        """`None` is the season with nothing recorded, which the span rule has nothing to say about."""
+        assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=None)).bewerbung is None
+
+    def test_refuses_a_window_ending_before_it_opens(self, saison):
+        reversed_window = {"offen": False, "von": "2025-10-31", "bis": "2025-09-01"}
+
+        with pytest.raises(ValidationError) as failure:
+            FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=reversed_window))
+
+        assert "Das Ende darf nicht vor dem Beginn der Bewerbungsfrist liegen." in str(failure.value)
+
+    def test_judges_the_window_apart_from_the_season_it_belongs_to(self, saison):
+        """A window may legitimately open and close before the season's first day."""
+        before_the_season = {"offen": False, "von": "2025-01-01", "bis": "2025-02-01"}
+
+        assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=before_the_season)).bewerbung is not None
+
+    def test_refuses_a_season_ending_before_it_starts_in_the_other_sides_words(self, saison):
+        """The same helper's other caller: one label pair moved without the other is what this catches."""
+        with pytest.raises(ValidationError) as failure:
+            FLPatchSaisonPayload.model_validate(self.payload(saison, start_date="2026-06-30", end_date="2026-01-01"))
+
+        assert "Das Enddatum darf nicht vor dem Startdatum liegen." in str(failure.value)
+
+
 class TestSpielBooking:
     """`find_clash_refusal` splits `uhrzeit` into three parts over a bare projection, and the database is hand-edited."""
 
@@ -448,3 +512,146 @@ class TestSpielBooking:
 
         with pytest.raises(ValidationError):
             FLSpielBooking.model_validate(self.booking(spiel_nr=0))
+
+
+# Every payload field carrying a length floor, by the path that reaches it. `min_length` counts
+# CHARACTERS and does not strip, so each needs `strip_whitespace` in front of its floor or spaces
+# alone pass as a value stored, served and rendered as empty.
+STRIPPED_WRITE_FIELDS = [
+    "spielort.address.stadt",
+    "spielort.address.strasse",
+    "spielort.name",
+    "schiedsrichter.name",
+    "spieler_post.nachname",
+    "spieler_post.vorname",
+    "spieler_patch.nachname",
+    "spieler_patch.vorname",
+    "team.full_name",
+    "team.name",
+    "team.shorthand",
+    "saison.id",
+    "saison_team.saison_id",
+    "saison_spieler.saison_id",
+    "kontaktperson.nachname",
+    "kontaktperson.vorname",
+    "kontaktperson.einwilligung.text_version",
+    "saison_team.austritt.grund",
+]
+
+# A run of spaces at every width up to the widest floor the table carries. An exact-width field is
+# refused at any OTHER width by its ceiling, so one probe would pass it for a reason of its own.
+WHITESPACE_RUNS = [" " * width for width in range(1, SAISON_ID_LENGTH + 1)]
+
+
+def _with(body: dict[str, Any], path: tuple[str, ...], value: str) -> dict[str, Any]:
+    """A DEEP copy of `body` with `path` set: several of the paths above reach into a nested block."""
+
+    copied = copy.deepcopy(body)
+    target = copied
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = value
+    return copied
+
+
+def _sent(body: dict[str, Any], path: tuple[str, ...]) -> str:
+    value: Any = body
+    for key in path:
+        value = value[key]
+    return value
+
+
+def _stored(parsed: BaseModel, path: tuple[str, ...]) -> str:
+    value: Any = parsed
+    for key in path:
+        value = getattr(value, key)
+    return value
+
+
+class TestTheWritePathStripsBeforeItCountsCharacters:
+    """Per payload field with a floor: a padded value is stored stripped, and spaces alone are refused.
+
+    No read model is here: the strip runs BEFORE the floor, so one there would refuse a stored blank
+    (`docs/backend/spec.md :: I36`).
+    """
+
+    @pytest.fixture
+    def cases(self, address, kontakt, saison, saison_spieler, team) -> dict[str, tuple[type[BaseModel], dict[str, Any], tuple[str, ...]]]:
+        spielort = {"address": address(), "name": "Sportplatz Ost", "default_mietpreis": 80}
+        schiedsrichter = {"kontakt": kontakt(), "name": "Anna Referee", "schule": None, "default_payment": 20}
+        spieler = {"vorname": "Max", "nachname": "Mustermann"}
+        club = {key: value for key, value in team().items() if key in FLPostTeamPayload.model_fields}
+        # A WRITE-side person, and not `tests/api/test_teams.py :: STORED_KONTAKTPERSON`, which holds
+        # values the payload refuses on purpose.
+        kontaktperson = {
+            "vorname": "Anke",
+            "nachname": "Koerner",
+            "email": "a.koerner@example.de",
+            "telefon": "+49 170 1234567",
+            "geburtsdatum": "1984-05-09",
+            "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+        }
+        saison_team = {
+            "gruppe": "A",
+            "austritt": {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-03-01"},
+            "trikot_farbe": None,
+        }
+        # The stored rows minus what only storage carries, which is what each create payload takes.
+        new_saison = {"id": saison()["_id"], "rules": saison()["rules"], "start_date": "2026-01-01", "end_date": "2026-06-30"}
+        new_saison["bewerbung"] = {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"}
+        new_saison_spieler = {key: value for key, value in saison_spieler().items() if key in FLPostSaisonSpielerPayload.model_fields}
+        new_saison_team = {"saison_id": saison()["_id"], "gruppe": "A"}
+
+        return {
+            "spielort.address.stadt": (FLPostSpielortPayload, spielort, ("address", "stadt")),
+            "spielort.address.strasse": (FLPostSpielortPayload, spielort, ("address", "strasse")),
+            "spielort.name": (FLPostSpielortPayload, spielort, ("name",)),
+            "schiedsrichter.name": (FLPostSchiedsrichterPayload, schiedsrichter, ("name",)),
+            "spieler_post.nachname": (FLPostSpielerPayload, spieler, ("nachname",)),
+            "spieler_post.vorname": (FLPostSpielerPayload, spieler, ("vorname",)),
+            # The two payloads declare these independently, so a strip dropped from one alone is
+            # invisible to the other's clause.
+            "spieler_patch.nachname": (FLPatchSpielerPayload, spieler, ("nachname",)),
+            "spieler_patch.vorname": (FLPatchSpielerPayload, spieler, ("vorname",)),
+            "team.full_name": (FLPostTeamPayload, club, ("full_name",)),
+            "team.name": (FLPostTeamPayload, club, ("name",)),
+            # The width is a floor as well as a ceiling, so a padded value has to reach it stripped.
+            "team.shorthand": (FLPostTeamPayload, club, ("shorthand",)),
+            # Three independent declarations of the season id, as the two `spieler` payloads are.
+            "saison.id": (FLPostSaisonPayload, new_saison, ("id",)),
+            "saison_team.saison_id": (FLPostSaisonTeamPayload, new_saison_team, ("saison_id",)),
+            "saison_spieler.saison_id": (FLPostSaisonSpielerPayload, new_saison_spieler, ("saison_id",)),
+            "kontaktperson.nachname": (FLKontaktpersonPayload, kontaktperson, ("nachname",)),
+            "kontaktperson.vorname": (FLKontaktpersonPayload, kontaktperson, ("vorname",)),
+            "kontaktperson.einwilligung.text_version": (FLKontaktpersonPayload, kontaktperson, ("einwilligung", "text_version")),
+            "saison_team.austritt.grund": (FLPatchSaisonTeamPayload, saison_team, ("austritt", "grund")),
+        }
+
+    def test_the_table_reaches_every_field_it_names(self, cases):
+        """Non-vacuity: a label with no case would skip a field while both clauses below stayed green."""
+
+        assert sorted(cases) == sorted(STRIPPED_WRITE_FIELDS)
+
+    @pytest.mark.parametrize("label", STRIPPED_WRITE_FIELDS)
+    def test_a_valid_body_still_parses(self, cases, label):
+        """Without it a mistyped key would make both clauses below pass for the wrong reason."""
+
+        model, body, path = cases[label]
+
+        assert _stored(model.model_validate(body), path) == _sent(body, path)
+
+    @pytest.mark.parametrize("label", STRIPPED_WRITE_FIELDS)
+    def test_a_padded_value_is_stored_stripped(self, cases, label):
+        model, body, path = cases[label]
+        original = _sent(body, path)
+
+        assert _stored(model.model_validate(_with(body, path, f"  {original}  ")), path) == original
+
+    @pytest.mark.parametrize("blank", WHITESPACE_RUNS, ids=[str(len(run)) for run in WHITESPACE_RUNS])
+    @pytest.mark.parametrize("label", STRIPPED_WRITE_FIELDS)
+    def test_spaces_alone_are_refused(self, cases, label, blank, assert_rejects):
+        """The whole point: `min_length` counts characters, so an unstripped floor takes a run of its own width."""
+
+        model, body, path = cases[label]
+
+        assert_rejects(model, _with(body, path, blank), path[-1])

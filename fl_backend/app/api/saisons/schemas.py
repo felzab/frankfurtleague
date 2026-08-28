@@ -1,6 +1,6 @@
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 # The three are imported rather than restated. Acyclic: none of these slices' MODELS imports this
 # file -- `teams/services.py` does, and no model there.
@@ -73,6 +73,17 @@ class FLSaisonSpielplan(BaseModel):
     spiele: int = Field(ge=0)
 
 
+class FLSaisonBewerbung(BaseModel):
+    """When the league accepts applications for this season.
+
+    The two halves that record it: the span, and the `offen` flag an administrator sets beside it.
+    """
+
+    offen: bool
+    von: CustomDateString
+    bis: CustomDateString
+
+
 class FLSaisonPhaseSchedule(BaseModel):
     """One phase of a season: how many matchdays it takes, and how many matches each holds.
 
@@ -93,6 +104,10 @@ class _SaisonWritable(BaseModel):
     start_date: CustomDateString
     end_date: CustomDateString
     rules: FLSaisonRules
+    # NO default here, so the payloads inherit none: `PATCH` replaces the season wholesale, and an
+    # omitted key would close the application window as an edit nobody asked for. `FLSaison` below
+    # adds one back.
+    bewerbung: FLSaisonBewerbung | None
 
 
 class _SaisonPayload(_SaisonWritable):
@@ -103,6 +118,17 @@ class _SaisonPayload(_SaisonWritable):
         """The rule a `past` season's edit can still fail: its dates stay editable so a mistyped one can be repaired."""
 
         refuse_reversed_span(start=self.start_date, end=self.end_date, start_label="dem Startdatum", end_label="Das Enddatum")
+
+        return self
+
+    @model_validator(mode="after")
+    def the_application_window_ends_after_it_opens(self) -> Self:
+        """Judged apart from the season's own span: a window may legitimately open before the season does."""
+
+        if self.bewerbung is not None:
+            refuse_reversed_span(
+                start=self.bewerbung.von, end=self.bewerbung.bis, start_label="dem Beginn der Bewerbungsfrist", end_label="Das Ende"
+            )
 
         return self
 
@@ -117,6 +143,10 @@ class FLSaison(_SaisonWritable):
     # DEFAULTED, as `FLSpiel.notiz` is: nothing tells a missing key from a stored null, and every
     # season written before the generator existed carries neither.
     spielplan: FLSaisonSpielplan | None = None
+
+    # DEFAULTED for `spielplan`'s reason, and re-declared rather than defaulted on the base above:
+    # a default there would put the field on the PATCH payload as one an old client may omit.
+    bewerbung: FLSaisonBewerbung | None = None
 
     # DERIVED, and on no document. Injected before validation, because a computed field would close
     # an import cycle.
@@ -136,9 +166,10 @@ class FLSaisonsFilterParams(BaseModel):
 
 
 class FLPostSaisonPayload(_SaisonPayload):
-    # CHOSEN, not generated: `saisons._id` is the string every `saison_id` in the database
-    # references, so this is the one create payload carrying an id.
-    id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+    # CHOSEN, not generated: `saisons._id` is the string every `saison_id` references, so this is
+    # the one create payload carrying an id -- and stripped first, a width counting CHARACTERS
+    # otherwise creating a season keyed on spaces.
+    id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)]
 
 
 # The patch shape IS `_SaisonPayload`, and stays a name of its own: a private base publishes no

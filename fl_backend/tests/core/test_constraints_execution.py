@@ -41,6 +41,7 @@ AKTION_OID = ObjectId("6890a1b2c3d4e5f607200006")
 # no validator has an opinion about.
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607200007")
 ORPHAN_TEAM_OID = ObjectId("6890a1b2c3d4e5f607200008")
+BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607200009")
 
 # The labels an operator reads off `--check`. Asserted rather than inlined per test, so renaming one
 # fails here instead of quietly changing what the report is understood to mean.
@@ -48,6 +49,18 @@ SPIELTAG_OCCUPANCY_RULE = "a team is fielded at most once per Spieltag (spiele)"
 JUNCTION_CLUB_RULE = "every junction row names a club that exists (saison_teams)"
 
 ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
+
+
+def kontaktperson(vorname: str) -> dict[str, Any]:
+    """A function rather than a constant: the nested consent has to be fresh per slot too, which a `dict()` of a shared one is not."""
+    return {
+        "vorname": vorname,
+        "nachname": f"{vorname}-Mustermann",
+        "email": f"{vorname.lower()}@example.com",
+        "telefon": "+49 69 1234567",
+        "geburtsdatum": "1980-05-04",
+        "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+    }
 
 
 def valid_documents() -> dict[str, dict[str, Any]]:
@@ -148,6 +161,34 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "default_payment": 20,
             "kontakt": {"telefon": None, "email": None},
             "inactive_since": None,
+        },
+        # Undecided, proposing a school rather than picking a club: both are nullable and exactly
+        # one carries a value, a write-path rule no validator of types and enums can state
+        # (`docs/backend/spec.md :: I16`).
+        "bewerbungen": {
+            "_id": BEWERBUNG_OID,
+            "saison_id": SAISON_ID,
+            "eingereicht_am": "2026-02-01",
+            "status": "eingereicht",
+            "team_id": None,
+            "schule": {
+                "team_name": "Lessing",
+                "full_name": "Lessing-Gymnasium",
+                "shorthand": "LE",
+                "schulform": "gymnasium_g9",
+                "address": dict(ADDRESS),
+                "website_url": "https://lessing-gymnasium.example.de",
+            },
+            # Distinct per slot, so a block copied across with two slots swapped fails rather than compares equal.
+            "kontakte": {
+                "trainer": kontaktperson("Wraxlington"),
+                "ansprechperson": kontaktperson("Quillhilde"),
+                "stellvertretung": kontaktperson("Bramblewick"),
+                "trainer_ist_ansprechperson": False,
+            },
+            "trikot": {"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
+            "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+            "entscheidung": None,
         },
         "aktionen": {
             "_id": AKTION_OID,
@@ -288,6 +329,16 @@ def test_a_conforming_document_is_accepted(mongo_container: Any, collection: str
             "a junction row with no shorthand",
         ),
         ("schiedsrichter", valid_document("schiedsrichter", kontakt={"telefon": "030 123"}), "a kontakt missing half its shape"),
+        # The block is nullable on the junction and NOT here: an application IS the form those three
+        # people filled in, so a null one is the asymmetry this case stands under.
+        ("bewerbungen", valid_document("bewerbungen", kontakte=None), "an application naming nobody"),
+        # Nested inside a NULLABLE object, where `required` lapses entirely when the value is null:
+        # this is what says the enum still binds once the object is really there.
+        (
+            "bewerbungen",
+            valid_document("bewerbungen", schule={**valid_documents()["bewerbungen"]["schule"], "schulform": "realschule"}),
+            "a schulform outside the enum",
+        ),
     ],
     ids=lambda value: value if isinstance(value, str) else "",
 )

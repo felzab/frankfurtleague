@@ -196,6 +196,18 @@ AGGREGATES: tuple[Aggregate, ...] = (
         boundary="A referee. Reached from a match the way a venue is.",
     ),
     Aggregate(
+        name="Bewerbung",
+        root=Collection.BEWERBUNGEN,
+        members=(),
+        boundary=(
+            "One school's application to play one season. Held true against nothing: the document states what a "
+            "school submitted, which stays true however the season and the club it names change afterwards -- so it "
+            "is in no boundary with either, and its `status` claims a junction row was written rather than that one "
+            "still stands. Acceptance writes into the Saison boundary in the same transaction, and what holds those "
+            "writes to that season's rules is `find_entry_refusal`, which belongs to that boundary and not to this one."
+        ),
+    ),
+    Aggregate(
         name="Aktion",
         root=Collection.AKTIONEN,
         members=(),
@@ -204,9 +216,9 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "which stays true however the document it names changes afterwards. So it is in no boundary "
             "with the collection it records, and carries no reference to it -- `document_id` names a row "
             "that may since have been deleted. A row surviving its subject is the point where that subject is a "
-            "fixture or a season. Where it is a PERSON the surviving row is instead the leak, which is why a "
-            "pupil's erasure and a referee's anonymisation both reach in here and redact the values in place "
-            "rather than dropping the row (`docs/backend/spec.md :: I42`)."
+            "fixture or a season. Where it is a PERSON the surviving row is instead the leak, which is why every "
+            "write destroying a person's values reaches in here and redacts them in place rather than dropping "
+            "the row -- the enumeration of those writes is `docs/backend/spec.md :: I42`'s, not this note's."
         ),
     ),
 )
@@ -392,10 +404,72 @@ REFERENCES: tuple[Reference, ...] = (
             "Retiring the person leaves every squad row intact -- the seasons they played still happened."
         ),
     ),
+    Reference(
+        source=Collection.BEWERBUNGEN,
+        fields=("saison_id",),
+        target=Collection.SAISONS,
+        on_reference_created=Action.NO_ACTION,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.RESTRICT,
+        note=(
+            "`annehmen_bewerbung` reads the season for its status and its capacity, so accepting an application naming "
+            "one that does not exist is a 404 -- and nothing resolves it before that, an application being stored as it "
+            "arrived. The season's `rules` bound what acceptance may write into the junction and not what this row holds, "
+            "so narrowing them strands no application: the next acceptance is refused instead (`REQ-ENTER-002`, "
+            "`REQ-ENTER-003`). No season delete exists. A DECLINE reads no season at all."
+        ),
+    ),
+    Reference(
+        source=Collection.BEWERBUNGEN,
+        fields=("team_id",),
+        target=Collection.TEAMS,
+        on_reference_created=Action.RESTRICT,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.NO_ACTION,
+        note=(
+            "Acceptance resolves the club it names, so an application picking one `teams` does not hold is a 404 there, "
+            "and a RETIRED one is refused (`REQ-ENTER-005`) -- the same two reads `post_saison_team` performs. For a new "
+            "school the field is null until acceptance writes the created club's id into it, which is the one write that "
+            "creates this reference. Nothing is embedded and nothing fans out: a renamed club leaves the application "
+            "naming what the school typed, which is what the school applied as."
+        ),
+    ),
 )
 
 
 FIELD_POLICIES: tuple[FieldPolicy, ...] = (
+    FieldPolicy(
+        Collection.BEWERBUNGEN,
+        "status",
+        Editability.CONTROL_ONLY,
+        "`POST /bewerbungen/{bewerbung_id}/annehmen` and `.../ablehnen`, each of which owns the whole transition and "
+        "refuses an application already decided (`REQ-BEWERBUNG-001`)",
+        "app.api.bewerbungen.services.find_triage_refusal",
+    ),
+    FieldPolicy(
+        Collection.BEWERBUNGEN,
+        "entscheidung",
+        Editability.CONTROL_ONLY,
+        "written by the same two endpoints, in the write that moves `status`: who decided is read from the request's "
+        "bound actor rather than a payload, so it cannot disagree with the `aktionen` row recording the same write",
+        "app.core.security.get_actor_email",
+    ),
+    FieldPolicy(
+        Collection.BEWERBUNGEN,
+        "team_id",
+        Editability.CONTROL_ONLY,
+        "on no payload: an application either picked a club when it was submitted or names none, and acceptance writes "
+        "the created club's id here so that an accepted application joins to the club it produced",
+        "app.api.bewerbungen.admin_router.annehmen_bewerbung",
+    ),
+    FieldPolicy(
+        Collection.BEWERBUNGEN,
+        "kontakte",
+        Editability.IMMUTABLE,
+        "on no payload the triage serves: an application is the form three people filled in, and a decision moves "
+        "`status`, `entscheidung` and `team_id` alone. An erasure empties the slot naming one of them, which is a "
+        "removal rather than an edit",
+    ),
     FieldPolicy(Collection.SAISONS, "id", Editability.IMMUTABLE, "chosen at create; every `saison_id` in the database references this value"),
     FieldPolicy(
         Collection.SAISONS,
@@ -413,6 +487,15 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "fixtures; a season already carrying one is refused (`REQ-SPIELPLAN-001`) unless the request confirms a REPLACE, which "
         "`REQ-SPIELPLAN-005` holds to a `future` season with nothing recorded and which restamps this in the same transaction",
         "app.api.saisons.admin_router.generate_spielplan",
+    ),
+    FieldPolicy(
+        Collection.SAISONS,
+        "bewerbung",
+        Editability.EDITABLE,
+        "on the season payload, unlike `status` and `spielplan` beside it, because closing the window early is an "
+        "ordinary correction rather than a transition; the payload carries no default, so a client omitting the key "
+        "is refused rather than silently closing a window somebody opened",
+        "app.api.saisons.schemas.FLPatchSaisonPayload",
     ),
     FieldPolicy(
         Collection.SAISONS,
@@ -920,7 +1003,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ENTER-001",
-        operation="POST /teams/{team_id}/saisons",
+        operation="POST /teams/{team_id}/saisons · POST /bewerbungen/{bewerbung_id}/annehmen",
         aggregate="Saison",
         summary="a team enters a season only while that season is `future`",
         implemented_by="app.api.teams.services.find_entry_refusal",
@@ -929,7 +1012,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ENTER-002",
-        operation="POST /teams/{team_id}/saisons · PATCH /teams/{team_id}/saisons/{saison_id}",
+        operation="POST /teams/{team_id}/saisons · PATCH /teams/{team_id}/saisons/{saison_id} · POST /bewerbungen/{bewerbung_id}/annehmen",
         aggregate="Saison",
         summary="the group must be one the season runs",
         implemented_by="app.api.teams.services.find_entry_refusal",
@@ -938,7 +1021,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ENTER-003",
-        operation="POST /teams/{team_id}/saisons · PATCH /teams/{team_id}/saisons/{saison_id}",
+        operation="POST /teams/{team_id}/saisons · PATCH /teams/{team_id}/saisons/{saison_id} · POST /bewerbungen/{bewerbung_id}/annehmen",
         aggregate="Saison",
         summary="the group must have space; the caller counts a departed club's row in, a team never leaving a season",
         implemented_by="app.api.teams.services.find_entry_refusal",
@@ -956,7 +1039,9 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-ENTER-005",
-        operation="POST /teams/{team_id}/saisons · POST /teams/{team_id}/saisons/{saison_id}/replace",
+        operation=(
+            "POST /teams/{team_id}/saisons · POST /teams/{team_id}/saisons/{saison_id}/replace · POST /bewerbungen/{bewerbung_id}/annehmen"
+        ),
         aggregate="Saison",
         summary="a club that has left the LEAGUE is entered into no season until it is reactivated",
         implemented_by="app.api.teams.services.find_club_entry_refusal",
@@ -1301,6 +1386,30 @@ RULES: tuple[Rule, ...] = (
         implemented_by="app.api.spieler.services.find_squad_rolle_refusal",
         tested_by="tests/api/test_containment_refusals.py::TestASquadRolle",
         multi_document=True,
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-001",
+        operation="POST /bewerbungen/{bewerbung_id}/annehmen · POST /bewerbungen/{bewerbung_id}/ablehnen",
+        aggregate="Bewerbung",
+        summary="an application already decided is neither accepted nor declined a second time",
+        implemented_by="app.api.bewerbungen.services.find_triage_refusal",
+        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestADecisionIsTakenOnce",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-002",
+        operation="POST /bewerbungen/{bewerbung_id}/annehmen",
+        aggregate="Bewerbung",
+        summary="acceptance needs exactly one of an existing club and a new school to enter",
+        implemented_by="app.api.bewerbungen.services.find_acceptance_subject_refusal",
+        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestWhatAcceptanceWouldEnter",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-003",
+        operation="POST /bewerbungen/{bewerbung_id}/annehmen",
+        aggregate="Bewerbung",
+        summary="a new school whose own details make no valid club is not accepted",
+        implemented_by="app.api.bewerbungen.services.find_new_club_refusal",
+        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestWhetherTheSchoolMakesAClub",
     ),
     Rule(
         code="REQ-PURGE-001",

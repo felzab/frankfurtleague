@@ -7,6 +7,8 @@ from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.schemas import (
+    FLPatchSaisonTeamKontaktePayload,
+    FLPatchSaisonTeamKontakteResponse,
     FLPatchSaisonTeamPayload,
     FLPatchTeamPayload,
     FLPatchTeamResponse,
@@ -370,7 +372,7 @@ async def post_saison_team(
 @router.patch(
     f"{by_id('team_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonTeamResponse,
-    summary="Rewrite a team's season row: group, exit record, kit colour and contacts",
+    summary="Rewrite a team's season row: group, exit record and kit colour",
 )
 async def patch_saison_team(
     team_id: CustomRouteObjectId,
@@ -381,10 +383,10 @@ async def patch_saison_team(
     spiele_collection: SpieleCollection,
 ) -> FLSaisonTeamResponse:
     """
-    Rewrite a team's row for one season: group, exit record, kit colour and contacts.
+    Rewrite a team's row for one season: group, exit record and kit colour.
 
-    All four are required, the row being replaced WHOLESALE: an omitted key is a 422 rather than a
-    team reinstated or three contact records dropped (`docs/backend/spec.md :: I31`).
+    All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated
+    (`docs/backend/spec.md :: I31`). The contact block is `PATCH .../kontakte`'s.
     """
 
     # The identity comes back with the group because this endpoint echoes the whole row and writes
@@ -420,7 +422,7 @@ async def patch_saison_team(
             )
         )
 
-    await patch_one_in_db(
+    updated_raw = await patch_one_in_db(
         collection=saison_teams_collection,
         db_filter={"team_id": team_id, "saison_id": saison_id},
         update={"$set": saison_team_data.model_dump(mode="json")},
@@ -434,9 +436,46 @@ async def patch_saison_team(
         # From the PAYLOAD, not the pre-read above: the `$set` writes these wholesale, so the values
         # sent are the values now stored and the projection has nothing to widen for.
         trikot_farbe=saison_team_data.trikot_farbe,
-        kontakte=saison_team_data.kontakte,
+        # From the AFTER image instead: no payload carries the block, and `.get` covers a row entered
+        # before the key existed.
+        kontakte=updated_raw.get("kontakte"),
         name=existing_raw["name"],
         shorthand=existing_raw["shorthand"],
+    )
+
+
+@router.patch(
+    f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte",
+    response_model=FLPatchSaisonTeamKontakteResponse,
+    summary="Rewrite a team's season contacts, and nothing else on the row",
+)
+async def patch_saison_team_kontakte(
+    team_id: CustomRouteObjectId,
+    saison_id: str,
+    kontakte_data: Annotated[FLPatchSaisonTeamKontaktePayload, Body()],
+    saison_teams_collection: SaisonTeamsCollection,
+) -> FLPatchSaisonTeamKontakteResponse:
+    """
+    Rewrite the three people this team is reached through for one season. Null clears the block.
+
+    Its own endpoint so the contacts editor and the club editor cannot clobber one row. It refuses
+    nothing: a `past` season's contacts stay correctable.
+    """
+
+    updated_raw = await patch_one_in_db(
+        collection=saison_teams_collection,
+        db_filter={"team_id": team_id, "saison_id": saison_id},
+        # The one path, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
+        # `trikot_farbe` belong to the junction PATCH, and a `$set` carrying them would reinstate
+        # whatever this caller last read.
+        update={"$set": {"kontakte": kontakte_data.model_dump(mode="json")["kontakte"]}},
+    )
+
+    return FLPatchSaisonTeamKontakteResponse(
+        saison_id=saison_id,
+        team_id=team_id,
+        # The AFTER image, not the payload: what the row holds is the claim this echo makes.
+        kontakte=updated_raw["kontakte"],
     )
 
 

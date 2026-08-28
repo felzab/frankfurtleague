@@ -26,6 +26,9 @@ class Collection(StrEnum):
     SPIELER = "spieler"
     SPIELORTE = "spielorte"
     SCHIEDSRICHTER = "schiedsrichter"
+    #: A school's application to play a season. Stored as it arrived and never rewritten -- only the
+    #: triage moves `status`, `entscheidung` and `team_id`.
+    BEWERBUNGEN = "bewerbungen"
     #: What every admin write did, and what it replaced. The one collection nothing here references
     #: and nothing references back (`fl_backend/app/core/recording.py`).
     AKTIONEN = "aktionen"

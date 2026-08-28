@@ -1,6 +1,6 @@
 # Ops — runbooks
 
-**Verified against:** `bcc1de6d`, 2026-08-28\
+**Verified against:** `dbe2978e`, 2026-08-28\
 **Purpose:** the recurring procedures that are run rather than read, and the operational facts no file in this repository states
 
 The contracts these depend on — the services, the scripts, the gate scopes and the registry — are
@@ -58,6 +58,13 @@ absent key passes, which is the whole of what `required` decides; a stored key o
 exactly as it would inside the list. `saisons.spielplan` is declared that way, and `--check` is what says
 whether any season already carries the key — declaring a shape over a key some row already holds is an
 ordinary constraint change, and assuming which of the two you are in is what this procedure replaces.
+
+**A collection the change ADDS is the free case, and `--check` says so by counting nothing.** The
+namespace does not exist, so `report_violations` answers `0 of 0` and there is no backfill to hunt:
+`_apply_validator` creates the collection with the validator already attached
+(`fl_backend/app/core/constraints.py :: NAMESPACE_NOT_FOUND`), which either `--apply` or the deploy's
+own boot reaches. A `0 of 0` against a collection you expected to hold rows is the case to stop on.
+
 The order does not change either way: `--check` from the new checkout while the old image still serves,
 then `--apply` or the deploy's own boot to attach the validators
 (`fl_backend/app/core/db.py :: lifespan` applies them before it yields, so a new image attaches before it
@@ -71,8 +78,10 @@ either fails loudly if it cannot.
 **When `every junction row names a club that exists (saison_teams)` reports a group**, it has found a
 `saison_teams` row whose `team_id` matches no `teams` document. Nothing on the API produces one now — entry
 reads the club and answers 404 for an id `teams` does not hold
-(`fl_backend/app/api/teams/admin_router.py :: post_saison_team`) — and nothing on the API removes one, the
-junction having no DELETE. **That says nothing about where the row came from.** A row older than that read
+(`fl_backend/app/api/teams/admin_router.py :: post_saison_team`), and the acceptance that also writes these
+rows either creates the club in the same transaction or takes the id from the club document it resolved
+in-session (`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung`) — and nothing on the API
+removes one, the junction having no DELETE. **That says nothing about where the row came from.** A row older than that read
 arrived through `POST /teams/{team_id}/saisons` itself: entry resolved no club then, so a `team_id` that was
 well-formed and wrong inserted a row with nobody touching the database at all. It is invisible from the side
 worth checking first: `GET /teams` starts from `teams` and never joins the orphan, so the club list and every

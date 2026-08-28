@@ -6,15 +6,29 @@ from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import (
     FLKontaktperson,
     FLKontaktpersonPayload,
+    FLPatchSaisonTeamKontaktePayload,
     FLPatchSaisonTeamPayload,
     FLPatchTeamPayload,
     FLPostTeamPayload,
+    FLSaisonTeamKontakte,
+    FLSaisonTeamKontaktePayload,
     FLTeam,
     FLTeamRecord,
     FLTeamsGroupedResponse,
     FLTeamStatistik,
 )
 from app.api.teams.services import build_gruppen
+
+# A whole person as a row STORES one. Reused rather than re-spelled: the shape is the read model's,
+# so a field added to it fails here rather than at the first real write.
+STORED_KONTAKTPERSON = {
+    "vorname": "Anke",
+    "nachname": "Koerner",
+    "email": "a.koerner@example.de",
+    "telefon": "+49 170 1234567",
+    "geburtsdatum": "1984-05-09",
+    "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+}
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
@@ -212,13 +226,13 @@ class TestTheClubsSchulform:
 
 
 class TestTheJunctionPatchPayload:
-    """It replaces every writable field wholesale, so what it DEFAULTS is what a client can drop by accident."""
+    """It replaces every field it takes wholesale, so what it DEFAULTS is what a client can drop by accident."""
 
-    @pytest.mark.parametrize("field", ["gruppe", "austritt", "trikot_farbe", "kontakte"])
+    @pytest.mark.parametrize("field", ["gruppe", "austritt", "trikot_farbe"])
     def test_every_writable_field_is_required(self, field):
-        """`kontakte` most of all: an omitted key defaulting to `None` would erase three people's records on a group change."""
+        """An omitted key defaulting to `None` would reinstate a disqualified club or clear a colour nobody touched."""
 
-        body = {"gruppe": "A", "austritt": None, "trikot_farbe": None, "kontakte": None}
+        body = {"gruppe": "A", "austritt": None, "trikot_farbe": None}
         del body[field]
 
         with pytest.raises(ValidationError) as failure:
@@ -226,13 +240,54 @@ class TestTheJunctionPatchPayload:
 
         assert [entry["loc"][-1] for entry in failure.value.errors()] == [field]
 
+    def test_it_takes_the_three_fields_and_nothing_about_the_contacts(self):
+        assert set(FLPatchSaisonTeamPayload.model_fields) == {"gruppe", "austritt", "trikot_farbe"}
+
+    def test_a_contact_block_sent_here_is_refused(self):
+        """`extra="forbid"`, so a stale client is a 422 rather than a block this endpoint never judged."""
+
+        with pytest.raises(ValidationError) as failure:
+            FLPatchSaisonTeamPayload.model_validate({"gruppe": "A", "austritt": None, "trikot_farbe": None, "kontakte": None})
+
+        assert [entry["loc"][-1] for entry in failure.value.errors()] == ["kontakte"]
+
+    def test_a_club_whose_stored_contacts_the_write_side_refuses_can_still_be_saved(self):
+        """Why no `kontakte` on this payload: the bound is on the write side alone (`docs/backend/spec.md :: I36`).
+
+        A round-tripped block would fail every save with errors on `kontakte.*` paths the club editor
+        renders no field for, leaving no box to correct.
+        """
+
+        stored_but_unwritable = {
+            "trainer": {**STORED_KONTAKTPERSON, "telefon": "nicht bekannt"},
+            "ansprechperson": None,
+            "stellvertretung": None,
+            "trainer_ist_ansprechperson": False,
+        }
+
+        assert FLSaisonTeamKontakte.model_validate(stored_but_unwritable).trainer is not None
+        with pytest.raises(ValidationError):
+            FLSaisonTeamKontaktePayload.model_validate(stored_but_unwritable)
+
+        parsed = FLPatchSaisonTeamPayload.model_validate({"gruppe": "B", "austritt": None, "trikot_farbe": None})
+
+        assert parsed.gruppe == "B"
+
+
+class TestTheContactsPatchPayload:
+    """The block's own endpoint, which is where every rule about the three people now lives."""
+
     def test_a_contact_block_missing_one_of_the_three_people_is_refused(self):
         """The block is written whole or not at all, so a partial one is a form half filled in rather than a smaller truth."""
 
         with pytest.raises(ValidationError):
-            FLPatchSaisonTeamPayload.model_validate(
-                {"gruppe": "A", "austritt": None, "trikot_farbe": None, "kontakte": {"trainer_ist_ansprechperson": False}}
-            )
+            FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": {"trainer_ist_ansprechperson": False}})
+
+    def test_the_block_is_required_so_a_null_clears_it_deliberately(self):
+        with pytest.raises(ValidationError) as failure:
+            FLPatchSaisonTeamKontaktePayload.model_validate({})
+
+        assert [entry["loc"][-1] for entry in failure.value.errors()] == ["kontakte"]
 
 
 class TestAContactRecordReadsBackHoweverItWasStored:

@@ -54,6 +54,16 @@ verify_access_system = verify_api_key(lambda config: config.internal_api_key_sys
 verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code="REQ-AUTH-004")
 
 
+def get_actor_email() -> str:
+    """The administrator this request is attributed to, for a field that STORES who acted.
+
+    The variable the log reads, so a decision and its `aktionen` row cannot name two people.
+    """
+
+    # `bind_actor` fails closed on any write, so the default system actor cannot reach one.
+    return actor_var.get().email
+
+
 ACTOR_HEADER = "X-FL-Actor"
 
 # Named, not inlined like the codes above it: `docs/logging/error-codes.md` is kept in step by a grep
