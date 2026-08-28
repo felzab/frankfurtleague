@@ -82,8 +82,7 @@ def test_a_ports_value_this_reader_cannot_judge_fails_rather_than_passing():
 def test_the_module_under_test_is_this_repository_own():
     """Names the import-order hazard the withdrawal above prevents, rather than leaving it silent.
 
-    A `checker_kernel` resolved from `test_check_docs.py`'s throwaway copy would root this module at
-    that copy, and every check below would then pass against a fixture instead of the repository.
+    A `checker_kernel` from `test_check_docs.py`'s throwaway copy would root this module there.
     """
     assert mirror.REPO_ROOT == SCRIPTS.parent
 
