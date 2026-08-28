@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `bcc1de6d`, 2026-08-28\
+**Verified against:** `1455c46b`, 2026-08-28\
 **Scope:** `fl_backend/`
 
 | Section                                                                        | Answers                                                           |
@@ -226,9 +226,10 @@ cache tags in the same action — the data it caches changed even though no team
 
 ### 1.4 Error codes and failure responses
 
-**Every failure response body is `{error_code, correlation_id}`** — the full code table, the field
-contract and the correlation-id design are in [`docs/logging/spec.md`](../logging/spec.md), which every
-failure line and response must follow.
+**Every failure response body is `{error_code, correlation_id}`** — the full code table and the body's
+field contract are in [`docs/logging/error-codes.md`](../logging/error-codes.md), the correlation-id
+design in [`docs/logging/spec.md`](../logging/spec.md), and every failure line and response must
+follow them.
 The invariant the tests pin here: the code on the wire and in the log is the **exception's own**
 (`fl_backend/app/core/exceptions.py :: BaseAPIException`), checked by
 `fl_backend/tests/api/test_error_responses.py`.

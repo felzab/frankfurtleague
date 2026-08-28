@@ -1,13 +1,13 @@
 # Frontend — overview
 
-**Verified against:** `bcc1de6d`, 2026-08-28\
+**Verified against:** `1455c46b`, 2026-08-28\
 **Scope:** `fl_frontend/`
 
 A Next.js application on the App Router, with React, HeroUI and Tailwind. It is both the website and, in
 effect, the system's application server: **no browser reaches FastAPI for application data.** The edge
 carries one exact-match path to that service, the liveness probe, and routes every other `/api` path here
 ([`../ops/spec.md`](../ops/spec.md) I13). Every application read is a server-side fetch made from this
-container, which is why the entire caching design lives here rather than in the backend.
+container, which is why the page-level caching and its tag invalidation live here rather than in the backend.
 
 ## How it is organised
 

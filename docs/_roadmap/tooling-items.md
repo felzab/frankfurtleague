@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `bcc1de6d`, 2026-08-28\
+**Verified against:** `1455c46b`, 2026-08-28\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -467,8 +467,8 @@ preflight reads, and `docs/ops/spec.md :: I1`, the invariant about which port is
 files a compose edit can change with nothing asking that sheet to be re-read.
 
 **Measured on 2026-08-28 against a branch changing `.prettierignore`.** `docs/_git/spec.md` cites that
-file and carries a stamp naming `889c31dd`, and the intersection of that page's `cited_paths` with the
-branch's diff is empty — so the sheet went unarmed and the stamp stood. What the sheet claims about
+file and carried a stamp naming `889c31dd` at the time, and the intersection of that page's `cited_paths`
+with the branch's diff was empty — so the sheet went unarmed and the stamp stood. What the sheet claims about
 the file, that one ignore file decides what stays out of formatting, survives the change, which is
 what makes this a coverage hole rather than a stale sheet. `docs/ops/spec.md` names the same changed
 files and was re-verified on that branch anyway, because it also cites files under `scripts/` the
@@ -1721,15 +1721,17 @@ lint rule beside it cannot cover the gap.** `fl_frontend/eslint.config.mjs` runs
 arguments, which reports a parameter only when nothing after it is read. A parameter a framework's
 calling convention forces into the leading position is therefore invisible to both.
 
-**Enabling it costs a single underscore, measured.** Running the installed checker over the project
-with the flag on 2026-08-20 reported exactly one site:
+**Enabling it costs two underscores, measured.** Running the installed checker over the project
+with the flag on 2026-08-28 reported exactly two sites:
 `fl_frontend/src/features/auth/actions.ts :: handleSignIn`, whose `prevState` is required by
-`useActionState`'s calling convention and read by nothing. TypeScript takes a leading underscore as
+`useActionState`'s calling convention and read by nothing, and a leading `token` in a filter callback
+in `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`, which the lint rule's `after-used`
+default cannot see because the `index` after it is read. TypeScript takes a leading underscore as
 the escape, which is the spelling `fl_frontend/eslint.config.mjs` already configures, so the flag and
 the rule would agree.
 
 **What it is worth, and what it costs beyond the underscore.** It closes a class the toolchain
-otherwise cannot see, and the class is small — the frontend holds no other unused parameter today. A
+otherwise cannot see, and the class is small — those two sites are the whole of it. A
 parameter kept for a calling convention is exactly the shape that has to be underscored to satisfy
 it, and an underscore in front of `prevState` reads as "ignored" where the name is what says why the
 parameter is there at all. Whether that trade is worth taking is the decision this entry asks for.
