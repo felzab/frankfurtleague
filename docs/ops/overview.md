@@ -1,6 +1,6 @@
 # Ops — overview
 
-**Verified against:** `77078f34`, 2026-08-20\
+**Verified against:** `1c70c28a`, 2026-08-27\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Three containers behind nginx on one host, deployed by pulling published images. There is no orchestrator,
@@ -23,7 +23,7 @@ graph TB
         be["backend :8000<br/>FastAPI"]
     end
 
-    mongo[("MongoDB<br/>external")]
+    mongo[("MongoDB<br/>managed cluster, off this host")]
 
     internet --> cf
     cf --> nginx
@@ -34,10 +34,14 @@ graph TB
     be --> mongo
 ```
 
-**Only nginx publishes ports** ([`spec.md`](spec.md) I1), so anything not in nginx's routing table does not
-exist for the internet.
+**The diagram is production's.** The local stack adds a database service to the same network and points
+both application services at it, so its two database arrows reach a container rather than the cluster
+([`spec.md`](spec.md) §1.5).
 
-**The two arrows into MongoDB are two different database users**, neither holding a `*AnyDatabase` role: the
+**Only nginx publishes a port another host can reach** ([`spec.md`](spec.md) I1), so anything not in nginx's
+routing table does not exist for the internet.
+
+**The two arrows into the cluster are two different database users**, neither holding a `*AnyDatabase` role: the
 backend on the application database alone, Auth.js on `authjs` alone, read from the cluster's users 2026-08-02
 because no file here records either grant. **Never give the two a shared login** — that makes the boundary a
 matter of trust rather than of configuration. Auth.js reaching **its own** database is the one sanctioned
@@ -109,9 +113,10 @@ built from, which is why `deploy.sh --status` stays truthful even if a tag was m
 
 ## Environments and secrets
 
-The environments are deliberately separated — dev, local and prod ([`spec.md`](spec.md) §1.5). The one to
-know before touching packaging: **local** runs the production image built from the working tree, behind
-nginx, which makes it the only place a packaging problem is visible before a deploy.
+The environments are deliberately separated — dev, local and prod ([`spec.md`](spec.md) §1.5). Two things
+to know about **local** before touching it: it runs the production image built from the working tree, behind
+nginx, which makes it the only place a packaging problem is visible before a deploy, and it is the only one
+with a database of its own — dev reads whatever the `.env` files point at.
 
 Both services read a `.env` file supplied by Compose; neither is in the repository. The frontend validates its
 environment at startup and **fails with variable names only, never values**. The API keys must match on both

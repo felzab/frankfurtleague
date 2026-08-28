@@ -56,8 +56,12 @@ DECLARED_DELTAS: Final[tuple[Delta, ...]] = (
     Delta("services.backend.build", ABSENT, ANY, "the local stack builds from source"),
     Delta("services.frontend.image", ANY, ABSENT, "production pulls a published image and never builds"),
     Delta("services.backend.image", ANY, ABSENT, "production pulls a published image and never builds"),
-    Delta("services.frontend.environment", ABSENT, ANY, "the API_URL, AUTH_URL and LOG_FORMAT overrides"),
-    Delta("services.backend.environment", ABSENT, ANY, "the LOG_FORMAT override"),
+    Delta("services.frontend.environment", ABSENT, ANY, "the API_URL, AUTH_URL, LOG_FORMAT and MONGODB_URI overrides"),
+    Delta("services.backend.environment", ABSENT, ANY, "the LOG_FORMAT and MONGODB_URI overrides"),
+    Delta("services.mongo", ABSENT, ANY, "the local stack runs its own database; production's is a managed cluster"),
+    Delta("services.frontend.depends_on", ABSENT, ANY, "only the local stack has a database to wait on"),
+    Delta("services.backend.depends_on", ABSENT, ANY, "only the local stack has a database to wait on"),
+    Delta("volumes", ABSENT, ANY, "the local database's storage; production keeps none on the host"),
     Delta("services.nginx.ports", ["80:80", "443:443"], ["3000:80"], "the local stack publishes one port on 3000"),
     Delta(
         "services.nginx.volumes",
@@ -69,6 +73,16 @@ DECLARED_DELTAS: Final[tuple[Delta, ...]] = (
     Delta("services.backend.deploy", ANY, ABSENT, "no resource limits locally"),
     Delta("services.nginx.deploy", ANY, ABSENT, "no resource limits locally"),
 )
+
+
+# The one service either file may publish to the world. A delta covering a whole service covers its
+# ports with it, so without this the wholesale `services.mongo` row would exempt a database from
+# `docs/ops/spec.md :: I1` and nothing would notice.
+EDGE_SERVICE: Final = "nginx"
+
+# What binds this host alone. The IPv6 form is bracketed because that is how Docker spells an
+# address in a port mapping, and an unbracketed `::1:` would match nothing it ever writes.
+LOOPBACK_PREFIXES: Final = ("127.0.0.1:", "[::1]:")
 
 
 class ComposeSyntax(Exception):
@@ -328,6 +342,52 @@ def shown(value: Any) -> str:
     return repr(value)
 
 
+def off_host_ports(document: dict[str, Any], name: str) -> list[Finding]:
+    """Every way a service other than the edge becomes reachable from another host."""
+    findings: list[Finding] = []
+    for service, definition in sorted(document.get("services", {}).items()):
+        if service == EDGE_SERVICE or not isinstance(definition, dict):
+            continue
+
+        # Host networking declares no `ports` at all and publishes every socket the service listens
+        # on, so reading that key alone answers "nothing published" about the widest exposure there
+        # is.
+        if definition.get("network_mode") == "host":
+            findings.append(
+                Finding(
+                    "fail",
+                    f"{name}: {service} takes the host's own network, publishing everything it listens on\n"
+                    f"{CONTINUATION}only {EDGE_SERVICE} is reachable off this host",
+                )
+            )
+
+        published = definition.get("ports")
+        if published is None:
+            continue
+        # Refused rather than skipped, as an unparsed construct is everywhere else here: a shape
+        # this reader cannot judge is not a shape it may call safe.
+        if not isinstance(published, list):
+            findings.append(
+                Finding(
+                    "fail",
+                    f"{name}: {service} writes `ports` as {published!r}, which this reader cannot judge\n"
+                    f"{CONTINUATION}write it as a block sequence, one published port to an entry",
+                )
+            )
+            continue
+
+        for entry in published:
+            if not str(entry).startswith(LOOPBACK_PREFIXES):
+                findings.append(
+                    Finding(
+                        "fail",
+                        f"{name}: {service} publishes {entry!r}, which binds every interface\n"
+                        f"{CONTINUATION}only {EDGE_SERVICE} is reachable off this host; the rest bind 127.0.0.1",
+                    )
+                )
+    return findings
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Does the local compose file still mirror the production one?")
     parser.add_argument("--verbose", action="store_true", help="list the declared deltas as they are matched")
@@ -359,7 +419,9 @@ def main() -> int:
             if delta is not None:
                 print(f"      declared  {difference.path} -- {delta.why}")
 
-    findings = [
+    escaped = off_host_ports(prod, prod_path.name) + off_host_ports(local, local_path.name)
+
+    findings = escaped + [
         Finding(
             "fail",
             f"{difference.path} differs, and no declared delta covers it\n"
@@ -382,14 +444,19 @@ def main() -> int:
     ]
 
     code = report_findings(findings)
-    if findings:
+    if escaped:
+        print("\n      A published port is the setting a declared delta hides: one covering a whole")
+        print("      service covers its ports with it, so nothing else here would see this.")
+        print("      Bind it to 127.0.0.1, or route it through nginx (docs/ops/spec.md :: I1).")
+    if len(findings) > len(escaped):
         print("\n      A difference outside the declared list is one the local stack cannot catch.")
         print("      Mirror the setting, or change docker-compose.local.yml's invariant list and")
         print("      scripts/check_compose_mirror.py :: DECLARED_DELTAS together.")
+    if findings:
         return code
 
     services = sorted(set(prod.get("services", {})) | set(local.get("services", {})))
-    print(f"      {len(services)} service(s) mirrored, {len(DECLARED_DELTAS)} declared delta(s), nothing undeclared")
+    print(f"      {len(services)} service(s) mirrored, {len(DECLARED_DELTAS)} declared delta(s), nothing undeclared, no port off this host")
     return code
 
 

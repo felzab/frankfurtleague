@@ -1,4 +1,5 @@
 import asyncio
+import copy
 from typing import Any, Awaitable, Callable, Sequence
 
 import pytest
@@ -96,12 +97,42 @@ SQUAD_PERSON_ID = "6890a1b2c3d4e5f60726b{:03d}"
 LIVE_IN_THE_OUTGOING_SQUAD = 2
 
 
+# What the OUTGOING school filled in. Seeded on every row so the clearing below has something to
+# clear: a test over a row that carried no contacts would pass against an endpoint that clears none.
+OUTGOING_KONTAKTPERSON = {
+    "vorname": "Anke",
+    "nachname": "Koerner",
+    "email": "a.koerner@outgoing.example.de",
+    "telefon": "+49 170 1234567",
+    "geburtsdatum": "1984-05-09",
+    "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+}
+
+OUTGOING_KONTAKTE = {
+    "trainer": dict(OUTGOING_KONTAKTPERSON),
+    "ansprechperson": dict(OUTGOING_KONTAKTPERSON),
+    "stellvertretung": dict(OUTGOING_KONTAKTPERSON),
+    "trainer_ist_ansprechperson": True,
+}
+
+OUTGOING_TRIKOT_FARBE = "bordeaux"
+
+
 def junction(team_id: ObjectId, gruppe: str, austritt: dict[str, Any] | None = None) -> dict[str, Any]:
     """A dict rather than a model: `saison_teams` is the one collection with no model of the row."""
 
     name, shorthand = PLAYED_AS[team_id]
 
-    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": gruppe, "austritt": austritt, "name": name, "shorthand": shorthand}
+    return {
+        "saison_id": SAISON_ID,
+        "team_id": team_id,
+        "gruppe": gruppe,
+        "austritt": austritt,
+        "name": name,
+        "shorthand": shorthand,
+        "trikot_farbe": OUTGOING_TRIKOT_FARBE,
+        "kontakte": copy.deepcopy(OUTGOING_KONTAKTE),
+    }
 
 
 def default_junctions() -> list[dict[str, Any]]:
@@ -407,6 +438,27 @@ class TestAllFourLayersMoveTogether:
         assert row is not None
         assert row["austritt"] is None
 
+    def test_the_kit_colour_and_the_contacts_are_cleared_with_it(self, mongo_replica_set_url: str):
+        """Kills leaving them standing, which would hold the OUTGOING school's three people against a club that never gave them."""
+
+        row = on_a_seeded_season(mongo_replica_set_url, _row_after)
+
+        assert row is not None
+        assert row["trikot_farbe"] is None
+        assert row["kontakte"] is None
+
+    def test_the_seed_really_carried_them(self, mongo_replica_set_url: str):
+        """The floor under the case above: read back after the write, a null proves nothing about a row that went in holding nothing."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            return await row_of(database, WITHDRAWN)
+
+        seeded = on_a_seeded_season(mongo_replica_set_url, body)
+
+        assert seeded is not None
+        assert seeded["trikot_farbe"] == OUTGOING_TRIKOT_FARBE
+        assert seeded["kontakte"]["ansprechperson"]["email"] == OUTGOING_KONTAKTPERSON["email"]
+
     def test_the_group_and_the_row_count_are_left_alone(self, mongo_replica_set_url: str):
         """The row is rewritten IN PLACE. Kills a delete-and-insert, which frees the place and lets the group refill."""
 
@@ -448,6 +500,8 @@ class TestAllFourLayersMoveTogether:
         assert row is not None
         assert (response.outgoing_team_id, response.incoming_team_id) == (WITHDRAWN, INCOMING)
         assert (response.gruppe, response.name, response.shorthand) == (row["gruppe"], row["name"], row["shorthand"])
+        # The pair the admin has to act on: the season now has no way at all to reach this team.
+        assert (response.trikot_farbe, response.kontakte) == (None, None)
 
 
 class TestTheOutgoingClubsSquadIsRetired:

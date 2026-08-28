@@ -118,14 +118,22 @@ async def call_patch(
     *,
     gruppe: str = "A",
     austritt: dict[str, Any] | None = None,
+    trikot_farbe: str | None = None,
+    kontakte: dict[str, Any] | None = None,
     saison_id: str = SAISON_ID,
 ) -> Any:
-    """`gruppe` defaults to the group `ADLER` already sits in, so the default call records an exit and moves nobody."""
+    """`gruppe` defaults to the group `ADLER` already sits in, so the default call moves nobody.
+
+    Every writable key is sent on every call because the payload replaces them wholesale and
+    defaults none of them (`docs/backend/spec.md :: I31`).
+    """
 
     return await patch_saison_team(
         team_id=team_id,
         saison_id=saison_id,
-        saison_team_data=FLPatchSaisonTeamPayload.model_validate({"gruppe": gruppe, "austritt": austritt}),
+        saison_team_data=FLPatchSaisonTeamPayload.model_validate(
+            {"gruppe": gruppe, "austritt": austritt, "trikot_farbe": trikot_farbe, "kontakte": kontakte}
+        ),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
@@ -268,3 +276,48 @@ async def _both(database: AsyncIOMotorDatabase, **overrides: Any) -> Any:
     response = await call_patch(database, **overrides)
 
     return response, await stored_row(database)
+
+
+# One filled-in block, reused: the shape is the payload's, so a field added to it fails here rather
+# than at the first real write.
+KONTAKTPERSON = {
+    "vorname": "Anke",
+    "nachname": "Koerner",
+    "email": "a.koerner@example.de",
+    "telefon": "+49 170 1234567",
+    "geburtsdatum": "1984-05-09",
+    "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+}
+
+KONTAKTE = {
+    "trainer": dict(KONTAKTPERSON),
+    "ansprechperson": dict(KONTAKTPERSON),
+    "stellvertretung": dict(KONTAKTPERSON),
+    "trainer_ist_ansprechperson": True,
+}
+
+
+class TestTheSeasonsKitAndContacts:
+    """Both are written by this PATCH alone, and both are stored on the junction rather than on the club."""
+
+    def test_they_land_on_the_row_and_come_back_on_the_echo(self, mongo_container: Any):
+        response, row = on_a_season(mongo_container, lambda database: _both(database, trikot_farbe="bordeaux", kontakte=dict(KONTAKTE)))
+
+        assert row["trikot_farbe"] == "bordeaux"
+        assert row["kontakte"]["ansprechperson"]["telefon"] == KONTAKTPERSON["telefon"]
+        assert response.trikot_farbe == "bordeaux"
+        assert response.kontakte is not None and response.kontakte.trainer.email == KONTAKTPERSON["email"]
+
+    def test_a_second_write_sending_nulls_clears_them(self, mongo_container: Any):
+        """The wholesale replace, from the direction that removes data: a school withdrawing its consent is one PATCH."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            await call_patch(database, trikot_farbe="bordeaux", kontakte=dict(KONTAKTE))
+            await call_patch(database)
+
+            return await stored_row(database)
+
+        row = on_a_season(mongo_container, body)
+
+        assert row["trikot_farbe"] is None
+        assert row["kontakte"] is None

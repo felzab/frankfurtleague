@@ -3,8 +3,11 @@ import { z } from "zod";
 // Each schema mirrors a constraint in `fl_backend/app/shared/schemas/custom.py`; looser makes the
 // message a lie, and a pattern is outside the contract comparison entirely.
 
-// A literal space, never `\s`, which inside the anchors would admit newlines and tabs.
-const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{3,20})$/);
+/**
+ * A literal space, never `\s`, which inside the anchors would admit newlines and tabs. Exported
+ * because `FLKontaktpersonSchema` needs the same rule where the field is required rather than optional.
+ */
+export const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{3,20})$/);
 
 // Shared, because the payload redeclares the field for its ceiling and a duplicated alphabet would drift. `*` not
 // `+`, so "optional" is the pattern rather than a union: a union whose branches both fail surfaces zod's raw English.

@@ -1,10 +1,26 @@
 from typing import Annotated, Literal, Mapping, Union
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, TypeAdapter
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, RootModel, StringConstraints, TypeAdapter
 
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH, TEAM_DESCRIPTION_MAX_LENGTH, TEAM_SHORTHAND_LENGTH
-from app.shared.schemas.custom import CustomDateString, CustomExternalUrl, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.bounds import (
+    EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
+    KONTAKT_EMAIL_MAX_LENGTH,
+    LIST_LIMIT_DEFAULT,
+    LIST_LIMIT_MAX,
+    SAISON_ID_LENGTH,
+    TEAM_DESCRIPTION_MAX_LENGTH,
+    TEAM_SHORTHAND_LENGTH,
+)
+from app.shared.schemas.custom import (
+    PERSON_NAME_PATTERN,
+    PHONE_REGEX,
+    CustomDateString,
+    CustomExternalUrl,
+    CustomNonEmptyString,
+    CustomObjectId,
+    CustomOptionalDateString,
+)
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLGruppenNames = Literal["A", "B", "C", "D"]
@@ -19,6 +35,34 @@ FLTeamStatistikScope = Literal["gruppenphase", "gesamt"]
 FLAustrittType = Literal["disqualifikation", "rueckzug"]
 
 
+# Slugs rather than the German the league's CI document spells, for the reason
+# `fl_backend/app/api/spieler/schemas.py :: FLSpielerRolle` gives: a stored German word becomes a
+# third spelling for a label and a badge to drift from.
+FLSchulform = Literal["gymnasium_g8", "gymnasium_g9", "gesamtschule", "privatschule_g8", "privatschule_g9", "oberstufengymnasium"]
+
+
+# The CI document's palette, slugged for the reason above: two of its colours are named in German
+# there, and the badge renders a swatch rather than either spelling.
+FLTrikotFarbe = Literal[
+    "weiss",
+    "schwarz",
+    "rot",
+    "braun",
+    "orange",
+    "gelb",
+    "hellgruen",
+    "gruen",
+    "tuerkis",
+    "hellblau",
+    "blau",
+    "dunkelblau",
+    "violett",
+    "magenta",
+    "bordeaux",
+    "grau",
+]
+
+
 class FLAustritt(BaseModel):
     """How a team came to be out of one season, why, and from when.
 
@@ -30,6 +74,84 @@ class FLAustritt(BaseModel):
     grund: CustomNonEmptyString
     # The day the exit took effect, not the day somebody typed it in.
     datum: CustomDateString
+
+
+class FLKontaktEinwilligung(BaseModel):
+    """What this person agreed to, and which wording they agreed to.
+
+    NOT `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, which records what may be
+    PUBLISHED about a pupil, is written once, and has an open Datenschutz question in front of it.
+    """
+
+    umfang: Literal["kontaktdaten"]
+    # Who gave it. Distinguishing the two is what stops an admin's transcription reading as a
+    # person's own consent.
+    erteilt_von: Literal["person", "administrativ"]
+    # The version of the text they were shown. The text lives in the frontend and is versioned
+    # there, so a later rewording never changes what a stored record claims.
+    text_version: str
+    datum: CustomDateString
+
+
+class FLKontaktperson(BaseModel):
+    """One person the league reaches this team through, for one season."""
+
+    vorname: CustomNonEmptyString
+    nachname: CustomNonEmptyString
+    email: str
+    # Reachable on WhatsApp, which the consent text states: the league's whole channel to a team is
+    # this number.
+    telefon: str
+    geburtsdatum: CustomDateString
+    einwilligung: FLKontaktEinwilligung
+
+
+class FLSaisonTeamKontakte(BaseModel):
+    """The three people a team is reached through, for ONE season.
+
+    On the junction rather than the club: a school's staff turns over between seasons, and a
+    finished season is the record of who was reachable while it ran.
+    """
+
+    trainer: FLKontaktperson
+    ansprechperson: FLKontaktperson
+    stellvertretung: FLKontaktperson
+    # Stored rather than derived by comparing the two blocks: two people can share every field, and
+    # what the admin asserted is not the same claim as what happens to match.
+    trainer_ist_ansprechperson: bool
+
+
+# The bounded copies the junction PATCH embeds. The ceilings are here and not on the read models
+# above for `FLAddressPayload`'s reason: refusing a stored value on read answers 500 for a whole
+# list over one row (`docs/backend/spec.md :: I36`).
+class FLKontaktEinwilligungPayload(FLKontaktEinwilligung):
+    model_config = ConfigDict(extra="forbid")
+
+    text_version: str = Field(min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)
+
+
+class FLKontaktpersonPayload(FLKontaktperson):
+    model_config = ConfigDict(extra="forbid")
+
+    # Tightened on the WRITE side alone, as a referee's name is (`docs/backend/spec.md :: I36`).
+    vorname: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
+    nachname: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
+    # On the write side, not the read: `GET /teams/memberships` is the ONLY route to repairing a bad
+    # row, so a value it refused would lock itself in. The ceiling is stated rather than left to
+    # email-validator, whose refusal names no field.
+    email: Annotated[EmailStr, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH)]
+    # Here for the same reason, and it belongs on this side rather than beside a format: the pattern
+    # caps the length at 20 inside itself, which makes it a ceiling (`docs/backend/spec.md :: I36`).
+    telefon: str = Field(pattern=PHONE_REGEX)
+    einwilligung: FLKontaktEinwilligungPayload
+
+
+class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
+    model_config = ConfigDict(extra="forbid")
+
+    trainer: FLKontaktpersonPayload
+    ansprechperson: FLKontaktpersonPayload
+    stellvertretung: FLKontaktpersonPayload
 
 
 class FLTeamStatistik(BaseModel):
@@ -56,6 +178,10 @@ class _TeamWritable(BaseModel):
     # the database validator (`docs/backend/spec.md :: I16`).
     description: str = Field(max_length=TEAM_DESCRIPTION_MAX_LENGTH)
     full_name: CustomNonEmptyString
+    # NO default here, so the payloads inherit none: `PATCH` replaces the club wholesale, and an
+    # omitted key would clear a school form and fan the clearing out as an edit somebody asked for.
+    # The two READ models below add one back.
+    schulform: FLSchulform | None
     # Rendered straight into an href on a public page, so the scheme is constrained here as well as
     # in the frontend (`fl_backend/app/shared/schemas/custom.py :: validate_external_url`).
     website_url: CustomExternalUrl
@@ -64,6 +190,11 @@ class _TeamWritable(BaseModel):
 
 class FLTeam(_TeamWritable):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+
+    # Re-declared with a default, as `FLSpieler` re-declares the junction's newer fields: a club
+    # whose document predates the field still has to be describable, and a model that 422s over one
+    # describes it as impossible.
+    schulform: FLSchulform | None = None
 
     gruppe: FLGruppenNames
     statistik: FLTeamStatistik
@@ -85,6 +216,9 @@ class FLTeamRecord(_TeamWritable):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     inactive_since: CustomOptionalDateString
+    # Defaulted for `FLTeam`'s reason: the retire and reactivate endpoints echo this off a stored
+    # document, which is the one a club nobody has edited since is read back through.
+    schulform: FLSchulform | None = None
 
 
 class FLGruppenTeam(BaseModel):
@@ -121,6 +255,10 @@ class FLTeamMembership(BaseModel):
     saison_id: str
     gruppe: FLGruppenNames
     austritt: FLAustritt | None
+    # Defaulted because `$project` omits a key the stored row has not got: a season entered before
+    # either field existed would otherwise 500 the whole admin club list.
+    trikot_farbe: FLTrikotFarbe | None = None
+    kontakte: FLSaisonTeamKontakte | None = None
 
 
 class FLTeamWithMemberships(FLTeamRecord):
@@ -173,9 +311,12 @@ class FLPatchSaisonTeamPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     gruppe: FLGruppenNames
-    # No `default=None`: `PATCH` replaces both writable fields wholesale, so an omitted key would
-    # silently reinstate a team.
+    # No `default=None` on any of these: `PATCH` replaces every writable field wholesale, so an
+    # omitted key would silently reinstate a team, clear a colour, or drop three people's contact
+    # records with nobody having asked for it.
     austritt: FLAustritt | None
+    trikot_farbe: FLTrikotFarbe | None
+    kontakte: FLSaisonTeamKontaktePayload | None
 
 
 class FLReplaceSaisonTeamPayload(BaseModel):
@@ -289,6 +430,10 @@ class FLSaisonTeamResponse(BaseAPIResponse):
     team_id: CustomObjectId
     gruppe: FLGruppenNames
     austritt: FLAustritt | None
+    # Echoed as the row now stands: entry writes neither, and the PATCH that fills them replaces
+    # both wholesale, so the echo is the only place a client learns what the row ended up holding.
+    trikot_farbe: FLTrikotFarbe | None
+    kontakte: FLSaisonTeamKontakte | None
     # The season's own copy of the club's identity, on no payload: it is seeded from the club at
     # entry and rewritten by the rename fan-out, so a client supplying it could only be stale.
     name: CustomNonEmptyString
@@ -298,8 +443,8 @@ class FLSaisonTeamResponse(BaseAPIResponse):
 class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     """The junction row as the replacement left it, plus what it reached beyond that row.
 
-    No `austritt`: a replacement clears it, so the field could hold only one value here and would
-    state nothing.
+    Of the three fields a replacement clears, the two that leave a GAP are echoed; `austritt` is
+    not, a club that has not withdrawn needing nothing done about it.
     """
 
     saison_id: str
@@ -308,6 +453,10 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     # Untouched by the replacement, and echoed because the arriving club has to be told which group
     # it now stands in.
     gruppe: FLGruppenNames
+    # The gap: the outgoing school's colour and its three people leave with it, so the season now
+    # has no way at all to reach this team.
+    trikot_farbe: FLTrikotFarbe | None
+    kontakte: FLSaisonTeamKontakte | None
     # Reseeded from the incoming club, exactly as entry seeds them.
     name: CustomNonEmptyString
     shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)

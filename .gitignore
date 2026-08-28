@@ -71,3 +71,7 @@ docs/audit/
 
 # Editor settings -- personal preference, and nothing in the toolchain reads them.
 .vscode/
+
+# The copy of the production database `./scripts/local.sh --seed` restores the local stack from.
+# Real data, and this repository is public.
+.local-db/

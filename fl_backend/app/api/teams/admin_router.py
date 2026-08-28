@@ -343,6 +343,10 @@ async def post_saison_team(
             "gruppe": saison_team_data.gruppe,
             # Required by the validator and by `FLTeam`, so a row without it is unreadable.
             "austritt": None,
+            # Written as nulls although the validator does not require the keys: entry carries
+            # neither, and a row that states so is easier to read back than one that omits them.
+            "trikot_farbe": None,
+            "kontakte": None,
             # Copied rather than joined on read (`docs/backend/spec.md :: I11`): once the season is
             # `past` this is the name it was played under, which makes the copy in its fixtures true
             # rather than merely old.
@@ -356,6 +360,8 @@ async def post_saison_team(
         team_id=team_id,
         gruppe=saison_team_data.gruppe,
         austritt=None,
+        trikot_farbe=None,
+        kontakte=None,
         name=team_raw["name"],
         shorthand=team_raw["shorthand"],
     )
@@ -364,7 +370,7 @@ async def post_saison_team(
 @router.patch(
     f"{by_id('team_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonTeamResponse,
-    summary="Change a team's group or record its exit from the season",
+    summary="Rewrite a team's season row: group, exit record, kit colour and contacts",
 )
 async def patch_saison_team(
     team_id: CustomRouteObjectId,
@@ -375,10 +381,10 @@ async def patch_saison_team(
     spiele_collection: SpieleCollection,
 ) -> FLSaisonTeamResponse:
     """
-    Change which group a team is in for a season, or record that it has left.
+    Rewrite a team's row for one season: group, exit record, kit colour and contacts.
 
-    Both fields are required (`docs/backend/spec.md :: I31`), so an omitted `austritt` is a 422
-    rather than a team quietly reinstated.
+    All four are required, the row being replaced WHOLESALE: an omitted key is a 422 rather than a
+    team reinstated or three contact records dropped (`docs/backend/spec.md :: I31`).
     """
 
     # The identity comes back with the group because this endpoint echoes the whole row and writes
@@ -425,6 +431,10 @@ async def patch_saison_team(
         team_id=team_id,
         gruppe=saison_team_data.gruppe,
         austritt=saison_team_data.austritt,
+        # From the PAYLOAD, not the pre-read above: the `$set` writes these wholesale, so the values
+        # sent are the values now stored and the projection has nothing to widen for.
+        trikot_farbe=saison_team_data.trikot_farbe,
+        kontakte=saison_team_data.kontakte,
         name=existing_raw["name"],
         shorthand=existing_raw["shorthand"],
     )
@@ -532,7 +542,11 @@ async def replace_saison_team(
             # `austritt` cleared: left standing it would mark the INCOMING club withdrawn, which
             # `REQ-SWAP-006` and `_may_hold_a_platz` both act on. The outgoing club's exit survives
             # as the pre-image `patch_one_in_db` logs.
-            update={"$set": {**incoming_side, "austritt": None}},
+            #
+            # The colour and the contacts are cleared for a different reason: they describe the
+            # OUTGOING school, and leaving three of its people's details on a row now naming another
+            # club would hold personal data against a team that never gave it.
+            update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None}},
             session=session,
         )
 
@@ -553,6 +567,8 @@ async def replace_saison_team(
             outgoing_team_id=team_id,
             incoming_team_id=replacement_data.incoming_team_id,
             gruppe=updated_raw["gruppe"],
+            trikot_farbe=updated_raw["trikot_farbe"],
+            kontakte=updated_raw["kontakte"],
             name=updated_raw["name"],
             shorthand=updated_raw["shorthand"],
             fanned_out_to_spiele=fanned_out,

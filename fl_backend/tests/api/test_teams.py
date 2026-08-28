@@ -3,7 +3,17 @@ from pydantic import ValidationError
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spieler.schemas import FLSpielerStufe
-from app.api.teams.schemas import FLTeam, FLTeamRecord, FLTeamsGroupedResponse, FLTeamStatistik
+from app.api.teams.schemas import (
+    FLKontaktperson,
+    FLKontaktpersonPayload,
+    FLPatchSaisonTeamPayload,
+    FLPatchTeamPayload,
+    FLPostTeamPayload,
+    FLTeam,
+    FLTeamRecord,
+    FLTeamsGroupedResponse,
+    FLTeamStatistik,
+)
 from app.api.teams.services import build_gruppen
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
@@ -168,3 +178,95 @@ class TestFLTeamRecord:
 
     def test_shares_the_name_constraint(self, team, assert_rejects):
         assert_rejects(FLTeamRecord, team(name=""), "name")
+
+
+class TestTheClubsSchulform:
+    def test_a_club_stored_before_the_field_still_reads(self, team):
+        """The whole reason the READ models default it: a required one would 500 the list over every club nobody has edited."""
+
+        stored = team()
+        del stored["schulform"]
+
+        assert FLTeam.model_validate(stored).schulform is None
+
+    def test_a_form_outside_the_set_is_refused(self, team):
+        with pytest.raises(ValidationError):
+            FLTeam.model_validate(team(schulform="grundschule"))
+
+    def test_the_write_echo_declares_it_too(self, team):
+        """One declaration on the writable base, so the payloads, the record and the read model cannot come to disagree."""
+
+        assert FLTeamRecord.model_validate(team(schulform="gesamtschule")).schulform == "gesamtschule"
+
+    @pytest.mark.parametrize("payload", [FLPostTeamPayload, FLPatchTeamPayload])
+    def test_the_payloads_refuse_to_default_it(self, team, payload):
+        """The club PATCH replaces wholesale too, so a defaulted key here would clear a school form and fan the clearing out as an edit."""
+
+        body = {key: value for key, value in team().items() if key in payload.model_fields}
+        del body["schulform"]
+
+        with pytest.raises(ValidationError) as failure:
+            payload.model_validate(body)
+
+        assert [entry["loc"][-1] for entry in failure.value.errors()] == ["schulform"]
+
+
+class TestTheJunctionPatchPayload:
+    """It replaces every writable field wholesale, so what it DEFAULTS is what a client can drop by accident."""
+
+    @pytest.mark.parametrize("field", ["gruppe", "austritt", "trikot_farbe", "kontakte"])
+    def test_every_writable_field_is_required(self, field):
+        """`kontakte` most of all: an omitted key defaulting to `None` would erase three people's records on a group change."""
+
+        body = {"gruppe": "A", "austritt": None, "trikot_farbe": None, "kontakte": None}
+        del body[field]
+
+        with pytest.raises(ValidationError) as failure:
+            FLPatchSaisonTeamPayload.model_validate(body)
+
+        assert [entry["loc"][-1] for entry in failure.value.errors()] == [field]
+
+    def test_a_contact_block_missing_one_of_the_three_people_is_refused(self):
+        """The block is written whole or not at all, so a partial one is a form half filled in rather than a smaller truth."""
+
+        with pytest.raises(ValidationError):
+            FLPatchSaisonTeamPayload.model_validate(
+                {"gruppe": "A", "austritt": None, "trikot_farbe": None, "kontakte": {"trainer_ist_ansprechperson": False}}
+            )
+
+
+class TestAContactRecordReadsBackHoweverItWasStored:
+    """`docs/backend/spec.md :: I36`, on the model where breaking it locks itself in.
+
+    The validator types these as bare strings, so an import can store a value no payload would take
+    -- and `GET /teams/memberships` is the only route to repairing the row.
+    """
+
+    # A title's `.`, an address `EmailStr` refuses, and 21 characters where `PHONE_REGEX` allows 20
+    # -- one per bound the payload adds, so no case below passes on another's refusal.
+    REFUSED = {"nachname": "Dr. Koerner", "email": "not an address", "telefon": "+49 170 1234567 890 12"}
+
+    ACCEPTED = {"nachname": "Koerner", "email": "a.koerner@example.de", "telefon": "+49 170 1234567"}
+
+    STORED = {
+        "vorname": "Anke",
+        "geburtsdatum": "1984-05-09",
+        "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+        **REFUSED,
+    }
+
+    def test_the_read_model_takes_every_one_of_them(self):
+        parsed = FLKontaktperson.model_validate(self.STORED)
+
+        assert (parsed.nachname, parsed.email, parsed.telefon) == (self.REFUSED["nachname"], self.REFUSED["email"], self.REFUSED["telefon"])
+
+    @pytest.mark.parametrize("field", sorted(REFUSED))
+    def test_the_payload_refuses_it(self, field):
+        """Non-vacuity: without this the case above would pass just as well over a payload that had stopped checking."""
+
+        body = {**self.STORED, **self.ACCEPTED, field: self.REFUSED[field]}
+
+        with pytest.raises(ValidationError) as failure:
+            FLKontaktpersonPayload.model_validate(body)
+
+        assert [entry["loc"][-1] for entry in failure.value.errors()] == [field]

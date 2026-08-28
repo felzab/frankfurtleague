@@ -102,6 +102,7 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
             "austritt": None,
             "shorthand": "CS",
             "description": "",
+            "schulform": "gymnasium_g9",
             "full_name": "Carl-Schurz-Schule",
             "website_url": "https://carl-schurz-schule.de",
             "address": address(),

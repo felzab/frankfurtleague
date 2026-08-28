@@ -11,10 +11,15 @@
 #  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────
 #
 #   • Mirrors docker-compose.yml except where the difference is deliberate: it BUILDS rather than
-#     pulls, overrides API_URL, AUTH_URL and LOG_FORMAT, publishes 3000:80 rather than 80:80 and
-#     443:443, mounts nginx/local.conf and no ./certs, and sets no resource limits. A difference
-#     beyond those is a difference production will not have caught.
+#     pulls, overrides API_URL, AUTH_URL, LOG_FORMAT and MONGODB_URI, runs its own mongo and waits
+#     on it, keeps that mongo's data in a named volume, serves the edge on 3000:80 rather than
+#     80:80 and 443:443, mounts nginx/local.conf and no ./certs, and sets no resource limits. A
+#     difference beyond those is a difference production will not have caught, and every port
+#     either file publishes is held to `docs/ops/spec.md :: I1` by
+#     `scripts/check_compose_mirror.py :: off_host_ports`.
 #   • `AUTH_URL` must stay on loopback -- the constraint is written at the line that sets it.
+#   • The mongo service is local-only ON PURPOSE and production must never gain one: the server's
+#     database is a managed cluster, and a second one here would be a second source of truth.
 #
 #  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────
 #
@@ -44,6 +49,9 @@ services:
       # holds `console` for `pnpm dev` -- overridden so the stack always writes the production
       # stream (docs/logging/spec.md).
       - LOG_FORMAT=json
+      # Auth.js keeps its session store in the same cluster, so leaving this one alone would sign
+      # the local stack in against production while every other read came from the container below.
+      - MONGODB_URI=mongodb://mongo:27017/?directConnection=true
     restart: unless-stopped
     networks:
       - frankfurtleague-net
@@ -52,6 +60,9 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    depends_on:
+      mongo:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/favicon.ico"]
       interval: 30s
@@ -72,6 +83,10 @@ services:
       # Same reason as the frontend's override above: the stack shows the production stream even
       # when the developer's .env selects the console format for `fastapi dev`.
       - LOG_FORMAT=json
+      # The whole point of the mongo service: `env_file` carries the production cluster, and
+      # compose's `environment` overrides it, so the local stack stops writing to the live database
+      # without fl_backend/.env being touched at all.
+      - MONGODB_URI=mongodb://mongo:27017/?directConnection=true
     restart: unless-stopped
     networks:
       - frankfurtleague-net
@@ -80,6 +95,11 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    depends_on:
+      # Healthy, not started: the lifespan applies every validator before it yields and refuses the
+      # boot if it cannot, so a backend reaching an unelected node fails the whole start.
+      mongo:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v0/system/is_live', timeout=10)"]
       interval: 30s
@@ -87,6 +107,48 @@ services:
       retries: 3
       start_period: 20s
       # Same first-probe reason as the frontend's, and the same engine requirement.
+      start_interval: 3s
+
+  mongo:
+    # The tag `fl_backend/tests/conftest.py` starts the db tier against, and the floor the managed
+    # cluster runs, so a copy taken from it restores into a server of its own major version.
+    image: mongo:8
+    # A single-node replica set rather than a standalone: every transactional endpoint runs
+    # `session.with_transaction`, and a standalone answers one with `IllegalOperation`.
+    command: --replSet rs0 --bind_ip_all
+    # Pinned so the `rs.initiate()` below composes a member host the other containers resolve. The
+    # default is the container id, which nothing else on this network can reach.
+    hostname: mongo
+    # Skips the entrypoint's chown and its step down from root, which `cap_drop: ALL` would refuse
+    # -- the alternative was handing this service back CHOWN, SETUID and SETGID.
+    user: mongodb
+    restart: unless-stopped
+    ports:
+      # Loopback only, and the one port outside nginx on either stack: it is here for a database
+      # client on the host, and any other interface publishes an unauthenticated mongod.
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+      # What `./scripts/local.sh --seed` restores from. Read-only: the restore reads this directory
+      # and nothing inside the container writes it.
+      - ./.local-db/dump:/dump:ro
+    networks:
+      - frankfurtleague-net
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      # Initiates the set on the first probe and reports healthy only once the node has elected
+      # itself: `replSetInitiate` returns before the election, and the first write then fails with
+      # `NotWritablePrimary` (`fl_backend/tests/conftest.py :: mongo_replica_set_url`).
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'try { rs.status() } catch (e) { rs.initiate() } db.hello().isWritablePrimary || quit(1)'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+      # The cadence during start_period, as the two services above set for the same reason.
       start_interval: 3s
 
   nginx:
@@ -110,3 +172,9 @@ services:
 networks:
   frankfurtleague-net:
     driver: bridge
+
+# A named volume rather than a bind mount: mongod's storage engine wants POSIX file locking, which
+# a Windows host directory does not give it.
+volumes:
+  mongo-data:
+    driver: local

@@ -549,6 +549,23 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SAISON_TEAMS,
+        "trikot_farbe",
+        Editability.EDITABLE,
+        "required on the payload with no default, as `austritt` is, and cleared by a REPLACEMENT: the kit belongs to the "
+        "school that entered, not to the row. No state refuses it",
+    ),
+    FieldPolicy(
+        Collection.SAISON_TEAMS,
+        "kontakte",
+        # EDITABLE, not CONDITIONAL, and the same as `trikot_farbe`: the two behave alike, and no state
+        # refuses either. What a replacement does to both is a clearing, never a refusal.
+        Editability.EDITABLE,
+        "required on the payload with no default, so an omitted block is a 422 rather than three people's records silently "
+        "dropped; and cleared by a REPLACEMENT for `trikot_farbe`'s reason, holding the outgoing school's contact details "
+        "against another club being personal data nobody there gave. No state refuses it",
+    ),
+    FieldPolicy(
+        Collection.SAISON_TEAMS,
         "name",
         Editability.COMPOSED,
         "seeded from the club when it enters the season and rewritten by a rename only while that season is "

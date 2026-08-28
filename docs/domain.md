@@ -1,6 +1,6 @@
 # The domain model
 
-**Verified against:** `a978f4ad`, 2026-08-27
+**Verified against:** `1c70c28a`, 2026-08-27
 
 **What the league's data is, what depends on what, when each thing may be edited, and what a write has to do
 about its neighbours.**
@@ -53,9 +53,11 @@ the same transaction and rewrites fixtures the request never named, so the bound
 _every fixture in that season_ — `PATCH /spiele/{spiel_id}` looks like a single-document write and is not
 one.
 
-**`teams` is NOT inside `Saison`.** The practical test: a club's address, website and the name it carries
-today are on `teams`; its group, its `austritt` and the name and shorthand a given season was played under
-are on `saison_teams`; its league table is on neither, being derived from the matches.
+**`teams` is NOT inside `Saison`.** The practical test is whether the fact outlives a season: a club's
+address, website, `schulform` and the name it carries today are on `teams`; its group, its `austritt`, the
+kit colour and the three people it is reached through that season, and the name and shorthand it was played
+under, are on `saison_teams`; its league table is on neither, being derived from the matches. A school's
+kind survives the year and its Trainer does not, which is what puts those two on different documents.
 
 **`spieltage` is its own aggregate even though `spiele` points at it.** Its `position` is unique among the
 other matchdays of its phase and its expected match count comes from the season's rules, so no invariant

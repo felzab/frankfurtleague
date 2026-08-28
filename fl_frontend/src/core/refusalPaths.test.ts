@@ -108,6 +108,8 @@ const NAME_TEMPLATE_BINDINGS: Record<string, readonly string[]> = {
   namePrefix: ["address"],
   // The draw renders its three shape fields from one table, so these paths resolve only here.
   shapeKey: ["number_of_groups", "teams_per_group", "qualifiers_per_group"],
+  // The contacts panel renders one seat three times from `KONTAKT_ROLLEN`, for the same reason.
+  rolle: ["trainer", "ansprechperson", "stellvertretung"],
 };
 
 function templateIdentifiers(): Set<string> {
@@ -190,6 +192,9 @@ const UNDRAW_HAS_NO_FIELDS =
  */
 const RECORD_ITSELF = "the record's own path: refusable only on a shape the typed payload cannot build";
 
+/** One member, so the panel writes it from `EINWILLIGUNG_UMFANG` rather than asking a question with one answer. */
+const ONE_SCOPE = "the agreement's only scope, written by the panel rather than picked";
+
 /**
  * Payload paths no input renders, each with the reason it cannot be refused on. **A path listed
  * here is a decision, not a backlog entry** — the sweep fails on a path neither rendered nor
@@ -220,8 +225,20 @@ const EXEMPT: Record<string, Record<string, string>> = {
     description: "written through DescriptionEditModal, which caps at the schema's own 4096",
   },
 
+  // The create form asks for what a club cannot be entered without; the school type is answered on the
+  // club's own page afterwards.
+  FLCreateTeamFormPayloadSchema: { schulform: "the create draft sends the null the field allows; no control offers another value" },
+
   FLPostSaisonTeamPayloadSchema: { team_id: IN_THE_PATH, saison_id: THE_PAGE_SEASON },
-  FLPatchSaisonTeamPayloadSchema: { team_id: IN_THE_PATH, saison_id: IN_THE_PATH, austritt: RECORD_ITSELF },
+  FLPatchSaisonTeamPayloadSchema: {
+    team_id: IN_THE_PATH,
+    saison_id: IN_THE_PATH,
+    austritt: RECORD_ITSELF,
+    kontakte: RECORD_ITSELF,
+    "kontakte.trainer.einwilligung.umfang": ONE_SCOPE,
+    "kontakte.ansprechperson.einwilligung.umfang": ONE_SCOPE,
+    "kontakte.stellvertretung.einwilligung.umfang": ONE_SCOPE,
+  },
   FLReplaceSaisonTeamPayloadSchema: {
     team_id: IN_THE_PATH,
     saison_id: IN_THE_PATH,

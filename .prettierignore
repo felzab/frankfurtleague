@@ -33,6 +33,10 @@ pnpm-lock.yaml
 .claude/settings.local.json
 .env*
 *.pem
+# The copy of the production database `./scripts/local.sh --seed` leaves behind. Named here as well
+# as in .gitignore because `--ignore-path` replaces prettier's own .gitignore lookup, so without
+# this line the format scope fails on a dump's metadata and its remedy rewrites that dump.
+.local-db/
 .DS_Store
 npm-debug.log*
 yarn-debug.log*

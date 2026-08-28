@@ -1,6 +1,7 @@
 import {
   Calendar,
   ClockArrowRotateLeft,
+  Envelope,
   ExclamationShape,
   Magnifier,
   MapPin,
@@ -20,6 +21,7 @@ import type React from "react";
  */
 export const ADMIN_SIDEMENU_ICONS = {
   ExclamationShape,
+  Envelope,
   Magnifier,
   Medal,
   Person,
@@ -146,6 +148,16 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         hint: {
           // The Teams entry's appositive, for the same reason it is written there.
           lead: "Alle Spieler über alle Saisons, mit den Angaben der gewählten Saison.",
+        },
+      },
+      {
+        id: "kontakte",
+        label: "Kontakte",
+        iconName: "Envelope",
+        hint: {
+          // What the list is scoped to, which the rows alone cannot say: the same school is reached
+          // through different people from one season to the next.
+          lead: "Wer für die Teams der gewählten Saison erreichbar ist.",
         },
       },
       {

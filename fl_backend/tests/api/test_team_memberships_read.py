@@ -1,4 +1,4 @@
-from app.api.teams.schemas import FLTeamsMembershipsResponse
+from app.api.teams.schemas import FLTeamMembership, FLTeamsMembershipsResponse
 from app.api.teams.services import build_team_memberships_pipeline
 
 
@@ -8,11 +8,13 @@ class TestTheMembershipsPipeline:
         stages = [next(iter(stage)) for stage in build_team_memberships_pipeline()]
         assert "$match" not in stages
 
-    def test_the_lookup_projects_the_junction_data_fields_only(self):
+    def test_the_lookup_projects_exactly_what_the_membership_model_declares(self):
+        """Against the MODEL, not a hand-copied list: a field added to the junction reaches this read only by being named on both."""
+
         lookup = next(stage["$lookup"] for stage in build_team_memberships_pipeline() if "$lookup" in stage)
         assert lookup["from"] == "saison_teams"
         projection = lookup["pipeline"][0]["$project"]
-        assert projection == {"_id": 0, "saison_id": 1, "gruppe": 1, "austritt": 1}
+        assert projection == {"_id": 0} | {name: 1 for name in FLTeamMembership.model_fields}
 
     def test_it_sorts_by_name(self):
         assert build_team_memberships_pipeline()[-1] == {"$sort": {"name": 1}}

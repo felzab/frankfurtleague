@@ -4,16 +4,26 @@ import { useState } from "react";
 
 import { Pencil } from "@gravity-ui/icons";
 
-import { FieldError, Input, TextField } from "@heroui/react";
+import { FieldError, Input, ListBox, Select, TextField } from "@heroui/react";
 
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
 import { DescriptionEditModal } from "@/features/teams/components/modals/DescriptionEditModal";
+import { SCHULFORM_OPTIONS, schulformLabel } from "@/features/teams/constants";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
-import type { FLPostTeamPayload } from "@/features/teams/schemas";
+import type { FLPostTeamPayload, FLSchulform } from "@/features/teams/schemas";
+import type { Key } from "@heroui/react";
+
+/** The picker's key for the answer the field spells as `null`, a listbox having no empty item. */
+const SCHULFORM_UNBEANTWORTET = "unbeantwortet";
+
+/** `GruppeSelect`'s item, minus the fill state that picker's rows carry. */
+const SCHULFORM_ITEM =
+  "text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center rounded-lg px-3 py-2.5 font-bold transition-colors duration-200";
 
 /**
  * The Kürzel uppercases as it is typed: it is unique across every club, retired ones included, so
@@ -24,13 +34,24 @@ export function FormVereinSection({
   draft,
   onChange,
   onFieldLeft,
+  onValidateSelection,
 }: {
   draft: FLPostTeamPayload;
   onChange: (updated: FLPostTeamPayload) => void;
   onFieldLeft: (paths: readonly string[]) => void;
+  /** Judged with the value that arrived in the event, because state has not committed yet. */
+  onValidateSelection: (paths: readonly string[], selected: { schulform: FLSchulform | null }) => void;
 }) {
   const panel = formPanel();
   const [isEditingDescription, setIsEditingDescription] = useState(false);
+
+  const handleSchulformChange = (key: Key | null) => {
+    if (key === null) return;
+    const picked = key.toString() === SCHULFORM_UNBEANTWORTET ? null : (key.toString() as FLSchulform);
+
+    onChange({ ...draft, schulform: picked });
+    onValidateSelection(["schulform"], { schulform: picked });
+  };
 
   return (
     <section className={panel.root()}>
@@ -90,6 +111,47 @@ export function FormVereinSection({
           />
           <FieldError className={FIELD_ERROR} />
         </TextField>
+
+        <div className="flex w-full flex-col gap-y-1 sm:max-w-96">
+          <FieldLabel path="schulform">Schulform</FieldLabel>
+          {/* Judged on CHANGE rather than on blur, as every picked field is: a selection is complete
+              the moment it is made. */}
+          <Select
+            name="schulform"
+            aria-label="Schulform"
+            value={draft.schulform ?? SCHULFORM_UNBEANTWORTET}
+            onChange={handleSchulformChange}
+            className="w-full">
+            <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+              {/* From the prop, not `Select.Value` — the collection can lag a render behind and would
+                  then show HeroUI's English placeholder. */}
+              <span className={draft.schulform ? "" : "text-foreground-muted"}>
+                {draft.schulform ? schulformLabel(draft.schulform) : "Keine Angabe"}
+              </span>
+              <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+            </Select.Trigger>
+            <FieldError className={FIELD_ERROR} />
+            <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
+              <ListBox aria-label="Schulformen">
+                <ListBox.Item
+                  id={SCHULFORM_UNBEANTWORTET}
+                  textValue="Keine Angabe"
+                  className={SCHULFORM_ITEM}>
+                  Keine Angabe
+                </ListBox.Item>
+                {SCHULFORM_OPTIONS.map((option) => (
+                  <ListBox.Item
+                    key={option.value}
+                    id={option.value}
+                    textValue={option.label}
+                    className={SCHULFORM_ITEM}>
+                    {option.label}
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Select.Popover>
+          </Select>
+        </div>
 
         <WebsiteUrlField
           value={draft.website_url}

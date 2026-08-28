@@ -11,6 +11,7 @@ import { swapGruppenAction } from "@/features/saisons/actions";
 import { findSwapPartnerRefusal } from "@/features/saisons/utils";
 import { postSaisonTeamAction } from "@/features/teams/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
+import { TrikotFarbeSelect } from "@/features/teams/components/forms/TrikotFarbeSelect";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
@@ -28,7 +29,7 @@ import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
-import type { FLGruppenNames } from "@/features/teams/schemas";
+import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { GruppeOffer, TeamGruppeLock, TeamSaisonContext } from "@/features/teams/types";
 import type { RefusableOption } from "@/shared/components/ui/RefusableSelect";
 import type { TeamBanner } from "./banners";
@@ -239,6 +240,9 @@ export function FormSaisonSection({
   gruppe,
   onGruppeChange,
   onValidateSelection,
+  trikotFarbe,
+  onTrikotFarbeChange,
+  onValidateTrikotSelection,
   swap,
   teamId,
   banners,
@@ -257,6 +261,10 @@ export function FormSaisonSection({
   gruppe: FLGruppenNames | null;
   onGruppeChange: (next: FLGruppenNames) => void;
   onValidateSelection: (paths: readonly string[], selected: { gruppe: FLGruppenNames }) => void;
+  /** The season's kit colour, or null while the club has not named one. */
+  trikotFarbe: FLTrikotFarbe | null;
+  onTrikotFarbeChange: (next: FLTrikotFarbe | null) => void;
+  onValidateTrikotSelection: (paths: readonly string[], selected: { trikot_farbe: FLTrikotFarbe | null }) => void;
   /** The selected season's swap state, from `buildGruppenSwapContext`. */
   swap: SaisonGruppenSwapContext;
   teamId: string;
@@ -316,8 +324,8 @@ export function FormSaisonSection({
 
       <div className={panel.body()}>
         {isMember ? (
-          gruppeLock.locked ? (
-            <>
+          <>
+            {gruppeLock.locked ? (
               <div className="flex w-full flex-col gap-y-1">
                 <FieldLabel path="gruppe">Gruppe</FieldLabel>
                 <div className="border-border bg-muted/40 text-foreground fluid-sm flex h-10 w-full items-center gap-x-2 rounded-lg border px-3 font-bold sm:max-w-60">
@@ -325,41 +333,55 @@ export function FormSaisonSection({
                   {gruppe ? `Gruppe ${gruppe}` : "Keine Gruppe"}
                 </div>
               </div>
-
-              {/* Why the row is locked is the swap control's to say: the lock is one condition where
-                  the swap grades four, so a second sentence here could only disagree with it. */}
-              {self !== null && (
-                <GruppenTauschControl
-                  saisonId={saison.saisonId}
-                  saisonStatus={saison.saisonStatus}
-                  swap={swap}
-                  self={self}
-                />
-              )}
-            </>
-          ) : (
-            <>
-              <div className={FIELD_PAIR}>
-                <div className="flex w-full flex-col gap-y-1">
-                  <FieldLabel path="gruppe">Gruppe</FieldLabel>
-                  <GruppeSelect
-                    value={gruppe}
-                    onChange={(next) => {
-                      onGruppeChange(next);
-                      onValidateSelection(["gruppe"], { gruppe: next });
-                    }}
-                    offer={gruppeOffer}
-                    withOwnLabel={false}
-                  />
+            ) : (
+              <>
+                <div className={FIELD_PAIR}>
+                  <div className="flex w-full flex-col gap-y-1">
+                    <FieldLabel path="gruppe">Gruppe</FieldLabel>
+                    <GruppeSelect
+                      value={gruppe}
+                      onChange={(next) => {
+                        onGruppeChange(next);
+                        onValidateSelection(["gruppe"], { gruppe: next });
+                      }}
+                      offer={gruppeOffer}
+                      withOwnLabel={false}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <InlineBanners
-                banners={banners}
-                spot="gruppe"
+                <InlineBanners
+                  banners={banners}
+                  spot="gruppe"
+                />
+              </>
+            )}
+
+            <div className={FIELD_PAIR}>
+              <div className="flex w-full flex-col gap-y-1">
+                <FieldLabel path="trikot_farbe">Trikotfarbe</FieldLabel>
+                <TrikotFarbeSelect
+                  value={trikotFarbe}
+                  onChange={(next) => {
+                    onTrikotFarbeChange(next);
+                    onValidateTrikotSelection(["trikot_farbe"], { trikot_farbe: next });
+                  }}
+                  withOwnLabel={false}
+                />
+              </div>
+            </div>
+
+            {/* Why the row is locked is the swap control's to say: the lock is one condition where
+                the swap grades four, so a second sentence here could only disagree with it. */}
+            {gruppeLock.locked && self !== null && (
+              <GruppenTauschControl
+                saisonId={saison.saisonId}
+                saisonStatus={saison.saisonStatus}
+                swap={swap}
+                self={self}
               />
-            </>
-          )
+            )}
+          </>
         ) : saison.saisonStatus === "future" && !isRetired ? (
           <div className="flex w-full flex-col gap-y-4">
             <InlineBanners

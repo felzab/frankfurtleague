@@ -7,9 +7,11 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
 from app.api.saisons.cache import invalidate_saison_cache
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.admin_router import get_teams_for_admin
-from app.api.teams.router import get_teams
-from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamsFilterParams
+from app.api.teams.router import get_team, get_teams
+from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamsFilterParams, FLTeamSingleFilterParams
+from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
@@ -28,6 +30,12 @@ TEAM_OIDS = {
 }
 
 RETIRED_ON = "2026-03-01"
+
+# The three values a leak would carry: a teacher's mailbox, the number the league runs its whole
+# WhatsApp channel on, and a private person's date of birth.
+KONTAKT_EMAIL = "a.koerner@helmholtz.example.de"
+KONTAKT_TELEFON = "+49 170 1234567"
+KONTAKT_GEBURTSDATUM = "1984-05-09"
 
 # The models the two endpoints DECLARE: FastAPI builds the query parameters from these, so what a
 # caller may ask for is settled here rather than by anything a handler body does with the answer.
@@ -85,6 +93,17 @@ def team_document(key: str, shorthand: str, *, inactive_since: str | None) -> di
     }
 
 
+def kontaktperson(nachname: str) -> dict[str, Any]:
+    return {
+        "vorname": "Anke",
+        "nachname": nachname,
+        "email": KONTAKT_EMAIL,
+        "telefon": KONTAKT_TELEFON,
+        "geburtsdatum": KONTAKT_GEBURTSDATUM,
+        "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+    }
+
+
 def junction_row(key: str, shorthand: str) -> dict[str, Any]:
     """A dict rather than a model: `saison_teams` has no model of the row."""
 
@@ -95,6 +114,15 @@ def junction_row(key: str, shorthand: str) -> dict[str, Any]:
         "austritt": None,
         "name": key,
         "shorthand": shorthand,
+        "trikot_farbe": "dunkelblau",
+        # What every case below is about. Stored on both clubs, so no read can pass by holding the
+        # one team that happens to carry none.
+        "kontakte": {
+            "trainer": kontaktperson("Trainerin"),
+            "ansprechperson": kontaktperson("Ansprechpartnerin"),
+            "stellvertretung": kontaktperson("Vertretung"),
+            "trainer_ist_ansprechperson": False,
+        },
     }
 
 
@@ -221,3 +249,59 @@ class TestARetiredClubStaysOutOfTheBaseTierReads:
         response = on_a_league(mongo_container, lambda database: read_teams_for_admin(database, filters))
 
         assert sorted(standing_names(response)) == ["Helmholtz", "Lessing"]
+
+
+@pytest.mark.db
+class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
+    """Three people's email, phone number and date of birth sit on the junction row, and both base-tier team reads join it."""
+
+    def test_the_corpus_really_stores_them(self, mongo_container: Any):
+        """First, because every case below would pass just as well against a season whose rows carried no contacts at all."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            return await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OIDS["Helmholtz"]})
+
+        row = on_a_league(mongo_container, body)
+
+        assert row["kontakte"]["trainer"]["email"] == KONTAKT_EMAIL
+        assert row["kontakte"]["stellvertretung"]["geburtsdatum"] == KONTAKT_GEBURTSDATUM
+
+    def test_the_aggregation_carries_none_of_it_back(self, mongo_container: Any):
+        """The RAW documents, before any model sees them: what the driver returned is what a leak would have to travel in."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            filters = FLTeamsFilterParams(saison_id=SAISON)
+            rules = FLSaisonRules.model_validate(saison_document()["rules"])
+            pipeline = build_team_pipeline(filters=filters, rules=rules)
+
+            return await database[Collection.TEAMS].aggregate(pipeline).to_list(length=None)
+
+        rows = on_a_league(mongo_container, body)
+
+        assert rows, "the pipeline matched nothing, so withholding is not what this proves"
+        for row in rows:
+            assert "kontakte" not in row
+            assert KONTAKT_TELEFON not in repr(row)
+
+    def test_the_list_endpoint_serves_none_of_it(self, mongo_container: Any):
+        response = on_a_league(mongo_container, lambda database: read_teams(database, base_filters()))
+
+        assert response.teams
+        assert KONTAKT_EMAIL not in response.model_dump_json()
+
+    def test_the_single_team_endpoint_serves_none_of_it_either(self, mongo_container: Any):
+        """The other public caller of the same pipeline, and the one an anonymous visitor reaches with an id in hand."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            return await get_team(
+                team_id=TEAM_OIDS["Helmholtz"],
+                teams_collection=database[Collection.TEAMS],
+                saisons_collection=database[Collection.SAISONS],
+                filters=FLTeamSingleFilterParams(saison_id=SAISON),
+            )
+
+        response = on_a_league(mongo_container, body)
+
+        assert response.team.name == "Helmholtz"
+        assert KONTAKT_EMAIL not in response.model_dump_json()
+        assert KONTAKT_GEBURTSDATUM not in response.model_dump_json()

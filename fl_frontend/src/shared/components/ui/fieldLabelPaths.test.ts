@@ -66,6 +66,9 @@ const PATH_TEMPLATE_BINDINGS: Record<string, readonly string[]> = {
   slot: ["team1", "team2"],
   fieldName: ["team1", "team2"],
   namePrefix: ["address"],
+  // The contacts panel renders one seat three times from `KONTAKT_ROLLEN`, so these paths resolve
+  // only there.
+  rolle: ["trainer", "ansprechperson", "stellvertretung"],
 };
 
 const componentOf = (file: string): string => path.posix.basename(file).split(".")[0] ?? "";

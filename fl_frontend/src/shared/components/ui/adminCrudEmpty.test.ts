@@ -17,11 +17,12 @@ const ACTIONS_WIDTH: Record<number, string> = { 1: "w-32", 2: "w-36", 3: "w-48",
 
 /**
  * Every admin CRUD list whose empty message sits inside a react-aria table; the markup was
- * byte-identical in all six, which let it drift out of one unnoticed. `alternates` never show
+ * byte-identical in all of them, which let it drift out of one unnoticed. `alternates` never show
  * together; `freeText` is owed PER undeclared column, not per table.
  */
 const TABLES = [
   { file: "features/aktionen/components/collections/AdminAktionenTable.tsx", controls: 1, alternates: 0, freeText: 224 },
+  { file: "features/teams/components/collections/AdminKontakteTable.tsx", controls: 2, alternates: 0, freeText: 256 },
   { file: "features/saisons/components/collections/AdminSaisonsTable.tsx", controls: 3, alternates: 0, freeText: 304 },
   { file: "features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx", controls: 4, alternates: 1, freeText: 176 },
   { file: "features/spieler/components/collections/AdminSpielerTable.tsx", controls: 4, alternates: 1, freeText: 176 },
@@ -149,7 +150,7 @@ function tableOf(file: string): { content: Element | null; columns: Element[] } 
 
 const widthToken = (element: Element): string | undefined => element.classes.find((token) => /^w-/.test(token));
 
-describe("the six admin CRUD tables", () => {
+describe("the seven admin CRUD tables", () => {
   /* Read off the tree rather than off the roster's own length, which only a hand edit two lines above
      it could ever move: the drift worth catching is a seventh table added in some other slice. */
   it("are every collection in the tree that pairs the shared emptiness with a react-aria table", () => {

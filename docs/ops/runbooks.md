@@ -1,6 +1,6 @@
 # Ops — runbooks
 
-**Verified against:** `41fcf6f7`, 2026-08-27\
+**Verified against:** `1c70c28a`, 2026-08-27\
 **Purpose:** the recurring procedures that are run rather than read, and the operational facts no file in this repository states
 
 The contracts these depend on — the services, the scripts, the gate scopes and the registry — are
@@ -108,6 +108,29 @@ and resolves every season whose knockout slots draw on a group placing against t
 such row fails `GET /spiele/action_required` for the entire league — a `past` season's row
 included, which is the one nobody thinks to suspect. The two reports are independent: an orphan row can carry
 a perfectly good name, and a row missing its name can name a club that exists.
+
+### Giving `teams.schulform` a value for the clubs that predate it
+
+The property is declared outside the `teams` validator's `required`, so it fails no stored row and the
+deploy owes nothing. This fills in what a club's own name already says, so an administrator opens the
+editor to decide rather than to transcribe.
+
+Run it in `mongosh` against the application database, after the deploy, on a database whose `--check`
+reads clean:
+
+```javascript
+db.teams.updateMany({ schulform: null, name: /Gesamtschule/i }, { $set: { schulform: "gesamtschule" } });
+db.teams.updateMany({ schulform: null, name: /Oberstufengymnasium/i }, { $set: { schulform: "oberstufengymnasium" } });
+```
+
+**Those two are the whole of what a name can settle, and the omission is the point.** A club called
+`… Gymnasium` may run G8 or G9 and its name says neither, so writing one of them would be a guess stored
+as a fact — and a wrong `schulform` is invisible, because nothing downstream contradicts it. Every club a
+name cannot place keeps its null, which the editor shows as unset.
+
+The filter matches on `schulform: null` rather than on the whole collection, so a value somebody has
+already set by hand survives a second run and the statements are safe to repeat. Re-run
+`python -m app.core.constraints --check` afterwards, as every edit to stored documents does.
 
 ## 3. After changing anything about the brand mark
 

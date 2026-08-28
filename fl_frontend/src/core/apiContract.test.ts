@@ -63,6 +63,8 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSpielerPosition: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielerStufe: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielerRolle: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLSchulform: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLTrikotFarbe: "a Pydantic Literal alias, inlined as an enum at each use site",
   // The only alias here whose sole use site is a QUERY PARAMETER: no stored field carries the
   // status, so the use-site test below and `apiRequests.test.ts` are together what pin its members.
   FLSpielStatus: "a Pydantic Literal alias, published inline on the spiel_status query parameter and on no component field",
@@ -316,7 +318,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 108;
+const EXPECTED_PAIRS = 114;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

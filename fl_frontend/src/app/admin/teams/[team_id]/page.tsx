@@ -75,7 +75,15 @@ async function AdminTeamEditContent({
   const saison: TeamSaisonMembership = {
     saisonId: selectedSaison.id,
     saisonStatus: selectedSaison.status,
-    membership: membership === null ? null : { gruppe: membership.gruppe, austritt: membership.austritt },
+    membership:
+      membership === null
+        ? null
+        : {
+            gruppe: membership.gruppe,
+            austritt: membership.austritt,
+            trikot_farbe: membership.trikot_farbe,
+            kontakte: membership.kontakte,
+          },
   };
 
   // The season's groups with their fill state, counted over the same memberships read: a club
