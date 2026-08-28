@@ -1,13 +1,14 @@
 # Backend — overview
 
-**Verified against:** `1c70c28a`, 2026-08-27\
+**Verified against:** `bcc1de6d`, 2026-08-28\
 **Scope:** `fl_backend/`
 
 A FastAPI application over MongoDB, with a read router and a write router per resource. The
-single fact that explains most of its shape: **no browser ever talks to this service.** nginx routes `/api`
-here, but the only client is the Next.js container making server-side calls — which is why authentication is
-shared API keys rather than user sessions, and why caching lives entirely in the frontend. The endpoint
-inventory is [`spec.md`](spec.md) §1.1.
+single fact that explains most of its shape: **no browser ever talks to this service.** The edge carries one
+exact-match route here, the liveness probe (`nginx/prod.conf :: location = /api/v0/system/is_live`), and every
+other `/api` path falls through to the frontend — so the only client is the Next.js container calling over the
+Docker network, which is why authentication is shared API keys rather than user sessions, and why caching lives
+entirely in the frontend. The endpoint inventory is [`spec.md`](spec.md) §1.1.
 
 ## How it is organised
 
@@ -51,8 +52,9 @@ endpoint, which is why a read carries an `/admin` twin. [`spec.md`](spec.md) §1
 endpoint, and its `READ-*` rules are what each is served.
 
 The `system` slice carries no blanket guard at all: the endpoints needing one declare it themselves, and
-`/system/is_live` is deliberately unguarded — it is the container healthcheck, and a healthcheck that needs a
-secret fails for the wrong reasons.
+`/system/is_live` is deliberately unguarded — it is the container healthcheck and the public uptime probe both,
+and a probe that needs a secret fails for the wrong reasons. It is also the one route the edge carries to this
+service, which is safe because the probe takes no key and touches no database ([`spec.md`](spec.md) I7).
 
 Every admin router declares `bind_actor` in that same `dependencies` list, which is what attributes a write to
 the administrator who made it — and refuses one it cannot attribute, before the handler runs

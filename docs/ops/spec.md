@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `1c70c28a`, 2026-08-27\
+**Verified against:** `bcc1de6d`, 2026-08-28\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 | Section                                                | Answers                                                              |
@@ -39,9 +39,10 @@ application services' only** — `nginx` declares neither `cap_drop` nor `securi
 
 `nginx` declares `depends_on` both services with `condition: service_healthy`.
 
-**Note:** the backend healthcheck hardcodes `/api/v0/...`, and `API_VERSION` is a constant of the code
-rather than a setting ([`docs/backend/spec.md`](../backend/spec.md) §1.5). Bumping it is a code change,
-made in the same commit as this healthcheck — §4 carries the gap that leaves.
+**Note:** `API_VERSION` is a constant of the code rather than a setting
+([`docs/backend/spec.md`](../backend/spec.md) §1.5), so bumping it is a code change — and the version is
+spelled again outside the code, in each compose file's backend healthcheck and in the liveness location of
+both nginx configs (§1.3). Every one of them moves in that same commit, and §4 names them.
 
 ### 1.2 Mounts
 
@@ -58,15 +59,21 @@ this before starting.
 
 Longest-prefix match. Order in the file is irrelevant; specificity decides.
 
-| Location              | Upstream        | Notes                                                                                         |
-| --------------------- | --------------- | --------------------------------------------------------------------------------------------- |
-| `/api/auth`           | `frontend:3000` | Auth.js — more specific than `/api`, so it wins                                               |
-| `= /api/client-error` | `frontend:3000` | Next route handler, `limit_req zone=clienterr` ([`docs/logging/spec.md`](../logging/spec.md)) |
-| `/api/admin/`         | `frontend:3000` | The page-owned editors' undo handlers                                                         |
-| `/api`                | `backend:8000`  | Everything else API                                                                           |
-| `= /signin`           | `frontend:3000` | `limit_req zone=signin burst=3 nodelay`                                                       |
-| `/_next/static/`      | `frontend:3000` | `expires max`, `Cache-Control: public, max-age=31536000, immutable`                           |
-| `/`                   | `frontend:3000` | Catch-all                                                                                     |
+| Location                   | Upstream        | Notes                                                                                         |
+| -------------------------- | --------------- | --------------------------------------------------------------------------------------------- |
+| `/api/auth`                | `frontend:3000` | Auth.js's catch-all route handler                                                             |
+| `= /api/client-error`      | `frontend:3000` | Next route handler, `limit_req zone=clienterr` ([`docs/logging/spec.md`](../logging/spec.md)) |
+| `/api/admin/`              | `frontend:3000` | The page-owned editors' undo handlers                                                         |
+| `= /api/v0/system/is_live` | `backend:8000`  | The liveness probe, and the only backend path the edge exposes (§3)                           |
+| `= /signin`                | `frontend:3000` | `limit_req zone=signin burst=3 nodelay`                                                       |
+| `/_next/static/`           | `frontend:3000` | `expires max`, `Cache-Control: public, max-age=31536000, immutable`                           |
+| `/`                        | `frontend:3000` | Catch-all                                                                                     |
+
+**Every other `/api/...` request matches `location /` and is answered with Next's HTML 404** — the liveness
+location is exact-match precisely so that nothing can join it there. Nothing in the application meets that
+404: every application read of the API is a server-side fetch across `frankfurtleague-net` to `API_URL`
+([`../frontend/overview.md`](../frontend/overview.md)) rather than a request through the edge, so a browser
+or anything off this host is what meets it.
 
 Server blocks: port 80 redirects to HTTPS and strips `www.`; a `default_server` block on 443 rejects
 unknown hosts with `ssl_reject_handshake`; a second HTTPS block serves `www.frankfurtleague.de` and
@@ -583,9 +590,10 @@ its human-readable line on stderr, where it cannot reach the outputs.
 | A directory appeared named `something;C`                                      | MSYS rewrote a POSIX-looking path in a hand-typed `docker run -v`                                                                                            | Delete it, and prefix the command with `MSYS_NO_PATHCONV=1`                                                                                                           |
 | `UnicodeEncodeError: 'charmap' codec` from `fastapi dev`                      | Windows only, when the output is piped or redirected                                                                                                         | The CLI banner needs UTF-8. Prefix the command with `PYTHONUTF8=1`                                                                                                    |
 | Static assets served without security headers                                 | A `location` block set a header and dropped the inherited set                                                                                                | I2 — repeat every header in that block                                                                                                                                |
-| Backend healthcheck fails after an API version bump                           | The check hardcodes `/api/v0/`                                                                                                                               | Update the healthcheck path in `docker-compose.yml`                                                                                                                   |
+| Backend healthcheck fails after an API version bump                           | The healthcheck spells the API version itself                                                                                                                | Move the path in both compose files, and in both nginx configs with them (§1.1)                                                                                       |
+| The uptime monitor 404s while the backend container reports healthy           | The nginx liveness location still spells the old version, so the probe matches `location /` and Next answers it                                              | Move the path in both nginx configs. The healthcheck and the edge are separate spellings of the version, and neither proves the other (§1.1)                          |
 | Sign-in returns 429                                                           | Working as intended — the sign-in POST is rate-limited at the edge                                                                                           | Nothing. The limit is `nginx/prod.conf`'s `signin` zone, and it applies to POST alone (I4)                                                                            |
-| Uptime monitor shows green during a backend outage                            | The error page streams after headers, so the edge status is 200                                                                                              | Monitor `GET /api/v0/system/is_live` through the edge instead ([`docs/logging/spec.md`](../logging/spec.md))                                                          |
+| Uptime monitor shows green during a backend outage                            | The error page streams after headers, so the edge status is 200                                                                                              | Monitor `GET /api/v0/system/is_live` through the edge — the one backend path it exposes, published for this (§1.3, [`docs/logging/spec.md`](../logging/spec.md))      |
 | Container logs are empty right after a deploy                                 | Working as intended — `json-file` logs live in the container, and `--force-recreate` replaces it                                                             | Nothing. Copy them off before deploying ([`docs/logging/spec.md`](../logging/spec.md))                                                                                |
 | Reference data stale for up to a day                                          | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                                        | Nothing. The bound is the cache lifetime: wait for the daily expiry, or recreate the frontend container                                                               |
 | League table or fixtures stale after a season edit                            | Same cause — a season decides the default season and the points                                                                                              | Same remedy; recreation drops every cached page at once                                                                                                               |
@@ -594,7 +602,7 @@ its human-readable line on stderr, where it cannot reach the outputs.
 
 | #      | Item                                                                  | State                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------ | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| —      | Backend healthcheck hardcodes `/api/v0/`                              | Open — it works today and breaks silently on an API version bump (§3 carries the symptom)                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| —      | The API version is spelled outside the code                           | Open — every spelling works today and each breaks silently on an API version bump (§3 carries both symptoms). The sites that move with it are the backend healthcheck in each compose file (`docker-compose.yml :: backend`, `docker-compose.local.yml :: backend`) and the liveness location in each nginx config (`nginx/prod.conf :: location = /api/v0/system/is_live`, `nginx/local.conf :: location = /api/v0/system/is_live`)                                                                                                       |
 | —      | Registry tag pruning is manual                                        | Accepted — a botched delete destroys rollback history. The retention procedure is in §1.5                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | —      | Revoking admin access needs a restart                                 | Accepted — the allowlist is validated at boot; after it, `role` is re-derived per request and the session dies                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | —      | `nginx` drops no capabilities                                         | Open — the two application services carry `cap_drop: ALL` and `no-new-privileges:true` and `nginx` carries neither, and the asymmetry is undecided                                                                                                                                                                                                                                                                                                                                                                                         |

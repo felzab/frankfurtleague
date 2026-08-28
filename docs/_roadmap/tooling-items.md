@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `1c70c28a`, 2026-08-27\
+**Verified against:** `bcc1de6d`, 2026-08-28\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -52,7 +52,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 3   | OPS-82 | A citation written as a link arms no re-verification        | Ops, Docs     | S      | Open     | —          |
 | 4   | OPS-86 | A root-level file arms no page, whatever cites it           | Ops, Docs     | S      | Open     | —          |
 | 5   | OPS-75 | The comment reader drops the blocks it exists to measure    | Ops, Docs     | S      | Open     | —          |
-| 6   | OPS-64 | The whole API is on the internet, behind static keys        | Ops, Docs     | S      | Open     | —          |
+| 6   | OPS-64 | The whole API is on the internet, behind static keys        | Ops, Docs     | S      | Closed   | —          |
 | 7   | OPS-84 | The linter runs a version past its end of life              | FE, Ops, Docs | M      | Open     | —          |
 | 8   | OPS-67 | The runner cannot load a component, so none is tested       | FE, Ops, Docs | M      | Open     | —          |
 | 9   | OPS-76 | Most of the database tier runs unconstrained                | BE, Ops       | M      | Open     | —          |
@@ -578,7 +578,7 @@ OPS-64 up anyway, and putting startable instrument fixes above it costs OPS-64 n
 
 ### 6 · OPS-64 — The whole API is on the internet, and the invariant one file away says it is not
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
 **Path:** Independent of every entry here, and **not startable by a session**: two values in `.env`
@@ -669,6 +669,30 @@ fault is not the class that fails a test: the config is mounted read-only, nginx
 upstreams being healthy before it serves anything, and a bad block takes the site down rather than
 turning something red. Its own branch, and `./scripts/deploy.sh --status` either side of a deploy
 somebody is watching.
+
+**What concluded it.** The edge carries `nginx/prod.conf :: location = /api/v0/system/is_live` and
+nothing else to this service, so every other endpoint answers only from inside
+`frankfurtleague-net` and the static keys are defence in depth rather than the single control.
+
+The design question above is answered by keeping the remedy, and the argument lives at the block
+itself: an exact-match `location` carries the monitoring remedy that
+[`docs/ops/spec.md`](../ops/spec.md) §3 prescribes, because the probe needs no key and touches no
+database. §4 of that sheet holds the hardcoded `/api/v0/` this adds to its list.
+
+**Both `.env` values are settled, and each was the opposite of what this entry assumed.**
+`API_URL` already names the internal service, confirmed 2026-08-28, so no repointing preceded the
+deletion. `api_trusted_hosts` carries the service name rather than the public one — so a
+request arriving through the edge was already answered 400 by `TrustedHostMiddleware`, and the
+exposure this entry describes was narrower than it reads. That is also what the liveness block had to
+survive: it sets `Host` to the upstream `proxy_pass` names, so the probe presents itself the way the
+frontend's own calls do and the allowlist needs no public entry. Measured 2026-08-28 against a
+throwaway proxy on the stack's network: with the override 200, without it 400.
+
+**Rehomed rather than decided here.** The over-scoped base key stays open — the block was what made
+it matter, and removing the block narrows the exposure without narrowing the key.
+[**OPS-78**](#14--ops-78--the-local-edge-claims-to-mirror-production-and-nothing-reads-either-half-of-the-claim)
+grows: this adds a `location` to `nginx/local.conf` that nothing parses, and the mirror it depends on
+is now the one thing standing between a local verification and a production route.
 
 ### 7 · OPS-84 — The linter runs a version past its end of life, and the documentation for it describes another
 

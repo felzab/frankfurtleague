@@ -87,7 +87,7 @@ services:
 
       # The API version is hardcoded here and must match
       # `fl_backend/app/core/config.py :: API_VERSION`, which records why it is a constant rather
-      # than a setting. Bump both.
+      # than a setting. `docs/ops/spec.md` §4 records every site a bump has to reach.
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v0/system/is_live', timeout=10)"]
       interval: 30s
       timeout: 10s

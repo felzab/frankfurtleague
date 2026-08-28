@@ -1,6 +1,6 @@
 # Logging
 
-**Verified against:** `77078f34`, 2026-08-20
+**Verified against:** `bcc1de6d`, 2026-08-28
 
 **Folder purpose:** how a request is followed across nginx, the frontend and the backend — what a
 log line is on each surface, what an error code means, and how to get from a symptom to the right
@@ -27,8 +27,9 @@ lines.
   network; a large backend `duration_ms` is the application.
 - **Uptime monitoring.** A total backend outage still serves HTTP 200, because the error boundary
   streams after the headers are sent. Monitor `GET /api/v0/system/is_live` through the edge
-  instead — it is deliberately unguarded (`fl_backend/app/core/security.py`) and answers from the
-  backend itself.
+  instead — `nginx/prod.conf :: location = /api/v0/system/is_live` is the one backend path the edge carries,
+  and the probe is deliberately unguarded (`fl_backend/app/api/system/router.py :: check_is_live`), so it
+  answers from the backend itself.
 
 ## Read next
 

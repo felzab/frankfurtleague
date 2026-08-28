@@ -1,6 +1,6 @@
 # Ops — overview
 
-**Verified against:** `1c70c28a`, 2026-08-27\
+**Verified against:** `bcc1de6d`, 2026-08-28\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Three containers behind nginx on one host, deployed by pulling published images. There is no orchestrator,
@@ -27,7 +27,7 @@ graph TB
 
     internet --> cf
     cf --> nginx
-    nginx -->|"/api"| be
+    nginx -->|"/api/v0/system/is_live"| be
     nginx -->|"/api/auth · /api/client-error · /api/admin/ · /signin · /_next/static · /"| fe
     fe -->|"server-side fetch"| be
     fe -->|"authjs database only"| mongo
@@ -73,14 +73,15 @@ header Cloudflare can promote to a 103. What is actually set is readable only in
 
 ## Routing
 
-nginx matches by longest prefix, and the rule to carry away is that **`/api` goes to the backend while the
-more specific `/api` locations do not**: `/api/auth`, `= /api/client-error` and `/api/admin/` each reach the
-frontend. The table, with its rate-limit zones and cache headers, is [`spec.md`](spec.md) §1.3.
+nginx matches by longest prefix, and the rule to carry away is that **the frontend takes everything except
+one exact path**: `= /api/v0/system/is_live` is the whole of what the edge hands the backend, and every other
+`/api/...` request falls to the catch-all and is answered by Next. The table, with its rate-limit zones and
+cache headers, is [`spec.md`](spec.md) §1.3.
 
-That is what makes **a frontend route handler unreachable from the internet unless an nginx location
-publishes it** — and the reason adding a location for one publishes it. FastAPI's Swagger UI is affected the
-same way: it sits at the app root (`/docs`) rather than under `/api`, so the public `/docs` reaches Next
-instead, which is why the API documentation is a development and in-network tool.
+That is what makes **a route unreachable from the internet unless an nginx location publishes it** — and the
+reason adding a location for one publishes it. FastAPI's Swagger UI falls under the same rule: it sits at the
+app root (`/docs`), which the catch-all sends to Next, so the API documentation is a development and
+in-network tool.
 
 ## Security posture
 
