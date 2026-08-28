@@ -1,7 +1,8 @@
 export const CORRELATION_HEADER = "X-Correlation-ID";
 
-// Blanked at the edge on everything nginx proxies (`nginx/prod.conf`), so the actor a write is
-// attributed to can only be the one the session set (`docs/backend/spec.md :: I41`).
+// No proxied path reaches a backend write, so the actor is always the one the session set
+// (`docs/backend/spec.md :: I41`). The edge blanks a visitor's header too (`nginx/prod.conf`),
+// which is depth rather than the guarantee.
 export const ACTOR_HEADER = "X-FL-Actor";
 
 // Wider than the 32 hex nginx mints, so other well-formed ids pass without admitting arbitrary

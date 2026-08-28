@@ -26,10 +26,12 @@ lines.
   carries `duration_ms`. An edge duration with no matching upstream duration is nginx or the
   network; a large backend `duration_ms` is the application.
 - **Uptime monitoring.** A total backend outage still serves HTTP 200, because the error boundary
-  streams after the headers are sent. Monitor `GET /api/v0/system/is_live` through the edge
-  instead — `nginx/prod.conf :: location = /api/v0/system/is_live` is the one backend path the edge carries,
-  and the probe is deliberately unguarded (`fl_backend/app/api/system/router.py :: check_is_live`), so it
-  answers from the backend itself.
+  streams after the headers are sent. Monitor
+  `GET https://frankfurtleague.de/api/v0/system/is_live` instead — the apex host and no trailing slash,
+  since either variation answers a redirect a monitor reads as green ([`../ops/spec.md`](../ops/spec.md)
+  §3). It is the one backend path the edge carries (that page's I13), and the probe is deliberately
+  unguarded (`fl_backend/app/api/system/router.py :: check_is_live`), so it answers from the backend
+  itself.
 
 ## Read next
 

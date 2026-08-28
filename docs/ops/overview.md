@@ -38,8 +38,8 @@ graph TB
 both application services at it, so its two database arrows reach a container rather than the cluster
 ([`spec.md`](spec.md) §1.5).
 
-**Only nginx publishes a port another host can reach** ([`spec.md`](spec.md) I1), so anything not in nginx's
-routing table does not exist for the internet.
+**Only nginx publishes a port another host can reach** ([`spec.md`](spec.md) I1), so nginx's routing table
+is the whole of what the internet can address on this host.
 
 **The two arrows into the cluster are two different database users**, neither holding a `*AnyDatabase` role: the
 backend on the application database alone, Auth.js on `authjs` alone, read from the cluster's users 2026-08-02
@@ -75,13 +75,15 @@ header Cloudflare can promote to a 103. What is actually set is readable only in
 
 nginx matches by longest prefix, and the rule to carry away is that **the frontend takes everything except
 one exact path**: `= /api/v0/system/is_live` is the whole of what the edge hands the backend, and every other
-`/api/...` request falls to the catch-all and is answered by Next. The table, with its rate-limit zones and
-cache headers, is [`spec.md`](spec.md) §1.3.
+`/api/...` request reaches Next — some through a block naming it, the rest through the catch-all. The
+table, with its rate-limit zones and cache headers, is [`spec.md`](spec.md) §1.3.
 
-That is what makes **a route unreachable from the internet unless an nginx location publishes it** — and the
-reason adding a location for one publishes it. FastAPI's Swagger UI falls under the same rule: it sits at the
-app root (`/docs`), which the catch-all sends to Next, so the API documentation is a development and
-in-network tool.
+That is what makes **a backend route unreachable from the internet unless an nginx location publishes it**,
+and adding a location for one is what publishes it ([`spec.md`](spec.md) I13). A frontend route runs the other
+way round: the catch-all carries every path nginx does not name to Next, so a route handler is reachable from
+the internet the moment it exists, and its own authorization is all that stands in front of it. FastAPI's
+Swagger UI is the backend half of that rule — it sits at the app root (`/docs`), which the catch-all sends to
+Next, so the API documentation is a development and in-network tool.
 
 ## Security posture
 
@@ -90,9 +92,10 @@ The values and the arguments behind them are [`spec.md`](spec.md) §1.3–§1.4 
 - **The origin is hardened even though a proxy sits above it** — TLS 1.2/1.3 only, one enforced CSP, the
   security header set, and a `default_server` rejecting an unknown `Host` at TLS time rather than forwarding
   it verbatim to Next ([`spec.md`](spec.md) I3).
-- **The public, unauthenticated entry points are rate-limited at the edge** — the sign-in POST, whose action
-  id ships in a client chunk, and the client-error ingest ([`spec.md`](spec.md) §1.3; the sign-in limit
-  applies to POST alone, I4).
+- **The published unauthenticated writes are rate-limited at the edge** — the sign-in POST, whose action id
+  ships in a client chunk, and the client-error ingest ([`spec.md`](spec.md) §1.3; the sign-in limit applies
+  to POST alone, I4). **The liveness probe is published unauthenticated too and carries no zone**, which is a
+  decision §1.3 records rather than an omission.
 - **`'unsafe-inline'` on `script-src` is deliberate**, its compensating control being the `react/no-danger`
   lint rule — a nonce cannot cover build-time prerendered HTML.
 - **The two application containers drop all capabilities** and set `no-new-privileges`; the nginx container

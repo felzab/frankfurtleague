@@ -351,6 +351,21 @@ if (( HEALTHY )); then
     warn "Could not read the headers over HTTPS — check nginx and the certificates in certs/."
   fi
 
+  # The container healthcheck calls this from inside, so it stays green while the edge answers a
+  # monitor 404 or 400 (docs/ops/spec.md I13). The version is spelled here -- §4 names the sites a
+  # version left behind breaks.
+  step "The liveness probe, through the edge"
+  probe_url="https://frankfurtleague.de/api/v0/system/is_live"
+  probe_code="$(curl -s -o /dev/null -w '%{http_code}' --max-redirs 0 --max-time 10 "$probe_url" 2>/dev/null || true)"
+  if [[ "$probe_code" == "200" ]]; then
+    ok "the edge answers it"
+  else
+    SITE_VERIFIED=0
+    warn "The edge answered /api/v0/system/is_live with ${probe_code:-no status}, not 200. An uptime
+monitor watching it sees the same thing. Check nginx's liveness location, api_trusted_hosts, and
+whether anything in front is redirecting."
+  fi
+
   # nginx is what actually serves the site, and it has no healthcheck of its own to wait on. Without
   # this, "healthy" could print while the site is unreachable.
   step "nginx"

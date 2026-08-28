@@ -472,10 +472,11 @@ that URL's protocol, so a stray `http://` value would ship an admin session cook
 gated on hostname rather than `NODE_ENV`, because the local stack runs the production image against
 `http://localhost:3000`.
 
-The `API_URL` origin rule exists because the public origin reaches FastAPI on one exact path only
-([`docs/ops/spec.md`](../ops/spec.md) §1.3), so an `API_URL` standing on the public origin `AUTH_URL`
-names would be answered by Next's HTML 404 on every call the frontend makes — no read and no write
-would reach a handler at all. Caught at boot rather than at the first request.
+The `API_URL` origin rule exists because the public origin reaches FastAPI on the liveness path
+alone ([`docs/ops/spec.md`](../ops/spec.md) §1.3), so an `API_URL` standing on the public origin
+`AUTH_URL` names would leave `checkIsLive` answering 200 while Next's HTML 404 met every other read
+and write. The boot refusal is what stops that half-alive shape reaching a page, where the footer's
+green probe would read as a healthy site.
 
 `AUTH_TRUST_HOST` is deliberately **not** declared: `@auth/core` reads `AUTH_URL` first in the same
 chain, and `AUTH_URL` is mandatory, so the variable can never be reached.

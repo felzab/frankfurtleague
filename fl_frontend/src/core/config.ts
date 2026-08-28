@@ -5,9 +5,9 @@ import { z } from "zod";
 
 export const frontend_config = createEnv({
   server: {
-    // The public origin reaches FastAPI on one exact path only (`nginx/prod.conf`), so an API_URL
-    // sharing AUTH_URL's origin collects Next's HTML 404 for every call the frontend makes. Caught
-    // at boot rather than at the first request.
+    // The public origin reaches FastAPI on the liveness path alone, so an API_URL sharing
+    // AUTH_URL's origin leaves the footer's probe green while Next's 404 answers every other
+    // call (`docs/ops/spec.md :: I13`). Caught at boot: that shape reads as healthy.
     API_URL: z.url().refine((raw) => {
       const authUrl = process.env.AUTH_URL;
       return !authUrl || new URL(raw).origin !== new URL(authUrl).origin;
