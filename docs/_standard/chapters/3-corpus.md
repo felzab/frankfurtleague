@@ -1,6 +1,6 @@
 # The documentation corpus
 
-**Verified against:** `1c70c28a`, 2026-08-27\
+**Verified against:** `dbe2978e`, 2026-08-28\
 **Applies to:** the `docs/` tree — its layers, its layout, and every README in the repository.
 
 | ID    | Rule                              |
@@ -25,8 +25,10 @@ CLAUDE.md §7 line, or a spec-sheet invariant — with the argument in the commi
 corpus stay true without a scheduled review.
 
 **Exceptions:** the cross-cutting references (OUT-8), the process folders (`docs/_standard/`,
-`docs/_auditing/`, `docs/_git/`, `docs/_roadmap/`), and `docs/domain.md` — a narrative over tables a
-test walks, so its claims are checked rather than reviewed.
+`docs/_auditing/`, `docs/_git/`, `docs/_roadmap/`), `docs/domain.md` — a narrative over tables a test
+walks, so its claims are checked rather than reviewed — and `docs/ops/runbooks.md`, the one page that
+is neither layer: a procedure is followed at a keyboard rather than read for a constraint, so it is
+edited when the procedure changes and belongs beside the surface it operates.
 
 **Enforced by:** unenforced — review judgment.
 
@@ -60,8 +62,11 @@ exactly four sections: `1. Contract`, holding as many `1.<n>` subsections as the
 `2. Invariants`; `3. Violation → remedy`; and `4. Known-open`.
 
 The invariant table is three columns — the number, the invariant, and what enforces it. Numbers are
-permanent and never reused, `I<n>` on a surface sheet and `L<n>` on the logging sheet, because an id
-is resolved across every sheet and one prefix per sheet is what keeps a cited number unambiguous.
+`I<n>` on a surface sheet and `L<n>` on the logging sheet, permanent and never reused **within their
+own sheet**, so that a comment citing one keeps pointing at what it cited. They are not unique across
+the corpus — `I13` is defined on three sheets — and the gate scopes its duplicate test to one sheet
+for that reason (`scripts/docs_gate/perkind.py :: check_invariant_tables`). What disambiguates a
+citation is therefore the file, not the prefix: a citation crossing sheets names the sheet.
 **Section 2 holds that table and nothing else**; a symptom a reader would observe is a row in section
 3, and the argument for an invariant is in the commit that made it. Every claim carries an anchored
 citation (COR-6).
