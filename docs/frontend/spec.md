@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `bcc1de6d`, 2026-08-28\
+**Verified against:** `1455c46b`, 2026-08-28\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |

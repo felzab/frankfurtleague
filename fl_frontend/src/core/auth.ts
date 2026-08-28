@@ -8,6 +8,7 @@ import { buildMagicLinkEmail } from "./authEmail";
 import { frontend_config } from "./config";
 import { client } from "./db";
 import { logger } from "./logging";
+import { sendMail } from "./mail";
 import { setRequestActor } from "./requestScope";
 
 import type { Session } from "next-auth";
@@ -23,29 +24,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: MongoDBAdapter(client, { databaseName: MONGO_DB_NAME }),
   providers: [
     Resend({
-      from: "no-reply@frankfurtleague.de",
       // Far below the provider's default: a sign-in link is a bearer credential sitting in an inbox.
       // `fl_frontend/src/core/authEmail.ts :: LINK_VALIDITY_TEXT` states it to the reader -- keep
       // the two in step.
       maxAge: 15 * 60,
       /**
-       * Transport only — the message is `fl_frontend/src/core/authEmail.ts`. Mirrors
-       * `@auth/core/providers/resend.js`: same endpoint, auth header and error shape, so a Resend
-       * failure still surfaces the API's message.
+       * Transport only — the message is `fl_frontend/src/core/authEmail.ts`, the send is
+       * `fl_frontend/src/core/mail.ts :: sendMail`, which owns the sender. Setting the provider's
+       * `from` or `apiKey` here configures a path nothing reads.
        */
-      async sendVerificationRequest({ identifier: to, provider, url }) {
+      async sendVerificationRequest({ identifier: to, url }) {
         const { subject, html, text } = buildMagicLinkEmail(url);
 
-        const res = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${provider.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ from: provider.from, to, subject, html, text }),
-        });
-
-        if (!res.ok) throw new Error("Resend error: " + JSON.stringify(await res.json()));
+        await sendMail({ to, subject, html, text });
       },
     }),
   ],
@@ -83,8 +74,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return;
       }
 
-      // Name only: Auth.js errors on the Resend path routinely carry the submitted email address.
-      logger.error("auth.error", error, { name: error?.name, error_code: "FE-AUTH-002" });
+      // Name only: an Auth.js error on the Resend path routinely carries the submitted email
+      // address, and `fl_frontend/src/core/logFormat.ts :: serializeError` writes an error's
+      // message and stack in full.
+      logger.error("auth.error", undefined, { name: error?.name, error_code: "FE-AUTH-002" });
     },
   },
 });
