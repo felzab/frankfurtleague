@@ -5,7 +5,8 @@ name: codeql
 # the schedule and the trigger set below are version-controlled and reviewable like everything else.
 #
 # Invariants:
-# - A pull request analyses the language whose tree changed; a push to main analyses both.
+# - Every pull request, every push to main and every scheduled run analyses both languages, and
+#   no filter decides which of them runs.
 # - Neither language installs dependencies -- CodeQL reads source, so `build-mode: none` is the
 #   whole build and an install step buys minutes of runtime and nothing else.
 # - CodeQL catches pattern-matchable classes alone. An authorization gap is a valid program doing
@@ -14,16 +15,10 @@ name: codeql
 #   (docs/_git/spec.md).
 
 on:
+  # No path filter, as the sibling workflows carry none: a push to main analyses whatever the two
+  # extractors reach, `scripts/` and `.github/actions/` among them, so a filter naming fewer paths
+  # leaves a pull request unanalysed and its alerts to surface on the merge commit instead.
   pull_request:
-    paths:
-      - "fl_frontend/**"
-      - "fl_backend/**"
-      - ".github/workflows/codeql.yml"
-      # The mapping script the `changes` job below runs, and the library it sources. Without them a
-      # pull request that breaks the mapping runs the verify gate and never this workflow, so the
-      # breakage first shows as a red run on main, attributed to the change after it.
-      - "scripts/ci_scopes.sh"
-      - "scripts/_lib.sh"
   push:
     branches: [main]
   # Query packs are updated upstream, so a scheduled run finds newly published queries against code
@@ -31,7 +26,7 @@ on:
   schedule:
     - cron: "37 4 * * 1"
 
-# Least privilege, same reasoning as verify.yml. `security-events: write` is the one addition, and it
+# Least privilege, same reasoning as `.github/workflows/verify.yml`. `security-events: write` is the one addition, and it
 # is what uploads results to the Security tab; without it the analysis runs and the findings vanish.
 permissions:
   contents: read
@@ -40,51 +35,22 @@ permissions:
 
 concurrency:
   group: codeql-${{ github.ref }}
-  # Same rule as the verify gate: supersede an in-flight PR run, never a run on main.
+  # Same rule as `.github/workflows/verify.yml`: supersede an in-flight PR run, never a run on main.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Which language trees did this event touch? On anything but a pull request, both.
-  changes:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      frontend: ${{ steps.map.outputs.frontend }}
-      backend: ${{ steps.map.outputs.backend }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # Same reasoning as verify.yml: the token is not needed after checkout, and leaving it in
-          # .git/config exposes it to every later step.
-          persist-credentials: false
-          # Full history for the merge-base diff below.
-          fetch-depth: 0
-      - name: Map changed paths to languages
-        id: map
-        # scripts/ci_scopes.sh is the repository's one path mapping; this job reads its `frontend`
-        # and `backend` lines and ignores the rest. A markdown-only change inside fl_frontend/
-        # therefore analyses nothing, exactly like the verify workflow's test tiers.
-        env:
-          BASE_REF: ${{ github.base_ref }}
-          EVENT: ${{ github.event_name }}
-        run: |
-          if [ "$EVENT" = "pull_request" ]; then
-            ./scripts/ci_scopes.sh "origin/${BASE_REF}" >> "$GITHUB_OUTPUT"
-          else
-            ./scripts/ci_scopes.sh --all >> "$GITHUB_OUTPUT"
-          fi
-
-  # Two jobs rather than one matrix: a job-level `if` cannot select matrix rows per language, and
-  # separate jobs keep what the matrix bought -- separate databases, parallel runs, one language's
-  # failure never hiding the other's results.
+  # Two jobs, and NEITHER may be re-guarded or renamed. A category is this file's path and a job's
+  # name, so code scanning attributes an alert per category against the base branch: a category main
+  # produces that a pull request skips leaves the alert unattributable, and a rename orphans every
+  # analysis already filed under the old name.
   analyze-javascript:
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Same reasoning as `.github/workflows/verify.yml`: the token is not needed after checkout, and leaving it in
+          # .git/config exposes it to every later step.
           persist-credentials: false
       - name: Initialise CodeQL
         uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
@@ -98,8 +64,6 @@ jobs:
         uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
 
   analyze-python:
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
