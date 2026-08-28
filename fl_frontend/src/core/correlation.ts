@@ -1,7 +1,8 @@
 export const CORRELATION_HEADER = "X-Correlation-ID";
 
-// Cleared at the edge by `nginx/prod.conf`: `location /api` reaches FastAPI directly, so an
-// unstripped client-supplied one would let a visitor forge the admin a write is attributed to.
+// No proxied path reaches a backend write, so the actor is always the one the session set
+// (`docs/backend/spec.md :: I41`). The edge blanks a visitor's header too (`nginx/prod.conf`),
+// which is depth rather than the guarantee.
 export const ACTOR_HEADER = "X-FL-Actor";
 
 // Wider than the 32 hex nginx mints, so other well-formed ids pass without admitting arbitrary

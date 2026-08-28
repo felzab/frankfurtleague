@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `1c70c28a`, 2026-08-27
+**Verified against:** `bcc1de6d`, 2026-08-28
 
 Every item that has left a ranked page — [`open-items.md`](open-items.md) or
 [`tooling-items.md`](tooling-items.md) — has a row here. This is a log: nothing in it is waiting for
@@ -131,3 +131,4 @@ so no earlier commit exists for its row to cite.
 | FE-14  | The two loading indicators answered reduced motion in opposite directions                                                             | FE          | S      | —                            | [`b474f11e`](https://github.com/felzab/frankfurtleague/commit/b474f11e) |
 | FE-16  | The filter hooks were mounted for machinery their caller never read                                                                   | FE          | S      | —                            | [`65c7775b`](https://github.com/felzab/frankfurtleague/commit/65c7775b) |
 | DOC-8  | A later decision could falsify a fact an earlier record stated, and nothing linked the two                                            | Docs        | —      | —                            | [`cda2912d`](https://github.com/felzab/frankfurtleague/commit/cda2912d) |
+| OPS-64 | The whole versioned API stood on the public internet, the writes included, behind static keys                                         | Ops, Docs   | S      | —                            | [`d9678735`](https://github.com/felzab/frankfurtleague/commit/d9678735) |

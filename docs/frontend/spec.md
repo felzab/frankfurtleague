@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `1c70c28a`, 2026-08-27\
+**Verified against:** `bcc1de6d`, 2026-08-28\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -472,10 +472,11 @@ that URL's protocol, so a stray `http://` value would ship an admin session cook
 gated on hostname rather than `NODE_ENV`, because the local stack runs the production image against
 `http://localhost:3000`.
 
-The `API_URL` origin rule exists because nginx blanks `X-FL-Actor` on everything it proxies, so an
-`API_URL` standing on the public origin `AUTH_URL` names would reach the backend stripped of the actor
-header, and every admin write would be refused before its handler runs
-([`docs/backend/spec.md`](../backend/spec.md) I41). Caught at boot rather than at the first write.
+The `API_URL` origin rule exists because the public origin reaches FastAPI on the liveness path
+alone ([`docs/ops/spec.md`](../ops/spec.md) §1.3), so an `API_URL` standing on the public origin
+`AUTH_URL` names would leave `checkIsLive` answering 200 while Next's HTML 404 met every other read
+and write. The boot refusal is what stops that half-alive shape reaching a page, where the footer's
+green probe would read as a healthy site.
 
 `AUTH_TRUST_HOST` is deliberately **not** declared: `@auth/core` reads `AUTH_URL` first in the same
 chain, and `AUTH_URL` is mandatory, so the variable can never be reached.

@@ -5,9 +5,9 @@ import { z } from "zod";
 
 export const frontend_config = createEnv({
   server: {
-    // Must not share AUTH_URL's origin (`docs/backend/spec.md :: I41`): nginx blanks `X-FL-Actor` on
-    // everything it proxies, so an API_URL on the public origin arrives stripped and every admin
-    // write is refused. Caught at boot.
+    // The public origin reaches FastAPI on the liveness path alone, so an API_URL sharing
+    // AUTH_URL's origin leaves the footer's probe green while Next's 404 answers every other
+    // call (`docs/ops/spec.md :: I13`). Caught at boot: that shape reads as healthy.
     API_URL: z.url().refine((raw) => {
       const authUrl = process.env.AUTH_URL;
       return !authUrl || new URL(raw).origin !== new URL(authUrl).origin;

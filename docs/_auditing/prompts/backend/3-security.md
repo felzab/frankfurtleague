@@ -12,9 +12,10 @@ authorization table (check 1), and the topology-only controls inventory (check 8
 ops pass `ops 2`. Every finding states the network position its exploit requires.
 
 CONTEXT — derive, do not assume: auth is internal API keys in tiers (base / system / admin), checked
-in `app/core/security.py` and `dependencies.py`; the only caller is the Next.js server (the browser
-never reaches FastAPI directly), and nginx routes `/api` to FastAPI — so **network topology is a
-load-bearing control** (FastAPI's own `/docs` is unreachable for exactly this reason). Every
+in `app/core/security.py` and `dependencies.py`; the only caller of any route that touches
+application data is the Next.js server, over the compose network, and the edge routes exactly one
+path here — the keyless, database-free liveness probe — so **network topology is a load-bearing
+control** (FastAPI's own `/docs` is unreachable for exactly this reason). Every
 reachability judgment must therefore state which network position the attacker holds: internet via
 nginx, compose-network, or a compromised frontend key. Verify the nginx configs (`nginx/*.conf`)
 before calling anything unreachable — do not assert topology from memory.

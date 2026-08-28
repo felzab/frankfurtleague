@@ -53,8 +53,9 @@ maintainer, a live audience each season.
 | **Deploy**   | Docker Compose behind nginx, on a single host                         |
 
 The app never calls FastAPI from the browser: every application read is a server-side fetch from the
-Next.js container, and the backend gates every request on a shared key. That one fact explains most of
-the architecture — why all caching lives in the frontend, and why the backend has no user sessions.
+Next.js container, and the backend gates every request that touches application data on a shared key.
+That one fact explains most of the architecture — why all caching lives in the frontend, and why the
+backend has no user sessions.
 
 ## Repository layout
 

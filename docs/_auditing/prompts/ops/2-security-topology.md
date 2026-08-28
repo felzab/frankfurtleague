@@ -18,11 +18,11 @@ STANDARDS ANCHOR: the configuration, communications and deployment chapters of *
 Application-level ASVS chapters belong to the frontend and backend security passes — do not duplicate
 their tables here.
 
-CONTEXT — derive from the configs, not from memory: nginx fronts everything; `/api` routes to
-FastAPI, everything else to Next; the browser never reaches FastAPI directly. Two protections are
-deliberate _absences_: `.claude/CLAUDE.md` §7 forbids re-adding a reference-data invalidation
-endpoint, and FastAPI's `/docs` is unreachable from outside because it sits at the app root, which
-nginx sends to Next. An absence-as-control is invisible in a config review unless it is on a list;
+CONTEXT — derive from the configs, not from memory: nginx fronts everything; one exact-match path
+routes to FastAPI and everything else to Next, so no browser reaches a route that reads or writes
+application data. Two protections are deliberate _absences_: `.claude/CLAUDE.md` §7 forbids
+re-adding a reference-data invalidation endpoint, and FastAPI's `/docs` is unreachable from outside
+because nginx carries no route to it. An absence-as-control is invisible in a config review unless it is on a list;
 building that list is this pass's most important output.
 
 THE CHECKS, in priority order:

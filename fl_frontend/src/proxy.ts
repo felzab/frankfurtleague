@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "./core/auth";
 
 /**
- * No per-request nonce CSP here: the one enforced policy lives in `nginx.conf`. That is what lets
+ * No per-request nonce CSP here: the one enforced policy lives in `nginx/prod.conf`. That is what lets
  * the matcher stay scoped to `/admin` — `auth()` is a Mongo round trip, never on a public load.
  */
 export default auth((req) => {
