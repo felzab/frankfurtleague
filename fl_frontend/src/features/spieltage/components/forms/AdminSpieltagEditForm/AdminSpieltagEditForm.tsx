@@ -244,7 +244,9 @@ export function AdminSpieltagEditForm({
               appToast.close(pendingKey);
               console.warn("Undo dispatch failed", dispatchError);
               appToast.danger("Rücknahme konnte nicht gesendet werden", {
-                description: "Die Änderung steht weiterhin. Prüfe die Verbindung und den Spieltag.",
+                // The connection alone: the request never reached a judgement, so naming
+                // the Spieltag would send the admin to inspect values nothing here read.
+                description: "Die Änderung steht weiterhin. Prüfe die Verbindung.",
               });
             },
           );

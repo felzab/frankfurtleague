@@ -27,7 +27,7 @@ import { buildTeamBanners } from "./banners";
 import { describeSaisonTeamsFanOut, describeSpieleFanOut } from "./fanOutNotes";
 import { FormAdresseSection } from "./FormAdresseSection";
 import { FormAustrittSection } from "./FormAustrittSection";
-import { FormKontakteSection } from "./FormKontakteSection";
+import { FormKontakteLinkSection } from "./FormKontakteLinkSection";
 import { FormSaisonSection } from "./FormSaisonSection";
 import { FormVereinSection } from "./FormVereinSection";
 
@@ -42,8 +42,8 @@ import type {
   FLTeamRecord,
   FLTrikotFarbe,
 } from "@/features/teams/schemas";
-import type { FLTeamDraftFields, FLTeamFieldGroup } from "@/features/teams/teamDraftStatus";
-import type { GruppeOffer, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
+import type { FLTeamDraftFields } from "@/features/teams/teamDraftStatus";
+import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -120,7 +120,6 @@ export function AdminTeamEditForm({
 
   const [gruppe, setGruppe] = useState<FLGruppenNames | null>(storedMembership?.gruppe ?? null);
   const [trikotFarbe, setTrikotFarbe] = useState<FLTrikotFarbe | null>(storedMembership?.trikot_farbe ?? null);
-  const [kontakte, setKontakte] = useState<SaisonTeamKontakteDraft | null>(storedMembership?.kontakte ?? null);
   const [hasAustritt, setHasAustritt] = useState(storedMembership?.austritt != null);
   // Null until a route is chosen, so a new record accuses nobody; the schema refuses the null.
   const [art, setArt] = useState<FLAustrittType | null>(storedMembership?.austritt?.type ?? null);
@@ -151,12 +150,11 @@ export function AdminTeamEditForm({
     gruppe,
     austritt: draftAustritt,
     trikot_farbe: trikotFarbe,
-    kontakte,
   });
 
   const draftFields: FLTeamDraftFields = {
     ...clubDraft,
-    membership: storedMembership === null ? null : { gruppe, austritt: draftAustritt, trikot_farbe: trikotFarbe, kontakte },
+    membership: storedMembership === null ? null : { gruppe, austritt: draftAustritt, trikot_farbe: trikotFarbe },
   };
   const storedFields: FLTeamDraftFields = {
     name: team.name,
@@ -204,15 +202,10 @@ export function AdminTeamEditForm({
     validatePaths("team", { ...buildClubPayload(), ...selected }, paths);
   const validateTrikotSelection = (paths: readonly string[], selected: { trikot_farbe: FLTrikotFarbe | null }) =>
     validatePaths("saisonTeam", { ...buildSaisonPayload(), ...selected }, paths);
-  const validateKontakteSelection = (paths: readonly string[], selected: { kontakte: SaisonTeamKontakteDraft }) =>
-    validatePaths("saisonTeam", { ...buildSaisonPayload(), ...selected }, paths);
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
-  // The junction owns two groups, so both halves read the same partition rather than one naming a
-  // group the other forgets.
-  const isSaisonGroup = (group: FLTeamFieldGroup) => group === "Saison" || group === "Kontakte";
-  const clubDirty = status.changed.some((field) => !isSaisonGroup(field.group));
-  const saisonDirty = storedMembership !== null && status.changed.some((field) => isSaisonGroup(field.group));
+  const clubDirty = status.changed.some((field) => field.group !== "Saison");
+  const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Saison");
 
   // Read by the banners AND by the season panel, whose entry affordance it closes: one derivation,
   // so the sentence and the control it explains cannot disagree.
@@ -263,7 +256,6 @@ export function AdminTeamEditForm({
     });
     setGruppe(storedMembership?.gruppe ?? null);
     setTrikotFarbe(storedMembership?.trikot_farbe ?? null);
-    setKontakte(storedMembership?.kontakte ?? null);
     setHasAustritt(storedMembership?.austritt != null);
     setArt(storedMembership?.austritt?.type ?? null);
     setGrund(storedMembership?.austritt?.grund ?? "");
@@ -376,7 +368,6 @@ export function AdminTeamEditForm({
                 gruppe: storedMembership.gruppe,
                 austritt: storedMembership.austritt,
                 trikot_farbe: storedMembership.trikot_farbe,
-                kontakte: storedMembership.kontakte,
               },
             }
           : {}),
@@ -432,7 +423,9 @@ export function AdminTeamEditForm({
               appToast.close(pendingKey);
               console.warn("Undo dispatch failed", dispatchError);
               appToast.danger("Rücknahme konnte nicht gesendet werden", {
-                description: "Die Änderung steht weiterhin. Prüfe die Verbindung und das Team.",
+                // The connection alone: the request never reached a judgement, so naming
+                // the Team would send the admin to inspect values nothing here read.
+                description: "Die Änderung steht weiterhin. Prüfe die Verbindung.",
               });
             },
           );
@@ -510,11 +503,10 @@ export function AdminTeamEditForm({
           )}
 
           {storedMembership !== null && (
-            <FormKontakteSection
-              value={kontakte}
-              onChange={setKontakte}
-              onFieldLeft={validateSaisonFields}
-              onValidateSelection={validateKontakteSelection}
+            <FormKontakteLinkSection
+              saisonId={saison.saisonId}
+              kontakte={storedMembership.kontakte}
+              href={`/admin/kontakte/${team.id}?saison_id=${encodeURIComponent(saison.saisonId)}`}
             />
           )}
         </EditFormLayout>

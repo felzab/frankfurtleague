@@ -19,6 +19,9 @@ const create = (overrides: Partial<typeof rules> = {}) => ({
   id: "2026",
   start_date: "2025-09-01",
   end_date: "2026-06-30",
+  // Present on every case: the key is required with no default, so leaving it out would refuse each
+  // payload below on `bewerbung` and tell nobody which rule was under test.
+  bewerbung: { offen: true, von: "2025-05-01", bis: "2025-06-30" },
   rules: { ...rules, ...overrides },
 });
 
@@ -73,6 +76,16 @@ describe("FLPostSaisonPayloadSchema", () => {
   it("refuses an end date before its start", () => {
     assert.deepEqual(pathsRefused(FLPostSaisonPayloadSchema, { ...create(), end_date: "2024-01-01" }), ["end_date"]);
   });
+
+  it("demands the application window as a key, so an omitted one cannot pass for a closed season", () => {
+    const { bewerbung: _dropped, ...withoutWindow } = create();
+
+    assert.deepEqual(pathsRefused(FLPostSaisonPayloadSchema, withoutWindow), ["bewerbung"]);
+  });
+
+  it("takes an explicit null, which is the season that accepts no applications at all", () => {
+    assert.deepEqual(pathsRefused(FLPostSaisonPayloadSchema, { ...create(), bewerbung: null }), []);
+  });
 });
 
 describe("FLPatchSaisonPayloadSchema", () => {
@@ -86,5 +99,23 @@ describe("FLPatchSaisonPayloadSchema", () => {
 
   it("still refuses an end date before its start, which the payload does judge alone", () => {
     assert.deepEqual(pathsRefused(FLPatchSaisonPayloadSchema, { ...create(), end_date: "2024-01-01" }), ["end_date"]);
+  });
+
+  it("refuses a window that ends before it opens, under the field the admin has to fix", () => {
+    const reversed = { ...create(), bewerbung: { offen: true, von: "2025-06-30", bis: "2025-05-01" } };
+
+    assert.deepEqual(pathsRefused(FLPatchSaisonPayloadSchema, reversed), ["bewerbung.bis"]);
+  });
+
+  it("judges the window apart from the season, so one may open long before the season starts", () => {
+    const early = { ...create(), bewerbung: { offen: false, von: "2024-01-01", bis: "2024-02-01" } };
+
+    assert.deepEqual(pathsRefused(FLPatchSaisonPayloadSchema, early), []);
+  });
+
+  it("names each empty date of a half-entered window, which is what the panel renders on the field", () => {
+    const halfEntered = { ...create(), bewerbung: { offen: false, von: "", bis: "" } };
+
+    assert.deepEqual(pathsRefused(FLPatchSaisonPayloadSchema, halfEntered), ["bewerbung.von", "bewerbung.bis"]);
   });
 });

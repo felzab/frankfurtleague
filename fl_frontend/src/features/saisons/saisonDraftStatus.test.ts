@@ -19,6 +19,7 @@ const stored: SaisonDraftFields = {
     forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
     erlaubte_stufen: ["E1", "E2", "Q1", "Q2"],
   },
+  bewerbung: { offen: true, von: "2025-05-01", bis: "2025-06-30" },
 };
 
 const draftFrom = (overrides: Partial<SaisonDraftFields>): SaisonDraftFields => ({ ...stored, ...overrides });
@@ -34,7 +35,7 @@ describe("deriveSaisonDraftStatus", () => {
     assert.equal(status.isDirty, false);
     assert.equal(status.changed.length, 0);
     // `status` is deliberately not a field: the rollover is a control, never a draft the bar counts.
-    assert.equal(status.fields.length, 11);
+    assert.equal(status.fields.length, 12);
   });
 
   it("reads the tiebreak as its German name, so the change list and the picker agree", () => {
@@ -144,6 +145,38 @@ describe("deriveSaisonDraftStatus", () => {
       status.invalid.map((field) => field.path),
       ["rules.number_of_groups"],
     );
+  });
+
+  it("reports the whole application window as one row, freischaltung included", () => {
+    const status = deriveSaisonDraftStatus({
+      stored,
+      draft: draftFrom({ bewerbung: { offen: false, von: "2025-05-01", bis: "2025-06-30" } }),
+      fieldErrors: {},
+    });
+
+    assert.equal(status.changed.length, 1);
+    const row = status.byPath.get("bewerbung");
+    assert.equal(row?.group, "Bewerbung");
+    assert.equal(row?.storedText, "Freigeschaltet: 01.05.2025 bis 30.06.2025");
+    assert.equal(row?.draftText, "Gesperrt: 01.05.2025 bis 30.06.2025");
+  });
+
+  it("treats a closed window as a removal, which is what the change list should show", () => {
+    const status = deriveSaisonDraftStatus({ stored, draft: draftFrom({ bewerbung: null }), fieldErrors: {} });
+
+    const row = status.byPath.get("bewerbung");
+    assert.ok(row?.isChanged);
+    assert.equal(row.draftText, null);
+  });
+
+  it("lands one date's own error on the window's single row, which is the only row rendering it", () => {
+    const status = deriveSaisonDraftStatus({
+      stored,
+      draft: draftFrom({ bewerbung: { offen: true, von: "2025-05-01", bis: "" } }),
+      fieldErrors: { "bewerbung.bis": "Bitte gib ein gültiges Datum ein." },
+    });
+
+    assert.equal(status.byPath.get("bewerbung")?.error, "Bitte gib ein gültiges Datum ein.");
   });
 
   it("counts several changes across both groups, in the descriptor table's order", () => {

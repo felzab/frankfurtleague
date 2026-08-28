@@ -1,9 +1,13 @@
 "use client";
 
+import Link from "next/link";
+
 import { parseDate } from "@internationalized/date";
 
 import { Calendar, DateField, DatePicker, FieldError, Input, Switch, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
 
+import { kontaktSeatPaths } from "@/features/kontakte/kontakteDraftStatus";
+import { applySeatPresence, applySharedFlag, mirroredJudgedPaths, mirrorKontakte } from "@/features/kontakte/utils";
 import { EINWILLIGUNG_HERKUNFT_OPTIONS, KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
@@ -20,6 +24,7 @@ import {
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { KontaktRolle } from "@/features/teams/constants";
@@ -27,6 +32,7 @@ import type { FLKontaktEinwilligung } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
 import type { Key } from "@heroui/react";
 import type { CalendarDate } from "@internationalized/date";
+import type { KontakteBanner } from "./banners";
 
 /** `FormAustrittSection`'s chip, which the same reasoning about HeroUI's layered fills produced. */
 const HERKUNFT_CHIP =
@@ -40,45 +46,70 @@ function toCalendarDate(stored: string): CalendarDate | null {
   return stored === "" ? null : parseDate(stored);
 }
 
+/** Every path the three seats report under. Module scope: the set is the same on every render. */
+const ALL_SEAT_PATHS = KONTAKT_ROLLEN.flatMap(({ value }) => kontaktSeatPaths(value));
+
 /**
  * The three seats a season holds for one club, each with the agreement its details are kept under.
- * The block is off until somebody switches it on, so a club nobody has asked yet stores no empty
- * people; the schema refuses a half-entered one on save.
+ * A seat switched on demands a whole person; a seat switched off holds nobody, the state the payload
+ * accepts and an erasure leaves.
  */
 export function FormKontakteSection({
   value,
+  isMember,
+  teamHref,
+  banners,
   onChange,
   onFieldLeft,
   onValidateSelection,
 }: {
   value: SaisonTeamKontakteDraft | null;
+  /** The club holds a junction row for this season. Without one there is nothing here to write to. */
+  isMember: boolean;
+  /** The club's own page, where the season membership these seats hang off is entered. */
+  teamHref: string;
+  banners: readonly KontakteBanner[];
   onChange: (next: SaisonTeamKontakteDraft | null) => void;
   onFieldLeft: (paths: readonly string[]) => void;
   /** Judged with the value that arrived in the event, because state has not committed yet. */
-  onValidateSelection: (paths: readonly string[], selected: { kontakte: SaisonTeamKontakteDraft }) => void;
+  onValidateSelection: (paths: readonly string[], selected: { kontakte: SaisonTeamKontakteDraft | null }) => void;
 }) {
   const panel = formPanel();
 
   /**
-   * While the flag stands, the Ansprechperson seat IS the trainer rather than a copy kept in step:
-   * two records for one person drift the moment either of them is edited.
+   * Re-judged wherever a switch RESOLVES what a seat holds. All three paths sets, because
+   * `mirrorKontakte` moves two seats at once.
    */
-  const mirror = (draft: SaisonTeamKontakteDraft): SaisonTeamKontakteDraft =>
-    draft.trainer_ist_ansprechperson ? { ...draft, ansprechperson: draft.trainer } : draft;
+  const revalidateSeats = (next: SaisonTeamKontakteDraft | null) => onValidateSelection(ALL_SEAT_PATHS, { kontakte: next });
+
+  /** The Ansprechperson seat tracks the trainer, so no judgement of a trainer field may leave its copy behind. */
+  const isMirroring = value?.trainer_ist_ansprechperson === true;
+
+  const judgeFieldsLeft = (paths: readonly string[]) => onFieldLeft(mirroredJudgedPaths(paths, isMirroring));
 
   const applyPerson = (rolle: KontaktRolle, person: KontaktpersonDraft) => {
     if (value === null) return;
-    onChange(mirror({ ...value, [rolle]: person }));
+    onChange(mirrorKontakte({ ...value, [rolle]: person }));
   };
 
-  /** Judged on the pick, as every picked field is, and on the value the mirror above would store. */
-  const pickHerkunft = (rolle: KontaktRolle, erteilt_von: FLKontaktEinwilligung["erteilt_von"]) => {
+  /** Whether the seat holds anybody. A pick, so it is judged on the press rather than on a blur. */
+  const setPresence = (rolle: KontaktRolle, present: boolean) => {
     if (value === null) return;
-    const person = { ...value[rolle], einwilligung: { ...value[rolle].einwilligung, erteilt_von } };
-    const next = mirror({ ...value, [rolle]: person });
+    const { next, revalidate } = applySeatPresence(value, rolle, present);
 
     onChange(next);
-    onValidateSelection([`kontakte.${rolle}.einwilligung.erteilt_von`], { kontakte: next });
+    if (revalidate) revalidateSeats(next);
+  };
+
+  /** Judged on the pick, as every picked field is, and on the value `mirrorKontakte` would store. */
+  const pickHerkunft = (rolle: KontaktRolle, erteilt_von: FLKontaktEinwilligung["erteilt_von"]) => {
+    const seat = value?.[rolle] ?? null;
+    if (value === null || seat === null) return;
+    const person = { ...seat, einwilligung: { ...seat.einwilligung, erteilt_von } };
+    const next = mirrorKontakte({ ...value, [rolle]: person });
+
+    onChange(next);
+    onValidateSelection(mirroredJudgedPaths([`kontakte.${rolle}.einwilligung.erteilt_von`], isMirroring), { kontakte: next });
   };
 
   /**
@@ -86,7 +117,22 @@ export function FormKontakteSection({
    * can hold it over two DIFFERENT people, and a hidden block leaves that second person one
    * keystroke from being overwritten unseen.
    */
-  const isMirrored = (rolle: KontaktRolle) => rolle === "ansprechperson" && value?.trainer_ist_ansprechperson === true;
+  const isMirrored = (rolle: KontaktRolle) => rolle === "ansprechperson" && isMirroring;
+
+  const toggleBlock = (present: boolean) => {
+    const next = present ? buildEmptyKontakte() : null;
+
+    onChange(next);
+    if (!present) revalidateSeats(next);
+  };
+
+  const toggleShared = (shared: boolean) => {
+    if (value === null) return;
+    const { next, revalidate } = applySharedFlag(value, shared);
+
+    onChange(next);
+    if (revalidate) revalidateSeats(next);
+  };
 
   return (
     <section className={panel.root()}>
@@ -105,23 +151,40 @@ export function FormKontakteSection({
       </div>
 
       <div className={panel.body()}>
-        <Switch
-          isSelected={value !== null}
-          onChange={(next) => onChange(next ? buildEmptyKontakte() : null)}>
-          <Switch.Content className={panel.switchContent()}>
-            Kontakte hinterlegt
-            <Switch.Control className={panel.switchControl()}>
-              <Switch.Thumb />
-            </Switch.Control>
-          </Switch.Content>
-        </Switch>
+        <InlineBanners
+          banners={banners}
+          spot="kontakte-block"
+        />
 
-        {value !== null && (
+        {!isMember && (
+          // A link and no control: the seats hang off a season membership, and entering one is the
+          // club page's write rather than this page's.
+          <Link
+            href={teamHref}
+            className="text-brand hover:text-brand-solid fluid-sm w-fit font-bold transition-colors">
+            Zur Seite des Teams
+          </Link>
+        )}
+
+        {isMember && (
+          <Switch
+            isSelected={value !== null}
+            onChange={toggleBlock}>
+            <Switch.Content className={panel.switchContent()}>
+              Kontakte hinterlegt
+              <Switch.Control className={panel.switchControl()}>
+                <Switch.Thumb />
+              </Switch.Control>
+            </Switch.Content>
+          </Switch>
+        )}
+
+        {isMember && value !== null && (
           <>
             <Switch
               name="kontakte.trainer_ist_ansprechperson"
               isSelected={value.trainer_ist_ansprechperson}
-              onChange={(next) => onChange(mirror({ ...value, trainer_ist_ansprechperson: next }))}>
+              onChange={toggleShared}>
               <Switch.Content className={panel.switchContent()}>
                 Trainer ist zugleich Ansprechperson
                 <Switch.Control className={panel.switchControl()}>
@@ -137,8 +200,9 @@ export function FormKontakteSection({
                 label={label}
                 person={value[rolle]}
                 isMirrored={isMirrored(rolle)}
+                onPresenceChange={(present) => setPresence(rolle, present)}
                 onChange={(person) => applyPerson(rolle, person)}
-                onFieldLeft={onFieldLeft}
+                onFieldLeft={judgeFieldsLeft}
                 onHerkunftPicked={(erteilt_von) => pickHerkunft(rolle, erteilt_von)}
               />
             ))}
@@ -149,8 +213,68 @@ export function FormKontakteSection({
   );
 }
 
-/** One seat, with the agreement beneath it: who this is, and on whose word the league keeps it. */
+/**
+ * One seat: its own switch, and beneath it the person and the agreement, or nothing. Empty renders as
+ * the switch alone — the record says a seat holds nobody, never why, so no wording here may either.
+ */
 function KontaktpersonFields({
+  rolle,
+  label,
+  person,
+  isMirrored,
+  onPresenceChange,
+  onChange,
+  onFieldLeft,
+  onHerkunftPicked,
+}: {
+  rolle: KontaktRolle;
+  label: string;
+  /** Null where the seat holds nobody, which is a saveable state rather than a half-finished one. */
+  person: KontaktpersonDraft | null;
+  /** This seat tracks the trainer, so its boxes read out rather than take input. */
+  isMirrored: boolean;
+  onPresenceChange: (present: boolean) => void;
+  onChange: (next: KontaktpersonDraft) => void;
+  onFieldLeft: (paths: readonly string[]) => void;
+  onHerkunftPicked: (erteilt_von: FLKontaktEinwilligung["erteilt_von"]) => void;
+}) {
+  const panel = formPanel();
+
+  return (
+    <div className="border-border flex w-full flex-col gap-y-4 border-t pt-5 first:border-t-0 first:pt-0">
+      <h3 className={FORM_SECTION_HEADING}>{label}</h3>
+
+      {/* The block's own control one seat down, and the same control on purpose: what it answers here
+          is the same question, so a second shape for it would read as a different one. */}
+      <Switch
+        isSelected={person !== null}
+        isDisabled={isMirrored}
+        onChange={onPresenceChange}>
+        <Switch.Content className={panel.switchContent()}>
+          {`${label} hinterlegt`}
+          <Switch.Control className={panel.switchControl()}>
+            <Switch.Thumb />
+          </Switch.Control>
+        </Switch.Content>
+      </Switch>
+
+      {person !== null && (
+        <KontaktpersonInputs
+          rolle={rolle}
+          label={label}
+          person={person}
+          isMirrored={isMirrored}
+          onChange={onChange}
+          onFieldLeft={onFieldLeft}
+          onHerkunftPicked={onHerkunftPicked}
+        />
+      )}
+    </div>
+  );
+}
+
+/** The seat's boxes, mounted only while somebody is recorded in it: every one of them is required. */
+function KontaktpersonInputs({
   rolle,
   label,
   person,
@@ -162,7 +286,6 @@ function KontaktpersonFields({
   rolle: KontaktRolle;
   label: string;
   person: KontaktpersonDraft;
-  /** This seat tracks the trainer, so its boxes read out rather than take input. */
   isMirrored: boolean;
   onChange: (next: KontaktpersonDraft) => void;
   onFieldLeft: (paths: readonly string[]) => void;
@@ -177,9 +300,7 @@ function KontaktpersonFields({
   };
 
   return (
-    <div className="border-border flex w-full flex-col gap-y-4 border-t pt-5 first:border-t-0 first:pt-0">
-      <h3 className={FORM_SECTION_HEADING}>{label}</h3>
-
+    <>
       <div className={FIELD_PAIR}>
         <TextField
           isReadOnly={isMirrored}
@@ -323,7 +444,7 @@ function KontaktpersonFields({
           />
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

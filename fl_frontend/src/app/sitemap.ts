@@ -1,3 +1,5 @@
+import { SITE_URL } from "@/core/brand";
+
 import type { MetadataRoute } from "next";
 
 // A live `new Date()` is a dynamic read under cacheComponents, which would make this a dynamic
@@ -5,65 +7,63 @@ import type { MetadataRoute } from "next";
 const CONTENT_LAST_MODIFIED = new Date("2026-07-01");
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://frankfurtleague.de";
-
   return [
     {
-      url: `${baseUrl}/`,
+      url: `${SITE_URL}/`,
       lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",
       priority: 1,
     },
     {
-      url: `${baseUrl}/dashboard/spielsuche`,
+      url: `${SITE_URL}/dashboard/spielsuche`,
       lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/dashboard/spielplan`,
+      url: `${SITE_URL}/dashboard/spielplan`,
       lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/dashboard/saisontabelle`,
+      url: `${SITE_URL}/dashboard/saisontabelle`,
       lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/dashboard/spieler`,
+      url: `${SITE_URL}/dashboard/spieler`,
       lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/dashboard/teams`,
+      url: `${SITE_URL}/dashboard/teams`,
       lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/dashboard/playoffs`,
+      url: `${SITE_URL}/dashboard/playoffs`,
       lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/about`,
+      url: `${SITE_URL}/about`,
       lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "monthly",
       priority: 0.4,
     },
     {
-      url: `${baseUrl}/team`,
+      url: `${SITE_URL}/team`,
       lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "monthly",
       priority: 0.4,
     },
     {
-      url: `${baseUrl}/kontakt`,
+      url: `${SITE_URL}/kontakt`,
       lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "monthly",
       priority: 0.4,

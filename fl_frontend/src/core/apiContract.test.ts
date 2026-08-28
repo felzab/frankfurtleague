@@ -65,6 +65,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSpielerRolle: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSchulform: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLTrikotFarbe: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLBewerbungStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
   // The only alias here whose sole use site is a QUERY PARAMETER: no stored field carries the
   // status, so the use-site test below and `apiRequests.test.ts` are together what pin its members.
   FLSpielStatus: "a Pydantic Literal alias, published inline on the spiel_status query parameter and on no component field",
@@ -104,6 +105,8 @@ const FRONTEND_ONLY: Record<string, string> = {
  */
 const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLPatchSchiedsrichterPayload: ["id"],
+  FLAnnehmenBewerbungPayload: ["id"],
+  FLAblehnenBewerbungPayload: ["id"],
   FLPatchSpielortPayload: ["id"],
   FLPatchSpielDataPayload: ["spiel_id"],
   FLPatchTeamPayload: ["id"],
@@ -117,6 +120,7 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   // A junction row is addressed by its natural key, so BOTH ids live in the request URI.
   FLPostSaisonTeamPayload: ["team_id"],
   FLPatchSaisonTeamPayload: ["team_id", "saison_id"],
+  FLPatchSaisonTeamKontaktePayload: ["team_id", "saison_id"],
   FLReplaceSaisonTeamPayload: ["team_id", "saison_id"],
   FLPostSaisonSpielerPayload: ["spieler_id"],
   FLPatchSaisonSpielerPayload: ["spieler_id", "saison_id"],
@@ -318,7 +322,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 114;
+const EXPECTED_PAIRS = 130;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

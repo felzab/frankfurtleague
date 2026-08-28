@@ -30,6 +30,12 @@ const ROLLE_LABELS: Record<AdminKontaktRow["rolle"], string> = Object.fromEntrie
 ) as Record<AdminKontaktRow["rolle"], string>;
 
 /**
+ * A cell with nothing behind it says so in words: what a seat holds is a fact the reader needs read
+ * out, and the column it stands in is what decides which sentence fits.
+ */
+const emptyCell = (text: string) => <span className="fluid-sm text-foreground-muted">{text}</span>;
+
+/**
  * A react-aria collection re-rendered while hidden in an Activity tree loses its rows, and the
  * parent's `useSearchParams()` re-renders this one on any navigation. `Table.Body`'s `items` form
  * carries the fix; `memo` is the second layer.
@@ -42,16 +48,20 @@ export const AdminKontakteTable = memo(function AdminKontakteTable({
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
 }) {
-  // The sidemenu's season rides along, so the team editor opens on the season being worked in rather
-  // than on the current one.
+  // The sidemenu's season rides along, so the contacts editor opens on the season being worked in
+  // rather than on the current one. The seats are season-scoped, so without it the link would open
+  // another season's three people.
   const searchParams = useSearchParams();
   const selectedSaisonId = searchParams.get("saison_id");
   const saisonParam = selectedSaisonId ? `?saison_id=${encodeURIComponent(selectedSaisonId)}` : "";
 
-  const fullName = (kontakt: AdminKontaktRow) => `${kontakt.vorname} ${kontakt.nachname}`;
+  // The seat naming itself is left to the badge under this line, and nothing states WHY it is empty:
+  // the row keeps no such field, so any word for it would be one the record cannot support.
+  const fullName = (kontakt: AdminKontaktRow) =>
+    kontakt.person === null ? "Niemand hinterlegt" : `${kontakt.person.vorname} ${kontakt.person.nachname}`;
 
-  const handleCopyKontakt = async (kontakt: AdminKontaktRow) => {
-    const details = [fullName(kontakt), kontakt.email, kontakt.telefon].join(" | ");
+  const handleCopyKontakt = async (person: NonNullable<AdminKontaktRow["person"]>) => {
+    const details = [`${person.vorname} ${person.nachname}`, person.email, person.telefon].join(" | ");
     const copied = await copyTextToClipboard(details);
 
     if (copied) appToast.success("Kontaktdaten kopiert");
@@ -67,42 +77,57 @@ export const AdminKontakteTable = memo(function AdminKontakteTable({
     </div>
   );
 
-  const renderKontakt = (kontakt: AdminKontaktRow) => (
-    <div className="flex flex-col gap-0.5">
-      <span className="fluid-sm text-foreground">{kontakt.email}</span>
-      <span className="fluid-xs text-foreground-muted">{kontakt.telefon}</span>
-    </div>
-  );
+  const renderKontakt = (kontakt: AdminKontaktRow) =>
+    kontakt.person === null ? (
+      emptyCell("Keine Kontaktdaten")
+    ) : (
+      <div className="flex flex-col gap-0.5">
+        <span className="fluid-sm text-foreground">{kontakt.person.email}</span>
+        <span className="fluid-xs text-foreground-muted">{kontakt.person.telefon}</span>
+      </div>
+    );
 
-  const renderEinwilligung = (kontakt: AdminKontaktRow) => (
-    <div className="flex flex-col gap-0.5">
-      <span className="fluid-sm text-foreground">{einwilligungHerkunftLabel(kontakt.einwilligung.erteilt_von)}</span>
-      <span className="fluid-xs text-foreground-muted">
-        {`Fassung ${kontakt.einwilligung.text_version}, ab ${formatSpielDatum(kontakt.einwilligung.datum)}`}
-      </span>
-    </div>
-  );
+  const renderEinwilligung = (kontakt: AdminKontaktRow) =>
+    kontakt.person === null ? (
+      emptyCell("Keine Einwilligung")
+    ) : (
+      <div className="flex flex-col gap-0.5">
+        <span className="fluid-sm text-foreground">{einwilligungHerkunftLabel(kontakt.person.einwilligung.erteilt_von)}</span>
+        <span className="fluid-xs text-foreground-muted">
+          {`Fassung ${kontakt.person.einwilligung.text_version}, ab ${formatSpielDatum(kontakt.person.einwilligung.datum)}`}
+        </span>
+      </div>
+    );
 
-  const renderActions = (kontakt: AdminKontaktRow) => (
-    <RowActions>
-      <RowActionCopy
-        label="Kontaktdaten kopieren"
-        ariaLabel={`Kontaktdaten von ${fullName(kontakt)} kopieren`}
-        onPress={() => handleCopyKontakt(kontakt)}
-      />
-      {/* A link and not a press: the contacts are edited on the team's own page. */}
-      <RowActionLink
-        href={`/admin/teams/${kontakt.teamId}${saisonParam}`}
-        label="Team bearbeiten"
-        ariaLabel={`Team ${kontakt.teamName} bearbeiten`}>
-        <Pencil
-          aria-hidden="true"
-          width={18}
-          height={18}
-        />
-      </RowActionLink>
-    </RowActions>
-  );
+  const renderActions = (kontakt: AdminKontaktRow) => {
+    const person = kontakt.person;
+
+    return (
+      <RowActions>
+        {/* Dropped rather than disabled where the seat holds nobody: a control offering to copy an
+          empty line is one press that reports success over nothing. */}
+        {person !== null && (
+          <RowActionCopy
+            label="Kontaktdaten kopieren"
+            ariaLabel={`Kontaktdaten von ${fullName(kontakt)} kopieren`}
+            onPress={() => handleCopyKontakt(person)}
+          />
+        )}
+        {/* A link and not a press: a row is one seat, and all three are edited together on the club's
+            own contacts page. */}
+        <RowActionLink
+          href={`/admin/kontakte/${kontakt.teamId}${saisonParam}`}
+          label="Kontakte bearbeiten"
+          ariaLabel={`Kontakte von ${kontakt.teamName} bearbeiten`}>
+          <Pencil
+            aria-hidden="true"
+            width={18}
+            height={18}
+          />
+        </RowActionLink>
+      </RowActions>
+    );
+  };
 
   return (
     <>
@@ -119,7 +144,10 @@ export const AdminKontakteTable = memo(function AdminKontakteTable({
                 width={18}
                 height={18}
               />
-              <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{fullName(kontakt)}</span>
+              <span
+                className={`fluid-sm min-w-0 truncate font-semibold ${kontakt.person === null ? "text-foreground-muted" : "text-foreground"}`}>
+                {fullName(kontakt)}
+              </span>
               <span className="bg-brand-solid text-brand-solid-foreground fluid-xs ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-extrabold">
                 {kontakt.teamShorthand}
               </span>
@@ -181,7 +209,9 @@ export const AdminKontakteTable = memo(function AdminKontakteTable({
                           height={18}
                         />
                         <div className="flex flex-col items-start gap-1">
-                          <span className="fluid-sm text-foreground font-semibold">{fullName(kontakt)}</span>
+                          <span className={`fluid-sm font-semibold ${kontakt.person === null ? "text-foreground-muted" : "text-foreground"}`}>
+                            {fullName(kontakt)}
+                          </span>
                           {renderRolle(kontakt)}
                         </div>
                       </div>

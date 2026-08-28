@@ -154,6 +154,15 @@ describe("readFacetSelection", () => {
     assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("status=&gruppe=A")), { gruppe: ["A"] });
   });
 
+  it("falls back to the default when a NON-EMPTY parameter matches nothing the facet offers", () => {
+    // A pasted or bookmarked link reaches the wrong list carrying a value this facet has no row for,
+    // and reading that as the off-switch would silently unnarrow the list
+    // (`fl_frontend/src/shared/utils/facets.ts :: readFacetSelection`).
+    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("status=aufgenommen")), { status: ["aktiv"] });
+    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("status=aktiv,unsinn")), { status: ["aktiv"] });
+    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("status=unsinn&gruppe=A")), { status: ["aktiv"], gruppe: ["A"] });
+  });
+
   it("reads a NON-EMPTY selection back as the same object while the query string is unchanged", () => {
     // `applyFacets` returns its input by reference only while nothing is selected, so with a facet
     // active the chain rests on this object instead: `AdminCrudView`'s memo, then the collection.
@@ -238,7 +247,7 @@ for (const slice of readdirSync(FEATURES_DIR, { withFileTypes: true })) {
 
 describe("every facet set in the app", () => {
   // Pinned so a slice's facets quietly dropping out of the walk is a failure rather than a smaller run.
-  const EXPECTED_SETS = 8;
+  const EXPECTED_SETS = 9;
 
   it("discovers every slice's facets", () => {
     assert.equal(

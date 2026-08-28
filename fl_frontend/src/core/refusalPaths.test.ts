@@ -195,6 +195,9 @@ const RECORD_ITSELF = "the record's own path: refusable only on a shape the type
 /** One member, so the panel writes it from `EINWILLIGUNG_UMFANG` rather than asking a question with one answer. */
 const ONE_SCOPE = "the agreement's only scope, written by the panel rather than picked";
 
+/** The create dialog offers no control over the window, so the null it sends is the only value it can produce. */
+const WINDOW_OPENS_LATER = "the create draft sends the null the field allows; the window is opened in the season editor";
+
 /**
  * Payload paths no input renders, each with the reason it cannot be refused on. **A path listed
  * here is a decision, not a backlog entry** — the sweep fails on a path neither rendered nor
@@ -214,7 +217,12 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLSpielortKeyPayloadSchema: { id: NO_FORM_AT_ALL },
   FLSaisonSpielerKeyPayloadSchema: { spieler_id: NO_FORM_AT_ALL, saison_id: NO_FORM_AT_ALL },
 
-  FLPatchSaisonPayloadSchema: { id: IN_THE_PATH },
+  // The triage's two decisions: the application is the page, so its id is never typed. Everything
+  // else on both payloads is a control — the group and the kit picker, and the decline's reason.
+  FLAnnehmenBewerbungPayloadSchema: { id: IN_THE_PATH },
+  FLAblehnenBewerbungPayloadSchema: { id: IN_THE_PATH },
+
+  FLPatchSaisonPayloadSchema: { id: IN_THE_PATH, bewerbung: RECORD_ITSELF },
   FLPatchSchiedsrichterPayloadSchema: { id: IN_THE_PATH },
   FLPatchSpielerPayloadSchema: { id: IN_THE_PATH },
   FLPatchSpielortPayloadSchema: { id: IN_THE_PATH },
@@ -229,12 +237,30 @@ const EXEMPT: Record<string, Record<string, string>> = {
   // club's own page afterwards.
   FLCreateTeamFormPayloadSchema: { schulform: "the create draft sends the null the field allows; no control offers another value" },
 
+  FLPostSaisonPayloadSchema: {
+    bewerbung: WINDOW_OPENS_LATER,
+    "bewerbung.offen": WINDOW_OPENS_LATER,
+    "bewerbung.von": WINDOW_OPENS_LATER,
+    "bewerbung.bis": WINDOW_OPENS_LATER,
+  },
+
   FLPostSaisonTeamPayloadSchema: { team_id: IN_THE_PATH, saison_id: THE_PAGE_SEASON },
+  // No `kontakte` entry: the junction PATCH does not carry the block, and the sweep fails on a
+  // listed path the schema no longer holds.
   FLPatchSaisonTeamPayloadSchema: {
     team_id: IN_THE_PATH,
     saison_id: IN_THE_PATH,
     austritt: RECORD_ITSELF,
+  },
+
+  FLPatchSaisonTeamKontaktePayloadSchema: {
+    team_id: IN_THE_PATH,
+    saison_id: IN_THE_PATH,
     kontakte: RECORD_ITSELF,
+    // Each seat is nullable in its own right, so each carries the block's reason one level down.
+    "kontakte.trainer": RECORD_ITSELF,
+    "kontakte.ansprechperson": RECORD_ITSELF,
+    "kontakte.stellvertretung": RECORD_ITSELF,
     "kontakte.trainer.einwilligung.umfang": ONE_SCOPE,
     "kontakte.ansprechperson.einwilligung.umfang": ONE_SCOPE,
     "kontakte.stellvertretung.einwilligung.umfang": ONE_SCOPE,

@@ -25,6 +25,7 @@ import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import { buildSaisonBanners } from "./banners";
+import { FormBewerbungSection } from "./FormBewerbungSection";
 import { FormGruppenSwapSection } from "./FormGruppenSwapSection";
 import { FormRegelnSection } from "./FormRegelnSection";
 import { FormRolloverSection } from "./FormRolloverSection";
@@ -32,7 +33,7 @@ import { FormSpielplanSection } from "./FormSpielplanSection";
 import { FormTeamErsatzSection } from "./FormTeamErsatzSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
 
-import type { FLPatchSaisonPayload, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
+import type { FLPatchSaisonPayload, FLSaisonBewerbung, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type {
   SaisonDraftFields,
   SaisonGruppenSwapContext,
@@ -104,6 +105,9 @@ export function AdminSaisonEditForm({
   const [startDate, setStartDate] = useState<CalendarDate | null>(() => parseDate(saison.start_date));
   const [endDate, setEndDate] = useState<CalendarDate | null>(() => parseDate(saison.end_date));
   const [rules, setRules] = useState<FLSaisonRules>(saison.rules);
+  // The whole block or `null`, never a boolean beside a span: `null` is the season that takes no
+  // applications, and the panel is what turns one into the other.
+  const [bewerbung, setBewerbung] = useState<FLSaisonBewerbung | null>(saison.bewerbung);
 
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
@@ -121,14 +125,21 @@ export function AdminSaisonEditForm({
     start_date: startDate?.toString() ?? "",
     end_date: endDate?.toString() ?? "",
     rules,
+    bewerbung,
   });
 
   const draftFields: SaisonDraftFields = {
     start_date: startDate?.toString() ?? "",
     end_date: endDate?.toString() ?? "",
     rules,
+    bewerbung,
   };
-  const storedFields: SaisonDraftFields = { start_date: saison.start_date, end_date: saison.end_date, rules: saison.rules };
+  const storedFields: SaisonDraftFields = {
+    start_date: saison.start_date,
+    end_date: saison.end_date,
+    rules: saison.rules,
+    bewerbung: saison.bewerbung,
+  };
 
   const status = deriveSaisonDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
@@ -160,6 +171,17 @@ export function AdminSaisonEditForm({
   // Judged with the value that arrived rather than with state, which has not committed yet.
   const validateStufen = (next: FLSpielerStufe[]) =>
     validatePaths("saison", { ...buildPayload(), rules: { ...rules, erlaubte_stufen: next } }, ["rules.erlaubte_stufen"]);
+
+  /**
+   * **Only the way OUT is judged**: closing the window clears the dates' standing messages, where
+   * opening one would flag two empty pickers nobody has typed in yet.
+   */
+  const changeBewerbung = (next: FLSaisonBewerbung | null) => {
+    setBewerbung(next);
+    if (next === null) {
+      validatePaths("saison", { ...buildPayload(), bewerbung: next }, ["bewerbung", "bewerbung.offen", "bewerbung.von", "bewerbung.bis"]);
+    }
+  };
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
   // Named by the rules field the mirror holds, so a field moved between its lists needs no second edit here.
@@ -204,6 +226,7 @@ export function AdminSaisonEditForm({
     setStartDate(parseDate(saison.start_date));
     setEndDate(parseDate(saison.end_date));
     setRules(saison.rules);
+    setBewerbung(saison.bewerbung);
 
     setSubmitFieldErrors({}, {});
   };
@@ -235,6 +258,7 @@ export function AdminSaisonEditForm({
         start_date: saison.start_date,
         end_date: saison.end_date,
         rules: saison.rules,
+        bewerbung: saison.bewerbung,
       };
 
       const payload = buildPayload();
@@ -311,7 +335,9 @@ export function AdminSaisonEditForm({
               appToast.close(pendingKey);
               console.warn("Undo dispatch failed", dispatchError);
               appToast.danger("Rücknahme konnte nicht gesendet werden", {
-                description: "Die Änderung steht weiterhin. Prüfe die Verbindung und die Saison.",
+                // The connection alone: the request never reached a judgement, so naming
+                // the Saison would send the admin to inspect values nothing here read.
+                description: "Die Änderung steht weiterhin. Prüfe die Verbindung.",
               });
             },
           );
@@ -363,7 +389,16 @@ export function AdminSaisonEditForm({
             banners={banners}
           />
 
-          {/* Above the rollover, and below the two field panels: a control rather than a field,
+          {/* Its own panel and not a row of the Zeitraum above: that span is when the season is
+              PLAYED, and a window may legitimately open before it and close long before the first
+              fixture. */}
+          <FormBewerbungSection
+            bewerbung={bewerbung}
+            onBewerbungChange={changeBewerbung}
+            onFieldLeft={validateFields}
+          />
+
+          {/* Above the rollover, and below the field panels: a control rather than a field,
               but the one control on this page that a later run of itself undoes. */}
           <FormGruppenSwapSection
             saisonId={saison.id}

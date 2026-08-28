@@ -19,12 +19,32 @@ interface DeclaredRule {
   readonly source: string;
 }
 
+/** Where one field's value ends: the next keyword argument on a line of its own. */
+const NEXT_FIELD = /\n\s*[a-z_]+=/;
+
+/**
+ * One field's value, with Python's implicit string concatenation joined.
+ *
+ * A long value wraps into several adjacent literals, and a reader taking the first alone drops
+ * every endpoint after it while the survivors still parse.
+ */
+function fieldOf(entry: string, field: string): string {
+  const at = entry.indexOf(`${field}=`);
+  if (at === -1) return "";
+
+  const rest = entry.slice(at + field.length + 1);
+  const ends = NEXT_FIELD.exec(rest);
+  const region = ends === null ? rest : rest.slice(0, ends.index);
+
+  return [...region.matchAll(/"([^"]*)"/g)].map((literal) => literal[1]).join("");
+}
+
 /** Every rule the backend declares, in the order the register writes them. */
 export const DECLARED_RULES: readonly DeclaredRule[] = DOMAIN.split("Rule(")
   .slice(1)
   .map((entry) => ({
-    code: /code="([^"]+)"/.exec(entry)?.[1] ?? "",
-    operations: (/operation="([^"]+)"/.exec(entry)?.[1] ?? "").split(OPERATION_SEPARATOR),
+    code: fieldOf(entry, "code"),
+    operations: fieldOf(entry, "operation").split(OPERATION_SEPARATOR),
     source: entry,
   }));
 

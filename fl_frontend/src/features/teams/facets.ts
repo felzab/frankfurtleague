@@ -77,7 +77,8 @@ export const KONTAKTE_FACETS: readonly Facet<AdminKontaktRow>[] = [
     label: "Einwilligung",
     options: EINWILLIGUNG_HERKUNFT_OPTIONS.map(({ value, label }) => ({ value, label })),
     // Who stood behind the agreement is the question an audit arrives with; when it was given is on
-    // the row itself, where a range filter would answer worse than reading the column.
-    read: (kontakt) => [kontakt.einwilligung.erteilt_von],
+    // the row itself, where a range filter would answer worse than reading the column. A seat holding
+    // nobody answers with none, so no herkunft claims it.
+    read: (kontakt) => (kontakt.person === null ? [] : [kontakt.person.einwilligung.erteilt_von]),
   },
 ];

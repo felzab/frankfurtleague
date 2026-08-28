@@ -4,24 +4,12 @@ import { describe, it } from "node:test";
 import { deriveTeamDraftStatus } from "./teamDraftStatus";
 
 import type { FLTeamDraftFields } from "./teamDraftStatus";
-import type { KontaktpersonDraft } from "./types";
 
 /** One junction row, so a case names only the part it is about. */
 const membership = (overrides: Partial<NonNullable<FLTeamDraftFields["membership"]>> = {}): FLTeamDraftFields["membership"] => ({
   gruppe: "A",
   austritt: null,
   trikot_farbe: null,
-  kontakte: null,
-  ...overrides,
-});
-
-const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft => ({
-  vorname: "Erika",
-  nachname: "Mustermann",
-  email: "erika@beispiel.de",
-  telefon: "069 1234567",
-  geburtsdatum: "1990-01-01",
-  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "2025-08", datum: "2025-09-01" },
   ...overrides,
 });
 
@@ -44,9 +32,9 @@ describe("deriveTeamDraftStatus", () => {
 
     assert.equal(status.isDirty, false);
     assert.equal(status.changed.length, 0);
-    // Every club field plus every junction row, the contact seats included: each is graded on the
-    // membership, so none of them appears or disappears with the value it reports.
-    assert.equal(status.fields.length, 21);
+    // Every club field plus every junction row. The season's three contact seats are not among them:
+    // they are `fl_frontend/src/features/kontakte/kontakteDraftStatus.ts`'s, and their own page's.
+    assert.equal(status.fields.length, 14);
   });
 
   it("reports a renamed club as one change carrying both texts", () => {
@@ -105,7 +93,6 @@ describe("deriveTeamDraftStatus", () => {
     assert.equal(status.byPath.has("gruppe"), false);
     assert.equal(status.byPath.has("austritt"), false);
     assert.equal(status.byPath.has("trikot_farbe"), false);
-    assert.equal(status.byPath.has("kontakte.trainer"), false);
   });
 
   it("finds an austritt error under any of the record's four paths", () => {
@@ -133,68 +120,5 @@ describe("deriveTeamDraftStatus", () => {
     const row = status.byPath.get("austritt");
     assert.equal(row?.error, "Bitte wähle, wie das Team ausgeschieden ist.");
     assert.match(row?.draftText ?? "", /^Art offen: /);
-  });
-
-  it("adds a row per contact seat and one for the shared-seat flag once contacts are on file", () => {
-    const kontakte = {
-      trainer: person(),
-      ansprechperson: person(),
-      stellvertretung: person({ vorname: "Max" }),
-      trainer_ist_ansprechperson: true,
-    };
-    const withKontakte = draftFrom({ membership: membership({ kontakte }) });
-    const status = deriveTeamDraftStatus({ stored: withKontakte, draft: withKontakte, fieldErrors: {} });
-
-    assert.equal(status.fields.length, 21);
-    assert.equal(status.isDirty, false);
-    assert.equal(status.byPath.get("kontakte.trainer")?.draftText, "Erika Mustermann, erika@beispiel.de, 069 1234567, geboren am 01.01.1990");
-    assert.equal(status.byPath.get("kontakte.trainer.einwilligung")?.draftText, "Von der Person selbst, Fassung 2025-08 (ab 01.09.2025)");
-    assert.equal(status.byPath.get("kontakte.trainer_ist_ansprechperson")?.draftText, "Ja");
-  });
-
-  /* Why these rows are graded on the membership: keyed on `kontakte` itself, every row reporting the
-     loss is filtered out before the comparison, and a withdrawn consent cannot be executed at all. */
-  it("reports contacts switched off as a change on every row that held one", () => {
-    const kontakte = {
-      trainer: person(),
-      ansprechperson: person(),
-      stellvertretung: person({ vorname: "Max" }),
-      trainer_ist_ansprechperson: false,
-    };
-    const status = deriveTeamDraftStatus({
-      stored: draftFrom({ membership: membership({ kontakte }) }),
-      draft: draftFrom({ membership: membership({ kontakte: null }) }),
-      fieldErrors: {},
-    });
-
-    assert.equal(status.isDirty, true);
-    assert.deepEqual(status.changed.map((field) => field.path).sort(), [
-      "kontakte.ansprechperson",
-      "kontakte.ansprechperson.einwilligung",
-      "kontakte.stellvertretung",
-      "kontakte.stellvertretung.einwilligung",
-      "kontakte.trainer",
-      "kontakte.trainer.einwilligung",
-      "kontakte.trainer_ist_ansprechperson",
-    ]);
-    // `draftText: null` is what makes the change list render each of these as a removal.
-    assert.equal(status.byPath.get("kontakte.trainer")?.draftText, null);
-    assert.equal(status.byPath.get("kontakte.trainer")?.storedText?.startsWith("Erika Mustermann"), true);
-  });
-
-  it("finds a contact error under the seat that holds the field", () => {
-    const kontakte = {
-      trainer: person({ email: "" }),
-      ansprechperson: person(),
-      stellvertretung: person(),
-      trainer_ist_ansprechperson: false,
-    };
-    const status = deriveTeamDraftStatus({
-      stored,
-      draft: draftFrom({ membership: membership({ kontakte }) }),
-      fieldErrors: { "kontakte.trainer.email": "Bitte gib eine gültige E-Mail-Adresse ein." },
-    });
-
-    assert.equal(status.byPath.get("kontakte.trainer")?.error, "Bitte gib eine gültige E-Mail-Adresse ein.");
   });
 });

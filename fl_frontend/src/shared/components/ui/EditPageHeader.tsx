@@ -13,7 +13,7 @@ export type EditPageHeaderContent = {
   title: string;
   /**
    * At most ONE thing horizontally beside the title — a status badge, a Kürzel, a phase chip. There is no
-   * second slot and no line below the title: a free slot is what lets seven editors' headers diverge.
+   * second slot and no line below the title: a free slot is what lets eight editors' headers diverge.
    */
   chip?: ReactNode;
   /** Only where the entity can be retired; the write is the row's, not the draft's. */

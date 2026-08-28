@@ -10,6 +10,7 @@ import {
   PersonPencil,
   Persons,
   Sliders,
+  Tray,
 } from "@gravity-ui/icons";
 
 import type { SidemenuHint, SidemenuStructure } from "@/shared/types/types";
@@ -28,6 +29,8 @@ export const ADMIN_SIDEMENU_ICONS = {
   PersonPencil,
   Persons,
   MapPin,
+  // The triage's glyph: an in-tray of applications waiting to be worked down.
+  Tray,
   // The season's glyph, never a calendar — that is the Spieltage entry's below.
   Sliders,
   Calendar,
@@ -131,6 +134,17 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   {
     category_name: "Beteiligte",
     sub_options: [
+      {
+        id: "bewerbungen",
+        label: "Bewerbungen",
+        iconName: "Tray",
+        hint: {
+          lead: "Alle Bewerbungen von Schulen, die in eine Saison wollen.",
+          points: [{ term: "Eine Zusage", detail: "legt das Team an und nimmt es in die Saison auf." }],
+          // What an admin comes here to do and cannot: neither decision has a control that takes it back.
+          note: "Über eine Bewerbung wird einmal entschieden.",
+        },
+      },
       {
         id: "teams",
         label: "Teams",

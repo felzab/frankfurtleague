@@ -1,5 +1,5 @@
 import type { FLGruppenNames } from "../teams/schemas";
-import type { FLSaisonPhaseSchedule, FLSaisonRules, FLSaisonSpielplan, FLSaisonStatus } from "./schemas";
+import type { FLSaisonBewerbung, FLSaisonPhaseSchedule, FLSaisonRules, FLSaisonSpielplan, FLSaisonStatus } from "./schemas";
 
 // `"_id"` sorts chronologically: the season id is the four-character year string. A property of the
 // id format rather than a coincidence.
@@ -30,6 +30,11 @@ export type SaisonDraftFields = {
   start_date: string;
   end_date: string;
   rules: FLSaisonRules;
+  /**
+   * `null` is the season that takes no applications at all. Its two dates are `""` while a picker
+   * stands empty, which is the mid-edit state the payload schema refuses by name.
+   */
+  bewerbung: FLSaisonBewerbung | null;
 };
 
 export type AdminSaisonRow = {
