@@ -202,7 +202,7 @@ const knockoutOutcome = (fixtures: readonly FLSpiel[], teamId: string, standsInA
  * A blank contact person, for the moment the editor's contact block is switched on. `erteilt_von` and
  * the date stay unanswered: who agreed, and when, is the one thing nobody may guess for the league.
  */
-const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
+export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
   vorname: "",
   nachname: "",
   email: "",
@@ -211,7 +211,10 @@ const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
   einwilligung: { umfang: EINWILLIGUNG_UMFANG, erteilt_von: null, text_version: "", datum: "" },
 });
 
-/** The three blank seats, for the same moment. */
+/**
+ * The three blank seats, for the same moment. All three are PRESENT: a block filled in for the first
+ * time records three whole people, an empty seat being what an erasure leaves and nothing else.
+ */
 export const buildEmptyKontakte = (): SaisonTeamKontakteDraft => ({
   trainer: buildEmptyKontaktperson(),
   ansprechperson: buildEmptyKontaktperson(),
@@ -223,8 +226,8 @@ export const buildEmptyKontakte = (): SaisonTeamKontakteDraft => ({
  * Whether two seats really hold one person. The flag alone is an assertion the backend never checks,
  * so badging on it would state as fact that two different people are the same one.
  */
-const isSamePerson = (a: FLKontaktperson, b: FLKontaktperson): boolean =>
-  a.vorname === b.vorname && a.nachname === b.nachname && a.email === b.email && a.telefon === b.telefon;
+const isSamePerson = (a: FLKontaktperson | null, b: FLKontaktperson | null): boolean =>
+  a !== null && b !== null && a.vorname === b.vorname && a.nachname === b.nachname && a.email === b.email && a.telefon === b.telefon;
 
 /**
  * Every club's contacts for ONE season, flattened to a row per seat. A club with nothing on file
@@ -246,11 +249,18 @@ export function buildKontaktRows(teams: readonly FLTeamWithMemberships[], saison
         teamName: team.name,
         teamShorthand: team.shorthand,
         rolle: value,
-        vorname: person.vorname,
-        nachname: person.nachname,
-        email: person.email,
-        telefon: person.telefon,
-        einwilligung: person.einwilligung,
+        // A seat holding nobody still gets its row: an open seat is what the admin has to act on.
+        // `geburtsdatum` is left behind, no cell here rendering it.
+        person:
+          person === null
+            ? null
+            : {
+                vorname: person.vorname,
+                nachname: person.nachname,
+                email: person.email,
+                telefon: person.telefon,
+                einwilligung: person.einwilligung,
+              },
         istTrainerZugleich:
           value === "ansprechperson" && kontakte.trainer_ist_ansprechperson && isSamePerson(kontakte.trainer, kontakte.ansprechperson),
       };

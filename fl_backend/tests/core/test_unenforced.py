@@ -255,11 +255,18 @@ def _driver_calls(methods: frozenset[str]) -> list[str]:
     return sorted({f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in methods})
 
 
-def _literal_writes_of(field: str) -> set[tuple[str, str]]:
-    """Every write naming `field` in a literal document, as the function making it and the value it sets."""
+def _literal_writes_of(field: str, *, on: str) -> set[tuple[str, str]]:
+    """Every write naming `field` in a literal document on `on`, the function making it and the value set.
+
+    Scoped to ONE collection's handle: a field name is not unique across the database, and an
+    application carries a `status` too.
+    """
 
     writes: set[tuple[str, str]] = set()
     for _, scope, call in app_calls():
+        if not any(k.arg == "collection" and isinstance(k.value, ast.Name) and k.value.id == on for k in call.keywords):
+            continue
+
         for keyword in call.keywords:
             if keyword.arg not in WRITE_DOCUMENTS:
                 continue
@@ -319,7 +326,7 @@ class TestExactlyOneActiveSeason:
         # `post_saison` writes the constant `future` at create, which no second season contradicts;
         # `active` and the demotion to `past` are one function's, which is what lets one transaction
         # hold the pair. That function is the callback the activation runs, not the endpoint.
-        assert _literal_writes_of("status") == {
+        assert _literal_writes_of("status", on="saisons_collection") == {
             ("post_saison", "future"),
             (ACTIVATION_CALLBACK, "past"),
             (ACTIVATION_CALLBACK, "active"),

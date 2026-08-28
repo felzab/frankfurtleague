@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomOptionalString
@@ -21,8 +21,9 @@ class _SchiedsrichterPayload(_SchiedsrichterWritable):
     model_config = ConfigDict(extra="forbid")
 
     # Tightened on the WRITE side alone: a read model refusing a stored name would answer 500 for
-    # the whole list over one row (`docs/backend/spec.md :: I36`).
-    name: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
+    # the whole list over one row (`docs/backend/spec.md :: I36`). Stripped first, so the padding
+    # the pattern's trailing space class admits never reaches a match document.
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=PERSON_NAME_PATTERN)]
 
 
 # One shape under two names, and they stay two: each endpoint publishes its own OpenAPI component,

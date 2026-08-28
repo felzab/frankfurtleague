@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { computePlatzByTeamId, computeQualifyingTeamIds, computeSaisonVerlauf, describeReplacementUmfang } from "./utils.ts";
+import { buildKontaktRows, computePlatzByTeamId, computeQualifyingTeamIds, computeSaisonVerlauf, describeReplacementUmfang } from "./utils.ts";
 
 import type { FLSaisonPhase } from "../saisons/schemas.ts";
 import type { FLSpiel } from "../spiele/schemas.ts";
-import type { FLGruppenTeam } from "./schemas.ts";
+import type { FLGruppenTeam, FLKontaktperson, FLSaisonTeamKontakte, FLTeamWithMemberships } from "./schemas.ts";
 
 const TEAM_ID = (seed: number) => `6890a1b2c3d4e5f6071900${String(seed).padStart(2, "0")}`;
 
@@ -307,5 +307,75 @@ describe("describeReplacementUmfang", () => {
       assert.match(report, /\.$/, "the report does not end in a full stop");
       assert.doesNotMatch(report, /dafür|diesen Platz/, "the report leans on a word with no antecedent");
     }
+  });
+});
+
+const SAISON = "2025-2026";
+
+const kontaktperson = (vorname: string): FLKontaktperson => ({
+  vorname,
+  nachname: "Mustermann",
+  email: `${vorname.toLowerCase()}@beispiel.de`,
+  telefon: "069 1234567",
+  geburtsdatum: "1990-01-01",
+  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "2025-08", datum: "2025-09-01" },
+});
+
+const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => ({
+  id: TEAM_ID(1),
+  name: "Helmholtz",
+  shorthand: "HH",
+  description: "Eine Schule.",
+  full_name: "Helmholtzschule Frankfurt am Main",
+  website_url: "https://www.helmholtzschule.de",
+  address: { strasse: "Habsburgerallee", hausnummer: "57", plz: "60385", stadtteil: "Ostend", stadt: "Frankfurt am Main" },
+  schulform: "gymnasium_g9",
+  inactive_since: null,
+  memberships: [{ saison_id: SAISON, gruppe: "A", austritt: null, trikot_farbe: null, kontakte }],
+});
+
+describe("buildKontaktRows", () => {
+  it("keeps the club and its three seats where one of them holds nobody", () => {
+    const rows = buildKontaktRows(
+      [
+        club({
+          trainer: null,
+          ansprechperson: kontaktperson("Erika"),
+          stellvertretung: kontaktperson("Lena"),
+          trainer_ist_ansprechperson: false,
+        }),
+      ],
+      SAISON,
+    );
+
+    assert.deepEqual(
+      rows.map((row) => row.rolle),
+      ["trainer", "ansprechperson", "stellvertretung"],
+    );
+    // Null and not five empty strings: a row can hold a whole person or none, never a half of one.
+    assert.equal(rows[0]?.person, null);
+    assert.equal(rows[1]?.person?.vorname, "Erika");
+  });
+
+  it("badges no shared seat while the trainer holds nobody, whatever the flag asserts", () => {
+    const rows = buildKontaktRows(
+      [
+        club({
+          trainer: null,
+          ansprechperson: kontaktperson("Erika"),
+          stellvertretung: kontaktperson("Lena"),
+          trainer_ist_ansprechperson: true,
+        }),
+      ],
+      SAISON,
+    );
+
+    // The flag is an assertion nothing checks, so an empty Trainer seat must not badge the seat
+    // beside it as holding the same person.
+    assert.equal(rows[1]?.istTrainerZugleich, false);
+  });
+
+  it("contributes no row at all for a club with nothing on file", () => {
+    assert.deepEqual(buildKontaktRows([club(null)], SAISON), []);
   });
 });

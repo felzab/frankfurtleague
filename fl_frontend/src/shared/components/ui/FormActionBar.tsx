@@ -24,7 +24,7 @@ export function FormActionBar({
 }) {
   const status = useDraftStatus();
   // Generated rather than a constant: "one editor per page" held per editor and is not something a
-  // bar shared by seven of them can promise.
+  // bar shared by eight of them can promise.
   const saveHintId = useId();
 
   return (

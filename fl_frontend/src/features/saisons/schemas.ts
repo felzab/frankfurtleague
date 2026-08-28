@@ -88,6 +88,17 @@ export const FLSaisonSpielplanSchema = z.object({
 });
 export type FLSaisonSpielplan = z.infer<typeof FLSaisonSpielplanSchema>;
 
+/**
+ * Mirrors `FLSaisonBewerbung` — the two halves recording when the league accepts applications for a
+ * season: the span, and the `offen` flag an administrator sets beside it.
+ */
+export const FLSaisonBewerbungSchema = z.object({
+  offen: z.boolean(),
+  von: CustomDateStringSchema,
+  bis: CustomDateStringSchema,
+});
+export type FLSaisonBewerbung = z.infer<typeof FLSaisonBewerbungSchema>;
+
 export const FLSaisonSchema = z.object({
   // Exactly 4, mirroring the backend: an unbounded id lets `SaisonSelector` offer a season the
   // backend cannot hold.
@@ -103,6 +114,9 @@ export const FLSaisonSchema = z.object({
   // defaults it and nothing excludes unset, so every response carries it. `null` is the season
   // the generator has never run on.
   spielplan: FLSaisonSpielplanSchema.nullable(),
+  // Required and nullable for `spielplan`'s reason: the model defaults it, so every response carries
+  // the key. `null` is the season that takes no applications at all.
+  bewerbung: FLSaisonBewerbungSchema.nullable(),
 });
 export type FLSaison = z.infer<typeof FLSaisonSchema>;
 
@@ -148,16 +162,39 @@ const endsAfterItStarts = {
   path: ["end_date"],
 };
 
+// The sentence `the_application_window_ends_after_it_opens` raises, and on `bis` rather than on the
+// record: an issue keyed to no field reaches neither the change list's row nor an input.
+const windowEndsAfterItOpens = {
+  error: "Das Ende darf nicht vor dem Beginn der Bewerbungsfrist liegen.",
+  path: ["bewerbung", "bis"],
+};
+
+/**
+ * Judged apart from the season's own span, as the model validator judges it: a window may
+ * legitimately open before the season does. `null` is the season taking no applications, which this
+ * rule has nothing to say about.
+ */
+const windowRunsForwards = (bewerbung: FLSaisonBewerbung | null) => bewerbung === null || bewerbung.bis >= bewerbung.von;
+
+/**
+ * Shared by create and patch, which replace the season wholesale. **`bewerbung` is required and
+ * nullable, never optional**: an omitted key would close a window somebody opened.
+ */
+const saisonPayloadFields = {
+  start_date: CustomDateStringSchema,
+  end_date: CustomDateStringSchema,
+  rules: FLSaisonRulesSchema,
+  bewerbung: FLSaisonBewerbungSchema.nullable(),
+};
+
 export const FLPostSaisonPayloadSchema = z
   .object({
     // Chosen rather than generated, unlike every other create: `saisons._id` IS the referenced string.
     id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen, z.B. 2526." }),
-
-    start_date: CustomDateStringSchema,
-    end_date: CustomDateStringSchema,
-    rules: FLSaisonRulesSchema,
+    ...saisonPayloadFields,
   })
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
+  .refine((saison) => windowRunsForwards(saison.bewerbung), windowEndsAfterItOpens)
   .refine((saison) => saison.rules.qualifiers_per_group <= saison.rules.teams_per_group, groupCannotOverQualify)
   .refine((saison) => hasPlayableBracket(saison.rules), bracketMustHaveAShape);
 export type FLPostSaisonPayload = z.infer<typeof FLPostSaisonPayloadSchema>;
@@ -166,12 +203,10 @@ export const FLPatchSaisonPayloadSchema = z
   .object({
     // In the PATH on the wire; here because the editor has to know which season it is saving.
     id: z.string().length(4),
-
-    start_date: CustomDateStringSchema,
-    end_date: CustomDateStringSchema,
-    rules: FLSaisonRulesSchema,
+    ...saisonPayloadFields,
   })
-  .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts);
+  .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
+  .refine((saison) => windowRunsForwards(saison.bewerbung), windowEndsAfterItOpens);
 export type FLPatchSaisonPayload = z.infer<typeof FLPatchSaisonPayloadSchema>;
 
 /** An id in the path and no request body. */

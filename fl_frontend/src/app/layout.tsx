@@ -2,6 +2,7 @@ import "./globals.css";
 
 import { Inter } from "next/font/google";
 
+import { SITE_URL } from "@/core/brand";
 import { RootProviders } from "@/core/providers/RootProviders";
 import { openGraphFor } from "@/shared/utils/metadata";
 
@@ -19,7 +20,7 @@ const inter = Inter({
  * builds one through `openGraphFor(path)`.
  */
 export const metadata: Metadata = {
-  metadataBase: new URL("https://frankfurtleague.de"),
+  metadataBase: new URL(SITE_URL),
   title: {
     template: "%s | Frankfurt-League",
     default: "Frankfurt-League | Die Oberstufenliga",

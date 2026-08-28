@@ -52,12 +52,20 @@ EXIT = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-04-01"}
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072500f1")
 
 
-def junction_document(team_id: ObjectId, gruppe: str) -> dict[str, Any]:
+def junction_document(team_id: ObjectId, gruppe: str, kontakte: dict[str, Any] | None = None) -> dict[str, Any]:
     """A dict rather than a model: `saison_teams` is the one collection with no model of the row."""
 
     name, shorthand = PLAYED_AS[team_id]
 
-    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": gruppe, "austritt": None, "name": name, "shorthand": shorthand}
+    return {
+        "saison_id": SAISON_ID,
+        "team_id": team_id,
+        "gruppe": gruppe,
+        "austritt": None,
+        "kontakte": kontakte,
+        "name": name,
+        "shorthand": shorthand,
+    }
 
 
 def club_document(team_id: ObjectId) -> dict[str, Any]:
@@ -91,6 +99,7 @@ def on_a_season(
     saison_status: str = "future",
     junctions: Sequence[dict[str, Any]] = (),
     spiele: Sequence[dict[str, Any]] = (),
+    seeded_kontakte: dict[str, Any] | None = None,
 ) -> Any:
     """One client and event loop per call: Motor binds to the loop it first ran on.
 
@@ -103,7 +112,9 @@ def on_a_season(
         async with a_clean_database(container.get_connection_url(), DATABASE_NAME, collections=(Collection.SPIELE,)) as (_, database):
             await database[Collection.SAISONS].insert_one({"_id": SAISON_ID, "status": saison_status, "rules": dict(RULES)})
             await database[Collection.TEAMS].insert_many([club_document(team_id) for team_id in CLUB_NAMES])
-            await database[Collection.SAISON_TEAMS].insert_many([junction_document(ADLER, "A"), junction_document(BIEBER, "B"), *junctions])
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [junction_document(ADLER, "A", kontakte=seeded_kontakte), junction_document(BIEBER, "B"), *junctions]
+            )
             if spiele:
                 await database[Collection.SPIELE].insert_many(list(spiele))
 
@@ -119,21 +130,18 @@ async def call_patch(
     gruppe: str = "A",
     austritt: dict[str, Any] | None = None,
     trikot_farbe: str | None = None,
-    kontakte: dict[str, Any] | None = None,
     saison_id: str = SAISON_ID,
 ) -> Any:
-    """`gruppe` defaults to the group `ADLER` already sits in, so the default call moves nobody.
+    """`gruppe` defaults to `ADLER`'s own group, so the default call moves nobody.
 
-    Every writable key is sent on every call because the payload replaces them wholesale and
-    defaults none of them (`docs/backend/spec.md :: I31`).
+    Every key the payload takes is sent on every call: it replaces them wholesale and defaults none
+    (`docs/backend/spec.md :: I31`). No `kontakte` is among them.
     """
 
     return await patch_saison_team(
         team_id=team_id,
         saison_id=saison_id,
-        saison_team_data=FLPatchSaisonTeamPayload.model_validate(
-            {"gruppe": gruppe, "austritt": austritt, "trikot_farbe": trikot_farbe, "kontakte": kontakte}
-        ),
+        saison_team_data=FLPatchSaisonTeamPayload.model_validate({"gruppe": gruppe, "austritt": austritt, "trikot_farbe": trikot_farbe}),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
@@ -178,6 +186,17 @@ class TestRecordingAnExitFromTheSeason:
         )
 
         assert row["austritt"] == EXIT
+
+    def test_a_padded_reason_reaches_the_row_stripped(self, mongo_container: Any):
+        """The reason is FREE TEXT and PUBLIC, and `min_length` counts CHARACTERS: spaces alone would stand on the team's page as a blank."""
+
+        padded = f"  {EXIT['grund']}  "
+
+        response, row = on_a_season(mongo_container, lambda database: _both(database, austritt={**EXIT, "grund": padded}))
+
+        assert row["austritt"]["grund"] == EXIT["grund"]
+        assert response.austritt is not None
+        assert response.austritt.grund == EXIT["grund"]
 
     def test_clearing_it_reinstates_the_club(self, mongo_container: Any):
         """`austritt` has no default, so a payload omitting it is a 422; sending null is how the record is deliberately withdrawn."""
@@ -297,27 +316,72 @@ KONTAKTE = {
 }
 
 
-class TestTheSeasonsKitAndContacts:
-    """Both are written by this PATCH alone, and both are stored on the junction rather than on the club."""
+class TestTheSeasonsKit:
+    """Written by this PATCH alone, and stored on the junction rather than on the club."""
 
-    def test_they_land_on_the_row_and_come_back_on_the_echo(self, mongo_container: Any):
-        response, row = on_a_season(mongo_container, lambda database: _both(database, trikot_farbe="bordeaux", kontakte=dict(KONTAKTE)))
+    def test_it_lands_on_the_row_and_comes_back_on_the_echo(self, mongo_container: Any):
+        response, row = on_a_season(mongo_container, lambda database: _both(database, trikot_farbe="bordeaux"))
 
         assert row["trikot_farbe"] == "bordeaux"
-        assert row["kontakte"]["ansprechperson"]["telefon"] == KONTAKTPERSON["telefon"]
         assert response.trikot_farbe == "bordeaux"
-        assert response.kontakte is not None and response.kontakte.trainer.email == KONTAKTPERSON["email"]
 
-    def test_a_second_write_sending_nulls_clears_them(self, mongo_container: Any):
-        """The wholesale replace, from the direction that removes data: a school withdrawing its consent is one PATCH."""
+    def test_a_second_write_sending_null_clears_it(self, mongo_container: Any):
+        """The wholesale replace, from the direction that removes data: unassigning a colour is one PATCH."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
-            await call_patch(database, trikot_farbe="bordeaux", kontakte=dict(KONTAKTE))
+            await call_patch(database, trikot_farbe="bordeaux")
             await call_patch(database)
 
             return await stored_row(database)
 
-        row = on_a_season(mongo_container, body)
+        assert on_a_season(mongo_container, body)["trikot_farbe"] is None
 
-        assert row["trikot_farbe"] is None
-        assert row["kontakte"] is None
+
+class TestTheContactBlockThisPatchDoesNotOwn:
+    """`PATCH .../kontakte` writes it. The `$set` here names no `kontakte` key, so the stored block stands."""
+
+    def test_a_stored_block_survives_a_group_move(self, mongo_container: Any):
+        _, row = on_a_season(mongo_container, lambda database: _both(database, gruppe="B"), seeded_kontakte=dict(KONTAKTE))
+
+        assert row["gruppe"] == "B"
+        assert row["kontakte"] == KONTAKTE
+
+    def test_a_stored_block_survives_an_austritt(self, mongo_container: Any):
+        _, row = on_a_season(mongo_container, lambda database: _both(database, austritt=dict(EXIT)), seeded_kontakte=dict(KONTAKTE))
+
+        assert row["kontakte"] == KONTAKTE
+
+    def test_the_echo_reports_the_stored_block_rather_than_a_null(self, mongo_container: Any):
+        """The AFTER image, so a client is told what the row holds instead of reading silence as an empty block."""
+
+        response, _ = on_a_season(mongo_container, lambda database: _both(database, gruppe="B"), seeded_kontakte=dict(KONTAKTE))
+
+        assert response.kontakte is not None
+        assert response.kontakte.trainer is not None and response.kontakte.trainer.email == KONTAKTPERSON["email"]
+
+    def test_a_row_stored_with_no_block_at_all_still_echoes(self, mongo_container: Any):
+        """A row entered before the key existed: the validator does not require it, so `.get` is what keeps the echo alive."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one({"saison_id": SAISON_ID, "team_id": ADLER}, {"$unset": {"kontakte": ""}})
+
+            return await call_patch(database, gruppe="B"), await stored_row(database)
+
+        response, row = on_a_season(mongo_container, body)
+
+        assert "kontakte" not in row
+        assert response.kontakte is None
+
+    def test_a_contact_value_the_write_side_refuses_does_not_block_the_row(self, mongo_container: Any):
+        """Why no `kontakte` here: a contact is shapeless on read, bounded on write (`docs/backend/spec.md :: I36`).
+
+        A round-tripped block would 422 every save this page can make, on `kontakte.*` paths it
+        renders no field for.
+        """
+
+        unwritable = {**KONTAKTE, "trainer": {**KONTAKTPERSON, "telefon": "nicht bekannt"}}
+
+        _, row = on_a_season(mongo_container, lambda database: _both(database, gruppe="B"), seeded_kontakte=unwritable)
+
+        assert row["gruppe"] == "B"
+        assert row["kontakte"]["trainer"]["telefon"] == "nicht bekannt"

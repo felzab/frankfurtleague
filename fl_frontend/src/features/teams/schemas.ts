@@ -137,22 +137,28 @@ export const FLKontaktpersonPayloadSchema = z.object({
 export type FLKontaktpersonPayload = z.infer<typeof FLKontaktpersonPayloadSchema>;
 
 /**
- * Mirrors `FLSaisonTeamKontakte`. All three are held even where `trainer_ist_ansprechperson` is set:
- * the flag records the claim, and the stored copy is what a later edit is compared against.
+ * Mirrors `FLSaisonTeamKontakte`. A seat is held in full even where `trainer_ist_ansprechperson` is
+ * set: the flag records the claim, and the stored copy is what a later edit is compared against.
  */
 export const FLSaisonTeamKontakteSchema = z.object({
-  trainer: FLKontaktpersonSchema,
-  ansprechperson: FLKontaktpersonSchema,
-  stellvertretung: FLKontaktpersonSchema,
+  // Nullable per SLOT, mirroring the stored shape: a person's erasure empties the slot naming them
+  // and must not reach the two beside them.
+  trainer: FLKontaktpersonSchema.nullable(),
+  ansprechperson: FLKontaktpersonSchema.nullable(),
+  stellvertretung: FLKontaktpersonSchema.nullable(),
   trainer_ist_ansprechperson: z.boolean(),
 });
 export type FLSaisonTeamKontakte = z.infer<typeof FLSaisonTeamKontakteSchema>;
 
-/** Mirrors `FLSaisonTeamKontaktePayload` — the write side of the three, with the editor's German. */
+/**
+ * Mirrors `FLSaisonTeamKontaktePayload` — the write side of the three, with the editor's German and
+ * the empty slot an erasure leaves. Three whole people in a NEW block is the form's guarantee.
+ */
 export const FLSaisonTeamKontaktePayloadSchema = z.object({
-  trainer: FLKontaktpersonPayloadSchema,
-  ansprechperson: FLKontaktpersonPayloadSchema,
-  stellvertretung: FLKontaktpersonPayloadSchema,
+  // Empty is what an erasure leaves; accepting it here is what keeps such a row editable at all.
+  trainer: FLKontaktpersonPayloadSchema.nullable(),
+  ansprechperson: FLKontaktpersonPayloadSchema.nullable(),
+  stellvertretung: FLKontaktpersonPayloadSchema.nullable(),
   trainer_ist_ansprechperson: z.boolean(),
 });
 export type FLSaisonTeamKontaktePayload = z.infer<typeof FLSaisonTeamKontaktePayloadSchema>;
@@ -379,6 +385,10 @@ export const FLPostSaisonTeamPayloadSchema = z.object({
 });
 export type FLPostSaisonTeamPayload = z.infer<typeof FLPostSaisonTeamPayloadSchema>;
 
+/**
+ * The junction row's own fields. NO `kontakte` — `FLPatchSaisonTeamKontaktePayloadSchema` owns that
+ * block, and the backend refuses one sent here.
+ */
 export const FLPatchSaisonTeamPayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the junction row is addressed by its natural key.
   team_id: CustomObjectIdStringSchema,
@@ -388,9 +398,6 @@ export const FLPatchSaisonTeamPayloadSchema = z.object({
   // omits it gets a 422, never a team quietly reinstated.
   austritt: FLAustrittSchema.nullable(),
   trikot_farbe: FLTrikotFarbeSchema.nullable(),
-  // The three people whole, for `austritt`'s reason: a partial send would leave the row holding one
-  // half of an agreement.
-  kontakte: FLSaisonTeamKontaktePayloadSchema.nullable(),
 });
 export type FLPatchSaisonTeamPayload = z.infer<typeof FLPatchSaisonTeamPayloadSchema>;
 

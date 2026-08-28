@@ -1,14 +1,23 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { FLPatchTeamResponseSchema, FLReplaceSaisonTeamResponseSchema, FLSaisonTeamResponseSchema } from "./schemas";
+import {
+  FLPatchTeamResponseSchema,
+  FLReplaceSaisonTeamResponseSchema,
+  FLSaisonTeamKontaktePayloadSchema,
+  FLSaisonTeamResponseSchema,
+} from "./schemas";
 
 /**
  * What `fl_frontend/src/core/apiContract.test.ts` cannot reach: it compares presence, required,
  * nullable, type and enum, so a bound that disagrees with the backend's passes it green.
  */
 const pathsRefused = (
-  schema: typeof FLPatchTeamResponseSchema | typeof FLReplaceSaisonTeamResponseSchema | typeof FLSaisonTeamResponseSchema,
+  schema:
+    | typeof FLPatchTeamResponseSchema
+    | typeof FLReplaceSaisonTeamResponseSchema
+    | typeof FLSaisonTeamKontaktePayloadSchema
+    | typeof FLSaisonTeamResponseSchema,
   value: unknown,
 ): string[] => {
   const result = schema.safeParse(value);
@@ -135,5 +144,44 @@ describe("FLReplaceSaisonTeamResponseSchema", () => {
     const parsed = FLReplaceSaisonTeamResponseSchema.parse(replacement({ austritt: { type: "rueckzug", grund: "x", datum: "2026-03-12" } }));
 
     assert.equal("austritt" in parsed, false);
+  });
+});
+
+const kontaktpersonPayload = (overrides: Record<string, unknown> = {}) => ({
+  vorname: "Erika",
+  nachname: "Mustermann",
+  email: "erika@beispiel.de",
+  telefon: "069 1234567",
+  geburtsdatum: "1990-01-01",
+  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "2025-08", datum: "2025-09-01" },
+  ...overrides,
+});
+
+const kontaktePayload = (overrides: Record<string, unknown> = {}) => ({
+  trainer: kontaktpersonPayload(),
+  ansprechperson: kontaktpersonPayload({ vorname: "Max" }),
+  stellvertretung: kontaktpersonPayload({ vorname: "Lena" }),
+  trainer_ist_ansprechperson: false,
+  ...overrides,
+});
+
+describe("FLSaisonTeamKontaktePayloadSchema", () => {
+  /* Required here, an admin could not save ANY edit to a row an erasure emptied -- not the group,
+     not a typo in one of the two people beside it -- without re-entering the person who asked to be
+     forgotten, which is the collection the erasure destroyed. */
+  it("takes an empty seat, so a row one erasure emptied stays editable", () => {
+    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: null })), []);
+  });
+
+  /* The block's own guarantee moved to the form, which mounts a seat's boxes only while somebody is
+     recorded in it and makes every one of them required. */
+  it("still refuses a seat half filled in, field by field", () => {
+    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: kontaktpersonPayload({ email: "" }) })), [
+      "trainer.email",
+    ]);
+  });
+
+  it("refuses a seat that is neither a whole person nor empty", () => {
+    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: "Erika Mustermann" })), ["trainer"]);
   });
 });

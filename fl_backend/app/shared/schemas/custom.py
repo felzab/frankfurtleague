@@ -86,6 +86,11 @@ CustomOptionalString = Annotated[str | None, BeforeValidator(parse_empty_string_
 # An alias rather than a repeated `Field`, so a field cannot be added with the bound left off.
 CustomNonEmptyString = Annotated[str, StringConstraints(min_length=1)]
 
+# The WRITE-side floor: `min_length` counts CHARACTERS, so the alias above takes spaces alone -- a
+# value stored and served as empty. NEVER on a read model, where the strip runs first and a stored
+# blank would refuse (`docs/backend/spec.md :: I36`).
+CustomStrippedNonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
 
 # A LITERAL SPACE, never `\s`: the class sits INSIDE the anchors, so `\s` there would let the value
 # carry the newlines and tabs they exclude.

@@ -2,17 +2,19 @@ import importlib
 import inspect
 from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, Union, get_args, get_origin
 
 import pytest
 from fastapi.routing import APIRoute
 from pydantic import BaseModel, ValidationError
+from pydantic.fields import FieldInfo
 
 from app.api.saisons.schemas import FLSaison
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel
 from app.api.teams.schemas import FLPatchTeamPayload, FLTeam
 from app.main import create_app
+from app.shared.schemas.addresses import FLAddressPayload
 from tests.config import build_test_config
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -137,6 +139,41 @@ READ_SIDE_CASES = _cases(READ_SIDE)
 # `extra` lax, and so exactly where an undeclared key is dropped rather than refused.
 LAX_CASES = _cases(model for model in PAYLOAD_SIDE if _a_read_parses_it(model))
 
+
+def _is_a_string(annotation: Any) -> bool:
+    """Whether a length bound on the field counts CHARACTERS -- a `list[str]`'s counts members instead."""
+
+    if get_origin(annotation) is Union:
+        return any(_is_a_string(argument) for argument in get_args(annotation))
+
+    return annotation is str
+
+
+def _floor(field: FieldInfo) -> int | None:
+    """Read off the constraint objects, so a floor spelled `Field(min_length=...)` and one inside a `StringConstraints` are both seen."""
+
+    return next((constraint.min_length for constraint in field.metadata if getattr(constraint, "min_length", None) is not None), None)
+
+
+def _strips(field: FieldInfo) -> bool:
+    return any(getattr(constraint, "strip_whitespace", None) for constraint in field.metadata)
+
+
+# Every string a strict payload takes, inherited fields included: what refuses a body is the model
+# the route names, wherever the field was declared.
+STRICT_STRINGS = [
+    (f"{label}.{name}", field)
+    for label, model in PAYLOAD_SIDE_CASES
+    if _is_strict(model)
+    for name, field in model.model_fields.items()
+    if _is_a_string(field.annotation)
+]
+
+# The payload strings a value is legitimately ABSENT from rather than blank, so spaces there are no
+# more filled-looking than the empty string the field already takes.
+OPEN_TO_THE_EMPTY_STRING = frozenset({"stadtteil", "hausnummer", "description"})
+
+
 # `empty_parameter_set_mark` defaults to skip, so a sweep that matched nothing would pass in silence.
 assert BODY_CASES, "no route declares a request body; the app, or the way a body is declared, has moved"
 assert READ_SIDE_CASES, "nothing is left on the read side; the split between the two has moved"
@@ -252,3 +289,50 @@ class TestTheLaxHalf:
         austritt = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-03-14", UNDECLARED_KEY: "x"}
 
         assert FLTeam.model_validate(team(austritt=austritt)).austritt is not None
+
+
+class TestAFloorOnAPayloadStringCountsWhatIsLeftAfterTheStrip:
+    """A floor counts CHARACTERS, so a field that does not strip first takes spaces alone.
+
+    What is stored then looks filled and is not, and every reader of the field renders it -- a
+    club's shorthand is the whole of what a league table names it by.
+    """
+
+    def test_the_sweep_reads_strings_on_both_sides_of_the_rule(self):
+        """The floor: a sweep seeing no floors, or no open strings, would pass a clause below over nothing."""
+
+        assert [label for label, field in STRICT_STRINGS if _floor(field)], "no strict payload declares a string with a length floor"
+        assert [label for label, field in STRICT_STRINGS if not _floor(field)], "no strict payload declares a string without one"
+
+    def test_every_string_carrying_a_floor_is_stripped_before_the_floor_counts_it(self):
+        """Drop `strip_whitespace` from any payload string with a floor and this fails, the next one too.
+
+        Never on the read side, where the strip runs first and a stored blank would refuse the
+        whole list it appears in (`docs/backend/spec.md :: I36`).
+        """
+
+        unstripped = sorted(label for label, field in STRICT_STRINGS if _floor(field) and not _strips(field))
+
+        assert unstripped == [], f"{unstripped} clear their floor on spaces alone"
+
+    def test_the_strings_no_floor_covers_are_the_ones_a_value_is_absent_from(self):
+        """Why the clause above reaches every floor and still excuses nothing: these carry none to count.
+
+        Give one a floor and the rule takes it over, which is the answer where a field stops being
+        optional.
+        """
+
+        floored = sorted(label for label, field in STRICT_STRINGS if label.split(".")[-1] in OPEN_TO_THE_EMPTY_STRING and _floor(field))
+
+        assert floored == []
+
+    def test_a_payload_still_takes_the_empty_string_where_the_value_is_absent(self, address, team):
+        """The behaviour behind the set above, so it is a property of the fields rather than a list somebody wrote."""
+
+        blank = FLAddressPayload.model_validate(address(stadtteil="", hausnummer=""))
+
+        assert (blank.stadtteil, blank.hausnummer) == ("", "")
+
+        body = {key: value for key, value in team(description="").items() if key in FLPatchTeamPayload.model_fields}
+
+        assert FLPatchTeamPayload.model_validate(body).description == ""

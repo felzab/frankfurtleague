@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `1455c46b`, 2026-08-28\
+**Verified against:** `dbe2978e`, 2026-08-28\
 **Scope:** `fl_frontend/`
 
 A Next.js application on the App Router, with React, HeroUI and Tailwind. It is both the website and, in
@@ -14,7 +14,7 @@ container, which is why the page-level caching and its tag invalidation live her
 ```
 src/
 ├── app/                routes only — thin. Fetch, then hand off to a feature component
-├── core/               infrastructure: api · auth · config · db · errors · logging · correlation · schemas · providers
+├── core/               infrastructure the whole app rests on — the API client, auth, config, logging and the rest
 ├── features/           one slice per business entity
 ├── shared/             cross-slice components, hooks, types, utils
 ├── instrumentation.ts  Next's instrumentation entry: the startup environment gate and the server error hook
@@ -71,8 +71,9 @@ render this app at all. It does **not** govern Next's own polyfill bundle ([`spe
 ## Copy and metadata
 
 The site addresses its reader as `Du` — informal, capitalised, never `Sie` — with a second register on top of
-that for refusal copy ([`spec.md`](spec.md) §1.12). Every public route sets its own `title`, `description`
-and canonical, and `metadataBase` in the root layout is what lets the canonicals be paths (§1.13).
+that for refusal copy ([`spec.md`](spec.md) §1.12). Every public route below the landing page sets its own
+`title`, `description` and canonical; the landing page takes the root layout's, which are written for it.
+`metadataBase` in that layout is what lets the canonicals be paths (§1.13).
 
 ## Authentication and authorization
 
@@ -83,7 +84,8 @@ business entities, and it exists because the adapter has no HTTP transport and s
 authorization check. Application data goes through FastAPI without exception.
 
 Second, **admin is an email allowlist**, not a stored role. `ALLOWED_ADMIN_EMAILS` is checked at sign-in and
-again when the session is built. `getAdminSession()` is the single definition of that policy, and its return
+again when the session is built, both through `fl_frontend/src/core/auth.ts :: isUserAdmin`, where the policy is
+defined. `getAdminSession()` is the single gate server code reaches it through, and its return
 value has to be checked — [`spec.md`](spec.md) I8 says what happens when it is not.
 
 Route protection is layered: `fl_frontend/src/proxy.ts` guards `/admin/:path*`, and

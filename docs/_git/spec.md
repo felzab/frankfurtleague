@@ -1,6 +1,6 @@
 # Git — spec
 
-**Verified against:** `1c70c28a`, 2026-08-28\
+**Verified against:** `dbe2978e`, 2026-08-28\
 **Scope:** branching, commits, pull requests, the verification gate, and the GitHub settings that enforce them
 
 | Section                                                | Answers                                                                    |
@@ -97,8 +97,9 @@ run** — until then the gate and CI are the only checks.
 Beyond that list:
 
 - A non-blank second line is refused — git otherwise reads the whole message as the subject.
-- A subject longer than GitHub shows in a list view is reported, not refused
-  (`scripts/check_commits.py :: SUBJECT_TARGET`).
+- A subject longer than GitHub shows in a list view is reported
+  (`scripts/check_commits.py :: SUBJECT_TARGET`); one longer still, past the width at which nothing
+  wrapped it for any view, is refused instead (`scripts/check_commits.py :: LINE_MAX`).
 - A scope outside the recorded set is reported, not refused.
 - A body recording no verification is reported, not refused — and not reported at all for a commit
   Dependabot wrote, whose generator records none and has no way to.

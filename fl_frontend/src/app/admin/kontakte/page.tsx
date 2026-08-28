@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
+import { AdminKontaktErasureForm } from "@/features/kontakte/components/forms/AdminKontaktErasureForm";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { AdminKontakteView } from "@/features/teams/components/views/AdminKontakteView";
@@ -30,6 +31,10 @@ export default function AdminKontaktePage(props: NextPageProps) {
       <Suspense fallback={<AdminCrudFallback />}>
         <KontakteTable searchParams={props.searchParams} />
       </Suspense>
+
+      {/* Outside the boundary, because it waits on nothing: the erasure is keyed on an address across
+          every season and both collections, so it reads neither the season above it nor the list. */}
+      <AdminKontaktErasureForm />
     </AdminCrudShell>
   );
 }

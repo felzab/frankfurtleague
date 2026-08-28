@@ -24,6 +24,9 @@ const EMPTY_DRAFT: FLPostSaisonPayload = {
   id: "",
   start_date: "",
   end_date: "",
+  // The explicit null the payload demands rather than an omitted key: this dialog offers no control
+  // over the window, which is opened on the new season's own page.
+  bewerbung: null,
   rules: {
     win_points: 3,
     draw_points: 1,

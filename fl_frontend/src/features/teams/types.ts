@@ -5,6 +5,7 @@ import type {
   FLCreateTeamFormPayload,
   FLGruppenNames,
   FLKontaktEinwilligung,
+  FLKontaktperson,
   FLPatchSaisonTeamPayload,
   FLPostSaisonTeamPayload,
   FLSaisonTeamKontakte,
@@ -87,22 +88,27 @@ export type KontaktEinwilligungDraft = Omit<FLKontaktEinwilligung, "erteilt_von"
 };
 
 /** One contact person mid-edit. Every other field is typed, so an unanswered one is the empty string. */
-export type KontaktpersonDraft = Omit<FLSaisonTeamKontakte["trainer"], "einwilligung"> & {
+export type KontaktpersonDraft = Omit<FLKontaktperson, "einwilligung"> & {
   einwilligung: KontaktEinwilligungDraft;
 };
 
-/** The season's three people mid-edit. */
+/**
+ * The season's three seats mid-edit. A seat is `null` where nobody is recorded in it, which is the
+ * state an erasure leaves and the one the payload accepts.
+ */
 export type SaisonTeamKontakteDraft = Omit<FLSaisonTeamKontakte, "trainer" | "ansprechperson" | "stellvertretung"> & {
-  trainer: KontaktpersonDraft;
-  ansprechperson: KontaktpersonDraft;
-  stellvertretung: KontaktpersonDraft;
+  trainer: KontaktpersonDraft | null;
+  ansprechperson: KontaktpersonDraft | null;
+  stellvertretung: KontaktpersonDraft | null;
 };
 
-/** The junction editor's membership draft, widened the same way, record included. */
-export type SaisonTeamMembershipDraft = Omit<FLPatchSaisonTeamPayload, "gruppe" | "austritt" | "kontakte"> & {
+/**
+ * The junction editor's membership draft, widened the same way, record included. No `kontakte` — the
+ * payload does not carry the block, and the three seats are the contacts editor's to move.
+ */
+export type SaisonTeamMembershipDraft = Omit<FLPatchSaisonTeamPayload, "gruppe" | "austritt"> & {
   gruppe: FLGruppenNames | null;
   austritt: AustrittDraft | null;
-  kontakte: SaisonTeamKontakteDraft | null;
 };
 
 /**
@@ -169,8 +175,8 @@ export type TeamGruppeLock = {
 };
 
 /**
- * One row of `/admin/kontakte`: one person in one seat of one club, for the selected season. A club
- * with no contacts on file contributes no rows, so the list never states a person who is not there.
+ * One row of `/admin/kontakte`: one SEAT of one club, for the selected season. A club with no
+ * contacts on file contributes no rows, so the list never states a person who is not there.
  */
 export type AdminKontaktRow = {
   id: string;
@@ -178,11 +184,17 @@ export type AdminKontaktRow = {
   teamName: string;
   teamShorthand: string;
   rolle: KontaktRolle;
-  vorname: string;
-  nachname: string;
-  email: string;
-  telefon: string;
-  einwilligung: FLKontaktEinwilligung;
+  /**
+   * Null where nobody is recorded in the seat. One nullable block rather than five nullable fields:
+   * a row can then hold a whole person or none, never a name with no way to reach it.
+   */
+  person: {
+    vorname: string;
+    nachname: string;
+    email: string;
+    telefon: string;
+    einwilligung: FLKontaktEinwilligung;
+  } | null;
   /**
    * This seat and the Trainer's really hold one person, the assertion having been checked against the
    * two records. Graded once here, so no cell can restate it from the flag alone.

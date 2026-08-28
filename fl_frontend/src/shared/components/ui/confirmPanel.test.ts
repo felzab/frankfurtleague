@@ -57,6 +57,9 @@ const PANELS = [
   "../../../features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx",
   "../../../features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx",
   "../../../features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx",
+  "../../../features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx",
+  "../../../features/bewerbungen/components/forms/AdminBewerbungAblehnenSection.tsx",
+  "../../../features/kontakte/components/forms/AdminKontaktErasureForm.tsx",
 ];
 
 /**
@@ -92,7 +95,7 @@ describe("the source these files are read as", () => {
 });
 
 describe("the armed reveal", () => {
-  /* The one mechanism the eight panels share. Without it the only signal that the next press became
+  /* The one mechanism every escalating panel shares. Without it the only signal that the next press became
      irreversible is the button label quietly changing, which no assistive technology announces. */
   it("announces itself as an alert and says so in words", () => {
     assert.match(REVEAL, /role="alert"/);
@@ -144,11 +147,11 @@ describe("the readout row", () => {
   });
 });
 
-describe("the seven panels", () => {
+describe("every panel that escalates a press", () => {
   /* The whole point of the extraction. A panel spelling the shell again is one that drifts from the
-     other seven the next time any of the three moves. */
+     rest the next time any of the three shared components moves. */
   it("render the shared mechanism rather than spelling their own", () => {
-    assert.ok(PANELS.length === 7, "the roster no longer names all seven panels");
+    assert.ok(PANELS.length === 10, "the roster no longer names every panel that escalates a press");
 
     for (const file of PANELS) {
       const source = read(file);

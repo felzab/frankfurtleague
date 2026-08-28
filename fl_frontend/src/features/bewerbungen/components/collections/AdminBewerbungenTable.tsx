@@ -1,0 +1,218 @@
+"use client";
+
+import { memo } from "react";
+
+import { ArrowRightFromSquare, GraduationCap, Persons } from "@gravity-ui/icons";
+
+import { Table } from "@heroui/react";
+
+import { BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
+import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
+import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { card } from "@/shared/components/ui/card";
+import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { formatSpielDatum } from "@/shared/utils/format";
+
+import type { AdminBewerbungRow } from "@/features/bewerbungen/types";
+import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
+
+const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
+  searched: "Keine Bewerbungen für diese Suche.",
+  filtered: "Keine Bewerbungen für diese Filter.",
+  none: "Es sind noch keine Bewerbungen eingegangen.",
+};
+
+/** What an application naming no team at all reads as — the one `REQ-BEWERBUNG-002` refuses to accept. */
+const NO_TEAM = "Kein Team benannt";
+
+/**
+ * A react-aria collection re-rendered while hidden in an Activity tree loses its rows, and the
+ * parent's URL state re-renders this one on any navigation. `Table.Body`'s `items` form carries the
+ * fix; `memo` is the second layer.
+ */
+export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
+  filteredBewerbungen,
+  emptiness,
+}: {
+  filteredBewerbungen: AdminBewerbungRow[];
+  /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
+  emptiness: CrudEmptiness;
+}) {
+  // One source for both layouts, so the table's cells and the phone cards cannot disagree about a
+  // row or its controls.
+  const renderName = (bewerbung: AdminBewerbungRow) =>
+    bewerbung.teamName === null ? (
+      <span className="fluid-sm text-foreground-muted/50 italic">{NO_TEAM}</span>
+    ) : (
+      <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{bewerbung.teamName}</span>
+    );
+
+  const renderStatus = (bewerbung: AdminBewerbungRow) => (
+    <span className={`${LABEL_BADGE} ${BEWERBUNG_STATUS_TINT[bewerbung.status]}`}>{bewerbungStatusLabel(bewerbung.status)}</span>
+  );
+
+  // The Ansprechperson is who the league writes to first; the Trainer stands in where that seat is
+  // empty, an erasure clearing one slot without reaching the two beside it.
+  const renderKontakt = (bewerbung: AdminBewerbungRow) => {
+    const person = bewerbung.kontakte.ansprechperson ?? bewerbung.kontakte.trainer;
+
+    return (
+      <div className="flex flex-col gap-0.5">
+        <span className="fluid-sm text-foreground">
+          {person === null ? (
+            <span className="text-foreground-muted/50 italic">Keine Kontaktperson</span>
+          ) : (
+            `${person.vorname} ${person.nachname}`
+          )}
+        </span>
+        <span className="fluid-xs text-foreground-muted">
+          {person === null || person.email === "" ? <span className="text-foreground-muted/50 italic">Keine E-Mail</span> : person.email}
+        </span>
+      </div>
+    );
+  };
+
+  // A new school and an existing club are decided differently — the first one gets created — so the
+  // row says which it is before it is opened.
+  const renderHerkunft = (bewerbung: AdminBewerbungRow) =>
+    bewerbung.schule !== null ? (
+      <span className={`${LABEL_BADGE} bg-brand/10 text-brand-solid`}>Neue Schule</span>
+    ) : (
+      <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Bestehendes Team</span>
+    );
+
+  const renderActions = (bewerbung: AdminBewerbungRow) => (
+    <RowActions>
+      {/* A link and not a press: the decision is taken on a page of its own, where the whole
+          application stands. */}
+      <RowActionLink
+        href={`/admin/bewerbungen/${bewerbung.id}`}
+        label="Bewerbung öffnen"
+        ariaLabel={`Bewerbung von ${bewerbung.teamName ?? NO_TEAM} öffnen`}>
+        <ArrowRightFromSquare
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
+    </RowActions>
+  );
+
+  return (
+    <>
+      {/* One card per application, so nothing scrolls horizontally. */}
+      <div className="flex w-full flex-col gap-3 md:hidden">
+        {filteredBewerbungen.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
+        {filteredBewerbungen.map((bewerbung) => (
+          <div
+            key={bewerbung.id}
+            className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
+            <div className="flex w-full flex-row items-center gap-3">
+              <GraduationCap
+                className="text-brand shrink-0"
+                width={18}
+                height={18}
+              />
+              {renderName(bewerbung)}
+              <span className="ml-auto shrink-0">{renderStatus(bewerbung)}</span>
+            </div>
+            <div className="flex flex-row flex-wrap items-center gap-2">
+              {renderHerkunft(bewerbung)}
+              <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Saison {bewerbung.saison_id}</span>
+              <span className="fluid-xs text-foreground-muted">Eingereicht {formatSpielDatum(bewerbung.eingereicht_am)}</span>
+            </div>
+            {renderKontakt(bewerbung)}
+            <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(bewerbung)}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden w-full md:block">
+        <Table className={`${card()} h-fit w-full p-0`}>
+          {/* No `scrollbar-hide`: below the minimum declared on the table this container is the only
+              way to reach the columns it cannot fit, and a hidden bar says it is not. */}
+          <Table.ScrollContainer>
+            {/* Fixed layout holds the columns when the rows go. The minimum is the six declared
+                columns plus 256 for the name, under which it gets nothing. */}
+            <Table.Content
+              aria-label="Tabelle aller Bewerbungen"
+              className="min-w-7xl table-fixed">
+              <Table.Header>
+                <Table.Column
+                  isRowHeader
+                  className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  Team
+                </Table.Column>
+                {/* PINNED to their content's width, so the leftover all goes to the name column. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  Herkunft
+                </Table.Column>
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  Saison
+                </Table.Column>
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-40 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  Eingereicht
+                </Table.Column>
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-72 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  Ansprechperson
+                </Table.Column>
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-32 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  Status
+                </Table.Column>
+                {/* One control — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` holds
+                    the arithmetic, and it is the count a new action changes. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-32 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+                  Aktionen
+                </Table.Column>
+              </Table.Header>
+
+              {/* `items` plus a render function, never mapped children: the static form stops
+                  committing its row collection after a few navigations away and back. */}
+              <Table.Body
+                items={filteredBewerbungen}
+                renderEmptyState={() => <AdminCrudEmptyRow message={EMPTY_MESSAGES[emptiness]} />}>
+                {(bewerbung: AdminBewerbungRow) => (
+                  <Table.Row
+                    id={bewerbung.id}
+                    className="border-border/50 border-b last:border-b-0">
+                    <Table.Cell className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <Persons
+                          className="text-brand shrink-0"
+                          width={18}
+                          height={18}
+                        />
+                        <div className="flex min-w-0 flex-col items-start gap-1">
+                          {renderName(bewerbung)}
+                          {bewerbung.schule !== null && (
+                            <span className="fluid-xs text-foreground-muted min-w-0 truncate">{bewerbung.schule.full_name}</span>
+                          )}
+                        </div>
+                      </div>
+                    </Table.Cell>
+
+                    <Table.Cell className="px-6 py-4">{renderHerkunft(bewerbung)}</Table.Cell>
+
+                    <Table.Cell className="px-6 py-4">
+                      <span className="fluid-sm text-foreground font-semibold">{bewerbung.saison_id}</span>
+                    </Table.Cell>
+
+                    <Table.Cell className="px-6 py-4">
+                      <span className="fluid-sm text-foreground">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
+                    </Table.Cell>
+
+                    <Table.Cell className="px-6 py-4">{renderKontakt(bewerbung)}</Table.Cell>
+
+                    <Table.Cell className="px-6 py-4">{renderStatus(bewerbung)}</Table.Cell>
+
+                    <Table.Cell className="px-6 py-4">{renderActions(bewerbung)}</Table.Cell>
+                  </Table.Row>
+                )}
+              </Table.Body>
+            </Table.Content>
+          </Table.ScrollContainer>
+        </Table>
+      </div>
+    </>
+  );
+});

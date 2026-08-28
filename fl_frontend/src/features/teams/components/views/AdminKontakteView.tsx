@@ -9,7 +9,7 @@ import type { AdminKontaktRow } from "@/features/teams/types";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The seat is
 // not among them because it is a facet: searching would match the stored slug and not the label.
-const SEARCH_KEYS = ["vorname", "nachname", "email", "telefon", "teamName", "teamShorthand"] as const;
+const SEARCH_KEYS = ["person.vorname", "person.nachname", "person.email", "person.telefon", "teamName", "teamShorthand"] as const;
 
 /**
  * **Neither modal renderer is passed, and that is the shape of this resource**: the contacts are

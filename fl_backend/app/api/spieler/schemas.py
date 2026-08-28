@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
@@ -162,10 +162,12 @@ class FLPostSpielerPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    vorname: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
+    # Stripped first, so the padding the pattern's trailing space class admits is never stored and
+    # never printed on a squad sheet.
+    vorname: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=PERSON_NAME_PATTERN)]
     # Optional here and REQUIRED on the patch below: a create has nothing to overwrite, while a
     # patch that omits it would erase a surname somebody typed.
-    nachname: str | None = Field(default=None, pattern=PERSON_NAME_PATTERN)
+    nachname: Annotated[str, StringConstraints(strip_whitespace=True, pattern=PERSON_NAME_PATTERN)] | None = None
 
 
 class FLPatchSpielerPayload(BaseModel):
@@ -177,8 +179,8 @@ class FLPatchSpielerPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    vorname: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
-    nachname: str | None = Field(pattern=PERSON_NAME_PATTERN)
+    vorname: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=PERSON_NAME_PATTERN)]
+    nachname: Annotated[str, StringConstraints(strip_whitespace=True, pattern=PERSON_NAME_PATTERN)] | None
 
 
 # Private, so the create and the edit state the bound once and the layer publishes no OpenAPI component.
@@ -197,7 +199,8 @@ class FLPostSaisonSpielerPayload(_SaisonSpielerPayload):
     rather than omitting, so the answer is theirs and not a default nobody chose.
     """
 
-    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+    # Stripped before the width is counted, for `app/shared/schemas/custom.py :: CustomStrippedNonEmptyString`'s reason.
+    saison_id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)]
 
 
 class FLPatchSaisonSpielerPayload(_SaisonSpielerPayload):

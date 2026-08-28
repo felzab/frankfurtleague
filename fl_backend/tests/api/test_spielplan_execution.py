@@ -288,6 +288,9 @@ async def call_patch_rules(database: AsyncIOMotorDatabase, **overrides: Any) -> 
             start_date=seeded["start_date"],
             end_date=seeded["end_date"],
             rules=FLSaisonRules.model_validate({**rules_document(), **overrides}),
+            # Stated rather than omitted: the payload replaces the season wholesale, so `bewerbung`
+            # carries no default and this helper is not about the application window.
+            bewerbung=None,
         ),
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],

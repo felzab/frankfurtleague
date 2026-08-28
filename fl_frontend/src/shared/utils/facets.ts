@@ -76,9 +76,9 @@ export function countFacetOptions<TItem>(
 const lastReadSelection = new WeakMap<object, { search: string; selection: FacetSelection }>();
 
 /**
- * Comma-joined, one parameter per facet; a value the facet does not offer is dropped, the query string being editable.
- * A facet carrying `defaultValues` answers with them while its parameter is absent.
- * **The returned object is referentially stable while the query string is** — the half `applyFacets` cannot cover.
+ * Comma-joined, one parameter per facet; a value the facet does not offer is dropped, the query
+ * string being editable, and `defaultValues` answer where nothing offered survives.
+ * **The result is referentially stable while the query string is.**
  */
 export function readFacetSelection<TItem>(facets: readonly Facet<TItem>[], params: URLSearchParams): FacetSelection {
   const search = params.toString();
@@ -90,17 +90,21 @@ export function readFacetSelection<TItem>(facets: readonly Facet<TItem>[], param
   for (const facet of facets) {
     const raw = params.get(facet.param);
 
-    // Absent and empty part company here: absent is nobody having answered, which a default may answer for, while
-    // an empty parameter is the reader having turned the facet off and is the one state that outranks a default.
-    if (raw === null) {
-      if (facet.defaultValues !== undefined && facet.defaultValues.length > 0) selection[facet.param] = facet.defaultValues;
-      continue;
-    }
+    // The EMPTY parameter is the one state that outranks a default: it is the reader having turned the
+    // facet off, and every "show me all of them" link in the app is written as that form.
     if (raw === "") continue;
 
     const offered = new Set(facet.options.map((option) => option.value));
-    const picked = raw.split(",").filter((value) => offered.has(value));
-    if (picked.length > 0) selection[facet.param] = picked;
+    const picked = raw === null ? [] : raw.split(",").filter((value) => offered.has(value));
+
+    // Absent and unrecognised answer alike, with the default. Two admin lists can spell one parameter
+    // differently, and reading a foreign value as the off-switch hands the reader an unnarrowed list
+    // with no pill saying why (owner's call, 2026-08-28).
+    if (picked.length > 0) {
+      selection[facet.param] = picked;
+    } else if (facet.defaultValues !== undefined && facet.defaultValues.length > 0) {
+      selection[facet.param] = facet.defaultValues;
+    }
   }
 
   lastReadSelection.set(facets, { search, selection });

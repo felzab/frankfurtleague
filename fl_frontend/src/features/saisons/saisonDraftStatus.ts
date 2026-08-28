@@ -1,5 +1,6 @@
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
+import { formatSpielDatum } from "@/shared/utils/format";
 
 import { tiebreakLabel } from "./constants";
 
@@ -7,7 +8,7 @@ import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatu
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SaisonDraftFields } from "./types";
 
-export type FLSaisonFieldGroup = "Zeitraum" | "Regeln";
+export type FLSaisonFieldGroup = "Zeitraum" | "Regeln" | "Bewerbung";
 
 export type FLSaisonDraftStatus = FLDraftStatus<FLSaisonFieldGroup>;
 
@@ -76,6 +77,26 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<SaisonDraftFields, FLSaisonF
       const ordered = STUFE_OPTIONS.filter((stufe) => source.rules.erlaubte_stufen.includes(stufe));
       return ordered.length === 0 ? null : ordered.join(", ");
     },
+  },
+  {
+    path: "bewerbung",
+    label: "Bewerbungsfrist",
+    group: "Bewerbung",
+    // ONE row over the whole window: opening it, moving it and freischalten are one decision about
+    // when a school may apply, and a row per key would report a fragment of it. `errorPaths` is what
+    // still lands each field's own message on it.
+    read: (source) => {
+      const fenster = source.bewerbung;
+      if (fenster === null) return null;
+
+      // The freischaltung is IN the rendered value: flipping it changes nothing else, and a line
+      // ignoring it would leave the save bar disabled on a real edit.
+      const freigabe = fenster.offen ? "Freigeschaltet" : "Gesperrt";
+      // Both fallbacks render a row rather than hiding one: an empty date is the mid-edit state the
+      // schema refuses on save, and the change list is where the admin sees what is still missing.
+      return `${freigabe}: ${formatSpielDatum(fenster.von)} bis ${formatSpielDatum(fenster.bis)}`;
+    },
+    errorPaths: ["bewerbung", "bewerbung.offen", "bewerbung.von", "bewerbung.bis"],
   },
 ];
 
