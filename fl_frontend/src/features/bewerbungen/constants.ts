@@ -44,3 +44,39 @@ export const BEWERBUNG_STATUS_TINT: Record<FLBewerbungStatus, string> = {
  * enforcement point reads it from here, so the schema and the input cannot disagree about the cap.
  */
 export const BEWERBUNG_GRUND_MAX_LENGTH = 1000;
+
+/**
+ * A club's Kürzel is exactly this many characters. Read by the schema, the input's own cap and the
+ * blur-time check, so no two of them can disagree about what a complete code looks like.
+ */
+export const KUERZEL_LAENGE = 2;
+
+/**
+ * The span a contact person's birthdate has to fall in, bound on the PUBLIC payload alone: a date
+ * outside it is a typo rather than a person, and no other date in an application gains a bound.
+ */
+export const BEWERBUNG_MIN_ALTER = 16;
+export const BEWERBUNG_MAX_ALTER = 120;
+
+/**
+ * The picker key standing for „meine Schule ist nicht dabei“.
+ *
+ * **Not an ObjectId and never one**: every other key in that list is a club id, so a sentinel that
+ * could be mistaken for one would submit as `team_id` and name a club nobody picked.
+ */
+export const SCHULE_NICHT_IN_LISTE = "neue-schule";
+
+/** What that option reads as, in the trigger as well as in the list — one string, so the two agree. */
+export const SCHULE_NICHT_IN_LISTE_LABEL = "Meine Schule steht nicht in der Liste";
+
+/**
+ * The three seats the public form asks for, in the order it asks.
+ *
+ * The label alone: what each seat is for is a `Hint` on its own panel, written there as a literal
+ * because `hintCap.test.ts` counts a body it can read and nothing a component interpolates.
+ */
+export const BEWERBUNG_SEATS = [
+  { value: "trainer", label: "Trainerin oder Trainer" },
+  { value: "ansprechperson", label: "Ansprechperson" },
+  { value: "stellvertretung", label: "Stellvertretung" },
+] as const;

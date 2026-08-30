@@ -6,7 +6,9 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
-/** Both triage reads, because the tier decision covering them is one decision, not two. */
+import { APIBadStatusError } from "@/core/errors";
+
+/** Every read in the module: the tier decision covering the triage's two is one decision, not two. */
 const BEWERBUNGEN_QUERIES = path.join(import.meta.dirname, "queries.ts");
 
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
@@ -19,10 +21,15 @@ const calls: RecordedCall[] = [];
 const RECORDER = "__flBewerbungReadCalls";
 (globalThis as unknown as Record<string, RecordedCall[]>)[RECORDER] = calls;
 
+/** What the doubled client throws, so a query's own catch arm is what a case exercises. */
+const THROWER = "__flBewerbungReadFailure";
+
 // Replaced at the module boundary rather than either query being reshaped to admit a seam: the real
 // client imports `server-only` and validates the whole environment at import.
 const API_DOUBLE = `export const apiClient = async (endpoint, schema, options = {}) => {
   globalThis.${RECORDER}.push({ endpoint, options });
+  const failure = globalThis.${THROWER};
+  if (failure) throw failure;
   return {};
 };`;
 
@@ -38,7 +45,24 @@ registerHooks({
   },
 });
 
-const { getBewerbungById, getBewerbungen } = await import("./queries.ts");
+const { getBewerbungById, getBewerbungen, getBewerbungFenster, getBewerbungKuerzel, getBewerbungSchulen, getOffenesBewerbungFenster } =
+  await import("./queries.ts");
+
+/**
+ * Runs `read` against a client that throws, and leaves `calls` as it found it: `callTo` below asserts
+ * a single call per endpoint, and a case that failed on purpose must not be counted as a second one.
+ */
+async function failing<T>(error: unknown, read: () => Promise<T>): Promise<T> {
+  const before = calls.length;
+  (globalThis as unknown as Record<string, unknown>)[THROWER] = error;
+
+  try {
+    return await read();
+  } finally {
+    (globalThis as unknown as Record<string, unknown>)[THROWER] = undefined;
+    calls.length = before;
+  }
+}
 
 /** The one call `endpoint` drew, failing rather than returning `undefined` if it drew none. */
 function callTo(endpoint: string): RecordedCall {
@@ -115,5 +139,46 @@ describe("the two admin-tier triage reads", () => {
 
     assert.ok(!source.includes("cacheTag("), "the triage reads opened a cache scope");
     assert.ok(!source.includes("cacheLife("), "the triage reads opened a cache scope");
+  });
+});
+
+describe("the four base-tier public reads", () => {
+  /* First, for the reason the triage's own harness assertion gives: a double that never ran would
+     leave `calls` empty and every assertion below would fail for the harness rather than the source. */
+  it("reaches the backend through the doubled client at all", async () => {
+    await getOffenesBewerbungFenster();
+    await getBewerbungFenster("2627");
+    await getBewerbungSchulen();
+    await getBewerbungKuerzel("GG");
+
+    for (const endpoint of ["/bewerbungen/fenster", "/bewerbungen/fenster/2627", "/bewerbungen/schulen", "/bewerbungen/kuerzel/GG"]) {
+      assert.ok(
+        calls.some((call) => call.endpoint === endpoint),
+        `nothing asked for ${endpoint}`,
+      );
+    }
+  });
+
+  /* `OPS-87`: over-declaring the tier succeeds silently, and a public page is exactly where that
+     mistake is available — the admin key would answer every one of these and nothing would say so. */
+  it("asks for each of them under the base key, which is the tier the endpoints are guarded at", () => {
+    for (const endpoint of ["/bewerbungen/fenster", "/bewerbungen/fenster/2627", "/bewerbungen/schulen", "/bewerbungen/kuerzel/GG"]) {
+      assert.equal(callTo(endpoint).options.authType, "base", `${endpoint} is asked for under another tier`);
+    }
+  });
+
+  /* A season the visitor may not read is a state rather than a failure: the page renders „noch nicht
+     offen“ or „abgelaufen“ off it, and a throw here would answer the error page instead. */
+  it("reads a 404 on either window as no window rather than as a failure", async () => {
+    const notFound = new APIBadStatusError({
+      message: "not found",
+      url: "http://backend/api/v0/bewerbungen/fenster",
+      statusCode: 404,
+      endpoint: "/bewerbungen/fenster",
+      correlationId: "0123456789abcdef",
+    });
+
+    assert.equal(await failing(notFound, () => getOffenesBewerbungFenster()), null);
+    assert.equal(await failing(notFound, () => getBewerbungFenster("2627")), null);
   });
 });

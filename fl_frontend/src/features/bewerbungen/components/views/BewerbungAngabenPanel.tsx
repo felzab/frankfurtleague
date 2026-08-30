@@ -30,8 +30,10 @@ function Leer() {
  * string is a stored-XSS sink (`fl_frontend/src/shared/schemas.ts :: ExternalUrlSchema`). One that
  * fails stands as text.
  */
-function Website({ url }: { url: string }) {
-  if (url.trim() === "") return <Leer />;
+function Website({ url }: { url: string | null }) {
+  // `FLBewerbungSchuleSchema` reads this field unchecked, so an empty string reaches here as readily
+  // as the `null` the write path produces, and both mean the school named no website.
+  if (url === null || url.trim() === "") return <Leer />;
 
   const safe = ExternalUrlSchema.safeParse(url);
 
@@ -112,7 +114,7 @@ export function BewerbungAngabenPanel({ bewerbung, teamName }: { bewerbung: FLBe
                   <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>{label}</span>
                   {/* Stored rather than derived by comparing the two blocks: what the school
                       asserted is not the same claim as what happens to match. */}
-                  {value === "ansprechperson" && kontakte.trainer_ist_ansprechperson && (
+                  {kontakte.trainer_ist_zugleich === value && (
                     <span className={`${LABEL_BADGE} bg-brand/10 text-brand-solid`}>Zugleich Trainer</span>
                   )}
                 </div>

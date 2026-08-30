@@ -12,7 +12,7 @@ import type { BewerbungSeats } from "./notifications.ts";
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
-type SentMail = { to: string; subject: string };
+type SentMail = { to: string; subject: string; text: string };
 
 /** The WHOLE call, the error argument included: that argument is the channel an address travels on. */
 type LoggedCall = { message: string; error: unknown; meta: Record<string, unknown> };
@@ -30,7 +30,7 @@ recorders.__flRefusedMail = refused;
 // Replaced at the module boundary rather than the fan-out being reshaped to admit a seam: the real
 // transport reads an API key out of the validated environment at import, as the real logger does.
 const MAIL_DOUBLE = `export const sendMail = async (mail) => {
-  globalThis.__flSentMail.push({ to: mail.to, subject: mail.subject });
+  globalThis.__flSentMail.push({ to: mail.to, subject: mail.subject, text: mail.text });
   if (globalThis.__flRefusedMail.has(mail.to)) throw new Error("the provider refused the message");
 };`;
 
@@ -62,9 +62,18 @@ registerHooks({
   },
 });
 
-const { collectBewerbungEmpfaenger, describeBewerbungMail, sendBewerbungMail } = await import("./notifications.ts");
+const { collectBewerbungEingangEmpfaenger, collectBewerbungEmpfaenger, describeBewerbungMail, sendBewerbungMail } =
+  await import("./notifications.ts");
 
-const MAIL = { subject: "Zusage: Frankfurt-League, Saison 2627", html: "<p>Zusage</p>", text: "Zusage" };
+/** One message composed per recipient, its per-reader half interpolated: two readers handed one text is what this proves against. */
+const buildMail = (rollenText: string) => ({
+  subject: "Zusage: Frankfurt-League, Saison 2627",
+  html: `<p>${rollenText}</p>`,
+  text: `Zusage für ${rollenText}`,
+});
+
+/** An address as a fan-out takes it. The seat wording is immaterial to every test but the ones reading it. */
+const empfaenger = (address: string, rollenText = "Ansprechperson") => ({ address: address, rollenText: rollenText });
 
 /** One contact person, of which only the address matters here. */
 function person(email: string): FLKontaktperson {
@@ -95,7 +104,7 @@ describe("who a decision is sent to", () => {
      after this would fail for the harness rather than for the source. */
   it("reaches the provider through the doubled transport at all", async () => {
     reset();
-    const outcome = await sendBewerbungMail({ operation: "test", recipients: ["a@schule.de"], mail: MAIL });
+    const outcome = await sendBewerbungMail({ operation: "test", recipients: [empfaenger("a@schule.de")], buildMail: buildMail });
 
     assert.deepEqual(
       sent.map((mail) => mail.to),
@@ -104,39 +113,94 @@ describe("who a decision is sent to", () => {
     assert.deepEqual(outcome, { delivered: ["a@schule.de"], unreachable: [] });
   });
 
-  /* `trainer_ist_ansprechperson` stores ONE person in two slots, so the same address stands twice in
+  /* `trainer_ist_zugleich` stores ONE person in two slots, so the same address stands twice in
      a perfectly ordinary application. */
-  it("mails a person holding two seats once", () => {
+  it("mails a person holding two seats once, naming both seats", () => {
     assert.deepEqual(collectBewerbungEmpfaenger(seats("trainer@schule.de", "trainer@schule.de", "vertretung@schule.de")), [
-      "trainer@schule.de",
-      "vertretung@schule.de",
+      { address: "trainer@schule.de", rollenText: "Trainerin oder Trainer und Ansprechperson" },
+      { address: "vertretung@schule.de", rollenText: "Stellvertretung" },
+    ]);
+  });
+
+  /* The seat is what the message tells its reader they were given, so a fan-out that lost it would
+     send three people one text about somebody else's place in the season. */
+  it("names each of the three the seat they hold", () => {
+    assert.deepEqual(collectBewerbungEmpfaenger(seats("t@schule.de", "a@schule.de", "s@schule.de")), [
+      { address: "t@schule.de", rollenText: "Trainerin oder Trainer" },
+      { address: "a@schule.de", rollenText: "Ansprechperson" },
+      { address: "s@schule.de", rollenText: "Stellvertretung" },
     ]);
   });
 
   /* A seat can be empty: an erasure clears the slot naming one person and leaves the two beside them. */
   it("passes over an empty seat and an unrecorded address", () => {
-    assert.deepEqual(collectBewerbungEmpfaenger(seats(null, "  ", "vertretung@schule.de")), ["vertretung@schule.de"]);
+    assert.deepEqual(collectBewerbungEmpfaenger(seats(null, "  ", "vertretung@schule.de")), [
+      { address: "vertretung@schule.de", rollenText: "Stellvertretung" },
+    ]);
     assert.deepEqual(collectBewerbungEmpfaenger(seats(null, null, null)), []);
   });
 
   /* Stored as typed, and never folded: the local part of an address belongs to the mailbox owner. */
   it("keeps an address as it was stored", () => {
-    assert.deepEqual(collectBewerbungEmpfaenger(seats(" Trainer@Schule.de ", null, null)), ["Trainer@Schule.de"]);
+    assert.deepEqual(collectBewerbungEmpfaenger(seats(" Trainer@Schule.de ", null, null)), [
+      { address: "Trainer@Schule.de", rollenText: "Trainerin oder Trainer" },
+    ]);
   });
 
   /* A domain is case-insensitive by definition, so two seats spelling one differently name one
      mailbox, which would otherwise receive the decision twice. */
   it("mails one mailbox spelled with two domain cases once", () => {
-    assert.deepEqual(collectBewerbungEmpfaenger(seats("trainer@Schule.de", "trainer@schule.de", null)), ["trainer@Schule.de"]);
+    assert.deepEqual(collectBewerbungEmpfaenger(seats("trainer@Schule.de", "trainer@schule.de", null)), [
+      { address: "trainer@Schule.de", rollenText: "Trainerin oder Trainer und Ansprechperson" },
+    ]);
   });
 
   /* And a local part is not: `Trainer` and `trainer` are the destination host's to tell apart, so
      dropping either would leave a person unnotified over an assumption nobody here may make. */
   it("keeps two local parts differing only in case apart", () => {
     assert.deepEqual(collectBewerbungEmpfaenger(seats("Trainer@schule.de", "trainer@schule.de", null)), [
-      "Trainer@schule.de",
-      "trainer@schule.de",
+      { address: "Trainer@schule.de", rollenText: "Trainerin oder Trainer" },
+      { address: "trainer@schule.de", rollenText: "Ansprechperson" },
     ]);
+  });
+
+  /* One message per address and not one message for all of them: the acceptance names the seat its
+     reader holds, and a single composed text would tell two of the three the wrong one. */
+  it("composes the message once per recipient", async () => {
+    reset();
+    await sendBewerbungMail({
+      operation: "annehmenBewerbungAction",
+      recipients: collectBewerbungEmpfaenger(seats("t@schule.de", "a@schule.de", "s@schule.de")),
+      buildMail: buildMail,
+    });
+
+    assert.deepEqual(
+      sent.map((mail) => mail.text),
+      ["Zusage für Trainerin oder Trainer", "Zusage für Ansprechperson", "Zusage für Stellvertretung"],
+    );
+  });
+});
+
+describe("who the receipt is sent to", () => {
+  /* Sent before anybody has confirmed an address, so it goes to the one seat that asked to be
+     written to rather than to all three — the smallest fan-out that still answers the applicant. */
+  it("reaches the Ansprechperson and nobody else", () => {
+    assert.deepEqual(collectBewerbungEingangEmpfaenger(seats("trainer@schule.de", "kontakt@schule.de", "vertretung@schule.de")), [
+      { address: "kontakt@schule.de", rollenText: "Ansprechperson" },
+    ]);
+  });
+
+  /* `trainer_ist_zugleich` puts one person in two seats. Deduplication is by ADDRESS, so that person
+     gets the one message their mailbox is owed, naming both seats rather than one of them. */
+  it("names both seats where the Ansprechperson is also the Trainer", () => {
+    assert.deepEqual(collectBewerbungEingangEmpfaenger(seats("kontakt@schule.de", "kontakt@schule.de", "vertretung@schule.de")), [
+      { address: "kontakt@schule.de", rollenText: "Trainerin oder Trainer und Ansprechperson" },
+    ]);
+  });
+
+  it("goes nowhere where that seat carries no address", () => {
+    assert.deepEqual(collectBewerbungEingangEmpfaenger(seats("trainer@schule.de", null, "vertretung@schule.de")), []);
+    assert.deepEqual(collectBewerbungEingangEmpfaenger(seats("trainer@schule.de", " ", "vertretung@schule.de")), []);
   });
 });
 
@@ -149,8 +213,8 @@ describe("a fan-out that cannot reach everyone", () => {
 
     const outcome = await sendBewerbungMail({
       operation: "annehmenBewerbungAction",
-      recipients: ["erste@schule.de", "zweite@schule.de", "dritte@schule.de"],
-      mail: MAIL,
+      recipients: ["erste@schule.de", "zweite@schule.de", "dritte@schule.de"].map((address) => empfaenger(address)),
+      buildMail: buildMail,
     });
 
     assert.deepEqual(
@@ -165,7 +229,11 @@ describe("a fan-out that cannot reach everyone", () => {
     reset();
     for (const address of ["erste@schule.de", "zweite@schule.de"]) refused.add(address);
 
-    const outcome = await sendBewerbungMail({ operation: "ablehnenBewerbungAction", recipients: [...refused], mail: MAIL });
+    const outcome = await sendBewerbungMail({
+      operation: "ablehnenBewerbungAction",
+      recipients: [...refused].map((address) => empfaenger(address)),
+      buildMail: buildMail,
+    });
 
     assert.deepEqual(outcome.delivered, []);
     assert.deepEqual(outcome.unreachable, ["erste@schule.de", "zweite@schule.de"]);
@@ -177,7 +245,11 @@ describe("a fan-out that cannot reach everyone", () => {
     reset();
     refused.add("zweite@schule.de");
 
-    await sendBewerbungMail({ operation: "annehmenBewerbungAction", recipients: ["erste@schule.de", "zweite@schule.de"], mail: MAIL });
+    await sendBewerbungMail({
+      operation: "annehmenBewerbungAction",
+      recipients: ["erste@schule.de", "zweite@schule.de"].map((address) => empfaenger(address)),
+      buildMail: buildMail,
+    });
 
     assert.equal(logged.length, 1, "one refusal produced something other than one log line");
     assert.equal(logged[0]?.message, "bewerbung.mail_failed");
@@ -192,7 +264,7 @@ describe("a fan-out that cannot reach everyone", () => {
     reset();
     refused.add("erste@schule.de");
 
-    await sendBewerbungMail({ operation: "ablehnenBewerbungAction", recipients: ["erste@schule.de"], mail: MAIL });
+    await sendBewerbungMail({ operation: "ablehnenBewerbungAction", recipients: [empfaenger("erste@schule.de")], buildMail: buildMail });
 
     assert.equal(logged[0]?.meta.error_code, "FE-MAIL-002");
     assert.equal(logged[0]?.meta.name, "Error", "the line no longer names the error class");

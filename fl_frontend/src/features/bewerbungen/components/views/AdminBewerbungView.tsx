@@ -12,6 +12,7 @@ import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 
 import { AdminBewerbungAblehnenSection } from "../forms/AdminBewerbungAblehnenSection";
 import { AdminBewerbungAnnehmenSection } from "../forms/AdminBewerbungAnnehmenSection";
@@ -39,6 +40,7 @@ export function AdminBewerbungView({
   gruppeOffer: readonly GruppeOffer[];
 }) {
   const router = useRouter();
+  const saisonHref = useSaisonHref();
   const [isLeaving, startLeaving] = useTransition();
 
   const isOpen = bewerbung.status === "eingereicht";
@@ -51,7 +53,7 @@ export function AdminBewerbungView({
     // control turns disabled, and no `pointerleave` follows a click that leaves.
     startLeaving(() => {
       if (window.history.length > 1) router.back();
-      else router.push("/admin/bewerbungen");
+      else router.push(saisonHref("/admin/bewerbungen"));
     });
   };
 

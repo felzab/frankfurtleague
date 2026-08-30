@@ -7,12 +7,15 @@ import { ArrowRightFromSquare, GraduationCap, Persons } from "@gravity-ui/icons"
 import { Table } from "@heroui/react";
 
 import { BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_DUBLETTE_LABEL, BEWERBUNG_DUBLETTE_TINT } from "@/features/bewerbungen/duplicates";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import type { BewerbungDublette } from "@/features/bewerbungen/duplicates";
 import type { AdminBewerbungRow } from "@/features/bewerbungen/types";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 
@@ -32,12 +35,17 @@ const NO_TEAM = "Kein Team benannt";
  */
 export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
   filteredBewerbungen,
+  dubletten,
   emptiness,
 }: {
   filteredBewerbungen: AdminBewerbungRow[];
+  /** Which open applications share a club or a Kürzel, by id — derived over the whole list, never over this one. */
+  dubletten: ReadonlyMap<string, BewerbungDublette>;
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
 }) {
+  const saisonHref = useSaisonHref();
+
   // One source for both layouts, so the table's cells and the phone cards cannot disagree about a
   // row or its controls.
   const renderName = (bewerbung: AdminBewerbungRow) =>
@@ -81,12 +89,22 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
       <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Bestehendes Team</span>
     );
 
+  // Beside the Herkunft badge in both layouts: a second application for one club is a fact about
+  // where the row came from, and the administrator decides it by declining whichever is not real.
+  const renderDublette = (bewerbung: AdminBewerbungRow) => {
+    const art = dubletten.get(bewerbung.id);
+
+    if (art === undefined) return null;
+
+    return <span className={`${LABEL_BADGE} ${BEWERBUNG_DUBLETTE_TINT}`}>{BEWERBUNG_DUBLETTE_LABEL[art]}</span>;
+  };
+
   const renderActions = (bewerbung: AdminBewerbungRow) => (
     <RowActions>
       {/* A link and not a press: the decision is taken on a page of its own, where the whole
           application stands. */}
       <RowActionLink
-        href={`/admin/bewerbungen/${bewerbung.id}`}
+        href={saisonHref(`/admin/bewerbungen/${bewerbung.id}`)}
         label="Bewerbung öffnen"
         ariaLabel={`Bewerbung von ${bewerbung.teamName ?? NO_TEAM} öffnen`}>
         <ArrowRightFromSquare
@@ -118,6 +136,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
             </div>
             <div className="flex flex-row flex-wrap items-center gap-2">
               {renderHerkunft(bewerbung)}
+              {renderDublette(bewerbung)}
               <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Saison {bewerbung.saison_id}</span>
               <span className="fluid-xs text-foreground-muted">Eingereicht {formatSpielDatum(bewerbung.eingereicht_am)}</span>
             </div>
@@ -191,7 +210,12 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                       </div>
                     </Table.Cell>
 
-                    <Table.Cell className="px-6 py-4">{renderHerkunft(bewerbung)}</Table.Cell>
+                    <Table.Cell className="px-6 py-4">
+                      <div className="flex flex-col items-start gap-1">
+                        {renderHerkunft(bewerbung)}
+                        {renderDublette(bewerbung)}
+                      </div>
+                    </Table.Cell>
 
                     <Table.Cell className="px-6 py-4">
                       <span className="fluid-sm text-foreground font-semibold">{bewerbung.saison_id}</span>

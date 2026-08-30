@@ -133,8 +133,11 @@ async function notifyBewerbung({
   /** The bare noun the report inflects: „Zusage“, „Absage“. */
   betreff: BewerbungBetreff;
   bewerbung: FLBewerbung;
-  /** Composed from the club's name, which is resolved once here rather than at each call site. */
-  buildMail: (teamName: string) => BewerbungEmail;
+  /**
+   * Composed from the club's name, resolved once here rather than at each call site, and from the
+   * seats the reader in hand holds — the one part of a decision's message that differs per recipient.
+   */
+  buildMail: (teamName: string, rollenText: string) => BewerbungEmail;
 }): Promise<string> {
   let teamName: string | null;
 
@@ -157,10 +160,13 @@ async function notifyBewerbung({
     return `Zu dieser Bewerbung ist kein Teamname hinterlegt, deshalb ging die ${betreff} an niemanden raus.`;
   }
 
+  // Narrowed by the guard above, so the club's name is fixed before the per-recipient half is.
+  const benanntesTeam = teamName;
+
   const outcome = await sendBewerbungMail({
     operation: operation,
     recipients: collectBewerbungEmpfaenger(bewerbung.kontakte),
-    mail: buildMail(teamName),
+    buildMail: (rollenText) => buildMail(benanntesTeam, rollenText),
   });
 
   return describeBewerbungMail(betreff, outcome);
@@ -219,10 +225,12 @@ export async function annehmenBewerbungAction(rawPayload: FLAnnehmenBewerbungPay
       operation: "annehmenBewerbungAction",
       betreff: "Zusage",
       bewerbung: annahmeOperation.updated_document,
-      buildMail: (teamName) =>
+      buildMail: (teamName, rollenText) =>
         buildBewerbungZusageEmail({
           teamName: teamName,
           saisonId: annahmeOperation.saison_id,
+          // The seats THIS reader holds: three people are told one decision and each their own place in it.
+          rollenText: rollenText,
           gruppe: annahmeOperation.gruppe,
           // Rendered here: the label lives in `fl_frontend/src/features/teams/constants.ts ::
           // TRIKOT_FARBE_OPTIONS`, which `core/bewerbungEmail.ts` may not import.
@@ -289,10 +297,11 @@ export async function ablehnenBewerbungAction(
       operation: "ablehnenBewerbungAction",
       betreff: "Absage",
       bewerbung: absageOperation.updated_document,
-      buildMail: (teamName) =>
+      buildMail: (teamName, rollenText) =>
         buildBewerbungAbsageEmail({
           teamName: teamName,
           saisonId: absageOperation.updated_document.saison_id,
+          rollenText: rollenText,
           // The administrator's own wording, carried verbatim into the message.
           grund: validated.data.grund,
         }),
