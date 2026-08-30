@@ -1,6 +1,6 @@
 # Ops — runbooks
 
-**Verified against:** `dbe2978e`, 2026-08-28\
+**Verified against:** `d666f6c9`, 2026-08-30\
 **Purpose:** the recurring procedures that are run rather than read, and the operational facts no file in this repository states
 
 The contracts these depend on — the services, the scripts, the gate scopes and the registry — are
@@ -117,6 +117,73 @@ and resolves every season whose knockout slots draw on a group placing against t
 such row fails `GET /spiele/action_required` for the entire league — a `past` season's row
 included, which is the one nobody thinks to suspect. The two reports are independent: an orphan row can carry
 a perfectly good name, and a row missing its name can name a club that exists.
+
+### Renaming the Trainer's second-seat flag on stored contact blocks
+
+`kontakte.trainer_ist_ansprechperson` became `kontakte.trainer_ist_zugleich` on both collections that
+hold a contact block. `true` named the Ansprechperson and `false` named nobody, so the mapping is
+total and the rewrite loses nothing. It is a one-off, so it is instructions rather than a script: run
+them in `mongosh` against the application database.
+
+**It runs AFTER a boot has attached the new validator, and never before.** The rewrite `$unset`s a key
+the OLD validator still lists in `required` on both collections, so against that validator every
+statement below is refused document by document with error code 121. `apply_constraints` runs at
+startup (`fl_backend/app/core/db.py :: lifespan`), so the order is: deploy, let the backend boot,
+confirm it is serving, then run these. Until the rewrite reaches a row, that row's next write fails
+and every read of it is unaffected — which is the window this ordering keeps as short as it can be.
+
+Read first, and keep the numbers:
+
+```javascript
+["saison_teams", "bewerbungen"].forEach((name) => {
+  print(name + ": " + db.getCollection(name).countDocuments({ "kontakte.trainer_ist_ansprechperson": { $exists: true } }));
+});
+```
+
+Then the rewrite, one statement per stored value per collection:
+
+```javascript
+["saison_teams", "bewerbungen"].forEach((name) => {
+  const collection = db.getCollection(name);
+
+  printjson(
+    collection.updateMany(
+      { "kontakte.trainer_ist_ansprechperson": true },
+      { $set: { "kontakte.trainer_ist_zugleich": "ansprechperson" }, $unset: { "kontakte.trainer_ist_ansprechperson": "" } },
+    ),
+  );
+
+  printjson(
+    collection.updateMany(
+      { "kontakte.trainer_ist_ansprechperson": false },
+      { $set: { "kontakte.trainer_ist_zugleich": null }, $unset: { "kontakte.trainer_ist_ansprechperson": "" } },
+    ),
+  );
+});
+```
+
+Then confirm. **Every line this prints must be `0`:**
+
+```javascript
+["saison_teams", "bewerbungen"].forEach((name) => {
+  print(
+    name + " left with the old key: " + db.getCollection(name).countDocuments({ "kontakte.trainer_ist_ansprechperson": { $exists: true } }),
+  );
+  print(
+    name +
+      " missing the new key:  " +
+      db.getCollection(name).countDocuments({ kontakte: { $ne: null }, "kontakte.trainer_ist_zugleich": { $exists: false } }),
+  );
+});
+```
+
+The second count excludes a null block rather than the collection: `saison_teams.kontakte` is nullable
+as a whole, so a row holding no block at all is not a row missing the field.
+
+**Safe to repeat, and expected to find nothing where it has already run.** A rewritten row does not match
+`$exists: true`, so a second pass matches nothing — which is what makes the read pass worth
+keeping: a zero there says the environment needed none of this, rather than that the rewrite worked.
+Re-run `python -m app.core.constraints --check` afterwards, as every edit to stored documents does.
 
 ### Giving `teams.schulform` a value for the clubs that predate it
 

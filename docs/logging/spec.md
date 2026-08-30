@@ -1,6 +1,6 @@
 # Logging — spec
 
-**Verified against:** `dbe2978e`, 2026-08-28\
+**Verified against:** `d666f6c9`, 2026-08-30\
 **Scope:** the correlation id and the second header the edge controls beside it, the log stream on
 all three surfaces, the browser-crash path, and the development formats.
 
@@ -40,11 +40,18 @@ malformed or hostile header is replaced rather than propagated.
 
 **One other header crosses that edge, and is cleared rather than minted.** nginx blanks `X-FL-Actor` at
 server level just as it discards a client-supplied correlation id, under the same location rule above
-(`nginx/prod.conf :: proxy_set_header X-FL-Actor`), so the only actor FastAPI can act on is the one the
+(`nginx/prod.conf :: proxy_set_header X-FL-Actor`), so the only actor a REQUEST can name is the one the
 frontend container sets from the signed-in session — `fl_frontend/src/core/api.ts :: apiClient` sends it on
 admin-tier calls alone. It names **who** a write is attributed to rather than which request it belongs to,
 and the guard refusing a write that carries no well-formed one is
 [`docs/backend/spec.md`](../backend/spec.md) I41.
+
+**The public application form's submit carries none, and is attributed without one.** No browser sends
+the header, so the base-tier router binding it names
+`fl_backend/app/core/recording.py :: PUBLIC_ACTOR` server-side instead — its own `Actor.kind` rather
+than the system actor, which means a write no request made at all. A visitor is therefore named as the
+public and never as an administrator, and what the row records is
+[`docs/backend/spec.md`](../backend/spec.md) §1.1.
 
 **The cache-fill boundary.** A `"use cache"` execution is shared by later requests, so Next refuses
 request APIs inside one and no page-request id can exist there; a cached read's backend fetch
@@ -97,6 +104,12 @@ Per-surface extras: the backend adds `module`/`line` and the access-line fields 
 `x_forwarded_for`, `host`, `referer`, `user_agent`; the frontend adds whatever a call site passes
 (`digest`, `route`, `fetch_correlation_id`).
 
+**`client` is the visitor and `x_forwarded_for` is that header as it arrived.** nginx rewrites
+`$remote_addr` from the Cloudflare header named at `nginx/prod.conf :: real_ip_header` for a request
+reaching it through Cloudflare ([`docs/ops/spec.md`](../ops/spec.md) §1.3), so `client` names the
+person rather than the edge; the two are carried separately because a forwarding chain a client wrote
+is worth reading beside the address the edge settled on, and neither is the other.
+
 How each surface keeps its stream to one format:
 
 - **Backend:** uvicorn runs with `--no-access-log` and a log config that propagates its loggers to
@@ -132,8 +145,10 @@ A client component cannot reach the server-only logger, so a browser-side crash 
 nowhere. The error boundary (`fl_frontend/src/app/error.tsx`) posts crashes **without a digest** to
 `POST /api/client-error`, which validates a strictly bounded payload and writes the one
 `FE-CLIENT-001` line (`fl_frontend/src/app/api/client-error/route.ts`). The route is public and
-unauthenticated by design, which is why nginx rate-limits it exactly like sign-in
-(`nginx/prod.conf :: zone=clienterr`) and why every field is length-capped. Its log line carries the
+unauthenticated by design, which is why nginx gives it a PAIR of `limit_req` zones of its own on
+sign-in's POST-only key shape, one keyed on the visitor's /64 and one on the /48
+(`nginx/prod.conf :: zone=clienterr`, `nginx/prod.conf :: zone=clienterr48`; [`docs/ops/spec.md`](../ops/spec.md) §1.3
+argues the pairing), and why every field is length-capped. Its log line carries the
 ingest request's own id — the browser cannot know the crashed request's — so the join to the crash
 is the digest, the path and the time.
 

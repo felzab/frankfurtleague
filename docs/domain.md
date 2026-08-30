@@ -1,6 +1,6 @@
 # The domain model
 
-**Verified against:** `dbe2978e`, 2026-08-28
+**Verified against:** `d666f6c9`, 2026-08-30
 
 **What the league's data is, what depends on what, when each thing may be edited, and what a write has to do
 about its neighbours.**
@@ -65,10 +65,13 @@ holds a matchday and its fixtures true together. A reference is not a boundary �
 does write both, the season's draw, writes them as a `Saison` decision rather than as a matchday one — a
 confirmed replace of that draw included.
 
-**`bewerbungen` is its own aggregate with no members, and nothing holds it true against the season or the club
-it names.** The document states what one school submitted, which stays true however that season and that club
-change afterwards, so no invariant binds them — and `status` is a claim of the same kind, saying that a junction
-row was written rather than that one still stands. Acceptance does write outside this boundary, creating the club
+**`bewerbungen` is its own aggregate with no members, and once a row is stored no invariant holds it true
+against the season or the club it names.** Both references are resolved at the WRITE — the submission reads
+the season for its window and refuses a club the league does not offer (`REQ-BEWERBUNG-004`,
+`REQ-BEWERBUNG-006`), and acceptance resolves each again — which is what the `RESTRICT` on their creating
+direction states. Afterwards the document says what one school submitted, and that stays true however that
+season and that club change, so nothing has to be rewritten to keep it so. `status` is a claim of the same
+kind, saying that a junction row was written rather than that one still stands. Acceptance does write outside this boundary, creating the club
 and its `saison_teams` row in one transaction; what holds those writes to the season's own rules is
 `fl_backend/app/api/teams/services.py :: find_entry_refusal`, which belongs to the `Saison` boundary and is reused
 here rather than restated. A contact person's erasure reaches across this boundary and the junction's both, which
@@ -110,9 +113,7 @@ situations the notes keep apart. **Nothing reads the target at all**: a `saison_
 person `spieler` does not hold, the path parameter naming them and no handler resolving it. **No REQUEST
 creates the reference**: `spiele.spieltag_id` is on no payload and `/spiele` has no POST, so the one writer
 that sets it — the season's draw — mints the matchday and the fixture pointing at it in the same
-transaction and carries the check itself. `bewerbungen.saison_id` is that category with no writer at all: an
-application is stored as it arrived, so the season is first resolved by the acceptance reading it, which 404s on
-one no `saisons` document holds. **Or something is
+transaction and carries the check itself. **Or something is
 checked and it is not the target** — a fixture's side and a squad row are both held to the season's
 `saison_teams` entrants rather than to `teams`, and it is the junction's own entry that resolves the club —
 `fl_backend/app/api/teams/admin_router.py :: post_saison_team` reads `teams` and 404s on an id it does not
@@ -271,7 +272,7 @@ symbols have in common:
 - each is called by **the endpoint that owns the write**, never by a shared evaluator
 - each refusal reaches the client as a **code**, with an English `detail` that goes only to the log; every
   code and the status it answers with is [`logging/error-codes.md`](logging/error-codes.md), and the German
-  a person reads is written per feature in the frontend's actions
+  a person reads is written per feature in the frontend, beside the caller that meets the refusal
   (`fl_frontend/src/features/teams/actions.ts :: mapEntryRefusal` is one)
 
 **A rule returns one shape**, `fl_backend/app/core/exceptions.py :: WriteRefusal` or `None`, and
@@ -334,7 +335,7 @@ on and `test_domain.py` acts on each:
 | **`$jsonSchema` validators**   | BSON types, required keys, closed enums                     | Only these fail _silently_; a bad range fails Pydantic on the next read  |
 | **Pydantic models**            | Ranges, patterns, lengths, cross-field shape                | A validator cannot express them, and a wrong value is loud               |
 | **`find_*_refusal` functions** | Everything spanning more than one document                  | No validator sees more than one document                                 |
-| **The admin pages**            | Offering only legal choices, and reporting permitted states | A page may never be the only enforcement — a direct API call bypasses it |
+| **The pages that offer**       | Offering only legal choices, and reporting permitted states | A page may never be the only enforcement — a direct API call bypasses it |
 
 The line between the validators and the models is itself tested:
 `fl_backend/tests/core/test_constraints.py :: test_no_validator_constrains_a_range_or_a_format` fails a
@@ -342,8 +343,10 @@ validator that reaches past it. And **the pages narrow the offer and name what t
 never replace the refusal** — the entry form disables a group it can see is full, the season editor raises an
 illegal ratio beside the field that holds it
 (`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/banners.ts :: buildSaisonBanners`),
-and `find_rules_refusal` still runs either way, because a stale form and a direct request each reach the
-endpoint.
+the public application form offers only clubs the league still holds and asks whether a Kürzel is free before
+the submit judges it ([`backend/spec.md`](backend/spec.md) `READ-BEWERBUNG-001`, `REQ-BEWERBUNG-006`,
+`REQ-BEWERBUNG-008`), and `find_rules_refusal` still runs either way, because a stale form and a direct
+request each reach the endpoint — and on a public page the direct request is anyone's.
 
 **The table above is about validity — may this value exist? Read visibility is a different question: may
 this caller see a value that legitimately does?** Neither the validators nor the refusal functions can settle

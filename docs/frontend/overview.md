@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `dbe2978e`, 2026-08-28\
+**Verified against:** `d666f6c9`, 2026-08-30\
 **Scope:** `fl_frontend/`
 
 A Next.js application on the App Router, with React, HeroUI and Tailwind. It is both the website and, in
@@ -38,7 +38,9 @@ an **aggregator** that legitimately imports from other slices, which is why the 
 A page calls a slice's `getX()` from `queries.ts`, which is cached, declares its cache tags and delegates to
 `apiClient` (`fl_frontend/src/core/api.ts`) — so nothing reaches a component unvalidated. Writes go the other
 way: a form calls a **server action** in `actions.ts`, which checks the admin session, validates the payload,
-reaches the backend through `mutations.ts`, then invalidates tags ([`spec.md`](spec.md) §1.3).
+reaches the backend through `mutations.ts`, then invalidates tags ([`spec.md`](spec.md) §1.3). The public
+application form is the one write that does none of that: it has no session to check, so it goes through a
+route handler and invalidates nothing (§1.3 again).
 
 Backend and frontend models are **hand-mirrored** — Pydantic on one side, Zod on the other, with no
 generation step. This is the main drift risk in the codebase and the first thing to check when behaviour

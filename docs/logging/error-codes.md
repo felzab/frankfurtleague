@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `dbe2978e`, 2026-08-28\
+**Verified against:** `d666f6c9`, 2026-08-30\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation
@@ -40,6 +40,12 @@ excused set, without which the exclusion list could grow to cover a real domain 
 Every domain refusal is a 409, for one reason: nothing about the payload is malformed, so the same request
 would have succeeded against a different state of the database
 (`fl_backend/app/core/exceptions.py :: DocumentConflictException`).
+
+**That reason holds where the caller is a stranger, so the public application form's refusals are 409s
+too and a shut window is not a 403.** The endpoint is open to everyone
+([`docs/backend/spec.md`](../backend/spec.md) §1.1) and what refuses is the season's own state: the
+same submission would have been stored a week earlier, or before another school took the Kürzel.
+`REQ-*` still names the side that must act, and on this form that side is a member of the public.
 
 **`DB-COMMON-001` is also what a season the base tier may not read answers**, deliberately the same code
 and body an id naming nothing gets ([`docs/backend/spec.md`](../backend/spec.md) I47), so a 404 carrying
@@ -103,6 +109,11 @@ having been seeded from the group placings that order decides.
 | `REQ-BEWERBUNG-001`   | 409    | An application already decided was accepted or declined a second time                                                                                  |
 | `REQ-BEWERBUNG-002`   | 409    | Acceptance found neither an existing club nor a new school on the application to enter, or found both                                                  |
 | `REQ-BEWERBUNG-003`   | 409    | Acceptance found a new school whose own details compose no club the read models can serve                                                              |
+| `REQ-BEWERBUNG-004`   | 409    | A submission arrived for a season taking no application that day — no window recorded, `offen` false, or the day outside the span                      |
+| `REQ-BEWERBUNG-005`   | 409    | A submission named neither an existing club nor a new school, or named both                                                                            |
+| `REQ-BEWERBUNG-006`   | 409    | A submission picked a club the league does not offer — one `teams` does not hold, or one that has left                                                 |
+| `REQ-BEWERBUNG-007`   | 409    | A submission picked a club that already plays the season it applies for                                                                                |
+| `REQ-BEWERBUNG-008`   | 409    | A submission proposed a Kürzel a club already holds                                                                                                    |
 | `REQ-SPIELPLAN-001`   | 409    | A season already holding fixtures was asked to draw one, and the request confirmed no replace                                                          |
 | `REQ-SPIELPLAN-002`   | 409    | A season already holding matchdays was asked to draw one, and the request confirmed no replace                                                         |
 | `REQ-SPIELPLAN-003`   | 409    | A Spielplan was drawn for a season already `past`                                                                                                      |

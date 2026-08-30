@@ -1,6 +1,6 @@
 # In-code documentation
 
-**Verified against:** `889c31dd`, 2026-08-19\
+**Verified against:** `d666f6c9`, 2026-08-30\
 **Applies to:** source files — `fl_frontend/src`, `fl_backend/app`, `fl_backend/tests`, `scripts/`
 and `.claude/hooks/`: module headers, symbol docs, inline comments and test docstrings. The hooks are
 exempt from INC-2's shape alone, their uniform label rows being what keeps a folder of one-purpose
@@ -127,6 +127,16 @@ markers and indentation stripped. The character bound is one number for every sh
 gets the extra lines only to pay for its delimiters, a summary line and the blank line after it, not
 for extra prose. Past either bound the reasoning belongs in a spec-sheet invariant, and the comment
 is the line that cites it. A module header is neither, and keeps INC-2's separate cap.
+
+**A blank line separates two comments, or the checker reads them as one block.**
+`scripts/docs_gate/structure.py :: comment_runs` ends a run at the first line that is not a comment,
+so a block written directly beneath another is measured together with it, and a pair each half of
+which keeps the bounds can cross them together. Indentation is stripped before the comparison and an
+empty `//` or `#` line is still a comment line, so neither breaks a run; a whitespace-only line
+breaks one, as does switching to `/* */`, `{/* */}` or a docstring. The finding names the merged
+block's first line, which is the earlier comment rather than the one whose arrival crossed the bound
+— and both are the branch's own work, a run reaching into older text being one the branch only
+partly wrote.
 
 **The bounds are a ceiling, never a target.** A comment that carries its point in sixty characters is
 finished at sixty. Writing to the cap produces a block sized by the rule rather than by its content,

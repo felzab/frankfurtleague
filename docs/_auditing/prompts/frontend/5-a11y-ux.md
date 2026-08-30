@@ -52,9 +52,10 @@ and manufactures convincing fake bugs. **List what you actually drove and what y
 tag the remainder needs-human.
 
 A3. **Forms.** Label association, errors programmatically linked and rendered at the field, focus
-moved to the first invalid field on a _server_ failure (react-aria only auto-focuses on the
-native `invalid` event — server errors need `reportValidity()`), `isInvalid` never passed as a
-defined `false` (it builds a controlled error that outranks native validation), pending states
+moved to the first invalid field on a _server_ failure (`validationBehavior="aria"` leaves
+`reportValidity()` nothing to report, so focus is moved by walking the form's controls — frontend
+spec I40), `isInvalid` never passed as a
+defined `false` (it builds a controlled error that outranks the schema's), pending states
 preventing double submit, cleared numeric fields not coercing to 0.
 
 A4. **Names and semantics.** Accessible names on icon-only controls (a name and a tooltip
