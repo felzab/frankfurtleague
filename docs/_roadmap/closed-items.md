@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `dbe2978e`, 2026-08-28
+**Verified against:** `d666f6c9`, 2026-08-30
 
 Every item that has left a ranked page — [`open-items.md`](open-items.md) or
 [`tooling-items.md`](tooling-items.md) — has a row here. This is a log: nothing in it is waiting for
@@ -11,11 +11,18 @@ counted. A row is cited by its ID, and its position carries no meaning. What eac
 the rule that the row is a pointer while the closing commit's body is the record — is in
 [`protocol.md`](protocol.md#the-closed-row).
 
-**`OPS-8` and `OPS-40` are in no roadmap file, and nothing takes either number.** Nothing records
-what `OPS-8` was. `OPS-40` was the shared write-shape block missing `open(path, "w")`, withdrawn
-before it reached a ranked page, so it has no row here. The fix is
+**`OPS-8`, `OPS-40` and `FE-36` are in no roadmap file, and nothing takes any of the three numbers.**
+Nothing records what `OPS-8` was. `OPS-40` was the shared write-shape block missing
+`open(path, "w")`, withdrawn before it reached a ranked page, so it has no row here. The fix is
 [`4cc32fa0`](https://github.com/felzab/frankfurtleague/commit/4cc32fa0), whose body records it, and
-both bash guards in `.claude/hooks/` carry the shape.
+both bash guards in `.claude/hooks/` carry the shape. **`FE-36` was withdrawn the same way**: a
+cross-site refusal answered a status that made every caller throw before reading the body, so the
+guard's German never rendered and a same-origin block reached the reader as a network fault. It was
+repaired in the change that raised it, before any commit carried the entry, and what the repair
+restored is stated where it is read — `fl_frontend/src/shared/utils/publicRoute.ts` and
+`fl_frontend/src/shared/utils/undoRoute.ts` each carry the rule that a route whose body carries the
+outcome answers 200, because a non-2xx reads as a transport failure and hides that body from every
+caller.
 
 **Forty-seven rows carry an em dash where a closing commit should be**, and every one belongs to the
 `scripts/` and CI rebuild. Forty-six were triaged out rather than worked — thirty-seven on

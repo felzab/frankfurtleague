@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `dbe2978e`, 2026-08-28\
+**Verified against:** `d666f6c9`, 2026-08-30\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -100,13 +100,14 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 45  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
 | 46  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Open     | —          |
 | 47  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
-| 48  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
-| 49  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Open     | —          |
-| 50  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Open     | —          |
-| 51  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
-| 52  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
-| 53  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
-| 54  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
+| 48  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
+| 49  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
+| 50  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Open     | —          |
+| 51  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Open     | —          |
+| 52  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
+| 53  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
+| 54  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
+| 55  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -129,15 +130,17 @@ exist, because no write reaches the driver outside that module. Several routers 
 reads, so the property is about writes rather than about access, and a write added in that shape
 would escape. A row carries the actor, the request, the collection, the
 document and the image the write replaced (`fl_backend/app/core/recording.py`), and `/admin/aktionen`
-lists them. The actor travels as a header the frontend composes from its own session, and an admin
-write carrying none is refused rather than attributed to nobody (`docs/backend/spec.md :: I41`).
+lists them. An ADMIN write's actor travels as a header the frontend composes from its own session,
+and one carrying none is refused rather than attributed to nobody (`docs/backend/spec.md :: I41`); the
+public application form's submit names the public server-side instead, a visitor having no session to
+compose one from (`docs/backend/spec.md :: bind_public_actor`).
 
 **What remains is the restore, and it is blocked on a measurement.** A row holds what its write
 replaced, so replaying one is a small change over the spine the eight undo handlers already share.
 But `docs/frontend/spec.md` §1.3 admits a route handler for a page-owned editor and refuses one for a
 row control, and a restore on a log row is a row control. Whether Next's E592 reproduces on a page
-that stays mounted is what decides between a server action and an eighth handler, and nobody has
-measured it. Retention is the other half, and it sits with the Datenschutzexperte.
+that stays mounted is what decides between a server action and a route handler of its own, and
+nobody has measured it. Retention is the other half, and it sits with the Datenschutzexperte.
 
 **Two gaps in what shipped, both found by a review that had not seen the work written.**
 
@@ -910,15 +913,18 @@ create or delete, and nothing needs one — the one endpoint that removes a matc
 season's fixtures in the same transaction, so the reference cannot dangle
 (`fl_backend/app/core/domain.py :: REFERENCES`).
 
-**A public write into application data would be the first of its kind here.** Every write that
-touches the league's own data sits behind `verify_access_admin`, declared at router level and
+**A public write into application data has one precedent, and it inserts no person into the league.**
+The application form's `POST /bewerbungen` is base-tier and stores what a school submitted, decided by
+nobody until the triage reaches it ([`docs/backend/spec.md`](../backend/spec.md) §1.1). Every other
+write that touches the league's own data sits behind `verify_access_admin`, declared at router level and
 inherited by the endpoints under it; the browser
 side of that is an email allowlist checked at sign-in and re-derived on every session read
-(`fl_frontend/src/core/auth.ts`). The public unauthenticated writes that exist touch no application
+(`fl_frontend/src/core/auth.ts`). The remaining public unauthenticated writes touch no application
 data — the sign-in action, which triggers an outbound email and writes into the Auth.js store alone, and
-`fl_frontend/src/app/api/client-error/route.ts`, which writes a log line — and each has its own
-`limit_req_zone` in `nginx/prod.conf`, keyed so that only the POST is limited. A self-registration
-page is the first that inserts a person. What that opens is listed under the undecided questions
+`fl_frontend/src/app/api/client-error/route.ts`, which writes a log line — and each public write has its
+own `limit_req_zone` in `nginx/prod.conf`, keyed so that only the POST is limited. A self-registration
+page is the first that inserts a person, and the first whose text reaches a public page with no decision
+standing between. What that opens is listed under the undecided questions
 below rather than answered here.
 
 **Recognising a returning player has a shape already, and the tempting version of it is refused.**
@@ -1003,9 +1009,11 @@ entered by hand that their team is in adds the third.
   refuses a club the season already holds (`-003`), so a wizard that enters a club nobody should have
   entered still ends in an `austritt` — a public record with a reason on it, which is a heavy
   consequence for a step in a flow designed to be fast.
-- **What a rate limit for this surface should be.** The existing zones are sized for a person signing
-  in and for a crashing browser; a whole squad filling a form in one break is a different shape of
-  traffic on the same edge.
+- **What a rate limit for this surface should be.** The zones that exist are sized for a person
+  signing in, for a crashing browser, and for one school submitting one application; a whole squad
+  filling a form in one break is a different shape of traffic on the same edge, so
+  `zone=bewerbung` ([`docs/ops/spec.md`](../ops/spec.md) §1.3) is the nearest precedent rather than
+  the answer.
 
 ### 14 · BE-28 — One removal's log row can outgrow what MongoDB will store, through a field nothing bounds
 
@@ -2420,7 +2428,56 @@ by hand gets no signal for most of what the write path calls unholdable — wher
 none. It sits under BE-24 because that entry's cost is measured on a read that runs today, and this
 one's is paid only after somebody edits the database.
 
-### 48 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
+### 48 · BE-43 — A club's name is bounded where a stranger types it and unbounded where an administrator does
+
+**Status:** Open\
+**Surfaces:** FE, BE, Docs\
+**Effort:** S\
+**Path:** Independent. **BE-25** and **BE-42** ask which of a club's fields a public READ may serve
+and how one of them arrives; this asks what a WRITE accepts, and none of the three blocks another.
+
+**`fl_backend/app/api/teams/schemas.py :: _TeamPayload` gives `name` and `full_name` a floor and no
+ceiling**, `:: _TeamWritable`'s `website_url` is validated for its scheme and its host and not for its
+length (`fl_backend/app/shared/schemas/custom.py :: validate_external_url`), and
+`:: FLKontaktpersonPayload`'s `vorname` and `nachname` carry a pattern and a floor. So `POST /teams`,
+`PATCH /teams/{team_id}` and the season's `kontakte` patch each accept a value of any length in every
+one of those fields.
+
+**The public payload bounds every one of them.** `fl_backend/app/shared/schemas/bounds.py` names a
+ceiling for the club name a school proposes, for its official name, for its homepage and for one part
+of a contact person's name, and the application's payloads redeclare each field to apply it:
+`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungKontaktpersonPayload` inherits the admin
+payload and redeclares the two names for the ceiling alone. **The same field is therefore refused at
+the ceiling that module names when a stranger types it, and accepted at any length when an
+administrator does.**
+
+**The asymmetry is deliberate as far as it goes, and stops short of a rule.** The precedent sits on
+the same payload: `geburtsdatum` is bounded there and on no other date field in the application, and
+the comment at the field gives the reason — it is the one a stranger types about themselves,
+unreviewed. `docs/backend/spec.md :: I36`
+settles the same write-versus-read split for a person's name PATTERN and settles nothing about length,
+and `fl_backend/app/shared/schemas/bounds.py`'s header says where a shared bound is NAMED rather than
+which side owns one. **So nothing written answers whether the admin payload should take the ceiling
+too**, and the next reader re-derives it.
+
+**What bounds an administrator's request today is the edge.** `nginx/prod.conf`'s `client_max_body_size`
+bounds the request and not the field, and no `$jsonSchema` in `fl_backend/app/core/constraints.py`
+states a `maxLength` for any collection. `name` is copied onto the season's junction row and onto every
+fixture side, so a value entered once is written in several places and rendered in the league table.
+
+**A decision would have to be carried by hand.** The Zod mirror states the same floors and no ceiling
+(`fl_frontend/src/features/teams/schemas.ts`), and `.claude/CLAUDE.md` §7 fixes what the contract test
+compares — presence, required, nullable, type and enum — so a ceiling added on one side is held to the
+other by nothing. That is the cost half: a bound is three sites per field — the input control, the
+Zod schema and the Pydantic payload — which is why the application's numbers are named in
+`fl_backend/app/shared/schemas/bounds.py` rather than spelled at each.
+
+**Two answers.** Move the ceilings onto the shared payloads, so both tiers refuse alike and the
+application's constants become the shared ones wherever the numbers agree. Or hold that a ceiling
+belongs to the surface a stranger writes through, and record why the admin side is trusted with an
+unbounded one — which is what the code implies today and what no line says.
+
+### 49 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
 
 **Status:** Open\
 **Surfaces:** FE, Docs\
@@ -2491,7 +2548,7 @@ is what a later edit does to one of them. Above **FE-20**: taking that token out
 where this settles a copy question on two admin surfaces and closes a coupling the helper beside it was
 written to close.
 
-### 49 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
+### 50 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2521,7 +2578,7 @@ I rejected is that the framework may omit the value on some render path, which n
 is what a reader has to decide about every time this function is edited, and this function is what
 every season-scoped page opens with.
 
-### 50 · BE-38 — A squad-number helper has no caller, and its docstring is the only record of the rule it states
+### 51 · BE-38 — A squad-number helper has no caller, and its docstring is the only record of the rule it states
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -2567,7 +2624,7 @@ opens with rather than among one slice's helpers, so it is re-decided far more o
 **BE-34**, which reads like the same finding and is not — that index's unserved half is a read somebody
 wants built, so landing it adds a capability, and nothing here adds one.
 
-### 51 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
+### 52 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2636,7 +2693,7 @@ edit's freedom to part them. Above **FE-32**: that entry misleads nobody and its
 beside the id, where this one's is answered only by noticing that a helper's reach stops short of a
 module, which nothing on either side says.
 
-### 52 · FE-32 — A banner's id names a derivation its own sentence does not state
+### 53 · FE-32 — A banner's id names a derivation its own sentence does not state
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2670,7 +2727,7 @@ when they were written, so rewriting an id there falsifies a record instead of c
 of leaving it is one maintainer's minute in a module that is read whenever a venue's banners change,
 and that is less than every entry above it.
 
-### 53 · BE-7 — `typing` imports instead of `collections.abc`
+### 54 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -2683,7 +2740,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 54 · BE-14 — The certainty walk gives up in a group of six or more
+### 55 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
