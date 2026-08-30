@@ -1,6 +1,6 @@
 # Ops — runbooks
 
-**Verified against:** `d666f6c9`, 2026-08-30\
+**Verified against:** `6adfac16`, 2026-08-30\
 **Purpose:** the recurring procedures that are run rather than read, and the operational facts no file in this repository states
 
 The contracts these depend on — the services, the scripts, the gate scopes and the registry — are
@@ -134,12 +134,14 @@ the whole list at once, so ONE un-rewritten row answers 500 for every club. That
 source for the admin contacts editor and the admin club list — and the editor is the only route to
 repairing a bad row, so the outage would take away the page the repair is done on.
 
-**Three write echoes carry the same block and the same absence of a default** —
-`fl_backend/app/api/teams/schemas.py :: FLSaisonTeamResponse`, `:: FLPatchSaisonTeamKontakteResponse` and
-`:: FLReplaceSaisonTeamResponse`. The first echoes the row as it now stands rather than the payload, so a
-PATCH against a pre-migration row would LAND the write and then fail on the echo, leaving the caller
-unable to tell whether their change was saved. The ordering is justified by that set, not by the read
-alone.
+**One write echo is exposed as well, and it fails AFTER the write.**
+`fl_backend/app/api/teams/admin_router.py :: patch_saison_team` echoes the block from the after image, and
+`patch_one_in_db` runs there with no session, so a junction PATCH against a row carrying a pre-migration
+block commits and then answers 500 on the echo — the caller cannot tell whether the change was saved. The
+other three echoes are safe: entry passes a literal `None`, and the contacts PATCH and the replacement
+both read the after image of a `$set` they just made. What is NOT the protection is the keyword
+construction: an absent key yields `None` through `.get`, but a block that is PRESENT and carries the old
+key is a dict Pydantic validates and refuses (measured 2026-08-30).
 
 **The `$set` half is safe BEFORE the deploy, and that is what closes the window rather than shortening
 it.** `fl_backend/app/core/constraints.py :: _object` emits `bsonType`, `required` and `properties` and
@@ -232,7 +234,10 @@ needed none of this, rather than that the rewrite worked. Re-run
 
 **No read-side default stands behind this ordering, by design.** `FLTeamMembership` defaults `kontakte`
 and `trikot_farbe` so that a row predating either field cannot 500 the club list, and the obvious move is
-to default `trainer_ist_zugleich` the same way. It would assert a falsehood. `trikot_farbe`'s default is
+to default `trainer_ist_zugleich` the same way. It would assert a falsehood. The asymmetry between that
+model and the write echoes is deliberate and argued where the default sits
+(`fl_backend/app/api/teams/schemas.py :: FLTeamMembership`); a default there would not help here in any
+case, the refusals above being about a block that is present rather than one that is missing. `trikot_farbe`'s default is
 true of the rows it covers — one that predates the field genuinely had no colour — whereas a row
 predating this rename genuinely carries `trainer_ist_ansprechperson`, which may be `true`, and defaulting
 to null would state that the Trainer holds no second seat for exactly the rows the migration exists to
@@ -307,3 +312,64 @@ is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that ar
   nothing, so deleting it by hand is tidying rather than revocation.
 - **An admin ending their own session needs no restart at all**: the sidemenu's options menu carries a
   sign-out, which arms on the first press and ends the session on the second.
+
+## 5. When the application queue has been flooded
+
+**The state announces itself, and the read degrades rather than refusing.** `GET /bewerbungen` serves at most
+`LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the
+filtered set (`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen`). Where more do exist it answers
+`vollstaendig: false` and the triage page raises a standing warning that cannot be dismissed
+(`fl_frontend/src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.ts ::
+BewerbungenUnvollstaendigNotice`). Answering short and saying so is the deliberate choice over refusing past a
+threshold: these rows are written by an anonymous public form, so a hard failure would hand whoever writes
+them the power to decide when the page stops working.
+
+**What truncation costs first is duplicate detection, which is why the notice leads on it.** Colliding
+applications are marked across the rows that came back — derived from the whole loaded list rather than the
+filtered one, so a search or a facet cannot take the mark off a pair
+(`fl_frontend/src/features/bewerbungen/components/views/AdminBewerbungenView.tsx`). A pair split across the
+truncation boundary is not marked, and the notice says plainly that which pair went unmarked is not knowable
+from the page. Treat duplicate marking as unreliable for as long as the notice stands.
+
+**The facet counts are the second thing to distrust.** They count the loaded rows alone, so a facet reading
+zero means zero among what came back rather than zero in the queue.
+
+**Reversing the read is the recovery the page offers, and the only one.** The default order is newest first,
+so what a cut-short answer keeps is the newest rows and what it drops is the oldest — which is exactly where
+applications submitted before a flood sit. The notice names which end is loaded and links to the other, the
+link reading `die ältesten zuerst laden` on a default view
+(`fl_frontend/src/features/bewerbungen/utils.ts :: leserichtungHref`, with `:: parseLeserichtung` reading the
+`order` parameter back and treating anything unexpected as the default). The page sends `order` and nothing
+else (`fl_frontend/src/app/admin/bewerbungen/page.tsx`).
+
+**The reversed view is not a complete one, and the notice says so about itself.** It closes on `Auch diese
+Ansicht bleibt unvollständig` whichever end is loaded. Reversing swaps which rows are missing; it does not
+reduce how many are.
+
+**Narrowing by season or status is not offered, and that is a finding rather than an omission.** The read
+accepts both (`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenFilterParams`), but neither
+separates a flood from genuine applications: a submission is admitted only while a season's window is open
+(`fl_backend/app/api/bewerbungen/services.py :: find_window_refusal`), so a flood lands in the season the
+public form points at, and the server sets `status` on write, so every flooded row is `eingereicht`. Both
+facets would therefore select the flood itself. Reaching those parameters anyway would mean a backend call,
+and the edge carries exactly one backend path (`= /api/v0/system/is_live`, [`spec.md`](spec.md) I13), so it
+would have to be made on the server against the backend container. Nothing in this repository wraps that.
+
+**Declining does not shrink the working set.** A decided application stays listed, the record being what the
+decision was taken against (`:: get_bewerbungen`), so an operator who declines down the queue and sees the
+notice unchanged has not found a fault. Removal is not an alternative either: the collection's whole write
+surface is the two decisions (`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung` and
+`:: ablehnen_bewerbung`) plus the public submission, so a flooded row stays.
+
+**Closing the window is what stops new rows**, and it is the season's own edit rather than anything here. The
+`offen` flag and the span beside it are the season editor's application section
+(`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormBewerbungSection.tsx`), reaching
+`PATCH /saisons/{saison_id}`; the window guard reads that flag on every submission, so a closed window
+refuses the next one without touching a row already written.
+
+**The rate limit buys time rather than prevention.** `= /api/bewerbung` carries a paired ceiling of 2r/m on
+one /64 and 6r/m on one /48 ([`spec.md`](spec.md) §1.3 for why the pair and why the wide half sits below the
+others), which puts filling the list from a single /48 at roughly three hours of sustained work rather than
+minutes. It does nothing about a flood spread across many allocations, and `limit_conn 50` on the catch-all
+is the only ceiling on concurrency — a backstop rather than a per-visitor control, and the one figure in that
+section never exercised against a real page load.
