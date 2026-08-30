@@ -508,8 +508,8 @@ class TestASubmissionMadeOverTheWire:
         assert submitted.response.json()["error_code"] == BEWERBUNG_PICKED_CLUB_UNUSABLE
 
 
-# The validator refuses what the models refuse, which is what makes N2 a whole-model change rather
-# than a payload one. `bsonType: "int"` and no null.
+# The validator refuses what the models refuse: `gute_spieler` is non-nullable on every side, not
+# the payload alone, so the stored shape is `bsonType: "int"` and no null.
 DOCUMENT_VALIDATION_FAILED = 121
 
 

@@ -892,7 +892,7 @@ class TestWhatTheApplicantMustChoose:
         assert FLPostBewerbungPayload.model_validate(submission(kader={"voraussichtliche_groesse": 14, "gute_spieler": 0})).kader is not None
 
     def test_the_read_model_refuses_a_null_count_too(self):
-        """N2 is a whole-model change rather than a payload one, so the read side moved with the validator."""
+        """`gute_spieler` is non-nullable on every side, not the payload alone, so the read moved with the validator."""
 
         with pytest.raises(ValidationError):
             FLBewerbungKader.model_validate({"voraussichtliche_groesse": 14, "gute_spieler": None})

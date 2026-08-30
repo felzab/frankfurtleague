@@ -67,8 +67,8 @@ class FLBewerbungSchule(BaseModel):
     shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
     schulform: FLSchulform | None
     address: FLAddress
-    # A plain string, unlike `_TeamWritable.website_url`: stored values are typed only, and refusing
-    # one on read would 500 the triage list (`docs/backend/spec.md :: I36`). Nullable with it.
+    # A plain string, unlike `_TeamWritable.website_url`: stored values are typed only
+    # (`docs/backend/spec.md :: I16`), and refusing one on read would 500 the triage list.
     website_url: str | None
 
 
@@ -397,7 +397,7 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
     full_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_FULL_NAME_MAX_LENGTH)]
     shorthand: Annotated[str, StringConstraints(strip_whitespace=True, min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)]
     # Required and NON-NULL here alone: the form offers the six real Schulformen and no "keine
-    # Angabe". The stored field stays nullable -- clubs predate it (`docs/backend/spec.md :: I36`).
+    # Angabe". The stored field stays nullable, for `app/core/constraints.py :: teams.schulform`'s reason.
     schulform: FLSchulform
     address: FLBewerbungAddressPayload
     # Constrained here where the read model leaves it a bare string: acceptance parses this block

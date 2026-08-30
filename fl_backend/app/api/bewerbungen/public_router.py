@@ -63,9 +63,9 @@ def _fenster(*, saison_id: str, bewerbung: Any, today: str) -> FLBewerbungFenste
     )
 
 
-# Declared before `/fenster/{saison_id}`: a season id is four characters and the `objectid` convertor
-# cannot constrain it, so route order is what keeps the literal out of the parameterised sibling
-# (`docs/backend/spec.md :: I37`).
+# NOT an ordering constraint: this and `/fenster/{saison_id}` are different segment counts, so
+# neither matches the other's path in any order. What keeps these literals out of the admin id route
+# is its `objectid` convertor (`app/core/routing.py`).
 @router.get("/fenster", response_model=FLBewerbungFensterResponse, summary="The Saison currently accepting applications")
 async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str = Depends(get_german_date_str)) -> FLBewerbungFensterResponse:
     """

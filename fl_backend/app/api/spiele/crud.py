@@ -121,14 +121,16 @@ async def find_bracket_faults(
 
     # Sorted, so the report is ordered by season rather than by the order the reads returned.
     for saison_raw in sorted(saisons_raw, key=lambda saison: str(saison["_id"])):
-        saison_id = str(saison_raw["_id"])
-        saison_spiele = by_saison.get(saison_id)
+        # Its own name, never the parameter's: rebinding that would leave the caller's scope
+        # unreadable after the walk, which no type checker or linter would report.
+        walked_saison_id = str(saison_raw["_id"])
+        saison_spiele = by_saison.get(walked_saison_id)
         if not saison_spiele:
             continue
 
         resolution = await _resolve_one_saison(
             teams_collection=teams_collection,
-            saison_id=saison_id,
+            saison_id=walked_saison_id,
             rules=FLSaisonRules.model_validate(saison_raw["rules"]),
             spiele=saison_spiele,
         )
