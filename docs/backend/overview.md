@@ -1,6 +1,6 @@
 # Backend — overview
 
-**Verified against:** `d666f6c9`, 2026-08-30\
+**Verified against:** `0ff5fdc8`, 2026-08-30\
 **Scope:** `fl_backend/`
 
 A FastAPI application over MongoDB, with one authorization tier per router ([`spec.md`](spec.md) I7). The
@@ -28,7 +28,6 @@ fl_backend/
 │   │                  saisons adds cache · schedule · spielplan · visibility; bewerbungen adds
 │   │                  public_router; aktionen has two of the five
 │   └── shared/        schemas reused across entities (addresses, kontakt, custom types)
-├── scripts/           one-off migrations, run by hand at the deploy that needs them
 └── tests/             pytest — schema constraints by default; `-m db` adds a real mongod
 ```
 
