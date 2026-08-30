@@ -32,6 +32,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WEBSITE_URL_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
+    LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
     TEAM_SHORTHAND_LENGTH,
@@ -139,9 +140,10 @@ class FLBewerbungenFilterParams(BaseModel):
     saison_id: str | None = None
     status: FLBewerbungStatus | None = None
 
-    # Null is "the caller named no bound", and no query string spells it. FastAPI fills every field
-    # of a `Depends()` model, so `model_fields_set` cannot tell an omitted parameter from a sent one.
-    limit: int | None = Field(default=None, ge=1, le=LIST_LIMIT_MAX)
+    # Bounded on BOTH sides, and no null sentinel: this is the one list an anonymous party writes
+    # rows into, so `le` caps a caller naming more rather than obeying it, and the default is the
+    # ceiling rather than "everything".
+    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     # Newest first by default: the triage is a queue, and the oldest open application is the one an
     # administrator has already seen.
     sort_by: FLBewerbungenSortOptions = Field(default="eingereicht_am")
@@ -179,7 +181,16 @@ class FLAblehnenBewerbungPayload(BaseModel):
 
 
 class FLBewerbungenListResponse(BaseAPIResponse):
+    """The queue, newest first, and whether that is the whole of it.
+
+    The list is served WHOLE by design -- the page marks duplicate submissions across it, and a
+    split set would leave a pair unmarked with nothing saying so.
+    """
+
     bewerbungen: list[FLBewerbung]
+    # German, unlike the envelope fields around it, because `complete` reads as "the read finished"
+    # as readily as "the list is whole" -- and this flag decides whether an admin may trust the list.
+    vollstaendig: bool
 
 
 class FLBewerbungSingleResponse(BaseAPIResponse):

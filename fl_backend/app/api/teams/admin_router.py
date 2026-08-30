@@ -428,6 +428,13 @@ async def patch_saison_team(
         update={"$set": saison_team_data.model_dump(mode="json")},
     )
 
+    # `kontakte` below is the one field read off the AFTER image, no payload carrying the block.
+    # `.get` covers a row whose key is ABSENT; a block PRESENT in a shape this model cannot describe
+    # still refuses, a keyword being validated like any other value.
+
+    # That write took no session and has committed by here, so such a block answers 500 after it
+    # landed. Accepted: the write is the one asked for, the retry is idempotent, and a session would
+    # abort a correct write over a field this endpoint never touches.
     return FLSaisonTeamResponse(
         saison_id=saison_id,
         team_id=team_id,
@@ -436,8 +443,6 @@ async def patch_saison_team(
         # From the PAYLOAD, not the pre-read above: the `$set` writes these wholesale, so the values
         # sent are the values now stored and the projection has nothing to widen for.
         trikot_farbe=saison_team_data.trikot_farbe,
-        # From the AFTER image instead: no payload carries the block, and `.get` covers a row entered
-        # before the key existed.
         kontakte=updated_raw.get("kontakte"),
         name=existing_raw["name"],
         shorthand=existing_raw["shorthand"],

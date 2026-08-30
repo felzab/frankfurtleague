@@ -674,7 +674,15 @@ class SupportIndex:
 # The action log is the one collection that only ever grows, so it is the one whose reads cannot be
 # left to a scan (`app/core/recording.py`).
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
-    SupportIndex(Collection.AKTIONEN, "aktionen_at", (("at", DESCENDING),), "the log page reads newest first"),
+    # `_id` is in the key because the read SORTS by it: with `at` alone MongoDB cannot walk this
+    # index and scans the whole log instead -- measured, on the one collection that only ever grows
+    # (`app/api/aktionen/admin_router.py :: get_aktionen`).
+    SupportIndex(
+        Collection.AKTIONEN,
+        "aktionen_queue",
+        (("at", DESCENDING), ("_id", DESCENDING)),
+        "the log page reads newest first",
+    ),
     SupportIndex(
         Collection.AKTIONEN,
         "aktionen_correlation_id",
@@ -686,6 +694,29 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "aktionen_target",
         (("collection", ASCENDING), ("document_id", ASCENDING)),
         "one document's history, and the rows a person's erasure must redact",
+    ),
+    # All three end in the read's own sort order, `eingereicht_am` then `_id`. Measured: with the
+    # sort key unindexed every request scans the collection and sorts it in memory, which is work
+    # proportional to an archive an anonymous form can grow.
+    SupportIndex(
+        Collection.BEWERBUNGEN,
+        "bewerbungen_queue",
+        (("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
+        "the triage queue unfiltered, newest first",
+    ),
+    SupportIndex(
+        Collection.BEWERBUNGEN,
+        "bewerbungen_saison_id_queue",
+        (("saison_id", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
+        "one season's queue, which is the operator's recovery path under a flood",
+    ),
+    # Its own index rather than a prefix of the one above: with `status` between them, a read
+    # narrowed to a season alone could not walk the sort key and would block on a sort again.
+    SupportIndex(
+        Collection.BEWERBUNGEN,
+        "bewerbungen_saison_id_status_queue",
+        (("saison_id", ASCENDING), ("status", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
+        "one season's queue narrowed to one status, which is what a triage tab reads",
     ),
 )
 

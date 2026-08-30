@@ -6,6 +6,7 @@ from bson import ObjectId
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 from motor.motor_asyncio import AsyncIOMotorCollection
+from pydantic import ValidationError
 
 from app.api.bewerbungen.router import get_bewerbungen
 from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
@@ -75,11 +76,20 @@ class _ArchiveCollection:
         # What the route ASKED for, kept because the answer alone cannot tell a read bounded at the
         # cap from one bounded a document past it.
         self.requested_limit: int | None = None
+        # The cursor is a FILTER term, so a page of the right length off the wrong filter would
+        # satisfy every assertion about its contents.
+        self.requested_filter: Any = None
 
     def find(self, filter: Any, projection: Any = None, session: Any = None) -> "_ArchiveCollection":
+        self.requested_filter = filter
+        self.documents = [d for d in self.documents if "_id" not in (filter or {}) or d["_id"] < filter["_id"]["$lt"]]
         return self
 
     def sort(self, sort_by: Any) -> "_ArchiveCollection":
+        # Applied rather than accepted: a fake that ignores the sort hands back insertion order, and
+        # a keyset walk over it would look total while paging the wrong end of the queue.
+        for field, direction in reversed(list(sort_by)):
+            self.documents.sort(key=lambda document: document[field], reverse=direction < 0)
         return self
 
     def limit(self, count: int) -> "_ArchiveCollection":
@@ -103,74 +113,97 @@ def run_list(collection: _ArchiveCollection, **filters: Any) -> Any:
     )
 
 
-class TestTheTriageListRefusesATruncatedArchive:
-    """`bewerbungen` has no delete, no TTL and no purge (`docs/backend/spec.md :: I45`).
+class TestTheListDegradesRatherThanRefusing:
+    """A tripwire would let an anonymous writer choose when this page 500s.
 
-    The sort is newest-first, so a silent truncation drops the OLDEST rows and an administrator
-    picking an early season reads the empty table as the filter's answer.
+    The reason it does not sits at `app/api/bewerbungen/router.py :: get_bewerbungen`.
     """
 
-    def test_an_archive_past_the_cap_is_refused(self):
-        with pytest.raises(ValueError, match=str(LIST_LIMIT_DEFAULT)):
-            run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT + 1)))
+    def test_an_archive_past_the_cap_is_served_short(self):
+        answered = run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT + 25)))
 
-    def test_an_archive_at_the_cap_is_still_listed(self):
-        """The boundary in the other direction: the largest readable archive must not answer 500."""
+        assert len(answered.bewerbungen) == LIST_LIMIT_DEFAULT
+        assert answered.vollstaendig is False
 
-        assert len(run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT))).bewerbungen) == LIST_LIMIT_DEFAULT
+    def test_an_archive_past_the_cap_raises_nothing(self):
+        """The whole point of the change: the old guard answered 500 here, and 500 is the attack."""
 
-    def test_the_unbounded_read_asks_one_document_past_the_cap(self):
-        """Non-vacuity: a read bounded AT the cap could never see the extra row, so nothing would ever raise."""
+        run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT * 3)))
+
+    def test_an_archive_under_the_cap_is_whole(self):
+        answered = run_list(_ArchiveCollection(archive_of(7)))
+
+        assert len(answered.bewerbungen) == 7
+        assert answered.vollstaendig is True
+
+    def test_an_archive_exactly_at_the_cap_is_whole(self):
+        """The boundary the probe row exists for: the largest complete answer must not call itself short."""
+
+        answered = run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT)))
+
+        assert len(answered.bewerbungen) == LIST_LIMIT_DEFAULT
+        assert answered.vollstaendig is True
+
+    def test_one_row_past_the_cap_is_the_first_incomplete_answer(self):
+        """The other side of the same boundary, so the flag cannot be a constant."""
+
+        assert run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT + 1))).vollstaendig is False
+
+    def test_the_read_asks_one_row_past_what_it_serves(self):
+        """Non-vacuity: a read bounded AT the cap could never tell a full list from a truncated one."""
 
         collection = _ArchiveCollection(archive_of(3))
         run_list(collection)
 
         assert collection.requested_limit == LIST_LIMIT_DEFAULT + 1
 
+    def test_the_probe_row_is_never_served(self):
+        answered = run_list(_ArchiveCollection(archive_of(9)), limit=4)
 
-class TestACallersOwnBoundIsNeverATruncation:
-    """A caller who asked for ten and got ten was not surprised, so the tripwire is scoped to the unbounded read."""
+        assert len(answered.bewerbungen) == 4
+        assert answered.vollstaendig is False
 
-    def test_a_named_limit_is_served_short_without_refusing(self):
-        answered = run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT + 1)), limit=10)
 
-        assert len(answered.bewerbungen) == 10
+class TestTheCallersOwnBoundIsCappedRatherThanObeyed:
+    """`limit` is the operator's recovery path under a flood, and it is bounded on both sides."""
 
-    def test_a_named_limit_bounds_the_read_at_exactly_what_was_asked(self):
-        collection = _ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT + 1))
-        run_list(collection, limit=10)
+    @pytest.mark.parametrize("named", [1, 7, LIST_LIMIT_MAX])
+    def test_a_named_bound_is_the_bound_served(self, named: int):
+        collection = _ArchiveCollection(archive_of(LIST_LIMIT_MAX + 10))
+        answered = run_list(collection, limit=named)
 
-        assert collection.requested_limit == 10
+        assert len(answered.bewerbungen) == named
+        assert collection.requested_limit == named + 1
 
-    def test_a_caller_naming_the_cap_itself_is_not_refused(self):
-        """The case `model_fields_set` could never separate: this value equals the old default exactly."""
+    def test_a_named_bound_that_covers_the_archive_reports_it_whole(self):
+        """A caller who asked for ten and got seven was not truncated, and must not be told they were."""
 
-        answered = run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT + 1)), limit=LIST_LIMIT_DEFAULT)
+        assert run_list(_ArchiveCollection(archive_of(7)), limit=10).vollstaendig is True
 
-        assert len(answered.bewerbungen) == LIST_LIMIT_DEFAULT
+    @pytest.mark.parametrize("refused", [0, -1, LIST_LIMIT_MAX + 1, 999999])
+    def test_a_bound_outside_the_range_is_refused(self, refused: int):
+        """The CAP, not just the default: a caller naming a larger read must not be served it."""
 
-    def test_a_caller_naming_the_maximum_is_not_refused(self):
-        collection = _ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT + 1))
-        run_list(collection, limit=LIST_LIMIT_MAX)
+        with pytest.raises(ValidationError):
+            FLBewerbungenFilterParams.model_validate({"limit": refused})
 
-        assert collection.requested_limit == LIST_LIMIT_MAX
 
-    def test_a_bound_above_the_default_is_served_whole(self):
-        """`model_construct`: the field refuses this value while `LIST_LIMIT_MAX` equals `LIST_LIMIT_DEFAULT`.
+class TestTheFiltersStillNarrowTheRead:
+    """Season and status are what an operator reaches for under a flood, so they reach the query."""
 
-        Two names so the ceiling can be raised alone -- and then a caller above the default must not
-        get a 500, which `requested is None` holds open.
-        """
+    def test_the_filters_named_reach_the_db_filter(self):
+        collection = _ArchiveCollection(archive_of(3))
+        run_list(collection, saison_id="2026", status="eingereicht")
 
-        collection = _ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT + 5))
-        answered = asyncio.run(
-            get_bewerbungen(
-                bewerbungen_collection=cast(AsyncIOMotorCollection, collection),
-                filters=FLBewerbungenFilterParams.model_construct(limit=LIST_LIMIT_DEFAULT + 5),
-            )
-        )
+        assert collection.requested_filter == {"saison_id": "2026", "status": "eingereicht"}
 
-        assert len(answered.bewerbungen) == LIST_LIMIT_DEFAULT + 5
+    def test_an_unfiltered_read_narrows_on_nothing(self):
+        """The control: a filter built from absent parameters would narrow to rows nobody asked about."""
+
+        collection = _ArchiveCollection(archive_of(3))
+        run_list(collection)
+
+        assert collection.requested_filter == {}
 
 
 # The dependency alone, mounted on a bare app: what is under test is how FastAPI fills the model, so
@@ -183,20 +216,20 @@ def _read_filters(filters: FLBewerbungenFilterParams = Depends()) -> dict[str, A
     return {"limit": filters.limit}
 
 
-class TestTheUnboundedSentinelCannotBeSentByACaller:
-    """`limit is None` carries the whole tripwire, so a caller able to forge it would disarm it silently."""
+class TestNoQueryStringReachesAnUnboundedRead:
+    """The cap is the whole bound, so a caller able to forge it past the ceiling would disarm it."""
 
-    def test_an_omitted_parameter_arrives_as_null(self):
+    def test_an_omitted_bound_arrives_as_the_default(self):
         with TestClient(_probe) as client:
-            assert client.get("/probe").json() == {"limit": None}
+            assert client.get("/probe").json()["limit"] == LIST_LIMIT_DEFAULT
 
-    def test_a_named_parameter_arrives_as_the_number(self):
+    def test_a_named_bound_arrives_as_the_number(self):
         with TestClient(_probe) as client:
-            assert client.get("/probe?limit=10").json() == {"limit": 10}
+            assert client.get("/probe?limit=10").json()["limit"] == 10
 
-    @pytest.mark.parametrize("value", ["", "null", "none", "0", str(LIST_LIMIT_MAX + 1)])
-    def test_no_query_string_spells_it(self, value: str):
-        """An empty or unparseable `limit`, and either bound broken, is a 422 rather than a null."""
+    @pytest.mark.parametrize("value", ["", "null", "none", "0", "-1", str(LIST_LIMIT_MAX + 1), "999999"])
+    def test_no_query_string_reaches_a_larger_read(self, value: str):
+        """Empty, unparseable or past either bound is a 422 -- never a read the caller sized."""
 
         with TestClient(_probe) as client:
             assert client.get(f"/probe?limit={value}").status_code == 422

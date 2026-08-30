@@ -61,7 +61,8 @@ def test_rejects_times_without_seconds_or_out_of_range(value):
         "http://example.com/path",
         "https://sub.example.co.uk",
         "https://example.com:8443/x",
-        "https://user@example.com",
+        "https://example.com/a@b",
+        "https://example.com/?q=a@b",
         # zod reads the scheme off a parsed URL, which lowercases it, so a case-sensitive check here
         # would disagree with the frontend.
         "HTTPS://EXAMPLE.COM",
@@ -96,6 +97,10 @@ def test_accepts_http_and_https_urls(value):
         "https://xn--kthe-kollwitz-schule-5nb.de",
         "https://",
         "//example.com",
+        # Userinfo: `hostname` excludes it, so every host check below passed while the URL resolved
+        # to whatever follows the `@`. The panel renders the string and follows the host.
+        "https://frankfurtleague.de@evil.example",
+        "https://user:pw@evil.example",
     ],
 )
 def test_rejects_non_http_schemes_and_bare_hosts(value):
@@ -119,7 +124,7 @@ def test_returns_the_text_it_validated_rather_than_the_raw_value(stored, expecte
 
 def test_normalises_nothing_beyond_those_three_characters():
     """Not `geturl()`: reassembling lowercases the scheme, rewriting a stored value on a read model — why `AnyHttpUrl` is refused too."""
-    for value in ("HTTPS://EXAMPLE.COM", "https://user@example.com", "https://example.com:8443/x?a=b#c"):
+    for value in ("HTTPS://EXAMPLE.COM", "https://example.com/PaTh", "https://example.com:8443/x?a=b#c"):
         assert _Url.model_validate({"value": value}).value == value
 
 

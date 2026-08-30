@@ -2073,7 +2073,7 @@
     "/api/v0/bewerbungen": {
       "get": {
         "summary": "List Bewerbungen",
-        "description": "Every application, newest first, narrowable by season and by status.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against.",
+        "description": "Every application, newest first, narrowable by season and by status.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against. `vollstaendig` is false where more rows exist than one read serves.",
         "operationId": "get_bewerbungen_api_v0_bewerbungen_get",
         "security": [
           {
@@ -2123,16 +2123,10 @@
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "maximum": 1024,
-                  "minimum": 1
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
               "title": "Limit"
             }
           },
@@ -5627,13 +5621,19 @@
             },
             "type": "array",
             "title": "Bewerbungen"
+          },
+          "vollstaendig": {
+            "type": "boolean",
+            "title": "Vollstaendig"
           }
         },
         "type": "object",
         "required": [
-          "bewerbungen"
+          "bewerbungen",
+          "vollstaendig"
         ],
-        "title": "FLBewerbungenListResponse"
+        "title": "FLBewerbungenListResponse",
+        "description": "The queue, newest first, and whether that is the whole of it.\n\nThe list is served WHOLE by design -- the page marks duplicate submissions across it, and a\nsplit set would leave a pair unmarked with nothing saying so."
       },
       "FLBracketFaultGruppe": {
         "properties": {
@@ -6576,7 +6576,7 @@
           "trikot_farbe"
         ],
         "title": "FLPatchSaisonTeamPayload",
-        "description": "The row's own fields. NO `kontakte`: `FLPatchSaisonTeamKontaktePayload` owns it.\n\nA stored contact is shapeless on read, bounded on write\n(`docs/backend/spec.md :: I36`), so round-tripping it here refuses every save a club with one\nbad row can make."
+        "description": "The row's own fields. NO `kontakte`: `FLPatchSaisonTeamKontaktePayload` owns it.\n\nA stored contact is shapeless on read and bounded on write, so round-tripping it here refuses\nevery save a club with one bad row can make."
       },
       "FLPatchSchiedsrichterPayload": {
         "properties": {

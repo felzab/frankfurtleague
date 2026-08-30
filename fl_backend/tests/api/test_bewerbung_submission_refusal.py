@@ -630,6 +630,21 @@ class TestWhatTheSubmissionPayloadRefuses:
         with pytest.raises(ValidationError):
             FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url="javascript:alert(1)")))
 
+    @pytest.mark.parametrize("website_url", ["https://frankfurtleague.de@evil.example", "https://user:pw@evil.example"])
+    def test_a_school_website_hiding_its_host_behind_userinfo_is_refused(self, website_url: str):
+        """The admin panel renders the string and follows the host, so userinfo makes those two different domains."""
+
+        with pytest.raises(ValidationError):
+            FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url=website_url)))
+
+    @pytest.mark.parametrize("website_url", ["https://zorbanax.example.de/a@b", "https://zorbanax.example.de/?q=a@b"])
+    def test_an_at_sign_past_the_authority_is_still_accepted(self, website_url: str):
+        """The control: an `@` in a path or a query names no host, and refusing it would be a regex reading for a character."""
+
+        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url=website_url)))
+
+        assert parsed.schule is not None and parsed.schule.website_url == website_url
+
     def test_a_squad_of_nobody_is_refused(self):
         with pytest.raises(ValidationError):
             FLPostBewerbungPayload.model_validate(submission(kader={"voraussichtliche_groesse": 0, "gute_spieler": None}))

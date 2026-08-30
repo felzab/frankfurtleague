@@ -86,8 +86,8 @@ class FLAustritt(BaseModel):
 def strip_austritt_grund(value: Any) -> Any:
     """Strip the reason before `FLAustritt`'s floor counts it, on the WRITE side alone.
 
-    Never on `FLAustritt`, which every read of a club embeds: the strip runs BEFORE the floor, so a
-    stored blank would refuse there (`docs/backend/spec.md :: I36`).
+    Never on `FLAustritt`, which every read of a club embeds and must take a stored value as it
+    stands: the strip runs BEFORE the floor, so a stored blank would refuse.
     """
 
     if isinstance(value, Mapping) and isinstance(grund := value.get("grund"), str):
@@ -145,7 +145,7 @@ class FLSaisonTeamKontakte(BaseModel):
 
 # The bounded copies the junction PATCH embeds. The ceilings are here and not on the read models
 # above for `FLAddressPayload`'s reason: refusing a stored value on read answers 500 for a whole
-# list over one row (`docs/backend/spec.md :: I36`).
+# list over one row. For these, the bound is the write side's.
 class FLKontaktEinwilligungPayload(FLKontaktEinwilligung):
     model_config = ConfigDict(extra="forbid")
 
@@ -165,8 +165,9 @@ class FLKontaktpersonPayload(FLKontaktperson):
     # row, so a value it refused would lock itself in. The ceiling is stated rather than left to
     # email-validator, whose refusal names no field.
     email: Annotated[EmailStr, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH)]
-    # Here for the same reason, and it belongs on this side rather than beside a format: the pattern
-    # caps the length at 20 inside itself, which makes it a ceiling (`docs/backend/spec.md :: I36`).
+    # Here for the same reason, and on this side rather than beside the format: the pattern caps the
+    # length at 20 inside itself, which makes it a ceiling -- and a ceiling is the write side's, a
+    # read refusing a stored value refusing the row that repairs it.
     telefon: str = Field(pattern=PHONE_REGEX)
     einwilligung: FLKontaktEinwilligungPayload
 
@@ -291,6 +292,10 @@ class FLTeamMembership(BaseModel):
     austritt: FLAustritt | None
     # Defaulted because `$project` omits a key the stored row has not got: a season entered before
     # either field existed would otherwise 500 the whole admin club list.
+
+    # The one model here Pydantic validates a stored document into. The write echoes take these
+    # fields with NO default: each is built from keywords, so an absent key is the endpoint's to
+    # answer for and a default would echo what no caller wrote.
     trikot_farbe: FLTrikotFarbe | None = None
     kontakte: FLSaisonTeamKontakte | None = None
 
@@ -320,8 +325,9 @@ class _TeamPayload(_TeamWritable):
     model_config = ConfigDict(extra="forbid")
 
     address: FLAddressPayload
-    # Stripped on the WRITE side alone (`docs/backend/spec.md :: I36`). `name` is copied onto the
-    # season's junction row and onto every fixture side, so spaces alone reach the league table.
+    # Stripped on the WRITE side alone, the read models taking a stored value as it stands: `name` is
+    # copied onto the season's junction row and onto every fixture side, so spaces alone would reach
+    # a league table row.
     name: CustomStrippedNonEmptyString
     full_name: CustomStrippedNonEmptyString
     # Redeclared for that reason too: the width is a floor as well as a ceiling, and what it holds
@@ -355,9 +361,8 @@ class FLPostSaisonTeamPayload(BaseModel):
 class FLPatchSaisonTeamPayload(BaseModel):
     """The row's own fields. NO `kontakte`: `FLPatchSaisonTeamKontaktePayload` owns it.
 
-    A stored contact is shapeless on read, bounded on write
-    (`docs/backend/spec.md :: I36`), so round-tripping it here refuses every save a club with one
-    bad row can make.
+    A stored contact is shapeless on read and bounded on write, so round-tripping it here refuses
+    every save a club with one bad row can make.
     """
 
     model_config = ConfigDict(extra="forbid")
