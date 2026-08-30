@@ -337,10 +337,9 @@ describe("what the administrator is told", () => {
 });
 
 /**
- * Composing runs inside the settled boundary, not before it. Every caller reaches this AFTER its own
- * write has committed, so a fan-out that rejects reports a decision that was in fact taken — and on
- * the public receipt, which awaits this with no `catch`, it would show an applicant a failure for an
- * application that is stored.
+ * Composing is inside the settling too (`docs/frontend/spec.md :: I39`): the public receipt
+ * `fl_frontend/src/app/api/bewerbung/route.ts` awaits this with no `catch`, so a rejected fan-out
+ * would show an applicant a failure for a stored application.
  */
 describe("a message that cannot be composed costs no other recipient theirs", () => {
   /** Throws for one reader and composes for the others, which is what a per-recipient compose can do. */

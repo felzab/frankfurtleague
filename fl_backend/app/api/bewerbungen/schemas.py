@@ -406,8 +406,8 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
     # The ceilings are here and not on the read model, which the triage reads a stored one through.
 
     # No interior break in the two the decision mail renders: it writes one `label: value` per line,
-    # so a name carrying one forges a line the reader cannot tell from a real one. `strip_whitespace`
-    # runs FIRST, so a pasted break at either end is repaired rather than refused.
+    # so a name holding one forges a line. `strip_whitespace` runs FIRST, so a break at either end is
+    # repaired rather than refused.
     team_name: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TEAM_NAME_MAX_LENGTH, pattern=r"^[^\r\n]*$")
     ]

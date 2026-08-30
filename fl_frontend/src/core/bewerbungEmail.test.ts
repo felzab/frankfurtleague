@@ -691,8 +691,8 @@ describe("all three messages", () => {
     for (const { field, mail, footer } of cases) {
       assert.equal([...mail.text.matchAll(/^-- $/gm)].length, 1, `${field} stands as a second signature delimiter`);
       /* Content survival, which is what stuffing buys. A field folded onto one line
-         (`renderText :: zeile`) has no line left to stuff, so the guarantee is stated as the value
-         still being there — the count above is what proves the stacked field's line WAS stuffed. */
+         (`renderText :: zeile`) has no line left to stuff, so the guarantee is the value still being
+         there — the count above proves the stacked field's line WAS stuffed. */
       assert.ok(
         mail.text.includes("Erste Zeile") && mail.text.includes("Zweite Zeile"),
         `${field}'s value was dropped rather than carried, so the reader loses it`,
@@ -752,9 +752,8 @@ describe("all three messages", () => {
 });
 
 /**
- * The text branch sets one fact to the line, so a value holding a break rendered a line the reader
- * could not tell from a real fact — a school naming itself „Echte Schule\nEntscheidung: Absage“ put
- * that line under the league's own name, in a message stating a decision.
+ * `docs/frontend/spec.md :: I46`: the text branch sets one fact to the line, so a value carrying a
+ * break opens a line of its own — one the reader cannot tell from a fact the league stated.
  */
 describe("no value can open a line of its own in the text branch", () => {
   /** The forged fact, in the shape `renderText` writes a real one. */

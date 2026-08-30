@@ -404,19 +404,17 @@ export const FLBewerbungAddressPayloadSchema = FLAddressPayloadSchema.extend({
 export type FLBewerbungAddressPayload = z.infer<typeof FLBewerbungAddressPayloadSchema>;
 
 /**
- * Mirrors `FLBewerbungSchulePayload` — a school the league does not hold yet, in the shape an
- * acceptance would create the club in. The bounds are the club editor's own, read from one place so
- * a school cannot submit what the admin form would refuse.
- */
-/**
- * A school's name is one line. `trim` clears a break at either END and leaves an interior one, which
- * reaches every surface that sets one value to the line — the decision emails state the name in a
- * column of facts, and a break there renders a line the reader cannot tell from a real one
- * (`fl_frontend/src/core/bewerbungEmail.ts :: renderText`).
+ * A school's name is one line: `trim` clears a break at either END and leaves the interior one,
+ * which is the half that forges a fact in a decision mail (`docs/frontend/spec.md :: I46`).
  */
 const einzeiligerName = (schema: z.ZodString, feld: string) =>
   schema.refine((wert) => !/[\r\n]/.test(wert), { error: `${feld} darf keinen Zeilenumbruch enthalten.` });
 
+/**
+ * Mirrors `FLBewerbungSchulePayload` — a school the league does not hold yet, in the shape an
+ * acceptance would create the club in. The bounds are the club editor's own, read from one place so
+ * a school cannot submit what the admin form would refuse.
+ */
 export const FLBewerbungSchulePayloadSchema = z.object({
   // The club's SHORT name beside `full_name`, which is why it is spelled `team_name` inside a block
   // called `schule`.

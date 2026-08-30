@@ -217,9 +217,8 @@ function renderHtml(nachricht: Nachricht, bloecke: readonly string[]): string {
  * control. Stuffed WHOLE rather than per value, so no field is left out of the guard.
  */
 function renderText(nachricht: Nachricht, body: readonly string[]): string {
-  // A blank line before a stacked fact, so the lines it wraps onto do not read as further facts.
-  // Guarded here rather than trusted from the payload: this renderer is correct on its own, and the
-  // one field that may hold breaks is stated as a block rather than folded onto one line.
+  // A blank line before a stacked fact, so the lines it wraps onto do not read as further facts. Both
+  // Both shapes are normalised here rather than trusted from the payload (`docs/frontend/spec.md :: I46`).
   const zeile = (fakt: Fakt): string =>
     fakt.gestapelt === true ? `${fakt.label}: ${eingerueckt(fakt.value)}` : `${fakt.label}: ${einzeilig(fakt.value)}`;
   const fakten = nachricht.fakten.flatMap((fakt) => (fakt.gestapelt === true ? ["", zeile(fakt)] : [zeile(fakt)]));

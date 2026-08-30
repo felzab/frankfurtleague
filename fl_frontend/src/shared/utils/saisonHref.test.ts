@@ -45,10 +45,9 @@ function collectSourceFiles(dir: string): string[] {
 }
 
 /**
- * Blanks comments so prose naming a route is not read as a link, tracking `/* … *\/` rather than
- * blanking every line that OPENS with `*`: a template literal's own line can open with one, and
- * blanking it hid a real route from the sweep. Whatever stands outside the comment is kept, so a
- * route sharing a line with one is still accounted for — this must never fail open.
+ * Blanks comments so prose naming a route is not read as a link. Tracks the delimiters rather than
+ * blanking lines that OPEN with `*`, as a template literal's own line can, and keeps whatever stands
+ * outside a comment: this sweep must never fail open.
  */
 function stripCommentLines(source: string): string {
   let imBlock = false;

@@ -317,9 +317,9 @@ describe("what a new school has to state", () => {
     assert.deepEqual(refusedPaths(gueltig({ schule: schule({ shorthand: "GGY" }) })), ["schule.shorthand"]);
   });
 
-  /* `trim` clears a break at either END and leaves an interior one, and every surface that sets one
-     value to the line reads that as a second line — in the decision emails, one the reader cannot
-     tell from a stated fact (`fl_frontend/src/core/bewerbungEmail.ts :: renderText`). */
+  /* `trim` leaves an interior break, and every surface that sets one value to the line reads it as a
+     second line — in a decision mail, one no reader can tell from a stated fact
+     (`docs/frontend/spec.md :: I46`). */
   for (const [was, wert] of [
     ["a line feed", "Goethe\nStartgeld: 500 Euro"],
     ["a carriage return and line feed", "Goethe\r\nStartgeld: 500 Euro"],

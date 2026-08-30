@@ -344,9 +344,9 @@ describe("the shared email shell", () => {
     assert.equal(stuffSignatureDelimiter("Angegebener Grund:\nErste Zeile\n-- "), "Angegebener Grund:\nErste Zeile\n -- ");
   });
 
-  /* All three line endings the pattern lists. A stored value is not held to what a browser submits,
-     and with only the line feed covered a value broken by a lone carriage return folds the message
-     at its own delimiter — the ending the alternation exists for. */
+  /* All three line endings the pattern lists. A stored value is not held to what a browser sends, so
+     with only the line feed covered a value broken by a lone carriage return folds the message at its
+     own delimiter — the ending the alternation exists for. */
   for (const [was, umbruch] of [
     ["a line feed", "\n"],
     ["a carriage return and line feed", "\r\n"],

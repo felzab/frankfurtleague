@@ -751,11 +751,8 @@ async def _apply_validator(db: AsyncIOMotorDatabase, collection_name: str, valid
 async def apply_constraints(db: AsyncIOMotorDatabase) -> ConstraintSummary:
     """Apply every validator, unique index and support index to `db`.
 
-    A validator is REPLACED, an index only ever ADDED: `collMod` overwrites, while `create_index`
-    no-ops on a matching one and cannot change the keys under a name already in use. So an index
-    renamed or dropped from the declarations above stays until someone drops it by hand.
-
-    Safe on every boot. Raises on the FIRST failure -- all-but-one looks exactly like all.
+    A validator is REPLACED, an index only ever ADDED: `create_index` cannot change the keys under a
+    name in use, so a renamed one stays until dropped by hand. Raises on the FIRST failure.
     """
     for collection_name, validator in COLLECTION_VALIDATORS.items():
         await _apply_validator(db, collection_name, validator)
