@@ -159,6 +159,20 @@ describe("the four base-tier public reads", () => {
     }
   });
 
+  /* Both path interpolations encode, for the reason the Kürzel's always has: a caller-supplied segment
+     reaching a URL raw is one that can leave the path it was written into. */
+  it("encodes every caller-supplied path segment", async () => {
+    await getBewerbungFenster("26/27");
+    await getBewerbungKuerzel("G/G");
+
+    for (const endpoint of ["/bewerbungen/fenster/26%2F27", "/bewerbungen/kuerzel/G%2FG"]) {
+      assert.ok(
+        calls.some((call) => call.endpoint === endpoint),
+        `a path segment reached the client unencoded; expected ${endpoint}`,
+      );
+    }
+  });
+
   /* `OPS-87`: over-declaring the tier succeeds silently, and a public page is exactly where that
      mistake is available — the admin key would answer every one of these and nothing would say so. */
   it("asks for each of them under the base key, which is the tier the endpoints are guarded at", () => {

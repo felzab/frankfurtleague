@@ -93,8 +93,8 @@ export function applySeatPresence(
 }
 
 /**
- * The shared-seat pick: the block it leaves, and whether the seats are re-judged, **in EVERY
- * direction**: the mirror hands the named seat the trainer's person or nobody, and no blur on its
+ * The shared-seat pick: the block it leaves, and whether the seats are re-judged. The seats never
+ * move — the claim is composed at save — so what changes is WHO the Trainer reads, and no blur on its
  * read-only boxes clears the verdict left behind.
  */
 export function applySharedSeat(
@@ -109,15 +109,15 @@ export function applySharedSeat(
 }
 
 /**
- * The paths one judgement covers. While the mirror stands, the named seat holds the trainer's
- * person, so judging a trainer field alone leaves its copy's verdict over a stale value.
+ * The paths one judgement covers. While the claim stands the composed Trainer READS the named seat,
+ * so judging that seat alone leaves the Trainer's verdict over a value it no longer holds.
  */
 export function mirroredJudgedPaths(paths: readonly string[], mirroredSeat: FLTrainerZugleich | null): readonly string[] {
   if (mirroredSeat === null) return paths;
 
   const copies = paths
-    .filter((path) => path.startsWith("kontakte.trainer."))
-    .map((path) => path.replace("kontakte.trainer.", `kontakte.${mirroredSeat}.`));
+    .filter((path) => path.startsWith(`kontakte.${mirroredSeat}.`))
+    .map((path) => path.replace(`kontakte.${mirroredSeat}.`, "kontakte.trainer."));
 
   return copies.length === 0 ? paths : [...paths, ...copies];
 }

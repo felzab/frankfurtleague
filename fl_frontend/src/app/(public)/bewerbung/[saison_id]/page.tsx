@@ -19,7 +19,7 @@ export async function generateMetadata(props: NextPageProps<{ saison_id: string 
 
   return {
     title: `Bewerbung Saison ${saison_id}`,
-    description: `Meldet Euer Schulteam für die Saison ${saison_id} der Frankfurt-League an.`,
+    description: `Melde Dein Schulteam für die Saison ${saison_id} der Frankfurt-League an.`,
     openGraph: openGraphFor(`/bewerbung/${saison_id}`),
     alternates: { canonical: `/bewerbung/${saison_id}` },
   };

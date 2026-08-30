@@ -120,11 +120,11 @@ export function FormKontakteSection({
   };
 
   /**
-   * Read-only rather than hidden. The claim is an assertion the backend never checks, so a stored row
-   * can hold it over two DIFFERENT people, and a hidden block leaves that second person one
-   * keystroke from being overwritten unseen.
+   * The TRAINER reads out, never the seat the claim names: the named seat is where the person is
+   * entered, and the composed payload fills the Trainer from it. Run the other way, the source seat
+   * was uneditable and whatever was typed into the Trainer was overwritten at save.
    */
-  const isMirrored = (rolle: KontaktRolle) => rolle === mirroredSeat;
+  const isMirrored = (rolle: KontaktRolle) => rolle === "trainer" && mirroredSeat !== null;
 
   /** A pick, so it is judged on the press. One closed set, so no press can claim two seats at once. */
   const pickSharedSeat = (seat: FLTrainerZugleich | null) => {

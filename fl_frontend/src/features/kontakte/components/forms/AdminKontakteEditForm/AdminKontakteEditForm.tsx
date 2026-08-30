@@ -129,16 +129,18 @@ export function AdminKontakteEditForm({
   const validateFields = (paths: readonly string[]) => validatePaths("kontakte", buildPayload(), paths);
   // Judged with the value that arrived in the event, because state has not committed yet.
   const validateSelection = (paths: readonly string[], selected: { kontakte: SaisonTeamKontakteDraft | null }) =>
-    validatePaths("kontakte", { ...buildPayload(), ...selected }, paths);
+    // Mirrored like every other judgement: spread raw, a pick was judged against the unmirrored draft
+    // while a blur was judged against the composed one, so the two disagreed about the Trainer.
+    validatePaths("kontakte", { ...buildPayload(), kontakte: selected.kontakte === null ? null : mirrorKontakte(selected.kontakte) }, paths);
 
   const banners = buildKontakteBanners({
     saisonId: saison.saisonId,
     saisonStatus: saison.saisonStatus,
     isMember: storedMembership !== null,
     isBlockRemoved: storedKontakte !== null && kontakte === null,
-    // Read off the two blocks rather than off the controls: `trainer_ist_zugleich` empties the seat
-    // it names without that seat's own control ever being pressed.
-    emptiedSeatLabels: emptiedSeatLabels(storedKontakte, kontakte),
+    // Off the two COMPOSED blocks, never the controls: emptying the named seat empties the Trainer
+    // with it, and neither seat's own control was pressed.
+    emptiedSeatLabels: emptiedSeatLabels(storedKontakte, kontakte === null ? null : mirrorKontakte(kontakte)),
   });
 
   const leavePage = () => {

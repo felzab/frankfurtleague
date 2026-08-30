@@ -17,7 +17,7 @@ const GLYPH_OF = ((): Map<string, string> => {
   const block = text.slice(start, text.indexOf("];", start));
   const pairs = new Map<string, string>();
 
-  for (const match of block.matchAll(/id: "([a-z]+)",[\s\S]{0,200}?iconName: "(\w+)"/g)) {
+  for (const match of block.matchAll(/id: "([a-z_]+)",[\s\S]{0,200}?iconName: "(\w+)"/g)) {
     if (match[1] !== undefined && match[2] !== undefined) pairs.set(match[1], match[2]);
   }
 
@@ -48,7 +48,7 @@ function sectionActions(): Action[] {
     for (const match of text.matchAll(/<RowActionLink\b([\s\S]*?)<\/RowActionLink>/g)) {
       const body = match[1] ?? "";
       // `?` or the closing backtick ends a section path; `/` means a record id follows.
-      const target = /\/admin\/([a-z]+)([`?"])/.exec(body);
+      const target = /\/admin\/([a-z_]+)([`?"])/.exec(body);
       const label = /label="([^"]+)"/.exec(body)?.[1];
       const glyph = /<([A-Z]\w+)\s/.exec(body)?.[1];
       if (target === null || label === undefined || glyph === undefined) continue;
@@ -66,7 +66,7 @@ describe("a row action's glyph names where it goes", () => {
   it("finds the sidemenu's pairings and the actions to hold against them", () => {
     // Anti-vacuity on both halves: a renamed export or a changed component name would otherwise leave
     // every case below true of an empty list.
-    assert.ok(GLYPH_OF.size >= 10, `expected at least 10 sidemenu destinations, found ${String(GLYPH_OF.size)}`);
+    assert.ok(GLYPH_OF.size >= 12, `expected at least 12 sidemenu destinations, found ${String(GLYPH_OF.size)}`);
     assert.ok(actions.length >= 6, `expected at least 6 section row actions, found ${String(actions.length)}`);
   });
 

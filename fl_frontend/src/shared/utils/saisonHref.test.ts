@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { withSaisonId } from "./saisonHref";
+import { withSaisonId } from "./saisonHref.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 

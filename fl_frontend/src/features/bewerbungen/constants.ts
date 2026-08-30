@@ -1,3 +1,5 @@
+import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+
 import type { FLBewerbungStatus } from "./schemas";
 
 // Its own module and not an export of a `"use client"` view: every export of a client module becomes
@@ -52,6 +54,17 @@ export const BEWERBUNG_GRUND_MAX_LENGTH = 1000;
 export const KUERZEL_LAENGE = 2;
 
 /**
+ * The submission's own ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here too because
+ * the public endpoint refuses a length with a bare `REQ-VAL-001` and no field detail, so nothing marks the box.
+ */
+export const BEWERBUNG_TEAM_NAME_MAX_LENGTH = 60;
+export const BEWERBUNG_FULL_NAME_MAX_LENGTH = 120;
+export const BEWERBUNG_WEBSITE_URL_MAX_LENGTH = 300;
+export const BEWERBUNG_KONTAKT_NAME_MAX_LENGTH = 80;
+export const BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH = 500;
+export const BEWERBUNG_KADER_GROESSE_MAX = 200;
+
+/**
  * The span a contact person's birthdate has to fall in, bound on the PUBLIC payload alone: a date
  * outside it is a typo rather than a person, and no other date in an application gains a bound.
  */
@@ -70,13 +83,7 @@ export const SCHULE_NICHT_IN_LISTE = "neue-schule";
 export const SCHULE_NICHT_IN_LISTE_LABEL = "Meine Schule steht nicht in der Liste";
 
 /**
- * The three seats the public form asks for, in the order it asks.
- *
- * The label alone: what each seat is for is a `Hint` on its own panel, written there as a literal
- * because `hintCap.test.ts` counts a body it can read and nothing a component interpolates.
+ * `KONTAKT_ROLLEN` under its long wording, never a second table: two lists of one set drift, and the
+ * triage panel reads one while this form reads the other.
  */
-export const BEWERBUNG_SEATS = [
-  { value: "trainer", label: "Trainerin oder Trainer" },
-  { value: "ansprechperson", label: "Ansprechperson" },
-  { value: "stellvertretung", label: "Stellvertretung" },
-] as const;
+export const BEWERBUNG_SEATS = KONTAKT_ROLLEN.map(({ value, langform }) => ({ value: value, label: langform }));

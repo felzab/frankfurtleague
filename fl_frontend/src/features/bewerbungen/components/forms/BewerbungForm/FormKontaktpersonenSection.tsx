@@ -5,6 +5,7 @@ import { parseDate } from "@internationalized/date";
 import { Calendar, DateField, DatePicker, FieldError, Input, Label, Switch, TextField } from "@heroui/react";
 
 import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
+import { BEWERBUNG_KONTAKT_NAME_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import {
   DATE_PICKER_CALENDAR,
@@ -161,7 +162,10 @@ export function FormKontaktpersonenSection({
             onChange={(next) => onChange({ ...person, vorname: next })}
             onBlur={() => onFieldLeft([path("vorname")])}>
             <Label className={FIELD_LABEL}>Vorname</Label>
-            <Input className={FIELD_INPUT} />
+            <Input
+              className={FIELD_INPUT}
+              maxLength={BEWERBUNG_KONTAKT_NAME_MAX_LENGTH}
+            />
             <FieldError className={FIELD_ERROR} />
           </TextField>
 
@@ -173,7 +177,10 @@ export function FormKontaktpersonenSection({
             onChange={(next) => onChange({ ...person, nachname: next })}
             onBlur={() => onFieldLeft([path("nachname")])}>
             <Label className={FIELD_LABEL}>Nachname</Label>
-            <Input className={FIELD_INPUT} />
+            <Input
+              className={FIELD_INPUT}
+              maxLength={BEWERBUNG_KONTAKT_NAME_MAX_LENGTH}
+            />
             <FieldError className={FIELD_ERROR} />
           </TextField>
         </div>

@@ -5,7 +5,13 @@ import { useState } from "react";
 import { Autocomplete, FieldError, Input, Label, ListBox, SearchField, Select, Separator, TextField, useFilter } from "@heroui/react";
 
 import { dismissControl } from "@/core/dismissControl";
-import { KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE, SCHULE_NICHT_IN_LISTE_LABEL } from "@/features/bewerbungen/constants";
+import {
+  BEWERBUNG_FULL_NAME_MAX_LENGTH,
+  BEWERBUNG_TEAM_NAME_MAX_LENGTH,
+  KUERZEL_LAENGE,
+  SCHULE_NICHT_IN_LISTE,
+  SCHULE_NICHT_IN_LISTE_LABEL,
+} from "@/features/bewerbungen/constants";
 import { istNeueSchule } from "@/features/bewerbungen/utils";
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
 import { SCHULFORM_OPTIONS, schulformLabel } from "@/features/teams/constants";
@@ -210,6 +216,7 @@ export function FormSchuleSection({
                 onBlur={() => onFieldLeft(["schule.team_name"])}>
                 <Label className={FIELD_LABEL}>Teamname</Label>
                 <Input
+                  maxLength={BEWERBUNG_TEAM_NAME_MAX_LENGTH}
                   placeholder="z.B. Goethe-Gymnasium"
                   className={FIELD_INPUT}
                 />
@@ -224,6 +231,7 @@ export function FormSchuleSection({
                 onBlur={() => onFieldLeft(["schule.full_name"])}>
                 <Label className={FIELD_LABEL}>Vollständiger Schulname</Label>
                 <Input
+                  maxLength={BEWERBUNG_FULL_NAME_MAX_LENGTH}
                   placeholder="z.B. Johann-Wolfgang-von-Goethe-Gymnasium"
                   className={FIELD_INPUT}
                 />

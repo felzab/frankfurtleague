@@ -15,7 +15,7 @@ export function BewerbungBandSkeleton({ ground = "surface" }: { ground?: "surfac
   return (
     <div
       role="status"
-      aria-label="Wird geladen"
+      aria-label="Bewerbungsfenster wird geladen"
       className={styles.root()}>
       <div className="flex w-full flex-row items-center gap-3 lg:w-auto">
         <span className={`${skeletonBlock({ tone: tone })} size-2 shrink-0 rounded-full`} />

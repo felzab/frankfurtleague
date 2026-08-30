@@ -80,7 +80,7 @@ export async function getOffenesBewerbungFenster(): Promise<FLBewerbungFensterRe
  */
 export async function getBewerbungFenster(saisonId: string): Promise<FLBewerbungFensterResponse | null> {
   return runWithIncomingCorrelationId(() =>
-    apiClient<FLBewerbungFensterResponse>(`/bewerbungen/fenster/${saisonId}`, FLBewerbungFensterResponseSchema, {
+    apiClient<FLBewerbungFensterResponse>(`/bewerbungen/fenster/${encodeURIComponent(saisonId)}`, FLBewerbungFensterResponseSchema, {
       authType: "base",
     }).catch((error: unknown) => {
       if (error instanceof APIBadStatusError && error.statusCode === 404) return null;

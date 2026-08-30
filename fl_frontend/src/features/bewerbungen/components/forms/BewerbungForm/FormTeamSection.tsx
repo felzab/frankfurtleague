@@ -2,6 +2,7 @@
 
 import { FieldError, Input, Label, NumberField, TextField } from "@heroui/react";
 
+import { BEWERBUNG_KADER_GROESSE_MAX, BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { TrikotFarbeSelect } from "@/features/teams/components/forms/TrikotFarbeSelect";
 import {
   FIELD_COUNT_INPUT,
@@ -71,6 +72,7 @@ export function FormTeamSection({
           onBlur={() => onFieldLeft(["trikot.vorhandener_satz"])}>
           <Label className={FIELD_LABEL}>Vorhandene Trikotsätze</Label>
           <Input
+            maxLength={BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH}
             placeholder="z.B. 15 rote Trikots aus dem Schulsport"
             className={FIELD_INPUT}
           />
@@ -100,6 +102,7 @@ export function FormTeamSection({
               isRequired
               name="kader.voraussichtliche_groesse"
               minValue={1}
+              maxValue={BEWERBUNG_KADER_GROESSE_MAX}
               value={kader.voraussichtliche_groesse ?? NaN}
               onChange={(next) => onKaderChange({ ...kader, voraussichtliche_groesse: enteredNumber(next) })}
               onBlur={() => onFieldLeft(["kader.voraussichtliche_groesse"])}>
@@ -116,6 +119,9 @@ export function FormTeamSection({
               isRequired
               name="kader.gute_spieler"
               minValue={0}
+              // The squad above it, never past the league's own ceiling: `Math.min` COMPOSES the two, so an
+              // untouched squad still caps at 200 and a squad of 500 is refused rather than offered.
+              maxValue={Math.min(kader.voraussichtliche_groesse ?? BEWERBUNG_KADER_GROESSE_MAX, BEWERBUNG_KADER_GROESSE_MAX)}
               value={kader.gute_spieler ?? NaN}
               onChange={(next) => onKaderChange({ ...kader, gute_spieler: enteredNumber(next) })}
               onBlur={() => onFieldLeft(["kader.gute_spieler"])}>

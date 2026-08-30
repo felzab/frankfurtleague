@@ -168,32 +168,33 @@ describe("applySharedSeat", () => {
 });
 
 describe("mirroredJudgedPaths", () => {
-  /* The trainer's boxes are the only ones a mirrored Ansprechperson's value can be edited through, so
-     a judgement that skipped the copy would leave its verdict standing over what the trainer replaced. */
-  it("judges the named seat's copy alongside every trainer field while the mirror stands", () => {
-    assert.deepEqual(mirroredJudgedPaths(["kontakte.trainer.email"], "ansprechperson"), [
-      "kontakte.trainer.email",
+  /* The NAMED seat is where the person is entered, and the composed Trainer reads it. A judgement
+     that skipped the Trainer's paths would leave its verdict standing over a value it no longer holds. */
+  it("judges the trainer's paths alongside every field of the seat the claim names", () => {
+    assert.deepEqual(mirroredJudgedPaths(["kontakte.ansprechperson.email"], "ansprechperson"), [
       "kontakte.ansprechperson.email",
-    ]);
-    assert.deepEqual(mirroredJudgedPaths(["kontakte.trainer.einwilligung.datum"], "ansprechperson"), [
-      "kontakte.trainer.einwilligung.datum",
-      "kontakte.ansprechperson.einwilligung.datum",
-    ]);
-  });
-
-  /* The copy follows the claim. Pinned to the Ansprechperson, a Trainer who is also the
-     Stellvertretung leaves that seat's verdict standing over the value the trainer replaced. */
-  it("judges the Stellvertretung's copy where the claim names that seat", () => {
-    assert.deepEqual(mirroredJudgedPaths(["kontakte.trainer.email"], "stellvertretung"), [
       "kontakte.trainer.email",
-      "kontakte.stellvertretung.email",
+    ]);
+    assert.deepEqual(mirroredJudgedPaths(["kontakte.ansprechperson.einwilligung.datum"], "ansprechperson"), [
+      "kontakte.ansprechperson.einwilligung.datum",
+      "kontakte.trainer.einwilligung.datum",
     ]);
   });
 
-  it("reaches no second seat with an empty claim, and none from a seat the mirror does not feed", () => {
-    assert.deepEqual(mirroredJudgedPaths(["kontakte.trainer.email"], null), ["kontakte.trainer.email"]);
+  /* The source follows the claim. Pinned to the Ansprechperson, a Trainer who is also the
+     Stellvertretung leaves the Trainer's verdict standing over a value that seat has since changed. */
+  it("follows the claim to the Stellvertretung where it names that seat", () => {
+    assert.deepEqual(mirroredJudgedPaths(["kontakte.stellvertretung.email"], "stellvertretung"), [
+      "kontakte.stellvertretung.email",
+      "kontakte.trainer.email",
+    ]);
+  });
+
+  it("reaches no second seat with an empty claim, and none from a seat the claim does not name", () => {
+    assert.deepEqual(mirroredJudgedPaths(["kontakte.ansprechperson.email"], null), ["kontakte.ansprechperson.email"]);
     assert.deepEqual(mirroredJudgedPaths(["kontakte.stellvertretung.email"], "ansprechperson"), ["kontakte.stellvertretung.email"]);
-    assert.deepEqual(mirroredJudgedPaths(["kontakte.ansprechperson.email"], "ansprechperson"), ["kontakte.ansprechperson.email"]);
+    // The Trainer is the COPY: editing it moves nothing, so nothing else needs re-judging.
+    assert.deepEqual(mirroredJudgedPaths(["kontakte.trainer.email"], "ansprechperson"), ["kontakte.trainer.email"]);
   });
 });
 

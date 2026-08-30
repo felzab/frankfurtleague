@@ -12,6 +12,7 @@ import {
   bewerbungJudgedPaths,
   bewerbungPayload,
   buildEmptyBewerbungDraft,
+  KUERZEL_UNGEPRUEFT,
   KUERZEL_VERGEBEN,
   kuerzelHinweis,
   mirrorBewerbungTrainer,
@@ -50,7 +51,9 @@ const NICHT_ABGESCHICKT = "Deine Bewerbung wurde nicht abgeschickt. Versuche es 
  */
 const RATE_LIMIT_STATUS = 429;
 const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und schick die Bewerbung dann noch einmal ab.";
-const KUERZEL_UNGEPRUEFT = "Zu viele Anfragen in kurzer Zeit. Wir prüfen das Kürzel spätestens beim Abschicken.";
+// Composed, never restated: the field is already showing the promise from `utils`, and on a rate-limited blur
+// the two render together — one promise in two wordings reads as two different promises.
+const KUERZEL_RATE_LIMIT = `Zu viele Anfragen in kurzer Zeit. ${KUERZEL_UNGEPRUEFT}`;
 
 async function postBewerbung(payload: unknown): Promise<BewerbungAntwort> {
   const response = await fetch("/api/bewerbung", {
@@ -198,7 +201,7 @@ export function BewerbungForm({
 
         // Said out loud only for the limit: the form goes on either way, and what it costs is that
         // the code stays unchecked until the submit judges it.
-        if (antwort.rateLimited === true) appToast.warning("Kürzel noch nicht geprüft", { description: KUERZEL_UNGEPRUEFT });
+        if (antwort.rateLimited === true) appToast.warning("Kürzel noch nicht geprüft", { description: KUERZEL_RATE_LIMIT });
       },
       () => {
         setIsKuerzelPending(false);
@@ -266,6 +269,9 @@ export function BewerbungForm({
       // cleared after an edit reported `valueMissing` before anyone had left it. Under `aria` that
       // flag is never set, and our own German arrives with the submit.
       validationBehavior="aria"
+      // A create form, so its required fields carry the asterisk every other create form marks them with:
+      // roughly twenty-five of these are required and two are not, and a stranger fills this in once.
+      data-required-marks="on"
       validationErrors={mergedErrors}
       className="flex w-full flex-col gap-5"
       onSubmit={runOnSubmit(handleSubmit)}>

@@ -664,3 +664,53 @@ describe("what the two destructive controls do to the page", () => {
     assert.match(ERASURE, /jede, in der diese Adresse steht/, "the confirmation does not say the reach is every season");
   });
 });
+
+describe("which way the claim runs, at every site that reads it", () => {
+  /* ONE direction, and it landed in half the editor: the named seat is the SOURCE and the Trainer the
+     copy. Run the other way, the source seat rendered read-only while whatever was typed into the
+     Trainer was overwritten at save. */
+  it("reads out the TRAINER, never the seat the claim names", () => {
+    assert.match(
+      SECTION,
+      /const isMirrored = \(rolle: KontaktRolle\) => rolle === "trainer" && mirroredSeat !== null;/,
+      "the source seat is the one rendered read-only, so the person cannot be edited anywhere",
+    );
+  });
+
+  /* A blur judges `buildPayload()`, which is composed. Spread raw, a pick was judged against the
+     unmirrored draft, so the two disagreed about who the Trainer is. */
+  it("judges a pick against the block the save would write", () => {
+    assert.match(
+      FORM_SOURCE,
+      /kontakte: selected\.kontakte === null \? null : mirrorKontakte\(selected\.kontakte\)/,
+      "a pick is judged against the raw draft while a blur is judged against the composed block",
+    );
+  });
+
+  /* Emptying the seat the claim names empties the composed Trainer with it. Read off the raw draft,
+     the banner would not name the seat the save is about to clear. */
+  it("warns about the seats the composed block empties", () => {
+    assert.match(
+      FORM_SOURCE,
+      /emptiedSeatLabels\(storedKontakte, kontakte === null \? null : mirrorKontakte\(kontakte\)\)/,
+      "the banner reads the raw draft, so a seat the save clears goes unnamed",
+    );
+  });
+
+  /* The admin editor and the public form run one direction through one function. Divergence here is
+     what this whole case was. */
+  it("runs the same direction as the public form's own judgement", () => {
+    const oeffentlich = readFileSync(path.resolve(SRC, "features", "bewerbungen", "utils.ts"), "utf8");
+
+    for (const [name, source] of [
+      ["the admin editor", readFileSync(path.resolve(import.meta.dirname, "utils.ts"), "utf8")],
+      ["the public form", oeffentlich],
+    ] as const) {
+      assert.match(
+        source,
+        /\.filter\(\(path\) => path\.startsWith\(`kontakte\.\$\{mirroredSeat\}\.`\)\)|\.filter\(\(path\) => path\.startsWith\(`kontakte\.\$\{mirroredSeat\}\.`\),/,
+        `${name} judges the claim's copies the other way round`,
+      );
+    }
+  });
+});

@@ -8,12 +8,12 @@ import {
   FLSchulformSchema,
   FLTrainerZugleichSchema,
   FLTrikotFarbeSchema,
-  OptionalExternalUrlSchema,
 } from "@/features/teams/schemas";
 import {
   ADDRESS_STADTTEIL_MAX_LENGTH,
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
+  ExternalUrlSchema,
   FLAddressPayloadSchema,
   FLAddressSchema,
   KONTAKT_EMAIL_MAX_LENGTH,
@@ -22,7 +22,18 @@ import {
 } from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
-import { BEWERBUNG_GRUND_MAX_LENGTH, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, KUERZEL_LAENGE } from "./constants";
+import {
+  BEWERBUNG_FULL_NAME_MAX_LENGTH,
+  BEWERBUNG_GRUND_MAX_LENGTH,
+  BEWERBUNG_KADER_GROESSE_MAX,
+  BEWERBUNG_KONTAKT_NAME_MAX_LENGTH,
+  BEWERBUNG_MAX_ALTER,
+  BEWERBUNG_MIN_ALTER,
+  BEWERBUNG_TEAM_NAME_MAX_LENGTH,
+  BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
+  BEWERBUNG_WEBSITE_URL_MAX_LENGTH,
+  KUERZEL_LAENGE,
+} from "./constants";
 import { geburtsdatumSpanne } from "./utils";
 
 /**
@@ -236,13 +247,18 @@ export const FLBewerbungEinwilligungPayloadSchema = z.object({
 });
 export type FLBewerbungEinwilligungPayload = z.infer<typeof FLBewerbungEinwilligungPayloadSchema>;
 
+/** Both name boxes and both count boxes share a ceiling, so each sentence is written once. */
+const NAME_ZU_LANG = `Der Name darf höchstens ${String(BEWERBUNG_KONTAKT_NAME_MAX_LENGTH)} Zeichen lang sein.`;
+const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MAX)} Spieler an.`;
+
 /**
  * Mirrors `FLBewerbungKontaktpersonPayload` — `FLKontaktpersonPayload` with the agreement the public
  * form gathers and the one date bound on this payload alone.
  */
 export const FLBewerbungKontaktpersonPayloadSchema = z.object({
-  vorname: PersonNameSchema,
-  nachname: PersonNameSchema,
+  // The alphabet is `PersonNameSchema`'s and the ceiling is this payload's, as the backend spells it.
+  vorname: PersonNameSchema.max(BEWERBUNG_KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
+  nachname: PersonNameSchema.max(BEWERBUNG_KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
   email: z
     .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
     .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
@@ -371,8 +387,20 @@ export type FLBewerbungAddressPayload = z.infer<typeof FLBewerbungAddressPayload
 export const FLBewerbungSchulePayloadSchema = z.object({
   // The club's SHORT name beside `full_name`, which is why it is spelled `team_name` inside a block
   // called `schule`.
-  team_name: z.string().trim().nonempty({ error: "Bitte gib einen Teamnamen ein." }),
-  full_name: z.string().trim().nonempty({ error: "Bitte gib den vollständigen Namen der Schule ein." }),
+  team_name: z
+    .string()
+    .trim()
+    .nonempty({ error: "Bitte gib einen Teamnamen ein." })
+    .max(BEWERBUNG_TEAM_NAME_MAX_LENGTH, {
+      error: `Der Teamname darf höchstens ${String(BEWERBUNG_TEAM_NAME_MAX_LENGTH)} Zeichen lang sein.`,
+    }),
+  full_name: z
+    .string()
+    .trim()
+    .nonempty({ error: "Bitte gib den vollständigen Namen der Schule ein." })
+    .max(BEWERBUNG_FULL_NAME_MAX_LENGTH, {
+      error: `Der vollständige Name darf höchstens ${String(BEWERBUNG_FULL_NAME_MAX_LENGTH)} Zeichen lang sein.`,
+    }),
   shorthand: z
     .string()
     .trim()
@@ -383,13 +411,20 @@ export const FLBewerbungSchulePayloadSchema = z.object({
   address: FLBewerbungAddressPayloadSchema,
   // Optional, as it is on the club the acceptance would create: a school without a website is one
   // the league still wants, and the two surfaces may not disagree about that.
-  website_url: OptionalExternalUrlSchema,
+  website_url: ExternalUrlSchema.max(BEWERBUNG_WEBSITE_URL_MAX_LENGTH, {
+    error: `Die Adresse darf höchstens ${String(BEWERBUNG_WEBSITE_URL_MAX_LENGTH)} Zeichen lang sein.`,
+  }).nullable(),
 });
 export type FLBewerbungSchulePayload = z.infer<typeof FLBewerbungSchulePayloadSchema>;
 
 /** Mirrors `FLBewerbungTrikotPayload` — what the school already owns, and the colour it would like. */
 export const FLBewerbungTrikotPayloadSchema = z.object({
-  vorhandener_satz: z.string().trim(),
+  vorhandener_satz: z
+    .string()
+    .trim()
+    .max(BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH, {
+      error: `Die Beschreibung darf höchstens ${String(BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH)} Zeichen lang sein.`,
+    }),
   // Answered, unlike the stored field this becomes: a wish is one of sixteen colours and the school
   // has one. `FLBewerbungTrikot` stays nullable, where an unanswered older record still reads and
   // where the administrator's assignment is a different field.
@@ -398,17 +433,26 @@ export const FLBewerbungTrikotPayloadSchema = z.object({
 export type FLBewerbungTrikotPayload = z.infer<typeof FLBewerbungTrikotPayloadSchema>;
 
 /** Mirrors `FLBewerbungKaderPayload` — the school's own estimate, which nothing later holds it to. */
-export const FLBewerbungKaderPayloadSchema = z.object({
-  voraussichtliche_groesse: z
-    .int({ error: "Bitte gib an, mit wie vielen Spielern Du ungefähr rechnest." })
-    .min(1, { error: "Ein Kader hat mindestens einen Spieler." }),
-  // Answered rather than nullable: a blank box leaves the league guessing whether the school means
-  // none or has not looked. The refusal names the level the label names, „im Verein“ alone being
-  // answered from breadth of membership, not from level.
-  gute_spieler: z
-    .int({ error: "Bitte gib an, wie viele davon im Verein mindestens Verbandsliga spielen." })
-    .nonnegative({ error: "Bitte gib eine Zahl ab 0 ein." }),
-});
+export const FLBewerbungKaderPayloadSchema = z
+  .object({
+    voraussichtliche_groesse: z
+      .int({ error: "Bitte gib an, mit wie vielen Spielern Du ungefähr rechnest." })
+      .min(1, { error: "Ein Kader hat mindestens einen Spieler." })
+      .max(BEWERBUNG_KADER_GROESSE_MAX, { error: KADER_ZU_GROSS }),
+    // Answered rather than nullable: a blank box leaves the league guessing whether the school means
+    // none or has not looked. The refusal names the level the label names, „im Verein“ alone being
+    // answered from breadth of membership, not from level.
+    gute_spieler: z
+      .int({ error: "Bitte gib an, wie viele davon im Verein mindestens Verbandsliga spielen." })
+      .nonnegative({ error: "Bitte gib eine Zahl ab 0 ein." })
+      .max(BEWERBUNG_KADER_GROESSE_MAX, { error: KADER_ZU_GROSS }),
+  })
+  // Mirrors the model validator: a subset cannot outnumber the whole, and both figures are the school's own
+  // estimate. Equal passes — a school may rate its whole squad. On `gute_spieler`, the box the applicant lowers.
+  .refine((kader) => kader.gute_spieler <= kader.voraussichtliche_groesse, {
+    error: "Die Anzahl der guten Spieler darf die voraussichtliche Kadergröße nicht überschreiten.",
+    path: ["gute_spieler"],
+  });
 export type FLBewerbungKaderPayload = z.infer<typeof FLBewerbungKaderPayloadSchema>;
 
 /**

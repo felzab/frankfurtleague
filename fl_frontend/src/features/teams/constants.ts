@@ -156,11 +156,16 @@ export function einwilligungHerkunftLabel(herkunft: FLKontaktEinwilligung["ertei
   return EINWILLIGUNG_HERKUNFT_OPTIONS.find((option) => option.value === herkunft)?.label ?? "";
 }
 
-/** The three seats a season holds per club, in the order the editor and the list both show them. */
+/**
+ * The three seats a season holds per club, in both surfaces' order.
+ *
+ * TWO wordings, as `AUSTRITT_OPTIONS` carries three: the admin takes the short form, the public one
+ * the long form. Both live here, so no two surfaces name a seat differently.
+ */
 export const KONTAKT_ROLLEN = [
-  { value: "trainer", label: "Trainer" },
-  { value: "ansprechperson", label: "Ansprechperson" },
-  { value: "stellvertretung", label: "Stellvertretung" },
+  { value: "trainer", label: "Trainer", langform: "Trainerin oder Trainer" },
+  { value: "ansprechperson", label: "Ansprechperson", langform: "Ansprechperson" },
+  { value: "stellvertretung", label: "Stellvertretung", langform: "Stellvertretung" },
 ] as const;
 
 export type KontaktRolle = (typeof KONTAKT_ROLLEN)[number]["value"];

@@ -52,8 +52,10 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
     });
   };
 
+  // The seat's own sub-block rule, as the Einwilligung block above it uses: one divider treatment per
+  // depth. The destructive grading is the confirm reveal's and the button's, both recipes.
   return (
-    <div className="border-danger/20 flex w-full flex-col gap-y-3 border-t pt-4">
+    <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
       <h4 className={FORM_SECTION_HEADING}>Person löschen</h4>
 
       <p className="muted-hint">

@@ -3,15 +3,19 @@ import { EINWILLIGUNG_HERKUNFT_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN } from "
 import type { Facet } from "@/shared/utils/facets";
 import type { AdminKontakteRow, AdminTeamRow } from "./types";
 
-/** Spelled once so the facet below and a link that has to outrank its default cannot name it differently. */
-const SAISON_PARAM = "zugehoerigkeit";
+/**
+ * Spelled once so the facet below and a link that has to outrank its default cannot name it
+ * differently. NOT the season itself, whose name `fl_frontend/src/shared/utils/saisonHref.ts ::
+ * SAISON_PARAM` owns.
+ */
+const ZUGEHOERIGKEIT_PARAM = "zugehoerigkeit";
 
 /**
  * What a link INTO this list carries to reach a club whatever its season: the default answers for an
  * ABSENT parameter, an empty one turns the facet off
  * (`fl_frontend/src/shared/utils/facets.ts :: readFacetSelection`).
  */
-export const TEAMS_ANY_SAISON_QUERY = `${SAISON_PARAM}=`;
+export const TEAMS_ANY_SAISON_QUERY = `${ZUGEHOERIGKEIT_PARAM}=`;
 
 /**
  * Module scope is load-bearing: `AdminCrudView`'s memo and the react-aria collection behind it both
@@ -19,7 +23,7 @@ export const TEAMS_ANY_SAISON_QUERY = `${SAISON_PARAM}=`;
  */
 export const TEAM_FACETS: readonly Facet<AdminTeamRow>[] = [
   {
-    param: SAISON_PARAM,
+    param: ZUGEHOERIGKEIT_PARAM,
     label: "Saison",
     options: [
       { value: "aufgenommen", label: "In dieser Saison" },

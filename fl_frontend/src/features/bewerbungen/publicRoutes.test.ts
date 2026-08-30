@@ -247,37 +247,42 @@ describe("who the submission's receipt is addressed to", () => {
   });
 });
 
-describe("what stands in for a session on the two public routes", () => {
+describe("what stands in for a session on the session-less routes", () => {
+  /** Both spines, because the guard is identical and one of the two being pinned is how this got here. */
+  const SPINES = [
+    ["the public spine", PUBLIC_ROUTE],
+    ["the undo spine", UNDO_ROUTE],
+  ] as const;
+
   /* The guard compared WHOLE, not searched: every weakening leaves the words a search looks for
      standing. A deleted `return` is invisible to `tsc` and to ESLint at --max-warnings 0, a bare
      call being a side effect. */
   it("returns the refusal from the guard, on exactly the condition it declares", () => {
-    const kopf = 'const secFetchSite = request.headers.get("sec-fetch-site");';
-    const ab = PUBLIC_ROUTE.slice(PUBLIC_ROUTE.indexOf(kopf) + kopf.length);
-    const bedingung = ab.slice(ab.indexOf("if (") + "if (".length, ab.indexOf(") {"));
-    // Cut at the statement's own semicolon: the first `}` after the brace belongs to the object
-    // literal inside the call, not to the block.
-    const rumpf = ab.slice(ab.indexOf(") {") + ") {".length, ab.indexOf(";", ab.indexOf(") {")) + 1);
+    for (const [name, source] of SPINES) {
+      const kopf = 'const secFetchSite = request.headers.get("sec-fetch-site");';
+      const ab = source.slice(source.indexOf(kopf) + kopf.length);
+      const bedingung = ab.slice(ab.indexOf("if (") + "if (".length, ab.indexOf(") {"));
+      // Cut at the statement's own semicolon: the first `}` after the brace belongs to the object
+      // literal inside the call, not to the block.
+      const rumpf = ab.slice(ab.indexOf(") {") + ") {".length, ab.indexOf(";", ab.indexOf(") {")) + 1);
 
-    assert.ok(PUBLIC_ROUTE.includes(kopf), "the spine no longer reads Sec-Fetch-Site");
-    // `null` passes deliberately: a browser too old to send the header is still a reader of this page.
-    assert.equal(bedingung, 'secFetchSite !== null && secFetchSite !== "same-origin"', "the condition was widened or made conditional");
-    // RETURNED, not merely constructed: dropped, the response is discarded and the write runs on.
-    assert.equal(
-      rumpf.trim(),
-      "return NextResponse.json({ success: false, error: FREMDE_HERKUNFT });",
-      "the guard builds a refusal it does not return, or answers with something else",
-    );
+      assert.ok(source.includes(kopf), `${name} no longer reads Sec-Fetch-Site`);
+      // `null` passes deliberately: a browser too old to send it is still a reader of this page.
+      assert.equal(bedingung, 'secFetchSite !== null && secFetchSite !== "same-origin"', `${name}'s condition was widened or made conditional`);
+      // RETURNED, not merely constructed: dropped, the response is discarded and the write runs on.
+      assert.equal(
+        rumpf.trim(),
+        "return NextResponse.json({ success: false, error: FREMDE_HERKUNFT });",
+        `${name} builds a refusal it does not return, or answers with something else`,
+      );
+    }
   });
 
-  /* 200 with the outcome in the body, as the spine's own closing comment requires: every caller
+  /* 200 with the outcome in the body, as each spine's own closing comment requires: every caller
      throws on a non-2xx and reports the throw as a connection fault, so a status here sends a
      reader to check a network that is fine. */
   it("answers the refusal in German the caller actually renders", () => {
-    for (const [name, source] of [
-      ["the public spine", PUBLIC_ROUTE],
-      ["the undo spine", UNDO_ROUTE],
-    ] as const) {
+    for (const [name, source] of SPINES) {
       assert.doesNotMatch(source, /status: 403/, `${name} answers a status no caller reads past`);
       assert.doesNotMatch(source, /"Access Denied"/, `${name} still carries the English nothing renders`);
       assert.match(source, /const FREMDE_HERKUNFT =/, `${name} names no sentence for a cross-site caller`);
@@ -292,19 +297,33 @@ describe("what stands in for a session on the two public routes", () => {
   /* Ordering read off the source, not off two `indexOf` positions a moved guard leaves unchanged:
      what makes this a guard is that nothing runs behind it. */
   it("seats the guard ahead of every statement that does work", () => {
-    const rumpf = PUBLIC_ROUTE.slice(PUBLIC_ROUTE.indexOf("): Promise<NextResponse> {"));
-    const vorWache = rumpf.slice(0, rumpf.indexOf("const secFetchSite"));
+    for (const [name, source] of SPINES) {
+      const rumpf = source.slice(source.indexOf("): Promise<NextResponse> {"));
+      const vorWache = rumpf.slice(0, rumpf.indexOf("const secFetchSite"));
 
-    assert.doesNotMatch(vorWache, /\bawait\b|\brun\(\)|runWithIncomingCorrelationId/, "work happens before the guard decides");
+      assert.doesNotMatch(vorWache, /\bawait\b|\brun\(\)|runWithIncomingCorrelationId/, `${name} works before the guard decides`);
+    }
   });
 
-  /* The edge limits this location per address, so a floor spends requests the complete codes need.
-     The width is READ from the constant, so route and form cannot disagree about a complete code. */
-  it("judges the Kürzel at exactly the width the constant declares", () => {
-    const KUERZEL_ROUTE = readFileSync(path.join(APP_DIR, "api", "bewerbung", "kuerzel", "route.ts"), "utf8");
+  /* The undo spine's own authorization. The backend still refuses without it — `getAdminSession` sets
+     the actor `apiClient` sends — but that is a DIFFERENT service, and `proxy.ts` matches
+     `/admin/:path*`, never `/api/admin/*`. */
+  it("checks the session before the undo restores anything", () => {
+    const wache = "if (!(await getAdminSession())) {";
 
-    assert.match(KUERZEL_ROUTE, /z\.string\(\)\.trim\(\)\.length\(KUERZEL_LAENGE\)/, "the route judges a width it spells itself");
-    assert.doesNotMatch(KUERZEL_ROUTE, /\.min\(|\.max\(/, "the route accepts a range where the form accepts one width");
+    assert.ok(UNDO_ROUTE.includes(wache), "the undo spine restores without checking who is asking");
+    /* FIRST in the callback, not merely before the restore: anything above it is work done for a
+       caller nobody has authorized, and „before the restore“ is satisfied by a check that has already
+       parsed their body. */
+    const auftakt = "const result = await runAdminMutation(route.mutationName, async () => {";
+    const danach = UNDO_ROUTE.slice(UNDO_ROUTE.indexOf(auftakt) + auftakt.length).trimStart();
+
+    assert.ok(danach.startsWith(wache), "something runs for an unauthorized caller before the session is checked");
+    assert.match(
+      UNDO_ROUTE.slice(UNDO_ROUTE.indexOf(wache)),
+      /^if \(!\(await getAdminSession\(\)\)\) \{\s*return \{ success: false as const, error: ADMIN_FORBIDDEN \};/,
+      "the session check falls through instead of refusing",
+    );
   });
 
   /* `runAdminMutation`'s name says a session was checked. A public route reaching for it would read
@@ -312,5 +331,14 @@ describe("what stands in for a session on the two public routes", () => {
   it("does not borrow the admin spine", () => {
     assert.doesNotMatch(POST_ROUTE, /runAdminMutation/, "a session-less route runs through the admin mutation spine");
     assert.match(POST_ROUTE, /handlePublicRequest\(request, \{/, "the route no longer runs through the public spine");
+  });
+});
+
+describe("how the page spells the box a panel sits in", () => {
+  /* One recipe, not a second hand-written copy of it: the state panels say what the form's own sections say,
+     and a box retyped beside `formPanel` drifts from it at the next change to either. */
+  it("takes the state panel's box from formPanel", () => {
+    assert.match(VIEW, /formPanel\(\)\.root\(\)/, "the state panel hand-writes a box the form already has a recipe for");
+    assert.doesNotMatch(VIEW, /"border-border bg-surface flex w-full flex-col/, "a second spelling of the panel box is back");
   });
 });

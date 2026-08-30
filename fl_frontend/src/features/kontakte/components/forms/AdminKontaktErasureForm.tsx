@@ -72,11 +72,14 @@ export function AdminKontaktErasureForm() {
 
     if (!res.success) {
       if (hasFieldErrors(res.fieldErrors)) setSubmitFieldErrors(res.fieldErrors, { erasure: { email } });
-      appToast.danger("Kontaktdaten nicht gelöscht", { description: res.error ?? UNKNOWN_REFUSAL });
+      appToast.danger("Kontaktperson nicht gelöscht", { description: res.error ?? UNKNOWN_REFUSAL });
       return;
     }
 
-    appToast.success("Kontaktdaten gelöscht", { description: res.message });
+    /* An address matching nobody succeeds and clears zero, and „gelöscht“ over that is a quiet lie.
+       The branch `FormKontaktErasure` takes, so one erasure is not reported two ways. */
+    if (res.cleared === 0) appToast.warning("Nichts gefunden", { description: res.message });
+    else appToast.success("Kontaktperson gelöscht", { description: res.message });
     // The address goes with the records it named. On screen it is a copy of what the press destroyed.
     setEmail("");
     // The list above is read per request rather than from a cache, so this lands the cleared rows.

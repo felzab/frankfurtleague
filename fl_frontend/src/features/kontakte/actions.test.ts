@@ -157,14 +157,25 @@ describe("what the erasure moves", () => {
     ]);
     assert.match(
       COMMIT,
-      /appToast\.danger\("Kontaktdaten nicht gelöscht", \{ description: res\.error \?\? UNKNOWN_REFUSAL \}\);/,
+      /appToast\.danger\("Kontaktperson nicht gelöscht", \{ description: res\.error \?\? UNKNOWN_REFUSAL \}\);/,
       "the failure toast says something other than the refusal it was handed",
+    );
+    /* The zero branch, as the editor's own control takes it: the endpoint refuses nothing, so an
+       address matching nobody succeeds and clears zero, and „gelöscht“ over that is a quiet lie. */
+    assert.match(
+      COMMIT,
+      /if \(res\.cleared === 0\) appToast\.warning\("Nichts gefunden", \{ description: res\.message \}\);/,
+      "a write that found nothing is reported as a deletion",
     );
     assert.match(
       COMMIT,
-      /appToast\.success\("Kontaktdaten gelöscht", \{ description: res\.message \}\);/,
+      /else appToast\.success\("Kontaktperson gelöscht", \{ description: res\.message \}\);/,
       "the success toast says something other than the action's report",
     );
+
+    /* The referee anonymisation already owns „Kontaktdaten gelöscht“, and two different writes under
+       one title read as one thing having happened. */
+    assert.ok(!COMMIT.includes("Kontaktdaten gelöscht"), "the erasure took the anonymisation's title");
   });
 
   /* One call site, so nothing reaches the endpoint around the confirm: a `press`-less second call
@@ -332,7 +343,7 @@ describe("the address the press acts on", () => {
   it("clears the box once the write lands", () => {
     assert.match(
       PANEL,
-      /appToast\.success\("Kontaktdaten gelöscht"[\s\S]*?setEmail\(""\);[\s\S]*?router\.refresh\(\);/,
+      /appToast\.success\("Kontaktperson gelöscht"[\s\S]*?setEmail\(""\);[\s\S]*?router\.refresh\(\);/,
       "the erased address stays in the box",
     );
   });

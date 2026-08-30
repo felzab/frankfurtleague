@@ -6,6 +6,7 @@ import { BewerbungForm } from "@/features/bewerbungen/components/forms/Bewerbung
 import { abiJahrgang, fensterZustand } from "@/features/bewerbungen/utils";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { ctaButton } from "@/shared/components/ui/formButtons";
+import { formPanel } from "@/shared/components/ui/formPanel";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLBewerbungFensterResponse } from "@/features/bewerbungen/schemas";
@@ -195,7 +196,9 @@ function Fakt({ label, children }: { label: string; children: React.ReactNode })
  */
 function ZustandPanel({ titel, text, aktion }: { titel: string; text: string; aktion?: { href: string; label: string } }) {
   return (
-    <div className="border-border bg-surface flex w-full flex-col items-start gap-y-4 rounded-2xl border p-6 shadow-sm sm:p-8">
+    /* The form's own panel, not a fourth spelling of it: this box says the same thing the sections around it
+       say, and only its padding and its centring are its own. */
+    <div className={`${formPanel().root()} items-start gap-y-4 p-6 sm:p-8`}>
       <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">{titel}</h2>
       <p className="muted-hint max-w-xl">{text}</p>
 
