@@ -10,6 +10,7 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { appToast } from "@/shared/utils/appToast";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
@@ -41,10 +42,12 @@ export function FormAustragenSection({
   // Inverted like the erasure's gate, so the press is live exactly where the endpoint would take it.
   const blockedReason = isRowTeamInSaison ? null : REACTIVATION_NEEDS_A_TEAM_IN_SAISON;
 
-  const run = (write: () => Promise<{ success: boolean; message?: string; error?: string }>, failureHeading: string) => {
+  const run = (write: () => Promise<{ success: boolean; message?: string; error?: string }>, failureHeading: string, savedDetail: string) => {
     startWriting(async () => {
       const res = await write();
-      if (res.success) appToast.success(res.message ?? "Gespeichert");
+      // The detail is the press's own: this panel saves two opposite things, and „Gespeichert“ alone
+      // leaves the reader holding whichever they pressed as the only evidence of what happened.
+      if (res.success) appToast.success(res.message ?? "Gespeichert", { description: savedDetail });
       else appToast.danger(failureHeading, { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
@@ -52,8 +55,9 @@ export function FormAustragenSection({
   return (
     <section className={styles.root()}>
       <div className={styles.header()}>
-        <h2 className={styles.heading()}>
-          Kadereintrag
+        <PanelHeading
+          className={styles.heading()}
+          title="Kadereintrag">
           <Hint
             mode="reveal"
             label="Hinweis zum Austragen"
@@ -62,7 +66,7 @@ export function FormAustragenSection({
               points: [{ term: "Jede andere Saison", text: "behält den Spieler." }],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={styles.body()}>
@@ -83,7 +87,11 @@ export function FormAustragenSection({
                 variant="primary"
                 isDisabled={isPending || blockedReason !== null}
                 onPress={() =>
-                  run(() => reactivateSaisonSpielerAction({ spieler_id: spielerId, saison_id: saisonId }), "Reaktivieren fehlgeschlagen")
+                  run(
+                    () => reactivateSaisonSpielerAction({ spieler_id: spielerId, saison_id: saisonId }),
+                    "Reaktivieren fehlgeschlagen",
+                    "Nummer, Position und Stufe sind wiederhergestellt.",
+                  )
                 }
                 className={formButton({ intent: "submit" })}>
                 {isPending ? "Speichert..." : "Kadereintrag reaktivieren"}
@@ -104,7 +112,13 @@ export function FormAustragenSection({
               type="button"
               variant="secondary"
               isDisabled={isPending}
-              onPress={() => run(() => deleteSaisonSpielerAction({ spieler_id: spielerId, saison_id: saisonId }), "Austragen fehlgeschlagen")}
+              onPress={() =>
+                run(
+                  () => deleteSaisonSpielerAction({ spieler_id: spielerId, saison_id: saisonId }),
+                  "Austragen fehlgeschlagen",
+                  "Der Spieler steht nicht mehr im Kader dieser Saison.",
+                )
+              }
               className="border-danger/40 bg-surface text-danger data-hovered:bg-hover-danger data-hovered:text-danger-strong fluid-sm flex h-10 w-fit items-center rounded-lg border px-4 font-bold shadow-sm transition-colors">
               {isPending ? "Speichert..." : `Aus Kader ${saisonId} austragen`}
             </Button>

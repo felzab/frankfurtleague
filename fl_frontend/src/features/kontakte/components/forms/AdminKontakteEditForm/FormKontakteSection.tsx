@@ -28,6 +28,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { textLink } from "@/shared/components/ui/textLink";
 
 import { FormKontaktErasure } from "./FormKontaktErasure";
 
@@ -75,18 +76,18 @@ export function FormKontakteSection({
   onValidateSelection: (paths: readonly string[], selected: { kontakte: SaisonTeamKontakteDraft | null }) => void;
 }) {
   /**
-   * Re-judged wherever a switch RESOLVES what a seat holds. All three paths sets, because
-   * `mirrorKontakte` moves two seats at once.
+   * Re-judged wherever a switch RESOLVES what a seat holds. All three path sets, because the composed
+   * Trainer reads whichever seat the claim names.
    */
   const revalidateSeats = (next: SaisonTeamKontakteDraft | null) => onValidateSelection(ALL_SEAT_PATHS, { kontakte: next });
 
   const abgelegt = useRef<Partial<Record<KontaktRolle, KontaktpersonDraft>>>({});
 
-  /** The seat that tracks the trainer, so no judgement of a trainer field may leave its copy behind. */
   /* A block to work against whether one is stored yet or not: entering somebody is what creates
      it, and only the editor's deletion section takes it away again. */
   const basis = value ?? buildEmptyKontakte();
 
+  /** The seat the TRAINER tracks: it is the source, and the Trainer's boxes read whatever it holds. */
   const mirroredSeat = basis.trainer_ist_zugleich;
 
   const judgeFieldsLeft = (paths: readonly string[]) => onFieldLeft(mirroredJudgedPaths(paths, mirroredSeat));
@@ -148,7 +149,7 @@ export function FormKontakteSection({
         // page's write rather than this page's.
         <Link
           href={teamHref}
-          className="text-brand hover:text-brand-solid fluid-sm w-fit font-bold transition-colors">
+          className={`${textLink()} fluid-sm w-fit font-bold`}>
           Zur Seite des Teams
         </Link>
       )}
@@ -241,7 +242,7 @@ function TrainerZugleichPicker({ value, onPick }: { value: FLTrainerZugleich | n
         size="sm"
         isDetached
         selectionMode="single"
-        // „Niemand sonst“ is an answer rather than the absence of one, so the group always holds a
+        // „Eine eigene Person“ is an answer rather than the absence of one, so the group always holds a
         // selection and the empty state below is unreachable after the first render.
         disallowEmptySelection
         selectedKeys={[TRAINER_ZUGLEICH_OPTIONS.find((option) => option.value === value)?.key ?? "niemand"]}
@@ -286,7 +287,7 @@ function KontaktpersonFields({
   label: string;
   /** Null where the seat holds nobody, which is a saveable state rather than a half-finished one. */
   person: KontaktpersonDraft | null;
-  /** This seat tracks the trainer, so its boxes read out rather than take input. */
+  /** This seat IS another seat's person, so its boxes read out rather than take input. */
   isMirrored: boolean;
   /** The claim's picker, on the Trainer seat alone. `null` on the two seats the claim can name. */
   zugleich: ReactNode;

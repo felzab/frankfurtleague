@@ -19,6 +19,7 @@ import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
@@ -98,8 +99,9 @@ export function AdminBewerbungAnnehmenSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Zusage
+        <PanelHeading
+          className={panel.heading()}
+          title="Zusage">
           <Hint
             mode="reveal"
             label="Hinweis zur Zusage"
@@ -111,7 +113,7 @@ export function AdminBewerbungAnnehmenSection({
               ],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

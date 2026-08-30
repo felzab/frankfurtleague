@@ -464,11 +464,12 @@ describe("the way in and out of the editor", () => {
      club's. The template is READ rather than matched whole: the destination and the season are what
      must hold, not a variable's name. */
   it("points every row of the list at this editor, with the season riding along", () => {
-    const href = /href=\{`(\/admin\/kontakte\/[^`]*)`\}/.exec(LIST_TABLE)?.[1] ?? "";
+    const href = /href=\{withSaisonId\(`(\/admin\/kontakte\/[^`]*)`, (\w+)\)\}/.exec(LIST_TABLE);
 
-    assert.notEqual(href, "", "the list offers no link into this editor");
-    assert.match(href, /^\/admin\/kontakte\/\$\{\w+\.teamId\}/, "a row opens something other than this club's seats");
-    assert.match(href, /\$\{saisonParam\}$/, "the row link drops the season it was pressed in");
+    assert.ok(href !== null, "the list offers no link into this editor");
+    assert.match(href[1]!, /^\/admin\/kontakte\/\$\{\w+\.teamId\}$/, "a row opens the wrong destination");
+    // Composed through the shared helper, which is what resolves the `?`/`&` split for every table.
+    assert.match(href[2]!, /[Ss]aison/, "the row link is composed without the season it was pressed in");
     assert.ok(!LIST_TABLE.includes("/admin/teams/${"), "a row still links to the club editor for its contacts");
   });
 });

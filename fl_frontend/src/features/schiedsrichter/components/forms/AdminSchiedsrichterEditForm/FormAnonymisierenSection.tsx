@@ -14,6 +14,7 @@ import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
@@ -69,8 +70,9 @@ export function FormAnonymisierenSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Kontaktdaten löschen
+        <PanelHeading
+          className={panel.heading()}
+          title="Kontaktdaten löschen">
           {/* What is deleted and what survives it is the panel's own body below, and the danger panel
               with its two-press control is what says the press is final. */}
           <Hint
@@ -81,7 +83,7 @@ export function FormAnonymisierenSection({
               points: [{ term: "Die Felder oben zu leeren", text: "ist etwas anderes: Die alten Angaben bleiben im Änderungsprotokoll." }],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

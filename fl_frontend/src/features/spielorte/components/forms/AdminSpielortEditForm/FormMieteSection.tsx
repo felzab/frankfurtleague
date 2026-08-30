@@ -6,6 +6,7 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { enteredNumber } from "@/shared/utils/numberField";
 
 /**
@@ -27,14 +28,15 @@ export function FormMieteSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Miete
+        <PanelHeading
+          className={panel.heading()}
+          title="Miete">
           <Hint
             mode="reveal"
             label="Hinweis zur Miete"
             body={{ lead: "Diese Miete gilt für neue Spiele." }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

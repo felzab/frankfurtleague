@@ -111,15 +111,17 @@ describe("what a refusal on a switch has to land on", () => {
      proxy around it, `focusFirstRefusal` reports `rendered` false and the applicant gets the
      unhandled-path toast instead of a message under the control. */
   it("gives every switch on this form a control a refusal can reach", () => {
-    const schalter = [...SEATS.matchAll(/<Switch\b/g)];
+    // The switch carries the NAME itself, so its own checkbox is what `aria-invalid` and the message's
+    // `aria-describedby` land on. Behind a proxy the refusal reached a control nothing announces.
+    const schalter = [...SEATS.matchAll(/<Switch[^.\w]/g)];
     assert.ok(schalter.length >= 2, "the seats render no switches, so this case compares nothing");
 
     for (const treffer of schalter) {
-      const davor = SEATS.slice(0, treffer.index);
-      const feldStart = davor.lastIndexOf("<TextField");
+      const block = SEATS.slice(treffer.index, SEATS.indexOf(">", treffer.index));
 
-      assert.ok(feldStart > davor.lastIndexOf("</TextField>"), "a switch renders outside any TextField, so its path reaches no control");
-      assert.match(davor.slice(feldStart), /name=\{/, "the TextField around a switch carries no name for a refusal to match");
+      assert.match(block, /name=\{/, "a switch carries no name, so a refusal on its path reaches no control");
+      // Required-ness only where the schema demands it: the zugleich claim is one a school may leave alone.
+      if (block.includes("einwilligung.erteilt")) assert.match(block, /isRequired/, "a consent switch says its requirement to nobody");
     }
   });
 
@@ -200,5 +202,40 @@ describe("what the form does with a submit already in flight", () => {
     // One call, inside `applyDraft`: a second is a write that moves the form without arming the prompt.
     const raw = [...FORM.matchAll(/(?<![A-Za-z])setDraft\(/g)];
     assert.equal(raw.length, 1, "a draft write bypasses applyDraft, so it moves the form without arming the warning");
+  });
+});
+
+describe("what the form says about itself to a reader who cannot see it", () => {
+  /* `aria-label` beside a visible `<Label>` is not a second name — react-aria emits no label id at all, and the
+     non-empty `aria-labelledby` then outranks the `aria-label` too. The control announces its placeholder. */
+  it("names no control twice, so its visible label is the name it announces", () => {
+    for (const [datei, quelle] of [
+      ["FormSchuleSection.tsx", SCHULE],
+      ["FormKontaktpersonenSection.tsx", SEATS],
+    ] as const) {
+      for (const treffer of quelle.matchAll(/aria-label="/g)) {
+        const block = quelle.slice(Math.max(0, treffer.index - 600), treffer.index + 600);
+
+        assert.ok(!block.includes("<Label"), `${datei} sets an aria-label on a control that renders its own Label`);
+      }
+    }
+  });
+
+  /* Every answer the schema demands says so, or it carries no asterisk, no `aria-required` and no mark of any
+     kind — and the applicant meets the requirement only when the submit refuses it. */
+  it("marks the birthdate required, as the schema's own span rule demands", () => {
+    const block = SEATS.slice(SEATS.indexOf("<DatePicker"), SEATS.indexOf(">", SEATS.indexOf("<DatePicker")));
+
+    assert.match(block, /isRequired/, "the birthdate is refused by the schema and asks for nothing");
+  });
+
+  /* The receipt replaces the form under the pressed button, so without these the caret falls to `<body>` and
+     nothing is announced on the page somebody has just spent twenty minutes on. */
+  it("announces the receipt and takes the caret the form drops", () => {
+    // Anchored to a line of its own: the comment above the receipt names `role="status"` too, and a loose
+    // match is satisfied by the prose while the attribute is gone.
+    assert.match(FORM, /^ +role="status"$/m, "the receipt is in no live region");
+    assert.match(FORM, /tabIndex=\{-1\}/, "the receipt cannot take focus");
+    assert.match(FORM, /eingereichtRef\.current\?\.focus\(\)/, "nothing moves focus to the receipt");
   });
 });

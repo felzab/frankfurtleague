@@ -138,6 +138,28 @@ describe("the three people have to be tellable apart", () => {
     assert.deepEqual(refusedPaths(geteilt), ["kontakte.stellvertretung.email", "kontakte.stellvertretung.telefon"]);
   });
 
+  /* Only a drifted client reaches this: `bewerbungPayload` fills the claimed seat FROM the Trainer,
+     so the payload is broken past that mirror on purpose. The 422 arm names no box. */
+  it("refuses a claimed seat whose boxes disagree with the Trainer", () => {
+    const payload = bewerbungPayload(
+      gueltig({
+        kontakte: {
+          trainer: person("Tim"),
+          ansprechperson: person("Erika"),
+          stellvertretung: person("Lena"),
+          trainer_ist_zugleich: "ansprechperson",
+        },
+      }),
+    );
+    const gedriftet = {
+      ...payload,
+      kontakte: { ...payload.kontakte, ansprechperson: { ...payload.kontakte.ansprechperson, telefon: "069 7234567" } },
+    };
+    const parsed = FLPostBewerbungPayloadSchema.safeParse(gedriftet);
+
+    assert.deepEqual(parsed.success ? [] : Object.keys(toFieldErrors(parsed.error)).sort(), ["kontakte.ansprechperson.telefon"]);
+  });
+
   /* The claim's own effect on the payload: the named seat's person BECOMES the Trainer's, so the
      Trainer's own untouched boxes never reach the submission. */
   it("submits the claimed seat's person as the Trainer", () => {

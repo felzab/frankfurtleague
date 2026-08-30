@@ -1,6 +1,7 @@
 import { einwilligungHerkunftLabel, KONTAKT_ROLLEN, schulformLabel, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { formPanel } from "@/shared/components/ui/formPanel";
+import { textLink } from "@/shared/components/ui/textLink";
 import { ExternalUrlSchema } from "@/shared/schemas";
 import { formatAddressFull, formatSpielDatum } from "@/shared/utils/format";
 
@@ -42,7 +43,7 @@ function Website({ url }: { url: string | null }) {
       href={safe.data}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-brand underline underline-offset-2">
+      className={textLink()}>
       {url}
     </a>
   ) : (

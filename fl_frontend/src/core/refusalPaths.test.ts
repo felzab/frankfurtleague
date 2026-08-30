@@ -211,7 +211,6 @@ function payloadPaths(node: JsonSchema, prefix = ""): string[] {
 
 const WRITTEN_NOT_PICKED = "the form writes it from a constant, so no control offers it and no refusal can land on one";
 const THE_SCHOOL_ITSELF = "the picker writes `team_id` or the new-school block; the object itself has no control";
-const THE_ZUGLEICH_CLAIM = "a Switch takes no `name`, so the claim is carried by the seats it mirrors and a refusal lands on those";
 const A_STUFE_ROW = "the picker renders the whole set under one name, so a refusal on a single member has no control of its own";
 const IN_THE_PATH = "in the request URI, off an already-parsed record — no input, and no refusal names it";
 const THE_PAGE_SEASON = "the page's selected season, parsed at `.length(4)` before the control renders";
@@ -287,7 +286,6 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLPostBewerbungPayloadSchema: {
     saison_id: THE_PAGE_SEASON,
     schule: THE_SCHOOL_ITSELF,
-    "kontakte.trainer_ist_zugleich": THE_ZUGLEICH_CLAIM,
     "kontakte.trainer.einwilligung.text_version": WRITTEN_NOT_PICKED,
     "kontakte.ansprechperson.einwilligung.text_version": WRITTEN_NOT_PICKED,
     "kontakte.stellvertretung.einwilligung.text_version": WRITTEN_NOT_PICKED,
@@ -475,31 +473,248 @@ describe("every path a refusal mapper emits", () => {
    * Read as text because a `"use server"` module exports only async functions, so it cannot be
    * imported and asked.
    */
+  const production = [...sources].filter(([file]) => !file.endsWith(".test.ts") && !file.endsWith(".test.tsx"));
+
+  /**
+   * A mapper by its RETURN TYPE, which is what a module writing one cannot avoid declaring. Anchored on
+   * `):` so a type alias and an interface field, which declare the shape without answering in it, are not one.
+   */
+  const DECLARES_FIELD_ERRORS = /\)\s*:\s*(?:Promise<)?\{[^{}]*fieldErrors\?:\s*FieldErrors/;
+  // A code in a COMPARISON, never anywhere in the file: one quoted in prose above an unrelated
+  // function would otherwise make that file a mapper owing an excuse.
+  const NAMES_A_REFUSAL_CODE = /(?:case|===)\s*"REQ-[A-Z]+-\d+"/;
+
+  /**
+   * Where a module FILLS the shape rather than declaring it — `fieldErrors?:` is the declaration, and
+   * the `?` is what separates the two — reported as what each assignment's value is made of.
+   *
+   * Three values are readable. `toFieldErrors(…)` is the schema's own paths, swept by the payload half
+   * of this file; a literal is this half's subject; and `x.fieldErrors` forwards a map some mapper
+   * wrote as a literal, wherever that mapper lives. Anything else is built where this cannot follow.
+   */
+  const FORWARDED = /^\w+\.fieldErrors\b/;
+
+  function fieldErrorAssignments(text: string): { literals: number; opaque: number } {
+    let literals = 0;
+    let opaque = 0;
+
+    for (const assignment of text.matchAll(/fieldErrors:\s*/g)) {
+      const value = text.slice(assignment.index + assignment[0].length);
+      if (value.startsWith("{")) literals++;
+      else if (!value.startsWith("toFieldErrors(") && !FORWARDED.test(value)) opaque++;
+    }
+    return { literals, opaque };
+  }
+
+  const declaredMappers = production.filter(([, text]) => DECLARES_FIELD_ERRORS.test(text) && NAMES_A_REFUSAL_CODE.test(text));
+
+  /**
+   * The source between one `{` and the `}` that closes it, scanned with depth so a brace inside a
+   * value cannot end the body early. A regex cannot: `\`vor ${x}\`` closes a character class's run at
+   * its own `}`, and every key written after it is then invisible.
+   */
+  function objectBodyAt(text: string, open: number): string {
+    let depth = 0;
+    let quote: string | null = null;
+
+    for (let index = open; index < text.length; index++) {
+      const character = text[index];
+      if (quote !== null) {
+        if (character === "\\") index++;
+        else if (character === quote) quote = null;
+        continue;
+      }
+      if (character === '"' || character === "'" || character === "`") quote = character;
+      else if (character === "{") depth++;
+      else if (character === "}" && --depth === 0) return text.slice(open + 1, index);
+    }
+    return "";
+  }
+
+  /** One body's own entries, split at ITS depth: a nested object's commas belong to that object. */
+  function topLevelParts(body: string): string[] {
+    const parts: string[] = [];
+    let depth = 0;
+    let quote: string | null = null;
+    let start = 0;
+
+    for (let index = 0; index < body.length; index++) {
+      const character = body[index];
+      if (quote !== null) {
+        if (character === "\\") index++;
+        else if (character === quote) quote = null;
+        continue;
+      }
+      if (character === '"' || character === "'" || character === "`") quote = character;
+      else if (character === "(" || character === "[" || character === "{") depth++;
+      else if (character === ")" || character === "]" || character === "}") depth--;
+      else if (character === "," && depth === 0) {
+        parts.push(body.slice(start, index));
+        start = index + 1;
+      }
+    }
+    parts.push(body.slice(start));
+    return parts;
+  }
+
+  /**
+   * Every path one module maps a refusal onto.
+   *
+   * Not read: a computed key, a spread, and a map built somewhere else and named here. The last of
+   * those is not a silent gap — a mapper that assigns `fieldErrors` and yields no key fails below.
+   */
+  function emittedKeys(text: string): string[] {
+    const keys: string[] = [];
+    for (const assignment of text.matchAll(/fieldErrors:\s*\{/g)) {
+      const open = assignment.index + assignment[0].length - 1;
+      for (const part of topLevelParts(objectBodyAt(text, open))) {
+        const key = /^\s*"?([\w.]+)"?\s*:/.exec(part)?.[1];
+        if (key !== undefined) keys.push(key);
+      }
+    }
+    return keys;
+  }
+
+  /** Keyed by FILE rather than by slice: a slice may hold two mappers, and each answers for its own paths. */
   const emitted = new Map<string, string[]>();
-  for (const [file, text] of sources) {
-    if (!/^features\/[^/]+\/actions\.ts$/.test(file)) continue;
-    // Every key of the literal, not just the first: a refusal naming two fields must have both swept.
-    const keys = [...text.matchAll(/fieldErrors:\s*\{([^}]*)\}/g)]
-      .flatMap((literal) => [...(literal[1] ?? "").matchAll(/"?([\w.]+)"?\s*:/g)].map((entry) => entry[1]))
-      .filter((key) => key !== undefined);
-    if (keys.length > 0) emitted.set(sliceOf(file), [...new Set(keys)]);
+  for (const [file, text] of production) {
+    const keys = emittedKeys(text);
+    if (keys.length > 0) emitted.set(file, [...new Set(keys)]);
+  }
+
+  /**
+   * A mapper whose whole answer is a banner. **Each entry is a decision, not a backlog row**, and it
+   * is not a way out of the sweep: a listed file that assigns `fieldErrors` at all fails below,
+   * whether the map is written where it stands or fetched from a name.
+   */
+  const BANNER_ONLY: Record<string, string> = {
+    "features/schiedsrichter/actions.ts":
+      "retiring is refused for fixtures still needing a result — a fact about the season, and no control on the form is at fault",
+    "features/spielorte/actions.ts": "the same refusal for a venue, and the fixtures it names are on another page entirely",
+  };
+
+  /** What a module offers by name, so its callers are found rather than listed. */
+  function exportedSymbols(text: string): string[] {
+    const names = [
+      ...[...text.matchAll(/export\s+(?:async\s+)?function\s+(\w+)/g)].map((match) => match[1]),
+      ...[...text.matchAll(/export\s+const\s+(\w+)/g)].map((match) => match[1]),
+    ];
+    return names.filter((name) => name !== undefined);
+  }
+
+  /** `app/api/bewerbung/route.ts` answers at `/api/bewerbung`: a handler's URL is its own path. */
+  const routeUrl = (file: string): string => `/${file.replace(/^app\//, "").replace(/\/route\.ts$/, "")}`;
+
+  /**
+   * The forms a mapper's paths can land on: whatever calls it, plus — where a ROUTE HANDLER calls it —
+   * whatever fetches that handler's URL. The public form reaches its refusals only through the second.
+   */
+  function audienceOf(file: string): string[] {
+    const symbols = exportedSymbols(sources.get(file) ?? "");
+    const callers = [...sources]
+      .filter(([other, text]) => other !== file && symbols.some((symbol) => text.includes(`${symbol}(`)))
+      .map(([other]) => other);
+
+    const urls = callers.filter((caller) => /^app\/api\/.*route\.ts$/.test(caller)).map(routeUrl);
+    const fetchers = components.filter((component) => urls.some((url) => (sources.get(component) ?? "").includes(`fetch("${url}"`)));
+
+    return [...new Set([...callers.filter((caller) => caller.endsWith(".tsx")), ...fetchers])];
   }
 
   it("is found by the sweep at all", () => {
-    const total = [...emitted.values()].reduce((sum, paths) => sum + paths.length, 0);
-    assert.ok(emitted.size >= 4, `expected at least 4 slices mapping a refusal onto a field, found ${String(emitted.size)}`);
-    assert.ok(total >= 8, `expected at least 8 hand-written field paths, found ${String(total)}`);
+    // Floors on the SIGNATURE sweep, which the emission regex does not get to choose: renaming the
+    // emitted key empties `emitted` and leaves these standing, so the equality below is what fails.
+    const declaredFunctions = production.reduce(
+      (sum, [, text]) => sum + (text.match(new RegExp(DECLARES_FIELD_ERRORS.source, "g")) ?? []).length,
+      0,
+    );
+    assert.ok(declaredMappers.length >= 9, `expected at least 9 modules mapping a refusal, found ${String(declaredMappers.length)}`);
+    assert.ok(
+      declaredFunctions >= 40,
+      `expected at least 40 functions declared to answer with field errors, found ${String(declaredFunctions)}`,
+    );
+
+    // And a floor on the EMISSION route, which the signature floors above say nothing about:
+    // narrowing key extraction to the first of each literal leaves both of those standing.
+    const paths = [...emitted.values()].reduce((sum, keys) => sum + keys.length, 0);
+    assert.ok(paths >= 12, `expected at least 12 hand-written field paths across the mappers, found ${String(paths)}`);
   });
 
-  for (const [slice, paths] of emitted) {
-    it(`${slice} names only fields its own forms render`, () => {
-      const actions = [...actionSlice].filter(([, owner]) => owner === slice).map(([action]) => action);
-      const rendered = renderedNames(importTree(callersOf(actions)));
+  it("reads every key of a literal, whatever the value before it is made of", () => {
+    /* The reader itself, on input rather than on the tree: every literal in the tree happens to hold
+       ONE key, so no count over it can tell a reader that stops at the first from a correct one. The
+       shapes here are the ones that defeated a regex — an interpolation, and a nested object whose
+       own keys belong to it. */
+    const sample =
+      'return { fieldErrors: { beginn: `vor ${String(x)}`, "schule.shorthand": "b", nested: { verborgen: "c" } } };\n' +
+      'return { fieldErrors: { zweite: "d" } };';
 
+    assert.deepEqual(emittedKeys(sample), ["beginn", "schule.shorthand", "nested", "zweite"]);
+  });
+
+  it("emits from every mapper that names a field, and from nothing else", () => {
+    // Two independent signals, compared both ways: a mapper written outside `actions.ts` fails until it
+    // is swept, and a narrowed emission regex fails here rather than quietly sweeping less.
+    assert.deepEqual(
+      [...emitted.keys()].sort(),
+      declaredMappers.map(([file]) => file).filter((file) => !(file in BANNER_ONLY)),
+      "a module emitting field errors is not one the signature sweep found, or a mapper stopped emitting. Sweep it, or excuse it in BANNER_ONLY with the reason.",
+    );
+
+    // The reverse check `EXEMPT` has and this list lacked. Without it, an emission moved behind a
+    // constant drops out of `emitted`, and the equality above then names BANNER_ONLY as the remedy.
+    for (const [file, reason] of Object.entries(BANNER_ONLY)) {
+      assert.ok(
+        declaredMappers.some(([found]) => found === file),
+        `${file} is excused as banner-only but maps no refusal any more — drop the entry`,
+      );
+
+      const { literals, opaque } = fieldErrorAssignments(sources.get(file) ?? "");
+      assert.equal(literals + opaque, 0, `${file} is excused as banner-only (${reason}) and names a field after all`);
+    }
+
+    // A map this cannot read is the shape the excuse above would otherwise absorb: it drops out of
+    // `emitted`, and the equality then names BANNER_ONLY as the remedy. Named here instead.
+    for (const [file, text] of declaredMappers) {
+      const { opaque } = fieldErrorAssignments(text);
+      assert.equal(opaque, 0, `${file} builds its field map somewhere this sweep cannot follow — write the map where the refusal is decided`);
+    }
+  });
+
+  it("reaches the form behind a route handler, and not only the callers a component names", () => {
+    // The refusals arrive through a POST, so the handler's URL is the only thing tying the mapper to the
+    // fields it names — and the direct-caller route reaching the same form today is a coincidence.
+    const handlers = [...emitted.keys()].flatMap((file) =>
+      exportedSymbols(sources.get(file) ?? "").length === 0
+        ? []
+        : [...sources]
+            .filter(
+              ([other, text]) =>
+                /^app\/api\/.*route\.ts$/.test(other) && exportedSymbols(sources.get(file) ?? "").some((symbol) => text.includes(`${symbol}(`)),
+            )
+            .map(([other]) => [file, other] as const),
+    );
+
+    assert.ok(handlers.length > 0, "no route handler calls a mapper, so the bridge below is proving nothing");
+    for (const [file, handler] of handlers) {
+      const fetchers = components.filter((component) => (sources.get(component) ?? "").includes(`fetch("${routeUrl(handler)}"`));
+      assert.ok(
+        fetchers.length > 0,
+        `${handler} maps ${file}'s refusals and nothing fetches ${routeUrl(handler)} -- the form showing them cannot be found`,
+      );
+    }
+  });
+
+  for (const [file, paths] of emitted) {
+    it(`${file} names only fields its own forms render`, () => {
+      const audience = audienceOf(file);
+      assert.ok(audience.length > 0, `nothing reaches ${file}, so the forms showing its refusals cannot be found`);
+
+      const rendered = renderedNames(importTree(audience));
       for (const field of paths) {
         assert.ok(
           rendered.has(field),
-          `features/${slice}/actions.ts reports on \`${field}\`, which no form calling its actions renders. ` +
+          `${file} reports on \`${field}\`, which no form reaching it renders. ` +
             `A refusal mapped onto an unrendered path is discarded in silence.`,
         );
       }

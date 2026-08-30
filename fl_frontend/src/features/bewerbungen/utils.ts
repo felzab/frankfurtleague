@@ -109,14 +109,13 @@ export function geburtsdatumSpanne(today: string): { frueheste: string; spaetest
 export function mapBewerbungSubmitRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError)) return null;
 
-  // A body rule Pydantic holds that this mirror does not. The answer is the same every time, so the
-  // generic „Versuche es erneut“ invites a retry that cannot work; `REQ-VAL-001` names no field, so
-  // this is a banner.
+  // Every body rule the form can break is mirrored, so reaching this means a drifted client, which a
+  // reload replaces. `REQ-VAL-001` names no field, so nothing here may point at one either.
   if (error.statusCode === 422) {
     return {
       error: buildRefusal({
         reason: "Einzelne Angaben konnten wir nicht übernehmen",
-        repair: "Prüfe die Telefonnummern und die E-Mail-Adressen der drei Kontaktpersonen",
+        repair: "Lade die Seite neu und versuche es noch einmal",
       }),
     };
   }
@@ -278,4 +277,31 @@ export function bewerbungJudgedPaths(paths: readonly string[], mirroredSeat: FLT
     .map((path) => path.replace(`kontakte.${mirroredSeat}.`, "kontakte.trainer."));
 
   return copies.length === 0 ? paths : [...paths, ...copies];
+}
+
+/**
+ * Which end of the queue a truncated read keeps. The default keeps the NEWEST, so a flood buries the
+ * older genuine applications; reversing it is the one thing that puts them back in the window.
+ */
+export type Leserichtung = "asc" | "desc";
+
+type RohParams = Record<string, string | string[] | undefined>;
+
+/** Anything else reads as the default, so a hand-edited URL falls back rather than 404s. */
+export function parseLeserichtung(params: RohParams): Leserichtung {
+  return params.order === "asc" ? "asc" : "desc";
+}
+
+/**
+ * The link to the opposite end of the queue. Every other search parameter survives, so reversing the
+ * read never silently drops the operator's search text or facet selection.
+ */
+export function leserichtungHref(params: RohParams, richtung: Leserichtung): string {
+  const next = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (key === "order" || value === undefined) continue;
+    for (const einzeln of Array.isArray(value) ? value : [value]) next.append(key, einzeln);
+  }
+  next.set("order", richtung === "asc" ? "desc" : "asc");
+  return `?${next.toString()}`;
 }

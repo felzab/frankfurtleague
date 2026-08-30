@@ -16,6 +16,7 @@ import { confirmButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
@@ -94,8 +95,9 @@ export function FormRolloverSection({
             <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>
           )}
         </span>
-        <h2 className={panel.heading()}>
-          Umstellung
+        <PanelHeading
+          className={panel.heading()}
+          title="Umstellung">
           <Hint
             mode="reveal"
             label="Hinweis zur Umstellung"
@@ -104,7 +106,7 @@ export function FormRolloverSection({
               points: [{ term: "Die Spiele der alten Saison", text: "bleiben danach bearbeitbar." }],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

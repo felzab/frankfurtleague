@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { appToast } from "@/shared/utils/appToast";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -151,6 +152,14 @@ export function missingVerdicts<TSchema extends string>({
  * Every refusal across the payloads one press writes, keyed as the payload spells it. Separate from the hook so the
  * decision can be exercised without a renderer, and so a two-schema editor's halves merge in one place.
  */
+/** Spelled per count rather than interpolated: `1` and the rest need their own German. */
+export const BLOCKED_SUBMIT_TITLE = "Noch nicht abgeschickt";
+
+export const blockedSubmitDetail = (refused: number): string =>
+  refused === 1
+    ? "Ein Feld braucht noch eine Angabe. Es ist unten markiert."
+    : `${String(refused)} Felder brauchen noch eine Angabe. Sie sind unten markiert.`;
+
 /**
  * Whether one press may write, and what it must say instead. A UNION, so a caller cannot read the answer without
  * naming its case, and the boundary — one refusal already blocks — is a property a test can exercise.
@@ -295,6 +304,9 @@ export function useDraftFieldErrors<TSchema extends string>({ schemas }: { schem
 
     if (decision.blocked) {
       setSubmitFieldErrors(decision.refusals, payloads);
+      // Announced as well as marked. A `FieldError` is a plain span in no live region, so a blocked press
+      // reaches a screen reader as a button that did nothing; every toast carries `role="alert"`.
+      appToast.danger(BLOCKED_SUBMIT_TITLE, { description: blockedSubmitDetail(Object.keys(decision.refusals).length) });
       return;
     }
 

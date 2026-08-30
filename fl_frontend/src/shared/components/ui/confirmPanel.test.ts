@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
@@ -49,18 +49,27 @@ const ACTION_ROW = read("ConfirmActionRow.tsx");
 const READOUT_ROW = read("ConfirmReadoutRow.tsx");
 
 /** Every panel that escalates a press in place. Each renders the shell rather than spelling one. */
-const PANELS = [
-  "../../../features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx",
-  "../../../features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx",
-  "../../../features/saisons/components/forms/AdminSaisonEditForm/FormGruppenSwapSection.tsx",
-  "../../../features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx",
-  "../../../features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx",
-  "../../../features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx",
-  "../../../features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx",
-  "../../../features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx",
-  "../../../features/bewerbungen/components/forms/AdminBewerbungAblehnenSection.tsx",
-  "../../../features/kontakte/components/forms/AdminKontaktErasureForm.tsx",
-];
+/**
+ * Every panel that escalates a press, DISCOVERED rather than typed.
+ *
+ * A roster counted against its own length can never report an omission.
+ * `useTwoPressConfirm` is the discriminator because it IS the shape.
+ */
+function panelsUnder(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return panelsUnder(full);
+
+    return entry.name.endsWith(".tsx") && readFileSync(full, "utf8").includes("useTwoPressConfirm(") ? [full] : [];
+  });
+}
+
+const PANELS = panelsUnder(path.resolve(import.meta.dirname, "..", "..", "..", "features")).map((file) =>
+  path
+    .relative(import.meta.dirname, file)
+    .split(path.sep)
+    .join("/"),
+);
 
 /**
  * One JSX opening tag, from `<Name` to the `>` that closes it. Braces are counted, so a `>` inside an
@@ -147,11 +156,46 @@ describe("the readout row", () => {
   });
 });
 
+/** The panels a second discriminator finds, for comparison against the sweep above. */
+/* Renamed OR taken by shorthand: requiring `isPending: x` made the guard unreadable for a panel that
+   destructures plainly, which is a spelling most panels do not use. */
+// `const {` and no `;` inside: a bare `\{` matched from an earlier statement's brace and read a span
+// of unrelated code as the destructuring.
+function pendingFlag(source: string): string | null {
+  const destructured = /const \{([^};]*)\}\s*=\s*useTwoPressConfirm\(/.exec(source);
+
+  if (destructured === null) return null;
+  const namen = destructured[1]!;
+  const umbenannt = /isPending:\s*(\w+)/.exec(namen);
+  return umbenannt !== null ? umbenannt[1]! : namen.includes("isPending") ? "isPending" : null;
+}
+
+// Backwards from the armed fill to the element wearing it: a panel may render other buttons, and
+// `FormSaisonSection` does.
+function armedControl(source: string): { tag: string; kinder: string } {
+  const graded = source.indexOf("confirmButton(isConfirming)");
+  const opens = source.lastIndexOf("<Button", graded);
+  const tag = openingTag(source, opens);
+
+  return { tag, kinder: source.slice(opens + tag.length, source.indexOf("</Button>", opens)) };
+}
+
+function panelsMatching(needle: string): string[] {
+  return PANELS.filter((file) => read(file).includes(needle));
+}
+
 describe("every panel that escalates a press", () => {
   /* The whole point of the extraction. A panel spelling the shell again is one that drifts from the
      rest the next time any of the three shared components moves. */
   it("render the shared mechanism rather than spelling their own", () => {
-    assert.ok(PANELS.length === 10, "the roster no longer names every panel that escalates a press");
+    // Against the OTHER two discriminators, never against its own length: a roster counted against
+    // itself reports every omission as a pass.
+    const byReveal = panelsMatching("<ConfirmReveal>");
+    const byFill = panelsMatching("confirmButton(isConfirming)");
+
+    assert.ok(PANELS.length > 0, "the sweep found no panels at all, so every case below passes over nothing");
+    assert.deepEqual(PANELS, byReveal, "a panel renders the shared reveal without the shared armed state, or the reverse");
+    assert.deepEqual(PANELS, byFill, "a panel wears the shared armed fill without the shared armed state, or the reverse");
 
     for (const file of PANELS) {
       const source = read(file);
@@ -185,23 +229,35 @@ describe("every panel that escalates a press", () => {
   it("close their primary control while its own request is in flight", () => {
     for (const file of PANELS) {
       const source = read(file);
-      // The panel's own name for the hook's pending flag, so this reads what each panel wrote rather
-      // than a name every panel would have to keep.
-      const named = /isPending:\s*(\w+)[^}]*\}\s*=\s*useTwoPressConfirm\(/.exec(source);
+      const flag = pendingFlag(source);
 
-      assert.ok(named !== null, `${file}: takes no pending flag from the shared hook`);
-      const flag = named[1]!;
+      assert.ok(flag !== null, `${file}: takes no pending flag from the shared hook`);
 
       const row = openingTag(source, source.indexOf("<ConfirmActionRow"));
-      assert.match(row, new RegExp(`isPending=\\{${flag}\\}`), `${file}: the shared row never learns the write is in flight`);
+      assert.ok(row.includes(`isPending={${flag}}`), `${file}: the shared row never learns the write is in flight`);
 
-      // Backwards from the armed fill to the element wearing it: a panel may render other buttons,
-      // and `FormSaisonSection` does.
-      const graded = source.indexOf("confirmButton(isConfirming)");
-      const button = openingTag(source, source.lastIndexOf("<Button", graded));
+      const { tag } = armedControl(source);
 
-      assert.ok(button.length > 0, `${file}: no opening tag around the armed control`);
-      assert.match(button, new RegExp(`isDisabled=\\{[^}]*\\b${flag}\\b`), `${file}: a second press during the request sends a second write`);
+      assert.ok(tag.length > 0, `${file}: no opening tag around the armed control`);
+      // Split on the non-word runs so a flag never matches inside a longer name.
+      const bedingung = tag.split("isDisabled={")[1]?.split("}")[0] ?? "";
+
+      assert.ok(bedingung.split(/[^A-Za-z0-9_]+/).includes(flag), `${file}: a second press during the request sends a second write`);
+    }
+  });
+
+  /* Both axes read the armed control's children with the whitespace collapsed: `isDisabled` names the
+     flag in the opening tag, and a panel is free to wrap its glyph in a second ternary. */
+  it("drop the glyph and name the request while it is in flight", () => {
+    for (const file of PANELS) {
+      const source = read(file);
+      const dicht = armedControl(read(file)).kinder.replace(/\s+/g, "");
+
+      // The glyph announces the press; step two announces itself in words, so the two together read
+      // as one control saying the same thing twice.
+      assert.ok(dicht.includes("!isConfirming&&"), `${file}: keeps its glyph while armed`);
+      // A label that never changes leaves a pressed control looking unpressed for the whole request.
+      assert.ok(dicht.includes(`${pendingFlag(source)}?`), `${file}: never says the request is in flight`);
     }
   });
 });

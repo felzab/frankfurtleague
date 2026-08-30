@@ -4,6 +4,7 @@ import { Globe, MapPin } from "@gravity-ui/icons";
 
 import { card } from "@/shared/components/ui/card";
 import { ExpandableDescription } from "@/shared/components/ui/ExpandableDescription";
+import { textLink } from "@/shared/components/ui/textLink";
 import { buildMapsSearchUrl, formatAddress } from "@/shared/utils/format";
 
 import type { FLTeam } from "../../schemas";
@@ -30,7 +31,7 @@ export function TeamIdentityCard({ teamData }: { teamData: FLTeam }) {
             rel="noopener noreferrer"
             prefetch={false}
             href={teamData.website_url}
-            className="fluid-xs text-brand flex flex-row items-center gap-x-2 font-bold hover:underline">
+            className={`${textLink()} fluid-xs flex flex-row items-center gap-x-2 font-bold`}>
             <Globe
               aria-hidden="true"
               className="size-4 shrink-0"
@@ -43,7 +44,7 @@ export function TeamIdentityCard({ teamData }: { teamData: FLTeam }) {
           href={teamMapUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="fluid-xs text-brand flex flex-row items-start gap-x-2 font-bold hover:underline">
+          className={`${textLink()} fluid-xs flex flex-row items-start gap-x-2 font-bold`}>
           <MapPin
             aria-hidden="true"
             className="mt-0.5 size-4 shrink-0"

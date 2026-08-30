@@ -196,3 +196,21 @@ describe("the four base-tier public reads", () => {
     assert.equal(await failing(notFound, () => getBewerbungFenster("2627")), null);
   });
 });
+
+describe("the one path segment a caller interpolates", () => {
+  /* `fl_frontend/src/core/apiPath.ts :: isPathAsSpelled` cannot see an id carrying a plain `/`: it
+     survives parsing untouched and reads as a nested endpoint. Only the caller can refuse it, and
+     today's 24-hex id schema makes that positional. */
+  it("encodes the id rather than letting it open a path segment", async () => {
+    const before = calls.length;
+
+    try {
+      await getBewerbungById(`${ONE_ID}/../teams`);
+
+      assert.equal(calls.at(-1)?.endpoint, `/bewerbungen/${ONE_ID}%2F..%2Fteams`);
+    } finally {
+      // Restored because the harness case above asserts the WHOLE recorded array, not a membership.
+      calls.length = before;
+    }
+  });
+});

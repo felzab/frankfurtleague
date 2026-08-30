@@ -5,6 +5,8 @@ import Link from "next/link";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { textLink } from "@/shared/components/ui/textLink";
 
 import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
 
@@ -41,8 +43,9 @@ export function FormKontakteLinkSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Kontakte
+        <PanelHeading
+          className={panel.heading()}
+          title="Kontakte">
           <Hint
             mode="reveal"
             label="Hinweis zu den Kontakten"
@@ -54,7 +57,7 @@ export function FormKontakteLinkSection({
               ],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>
@@ -62,7 +65,7 @@ export function FormKontakteLinkSection({
             in the admin panel a glyph names a destination, and this one would name none. */}
         <Link
           href={href}
-          className="text-brand hover:text-brand-solid fluid-sm w-fit font-bold underline underline-offset-4 transition-colors">
+          className={`${textLink()} fluid-sm w-fit font-bold`}>
           {label}
         </Link>
       </div>

@@ -58,7 +58,9 @@ const stripCommentLines = (source: string): string =>
  * A local holding the season, interpolated at the end of a route. Recognised rather than rewritten:
  * the derivation is checked below, so the NAME alone can never stand in for the parameter.
  */
-const NAMED_CARRIERS = ["saisonParam", "saisonQuery"] as const;
+/* Empty now that every table composes through `withSaisonId`: the two names it held meant `?…` in
+   one file and `&…` in its sibling, and widening the sweep to bless them was the wrong repair. */
+const NAMED_CARRIERS: readonly string[] = [];
 
 /**
  * Routes that are deliberately season-less, each with the reason it cannot carry one. **An entry here is

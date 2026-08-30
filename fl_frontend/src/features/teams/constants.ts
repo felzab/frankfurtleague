@@ -160,6 +160,14 @@ export function einwilligungHerkunftLabel(herkunft: FLKontaktEinwilligung["ertei
  * The three seats a season holds per club, in both surfaces' order.
  *
  * TWO wordings, as `AUSTRITT_OPTIONS` carries three: the admin takes the short form, the public one
+ * the long form. Neither surface writes its own German.
+ */
+export const WEBSITE_URL_SCHEME = "https://";
+
+/**
+ * The three seats a season holds per club, in both surfaces' order.
+ *
+ * TWO wordings, as `AUSTRITT_OPTIONS` carries three: the admin takes the short form, the public one
  * the long form. Both live here, so no two surfaces name a seat differently.
  */
 export const KONTAKT_ROLLEN = [
@@ -171,20 +179,17 @@ export const KONTAKT_ROLLEN = [
 export type KontaktRolle = (typeof KONTAKT_ROLLEN)[number]["value"];
 
 type TrainerZugleichOption = {
-  /** A picker's key is a string, and „niemand sonst“ is the answer `null` spells on the wire. */
+  /** A picker's key is a string; `null` is the answer „Eine eigene Person“ spells on the wire. */
   readonly key: string;
   readonly value: FLTrainerZugleich | null;
   readonly label: string;
 };
 
 /**
- * Which OTHER seat the Trainer also holds, as the one question it is. Three answers in one closed
- * set, never two independent ticks: a person cannot hold both of the other seats, and a control
- * offering that would ask for a block the write path refuses.
- */
-/**
- * Read after `TRAINER_ZUGLEICH_FRAGE`, which is what makes the DIRECTION plain: the named seat is who
- * the Trainer IS, so that seat's details are what the Trainer's boxes read.
+ * Which seat the Trainer IS, read after `TRAINER_ZUGLEICH_FRAGE`: that seat's details are what the
+ * Trainer's boxes read.
+ *
+ * One closed set, never two ticks: a person cannot hold both of the other seats.
  */
 export const TRAINER_ZUGLEICH_OPTIONS: readonly TrainerZugleichOption[] = [
   { key: "niemand", value: null, label: "Eine eigene Person" },
@@ -195,7 +200,7 @@ export const TRAINER_ZUGLEICH_OPTIONS: readonly TrainerZugleichOption[] = [
 /** The question the three answer, spelled once so the picker and the draft rail cannot ask it differently. */
 export const TRAINER_ZUGLEICH_FRAGE = "Die Trainerin oder der Trainer ist";
 
-/** What every surface renders for a stored claim, „Niemand sonst“ included. */
+/** What every surface renders for a stored claim, the null answer included. */
 export function trainerZugleichLabel(seat: FLTrainerZugleich | null): string {
   return TRAINER_ZUGLEICH_OPTIONS.find((option) => option.value === seat)?.label ?? "";
 }

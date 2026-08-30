@@ -16,6 +16,7 @@ import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
+import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminTeamRow } from "../../types";
@@ -47,9 +48,8 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   // this list is showing.
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
-  const saisonQuery = selectedFromUrl ? `?saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
-  // The same value as a second parameter, for the one row link that carries a facet of its own.
-  const saisonParam = selectedFromUrl ? `&saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
+  // The season the shell is on, handed to `withSaisonId`: it resolves the `?`/`&` split with
+  // `URLSearchParams`, which is the whole reason the two hand-rolled constants existed.
 
   // No confirmation step: reactivation is undone by the delete control that takes its place.
   const handleReactivate = (team: AdminTeamRow) => {
@@ -84,7 +84,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
       {/* `team` as `buildSpielerFacets` declares it, keyed by the club's id. The season's own clubs
           are that facet's options, so a club outside the season drops out and the link widens. */}
       <RowActionLink
-        href={`/admin/spieler?team=${team.id}${saisonParam}`}
+        href={withSaisonId(`/admin/spieler?team=${team.id}`, selectedFromUrl)}
         label="Spieler anzeigen"
         ariaLabel={`Spieler von ${team.name} anzeigen`}>
         <PersonPencil
@@ -96,7 +96,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
       {/* `team` as `buildKontakteFacets` declares it, and the season rides along beside it: the seats
           hang off the junction, so without it this opens another season's three people. */}
       <RowActionLink
-        href={`/admin/kontakte?team=${team.id}${saisonParam}`}
+        href={withSaisonId(`/admin/kontakte?team=${team.id}`, selectedFromUrl)}
         label="Kontakte anzeigen"
         ariaLabel={`Kontakte von ${team.name} anzeigen`}>
         <Envelope
@@ -108,7 +108,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
       {/* `team` as `buildSpielFacets` declares it, and it reads both sides — so this finds the club's
           fixtures whichever slot it occupies. */}
       <RowActionLink
-        href={`/admin/spielsuche?team=${team.id}${saisonParam}`}
+        href={withSaisonId(`/admin/spielsuche?team=${team.id}`, selectedFromUrl)}
         label="Spiele anzeigen"
         ariaLabel={`Spiele von ${team.name} anzeigen`}>
         <Magnifier
@@ -118,7 +118,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         />
       </RowActionLink>
       <RowActionLink
-        href={`/dashboard/teams/${team.id}${saisonQuery}`}
+        href={withSaisonId(`/dashboard/teams/${team.id}`, selectedFromUrl)}
         label="Öffentliche Teamseite"
         ariaLabel={`Öffentliche Seite von ${team.name} öffnen`}>
         <Globe
@@ -128,7 +128,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         />
       </RowActionLink>
       <RowActionLink
-        href={`/admin/teams/${team.id}${saisonQuery}`}
+        href={withSaisonId(`/admin/teams/${team.id}`, selectedFromUrl)}
         label="Bearbeiten"
         ariaLabel={`Team ${team.name} bearbeiten`}>
         <Pencil

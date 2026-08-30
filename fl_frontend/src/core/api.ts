@@ -2,6 +2,7 @@ import "server-only";
 
 import z from "zod";
 
+import { isPathAsSpelled } from "./apiPath";
 import { frontend_config } from "./config";
 import { ACTOR_HEADER, CORRELATION_HEADER, mintCorrelationId } from "./correlation";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "./errors";
@@ -10,6 +11,8 @@ import { getRequestActor, getRequestCorrelationId } from "./requestScope";
 const BASE_FETCH_AUTH_TYPE = "base";
 const BASE_FETCH_TIMEOUT_MS = 15000;
 const BASE_FETCH_URL = `${frontend_config.API_URL}/api/v${frontend_config.API_VERSION}`;
+// Read off the built URL rather than spelled a second time, so the two cannot drift apart.
+const BASE_FETCH_PATH = new URL(BASE_FETCH_URL).pathname;
 
 export interface FetchOptions extends RequestInit {
   authType?: "base" | "system" | "admin" | "none";
@@ -103,6 +106,13 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
 
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const urlObj = new URL(`${BASE_FETCH_URL}${cleanEndpoint}`);
+
+  // `new URL` resolves `..` before any check sees it, so an interpolated id could aim an
+  // authenticated call at another resource. Callers validate today; this holds when one stops,
+  // and throws rather than answering, since it is a caller's bug.
+  if (!isPathAsSpelled(cleanEndpoint, urlObj.pathname, BASE_FETCH_PATH)) {
+    throw new Error(`Endpoint does not address the path it spells: ${endpoint}`);
+  }
 
   if (params) {
     Object.entries(params).forEach(([key, value]) => {

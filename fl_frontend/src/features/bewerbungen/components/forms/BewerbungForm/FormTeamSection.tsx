@@ -15,16 +15,13 @@ import {
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { enteredNumber } from "@/shared/utils/numberField";
+
+import { strongPlayerCeiling } from "./kaderBounds.ts";
 
 import type { BewerbungFormDraft } from "@/features/bewerbungen/types";
 import type { FLTrikotFarbe } from "@/features/teams/schemas";
-
-/**
- * An emptied stepper reports `NaN`, so `null` carries an unanswered count. `isFinite` rather than
- * `!isNaN`: HeroUI types the handler `(value: number | undefined)`, and `Number.isNaN(undefined)`
- * is false, so `!isNaN` would store the gap as a number.
- */
 
 /**
  * What the team brings and what it would like — the two blocks an acceptance reads but copies
@@ -51,8 +48,9 @@ export function FormTeamSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Team
+        <PanelHeading
+          className={panel.heading()}
+          title="Team">
           <Hint
             mode="reveal"
             label="Hinweis zum Team"
@@ -61,7 +59,7 @@ export function FormTeamSection({
               points: [{ term: "Die Kadergröße", text: "ist eine Schätzung und bindet Dich zu nichts." }],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>
@@ -69,10 +67,10 @@ export function FormTeamSection({
           name="trikot.vorhandener_satz"
           value={trikot.vorhandener_satz}
           onChange={(next) => onTrikotChange({ ...trikot, vorhandener_satz: next })}
-          onBlur={() => onFieldLeft(["trikot.vorhandener_satz"])}>
+          onBlur={() => onFieldLeft(["trikot.vorhandener_satz"])}
+          maxLength={BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH}>
           <Label className={FIELD_LABEL}>Vorhandene Trikotsätze</Label>
           <Input
-            maxLength={BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH}
             placeholder="z.B. 15 rote Trikots aus dem Schulsport"
             className={FIELD_INPUT}
           />
@@ -119,9 +117,7 @@ export function FormTeamSection({
               isRequired
               name="kader.gute_spieler"
               minValue={0}
-              // The squad above it, never past the league's own ceiling: `Math.min` COMPOSES the two, so an
-              // untouched squad still caps at 200 and a squad of 500 is refused rather than offered.
-              maxValue={Math.min(kader.voraussichtliche_groesse ?? BEWERBUNG_KADER_GROESSE_MAX, BEWERBUNG_KADER_GROESSE_MAX)}
+              maxValue={strongPlayerCeiling(kader.voraussichtliche_groesse)}
               value={kader.gute_spieler ?? NaN}
               onChange={(next) => onKaderChange({ ...kader, gute_spieler: enteredNumber(next) })}
               onBlur={() => onFieldLeft(["kader.gute_spieler"])}>

@@ -146,6 +146,8 @@ export type FLAblehnenBewerbungPayload = z.infer<typeof FLAblehnenBewerbungPaylo
 
 export const FLBewerbungenListResponseSchema = BaseAPIResponseSchema.extend({
   bewerbungen: z.array(FLBewerbungSchema),
+  /** False where the endpoint's cap cut the answer short, which every count taken over the rows is then blind to. */
+  vollstaendig: z.boolean(),
 });
 export type FLBewerbungenListResponse = z.infer<typeof FLBewerbungenListResponseSchema>;
 
@@ -324,6 +326,13 @@ function normalisiereTelefon(value: string): string {
  */
 const gleicheNummer = (a: string, b: string): boolean => normalisiereTelefon(a) === normalisiereTelefon(b);
 
+// By value, because `einwilligung` is an object and two equal consents are two objects. One level of
+// nesting is all a contact block has, and `einwilligung` is flat, so entry-wise comparison is total.
+const gleicherWert = (a: unknown, b: unknown): boolean =>
+  typeof a === "object" && a !== null && typeof b === "object" && b !== null
+    ? JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort())
+    : a === b;
+
 /**
  * Mirrors `FLBewerbungKontaktePayload`. All three seats are REQUIRED and non-null, unlike the
  * junction's, whose nulls exist for an erasure: an application is what three reachable people
@@ -358,6 +367,21 @@ export const FLBewerbungKontaktePayloadSchema = z
           message: "Diese Telefonnummer ist schon bei einer anderen Person eingetragen.",
           path: [zweite, "telefon"],
         });
+      }
+    }
+
+    // The seat the Trainer also holds is filled FROM the Trainer, so a difference is a drifted client
+    // rather than something an applicant can type — and a banner naming no field cannot explain it.
+    const zugleich = kontakte.trainer_ist_zugleich;
+    if (zugleich !== null) {
+      for (const feld of Object.keys(kontakte.trainer) as (keyof FLBewerbungKontaktpersonPayload)[]) {
+        if (!gleicherWert(kontakte[zugleich][feld], kontakte.trainer[feld])) {
+          ctx.addIssue({
+            code: "custom",
+            message: "Diese Angabe muss mit der des Trainers übereinstimmen.",
+            path: [zugleich, feld],
+          });
+        }
       }
     }
   });

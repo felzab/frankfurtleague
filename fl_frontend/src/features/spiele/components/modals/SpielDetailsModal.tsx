@@ -8,6 +8,7 @@ import { Modal, Separator } from "@heroui/react";
 
 import { dismissControl } from "@/core/dismissControl";
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
+import { textLink } from "@/shared/components/ui/textLink";
 import { buildMapsSearchUrl, PLACEHOLDER } from "@/shared/utils/format";
 
 import { computeSpielStatus, formatQuelle, formatSpielDisplay } from "../../utils";
@@ -147,7 +148,7 @@ export function SpielDetailsModal({
                         href={mapUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-brand hover:text-brand/80 font-bold transition-colors hover:underline">
+                        className={`${textLink()} font-bold`}>
                         {spielData.ort.name}
                       </Link>
                     ) : (

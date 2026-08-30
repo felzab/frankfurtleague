@@ -29,22 +29,33 @@ const reportUnhandledFieldError = (): void => {
 /** Focus order inside a react-aria field root, once the named element has refused focus itself. */
 const FOCUSABLE = "input:not([type=hidden]), select, textarea, button:not([tabindex='-1']), [tabindex='0']";
 
+/** The wrapper react-aria puts round one field's parts. */
+const FIELD_ROOT = "[data-rac][data-slot]";
+
 /**
- * The named element is not always one a caret can reach: a `NumberField` carries `name` on a hidden input,
- * and a `display: none` proxy takes no focus. `focus()` on either is a silent no-op, so success is ASKED for.
+ * The subtrees react-aria keeps out of the accessibility tree — the mirror it submits a `Select`'s value from is
+ * one. Focus lands there happily and a screen reader announces nothing, so a caret parked in one is lost.
  */
-function takesFocus(control: HTMLElement): boolean {
-  control.focus();
-  if (control.ownerDocument.activeElement === control) return true;
+const HIDDEN_FROM_AT = '[aria-hidden="true"], [data-react-aria-prevent-focus]';
 
-  const root = control.closest("[data-rac][data-slot]");
+/** Whether focus on this element would be announced, and whether it actually landed. */
+function takeFocus(candidate: HTMLElement): boolean {
+  if (candidate.closest(HIDDEN_FROM_AT) !== null) return false;
 
-  for (const candidate of root?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []) {
-    candidate.focus();
-    if (candidate.ownerDocument.activeElement === candidate) return true;
-  }
+  candidate.focus();
+  return candidate.ownerDocument.activeElement === candidate;
+}
 
-  return false;
+/**
+ * The field a named control belongs to. `closest` is asked of the PARENT because a control can carry the root's
+ * own attributes. A `NumberField` needs the sibling arm: its named input sits next to the root, not inside it.
+ */
+function fieldRootOf(control: Element): Element | null {
+  const enclosing = control.parentElement?.closest(FIELD_ROOT) ?? null;
+  if (enclosing !== null) return enclosing;
+
+  const previous = control.previousElementSibling;
+  return previous !== null && previous.matches(FIELD_ROOT) ? previous : null;
 }
 
 /**
@@ -62,7 +73,13 @@ export function focusFirstRefusal(form: HTMLFormElement, fieldErrors: FieldError
     // Kept separate from the focus attempt: a field whose only control cannot take focus still SHOWS the
     // message, so the toast below must not claim nothing renders the path.
     rendered = true;
-    if (control instanceof HTMLElement && takesFocus(control)) return true;
+    if (control instanceof HTMLElement && takeFocus(control)) return true;
+
+    // The named element is not always one a caret can reach, and for a `Select` it is one no screen reader
+    // reads. The visible control is a sibling of it inside the same field.
+    for (const candidate of fieldRootOf(control)?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []) {
+      if (takeFocus(candidate)) return true;
+    }
   }
 
   return rendered;

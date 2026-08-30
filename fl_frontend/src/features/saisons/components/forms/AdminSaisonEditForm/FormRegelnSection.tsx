@@ -9,6 +9,7 @@ import { FIELD_LABEL, FIELD_PAIR, FIELD_TRIO, FORM_SECTION_HEADING } from "@/sha
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { FLSaisonRulesDraft } from "@/features/saisons/types";
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
@@ -68,14 +69,15 @@ export function FormRegelnSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Regeln
+        <PanelHeading
+          className={panel.heading()}
+          title="Regeln">
           <Hint
             mode="reveal"
             label="Hinweis zu den Regeln"
             body={{ lead: "Die Regeln gelten nur für diese Saison." }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

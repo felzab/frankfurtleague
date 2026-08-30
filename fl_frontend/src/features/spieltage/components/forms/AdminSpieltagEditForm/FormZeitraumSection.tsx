@@ -8,6 +8,7 @@ import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { SpieltagBanner } from "./banners";
 
@@ -54,8 +55,9 @@ export function FormZeitraumSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Zeitraum
+        <PanelHeading
+          className={panel.heading()}
+          title="Zeitraum">
           <Hint
             mode="reveal"
             label="Hinweis zum Zeitraum"
@@ -64,7 +66,7 @@ export function FormZeitraumSection({
               points: [{ term: "Die Reihenfolge", text: "steht mit dem Spielplan fest." }],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

@@ -15,6 +15,7 @@ import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
+import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
@@ -57,7 +58,6 @@ export const AdminKontakteTable = memo(function AdminKontakteTable({
   // another season's three people.
   const searchParams = useSearchParams();
   const selectedSaisonId = searchParams.get("saison_id");
-  const saisonParam = selectedSaisonId ? `?saison_id=${encodeURIComponent(selectedSaisonId)}` : "";
 
   const handleCopyKontakte = async (row: AdminKontakteRow) => {
     const zeilen = row.seats.flatMap((seat) =>
@@ -112,7 +112,7 @@ export const AdminKontakteTable = memo(function AdminKontakteTable({
       {/* A link and not a press: all three seats are edited together on the club's own contacts page,
           which is what this row stands for. */}
       <RowActionLink
-        href={`/admin/kontakte/${row.teamId}${saisonParam}`}
+        href={withSaisonId(`/admin/kontakte/${row.teamId}`, selectedSaisonId)}
         label="Kontakte bearbeiten"
         ariaLabel={`Kontakte von ${row.teamName} bearbeiten`}>
         <Pencil

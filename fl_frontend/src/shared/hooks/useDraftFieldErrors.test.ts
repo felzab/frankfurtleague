@@ -381,11 +381,11 @@ describe("submitRefusals", () => {
     // The TYPE is the guard: `guardSubmit` returns `void` and takes the write, so an ignored answer is a
     // compile error at all twelve call sites. This pins only what the signature cannot say.
     const source = readFileSync(path.join(import.meta.dirname, "useDraftFieldErrors.ts"), "utf8");
-    const BLOCK = ["    if (decision.blocked) {", "      setSubmitFieldErrors(decision.refusals, payloads);", "      return;", "    }"].join(
-      "\n",
-    );
+    const BLOCK = ["    if (decision.blocked) {", "      setSubmitFieldErrors(decision.refusals, payloads);"].join("\n");
 
-    assert.ok(source.includes(BLOCK), "the block no longer publishes its refusals and stops");
+    assert.ok(source.includes(BLOCK), "the block no longer publishes its refusals");
+    // Marked AND announced: a `FieldError` sits in no live region, so a blocked press is silent without this.
+    assert.match(source, /appToast[.]danger[(]BLOCKED_SUBMIT_TITLE/, "a blocked submit stopped announcing itself");
     assert.match(source, /const guardSubmit = \([^)]*write: \(\) => void\): void =>/, "the guard answers a question again");
   });
 });

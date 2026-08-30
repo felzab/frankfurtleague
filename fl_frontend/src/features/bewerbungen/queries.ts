@@ -45,12 +45,12 @@ export async function getBewerbungen(filters: FLBewerbungenFilterParams = {}): P
 // is the arguments, not the caller. One pass, one round trip.
 export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBewerbungSingleResponse | null> =>
   runWithIncomingCorrelationId(() =>
-    apiClient<FLBewerbungSingleResponse>(`/bewerbungen/${bewerbungId}`, FLBewerbungSingleResponseSchema, { authType: "admin" }).catch(
-      (error: unknown) => {
-        if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
-        throw error;
-      },
-    ),
+    apiClient<FLBewerbungSingleResponse>(`/bewerbungen/${encodeURIComponent(bewerbungId)}`, FLBewerbungSingleResponseSchema, {
+      authType: "admin",
+    }).catch((error: unknown) => {
+      if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+      throw error;
+    }),
   ),
 );
 

@@ -15,6 +15,7 @@ import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR, TOGGLE_GROUP_ALIGN } from "@/shar
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { appToast } from "@/shared/utils/appToast";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
@@ -128,14 +129,15 @@ export function FormKaderSection({
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
           <SaisonBadge status={saison.saisonStatus} />
         </span>
-        <h2 className={panel.heading()}>
-          Kader {saison.saisonId}
+        <PanelHeading
+          className={panel.heading()}
+          title={`Kader ${saison.saisonId}`}>
           <Hint
             mode="reveal"
             label="Hinweis zum Kadereintrag"
             body={{ lead: "Diese Angaben gelten nur für die im Seitenmenü gewählte Saison." }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

@@ -14,6 +14,7 @@ import { FIELD_ERROR, FIELD_INPUT, FIELD_TRIGGER } from "@/shared/components/ui/
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { FLPostTeamPayload, FLSchulform } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react";
@@ -56,8 +57,9 @@ export function FormVereinSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Team
+        <PanelHeading
+          className={panel.heading()}
+          title="Team">
           <Hint
             mode="reveal"
             label="Hinweis zu den Teamdaten"
@@ -66,7 +68,7 @@ export function FormVereinSection({
               points: [{ term: "Eine Umbenennung", text: "wird in alle Spiele des Teams übernommen." }],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

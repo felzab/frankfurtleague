@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { Autocomplete, FieldError, Input, Label, ListBox, SearchField, Select, Separator, TextField, useFilter } from "@heroui/react";
 
@@ -8,18 +8,20 @@ import { dismissControl } from "@/core/dismissControl";
 import {
   BEWERBUNG_FULL_NAME_MAX_LENGTH,
   BEWERBUNG_TEAM_NAME_MAX_LENGTH,
+  BEWERBUNG_WEBSITE_URL_MAX_LENGTH,
   KUERZEL_LAENGE,
   SCHULE_NICHT_IN_LISTE,
   SCHULE_NICHT_IN_LISTE_LABEL,
 } from "@/features/bewerbungen/constants";
 import { istNeueSchule } from "@/features/bewerbungen/utils";
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
-import { SCHULFORM_OPTIONS, schulformLabel } from "@/features/teams/constants";
+import { SCHULFORM_OPTIONS, schulformLabel, WEBSITE_URL_SCHEME } from "@/features/teams/constants";
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { BewerbungSchuleDraft } from "@/features/bewerbungen/types";
 import type { FLSchulform } from "@/features/teams/schemas";
@@ -100,13 +102,17 @@ export function FormSchuleSection({
    */
   const filter = (text: string, input: string) => text === SCHULE_NICHT_IN_LISTE_LABEL || contains(text, input);
 
+  // Ids rather than a bare `<p>`: a sentence a control is not described BY is one a reader never meets.
+  const listeHinweisId = useId();
+  const kuerzelHinweisId = useId();
   const listeHinweis = !isSchulenLesbar ? LISTE_UNLESBAR : schulen.length === 0 ? LISTE_LEER : null;
 
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Schule
+        <PanelHeading
+          className={panel.heading()}
+          title="Schule">
           <Hint
             mode="reveal"
             label="Hinweis zur Schule"
@@ -115,7 +121,7 @@ export function FormSchuleSection({
               points: [{ term: "In der Liste", text: "steht eine Schule erst, wenn sie schon einmal ein Team gestellt hat." }],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>
@@ -125,7 +131,7 @@ export function FormSchuleSection({
           <Autocomplete
             isRequired
             name="team_id"
-            aria-label="Deine Schule"
+            aria-describedby={listeHinweis !== null ? listeHinweisId : undefined}
             className="w-full"
             placeholder="Schule auswählen..."
             selectionMode="single"
@@ -200,7 +206,13 @@ export function FormSchuleSection({
 
           {/* Under the picker rather than in its empty state: the sentinel keeps that list non-empty,
               so an empty state would never render and the reason would reach nobody. */}
-          {listeHinweis !== null && <p className="fluid-xxs text-foreground-muted mt-1 font-medium">{listeHinweis}</p>}
+          {listeHinweis !== null && (
+            <p
+              id={listeHinweisId}
+              className="fluid-xxs text-foreground-muted mt-1 font-medium">
+              {listeHinweis}
+            </p>
+          )}
         </div>
 
         {istNeueSchule(auswahl) && (
@@ -213,10 +225,10 @@ export function FormSchuleSection({
                 name="schule.team_name"
                 value={schule.team_name}
                 onChange={(next) => setSchuleFeld({ team_name: next })}
-                onBlur={() => onFieldLeft(["schule.team_name"])}>
+                onBlur={() => onFieldLeft(["schule.team_name"])}
+                maxLength={BEWERBUNG_TEAM_NAME_MAX_LENGTH}>
                 <Label className={FIELD_LABEL}>Teamname</Label>
                 <Input
-                  maxLength={BEWERBUNG_TEAM_NAME_MAX_LENGTH}
                   placeholder="z.B. Goethe-Gymnasium"
                   className={FIELD_INPUT}
                 />
@@ -228,10 +240,10 @@ export function FormSchuleSection({
                 name="schule.full_name"
                 value={schule.full_name}
                 onChange={(next) => setSchuleFeld({ full_name: next })}
-                onBlur={() => onFieldLeft(["schule.full_name"])}>
+                onBlur={() => onFieldLeft(["schule.full_name"])}
+                maxLength={BEWERBUNG_FULL_NAME_MAX_LENGTH}>
                 <Label className={FIELD_LABEL}>Vollständiger Schulname</Label>
                 <Input
-                  maxLength={BEWERBUNG_FULL_NAME_MAX_LENGTH}
                   placeholder="z.B. Johann-Wolfgang-von-Goethe-Gymnasium"
                   className={FIELD_INPUT}
                 />
@@ -245,6 +257,7 @@ export function FormSchuleSection({
               <TextField
                 isRequired
                 name="schule.shorthand"
+                aria-describedby={kuerzelHinweis !== null ? kuerzelHinweisId : undefined}
                 value={schule.shorthand}
                 onChange={(next) => setSchuleFeld({ shorthand: next.toUpperCase() })}
                 onBlur={() => {
@@ -262,7 +275,13 @@ export function FormSchuleSection({
                 <FieldError className={FIELD_ERROR} />
                 {/* Under the box rather than beside it: the row is a two-up grid from `sm` up, and a
                     line beside the field would push its neighbour out of the column. */}
-                {kuerzelHinweis !== null && <p className="fluid-xxs text-foreground-muted mt-1 font-medium">{kuerzelHinweis}</p>}
+                {kuerzelHinweis !== null && (
+                  <p
+                    id={kuerzelHinweisId}
+                    className="fluid-xxs text-foreground-muted mt-1 font-medium">
+                    {kuerzelHinweis}
+                  </p>
+                )}
               </TextField>
 
               {/* Judged on CHANGE rather than on blur, as every picked field is: a selection is complete
@@ -270,7 +289,6 @@ export function FormSchuleSection({
               <Select
                 isRequired
                 name="schule.schulform"
-                aria-label="Schulform"
                 value={schule.schulform}
                 onChange={handleSchulformChange}
                 className="w-full">
@@ -302,6 +320,9 @@ export function FormSchuleSection({
 
             <WebsiteUrlField
               name="schule.website_url"
+              /* The PAYLOAD's ceiling minus the scheme the group renders: the box holds what is typed,
+                 and the submitted value is that plus `https://`. */
+              maxLength={BEWERBUNG_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME.length}
               value={schule.website_url}
               onChange={(website_url) => setSchuleFeld({ website_url })}
               onFieldLeft={() => onFieldLeft(["schule.website_url"])}

@@ -17,6 +17,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { FLAustrittType } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react";
@@ -70,8 +71,9 @@ export function FormAustrittSection({
   return (
     <section className={styles.root()}>
       <div className={styles.header()}>
-        <h2 className={styles.heading()}>
-          Austritt
+        <PanelHeading
+          className={styles.heading()}
+          title="Austritt">
           <Hint
             mode="reveal"
             label="Hinweis zum Austritt"
@@ -80,7 +82,7 @@ export function FormAustrittSection({
               points: [{ term: "Die Tabelle", text: "überspringt das Team bei der Platzvergabe, seine Ergebnisse bleiben gewertet." }],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={styles.body()}>

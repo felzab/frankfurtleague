@@ -35,15 +35,31 @@ export const CustomObjectIdStringSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 
   error: "Bitte wähle den Eintrag erneut aus.",
 });
 
+/** Refused as a URL entirely, which is the format check's answer to give rather than this one's. */
+function carriesUserinfo(value: string): boolean {
+  try {
+    const url = new URL(value);
+
+    return url.username !== "" || url.password !== "";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * For **any** backend-supplied URL reaching an `href`, `src` or `action`, and never bare `z.url()` there: that checks a
  * string parses rather than what scheme it uses, so `javascript:` passes it — a stored-XSS sink on any page linking out.
  */
-export const ExternalUrlSchema = z.url({
-  protocol: /^https?$/,
-  hostname: z.regexes.domain,
-  error: "Bitte gib eine gültige Adresse ein, die mit http:// oder https:// beginnt.",
-});
+export const ExternalUrlSchema = z
+  .url({
+    protocol: /^https?$/,
+    hostname: z.regexes.domain,
+    error: "Bitte gib eine gültige Adresse ein, die mit http:// oder https:// beginnt.",
+  })
+  // `https://frankfurtleague.de@evil.com` resolves to `evil.com`: everything before the `@` is
+  // userinfo, which `hostname` excludes and never checks. A surface that shows the string and
+  // follows the host sends a trusting reader to the attacker.
+  .refine((value) => !carriesUserinfo(value), { error: "Die Adresse darf keine Anmeldedaten vor dem @-Zeichen enthalten." });
 
 /**
  * Letters by Unicode property rather than `[A-Za-z]`; digits and symbols are out, which is what stops a note being

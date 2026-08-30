@@ -171,7 +171,7 @@ export const FLSaisonTeamKontakteSchema = z.object({
   trainer: FLKontaktpersonSchema.nullable(),
   ansprechperson: FLKontaktpersonSchema.nullable(),
   stellvertretung: FLKontaktpersonSchema.nullable(),
-  // Null is „niemand sonst“, and is what a block records where the Trainer holds only their own seat.
+  // Null is „Eine eigene Person“, what a block records where the Trainer holds only their own seat.
   trainer_ist_zugleich: FLTrainerZugleichSchema.nullable(),
 });
 export type FLSaisonTeamKontakte = z.infer<typeof FLSaisonTeamKontakteSchema>;

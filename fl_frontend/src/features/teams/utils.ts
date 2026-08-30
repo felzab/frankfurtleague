@@ -2,7 +2,7 @@ import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { computeErgebnisFor, PHASE_RANK } from "@/features/spiele/utils";
 
-import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN } from "./constants";
+import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, WEBSITE_URL_SCHEME } from "./constants";
 
 import type { FLSaison, FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLSpiel } from "@/features/spiele/schemas";
@@ -289,5 +289,5 @@ export function toWebsiteUrl(typed: string): string | null {
   // The scheme lives in the input group's prefix, so a pasted full URL is de-duplicated here.
   const rest = typed.replace(/^https?:\/\//i, "").trim();
 
-  return rest === "" ? null : `https://${rest}`;
+  return rest === "" ? null : `${WEBSITE_URL_SCHEME}${rest}`;
 }

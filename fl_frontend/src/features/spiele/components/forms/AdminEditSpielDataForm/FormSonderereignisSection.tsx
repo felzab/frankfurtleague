@@ -8,6 +8,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { FLSonderereignis } from "@/features/spiele/schemas";
 import type { Key } from "@heroui/react";
@@ -51,8 +52,9 @@ export function FormSonderereignisSection({
   return (
     <section className={styles.root()}>
       <div className={styles.header()}>
-        <h2 className={styles.heading()}>
-          Sonderereignis
+        <PanelHeading
+          className={styles.heading()}
+          title="Sonderereignis">
           {/* Written out rather than mapped, so `hintCap.test.ts` can measure it. The two Nichtantreten
               members are one line: the list is counted against what the reader can reach
               (`docs/frontend/spec.md` §1.12), and either is the same award. */}
@@ -61,7 +63,7 @@ export function FormSonderereignisSection({
             label="Hinweis zum Sonderereignis"
             body={{ lead: "Was mit dem Spiel geschehen ist, über das Spielen hinaus." }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={styles.body()}>

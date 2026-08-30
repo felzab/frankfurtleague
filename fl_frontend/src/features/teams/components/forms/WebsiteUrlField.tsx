@@ -4,6 +4,7 @@ import { ArrowUpRightFromSquare } from "@gravity-ui/icons";
 
 import { FieldError, InputGroup, Label, TextField } from "@heroui/react";
 
+import { WEBSITE_URL_SCHEME } from "@/features/teams/constants";
 import { toWebsiteUrl } from "@/features/teams/utils";
 import { FIELD_ERROR, FIELD_HEIGHT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -27,6 +28,7 @@ export function WebsiteUrlField({
   labelSlot,
   error,
   name = "website_url",
+  maxLength,
 }: {
   /** The full URL, scheme included — the payload's own shape. `null` where the club has none. */
   value: string | null;
@@ -40,6 +42,8 @@ export function WebsiteUrlField({
   error?: string;
   /** The field's dotted path in the enclosing payload, for a caller that nests the club's own shape. */
   name?: string;
+  /** The box's ceiling, which is the PAYLOAD's minus `WEBSITE_URL_SCHEME`: the prefix is not typed. */
+  maxLength?: number;
 }) {
   const isFollowable = ExternalUrlSchema.safeParse(value).success;
 
@@ -71,9 +75,10 @@ export function WebsiteUrlField({
           className={`border-border bg-surface text-foreground ${FIELD_HEIGHT} min-w-0 flex-1 rounded-lg border transition-colors`}>
           {/* Muted, because it is furniture: always there, never editable. */}
           <InputGroup.Prefix className="text-foreground-muted fluid-sm border-border self-stretch border-r pr-2 select-none">
-            https://
+            {WEBSITE_URL_SCHEME}
           </InputGroup.Prefix>
           <InputGroup.Input
+            maxLength={maxLength}
             placeholder="www.beispielverein.de"
             className="fluid-sm ps-2"
           />

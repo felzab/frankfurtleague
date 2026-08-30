@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { applyFacets, readFacetSelection } from "@/shared/utils/facets";
+import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { buildKontakteFacets } from "./facets.ts";
 import { buildKontaktRows } from "./utils.ts";
@@ -48,9 +49,11 @@ const ROWS = buildKontaktRows([club("gezielt", "Goethe", seats()), club("daneben
 const FACETS = buildKontakteFacets(ROWS.map((row) => ({ teamId: row.teamId, name: row.teamName })));
 
 /** The row link's own template, so what is decoded below is the URL the table builds rather than a copy. */
-const HREF_TEMPLATE = /href=\{`(\/admin\/kontakte\?[^`]*)`\}/.exec(TABLE)?.[1] ?? "";
+const HREF_TEMPLATE = /href=\{withSaisonId\(`(\/admin\/kontakte\?[^`]*)`/.exec(TABLE)?.[1] ?? "";
 
-const HREF = HREF_TEMPLATE.replace("${team.id}", "gezielt").replace("${saisonParam}", `&saison_id=${SAISON}`);
+// Composed by the SHIPPING helper rather than by a hand-filled `${saisonParam}`: what has to hold
+// is that the season lands in the query, not how the table spells the join.
+const HREF = withSaisonId(HREF_TEMPLATE.replace("${team.id}", "gezielt"), SAISON);
 
 const query = (href: string): URLSearchParams => new URLSearchParams(href.slice(href.indexOf("?") + 1));
 
@@ -78,6 +81,6 @@ describe("the contacts link the club list offers", () => {
      silently, because the list still renders three seats for whatever season resolves instead. */
   it("carries the selected season alongside the club", () => {
     assert.equal(query(HREF).get("saison_id"), SAISON, "the contacts link drops the season it was pressed in");
-    assert.match(HREF_TEMPLATE, /\$\{saisonParam\}/, "the link no longer interpolates the season at all");
+    assert.match(TABLE, /href=\{withSaisonId\(`\/admin\/kontakte\?team=/, "the link no longer composes the season through the shared helper");
   });
 });

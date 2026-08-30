@@ -18,8 +18,10 @@ import {
   KUERZEL_UNGEPRUEFT,
   KUERZEL_VERGEBEN,
   kuerzelHinweis,
+  leserichtungHref,
   mapBewerbungSubmitRefusal,
   mirrorBewerbungTrainer,
+  parseLeserichtung,
 } from "./utils.ts";
 
 import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas.ts";
@@ -401,15 +403,21 @@ describe("the submission's refusals against the backend's register", () => {
     }
   });
 
-  /* Pydantic holds body rules this mirror does not and answers them 422 with no field named. Left to
-     the shared handler, a deterministic refusal reads as „Versuche es erneut“ and invites a retry
-     that answers the same way every time. */
-  it("answers a body refusal with the boxes to check rather than an invitation to retry", () => {
+  /* `REQ-VAL-001` names no field, so neither may the answer. Every body rule the form can break is
+     mirrored; what is left is a drifted client, and a reload is the remedy for that rather than the
+     resubmission a bare „Versuche es erneut“ asks for. */
+  it("answers a body refusal without sending the applicant to a box", () => {
     const antwort = mapBewerbungSubmitRefusal(badStatus(422, "REQ-VAL-001"));
 
-    assert.notEqual(antwort, null, "a 422 falls through to the generic retry sentence");
-    assert.doesNotMatch(antwort?.error ?? "", /erneut/, "the answer asks for the same request a second time");
-    assert.match(antwort?.error ?? "", /Telefonnummern|E-Mail/, "the answer names no box to look at");
+    assert.notEqual(antwort, null, "a 422 falls through to the shared handler");
+    assert.equal(antwort?.fieldErrors, undefined, "a refusal naming no field landed on one anyway");
+
+    // Every box the form owns: a refusal that cannot know which one broke may point at none of them.
+    for (const box of ["Telefon", "E-Mail", "Vorname", "Nachname", "Geburtsdatum", "Kader", "Trikot", "Kürzel"]) {
+      assert.doesNotMatch(antwort?.error ?? "", new RegExp(box), `the answer sends the applicant to „${box}“`);
+    }
+
+    assert.match(antwort?.error ?? "", /Seite neu/, "the answer offers no way out of a stale client");
   });
 });
 
@@ -441,5 +449,29 @@ describe("what the blur-time Kürzel check says short of a refusal", () => {
   it("confirms a free code, and leaves a taken one to the field error", () => {
     assert.match(kuerzelHinweis("GG", verdikt("GG", false), false) ?? "", /noch frei/);
     assert.equal(kuerzelHinweis("GG", verdikt("GG", true), false), null);
+  });
+});
+
+describe("parseLeserichtung", () => {
+  it("keeps the newest end unless the URL asks for the other one", () => {
+    for (const params of [{}, { order: "" }, { order: "ASC" }, { order: ["asc"] }, { order: "unsinn" }]) {
+      assert.equal(parseLeserichtung(params), "desc");
+    }
+    assert.equal(parseLeserichtung({ order: "asc" }), "asc");
+  });
+});
+
+describe("leserichtungHref", () => {
+  it("offers the opposite end from either end", () => {
+    assert.equal(leserichtungHref({}, "desc"), "?order=asc");
+    assert.equal(leserichtungHref({ order: "asc" }, "asc"), "?order=desc");
+  });
+
+  it("rebuilds `order` rather than appending beside the old one", () => {
+    assert.equal(leserichtungHref({ order: "asc", q: "x" }, "asc"), "?q=x&order=desc");
+  });
+
+  it("carries every other parameter across, repeated keys included", () => {
+    assert.equal(leserichtungHref({ saison_id: "2025", status: ["a", "b"] }, "desc"), "?saison_id=2025&status=a&status=b&order=asc");
   });
 });

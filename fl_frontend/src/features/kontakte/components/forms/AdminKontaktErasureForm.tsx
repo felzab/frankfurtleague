@@ -17,6 +17,7 @@ import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FORM_SECTION_HEADING } from "@/s
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
@@ -99,8 +100,9 @@ export function AdminKontaktErasureForm() {
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Kontaktperson löschen
+        <PanelHeading
+          className={panel.heading()}
+          title="Kontaktperson löschen">
           {/* What goes and what survives is the panel's own body below, and the danger panel with its
               two-press control is what says the press is final. */}
           <Hint
@@ -116,7 +118,7 @@ export function AdminKontaktErasureForm() {
               ],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       {/* `runOnSubmit` rather than an `action`, which React resets on every submit, turning each

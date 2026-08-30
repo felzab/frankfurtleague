@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 import { parseDate } from "@internationalized/date";
 
 import { Calendar, DateField, DatePicker, FieldError, Input, Label, Switch, TextField } from "@heroui/react";
@@ -108,6 +110,9 @@ export function FormKontaktpersonenSection({
   const panel = formPanel();
   const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr());
 
+  // `aria-readonly` says the fields are frozen; only this says by what, so the mirrored ones point at it.
+  const spiegelHinweisId = useId();
+
   const path = (feld: string) => `kontakte.${seat}.${feld}`;
 
   return (
@@ -121,34 +126,29 @@ export function FormKontaktpersonenSection({
 
       <div className={panel.body()}>
         {onZugleichToggled !== undefined && (
-          <TextField
+          /* The Switch holds the name, as the consent one does: its own checkbox then carries the refusal
+             the route's parse can put on this path, and a reader hears it. */
+          <Switch
+            className="flex w-full flex-col gap-y-1"
             name={ZUGLEICH_PATH}
-            value={istZugleichTrainer === true ? seat : ""}
-            onChange={() => undefined}
-            className="flex w-full flex-col gap-y-1">
-            <Switch
-              isSelected={istZugleichTrainer === true}
-              // One claim across all three seats, so ticking this one necessarily clears the other: two
-              // people cannot both be the coach, and no press here can be made to say they are.
-              onChange={onZugleichToggled}>
-              <Switch.Content className={panel.switchContent()}>
-                Diese Person ist zugleich Trainerin oder Trainer
-                <Switch.Control className={panel.switchControl()}>
-                  <Switch.Thumb />
-                </Switch.Control>
-              </Switch.Content>
-            </Switch>
-
-            {/* The proxy field carries the refusal, as the consent switch below does: a `Switch` takes
-                no `name`, so the route's own parse would name a path no control renders and the
-                applicant would get the unhandled-path toast instead of a message. */}
-            <Input className="hidden" />
+            isSelected={istZugleichTrainer === true}
+            // One claim across all three seats, so ticking this one necessarily clears the other: two
+            // people cannot both be the coach, and no press here can be made to say they are.
+            onChange={onZugleichToggled}>
+            <Switch.Content className={panel.switchContent()}>
+              Diese Person ist zugleich Trainerin oder Trainer
+              <Switch.Control className={panel.switchControl()}>
+                <Switch.Thumb />
+              </Switch.Control>
+            </Switch.Content>
             <FieldError className={FIELD_ERROR} />
-          </TextField>
+          </Switch>
         )}
 
         {isMirrored && (
-          <p className="muted-hint">
+          <p
+            id={spiegelHinweisId}
+            className="muted-hint">
             Diese Angaben gehören der Person, die Du als zugleich Trainerin oder Trainer markiert hast. Ändere sie dort.
           </p>
         )}
@@ -156,31 +156,29 @@ export function FormKontaktpersonenSection({
         <div className={FIELD_PAIR}>
           <TextField
             isReadOnly={isMirrored}
+            aria-describedby={isMirrored ? spiegelHinweisId : undefined}
             isRequired
             name={path("vorname")}
             value={person.vorname}
             onChange={(next) => onChange({ ...person, vorname: next })}
-            onBlur={() => onFieldLeft([path("vorname")])}>
+            onBlur={() => onFieldLeft([path("vorname")])}
+            maxLength={BEWERBUNG_KONTAKT_NAME_MAX_LENGTH}>
             <Label className={FIELD_LABEL}>Vorname</Label>
-            <Input
-              className={FIELD_INPUT}
-              maxLength={BEWERBUNG_KONTAKT_NAME_MAX_LENGTH}
-            />
+            <Input className={FIELD_INPUT} />
             <FieldError className={FIELD_ERROR} />
           </TextField>
 
           <TextField
             isReadOnly={isMirrored}
+            aria-describedby={isMirrored ? spiegelHinweisId : undefined}
             isRequired
             name={path("nachname")}
             value={person.nachname}
             onChange={(next) => onChange({ ...person, nachname: next })}
-            onBlur={() => onFieldLeft([path("nachname")])}>
+            onBlur={() => onFieldLeft([path("nachname")])}
+            maxLength={BEWERBUNG_KONTAKT_NAME_MAX_LENGTH}>
             <Label className={FIELD_LABEL}>Nachname</Label>
-            <Input
-              className={FIELD_INPUT}
-              maxLength={BEWERBUNG_KONTAKT_NAME_MAX_LENGTH}
-            />
+            <Input className={FIELD_INPUT} />
             <FieldError className={FIELD_ERROR} />
           </TextField>
         </div>
@@ -188,6 +186,7 @@ export function FormKontaktpersonenSection({
         <div className={FIELD_PAIR}>
           <TextField
             isReadOnly={isMirrored}
+            aria-describedby={isMirrored ? spiegelHinweisId : undefined}
             isRequired
             type="email"
             name={path("email")}
@@ -204,6 +203,7 @@ export function FormKontaktpersonenSection({
 
           <TextField
             isReadOnly={isMirrored}
+            aria-describedby={isMirrored ? spiegelHinweisId : undefined}
             isRequired
             type="tel"
             name={path("telefon")}
@@ -222,6 +222,8 @@ export function FormKontaktpersonenSection({
         <div className={FIELD_PAIR}>
           <DatePicker
             isReadOnly={isMirrored}
+            aria-describedby={isMirrored ? spiegelHinweisId : undefined}
+            isRequired
             value={toCalendarDate(person.geburtsdatum)}
             // `""` for a cleared date is what the schema rejects with its own German message, so a
             // half-entered person is a field error rather than a silent skip.
@@ -284,35 +286,31 @@ export function FormKontaktpersonenSection({
 
           <p className="fluid-xxs text-foreground-muted leading-relaxed font-medium text-pretty">{LIGA_EINWILLIGUNG.text}</p>
 
-          <TextField
+          {/* The Switch holds the NAME itself: `SwitchField` takes one, so its own checkbox carries
+              `aria-required` and `aria-invalid` and is described by the message below it. */}
+          <Switch
+            className="flex w-full flex-col gap-y-1"
             name={path("einwilligung.erteilt")}
-            value={person.einwilligung.erteilt ? "ja" : ""}
-            onChange={() => undefined}
-            className="flex w-full flex-col gap-y-1">
-            <Switch
-              isReadOnly={isMirrored}
-              isSelected={person.einwilligung.erteilt}
-              onChange={(erteilt) => {
-                const next = { ...person, einwilligung: { ...person.einwilligung, erteilt } };
+            isRequired
+            isReadOnly={isMirrored}
+            aria-describedby={isMirrored ? spiegelHinweisId : undefined}
+            isSelected={person.einwilligung.erteilt}
+            onChange={(erteilt) => {
+              const next = { ...person, einwilligung: { ...person.einwilligung, erteilt } };
 
-                onChange(next);
-                // A pick, so it is judged on the press rather than on a blur no switch produces —
-                // and on the value the event carried, state not having committed yet.
-                onPersonPicked([path("einwilligung.erteilt")], next);
-              }}>
-              <Switch.Content className={panel.switchContent()}>
-                Ja, ich bin einverstanden
-                <Switch.Control className={panel.switchControl()}>
-                  <Switch.Thumb />
-                </Switch.Control>
-              </Switch.Content>
-            </Switch>
-
-            {/* The proxy field carries the refusal: a `Switch` takes no `name`, so without it the
-                schema's message would reach no control at all. */}
-            <Input className="hidden" />
+              onChange(next);
+              // A pick, so it is judged on the press rather than on a blur no switch produces —
+              // and on the value the event carried, state not having committed yet.
+              onPersonPicked([path("einwilligung.erteilt")], next);
+            }}>
+            <Switch.Content className={panel.switchContent()}>
+              Ja, ich bin einverstanden
+              <Switch.Control className={panel.switchControl()}>
+                <Switch.Thumb />
+              </Switch.Control>
+            </Switch.Content>
             <FieldError className={FIELD_ERROR} />
-          </TextField>
+          </Switch>
         </div>
       </div>
     </section>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { CircleCheck } from "@gravity-ui/icons";
 
@@ -246,9 +246,21 @@ export function BewerbungForm({
     });
   };
 
+  /** Takes the caret the unmounting form drops, so the receipt is where a keyboard lands and what a reader hears. */
+  const eingereichtRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (isEingereicht) eingereichtRef.current?.focus();
+  }, [isEingereicht]);
+
   if (isEingereicht) {
     return (
-      <section className="border-success/40 bg-success/10 flex w-full flex-col items-center gap-y-3 rounded-2xl border p-8 text-center">
+      /* The form unmounts from under the pressed button, so focus would fall to `<body>` with nothing
+         announced. `role="status"` reads the panel out, and the ref takes the caret it inherits. */
+      <section
+        ref={eingereichtRef}
+        role="status"
+        tabIndex={-1}
+        className="border-success/40 bg-success/10 flex w-full flex-col items-center gap-y-3 rounded-2xl border p-8 text-center outline-none">
         <CircleCheck className="text-success-strong size-10" />
         <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Deine Bewerbung ist eingegangen</h2>
         {/* The seat is NAMED because only that one is written to: told „allen drei“, the two who get

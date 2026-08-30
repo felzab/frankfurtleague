@@ -4,6 +4,7 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { PLACEHOLDER } from "@/shared/utils/format";
 import { enteredNumber } from "@/shared/utils/numberField";
 
@@ -118,8 +119,9 @@ export function FormErgebnisSection({
       className={styles.root()}
       onKeyDownCapture={suppressEnterSubmit}>
       <div className={styles.header()}>
-        <h2 className={styles.heading()}>
-          Ergebnis
+        <PanelHeading
+          className={styles.heading()}
+          title="Ergebnis">
           <Hint
             mode="reveal"
             label="Hinweis zum Ergebnis"
@@ -131,7 +133,7 @@ export function FormErgebnisSection({
               ],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={styles.body()}>

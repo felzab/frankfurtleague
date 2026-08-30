@@ -56,7 +56,7 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
   // depth. The destructive grading is the confirm reveal's and the button's, both recipes.
   return (
     <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
-      <h4 className={FORM_SECTION_HEADING}>Person löschen</h4>
+      <h4 className={FORM_SECTION_HEADING}>Kontaktperson löschen</h4>
 
       <p className="muted-hint">
         Löscht <strong>{fullName}</strong> überall, nicht nur hier. Für eine Person, die vergessen werden möchte.
@@ -105,12 +105,18 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
           isDisabled={isPending}
           onPress={handleErase}
           className={confirmButton(isConfirming)}>
-          <TrashBin
-            aria-hidden="true"
-            width={18}
-            height={18}
-          />
-          {isConfirming ? "Endgültig löschen" : "Person löschen"}
+          {/* Dropped while armed, as every two-press control here drops it: the glyph announces the
+              press, and step two is already announcing itself in words. */}
+          {!isConfirming && (
+            <TrashBin
+              aria-hidden="true"
+              width={18}
+              height={18}
+            />
+          )}
+          {/* The object stays in the label: a bare „Ja, endgültig löschen“ reads as whatever the page
+              is about, and this one reaches every season rather than this seat. */}
+          {isPending ? "Löscht..." : isConfirming ? "Ja, Kontaktperson endgültig löschen" : "Kontaktperson löschen"}
         </Button>
       </ConfirmActionRow>
     </div>

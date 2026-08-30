@@ -5,6 +5,7 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { FLAddress } from "@/shared/schemas";
 import type { SpielortBanner } from "./banners";
@@ -30,8 +31,9 @@ export function FormAdresseSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Adresse
+        <PanelHeading
+          className={panel.heading()}
+          title="Adresse">
           <Hint
             mode="reveal"
             label="Hinweis zur Adresse"
@@ -40,7 +42,7 @@ export function FormAdresseSection({
               points: [{ term: "Nach dem Stadtteil", text: "kannst Du in der Spielort-Liste suchen." }],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

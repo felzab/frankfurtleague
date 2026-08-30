@@ -14,6 +14,7 @@ import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
@@ -65,8 +66,9 @@ export function FormKontakteLoeschenSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Kontakte dieser Saison löschen
+        <PanelHeading
+          className={panel.heading()}
+          title="Kontakte dieser Saison löschen">
           <Hint
             mode="reveal"
             label="Hinweis zum Löschen der Kontakte"
@@ -78,7 +80,7 @@ export function FormKontakteLoeschenSection({
               ],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>
@@ -127,12 +129,18 @@ export function FormKontakteLoeschenSection({
             isDisabled={isPending || !hasStored}
             onPress={handleClear}
             className={confirmButton(isConfirming)}>
-            <TrashBin
-              aria-hidden="true"
-              width={18}
-              height={18}
-            />
-            {isConfirming ? "Endgültig löschen" : "Kontakte löschen"}
+            {/* Dropped while armed, as every two-press control here drops it: the glyph announces the
+                press, and step two is already announcing itself in words. */}
+            {!isConfirming && (
+              <TrashBin
+                aria-hidden="true"
+                width={18}
+                height={18}
+              />
+            )}
+            {/* The object stays in the label: „Ja, endgültig löschen“ under a trash icon reads as the
+                team going, which is the one thing this control does not touch. */}
+            {isPending ? "Löscht..." : isConfirming ? "Ja, Kontakte dieser Saison endgültig löschen" : "Kontakte löschen"}
           </Button>
         </ConfirmActionRow>
       </div>

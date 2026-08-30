@@ -6,6 +6,7 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { SpielerPersonFields } from "@/features/spieler/types";
 
@@ -28,14 +29,15 @@ export function FormPersonSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Person
+        <PanelHeading
+          className={panel.heading()}
+          title="Person">
           <Hint
             mode="reveal"
             label="Hinweis zur Person"
             body={{ lead: "Der Name gilt über alle Saisons hinweg." }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

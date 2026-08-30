@@ -15,6 +15,7 @@ import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { confirmButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
@@ -170,14 +171,15 @@ export function FormGruppenSwapSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Gruppentausch
+        <PanelHeading
+          className={panel.heading()}
+          title="Gruppentausch">
           <Hint
             mode="reveal"
             label="Hinweis zum Gruppentausch"
             body={{ lead: "Zwei Teams tauschen ihre Gruppen." }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

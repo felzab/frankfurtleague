@@ -9,6 +9,7 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { FLSaisonBewerbung } from "@/features/saisons/schemas";
 
@@ -54,8 +55,9 @@ export function FormBewerbungSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Bewerbungen
+        <PanelHeading
+          className={panel.heading()}
+          title="Bewerbungen">
           <Hint
             mode="reveal"
             label="Hinweis zu den Bewerbungen"
@@ -64,7 +66,7 @@ export function FormBewerbungSection({
               points: [{ term: "Die Freischaltung", text: "steht neben der Frist und wird von Hand gesetzt." }],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

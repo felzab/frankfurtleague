@@ -36,10 +36,16 @@ export function AdminSpielerEditView({
   const isRetired = spieler.inactive_since !== null;
   const fullName = spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}`;
 
-  const runStatusWrite = (write: () => Promise<{ success: boolean; message?: string; error?: string }>, failureHeading: string) => {
+  const runStatusWrite = (
+    write: () => Promise<{ success: boolean; message?: string; error?: string }>,
+    failureHeading: string,
+    savedDetail: string,
+  ) => {
     startWritingStatus(async () => {
       const res = await write();
-      if (res.success) appToast.success(res.message ?? "Gespeichert");
+      // Named rather than left to „Gespeichert“: the page header is where the press was, and a bare
+      // confirmation there says a write landed without saying which of the page's writes it was.
+      if (res.success) appToast.success(res.message ?? "Gespeichert", { description: savedDetail });
       else appToast.danger(failureHeading, { description: res.error ?? UNKNOWN_REFUSAL });
     });
   };
@@ -64,7 +70,12 @@ export function AdminSpielerEditView({
           reactivate: isRetired
             ? {
                 isPending: isWritingStatus,
-                onPress: () => runStatusWrite(() => reactivateSpielerAction({ id: spieler.id }), "Reaktivieren fehlgeschlagen"),
+                onPress: () =>
+                  runStatusWrite(
+                    () => reactivateSpielerAction({ id: spieler.id }),
+                    "Reaktivieren fehlgeschlagen",
+                    "Der Spieler steht wieder zur Auswahl.",
+                  ),
               }
             : undefined,
         }}
