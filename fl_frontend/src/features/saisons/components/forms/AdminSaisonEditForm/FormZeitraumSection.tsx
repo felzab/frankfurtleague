@@ -8,6 +8,7 @@ import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import type { SaisonSpieltagBound } from "@/features/saisons/types";
 import type { CalendarDate } from "@internationalized/date";
@@ -50,8 +51,9 @@ export function FormZeitraumSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Zeitraum
+        <PanelHeading
+          className={panel.heading()}
+          title="Zeitraum">
           <Hint
             mode="reveal"
             label="Hinweis zum Zeitraum"
@@ -60,7 +62,7 @@ export function FormZeitraumSection({
               points: [{ term: "Ein Spiel", text: "richtet sich nach seinem Spieltag, nicht nach der Saison." }],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>
@@ -74,7 +76,6 @@ export function FormZeitraumSection({
             onChange={onStartDateChange}
             onBlur={() => onFieldLeft(["start_date"])}
             maxValue={startMax}
-            rangeMessage="Wähle einen Tag vor dem Ende."
           />
           <SaisonDateField
             isRequired
@@ -85,7 +86,6 @@ export function FormZeitraumSection({
             onChange={onEndDateChange}
             onBlur={() => onFieldLeft(["end_date"])}
             minValue={endMin}
-            rangeMessage="Wähle einen Tag nach dem Beginn."
           />
         </div>
 

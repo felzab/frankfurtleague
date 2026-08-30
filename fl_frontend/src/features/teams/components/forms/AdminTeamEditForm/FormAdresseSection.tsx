@@ -7,6 +7,7 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { buildMapsSearchUrl, formatAddressFull } from "@/shared/utils/format";
 
 import type { FLAddress } from "@/shared/schemas";
@@ -62,14 +63,15 @@ export function FormAdresseSection({
             </Hint>
           )}
         </span>
-        <h2 className={panel.heading()}>
-          Adresse
+        <PanelHeading
+          className={panel.heading()}
+          title="Adresse">
           <Hint
             mode="reveal"
             label="Hinweis zur Adresse"
             body={{ lead: "Der Heimstandort des Teams, öffentlich auf der Teamseite." }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

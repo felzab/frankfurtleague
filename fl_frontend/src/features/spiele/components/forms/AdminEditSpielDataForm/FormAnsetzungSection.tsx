@@ -3,6 +3,7 @@ import { Separator } from "@heroui/react";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import { FormDateTimeSection } from "./FormDateTimeSection";
 import { FormSchiedsrichterSection } from "./FormSchiedsrichterSection";
@@ -47,8 +48,9 @@ export function FormAnsetzungSection({
   return (
     <section className={styles.root()}>
       <div className={styles.header()}>
-        <h2 className={styles.heading()}>
-          Ansetzung
+        <PanelHeading
+          className={styles.heading()}
+          title="Ansetzung">
           <Hint
             mode="reveal"
             label="Hinweis zur Ansetzung"
@@ -57,7 +59,7 @@ export function FormAnsetzungSection({
               points: [{ term: "Mietpreis und Honorar", text: "gelten nur für dieses Spiel." }],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={styles.body()}>

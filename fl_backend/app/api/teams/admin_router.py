@@ -428,6 +428,13 @@ async def patch_saison_team(
         update={"$set": saison_team_data.model_dump(mode="json")},
     )
 
+    # `kontakte` below is the one field read off the AFTER image, no payload carrying the block.
+    # `.get` covers a row whose key is ABSENT; a block PRESENT in a shape this model cannot describe
+    # still refuses, a keyword being validated like any other value.
+
+    # That write took no session and has committed by here, so such a block answers 500 after it
+    # landed. Accepted: the write is the one asked for, the retry is idempotent, and a session would
+    # abort a correct write over a field this endpoint never touches.
     return FLSaisonTeamResponse(
         saison_id=saison_id,
         team_id=team_id,
@@ -436,8 +443,6 @@ async def patch_saison_team(
         # From the PAYLOAD, not the pre-read above: the `$set` writes these wholesale, so the values
         # sent are the values now stored and the projection has nothing to widen for.
         trikot_farbe=saison_team_data.trikot_farbe,
-        # From the AFTER image instead: no payload carries the block, and `.get` covers a row entered
-        # before the key existed.
         kontakte=updated_raw.get("kontakte"),
         name=existing_raw["name"],
         shorthand=existing_raw["shorthand"],
@@ -578,13 +583,9 @@ async def replace_saison_team(
         updated_raw = await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
-            # `austritt` cleared: left standing it would mark the INCOMING club withdrawn, which
-            # `REQ-SWAP-006` and `_may_hold_a_platz` both act on. The outgoing club's exit survives
-            # as the pre-image `patch_one_in_db` logs.
-            #
-            # The colour and the contacts are cleared for a different reason: they describe the
-            # OUTGOING school, and leaving three of its people's details on a row now naming another
-            # club would hold personal data against a team that never gave it.
+            # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
+            # `REQ-SWAP-006` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
+            # colour and the contacts describe the OUTGOING school (`docs/backend/spec.md :: I50`).
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None}},
             session=session,
         )

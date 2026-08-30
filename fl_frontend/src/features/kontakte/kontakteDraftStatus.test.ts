@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+import { KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, trainerZugleichLabel } from "@/features/teams/constants";
 
 import { deriveKontakteDraftStatus, kontaktSeatPaths } from "./kontakteDraftStatus";
 
@@ -25,7 +25,7 @@ const block = (overrides: Partial<NonNullable<FLKontakteDraftFields["kontakte"]>
     trainer: person(),
     ansprechperson: person({ vorname: "Max" }),
     stellvertretung: person({ vorname: "Lena" }),
-    trainer_ist_ansprechperson: false,
+    trainer_ist_zugleich: null,
     ...overrides,
   },
 });
@@ -33,7 +33,7 @@ const block = (overrides: Partial<NonNullable<FLKontakteDraftFields["kontakte"]>
 const EMPTY: FLKontakteDraftFields = { kontakte: null };
 
 describe("deriveKontakteDraftStatus", () => {
-  it("carries a row per seat, a row per agreement, and one for the shared-seat flag", () => {
+  it("carries a row per seat, a row per agreement, and one for the shared-seat claim", () => {
     const stored = block();
     const status = deriveKontakteDraftStatus({ stored, draft: stored, fieldErrors: {} });
 
@@ -41,7 +41,9 @@ describe("deriveKontakteDraftStatus", () => {
     assert.equal(status.fields.length, 7);
     assert.equal(status.byPath.get("kontakte.trainer")?.draftText, "Erika Mustermann, erika@beispiel.de, 069 1234567, geboren am 01.01.1990");
     assert.equal(status.byPath.get("kontakte.trainer.einwilligung")?.draftText, "Von der Person selbst, Fassung 2025-08 (ab 01.09.2025)");
-    assert.equal(status.byPath.get("kontakte.trainer_ist_ansprechperson")?.draftText, "Nein");
+    // Read from the table rather than quoted: the wording is the product's, and pinning it here
+    // makes rewording the question read as a regression.
+    assert.equal(status.byPath.get("kontakte.trainer_ist_zugleich")?.draftText, trainerZugleichLabel(null));
   });
 
   /* The rows are unconditional: keyed on `kontakte` itself, every row reporting the loss would be
@@ -57,7 +59,7 @@ describe("deriveKontakteDraftStatus", () => {
       "kontakte.stellvertretung.einwilligung",
       "kontakte.trainer",
       "kontakte.trainer.einwilligung",
-      "kontakte.trainer_ist_ansprechperson",
+      "kontakte.trainer_ist_zugleich",
     ]);
     // `draftText: null` is what makes the change list render each of these as a removal.
     assert.equal(status.byPath.get("kontakte.trainer")?.draftText, null);
@@ -93,7 +95,7 @@ describe("deriveKontakteDraftStatus", () => {
 
     assert.equal(status.isDirty, false);
     assert.equal(status.fields.length, 7);
-    assert.equal(status.byPath.get("kontakte.trainer_ist_ansprechperson")?.draftText, null);
+    assert.equal(status.byPath.get("kontakte.trainer_ist_zugleich")?.draftText, null);
   });
 
   it("finds a contact error under the seat that holds the field", () => {
@@ -143,7 +145,7 @@ describe("deriveKontakteDraftStatus", () => {
     assert.equal(status.byPath.get("kontakte.trainer")?.draftText, null);
   });
 
-  it("groups each seat's two rows under the seat, and the flag on its own", () => {
+  it("groups each seat's two rows under the seat, and the claim on its own", () => {
     const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block(), fieldErrors: {} });
 
     assert.deepEqual(
@@ -155,7 +157,7 @@ describe("deriveKontakteDraftStatus", () => {
         ["Ansprechperson", "Einwilligung"],
         ["Stellvertretung", "Person"],
         ["Stellvertretung", "Einwilligung"],
-        ["Kontakte", "Trainer ist Ansprechperson"],
+        ["Kontakte", TRAINER_ZUGLEICH_FRAGE],
       ],
     );
   });

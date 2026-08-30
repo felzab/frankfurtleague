@@ -108,19 +108,19 @@ PEOPLE: dict[str, tuple[str, str, str]] = {
     UNREACHED_NACHNAME: (UNREACHED_EMAIL, UNREACHED_TELEFON, UNREACHED_FORMER_TELEFON),
 }
 
-# Who stands in each slot of each seeded row, in `KONTAKT_SLOTS` order, plus what the form asserted
-# about the first two. Every case the erasure has to answer is one row here.
-SEEDED_ROLES: dict[ObjectId, tuple[tuple[str, str, str], bool]] = {
+# Who stands in each slot of each seeded row, in `KONTAKT_SLOTS` order, plus which seat the form said
+# the Trainer also holds. Every case the erasure has to answer is one row here.
+SEEDED_ROLES: dict[ObjectId, tuple[tuple[str, str, str], str | None]] = {
     # One slot naming the erased person, and two people beside them who asked for nothing.
-    ROW_A_EARLIER_OID: ((ERASED_NACHNAME, BYSTANDER_NACHNAME, UNREACHED_NACHNAME), False),
-    # The same person a season later, and in TWO slots: `trainer_ist_ansprechperson` stores one
+    ROW_A_EARLIER_OID: ((ERASED_NACHNAME, BYSTANDER_NACHNAME, UNREACHED_NACHNAME), None),
+    # The same person a season later, and in TWO slots: `trainer_ist_zugleich` stores one
     # person twice, so clearing the first alone would leave this block naming them.
-    ROW_A_LATER_OID: ((ERASED_NACHNAME, ERASED_NACHNAME, BYSTANDER_NACHNAME), True),
+    ROW_A_LATER_OID: ((ERASED_NACHNAME, ERASED_NACHNAME, BYSTANDER_NACHNAME), "ansprechperson"),
     # Nobody the erasure may reach.
-    ROW_B_OID: ((UNREACHED_NACHNAME, BYSTANDER_NACHNAME, UNREACHED_NACHNAME), False),
+    ROW_B_OID: ((UNREACHED_NACHNAME, BYSTANDER_NACHNAME, UNREACHED_NACHNAME), None),
     # The second store this branch adds, with the person in a different slot than on the junction.
-    BEWERBUNG_OID: ((BYSTANDER_NACHNAME, ERASED_NACHNAME, UNREACHED_NACHNAME), False),
-    OTHER_BEWERBUNG_OID: ((UNREACHED_NACHNAME, BYSTANDER_NACHNAME, UNREACHED_NACHNAME), False),
+    BEWERBUNG_OID: ((BYSTANDER_NACHNAME, ERASED_NACHNAME, UNREACHED_NACHNAME), None),
+    OTHER_BEWERBUNG_OID: ((UNREACHED_NACHNAME, BYSTANDER_NACHNAME, UNREACHED_NACHNAME), None),
 }
 
 
@@ -151,9 +151,9 @@ def blocks(*, live: bool) -> dict[ObjectId, dict[str, Any]]:
     return {
         row_id: {
             **{slot: person(nachname, telefone[nachname]) for slot, nachname in zip(KONTAKT_SLOTS, roles, strict=True)},
-            "trainer_ist_ansprechperson": same,
+            "trainer_ist_zugleich": zugleich,
         }
-        for row_id, (roles, same) in SEEDED_ROLES.items()
+        for row_id, (roles, zugleich) in SEEDED_ROLES.items()
     }
 
 
@@ -296,7 +296,7 @@ async def log_rows_naming(database: AsyncIOMotorDatabase, collection: Collection
 def a_block_holding(trainer: Mapping[str, Any]) -> dict[str, Any]:
     """One person in the Trainer slot, the other two empty, all four keys present."""
 
-    return {**{slot: None for slot in KONTAKT_SLOTS}, "trainer": dict(trainer), "trainer_ist_ansprechperson": False}
+    return {**{slot: None for slot in KONTAKT_SLOTS}, "trainer": dict(trainer), "trainer_ist_zugleich": None}
 
 
 def a_junction_row(row_id: ObjectId, saison_id: str, block: Mapping[str, Any]) -> dict[str, Any]:
@@ -409,21 +409,21 @@ class TestTheSlotsAreReadOffTheModel:
         assert KONTAKT_SLOTS == ("trainer", "ansprechperson", "stellvertretung")
 
     def test_the_assertion_field_is_not_among_them(self):
-        """`trainer_ist_ansprechperson` records what somebody ASSERTED about two slots, which stays true once one is empty."""
+        """`trainer_ist_zugleich` records what somebody ASSERTED about two slots, which stays true once one is empty."""
 
-        assert "trainer_ist_ansprechperson" not in KONTAKT_SLOTS
+        assert "trainer_ist_zugleich" not in KONTAKT_SLOTS
 
     def test_every_slot_the_model_declares_is_covered(self):
         """Kills a hand-typed tuple: a fourth role added to the block would be cleared by nothing."""
 
-        declared = {name for name, field in FLSaisonTeamKontakte.model_fields.items() if name != "trainer_ist_ansprechperson"}
+        declared = {name for name, field in FLSaisonTeamKontakte.model_fields.items() if name != "trainer_ist_zugleich"}
 
         assert set(KONTAKT_SLOTS) == declared
 
     def test_a_block_with_every_slot_empty_still_validates(self):
         """The read model is what a junction row is served through, so a slot that stopped being nullable is a 500."""
 
-        cleared = FLSaisonTeamKontakte.model_validate({**{slot: None for slot in KONTAKT_SLOTS}, "trainer_ist_ansprechperson": True})
+        cleared = FLSaisonTeamKontakte.model_validate({**{slot: None for slot in KONTAKT_SLOTS}, "trainer_ist_zugleich": "ansprechperson"})
 
         assert (cleared.trainer, cleared.ansprechperson, cleared.stellvertretung) == (None, None, None)
 
@@ -440,7 +440,7 @@ def test_the_matching_slot_is_nulled_in_every_season(mongo_replica_set_url: str)
 
 @pytest.mark.db
 def test_one_person_in_two_slots_of_one_row_loses_both(mongo_replica_set_url: str):
-    """Kills stopping at the first match: `trainer_ist_ansprechperson` stores one person twice."""
+    """Kills stopping at the first match: `trainer_ist_zugleich` stores one person twice."""
 
     _, rows, _ = after_erasing(mongo_replica_set_url)
     kontakte = rows[ROW_A_LATER_OID]["kontakte"]
@@ -467,7 +467,7 @@ def test_the_two_people_beside_them_are_untouched(mongo_replica_set_url: str):
     assert kontakte["ansprechperson"] == LIVE_BLOCKS[ROW_A_EARLIER_OID]["ansprechperson"]
     assert kontakte["stellvertretung"] == LIVE_BLOCKS[ROW_A_EARLIER_OID]["stellvertretung"]
     # Kept through the erasure: it is a fact about the FORM, not about either slot's occupant.
-    assert kontakte["trainer_ist_ansprechperson"] is False
+    assert kontakte["trainer_ist_zugleich"] is None
 
 
 @pytest.mark.db
@@ -487,7 +487,7 @@ def test_the_block_survives_with_all_four_of_its_keys(mongo_replica_set_url: str
     _, rows, _ = after_erasing(mongo_replica_set_url)
 
     for row_id in EXPECTED_SLOTS:
-        assert set(rows[row_id]["kontakte"]) == {*KONTAKT_SLOTS, "trainer_ist_ansprechperson"}, f"{row_id} lost a key"
+        assert set(rows[row_id]["kontakte"]) == {*KONTAKT_SLOTS, "trainer_ist_zugleich"}, f"{row_id} lost a key"
 
 
 @pytest.mark.db

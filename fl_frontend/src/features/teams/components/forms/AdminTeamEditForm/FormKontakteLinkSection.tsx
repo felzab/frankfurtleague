@@ -5,6 +5,8 @@ import Link from "next/link";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { textLink } from "@/shared/components/ui/textLink";
 
 import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
 
@@ -26,7 +28,7 @@ export function FormKontakteLinkSection({
   const panel = formPanel();
 
   // Seats HELD, never the three the block always carries: an erasure leaves them empty. And entries
-  // rather than „Personen“, `trainer_ist_ansprechperson` seating one person twice.
+  // rather than „Personen“, `trainer_ist_zugleich` seating one person twice.
   const belegt = KONTAKT_ROLLEN.filter(({ value }) => kontakte?.[value] != null).length;
 
   // Each count is spelled rather than interpolated into one sentence: `0` and `1` need their own
@@ -41,8 +43,9 @@ export function FormKontakteLinkSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Kontakte
+        <PanelHeading
+          className={panel.heading()}
+          title="Kontakte">
           <Hint
             mode="reveal"
             label="Hinweis zu den Kontakten"
@@ -54,13 +57,15 @@ export function FormKontakteLinkSection({
               ],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>
+        {/* The underline is what makes it read as somewhere to go; colour and weight alone did not. No glyph:
+            in the admin panel a glyph names a destination, and this one would name none. */}
         <Link
           href={href}
-          className="text-brand hover:text-brand-solid fluid-sm w-fit font-bold transition-colors">
+          className={`${textLink()} fluid-sm w-fit font-bold`}>
           {label}
         </Link>
       </div>

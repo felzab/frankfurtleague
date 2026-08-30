@@ -7,6 +7,7 @@ a block's length is measured in the lines a reader meets.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import Final
 
@@ -238,11 +239,41 @@ def _misplaced_header(raw: str, suffix: str) -> tuple[int, list[str]] | None:
     return None
 
 
-def check_comment_length(path: Path, raw: str, added: set[int]) -> list[Finding]:
-    """A comment block this branch WROTE keeps both of INC-9's bounds.
+def _block_text(block: list[str]) -> str:
+    """The one line INC-9's character bound is measured over."""
+    return " ".join(line for line in block if line).strip()
 
-    Failing a branch for a word changed inside an older block is what gets a check suppressed. One
-    the branch only partly rewrote is its own slice, which CUR-6 gives `/docs:audit-pr`.
+
+def _over_bounds(block: list[str], cap: int) -> bool:
+    """Whether a comment block breaks either of INC-9's bounds."""
+    return len(block) > cap or len(_block_text(block)) > COMMENT_CHAR_CAP
+
+
+def _openings_over_bounds(text: str, style: str) -> frozenset[str]:
+    """The opening line of every comment block in some text that breaks a bound.
+
+    The opening is what identifies a block across an edit deeper inside it, where a line number
+    moves with every insertion above.
+    """
+    inline = {(first, len(block)) for first, block in comment_runs(text, style, symbol_docs=False)}
+    openings: set[str] = set()
+    for first, block in comment_runs(text, style, symbol_docs=True):
+        cap = COMMENT_LINE_CAP if (first, len(block)) in inline else DOC_LINE_CAP
+        if _over_bounds(block, cap):
+            openings.add(_opening(block))
+    return frozenset(openings)
+
+
+def _opening(block: list[str]) -> str:
+    """A block's first line with anything to say, which is how one block is told from another."""
+    return next((line for line in block if line), "")
+
+
+def check_comment_length(path: Path, raw: str, added: set[int], fork_text: Callable[[], str | None] | None = None) -> list[Finding]:
+    """A comment block this branch touched, unless it broke a bound before this branch touched it.
+
+    Requiring the WHOLE block to be added missed every one a branch lengthened; failing a word
+    changed inside an older block is `/docs:audit-pr`'s slice (CUR-6).
     """
     rel = path.relative_to(REPO_ROOT).as_posix()
     # Derived here so no caller can pass a suffix a Dockerfile does not have: read for `//` it
@@ -253,21 +284,29 @@ def check_comment_length(path: Path, raw: str, added: set[int]) -> list[Finding]
     inline = {(first, len(block)) for first, block in comment_runs(raw, style, symbol_docs=False)}
 
     found: list[Finding] = []
+    older: frozenset[str] | None = None
     for first_line, block in comment_runs(raw, style, symbol_docs=True):
-        if not set(range(first_line, first_line + len(block))) <= added:
-            continue
-        text = " ".join(line for line in block if line).strip()
+        numbers = range(first_line, first_line + len(block))
         cap = COMMENT_LINE_CAP if (first_line, len(block)) in inline else DOC_LINE_CAP
-        if len(block) > cap or len(text) > COMMENT_CHAR_CAP:
-            found.append(
-                Finding(
-                    "fail",
-                    "comment-length",
-                    rel,
-                    f"the comment block at line {first_line} runs {len(block)} lines and {len(text)} characters"
-                    f" -- INC-9 caps this shape at {cap} lines and {COMMENT_CHAR_CAP} characters",
-                )
+        if added.isdisjoint(numbers) or not _over_bounds(block, cap):
+            continue
+        if older is None:
+            # Read here rather than per call: the fork costs a git spawn per file, and a file whose
+            # touched blocks all keep their bounds never needs one.
+            before = fork_text() if fork_text is not None else None
+            older = frozenset() if before is None else _openings_over_bounds(before, style)
+        if _opening(block) in older:
+            continue
+        text = _block_text(block)
+        found.append(
+            Finding(
+                "fail",
+                "comment-length",
+                rel,
+                f"the comment block at line {first_line} runs {len(block)} lines and {len(text)} characters"
+                f" -- INC-9 caps this shape at {cap} lines and {COMMENT_CHAR_CAP} characters",
             )
+        )
     return found
 
 

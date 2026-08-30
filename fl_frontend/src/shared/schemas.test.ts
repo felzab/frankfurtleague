@@ -180,6 +180,15 @@ describe("FLKontaktSchema", () => {
 });
 
 describe("ExternalUrlSchema", () => {
+  const USERINFO = [
+    "https://frankfurtleague.de@evil.com",
+    "https://frankfurtleague.de@evil.com/spenden",
+    "http://frankfurtleague.de:geheim@evil.com",
+    "https://user@frankfurtleague.de",
+    // A password and no user at all, so neither half of the check stands in for the other.
+    "https://:geheim@evil.com",
+  ];
+  const HARMLOS = ["https://www.carl-schurz-schule.de", "http://example.de", "https://a.b.example.de/pfad?q=1#top"];
   // The whole reason this schema exists: bare z.url() accepts every one of these.
   it("rejects the script-bearing schemes that z.url() lets through", () => {
     for (const url of ["javascript:alert(1)", "JavaScript:alert(1)", "data:text/html,<script>1</script>", "vbscript:x", "file:///etc/passwd"]) {
@@ -189,8 +198,27 @@ describe("ExternalUrlSchema", () => {
   });
 
   it("accepts ordinary http and https links", () => {
-    for (const url of ["https://www.carl-schurz-schule.de", "http://example.de", "https://a.b.example.de/pfad?q=1#top"]) {
+    for (const url of HARMLOS) {
       assert.equal(ExternalUrlSchema.safeParse(url).success, true, `expected "${url}" to be accepted`);
+    }
+  });
+
+  it("rejects a URL whose userinfo hides the host it reaches", () => {
+    // Everything before the `@` is userinfo. The visible text names the league; the browser goes to evil.com.
+    for (const url of USERINFO) {
+      assert.equal(ExternalUrlSchema.safeParse(url).success, false, `expected "${url}" to be rejected`);
+    }
+  });
+
+  it("accepts nothing that navigates anywhere but the host it displays", () => {
+    // The property the case above samples: a listed spelling proves only that spelling, and userinfo
+    // has more of them than a test can name.
+    const accepted = [...USERINFO, ...HARMLOS].filter((url) => ExternalUrlSchema.safeParse(url).success);
+
+    assert.deepEqual(accepted, HARMLOS, "the corpus proves nothing unless the harmless half still parses");
+    for (const url of accepted) {
+      assert.equal(new URL(url).username, "", `${url}: accepted while carrying a user`);
+      assert.equal(new URL(url).password, "", `${url}: accepted while carrying a password`);
     }
   });
 

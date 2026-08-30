@@ -109,7 +109,7 @@ describe("buildSaisonBanners", () => {
 
     assert.deepEqual(ids(breaches), ["saison.end-before-start", "saison.qualifiers-overflow"]);
     assert.ok(breaches.every((banner) => banner.severity === "danger"));
-    // The overflow saves while it is not worsened, so promising otherwise would relatch what I44 opened.
+    // The overflow saves while it is not worsened, so promising otherwise would relatch what `docs/backend/spec.md` I44 opened.
     assert.match(breaches[1]?.body ?? "", /nicht weiter verschlechtert/);
   });
 

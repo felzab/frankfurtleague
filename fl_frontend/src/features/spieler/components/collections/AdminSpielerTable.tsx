@@ -19,6 +19,7 @@ import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
+import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminSpielerRow, SpielerTeamOption } from "../../types";
@@ -55,9 +56,6 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   // The selector's season rides along on every row link, so the editor opens on the season shown.
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
-  const saisonQuery = selectedFromUrl ? `?saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
-  // The same value as a second parameter, for the one row link that carries a narrowing of its own.
-  const saisonParam = selectedFromUrl ? `&saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
 
   // No confirmation step: reactivation is undone by the delete control that takes its place.
   const handleReactivatePerson = (spieler: AdminSpielerRow) => {
@@ -116,7 +114,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
             turns that facet off. */}
         {row !== null && row.teamName !== null && (
           <RowActionLink
-            href={`/admin/teams?q=${encodeURIComponent(row.teamName)}&${TEAMS_ANY_SAISON_QUERY}${saisonParam}`}
+            href={withSaisonId(`/admin/teams?q=${encodeURIComponent(row.teamName)}&${TEAMS_ANY_SAISON_QUERY}`, selectedFromUrl)}
             label="Team anzeigen"
             ariaLabel={`Team ${row.teamName} anzeigen`}>
             <Persons
@@ -128,7 +126,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         )}
 
         <RowActionLink
-          href={`/admin/spieler/${spieler.id}${saisonQuery}`}
+          href={withSaisonId(`/admin/spieler/${spieler.id}`, selectedFromUrl)}
           label="Bearbeiten"
           ariaLabel={`Spieler ${spieler.fullName} bearbeiten`}>
           <Pencil

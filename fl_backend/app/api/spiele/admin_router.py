@@ -112,12 +112,13 @@ async def get_spiele_action_required(
     spiele_collection: SpieleCollection,
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
+    saison_id: str | None = None,
     today: str = Depends(get_german_date_str),
 ) -> FLSpieleActionRequiredResponse:
-    """List Spiele needing an admin's attention, and the bracket faults among them.
+    """List Spiele needing attention, and the bracket faults among them.
 
     Qualifying: cancelled, missing a date, time, venue or referee, past with no result, or a
-    knockout side holding neither team nor `quelle`. Every season.
+    knockout side with neither team nor `quelle`. Scoped to `saison_id`, every season without.
     """
 
     # The joined pipeline, as the public reads use: the raw shape carries no `austritt`, so
@@ -126,6 +127,9 @@ async def get_spiele_action_required(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(
             db_filter={
+                # Named first so the term reads before the conditions it narrows. Absent, it spreads
+                # to nothing and the read spans every season, which is what an unscoped call asks for.
+                **({} if saison_id is None else {"saison_id": saison_id}),
                 "$or": [
                     {"sonderereignis": {"$in": list(SONDEREREIGNIS_RECORDING_AN_ABSENCE)}},
                     {"datum": None},
@@ -140,19 +144,23 @@ async def get_spiele_action_required(
                             {"team2": None, "team2_quelle": None},
                         ],
                     },
-                ]
+                ],
             }
         ),
     )
     spiele = FLSpielJoinedListAdapter.validate_python(spiele_raw)
 
+    # The SAME scope as the read above: a fault is unioned into that list, so a fault swept from a
+    # season the list does not cover would surface a fixture the admin did not ask about.
     bracket_faults, faulted_spiele = await find_bracket_faults(
         spiele_collection=spiele_collection,
         teams_collection=teams_collection,
         saisons_collection=saisons_collection,
+        saison_id=saison_id,
     )
 
-    # Keyed by id, not `spiel_nr`, which repeats across the seasons this route spans.
+    # Keyed by id, not `spiel_nr`, which repeats across seasons -- and this route still spans them
+    # when no `saison_id` is named.
     by_id: dict[CustomObjectId, FLSpielJoined] = {spiel.id: spiel for spiel in spiele}
     for spiel in faulted_spiele:
         by_id.setdefault(spiel.id, spiel)

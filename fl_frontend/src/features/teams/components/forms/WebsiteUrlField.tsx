@@ -4,6 +4,8 @@ import { ArrowUpRightFromSquare } from "@gravity-ui/icons";
 
 import { FieldError, InputGroup, Label, TextField } from "@heroui/react";
 
+import { WEBSITE_URL_SCHEME } from "@/features/teams/constants";
+import { toWebsiteUrl } from "@/features/teams/utils";
 import { FIELD_ERROR, FIELD_HEIGHT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
@@ -11,8 +13,8 @@ import { ExternalUrlSchema } from "@/shared/schemas";
 
 import type { ReactNode } from "react";
 
-/** What the admin edits — the group's prefix carries the scheme. */
-const withoutScheme = (url: string): string => url.replace(/^https?:\/\//i, "");
+/** What the admin edits — the group's prefix carries the scheme. `null` is a club with no website. */
+const withoutScheme = (url: string | null): string => (url ?? "").replace(/^https?:\/\//i, "");
 
 /**
  * **The `https://` sits in the group's prefix, not in the value**, so a pasted full URL is
@@ -25,27 +27,29 @@ export function WebsiteUrlField({
   onFieldLeft,
   labelSlot,
   error,
+  name = "website_url",
+  maxLength,
 }: {
-  /** The full URL, scheme included — the payload's own shape. */
-  value: string;
-  onChange: (nextUrl: string) => void;
+  /** The full URL, scheme included — the payload's own shape. `null` where the club has none. */
+  value: string | null;
+  /** Reports `null` for an emptied box, which is the one spelling of "no website" this product writes. */
+  onChange: (nextUrl: string | null) => void;
   /** Called when the field is left, for the page editor that judges on blur. */
   onFieldLeft?: () => void;
   /** The label node — the editor passes its marker-carrying `FieldLabel`, the dialog a plain label. */
   labelSlot?: ReactNode;
   /** The message for a caller without a `<Form>` context — same split as `SpielortFormFields`. */
   error?: string;
+  /** The field's dotted path in the enclosing payload, for a caller that nests the club's own shape. */
+  name?: string;
+  /** The box's ceiling, which is the PAYLOAD's minus `WEBSITE_URL_SCHEME`: the prefix is not typed. */
+  maxLength?: number;
 }) {
   const isFollowable = ExternalUrlSchema.safeParse(value).success;
 
-  const handleChange = (next: string) => {
-    const rest = withoutScheme(next);
-    onChange(rest === "" ? "" : `https://${rest}`);
-  };
-
   const openLink = (
     <a
-      {...(isFollowable ? { href: value, target: "_blank", rel: "noopener noreferrer" } : { "aria-disabled": true })}
+      {...(isFollowable && value !== null ? { href: value, target: "_blank", rel: "noopener noreferrer" } : { "aria-disabled": true })}
       aria-label="Website in neuem Tab öffnen"
       className={`flex size-7 shrink-0 items-center justify-center rounded-md transition-colors ${
         isFollowable ? "text-foreground-muted hover:text-brand cursor-pointer" : "text-foreground-muted/40 cursor-not-allowed"
@@ -56,9 +60,9 @@ export function WebsiteUrlField({
 
   return (
     <TextField
-      name="website_url"
+      name={name}
       value={withoutScheme(value)}
-      onChange={handleChange}
+      onChange={(next) => onChange(toWebsiteUrl(next))}
       onBlur={() => onFieldLeft?.()}
       isInvalid={error ? true : undefined}>
       {labelSlot ?? <Label className={FIELD_LABEL}>Website</Label>}
@@ -71,9 +75,10 @@ export function WebsiteUrlField({
           className={`border-border bg-surface text-foreground ${FIELD_HEIGHT} min-w-0 flex-1 rounded-lg border transition-colors`}>
           {/* Muted, because it is furniture: always there, never editable. */}
           <InputGroup.Prefix className="text-foreground-muted fluid-sm border-border self-stretch border-r pr-2 select-none">
-            https://
+            {WEBSITE_URL_SCHEME}
           </InputGroup.Prefix>
           <InputGroup.Input
+            maxLength={maxLength}
             placeholder="www.beispielverein.de"
             className="fluid-sm ps-2"
           />

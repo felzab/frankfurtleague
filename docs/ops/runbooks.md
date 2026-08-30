@@ -1,6 +1,6 @@
 # Ops — runbooks
 
-**Verified against:** `dbe2978e`, 2026-08-28\
+**Verified against:** `12d462af`, 2026-08-30\
 **Purpose:** the recurring procedures that are run rather than read, and the operational facts no file in this repository states
 
 The contracts these depend on — the services, the scripts, the gate scopes and the registry — are
@@ -38,6 +38,25 @@ serving.** A container built from the previous commit carries the previous valid
 the very documents the new ones reject, so the only run that answers the question is the one made against
 the constraints that are about to land. Nothing later in the pipeline compares stored documents against a
 validator.
+
+**On the server that checkout reaches the container as a bind mount**, the image carrying an `app/` of its
+own:
+
+```bash
+docker run --rm --network <compose-network> -v "$PWD/fl_backend/app:/app/app:ro" \
+  -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
+  -e API_TRUSTED_HOSTS=x -e API_CORS_ALLOWED_ORIGINS=x \
+  -e INTERNAL_API_KEY_BASE=x -e INTERNAL_API_KEY_SYSTEM=x -e INTERNAL_API_KEY_ADMIN=x \
+  <backend-image> python -m app.core.constraints --check
+```
+
+**Seven variables are required and two carry real values.** `BackendConfig` declares six fields with no
+default, so `-e MONGODB_URI=` alone exits 1 on a validation error naming the internal keys rather than
+anything about the database. `--check` reads the database and nothing else, so the hosts, the origins and
+the three keys may be any non-empty string — **do not go looking for the production ones.**
+
+Two caveats, untested against the server itself: the image runs as `uid=100 fl_api_user`, so the mounted
+`app/` must be readable by that uid, and an SELinux host needs `:z` on the mount.
 
 **Counting a key's presence is not a substitute for the run.** The report reads each validator back as a
 query, so it fails a document whose key is there with the wrong BSON type; a `$exists` count passes that
@@ -118,29 +137,6 @@ such row fails `GET /spiele/action_required` for the entire league — a `past` 
 included, which is the one nobody thinks to suspect. The two reports are independent: an orphan row can carry
 a perfectly good name, and a row missing its name can name a club that exists.
 
-### Giving `teams.schulform` a value for the clubs that predate it
-
-The property is declared outside the `teams` validator's `required`, so it fails no stored row and the
-deploy owes nothing. This fills in what a club's own name already says, so an administrator opens the
-editor to decide rather than to transcribe.
-
-Run it in `mongosh` against the application database, after the deploy, on a database whose `--check`
-reads clean:
-
-```javascript
-db.teams.updateMany({ schulform: null, name: /Gesamtschule/i }, { $set: { schulform: "gesamtschule" } });
-db.teams.updateMany({ schulform: null, name: /Oberstufengymnasium/i }, { $set: { schulform: "oberstufengymnasium" } });
-```
-
-**Those two are the whole of what a name can settle, and the omission is the point.** A club called
-`… Gymnasium` may run G8 or G9 and its name says neither, so writing one of them would be a guess stored
-as a fact — and a wrong `schulform` is invisible, because nothing downstream contradicts it. Every club a
-name cannot place keeps its null, which the editor shows as unset.
-
-The filter matches on `schulform: null` rather than on the whole collection, so a value somebody has
-already set by hand survives a second run and the statements are safe to repeat. Re-run
-`python -m app.core.constraints --check` afterwards, as every edit to stored documents does.
-
 ## 3. After changing anything about the brand mark
 
 ```bash
@@ -160,3 +156,64 @@ is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that ar
   nothing, so deleting it by hand is tidying rather than revocation.
 - **An admin ending their own session needs no restart at all**: the sidemenu's options menu carries a
   sign-out, which arms on the first press and ends the session on the second.
+
+## 5. When the application queue has been flooded
+
+**The state announces itself, and the read degrades rather than refusing.** `GET /bewerbungen` serves at most
+`LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the
+filtered set (`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen`). Where more do exist it answers
+`vollstaendig: false` and the triage page raises a standing warning that cannot be dismissed
+(`fl_frontend/src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx ::
+BewerbungenUnvollstaendigNotice`). Answering short and saying so is the deliberate choice over refusing past a
+threshold: these rows are written by an anonymous public form, so a hard failure would hand whoever writes
+them the power to decide when the page stops working.
+
+**What truncation costs first is duplicate detection, which is why the notice leads on it.** Colliding
+applications are marked across the rows that came back — derived from the whole loaded list rather than the
+filtered one, so a search or a facet cannot take the mark off a pair
+(`fl_frontend/src/features/bewerbungen/components/views/AdminBewerbungenView.tsx`). A pair split across the
+truncation boundary is not marked, and the notice says plainly that which pair went unmarked is not knowable
+from the page. Treat duplicate marking as unreliable for as long as the notice stands.
+
+**The facet counts are the second thing to distrust.** They count the loaded rows alone, so a facet reading
+zero means zero among what came back rather than zero in the queue.
+
+**Reversing the read is the recovery the page offers, and the only one.** The default order is newest first,
+so what a cut-short answer keeps is the newest rows and what it drops is the oldest — which is exactly where
+applications submitted before a flood sit. The notice names which end is loaded and links to the other, the
+link reading `die ältesten zuerst laden` on a default view
+(`fl_frontend/src/features/bewerbungen/utils.ts :: leserichtungHref`, with `:: parseLeserichtung` reading the
+`order` parameter back and treating anything unexpected as the default). The page sends `order` and nothing
+else (`fl_frontend/src/app/admin/bewerbungen/page.tsx`).
+
+**The reversed view is not a complete one, and the notice says so about itself.** It closes on `Auch diese
+Ansicht bleibt unvollständig` whichever end is loaded. Reversing swaps which rows are missing; it does not
+reduce how many are.
+
+**Narrowing by season or status is not offered, and that is a finding rather than an omission.** The read
+accepts both (`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenFilterParams`), but neither
+separates a flood from genuine applications: a submission is admitted only while a season's window is open
+(`fl_backend/app/api/bewerbungen/services.py :: find_window_refusal`), so a flood lands in the season the
+public form points at, and the server sets `status` on write, so every flooded row is `eingereicht`. Both
+facets would therefore select the flood itself. Reaching those parameters anyway would mean a backend call,
+and the edge carries exactly one backend path (`= /api/v0/system/is_live`, [`spec.md`](spec.md) I13), so it
+would have to be made on the server against the backend container. Nothing in this repository wraps that.
+
+**Declining does not shrink the working set.** A decided application stays listed, the record being what the
+decision was taken against (`:: get_bewerbungen`), so an operator who declines down the queue and sees the
+notice unchanged has not found a fault. Removal is not an alternative either: the collection's whole write
+surface is the two decisions (`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung` and
+`:: ablehnen_bewerbung`) plus the public submission, so a flooded row stays.
+
+**Closing the window is what stops new rows**, and it is the season's own edit rather than anything here. The
+`offen` flag and the span beside it are the season editor's application section
+(`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormBewerbungSection.tsx`), reaching
+`PATCH /saisons/{saison_id}`; the window guard reads that flag on every submission, so a closed window
+refuses the next one without touching a row already written.
+
+**The rate limit buys time rather than prevention.** `= /api/bewerbung` carries a paired ceiling of 2r/m on
+one /64 and 6r/m on one /48 ([`spec.md`](spec.md) §1.3 for why the pair and why the wide half sits below the
+others), which puts filling the list from a single /48 at roughly three hours of sustained work rather than
+minutes. It does nothing about a flood spread across many allocations, and `limit_conn 50` on the catch-all
+is the only ceiling on concurrency — a backstop rather than a per-visitor control, and the one figure in that
+section never exercised against a real page load.

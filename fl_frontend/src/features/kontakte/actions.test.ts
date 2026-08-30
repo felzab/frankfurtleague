@@ -17,6 +17,10 @@ const PANEL_SOURCE = readFileSync(path.resolve(import.meta.dirname, "components"
 const PANEL = PANEL_SOURCE.replace(/\s+/g, " ");
 /** The page the control stands on, collapsed for the same reason. */
 const PAGE_SOURCE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "kontakte", "page.tsx"), "utf8");
+const SECTION = readFileSync(
+  path.resolve(import.meta.dirname, "components", "forms", "AdminKontakteEditForm", "FormKontakteSection.tsx"),
+  "utf8",
+).replace(/\s+/g, " ");
 const PAGE = PAGE_SOURCE.replace(/\s+/g, " ");
 /** The backend redaction the panel's copy describes, read where it is written. */
 const RECORDING = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "recording.py"), "utf8");
@@ -81,7 +85,7 @@ describe("the erasure against the backend's refusal register", () => {
     assert.ok(!COMMIT.includes("press("), "the write's slice reaches the presses that dispatch it");
     assert.ok(HANDLE_ERASE.includes("press("), "the press handler's slice does not reach its dispatch");
     assert.ok(HANDLE_ARM.includes("isConfirming"), "the arm handler's slice does not reach its guard");
-    assert.ok(JUDGE_ADDRESS.includes("safeParse"), "the address guard's slice does not reach its parse");
+    assert.ok(JUDGE_ADDRESS.includes("guardSubmit"), "the address guard's slice does not reach its block");
     assert.ok(RESPONSE_SCHEMA.includes("redacted_aktionen"), "the response schema's slice does not reach its fields");
   });
 
@@ -153,14 +157,25 @@ describe("what the erasure moves", () => {
     ]);
     assert.match(
       COMMIT,
-      /appToast\.danger\("Kontaktdaten nicht gelöscht", \{ description: res\.error \?\? UNKNOWN_REFUSAL \}\);/,
+      /appToast\.danger\("Kontaktperson nicht gelöscht", \{ description: res\.error \?\? UNKNOWN_REFUSAL \}\);/,
       "the failure toast says something other than the refusal it was handed",
+    );
+    /* The zero branch, as the editor's own control takes it: the endpoint refuses nothing, so an
+       address matching nobody succeeds and clears zero, and „gelöscht“ over that is a quiet lie. */
+    assert.match(
+      COMMIT,
+      /if \(res\.cleared === 0\) appToast\.warning\("Nichts gefunden", \{ description: res\.message \}\);/,
+      "a write that found nothing is reported as a deletion",
     );
     assert.match(
       COMMIT,
-      /appToast\.success\("Kontaktdaten gelöscht", \{ description: res\.message \}\);/,
+      /else appToast\.success\("Kontaktperson gelöscht", \{ description: res\.message \}\);/,
       "the success toast says something other than the action's report",
     );
+
+    /* The referee anonymisation already owns „Kontaktdaten gelöscht“, and two different writes under
+       one title read as one thing having happened. */
+    assert.ok(!COMMIT.includes("Kontaktdaten gelöscht"), "the erasure took the anonymisation's title");
   });
 
   /* One call site, so nothing reaches the endpoint around the confirm: a `press`-less second call
@@ -210,7 +225,7 @@ describe("the erasure's copy", () => {
 
     assert.notEqual(reveal, "", "the reveal's closing paragraph is no longer where the cut looks for it");
     assert.match(reveal, /Die anderen Kontaktpersonen bleiben eingetragen/, "the reveal drops what survives the press");
-    // Never „die beiden anderen“: `trainer_ist_ansprechperson` seats one person in two slots, so an
+    // Never „die beiden anderen“: `trainer_ist_zugleich` seats one person in two slots, so an
     // erasure can leave one other person rather than two.
     assert.ok(!PANEL.includes("beiden anderen"), "the copy counts the survivors, and a double-seated person makes it one");
     assert.match(reveal, /Ihr gesicherter Stand im Änderungsprotokoll geht aber mit/, "the reveal spares the two beside them in the log too");
@@ -247,11 +262,12 @@ describe("the erasure's copy", () => {
     assert.ok(!PANEL.includes('"Ja, endgültig löschen"'), "the armed label drops the object, and reads as the team going");
   });
 
-  /* One `h1` per page and the shell owns it. A panel heading is an `h2`, and its readout's is an `h3`. */
+  /* One `h1` per page and the shell owns it. The heading LEVEL is `PanelHeading`'s now and pinned there;
+     what this panel owes is using it, and its readout's `h3`. */
   it("raises no heading the shell already owns", () => {
     assert.ok(!PANEL.includes("<h1"), "the panel raises a second h1");
     assert.ok(!PAGE.includes("<h1"), "the page raises an h1 the shell already owns");
-    assert.match(PANEL, /<h2 className=\{panel\.heading\(\)\}>/, "the panel's heading is no longer an h2");
+    assert.ok(PANEL.includes("<PanelHeading className={panel.heading()}"), "the panel spells its own heading again");
   });
 });
 
@@ -276,7 +292,9 @@ describe("the address the press acts on", () => {
      and its `formRef` is what moves focus onto a refused box. An `action` would reset every
      controlled field (frontend spec I32). */
   it("renders the one field-error map through a form the hook can reach", () => {
-    assert.match(PANEL, /<Form ref=\{formRef\} validationErrors=\{fieldErrors\}/, "the field errors reach no form");
+    assert.match(PANEL, /<Form\b/, "the panel renders no form");
+    assert.match(PANEL, /ref=\{formRef\}/, "the hook cannot reach the form");
+    assert.match(PANEL, /validationErrors=\{fieldErrors\}/, "the field errors reach no form");
     assert.match(PANEL, /onSubmit=\{runOnSubmit\(handleArm\)\}/, "the form no longer submits through runOnSubmit");
     assert.ok(!/\saction=\{/.test(PANEL), "the form takes an action, which React resets each submit");
   });
@@ -303,11 +321,15 @@ describe("the address the press acts on", () => {
      `shared/hooks/useTwoPressConfirm.test.ts`. An unjudged address may not reach the wire. */
   it("guards both presses on the address", () => {
     assert.match(PANEL, /useTwoPressConfirm\(judgeAddress\)/, "the panel arms on an address nothing judged");
-    // The whole body, so a verdict hardcoded beside a parse kept as a void expression fails here.
+    // The whole body, exactly: the verdict is whether the block RAN the write, so a hardcoded `true` or an
+    // extra disjunct widening what counts as judged both leave this list changed rather than still matching.
     assert.deepEqual(statementsOf(JUDGE_ADDRESS), [
       "const judgeAddress = (): boolean => {",
-      'validatePaths("erasure", { email }, ["email"]);',
-      "return FLKontaktErasurePayloadSchema.safeParse({ email }).success;",
+      "let mayWrite = false;",
+      "guardSubmit({ erasure: { email } }, () => {",
+      "mayWrite = true;",
+      "});",
+      "return mayWrite;",
       "};",
     ]);
   });
@@ -322,7 +344,7 @@ describe("the address the press acts on", () => {
   it("clears the box once the write lands", () => {
     assert.match(
       PANEL,
-      /appToast\.success\("Kontaktdaten gelöscht"[\s\S]*?setEmail\(""\);[\s\S]*?router\.refresh\(\);/,
+      /appToast\.success\("Kontaktperson gelöscht"[\s\S]*?setEmail\(""\);[\s\S]*?router\.refresh\(\);/,
       "the erased address stays in the box",
     );
   });
@@ -411,9 +433,22 @@ describe("the report the toast carries", () => {
 describe("where the control stands", () => {
   /* Below the list and not on a row: the operation is keyed on the ADDRESS across every season and
      both collections, and the applications it also reaches appear on no row of this page. */
-  it("renders once, under the season-scoped list", () => {
-    assert.match(PAGE, /<\/Suspense> \{\/\*[\s\S]*?<AdminKontaktErasureForm \/>/, "the erasure no longer stands below the list");
-    assert.ok(!PAGE.includes("AdminKontaktErasureForm kontakt"), "the erasure is rendered per row, which claims a reach it does not have");
+  it("stands inside the panel of the person it erases, never on the list", () => {
+    /* Moved off the list and onto the person. The reach is what makes the placement matter: keyed on
+       an ADDRESS, it clears every season and both collections, so a reader has to see whose data it
+       is while reading what it takes. */
+    assert.ok(!PAGE.includes("AdminKontaktErasureForm"), "the erasure is back on the list, detached from the person");
+    assert.match(SECTION, /<FormKontaktErasure email=\{person\.email\}/, "no seat offers the erasure of the person it holds");
+  });
+
+  /* The claim points two seats at one record. Offered on both, the same person would read as two, and
+     the second press would erase somebody already gone. */
+  it("offers it on the seat that holds the person, never on the mirrored copy", () => {
+    assert.match(
+      SECTION,
+      /person !== null && !isMirrored && person\.email !== "" && \( <FormKontaktErasure/,
+      "the mirrored seat offers its own erasure",
+    );
   });
 
   /* The page's chrome may never wait on the list, and the fetch below the boundary may never run in

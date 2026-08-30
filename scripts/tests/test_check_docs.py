@@ -57,6 +57,24 @@ SAMPLE: Final = "fl_backend/app/sample.py"
 SECOND_SAMPLE: Final = "fl_backend/app/second.py"
 THIRD_SAMPLE: Final = "fl_backend/app/spare.py"
 LABEL_SAMPLE: Final = "fl_backend/app/label.py"
+# The one module carrying a comment block the corpus commits ALREADY over INC-9's character bound,
+# so a plant can edit inside it and a plant can lengthen the short block beside it.
+LEGACY_SAMPLE: Final = "fl_backend/app/legacy.py"
+# One module per comment marker, because the marker is what a wrapped citation drags into its anchor.
+MARKER_SAMPLE: Final = "fl_backend/app/marker.py"
+MARKER_TSX: Final = "fl_frontend/src/marker.tsx"
+# A quoted error carrying the separator. Not a citation, and reporting it as a dead one sends a
+# reader after a file nobody named.
+QUOTED_ERROR: Final = "121 · Plan executor error during update :: caused by :: Document failed validation"
+# Three DISTINCT lines: a plant edits the middle one, and the block is recognised across that edit
+# by its opening -- which a plant editing the opening itself would change, and own.
+LEGACY_OPENING: Final = "an opening line of a comment block the corpus itself committed over what a comment may ever hold"
+LEGACY_MIDDLE: Final = "a middle line a plant edits, leaving the block over a character bound it was already over before"
+LEGACY_CLOSING: Final = "a closing line carrying the block past the character bound well before any plant was ever written"
+SHORT_LINE: Final = "a block inside both bounds until something is added to it"
+# What a plant adds to the short block to carry it past the character bound and nothing else: one
+# line, so the LINE bound stays inside its cap and only the branch's own text can be what fires.
+LENGTHENING_LINE: Final = "a clause that carries the block past the character bound " * 4
 # The one C-style module in the corpus. A JSX comment opens with a brace, so no other fixture puts
 # that shape in front of the reader, and it is bounded as an inline comment rather than a symbol doc.
 TSX_SAMPLE: Final = "fl_frontend/src/sample.tsx"
@@ -112,6 +130,18 @@ ROOT_SEGMENT: Final = "| Root files | `*` |"
 
 SCRIPTS_COPY: Final = "scripts"
 HOOKS_STUB: Final = "nohooks"
+GITIGNORE: Final = ".gitignore"
+# What a plant parks where the corpus reaches, to be told it does not. The ignored one models a
+# scratch file somebody left in the tree; the skipped one a running audit programme's working notes.
+IGNORED_MODULE: Final = "ignored/scratch.py"
+SKIPPED_MODULE: Final = "docs/audit/scratch.py"
+# A file a plant writes and never stages, which is what a branch holds when the gate runs.
+UNSTAGED_MODULE: Final = "fl_backend/app/unstaged.py"
+UNSTAGED_BLOCK: Final = "fl_backend/app/unstaged_block.py"
+# The one path a plant writes into more than one file, so placement is what a finding turns on.
+DEAD_PATH: Final = "docs/gone-in-an-unstaged-module.md"
+# The glossary heading the notes page cites by bare name, which is what the untracked twin copies.
+GLOSSARY_ANCHOR: Final = "the competition year"
 # What the fixture is BUILT out of rather than checked. Naming what must SURVIVE the reset keeps this
 # from growing with the corpus, which is the list nobody remembers to extend.
 PRESERVED: Final[tuple[str, ...]] = (SCRIPTS_COPY, HOOKS_STUB, UNTRACKED_DIR)
@@ -142,6 +172,10 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
     ]
     return {
         GITATTRIBUTES: _page("* text=auto eol=lf", "*.bin binary"),
+        # The copy of scripts/ this fixture imports the gate from sits in the tree untracked, and
+        # the corpus reads the working tree: unignored, the gate would scan its own source against
+        # this corpus and report every citation it carries.
+        GITIGNORE: _page("/" + SCRIPTS_COPY + "/", "/" + IGNORED_MODULE.partition("/")[0] + "/"),
         ROOT_README: _page(
             _heading(1, "Fixture repository"),
             "",
@@ -153,6 +187,9 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             "A page with no stamp, which is where a planted violation is written.",
             "",
             "A bare name resolves to the tracked file alone: `glossary.md :: the competition year`.",
+            "",
+            "A citation that wraps is still one citation: `docs/glossary.md ::",
+            "the competition year` resolves across the break.",
             "",
             # A schemeless host and port has the shape of a line citation once the scheme is off the
             # line. Both spellings, because the backticked pattern was narrowed alongside the bare one.
@@ -210,6 +247,9 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             _stamp(),
             "",
             "The contract the store answers to. `fl_backend/app/sample.py` holds the sample module.",
+            "",
+            "The legacy module is cited across a wrap, and only there: `fl_backend/app/legacy.py ::",
+            "LEGACY` is what the stamp on this page has to be watched against.",
             "",
             _heading(2, "1. Contract"),
             "",
@@ -417,6 +457,23 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             # comment alone. The comment is what makes the two readers disagree.
             'S = "docs/gone-in-a-literal.md"  # a real comment',
         ),
+        MARKER_SAMPLE: _page(
+            QUOTES + "BACKEND · a module whose citations wrap, one per marker shape." + QUOTES,
+            "",
+            HASH + " The hash reader, wrapped mid-citation: `fl_backend/app/sample.py ::",
+            HASH + " VALUE` still names the symbol it named before the break.",
+            "MARKED = 1",
+        ),
+        MARKER_TSX: _page(
+            "/* FRONTEND · a module whose citations wrap under the c-style readers. */",
+            "",
+            "// The slash reader, wrapped mid-citation: `fl_backend/app/sample.py ::",
+            "// VALUE` survives the join with its anchor intact.",
+            "",
+            "/* A block comment already joins cleanly, its continuation carrying a star:",
+            " * `fl_backend/app/sample.py :: VALUE` is one citation either way. */",
+            "export const MARKED = 1;",
+        ),
         SECOND_SAMPLE: _page(
             QUOTES + "BACKEND · a module beside the sample, so one check can speak about more than one file." + QUOTES,
             "",
@@ -435,6 +492,17 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             QUOTES + "BACKEND · a module for the label shape, which the other two exclude." + QUOTES,
             "",
             "LABELLED = 1",
+        ),
+        LEGACY_SAMPLE: _page(
+            QUOTES + "BACKEND · a module whose comments the corpus committed before any plant." + QUOTES,
+            "",
+            # Committed over the character bound, and silent while nothing touches it: a run with an
+            # empty diff adds no line, which is what leaves an untouched block outside the check.
+            *[HASH + " " + line for line in (LEGACY_OPENING, LEGACY_MIDDLE, LEGACY_CLOSING)],
+            "LEGACY = 1",
+            "",
+            HASH + " " + SHORT_LINE,
+            "SHORT = 2",
         ),
         UMLAUT_MODULE: _page(
             QUOTES + "BACKEND · a module whose own name no ASCII listing can spell." + QUOTES,
@@ -1396,6 +1464,203 @@ def test_only_a_gitattributes_declaration_exempts_a_file_from_the_byte_check() -
     finally:
         _reset()
     assert reported[("fail", "binary-byte", UNDECODABLE)] == 1, "an undeclared binary was passed over anyway: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def _module_named(what: str) -> str:
+    """A module whose one comment carries a dead path, so reaching the file is what a finding says."""
+    return _page(QUOTES + "BACKEND · " + what + QUOTES, "", "VALUE = 1", "", HASH + " resolves nowhere: " + DEAD_PATH)
+
+
+def test_a_file_the_branch_has_not_staged_is_read_like_a_tracked_one() -> None:
+    """The corpus is the working tree, so a file written and not yet added is inside every check.
+
+    The gate runs before the commit (CLAUDE.md §2), so the index alone would leave every module,
+    route and test a branch adds unread while the run reported clean.
+    """
+    _reset()
+    _write(_gate().root, UNSTAGED_MODULE, _module_named("a module this branch wrote and never staged."))
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "bare-path", UNSTAGED_MODULE)] == 1, "an unstaged module was scanned by nothing: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_an_ignored_or_skipped_file_stays_outside_the_corpus() -> None:
+    """Widening the corpus to the working tree stops at what git ignores and at SKIP_DIRS.
+
+    Both carry the case above's plant, so only placement can be what silences them.
+    """
+    _reset()
+    root = _gate().root
+    for rel in (IGNORED_MODULE, SKIPPED_MODULE):
+        _write(root, rel, _module_named("a module no check may reach."))
+    try:
+        _, reported = _run()
+    finally:
+        for rel in (IGNORED_MODULE, SKIPPED_MODULE):
+            (root / rel).unlink()
+        _reset()
+    parked = {rel: count for (_, _, rel), count in reported.items() if rel in (IGNORED_MODULE, SKIPPED_MODULE)}
+    assert not parked, "a file the corpus must not reach was scanned anyway: " + repr(parked)
+    _assert_corpus_restored()
+
+
+def test_an_unstaged_file_s_lines_are_read_as_lines_this_branch_added() -> None:
+    """INC-9 and the added-line checks read a whole unstaged file, git holding no diff for one.
+
+    git has no version of a file the index never reached, so the block below sits in no hunk.
+    """
+    _reset()
+    over = [HASH + " a line of a block that runs past what a comment may hold" for _ in range(4)]
+    _write(_gate().root, UNSTAGED_BLOCK, _page(QUOTES + "BACKEND · an unstaged module." + QUOTES, "", "VALUE = 1", "", *over))
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "comment-length", UNSTAGED_BLOCK)] == 1, "an unstaged block was measured by nothing: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_bare_name_reaches_an_unstaged_file_and_the_index_still_answers_first() -> None:
+    """A bare-name citation resolves through the index, and through the tree only where it cannot.
+
+    Two citations separate a file not reached from an anchor not there, and the twin proves the
+    order: reading the tree first lands on the copy.
+    """
+    _reset()
+    root = _gate().root
+    twin = (root / UNTRACKED_TWIN).read_bytes()
+    _write(root, UNTRACKED_TWIN, _read(GLOSSARY).replace(GLOSSARY_ANCHOR, "a heading the corpus does not cite"))
+    _write(root, UNSTAGED_MODULE, _module_named("a module cited by name before it was staged."))
+    _append(SAMPLE, HASH + " see `unstaged.py :: VALUE = 1`", HASH + " and `unstaged.py :: a symbol nobody wrote`")
+    try:
+        _, reported = _run()
+    finally:
+        (root / UNTRACKED_TWIN).write_bytes(twin)
+        _reset()
+    assert reported[("fail", "citation", SAMPLE)] == 1, "a bare name did not reach the unstaged file it names: " + _shape(reported)
+    assert reported[("fail", "citation", NOTES)] == 0, "an untracked copy answered a bare name the index holds: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_block_this_branch_lengthened_is_measured_and_an_older_one_is_not() -> None:
+    """A block the branch lengthened past a bound is measured, and the older one beside it is not.
+
+    Requiring the WHOLE block to be added misses the lengthened one, and the count says so: the
+    corpus block above it is over the same bound and must stay silent.
+    """
+    _reset()
+    _replace(LEGACY_SAMPLE, HASH + " " + SHORT_LINE, HASH + " " + SHORT_LINE + NEWLINE + HASH + " " + LENGTHENING_LINE)
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    reason = "the block this branch lengthened, and it alone, is the one to measure: "
+    assert reported[("fail", "comment-length", LEGACY_SAMPLE)] == 1, reason + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_word_changed_inside_an_older_block_is_not_this_branch_s() -> None:
+    """A block already over the bound stays the sweep's, however many of its lines a branch edits.
+
+    Driven apart from the case above: silence proves nothing while a second block is speaking.
+    """
+    _reset()
+    cap = _module("docs_gate.structure").COMMENT_CHAR_CAP
+    legacy = " ".join((LEGACY_OPENING, LEGACY_MIDDLE, LEGACY_CLOSING))
+    # The premise, asserted: a corpus block INSIDE the bound would let this case pass on nothing.
+    assert len(legacy) > cap, "the corpus block is inside the bound, so nothing here is exempted"
+    _replace(LEGACY_SAMPLE, HASH + " " + LEGACY_MIDDLE, HASH + " " + LEGACY_MIDDLE.replace("edits", "rewords"))
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    spoke = [key for key in reported if key[1] == "comment-length"]
+    assert not spoke, "a word changed inside an older block was failed as this branch's: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_citation_that_wraps_across_a_line_is_read_as_one_citation() -> None:
+    """A code span may wrap, and a pattern that stops at the newline calls the page clean.
+
+    Two wrap points, because a pattern widened until one instance passed would leave the other
+    unseen: one break after the separator, one before it.
+    """
+    _reset()
+    _append(
+        NOTES,
+        "Naming nothing, wrapped after the separator: `docs/gone-in-a-wrap.md ::",
+        "a symbol nobody wrote`.",
+        "",
+        "And wrapped before it: `docs/glossary.md",
+        ":: an anchor the glossary does not carry`.",
+    )
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 2, "a citation that wraps was read by nothing: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_code_span_is_not_joined_across_a_blank_line() -> None:
+    """The join stops at the blank line that ends a paragraph, which is what bounds it.
+
+    Without that bound a stray backtick would pair with one in the paragraph below and the citation
+    it invents would be reported against a page carrying none.
+    """
+    _reset()
+    _append(
+        NOTES,
+        "A paragraph whose last span is left open: `docs/gone-across-a-paragraph.md ::",
+        "",
+        "and the paragraph after it, carrying the closing tick`.",
+    )
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 0, "a span was joined across a blank line: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_wrapped_citation_reaches_the_watch_list_cur_4_restamps_from() -> None:
+    """CUR-4 reads the same citations, so a wrap hidden from it drops a page out of branch-impact.
+
+    Driven through the legacy module, cited across a wrap and nowhere else, so a reader stopping
+    at the newline builds a watch list this change cannot appear in.
+    """
+    _reset()
+    _append(LEGACY_SAMPLE, "EXTRA = 3")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    reason = "a file cited only across a wrap never reached the watch list: "
+    assert reported[("fail", "branch-impact", BACKEND_SPEC)] == 1, reason + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_quoted_error_is_not_a_citation_and_a_broken_wrapped_one_still_is() -> None:
+    """The separator alone is not evidence: COR-6's left half names a file, and quoted text does not.
+
+    The corpus proves the marker is stripped: its wrapped citations resolve only while it is, so a
+    surviving `#` speaks through the clean-corpus case.
+    """
+    _reset()
+    _append(NOTES, "The store answered `" + QUOTED_ERROR + "`.")
+    _append(SAMPLE, HASH + " The store answered `" + QUOTED_ERROR + "`.")
+    # A DIFFERENT module, because the plant writes the anchor text into the file it is appended to.
+    _append(SAMPLE, HASH + " and see `fl_backend/app/second.py ::", HASH + " a symbol nobody wrote`")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 0, "a quoted error was read as a citation: " + _shape(reported)
+    assert reported[("fail", "citation", SAMPLE)] == 1, "a wrapped citation naming a dead anchor went unread: " + _shape(reported)
     _assert_corpus_restored()
 
 

@@ -262,7 +262,7 @@ class TestTheJunctionPatchPayload:
             "trainer": {**STORED_KONTAKTPERSON, "telefon": "nicht bekannt"},
             "ansprechperson": None,
             "stellvertretung": None,
-            "trainer_ist_ansprechperson": False,
+            "trainer_ist_zugleich": None,
         }
 
         assert FLSaisonTeamKontakte.model_validate(stored_but_unwritable).trainer is not None
@@ -281,7 +281,7 @@ class TestTheContactsPatchPayload:
         """The block is written whole or not at all, so a partial one is a form half filled in rather than a smaller truth."""
 
         with pytest.raises(ValidationError):
-            FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": {"trainer_ist_ansprechperson": False}})
+            FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": {"trainer_ist_zugleich": None}})
 
     def test_the_block_is_required_so_a_null_clears_it_deliberately(self):
         with pytest.raises(ValidationError) as failure:

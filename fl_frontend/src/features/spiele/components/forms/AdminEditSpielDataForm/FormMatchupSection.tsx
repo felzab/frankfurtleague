@@ -4,6 +4,7 @@ import { Separator } from "@heroui/react";
 
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import { collectUsedQuelleKeys } from "../../../utils";
 import { FormTeamPicker } from "./FormTeamPicker";
@@ -70,8 +71,9 @@ export function FormMatchupSection({
       {/* Where the team-source vocabulary is explained, rather than in a `Description` under every
           control. The fields keep only what is needed while filling them in. */}
       <div className={styles.header()}>
-        <h2 className={styles.heading()}>
-          Begegnung
+        <PanelHeading
+          className={styles.heading()}
+          title="Begegnung">
           {/* Two elements rather than one with a conditional body: `hintCap.test.ts` counts a
               literal, and a ternary is a body it cannot measure. What a manual side COSTS is the
               takeover banner's, so this row says only what the choice does. The bullet is the one
@@ -92,7 +94,7 @@ export function FormMatchupSection({
               body={{ lead: "Welche beiden Teams aufeinandertreffen." }}
             />
           )}
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={styles.body()}>

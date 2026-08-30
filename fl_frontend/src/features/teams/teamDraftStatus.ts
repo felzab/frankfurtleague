@@ -17,7 +17,9 @@ export type FLTeamDraftFields = {
   name: string;
   shorthand: string;
   full_name: string;
-  website_url: string;
+  // Nullable as the payload is: `null` is a club with no website, which `emptyAsNull` already grades
+  // as unset below.
+  website_url: string | null;
   description: string;
   address: FLAddress;
   schulform: FLSchulform | null;

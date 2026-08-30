@@ -15,7 +15,9 @@ export type FLSpielStatus = z.infer<typeof FLSpielStatusSchema>;
  * which is derived, total and about time.
  */
 export const FLSonderereignisSchema = z.enum(["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"], {
-  error: "FLSonderereignis is invalid",
+  // German, unlike `FLSpielStatusSchema`'s beside it: this one is bound to a picker in the match
+  // editor, so its message is a sentence an administrator reads rather than a parse failure's note.
+  error: "Bitte wähle ein Sonderereignis.",
 });
 export type FLSonderereignis = z.infer<typeof FLSonderereignisSchema>;
 
@@ -121,7 +123,7 @@ export type FLSpielElfmeterschiessenDraft = { team1: number | null; team2: numbe
  * its values are competition vocabulary, German.
  */
 export const FLSpielQuelleGruppeSchema = z.object({
-  type: z.literal("gruppe"),
+  type: z.literal("gruppe", { error: "Bitte wähle aus, woher das Team kommt." }),
   gruppe: FLGruppenNamesSchema,
   // On the TYPE check as `mietpreis`'s is: an unpicked placing drafts as `NaN`, which fails
   // `z.int()` before `.positive()` runs.
@@ -130,13 +132,16 @@ export const FLSpielQuelleGruppeSchema = z.object({
 export type FLSpielQuelleGruppe = z.infer<typeof FLSpielQuelleGruppeSchema>;
 
 export const FLSpielQuelleSpielSchema = z.object({
-  type: z.literal("spiel"),
+  type: z.literal("spiel", { error: "Bitte wähle aus, woher das Team kommt." }),
   spiel_nr: z.int({ error: "Bitte wähle ein Spiel aus." }).positive({ error: "Die Spielnummer muss mindestens 1 sein." }),
-  ausgang: z.enum(["sieger", "verlierer"]),
+  ausgang: z.enum(["sieger", "verlierer"], { error: "Bitte wähle Sieger oder Verlierer." }),
 });
 export type FLSpielQuelleSpiel = z.infer<typeof FLSpielQuelleSpielSchema>;
 
-export const FLSpielQuelleSchema = z.discriminatedUnion("type", [FLSpielQuelleGruppeSchema, FLSpielQuelleSpielSchema]);
+export const FLSpielQuelleSchema = z.discriminatedUnion("type", [FLSpielQuelleGruppeSchema, FLSpielQuelleSpielSchema], {
+  // The discriminator too: an absent or unknown `type` otherwise answers with the slugs themselves.
+  error: "Bitte wähle aus, woher das Team kommt.",
+});
 export type FLSpielQuelle = z.infer<typeof FLSpielQuelleSchema>;
 
 /**

@@ -9,8 +9,9 @@ import { FIELD_LABEL, FIELD_PAIR, FIELD_TRIO, FORM_SECTION_HEADING } from "@/sha
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
-import type { FLSaisonRules } from "@/features/saisons/schemas";
+import type { FLSaisonRulesDraft } from "@/features/saisons/types";
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SaisonBanner } from "./banners";
 
@@ -39,8 +40,8 @@ export function FormRegelnSection({
   isDrawnSaison,
   banners,
 }: {
-  rules: FLSaisonRules;
-  onRulesChange: (next: FLSaisonRules) => void;
+  rules: FLSaisonRulesDraft;
+  onRulesChange: (next: FLSaisonRulesDraft) => void;
   onFieldLeft: (paths: readonly string[]) => void;
   /** Separate from `onRulesChange`, because a picked control is judged on change. */
   onStufenChange: (next: FLSpielerStufe[]) => void;
@@ -68,14 +69,15 @@ export function FormRegelnSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Regeln
+        <PanelHeading
+          className={panel.heading()}
+          title="Regeln">
           <Hint
             mode="reveal"
             label="Hinweis zu den Regeln"
             body={{ lead: "Die Regeln gelten nur für diese Saison." }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

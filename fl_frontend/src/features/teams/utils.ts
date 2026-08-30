@@ -1,12 +1,13 @@
+import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { computeErgebnisFor, PHASE_RANK } from "@/features/spiele/utils";
 
-import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN } from "./constants";
+import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, WEBSITE_URL_SCHEME } from "./constants";
 
 import type { FLSaison, FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLGruppenTeam, FLKontaktperson, FLTeamMembership, FLTeamWithMemberships } from "./schemas";
-import type { AdminKontaktRow, GruppeOffer, KontaktpersonDraft, SaisonTeamKontakteDraft } from "./types";
+import type { AdminKontakteRow, AdminKontaktSeat, GruppeOffer, KontaktpersonDraft, SaisonTeamKontakteDraft } from "./types";
 
 /**
  * Every junction row counts — a disqualified team never leaves its season. The pickers disable what
@@ -208,7 +209,9 @@ export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
   email: "",
   telefon: "",
   geburtsdatum: "",
-  einwilligung: { umfang: EINWILLIGUNG_UMFANG, erteilt_von: null, text_version: "", datum: "" },
+  // Stamped, never typed: the version names the wording this person is being asked to agree to, and
+  // an admin transcribing a version number is a value nobody decided stored as though they had.
+  einwilligung: { umfang: EINWILLIGUNG_UMFANG, erteilt_von: null, text_version: LIGA_EINWILLIGUNG.textVersion, datum: "" },
 });
 
 /**
@@ -219,7 +222,7 @@ export const buildEmptyKontakte = (): SaisonTeamKontakteDraft => ({
   trainer: buildEmptyKontaktperson(),
   ansprechperson: buildEmptyKontaktperson(),
   stellvertretung: buildEmptyKontaktperson(),
-  trainer_ist_ansprechperson: false,
+  trainer_ist_zugleich: null,
 });
 
 /**
@@ -230,26 +233,21 @@ const isSamePerson = (a: FLKontaktperson | null, b: FLKontaktperson | null): boo
   a !== null && b !== null && a.vorname === b.vorname && a.nachname === b.nachname && a.email === b.email && a.telefon === b.telefon;
 
 /**
- * Every club's contacts for ONE season, flattened to a row per seat. A club with nothing on file
- * contributes nothing: a row with no person in it would answer "who can be reached" wrongly.
+ * **One row per club**, never per seat: `kontakte` is embedded on `saison_teams`, so a seat has no id
+ * and a per-seat row orders on a key nothing owns. A club with nothing on file contributes none: an
+ * empty row answers "who can be reached" wrongly.
  */
-export function buildKontaktRows(teams: readonly FLTeamWithMemberships[], saisonId: string | undefined): AdminKontaktRow[] {
+export function buildKontaktRows(teams: readonly FLTeamWithMemberships[], saisonId: string | undefined): AdminKontakteRow[] {
   return teams.flatMap((team) => {
     const kontakte = team.memberships.find((membership) => membership.saison_id === saisonId)?.kontakte ?? null;
     if (kontakte === null) return [];
 
-    return KONTAKT_ROLLEN.map(({ value }) => {
+    const seats: AdminKontaktSeat[] = KONTAKT_ROLLEN.map(({ value, label }) => {
       const person = kontakte[value];
 
       return {
-        // The seat is part of the identity: one person can hold two of them, and two rows sharing a
-        // key would collapse into one in the react-aria collection.
-        id: `${team.id}:${value}`,
-        teamId: team.id,
-        teamName: team.name,
-        teamShorthand: team.shorthand,
         rolle: value,
-        // A seat holding nobody still gets its row: an open seat is what the admin has to act on.
+        label: label,
         // `geburtsdatum` is left behind, no cell here rendering it.
         person:
           person === null
@@ -261,9 +259,33 @@ export function buildKontaktRows(teams: readonly FLTeamWithMemberships[], saison
                 telefon: person.telefon,
                 einwilligung: person.einwilligung,
               },
-        istTrainerZugleich:
-          value === "ansprechperson" && kontakte.trainer_ist_ansprechperson && isSamePerson(kontakte.trainer, kontakte.ansprechperson),
+        // The seat the block NAMES, so the badge follows the claim wherever it points rather than to
+        // one hardcoded seat. Never the flag alone: two different people would then read as one.
+        istTrainerZugleich: kontakte.trainer_ist_zugleich === value && isSamePerson(kontakte.trainer, person),
       };
     });
+
+    return [
+      {
+        id: team.id,
+        teamId: team.id,
+        teamName: team.name,
+        teamShorthand: team.shorthand,
+        seats: seats,
+        besetzt: seats.filter((seat) => seat.person !== null).length,
+      },
+    ];
   });
+}
+
+/**
+ * What a website box reports upward: the whole URL, or `null` for a box nobody filled. **The one
+ * place `""` becomes `null`** — the single spelling `OptionalExternalUrlSchema` states is kept by
+ * coercing here, not by every reader testing for two.
+ */
+export function toWebsiteUrl(typed: string): string | null {
+  // The scheme lives in the input group's prefix, so a pasted full URL is de-duplicated here.
+  const rest = typed.replace(/^https?:\/\//i, "").trim();
+
+  return rest === "" ? null : `${WEBSITE_URL_SCHEME}${rest}`;
 }

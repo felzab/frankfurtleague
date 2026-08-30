@@ -20,6 +20,7 @@ import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
@@ -35,6 +36,7 @@ import { FormZeitraumSection } from "./FormZeitraumSection";
 
 import type { FLPatchSaisonPayload, FLSaisonBewerbung, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type {
+  FLSaisonRulesDraft,
   SaisonDraftFields,
   SaisonGruppenSwapContext,
   SaisonReplacementContext,
@@ -82,7 +84,7 @@ export function AdminSaisonEditForm({
   spieltagBound,
   pageHeader,
 }: {
-  saison: { id: string; status: FLSaisonStatus } & SaisonDraftFields;
+  saison: { id: string; status: FLSaisonStatus } & Omit<SaisonDraftFields, "rules"> & { rules: FLSaisonRules };
   rollover: SaisonRolloverContext;
   /** This season's clubs and their groups, plus the knockout count that closes the swap. */
   swap: SaisonGruppenSwapContext;
@@ -97,6 +99,7 @@ export function AdminSaisonEditForm({
   pageHeader: EditPageHeaderContent;
 }) {
   const router = useRouter();
+  const saisonHref = useSaisonHref();
   const [isPending, startTransition] = useTransition();
   const [isLeaving, startLeaving] = useTransition();
 
@@ -104,7 +107,7 @@ export function AdminSaisonEditForm({
   // sends. A picker cleared to null is held as null, and the schema is what reports it.
   const [startDate, setStartDate] = useState<CalendarDate | null>(() => parseDate(saison.start_date));
   const [endDate, setEndDate] = useState<CalendarDate | null>(() => parseDate(saison.end_date));
-  const [rules, setRules] = useState<FLSaisonRules>(saison.rules);
+  const [rules, setRules] = useState<FLSaisonRulesDraft>(saison.rules);
   // The whole block or `null`, never a boolean beside a span: `null` is the season that takes no
   // applications, and the panel is what turns one into the other.
   const [bewerbung, setBewerbung] = useState<FLSaisonBewerbung | null>(saison.bewerbung);
@@ -114,13 +117,19 @@ export function AdminSaisonEditForm({
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { saison: FLPatchSaisonPayloadSchema },
   });
 
   // `""` for a cleared picker rather than a cast: the schema refuses an empty string with the date
   // message, which is one the form can render on the field.
-  const buildPayload = (): FLPatchSaisonPayload => ({
+  /**
+   * Widened at the money field the way `FLSpielOrtFieldDraft` is: an emptied box holds `null`, and the payload
+   * schema's `z.int()` is what asks for a number at the submit.
+   */
+  type SaisonPatchDraft = Omit<FLPatchSaisonPayload, "rules"> & { rules: FLSaisonRulesDraft };
+
+  const buildPayload = (): SaisonPatchDraft => ({
     id: saison.id,
     start_date: startDate?.toString() ?? "",
     end_date: endDate?.toString() ?? "",
@@ -167,6 +176,9 @@ export function AdminSaisonEditForm({
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [formRef]);
 
+  // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
+  useForgiveFixed({ saison: buildPayload() });
+
   const validateFields = (paths: readonly string[]) => validatePaths("saison", buildPayload(), paths);
   // Judged with the value that arrived rather than with state, which has not committed yet.
   const validateStufen = (next: FLSpielerStufe[]) =>
@@ -209,7 +221,7 @@ export function AdminSaisonEditForm({
     // control turns disabled, and no `pointerleave` follows a click that leaves.
     startLeaving(() => {
       if (window.history.length > 1) router.back();
-      else router.push("/admin/saisons");
+      else router.push(saisonHref("/admin/saisons"));
     });
   };
 
@@ -250,6 +262,12 @@ export function AdminSaisonEditForm({
   };
 
   const handleFormSubmit = () => {
+    // `aria` blocks nothing natively, so this call is what keeps an incomplete draft off the wire, in the
+    // schema's own German rather than the browser's bubble. It RUNS the write, so there is no answer to drop.
+    guardSubmit({ saison: buildPayload() }, writeAfterBlock);
+  };
+
+  const writeAfterBlock = () => {
     startTransition(async () => {
       // Built BEFORE the write, from this render's props: they still carry what was stored, and the
       // toast that offers the undo outlives this page.
@@ -349,6 +367,10 @@ export function AdminSaisonEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
+        // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting
+        // the browser's required message the moment an edited field is cleared. `aria` keeps
+        // `aria-required` and leaves every message to `useDraftFieldErrors`.
+        validationBehavior="aria"
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"

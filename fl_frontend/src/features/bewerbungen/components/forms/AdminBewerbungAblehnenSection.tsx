@@ -16,6 +16,7 @@ import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
@@ -49,9 +50,9 @@ export function AdminBewerbungAblehnenSection({
 
   const panel = formPanel();
 
-  /* One measured string for the gate, the counter and the preview: `schemas.ts ::
-     FLAblehnenBewerbungPayloadSchema` trims before it measures, and the trimmed value is what the
-     write carries and the school reads. */
+  /* One measured string for the gate, the counter and the preview:
+     `fl_frontend/src/features/bewerbungen/schemas.ts :: FLAblehnenBewerbungPayloadSchema` trims before
+     it measures, and the trimmed value is what the write carries and the school reads. */
   const trimmedGrund = grund.trim();
 
   const isTooLong = trimmedGrund.length > BEWERBUNG_GRUND_MAX_LENGTH;
@@ -84,8 +85,9 @@ export function AdminBewerbungAblehnenSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Absage
+        <PanelHeading
+          className={panel.heading()}
+          title="Absage">
           <Hint
             mode="reveal"
             label="Hinweis zur Absage"
@@ -97,7 +99,7 @@ export function AdminBewerbungAblehnenSection({
               ],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

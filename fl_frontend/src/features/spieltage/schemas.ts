@@ -62,6 +62,24 @@ export const FLPatchSpieltagPayloadSchema = z
   .refine((spieltag) => spieltag.ende >= spieltag.beginn, endsAfterItBegins);
 export type FLPatchSpieltagPayload = z.infer<typeof FLPatchSpieltagPayloadSchema>;
 
+/**
+ * The same payload with the season's own span folded in, mirroring `REQ-DATE-002`. A FACTORY because the span is
+ * the edited season's rather than a constant, and a rule the schema holds is judged on the blur.
+ */
+export function buildPatchSpieltagPayloadSchema(saisonSpan?: { start: string; end: string }) {
+  if (saisonSpan === undefined) return FLPatchSpieltagPayloadSchema;
+
+  const withinSaison = (datum: string) => datum >= saisonSpan.start && datum <= saisonSpan.end;
+
+  return FLPatchSpieltagPayloadSchema.refine((spieltag) => withinSaison(spieltag.beginn), {
+    error: "Wähle einen Tag innerhalb der Saison.",
+    path: ["beginn"],
+  }).refine((spieltag) => withinSaison(spieltag.ende), {
+    error: "Wähle einen Tag innerhalb der Saison.",
+    path: ["ende"],
+  });
+}
+
 export const FLSpieltagWriteResponseSchema = BaseAPIResponseSchema.extend({
   spieltag_id: CustomObjectIdStringSchema,
   // Not nullable: the PATCH is the only write left, and it always echoes what it stored.

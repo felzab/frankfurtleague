@@ -1,6 +1,15 @@
-import { AKTION_COLLECTION_LABELS } from "./constants";
+import { AKTION_COLLECTION_LABELS, AKTOR_HERKUNFT } from "./constants";
 
-import type { FLAktion } from "./schemas";
+import type { AktionHerkunft } from "./constants";
+import type { FLAktion, FLAktor } from "./schemas";
+
+/**
+ * Where the write behind a row came from. Read through the map and never off `email`, which holds a
+ * sentinel for two of the three kinds -- `SYSTEM` and `PUBLIC` are spellings of "nobody", not mailboxes.
+ */
+export function herkunftOfAktor(actor: FLAktor): AktionHerkunft {
+  return AKTOR_HERKUNFT[actor.kind];
+}
 
 /** Falls back to the stored name, so a collection the backend adds lists as itself rather than as an empty cell. */
 export function labelForCollection(collection: string): string {

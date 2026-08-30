@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { useSaisonId } from "@/shared/hooks/useSaisonHref";
+
 import { adminSpielEditHref } from "../../utils";
 import { SpielDetailsModal } from "../modals/SpielDetailsModal";
 import { SpielCard } from "../ui/SpielCard";
@@ -25,6 +27,7 @@ export function SpielCardsList({
   faultsBySpielId?: ReadonlyMap<string, readonly string[]>;
 }) {
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
+  const saisonId = useSaisonId();
 
   return (
     <div className="contents">
@@ -37,7 +40,7 @@ export function SpielCardsList({
             spielData={spielData}
             today={today}
             onOpenInfoModal={() => setSelectedSpiel(spielData)}
-            adminEditHref={isAdmin ? adminSpielEditHref(spielData.id) : undefined}
+            adminEditHref={isAdmin ? adminSpielEditHref(spielData.id, saisonId) : undefined}
             asListitem={!hasFaults}
           />
         );

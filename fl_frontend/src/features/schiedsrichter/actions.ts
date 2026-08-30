@@ -16,6 +16,7 @@ import {
   FLSchiedsrichterKeyPayloadSchema,
 } from "./schemas";
 
+import type { FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLAnonymiseSchiedsrichterPayload,
@@ -44,7 +45,9 @@ function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: Field
 }
 
 export async function postSchiedsrichterAction(
-  rawPayload: FLPostSchiedsrichterPayload,
+  // The DRAFT shape: an emptied money field submits `null`, and the schema below is what turns that into a
+  // field error rather than a type error.
+  rawPayload: FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>,
 ): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
@@ -75,7 +78,9 @@ export async function postSchiedsrichterAction(
 }
 
 export async function patchSchiedsrichterAction(
-  rawPayload: FLPatchSchiedsrichterPayload,
+  // The DRAFT shape: an emptied money field submits `null`, and the schema below is what turns that into a
+  // field error rather than a type error.
+  rawPayload: FLSchiedsrichterPayloadDraft<FLPatchSchiedsrichterPayload>,
 ): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("patchSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {

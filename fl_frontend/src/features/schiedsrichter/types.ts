@@ -1,11 +1,10 @@
-import type { FLPostSchiedsrichterPayload } from "./schemas";
+import type { FLPostSchiedsrichterPayload, FLSchiedsrichterPayloadDraft } from "./schemas";
 
 /**
- * Derived from the payload schema the action validates, never restated. `default_payment` stays a
- * plain number: 0 € is a legitimate default, and the "emptied field must not become 0" rule is the
- * match-level override's in `spiele/schemas.ts`.
+ * Derived from the payload schema the action validates, never restated; the widening at the fee is
+ * `fl_frontend/src/features/schiedsrichter/schemas.ts :: FLSchiedsrichterPayloadDraft`'s.
  */
-export type SchiedsrichterDraft = FLPostSchiedsrichterPayload;
+export type SchiedsrichterDraft = FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>;
 
 export type FLSchiedsrichterSortingOptions = "name" | "default_payment";
 

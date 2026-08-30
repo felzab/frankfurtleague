@@ -3,12 +3,22 @@ from typing import Any, Mapping
 from pydantic import ValidationError
 
 from app.api.teams.schemas import FLPostTeamPayload
+from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 
 # What every code below refuses is `docs/logging/error-codes.md`.
 BEWERBUNG_ALREADY_DECIDED = "REQ-BEWERBUNG-001"
 BEWERBUNG_SUBJECT_UNRESOLVED = "REQ-BEWERBUNG-002"
 BEWERBUNG_SCHULE_UNUSABLE = "REQ-BEWERBUNG-003"
+BEWERBUNG_FENSTER_GESCHLOSSEN = "REQ-BEWERBUNG-004"
+BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED = "REQ-BEWERBUNG-005"
+BEWERBUNG_PICKED_CLUB_UNUSABLE = "REQ-BEWERBUNG-006"
+BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED = "REQ-BEWERBUNG-007"
+BEWERBUNG_SHORTHAND_TAKEN = "REQ-BEWERBUNG-008"
+
+# The three keys a season's window is recorded in. A season may carry `bewerbung: null` or no key at
+# all -- both are the same closed window, and neither is an error (`FLSaison.bewerbung` defaults).
+_WINDOW_FIELDS = ("offen", "von", "bis")
 
 
 def find_triage_refusal(*, status: str) -> WriteRefusal | None:
@@ -111,3 +121,152 @@ def find_new_club_refusal(*, club_document: Mapping[str, Any]) -> WriteRefusal |
         )
 
     return None
+
+
+# --- The PUBLIC submission. Every refusal below is judged before the one write, in the order the
+# router asks them in.
+
+
+def window_is_running(*, bewerbung: Any, today: str) -> bool:
+    """Whether this season takes applications on `today`: `offen`, AND the day inside the span.
+
+    Both ends are compared rather than assuming `von <= bis`: span ordering is enforced on the
+    season PAYLOAD alone, so a stored reversal is reachable.
+    """
+
+    if not isinstance(bewerbung, Mapping) or not all(field in bewerbung for field in _WINDOW_FIELDS):
+        return False
+
+    return bool(bewerbung["offen"]) and str(bewerbung["von"]) <= today <= str(bewerbung["bis"])
+
+
+def find_window_refusal(*, bewerbung: Any, today: str) -> WriteRefusal | None:
+    """Why this season is taking no application today, or `None`.
+
+    ONE code for all three ways -- no window, the flag off, the day outside the span. Naming which
+    would report a season's administrative state to an anonymous visitor.
+    """
+
+    if window_is_running(bewerbung=bewerbung, today=today):
+        return None
+
+    return WriteRefusal(
+        error_code=BEWERBUNG_FENSTER_GESCHLOSSEN,
+        message="this season is not accepting applications today; the application window is closed",
+    )
+
+
+def find_submission_subject_refusal(*, team_id: Any | None, schule: Any | None) -> WriteRefusal | None:
+    """Why this submission resolves to no single school, or `None`.
+
+    Its OWN code beside `find_acceptance_subject_refusal`, which asks this of a STORED application:
+    one code would leave a public refusal and a triage refusal alike in the log.
+    """
+
+    if (team_id is None) == (schule is None):
+        named = "both an existing club and a new school" if team_id is not None else "neither an existing club nor a new school"
+        return WriteRefusal(
+            error_code=BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
+            message=f"this submission names {named}; exactly one of the two says which school is applying",
+        )
+
+    return None
+
+
+def find_picked_club_refusal(*, team_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
+    """Why the club the applicant picked is not one to apply as, or `None`.
+
+    ONE code for a club that does not exist and one that has left: the picker offers neither, so
+    either answer means the same thing -- a client sending an id it was never given.
+    """
+
+    if team_raw is None or team_raw.get("inactive_since") is not None:
+        return WriteRefusal(
+            error_code=BEWERBUNG_PICKED_CLUB_UNUSABLE,
+            message=(
+                "the club this submission names is not one the league offers; reload the list and pick again, "
+                "or propose a new school under a shorthand no club holds"
+            ),
+        )
+
+    return None
+
+
+def find_already_entered_refusal(*, entered: bool) -> WriteRefusal | None:
+    """Why this club may not apply for this season, or `None`.
+
+    A club already holding the season's junction row is IN it, so an application would ask for
+    something already granted. A shared season is not refused: two schools may apply on one day.
+    """
+
+    if entered:
+        return WriteRefusal(
+            error_code=BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED,
+            message="this club already plays the season this submission applies for",
+        )
+
+    return None
+
+
+def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
+    """Why the proposed Kürzel cannot be the new school's, or `None`.
+
+    Asked here as well as by the availability check, which narrows the collision without preventing
+    it: acceptance would otherwise fail on a duplicate key, the school already told it applied.
+    """
+
+    if taken:
+        return WriteRefusal(
+            error_code=BEWERBUNG_SHORTHAND_TAKEN,
+            message="the shorthand this submission proposes already belongs to a club; choose another",
+        )
+
+    return None
+
+
+def compose_einwilligung(*, text_version: str, today: str) -> dict[str, Any]:
+    """The consent record the server writes, from the one field the applicant supplies.
+
+    `erteilt_von` is `person` and never `administrativ`: a client allowed to name the source could
+    dress an administrator's transcription as a signature.
+    """
+
+    return {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": text_version, "datum": today}
+
+
+# The three seats, in the order the form asks for them.
+KONTAKT_SEATS = ("trainer", "ansprechperson", "stellvertretung")
+
+
+def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, Any]:
+    """The three people as `saison_teams` stores them, each consent recomposed here.
+
+    Taken as the DUMPED payload rather than the model: this module composes documents, and every
+    other function here takes one.
+    """
+
+    composed: dict[str, Any] = {
+        seat: {
+            **{field: value for field, value in kontakte[seat].items() if field != "einwilligung"},
+            "einwilligung": compose_einwilligung(text_version=kontakte[seat]["einwilligung"]["text_version"], today=today),
+        }
+        for seat in KONTAKT_SEATS
+    }
+    composed["trainer_ist_zugleich"] = kontakte["trainer_ist_zugleich"]
+
+    return composed
+
+
+def build_bewerbungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]:
+    """The triage queue's order, tie-broken by `_id`.
+
+    Named rather than inline so the index test can assert on what the endpoint actually sends
+    (`fl_backend/tests/core/test_constraints_execution.py`).
+    """
+
+    # `_id` breaks the tie in `order`'s OWN direction, so same-day rows read the way the queue does
+    # and the pair is the index's key or its exact inverse. Pinned descending, `order=asc` would
+    # match neither and scan the whole archive.
+    direction = 1 if order == "asc" else -1
+
+    return build_sort(sort_by=sort_by, order=order, chain=(("_id", direction),))

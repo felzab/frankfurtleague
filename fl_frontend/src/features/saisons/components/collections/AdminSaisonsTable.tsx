@@ -10,6 +10,7 @@ import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/Ad
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
@@ -34,6 +35,8 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
 }) {
+  const saisonHref = useSaisonHref();
+
   // One source for both layouts, so the table and the phone cards cannot disagree.
 
   // `h-7` on the status badge and the id chip beside it: each sizes itself by its own padding, so one
@@ -79,7 +82,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
         />
       </RowActionLink>
       <RowActionLink
-        href={`/admin/saisons/${saison.id}`}
+        href={saisonHref(`/admin/saisons/${saison.id}`)}
         label="Bearbeiten"
         ariaLabel={`Saison ${saison.id} bearbeiten`}>
         <Pencil

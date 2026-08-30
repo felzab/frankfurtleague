@@ -13,10 +13,10 @@ import { BEWERBUNGEN_FACETS } from "./facets.ts";
 import type { AdminBewerbungRow } from "./types.ts";
 
 /** Spelled out so a rename fails here rather than silently. */
-const SAISON_PARAM = "saisonbezug";
+const SAISONBEZUG_PARAM = "saisonbezug";
 
 /** The facet under test, cut out by its parameter. */
-const SAISON_FACET = BEWERBUNGEN_FACETS.find((facet) => facet.param === SAISON_PARAM);
+const SAISON_FACET = BEWERBUNGEN_FACETS.find((facet) => facet.param === SAISONBEZUG_PARAM);
 
 /** One row, of which only the two fields the facets read carry anything. */
 function row(id: string, inSelectedSaison: boolean): AdminBewerbungRow {
@@ -27,9 +27,9 @@ function row(id: string, inSelectedSaison: boolean): AdminBewerbungRow {
     status: "eingereicht",
     team_id: null,
     schule: null,
-    kontakte: { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_ansprechperson: false },
+    kontakte: { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
     trikot: { vorhandener_satz: "", wunschfarbe: null },
-    kader: { voraussichtliche_groesse: 14, gute_spieler: null },
+    kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
     entscheidung: null,
     teamName: null,
     inSelectedSaison,
@@ -60,21 +60,21 @@ describe("the season facet on the triage list", () => {
   it("selects `In dieser Saison` while nothing is in the URL", () => {
     const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams());
 
-    assert.deepEqual(selection[SAISON_PARAM], ["diese_saison"]);
+    assert.deepEqual(selection[SAISONBEZUG_PARAM], ["diese_saison"]);
     assert.deepEqual(applyFacets([...ROWS], BEWERBUNGEN_FACETS, selection), [ROWS[0]]);
   });
 
   /* The archive, one click away: an EMPTY parameter is the reader turning the facet off, and it is
      the one state that outranks a default. */
   it("reaches every season once the parameter is emptied", () => {
-    const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams(`${SAISON_PARAM}=`));
+    const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams(`${SAISONBEZUG_PARAM}=`));
 
-    assert.equal(selection[SAISON_PARAM], undefined);
+    assert.equal(selection[SAISONBEZUG_PARAM], undefined);
     assert.deepEqual(applyFacets([...ROWS], BEWERBUNGEN_FACETS, selection), ROWS);
   });
 
   it("narrows to the other seasons where the reader picks them", () => {
-    const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams(`${SAISON_PARAM}=andere_saison`));
+    const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams(`${SAISONBEZUG_PARAM}=andere_saison`));
 
     assert.deepEqual(applyFacets([...ROWS], BEWERBUNGEN_FACETS, selection), [ROWS[1]]);
   });
@@ -136,7 +136,7 @@ describe("the season parameter this list owns", () => {
      with the default rather than with what the link meant. */
   it("is spelled by no other list, whatever that list means by it", () => {
     for (const facet of FOREIGN) {
-      assert.notEqual(facet.param, SAISON_PARAM, `${facet.source} spells \`${SAISON_PARAM}\`, whose values only this list decides`);
+      assert.notEqual(facet.param, SAISONBEZUG_PARAM, `${facet.source} spells \`${SAISONBEZUG_PARAM}\`, whose values only this list decides`);
     }
   });
 
@@ -147,7 +147,7 @@ describe("the season parameter this list owns", () => {
     for (const option of borrowed) {
       const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams(`${TEAMS_ANY_SAISON_QUERY}${option.value}`));
 
-      assert.deepEqual(selection[SAISON_PARAM], ["diese_saison"], `\`${option.value}\` reached this list's season facet`);
+      assert.deepEqual(selection[SAISONBEZUG_PARAM], ["diese_saison"], `\`${option.value}\` reached this list's season facet`);
       assert.deepEqual(applyFacets([...ROWS], BEWERBUNGEN_FACETS, selection), [ROWS[0]]);
     }
   });
@@ -157,7 +157,7 @@ describe("the season parameter this list owns", () => {
   it("keeps its default when the club list's off-switch arrives here", () => {
     const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams(TEAMS_ANY_SAISON_QUERY));
 
-    assert.deepEqual(selection[SAISON_PARAM], ["diese_saison"]);
+    assert.deepEqual(selection[SAISONBEZUG_PARAM], ["diese_saison"]);
   });
 });
 

@@ -6,6 +6,7 @@ import { postSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
 import { NUMMER_MAX_LENGTH, NUMMER_MUST_BE_DIGITS, POSITION_OPTIONS } from "@/features/spieler/constants";
+import { FLCreateSpielerFormPayloadSchema } from "@/features/spieler/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
@@ -189,6 +190,8 @@ export function AdminCreateSpielerForm({
           </>
         );
       }}
+      schema={FLCreateSpielerFormPayloadSchema}
+      toPayload={(draft) => draft}
       onSubmit={async (draft) => {
         const res = await postSpielerAction(draft);
         return { ...res, success: res.success && !!res.spieler_id };

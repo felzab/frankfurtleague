@@ -2,6 +2,7 @@ import "server-only";
 
 import z from "zod";
 
+import { isPathAsSpelled } from "./apiPath";
 import { frontend_config } from "./config";
 import { ACTOR_HEADER, CORRELATION_HEADER, mintCorrelationId } from "./correlation";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "./errors";
@@ -103,6 +104,16 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
 
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const urlObj = new URL(`${BASE_FETCH_URL}${cleanEndpoint}`);
+
+  // Parsed per REQUEST, never at module scope: the image build imports this with no `API_URL`, and a
+  // top-level parse throws while `next build` collects page data.
+  const basePath = new URL(BASE_FETCH_URL).pathname;
+
+  // `new URL` resolves `..` before any check sees it, so an interpolated id could aim an authenticated
+  // call at another resource. A caller's bug, so it throws rather than answering.
+  if (!isPathAsSpelled(cleanEndpoint, urlObj.pathname, basePath)) {
+    throw new Error(`Endpoint does not address the path it spells: ${endpoint}`);
+  }
 
   if (params) {
     Object.entries(params).forEach(([key, value]) => {

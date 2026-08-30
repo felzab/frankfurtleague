@@ -15,6 +15,13 @@ import {
 import { DESCRIPTION_MAX_LENGTH, EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH } from "./constants";
 
 /**
+ * A club's website, or none. **`null` is the one spelling of absence and `""` is not admitted** —
+ * the API always sends the key, coercing an empty box to null. Still `ExternalUrlSchema`: it lands
+ * in an `href`, and `javascript:` parses as a URL.
+ */
+export const OptionalExternalUrlSchema = ExternalUrlSchema.nullable();
+
+/**
  * Mirrors `FLGruppenNames` — a closed set, so a group outside it is a malformed response. German
  * error because the group picker binds this schema too, and an untouched picker submits null.
  */
@@ -42,38 +49,47 @@ export type FLAustrittType = FLAustritt["type"];
  * Mirrors `FLSchulform`. No German error: the club editor offers `Keine Angabe` beside the six, so an
  * unanswered picker is a null the field accepts rather than a refusal.
  */
-export const FLSchulformSchema = z.enum([
-  "gymnasium_g8",
-  "gymnasium_g9",
-  "gesamtschule",
-  "privatschule_g8",
-  "privatschule_g9",
-  "oberstufengymnasium",
-]);
+export const FLSchulformSchema = z.enum(
+  [
+    "gymnasium_g8",
+    "gymnasium_g9",
+    "gesamtschule",
+    "privatschule_g8",
+    "privatschule_g9",
+    "oberstufengymnasium",
+    // Named rather than enumerated: the picker is already showing the six, and Zod's own default
+    // answers a person by listing the slugs the wire uses.
+  ],
+  { error: "Bitte wähle eine Schulform." },
+);
 export type FLSchulform = z.infer<typeof FLSchulformSchema>;
 
 /**
  * Mirrors `FLTrikotFarbe` — the league's sixteen CI colours. The slug is what travels; its German name
  * and its swatch are `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS`.
  */
-export const FLTrikotFarbeSchema = z.enum([
-  "weiss",
-  "schwarz",
-  "rot",
-  "braun",
-  "orange",
-  "gelb",
-  "hellgruen",
-  "gruen",
-  "tuerkis",
-  "hellblau",
-  "blau",
-  "dunkelblau",
-  "violett",
-  "magenta",
-  "bordeaux",
-  "grau",
-]);
+export const FLTrikotFarbeSchema = z.enum(
+  [
+    "weiss",
+    "schwarz",
+    "rot",
+    "braun",
+    "orange",
+    "gelb",
+    "hellgruen",
+    "gruen",
+    "tuerkis",
+    "hellblau",
+    "blau",
+    "dunkelblau",
+    "violett",
+    "magenta",
+    "bordeaux",
+    "grau",
+    // Named rather than enumerated, for `FLSchulformSchema`'s reason: sixteen slugs is not an answer.
+  ],
+  { error: "Bitte wähle eine Trikotfarbe." },
+);
 export type FLTrikotFarbe = z.infer<typeof FLTrikotFarbeSchema>;
 
 /**
@@ -81,7 +97,7 @@ export type FLTrikotFarbe = z.infer<typeof FLTrikotFarbeSchema>;
  * `umfang` is a one-member set: a second scope is a second agreement, never a widened one.
  */
 export const FLKontaktEinwilligungSchema = z.object({
-  umfang: z.literal("kontaktdaten"),
+  umfang: z.literal("kontaktdaten", { error: "Die Einwilligung gilt ausschließlich für Kontaktdaten." }),
   erteilt_von: z.enum(["person", "administrativ"]),
   // Unbounded on the read side, as every ceiling in this file is: a stored value over one of them
   // must still parse, or a single row fails a whole list.
@@ -94,7 +110,7 @@ export type FLKontaktEinwilligung = z.infer<typeof FLKontaktEinwilligungSchema>;
 export const FLKontaktEinwilligungPayloadSchema = z.object({
   // Written by the form from `EINWILLIGUNG_UMFANG` rather than picked: one scope exists, so a control
   // offering it would ask a question with one answer.
-  umfang: z.literal("kontaktdaten"),
+  umfang: z.literal("kontaktdaten", { error: "Die Einwilligung gilt ausschließlich für Kontaktdaten." }),
   erteilt_von: z.enum(["person", "administrativ"], { error: "Bitte wähle, wer die Einwilligung erteilt hat." }),
   text_version: z
     .string()
@@ -137,8 +153,17 @@ export const FLKontaktpersonPayloadSchema = z.object({
 export type FLKontaktpersonPayload = z.infer<typeof FLKontaktpersonPayloadSchema>;
 
 /**
- * Mirrors `FLSaisonTeamKontakte`. A seat is held in full even where `trainer_ist_ansprechperson` is
- * set: the flag records the claim, and the stored copy is what a later edit is compared against.
+ * Mirrors `FLTrainerZugleich` — which OTHER seat the Trainer also holds. One nullable field rather
+ * than two flags, which would let a row claim both seats at once.
+ */
+export const FLTrainerZugleichSchema = z.enum(["ansprechperson", "stellvertretung"], {
+  error: "Bitte wähle, wer zugleich Trainerin oder Trainer ist.",
+});
+export type FLTrainerZugleich = z.infer<typeof FLTrainerZugleichSchema>;
+
+/**
+ * Mirrors `FLSaisonTeamKontakte`. A seat is held in full even where `trainer_ist_zugleich` names it:
+ * the field records the claim, and the stored copy is what a later edit is compared against.
  */
 export const FLSaisonTeamKontakteSchema = z.object({
   // Nullable per SLOT, mirroring the stored shape: a person's erasure empties the slot naming them
@@ -146,7 +171,8 @@ export const FLSaisonTeamKontakteSchema = z.object({
   trainer: FLKontaktpersonSchema.nullable(),
   ansprechperson: FLKontaktpersonSchema.nullable(),
   stellvertretung: FLKontaktpersonSchema.nullable(),
-  trainer_ist_ansprechperson: z.boolean(),
+  // Null is „Eine eigene Person“, what a block records where the Trainer holds only their own seat.
+  trainer_ist_zugleich: FLTrainerZugleichSchema.nullable(),
 });
 export type FLSaisonTeamKontakte = z.infer<typeof FLSaisonTeamKontakteSchema>;
 
@@ -159,7 +185,7 @@ export const FLSaisonTeamKontaktePayloadSchema = z.object({
   trainer: FLKontaktpersonPayloadSchema.nullable(),
   ansprechperson: FLKontaktpersonPayloadSchema.nullable(),
   stellvertretung: FLKontaktpersonPayloadSchema.nullable(),
-  trainer_ist_ansprechperson: z.boolean(),
+  trainer_ist_zugleich: FLTrainerZugleichSchema.nullable(),
 });
 export type FLSaisonTeamKontaktePayload = z.infer<typeof FLSaisonTeamKontaktePayloadSchema>;
 
@@ -194,7 +220,7 @@ export const FLTeamSchema = z.object({
   description: z.string().max(DESCRIPTION_MAX_LENGTH),
   full_name: z.string().nonempty(),
   // Rendered straight into an href on a public page -- see ExternalUrlSchema for why not z.url().
-  website_url: ExternalUrlSchema,
+  website_url: OptionalExternalUrlSchema,
   address: FLAddressSchema,
   // Null for a club that has not answered yet, which is why no surface may read a missing school type
   // as a private one.
@@ -275,7 +301,7 @@ const teamPayloadFields = {
     .string()
     .max(DESCRIPTION_MAX_LENGTH, { error: `Die Beschreibung darf höchstens ${String(DESCRIPTION_MAX_LENGTH)} Zeichen lang sein.` }),
   full_name: z.string().nonempty({ error: "Bitte gib den vollständigen Namen ein." }),
-  website_url: ExternalUrlSchema,
+  website_url: OptionalExternalUrlSchema,
   address: FLAddressPayloadSchema,
   // Required with no default, as the model states it: `PATCH` replaces the club wholesale, so an
   // omitted key would clear a stored school form and fan that out as an edit nobody asked for.
@@ -325,7 +351,7 @@ export const FLTeamRecordSchema = z.object({
   shorthand: z.string().length(2),
   description: z.string().max(DESCRIPTION_MAX_LENGTH),
   full_name: z.string().nonempty(),
-  website_url: ExternalUrlSchema,
+  website_url: OptionalExternalUrlSchema,
   address: FLAddressSchema,
   schulform: FLSchulformSchema.nullable(),
   inactive_since: CustomDateStringSchema.nullable(),
@@ -392,7 +418,7 @@ export type FLPostSaisonTeamPayload = z.infer<typeof FLPostSaisonTeamPayloadSche
 export const FLPatchSaisonTeamPayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the junction row is addressed by its natural key.
   team_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4),
+  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
   gruppe: FLGruppenNamesSchema,
   // The whole record, or `null` to lift one. REQUIRED with no default on either side: a form that
   // omits it gets a 422, never a team quietly reinstated.
@@ -408,7 +434,7 @@ export type FLPatchSaisonTeamPayload = z.infer<typeof FLPatchSaisonTeamPayloadSc
 export const FLReplaceSaisonTeamPayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the row being handed over is addressed by its natural key.
   team_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4),
+  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
   // The only field on the wire: the row keeps its group, and its copy of the identity is reseeded
   // from the incoming club, so a client-supplied name could only disagree with it.
   incoming_team_id: CustomObjectIdStringSchema,

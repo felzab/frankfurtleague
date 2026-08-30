@@ -124,8 +124,8 @@ class TestPhaseRules:
         assert "not played before" in message_for(season, 29, team1_quelle=sieger(31))
 
 
-# Every bracket a season can play, by qualifier count: `app/api/saisons/schedule.py ::
-# knockout_phases_for` counts back from the Finale, so a different phase opens each one.
+# Every bracket a season can play, by qualifier count:
+# `app/api/saisons/schedule.py :: knockout_phases_for` counts back from the Finale, so a different phase opens each one.
 BRACKET_SHAPES: dict[int, tuple[str, ...]] = {
     16: ("achtelfinale", "viertelfinale", "halbfinale", "finale"),
     8: ("viertelfinale", "halbfinale", "finale"),

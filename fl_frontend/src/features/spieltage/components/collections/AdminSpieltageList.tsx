@@ -3,12 +3,13 @@
 import { memo } from "react";
 import Link from "next/link";
 
-import { Calendar, Globe, Pencil } from "@gravity-ui/icons";
+import { Globe, Magnifier, Pencil } from "@gravity-ui/icons";
 
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
@@ -42,6 +43,8 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   /** Each phase's matchday count against what the season's rules imply. Absent where no season is. */
   phaseProgress?: readonly SpieltagPhaseProgress[];
 }) {
+  const saisonHref = useSaisonHref();
+
   // A phase with no matchday is skipped rather than rendered empty: an empty heading reads as
   // something missing rather than something not reached.
 
@@ -110,7 +113,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
         href={`/admin/spielsuche?spieltag=${spieltag.id}&saison_id=${encodeURIComponent(spieltag.saison_id)}`}
         label="Spiele anzeigen"
         ariaLabel={`${spieltag.label}: Spiele anzeigen`}>
-        <Calendar
+        <Magnifier
           aria-hidden="true"
           width={18}
           height={18}
@@ -119,7 +122,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       {/* A link rather than a press: the matchday form edits on a page, so the pencil is
           a navigation and the shared view renders no edit overlay. */}
       <RowActionLink
-        href={`/admin/spieltage/${spieltag.id}`}
+        href={saisonHref(`/admin/spieltage/${spieltag.id}`)}
         label="Bearbeiten"
         ariaLabel={`${spieltag.label} bearbeiten`}>
         <Pencil

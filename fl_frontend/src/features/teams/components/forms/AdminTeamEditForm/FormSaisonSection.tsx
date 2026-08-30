@@ -22,6 +22,7 @@ import { FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFie
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
@@ -312,14 +313,15 @@ export function FormSaisonSection({
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
           <SaisonBadge status={saison.saisonStatus} />
         </span>
-        <h2 className={panel.heading()}>
-          Saison {saison.saisonId}
+        <PanelHeading
+          className={panel.heading()}
+          title={`Saison ${saison.saisonId}`}>
           <Hint
             mode="reveal"
             label="Hinweis zur Saison-Zugehörigkeit"
             body={{ lead: "Dieser Bereich gilt für die Saison aus dem Seitenmenü." }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

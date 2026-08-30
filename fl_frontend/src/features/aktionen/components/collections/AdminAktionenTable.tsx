@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 
-import { Cpu, Person } from "@gravity-ui/icons";
+import { Cpu, Globe, Person } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
@@ -13,11 +13,23 @@ import { RowActionCopy, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 
-import { AKTION_OPERATION_LABELS, AKTION_OPERATION_TINTS, AKTIONEN_CRUD_COPY } from "../../constants";
-import { describeAktionDatensatz, formatAktionZeitpunkt, labelForCollection } from "../../utils";
+import { AKTION_HERKUNFT_LABELS, AKTION_OPERATION_LABELS, AKTION_OPERATION_TINTS, AKTIONEN_CRUD_COPY } from "../../constants";
+import { describeAktionDatensatz, formatAktionZeitpunkt, herkunftOfAktor, labelForCollection } from "../../utils";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
+import type { AktionHerkunft } from "../../constants";
 import type { AdminAktionRow } from "../../types";
+
+/**
+ * The two origins a row cannot name a person for, each with the symbol and tint that names it instead.
+ * Exhaustive over them, so an origin added beside these fails here rather than rendering an empty cell.
+ */
+const AKTEUR_OHNE_ADRESSE: Record<Exclude<AktionHerkunft, "person">, { Icon: typeof Person; iconClass: string; badge: string }> = {
+  system: { Icon: Cpu, iconClass: "text-foreground-muted", badge: "bg-muted text-foreground-muted" },
+  // Tinted where the system's row is grey: a write the league itself made needs no second look, and a
+  // request that came in from outside is the row an admin is scanning the log for.
+  public: { Icon: Globe, iconClass: "text-info-strong", badge: "bg-info/15 text-info-strong" },
+};
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   searched: AKTIONEN_CRUD_COPY.emptyForQuery,
@@ -57,27 +69,37 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     );
   };
 
-  // The system actor carries a sentinel where a person carries an address, so it is named rather than printed.
-  const renderAkteur = (aktion: AdminAktionRow) =>
-    aktion.actor.kind === "system" ? (
+  const renderAkteur = (aktion: AdminAktionRow) => {
+    const herkunft = herkunftOfAktor(aktion.actor);
+
+    // The one origin whose stored address is a mailbox. Every other carries a sentinel there, so it is
+    // named by its origin instead -- printing `PUBLIC` would read as a person nobody can write to.
+    if (herkunft === "person") {
+      return (
+        <div className="flex min-w-0 flex-row items-center gap-3">
+          <Person
+            className="text-brand shrink-0"
+            width={18}
+            height={18}
+          />
+          <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{aktion.actor.email}</span>
+        </div>
+      );
+    }
+
+    const { Icon, iconClass, badge } = AKTEUR_OHNE_ADRESSE[herkunft];
+
+    return (
       <div className="flex flex-row items-center gap-3">
-        <Cpu
-          className="text-foreground-muted shrink-0"
+        <Icon
+          className={`${iconClass} shrink-0`}
           width={18}
           height={18}
         />
-        <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>System</span>
-      </div>
-    ) : (
-      <div className="flex min-w-0 flex-row items-center gap-3">
-        <Person
-          className="text-brand shrink-0"
-          width={18}
-          height={18}
-        />
-        <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{aktion.actor.email}</span>
+        <span className={`${LABEL_BADGE} ${badge}`}>{AKTION_HERKUNFT_LABELS[herkunft]}</span>
       </div>
     );
+  };
 
   const renderArtTag = (aktion: AdminAktionRow) => (
     <span className={`${LABEL_BADGE} ${AKTION_OPERATION_TINTS[aktion.operation]}`}>{AKTION_OPERATION_LABELS[aktion.operation]}</span>

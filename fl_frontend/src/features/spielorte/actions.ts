@@ -11,6 +11,7 @@ import { toFieldErrors } from "@/shared/utils/validation";
 import { deleteSpielort, patchSpielort, postSpielort, reactivateSpielort } from "./mutations";
 import { FLPatchSpielortPayloadSchema, FLPostSpielortPayloadSchema, FLSpielortKeyPayloadSchema } from "./schemas";
 
+import type { FLSpielortPayloadDraft } from "@/features/spielorte/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielort, FLSpielortKeyPayload } from "./schemas";
 
@@ -31,7 +32,9 @@ function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: Field
 }
 
 export async function postSpielortAction(
-  rawPayload: FLPostSpielortPayload,
+  // The DRAFT shape: an emptied money field submits `null`, and the schema below is what turns that into a
+  // field error rather than a type error.
+  rawPayload: FLSpielortPayloadDraft<FLPostSpielortPayload>,
 ): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSpielortAction", async () => {
     if (!(await getAdminSession())) {
@@ -58,7 +61,9 @@ export async function postSpielortAction(
 }
 
 export async function patchSpielortAction(
-  rawPayload: FLPatchSpielortPayload,
+  // The DRAFT shape: an emptied money field submits `null`, and the schema below is what turns that into a
+  // field error rather than a type error.
+  rawPayload: FLSpielortPayloadDraft<FLPatchSpielortPayload>,
 ): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("patchSpielortAction", async () => {
     if (!(await getAdminSession())) {

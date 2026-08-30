@@ -2,11 +2,15 @@ import { connection } from "next/server";
 
 import { AdminSpieleActionRequiredView } from "@/features/admin/components/views/AdminSpieleActionRequiredView";
 import { getAdminSpieleActionRequired } from "@/features/admin/queries";
+import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
-export default async function AdminOverviewPage() {
+import type { NextPageProps } from "@/shared/types/types";
+
+export default async function AdminOverviewPage(props: NextPageProps) {
   await connection();
-  const adminRes = await getAdminSpieleActionRequired();
+  const specifiedSaisonId = await resolveSaisonId(props.searchParams, "admin");
+  const adminRes = await getAdminSpieleActionRequired({ saison_id: specifiedSaisonId });
 
   return (
     // No lookup lists: the cards link into the editor's own route, which loads them itself.

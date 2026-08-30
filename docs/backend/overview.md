@@ -1,9 +1,9 @@
 # Backend — overview
 
-**Verified against:** `dbe2978e`, 2026-08-28\
+**Verified against:** `0ff5fdc8`, 2026-08-30\
 **Scope:** `fl_backend/`
 
-A FastAPI application over MongoDB, with reads and writes in separate routers. The
+A FastAPI application over MongoDB, with one authorization tier per router ([`spec.md`](spec.md) I7). The
 single fact that explains most of its shape: **no browser reaches a route here that reads or writes application
 data.** The edge carries exactly one exact-match path to this service, the liveness probe, and routes every other
 `/api` path to the frontend — some by a block naming it, the rest by the catch-all
@@ -25,7 +25,8 @@ fl_backend/
 │   │                  routing · exceptions · exception_handlers · middlewares · logging
 │   │                  collections · constraints · domain — the declarations read as data
 │   ├── api/<slice>/   one package per slice: router · admin_router · schemas · services · crud
-│   │                  saisons adds cache · schedule · spielplan · visibility; aktionen has two of the five
+│   │                  saisons adds cache · schedule · spielplan · visibility; bewerbungen adds
+│   │                  public_router; aktionen has two of the five
 │   └── shared/        schemas reused across entities (addresses, kontakt, custom types)
 └── tests/             pytest — schema constraints by default; `-m db` adds a real mongod
 ```
@@ -36,18 +37,19 @@ models, `services.py` holds pure query-building and computation, and `crud.py` h
 access more than one endpoint needs. A slice carries only the files it needs, its routers included: `system` is
 all reads and declares no `admin_router.py`, while `aktionen` — the action log, which serves back what every
 admin write recorded — and `kontakte` — one contact person's erasure — have nothing public to offer and
-declare no `router.py`. All routers are mounted under `/api/v{API_VERSION}`, a constant of the code rather
+declare no `router.py`. `bewerbungen` declares a third, `public_router.py`, because the application form
+reads and writes at a tier neither of its other two carries ([`spec.md`](spec.md) I7). All routers are mounted under `/api/v{API_VERSION}`, a constant of the code rather
 than a setting ([`spec.md`](spec.md) §1.5).
 
 ## Authorization
 
 Bearer keys, not user identities:
 
-| Key      | Guards                                                        | Used by                                           |
-| -------- | ------------------------------------------------------------- | ------------------------------------------------- |
-| `base`   | the read routers behind the public pages                      | every normal page load                            |
-| `admin`  | every write router, and every read the base tier may not make | every mutation, and the admin surfaces' own reads |
-| `system` | `/system/is_ready` and `/system/info`                         | health and diagnostics                            |
+| Key      | Guards                                                                               | Used by                                                   |
+| -------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| `base`   | the routers behind the public pages — their reads, and the one write a visitor makes | every normal page load, and the application form's submit |
+| `admin`  | every other write, and every read the base tier may not make                         | every admin mutation, and the admin surfaces' own reads   |
+| `system` | `/system/is_ready` and `/system/info`                                                | health and diagnostics                                    |
 
 Guards sit on the `APIRouter` rather than on an endpoint, so an endpoint reaches the wrong authorization only
 by being written in the wrong file ([`spec.md`](spec.md) I7). What the file name does not settle is the tier:
@@ -64,7 +66,9 @@ database ([`spec.md`](spec.md) I7).
 
 Every `admin_router.py` declares `bind_actor` in that same `dependencies` list, which is what attributes a write
 to the administrator who made it — and refuses one it cannot attribute, before the handler runs
-([`spec.md`](spec.md) I41). A READ router guarded `admin` declares none, having no write to attribute.
+([`spec.md`](spec.md) I41). A READ router guarded `admin` declares none, having no write to attribute, and the
+base-tier router that does carry one declares `bind_public_actor` instead — a visitor is nobody that header
+could name, so the actor is set here rather than sent ([`spec.md`](spec.md) §1.1).
 
 ## Data access
 

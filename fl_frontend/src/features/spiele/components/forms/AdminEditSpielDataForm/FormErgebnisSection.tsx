@@ -4,7 +4,9 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { PLACEHOLDER } from "@/shared/utils/format";
+import { enteredNumber } from "@/shared/utils/numberField";
 
 import { admitsShootOut } from "../../../draftStatus";
 import { formatQuelle } from "../../../utils";
@@ -79,7 +81,7 @@ export function FormErgebnisSection({
     const payload = slot === "team1" ? team1Payload : team2Payload;
     const onChange = slot === "team1" ? onTeam1Change : onTeam2Change;
 
-    if (payload) onChange({ ...payload, tore: isNaN(val) ? null : val });
+    if (payload) onChange({ ...payload, tore: enteredNumber(val) });
   };
 
   // The draft's own condition, whole: with any term of it left out here, the form would offer a
@@ -93,7 +95,7 @@ export function FormErgebnisSection({
 
   const handleElfmeterChange = (slot: "team1" | "team2") => (val: number) => {
     // Reads through a null record, so the first keystroke after the toggle cannot land on nothing.
-    onElfmeterschiessenChange({ team1: null, team2: null, ...elfmeterschiessen, [slot]: isNaN(val) ? null : val });
+    onElfmeterschiessenChange({ team1: null, team2: null, ...elfmeterschiessen, [slot]: enteredNumber(val) });
   };
 
   // Team, then provenance, then the shared placeholder — the fall-through every card uses.
@@ -117,8 +119,9 @@ export function FormErgebnisSection({
       className={styles.root()}
       onKeyDownCapture={suppressEnterSubmit}>
       <div className={styles.header()}>
-        <h2 className={styles.heading()}>
-          Ergebnis
+        <PanelHeading
+          className={styles.heading()}
+          title="Ergebnis">
           <Hint
             mode="reveal"
             label="Hinweis zum Ergebnis"
@@ -130,7 +133,7 @@ export function FormErgebnisSection({
               ],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={styles.body()}>

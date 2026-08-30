@@ -81,7 +81,7 @@ _LOGGED_COLLECTIONS = [str(name) for name in Collection if name is not Collectio
 # `tests/core/test_constraints.py` pins each against the recording literal too, so a member added to
 # one alone fails rather than reaching a stored row.
 _AKTION_OPERATIONS = ["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
-_AKTOR_KINDS = ["admin_session", "system"]
+_AKTOR_KINDS = ["admin_session", "system", "public"]
 
 
 def _object(*, required: Sequence[str], properties: Mapping[str, Any], nullable: bool = False) -> Mapping[str, Any]:
@@ -169,14 +169,18 @@ _KONTAKTPERSON = _object(
 # beside them.
 _KONTAKTPERSON_OR_NULL = {**_KONTAKTPERSON, "bsonType": ["object", "null"]}
 
-_KONTAKTE_REQUIRED = ("trainer", "ansprechperson", "stellvertretung", "trainer_ist_ansprechperson")
+# Which second seat the Trainer also holds. Null is nobody, and no member says BOTH -- two flags
+# would spell a state nothing can mean.
+_TRAINER_ZUGLEICH = ["ansprechperson", "stellvertretung"]
+
+_KONTAKTE_REQUIRED = ("trainer", "ansprechperson", "stellvertretung", "trainer_ist_zugleich")
 _KONTAKTE_PROPERTIES = {
     "trainer": _KONTAKTPERSON_OR_NULL,
     "ansprechperson": _KONTAKTPERSON_OR_NULL,
     "stellvertretung": _KONTAKTPERSON_OR_NULL,
-    # Kept through an erasure: it records what somebody ASSERTED about the two slots, which stays
-    # true about the form even once one of them is empty.
-    "trainer_ist_ansprechperson": {"bsonType": "bool"},
+    # Kept through an erasure: it records what somebody ASSERTED about the seats, which stays true
+    # about the form even once one of them is empty.
+    "trainer_ist_zugleich": {"bsonType": _STRING_OR_NULL, "enum": [*_TRAINER_ZUGLEICH, None]},
 }
 
 # The BLOCK is nullable on the junction and required on an application: a season's row is entered
@@ -211,7 +215,7 @@ _BEWERBUNG_SCHULE = _object(
         "shorthand": {"bsonType": "string"},
         "schulform": {"bsonType": _STRING_OR_NULL, "enum": [*_SCHULFORMEN, None]},
         "address": _ADDRESS,
-        "website_url": {"bsonType": "string"},
+        "website_url": {"bsonType": _STRING_OR_NULL},
     },
 )
 
@@ -231,7 +235,8 @@ _BEWERBUNG_KADER = _object(
     required=("voraussichtliche_groesse", "gute_spieler"),
     properties={
         "voraussichtliche_groesse": {"bsonType": "int"},
-        "gute_spieler": {"bsonType": _INT_OR_NULL},
+        # NOT nullable: the form asks for a count, and none of them is zero rather than absent.
+        "gute_spieler": {"bsonType": "int"},
     },
 )
 
@@ -383,7 +388,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "shorthand": {"bsonType": "string"},
                 "description": {"bsonType": "string"},
                 "full_name": {"bsonType": "string"},
-                "website_url": {"bsonType": "string"},
+                "website_url": {"bsonType": _STRING_OR_NULL},
                 "address": _ADDRESS,
                 # Out of `required` on purpose: no club stored before the field carries the key, so
                 # demanding it would refuse every one of them until a backfill ran. A missing key
@@ -669,7 +674,15 @@ class SupportIndex:
 # The action log is the one collection that only ever grows, so it is the one whose reads cannot be
 # left to a scan (`app/core/recording.py`).
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
-    SupportIndex(Collection.AKTIONEN, "aktionen_at", (("at", DESCENDING),), "the log page reads newest first"),
+    # `_id` is in the key because the read SORTS by it: with `at` alone MongoDB cannot walk this
+    # index and scans the whole log instead -- measured, on the one collection that only ever grows
+    # (`app/api/aktionen/admin_router.py :: get_aktionen`).
+    SupportIndex(
+        Collection.AKTIONEN,
+        "aktionen_queue",
+        (("at", DESCENDING), ("_id", DESCENDING)),
+        "the log page reads newest first",
+    ),
     SupportIndex(
         Collection.AKTIONEN,
         "aktionen_correlation_id",
@@ -682,13 +695,39 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("collection", ASCENDING), ("document_id", ASCENDING)),
         "one document's history, and the rows a person's erasure must redact",
     ),
+    # All three end in the read's own sort order, `eingereicht_am` then `_id`. Measured: with the
+    # sort key unindexed every request scans the collection and sorts it in memory, which is work
+    # proportional to an archive an anonymous form can grow.
+    SupportIndex(
+        Collection.BEWERBUNGEN,
+        "bewerbungen_queue",
+        (("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
+        "the triage queue unfiltered, newest first",
+    ),
+    SupportIndex(
+        Collection.BEWERBUNGEN,
+        "bewerbungen_saison_id_queue",
+        (("saison_id", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
+        "one season's queue, which is the operator's recovery path under a flood",
+    ),
+    # Its own index rather than a prefix of the one above: with `status` between them, a read
+    # narrowed to a season alone could not walk the sort key and would block on a sort again.
+    SupportIndex(
+        Collection.BEWERBUNGEN,
+        "bewerbungen_saison_id_status_queue",
+        (("saison_id", ASCENDING), ("status", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
+        "one season's queue narrowed to one status, which is what a triage tab reads",
+    ),
 )
 
 
 @dataclass(frozen=True)
 class ConstraintSummary:
     validators: int
-    indexes: int
+    # Counted apart because they are applied differently: a validator is replaced, an index is only
+    # ever added. One number for both is what let a deploy report six indexes as "unique".
+    unique_indexes: int
+    support_indexes: int
 
 
 async def _apply_validator(db: AsyncIOMotorDatabase, collection_name: str, validator: Mapping[str, Any]) -> None:
@@ -710,10 +749,10 @@ async def _apply_validator(db: AsyncIOMotorDatabase, collection_name: str, valid
 
 
 async def apply_constraints(db: AsyncIOMotorDatabase) -> ConstraintSummary:
-    """Apply every validator and unique index to `db`, replacing whatever is there.
+    """Apply every validator, unique index and support index to `db`.
 
-    Safe on every boot: `collMod` overwrites and `create_index` no-ops on a matching index. Raises on
-    the FIRST failure -- all-but-one looks exactly like all.
+    A validator is REPLACED, an index only ever ADDED: `create_index` cannot change the keys under a
+    name in use, so a renamed one stays until dropped by hand. Raises on the FIRST failure.
     """
     for collection_name, validator in COLLECTION_VALIDATORS.items():
         await _apply_validator(db, collection_name, validator)
@@ -730,7 +769,7 @@ async def apply_constraints(db: AsyncIOMotorDatabase) -> ConstraintSummary:
         except OperationFailure as failure:
             raise RuntimeError(f"Could not build support index '{support.collection}.{support.name}' ({support.rule}): {failure}") from failure
 
-    return ConstraintSummary(validators=len(COLLECTION_VALIDATORS), indexes=len(UNIQUE_INDEXES) + len(SUPPORT_INDEXES))
+    return ConstraintSummary(validators=len(COLLECTION_VALIDATORS), unique_indexes=len(UNIQUE_INDEXES), support_indexes=len(SUPPORT_INDEXES))
 
 
 @dataclass(frozen=True)
@@ -984,7 +1023,10 @@ async def _run(check: bool) -> int:
     try:
         if not check:
             summary = await apply_constraints(database)
-            print(f"Applied {summary.validators} validators and {summary.indexes} unique indexes to '{get_config().db_base_name}'.")
+            print(
+                f"Applied {summary.validators} validators, {summary.unique_indexes} unique and "
+                f"{summary.support_indexes} support indexes to '{get_config().db_base_name}'."
+            )
             return 0
 
         print(f"Database '{get_config().db_base_name}', checked against {len(COLLECTION_VALIDATORS)} validators. Nothing is written.\n")

@@ -1,13 +1,14 @@
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { buildRefusal } from "@/shared/utils/refusal";
+import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLTeamMembership } from "@/features/teams/schemas";
-import type { SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
+import type { FLTeamMembership, FLTrainerZugleich } from "@/features/teams/schemas";
+import type { KontaktpersonDraft, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
 import type { FLKontaktErasureResponse } from "./schemas";
 import type { SaisonTeamKontaktePayloadDraft } from "./types";
 
@@ -62,49 +63,59 @@ export function describeKontaktErasureUmfang(erasure: FLKontaktErasureResponse):
 }
 
 /**
- * While `trainer_ist_ansprechperson` stands, the Ansprechperson seat IS the trainer rather than a
- * copy kept in step. With the flag down that seat holds a second real person, whom nothing here may
- * overwrite.
+ * The Trainer seat, filled from the seat that declared itself the coach. **Composed at save time,
+ * never written into the draft**: a stored row can hold the claim over two DIFFERENT people, and
+ * writing it in overwrites the other, with no undo.
  */
 export function mirrorKontakte(draft: SaisonTeamKontakteDraft): SaisonTeamKontakteDraft {
-  return draft.trainer_ist_ansprechperson ? { ...draft, ansprechperson: draft.trainer } : draft;
+  return mirrorTrainerSeat(draft);
 }
 
 /**
- * One seat's switch: the block it leaves, and whether the seats are re-judged. On the way to EMPTY
- * only — a seat just switched on holds fields nobody has typed in, and a message over one of those
- * describes a value nobody finished.
+ * One seat's switch: the block it leaves, and whether the seats are re-judged. Re-judged on the way
+ * to EMPTY only — a seat just switched on holds fields nobody has typed in, and a message over one of
+ * those describes a value nobody finished.
  */
 export function applySeatPresence(
   value: SaisonTeamKontakteDraft,
   rolle: KontaktRolle,
   present: boolean,
+  /** What the seat held when it was switched off. Absent for a seat that has never held anybody. */
+  zurueck?: KontaktpersonDraft,
 ): { next: SaisonTeamKontakteDraft; revalidate: boolean } {
-  return { next: mirrorKontakte({ ...value, [rolle]: present ? buildEmptyKontaktperson() : null }), revalidate: !present };
+  // Given BACK rather than rebuilt: a switch is not a delete, and an admin who turns a seat off and
+  // on again has not asked for the details they entered to be thrown away.
+  const seat = present ? (zurueck ?? buildEmptyKontaktperson()) : null;
+
+  return { next: { ...value, [rolle]: seat }, revalidate: !present };
 }
 
 /**
- * The shared-seat flag's switch: the block it leaves, and whether the seats are re-judged, **in BOTH
- * directions**: the mirror hands that seat the trainer's person or nobody, and no blur on its
+ * The shared-seat pick: the block it leaves, and whether the seats are re-judged. The seats never
+ * move — the claim is composed at save — so what changes is WHO the Trainer reads, and no blur on its
  * read-only boxes clears the verdict left behind.
  */
-export function applySharedFlag(value: SaisonTeamKontakteDraft, shared: boolean): { next: SaisonTeamKontakteDraft; revalidate: boolean } {
-  const next = mirrorKontakte({ ...value, trainer_ist_ansprechperson: shared });
+export function applySharedSeat(
+  value: SaisonTeamKontakteDraft,
+  seat: FLTrainerZugleich | null,
+): { next: SaisonTeamKontakteDraft; revalidate: boolean } {
+  const next = { ...value, trainer_ist_zugleich: seat };
 
-  // The seat's own person, not the block: turning the flag OFF moves nobody, so it re-judges nothing.
-  return { next: next, revalidate: next.ansprechperson !== value.ansprechperson };
+  // The seats never move here — the claim is honoured when the payload is composed. What changes is
+  // WHO the Trainer reads, so a verdict standing at a trainer path judged a different person.
+  return { next: next, revalidate: seat !== value.trainer_ist_zugleich };
 }
 
 /**
- * The paths one judgement covers. While the mirror stands, the Ansprechperson seat holds the
- * trainer's person, so judging a trainer field alone leaves its copy's verdict over a stale value.
+ * The paths one judgement covers. While the claim stands the composed Trainer READS the named seat,
+ * so judging that seat alone leaves the Trainer's verdict over a value it no longer holds.
  */
-export function mirroredJudgedPaths(paths: readonly string[], isMirroring: boolean): readonly string[] {
-  if (!isMirroring) return paths;
+export function mirroredJudgedPaths(paths: readonly string[], mirroredSeat: FLTrainerZugleich | null): readonly string[] {
+  if (mirroredSeat === null) return paths;
 
   const copies = paths
-    .filter((path) => path.startsWith("kontakte.trainer."))
-    .map((path) => path.replace("kontakte.trainer.", "kontakte.ansprechperson."));
+    .filter((path) => path.startsWith(`kontakte.${mirroredSeat}.`))
+    .map((path) => path.replace(`kontakte.${mirroredSeat}.`, "kontakte.trainer."));
 
   return copies.length === 0 ? paths : [...paths, ...copies];
 }

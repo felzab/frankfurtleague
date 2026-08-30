@@ -1,9 +1,8 @@
 "use client";
 
 import { memo, useTransition } from "react";
-import { useSearchParams } from "next/navigation";
 
-import { Calendar, Globe, MapPin, Pencil } from "@gravity-ui/icons";
+import { Globe, Magnifier, MapPin, Pencil } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
@@ -12,6 +11,7 @@ import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/Ad
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatAddressFull, formatEuro, formatSpielDatum } from "@/shared/utils/format";
@@ -47,9 +47,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
 
   // The sidemenu's season rides along, so the fixture list opens on the season being worked in
   // rather than on the current one.
-  const searchParams = useSearchParams();
-  const selectedSaisonId = searchParams.get("saison_id");
-  const saisonParam = selectedSaisonId ? `&saison_id=${encodeURIComponent(selectedSaisonId)}` : "";
+  const saisonHref = useSaisonHref();
 
   const handleCopyAddress = async (ort: FLSpielort) => {
     const copied = await copyTextToClipboard(`${ort.name}, ${formatAddressFull(ort.address)}`);
@@ -110,10 +108,10 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
       {/* `ort` as `buildSpielFacets` declares it, carrying the id its options are keyed by. A `q=`
           here would fuzzy-match every `SEARCH_KEYS` entry and light no chip. */}
       <RowActionLink
-        href={`/admin/spielsuche?ort=${ort.id}${saisonParam}`}
+        href={saisonHref(`/admin/spielsuche?ort=${ort.id}`)}
         label="Spiele anzeigen"
         ariaLabel={`Spiele in ${ort.name} anzeigen`}>
-        <Calendar
+        <Magnifier
           aria-hidden="true"
           width={18}
           height={18}
@@ -126,7 +124,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
       />
       {/* A link and not a press: the venue form edits on a page of its own. */}
       <RowActionLink
-        href={`/admin/spielorte/${ort.id}`}
+        href={saisonHref(`/admin/spielorte/${ort.id}`)}
         label="Bearbeiten"
         ariaLabel={`Spielort ${ort.name} bearbeiten`}>
         <Pencil

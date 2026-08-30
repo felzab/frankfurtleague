@@ -1,8 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
+
+import { buildKontakteFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung } from "./facets.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { buildKontaktRows, computePlatzByTeamId, computeQualifyingTeamIds, computeSaisonVerlauf, describeReplacementUmfang } from "./utils.ts";
+import {
+  buildEmptyKontaktperson,
+  buildKontaktRows,
+  computePlatzByTeamId,
+  computeQualifyingTeamIds,
+  computeSaisonVerlauf,
+  describeReplacementUmfang,
+  toWebsiteUrl,
+} from "./utils.ts";
 
 import type { FLSaisonPhase } from "../saisons/schemas.ts";
 import type { FLSpiel } from "../spiele/schemas.ts";
@@ -335,47 +346,169 @@ const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => (
 });
 
 describe("buildKontaktRows", () => {
-  it("keeps the club and its three seats where one of them holds nobody", () => {
+  /* ONE row per club, not three. `kontakte` is an embedded object on `saison_teams`: a seat carries
+     no id, so a per-seat row has to invent one and the list then orders by a key nothing owns. */
+  it("gives a club one row carrying all three seats", () => {
     const rows = buildKontaktRows(
       [
         club({
           trainer: null,
           ansprechperson: kontaktperson("Erika"),
           stellvertretung: kontaktperson("Lena"),
-          trainer_ist_ansprechperson: false,
+          trainer_ist_zugleich: null,
         }),
       ],
       SAISON,
     );
 
+    assert.equal(rows.length, 1, "the club contributes something other than one row");
+    assert.equal(rows[0]?.id, rows[0]?.teamId, "the row is keyed by something other than the club it stands for");
     assert.deepEqual(
-      rows.map((row) => row.rolle),
+      rows[0]?.seats.map((seat) => seat.rolle),
       ["trainer", "ansprechperson", "stellvertretung"],
+      "the seats are not the three the editor asks for, in its order",
     );
-    // Null and not five empty strings: a row can hold a whole person or none, never a half of one.
-    assert.equal(rows[0]?.person, null);
-    assert.equal(rows[1]?.person?.vorname, "Erika");
+    // Null and not five empty strings: a seat holds a whole person or none, never a half of one.
+    assert.equal(rows[0]?.seats[0]?.person, null);
+    assert.equal(rows[0]?.seats[1]?.person?.vorname, "Erika");
   });
 
-  it("badges no shared seat while the trainer holds nobody, whatever the flag asserts", () => {
+  /* What the completeness badge reads. Counted off the seats rather than stored beside them, so it
+     cannot come to disagree with the cells under it. */
+  it("counts the seats that hold somebody", () => {
+    const voll = buildKontaktRows(
+      [
+        club({
+          trainer: kontaktperson("Tim"),
+          ansprechperson: kontaktperson("Erika"),
+          stellvertretung: kontaktperson("Lena"),
+          trainer_ist_zugleich: null,
+        }),
+      ],
+      SAISON,
+    );
+    const teilweise = buildKontaktRows(
+      [club({ trainer: null, ansprechperson: kontaktperson("Erika"), stellvertretung: null, trainer_ist_zugleich: null })],
+      SAISON,
+    );
+    const leer = buildKontaktRows([club({ trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null })], SAISON);
+
+    assert.equal(voll[0]?.besetzt, 3);
+    assert.equal(teilweise[0]?.besetzt, 1);
+    assert.equal(leer[0]?.besetzt, 0);
+  });
+
+  it("badges no shared seat while the trainer holds nobody, whatever the claim asserts", () => {
     const rows = buildKontaktRows(
       [
         club({
           trainer: null,
           ansprechperson: kontaktperson("Erika"),
           stellvertretung: kontaktperson("Lena"),
-          trainer_ist_ansprechperson: true,
+          trainer_ist_zugleich: "ansprechperson",
         }),
       ],
       SAISON,
     );
 
-    // The flag is an assertion nothing checks, so an empty Trainer seat must not badge the seat
+    // The claim is an assertion nothing checks, so an empty Trainer seat must not badge the seat
     // beside it as holding the same person.
-    assert.equal(rows[1]?.istTrainerZugleich, false);
+    assert.equal(rows[0]?.seats[1]?.istTrainerZugleich, false);
+  });
+
+  /* The claim names a seat, so the badge has to follow it. Pinned to the Ansprechperson, a Trainer
+     who is also the Stellvertretung reads on the list as three separate people. */
+  it("badges whichever seat the claim names, the Stellvertretung included", () => {
+    const shared = kontaktperson("Erika");
+    const rows = buildKontaktRows(
+      [
+        club({
+          trainer: shared,
+          ansprechperson: kontaktperson("Max"),
+          stellvertretung: shared,
+          trainer_ist_zugleich: "stellvertretung",
+        }),
+      ],
+      SAISON,
+    );
+
+    assert.equal(rows[0]?.seats[1]?.istTrainerZugleich, false, "the badge stayed on the seat the claim does not name");
+    assert.equal(rows[0]?.seats[2]?.istTrainerZugleich, true);
   });
 
   it("contributes no row at all for a club with nothing on file", () => {
     assert.deepEqual(buildKontaktRows([club(null)], SAISON), []);
+  });
+});
+
+describe("the club filter a link into the contacts list preselects", () => {
+  const rows = buildKontaktRows(
+    [club({ trainer: kontaktperson("Tim"), ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null })],
+    SAISON,
+  );
+
+  /* `?team=<id>`, the parameter `/admin/spieler` and `/admin/spielsuche` already answer to. A link
+     naming a parameter the facet does not declare filters nothing and reports nothing. */
+  it("reads the club off the row under the parameter the row actions link with", () => {
+    const facets = buildKontakteFacets(rows.map((row) => ({ teamId: row.teamId, name: row.teamName })));
+    const teamFacet = facets.find((facet) => facet.param === "team");
+
+    assert.ok(teamFacet, "the contacts list offers no club filter for a link to preselect");
+    assert.deepEqual(teamFacet.read(rows[0]!), [rows[0]!.teamId], "the club facet reads something other than the row's club");
+    assert.deepEqual(
+      teamFacet.options.map((option) => option.value),
+      [rows[0]!.teamId],
+      "the club facet offers clubs the list does not hold",
+    );
+  });
+
+  /* Three arms that partition the list: every row answers exactly one, so the facet cannot leave a
+     club out of all three. */
+  it("grades every club's completeness as exactly one of the three", () => {
+    const angeboten = new Set(KONTAKTE_BESETZUNG_OPTIONS.map((option) => option.value));
+
+    for (const besetzt of [0, 1, 2, 3]) {
+      assert.ok(angeboten.has(kontakteBesetzung(besetzt)), `${String(besetzt)} seats grade to something the filter does not offer`);
+    }
+    assert.equal(kontakteBesetzung(3), "vollstaendig");
+    assert.equal(kontakteBesetzung(0), "leer");
+    // The middle arm too: pinned only at the ends, a grader answering „vollstaendig“ for one seat
+    // passes, and the badge then calls a club reachable through one person fully staffed.
+    assert.equal(kontakteBesetzung(1), "teilweise");
+    assert.equal(kontakteBesetzung(2), "teilweise");
+  });
+});
+
+describe("what a website box reports upward", () => {
+  /* The scheme lives in the input group's prefix, so what the box holds is the rest of the URL. */
+  it("puts the scheme back on whatever was typed", () => {
+    assert.equal(toWebsiteUrl("www.beispielschule.de"), "https://www.beispielschule.de");
+  });
+
+  /* A pasted full address must not come back doubled. */
+  it("de-duplicates a scheme that was pasted in with the address", () => {
+    assert.equal(toWebsiteUrl("https://www.beispielschule.de"), "https://www.beispielschule.de");
+    assert.equal(toWebsiteUrl("HTTP://www.beispielschule.de"), "https://www.beispielschule.de");
+  });
+
+  /* The whole point of the function: ONE spelling of "no website" is ever written, so no reader
+     downstream has to test for two. `OptionalExternalUrlSchema` admits `""` on the way in, which is
+     what would let a second spelling through if this reported one. */
+  it("reports no website as null, never as the empty string", () => {
+    assert.equal(toWebsiteUrl(""), null);
+    assert.equal(toWebsiteUrl("   "), null);
+    assert.equal(toWebsiteUrl("https://"), null);
+  });
+});
+
+describe("what a new consent cites", () => {
+  /* Stamped from the one constant, never typed and never left blank: the version NAMES the wording,
+     so a record citing nothing, or citing a value somebody keyed in, claims agreement to a text the
+     league cannot identify. */
+  it("stamps the league's current wording version", () => {
+    const frisch = buildEmptyKontaktperson().einwilligung;
+
+    assert.equal(frisch.text_version, LIGA_EINWILLIGUNG.textVersion, "a new consent cites a version the league did not stamp");
+    assert.notEqual(frisch.text_version, "", "a new consent cites no wording at all");
   });
 });

@@ -1,3 +1,6 @@
+import { Suspense } from "react";
+
+import { BewerbungOffenBand } from "@/features/bewerbungen/components/ui/BewerbungOffenBand";
 import { KontaktView } from "@/features/meta/components/views/KontaktView";
 import { openGraphFor } from "@/shared/utils/metadata";
 
@@ -13,5 +16,15 @@ export const metadata: Metadata = {
 };
 
 export default function KontaktPage() {
-  return <KontaktView />;
+  return (
+    <KontaktView
+      // A slot the view seats, never a band rendered beside it: where this belongs relative to the
+      // heading and the channels is a fact about `KontaktView`, and only that component holds it.
+      bewerbungSlot={
+        <Suspense fallback={null}>
+          <BewerbungOffenBand ground="field" />
+        </Suspense>
+      }
+    />
+  );
 }

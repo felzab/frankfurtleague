@@ -3,9 +3,12 @@ import { describe, it } from "node:test";
 
 import {
   FLPatchTeamResponseSchema,
+  FLPostTeamPayloadSchema,
   FLReplaceSaisonTeamResponseSchema,
   FLSaisonTeamKontaktePayloadSchema,
   FLSaisonTeamResponseSchema,
+  FLTeamRecordSchema,
+  OptionalExternalUrlSchema,
 } from "./schemas";
 
 /**
@@ -15,9 +18,11 @@ import {
 const pathsRefused = (
   schema:
     | typeof FLPatchTeamResponseSchema
+    | typeof FLPostTeamPayloadSchema
     | typeof FLReplaceSaisonTeamResponseSchema
     | typeof FLSaisonTeamKontaktePayloadSchema
-    | typeof FLSaisonTeamResponseSchema,
+    | typeof FLSaisonTeamResponseSchema
+    | typeof FLTeamRecordSchema,
   value: unknown,
 ): string[] => {
   const result = schema.safeParse(value);
@@ -161,7 +166,7 @@ const kontaktePayload = (overrides: Record<string, unknown> = {}) => ({
   trainer: kontaktpersonPayload(),
   ansprechperson: kontaktpersonPayload({ vorname: "Max" }),
   stellvertretung: kontaktpersonPayload({ vorname: "Lena" }),
-  trainer_ist_ansprechperson: false,
+  trainer_ist_zugleich: null,
   ...overrides,
 });
 
@@ -183,5 +188,67 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
 
   it("refuses a seat that is neither a whole person nor empty", () => {
     assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: "Erika Mustermann" })), ["trainer"]);
+  });
+});
+
+describe("a club's website", () => {
+  const club = (website_url: string | null) => ({
+    id: "0123456789abcdef01234567",
+    name: "SC Riederwald",
+    shorthand: "RW",
+    description: "",
+    full_name: "Sportclub Riederwald 1927",
+    website_url: website_url,
+    address: { strasse: "Hanauer Landstraße", hausnummer: "12a", plz: "60314", stadtteil: "Ostend", stadt: "Frankfurt am Main" },
+    schulform: null,
+    inactive_since: null,
+  });
+
+  const payload = (website_url: string | null) => {
+    const { id: _id, inactive_since: _inactive, ...rest } = club(website_url);
+
+    return rest;
+  };
+
+  /* The baseline, so each case below fails for the field it changed. */
+  it("takes a club that has one, on the way in and on the way out", () => {
+    assert.deepEqual(pathsRefused(FLTeamRecordSchema, club("https://example.org")), []);
+    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, payload("https://example.org")), []);
+  });
+
+  /* `null` is what the API publishes as the absent case, and the only spelling this product writes. */
+  it("takes a club that has none", () => {
+    assert.deepEqual(pathsRefused(FLTeamRecordSchema, club(null)), []);
+    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, payload(null)), []);
+  });
+
+  /* One spelling of absence, so no reader downstream tests for two. The API coerces an empty box to
+     null before storing it, and `toWebsiteUrl` is what keeps this side from composing one. */
+  it("refuses the empty string, which is the other spelling nothing produces", () => {
+    assert.deepEqual(pathsRefused(FLTeamRecordSchema, club("")), ["website_url"]);
+    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, payload("")), ["website_url"]);
+  });
+
+  /* Optional is not unchecked: the value is rendered straight into an href on a public page, and
+     `javascript:` parses as a URL. */
+  it("still refuses an address that is neither empty nor a http(s) address", () => {
+    assert.deepEqual(pathsRefused(FLTeamRecordSchema, club("javascript:alert(1)")), ["website_url"]);
+    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, payload("javascript:alert(1)")), ["website_url"]);
+  });
+
+  /* Optional is not unchecked on the READ side either: the value is rendered straight into an href
+     on a public page, so a stored address that is not one may not reach it. */
+  it("holds a stated address to the same rule on the way out as on the way in", () => {
+    assert.equal(OptionalExternalUrlSchema.safeParse(null).success, true);
+    assert.equal(OptionalExternalUrlSchema.safeParse("https://example.org").success, true);
+    assert.equal(OptionalExternalUrlSchema.safeParse("javascript:alert(1)").success, false);
+    assert.equal(OptionalExternalUrlSchema.safeParse("").success, false);
+  });
+
+  /* The key is required whatever its value: an omitted one is a payload the API cannot read. */
+  it("still refuses the field being left out altogether", () => {
+    const { website_url: _absent, ...ohne } = payload(null);
+
+    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, ohne), ["website_url"]);
   });
 });

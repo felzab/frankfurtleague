@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `dbe2978e`, 2026-08-28\
+**Verified against:** `d666f6c9`, 2026-08-30\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -53,6 +53,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 
 | #   | ID    | Item                                                                 | Surfaces        | Effort | Status   | Depends on |
 | --- | ----- | -------------------------------------------------------------------- | --------------- | ------ | -------- | ---------- |
+| 13  | BE-44 | A decision drains no queue, and marking spans the loaded rows        | FE, BE, Docs    | M      | Open     | —          |
 | 1   | BE-15 | The recording exists; the restore over it does not                   | FE, BE, DB      | M      | Open     | —          |
 | 2   | BE-23 | Consent's writer is deferred to an expert who has not answered       | BE, DB, Docs    | M      | Standing | —          |
 | 3   | FE-25 | A double-click satisfies the two-press confirmation                  | FE              | S      | Open     | —          |
@@ -65,48 +66,52 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 10  | FB-21 | The response names a squad row with the person's verb                | FE, BE, Docs    | S      | Open     | —          |
 | 11  | FB-16 | Nothing announces that a season rollover is due                      | BE, Ops         | M      | Standing | —          |
 | 12  | FB-22 | The season's shape is offered wider than it can be saved             | FE, BE, Docs    | M      | Open     | —          |
-| 13  | FB-17 | Season setup is hand-run, and only an admin enters a squad           | FE, BE, DB, Ops | XL     | Open     | —          |
-| 14  | BE-28 | One removal's log row can outgrow what Mongo stores                  | BE, DB          | S      | Open     | —          |
-| 15  | BE-29 | Two irreversible operations judge from a capped read                 | BE              | S      | Standing | —          |
-| 16  | BE-35 | A no-op write takes no conflict, so nothing is re-judged             | BE, Docs        | M      | Open     | —          |
-| 17  | BE-17 | Every server-ordered name list sorts in byte order                   | BE, FE          | M      | Open     | —          |
-| 18  | BE-30 | The move guard does not see a stored shoot-out                       | BE              | S      | Open     | —          |
-| 19  | BE-31 | A duplicate-key log line carries the value it refused                | BE, Docs        | S      | Open     | —          |
-| 20  | BE-19 | Nothing says a multi-write request writes atomically                 | BE, Docs        | S      | Open     | —          |
-| 21  | BE-20 | The certainty walk never hypothesises a called-off fixture           | BE, Docs        | L      | Open     | —          |
-| 22  | FE-17 | A never-clause bounds toast CSS short of the stylesheet              | FE, Docs        | S      | Open     | —          |
-| 23  | BE-32 | A replace reports what it wrote and not what it destroyed            | FE, BE, Docs    | S      | Open     | —          |
-| 24  | BE-40 | A bracket slot may name a group its season does not run              | FE, BE          | S      | Open     | —          |
-| 25  | FE-28 | A squad-row return is offered where the cap refuses it               | FE, BE          | M      | Open     | —          |
-| 26  | FE-26 | The draw offers a press a too-short season refuses                   | FE              | S      | Open     | —          |
-| 27  | BE-21 | The seeding table is keyed on a list nothing joins it                | BE              | S      | Open     | —          |
-| 28  | BE-33 | The log read carries every pre-image the page discards               | BE              | S      | Open     | —          |
-| 29  | FE-29 | A date search matches the stored spelling, not the shown one         | FE              | S      | Open     | —          |
-| 30  | FE-24 | A pupil's consent is stored and served, and shown by nothing         | FE              | S      | Open     | —          |
-| 31  | BE-34 | An index's first stated purpose has no caller                        | BE              | S      | Open     | —          |
-| 32  | FE-21 | The editor shell's widest layout step is unrendered                  | FE              | S      | Open     | —          |
-| 33  | FE-30 | `Team` names a club and the league's own people                      | FE, Docs        | S      | Open     | —          |
-| 34  | FE-33 | Each editor spells its own undo dispatch                             | FE              | M      | Open     | —          |
-| 35  | FE-18 | A vendored stylesheet may reach nothing it declares                  | FE              | S      | Open     | —          |
-| 36  | FE-31 | Every admin success is stated twice, and once invisibly              | FE              | M      | Open     | —          |
-| 37  | FE-19 | Every call site writes a fallback the runtime cannot take            | FE              | M      | Open     | —          |
-| 38  | FE-23 | One adverb is written two ways across the product                    | FE              | S      | Open     | —          |
-| 39  | FE-1  | A fixture carries one date, not a play window                        | FE, BE          | XL     | Open     | —          |
-| 40  | LOG-2 | A cached read's call joins to no render                              | FE, BE, Ops     | L      | Open     | —          |
-| 41  | FB-18 | Only the match editor marks a field somebody waits on                | FE, BE          | L      | Open     | —          |
-| 42  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
-| 43  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Open     | —          |
-| 44  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
-| 45  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
-| 46  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Open     | —          |
-| 47  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
-| 48  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
-| 49  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Open     | —          |
-| 50  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Open     | —          |
-| 51  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
-| 52  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
-| 53  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
-| 54  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
+| 14  | FB-17 | Season setup is hand-run, and only an admin enters a squad           | FE, BE, DB, Ops | XL     | Open     | —          |
+| 15  | BE-28 | One removal's log row can outgrow what Mongo stores                  | BE, DB          | S      | Open     | —          |
+| 16  | BE-29 | Two irreversible operations judge from a capped read                 | BE              | S      | Standing | —          |
+| 17  | BE-35 | A no-op write takes no conflict, so nothing is re-judged             | BE, Docs        | M      | Open     | —          |
+| 18  | BE-17 | Every server-ordered name list sorts in byte order                   | BE, FE          | M      | Open     | —          |
+| 19  | BE-30 | The move guard does not see a stored shoot-out                       | BE              | S      | Open     | —          |
+| 32  | BE-46 | The action log's read truncates and cannot say so                    | FE, BE          | S      | Open     | —          |
+| 20  | BE-31 | A duplicate-key log line carries the value it refused                | BE, Docs        | S      | Open     | —          |
+| 21  | BE-19 | Nothing says a multi-write request writes atomically                 | BE, Docs        | S      | Open     | —          |
+| 22  | BE-20 | The certainty walk never hypothesises a called-off fixture           | BE, Docs        | L      | Open     | —          |
+| 23  | FE-17 | A never-clause bounds toast CSS short of the stylesheet              | FE, Docs        | S      | Open     | —          |
+| 24  | BE-32 | A replace reports what it wrote and not what it destroyed            | FE, BE, Docs    | S      | Open     | —          |
+| 25  | BE-40 | A bracket slot may name a group its season does not run              | FE, BE          | S      | Open     | —          |
+| 26  | FE-28 | A squad-row return is offered where the cap refuses it               | FE, BE          | M      | Open     | —          |
+| 27  | FE-26 | The draw offers a press a too-short season refuses                   | FE              | S      | Open     | —          |
+| 28  | BE-21 | The seeding table is keyed on a list nothing joins it                | BE              | S      | Open     | —          |
+| 29  | BE-33 | The log read carries every pre-image the page discards               | BE              | S      | Open     | —          |
+| 30  | FE-29 | A date search matches the stored spelling, not the shown one         | FE              | S      | Open     | —          |
+| 31  | FE-24 | A pupil's consent is stored and served, and shown by nothing         | FE              | S      | Open     | —          |
+| 33  | BE-34 | An index's first stated purpose has no caller                        | BE              | S      | Open     | —          |
+| 34  | FE-21 | The editor shell's widest layout step is unrendered                  | FE              | S      | Open     | —          |
+| 35  | FE-30 | `Team` names a club and the league's own people                      | FE, Docs        | S      | Open     | —          |
+| 36  | FE-33 | Each editor spells its own undo dispatch                             | FE              | M      | Open     | —          |
+| 37  | FE-18 | A vendored stylesheet may reach nothing it declares                  | FE              | S      | Open     | —          |
+| 38  | FE-31 | Every admin success is stated twice, and once invisibly              | FE              | M      | Open     | —          |
+| 39  | FE-19 | Every call site writes a fallback the runtime cannot take            | FE              | M      | Open     | —          |
+| 40  | FE-23 | One adverb is written two ways across the product                    | FE              | S      | Open     | —          |
+| 41  | FE-1  | A fixture carries one date, not a play window                        | FE, BE          | XL     | Open     | —          |
+| 42  | LOG-2 | A cached read's call joins to no render                              | FE, BE, Ops     | L      | Open     | —          |
+| 43  | FB-18 | Only the match editor marks a field somebody waits on                | FE, BE          | L      | Open     | —          |
+| 44  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
+| 45  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Open     | —          |
+| 58  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
+| 46  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
+| 47  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
+| 48  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Open     | —          |
+| 49  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
+| 50  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
+| 51  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
+| 52  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Open     | —          |
+| 53  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Open     | —          |
+| 54  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
+| 55  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
+| 56  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
+| 57  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
+| 59  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -129,15 +134,17 @@ exist, because no write reaches the driver outside that module. Several routers 
 reads, so the property is about writes rather than about access, and a write added in that shape
 would escape. A row carries the actor, the request, the collection, the
 document and the image the write replaced (`fl_backend/app/core/recording.py`), and `/admin/aktionen`
-lists them. The actor travels as a header the frontend composes from its own session, and an admin
-write carrying none is refused rather than attributed to nobody (`docs/backend/spec.md :: I41`).
+lists them. An ADMIN write's actor travels as a header the frontend composes from its own session,
+and one carrying none is refused rather than attributed to nobody (`docs/backend/spec.md :: I41`); the
+public application form's submit names the public server-side instead, a visitor having no session to
+compose one from (`docs/backend/spec.md :: bind_public_actor`).
 
 **What remains is the restore, and it is blocked on a measurement.** A row holds what its write
 replaced, so replaying one is a small change over the spine the eight undo handlers already share.
 But `docs/frontend/spec.md` §1.3 admits a route handler for a page-owned editor and refuses one for a
 row control, and a restore on a log row is a row control. Whether Next's E592 reproduces on a page
-that stays mounted is what decides between a server action and an eighth handler, and nobody has
-measured it. Retention is the other half, and it sits with the Datenschutzexperte.
+that stays mounted is what decides between a server action and a route handler of its own, and
+nobody has measured it. Retention is the other half, and it sits with the Datenschutzexperte.
 
 **Two gaps in what shipped, both found by a review that had not seen the work written.**
 
@@ -817,7 +824,105 @@ read it — so every claim about a control is read off source and class strings.
 arithmetic is derived from the rule functions rather than executed. The bracket's own seeding table is
 `BE-21`'s subject and was not re-measured here.
 
-### 13 · FB-17 — Setting up a season is a hand-run sequence, and only an admin can enter a squad
+### 13 · BE-44 — Deciding an application does not drain the queue, and duplicates are marked only across the rows one read served
+
+**Status:** Open\
+**Surfaces:** FE, BE, Docs\
+**Effort:** M\
+**Path:** Independent. **BE-42** stands on the same acceptance and asks what that write publishes
+rather than what the queue can show, and neither blocks the other. **FB-17** would add the second
+surface a stranger writes rows through, so whatever answers this is what that flow inherits.
+`.claude/CLAUDE.md` §7 fixes one edge a repair sits inside: a triage option is not withdrawn on a zero
+count, and the offer's order comes from the label table —
+`fl_frontend/src/features/bewerbungen/constants.ts :: BEWERBUNG_STATUS_OPTIONS`, which holds the
+states in the order the triage works them down.
+
+**What is built is a read that says when its answer is short.**
+`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen` asks one row past the limit and serves
+at most `fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`, so
+`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenListResponse` answers **`vollstaendig`**
+without counting the filtered set — the unbounded work the read exists to avoid, and the shape
+`docs/backend/spec.md :: I45` fixes for every read bounded by the list cap. A caller's own `limit`
+is capped rather than obeyed; every `fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` row over
+this collection ends in `eingereicht_am` then `_id`, and `fl_backend/app/api/bewerbungen/services.py
+:: build_bewerbungen_sort` breaks that tie in the request's own direction, so the pair is the
+index's key or its exact inverse and neither the default read nor the reversed one sorts in memory;
+`fl_frontend/src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx` raises a
+standing warning where the answer was cut; and `?order=` turns the read around, so the oldest
+applications at the far end can be reached. `docs/ops/runbooks.md` §5 is the operator's half of the
+same state. **All of it reports on the queue and none of it repairs it**, which is what is left.
+
+**The marking spans the rows one read served, and it is what a ruling rests on.**
+`fl_frontend/src/features/bewerbungen/duplicates.ts :: findBewerbungDubletten` walks the list the page
+was handed, groups the `eingereicht` rows on season plus club or season plus Kürzel, and marks every
+member of a group of two or more. A colliding pair split across the endpoint's cut falls into no group,
+so neither half is marked and nothing names the pair — the notice can say that a pair is unmarked and
+cannot say which. **That is not cosmetic, because the marking is what the write's silence buys.**
+Uniqueness on an unauthenticated form is itself a denial of service, so the write refuses no duplicate
+and the queue shows them instead; a queue that shows them across part of its set honours that ruling
+across part of its set.
+
+**A decision leaves the row, so the working set never shrinks.**
+`fl_backend/app/api/bewerbungen/admin_router.py :: ablehnen_bewerbung` sets `status` to `abgelehnt` and
+stamps who decided and why; the row stays, deliberately, the submission being the record the decision
+was taken against. The triage page sends no `status` (`fl_frontend/src/app/admin/bewerbungen/page.tsx`),
+so a decided application of any season keeps its place among the rows served. **An administrator who
+declines every one of them sees the list unchanged and the notice unchanged**, and no endpoint removes
+an application, so nothing reachable from the product clears the state. That is what makes a flood a
+standing condition rather than an episode: the hours it costs to build buy a queue whose marking cannot
+be trusted for that season and every one after it.
+
+**The obvious repair collides with the facet, and that collision is most of the effort.** Decided rows
+leaving the default view means a `status` term on the server read. The panel then counts each option
+against the rows it was handed — `fl_frontend/src/shared/utils/facets.ts :: countFacetOptions` over the
+loaded list — and `fl_frontend/src/shared/components/ui/FilterPanel.tsx` disables an option standing at
+zero unless it is already picked. Narrow the server read to `eingereicht` and both other statuses stand
+at zero, so both go dead and the archive is unreachable from the control that hid it. §7 forbids
+withdrawing an option on a zero count, and disabling one arrives in the same place by another route.
+**So the counts have to come from the server in the same change**, or the narrowing has to be stated
+somewhere the facet does not read.
+
+**There is no bulk action**, so clearing a flood is one press per row, each with its own confirmation
+and its own round trip. That is what makes the paragraph above bite in practice rather than in
+principle, and it is the cheapest of these gaps to close once the read has somewhere to put a
+narrowing.
+
+**Two answers are closed, and each looks right from the code alone.**
+
+- **Per-school uniqueness on the write is refused by my ruling.** An index over unauthenticated input
+  hands whoever fills the field first the power to own it, so a real school meets a refusal holding its
+  own name and the rule meant to protect it locks it out. The marking is what the league has **instead**
+  of that index, and the argument is recorded at the function it constrains
+  (`fl_frontend/src/features/bewerbungen/duplicates.ts :: findBewerbungDubletten`) and stated again in
+  `docs/frontend/spec.md`.
+- **Pagination is refused because a cursor splits the set the marking runs over.** Paging would remove
+  the mechanism the ruling above rests on, and remove it silently, with no surface saying that a pair
+  split across a page boundary goes unmarked — `FLBewerbungenListResponse`'s own declaration records
+  that the list is served whole for exactly this reason. It also lands in the facet the way the
+  server-side filter does: a page holding one season's open applications leaves every other status and
+  every other season at zero, so the archive and the cross-season view both go dead.
+
+Neither is a candidate to weigh again. **What is open is a third shape** — a narrowing the facet is told
+about rather than one it has to infer from what arrived, with the marking's set decided by the server
+rather than by what a single read happened to serve.
+
+**Why it ranks here, and the honest reading of what it costs.** Reaching the state takes a deliberate
+flood: the ceiling is `nginx/prod.conf`'s `bewerbung48` zone, whose own comment puts filling the list
+from a single allocation at roughly three hours of sustained work, and closing the season's application
+window stops new rows at once.
+So it costs less than a defect an administrator meets on an ordinary press (**FE-25**) and less than a
+leak standing on every accepted application (**BE-42**); it carries neither the leverage **FB-16** and
+**FB-22** hold for the entries that lean on them, nor the dated clock **BE-18**, **BE-36** and **FB-19**
+each carry. What lifts it over **FB-17** is the last test alone — the same M repairing a live surface's
+own purpose, against a programme.
+
+**What is read and what is not** (COR-9). Every gap above is read off a branch rather than measured:
+`findBewerbungDubletten`'s loop, `ablehnen_bewerbung`'s `$set`, and the list `countFacetOptions` is
+handed. **Nothing here was driven against a truncated queue**, and the sort's plan rests on the
+measurement recorded beside `SUPPORT_INDEXES`'s application rows rather than on anything the gate
+executes.
+
+### 14 · FB-17 — Setting up a season is a hand-run sequence, and only an admin can enter a squad
 
 **Status:** Open\
 **Surfaces:** FE, BE, DB, Ops\
@@ -910,15 +1015,18 @@ create or delete, and nothing needs one — the one endpoint that removes a matc
 season's fixtures in the same transaction, so the reference cannot dangle
 (`fl_backend/app/core/domain.py :: REFERENCES`).
 
-**A public write into application data would be the first of its kind here.** Every write that
-touches the league's own data sits behind `verify_access_admin`, declared at router level and
+**A public write into application data has one precedent, and it inserts no person into the league.**
+The application form's `POST /bewerbungen` is base-tier and stores what a school submitted, decided by
+nobody until the triage reaches it ([`docs/backend/spec.md`](../backend/spec.md) §1.1). Every other
+write that touches the league's own data sits behind `verify_access_admin`, declared at router level and
 inherited by the endpoints under it; the browser
 side of that is an email allowlist checked at sign-in and re-derived on every session read
-(`fl_frontend/src/core/auth.ts`). The public unauthenticated writes that exist touch no application
+(`fl_frontend/src/core/auth.ts`). The remaining public unauthenticated writes touch no application
 data — the sign-in action, which triggers an outbound email and writes into the Auth.js store alone, and
-`fl_frontend/src/app/api/client-error/route.ts`, which writes a log line — and each has its own
-`limit_req_zone` in `nginx/prod.conf`, keyed so that only the POST is limited. A self-registration
-page is the first that inserts a person. What that opens is listed under the undecided questions
+`fl_frontend/src/app/api/client-error/route.ts`, which writes a log line — and each public write has its
+own `limit_req_zone` in `nginx/prod.conf`, keyed so that only the POST is limited. A self-registration
+page is the first that inserts a person, and the first whose text reaches a public page with no decision
+standing between. What that opens is listed under the undecided questions
 below rather than answered here.
 
 **Recognising a returning player has a shape already, and the tempting version of it is refused.**
@@ -1003,11 +1111,13 @@ entered by hand that their team is in adds the third.
   refuses a club the season already holds (`-003`), so a wizard that enters a club nobody should have
   entered still ends in an `austritt` — a public record with a reason on it, which is a heavy
   consequence for a step in a flow designed to be fast.
-- **What a rate limit for this surface should be.** The existing zones are sized for a person signing
-  in and for a crashing browser; a whole squad filling a form in one break is a different shape of
-  traffic on the same edge.
+- **What a rate limit for this surface should be.** The zones that exist are sized for a person
+  signing in, for a crashing browser, and for one school submitting one application; a whole squad
+  filling a form in one break is a different shape of traffic on the same edge, so
+  `zone=bewerbung` ([`docs/ops/spec.md`](../ops/spec.md) §1.3) is the nearest precedent rather than
+  the answer.
 
-### 14 · BE-28 — One removal's log row can outgrow what MongoDB will store, through a field nothing bounds
+### 15 · BE-28 — One removal's log row can outgrow what MongoDB will store, through a field nothing bounds
 
 **Status:** Open\
 **Surfaces:** BE, DB\
@@ -1052,7 +1162,7 @@ governs it and the length is additive to that rule rather than a second one. **T
 reasoned from the class hierarchy and the handler registration order, not reproduced** (COR-9): no row
 was built large enough to watch it happen.
 
-### 15 · BE-29 — The replace and the undraw judge their window from a capped read
+### 16 · BE-29 — The replace and the undraw judge their window from a capped read
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -1091,7 +1201,7 @@ iterate them.
 at all until a season arrives from outside the draw. What the entry buys today is that the guarantee is
 written down as resting on a bound in one file rather than on the read being safe.
 
-### 16 · BE-35 — A transaction protects a judgement only while it writes, and a request asking for the state already stored writes nothing
+### 17 · BE-35 — A transaction protects a judgement only while it writes, and a request asking for the state already stored writes nothing
 
 **Status:** Open\
 **Surfaces:** BE, Docs\
@@ -1146,7 +1256,7 @@ above rests on; it was not reproduced against a replica set. **Reproduce it befo
 `fl_backend/tests/api/test_activation_isolation.py` already drives a real replica set and is where such
 a case belongs.
 
-### 17 · BE-17 — Every server-ordered name list sorts in byte order, so a German name lands in the wrong place
+### 18 · BE-17 — Every server-ordered name list sorts in byte order, so a German name lands in the wrong place
 
 **Status:** Open\
 **Surfaces:** BE, FE\
@@ -1185,7 +1295,7 @@ person notices first, because the two are one navigation apart.
 name-ordered pipeline or facet builder added meanwhile is another place to revisit, and the two ends
 are already inconsistent enough that a reader cannot tell which one is deliberate.
 
-### 18 · BE-30 — The predicate that decides whether a fixture happened does not see a stored shoot-out
+### 19 · BE-30 — The predicate that decides whether a fixture happened does not see a stored shoot-out
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -1224,7 +1334,7 @@ hand-written fixture already disagree about which fields they trust.
 `REQ-SWAP-002`, `REQ-SWAP-004` and `REQ-REPLACE-002` at once, and each has a German counterpart and a
 summary in `fl_backend/app/core/domain.py :: RULES` that would then be describing a wider rule.
 
-### 19 · BE-31 — A duplicate-key log line carries the value the index refused
+### 20 · BE-31 — A duplicate-key log line carries the value the index refused
 
 **Status:** Open\
 **Surfaces:** BE, Docs\
@@ -1256,18 +1366,14 @@ recognised by name and birthdate under an index leaks both, into a log stream `d
 which is what the docstring already claims and what the 409 already returns. Doing it before the
 trigger is what makes the trigger a non-event.
 
-### 20 · BE-19 — Nothing states that a request making more than one write makes them together
+### 21 · BE-19 — Nothing states that a request making more than one write makes them together
 
 **Status:** Open\
 **Surfaces:** BE, Docs\
 **Effort:** S\
-**Also covers:** the action log's own pairing. Every write now appends a log row
-(`fl_backend/app/core/recording.py`), and where the caller opened no transaction the two are separate
-writes — so a failed log insert answers 500 for a domain write that committed, and the administrator's
-retry duplicates it. That is this entry's rule applied to a path where getting it wrong costs an
-attribution nobody can reconstruct rather than a row nobody can join. See BE-15.\
 **Path:** Independent — the sweep is below and is done. What is left is where the rule is recorded,
-and whether anything holds a later endpoint to it. Backend audit pass B1's multi-document write check
+and whether anything holds a later endpoint to it. **BE-15** owns the action log whose own pairing
+is below, and blocks nothing here. Backend audit pass B1's multi-document write check
 (`docs/_auditing/prompts/backend/1-consistency.md`) asks the same question of the code.
 
 **Every request in `fl_backend/app/` that makes more than one write already makes them inside a
@@ -1297,6 +1403,13 @@ that lands, followed by a further write nothing can take back.
 **The draw, the undraw, the erasure and the replacement sit outside that reading, and each was read on
 its own rather than by a sweep** — which is the entry's point restated: the rule holds because whoever wrote
 each of them chose to follow it, and nothing tells the next one.
+
+**The rule reaches one further path, and there it does not hold: the action log's own pairing.**
+Every write appends a log row (`fl_backend/app/core/recording.py`), and where the caller opened no
+transaction the two are separate writes — so a failed log insert answers 500 for a domain write that
+committed, and the administrator's retry duplicates it. That is this entry's rule applied to a path
+where getting it wrong costs an attribution nobody can reconstruct rather than a row nobody can
+join.
 
 **What the sweep found instead are neighbouring shapes, and each is already answered.**
 
@@ -1337,7 +1450,7 @@ closing of it — and a sweep of the source tree in the shape
 merely accepts an optional session. The enumeration above was read rather than executed, and that
 reading is what a check would have to mechanise.
 
-### 21 · BE-20 — The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing
+### 22 · BE-20 — The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing
 
 **Status:** Open\
 **Surfaces:** BE, Docs\
@@ -1361,7 +1474,7 @@ reading is what a check would have to mechanise.
 
 **Not measured:** whether the state has ever arisen in the live database, and what the walk contradicts on this season's own shape rather than on generated groups. Against the season shape and rules BE-14 records, only the placeability mechanism above is reachable.
 
-### 22 · FE-17 — A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more
+### 23 · FE-17 — A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more
 
 **Status:** Open\
 **Surfaces:** FE, Docs\
@@ -1406,7 +1519,7 @@ selectors overridden in the same file, and no clause governs them. §1.11 of the
 is what governs both cases, and it already asks a stylesheet rule to name the HeroUI version it was
 written against.
 
-### 23 · BE-32 — The draw reports what it wrote and never what a confirmed replace destroyed
+### 24 · BE-32 — The draw reports what it wrote and never what a confirmed replace destroyed
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -1439,7 +1552,7 @@ this one currently confirms nothing. **`FLGenerateSpielplanResponse` is a respon
 `docs/backend/spec.md :: I49` deliberately does not reach — worth saying in the change itself, so
 nobody adds `extra="forbid"` to it while implementing.
 
-### 24 · BE-40 — A bracket slot may be wired to a group its own season does not run
+### 25 · BE-40 — A bracket slot may be wired to a group its own season does not run
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -1491,7 +1604,7 @@ inspected in the live database to confirm the picker's behaviour there; the clai
 component's own source. Whether any stored fixture currently names a group outside its season's count
 was not measured.
 
-### 25 · FE-28 — Two surfaces offer a squad-row return the season's cap will refuse
+### 26 · FE-28 — Two surfaces offer a squad-row return the season's cap will refuse
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -1538,7 +1651,7 @@ ranked entry rather than a fix.
 actionable, and no data is at risk. What it costs is one press and one toast, on a squad that is
 already full.
 
-### 26 · FE-26 — The draw panel offers a press a too-short season will refuse
+### 27 · FE-26 — The draw panel offers a press a too-short season will refuse
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1571,7 +1684,7 @@ already renders**, and nothing about the scheduling rule is duplicated. That mak
 duplicating a scheduling rule sound in general and inapplicable here — which is worth recording,
 because it is the reason this was left alone.
 
-### 27 · BE-21 — The bracket's seeding table is keyed on a phase list nothing holds it to
+### 28 · BE-21 — The bracket's seeding table is keyed on a phase list nothing holds it to
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -1619,7 +1732,7 @@ the table names no phase list, the subscript states no precondition, and whoever
 **Not measured:** what else a widened phase list would move. This reading follows one table and one
 subscript and stops at the draw.
 
-### 28 · BE-33 — The log read carries every stored pre-image, and the page that asked for it drops them
+### 29 · BE-33 — The log read carries every stored pre-image, and the page that asked for it drops them
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -1650,7 +1763,7 @@ than remove the field: a computed flag, or the field replaced by its own presenc
 the other constraint** — it reads an image for one row, so whatever shape this takes must leave a way
 to ask for one.
 
-### 29 · FE-29 — Two admin lists search a stored date while their rows show a German one
+### 30 · FE-29 — Two admin lists search a stored date while their rows show a German one
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1690,7 +1803,7 @@ most of them. What is established is that the two spellings share no run longer 
 the fix does not rest on the answer — it makes the rendered spelling an exact match rather than a
 near one.
 
-### 30 · FE-24 — A pupil's consent is stored and served, and shown by nothing
+### 31 · FE-24 — A pupil's consent is stored and served, and shown by nothing
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1723,7 +1836,48 @@ writable, and not marking a backfilled consent as distinguishable from a collect
 round 3's, and BE-23 carries the reservation the backfill was taken with. An admin page that shows the
 record and changes nothing else is the whole of this entry.
 
-### 31 · BE-34 — An index's first stated purpose has no caller
+### 32 · BE-46 — The action log's read truncates, and its answer cannot say so
+
+**Status:** Open\
+**Surfaces:** FE, BE\
+**Effort:** S\
+**Path:** Independent. **BE-33** is the other change to this one response — it carries every stored
+pre-image the page discards — so the two are executed together and each is ranked on its own. **BE-15**
+would make the restore a second consumer of this read, which is the reason to settle the shape before
+it rather than a block on either.
+
+**`fl_backend/app/api/aktionen/admin_router.py :: get_aktionen` passes `limit=filters.limit` and
+answers `fl_backend/app/api/aktionen/schemas.py :: FLAktionenListResponse`, which carries the rows and
+nothing else.** So a read that hit the cap is indistinguishable from one that returned everything
+matching, and an administrator reading the log has nothing to check. `limit` defaults to
+`fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT` and is capped at `LIST_LIMIT_MAX`, so
+naming a larger one does not reach past it either.
+
+**`docs/backend/spec.md :: I45` already fixes the shape this read is missing** — a read bounded by the
+list cap asks one document past it, so a truncated answer is detected rather than consumed as a whole
+one. This endpoint is not among the ones it names. The sibling to copy is one file away and was written
+this year: `fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen` reads `limit + 1`, serves the
+limit, and reports `vollstaendig` without counting the filtered set.
+
+**What separates this from every other capped read is that nothing bounds the collection.**
+`aktionen` takes one row per administrative write (`fl_backend/app/core/recording.py`), and no path
+removes one: there is no delete endpoint, no TTL index in
+`fl_backend/app/core/constraints.py :: SUPPORT_INDEXES`, and a person's erasure empties a row's images
+rather than dropping the row (`:: build_redaction_update`). Every other list this cap governs is
+narrowed by a season or bounded by a season's shape. This one only grows, so it reaches the cap with
+nobody attacking it and nothing misconfigured.
+
+**It is not urgent and the entry should say why.** Production holds 30 rows (measured 2026-08-30), so
+the truncation is years of ordinary use away. What ranks it is that the fix is a response-shape change
+— the model, `fl_backend/openapi.json` and the hand-written Zod mirror, which `.claude/CLAUDE.md` §7
+forbids generating — and that shape is cheapest to settle while the log has one consumer and no
+history of anyone having trusted a short answer.
+
+**Not fixed on the branch that built the sibling**, deliberately: this reaches the frontend, and the
+branch it would have joined was already about the application queue. The shape to copy is settled, so
+what is left is the edit rather than the design.
+
+### 33 · BE-34 — An index's first stated purpose has no caller
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -1755,7 +1909,7 @@ serves `document_id` as text, so the filter has a value to match on. `FLAktionen
 query-parameter model, which `docs/backend/spec.md :: I49` excludes and not by omission, so widening it
 is untouched by that rule.
 
-### 32 · FE-21 — The shared editor shell's widest layout step has never been rendered
+### 34 · FE-21 — The shared editor shell's widest layout step has never been rendered
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1785,7 +1939,7 @@ breakpoint and the space the shell actually gets are different numbers.
 [`docs/_auditing/lessons.md`](../_auditing/lessons.md) §6 records that a session cannot sign in, so
 the honest scope is a look at one editor past 96rem, in a real browser, by somebody who can.
 
-### 33 · FE-30 — `Team` names a club and the people who run the league, and the public site renders both
+### 35 · FE-30 — `Team` names a club and the people who run the league, and the public site renders both
 
 **Status:** Open\
 **Surfaces:** FE, Docs\
@@ -1824,7 +1978,7 @@ either as a trap on that entry or as a row in the same page's `Terms that are no
 table, which already holds the words that only look like domain vocabulary. Leaving it undecided is
 what makes the next public string naming either sense a coin toss.
 
-### 34 · FE-33 — Every page-owned editor spells its own undo dispatch, and the copy inside it is written once per slice
+### 36 · FE-33 — Every page-owned editor spells its own undo dispatch, and the copy inside it is written once per slice
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1868,7 +2022,7 @@ message and destroyed-something argument those editors pass.
 sentence it pins; what an extraction buys is that the next editor written gets the behaviour rather
 than a copy, and that a change to any of the other sentences stops being an edit in every slice.
 
-### 35 · FE-18 — A vendored stylesheet ships on every route, and nothing may render what it declares
+### 37 · FE-18 — A vendored stylesheet ships on every route, and nothing may render what it declares
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1903,7 +2057,7 @@ value is that the import list and the comment above it stop asserting something 
 §1.11 of [`docs/frontend/spec.md`](../frontend/spec.md) is the procedure both imports were added
 under, and its own instruction is to establish membership from the import graph.
 
-### 36 · FE-31 — Every admin write states its success twice, and the second sentence cannot render
+### 38 · FE-31 — Every admin write states its success twice, and the second sentence cannot render
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1965,7 +2119,7 @@ components go with it: `successMessage` stops being required, or stops existing.
 and its three siblings take a locally computed argument that is `undefined` on an ordinary save, so
 there the fallback is the ordinary case. Reading the `??` alone does not separate the two.
 
-### 37 · FE-19 — Every call site writes a fallback for a failure message that always arrives
+### 39 · FE-19 — Every call site writes a fallback for a failure message that always arrives
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2006,7 +2160,7 @@ weight and a fallback that is the only sentence naming what did not happen read 
 its own reason for one — the diagnosis is already in the server log, and what an admin needs is
 whether retrying can help.
 
-### 38 · FE-23 — One adverb is written two ways, and the split runs through the whole product
+### 40 · FE-23 — One adverb is written two ways, and the split runs through the whole product
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2043,7 +2197,7 @@ which is the argument that moved the `Mannschaft` sweep early rather than late.
 **`docs/audit/` is out of scope and stays that way.** Those pages quote the strings that stood when
 they were written, so a sweep through them would falsify a record rather than correct a claim.
 
-### 39 · FE-1 — A fixture carries one date, and a play window cannot be expressed
+### 41 · FE-1 — A fixture carries one date, and a play window cannot be expressed
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -2068,7 +2222,7 @@ harder, and the intent (a fixture whose play window includes today is found by t
 and labelled `heute`) is what the range arithmetic has to preserve. Working it re-derives both
 definitions under ranges.
 
-### 40 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
+### 42 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -2136,7 +2290,7 @@ log-injection risk and must be validated or replaced the same way.
 collector fits on the current host beside the capped services. Each is input to step 1 and neither
 should be guessed.
 
-### 41 · FB-18 — Only the match editor tells an admin which empty field somebody is waiting on
+### 43 · FB-18 — Only the match editor tells an admin which empty field somebody is waiting on
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -2174,7 +2328,7 @@ markers are absent rather than misleading, and every other editor already says w
 its required fields and the rail's Hinweise. Its cost is the per-entity ruling, and that cost does
 not grow while it waits.
 
-### 42 · BE-12 — No retention sweep selects a retired row on its age
+### 44 · BE-12 — No retention sweep selects a retired row on its age
 
 **Status:** Open\
 **Surfaces:** BE, DB\
@@ -2224,7 +2378,7 @@ draw — by a confirmed replace that writes fresh ones in the same transaction (
 an undraw that writes none back (`REQ-SPIELPLAN-006`) — so none of them can accumulate a row a purge
 would have to find.
 
-### 43 · BE-25 — A club's street address is served to an anonymous caller
+### 45 · BE-25 — A club's street address is served to an anonymous caller
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -2250,7 +2404,7 @@ caller rendering none of them. Either the list shape is narrowed the way the sta
 the reasoning is written down as not applying here. **Leaving it unstated is the thing to avoid**,
 because the next reader re-derives it from scratch.
 
-### 44 · BE-26 — Two rule summaries name a fixture state the code excludes
+### 46 · BE-26 — Two rule summaries name a fixture state the code excludes
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -2285,7 +2439,7 @@ words the same membership, so the register states both readings and matches the 
 them. The constant's own comment argues that a called-off fixture is one that never took place,
 which points at the summaries; that remains a domain call rather than a recorded decision.
 
-### 45 · BE-39 — A refusal composes a repair the product refuses to perform
+### 47 · BE-39 — A refusal composes a repair the product refuses to perform
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -2333,7 +2487,7 @@ has already reached for the database, where this misleads an admin on a path the
 Below **BE-26**: a summary wrong there may be covering a constant that lets a fixture nobody will replay
 through a refusal, which is a behaviour to settle rather than a sentence to correct.
 
-### 46 · BE-24 — An unnarrowed squad read scans an unindexed collection to learn what it may not serve
+### 48 · BE-24 — An unnarrowed squad read scans an unindexed collection to learn what it may not serve
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -2373,7 +2527,7 @@ What pays is a caller reaching the API directly.
 `LIST_LIMIT_DEFAULT` and raises where it gets it, because a truncated set narrows on fewer seasons than
 exist ([`docs/backend/spec.md`](../backend/spec.md) I45).
 
-### 47 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
+### 49 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -2420,7 +2574,56 @@ by hand gets no signal for most of what the write path calls unholdable — wher
 none. It sits under BE-24 because that entry's cost is measured on a read that runs today, and this
 one's is paid only after somebody edits the database.
 
-### 48 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
+### 50 · BE-43 — A club's name is bounded where a stranger types it and unbounded where an administrator does
+
+**Status:** Open\
+**Surfaces:** FE, BE, Docs\
+**Effort:** S\
+**Path:** Independent. **BE-25** and **BE-42** ask which of a club's fields a public READ may serve
+and how one of them arrives; this asks what a WRITE accepts, and none of the three blocks another.
+
+**`fl_backend/app/api/teams/schemas.py :: _TeamPayload` gives `name` and `full_name` a floor and no
+ceiling**, `:: _TeamWritable`'s `website_url` is validated for its scheme and its host and not for its
+length (`fl_backend/app/shared/schemas/custom.py :: validate_external_url`), and
+`:: FLKontaktpersonPayload`'s `vorname` and `nachname` carry a pattern and a floor. So `POST /teams`,
+`PATCH /teams/{team_id}` and the season's `kontakte` patch each accept a value of any length in every
+one of those fields.
+
+**The public payload bounds every one of them.** `fl_backend/app/shared/schemas/bounds.py` names a
+ceiling for the club name a school proposes, for its official name, for its homepage and for one part
+of a contact person's name, and the application's payloads redeclare each field to apply it:
+`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungKontaktpersonPayload` inherits the admin
+payload and redeclares the two names for the ceiling alone. **The same field is therefore refused at
+the ceiling that module names when a stranger types it, and accepted at any length when an
+administrator does.**
+
+**The asymmetry is deliberate as far as it goes, and stops short of a rule.** The precedent sits on
+the same payload: `geburtsdatum` is bounded there and on no other date field in the application, and
+the comment at the field gives the reason — it is the one a stranger types about themselves,
+unreviewed. `docs/backend/spec.md :: I36`
+settles the same write-versus-read split for a person's name PATTERN and settles nothing about length,
+and `fl_backend/app/shared/schemas/bounds.py`'s header says where a shared bound is NAMED rather than
+which side owns one. **So nothing written answers whether the admin payload should take the ceiling
+too**, and the next reader re-derives it.
+
+**What bounds an administrator's request today is the edge.** `nginx/prod.conf`'s `client_max_body_size`
+bounds the request and not the field, and no `$jsonSchema` in `fl_backend/app/core/constraints.py`
+states a `maxLength` for any collection. `name` is copied onto the season's junction row and onto every
+fixture side, so a value entered once is written in several places and rendered in the league table.
+
+**A decision would have to be carried by hand.** The Zod mirror states the same floors and no ceiling
+(`fl_frontend/src/features/teams/schemas.ts`), and `.claude/CLAUDE.md` §7 fixes what the contract test
+compares — presence, required, nullable, type and enum — so a ceiling added on one side is held to the
+other by nothing. That is the cost half: a bound is three sites per field — the input control, the
+Zod schema and the Pydantic payload — which is why the application's numbers are named in
+`fl_backend/app/shared/schemas/bounds.py` rather than spelled at each.
+
+**Two answers.** Move the ceilings onto the shared payloads, so both tiers refuse alike and the
+application's constants become the shared ones wherever the numbers agree. Or hold that a ceiling
+belongs to the surface a stranger writes through, and record why the admin side is trusted with an
+unbounded one — which is what the code implies today and what no line says.
+
+### 51 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
 
 **Status:** Open\
 **Surfaces:** FE, Docs\
@@ -2491,7 +2694,7 @@ is what a later edit does to one of them. Above **FE-20**: taking that token out
 where this settles a copy question on two admin surfaces and closes a coupling the helper beside it was
 written to close.
 
-### 49 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
+### 52 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2521,7 +2724,7 @@ I rejected is that the framework may omit the value on some render path, which n
 is what a reader has to decide about every time this function is edited, and this function is what
 every season-scoped page opens with.
 
-### 50 · BE-38 — A squad-number helper has no caller, and its docstring is the only record of the rule it states
+### 53 · BE-38 — A squad-number helper has no caller, and its docstring is the only record of the rule it states
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -2567,7 +2770,7 @@ opens with rather than among one slice's helpers, so it is re-decided far more o
 **BE-34**, which reads like the same finding and is not — that index's unserved half is a read somebody
 wants built, so landing it adds a capability, and nothing here adds one.
 
-### 51 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
+### 54 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2636,7 +2839,7 @@ edit's freedom to part them. Above **FE-32**: that entry misleads nobody and its
 beside the id, where this one's is answered only by noticing that a helper's reach stops short of a
 module, which nothing on either side says.
 
-### 52 · FE-32 — A banner's id names a derivation its own sentence does not state
+### 55 · FE-32 — A banner's id names a derivation its own sentence does not state
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2670,7 +2873,7 @@ when they were written, so rewriting an id there falsifies a record instead of c
 of leaving it is one maintainer's minute in a module that is read whenever a venue's banners change,
 and that is less than every entry above it.
 
-### 53 · BE-7 — `typing` imports instead of `collections.abc`
+### 56 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -2683,7 +2886,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 54 · BE-14 — The certainty walk gives up in a group of six or more
+### 57 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -2741,3 +2944,105 @@ deduplicated, but inside a transaction, whose lifetime is bounded.
 
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
+
+### 58 · BE-47 — A sort option nothing sends scans the archive it sorts
+
+**Status:** Standing\
+**Surfaces:** BE\
+**Effort:** S\
+**Path:** Independent — no pass covers it, and only the trigger below reopens it. **BE-45** is the same
+mechanism where a bound rather than an absent caller is what makes it harmless, and **BE-44** owns
+everything else about this collection's growth. Neither blocks this.
+
+**Not a defect today, and what makes it harmless is that nothing reaches it.**
+`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenSortOptions` offers `saison_id` beside
+`eingereicht_am`, and every read that names it plans a blocking sort: no index over `bewerbungen` leads
+with `saison_id` as a sort key, the three in
+`fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` all ending in `eingereicht_am` then `_id`
+(measured 2026-08-30 at 60,000 rows, across every combination of the season and status filters with
+each order; the reads narrowing on neither filter scan the collection whole). **No caller sends it.**
+`fl_frontend/src/app/admin/bewerbungen/page.tsx` sends `order` alone, and no other surface reads this
+endpoint, so the option is reachable only by composing the request by hand against an admin-guarded
+API.
+
+**Both exits are wrong, which is what makes this a decision rather than a repair.** Two more indexes
+would buy a sort nobody performs and would be carried, applied at every boot and re-read by every
+future reader of `SUPPORT_INDEXES`, for no caller. Narrowing `FLBewerbungenSortOptions` to the one
+option that is used is a wire change: it moves `fl_backend/openapi.json` and the hand-written Zod
+mirror, and it takes an offered capability away rather than adding one. Which is right depends on
+whether sorting the archive by season is a thing this product means to offer, and that has not been
+asked.
+
+**The discriminator this entry adds to BE-45's.** That entry records that a blocking sort is judged on
+whether anything bounds the collection, not on whether it blocks. Here the bound is absent —
+`bewerbungen` grows with every submission and no path removes a row, which is **BE-44**'s subject — and
+the read is harmless anyway, because **nothing reaches it**. So a blocking sort is judged on two
+questions before its plan matters: what bounds the collection, and what reaches the read.
+
+**Trigger to revisit:** any surface gaining a season sort over this list, which turns the option from
+unreachable into the ordinary path and makes the plan above the one an administrator waits on.
+
+**What was measured and what was not** (COR-9). The plans were measured, at a row count the collection
+does not hold. That no caller sends `sort_by` was read off the page and the absence of another consumer
+rather than proven by instrumenting the endpoint.
+
+### 59 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
+
+**Status:** Standing\
+**Surfaces:** BE\
+**Effort:** S\
+**Path:** Independent — no pass covers it, and only the trigger below reopens it. **BE-29** rests on
+the same bound this entry does, so whatever removes that bound reopens both. **BE-47** is the shape
+again where a third thing answers it: nothing reaches the read at all. `.claude/CLAUDE.md` §7 keeps
+`fl_backend/app/api/spiele/services.py` free of an `await` and a collection, and the repair needs
+neither.
+
+**Not a defect today, and the bound rather than the plan is why.**
+`fl_backend/app/api/spiele/services.py :: build_spiele_sort` appends `datum` to a `spiel_nr` sort. That
+tie-break can never fire: `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES` carries
+`uniq_saison_id_spiel_nr` over `(saison_id, spiel_nr)`, so within the one season the read has already
+resolved, no two fixtures share a `spiel_nr`. Appending it is nonetheless what stops MongoDB walking
+the index, because a compound sort it cannot satisfy from an index key is completed in memory
+(measured 2026-08-30, at 500 documents):
+
+| The sort                                       | The plan                       |
+| ---------------------------------------------- | ------------------------------ |
+| `spiel_nr` then `datum`, which the code builds | `SORT` over `FETCH`, `IXSCAN`  |
+| `spiel_nr` alone, as a control                 | `LIMIT` over `FETCH`, `IXSCAN` |
+
+Every other sort the endpoint can build blocks the same way, and
+`fl_backend/app/api/spieltage/services.py :: build_spieltage_sort` has the shape too, over a collection
+holding a season's matchdays.
+
+**What makes it harmless is that nothing lets the collection grow.** `GET /spiele` resolves a season
+before it reads — `fl_backend/app/api/spiele/router.py` fills an absent `saison_id` from
+`fl_backend/app/api/saisons/crud.py :: pull_current_saison_id` — so every read is season-scoped, and a
+season's fixture count is capped by its shape validators.
+`fl_backend/app/api/saisons/schemas.py :: TeamsPerGroup` records that ceiling's purpose at the line:
+it keeps the largest legal season inside `fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`.
+So the in-memory sort is over a set with a ceiling on it, and nothing in the product moves that ceiling.
+
+**The pattern is the reason to record this, and the instance is not.** The mechanism recurs wherever
+a sort chains a tie-break onto its leading key: the chained key is what puts the sort outside the
+index written for that read. `aktionen`, `spiele`, `spieltage` and `bewerbungen` each build one, and
+each was answered differently. `aktionen` got an index whose key is the read's whole sort, `at` then
+`_id`, because `fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` states at the line that it is
+the collection which only ever grows and so cannot be left to a scan. `bewerbungen` got neither an
+index nor a removal: `fl_backend/app/api/bewerbungen/services.py :: build_bewerbungen_sort` turns
+the tie-break to follow the request, so the pair is the existing index's key or its exact inverse.
+`spiele` and `spieltage` got nothing, and are this entry. **So the discriminator is not whether the
+sort blocks — it is whether anything bounds the collection**, and a reader who finds a blocking sort
+and asks only the first question will either panic at this one or dismiss the next `aktionen`.
+
+**Trigger to revisit:** the season narrowing in `fl_backend/app/api/spiele/router.py` being removed, or
+any read of `spiele` being allowed to span seasons. Either removes the bound, at which point this
+collection is `aktionen` and the sort needs the index rather than the argument.
+
+**Why it is filed rather than fixed.** `:: build_spiele_sort` carries a decision at the line it governs:
+its order is defined by that code under PRE-1, and moving it is its own change rather than a side effect
+of one. Taking it quietly inside a branch about something else is what that comment exists to prevent.
+
+**What was measured and what was not** (COR-9). The plans above were measured; the uniqueness, the
+season resolution and the shape ceiling were read off `UNIQUE_INDEXES`, `pull_current_saison_id` and
+`TeamsPerGroup` rather than executed. **The explain was not re-run for this entry**, so the two rows
+stand on that measurement rather than on anything the gate repeats.

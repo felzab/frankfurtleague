@@ -1,4 +1,4 @@
-import type { FLAktion } from "./schemas";
+import type { FLAktion, FLAktor } from "./schemas";
 
 // Its own module and not an export of the `"use client"` view: every export of a client module
 // becomes a client reference on the server side.
@@ -54,4 +54,30 @@ export const AKTION_OPERATION_TINTS: Record<FLAktion["operation"], string> = {
   patch_many: "bg-warning/15 text-warning-strong",
   delete_many: "bg-danger/15 text-danger-strong",
   erase_many: "bg-danger/15 text-danger-strong",
+};
+
+/**
+ * Where a recorded write came from, as the log FILES it. Not one value per actor kind: `person` is the
+ * category a stronger sign-in scheme would record under too, which is why the filter offers it.
+ */
+export type AktionHerkunft = "person" | "system" | "public";
+
+/**
+ * Which origin each actor kind is filed under. Exhaustive by type, so a kind the backend adds fails to
+ * compile until somebody places it rather than falling in silently with the people who signed in.
+ */
+export const AKTOR_HERKUNFT: Record<FLAktor["kind"], AktionHerkunft> = {
+  admin_session: "person",
+  system: "system",
+  public: "public",
+};
+
+/**
+ * What each origin is called, in the order the filter offers them. The public form is named rather than
+ * folded into either neighbour: nobody signed in for it, and it is still a request somebody made.
+ */
+export const AKTION_HERKUNFT_LABELS: Record<AktionHerkunft, string> = {
+  person: "Angemeldete Person",
+  system: "System",
+  public: "Öffentliches Formular",
 };

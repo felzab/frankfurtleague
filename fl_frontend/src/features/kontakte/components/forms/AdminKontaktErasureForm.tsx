@@ -17,6 +17,7 @@ import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FORM_SECTION_HEADING } from "@/s
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
@@ -35,18 +36,24 @@ export function AdminKontaktErasureForm() {
 
   // Judged when the field is LEFT and never between keystrokes: a message about a half-typed address
   // describes a value nobody finished entering.
-  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { erasure: FLKontaktErasurePayloadSchema },
   });
 
+  // Forgiveness runs on every draft change and only ever RETRACTS: a corrected address clears without a blur.
+  useForgiveFixed({ erasure: { email } });
+
   /**
-   * Runs before arming AND before writing. `validatePaths` publishes the message on the box and
-   * answers nothing a caller can read, so the parse beside it is what closes the press.
+   * Runs before arming AND before writing, and is the shared block rather than a second spelling of it: a
+   * refused address is published through the map that moves focus, so the press lands the caret on the box.
    */
   const judgeAddress = (): boolean => {
-    validatePaths("erasure", { email }, ["email"]);
+    let mayWrite = false;
+    guardSubmit({ erasure: { email } }, () => {
+      mayWrite = true;
+    });
 
-    return FLKontaktErasurePayloadSchema.safeParse({ email }).success;
+    return mayWrite;
   };
 
   const { isConfirming, isPending: isErasing, press, cancel } = useTwoPressConfirm(judgeAddress);
@@ -66,11 +73,14 @@ export function AdminKontaktErasureForm() {
 
     if (!res.success) {
       if (hasFieldErrors(res.fieldErrors)) setSubmitFieldErrors(res.fieldErrors, { erasure: { email } });
-      appToast.danger("Kontaktdaten nicht gelöscht", { description: res.error ?? UNKNOWN_REFUSAL });
+      appToast.danger("Kontaktperson nicht gelöscht", { description: res.error ?? UNKNOWN_REFUSAL });
       return;
     }
 
-    appToast.success("Kontaktdaten gelöscht", { description: res.message });
+    /* An address matching nobody succeeds and clears zero, and „gelöscht“ over that is a quiet lie.
+       The branch `FormKontaktErasure` takes, so one erasure is not reported two ways. */
+    if (res.cleared === 0) appToast.warning("Nichts gefunden", { description: res.message });
+    else appToast.success("Kontaktperson gelöscht", { description: res.message });
     // The address goes with the records it named. On screen it is a copy of what the press destroyed.
     setEmail("");
     // The list above is read per request rather than from a cache, so this lands the cleared rows.
@@ -90,8 +100,9 @@ export function AdminKontaktErasureForm() {
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Kontaktperson löschen
+        <PanelHeading
+          className={panel.heading()}
+          title="Kontaktperson löschen">
           {/* What goes and what survives is the panel's own body below, and the danger panel with its
               two-press control is what says the press is final. */}
           <Hint
@@ -107,12 +118,16 @@ export function AdminKontaktErasureForm() {
               ],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       {/* `runOnSubmit` rather than an `action`, which React resets on every submit, turning each
           controlled field's reset into an `onChange` (frontend spec I32). */}
       <Form
+        // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting
+        // the browser's required message the moment an edited field is cleared. `aria` keeps
+        // `aria-required` and leaves every message to `useDraftFieldErrors`.
+        validationBehavior="aria"
         ref={formRef}
         validationErrors={fieldErrors}
         className={panel.body()}

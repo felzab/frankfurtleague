@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import subprocess
 from dataclasses import dataclass
-from functools import cache
+from functools import cache, partial
 from pathlib import Path
 from typing import Final, Iterable
 
@@ -22,8 +22,9 @@ from .kernel import (
     _skipped,
     git,
     git_status,
+    scanned_files,
     strip_fences,
-    tracked_files,
+    untracked_files,
 )
 from .perkind import roadmap_ids
 from .references import cited_paths
@@ -305,7 +306,7 @@ def check_branch_impact(branch: Branch) -> list[Finding]:
     # Collected before anything is classified: materiality costs a git call and a parser run per
     # file, and a file no stamped page cites can never reach a finding.
     pages: list[tuple[str, str, set[str]]] = []
-    for path in tracked_files():
+    for path in scanned_files():
         if path.suffix != ".md":
             continue
         raw = _read_text(path)[0]
@@ -419,7 +420,25 @@ def _added_by_file(fork: str) -> dict[str, list[tuple[int, str]]] | None:
         elif rel and number and line.startswith("+"):
             added.setdefault(rel, []).append((number, line[1:]))
             number += 1
-    return added
+    return added | _added_whole(added)
+
+
+def _added_whole(diffed: dict[str, list[tuple[int, str]]]) -> dict[str, list[tuple[int, str]]]:
+    """Every line of a corpus file the branch wrote and has not staged, as an addition.
+
+    git holds no version of a file the index never reached, so an unstaged one has no diff at all
+    and INC-9 would read nothing where a branch put a whole new module.
+    """
+    whole: dict[str, list[tuple[int, str]]] = {}
+    for path in untracked_files():
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        if rel in diffed or (raw := _read_text(path)[0]) is None:
+            continue
+        lines = raw.split("\n")
+        # A trailing newline ends the last line rather than beginning another, which is the count a
+        # diff of the same file reports.
+        whole[rel] = [(number, text) for number, text in enumerate(lines[:-1] if lines[-1:] == [""] else lines, start=1)]
+    return whole
 
 
 def branch_additions(branch: Branch) -> dict[str, list[str]]:
@@ -497,5 +516,5 @@ def check_comment_bounds(branch: Branch) -> list[Finding]:
         raw = _read_text(path)[0]
         if raw is None:
             continue
-        found.extend(check_comment_length(path, raw, {number for number, _ in added[rel]}))
+        found.extend(check_comment_length(path, raw, {number for number, _ in added[rel]}, partial(_blob_at, fork, rel)))
     return found

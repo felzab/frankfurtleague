@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 
 import { Button, Form } from "@heroui/react";
 
-import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
@@ -13,6 +14,7 @@ import { runOnSubmit } from "./formSubmit";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
+import type { ZodType } from "zod";
 
 /** What the `post*`/`patch*` server actions return, after the caller has folded in its own guard. */
 type SubmitResult = { success: boolean; message?: string; error?: string; fieldErrors?: FieldErrors };
@@ -25,6 +27,8 @@ export function EntityForm<TDraft>({
   initialDraft,
   renderFields,
   onSubmit,
+  schema,
+  toPayload,
   successMessage,
   onClose,
   marksRequired = false,
@@ -32,6 +36,13 @@ export function EntityForm<TDraft>({
   initialDraft: TDraft;
   renderFields: (draft: TDraft, setDraft: Dispatch<SetStateAction<TDraft>>) => ReactNode;
   onSubmit: (draft: TDraft) => Promise<SubmitResult>;
+  /** The one the action parses, so the block and the server state the same rules (`docs/frontend/spec.md` I18). */
+  schema: ZodType;
+  /**
+   * Required rather than defaulted to identity: two of the callers assemble a payload that is not the draft, and a
+   * silent identity would judge the wrong shape and pass everything.
+   */
+  toPayload: (draft: TDraft) => unknown;
   successMessage: string;
   onClose: () => void;
   /**
@@ -44,14 +55,29 @@ export function EntityForm<TDraft>({
   const [draft, setDraft] = useState<TDraft>(initialDraft);
   // The hook's own toast is what keeps the submit from failing in silence: the one below is suppressed
   // whenever `fieldErrors` is non-empty and no field renders the rejected path.
-  const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors();
+  const { fieldErrors, setSubmitFieldErrors, guardSubmit, useForgiveFixed, formRef } = useDraftFieldErrors({
+    schemas: { entity: schema },
+  });
+
+  // Retracts a message the moment the value it judged becomes valid, so a corrected field clears as it is
+  // typed rather than at the next press.
+  useForgiveFixed({ entity: toPayload(draft) });
 
   const handleSubmit = () => {
+    const payload = toPayload(draft);
+    // `aria` blocks nothing natively, so without this an empty required field reaches the server unannounced.
+    // It RUNS the write: an answer returned here can be dropped at the call site with everything still green.
+    guardSubmit({ entity: payload }, writeAfterBlock);
+  };
+
+  const writeAfterBlock = () => {
+    const payload = toPayload(draft);
+
     startTransition(async () => {
       const res = await onSubmit(draft);
 
       if (!res.success) {
-        setFieldErrors(res.fieldErrors ?? {});
+        setSubmitFieldErrors(res.fieldErrors ?? {}, { entity: payload });
 
         // A field-level rejection already speaks at the field; the toast is for a failure belonging to none.
         if (!hasFieldErrors(res.fieldErrors)) {
@@ -62,7 +88,7 @@ export function EntityForm<TDraft>({
         return;
       }
 
-      setFieldErrors({});
+      setSubmitFieldErrors({}, {});
       setDraft(initialDraft);
       appToast.success(res.message || successMessage);
       onClose();
@@ -71,6 +97,10 @@ export function EntityForm<TDraft>({
 
   return (
     <Form
+      // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting the
+      // browser's message the moment an edited field is cleared. `aria` blocks nothing, so `guardSubmit`
+      // above is what refuses an emptied field.
+      validationBehavior="aria"
       ref={formRef}
       validationErrors={fieldErrors}
       // Read by the unlayered rule in `globals.css` that suppresses HeroUI's required asterisks. Emitted only

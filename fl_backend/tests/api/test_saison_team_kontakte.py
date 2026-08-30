@@ -51,14 +51,14 @@ SEEDED_KONTAKTE: dict[str, Any] = {
     "trainer": person("Ida"),
     "ansprechperson": person("Jonas"),
     "stellvertretung": person("Klara"),
-    "trainer_ist_ansprechperson": False,
+    "trainer_ist_zugleich": None,
 }
 
 NEW_KONTAKTE: dict[str, Any] = {
     "trainer": person("Lea"),
     "ansprechperson": person("Mika"),
     "stellvertretung": person("Nils"),
-    "trainer_ist_ansprechperson": True,
+    "trainer_ist_zugleich": "ansprechperson",
 }
 
 # What an erasure leaves behind, and what the editor has to be able to send back.
@@ -66,7 +66,7 @@ ONE_SLOT_FILLED: dict[str, Any] = {
     "trainer": person("Ove"),
     "ansprechperson": None,
     "stellvertretung": None,
-    "trainer_ist_ansprechperson": False,
+    "trainer_ist_zugleich": None,
 }
 
 

@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { AdminBewerbungenView } from "@/features/bewerbungen/components/views/AdminBewerbungenView";
 import { BEWERBUNGEN_CRUD_COPY } from "@/features/bewerbungen/constants";
 import { getBewerbungen } from "@/features/bewerbungen/queries";
-import { buildBewerbungRows } from "@/features/bewerbungen/utils";
+import { buildBewerbungRows, leserichtungHref, parseLeserichtung } from "@/features/bewerbungen/utils";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { getTeamMemberships } from "@/features/teams/queries";
@@ -36,20 +36,33 @@ export default function AdminBewerbungenPage(props: NextPageProps) {
  * Each row carries whether it is for the SELECTED season, so the facet can be turned off to reach
  * other seasons — the row-flag shape `/admin/teams` uses.
  *
- * No `limit` is passed: the facets narrow only what the endpoint already answered.
+ * `?order=` picks which end of the queue a cut-short answer keeps, offered where one came back.
  */
 async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   // The image builder reaches no backend, so the fetches below have to be kept out of the build.
   await connection();
+  const params = (await searchParams) ?? {};
   const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
+  const richtung = parseLeserichtung(params);
 
   // Every status: the facet opens the list on the undecided ones, and a decided application stays
   // the record its decision was taken against. The clubs, because a picked one is stored as an id.
-  const [bewerbungenRes, teamsRes, saisonsRes] = await Promise.all([getBewerbungen(), getTeamMemberships(), getAdminSaisons()]);
+  const [bewerbungenRes, teamsRes, saisonsRes] = await Promise.all([
+    // `order` alone: the default sort is already the submission date, so reversing it swaps which end
+    // of a flooded queue survives the endpoint's cap.
+    getBewerbungen({ order: richtung }),
+    getTeamMemberships(),
+    getAdminSaisons(),
+  ]);
 
   // Stops where `/admin/teams` stops: falling through to the first season would narrow to one season
   // while the header's selector names another.
   const selectedSaisonId = requestedSaisonId ?? saisonsRes.saisons.find((saison) => saison.status === "active")?.id;
 
-  return <AdminBewerbungenView bewerbungen={buildBewerbungRows(bewerbungenRes.bewerbungen, teamsRes.teams, selectedSaisonId)} />;
+  return (
+    <AdminBewerbungenView
+      bewerbungen={buildBewerbungRows(bewerbungenRes.bewerbungen, teamsRes.teams, selectedSaisonId)}
+      unvollstaendig={bewerbungenRes.vollstaendig ? null : { richtung: richtung, umkehrHref: leserichtungHref(params, richtung) }}
+    />
+  );
 }

@@ -1,15 +1,18 @@
 import asyncio
 import secrets
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Mapping
 
 import pytest
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo.errors import OperationFailure
 
+from app.api.aktionen.services import build_aktionen_sort
+from app.api.bewerbungen.services import build_bewerbungen_sort
 from app.core.constraints import (
     ABSENT_COLLECTION_NAME,
     COLLECTION_VALIDATORS,
+    SUPPORT_INDEXES,
     UNIQUE_INDEXES,
     apply_constraints,
     probe_collmod_privilege,
@@ -184,7 +187,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 "trainer": kontaktperson("Wraxlington"),
                 "ansprechperson": kontaktperson("Quillhilde"),
                 "stellvertretung": kontaktperson("Bramblewick"),
-                "trainer_ist_ansprechperson": False,
+                "trainer_ist_zugleich": None,
             },
             "trikot": {"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
             "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
@@ -664,3 +667,118 @@ def test_the_identity_report_names_the_user_and_its_roles(mongo_container: Any):
     identity, roles = on_a_database(mongo_container, body, constrained=False)
     assert identity == username
     assert f"readWrite@{DATABASE_NAME}" in roles
+
+
+# Section 6, the support indexes. Dropping one costs speed rather than correctness, which is why
+# nothing asserted on them -- and why a read they no longer serve fails no test while it scans.
+
+# Enough rows that the planner prefers an index: on a handful of documents a collection scan wins on
+# merit, and a test asserting IXSCAN there would pass for the wrong reason.
+ROWS_ENOUGH_TO_PREFER_AN_INDEX = 2000
+
+BEWERBUNGEN_QUEUE_FILTERS: list[dict[str, Any]] = [
+    {},
+    {"saison_id": SAISON_ID},
+    {"status": "eingereicht"},
+    {"saison_id": SAISON_ID, "status": "eingereicht"},
+]
+AKTIONEN_QUEUE_FILTERS: list[dict[str, Any]] = [
+    {},
+    {"collection": "teams"},
+    {"operation": "patch_one"},
+    {"collection": "teams", "operation": "patch_one"},
+]
+
+
+def winning_stages(explained: Mapping[str, Any]) -> list[str]:
+    """The winning plan's stages, outermost first. A blocking sort shows up here as `SORT`."""
+
+    node: Any = explained["queryPlanner"]["winningPlan"]
+    stages: list[str] = []
+    while node:
+        stages.append(node["stage"])
+        node = node.get("inputStage")
+
+    return stages
+
+
+def test_every_declared_support_index_is_built(mongo_container: Any):
+    """`apply_constraints` creates each one. Only the unique indexes were checked before, so a typo here built nothing."""
+
+    async def body(database: AsyncIOMotorDatabase) -> int:
+        for index in SUPPORT_INDEXES:
+            names = [existing["name"] async for existing in database[index.collection].list_indexes()]
+            assert index.name in names, f"{index.name} missing from {index.collection}: {names}"
+        return len(SUPPORT_INDEXES)
+
+    assert on_a_database(mongo_container, body) == len(SUPPORT_INDEXES)
+
+
+@pytest.mark.parametrize("order", ["asc", "desc"])
+@pytest.mark.parametrize("db_filter", BEWERBUNGEN_QUEUE_FILTERS, ids=lambda f: "+".join(f) or "none")
+def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_container: Any, db_filter: dict[str, Any], order: str):
+    """The property, not the key list: naming keys passes for an index this endpoint's own sort cannot use.
+
+    The sort comes from `build_bewerbungen_sort`, so a change there is judged rather than mirrored.
+    """
+
+    async def body(database: AsyncIOMotorDatabase) -> list[str]:
+        await database["bewerbungen"].insert_many(
+            [
+                valid_document(
+                    "bewerbungen",
+                    _id=ObjectId(),
+                    eingereicht_am=f"2026-02-{(row % 28) + 1:02d}",
+                    saison_id=SAISON_ID if row % 2 else "2025",
+                    status="eingereicht" if row % 3 else "angenommen",
+                )
+                for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
+            ]
+        )
+        explained = (
+            await database["bewerbungen"]
+            .find(db_filter)
+            .sort(build_bewerbungen_sort(sort_by="eingereicht_am", order=order))
+            .limit(50)
+            .explain()
+        )
+        return winning_stages(explained)
+
+    stages = on_a_database(mongo_container, body)
+
+    assert "IXSCAN" in stages, f"{order} on {db_filter or 'no filter'} reached no index: {stages}"
+    assert "SORT" not in stages, f"{order} on {db_filter or 'no filter'} blocks on an in-memory sort: {stages}"
+    assert "COLLSCAN" not in stages, f"{order} on {db_filter or 'no filter'} scans the archive: {stages}"
+
+
+@pytest.mark.parametrize("order", ["asc", "desc"])
+@pytest.mark.parametrize("db_filter", AKTIONEN_QUEUE_FILTERS, ids=lambda f: "+".join(f) or "none")
+def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_container: Any, db_filter: dict[str, Any], order: str):
+    """The log is the one collection that only ever grows, so a scan here worsens for as long as the site runs.
+
+    `correlation_id` is left out: it selects one write's fan-out, which the planner sorts in memory
+    over a handful of rows.
+    """
+
+    async def body(database: AsyncIOMotorDatabase) -> list[str]:
+        await database["aktionen"].insert_many(
+            [
+                valid_documents()["aktionen"]
+                | {
+                    "_id": ObjectId(),
+                    "at": f"2026-03-{(row % 28) + 1:02d}T09:30:00+00:00",
+                    "correlation_id": secrets.token_hex(16),
+                    "collection": "teams" if row % 2 else "spiele",
+                    "operation": "patch_one" if row % 3 else "insert",
+                }
+                for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
+            ]
+        )
+        explained = await database["aktionen"].find(db_filter).sort(build_aktionen_sort(order=order)).limit(50).explain()
+        return winning_stages(explained)
+
+    stages = on_a_database(mongo_container, body)
+
+    assert "IXSCAN" in stages, f"{order} on {db_filter or 'no filter'} reached no index: {stages}"
+    assert "SORT" not in stages, f"{order} on {db_filter or 'no filter'} blocks on an in-memory sort: {stages}"
+    assert "COLLSCAN" not in stages, f"{order} on {db_filter or 'no filter'} scans the whole log: {stages}"

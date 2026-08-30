@@ -185,10 +185,10 @@ describe("the erasure's gate and its exit", () => {
     assert.match(PANEL, /isDisabled=\{isErasing \|\| blockedReason !== null\}/, "the button no longer reads its own gate");
   });
 
-  /* This page is the erased player's own and answers not-found once the write lands, so Back must
-     not return to it. */
+  /* This page is the erased player's own and answers not-found once the write lands, so Back must not
+     return to it, and the list it lands on keeps the season the admin was working in. */
   it("leaves by replacing the page, never by pushing", () => {
-    assert.match(PANEL, /router\.replace\("\/admin\/spieler"\)/, "the erasure does not leave the page it just emptied");
+    assert.match(PANEL, /router\.replace\(saisonHref\("\/admin\/spieler"\)\)/, "the erasure does not leave the page it just emptied");
     assert.ok(!PANEL.includes("router.push("), "Back is left pointing at a page that now answers not-found");
   });
 

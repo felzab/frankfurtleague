@@ -4,8 +4,11 @@ import { useActionState, useEffect, useState } from "react";
 
 import { Button, FieldError, Form, Input, Label, Tabs, TextField } from "@heroui/react";
 
+import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
+import { runOnSubmit } from "@/shared/components/ui/formSubmit";
+import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
@@ -17,6 +20,13 @@ import type { FormState } from "@/shared/types/types";
 export function SignInForm() {
   const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
 
+  const [email, setEmail] = useState("");
+  const { fieldErrors, setSubmitFieldErrors, guardSubmit, useForgiveFixed, formRef } = useDraftFieldErrors({
+    schemas: { signIn: SignInPayloadSchema },
+  });
+
+  useForgiveFixed({ signIn: { email } });
+
   // `useActionState` has no reset, so the panel is keyed on a pair: `dismissedAt` is what lets
   // "Andere Adresse verwenden" return the form.
   const [dismissedAt, setDismissedAt] = useState<FormState | undefined>(undefined);
@@ -26,17 +36,33 @@ export function SignInForm() {
     if (!state || state.success) return;
 
     // A malformed address shows at the field; the toast is for failures belonging to no field.
-    if (hasFieldErrors(state.fieldErrors)) return;
+    if (hasFieldErrors(state.fieldErrors)) {
+      // The address the ACTION judged, echoed on the result: the box may already hold another.
+      setSubmitFieldErrors(state.fieldErrors, { signIn: { email: state.submittedEmail ?? "" } });
+      return;
+    }
 
     // No dismiss action and no hand-set timeout: the frontmost toast carries a close control, and
     // the duration follows the message length.
     appToast.danger("Anmeldung fehlgeschlagen", {
       description: state.error ?? UNKNOWN_REFUSAL,
     });
-  }, [state]);
+  }, [state, setSubmitFieldErrors]);
+
+  const handleFormSubmit = () => {
+    // `aria` blocks nothing natively, so this is what keeps an unusable address off the action. It RUNS the
+    // write, so there is no answer a later edit can drop.
+    guardSubmit({ signIn: { email } }, () => {
+      const submitted = new FormData();
+      submitted.set("email", email);
+      formAction(submitted);
+    });
+  };
 
   return (
-    <div className="flex min-h-[calc(100vh-var(--navbar-height))] w-full flex-1 items-center justify-center px-4 py-8">
+    // `dvh`, not `vh`: on a phone `vh` is the chrome-HIDDEN height, so the card's box outgrows the
+    // visible area and this page scrolls further than the footer below it. REASONED, not measured.
+    <div className="flex min-h-[calc(100dvh-var(--navbar-height))] w-full flex-1 items-center justify-center px-4 py-8">
       <div className="border-border bg-surface/95 w-full max-w-[460px] rounded-3xl border p-8 shadow-2xl backdrop-blur-xl sm:p-10">
         <div className="flex flex-col items-center pb-6 text-center">
           <span className="mb-3 text-4xl sm:text-5xl">⚽</span>
@@ -91,8 +117,12 @@ export function SignInForm() {
 
             <Tabs.Panel id="Admin">
               <Form
-                action={formAction}
-                validationErrors={state?.fieldErrors ?? {}}
+                // `aria` so an emptied address stays quiet until it is sent; the block below is what `native`
+                // used to do, in our own German rather than the browser's bubble.
+                validationBehavior="aria"
+                ref={formRef}
+                validationErrors={fieldErrors}
+                onSubmit={runOnSubmit(handleFormSubmit)}
                 className="flex flex-col gap-y-5">
                 {/* No `aria-label` here: it outranks the visible `<Label>`, so the accessible name
                   stopped matching the words a voice-control user reads. `TextField` associates it. */}
@@ -100,13 +130,16 @@ export function SignInForm() {
                   className="flex w-full flex-col gap-y-2"
                   isRequired
                   name="email"
-                  type="email">
+                  type="email"
+                  value={email}
+                  onChange={setEmail}>
                   <Label className="fluid-xs text-foreground font-bold tracking-wider uppercase">E-Mail-Adresse</Label>
+                  {/* No `required`: `aria` drops react-aria's own, and a hand-written one would put the
+                      browser's bubble back on the very blur this mode exists to keep quiet. */}
                   <Input
                     className="border-border bg-surface text-foreground placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full rounded-xl border px-4 py-3 transition-colors duration-200 outline-none"
                     placeholder="z.B. name@beispiel.de"
                     type="email"
-                    required
                     disabled={isPending}
                   />
                   <FieldError className={FIELD_ERROR} />
@@ -123,7 +156,9 @@ export function SignInForm() {
             </Tabs.Panel>
 
             <Tabs.Panel id="Spieler">
-              <Form className="flex flex-col gap-y-5">
+              {/* A `div`, not a `Form`: nothing here can be submitted, and a form that cannot submit is one
+                  more surface the submit-block sweep has to carve an exception for. */}
+              <div className="flex flex-col gap-y-5">
                 <TextField
                   className="flex w-full flex-col gap-y-2"
                   isRequired
@@ -146,7 +181,7 @@ export function SignInForm() {
                   className={formButton({ intent: "submit", fullWidth: true })}>
                   Link senden
                 </Button>
-              </Form>
+              </div>
             </Tabs.Panel>
           </Tabs>
         )}

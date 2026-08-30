@@ -2073,7 +2073,7 @@
     "/api/v0/bewerbungen": {
       "get": {
         "summary": "List Bewerbungen",
-        "description": "Every application, newest first, narrowable by season and by status.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against.",
+        "description": "Every application, newest first, narrowable by season and by status.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against. `vollstaendig` is false where more rows exist than one read serves.",
         "operationId": "get_bewerbungen_api_v0_bewerbungen_get",
         "security": [
           {
@@ -2123,16 +2123,10 @@
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "maximum": 1024,
-                  "minimum": 1
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
               "title": "Limit"
             }
           },
@@ -2172,6 +2166,48 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLBewerbungenListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Submit a Bewerbung",
+        "description": "Store one school's application to play one season, exactly as it was submitted.\n\nEverything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's\nscope, source and date -- is written here and never taken off the payload.",
+        "operationId": "post_bewerbung_api_v0_bewerbungen_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostBewerbungPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostBewerbungResponse"
                 }
               }
             }
@@ -2397,8 +2433,31 @@
     "/api/v0/spiele/action_required": {
       "get": {
         "summary": "Spiele needing attention",
-        "description": "List Spiele needing an admin's attention, and the bracket faults among them.\n\nQualifying: cancelled, missing a date, time, venue or referee, past with no result, or a\nknockout side holding neither team nor `quelle`. Every season.",
+        "description": "List Spiele needing attention, and the bracket faults among them.\n\nQualifying: cancelled, missing a date, time, venue or referee, past with no result, or a\nknockout side with neither team nor `quelle`. Scoped to `saison_id`, every season without.",
         "operationId": "get_spiele_action_required_api_v0_spiele_action_required_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Saison Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2409,13 +2468,18 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/v0/spiele/{spiel_id}/admin": {
@@ -4187,6 +4251,144 @@
         ]
       }
     },
+    "/api/v0/bewerbungen/fenster": {
+      "get": {
+        "summary": "The Saison currently accepting applications",
+        "description": "Return the season whose application window is open today; 404 when none is.\n\nThe window alone, never the season: `docs/backend/spec.md :: I47` withholds a `future` one from\nthis tier (`READ-BEWERBUNG-001`).",
+        "operationId": "get_offenes_fenster_api_v0_bewerbungen_fenster_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungFensterResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v0/bewerbungen/fenster/{saison_id}": {
+      "get": {
+        "summary": "One Saison's application window",
+        "description": "Return one season's application window; 404 when the season has none, or does not exist.\n\nA CLOSED window is served rather than hidden: the page says the deadline has passed, which a\n404 could not tell from a mistyped id.",
+        "operationId": "get_fenster_api_v0_bewerbungen_fenster__saison_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungFensterResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/bewerbungen/schulen": {
+      "get": {
+        "summary": "The clubs a public application may name",
+        "description": "Every club still in the league, as `{id, name}` and nothing else, sorted by name.\n\n`FLBewerbungSchuleOption` decides the wire (`READ-BEWERBUNG-001`) and the projection below\ndecides what leaves the database. Both are pinned.",
+        "operationId": "get_schulen_api_v0_bewerbungen_schulen_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungSchulenResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v0/bewerbungen/kuerzel/{shorthand}": {
+      "get": {
+        "summary": "Whether a Kürzel is already a club's",
+        "description": "Answer whether any club holds this two-letter code.\n\nRetired clubs COUNT and no club is named: `uniq_shorthand` spans the collection, and an answer\nnaming the holder would publish which schools have left (`READ-BEWERBUNG-001`).",
+        "operationId": "get_kuerzel_api_v0_bewerbungen_kuerzel__shorthand__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shorthand",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Shorthand"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungKuerzelResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -4570,7 +4772,8 @@
             "type": "string",
             "enum": [
               "admin_session",
-              "system"
+              "system",
+              "public"
             ],
             "title": "Kind"
           },
@@ -4827,6 +5030,73 @@
         "title": "FLBewerbung",
         "description": "One school's application to play one season, as it is stored.\n\nThe submission is never rewritten: only `status`, `entscheidung` and `team_id` move, and only\nthrough the two triage endpoints."
       },
+      "FLBewerbungAddressPayload": {
+        "properties": {
+          "strasse": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Strasse"
+          },
+          "hausnummer": {
+            "type": "string",
+            "maxLength": 16,
+            "pattern": "^([0-9\\-abcABC]+)?$",
+            "title": "Hausnummer"
+          },
+          "plz": {
+            "type": "string",
+            "pattern": "^[0-9]{5}$",
+            "title": "Plz"
+          },
+          "stadtteil": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Stadtteil"
+          },
+          "stadt": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Stadt"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "strasse",
+          "hausnummer",
+          "plz",
+          "stadtteil",
+          "stadt"
+        ],
+        "title": "FLBewerbungAddressPayload",
+        "description": "The school's address, with the Stadtteil REQUIRED.\n\nIts own subclass rather than a change to `FLAddressPayload`, which an admin address shares: a\nvenue can genuinely lack a district, and a Frankfurt school does not."
+      },
+      "FLBewerbungEinwilligungPayload": {
+        "properties": {
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          },
+          "erteilt": {
+            "type": "boolean",
+            "const": true,
+            "title": "Erteilt"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text_version",
+          "erteilt"
+        ],
+        "title": "FLBewerbungEinwilligungPayload",
+        "description": "What the applicant agreed to, and nothing about how the record of it is composed.\n\n`umfang`, `erteilt_von` and `datum` are the SERVER's: a client offered them could claim an\nadministrative transcription, or backdate a consent."
+      },
       "FLBewerbungEntscheidung": {
         "properties": {
           "getroffen_am": {
@@ -4859,6 +5129,51 @@
         "title": "FLBewerbungEntscheidung",
         "description": "Who decided this application, when, and -- on a decline -- why.\n\n`von` is the administrator the request was attributed to, so a decision and the `aktionen` row\nrecording it can never name two different people."
       },
+      "FLBewerbungFensterResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "offen": {
+            "type": "boolean",
+            "title": "Offen"
+          },
+          "von": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Von"
+          },
+          "bis": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bis"
+          },
+          "laeuft": {
+            "type": "boolean",
+            "title": "Laeuft"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "offen",
+          "von",
+          "bis",
+          "laeuft"
+        ],
+        "title": "FLBewerbungFensterResponse",
+        "description": "One season's application window, and NOTHING else about that season.\n\nA season taking applications is `future`, which `docs/backend/spec.md :: I47` withholds whole --\nso the window gets its own shape rather than widening a season read."
+      },
       "FLBewerbungKader": {
         "properties": {
           "voraussichtliche_groesse": {
@@ -4866,14 +5181,7 @@
             "title": "Voraussichtliche Groesse"
           },
           "gute_spieler": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
             "title": "Gute Spieler"
           }
         },
@@ -4884,6 +5192,144 @@
         ],
         "title": "FLBewerbungKader",
         "description": "The school's own estimate of its squad, on the application alone.\n\nUnbounded on read for `FLBewerbungSchule.website_url`'s reason. Nothing checks either number\nagainst a squad afterwards -- they are what the school expected, not what it fielded."
+      },
+      "FLBewerbungKaderPayload": {
+        "properties": {
+          "voraussichtliche_groesse": {
+            "type": "integer",
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Voraussichtliche Groesse"
+          },
+          "gute_spieler": {
+            "type": "integer",
+            "maximum": 200.0,
+            "minimum": 0.0,
+            "title": "Gute Spieler"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "voraussichtliche_groesse",
+          "gute_spieler"
+        ],
+        "title": "FLBewerbungKaderPayload"
+      },
+      "FLBewerbungKontaktePayload": {
+        "properties": {
+          "trainer": {
+            "$ref": "#/components/schemas/FLBewerbungKontaktpersonPayload"
+          },
+          "ansprechperson": {
+            "$ref": "#/components/schemas/FLBewerbungKontaktpersonPayload"
+          },
+          "stellvertretung": {
+            "$ref": "#/components/schemas/FLBewerbungKontaktpersonPayload"
+          },
+          "trainer_ist_zugleich": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ansprechperson",
+                  "stellvertretung"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainer Ist Zugleich"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "trainer",
+          "ansprechperson",
+          "stellvertretung",
+          "trainer_ist_zugleich"
+        ],
+        "title": "FLBewerbungKontaktePayload",
+        "description": "The three people an application is reached through, all three REQUIRED and non-null.\n\nUnlike the junction payload, whose nulls keep a row an erasure emptied editable: an application\nis the form those three filled in, and there is nothing yet to erase."
+      },
+      "FLBewerbungKontaktpersonPayload": {
+        "properties": {
+          "vorname": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
+            "title": "Nachname"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          },
+          "telefon": {
+            "type": "string",
+            "pattern": "^([+]?[ 0-9\\-().]{3,20})$",
+            "title": "Telefon"
+          },
+          "geburtsdatum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Geburtsdatum"
+          },
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLBewerbungEinwilligungPayload"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "vorname",
+          "nachname",
+          "email",
+          "telefon",
+          "geburtsdatum",
+          "einwilligung"
+        ],
+        "title": "FLBewerbungKontaktpersonPayload",
+        "description": "One of the three people, as a member of the public submits them.\n\nThe junction payload plus the two things only a public form needs: a bounded age, and a consent\nthe person gives themselves."
+      },
+      "FLBewerbungKuerzelResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "shorthand": {
+            "type": "string",
+            "title": "Shorthand"
+          },
+          "vergeben": {
+            "type": "boolean",
+            "title": "Vergeben"
+          }
+        },
+        "type": "object",
+        "required": [
+          "shorthand",
+          "vergeben"
+        ],
+        "title": "FLBewerbungKuerzelResponse",
+        "description": "Whether a proposed Kürzel is already a club's. ONE neutral answer.\n\nIt names no club and does not tell an active one from a retired one: the uniqueness it mirrors\nspans both, and a shape distinguishing them would publish which schools have left."
       },
       "FLBewerbungSchule": {
         "properties": {
@@ -4926,7 +5372,14 @@
             "$ref": "#/components/schemas/FLAddress"
           },
           "website_url": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Website Url"
           }
         },
@@ -4941,6 +5394,114 @@
         ],
         "title": "FLBewerbungSchule",
         "description": "The club a new school proposes, in the shape acceptance will create it in.\n\nWhile the application is `eingereicht`, exactly one of this and `team_id` carries a value, held\nby the write path rather than the validator (`docs/backend/spec.md :: I16`)."
+      },
+      "FLBewerbungSchuleOption": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "FLBewerbungSchuleOption",
+        "description": "One club as the public form offers it: an autocomplete row, and nothing more.\n\nAn allow-list declared from nothing, never a narrowing of `FLTeam` (`READ-BEWERBUNG-001`): an\nanonymous visitor picks from it, and a club's address is a school's street."
+      },
+      "FLBewerbungSchulePayload": {
+        "properties": {
+          "team_name": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "pattern": "^[^\\r\\n]*$",
+            "title": "Team Name"
+          },
+          "full_name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[^\\r\\n]*$",
+            "title": "Full Name"
+          },
+          "shorthand": {
+            "type": "string",
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "Shorthand"
+          },
+          "schulform": {
+            "type": "string",
+            "enum": [
+              "gymnasium_g8",
+              "gymnasium_g9",
+              "gesamtschule",
+              "privatschule_g8",
+              "privatschule_g9",
+              "oberstufengymnasium"
+            ],
+            "title": "Schulform"
+          },
+          "address": {
+            "$ref": "#/components/schemas/FLBewerbungAddressPayload"
+          },
+          "website_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "team_name",
+          "full_name",
+          "shorthand",
+          "schulform",
+          "address",
+          "website_url"
+        ],
+        "title": "FLBewerbungSchulePayload",
+        "description": "The club a new school proposes, bounded and stripped for the write side.\n\nA subclass rather than a second declaration, as `FLKontaktpersonPayload` is: the field set is the\nstored block's, and two spellings of it would drift on every field they share."
+      },
+      "FLBewerbungSchulenResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "schulen": {
+            "items": {
+              "$ref": "#/components/schemas/FLBewerbungSchuleOption"
+            },
+            "type": "array",
+            "title": "Schulen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schulen"
+        ],
+        "title": "FLBewerbungSchulenResponse"
       },
       "FLBewerbungSingleResponse": {
         "properties": {
@@ -5007,6 +5568,44 @@
         "title": "FLBewerbungTrikot",
         "description": "What kit the school already owns, and the colour it would like.\n\nNever copied onto the team: `saison_teams.trikot_farbe` is the colour an administrator ASSIGNED,\nand two schools may wish for one colour."
       },
+      "FLBewerbungTrikotPayload": {
+        "properties": {
+          "vorhandener_satz": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Vorhandener Satz"
+          },
+          "wunschfarbe": {
+            "type": "string",
+            "enum": [
+              "weiss",
+              "schwarz",
+              "rot",
+              "braun",
+              "orange",
+              "gelb",
+              "hellgruen",
+              "gruen",
+              "tuerkis",
+              "hellblau",
+              "blau",
+              "dunkelblau",
+              "violett",
+              "magenta",
+              "bordeaux",
+              "grau"
+            ],
+            "title": "Wunschfarbe"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "vorhandener_satz",
+          "wunschfarbe"
+        ],
+        "title": "FLBewerbungTrikotPayload"
+      },
       "FLBewerbungenListResponse": {
         "properties": {
           "acknowledged": {
@@ -5024,13 +5623,19 @@
             },
             "type": "array",
             "title": "Bewerbungen"
+          },
+          "vollstaendig": {
+            "type": "boolean",
+            "title": "Vollstaendig"
           }
         },
         "type": "object",
         "required": [
-          "bewerbungen"
+          "bewerbungen",
+          "vollstaendig"
         ],
-        "title": "FLBewerbungenListResponse"
+        "title": "FLBewerbungenListResponse",
+        "description": "The queue, newest first, and whether that is the whole of it.\n\nThe list is served WHOLE by design -- the page marks duplicate submissions across it, and a\nsplit set would leave a pair unmarked with nothing saying so."
       },
       "FLBracketFaultGruppe": {
         "properties": {
@@ -5973,7 +6578,7 @@
           "trikot_farbe"
         ],
         "title": "FLPatchSaisonTeamPayload",
-        "description": "The row's own fields. NO `kontakte`: `FLPatchSaisonTeamKontaktePayload` owns it.\n\nA stored contact is shapeless on read, bounded on write\n(`docs/backend/spec.md :: I36`), so round-tripping it here refuses every save a club with one\nbad row can make."
+        "description": "The row's own fields. NO `kontakte`: `FLPatchSaisonTeamKontaktePayload` owns it.\n\nA stored contact is shapeless on read and bounded on write, so round-tripping it here refuses\nevery save a club with one bad row can make."
       },
       "FLPatchSchiedsrichterPayload": {
         "properties": {
@@ -6422,7 +7027,14 @@
             "title": "Schulform"
           },
           "website_url": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Website Url"
           },
           "address": {
@@ -6472,6 +7084,92 @@
           "fanned_out_to_saison_teams"
         ],
         "title": "FLPatchTeamResponse"
+      },
+      "FLPostBewerbungPayload": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id"
+          },
+          "schule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungSchulePayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kontakte": {
+            "$ref": "#/components/schemas/FLBewerbungKontaktePayload"
+          },
+          "trikot": {
+            "$ref": "#/components/schemas/FLBewerbungTrikotPayload"
+          },
+          "kader": {
+            "$ref": "#/components/schemas/FLBewerbungKaderPayload"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_id",
+          "schule",
+          "kontakte",
+          "trikot",
+          "kader"
+        ],
+        "title": "FLPostBewerbungPayload",
+        "description": "One school's application, as the public form submits it.\n\n`status`, `eingereicht_am` and `entscheidung` are on no payload: the server sets all three, so a\nclient can neither arrive already accepted nor backdate its own submission."
+      },
+      "FLPostBewerbungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "created_id": {
+            "type": "string",
+            "title": "Created Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "eingereicht_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Eingereicht Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created_id",
+          "saison_id",
+          "eingereicht_am"
+        ],
+        "title": "FLPostBewerbungResponse",
+        "description": "What the submission wrote, and nothing the submission carried.\n\nThe three people's details went one way, and a body repeating them is a copy in a browser's\ncache and in every proxy between."
       },
       "FLPostSaisonPayload": {
         "properties": {
@@ -6839,7 +7537,14 @@
             "title": "Schulform"
           },
           "website_url": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Website Url"
           },
           "address": {
@@ -7404,9 +8109,20 @@
               }
             ]
           },
-          "trainer_ist_ansprechperson": {
-            "type": "boolean",
-            "title": "Trainer Ist Ansprechperson"
+          "trainer_ist_zugleich": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ansprechperson",
+                  "stellvertretung"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainer Ist Zugleich"
           }
         },
         "type": "object",
@@ -7414,7 +8130,7 @@
           "trainer",
           "ansprechperson",
           "stellvertretung",
-          "trainer_ist_ansprechperson"
+          "trainer_ist_zugleich"
         ],
         "title": "FLSaisonTeamKontakte",
         "description": "The three people a team is reached through, for ONE season.\n\nOn the junction rather than the club: a school's staff turns over between seasons, and a\nfinished season is the record of who was reachable while it ran."
@@ -7451,9 +8167,20 @@
               }
             ]
           },
-          "trainer_ist_ansprechperson": {
-            "type": "boolean",
-            "title": "Trainer Ist Ansprechperson"
+          "trainer_ist_zugleich": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ansprechperson",
+                  "stellvertretung"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainer Ist Zugleich"
           }
         },
         "additionalProperties": false,
@@ -7462,7 +8189,7 @@
           "trainer",
           "ansprechperson",
           "stellvertretung",
-          "trainer_ist_ansprechperson"
+          "trainer_ist_zugleich"
         ],
         "title": "FLSaisonTeamKontaktePayload",
         "description": "The write side of the three, with the empty slot an erasure leaves.\n\nThree whole people is the editor's own guarantee\n(`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteSection.tsx`)."
@@ -9597,7 +10324,14 @@
             "title": "Schulform"
           },
           "website_url": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Website Url"
           },
           "address": {
@@ -9777,7 +10511,14 @@
             "title": "Schulform"
           },
           "website_url": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Website Url"
           },
           "address": {
@@ -9911,7 +10652,14 @@
             "title": "Schulform"
           },
           "website_url": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Website Url"
           },
           "address": {

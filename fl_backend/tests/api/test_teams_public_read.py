@@ -121,7 +121,7 @@ def junction_row(key: str, shorthand: str) -> dict[str, Any]:
             "trainer": kontaktperson("Trainerin"),
             "ansprechperson": kontaktperson("Ansprechpartnerin"),
             "stellvertretung": kontaktperson("Vertretung"),
-            "trainer_ist_ansprechperson": False,
+            "trainer_ist_zugleich": None,
         },
     }
 

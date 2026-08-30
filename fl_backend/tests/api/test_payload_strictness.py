@@ -173,6 +173,13 @@ STRICT_STRINGS = [
 # more filled-looking than the empty string the field already takes.
 OPEN_TO_THE_EMPTY_STRING = frozenset({"stadtteil", "hausnummer", "description"})
 
+# Where one payload REQUIRES a field the set above leaves open. Enumerated by full label, not by
+# name, so the exemption reaches the one model that decided it and no sibling inherits it silently.
+
+# A venue can genuinely lack a district and a Frankfurt school cannot, so the public application
+# payload floors `stadtteil` where `FLAddressPayload` leaves it open.
+FLOORED_BY_DECISION = frozenset({"FLBewerbungAddressPayload.stadtteil"})
+
 
 # `empty_parameter_set_mark` defaults to skip, so a sweep that matched nothing would pass in silence.
 assert BODY_CASES, "no route declares a request body; the app, or the way a body is declared, has moved"
@@ -322,9 +329,20 @@ class TestAFloorOnAPayloadStringCountsWhatIsLeftAfterTheStrip:
         optional.
         """
 
-        floored = sorted(label for label, field in STRICT_STRINGS if label.split(".")[-1] in OPEN_TO_THE_EMPTY_STRING and _floor(field))
+        floored = sorted(
+            label
+            for label, field in STRICT_STRINGS
+            if label.split(".")[-1] in OPEN_TO_THE_EMPTY_STRING and label not in FLOORED_BY_DECISION and _floor(field)
+        )
 
         assert floored == []
+
+    def test_every_floor_taken_by_decision_is_one_a_payload_really_carries(self):
+        """The other direction: an entry left behind would excuse a field that has since gone back to being optional."""
+
+        floored = {label for label, field in STRICT_STRINGS if _floor(field)}
+
+        assert FLOORED_BY_DECISION <= floored, f"{sorted(FLOORED_BY_DECISION - floored)} carry no floor and need no exemption"
 
     def test_a_payload_still_takes_the_empty_string_where_the_value_is_absent(self, address, team):
         """The behaviour behind the set above, so it is a property of the fields rather than a list somebody wrote."""

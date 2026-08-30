@@ -3,7 +3,7 @@
 import { memo, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Calendar, Globe, Pencil, Person, Persons } from "@gravity-ui/icons";
+import { Envelope, Globe, Magnifier, Pencil, PersonPencil, Persons } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
@@ -16,6 +16,7 @@ import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
+import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminTeamRow } from "../../types";
@@ -47,9 +48,8 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   // this list is showing.
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
-  const saisonQuery = selectedFromUrl ? `?saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
-  // The same value as a second parameter, for the one row link that carries a facet of its own.
-  const saisonParam = selectedFromUrl ? `&saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
+  // The season the shell is on, handed to `withSaisonId`: it resolves the `?`/`&` split with
+  // `URLSearchParams`, which is the whole reason the two hand-rolled constants existed.
 
   // No confirmation step: reactivation is undone by the delete control that takes its place.
   const handleReactivate = (team: AdminTeamRow) => {
@@ -84,10 +84,22 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
       {/* `team` as `buildSpielerFacets` declares it, keyed by the club's id. The season's own clubs
           are that facet's options, so a club outside the season drops out and the link widens. */}
       <RowActionLink
-        href={`/admin/spieler?team=${team.id}${saisonParam}`}
+        href={withSaisonId(`/admin/spieler?team=${team.id}`, selectedFromUrl)}
         label="Spieler anzeigen"
         ariaLabel={`Spieler von ${team.name} anzeigen`}>
-        <Person
+        <PersonPencil
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
+      {/* `team` as `buildKontakteFacets` declares it, and the season rides along beside it: the seats
+          hang off the junction, so without it this opens another season's three people. */}
+      <RowActionLink
+        href={withSaisonId(`/admin/kontakte?team=${team.id}`, selectedFromUrl)}
+        label="Kontakte anzeigen"
+        ariaLabel={`Kontakte von ${team.name} anzeigen`}>
+        <Envelope
           aria-hidden="true"
           width={18}
           height={18}
@@ -96,17 +108,17 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
       {/* `team` as `buildSpielFacets` declares it, and it reads both sides — so this finds the club's
           fixtures whichever slot it occupies. */}
       <RowActionLink
-        href={`/admin/spielsuche?team=${team.id}${saisonParam}`}
+        href={withSaisonId(`/admin/spielsuche?team=${team.id}`, selectedFromUrl)}
         label="Spiele anzeigen"
         ariaLabel={`Spiele von ${team.name} anzeigen`}>
-        <Calendar
+        <Magnifier
           aria-hidden="true"
           width={18}
           height={18}
         />
       </RowActionLink>
       <RowActionLink
-        href={`/dashboard/teams/${team.id}${saisonQuery}`}
+        href={withSaisonId(`/dashboard/teams/${team.id}`, selectedFromUrl)}
         label="Öffentliche Teamseite"
         ariaLabel={`Öffentliche Seite von ${team.name} öffnen`}>
         <Globe
@@ -116,7 +128,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         />
       </RowActionLink>
       <RowActionLink
-        href={`/admin/teams/${team.id}${saisonQuery}`}
+        href={withSaisonId(`/admin/teams/${team.id}`, selectedFromUrl)}
         label="Bearbeiten"
         ariaLabel={`Team ${team.name} bearbeiten`}>
         <Pencil
@@ -183,7 +195,9 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                 columns plus 256 for the free-text one, under which it gets nothing. */}
             <Table.Content
               aria-label="Tabelle aller Teams"
-              className="min-w-4xl table-fixed">
+              /* A numeric step rather than a container name: six controls put the owed floor at 944px,
+                  which no `--container-*` names. `adminCrudEmpty.test.ts` resolves both scales. */
+              className="min-w-236 table-fixed">
               <Table.Header>
                 {/* UNDECLARED: fixed layout gives it everything the columns beside it leave, and it
                 is the only one here holding free text. */}
@@ -206,7 +220,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                 </Table.Column>
                 {/* Five controls at most — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
                 holds the arithmetic, and it is the count a new action changes. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-72 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-84 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen
                 </Table.Column>
               </Table.Header>

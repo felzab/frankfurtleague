@@ -1,10 +1,11 @@
-import { AKTION_COLLECTION_LABELS, AKTION_OPERATION_LABELS } from "./constants";
+import { AKTION_COLLECTION_LABELS, AKTION_HERKUNFT_LABELS, AKTION_OPERATION_LABELS } from "./constants";
+import { herkunftOfAktor } from "./utils";
 
 import type { Facet } from "@/shared/utils/facets";
 import type { AdminAktionRow } from "./types";
 
-// Derived from the label maps rather than spelled a second time: an area or an operation added there
-// has to reach this filter, and two hand-kept lists drift the moment one of them grows.
+// Derived from the label maps rather than spelled a second time: an area, an operation or an origin
+// added there has to reach this filter, and two hand-kept lists drift the moment one of them grows.
 const toOptions = (labels: Record<string, string>) => Object.entries(labels).map(([value, label]) => ({ value, label }));
 
 // Module scope is load-bearing: `AdminCrudView`'s memo and the react-aria collection behind it both
@@ -25,12 +26,9 @@ export const AKTIONEN_FACETS: readonly Facet<AdminAktionRow>[] = [
   {
     param: "herkunft",
     label: "Herkunft",
-    options: [
-      { value: "person", label: "Angemeldete Person" },
-      { value: "system", label: "System" },
-    ],
-    // On the actor's `kind` and never on the address: the system actor's is a sentinel rather than a
-    // mailbox, and a later scheme that verifies an identity records a different kind under the same one.
-    read: (aktion) => [aktion.actor.kind === "system" ? "system" : "person"],
+    options: toOptions(AKTION_HERKUNFT_LABELS),
+    // On the actor's `kind` and never on the address: two of the three carry a sentinel rather than a
+    // mailbox, and a later scheme that verifies an identity records a new kind under `person`.
+    read: (aktion) => [herkunftOfAktor(aktion.actor)],
   },
 ];

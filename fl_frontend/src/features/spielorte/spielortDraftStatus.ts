@@ -9,7 +9,7 @@ import type { FieldErrors } from "@/shared/utils/validation";
 export type FLSpielortDraftFields = {
   name: string;
   address: FLAddress;
-  default_mietpreis: number;
+  default_mietpreis: number | null;
 };
 
 export type FLSpielortFieldGroup = "Spielort" | "Adresse" | "Miete";
@@ -24,7 +24,12 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSpielortDraftFields, FLSpi
   { path: "address.plz", label: "PLZ", group: "Adresse", read: (source) => emptyAsNull(source.address.plz) },
   { path: "address.stadt", label: "Stadt", group: "Adresse", read: (source) => emptyAsNull(source.address.stadt) },
   { path: "address.stadtteil", label: "Stadtteil", group: "Adresse", read: (source) => emptyAsNull(source.address.stadtteil) },
-  { path: "default_mietpreis", label: "Standard-Mietpreis", group: "Miete", read: (source) => formatEuro(source.default_mietpreis) },
+  {
+    path: "default_mietpreis",
+    label: "Standard-Mietpreis",
+    group: "Miete",
+    read: (source) => (source.default_mietpreis === null ? null : formatEuro(source.default_mietpreis)),
+  },
 ];
 
 export function deriveSpielortDraftStatus({

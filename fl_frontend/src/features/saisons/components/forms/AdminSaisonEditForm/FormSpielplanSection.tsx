@@ -21,6 +21,7 @@ import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FIELD_LABEL, FIELD_TRIO, FORM_SECTION_HEADING, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -187,8 +188,9 @@ export function FormSpielplanSection({
             <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong`}>Kein Spielplan</span>
           )}
         </span>
-        <h2 className={panel.heading()}>
-          Spielplan
+        <PanelHeading
+          className={panel.heading()}
+          title="Spielplan">
           {/* The two bullets are the second half of the repair `REQ-RULES-011` sends an admin on, so
               this hint keeps its wayfinding where an ordinary one would lose it. */}
           <Hint
@@ -205,7 +207,7 @@ export function FormSpielplanSection({
               ],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

@@ -1250,9 +1250,9 @@ def a_season_drawn_from(url: str, *, seed: Seed, shape: FLSpielplanShape | None,
     return on_a_seeded_saison(url, body, seed=seed)
 
 
-# A `rules` sub-key no model declares. The `saisons` validator admits it, `app/core/constraints.py ::
-# _object` emitting no `additionalProperties`, and `FLSaisonRules` ignores it -- so only a write that
-# names its paths can leave it standing.
+# A `rules` sub-key no model declares. The `saisons` validator admits it,
+# `app/core/constraints.py :: _object` emitting no `additionalProperties`, and `FLSaisonRules` ignores it
+# -- so only a write that names its paths can leave it standing.
 UNDECLARED_RULE: dict[str, Any] = {"spielzeit_minuten": 25}
 
 

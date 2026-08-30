@@ -42,6 +42,12 @@ export type FLDraftStatus<TGroup extends string> = {
 export const emptyAsNull = (value: string | null): string | null => (value === null || value.trim() === "" ? null : value);
 
 /**
+ * The numeric counterpart. An emptied number field holds `null`, and `String(null)` would report it as the word
+ * "null" -- a change list saying a count went from 3 to "null" rather than to nothing at all.
+ */
+export const numberAsNull = (value: number | null): string | null => (value === null ? null : String(value));
+
+/**
  * The fold every editor's change list shares. A slice contributes only what is its own — its group
  * union, its descriptors and their `read` functions — which is also what lets this live in `shared`
  * without importing a feature.

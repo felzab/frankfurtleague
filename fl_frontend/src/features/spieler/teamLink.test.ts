@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 
 import { TEAM_FACETS, TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
 import { applyFacets, readFacetSelection } from "@/shared/utils/facets";
+import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { AdminTeamRow } from "@/features/teams/types";
 
@@ -30,12 +31,16 @@ const INSIDE = club("inside", true);
 const OUTSIDE = club("outside", false);
 
 /** The row link's own template, so what is decoded below is the URL the table builds rather than a copy of it. */
-const HREF_TEMPLATE = /href=\{`(\/admin\/teams\?[^`]*)`\}/.exec(TABLE)?.[1] ?? "";
+const HREF_TEMPLATE = /href=\{withSaisonId\(`(\/admin\/teams\?[^`]*)`/.exec(TABLE)?.[1] ?? "";
 
 /** The template with its interpolations filled in. An interpolation this does not name is left in place, which the case below reads. */
-const HREF = HREF_TEMPLATE.replace("${encodeURIComponent(row.teamName)}", encodeURIComponent(TEAM_NAME))
-  .replace("${TEAMS_ANY_SAISON_QUERY}", TEAMS_ANY_SAISON_QUERY)
-  .replace("${saisonParam}", `&saison_id=${SAISON_ID}`);
+// Composed by the SHIPPING helper: what has to hold is that the season lands in the query.
+const HREF = withSaisonId(
+  HREF_TEMPLATE.replace("${encodeURIComponent(row.teamName)}", encodeURIComponent(TEAM_NAME))
+    .replace("${TEAMS_ANY_SAISON_QUERY}", TEAMS_ANY_SAISON_QUERY)
+    .replace("${TEAMS_ANY_SAISON_QUERY}", TEAMS_ANY_SAISON_QUERY),
+  SAISON_ID,
+);
 
 const query = (href: string): URLSearchParams => new URLSearchParams(href.slice(href.indexOf("?") + 1));
 
@@ -88,6 +93,6 @@ describe("the squad row's link into the club list", () => {
   it("leaves the club's own link back to the players alone", () => {
     const back = readFileSync(path.resolve(import.meta.dirname, "..", "teams", "components", "collections", "AdminTeamsTable.tsx"), "utf8");
 
-    assert.match(back, /href=\{`\/admin\/spieler\?team=\$\{team\.id\}\$\{saisonParam\}`\}/);
+    assert.match(back, /href=\{withSaisonId\(`\/admin\/spieler\?team=\$\{team\.id\}`, selectedFromUrl\)\}/);
   });
 });

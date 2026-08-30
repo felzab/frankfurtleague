@@ -51,8 +51,9 @@ export const ADMIN_SHELL_FALLBACK = {
 } as const satisfies { label: string; hint: SidemenuHint };
 
 export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
-  // Deliberately unnamed: everything below is season-scoped, and `SidemenuNavLinks` renders neither a
-  // label nor a rule for an empty name.
+  // Deliberately unnamed: a season is created and edited here, which makes this the subject the menu
+  // is organised under rather than one more group in it. `SidemenuNavLinks` renders neither a label
+  // nor a rule for an empty name.
   {
     category_name: "",
     sub_options: [
@@ -69,8 +70,10 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
     ],
   },
 
+  // Grouped by what an admin DOES here: both are queues worked down to nothing, where every list
+  // below is one to look something up in.
   {
-    category_name: "Spiele",
+    category_name: "Zu erledigen",
     sub_options: [
       {
         id: "action_required",
@@ -79,23 +82,29 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         hint: {
           // No list of the categories: the page's own hint reads the active tab's
           // `ACTION_REQUIRED_LABELS` entry, and a second telling here would go stale against it.
-          lead: "Jedes Spiel, das eine Eingabe braucht, sortiert nach dem, was es aufhält.",
+          lead: "Jedes Spiel der Saison, das eine Eingabe braucht, sortiert nach dem, was es aufhält.",
           note: "Ein abgebrochenes Spiel wartet weiter auf sein Ergebnis.",
         },
       },
       {
-        id: "spielsuche",
-        label: "Spielsuche",
-        iconName: "Magnifier",
+        id: "bewerbungen",
+        label: "Bewerbungen",
+        iconName: "Tray",
         hint: {
-          lead: "Alle Spiele der Saison.",
-          points: [
-            // Herkunft is searched as the label a reader sees — „Sieger 25.“ finds the fixture fed
-            // by match 25, which no other term here would.
-            { term: "Gesucht werden kann nach", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." },
-          ],
+          lead: "Alle Bewerbungen von Schulen, die in eine Saison wollen.",
+          points: [{ term: "Eine Zusage", detail: "legt das Team an und nimmt es in die Saison auf." }],
+          // What an admin comes here to do and cannot: neither decision has a control that takes it back.
+          note: "Über eine Bewerbung wird einmal entschieden.",
         },
       },
+    ],
+  },
+
+  // Structure first, lookup last — not alphabetical: the Spieltage and the Finalrunden are what a
+  // season is built from, and the Spielsuche is how one fixture in it is found.
+  {
+    category_name: "Spielbetrieb",
+    sub_options: [
       {
         id: "spieltage",
         label: "Spieltage",
@@ -115,36 +124,25 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           lead: "Die Finalrunden der Saison.",
         },
       },
+      {
+        id: "spielsuche",
+        label: "Spielsuche",
+        iconName: "Magnifier",
+        hint: {
+          lead: "Alle Spiele der Saison.",
+          points: [
+            // Herkunft is searched as the label a reader sees — „Sieger 25.“ finds the fixture fed
+            // by match 25, which no other term here would.
+            { term: "Gesucht werden kann nach", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." },
+          ],
+        },
+      },
     ],
   },
 
   {
-    category_name: "Infrastruktur",
+    category_name: "Vereine",
     sub_options: [
-      {
-        id: "spielorte",
-        label: "Spielorte",
-        iconName: "MapPin",
-        hint: {
-          lead: "Alle Austragungsorte, mit Adresse und Miete.",
-        },
-      },
-    ],
-  },
-  {
-    category_name: "Beteiligte",
-    sub_options: [
-      {
-        id: "bewerbungen",
-        label: "Bewerbungen",
-        iconName: "Tray",
-        hint: {
-          lead: "Alle Bewerbungen von Schulen, die in eine Saison wollen.",
-          points: [{ term: "Eine Zusage", detail: "legt das Team an und nimmt es in die Saison auf." }],
-          // What an admin comes here to do and cannot: neither decision has a control that takes it back.
-          note: "Über eine Bewerbung wird einmal entschieden.",
-        },
-      },
       {
         id: "teams",
         label: "Teams",
@@ -156,6 +154,18 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         },
       },
       {
+        id: "kontakte",
+        label: "Kontakte",
+        iconName: "Envelope",
+        hint: {
+          // What the list is scoped to, which the rows alone cannot say: the same school is reached
+          // through different people from one season to the next.
+          lead: "Wer für die Teams der gewählten Saison erreichbar ist.",
+          // True of every seat on every row, so it is said here rather than on one of them.
+          points: [{ term: "Diese Kontaktdaten", detail: "bleiben in der Verwaltung und erscheinen nirgends öffentlich." }],
+        },
+      },
+      {
         id: "spieler",
         label: "Spieler",
         iconName: "PersonPencil",
@@ -164,16 +174,14 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           lead: "Alle Spieler über alle Saisons, mit den Angaben der gewählten Saison.",
         },
       },
-      {
-        id: "kontakte",
-        label: "Kontakte",
-        iconName: "Envelope",
-        hint: {
-          // What the list is scoped to, which the rows alone cannot say: the same school is reached
-          // through different people from one season to the next.
-          lead: "Wer für die Teams der gewählten Saison erreichbar ist.",
-        },
-      },
+    ],
+  },
+
+  // What gets booked ONTO a fixture rather than belonging to a club, which is why a referee sits
+  // beside a pitch and not beside a player.
+  {
+    category_name: "Ansetzung",
+    sub_options: [
       {
         id: "schiedsrichter",
         label: "Schiedsrichter",
@@ -182,11 +190,19 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           lead: "Alle Schiedsrichter, mit Kontakt und Honorar.",
         },
       },
+      {
+        id: "spielorte",
+        label: "Spielorte",
+        iconName: "MapPin",
+        hint: {
+          lead: "Alle Austragungsorte, mit Adresse und Miete.",
+        },
+      },
     ],
   },
 
   {
-    category_name: "System",
+    category_name: "Protokoll",
     sub_options: [
       {
         id: "aktionen",

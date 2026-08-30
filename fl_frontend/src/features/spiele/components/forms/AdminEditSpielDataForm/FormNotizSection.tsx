@@ -9,6 +9,7 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 
@@ -38,8 +39,9 @@ export function FormNotizSection({
   return (
     <section className={styles.root()}>
       <div className={styles.header()}>
-        <h2 className={styles.heading()}>
-          Notiz
+        <PanelHeading
+          className={styles.heading()}
+          title="Notiz">
           <Hint
             mode="reveal"
             label="Hinweis zur Notiz"
@@ -48,7 +50,7 @@ export function FormNotizSection({
               points: [{ term: "Öffentlich:", text: "die Notiz erscheint in den Spieldetails." }],
             }}
           />
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={styles.body()}>

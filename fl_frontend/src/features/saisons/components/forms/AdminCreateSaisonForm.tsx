@@ -8,19 +8,20 @@ import { postSaisonAction } from "@/features/saisons/actions";
 import { SaisonDateField, SaisonRuleNumberField, SaisonTiebreakSelect } from "@/features/saisons/components/forms/SaisonFormControls";
 import { StufenPicker } from "@/features/saisons/components/forms/StufenPicker";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
+import { FLPostSaisonPayloadSchema } from "@/features/saisons/schemas";
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { Callout } from "@/shared/components/ui/Callout";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIO, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 
-import type { FLPostSaisonPayload } from "@/features/saisons/schemas";
+import type { SaisonCreateDraft } from "@/features/saisons/types";
 
 /**
  * **Every value here is a default HERE and nowhere else**: the live season's numbers, as the starting
  * value of an editable field the admin sees. What is forbidden is a constant the reader cannot see,
  * which is why no field carries a model default.
  */
-const EMPTY_DRAFT: FLPostSaisonPayload = {
+const EMPTY_DRAFT: SaisonCreateDraft = {
   id: "",
   start_date: "",
   end_date: "",
@@ -59,7 +60,7 @@ const STUFEN_LABEL_ID = "neue-saison-erlaubte-stufen";
  */
 export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
   return (
-    <EntityForm<FLPostSaisonPayload>
+    <EntityForm<SaisonCreateDraft>
       initialDraft={EMPTY_DRAFT}
       renderFields={(draft, setDraft) => (
         <>
@@ -236,6 +237,8 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
           </div>
         </>
       )}
+      schema={FLPostSaisonPayloadSchema}
+      toPayload={(draft) => draft}
       onSubmit={async (draft) => {
         const res = await postSaisonAction(draft);
         return { ...res, success: res.success && !!res.created_id };

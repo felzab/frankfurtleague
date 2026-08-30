@@ -8,7 +8,14 @@ import { PAGE_RISE } from "@/shared/components/ui/motion";
 
 import { KONTAKT_CHANNELS } from "../../constants";
 
-export function KontaktView() {
+import type { ReactNode } from "react";
+
+/**
+ * `bewerbungSlot` is injected rather than read here: the band's read needs a request scope and its
+ * own `<Suspense>`, both of which belong to the page. Empty for most of the year and costing no gap
+ * then — a boundary resolving to `null` renders no box.
+ */
+export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
   const getIcon = (id: string) => {
     switch (id) {
       case "email":
@@ -55,6 +62,10 @@ export function KontaktView() {
         <h1 className="fluid-2xl lg:fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">Frankfurt-League Kontakt</h1>
         <p className="fluid-sm sm:fluid-sm text-field-fg/80 mt-2 font-medium">Wir haben immer ein offenes Ohr für Dein Anliegen.</p>
       </div>
+
+      {/* No wrapper and no margin of its own: it takes the column's `gap-y` like every block here, so
+          the rhythm holds whether it renders or not. */}
+      {bewerbungSlot}
 
       <div className="soccer-field-separator w-full" />
 

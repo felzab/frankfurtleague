@@ -1,4 +1,4 @@
-import type { FLAustrittType, FLGruppenNames, FLKontaktEinwilligung, FLSchulform, FLTrikotFarbe } from "./schemas";
+import type { FLAustrittType, FLGruppenNames, FLKontaktEinwilligung, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "./schemas";
 
 export const TEAMS_CRUD_COPY = {
   searchLabel: "Teams suchen",
@@ -156,11 +156,51 @@ export function einwilligungHerkunftLabel(herkunft: FLKontaktEinwilligung["ertei
   return EINWILLIGUNG_HERKUNFT_OPTIONS.find((option) => option.value === herkunft)?.label ?? "";
 }
 
-/** The three seats a season holds per club, in the order the editor and the list both show them. */
+/**
+ * The three seats a season holds per club, in both surfaces' order.
+ *
+ * TWO wordings, as `AUSTRITT_OPTIONS` carries three: the admin takes the short form, the public one
+ * the long form. Neither surface writes its own German.
+ */
+export const WEBSITE_URL_SCHEME = "https://";
+
+/**
+ * The three seats a season holds per club, in both surfaces' order.
+ *
+ * TWO wordings, as `AUSTRITT_OPTIONS` carries three: the admin takes the short form, the public one
+ * the long form. Both live here, so no two surfaces name a seat differently.
+ */
 export const KONTAKT_ROLLEN = [
-  { value: "trainer", label: "Trainer" },
-  { value: "ansprechperson", label: "Ansprechperson" },
-  { value: "stellvertretung", label: "Stellvertretung" },
+  { value: "trainer", label: "Trainer", langform: "Trainerin oder Trainer" },
+  { value: "ansprechperson", label: "Ansprechperson", langform: "Ansprechperson" },
+  { value: "stellvertretung", label: "Stellvertretung", langform: "Stellvertretung" },
 ] as const;
 
 export type KontaktRolle = (typeof KONTAKT_ROLLEN)[number]["value"];
+
+type TrainerZugleichOption = {
+  /** A picker's key is a string; `null` is the answer „Eine eigene Person“ spells on the wire. */
+  readonly key: string;
+  readonly value: FLTrainerZugleich | null;
+  readonly label: string;
+};
+
+/**
+ * Which seat the Trainer IS, read after `TRAINER_ZUGLEICH_FRAGE`: that seat's details are what the
+ * Trainer's boxes read.
+ *
+ * One closed set, never two ticks: a person cannot hold both of the other seats.
+ */
+export const TRAINER_ZUGLEICH_OPTIONS: readonly TrainerZugleichOption[] = [
+  { key: "niemand", value: null, label: "Eine eigene Person" },
+  { key: "ansprechperson", value: "ansprechperson", label: "Die Ansprechperson" },
+  { key: "stellvertretung", value: "stellvertretung", label: "Die Stellvertretung" },
+];
+
+/** The question the three answer, spelled once so the picker and the draft rail cannot ask it differently. */
+export const TRAINER_ZUGLEICH_FRAGE = "Die Trainerin oder der Trainer ist";
+
+/** What every surface renders for a stored claim, the null answer included. */
+export function trainerZugleichLabel(seat: FLTrainerZugleich | null): string {
+  return TRAINER_ZUGLEICH_OPTIONS.find((option) => option.value === seat)?.label ?? "";
+}

@@ -4,7 +4,9 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
 export const FLAktorSchema = z.object({
-  kind: z.enum(["admin_session", "system"]),
+  // `public` is a visitor with no session at all — the application form's own write. It carries an
+  // `email` like the other two, and what that field holds for it is the backend's to say.
+  kind: z.enum(["admin_session", "system", "public"]),
   email: z.string(),
 });
 export type FLAktor = z.infer<typeof FLAktorSchema>;

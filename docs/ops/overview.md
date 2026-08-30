@@ -1,6 +1,6 @@
 # Ops — overview
 
-**Verified against:** `bcc1de6d`, 2026-08-28\
+**Verified against:** `d666f6c9`, 2026-08-30\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Three containers behind nginx on one host, deployed by pulling published images. There is no orchestrator,
@@ -28,7 +28,7 @@ graph TB
     internet --> cf
     cf --> nginx
     nginx -->|"/api/v0/system/is_live"| be
-    nginx -->|"/api/auth · /api/client-error · /api/admin/ · /signin · /_next/static · /"| fe
+    nginx -->|"/api/auth · /api/client-error · /api/bewerbung · /api/bewerbung/kuerzel<br/>/api/admin/ · /signin · /_next/static · /"| fe
     fe -->|"server-side fetch"| be
     fe -->|"authjs database only"| mongo
     be --> mongo
@@ -93,9 +93,17 @@ The values and the arguments behind them are [`spec.md`](spec.md) §1.3–§1.4 
   security header set, and a `default_server` rejecting an unknown `Host` at TLS time rather than forwarding
   it verbatim to Next ([`spec.md`](spec.md) I3).
 - **The published unauthenticated writes are rate-limited at the edge** — the sign-in POST, whose action id
-  ships in a client chunk, and the client-error ingest ([`spec.md`](spec.md) §1.3; the sign-in limit applies
-  to POST alone, I4). **The liveness probe is published unauthenticated too and carries no zone**, which is a
-  decision §1.3 records rather than an omission.
+  ships in a client chunk, the client-error ingest, and the public application form's submit, which alone
+  among them writes league data ([`spec.md`](spec.md) §1.3; the sign-in limit applies
+  to POST alone, I4). **Every one of those zones is paired** — one keyed on the visitor's /64 and one on the
+  /48, because the /64s a single subscriber holds would otherwise outlast any rate the narrow zone can set.
+  **The liveness probe is published unauthenticated too and carries no zone**, which is a decision §1.3
+  records rather than an omission, and the catch-all takes a connection ceiling instead of a rate.
+- **The origin trusts Cloudflare's published address ranges** to name the visitor in the header
+  `nginx/prod.conf :: real_ip_header` selects — which is what lets a rate limit key per visitor rather
+  than per point of presence; bounding what one visitor's own address space can spend is the paired
+  zones' job instead ([`spec.md`](spec.md) §1.3). The list is maintained by hand and goes
+  stale, and it is every Cloudflare customer's egress rather than this account's.
 - **`'unsafe-inline'` on `script-src` is deliberate**, its compensating control being the `react/no-danger`
   lint rule — a nonce cannot cover build-time prerendered HTML.
 - **The two application containers drop all capabilities** and set `no-new-privileges`; the nginx container

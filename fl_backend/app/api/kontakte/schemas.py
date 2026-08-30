@@ -32,7 +32,7 @@ class FLKontaktErasureResponse(BaseAPIResponse):
     cleared_saison_teams: int = Field(ge=0)
     cleared_bewerbungen: int = Field(ge=0)
     # The slots actually nulled, across both collections. Higher than the two counts above ADDED
-    # wherever `trainer_ist_ansprechperson` put one person in two slots of one row, which is what
+    # wherever `trainer_ist_zugleich` put one person in two slots of one row, which is what
     # makes this the figure showing the double-slot case was reached.
     cleared_kontakt_slots: int = Field(ge=0)
     # Log rows emptied and stamped (`docs/backend/spec.md :: I42`): those naming a row above, and

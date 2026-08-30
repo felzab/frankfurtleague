@@ -10,6 +10,7 @@ import { KONTAKT_EMAIL } from "@/core/brand";
 
 import { ctaButton } from "./formButtons";
 import { StatusPanel } from "./StatusPanel";
+import { textLink } from "./textLink";
 
 export function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const router = useRouter();
@@ -84,7 +85,7 @@ export function Error({ error, reset }: { error: Error & { digest?: string }; re
           human half, and a second public write path would guard nothing the ingest route does not. */}
       <a
         href={reportHref}
-        className="fluid-xs text-foreground-muted hover:text-foreground mt-6 underline underline-offset-4 transition-colors">
+        className={`${textLink({ tone: "muted" })} fluid-xs mt-6`}>
         Fehler per E-Mail melden. Die technischen Angaben sind schon ausgefüllt.
       </a>
     </StatusPanel>

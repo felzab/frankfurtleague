@@ -408,15 +408,16 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.BEWERBUNGEN,
         fields=("saison_id",),
         target=Collection.SAISONS,
-        on_reference_created=Action.NO_ACTION,
+        on_reference_created=Action.RESTRICT,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.RESTRICT,
         note=(
-            "`annehmen_bewerbung` reads the season for its status and its capacity, so accepting an application naming "
-            "one that does not exist is a 404 -- and nothing resolves it before that, an application being stored as it "
-            "arrived. The season's `rules` bound what acceptance may write into the junction and not what this row holds, "
-            "so narrowing them strands no application: the next acceptance is refused instead (`REQ-ENTER-002`, "
-            "`REQ-ENTER-003`). No season delete exists. A DECLINE reads no season at all."
+            "`post_bewerbung` resolves the season to read its application window, so a submission naming one that does "
+            "not exist is a 404 there and one whose window is shut is refused (`REQ-BEWERBUNG-004`). `annehmen_bewerbung` "
+            "reads it again for its status and its capacity, so an accepted application names a season twice proved. The "
+            "season's `rules` bound what acceptance may write into the junction and not what this row holds, so narrowing "
+            "them strands no application: the next acceptance is refused instead (`REQ-ENTER-002`, `REQ-ENTER-003`). No "
+            "season delete exists. A DECLINE reads no season at all."
         ),
     ),
     Reference(
@@ -427,11 +428,12 @@ REFERENCES: tuple[Reference, ...] = (
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.NO_ACTION,
         note=(
-            "Acceptance resolves the club it names, so an application picking one `teams` does not hold is a 404 there, "
-            "and a RETIRED one is refused (`REQ-ENTER-005`) -- the same two reads `post_saison_team` performs. For a new "
-            "school the field is null until acceptance writes the created club's id into it, which is the one write that "
-            "creates this reference. Nothing is embedded and nothing fans out: a renamed club leaves the application "
-            "naming what the school typed, which is what the school applied as."
+            "Two writes create this reference. `post_bewerbung` resolves a club the applicant picked off the public list, "
+            "refusing one `teams` does not hold and one that has left by the same code (`REQ-BEWERBUNG-006`); acceptance "
+            "resolves it again, where a missing club is a 404 and a RETIRED one is `REQ-ENTER-005` -- the same two reads "
+            "`post_saison_team` performs. For a new school the field is null until acceptance writes the created club's "
+            "id into it. Nothing is embedded and nothing fans out: a renamed club leaves the application naming what the "
+            "school typed, which is what the school applied as."
         ),
     ),
 )
@@ -442,6 +444,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.BEWERBUNGEN,
         "status",
         Editability.CONTROL_ONLY,
+        "written `eingereicht` at create by `POST /bewerbungen`, which takes it from no payload, and moved by "
         "`POST /bewerbungen/{bewerbung_id}/annehmen` and `.../ablehnen`, each of which owns the whole transition and "
         "refuses an application already decided (`REQ-BEWERBUNG-001`)",
         "app.api.bewerbungen.services.find_triage_refusal",
@@ -458,8 +461,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.BEWERBUNGEN,
         "team_id",
         Editability.CONTROL_ONLY,
-        "on no payload: an application either picked a club when it was submitted or names none, and acceptance writes "
-        "the created club's id here so that an accepted application joins to the club it produced",
+        "written once at submission, where the applicant either picked a club off the public list or named none "
+        "(`REQ-BEWERBUNG-006`), and again by acceptance, which writes a created club's id here so that an accepted "
+        "application joins to the club it produced. On no payload the TRIAGE serves",
         "app.api.bewerbungen.admin_router.annehmen_bewerbung",
     ),
     FieldPolicy(
@@ -1410,6 +1414,46 @@ RULES: tuple[Rule, ...] = (
         summary="a new school whose own details make no valid club is not accepted",
         implemented_by="app.api.bewerbungen.services.find_new_club_refusal",
         tested_by="tests/api/test_bewerbung_triage_refusal.py::TestWhetherTheSchoolMakesAClub",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-004",
+        operation="POST /bewerbungen",
+        aggregate="Bewerbung",
+        summary="an application is submitted only while the season's application window is open",
+        implemented_by="app.api.bewerbungen.services.find_window_refusal",
+        tested_by="tests/api/test_bewerbung_submission_refusal.py::TestTheWindowDecidesWhetherAnApplicationMayArrive",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-005",
+        operation="POST /bewerbungen",
+        aggregate="Bewerbung",
+        summary="a submission needs exactly one of an existing club and a new school to say who is applying",
+        implemented_by="app.api.bewerbungen.services.find_submission_subject_refusal",
+        tested_by="tests/api/test_bewerbung_submission_refusal.py::TestWhoIsApplying",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-006",
+        operation="POST /bewerbungen",
+        aggregate="Bewerbung",
+        summary="a club the public list does not offer is not one an application may be submitted as",
+        implemented_by="app.api.bewerbungen.services.find_picked_club_refusal",
+        tested_by="tests/api/test_bewerbung_submission_refusal.py::TestWhetherThePickedClubMayApply",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-007",
+        operation="POST /bewerbungen",
+        aggregate="Bewerbung",
+        summary="a club already playing the season does not apply to play it",
+        implemented_by="app.api.bewerbungen.services.find_already_entered_refusal",
+        tested_by="tests/api/test_bewerbung_submission_refusal.py::TestAClubAlreadyInTheSeason",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-008",
+        operation="POST /bewerbungen",
+        aggregate="Bewerbung",
+        summary="a new school does not propose a Kürzel a club already holds",
+        implemented_by="app.api.bewerbungen.services.find_shorthand_refusal",
+        tested_by="tests/api/test_bewerbung_submission_refusal.py::TestTheProposedKuerzel",
     ),
     Rule(
         code="REQ-PURGE-001",

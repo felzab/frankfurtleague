@@ -17,7 +17,8 @@ export function toFieldErrors(error: ZodError): FieldErrors {
     if (issue.path.length === 0) continue;
 
     const key = issue.path.join(".");
-    if (!(key in fieldErrors)) fieldErrors[key] = issue.message;
+    // `hasOwn` and not `in`: `in` walks the prototype, so a path named `constructor` would read as taken.
+    if (!Object.hasOwn(fieldErrors, key)) fieldErrors[key] = issue.message;
   }
 
   return fieldErrors;

@@ -458,8 +458,26 @@ commit and what is wrong with it. The form is docs/_git/templates.md." \
     DOCS_OK=0
   fi
 
-  # Stopping here rather than at either finding keeps the expensive scopes below unrun. What
-  # either check found is already reported and counted.
+  # `openapi.json` publishes every endpoint and model docstring as a `description`, so a reword
+  # edits it -- and `check_scope.py` reads that edit as comment-only, asking for this scope and
+  # not `--backend`, where the pytest case covering it lives.
+
+  # Needs no database and no environment: `build_test_config` supplies the settings. The backend
+  # virtualenv it does need is already this scope's prerequisite, above.
+
+  # `PYTHONPATH` rather than a `cd`, which `run_checker` cannot do: a subshell around it would run
+  # `fail` in a child, and the finding it counts would die with that child.
+  step "docs · openapi.json matches the docstrings it publishes"
+  if run_checker collect "fl_backend/tests/openapi_document.py" "The published document no longer matches the models and docstrings it
+is built from. Regenerate it with:  cd fl_backend && .venv/Scripts/python -m tests.openapi_document --write" \
+    env "PYTHONPATH=${REPO_ROOT}/fl_backend" "$PY" -m tests.openapi_document --check; then
+    ok "openapi.json is current"
+  else
+    DOCS_OK=0
+  fi
+
+  # Stopping here rather than at any one finding keeps the expensive scopes below unrun. What each
+  # check found is already reported and counted.
   if (( ! DOCS_OK )); then wrap_up; fi
 fi
 

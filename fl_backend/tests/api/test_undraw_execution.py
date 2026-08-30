@@ -347,7 +347,7 @@ class TestAnUndrawRemovesTheWholeSpielplan:
         assert (undrawn.spieltage, undrawn.spiele) == (0, 0)
 
     def test_the_season_keeps_no_watermark(self, mongo_replica_set_url: str):
-        """Leave the watermark standing and the season reads as drawn while holding nothing, which is the state I46 prevents."""
+        """Leave the watermark standing and the season reads as drawn while holding nothing, which `docs/backend/spec.md :: I46` prevents."""
 
         undrawn = an_undrawn_season(mongo_replica_set_url)
 

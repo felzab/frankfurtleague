@@ -17,6 +17,7 @@ import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
@@ -70,25 +71,32 @@ export function AdminSchiedsrichterEditForm({
   pageHeader: EditPageHeaderContent;
 }) {
   const router = useRouter();
+  const saisonHref = useSaisonHref();
   const [isPending, startTransition] = useTransition();
   const [isLeaving, startLeaving] = useTransition();
 
   const [name, setName] = useState(schiedsrichter.name);
   const [schule, setSchule] = useState(schiedsrichter.schule);
   const [kontakt, setKontakt] = useState<FLKontakt>(schiedsrichter.kontakt);
-  const [defaultPayment, setDefaultPayment] = useState(schiedsrichter.default_payment);
+  const [defaultPayment, setDefaultPayment] = useState<number | null>(schiedsrichter.default_payment);
 
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { schiedsrichter: FLPatchSchiedsrichterPayloadSchema },
   });
 
   // The wire carries `id` in the path, so no refusal can name it and no input renders it.
-  const buildPayload = (): FLPatchSchiedsrichterPayload => ({
+  /**
+   * Widened at the money field the way `FLSpielOrtFieldDraft` is: an emptied box holds `null`, and the payload
+   * schema's `z.int()` is what asks for a number at the submit.
+   */
+  type SchiedsrichterPatchDraft = Omit<FLPatchSchiedsrichterPayload, "default_payment"> & { default_payment: number | null };
+
+  const buildPayload = (): SchiedsrichterPatchDraft => ({
     id: schiedsrichter.id,
     name,
     schule,
@@ -130,9 +138,12 @@ export function AdminSchiedsrichterEditForm({
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [formRef]);
 
+  // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
+  useForgiveFixed({ schiedsrichter: buildPayload() });
+
   const validateFields = (paths: readonly string[]) => validatePaths("schiedsrichter", buildPayload(), paths);
   // Judged with the value that arrived in the event, because state has not committed yet.
-  const validatePicked = (paths: readonly string[], picked: { default_payment: number }) =>
+  const validatePicked = (paths: readonly string[], picked: { default_payment: number | null }) =>
     validatePaths("schiedsrichter", { ...buildPayload(), ...picked }, paths);
 
   const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
@@ -150,7 +161,7 @@ export function AdminSchiedsrichterEditForm({
     // control turns disabled, and no `pointerleave` follows a click that leaves.
     startLeaving(() => {
       if (window.history.length > 1) router.back();
-      else router.push("/admin/schiedsrichter");
+      else router.push(saisonHref("/admin/schiedsrichter"));
     });
   };
 
@@ -191,6 +202,12 @@ export function AdminSchiedsrichterEditForm({
   };
 
   const handleFormSubmit = () => {
+    // `aria` blocks nothing natively, so this call is what keeps an incomplete draft off the wire, in the
+    // schema's own German rather than the browser's bubble. It RUNS the write, so there is no answer to drop.
+    guardSubmit({ schiedsrichter: buildPayload() }, writeAfterBlock);
+  };
+
+  const writeAfterBlock = () => {
     startTransition(async () => {
       // Read before the write: the props still hold the pre-save values, and the toast that replays
       // them outlives this component.
@@ -280,6 +297,10 @@ export function AdminSchiedsrichterEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
+        // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting
+        // the browser's required message the moment an edited field is cleared. `aria` keeps
+        // `aria-required` and leaves every message to `useDraftFieldErrors`.
+        validationBehavior="aria"
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"

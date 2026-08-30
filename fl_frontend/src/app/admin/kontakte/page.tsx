@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { AdminKontaktErasureForm } from "@/features/kontakte/components/forms/AdminKontaktErasureForm";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { AdminKontakteView } from "@/features/teams/components/views/AdminKontakteView";
@@ -31,10 +30,6 @@ export default function AdminKontaktePage(props: NextPageProps) {
       <Suspense fallback={<AdminCrudFallback />}>
         <KontakteTable searchParams={props.searchParams} />
       </Suspense>
-
-      {/* Outside the boundary, because it waits on nothing: the erasure is keyed on an address across
-          every season and both collections, so it reads neither the season above it nor the list. */}
-      <AdminKontaktErasureForm />
     </AdminCrudShell>
   );
 }
@@ -55,5 +50,17 @@ async function KontakteTable({ searchParams }: { searchParams: NextPageProps["se
   // the header's selector names another.
   const selectedSaisonId = requestedSaisonId ?? saisonsRes.saisons.find((saison) => saison.status === "active")?.id;
 
-  return <AdminKontakteView kontakte={buildKontaktRows(membershipsRes.teams, selectedSaisonId)} />;
+  const rows = buildKontaktRows(membershipsRes.teams, selectedSaisonId);
+
+  // Plain data, never the facets themselves: a facet carries a `read` function and this is a Server
+  // Component. Read from the ROWS rather than from every club, so the filter offers no club whose
+  // junction this season has none of.
+  const teams = rows.map((row) => ({ teamId: row.teamId, name: row.teamName }));
+
+  return (
+    <AdminKontakteView
+      kontakte={rows}
+      teams={teams}
+    />
+  );
 }

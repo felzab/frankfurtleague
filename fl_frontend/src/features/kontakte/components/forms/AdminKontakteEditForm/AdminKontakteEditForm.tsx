@@ -8,7 +8,7 @@ import { Form } from "@heroui/react";
 import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
 import { deriveKontakteDraftStatus } from "@/features/kontakte/kontakteDraftStatus";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
-import { describeUnrestorableKontakte, emptiedSeatLabels, teamPageHref } from "@/features/kontakte/utils";
+import { describeUnrestorableKontakte, emptiedSeatLabels, mirrorKontakte, teamPageHref } from "@/features/kontakte/utils";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
@@ -18,10 +18,12 @@ import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 
 import { buildKontakteBanners } from "./banners";
+import { FormKontakteLoeschenSection } from "./FormKontakteLoeschenSection";
 import { FormKontakteSection } from "./FormKontakteSection";
 
 import type { FLPatchSaisonTeamKontaktePayload } from "@/features/kontakte/schemas";
@@ -67,6 +69,7 @@ export function AdminKontakteEditForm({
   pageHeader: EditPageHeaderContent;
 }) {
   const router = useRouter();
+  const saisonHref = useSaisonHref();
   const [isPending, startTransition] = useTransition();
   const [isLeaving, startLeaving] = useTransition();
 
@@ -80,12 +83,19 @@ export function AdminKontakteEditForm({
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { kontakte: FLPatchSaisonTeamKontaktePayloadSchema },
   });
 
   // Both ids ride in the request path, so neither is a field an input renders or a refusal can name.
-  const buildPayload = (): SaisonTeamKontaktePayloadDraft => ({ team_id: teamId, saison_id: saison.saisonId, kontakte });
+  /* The claim is honoured HERE and nowhere earlier. Composed, the seat that made it stays the one
+     place its person is edited, and lifting it returns the Trainer's own; written into the draft it
+     overwrites whichever of two real people it does not name. */
+  const buildPayload = (): SaisonTeamKontaktePayloadDraft => ({
+    team_id: teamId,
+    saison_id: saison.saisonId,
+    kontakte: kontakte === null ? null : mirrorKontakte(kontakte),
+  });
 
   const status = deriveKontakteDraftStatus({ stored: { kontakte: storedKontakte }, draft: { kontakte }, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
@@ -113,19 +123,24 @@ export function AdminKontakteEditForm({
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [formRef]);
 
+  // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
+  useForgiveFixed({ kontakte: buildPayload() });
+
   const validateFields = (paths: readonly string[]) => validatePaths("kontakte", buildPayload(), paths);
   // Judged with the value that arrived in the event, because state has not committed yet.
   const validateSelection = (paths: readonly string[], selected: { kontakte: SaisonTeamKontakteDraft | null }) =>
-    validatePaths("kontakte", { ...buildPayload(), ...selected }, paths);
+    // Mirrored like every other judgement: spread raw, a pick was judged against the unmirrored draft
+    // while a blur was judged against the composed one, so the two disagreed about the Trainer.
+    validatePaths("kontakte", { ...buildPayload(), kontakte: selected.kontakte === null ? null : mirrorKontakte(selected.kontakte) }, paths);
 
   const banners = buildKontakteBanners({
     saisonId: saison.saisonId,
     saisonStatus: saison.saisonStatus,
     isMember: storedMembership !== null,
     isBlockRemoved: storedKontakte !== null && kontakte === null,
-    // Read off the two blocks rather than off the switches: `trainer_ist_ansprechperson` empties the
-    // Ansprechperson seat without that seat's own control ever being pressed.
-    emptiedSeatLabels: emptiedSeatLabels(storedKontakte, kontakte),
+    // Off the two COMPOSED blocks, never the controls: emptying the named seat empties the Trainer
+    // with it, and neither seat's own control was pressed.
+    emptiedSeatLabels: emptiedSeatLabels(storedKontakte, kontakte === null ? null : mirrorKontakte(kontakte)),
   });
 
   const leavePage = () => {
@@ -136,7 +151,7 @@ export function AdminKontakteEditForm({
     // control turns disabled, and no `pointerleave` follows a click that leaves.
     startLeaving(() => {
       if (window.history.length > 1) router.back();
-      else router.push("/admin/kontakte");
+      else router.push(saisonHref("/admin/kontakte"));
     });
   };
 
@@ -174,6 +189,12 @@ export function AdminKontakteEditForm({
   };
 
   const handleFormSubmit = () => {
+    // `aria` blocks nothing natively, so this call is what keeps an incomplete draft off the wire, in the
+    // schema's own German rather than the browser's bubble. It RUNS the write, so there is no answer to drop.
+    guardSubmit({ kontakte: buildPayload() }, writeAfterBlock);
+  };
+
+  const writeAfterBlock = () => {
     startTransition(async () => {
       // Read before the write: `saison` is this render's prop and still holds the pre-save block, and
       // the toast that replays it outlives this component.
@@ -266,6 +287,10 @@ export function AdminKontakteEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
+        // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting
+        // the browser's required message the moment an edited field is cleared. `aria` keeps
+        // `aria-required` and leaves every message to `useDraftFieldErrors`.
+        validationBehavior="aria"
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"
@@ -287,8 +312,20 @@ export function AdminKontakteEditForm({
             banners={banners}
             onChange={setKontakte}
             onFieldLeft={validateFields}
+            isDirty={isDirty}
             onValidateSelection={validateSelection}
           />
+
+          {/* LAST on the page, the position every editor's destructive section holds: what it stages is
+              the one save that takes the block away. */}
+          {storedMembership !== null && (
+            <FormKontakteLoeschenSection
+              teamId={teamId}
+              saisonId={saison.saisonId}
+              hasStored={storedKontakte !== null}
+              isDirty={isDirty}
+            />
+          )}
         </EditFormLayout>
 
         <FormActionBar

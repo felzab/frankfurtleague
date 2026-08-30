@@ -975,6 +975,12 @@ describe("listDependentSpiele", () => {
 
 describe("adminSpielEditHref", () => {
   it("addresses one fixture by its id", () => {
-    assert.equal(adminSpielEditHref("6890a1b2c3d4e5f607182932"), "/admin/spiele/6890a1b2c3d4e5f607182932");
+    assert.equal(adminSpielEditHref("6890a1b2c3d4e5f607182932", null), "/admin/spiele/6890a1b2c3d4e5f607182932");
+  });
+
+  /* The exit from Handlungsbedarf, Spielsuche and Finalrunden, all three season-scoped: a link
+     without the parameter puts the whole shell back on the default season. */
+  it("carries the season the caller is showing", () => {
+    assert.equal(adminSpielEditHref("6890a1b2c3d4e5f607182932", "9999"), "/admin/spiele/6890a1b2c3d4e5f607182932?saison_id=9999");
   });
 });

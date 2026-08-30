@@ -4,6 +4,7 @@ import { Globe, MapPin } from "@gravity-ui/icons";
 
 import { card } from "@/shared/components/ui/card";
 import { ExpandableDescription } from "@/shared/components/ui/ExpandableDescription";
+import { textLink } from "@/shared/components/ui/textLink";
 import { buildMapsSearchUrl, formatAddress } from "@/shared/utils/format";
 
 import type { FLTeam } from "../../schemas";
@@ -22,24 +23,28 @@ export function TeamIdentityCard({ teamData }: { teamData: FLTeam }) {
       <p className="fluid-xs text-foreground-muted -mt-1.5 font-semibold">{teamData.full_name}</p>
 
       <div className="flex flex-col items-start gap-y-1 pt-2">
-        <Link
-          target="_blank"
-          rel="noopener noreferrer"
-          prefetch={false}
-          href={teamData.website_url}
-          className="fluid-xs text-brand flex flex-row items-center gap-x-2 font-bold hover:underline">
-          <Globe
-            aria-hidden="true"
-            className="size-4 shrink-0"
-          />
-          <span>Schul-Website öffnen</span>
-        </Link>
+        {/* A club may hold no website at all. Rendered anyway, React resolves an empty `href` against
+            the current URL, so the anchor would be an invisible link back to this very page. */}
+        {teamData.website_url !== null && (
+          <Link
+            target="_blank"
+            rel="noopener noreferrer"
+            prefetch={false}
+            href={teamData.website_url}
+            className={`${textLink()} fluid-xs flex flex-row items-center gap-x-2 font-bold`}>
+            <Globe
+              aria-hidden="true"
+              className="size-4 shrink-0"
+            />
+            <span>Schul-Website öffnen</span>
+          </Link>
+        )}
 
         <Link
           href={teamMapUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="fluid-xs text-brand flex flex-row items-start gap-x-2 font-bold hover:underline">
+          className={`${textLink()} fluid-xs flex flex-row items-start gap-x-2 font-bold`}>
           <MapPin
             aria-hidden="true"
             className="mt-0.5 size-4 shrink-0"

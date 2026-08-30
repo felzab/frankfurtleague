@@ -180,7 +180,7 @@ type FilterPanelContent<TItem> = {
  */
 export function FilterPanelBody<TItem>({ facets, shown = facets, items, selection, onSelect, onClear }: FilterPanelContent<TItem>) {
   return (
-    <div className="scrollbar-line max-h-[70vh] overflow-x-hidden overflow-y-auto p-3">
+    <div className="scrollbar-line max-h-[70dvh] overflow-x-hidden overflow-y-auto p-3">
       {/* No `items-start`: the default cross-axis stretch equalises each line's cells, and it is per line. */}
       <div className="flex flex-row flex-wrap justify-center gap-3">
         {shown.map((facet) => (

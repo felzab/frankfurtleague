@@ -2,6 +2,9 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 
+import { BewerbungBandSkeleton } from "@/features/bewerbungen/components/ui/BewerbungBandSkeleton";
+import { band, BewerbungOffenBand } from "@/features/bewerbungen/components/ui/BewerbungOffenBand";
+import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { getCurrentSaison } from "@/features/saisons/queries";
 import {
   RecentAndUpcomingSpieleGrid,
@@ -19,15 +22,12 @@ export default function LandingPage() {
             <div className="bg-brand-solid absolute top-0 left-0 z-10 h-1.5 w-full" />
 
             <div className="relative z-10 flex flex-col gap-4">
-              {/* `/10`, not `/15`: bold normal-size text needs 4.5:1 against its own tint, and 10% measures
-                  4.70:1 in the dark theme where 15% drops to 4.42:1. Re-measure if --accent-brand moves. */}
-              <div className="border-brand/30 bg-brand/10 fluid-xs text-brand inline-flex w-fit items-center gap-2 rounded-full border px-4 py-1.5 font-bold shadow-xs">
-                <span className="bg-brand-solid size-2 animate-ping rounded-full" />
+              <SaisonChip>
                 {/* The fallback holds the label's exact box invisibly, so the year landing moves nothing. */}
                 <Suspense fallback={<span className="invisible">Saison 0000</span>}>
                   <CurrentSaisonLabel />
                 </Suspense>
-              </div>
+              </SaisonChip>
 
               <h1 className="fluid-3xl font-black tracking-tight uppercase">
                 Die Saison läuft! Wer holt sich den <span className="text-brand">Titel</span>?
@@ -90,27 +90,12 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="border-border bg-surface relative flex w-full flex-col items-center justify-between gap-6 overflow-hidden rounded-2xl border px-4 py-4 shadow-xs sm:px-6 lg:flex-row lg:py-6">
-          <div className="relative z-10 flex items-center gap-3">
-            <span className="bg-brand-solid min-h-2 min-w-2 animate-pulse rounded-full" />
-            <span className="fluid-sm text-foreground font-bold">Du hast Fragen zum Turnierablauf oder möchtest mit uns sprechen?</span>
-          </div>
-
-          <div className="relative z-10 flex w-full flex-col items-stretch gap-3 sm:flex-row lg:w-auto lg:shrink-0">
-            <Link
-              href="/about"
-              prefetch={false}
-              className={`${ctaButton({ intent: "primary", size: "sm", hover: "css" })} w-full lg:w-56`}>
-              Mehr über das Projekt
-            </Link>
-            <Link
-              href="/kontakt"
-              prefetch={false}
-              className={`${ctaButton({ intent: "outline", size: "sm", hover: "css" })} w-full lg:w-44`}>
-              Zum Kontakt
-            </Link>
-          </div>
-        </div>
+        {/* ONE band in this slot, both of them the same shell, so the row does not move whichever
+            lands. The fallback is that shell held invisibly, never either band's words: a sentence
+            here is one the reader watches being swapped for a different one. */}
+        <Suspense fallback={<BewerbungBandSkeleton />}>
+          <BewerbungOffenBand ersatz={<KontaktBand />} />
+        </Suspense>
       </section>
 
       <div className="max-w-page w-full px-4 py-8 sm:px-6 lg:px-8">
@@ -133,4 +118,36 @@ async function CurrentSaisonLabel() {
   const { saison } = await getCurrentSaison();
 
   return <>Saison {saison.id}</>;
+}
+
+/**
+ * The band the landing page shows whenever no application window is running. Built from the
+ * application band's own recipe, so the two occupy the same row rather than two rows that look alike.
+ */
+function KontaktBand() {
+  const styles = band();
+
+  return (
+    <div className={styles.root()}>
+      <div className="relative z-10 flex items-center gap-3">
+        <span className={styles.dot()} />
+        <span className={styles.text()}>Du hast Fragen zum Turnierablauf oder möchtest mit uns sprechen?</span>
+      </div>
+
+      <div className="relative z-10 flex w-full flex-col items-stretch gap-3 sm:flex-row lg:w-auto lg:shrink-0">
+        <Link
+          href="/about"
+          prefetch={false}
+          className={`${ctaButton({ intent: "primary", size: "sm", hover: "css" })} w-full lg:w-56`}>
+          Mehr über das Projekt
+        </Link>
+        <Link
+          href="/kontakt"
+          prefetch={false}
+          className={`${ctaButton({ intent: "outline", size: "sm", hover: "css" })} w-full lg:w-44`}>
+          Zum Kontakt
+        </Link>
+      </div>
+    </div>
+  );
 }

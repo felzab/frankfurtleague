@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 
 import { ThemeProvider } from "next-themes";
 
-import { RouterProvider } from "@heroui/react";
+import { I18nProvider, RouterProvider } from "@heroui/react";
 
 import { AppToaster } from "./AppToaster";
 
@@ -18,15 +18,20 @@ export function RootProviders({ children }: AppProvidersProps) {
     // Without it react-aria's `href` props fall back to native <a> navigation, a full page reload
     // on every menu link.
     <RouterProvider navigate={(href) => router.push(href)}>
-      {/* Without `disableTransitionOnChange` every `transition-colors` element eases its own colour
-          when `data-theme` moves, and the flip is watchable. */}
-      <ThemeProvider
-        enableSystem={true}
-        defaultTheme="dark"
-        disableTransitionOnChange>
-        <AppToaster />
-        {children}
-      </ThemeProvider>
+      {/* Here because the document declares its language here (`docs/frontend/spec.md :: I41`):
+          unpinned, react-aria formats "en-US" under SSR and the browser's locale after hydration,
+          so a date field asks mm/dd/yyyy and reorders its segments mid-session. */}
+      <I18nProvider locale="de-DE">
+        {/* Without `disableTransitionOnChange` every `transition-colors` element eases its own colour
+            when `data-theme` moves, and the flip is watchable. */}
+        <ThemeProvider
+          enableSystem={true}
+          defaultTheme="dark"
+          disableTransitionOnChange>
+          <AppToaster />
+          {children}
+        </ThemeProvider>
+      </I18nProvider>
     </RouterProvider>
   );
 }

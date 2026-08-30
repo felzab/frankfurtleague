@@ -50,10 +50,15 @@ const BACKEND_ONLY: Record<string, string> = {
 const FRONTEND_ONLY: Record<string, string> = {
   BaseAPIResponse: "the envelope is inlined into every response rather than published as a component",
 
+  // The sign-in address never reaches FastAPI: `handleSignIn` hands it to Auth.js, which mails the link.
+  SignInPayload: "the sign-in action posts to Auth.js rather than to the API, so no component describes it",
+
   CustomDateString: "a Pydantic Annotated alias, inlined at each use site",
   CustomTimeString: "a Pydantic Annotated alias, inlined at each use site",
   CustomObjectIdString: "a Pydantic Annotated alias, inlined at each use site",
   ExternalUrl: "a Pydantic Annotated alias, inlined at each use site",
+  // `CustomOptionalExternalUrl`, which is `CustomExternalUrl` with the absent case beside it.
+  OptionalExternalUrl: "a Pydantic Annotated alias, inlined at each use site",
   PersonName: "a shared validator applied per field; the backend spells it as a Field pattern",
 
   FLGruppenNames: "a Pydantic Literal alias, inlined as an enum at each use site",
@@ -64,6 +69,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSpielerStufe: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielerRolle: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSchulform: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLTrainerZugleich: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLTrikotFarbe: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLBewerbungStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
   // The only alias here whose sole use site is a QUERY PARAMETER: no stored field carries the
@@ -322,7 +328,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 130;
+const EXPECTED_PAIRS = 143;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

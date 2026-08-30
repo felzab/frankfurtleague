@@ -1,6 +1,6 @@
 "use client";
 
-import { Autocomplete, FieldError, Label, ListBox, SearchField, useFilter } from "@heroui/react";
+import { Autocomplete, FieldError, Label, ListBox, SearchField, Separator, useFilter } from "@heroui/react";
 
 import { dismissControl } from "@/core/dismissControl";
 import { PHASE_LABELS } from "@/features/saisons/constants";
@@ -312,9 +312,14 @@ export function FormTeamPicker({
             <ListBox.Item
               id={OPEN_SLOT_KEY}
               textValue={PLACEHOLDER.slot}
-              className="fluid-xs data-hovered:bg-hover border-border text-foreground-muted mb-1 cursor-pointer rounded-lg border-b px-3 py-2 pb-2 font-semibold italic">
+              className="fluid-xs data-hovered:bg-hover text-foreground-muted cursor-pointer rounded-lg px-3 py-2 font-semibold italic">
               {PLACEHOLDER.slot}
             </ListBox.Item>
+
+            {/* A rule between two rows is an element between them, never an edge painted on one:
+                on the row it stops short of the popover and reads as a half-border. `ListBox` hands
+                its subtree a `SeparatorContext` of `elementType: "div"`, so this belongs here. */}
+            <Separator className="my-1" />
 
             {teams.map((item) => {
               const occupiedBy = spieltagOccupancy.get(item.id);
