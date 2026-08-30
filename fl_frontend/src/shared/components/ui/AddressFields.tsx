@@ -25,6 +25,7 @@ export function AddressFields({
   errors,
   onFieldLeft,
   renderLabel,
+  isStadtteilRequired = false,
 }: {
   value: FLAddress;
   onChange: (newValue: FLAddress) => void;
@@ -39,6 +40,11 @@ export function AddressFields({
   onFieldLeft?: (paths: readonly string[]) => void;
   /** Replaces each plain `<Label>`, for a page editor whose labels carry draft markers and anchors. */
   renderLabel?: (path: string, text: string) => ReactNode;
+  /**
+   * On only where the payload requires a district — the application form's. It lets the browser refuse an empty one
+   * there, rather than a schema message answering where every sibling field answers natively.
+   */
+  isStadtteilRequired?: boolean;
 }) {
   const updateField = (field: keyof FLAddress, newValue: string) => {
     onChange({ ...value, [field]: newValue });
@@ -104,6 +110,7 @@ export function AddressFields({
       </div>
 
       <TextField
+        isRequired={isStadtteilRequired}
         name={`${namePrefix}.stadtteil`}
         value={value.stadtteil}
         onChange={(next) => updateField("stadtteil", next)}

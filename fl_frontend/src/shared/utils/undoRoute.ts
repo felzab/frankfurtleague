@@ -9,6 +9,14 @@ import { buildRefusal } from "./refusal";
 import type { NextRequest } from "next/server";
 import type { ZodType } from "zod";
 
+/**
+ * What a cross-site caller is told, answered 200 for the reason `publicRoute.ts` states: a non-2xx
+ * lands in the dispatch's rejection arm, which blames the transport and sends the admin to check a
+ * connection that is fine.
+ */
+const FREMDE_HERKUNFT =
+  "Die Änderung steht weiterhin. Diese Anfrage kam nicht von dieser Seite. Lade die Seite neu und nimm sie dann erneut zurück.";
+
 const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
 const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: "Lade die Seite neu" });
 
@@ -32,7 +40,7 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
   // Same-origin only; the session check below is what authorizes the write.
   const secFetchSite = request.headers.get("sec-fetch-site");
   if (secFetchSite !== null && secFetchSite !== "same-origin") {
-    return NextResponse.json({ success: false, error: "Access Denied" }, { status: 403 });
+    return NextResponse.json({ success: false, error: FREMDE_HERKUNFT });
   }
 
   const result = await runAdminMutation(route.mutationName, async () => {

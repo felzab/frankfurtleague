@@ -105,12 +105,39 @@ for (const text of sources.values()) {
 const NAME_TEMPLATE_BINDINGS: Record<string, readonly string[]> = {
   fieldName: ["team1", "team2"],
   slot: ["team1", "team2"],
-  namePrefix: ["address"],
+  namePrefix: ["address", "schule.address"],
   // The draw renders its three shape fields from one table, so these paths resolve only here.
   shapeKey: ["number_of_groups", "teams_per_group", "qualifiers_per_group"],
   // The contacts panel renders one seat three times from `KONTAKT_ROLLEN`, for the same reason.
   rolle: ["trainer", "ansprechperson", "stellvertretung"],
+  // The application form renders one seat three times, as the contacts panel does.
+  seat: ["trainer", "ansprechperson", "stellvertretung"],
 };
+
+/**
+ * A name a component builds by calling a local helper — `name={path("vorname")}`. Declared rather than inferred:
+ * the helper's body is a closure this sweep does not evaluate, and an unlisted one is asserted below.
+ */
+const NAME_CALL_BINDINGS: Record<string, string> = {
+  path: "kontakte.${seat}.${arg}",
+};
+
+/** Every `name={helper("literal")}` in the tree, as helper and argument. */
+function* nameCalls(text: string): Generator<[string, string]> {
+  for (const match of text.matchAll(/\bname=\{(\w+)\("([^"]*)"\)\}/g)) {
+    const [, helper, argument] = match;
+    if (helper !== undefined && argument !== undefined) yield [helper, argument];
+  }
+}
+
+function calledHelpers(): Set<string> {
+  const found = new Set<string>();
+  for (const [file, text] of sources) {
+    if (!file.endsWith(".tsx")) continue;
+    for (const [helper] of nameCalls(text)) found.add(helper);
+  }
+  return found;
+}
 
 function templateIdentifiers(): Set<string> {
   const found = new Set<string>();
@@ -145,6 +172,18 @@ function renderedNames(files: Iterable<string>): Set<string> {
       }
       for (const form of expanded) if (!form.includes("${")) names.add(form);
     }
+
+    for (const [helper, argument] of nameCalls(text)) {
+      const shape = NAME_CALL_BINDINGS[helper];
+      if (shape === undefined) continue;
+
+      let expanded = [shape.split("${arg}").join(argument)];
+      for (const [identifier, values] of Object.entries(NAME_TEMPLATE_BINDINGS)) {
+        const token = `\${${identifier}}`;
+        expanded = expanded.flatMap((form) => (form.includes(token) ? values.map((value) => form.split(token).join(value)) : [form]));
+      }
+      for (const form of expanded) if (!form.includes("${")) names.add(form);
+    }
   }
   return names;
 }
@@ -160,12 +199,20 @@ function payloadPaths(node: JsonSchema, prefix = ""): string[] {
   const branches = (node.anyOf ?? node.oneOf) as JsonSchema[] | undefined;
   if (branches !== undefined) return [...new Set(branches.flatMap((branch) => payloadPaths(branch, prefix)))];
 
+  // An issue inside an array is keyed by index, so the element carries paths of its own.
+  const items = node.items as JsonSchema | undefined;
+  if (items !== undefined) return [prefix, ...payloadPaths(items, `${prefix}.0`)];
+
   const properties = node.properties as Record<string, JsonSchema> | undefined;
   if (properties === undefined) return prefix === "" ? [] : [prefix];
 
   return Object.entries(properties).flatMap(([key, value]) => payloadPaths(value, prefix === "" ? key : `${prefix}.${key}`));
 }
 
+const WRITTEN_NOT_PICKED = "the form writes it from a constant, so no control offers it and no refusal can land on one";
+const THE_SCHOOL_ITSELF = "the picker writes `team_id` or the new-school block; the object itself has no control";
+const THE_ZUGLEICH_CLAIM = "a Switch takes no `name`, so the claim is carried by the seats it mirrors and a refusal lands on those";
+const A_STUFE_ROW = "the picker renders the whole set under one name, so a refusal on a single member has no control of its own";
 const IN_THE_PATH = "in the request URI, off an already-parsed record — no input, and no refusal names it";
 const THE_PAGE_SEASON = "the page's selected season, parsed at `.length(4)` before the control renders";
 
@@ -222,7 +269,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLAnnehmenBewerbungPayloadSchema: { id: IN_THE_PATH },
   FLAblehnenBewerbungPayloadSchema: { id: IN_THE_PATH },
 
-  FLPatchSaisonPayloadSchema: { id: IN_THE_PATH, bewerbung: RECORD_ITSELF },
+  FLPatchSaisonPayloadSchema: { id: IN_THE_PATH, bewerbung: RECORD_ITSELF, "rules.erlaubte_stufen.0": A_STUFE_ROW },
   FLPatchSchiedsrichterPayloadSchema: { id: IN_THE_PATH },
   FLPatchSpielerPayloadSchema: { id: IN_THE_PATH },
   FLPatchSpielortPayloadSchema: { id: IN_THE_PATH },
@@ -237,7 +284,17 @@ const EXEMPT: Record<string, Record<string, string>> = {
   // club's own page afterwards.
   FLCreateTeamFormPayloadSchema: { schulform: "the create draft sends the null the field allows; no control offers another value" },
 
+  FLPostBewerbungPayloadSchema: {
+    saison_id: THE_PAGE_SEASON,
+    schule: THE_SCHOOL_ITSELF,
+    "kontakte.trainer_ist_zugleich": THE_ZUGLEICH_CLAIM,
+    "kontakte.trainer.einwilligung.text_version": WRITTEN_NOT_PICKED,
+    "kontakte.ansprechperson.einwilligung.text_version": WRITTEN_NOT_PICKED,
+    "kontakte.stellvertretung.einwilligung.text_version": WRITTEN_NOT_PICKED,
+  },
+
   FLPostSaisonPayloadSchema: {
+    "rules.erlaubte_stufen.0": A_STUFE_ROW,
     bewerbung: WINDOW_OPENS_LATER,
     "bewerbung.offen": WINDOW_OPENS_LATER,
     "bewerbung.von": WINDOW_OPENS_LATER,
@@ -306,6 +363,26 @@ const EXEMPT: Record<string, Record<string, string>> = {
   },
 };
 
+/**
+ * A payload schema parsed in a ROUTE HANDLER rather than a server action. Discovering only from a slice's
+ * `actions.ts` leaves the public application form swept by nothing, so each one here names its form.
+ */
+const routeParsed = new Map<string, string>();
+for (const [file, text] of sources) {
+  if (!/^app\/api\/.*route\.ts$/.test(file)) continue;
+  for (const match of text.matchAll(/(FL\w+PayloadSchema)\.safeParse/g)) {
+    if (match[1] !== undefined) routeParsed.set(match[1], file);
+  }
+}
+
+/** Schema → the slice holding it and the form entry that renders its inputs. */
+const ROUTE_FORMS: Record<string, { slice: string; form: string }> = {
+  FLPostBewerbungPayloadSchema: {
+    slice: "bewerbungen",
+    form: "features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx",
+  },
+};
+
 const sweptSchemas = [...schemaActions.keys()].sort();
 
 describe("every payload path a refusal can name", () => {
@@ -315,6 +392,14 @@ describe("every payload path a refusal can name", () => {
     assert.ok(actionSlice.size >= 25, `expected at least 25 server actions, found ${String(actionSlice.size)}`);
     assert.ok(sweptSchemas.length >= 20, `expected at least 20 parsed payload schemas, found ${String(sweptSchemas.length)}`);
     assert.ok(components.length >= 150, `expected at least 150 components, found ${String(components.length)}`);
+  });
+
+  it("resolves every helper a name is built by", () => {
+    // Unlisted, a helper's names are simply absent from `renderedNames`, and every path it renders then
+    // reads as unrendered — or, worse, is quietly exempted to make the sweep pass.
+    for (const helper of calledHelpers()) {
+      assert.ok(helper in NAME_CALL_BINDINGS, `a name is built by \`${helper}()\`, which NAME_CALL_BINDINGS does not bind`);
+    }
   });
 
   it("resolves every identifier a templated name interpolates", () => {
@@ -328,9 +413,31 @@ describe("every payload path a refusal can name", () => {
 
   it("exempts no schema the sweep does not reach", () => {
     for (const schema of Object.keys(EXEMPT)) {
-      assert.ok(sweptSchemas.includes(schema), `${schema} is exempted but no action parses it — drop the entry`);
+      assert.ok(sweptSchemas.includes(schema) || schema in ROUTE_FORMS, `${schema} is exempted but nothing parses it — drop the entry`);
     }
   });
+
+  it("knows a form for every payload a route handler parses", () => {
+    // Both directions: a new route-parsed schema fails until it names its form, and a stale entry fails
+    // once nothing parses it. Neither can be satisfied by the sweep quietly finding less.
+    assert.deepEqual([...routeParsed.keys()].sort(), Object.keys(ROUTE_FORMS).sort());
+  });
+
+  for (const [schema, { slice, form }] of Object.entries(ROUTE_FORMS)) {
+    it(`${schema} renders an input for, or exempts, each of them`, async () => {
+      const schemaModule: Record<string, unknown> = await import(pathToFileURL(path.join(SRC_DIR, "features", slice, "schemas.ts")).href);
+      const rendered = renderedNames(importTree([form]));
+      const exempt = EXEMPT[schema] ?? {};
+      const paths = payloadPaths(z.toJSONSchema(schemaModule[schema] as z.ZodType, { io: "input" }) as JsonSchema);
+
+      assert.ok(paths.length > 0, `${schema} reduced to no paths at all`);
+      assert.deepEqual(
+        paths.filter((field) => !rendered.has(field) && !(field in exempt)),
+        [],
+        `${schema} names paths no input renders. Give each a \`name\`, or add it to EXEMPT with the reason.`,
+      );
+    });
+  }
 
   for (const schema of sweptSchemas) {
     it(`${schema} renders an input for, or exempts, each of them`, async () => {

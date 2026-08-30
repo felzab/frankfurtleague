@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -316,5 +316,53 @@ describe("every facet set in the app", () => {
         }
       }
     }
+  });
+});
+
+const APP_DIR = path.resolve(import.meta.dirname, "..", "..", "app");
+// Separators normalised before it is tested, so the pattern does not have to know the platform's.
+const VIEWS_GLOB = /components\/views\/Admin\w+View\.tsx$/;
+const asPosix = (file: string): string => file.split(path.sep).join("/");
+
+/** Every `.ts`/`.tsx` under a directory, recursively. */
+function sourcesUnder(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return sourcesUnder(full);
+    return /\.tsx?$/.test(entry.name) ? [full] : [];
+  });
+}
+
+const isClientModule = (source: string): boolean => /^\s*(?:\/\/.*\n|\/\*[\s\S]*?\*\/\n|\s)*["']use client["']/.test(source);
+
+describe("who may hold a facet", () => {
+  /* A facet carries a `read` FUNCTION, which a Server Component may not pass to a Client one
+     (`.claude/CLAUDE.md` §6). Neither `tsc` nor `next build` sees it; the page throws at render with
+     a digest alone. */
+  it("keeps every facets module out of the server half of the app", () => {
+    const leaks = sourcesUnder(APP_DIR)
+      .filter((file) => !isClientModule(readFileSync(file, "utf8")))
+      .filter((file) => /from "[^"]*facets"/.test(readFileSync(file, "utf8")))
+      .map((file) => asPosix(path.relative(APP_DIR, file)));
+
+    assert.deepEqual(
+      leaks,
+      [],
+      `these server modules import a facets module, whose \`read\` cannot cross into a client:\n  ${leaks.join("\n  ")}`,
+    );
+  });
+
+  /* The same defect arriving as a prop instead of an import: a view that TAKES its facets is handed
+     them by whoever renders it, and the admin pages are Server Components. Built inside the view
+     from plain data, nothing but data crosses. */
+  it("builds every admin view's facets inside the view rather than taking them", () => {
+    const views = sourcesUnder(FEATURES_DIR).filter((file) => VIEWS_GLOB.test(asPosix(file)));
+    assert.ok(views.length > 0, "no admin views were found, so this case compares nothing");
+
+    const nehmen = views
+      .filter((file) => /\bfacets\s*[,:}]/.test(readFileSync(file, "utf8").split(")")[0] ?? ""))
+      .map((file) => asPosix(path.relative(FEATURES_DIR, file)));
+
+    assert.deepEqual(nehmen, [], `these views take their facets as a prop instead of building them:\n  ${nehmen.join("\n  ")}`);
   });
 });

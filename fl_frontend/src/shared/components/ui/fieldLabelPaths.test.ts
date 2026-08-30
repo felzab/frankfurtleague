@@ -73,8 +73,17 @@ const PATH_TEMPLATE_BINDINGS: Record<string, readonly string[]> = {
 
 const componentOf = (file: string): string => path.posix.basename(file).split(".")[0] ?? "";
 
+/** A component that composes its own label paths, of which the case below asserts there is exactly one. */
+const composesLabels = (file: string): boolean => (sources.get(file) ?? "").includes("renderLabel?:");
+
+/**
+ * The callers whose literals can reach a LABEL path. A component composing its paths into
+ * `renderLabel` hands them to nobody else, so a caller passing none binds only input names.
+ */
 const renderersOf = (file: string): string[] =>
-  [...sources].filter(([, text]) => text.includes(`<${componentOf(file)}`)).map(([caller]) => caller);
+  [...sources]
+    .filter(([, text]) => text.includes(`<${componentOf(file)}`) && (!composesLabels(file) || text.includes("renderLabel=")))
+    .map(([caller]) => caller);
 
 /** The table's values, plus every literal a renderer passes for that same prop. */
 function bindingsFor(identifier: string, file: string): string[] {

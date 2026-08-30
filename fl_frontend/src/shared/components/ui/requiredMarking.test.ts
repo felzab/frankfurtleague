@@ -27,7 +27,9 @@ function renderField({ wrappers, marksRequired }: { wrappers: number; marksRequi
   return renderToStaticMarkup(
     h(
       Form,
-      marksRequired ? MARKS_REQUIRED : null,
+      // The app's own mode. In `native` these fields would carry a real `required`, which is what
+      // paints the browser's message the moment an edited field is cleared.
+      { validationBehavior: "aria", ...(marksRequired ? MARKS_REQUIRED : {}) } as ComponentProps<typeof Form>,
       h(TextField, { isRequired: true, name: "strasse" }, label, h(Input, null), h(FieldError, null)),
       h(TextField, { name: "stadtteil" }, h(Label, null, "Stadtteil"), h(Input, null), h(FieldError, null)),
     ),
@@ -67,15 +69,34 @@ describe("where a field puts its label", () => {
 
 describe("what a required field asks of the browser", () => {
   for (const wrappers of [0, 1, 2]) {
-    it(`refuses an emptied field with the label ${wrappers} wrappers deep`, () => {
+    it(`declares itself required to assistive technology with the label ${wrappers} wrappers deep`, () => {
       const inputs = renderField({ wrappers }).match(/<input\b[^>]*>/g) ?? [];
-      const required = inputs.filter((input) => /\brequired=""/.test(input));
+      const declared = inputs.filter((input) => /\baria-required="true"/.test(input));
 
-      assert.equal(required.length, 1);
-      // The optional field is the control: `required` on both would satisfy the count above on its own.
+      assert.equal(declared.length, 1);
+      // The optional field is the control: a mark on both would satisfy the count above on its own.
       assert.equal(inputs.length, 2);
     });
   }
+
+  it("asks the browser for nothing, which is what keeps a cleared field quiet", () => {
+    // `aria` drops the native attribute and keeps the ARIA one. Were `required` to come back, react-aria
+    // would commit `valueMissing` on every DOM `change` and paint the browser's message on a blur.
+    const inputs = renderField({ wrappers: 0 }).match(/<input\b[^>]*>/g) ?? [];
+
+    assert.ok(!inputs.some((input) => /\brequired=""/.test(input)), `a native required survived: ${inputs.join(" ")}`);
+  });
+});
+
+describe("what an opt-in required prop actually reaches", () => {
+  it("hands the district's required-ness to the caller, defaulting off", async () => {
+    // The component cannot be imported here — the runner reads no `.tsx` — so this grades the wiring while the
+    // case above grades the mechanism it depends on. The default keeps every admin address optional.
+    const source = await readFile(path.join(import.meta.dirname, "AddressFields.tsx"), "utf8");
+
+    assert.match(source, /isStadtteilRequired = false,/);
+    assert.match(source, /isRequired=\{isStadtteilRequired\}\s*\n\s*name=\{`\$\{namePrefix\}\.stadtteil`\}/);
+  });
 });
 
 describe("the two stylesheet rules that decide whether the asterisk is drawn", () => {

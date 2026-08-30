@@ -13,7 +13,7 @@ const FEATURES = path.join(SRC, "features");
  * `px-6` cell, at the spacing step above that sum. Below three the „Aktionen“ heading is wider and
  * decides it instead.
  */
-const ACTIONS_WIDTH: Record<number, string> = { 1: "w-32", 2: "w-36", 3: "w-48", 4: "w-60", 5: "w-72" };
+const ACTIONS_WIDTH: Record<number, string> = { 1: "w-32", 2: "w-36", 3: "w-48", 4: "w-60", 5: "w-72", 6: "w-84" };
 
 /**
  * Every admin CRUD list whose empty message sits inside a react-aria table; the markup was
@@ -28,7 +28,7 @@ const TABLES = [
   { file: "features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx", controls: 4, alternates: 1, freeText: 176 },
   { file: "features/spieler/components/collections/AdminSpielerTable.tsx", controls: 4, alternates: 1, freeText: 176 },
   { file: "features/spielorte/components/collections/AdminSpielorteTable.tsx", controls: 5, alternates: 1, freeText: 224 },
-  { file: "features/teams/components/collections/AdminTeamsTable.tsx", controls: 5, alternates: 1, freeText: 256 },
+  { file: "features/teams/components/collections/AdminTeamsTable.tsx", controls: 6, alternates: 1, freeText: 256 },
 ];
 
 const read = (file: string): string => readFileSync(path.join(SRC, file), "utf8");
