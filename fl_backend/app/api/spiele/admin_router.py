@@ -127,8 +127,8 @@ async def get_spiele_action_required(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(
             db_filter={
-                # Named first so the term reads before the conditions it narrows. Absent, this is an
-                # empty spread and the read spans the archive, as it did before the page had a selector.
+                # Named first so the term reads before the conditions it narrows. Absent, it spreads
+                # to nothing and the read spans every season, which is what an unscoped call asks for.
                 **({} if saison_id is None else {"saison_id": saison_id}),
                 "$or": [
                     {"sonderereignis": {"$in": list(SONDEREREIGNIS_RECORDING_AN_ABSENCE)}},

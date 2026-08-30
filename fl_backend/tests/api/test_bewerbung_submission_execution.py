@@ -635,7 +635,8 @@ class TestTheDatabaseStillHoldsAnApplicationWithNoColour:
                 "team_id": EXISTING_OID,
                 "schule": None,
                 "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY),
-                # The colour an administrator has not assigned, which the applicant can no longer send.
+                # The colour an administrator has not assigned. The payload admits no null here, so
+                # only a stored row reaches the read models carrying one.
                 "trikot": {"vorhandener_satz": "16 rote Trikots", "wunschfarbe": None},
                 "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
                 "entscheidung": None,
