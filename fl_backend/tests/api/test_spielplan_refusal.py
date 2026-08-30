@@ -397,8 +397,8 @@ SCHIEDSRICHTER = "68f0a1b2c3d4e5f607600002"
 BRACKET_PHASE: FLSaisonPhase = next(phase for phase in PHASE_ORDER if phase != DRAWN_HOLDING_ITS_SIDES)
 
 # A GROUP fixture exactly as the draw wrote it: both sides seated, no wiring, every field a record
-# could land in empty. No `notiz` key at all, which is the shape `app/api/saisons/spielplan.py ::
-# _spiel` leaves.
+# could land in empty. No `notiz` key at all, which is the shape
+# `app/api/saisons/spielplan.py :: _spiel` leaves.
 UNTOUCHED_FIXTURE: Mapping[str, Any] = {
     "saison_phase": DRAWN_HOLDING_ITS_SIDES,
     "ergebnis": None,

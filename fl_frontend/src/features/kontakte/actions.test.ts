@@ -262,11 +262,12 @@ describe("the erasure's copy", () => {
     assert.ok(!PANEL.includes('"Ja, endgültig löschen"'), "the armed label drops the object, and reads as the team going");
   });
 
-  /* One `h1` per page and the shell owns it. A panel heading is an `h2`, and its readout's is an `h3`. */
+  /* One `h1` per page and the shell owns it. The heading LEVEL is `PanelHeading`'s now and pinned there;
+     what this panel owes is using it, and its readout's `h3`. */
   it("raises no heading the shell already owns", () => {
     assert.ok(!PANEL.includes("<h1"), "the panel raises a second h1");
     assert.ok(!PAGE.includes("<h1"), "the page raises an h1 the shell already owns");
-    assert.match(PANEL, /<h2 className=\{panel\.heading\(\)\}>/, "the panel's heading is no longer an h2");
+    assert.ok(PANEL.includes("<PanelHeading className={panel.heading()}"), "the panel spells its own heading again");
   });
 });
 

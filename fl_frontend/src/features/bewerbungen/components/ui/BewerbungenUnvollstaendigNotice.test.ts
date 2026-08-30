@@ -81,11 +81,11 @@ describe("the notice a truncated queue carries", () => {
   it("reverses the read through a real link that says what it does", () => {
     const neueste = anchor(markup(NEUESTE));
     assert.equal(neueste.href, "?q=schule&order=asc", "the link drops the search text or the order");
-    assert.equal(neueste.name, "die ältesten zuerst laden");
+    assert.equal(neueste.name, "Lade die ältesten zuerst");
 
     const aelteste = anchor(markup(AELTESTE));
     assert.equal(aelteste.href, "?q=schule&order=desc");
-    assert.equal(aelteste.name, "die neuesten zuerst laden");
+    assert.equal(aelteste.name, "Lade die neuesten zuerst");
 
     // An `aria-label` here would replace the visible words with something a speaking user cannot read back.
     for (const { attrs } of [neueste, aelteste]) assert.doesNotMatch(attrs, /aria-label/);
@@ -101,6 +101,28 @@ describe("the notice a truncated queue carries", () => {
       assert.equal(absaetze.length, 1, "the explanation is split across blocks");
       assert.match(html, /<p[^>]*>[^<]*<a [^>]*>[^<]*<\/a>[^<]*<\/p>/, "the link is not inline in the explanation");
       assert.doesNotMatch(html, /<p[^>]*>(?:(?!<\/p>).)*?role="/s, "an element inside the sentence claims a role of its own");
+    }
+  });
+
+  /* The order is the message: what truncation COSTS before what it offers. Led by the reversal, the
+     notice reads as a sorting preference rather than as a permanent hole in the duplicate marking. */
+  it("says what truncation costs before what it offers", () => {
+    for (const props of [NEUESTE, AELTESTE]) {
+      const html = markup(props);
+      const at = (teil: string) => {
+        const stelle = html.indexOf(teil);
+        assert.notEqual(stelle, -1, `the notice no longer says: ${teil}`);
+
+        return stelle;
+      };
+
+      const reihenfolge = [at("Dubletten werden nur"), at("Auch die Zahlen an den Filtern"), at("Geladen sind"), at("Auch diese Ansicht")];
+
+      assert.deepEqual(
+        [...reihenfolge].sort((a, b) => a - b),
+        reihenfolge,
+        "the notice leads with something other than the duplicate loss",
+      );
     }
   });
 

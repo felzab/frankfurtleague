@@ -404,8 +404,16 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
 
     # Stripped before either floor counts it: `team_name` and `shorthand` reach a league table row.
     # The ceilings are here and not on the read model, which the triage reads a stored one through.
-    team_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TEAM_NAME_MAX_LENGTH)]
-    full_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_FULL_NAME_MAX_LENGTH)]
+
+    # No interior break in the two the decision mail renders: it writes one `label: value` per line,
+    # so a name carrying one forges a line the reader cannot tell from a real one. `strip_whitespace`
+    # runs FIRST, so a pasted break at either end is repaired rather than refused.
+    team_name: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TEAM_NAME_MAX_LENGTH, pattern=r"^[^\r\n]*$")
+    ]
+    full_name: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_FULL_NAME_MAX_LENGTH, pattern=r"^[^\r\n]*$")
+    ]
     shorthand: Annotated[str, StringConstraints(strip_whitespace=True, min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)]
     # Required and NON-NULL here alone: the form offers the six real Schulformen and no "keine
     # Angabe". The stored field stays nullable, for `app/core/constraints.py :: teams.schulform`'s reason.

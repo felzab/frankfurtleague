@@ -50,9 +50,9 @@ export function AdminBewerbungAblehnenSection({
 
   const panel = formPanel();
 
-  /* One measured string for the gate, the counter and the preview: `schemas.ts ::
-     FLAblehnenBewerbungPayloadSchema` trims before it measures, and the trimmed value is what the
-     write carries and the school reads. */
+  /* One measured string for the gate, the counter and the preview:
+     `fl_frontend/src/features/bewerbungen/schemas.ts :: FLAblehnenBewerbungPayloadSchema` trims before
+     it measures, and the trimmed value is what the write carries and the school reads. */
   const trimmedGrund = grund.trim();
 
   const isTooLong = trimmedGrund.length > BEWERBUNG_GRUND_MAX_LENGTH;

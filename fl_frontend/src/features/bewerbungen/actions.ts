@@ -232,8 +232,9 @@ export async function annehmenBewerbungAction(rawPayload: FLAnnehmenBewerbungPay
           // The seats THIS reader holds: three people are told one decision and each their own place in it.
           rollenText: rollenText,
           gruppe: annahmeOperation.gruppe,
-          // Rendered here: the label lives in `fl_frontend/src/features/teams/constants.ts ::
-          // TRIKOT_FARBE_OPTIONS`, which `core/bewerbungEmail.ts` may not import.
+          // Rendered here: the label lives in
+          // `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS`, which
+          // `core/bewerbungEmail.ts` may not import.
           trikotFarbeLabel: annahmeOperation.trikot_farbe === null ? null : trikotFarbeLabel(annahmeOperation.trikot_farbe),
         }),
     });

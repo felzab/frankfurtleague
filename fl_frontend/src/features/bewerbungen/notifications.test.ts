@@ -34,9 +34,9 @@ const MAIL_DOUBLE = `export const sendMail = async (mail) => {
   if (globalThis.__flRefusedMail.has(mail.to)) throw new Error("the provider refused the message");
 };`;
 
-// The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logFormat.ts ::
-// serializeError` writes an error's message and stack, so a double that drops it cannot see an
-// address reaching the stream through one.
+// The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logFormat.ts :: serializeError`
+// writes an error's message and stack, so a double that drops it cannot see an address reaching the
+// stream through one.
 const LOGGING_DOUBLE = `export const logger = {
   info: () => {},
   warn: () => {},
@@ -333,5 +333,48 @@ describe("what the administrator is told", () => {
 
     assert.match(nothing, /niemandem zugestellt/);
     assert.notEqual(nothing, partial);
+  });
+});
+
+/**
+ * Composing runs inside the settled boundary, not before it. Every caller reaches this AFTER its own
+ * write has committed, so a fan-out that rejects reports a decision that was in fact taken — and on
+ * the public receipt, which awaits this with no `catch`, it would show an applicant a failure for an
+ * application that is stored.
+ */
+describe("a message that cannot be composed costs no other recipient theirs", () => {
+  /** Throws for one reader and composes for the others, which is what a per-recipient compose can do. */
+  const buildMailThatThrowsFor = (kaputt: string) => (rollenText: string) => {
+    if (rollenText === kaputt) throw new Error("composing failed");
+
+    return buildMail(rollenText);
+  };
+
+  it("settles rather than rejecting when composing throws", async () => {
+    reset();
+    const outcome = await sendBewerbungMail({
+      operation: "annehmenBewerbungAction",
+      recipients: [empfaenger("erste@schule.de", "Trainer"), empfaenger("zweite@schule.de", "Ansprechperson")],
+      buildMail: buildMailThatThrowsFor("Trainer"),
+    });
+
+    /* The reader whose message could not be composed is unreachable, and the other one is still
+       delivered: one broken compose must not cost the others their notification. */
+    assert.deepEqual(outcome, { delivered: ["zweite@schule.de"], unreachable: ["erste@schule.de"] });
+  });
+
+  it("reports the failure on the same line a refused send uses", async () => {
+    reset();
+    await sendBewerbungMail({
+      operation: "annehmenBewerbungAction",
+      recipients: [empfaenger("erste@schule.de", "Trainer")],
+      buildMail: buildMailThatThrowsFor("Trainer"),
+    });
+
+    const zeilen = logged.filter((eintrag) => eintrag.message === "bewerbung.mail_failed");
+    assert.equal(zeilen.length, 1);
+    assert.equal(zeilen[0]?.meta.error_code, "FE-MAIL-002");
+    /* The address stays off the stream, as it does for a refused send (`docs/logging/spec.md :: L9`). */
+    assert.ok(!JSON.stringify(zeilen[0]).includes("erste@schule.de"));
   });
 });

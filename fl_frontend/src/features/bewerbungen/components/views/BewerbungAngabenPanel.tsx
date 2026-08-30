@@ -1,6 +1,7 @@
 import { einwilligungHerkunftLabel, KONTAKT_ROLLEN, schulformLabel, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { formPanel } from "@/shared/components/ui/formPanel";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
 import { ExternalUrlSchema } from "@/shared/schemas";
 import { formatAddressFull, formatSpielDatum } from "@/shared/utils/format";
@@ -58,8 +59,10 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        {/* `h2`, never `h1`: the shell's top bar owns the page's one heading. */}
-        <h2 className={panel.heading()}>{title}</h2>
+        <PanelHeading
+          className={panel.heading()}
+          title={title}
+        />
       </div>
       <div className={panel.body()}>{children}</div>
     </section>

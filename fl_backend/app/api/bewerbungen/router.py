@@ -7,8 +7,9 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungListAdapter,
     FLBewerbungSingleResponse,
 )
+from app.api.bewerbungen.services import build_bewerbungen_sort
 from app.core.config import API_VERSION
-from app.core.crud import build_query, build_sort, pull_many_from_db, pull_one_from_db
+from app.core.crud import build_query, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import BewerbungenCollection
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
@@ -43,10 +44,7 @@ async def get_bewerbungen(
         collection=bewerbungen_collection,
         db_filter=build_query(filters, terms={"saison_id", "status"}),
         limit=filters.limit + 1,
-        # `_id` breaks the tie: two applications can arrive on one day, and an order moving between
-        # two reads is one nobody can work down. Descending, as the log's is: ascending reads two
-        # same-day rows backwards inside a newest-first queue.
-        sort_by=build_sort(sort_by=filters.sort_by, order=filters.order, chain=(("_id", -1),)),
+        sort_by=build_bewerbungen_sort(sort_by=filters.sort_by, order=filters.order),
     )
 
     # Sliced before validation, so the probe row is never parsed and never reaches the wire.

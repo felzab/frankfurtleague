@@ -38,7 +38,6 @@ export type FLSaisonForfeitErgebnis = z.infer<typeof FLSaisonForfeitErgebnisSche
 /**
  * German on the TYPE check as well as the bound: an emptied count reaches the draft as `null` and fails
  * `z.int()` first, so a message only on `.positive()` leaves Zod's own English on the field.
- * The apiContract suite compares the wire shape and deliberately not the messages.
  */
 export const FLSaisonRulesSchema = z.object({
   win_points: z.int({ error: "Bitte gib die Punkte für einen Sieg ein." }).positive({ error: "Ein Sieg bringt mindestens 1 Punkt." }),

@@ -63,11 +63,9 @@ export function describeKontaktErasureUmfang(erasure: FLKontaktErasureResponse):
 }
 
 /**
- * The Trainer seat, filled from the seat that declared itself the coach.
- *
- * **Composed at save time and never written into the draft.** Written in, it overwrote whichever of
- * the two real people the claim did not name, on the first keystroke and with no undo — a stored row
- * can hold the claim over two DIFFERENT people, which the backend never checks.
+ * The Trainer seat, filled from the seat that declared itself the coach. **Composed at save time,
+ * never written into the draft**: a stored row can hold the claim over two DIFFERENT people, and
+ * writing it in overwrites the other, with no undo.
  */
 export function mirrorKontakte(draft: SaisonTeamKontakteDraft): SaisonTeamKontakteDraft {
   return mirrorTrainerSeat(draft);

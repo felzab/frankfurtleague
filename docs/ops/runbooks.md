@@ -1,6 +1,6 @@
 # Ops — runbooks
 
-**Verified against:** `6adfac16`, 2026-08-30\
+**Verified against:** `12d462af`, 2026-08-30\
 **Purpose:** the recurring procedures that are run rather than read, and the operational facts no file in this repository states
 
 The contracts these depend on — the services, the scripts, the gate scopes and the registry — are
@@ -38,6 +38,25 @@ serving.** A container built from the previous commit carries the previous valid
 the very documents the new ones reject, so the only run that answers the question is the one made against
 the constraints that are about to land. Nothing later in the pipeline compares stored documents against a
 validator.
+
+**On the server that checkout reaches the container as a bind mount**, the image carrying an `app/` of its
+own:
+
+```bash
+docker run --rm --network <compose-network> -v "$PWD/fl_backend/app:/app/app:ro" \
+  -e MONGODB_URI=<uri> -e DB_BASE_NAME=<base> \
+  -e API_TRUSTED_HOSTS=x -e API_CORS_ALLOWED_ORIGINS=x \
+  -e INTERNAL_API_KEY_BASE=x -e INTERNAL_API_KEY_SYSTEM=x -e INTERNAL_API_KEY_ADMIN=x \
+  <backend-image> python -m app.core.constraints --check
+```
+
+**Seven variables are required and two carry real values.** `BackendConfig` declares six fields with no
+default, so `-e MONGODB_URI=` alone exits 1 on a validation error naming the internal keys rather than
+anything about the database. `--check` reads the database and nothing else, so the hosts, the origins and
+the three keys may be any non-empty string — **do not go looking for the production ones.**
+
+Two caveats, untested against the server itself: the image runs as `uid=100 fl_api_user`, so the mounted
+`app/` must be readable by that uid, and an SELinux host needs `:z` on the mount.
 
 **Counting a key's presence is not a substitute for the run.** The report reads each validator back as a
 query, so it fails a document whose key is there with the wrong BSON type; a `$exists` count passes that
@@ -118,181 +137,6 @@ such row fails `GET /spiele/action_required` for the entire league — a `past` 
 included, which is the one nobody thinks to suspect. The two reports are independent: an orphan row can carry
 a perfectly good name, and a row missing its name can name a club that exists.
 
-### Renaming the Trainer's second-seat flag on stored contact blocks
-
-`kontakte.trainer_ist_ansprechperson` became `kontakte.trainer_ist_zugleich` on both collections that
-hold a contact block. `true` named the Ansprechperson and `false` named nobody, so the mapping is
-total and the rewrite loses nothing. It is a one-off, so it is instructions rather than a script: run
-them in `mongosh` against the application database.
-
-**It runs in two halves, one either side of the deploy, and running it all afterwards takes the admin
-contacts editor down.** `fl_backend/app/api/teams/schemas.py :: FLSaisonTeamKontakte` declares
-`trainer_ist_zugleich` with no default, so Pydantic requires it; a row still carrying only the old key
-fails to validate. `GET /teams/memberships` is the one consumer of the one pipeline that projects
-`kontakte` (`fl_backend/app/api/teams/services.py :: build_team_memberships_pipeline`), and it validates
-the whole list at once, so ONE un-rewritten row answers 500 for every club. That endpoint is the sole
-source for the admin contacts editor and the admin club list — and the editor is the only route to
-repairing a bad row, so the outage would take away the page the repair is done on.
-
-**One write echo is exposed as well, and it fails AFTER the write.**
-`fl_backend/app/api/teams/admin_router.py :: patch_saison_team` echoes the block from the after image, and
-`patch_one_in_db` runs there with no session, so a junction PATCH against a row carrying a pre-migration
-block commits and then answers 500 on the echo — the caller cannot tell whether the change was saved. The
-other three echoes are safe: entry passes a literal `None`, and the contacts PATCH and the replacement
-both read the after image of a `$set` they just made. What is NOT the protection is the keyword
-construction: an absent key yields `None` through `.get`, but a block that is PRESENT and carries the old
-key is a dict Pydantic validates and refuses (measured 2026-08-30).
-
-**The `$set` half is safe BEFORE the deploy, and that is what closes the window rather than shortening
-it.** `fl_backend/app/core/constraints.py :: _object` emits `bsonType`, `required` and `properties` and
-never `additionalProperties: false`, so the old validator permits a key it does not declare. Writing the
-new key while LEAVING the old one in place therefore passes the old validator — its `required` still
-names the old key, which is still there — and it also satisfies the new model the moment the new code
-boots. Probed against both states: old key alone is refused on `kontakte.trainer_ist_zugleich`; both keys
-together are accepted (measured 2026-08-30).
-
-The order is therefore:
-
-1. **Before the deploy**, `$set` the new key from the old key's value, leaving the old key in place
-2. Deploy, let the backend boot — `apply_constraints` attaches the new validator at startup
-   (`fl_backend/app/core/db.py :: lifespan`) — and confirm it is serving
-3. **After that**, `$unset` the old key, which the new validator does not list in `required`
-4. Re-run `python -m app.core.constraints --check`
-
-Running step 3 before the deploy is what the old validator refuses, document by document, with error
-code 121: it lists the old key in `required` on both collections. Running step 1 after the deploy is
-what opens the outage above.
-
-**Measured on `fl_main`, 2026-08-30:** `saison_teams` held 16 rows, none of them carrying a contact block
-at all, and neither the old key nor the new one appeared on any row. A blockless row reads fine, `kontakte`
-being nullable on `FLTeamMembership`, and every block written after the deploy goes through the payload
-that requires the new key — so the window above needs a row this database does not have. That is a fact
-about today rather than a reason to reorder: the counts below are what decide, on the environment in front
-of you.
-
-Read first, and keep the numbers:
-
-```javascript
-["saison_teams", "bewerbungen"].forEach((name) => {
-  print(name + ": " + db.getCollection(name).countDocuments({ "kontakte.trainer_ist_ansprechperson": { $exists: true } }));
-});
-```
-
-**Step 1, BEFORE the deploy.** One statement per stored value per collection, setting the new key and
-leaving the old one alone:
-
-```javascript
-["saison_teams", "bewerbungen"].forEach((name) => {
-  const collection = db.getCollection(name);
-
-  printjson(
-    collection.updateMany({ "kontakte.trainer_ist_ansprechperson": true }, { $set: { "kontakte.trainer_ist_zugleich": "ansprechperson" } }),
-  );
-
-  printjson(collection.updateMany({ "kontakte.trainer_ist_ansprechperson": false }, { $set: { "kontakte.trainer_ist_zugleich": null } }));
-});
-```
-
-Every row now carries both keys, which the old validator accepts and the new model accepts. Deploy, let
-the backend boot, and confirm it is serving before going on.
-
-**Step 3, AFTER the boot.** Drop the old key, which the new validator no longer requires:
-
-```javascript
-["saison_teams", "bewerbungen"].forEach((name) => {
-  printjson(
-    db
-      .getCollection(name)
-      .updateMany({ "kontakte.trainer_ist_ansprechperson": { $exists: true } }, { $unset: { "kontakte.trainer_ist_ansprechperson": "" } }),
-  );
-});
-```
-
-Then confirm. **Every line this prints must be `0`:**
-
-```javascript
-["saison_teams", "bewerbungen"].forEach((name) => {
-  print(
-    name + " left with the old key: " + db.getCollection(name).countDocuments({ "kontakte.trainer_ist_ansprechperson": { $exists: true } }),
-  );
-  print(
-    name +
-      " missing the new key:  " +
-      db.getCollection(name).countDocuments({ kontakte: { $ne: null }, "kontakte.trainer_ist_zugleich": { $exists: false } }),
-  );
-});
-```
-
-The second count excludes a null block rather than the collection: `saison_teams.kontakte` is nullable
-as a whole, so a row holding no block at all is not a row missing the field.
-
-**Safe to repeat, and expected to find nothing where it has already run.** Step 1 re-sets a value already
-equal to itself and step 3's `$exists: true` matches nothing once it has run, so a second pass of either
-changes no row — which is what makes the read pass worth keeping: a zero there says the environment
-needed none of this, rather than that the rewrite worked. Re-run
-`python -m app.core.constraints --check` afterwards, as every edit to stored documents does.
-
-**No read-side default stands behind this ordering, by design.** `FLTeamMembership` defaults `kontakte`
-and `trikot_farbe` so that a row predating either field cannot 500 the club list, and the obvious move is
-to default `trainer_ist_zugleich` the same way. It would assert a falsehood. The asymmetry between that
-model and the write echoes is deliberate and argued where the default sits
-(`fl_backend/app/api/teams/schemas.py :: FLTeamMembership`); a default there would not help here in any
-case, the refusals above being about a block that is present rather than one that is missing. `trikot_farbe`'s default is
-true of the rows it covers — one that predates the field genuinely had no colour — whereas a row
-predating this rename genuinely carries `trainer_ist_ansprechperson`, which may be `true`, and defaulting
-to null would state that the Trainer holds no second seat for exactly the rows the migration exists to
-convert. Nothing downstream could recover it either: no consumer reads `model_fields_set` and there is no
-sentinel, so absent and null would collapse permanently at the model boundary, where today an absence is
-loud and names the field. The pre-deploy `$set` writes the TRUE value per row, `true → "ansprechperson"`
-and `false → null`, which is what one default for both could never do. The ordering is the whole of the
-safety.
-
-### Confirming no application squad stores a null count
-
-`bewerbungen.kader.gute_spieler` narrowed from int-or-null to `int` in the validator
-(`fl_backend/app/core/constraints.py :: _BEWERBUNG_KADER`) and is non-nullable on the model
-(`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungKader`). A stored `null` would be refused on
-read, taking the whole triage list with it, and would fail that row's own next write.
-
-**This is expected to find nothing, and the count is what says so rather than the reasoning.** No writer
-for `bewerbungen` existed before this branch — the slice declared no POST and its services performed no
-insert — so a database that has only ever run released code holds no such row. **Measured on `fl_main`,
-2026-08-30:** the collection held 0 documents, so no row carries a null or absent `kader.gute_spieler` and
-the narrowing needs no migration there. Both are statements about today, and a count is cheap:
-
-```javascript
-print("null counts: " + db.bewerbungen.countDocuments({ "kader.gute_spieler": null }));
-print("missing:     " + db.bewerbungen.countDocuments({ kader: { $ne: null }, "kader.gute_spieler": { $exists: false } }));
-```
-
-**Both lines must print `0`, and there is no rewrite here if they do not.** `null` recorded that no
-number was given, so any value written in its place invents one the school never stated — pick one and
-the triage reads it as the school's own answer. A non-zero count is a decision about those rows, not a
-statement to run: stop, and settle what the number should be before the deploy.
-
-### Giving `teams.schulform` a value for the clubs that predate it
-
-The property is declared outside the `teams` validator's `required`, so it fails no stored row and the
-deploy owes nothing. This fills in what a club's own name already says, so an administrator opens the
-editor to decide rather than to transcribe.
-
-Run it in `mongosh` against the application database, after the deploy, on a database whose `--check`
-reads clean:
-
-```javascript
-db.teams.updateMany({ schulform: null, name: /Gesamtschule/i }, { $set: { schulform: "gesamtschule" } });
-db.teams.updateMany({ schulform: null, name: /Oberstufengymnasium/i }, { $set: { schulform: "oberstufengymnasium" } });
-```
-
-**Those two are the whole of what a name can settle, and the omission is the point.** A club called
-`… Gymnasium` may run G8 or G9 and its name says neither, so writing one of them would be a guess stored
-as a fact — and a wrong `schulform` is invisible, because nothing downstream contradicts it. Every club a
-name cannot place keeps its null, which the editor shows as unset.
-
-The filter matches on `schulform: null` rather than on the whole collection, so a value somebody has
-already set by hand survives a second run and the statements are safe to repeat. Re-run
-`python -m app.core.constraints --check` afterwards, as every edit to stored documents does.
-
 ## 3. After changing anything about the brand mark
 
 ```bash
@@ -319,7 +163,7 @@ is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that ar
 `LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the
 filtered set (`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen`). Where more do exist it answers
 `vollstaendig: false` and the triage page raises a standing warning that cannot be dismissed
-(`fl_frontend/src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.ts ::
+(`fl_frontend/src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx ::
 BewerbungenUnvollstaendigNotice`). Answering short and saying so is the deliberate choice over refusing past a
 threshold: these rows are written by an anonymous public form, so a hard failure would hand whoever writes
 them the power to decide when the page stops working.

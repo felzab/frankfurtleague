@@ -123,7 +123,6 @@ export function AdminSpieltagEditForm({
 
   // Every date is picked rather than typed, so every control is judged on change — and the cross-field
   // span rule reports on `ende`, so both paths refresh together or its message never clears.
-  // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
   useForgiveFixed({ spieltag: buildPayload() });
 
   const validatePicked = (paths: readonly string[], picked: Partial<FLSpieltagDraftFields>) =>

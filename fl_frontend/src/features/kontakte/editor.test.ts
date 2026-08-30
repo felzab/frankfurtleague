@@ -187,7 +187,8 @@ describe("the editor's shape", () => {
     assert.match(FORM_SOURCE, /deriveKontakteDraftStatus/, "the editor derives its draft status somewhere else");
   });
 
-  /* One `h1` per page and the shell owns it. A panel heading is an `h2`, a seat's is an `h3`. */
+  /* One `h1` per page and the shell owns it. The heading LEVEL is `PanelHeading`'s now and pinned there;
+     what a seat owes is using it. */
   it("raises no heading the shell already owns", () => {
     for (const [name, source] of [
       ["the page", PAGE],
@@ -197,7 +198,7 @@ describe("the editor's shape", () => {
     ] as const) {
       assert.ok(!source.includes("<h1"), `${name} raises an h1 the shell already owns`);
     }
-    assert.match(SECTION, /<h2 className=\{panel\.heading\(\)\}>/, "the panel's heading is no longer an h2");
+    assert.ok(SECTION.includes("<PanelHeading className={panel.heading()}"), "a seat spells its own heading again");
   });
 
   /* The page's chrome may never wait on the row, and the fetch below the boundary may never run in
@@ -575,7 +576,7 @@ describe("how the editor divides one person from the next", () => {
        seat's own info icon read as the panel being lost. */
     assert.match(
       SECTION,
-      /<section className=\{panel\.root\(\)\}> <div className=\{panel\.header\(\)\}> <h2 className=\{panel\.heading\(\)\}>/,
+      /<section className=\{panel\.root\(\)\}> <div className=\{panel\.header\(\)\}> <PanelHeading className=\{panel\.heading\(\)\}/,
       "a seat is drawn as something other than its own panel",
     );
     assert.doesNotMatch(SECTION, /border-t pt-5 first:border-t-0/, "the seats are back to being slices of one panel");
@@ -586,7 +587,7 @@ describe("how the editor divides one person from the next", () => {
   it("raises no block panel above the seats", () => {
     // Any spelling of the heading slot, not just `panel.`: `formPanel().heading()` renders the same
     // title and would otherwise slip past.
-    assert.doesNotMatch(SECTION, /heading\(\)\}> Kontakte/, "the empty block heading is back above the seats");
+    assert.doesNotMatch(SECTION, /heading\(\)\} title="Kontakte"/, "the empty block heading is back above the seats");
   });
 
   /* One explanation per seat, on the seat: the three answer different questions, and a reader at a

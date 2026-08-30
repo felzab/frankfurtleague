@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -158,5 +158,81 @@ describe("what a bound schema says when a field is emptied", () => {
         }
       });
     }
+  }
+});
+
+/**
+ * A required control, read off ONE opening tag so `isRequired` and its `name` belong to the same
+ * control (`docs/frontend/spec.md :: I17`). A computed name and a conditional `isRequired` are out of
+ * reach, both failing toward finding less.
+ */
+function requiredNamesIn(source: string): string[] {
+  const found: string[] = [];
+
+  for (const chunk of source.split("<")) {
+    const opening = chunk.slice(0, chunk.indexOf(">"));
+    if (!/\bisRequired(\s|$)/.test(opening)) continue;
+
+    const name = /\bname="([^"]*)"/.exec(opening);
+    if (name?.[1] !== undefined) found.push(name[1]);
+  }
+  return found;
+}
+
+function collectComponents(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return collectComponents(full);
+
+    return entry.name.endsWith(".tsx") ? [full] : [];
+  });
+}
+
+/** Every path some form marks required, discovered from the forms rather than listed beside them. */
+const REQUIRED_NAMES = new Set(collectComponents(SRC_DIR).flatMap((file) => requiredNamesIn(readFileSync(file, "utf8"))));
+
+/** One schema's path that a form marks required, with the emptiness that field's own control writes. */
+const marked = Object.entries(BOUND).flatMap(([name, schema]) =>
+  leafPaths(schema)
+    .filter((probe) => probe.rootId === "" && probe.wrong !== undefined && REQUIRED_NAMES.has(probe.path))
+    .map((probe) => ({ schema: name, root: probe.root, path: probe.path, wrong: probe.wrong })),
+);
+
+describe("what a schema does with a field its form marks required", () => {
+  it("reads a mark off the control that carries it, and off no other", () => {
+    /* The reader on input, not on the tree: a discovery that silently finds nothing passes every case
+       below, and no count over 26 uniform marks can tell a correct reader from a truncating one. */
+    const sample = [
+      '<TextField isRequired name="vorname">',
+      '<TextField name="stadtteil">',
+      '<NumberField name="kader.gute_spieler" isRequired minValue={0}>',
+      '<TextField isRequired name={path("nachname")}>',
+      '<TextField isRequired={isNeu} name="schule.shorthand">',
+      '<TextField isRequired>Trag den name="verborgen" ein</TextField>',
+    ].join("\n");
+
+    assert.deepEqual(requiredNamesIn(sample), ["vorname", "kader.gute_spieler"]);
+  });
+
+  it("found the marks and the schema paths they land on", () => {
+    // Floors, because a walk that stopped resolving would leave every case below true of nothing.
+    assert.ok(REQUIRED_NAMES.size >= 20, `expected at least 20 paths marked required, found ${String(REQUIRED_NAMES.size)}`);
+    assert.ok(marked.length >= 60, `expected at least 60 schema paths carrying a mark, found ${String(marked.length)}`);
+  });
+
+  for (const { schema, root, path: fieldPath, wrong } of marked) {
+    it(`${schema}.${fieldPath} refuses the emptiness its control writes`, () => {
+      /* The mark and the schema are two halves of one promise. A field that keeps its asterisk and
+         stops refusing takes the whole promise with it, and every other guard on this branch stays
+         green: the message sweeps grade a refusal that no longer happens. */
+      const payload: Record<string, unknown> = {};
+      setAt(payload, fieldPath.split("."), wrong);
+      const result = (root as { safeParse: (v: unknown) => { success: boolean; error?: { issues: { path: PropertyKey[] }[] } } }).safeParse(
+        payload,
+      );
+
+      const refused = !result.success && (result.error?.issues ?? []).some((issue) => issue.path.join(".") === fieldPath);
+      assert.ok(refused, `${schema} accepts ${JSON.stringify(wrong)} at \`${fieldPath}\`, which its form marks required`);
+    });
   }
 });

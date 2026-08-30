@@ -23,6 +23,7 @@ import {
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import type { BewerbungKontaktpersonDraft } from "@/features/bewerbungen/types";
@@ -118,10 +119,11 @@ export function FormKontaktpersonenSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          {label}
+        <PanelHeading
+          className={panel.heading()}
+          title={label}>
           {SEAT_HINT[seat]}
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

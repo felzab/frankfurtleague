@@ -64,7 +64,13 @@ export function Callout({
     <div
       role={isAnnounced ? "alert" : undefined}
       className={styles.root()}>
-      <Icon className={styles.icon()} />
+      {/* Decorative: `warning` and `danger` render the SAME glyph, so it grades nothing a reader could
+          not already read, and the title carries the fact in words. Give it a name the day the two
+          stop sharing one. */}
+      <Icon
+        aria-hidden="true"
+        className={styles.icon()}
+      />
       <div className="flex min-w-0 flex-1 flex-col gap-y-1">
         <strong className={styles.title()}>{title}</strong>
         {children !== undefined && <p className={styles.body()}>{children}</p>}

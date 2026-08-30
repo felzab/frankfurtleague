@@ -78,15 +78,15 @@ export function buildSaisonBanners({
     });
   }
 
-  // `state` though the two figures are the draft's: a season stored over-qualifying still saves its
-  // dates (`docs/backend/spec.md :: I44`), and the step that would introduce or widen the excess is
-  // refused rather than confirmed.
   // Both entered or nothing said: an unanswered count cannot over-qualify, and a banner about a rule
   // nobody has typed yet reads as a fault the admin caused.
   if (qualifiersPerGroup !== null && teamsPerGroup !== null && qualifiersPerGroup > teamsPerGroup) {
     banners.push({
       id: "saison.qualifiers-overflow",
       severity: "danger",
+      // `state` though the two figures are the draft's: a season stored over-qualifying still saves
+      // its dates (`docs/backend/spec.md :: I44`), and the step that would introduce or widen the
+      // excess is refused rather than confirmed.
       raisedBy: "state",
       title: "Mehr Qualifikanten als Teams pro Gruppe",
       body: "Speichern lässt sich die Saison nur, solange sich das nicht weiter verschlechtert. Senke die Qualifikanten oder erhöhe die Teams pro Gruppe.",

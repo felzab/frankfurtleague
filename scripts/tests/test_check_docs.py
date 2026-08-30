@@ -60,6 +60,12 @@ LABEL_SAMPLE: Final = "fl_backend/app/label.py"
 # The one module carrying a comment block the corpus commits ALREADY over INC-9's character bound,
 # so a plant can edit inside it and a plant can lengthen the short block beside it.
 LEGACY_SAMPLE: Final = "fl_backend/app/legacy.py"
+# One module per comment marker, because the marker is what a wrapped citation drags into its anchor.
+MARKER_SAMPLE: Final = "fl_backend/app/marker.py"
+MARKER_TSX: Final = "fl_frontend/src/marker.tsx"
+# A quoted error carrying the separator. Not a citation, and reporting it as a dead one sends a
+# reader after a file nobody named.
+QUOTED_ERROR: Final = "121 · Plan executor error during update :: caused by :: Document failed validation"
 # Three DISTINCT lines: a plant edits the middle one, and the block is recognised across that edit
 # by its opening -- which a plant editing the opening itself would change, and own.
 LEGACY_OPENING: Final = "an opening line of a comment block the corpus itself committed over what a comment may ever hold"
@@ -182,6 +188,9 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             "",
             "A bare name resolves to the tracked file alone: `glossary.md :: the competition year`.",
             "",
+            "A citation that wraps is still one citation: `docs/glossary.md ::",
+            "the competition year` resolves across the break.",
+            "",
             # A schemeless host and port has the shape of a line citation once the scheme is off the
             # line. Both spellings, because the backticked pattern was narrowed alongside the bare one.
             "Connect to example.com:443, or to api.test:8080.",
@@ -238,6 +247,9 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             _stamp(),
             "",
             "The contract the store answers to. `fl_backend/app/sample.py` holds the sample module.",
+            "",
+            "The legacy module is cited across a wrap, and only there: `fl_backend/app/legacy.py ::",
+            "LEGACY` is what the stamp on this page has to be watched against.",
             "",
             _heading(2, "1. Contract"),
             "",
@@ -444,6 +456,23 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             # line-grain reader keeps the whole line and reports the literal; a tokenizer keeps the
             # comment alone. The comment is what makes the two readers disagree.
             'S = "docs/gone-in-a-literal.md"  # a real comment',
+        ),
+        MARKER_SAMPLE: _page(
+            QUOTES + "BACKEND · a module whose citations wrap, one per marker shape." + QUOTES,
+            "",
+            HASH + " The hash reader, wrapped mid-citation: `fl_backend/app/sample.py ::",
+            HASH + " VALUE` still names the symbol it named before the break.",
+            "MARKED = 1",
+        ),
+        MARKER_TSX: _page(
+            "/* FRONTEND · a module whose citations wrap under the c-style readers. */",
+            "",
+            "// The slash reader, wrapped mid-citation: `fl_backend/app/sample.py ::",
+            "// VALUE` survives the join with its anchor intact.",
+            "",
+            "/* A block comment already joins cleanly, its continuation carrying a star:",
+            " * `fl_backend/app/sample.py :: VALUE` is one citation either way. */",
+            "export const MARKED = 1;",
         ),
         SECOND_SAMPLE: _page(
             QUOTES + "BACKEND · a module beside the sample, so one check can speak about more than one file." + QUOTES,
@@ -1551,6 +1580,87 @@ def test_a_word_changed_inside_an_older_block_is_not_this_branch_s() -> None:
         _reset()
     spoke = [key for key in reported if key[1] == "comment-length"]
     assert not spoke, "a word changed inside an older block was failed as this branch's: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_citation_that_wraps_across_a_line_is_read_as_one_citation() -> None:
+    """A code span may wrap, and a pattern that stops at the newline calls the page clean.
+
+    Two wrap points, because a pattern widened until one instance passed would leave the other
+    unseen: one break after the separator, one before it.
+    """
+    _reset()
+    _append(
+        NOTES,
+        "Naming nothing, wrapped after the separator: `docs/gone-in-a-wrap.md ::",
+        "a symbol nobody wrote`.",
+        "",
+        "And wrapped before it: `docs/glossary.md",
+        ":: an anchor the glossary does not carry`.",
+    )
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 2, "a citation that wraps was read by nothing: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_code_span_is_not_joined_across_a_blank_line() -> None:
+    """The join stops at the blank line that ends a paragraph, which is what bounds it.
+
+    Without that bound a stray backtick would pair with one in the paragraph below and the citation
+    it invents would be reported against a page carrying none.
+    """
+    _reset()
+    _append(
+        NOTES,
+        "A paragraph whose last span is left open: `docs/gone-across-a-paragraph.md ::",
+        "",
+        "and the paragraph after it, carrying the closing tick`.",
+    )
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 0, "a span was joined across a blank line: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_wrapped_citation_reaches_the_watch_list_cur_4_restamps_from() -> None:
+    """CUR-4 reads the same citations, so a wrap hidden from it drops a page out of branch-impact.
+
+    Driven through the legacy module, cited across a wrap and nowhere else, so a reader stopping
+    at the newline builds a watch list this change cannot appear in.
+    """
+    _reset()
+    _append(LEGACY_SAMPLE, "EXTRA = 3")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    reason = "a file cited only across a wrap never reached the watch list: "
+    assert reported[("fail", "branch-impact", BACKEND_SPEC)] == 1, reason + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_quoted_error_is_not_a_citation_and_a_broken_wrapped_one_still_is() -> None:
+    """The separator alone is not evidence: COR-6's left half names a file, and quoted text does not.
+
+    The corpus proves the marker is stripped: its wrapped citations resolve only while it is, so a
+    surviving `#` speaks through the clean-corpus case.
+    """
+    _reset()
+    _append(NOTES, "The store answered `" + QUOTED_ERROR + "`.")
+    _append(SAMPLE, HASH + " The store answered `" + QUOTED_ERROR + "`.")
+    # A DIFFERENT module, because the plant writes the anchor text into the file it is appended to.
+    _append(SAMPLE, HASH + " and see `fl_backend/app/second.py ::", HASH + " a symbol nobody wrote`")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 0, "a quoted error was read as a citation: " + _shape(reported)
+    assert reported[("fail", "citation", SAMPLE)] == 1, "a wrapped citation naming a dead anchor went unread: " + _shape(reported)
     _assert_corpus_restored()
 
 

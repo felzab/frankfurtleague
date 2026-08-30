@@ -724,7 +724,10 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
 @dataclass(frozen=True)
 class ConstraintSummary:
     validators: int
-    indexes: int
+    # Counted apart because they are applied differently: a validator is replaced, an index is only
+    # ever added. One number for both is what let a deploy report six indexes as "unique".
+    unique_indexes: int
+    support_indexes: int
 
 
 async def _apply_validator(db: AsyncIOMotorDatabase, collection_name: str, validator: Mapping[str, Any]) -> None:
@@ -746,10 +749,13 @@ async def _apply_validator(db: AsyncIOMotorDatabase, collection_name: str, valid
 
 
 async def apply_constraints(db: AsyncIOMotorDatabase) -> ConstraintSummary:
-    """Apply every validator and unique index to `db`, replacing whatever is there.
+    """Apply every validator, unique index and support index to `db`.
 
-    Safe on every boot: `collMod` overwrites and `create_index` no-ops on a matching index. Raises on
-    the FIRST failure -- all-but-one looks exactly like all.
+    A validator is REPLACED, an index only ever ADDED: `collMod` overwrites, while `create_index`
+    no-ops on a matching one and cannot change the keys under a name already in use. So an index
+    renamed or dropped from the declarations above stays until someone drops it by hand.
+
+    Safe on every boot. Raises on the FIRST failure -- all-but-one looks exactly like all.
     """
     for collection_name, validator in COLLECTION_VALIDATORS.items():
         await _apply_validator(db, collection_name, validator)
@@ -766,7 +772,7 @@ async def apply_constraints(db: AsyncIOMotorDatabase) -> ConstraintSummary:
         except OperationFailure as failure:
             raise RuntimeError(f"Could not build support index '{support.collection}.{support.name}' ({support.rule}): {failure}") from failure
 
-    return ConstraintSummary(validators=len(COLLECTION_VALIDATORS), indexes=len(UNIQUE_INDEXES) + len(SUPPORT_INDEXES))
+    return ConstraintSummary(validators=len(COLLECTION_VALIDATORS), unique_indexes=len(UNIQUE_INDEXES), support_indexes=len(SUPPORT_INDEXES))
 
 
 @dataclass(frozen=True)
@@ -1020,7 +1026,10 @@ async def _run(check: bool) -> int:
     try:
         if not check:
             summary = await apply_constraints(database)
-            print(f"Applied {summary.validators} validators and {summary.indexes} unique indexes to '{get_config().db_base_name}'.")
+            print(
+                f"Applied {summary.validators} validators, {summary.unique_indexes} unique and "
+                f"{summary.support_indexes} support indexes to '{get_config().db_base_name}'."
+            )
             return 0
 
         print(f"Database '{get_config().db_base_name}', checked against {len(COLLECTION_VALIDATORS)} validators. Nothing is written.\n")

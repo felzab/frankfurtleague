@@ -343,4 +343,26 @@ describe("the shared email shell", () => {
   it("stuffs a delimiter line standing at the very end of a body", () => {
     assert.equal(stuffSignatureDelimiter("Angegebener Grund:\nErste Zeile\n-- "), "Angegebener Grund:\nErste Zeile\n -- ");
   });
+
+  /* All three line endings the pattern lists. A stored value is not held to what a browser submits,
+     and with only the line feed covered a value broken by a lone carriage return folds the message
+     at its own delimiter — the ending the alternation exists for. */
+  for (const [was, umbruch] of [
+    ["a line feed", "\n"],
+    ["a carriage return and line feed", "\r\n"],
+    ["a lone carriage return", "\r"],
+  ]) {
+    it(`stuffs a delimiter line broken by ${was}`, () => {
+      assert.equal(
+        stuffSignatureDelimiter(`Erste Zeile${umbruch}-- ${umbruch}Zweite Zeile`),
+        `Erste Zeile${umbruch} -- ${umbruch}Zweite Zeile`,
+      );
+    });
+  }
+
+  /* Two in a row: the pattern's lookahead leaves the break it matched unconsumed, so the second
+     delimiter is still at the start of the next search rather than skipped past. */
+  it("stuffs two delimiter lines standing together", () => {
+    assert.equal(stuffSignatureDelimiter("Erste\n-- \n-- \nZweite"), "Erste\n -- \n -- \nZweite");
+  });
 });

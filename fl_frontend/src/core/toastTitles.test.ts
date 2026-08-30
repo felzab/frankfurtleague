@@ -87,9 +87,9 @@ function constantValues(name: string): string[] {
 }
 
 /**
- * A prop's default, plus every literal a call site passes it — or `null` where a call site passes an
- * EXPRESSION, which is a title this cannot read and must not silently drop. Reading the literals and
- * ignoring the rest is the shape that lets `successMessage={titel}` add a raisable title unseen.
+ * A prop's default and every literal a call site passes it, or `null` where a call site passes an
+ * EXPRESSION — a title this cannot read, which fails rather than being dropped
+ * (`docs/frontend/spec.md :: I42`).
  */
 function propValues(file: string, name: string): string[] | null {
   const text = sources.get(file) ?? "";
@@ -350,9 +350,8 @@ describe("every toast title the product raises", () => {
   });
 
   it("names, for every hole in a title, the identifier it is really computed from", () => {
-    /* Both directions, which this table lacked while `BANNER_ONLY` and `EXEMPT` had them. A row
-       nothing interpolates is stale; a row naming an identifier the derived one is not built from
-       manufactures an answer, and the register then blesses a title the product never raises. */
+    /* Both directions, as `EXEMPT` and `BANNER_ONLY` have them: a row nothing interpolates is stale,
+       and a row naming an identifier the derived one is not built from manufactures an answer. */
     const interpolated = [...new Set(holes.map((hole) => hole.identifier))];
     assert.ok(interpolated.length > 0, "no title interpolates anything, so the rows below are checked against nothing");
 

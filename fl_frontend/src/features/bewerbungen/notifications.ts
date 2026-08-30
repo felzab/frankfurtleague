@@ -120,7 +120,11 @@ export async function sendBewerbungMail({
   buildMail: (rollenText: string) => BewerbungEmail;
 }): Promise<BewerbungMailOutcome> {
   const settled = await Promise.allSettled(
-    recipients.map(({ address, rollenText }) => {
+    // `async`, so COMPOSING is inside the settled boundary too. A synchronous throw here would leave
+    // `.map()` before `allSettled` wrapped anything and reject the whole fan-out -- and every caller
+    // runs after its write has committed, so the applicant would be shown a failure for an
+    // application that is stored (`fl_frontend/src/app/api/bewerbung/route.ts`).
+    recipients.map(async ({ address, rollenText }) => {
       const mail = buildMail(rollenText);
 
       return sendMail({ to: address, subject: mail.subject, html: mail.html, text: mail.text });

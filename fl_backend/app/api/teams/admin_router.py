@@ -583,13 +583,9 @@ async def replace_saison_team(
         updated_raw = await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
-            # `austritt` cleared: left standing it would mark the INCOMING club withdrawn, which
-            # `REQ-SWAP-006` and `_may_hold_a_platz` both act on. The outgoing club's exit survives
-            # as the pre-image `patch_one_in_db` logs.
-            #
-            # The colour and the contacts are cleared for a different reason: they describe the
-            # OUTGOING school, and leaving three of its people's details on a row now naming another
-            # club would hold personal data against a team that never gave it.
+            # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
+            # `REQ-SWAP-006` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
+            # colour and the contacts describe the OUTGOING school (`docs/backend/spec.md :: I50`).
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None}},
             session=session,
         )

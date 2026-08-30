@@ -39,7 +39,10 @@ async def lifespan(app: FastAPI):
                 exc_info=True,
             )
             raise
-        fl_logger.info(f"Database constraints applied: {constraints.validators} validators, {constraints.indexes} unique indexes.")
+        fl_logger.info(
+            f"Database constraints applied: {constraints.validators} validators, "
+            f"{constraints.unique_indexes} unique and {constraints.support_indexes} support indexes."
+        )
 
         yield
 

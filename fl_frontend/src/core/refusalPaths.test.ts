@@ -485,12 +485,8 @@ describe("every path a refusal mapper emits", () => {
   const NAMES_A_REFUSAL_CODE = /(?:case|===)\s*"REQ-[A-Z]+-\d+"/;
 
   /**
-   * Where a module FILLS the shape rather than declaring it — `fieldErrors?:` is the declaration, and
-   * the `?` is what separates the two — reported as what each assignment's value is made of.
-   *
-   * Three values are readable. `toFieldErrors(…)` is the schema's own paths, swept by the payload half
-   * of this file; a literal is this half's subject; and `x.fieldErrors` forwards a map some mapper
-   * wrote as a literal, wherever that mapper lives. Anything else is built where this cannot follow.
+   * What each `fieldErrors` assignment's value is made of, which is what decides whether this half can
+   * read it (`docs/frontend/spec.md :: I34`). The `?` is what separates a declaration from a filling.
    */
   const FORWARDED = /^\w+\.fieldErrors\b/;
 
@@ -509,9 +505,9 @@ describe("every path a refusal mapper emits", () => {
   const declaredMappers = production.filter(([, text]) => DECLARES_FIELD_ERRORS.test(text) && NAMES_A_REFUSAL_CODE.test(text));
 
   /**
-   * The source between one `{` and the `}` that closes it, scanned with depth so a brace inside a
-   * value cannot end the body early. A regex cannot: `\`vor ${x}\`` closes a character class's run at
-   * its own `}`, and every key written after it is then invisible.
+   * The source between one `{` and the `}` closing it, scanned with depth so a brace inside a value
+   * cannot end the body early. A regex ends at the `}` inside `vor ${x}`, and every key written after
+   * it is then invisible.
    */
   function objectBodyAt(text: string, open: number): string {
     let depth = 0;
@@ -583,9 +579,8 @@ describe("every path a refusal mapper emits", () => {
   }
 
   /**
-   * A mapper whose whole answer is a banner. **Each entry is a decision, not a backlog row**, and it
-   * is not a way out of the sweep: a listed file that assigns `fieldErrors` at all fails below,
-   * whether the map is written where it stands or fetched from a name.
+   * A mapper whose whole answer is a banner. **Each entry is a decision, not a backlog row**, and no
+   * way out of the sweep: a listed file that assigns `fieldErrors` at all fails below.
    */
   const BANNER_ONLY: Record<string, string> = {
     "features/schiedsrichter/actions.ts":
@@ -641,10 +636,9 @@ describe("every path a refusal mapper emits", () => {
   });
 
   it("reads every key of a literal, whatever the value before it is made of", () => {
-    /* The reader itself, on input rather than on the tree: every literal in the tree happens to hold
-       ONE key, so no count over it can tell a reader that stops at the first from a correct one. The
-       shapes here are the ones that defeated a regex — an interpolation, and a nested object whose
-       own keys belong to it. */
+    /* The reader on input rather than on the tree, for the reason `docs/frontend/spec.md` §1.9 gives:
+       every literal here holds ONE key, so no count over them separates a correct reader from a
+       truncating one. */
     const sample =
       'return { fieldErrors: { beginn: `vor ${String(x)}`, "schule.shorthand": "b", nested: { verborgen: "c" } } };\n' +
       'return { fieldErrors: { zweite: "d" } };';

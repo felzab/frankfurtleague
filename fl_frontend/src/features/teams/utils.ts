@@ -233,11 +233,9 @@ const isSamePerson = (a: FLKontaktperson | null, b: FLKontaktperson | null): boo
   a !== null && b !== null && a.vorname === b.vorname && a.nachname === b.nachname && a.email === b.email && a.telefon === b.telefon;
 
 /**
- * Every club's contacts for ONE season, **one row per club**. A club with nothing on file contributes
- * nothing: a row with no junction behind it would answer "who can be reached" wrongly.
- *
- * One row per club and not per seat: `kontakte` is an embedded object on `saison_teams`, so a seat has
- * no id, and a per-seat row has to invent one and order the list by a key nothing owns.
+ * **One row per club**, never per seat: `kontakte` is embedded on `saison_teams`, so a seat has no id
+ * and a per-seat row orders on a key nothing owns. A club with nothing on file contributes none: an
+ * empty row answers "who can be reached" wrongly.
  */
 export function buildKontaktRows(teams: readonly FLTeamWithMemberships[], saisonId: string | undefined): AdminKontakteRow[] {
   return teams.flatMap((team) => {

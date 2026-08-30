@@ -5421,12 +5421,14 @@
             "type": "string",
             "maxLength": 60,
             "minLength": 1,
+            "pattern": "^[^\\r\\n]*$",
             "title": "Team Name"
           },
           "full_name": {
             "type": "string",
             "maxLength": 120,
             "minLength": 1,
+            "pattern": "^[^\\r\\n]*$",
             "title": "Full Name"
           },
           "shorthand": {

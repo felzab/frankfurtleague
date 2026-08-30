@@ -56,9 +56,6 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   // The selector's season rides along on every row link, so the editor opens on the season shown.
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
-  // The same value as a second parameter, for the one row link that carries a narrowing of its own.
-  // The season the shell is on, handed to `withSaisonId`: it resolves the `?`/`&` split with
-  // `URLSearchParams`, which is the whole reason the two hand-rolled constants existed.
 
   // No confirmation step: reactivation is undone by the delete control that takes its place.
   const handleReactivatePerson = (spieler: AdminSpielerRow) => {

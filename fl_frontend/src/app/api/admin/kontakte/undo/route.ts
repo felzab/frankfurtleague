@@ -14,9 +14,9 @@ export async function POST(request: NextRequest) {
       const operation = await patchSaisonTeamKontakte(payload);
       return operation.acknowledged ? undefined : "Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten.";
     },
-    // Nothing to clear, for the reason `fl_frontend/src/features/kontakte/actions.ts ::
-    // patchSaisonTeamKontakteAction` states at the save this replays: no cached read holds a contact
-    // person. The screen is refreshed by the caller instead.
+    // Nothing to clear, for the reason `fl_frontend/src/features/kontakte/actions.ts :: patchSaisonTeamKontakteAction`
+    // states at the save this replays: no cached read holds a contact person. The screen is refreshed
+    // by the caller instead.
     invalidate: () => undefined,
   });
 }

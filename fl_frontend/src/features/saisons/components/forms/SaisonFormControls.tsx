@@ -42,9 +42,9 @@ export function SaisonDateField({
   onBlur?: () => void;
   isRequired?: boolean;
   /**
-   * Greys the days out in the CALENDAR, which offers dates, never on the field, which judges them: `aria` folds a
-   * field's bounds into its displayed validation in realtime, so a bound there paints a message on each keystroke
-   * of a half-typed year. The schema is what refuses an out-of-span date, on the blur and at the submit.
+   * Greys days out in the CALENDAR, never on the field, which judges them: a field bound reaches
+   * `aria`'s realtime validation and marks a half-typed year, which §7 forbids. The schema refuses an
+   * out-of-span date, on the blur and at the submit.
    */
   minValue?: CalendarDate;
   maxValue?: CalendarDate;
@@ -203,10 +203,10 @@ export function SaisonTiebreakSelect({
       </Select.Trigger>
       <FieldError className={FIELD_ERROR} />
       {/* Standing under the closed picker rather than in a hint: which figure leads is the whole of
-          what this field decides, and the trigger shows only the criterion's name. The WHOLE chain,
-          because the two options are the same three rungs in a different order, so a sentence naming
-          only the leader leaves a reader comparing one word against one word. */}
+          what this field decides, and the trigger shows only the criterion's name. */}
       <ol className="mt-2 flex w-full flex-col gap-y-1.5">
+        {/* The WHOLE chain, because the two options are the same three rungs in a different order, so
+            a sentence naming only the leader leaves a reader comparing one word against one word. */}
         {tiebreakLadder(value).map((rung, index) => (
           // Keyed on the criterion, which appears once per chain.
           <li

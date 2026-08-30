@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { withSaisonId } from "./saisonHref.ts";
+import { SAISON_PARAM, withSaisonId } from "./saisonHref.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 
@@ -38,21 +38,46 @@ function collectSourceFiles(dir: string): string[] {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) return collectSourceFiles(full);
     if (!entry.name.endsWith(".ts") && !entry.name.endsWith(".tsx")) return [];
-    if (entry.name.endsWith(".test.ts")) return [];
+    // Both spellings: a `.test.tsx` was reaching the sweep, where its fixtures read as navigations.
+    if (/\.test\.tsx?$/.test(entry.name)) return [];
     return [full];
   });
 }
 
 /**
- * Blanks whole-line comments so prose naming a route is not read as a link. Conservative on purpose: a
- * TRAILING comment is left in place, so its route still has to be accounted for below rather than
- * slipping through — the sweep must never fail open.
+ * Blanks comments so prose naming a route is not read as a link, tracking `/* … *\/` rather than
+ * blanking every line that OPENS with `*`: a template literal's own line can open with one, and
+ * blanking it hid a real route from the sweep. Whatever stands outside the comment is kept, so a
+ * route sharing a line with one is still accounted for — this must never fail open.
  */
-const stripCommentLines = (source: string): string =>
-  source
+function stripCommentLines(source: string): string {
+  let imBlock = false;
+
+  return source
     .split("\n")
-    .map((line) => (line.trimStart().startsWith("//") || line.trimStart().startsWith("*") || line.trimStart().startsWith("/*") ? "" : line))
+    .map((line) => {
+      if (imBlock) {
+        const schluss = line.indexOf("*/");
+        if (schluss === -1) return "";
+        imBlock = false;
+        return line.slice(schluss + 2);
+      }
+
+      if (line.trimStart().startsWith("//")) return "";
+
+      const beginn = line.indexOf("/*");
+      if (beginn === -1) return line;
+
+      const schluss = line.indexOf("*/", beginn + 2);
+      if (schluss === -1) {
+        imBlock = true;
+        return line.slice(0, beginn);
+      }
+
+      return line.slice(0, beginn) + line.slice(schluss + 2);
+    })
     .join("\n");
+}
 
 /**
  * A local holding the season, interpolated at the end of a route. Recognised rather than rewritten:
@@ -76,6 +101,22 @@ const SEASONLESS: Record<string, string> = {
   "shared/components/layout/topnav/TopNav.tsx :: /admin": "the public chrome's way into the admin area; no season is in scope outside it",
 };
 
+/**
+ * A carrier call standing immediately before the literal, so the literal is its FIRST argument.
+ * Whitespace alone may sit between, which is what a formatter puts there.
+ */
+const CARRIER_CALL = /(?:saisonHref|withSaisonId)\(\s*$/;
+
+/**
+ * Whether the route's own query names the parameter, PARSED rather than matched: `not_saison_id=`
+ * contains the parameter's spelling without being it, and a substring test blessed it.
+ */
+function namesSaisonParam(route: string): boolean {
+  const fragezeichen = route.indexOf("?");
+
+  return fragezeichen !== -1 && new URLSearchParams(route.slice(fragezeichen + 1)).has(SAISON_PARAM);
+}
+
 /** One route literal found in code, with the expression that builds it. */
 type Navigation = { file: string; route: string; carries: boolean };
 
@@ -86,10 +127,14 @@ function collectNavigations(): Navigation[] {
     const file = path.relative(SRC_DIR, full).split(path.sep).join("/");
     const code = stripCommentLines(readFileSync(full, "utf8"));
 
-    for (const match of code.matchAll(/["`](\/admin[^"`]*)["`]/g)) {
+    /* An optional leading interpolation before the route: `${base}/admin/…` is a navigation that
+         anchoring hard at the quote could not see. Nothing else may precede it — `@/features/admin/…`
+         is a module specifier, not a link. */
+    for (const match of code.matchAll(/["`]((?:\$\{[^}]*\})?\/admin[^"`]*)["`]/g)) {
       const route = match[1] ?? "";
-      // The 90 characters ahead of the literal: enough to hold the call wrapping it.
-      const window = code.slice(Math.max(0, match.index - 90), match.index);
+      // Enough to hold a carrier's name, its bracket and a line break with indentation, and no more:
+      // the question below is whether the call ENDS here, not whether one appears nearby.
+      const window = code.slice(Math.max(0, match.index - 40), match.index);
 
       const named = NAMED_CARRIERS.find((name) => route.endsWith(`\${${name}}`));
       if (named !== undefined) {
@@ -102,7 +147,10 @@ function collectNavigations(): Navigation[] {
         );
       }
 
-      const carries = named !== undefined || window.includes("saisonHref(") || window.includes("withSaisonId(") || route.includes("saison_id=");
+      /* The literal must BE the carrier's first argument, not merely stand near one. `includes` blessed
+         any route within reach of a wrapped neighbour, which is what four links in a row look like —
+         so an unwrapped fifth added beside them passed the sweep. */
+      const carries = named !== undefined || CARRIER_CALL.test(window) || namesSaisonParam(route);
 
       found.push({ file, route, carries });
     }
@@ -138,6 +186,29 @@ describe("every admin navigation carries the season", () => {
       "these admin links drop ?saison_id=, which silently returns the shell to the default season. " +
         "Wrap the path in useSaisonHref()/withSaisonId(), or add it to SEASONLESS with the reason it cannot carry one.",
     );
+  });
+
+  /* A relative target resolves against whatever page it fires from, so it names no `/admin` literal
+     and the sweep above cannot see it at all. None exists today; this is what keeps that true. */
+  it("routes no navigation through a relative path", () => {
+    const relativ: string[] = [];
+
+    for (const full of collectSourceFiles(SRC_DIR)) {
+      const file = path.relative(SRC_DIR, full).split(path.sep).join("/");
+
+      for (const match of stripCommentLines(readFileSync(full, "utf8")).matchAll(
+        /\b(?:router\.(?:push|replace)|redirect)\(\s*["`]([^"`]*)["`]/g,
+      )) {
+        const ziel = match[1] ?? "";
+        /* `${pathname}?…` is the page rewriting its OWN query — absolute, because `pathname` is, and
+           season-scoped already for the same reason. Any OTHER interpolation is a target this sweep
+           cannot resolve, so it is reported rather than assumed. */
+        const absolut = ziel.startsWith("/") || ziel.startsWith("${pathname}") || /^[a-z]+:/.test(ziel);
+        if (!absolut) relativ.push(`${file} :: ${ziel}`);
+      }
+    }
+
+    assert.deepEqual(relativ, [], "these navigations name a relative target, which no sweep over `/admin` literals can check");
   });
 
   /* An exemption that no longer matches anything is how this list rots into a place to hide a link. */

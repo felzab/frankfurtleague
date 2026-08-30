@@ -645,6 +645,30 @@ class TestWhatTheSubmissionPayloadRefuses:
 
         assert parsed.schule is not None and parsed.schule.website_url == website_url
 
+    @pytest.mark.parametrize("line_break", ["\n", "\r\n", "\r"])
+    def test_a_school_name_carrying_an_interior_break_is_refused(self, line_break: str):
+        """The decision mail writes one `label: value` per line, so a name holding a break forges one of them."""
+
+        forged = f"Zorbanax{line_break}Entscheidung: Absage"
+
+        for field in ("team_name", "full_name"):
+            with pytest.raises(ValidationError):
+                FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(**{field: forged})))
+
+    @pytest.mark.parametrize("line_break", ["\n", "\r\n", "\r"])
+    def test_a_school_name_padded_with_a_break_is_repaired_rather_than_refused(self, line_break: str):
+        """The control, and the reason this is a pattern rather than a rejection of the character.
+
+        `strip_whitespace` runs BEFORE the pattern, so a break at either end is the paste artefact it
+        usually is; only an interior one can forge a line.
+        """
+
+        padded = submission(team_id=None, schule=schule(team_name=f"{line_break}Zorbanax{line_break}"))
+
+        parsed = FLPostBewerbungPayload.model_validate(padded)
+
+        assert parsed.schule is not None and parsed.schule.team_name == "Zorbanax"
+
     def test_a_squad_of_nobody_is_refused(self):
         with pytest.raises(ValidationError):
             FLPostBewerbungPayload.model_validate(submission(kader={"voraussichtliche_groesse": 0, "gute_spieler": None}))

@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends
 
 from app.api.aktionen.schemas import FLAktionenFilterParams, FLAktionenListAdapter, FLAktionenListResponse
+from app.api.aktionen.services import build_aktionen_sort
 from app.core.config import API_VERSION
-from app.core.crud import build_query, build_sort, pull_many_from_db
+from app.core.crud import build_query, pull_many_from_db
 from app.core.dependencies import AktionenCollection
 from app.core.security import bind_actor, verify_access_admin
 
@@ -27,9 +28,7 @@ async def get_aktionen(
         collection=aktionen_collection,
         db_filter=build_query(filters, terms={"collection", "operation", "correlation_id"}),
         limit=filters.limit,
-        # `_id` breaks the tie: two rows of one transaction share a timestamp to the second, and an
-        # unstable order would shuffle them between reads of the same page.
-        sort_by=build_sort(sort_by="at", order=filters.order, chain=(("_id", -1),)),
+        sort_by=build_aktionen_sort(order=filters.order),
     )
 
     return FLAktionenListResponse(aktionen=FLAktionenListAdapter.validate_python(aktionen_raw))

@@ -20,7 +20,11 @@ export const FLPatchSchiedsrichterPayloadSchema = z.object({
 });
 export type FLPatchSchiedsrichterPayload = z.infer<typeof FLPatchSchiedsrichterPayloadSchema>;
 
-/** Widened at the money field: an emptied box holds `null`, which the schema above refuses at the submit. */
+/**
+ * Widened at the money field: an emptied box holds `null`, which the schema above refuses at the submit.
+ * `Omit`, not a plain intersection -- `T & { default_payment: number | null }` stays assignable to `T`,
+ * so the `null` never reaches a caller's view.
+ */
 export type FLSchiedsrichterPayloadDraft<T extends { default_payment: number }> = Omit<T, "default_payment"> & {
   default_payment: number | null;
 };

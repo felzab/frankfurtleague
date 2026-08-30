@@ -15,6 +15,8 @@ from typing import Final
 from .kernel import (
     BACKTICK_RE,
     BACKTICK_SPAN_RE,
+    CSTYLE_SUFFIXES,
+    OPS_FILENAMES,
     REPO_PREFIXES,
     REPO_ROOT,
     SCANNED_SUFFIXES,
@@ -29,6 +31,7 @@ from .kernel import (
     _tree_index,
     _untracked_index,
     anchors_of,
+    comment_style,
     heading_anchors,
     is_gitignored,
     is_placeholder,
@@ -47,9 +50,26 @@ BARE_PATH_RE: Final = re.compile(r"(?<![\w`/.\-])(?:" + "|".join(re.escape(p) fo
 LINK_RE: Final = re.compile(r"""(?<!!)\[[^\]]*\]\(([^)\s#]*)(#[^)\s]*)?(?:[ \t]+"[^"\n]*"|[ \t]+'[^'\n]*')?\)""")
 
 
-# A citation is a single backticked run containing exactly one " :: ". The separator is what marks it
-# as checkable rather than prose (COR-6).
+# A citation is a single backticked run containing exactly one " :: " (COR-6). Read it through
+# `unwrapped`, never off the raw body: a code span may wrap, and this stops at the newline.
 CITATION_RE: Final = re.compile(r"`([^`\n]+? :: [^`\n]+?)`")
+
+
+# One line break inside a paragraph, which a renderer joins to a space. The blank line is excluded
+# and that is the whole bound: it ends the paragraph, so a join across one would swallow the next.
+def _wrap_re(markers: tuple[str, ...]) -> re.Pattern[str]:
+    """The wrap, together with whatever the continuation line opens with.
+
+    `comments_only` keeps a comment marker verbatim, so joining on whitespace alone puts the `//`
+    or `#` INSIDE the anchor -- and `// serializeError` resolves to nothing.
+    """
+    tail = "(?:(?:" + "|".join(re.escape(m) for m in markers) + ")+[ \t]*)?" if markers else ""
+    return re.compile(r"[ \t]*\n(?![ \t]*\n)[ \t]*" + tail)
+
+
+def continuation_markers(style: str) -> tuple[str, ...]:
+    """What a wrapped comment line opens with, for the reader `comment_style` picked."""
+    return ("//", "*") if style in CSTYLE_SUFFIXES or style == ".json" else ("#",)
 
 
 # Two segments and a short number, so the backend's three-segment error codes cannot collide.
@@ -79,6 +99,15 @@ LEDGER_ROW_RE: Final = re.compile(r"\bledger\s+\S*\d")
 README_LINE_CAP: Final = 120
 
 
+def unwrapped(body: str, markers: tuple[str, ...] = ()) -> str:
+    """A body laid out as a renderer lays it out: one paragraph per line, blank lines kept.
+
+    A citation split across a wrap is one citation, and a pattern bounded by the newline calls
+    the page clean because it could not see it.
+    """
+    return _wrap_re(markers).sub(" ", body)
+
+
 def _resolve(file_part: str) -> list[Path]:
     """A citation may give a repo path, a package-relative one, or an unambiguous bare filename.
 
@@ -101,6 +130,15 @@ def _resolve(file_part: str) -> list[Path]:
     return [p for p in named if p.is_file() and not _is_template(p)][:5]
 
 
+def names_a_file(file_part: str) -> bool:
+    """Whether a citation's left half READS as a file, for a run that resolved to none.
+
+    A left half that resolves is a file however it is spelled, so this asks only of the rest, and
+    asks by suffix: COR-6's form names a file, and quoted prose does not.
+    """
+    return file_part.endswith(CITABLE_SUFFIXES) or file_part.rsplit("/", 1)[-1] in OPS_FILENAMES
+
+
 def _check_citation(citation: str, rel: str) -> list[Finding]:
     """A <file> :: <anchor> citation: the file must exist and the anchor must appear inside it."""
     file_part, _, anchor = citation.partition(" :: ")
@@ -110,6 +148,11 @@ def _check_citation(citation: str, rel: str) -> list[Finding]:
 
     matches = _resolve(file_part)
     if not matches:
+        # A run that resolves to nothing is a citation only if it reads as one. The separator alone
+        # is not evidence: a quoted error carries ` :: ` too, and calling it dead sends a reader
+        # after a file nobody named.
+        if not names_a_file(file_part):
+            return []
         return [Finding("fail", "citation", rel, f"cited file not found: {file_part}")]
     if len(matches) > 1:
         names = ", ".join(sorted(m.relative_to(REPO_ROOT).as_posix() for m in matches)[:4])
@@ -166,13 +209,14 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     if not is_markdown:
         found.extend(check_invariant_citations(rel, body, invariants))
 
-    for citation in sorted(set(CITATION_RE.findall(body))):
+    joined = unwrapped(body, () if is_markdown else continuation_markers(comment_style(path)))
+    for citation in sorted(set(CITATION_RE.findall(joined))):
         if not is_placeholder(citation):
             found.extend(_check_citation(citation, rel))
 
     # Nothing else can detect one: it stays syntactically valid and merely stops pointing at what it
     # names, so it has to be caught at the form.
-    cited_lines = set(LINE_CITATION_RE.findall(body)) | set(BARE_LINE_CITATION_RE.findall(body))
+    cited_lines = set(LINE_CITATION_RE.findall(joined)) | set(BARE_LINE_CITATION_RE.findall(joined))
     for citation in sorted(cited_lines):
         if is_placeholder(citation):
             continue
@@ -302,7 +346,7 @@ def check_invariant_citations(rel: str, body: str, invariants: dict[str, list[st
 def cited_paths(body: str) -> set[str]:
     """Repo paths a page points at: the file half of each citation, plus backticked repo paths."""
     out: set[str] = set()
-    for citation in CITATION_RE.findall(body):
+    for citation in CITATION_RE.findall(unwrapped(body)):
         if is_placeholder(citation):
             continue
         if (resolved := repo_path(citation.partition(" :: ")[0].strip())) is not None:

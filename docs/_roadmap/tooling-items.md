@@ -48,7 +48,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | #   | ID     | Item                                                                    | Surfaces          | Effort | Status   | Depends on |
 | --- | ------ | ----------------------------------------------------------------------- | ----------------- | ------ | -------- | ---------- |
 | 1   | OPS-93 | The origin trusts every source inside Cloudflare's ranges               | Ops, Docs         | S      | Open     | —          |
-| 2   | OPS-88 | The documentation corpus is the index, so an unstaged file is unscanned | Ops, Docs         | M      | Open     | —          |
+| 2   | OPS-88 | The documentation corpus is the index, so an unstaged file is unscanned | Ops, Docs         | M      | Closed   | —          |
 | 3   | OPS-94 | A sweep that enumerates its subjects cannot falsify its own claim       | FE, Ops, Docs     | M      | Open     | —          |
 | 4   | OPS-60 | The gate saturates the machine, then idles through its tail             | Ops               | M      | Open     | —          |
 | 5   | OPS-80 | One stamp move clears a branch's every later edit                       | Ops, Docs         | S      | Open     | —          |
@@ -66,13 +66,13 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 17  | OPS-71 | A citation resolves to a string, not to what it names                   | Ops, Docs         | S      | Open     | —          |
 | 18  | OPS-92 | Real-IP recovery can fall back with nothing to say so                   | Ops, Docs         | S      | Open     | —          |
 | 19  | DOC-12 | A Known-open table has no membership test                               | Docs              | S      | Open     | —          |
-| 20  | OPS-89 | A hand-written refusal mapper outside the actions is unswept            | FE, Ops, Docs     | S      | Open     | —          |
+| 20  | OPS-89 | A hand-written refusal mapper outside the actions is unswept            | FE, Ops, Docs     | S      | Closed   | —          |
 | 21  | DOC-11 | Audit programmes stay open, and their rows go unranked                  | Docs              | M      | Open     | —          |
 | 22  | OPS-95 | A real file in an unaccepted spelling reads as a missing file           | Ops, Docs         | S      | Open     | —          |
 | 23  | OPS-78 | The local edge claims to mirror production, unchecked                   | Ops, Docs         | S      | Open     | —          |
 | 24  | OPS-70 | Two db-tier runs at once fail in a way that names nothing               | Ops               | M      | Open     | —          |
 | 25  | OPS-73 | A copy test pins what its own author wrote                              | FE, Ops, Docs     | M      | Open     | —          |
-| 26  | OPS-96 | Most toast copy reaches a user through no test                          | FE, Ops, Docs     | M      | Open     | —          |
+| 26  | OPS-96 | Most toast copy reaches a user through no test                          | FE, Ops, Docs     | M      | Closed   | —          |
 | 27  | OPS-61 | The commit hook's scratch is a path git cannot open                     | Ops               | S      | Open     | —          |
 | 28  | OPS-79 | A projection's coupling is guarded in one direction only                | BE, Ops           | M      | Open     | —          |
 | 29  | OPS-62 | A pin bump arms every page citing the workflow                          | Ops, Docs         | S      | Open     | —          |
@@ -210,12 +210,31 @@ a control that is live, public and defeated with no signal that it was.
 
 ### 2 · OPS-88 — The documentation corpus is the git index, so a file a branch has not staged is scanned by nothing
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Ops, Docs\
 **Effort:** M\
 **Path:** Independent, and it is what every other entry on this page is worth: a check this page
 proposes to add, tighten or measure only ever runs over the corpus the kernel handed it. Nothing
 blocks it.
+
+**Concluded in [`12d462af`](https://github.com/felzab/frankfurtleague/commit/12d462af).** The one listing became two, chosen by what a caller does
+with the answer. `scripts/docs_gate/kernel.py :: scanned_files` is the working tree and is what every
+check READS; `scripts/docs_gate/kernel.py :: tracked_files` stays the index and is what a glob and a
+named page resolve against, so a page no `git add` reached still cannot answer for one. Gitignored
+paths and `SKIP_DIRS` stay outside both, which is what keeps a parked scratch file nobody's to fail.
+
+**The bare-filename half was answered by tiering rather than widening.**
+`scripts/docs_gate/references.py :: _resolve` asks the index first and the working tree only for a
+name the index does not hold, so a stray copy can neither shadow a tracked file nor make one
+ambiguous — the property `docs/_standard/chapters/5-currency.md` CUR-6 depends on, and the one an
+untracked twin in the fixture now pins.
+
+**Two findings outside the entry were fixed with it, both the same blindness one layer down.**
+`scripts/docs_gate/branch.py :: _added_whole` gives an unstaged file the added lines `git diff` holds
+none of, and `scripts/docs_gate/structure.py :: check_comment_length` measures a block this branch
+touched rather than only one it wholly wrote, excusing a block whose opening the fork already held
+over the bound. **Rehomed:** `scripts/docs_gate/perkind.py :: check_segment_map` still enumerates the
+index alone, which is **OPS-94**'s class rather than this one's and is named in that entry.
 
 **`scripts/docs_gate/kernel.py :: tracked_files` enumerates through `git ls-files` with no
 `--others`, so the corpus is the index and a file the working tree holds but the index does not is
@@ -310,6 +329,13 @@ was green on every gate while the claim it enforced was false or beyond its reac
 `scripts/docs_gate/kernel.py :: tracked_files` enumerates through `git ls-files`, so a file a branch
 has written but not staged is in no check's reach at all — **OPS-88**, where the listing is shared by
 every check rather than built per sweep.
+
+**A second listing inside the documentation gate was left standing deliberately.**
+`scripts/docs_gate/perkind.py :: check_segment_map` asks whether the sweep's partition is total, and
+enumerates `git ls-files` to ask it — so the answer covers the index rather than the tree, and a file
+a branch has written but not staged belongs to no segment without the check being able to say so.
+The corpus listing beside it was split for exactly this reason; this one was left because what it
+measures is a claim about the sweep's own subjects, which is this entry rather than that one.
 
 **A second frontend instance hands itself the very collection under test.**
 `fl_frontend/src/shared/hooks/focusFirstRefusal.test.ts :: formOf` builds its subject as
@@ -1427,7 +1453,7 @@ which costs an M and a programme closed with me to reach a gain of the same kind
 
 ### 20 · OPS-89 — The refusal-path sweep reaches a payload's parse but not the German a mapper writes by hand
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE, Ops, Docs\
 **Effort:** S\
 **Path:** Independent. It shares `fl_frontend/src/core/refusalPaths.test.ts` with nothing else open,
@@ -1435,6 +1461,16 @@ and the file now holds the pattern its repair would follow. **OPS-94** is the ne
 there, a listing filters on the property being asserted; here it simply does not reach a site.
 [`docs/frontend/spec.md`](../frontend/spec.md) I34's `Enforced by` cell records how far the sweep
 reaches, so it moves with any repair (CUR-2).
+
+**Concluded in [`1c4591a4`](https://github.com/felzab/frankfurtleague/commit/1c4591a4).** The question the entry left open — enumerate the mappers
+or key on shape — was answered as shape, with only the excused set enumerated. The sweep now
+recognises a mapper by its return type wherever the module sits and, independently, by the
+`fieldErrors` it emits, and compares the two in both directions: a mapper written outside an
+`actions.ts` fails until it is swept, and a narrowed emission regex fails rather than quietly
+sweeping less. `fl_frontend/src/features/bewerbungen/utils.ts :: mapBewerbungSubmitRefusal` is inside
+it. The banner-only excuses carry the reverse check the route-parse half already had, so a module
+excused as mapping nothing that maps a field after all fails, and so does one that has stopped
+mapping at all.
 
 **The sweep has two halves, and they do not share a subject rule.** The first walks the payload
 parses: `fl_frontend/src/core/refusalPaths.test.ts :: routeParsed` scans `app/api/**/route.ts` for a
@@ -1712,13 +1748,24 @@ in the same commit is a note about intent wearing a test's clothes.
 
 ### 26 · OPS-96 — Most toast copy reaches a user through no test, and the obvious remedy is the kind of test OPS-73 argues against
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE, Ops, Docs\
 **Effort:** M\
 **Path:** Independent, and **OPS-73** decides its shape rather than blocking it: that entry argues
 that a copy test comparing a component's German against a literal its own author typed defends a
 belief rather than a claim. Adding a test per toast title is exactly that kind unless the authority
 question is answered first, so the two are cheaper in that order.
+
+**Concluded in [`1c4591a4`](https://github.com/felzab/frankfurtleague/commit/1c4591a4).** The register the entry asked for exists, rather than the
+test per title **OPS-73** warns against: `fl_frontend/src/core/toastTitles.test.ts :: TOAST_TITLES`
+holds every title the product may raise against its call sites in both directions, so a title raised
+with no row fails and a row nothing raises fails too. Each row's variant, and its rule for telling
+one occasion from another, are held to the sites as well.
+
+**What keeps the population from narrowing in silence is that the sweep refuses.** A call whose title
+it cannot resolve to a literal fails there rather than dropping out of the count, so the authority
+sits in the register a reader can audit rather than in a test restating its own author — which is the
+shape **OPS-73** asks for.
 
 **A toast is the whole of what most admin writes and every public submission say back, and almost
 none of that copy is exercised.** Counted on 2026-08-30 over `fl_frontend/src/`, taking only calls

@@ -690,7 +690,13 @@ describe("all three messages", () => {
     assert.ok(cases.length > 0, "no interpolated field was found at all, so this test proves nothing");
     for (const { field, mail, footer } of cases) {
       assert.equal([...mail.text.matchAll(/^-- $/gm)].length, 1, `${field} stands as a second signature delimiter`);
-      assert.ok(mail.text.includes("\n -- \n"), `${field}'s delimiter line was dropped rather than stuffed, so the reader loses it`);
+      /* Content survival, which is what stuffing buys. A field folded onto one line
+         (`renderText :: zeile`) has no line left to stuff, so the guarantee is stated as the value
+         still being there — the count above is what proves the stacked field's line WAS stuffed. */
+      assert.ok(
+        mail.text.includes("Erste Zeile") && mail.text.includes("Zweite Zeile"),
+        `${field}'s value was dropped rather than carried, so the reader loses it`,
+      );
       assert.ok(mail.text.includes("Zweite Zeile"), `${field} lost the line below its delimiter`);
       assert.ok(mail.text.endsWith(`\n${footer}`), `${field} pushed the footer out of the close`);
       // The markup branch states the same facts, so a value folded away in one branch only is two messages.
@@ -743,4 +749,89 @@ describe("all three messages", () => {
       assert.ok(!eingang.text.includes(eingetragen), `the receipt's text branch repeats „${eingetragen}“`);
     }
   });
+});
+
+/**
+ * The text branch sets one fact to the line, so a value holding a break rendered a line the reader
+ * could not tell from a real fact — a school naming itself „Echte Schule\nEntscheidung: Absage“ put
+ * that line under the league's own name, in a message stating a decision.
+ */
+describe("no value can open a line of its own in the text branch", () => {
+  /** The forged fact, in the shape `renderText` writes a real one. */
+  /* Fact-SHAPED and never genuine: „Entscheidung: Absage“ is a real row in the decline, so a
+     forged line has to be one no message writes. */
+  const GEFAELSCHT = "Startgeld: 500 Euro";
+  const NAME_MIT_UMBRUCH = `Echte Schule\n${GEFAELSCHT}`;
+
+  /**
+   * Whether any line OPENS with the forged fact. `startsWith` rather than an exact match: in the
+   * prose the value is followed by the sentence it was interpolated into, so a line equal to the
+   * forgery is only the panel's half of it.
+   */
+  const forgedLine = (text: string): boolean => text.split("\n").some((zeile) => zeile.startsWith(GEFAELSCHT));
+
+  it("folds a name carrying a break onto its own line", () => {
+    const zusage = buildBewerbungZusageEmail({ ...ZUSAGE, teamName: NAME_MIT_UMBRUCH });
+
+    assert.ok(!forgedLine(zusage.text), "a submitted name forged a fact line");
+    /* Folded, never dropped: the name a school gave is what the message is about, and a renderer
+       that silently lost half of it would be a second defect wearing the first one's fix. */
+    assert.ok(zusage.text.includes(`Team: Echte Schule ${GEFAELSCHT}`), "the name was not carried onto one line");
+  });
+
+  it("folds it in the decline as well, which states the same name", () => {
+    const absage = buildBewerbungAbsageEmail({ ...ABSAGE, teamName: NAME_MIT_UMBRUCH });
+
+    assert.ok(!forgedLine(absage.text), "a submitted name forged a fact line in the decline");
+  });
+
+  /* The prose states the name too, so guarding the panel alone would leave the same forged line
+     standing one paragraph further down. */
+  it("folds it in the prose, not only in the panel", () => {
+    const zusage = buildBewerbungZusageEmail({ ...ZUSAGE, teamName: NAME_MIT_UMBRUCH });
+
+    assert.equal(zusage.text.split("\n").filter((zeile) => zeile.includes("aufgenommen")).length, 1, "the name split the prose");
+    assert.ok(!forgedLine(zusage.text), "the prose carried the forged line the panel refused");
+  });
+
+  /* A field the builders do NOT fold on their way in, so this is what pins the guard in `zeile`
+     itself rather than the fold the two decisions apply to the name. */
+  it("folds any other fact's value too, not just the name", () => {
+    const zusage = buildBewerbungZusageEmail({ ...ZUSAGE, rollenText: `Trainer\n${GEFAELSCHT}` });
+
+    assert.ok(!forgedLine(zusage.text), "a seat carrying a break forged a fact line");
+    assert.ok(zusage.text.includes(`Eingetragen als: Trainer ${GEFAELSCHT}`), "the seat was not carried onto one line");
+  });
+
+  /* The receipt states no name, so the seat is its only value — and it is composed by the same
+     renderer, which is what makes this worth asking of all three messages rather than two. */
+  it("folds a value in the receipt as well", () => {
+    const eingang = buildBewerbungEingangEmail({ ...EINGANG, rollenText: `Ansprechperson\n${GEFAELSCHT}` });
+
+    assert.ok(!forgedLine(eingang.text), "the receipt let a seat forge a fact line");
+  });
+
+  /* The stated reason is the one value that MAY hold breaks — it is a paragraph, and the panel gives
+     it the full width. It keeps them, and gives up column 0 instead. */
+  it("indents the stated reason's own lines rather than folding them away", () => {
+    const absage = buildBewerbungAbsageEmail({ ...ABSAGE, grund: `Die Saison ist voll.\n${GEFAELSCHT}\nDritte Zeile` });
+
+    assert.ok(!forgedLine(absage.text), "the stated reason forged a fact line");
+    assert.ok(absage.text.includes(`  ${GEFAELSCHT}`), "the reason's second line lost its indent");
+    assert.ok(absage.text.includes("  Dritte Zeile"), "the reason's third line was dropped");
+  });
+
+  /* Both spellings a browser submits, and the lone carriage return no form sends but a stored value
+     can still hold. */
+  for (const [name, umbruch] of [
+    ["a line feed", "\n"],
+    ["a carriage return and line feed", "\r\n"],
+    ["a lone carriage return", "\r"],
+  ]) {
+    it(`folds ${name}`, () => {
+      const zusage = buildBewerbungZusageEmail({ ...ZUSAGE, teamName: `Echte Schule${umbruch}${GEFAELSCHT}` });
+
+      assert.ok(!forgedLine(zusage.text), `a name broken by ${name} forged a fact line`);
+    });
+  }
 });

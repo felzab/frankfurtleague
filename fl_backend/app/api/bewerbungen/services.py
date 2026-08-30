@@ -3,6 +3,7 @@ from typing import Any, Mapping
 from pydantic import ValidationError
 
 from app.api.teams.schemas import FLPostTeamPayload
+from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 
 # What every code below refuses is `docs/logging/error-codes.md`.
@@ -254,3 +255,18 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
     composed["trainer_ist_zugleich"] = kontakte["trainer_ist_zugleich"]
 
     return composed
+
+
+def build_bewerbungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]:
+    """The triage queue's order, tie-broken by `_id`.
+
+    Named rather than inline so the index test can assert on what the endpoint actually sends
+    (`fl_backend/tests/core/test_constraints_execution.py`).
+    """
+
+    # `_id` breaks the tie in `order`'s OWN direction, so same-day rows read the way the queue does
+    # and the pair is the index's key or its exact inverse. Pinned descending, `order=asc` would
+    # match neither and scan the whole archive.
+    direction = 1 if order == "asc" else -1
+
+    return build_sort(sort_by=sort_by, order=order, chain=(("_id", direction),))

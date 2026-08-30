@@ -1,9 +1,8 @@
 import type { FLPostSchiedsrichterPayload, FLSchiedsrichterPayloadDraft } from "./schemas";
 
 /**
- * Derived from the payload schema the action validates, never restated, and widened at the fee: an untouched or
- * emptied box holds `null`, which the schema refuses by name. Spreading a narrower `T` here would type the write
- * as `T & { default_payment: number | null }` — assignable to `T`, so the `null` vanishes from the caller's view.
+ * Derived from the payload schema the action validates, never restated; the widening at the fee is
+ * `fl_frontend/src/features/schiedsrichter/schemas.ts :: FLSchiedsrichterPayloadDraft`'s.
  */
 export type SchiedsrichterDraft = FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>;
 

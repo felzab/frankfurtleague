@@ -28,6 +28,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
 
 import { FormKontaktErasure } from "./FormKontaktErasure";
@@ -122,8 +123,8 @@ export function FormKontakteSection({
 
   /**
    * The TRAINER reads out, never the seat the claim names: the named seat is where the person is
-   * entered, and the composed payload fills the Trainer from it. Run the other way, the source seat
-   * was uneditable and whatever was typed into the Trainer was overwritten at save.
+   * entered, and `fl_frontend/src/features/kontakte/utils.ts :: mirrorKontakte` composes the Trainer
+   * from it at save time.
    */
   const isMirrored = (rolle: KontaktRolle) => rolle === "trainer" && mirroredSeat !== null;
 
@@ -302,10 +303,11 @@ function KontaktpersonFields({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          {label}
+        <PanelHeading
+          className={panel.heading()}
+          title={label}>
           {SEAT_HINT[rolle]}
-        </h2>
+        </PanelHeading>
       </div>
 
       <div className={panel.body()}>

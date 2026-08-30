@@ -27,11 +27,11 @@ export function BewerbungenUnvollstaendigNotice({ richtung, umkehrHref }: Bewerb
       severity="warning"
       title="Diese Liste ist unvollständig">
       Dubletten werden nur unter den geladenen Zeilen erkannt. Ein Paar, das die Grenze trennt, bleibt unmarkiert, und es ist nicht erkennbar,
-      welches. Auch die Zahlen an den Filtern zählen nur die geladenen Zeilen. Geladen sind {geladen} Bewerbungen —{" "}
+      welches. Auch die Zahlen an den Filtern zählen nur die geladenen Zeilen. Geladen sind {geladen} Bewerbungen.{" "}
       <Link
         href={umkehrHref}
         className={textLink()}>
-        {andere} zuerst laden
+        Lade {andere} zuerst
       </Link>
       . Auch diese Ansicht bleibt unvollständig.
     </Callout>

@@ -435,9 +435,9 @@ const sources = new Map(
 );
 
 /**
- * **Every form, found by the element it renders rather than by a marker only a conforming form carries.** A listing
- * filtered on the very property it then asserts cannot fail: that is how `SignInForm` — two `<Form>`s, neither
- * carrying the prop, neither holding the hook — stayed invisible to the sweep that was supposed to cover it.
+ * **Every form, found by the element it renders, not by a marker a conforming form carries.** A listing
+ * filtered on the property it asserts cannot fail, so a form holding neither the prop nor the hook
+ * stays invisible to its own sweep (OPS-94).
  */
 const RENDERS_A_FORM = /^\s*<Form(?![\w.])/m;
 

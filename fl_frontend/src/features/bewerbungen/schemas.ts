@@ -408,23 +408,38 @@ export type FLBewerbungAddressPayload = z.infer<typeof FLBewerbungAddressPayload
  * acceptance would create the club in. The bounds are the club editor's own, read from one place so
  * a school cannot submit what the admin form would refuse.
  */
+/**
+ * A school's name is one line. `trim` clears a break at either END and leaves an interior one, which
+ * reaches every surface that sets one value to the line — the decision emails state the name in a
+ * column of facts, and a break there renders a line the reader cannot tell from a real one
+ * (`fl_frontend/src/core/bewerbungEmail.ts :: renderText`).
+ */
+const einzeiligerName = (schema: z.ZodString, feld: string) =>
+  schema.refine((wert) => !/[\r\n]/.test(wert), { error: `${feld} darf keinen Zeilenumbruch enthalten.` });
+
 export const FLBewerbungSchulePayloadSchema = z.object({
   // The club's SHORT name beside `full_name`, which is why it is spelled `team_name` inside a block
   // called `schule`.
-  team_name: z
-    .string()
-    .trim()
-    .nonempty({ error: "Bitte gib einen Teamnamen ein." })
-    .max(BEWERBUNG_TEAM_NAME_MAX_LENGTH, {
-      error: `Der Teamname darf höchstens ${String(BEWERBUNG_TEAM_NAME_MAX_LENGTH)} Zeichen lang sein.`,
-    }),
-  full_name: z
-    .string()
-    .trim()
-    .nonempty({ error: "Bitte gib den vollständigen Namen der Schule ein." })
-    .max(BEWERBUNG_FULL_NAME_MAX_LENGTH, {
-      error: `Der vollständige Name darf höchstens ${String(BEWERBUNG_FULL_NAME_MAX_LENGTH)} Zeichen lang sein.`,
-    }),
+  team_name: einzeiligerName(
+    z
+      .string()
+      .trim()
+      .nonempty({ error: "Bitte gib einen Teamnamen ein." })
+      .max(BEWERBUNG_TEAM_NAME_MAX_LENGTH, {
+        error: `Der Teamname darf höchstens ${String(BEWERBUNG_TEAM_NAME_MAX_LENGTH)} Zeichen lang sein.`,
+      }),
+    "Der Teamname",
+  ),
+  full_name: einzeiligerName(
+    z
+      .string()
+      .trim()
+      .nonempty({ error: "Bitte gib den vollständigen Namen der Schule ein." })
+      .max(BEWERBUNG_FULL_NAME_MAX_LENGTH, {
+        error: `Der vollständige Name darf höchstens ${String(BEWERBUNG_FULL_NAME_MAX_LENGTH)} Zeichen lang sein.`,
+      }),
+    "Der vollständige Name",
+  ),
   shorthand: z
     .string()
     .trim()

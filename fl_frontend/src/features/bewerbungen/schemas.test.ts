@@ -317,6 +317,29 @@ describe("what a new school has to state", () => {
     assert.deepEqual(refusedPaths(gueltig({ schule: schule({ shorthand: "GGY" }) })), ["schule.shorthand"]);
   });
 
+  /* `trim` clears a break at either END and leaves an interior one, and every surface that sets one
+     value to the line reads that as a second line — in the decision emails, one the reader cannot
+     tell from a stated fact (`fl_frontend/src/core/bewerbungEmail.ts :: renderText`). */
+  for (const [was, wert] of [
+    ["a line feed", "Goethe\nStartgeld: 500 Euro"],
+    ["a carriage return and line feed", "Goethe\r\nStartgeld: 500 Euro"],
+    ["a lone carriage return", "Goethe\rStartgeld: 500 Euro"],
+  ]) {
+    it(`refuses a team name broken by ${was}`, () => {
+      assert.deepEqual(refusedPaths(gueltig({ schule: schule({ team_name: wert }) })), ["schule.team_name"]);
+    });
+
+    it(`refuses a full name broken by ${was}`, () => {
+      assert.deepEqual(refusedPaths(gueltig({ schule: schule({ full_name: wert }) })), ["schule.full_name"]);
+    });
+  }
+
+  /* A break at either end is TRIMMED rather than refused: it is a paste artefact, not a second line,
+     and refusing it would fail a name the form can repair on its own. */
+  it("trims a name padded with a break rather than refusing it", () => {
+    assert.deepEqual(refusedPaths(gueltig({ schule: schule({ team_name: "\n Goethe \n" }) })), []);
+  });
+
   /* `ExternalUrlSchema` rather than `z.url()`: the address is rendered into an `href` on a public
      page once the club exists, and `javascript:` parses as a URL. */
   it("refuses a website address with no http scheme", () => {

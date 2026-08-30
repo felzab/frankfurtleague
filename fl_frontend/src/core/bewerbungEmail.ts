@@ -106,6 +106,26 @@ export interface BewerbungEingangData {
   rollenText: string;
 }
 
+/** The indent a stacked value's own lines carry, so none of them begins where a label does. */
+const FORTSETZUNG = "  ";
+
+/**
+ * One line, whatever was typed. The text branch is line-oriented and `escapeHtml` guards the other
+ * one, so a break here is the text half's injection: a value carrying one would render a line the
+ * reader cannot tell from the facts around it.
+ */
+function einzeilig(value: string): string {
+  return value.replace(/[\r\n]+/g, " ");
+}
+
+/**
+ * A stacked value keeps its breaks -- a stated reason is a paragraph -- and gives up column 0, which
+ * is the only thing that made its lines readable as further facts.
+ */
+function eingerueckt(value: string): string {
+  return value.replace(/\r\n|\r|\n/g, `\n${FORTSETZUNG}`);
+}
+
 /**
  * One stated fact, raw. Both branches render from the same list, which is what stops the markup half
  * carrying a fact the text half lost; only the markup half escapes.
@@ -198,7 +218,10 @@ function renderHtml(nachricht: Nachricht, bloecke: readonly string[]): string {
  */
 function renderText(nachricht: Nachricht, body: readonly string[]): string {
   // A blank line before a stacked fact, so the lines it wraps onto do not read as further facts.
-  const zeile = (fakt: Fakt): string => `${fakt.label}: ${fakt.value}`;
+  // Guarded here rather than trusted from the payload: this renderer is correct on its own, and the
+  // one field that may hold breaks is stated as a block rather than folded onto one line.
+  const zeile = (fakt: Fakt): string =>
+    fakt.gestapelt === true ? `${fakt.label}: ${eingerueckt(fakt.value)}` : `${fakt.label}: ${einzeilig(fakt.value)}`;
   const fakten = nachricht.fakten.flatMap((fakt) => (fakt.gestapelt === true ? ["", zeile(fakt)] : [zeile(fakt)]));
   const oben = [`${BRAND_NAME}: ${ueberschrift(nachricht)}`, "", ...fakten, "", ...body];
   // The contact address is the footer's, stated once: the markup branch has two slots for it and this
@@ -214,13 +237,18 @@ function renderText(nachricht: Nachricht, body: readonly string[]): string {
  * text half carried would reach only the readers whose client refuses HTML.
  */
 export function buildBewerbungZusageEmail({ teamName, saisonId, rollenText, gruppe, trikotFarbeLabel }: BewerbungZusageData): BewerbungEmail {
+  // Folded once, before either branch: the name reaches this message's prose as well as its panel, and
+  // both halves must state one string. `fl_frontend/src/core/bewerbungEmail.ts :: renderText` folds the
+  // facts it prints and nothing else.
+  const team = einzeilig(teamName);
+
   const nachricht: Nachricht = {
     headingVor: "Zusage für die",
     saisonId: saisonId,
     empfaenger: "kontaktpersonen",
     fakten: [
       { label: "Entscheidung", value: "Zusage" },
-      { label: "Team", value: teamName },
+      { label: "Team", value: team },
       { label: "Saison", value: saisonId, akzent: true },
       { label: "Gruppe", value: gruppe },
       // Stated rather than guessed, and stated as a row either way: an absent colour is a fact the
@@ -234,13 +262,13 @@ export function buildBewerbungZusageEmail({ teamName, saisonId, rollenText, grup
 
   const html = renderHtml(nachricht, [
     paragraph(
-      `${strong(escapeHtml(teamName))} ist für die ${saisonPhrase(saisonId)} der ${BRAND_NAME} aufgenommen. Wir freuen uns auf die gemeinsame Saison.`,
+      `${strong(escapeHtml(team))} ist für die ${saisonPhrase(saisonId)} der ${BRAND_NAME} aufgenommen. Wir freuen uns auf die gemeinsame Saison.`,
     ),
     paragraph(`${WEBSITE_SATZ.vor}${link(SITE_URL, SITE_URL)}${WEBSITE_SATZ.nach}`),
   ]);
 
   const text = renderText(nachricht, [
-    `${teamName} ist für die Saison ${saisonId} der ${BRAND_NAME} aufgenommen.`,
+    `${team} ist für die Saison ${saisonId} der ${BRAND_NAME} aufgenommen.`,
     "Wir freuen uns auf die gemeinsame Saison.",
     "",
     `${WEBSITE_SATZ.vor}${SITE_URL}${WEBSITE_SATZ.nach}`,
@@ -254,13 +282,16 @@ export function buildBewerbungZusageEmail({ teamName, saisonId, rollenText, grup
  * and the reason it was given, and says that it covers this application rather than the school.
  */
 export function buildBewerbungAbsageEmail({ teamName, saisonId, rollenText, grund }: BewerbungAbsageData): BewerbungEmail {
+  // Folded once, as on the acceptance and for the same reason.
+  const team = einzeilig(teamName);
+
   const nachricht: Nachricht = {
     headingVor: "Absage für die",
     saisonId: saisonId,
     empfaenger: "kontaktpersonen",
     fakten: [
       { label: "Entscheidung", value: "Absage" },
-      { label: "Team", value: teamName },
+      { label: "Team", value: team },
       { label: "Saison", value: saisonId, akzent: true },
       // In the same place as in the other two, and identification rather than a verdict: it says why
       // the message reached this reader, and never what they were down for.
@@ -273,13 +304,13 @@ export function buildBewerbungAbsageEmail({ teamName, saisonId, rollenText, grun
 
   const html = renderHtml(nachricht, [
     paragraph(
-      `Danke, dass ${strong(escapeHtml(teamName))} sich für die ${saisonPhrase(saisonId)} der ${BRAND_NAME} beworben hat. Für diese Saison können wir das Team nicht aufnehmen.`,
+      `Danke, dass ${strong(escapeHtml(team))} sich für die ${saisonPhrase(saisonId)} der ${BRAND_NAME} beworben hat. Für diese Saison können wir das Team nicht aufnehmen.`,
     ),
     paragraph("Die Entscheidung betrifft diese Bewerbung, nicht die Schule und nicht die Menschen dahinter."),
   ]);
 
   const text = renderText(nachricht, [
-    `Danke, dass ${teamName} sich für die Saison ${saisonId} der ${BRAND_NAME} beworben hat.`,
+    `Danke, dass ${team} sich für die Saison ${saisonId} der ${BRAND_NAME} beworben hat.`,
     "Für diese Saison können wir das Team nicht aufnehmen.",
     "",
     "Die Entscheidung betrifft diese Bewerbung, nicht die Schule und nicht die Menschen dahinter.",
