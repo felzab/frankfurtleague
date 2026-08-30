@@ -333,7 +333,31 @@ function sourcesUnder(dir: string): string[] {
   });
 }
 
-const isClientModule = (source: string): boolean => /^\s*(?:\/\/.*\n|\/\*[\s\S]*?\*\/\n|\s)*["']use client["']/.test(source);
+/**
+ * Whether the module opens with a `"use client"` directive, comments before it skipped. Scanned, not
+ * matched: a pattern skipping leading block comments backtracks exponentially (CodeQL `js/redos`).
+ */
+function isClientModule(source: string): boolean {
+  let at = 0;
+
+  while (at < source.length) {
+    const zeichen = source[at]!;
+
+    if (zeichen.trim() === "") {
+      at += 1;
+    } else if (zeichen === "/" && source[at + 1] === "/") {
+      const schluss = source.indexOf("\n", at + 2);
+      at = schluss === -1 ? source.length : schluss + 1;
+    } else if (zeichen === "/" && source[at + 1] === "*") {
+      const schluss = source.indexOf("*/", at + 2);
+      // Unterminated, so everything after it is comment and no directive stands outside one.
+      if (schluss === -1) return false;
+      at = schluss + 2;
+    } else break;
+  }
+
+  return source.startsWith('"use client"', at) || source.startsWith("'use client'", at);
+}
 
 describe("who may hold a facet", () => {
   /* A facet carries a `read` FUNCTION, which a Server Component may not pass to a Client one

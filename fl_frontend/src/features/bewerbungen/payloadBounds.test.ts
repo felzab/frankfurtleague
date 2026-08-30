@@ -152,8 +152,9 @@ describe("where a ceiling reaches the box the applicant types in", () => {
   for (const [constant, { file, boxes }] of Object.entries(CAPPED_CONTROLS)) {
     it(`${file} caps every box that shares ${constant}`, () => {
       // The constant, never a retyped number: a literal on the input is a second ceiling that drifts. `[^}]*`
-      // admits a cap COMPOSED with another bound, as `gute_spieler`'s is.
-      const capped = readForm(file).match(new RegExp(`(maxLength|maxValue)=\{[^}]*${constant}`, "g")) ?? [];
+      // admits a cap COMPOSED with another bound, as `gute_spieler`'s is. The brace's backslash is doubled
+      // past the template literal's own escaping.
+      const capped = readForm(file).match(new RegExp(`(maxLength|maxValue)=\\{[^}]*${constant}`, "g")) ?? [];
 
       // COUNTED, never merely present: a pair whose second box is uncapped satisfies a presence check.
       assert.equal(capped.length, boxes, `${file} caps ${String(capped.length)} of ${String(boxes)} boxes with ${constant}`);
