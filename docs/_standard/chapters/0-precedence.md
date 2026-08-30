@@ -1,6 +1,6 @@
 # Precedence
 
-**Verified against:** `889c31dd`, 2026-08-19\
+**Verified against:** `6adfac16`, 2026-08-30\
 **Applies to:** any disagreement between two written sources, and the shape of every rule here.
 
 | ID    | Rule                                  |
@@ -47,6 +47,14 @@ field naming a command says which read of it covers the rule; one naming a linte
 selection. A rule and the check it claims land in the same commit, and the check is proven against a
 constructed violation first — one that parses a document is proven against that document in its real
 position on the page, never against an example of its shape.
+
+**A check whose SUBJECTS are derived from the property it asserts can never fail, and naming it is the
+same as claiming no enforcement at all.** A subject lacking the property drops out of the listing instead
+of failing the assertion, so the check reports on whatever already complies and a violation reads as an
+absence. What makes the claim real is deriving the population independently of the property — cross-checked
+against a second listing reached by a different route, the two required to agree, so narrowing either
+breaks the agreement rather than shrinking the sweep — and flooring it on something other than a count of
+the roster against itself.
 
 **Why:** the enforcement field is the line a reader trusts without checking, so a claim overstating
 the gate is worse than an unenforced rule: it reads as covered and nobody looks again. A check proven

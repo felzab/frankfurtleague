@@ -1,6 +1,6 @@
 # In-code documentation
 
-**Verified against:** `d666f6c9`, 2026-08-30\
+**Verified against:** `6adfac16`, 2026-08-30\
 **Applies to:** source files — `fl_frontend/src`, `fl_backend/app`, `fl_backend/tests`, `scripts/`
 and `.claude/hooks/`: module headers, symbol docs, inline comments and test docstrings. The hooks are
 exempt from INC-2's shape alone, their uniform label rows being what keeps a folder of one-purpose
@@ -137,6 +137,12 @@ breaks one, as does switching to `/* */`, `{/* */}` or a docstring. The finding 
 block's first line, which is the earlier comment rather than the one whose arrival crossed the bound
 — and both are the branch's own work, a run reaching into older text being one the branch only
 partly wrote.
+
+**A formatter can merge two comments the author separated.** `ruff format` deletes a blank line inside an
+argument list, so two paragraphs written there reach the checker as one run and are measured together. A
+bare `#` between them does not restore the break: it is a comment line itself, so it joins the run and
+costs it a line. What works is moving the comment out of the argument list — above the statement, where a
+blank line survives the formatter (measured 2026-08-30).
 
 **The bounds are a ceiling, never a target.** A comment that carries its point in sixty characters is
 finished at sixty. Writing to the cap produces a block sized by the rule rather than by its content,

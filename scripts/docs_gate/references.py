@@ -27,6 +27,7 @@ from .kernel import (
     _read_text,
     _scan_body,
     _tree_index,
+    _untracked_index,
     anchors_of,
     heading_anchors,
     is_gitignored,
@@ -81,7 +82,7 @@ README_LINE_CAP: Final = 120
 def _resolve(file_part: str) -> list[Path]:
     """A citation may give a repo path, a package-relative one, or an unambiguous bare filename.
 
-    A bare name is resolved against the tracked index with the templates taken out (CUR-5).
+    A bare name resolves against the tracked index, templates taken out (CUR-5).
     """
     direct = REPO_ROOT / file_part
     if direct.is_file():
@@ -92,7 +93,11 @@ def _resolve(file_part: str) -> list[Path]:
         return [REPO_ROOT / resolved]
     if "/" in file_part:
         return []
-    named = _tree_index().get(os.path.normcase(file_part), ())
+    # The index answers first, so a stray copy can neither shadow a tracked file nor make one
+    # ambiguous; the tree answers a name the index lacks. Calling a file just written dead invites
+    # repointing the citation at a similar name, which then passes.
+    key = os.path.normcase(file_part)
+    named = _tree_index().get(key) or _untracked_index().get(key, ())
     return [p for p in named if p.is_file() and not _is_template(p)][:5]
 
 

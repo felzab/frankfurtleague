@@ -21,8 +21,8 @@ from .branch import (
 from .copy_rules import check_copy_rules
 from .kernel import (
     Finding,
+    scanned_files,
     tolerate_console_encoding,
-    tracked_files,
 )
 from .perkind import (
     check_binary_bytes,
@@ -52,10 +52,10 @@ def main() -> int:
     parser.add_argument("--all", action="store_true", help="list every advisory finding, not just the first ten")
     args = parser.parse_args()
 
-    files = tracked_files()
+    files = scanned_files()
     if not files:
         # Refused, not green: an empty corpus is a tree this gate could not read.
-        print("      no tracked file matched -- nothing was read, so this run proves nothing", file=sys.stderr)
+        print("      no corpus file matched -- nothing was read, so this run proves nothing", file=sys.stderr)
         return checker_kernel.EXIT_REFUSED
 
     # Resolved once, and handed to every branch-scoped check below. The kernel's resolver prefers

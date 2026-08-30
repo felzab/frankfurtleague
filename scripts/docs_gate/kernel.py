@@ -1,7 +1,9 @@
 """SCRIPTS · the documentation gate's readers, caches and vocabulary.
 
-Nothing here imports a sibling, so each `functools.cache` exists once per run. Every page a check
-reads arrives through the tracked listing; a path a page NAMES is answered from disk instead.
+Nothing here imports a sibling, so each `functools.cache` exists once per run. Two listings, and
+what a caller does with the answer picks between them: a file a check READS comes from
+`scanned_files`, which is the working tree; a glob or a page a document NAMES resolves through
+`tracked_files`, which is the index CI checks out.
 """
 
 from __future__ import annotations
@@ -12,6 +14,7 @@ import re
 import subprocess
 import sys
 import tokenize
+from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path, PurePosixPath
@@ -231,23 +234,54 @@ def _read_text(path: Path) -> tuple[str | None, str]:
 
 
 @cache
+def _listed(*args: str) -> tuple[Path, ...] | None:
+    """One `git ls-files` listing as paths, or None where git could not answer.
+
+    NUL-separated, git quoting non-ASCII by default: a quoted spelling matches no glob and opens
+    no file, so it drops out of the scan with whatever it carried.
+    """
+    listing = git("ls-files", "-z", *args)
+    if listing is None:
+        return None
+    return tuple(REPO_ROOT / entry for entry in listing.split("\0") if entry)
+
+
+def _by_name(paths: Iterable[Path]) -> dict[str, tuple[Path, ...]]:
+    """Paths indexed by filename, with the skipped directories pruned."""
+    index: dict[str, list[Path]] = {}
+    for path in paths:
+        if not _skipped(path):
+            index.setdefault(os.path.normcase(path.name), []).append(path)
+    return {name: tuple(sorted(found)) for name, found in index.items()}
+
+
+@cache
 def _tree_index() -> dict[str, tuple[Path, ...]]:
     """Every tracked file, indexed by name, with skipped directories pruned.
 
     Tracked rather than walked: a nested worktree would make a bare-filename lookup ambiguous.
-    NUL-separated, git quoting non-ASCII by default.
     """
-    listing = git("ls-files", "-z")
-    if listing is None:
-        return _walked_index()
-    index: dict[str, list[Path]] = {}
-    for entry in listing.split("\0"):
-        if not entry:
-            continue
-        path = REPO_ROOT / entry
-        if not _skipped(path):
-            index.setdefault(os.path.normcase(path.name), []).append(path)
-    return {name: tuple(sorted(paths)) for name, paths in index.items()}
+    listed = _listed()
+    return _walked_index() if listed is None else _by_name(listed)
+
+
+@cache
+def _untracked_index() -> dict[str, tuple[Path, ...]]:
+    """Every file the working tree holds and the index does not, indexed by name.
+
+    Ignorability is git's answer rather than a walk's, which is what keeps a vendored tree, a
+    build output and a deliberately ignored scratch file out of a bare-name lookup.
+    """
+    return _by_name(_untracked_paths())
+
+
+def _untracked_paths() -> tuple[Path, ...]:
+    """What `--others` adds to a listing, or nothing where git could not answer.
+
+    Nothing rather than a walk: both callers hold a tracked listing already, so an unanswerable
+    `--others` narrows the corpus instead of emptying it.
+    """
+    return _listed("--others", "--exclude-standard") or ()
 
 
 def _walked_index() -> dict[str, tuple[Path, ...]]:
@@ -444,24 +478,59 @@ def comment_style(path: Path) -> str:
     return path.suffix if path.suffix in SOURCE_SUFFIXES or path.suffix == ".json" else ".sh"
 
 
-@cache
-def tracked_files() -> tuple[Path, ...]:
-    """Every tracked document, source file and ops file, minus skips."""
-    # The leading `*` carries a whole-filename pattern past the root, where an unanchored
-    # `Dockerfile` matches the root one alone. It widens to anything ENDING in the name.
-    patterns = ("*.md", *(f"*{suffix}" for suffix in SCANNED_SUFFIXES), *(f"*{name}" for name in OPS_FILENAMES))
-    listing = git("ls-files", "-z", *patterns)
-    if listing is None:
-        candidates = [path for paths in _tree_index().values() for path in paths]
-    else:
-        candidates = [REPO_ROOT / entry for entry in listing.split("\0") if entry]
+def _of_kind(candidates: Iterable[Path]) -> tuple[Path, ...]:
+    """The corpus files in a listing: a scanned kind, on disk, outside the skipped directories.
+
+    `is_file` drops a path the index holds and the tree does not, which a branch mid-rename carries.
+    """
     suffixes = {".md", *SCANNED_SUFFIXES}
     return tuple(sorted({p for p in candidates if p.is_file() and not _skipped(p) and (p.suffix in suffixes or p.name in OPS_FILENAMES)}))
 
 
 @cache
-def _corpus_index() -> tuple[tuple[PurePosixPath, Path], ...]:
-    """Each corpus file beside the repo-relative spelling a glob is matched against.
+def _kind_patterns() -> tuple[str, ...]:
+    """The `ls-files` patterns that prefilter a listing to the scanned kinds."""
+    # The leading `*` carries a whole-filename pattern past the root, where an unanchored
+    # `Dockerfile` matches the root one alone. It widens to anything ENDING in the name.
+    return ("*.md", *(f"*{suffix}" for suffix in SCANNED_SUFFIXES), *(f"*{name}" for name in OPS_FILENAMES))
+
+
+@cache
+def tracked_files() -> tuple[Path, ...]:
+    """Every tracked document, source file and ops file, minus skips.
+
+    The index alone: this is what a glob and a named page resolve against, and a page no `git add`
+    reached must not answer for one. What a check READS is `scanned_files` instead.
+    """
+    listed = _listed(*_kind_patterns())
+    if listed is None:
+        return _of_kind(path for paths in _tree_index().values() for path in paths)
+    return _of_kind(listed)
+
+
+@cache
+def untracked_files() -> tuple[Path, ...]:
+    """The corpus files the working tree holds and the index does not.
+
+    `--exclude-standard` gives `.gitignore`'s answer, so a vendored tree, a build output and a
+    scratch file somebody parked here are nobody's to fail.
+    """
+    return _of_kind(_untracked_paths())
+
+
+@cache
+def scanned_files() -> tuple[Path, ...]:
+    """The corpus every check READS: the tracked listing plus what the branch has yet to stage.
+
+    The gate runs before the commit, so the index alone hands a branch that adds files a green
+    answer CI will not repeat.
+    """
+    return _of_kind((*tracked_files(), *untracked_files()))
+
+
+@cache
+def _tracked_index() -> tuple[tuple[PurePosixPath, Path], ...]:
+    """Each tracked corpus file beside the repo-relative spelling a glob is matched against.
 
     Built once rather than per pattern: deriving the spelling outcosts matching it and never varies.
     """
@@ -470,12 +539,12 @@ def _corpus_index() -> tuple[tuple[PurePosixPath, Path], ...]:
 
 @cache
 def tracked_glob(pattern: str) -> tuple[Path, ...]:
-    """Every corpus file a repo-relative glob matches, in `tracked_files`' order.
+    """Every tracked file a repo-relative glob matches, in `tracked_files`' order.
 
     `Path.glob` would read the working tree, where a page no `git add` reached still answers a
     citation: green locally, red on CI's clean checkout.
     """
-    return tuple(path for rel, path in _corpus_index() if rel.full_match(pattern))
+    return tuple(path for rel, path in _tracked_index() if rel.full_match(pattern))
 
 
 @cache
@@ -484,7 +553,7 @@ def tracked_page(rel: str) -> Path | None:
 
     Reading one off disk would pass a page written and never added.
     """
-    return next((path for spelling, path in _corpus_index() if spelling.as_posix() == rel), None)
+    return next((path for spelling, path in _tracked_index() if spelling.as_posix() == rel), None)
 
 
 def atx_heading(line: str, level: int | None = None) -> str | None:
