@@ -4,6 +4,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.aktionen.admin_router import router as aktionen_admin_router
 from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
+from app.api.bewerbungen.public_router import router as bewerbungen_public_router
 from app.api.bewerbungen.router import router as bewerbungen_router
 from app.api.kontakte.admin_router import router as kontakte_admin_router
 from app.api.saisons.admin_router import router as saisons_admin_router
@@ -27,9 +28,9 @@ from app.core.exception_handlers import register_exception_handlers
 from app.core.logging import setup_custom_logger
 from app.core.middlewares import CorrelationIdMiddleware
 
-# Reads in one group, writes in the other: `spielorte`, `schiedsrichter` and `bewerbungen` read under
-# `verify_access_admin`, the rest under `verify_access_base`. Order between them carries nothing --
-# the `objectid` convertor keeps a static path out of an id route.
+# Reads in one group, writes in the other: `spielorte`, `schiedsrichter` and the ADMIN `bewerbungen`
+# router read under `verify_access_admin`, the rest under `verify_access_base`. Order carries nothing
+# here (`app/core/routing.py`).
 READ_ROUTERS = (
     spiele_router,
     teams_router,
@@ -52,6 +53,9 @@ WRITE_ROUTERS = (
     bewerbungen_admin_router,
     kontakte_admin_router,
 )
+# Its own group because it belongs to neither: base-tier and mixed read/write, so either tuple's
+# comment would go false about the tier or the methods.
+PUBLIC_ROUTERS = (bewerbungen_public_router,)
 
 
 def create_app(config: BackendConfig | None = None) -> FastAPI:
@@ -82,7 +86,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     app.add_middleware(CorrelationIdMiddleware)
 
     app.include_router(system_router)
-    for router in (*READ_ROUTERS, *WRITE_ROUTERS):
+    for router in (*READ_ROUTERS, *WRITE_ROUTERS, *PUBLIC_ROUTERS):
         app.include_router(router)
 
     @app.get("/")

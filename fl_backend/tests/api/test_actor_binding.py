@@ -8,8 +8,16 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from app.core.exceptions import RequestAuthorizationException
-from app.core.recording import SYSTEM_ACTOR, Actor, actor_var, request_var
-from app.core.security import ACTOR_HEADER, ACTOR_MAX_LENGTH, MISSING_ACTOR, SAFE_METHODS, bind_actor
+from app.core.recording import PUBLIC_ACTOR, PUBLIC_ACTOR_EMAIL, SYSTEM_ACTOR, Actor, actor_var, request_var
+from app.core.security import (
+    ACTOR_HEADER,
+    ACTOR_MAX_LENGTH,
+    MISSING_ACTOR,
+    SAFE_METHODS,
+    WELL_FORMED_ACTOR,
+    bind_actor,
+    bind_public_actor,
+)
 from app.main import create_app
 from tests.config import build_test_config
 
@@ -28,6 +36,9 @@ ROUTE_TEMPLATE = "/api/v0/teams/{team_id}"
 EXEMPT_READ_PATH = "/api/v0/aktionen"
 
 ACTOR = "admin@example.com"
+
+# The one route the two exemptions below name, spelled once.
+PUBLIC_WRITE_PATH = "/api/v0/bewerbungen"
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
 # the harness's own included.
@@ -84,6 +95,22 @@ async def through_the_binder(request: Request) -> tuple[Bound, Bound]:
 
     return during, (actor_var.get(), request_var.get())
 
+
+async def through_the_public_binder(request: Request) -> tuple[Bound, Bound]:
+    """`through_the_binder` for the other binder, a second function rather than a parameter: the two dependencies are two objects."""
+
+    binder = bind_public_actor(request)
+    await anext(binder)
+    during = (actor_var.get(), request_var.get())
+
+    with contextlib.suppress(StopAsyncIteration):
+        await anext(binder)
+
+    return during, (actor_var.get(), request_var.get())
+
+
+# The code POINTS, not the characters: a literal control byte in this file is a syntax error.
+CONTROL_CODE_POINTS = [0x00, 0x01, 0x08, 0x0E, 0x1B]
 
 MALFORMED_ACTORS = [
     pytest.param("", id="empty"),
@@ -194,8 +221,17 @@ def api_routes() -> Iterator[APIRoute]:
 
 ROUTES_BY_OPERATION = {(route.path, method): route for route in api_routes() for method in (route.methods or ())}
 
+# The writes NO administrator makes, which therefore bind no `X-FL-Actor`. Enumerated for
+# `tests/api/test_admin_guard.py :: PUBLIC_WRITES`' reason, and derived from neither it nor a rule.
+
+# No browser sends `X-FL-Actor`, so `bind_actor` would answer `REQ-AUTH-005` for every submission.
+# `bind_public_actor` replaces it, and the write is recorded under an actor naming the public.
+PUBLIC_WRITES = [
+    ("/api/v0/bewerbungen", "POST"),
+]
+
 # Split by the constant the guard itself reads, so a method moved between the two tiers moves here too.
-MUTATIONS = sorted(operation for operation in ROUTES_BY_OPERATION if operation[1] not in SAFE_METHODS)
+MUTATIONS = sorted(operation for operation in ROUTES_BY_OPERATION if operation[1] not in SAFE_METHODS and operation not in PUBLIC_WRITES)
 
 # A floor rather than the exact count: an endpoint added is covered by the parametrisation without
 # editing this file, so pinning the number would ask for a bump and prove nothing.
@@ -218,3 +254,113 @@ def test_the_mutation_inventory_clears_its_floor():
     assert len(MUTATIONS) >= MINIMUM_EXPECTED_MUTATIONS, (
         f"discovered only {len(MUTATIONS)} mutations across {len(ROUTES_BY_OPERATION)} operations. Did a router stop being included?"
     )
+
+
+@pytest.mark.parametrize(("path", "method"), PUBLIC_WRITES, ids=lambda value: value)
+def test_a_public_write_binds_the_public_actor(path: str, method: str):
+    """What stands in for the binder the exemption drops: the route declares `bind_public_actor` instead.
+
+    Compared by identity as `binds_an_actor` compares the other, so a route binding NOTHING -- which
+    records as `SYSTEM` -- fails here.
+    """
+
+    assert (path, method) in ROUTES_BY_OPERATION, f"{method} {path} is not mounted -- PUBLIC_WRITES names a route that moved"
+
+    dependencies = ROUTES_BY_OPERATION[(path, method)].dependant.dependencies
+
+    assert any(dependency.call is bind_public_actor for dependency in dependencies), f"{method} {path} binds no actor at all"
+    assert not any(dependency.call is bind_actor for dependency in dependencies), f"{method} {path} binds the admin actor too"
+
+
+def test_the_public_binder_names_the_public_and_clears_itself():
+    """The behaviour the exemption rests on: a submission is attributed to nobody, by name.
+
+    Both halves in one case because either alone is worthless -- an actor never reset bleeds onto
+    the next request, and one never set records as `SYSTEM`.
+    """
+
+    during, after = asyncio.run(through_the_public_binder(request_for("POST", None, url_path=PUBLIC_WRITE_PATH, route_path=PUBLIC_WRITE_PATH)))
+
+    assert during == (PUBLIC_ACTOR, ("POST", PUBLIC_WRITE_PATH))
+    assert after == (SYSTEM_ACTOR, None)
+
+
+def test_the_public_actor_is_not_the_system_one():
+    """The distinction the whole exemption buys: the log tells a submission from a migration, which `SYSTEM` alone could not."""
+
+    assert PUBLIC_ACTOR != SYSTEM_ACTOR
+    assert PUBLIC_ACTOR.kind == "public"
+
+
+def test_the_public_write_inventory_is_not_empty():
+    """`empty_parameter_set_mark` defaults to skip, so an emptied exemption would turn the cases above into silent passes."""
+
+    assert PUBLIC_WRITES
+
+    assert set(PUBLIC_WRITES) <= set(ROUTES_BY_OPERATION), f"{sorted(set(PUBLIC_WRITES) - set(ROUTES_BY_OPERATION))} is not mounted"
+
+    assert set(PUBLIC_WRITES) & set(MUTATIONS) == set()
+
+
+# What a visitor could put in the header, each of which the public binder must ignore. The last two
+# are shaped like a real administrator, which is the whole point: nothing about them is malformed.
+FORGED_ACTORS = [
+    pytest.param("attacker@example.com", id="a well-formed address"),
+    pytest.param(ACTOR, id="the address a real admin session sends"),
+    pytest.param("", id="an empty header"),
+    pytest.param("not-an-address", id="a malformed value"),
+]
+
+
+@pytest.mark.parametrize("forged", FORGED_ACTORS)
+def test_the_public_binder_ignores_a_forged_actor_header(forged: str):
+    """Nothing a visitor sends may name the write. `bind_actor` READS this header; this binder must not.
+
+    The two sit adjacent, so a later unification would put a chosen string into
+    `aktionen.actor.email` with the gate green.
+    """
+
+    request = request_for("POST", forged, url_path=PUBLIC_WRITE_PATH, route_path=PUBLIC_WRITE_PATH)
+
+    during, _ = asyncio.run(through_the_public_binder(request))
+
+    assert during[0] == PUBLIC_ACTOR
+    assert during[0].email == PUBLIC_ACTOR_EMAIL
+
+
+def test_the_public_binder_refuses_no_request_whatever_the_header_says():
+    """The other half: `bind_actor` answers `REQ-AUTH-005` on a malformed value, and this one may not.
+
+    A public form has no session to compose an actor from, so refusing here would make the header
+    a way to turn every submission away.
+    """
+
+    request = request_for("POST", "not-an-address", url_path=PUBLIC_WRITE_PATH, route_path=PUBLIC_WRITE_PATH)
+
+    during, after = asyncio.run(through_the_public_binder(request))
+
+    assert during == (PUBLIC_ACTOR, ("POST", PUBLIC_WRITE_PATH))
+    assert after == (SYSTEM_ACTOR, None)
+
+
+@pytest.mark.parametrize("code_point", CONTROL_CODE_POINTS)
+def test_an_actor_carrying_a_control_character_is_refused(code_point: int):
+    r"""`\s` does not cover all of C0, so 23 controls reached `aktionen.actor.email` on the shape check alone.
+
+    No address holds one, and this value is what an erasure is audited against.
+    """
+
+    forged = f"a{chr(code_point)}b@example.com"
+
+    assert WELL_FORMED_ACTOR.fullmatch(forged) is None
+
+    with pytest.raises(RequestAuthorizationException) as excinfo:
+        asyncio.run(through_the_binder(request_for("PATCH", forged)))
+
+    assert excinfo.value.error_code == MISSING_ACTOR
+
+
+def test_an_ordinary_address_is_still_admitted():
+    """The control: a class that excluded too much would refuse every administrator instead."""
+
+    assert WELL_FORMED_ACTOR.fullmatch(ACTOR) is not None

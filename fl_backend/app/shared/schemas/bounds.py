@@ -34,6 +34,37 @@ TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 # into an outbound email as well as stored. Named so the frontend mirror refuses at the same length.
 BEWERBUNG_GRUND_MAX_LENGTH: Final = 1000
 
+# How old a contact person on a PUBLIC application may be, in whole years against the German day it
+# arrives on. The ceiling refuses a mistyped century rather than a real age. Named so the input
+# control and the Zod mirror refuse at the same two numbers.
+BEWERBUNG_KONTAKT_MIN_AGE_YEARS: Final = 16
+BEWERBUNG_KONTAKT_MAX_AGE_YEARS: Final = 120
+
+# What kit the school already owns, in its own words. Bounded on the pair that earns
+# `BEWERBUNG_GRUND_MAX_LENGTH` its own: an anonymous caller writes it, and it is stored. Lower,
+# because a colour, a count and a size need nothing like a page.
+BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH: Final = 500
+
+# The club a new school proposes, bounded on the PUBLIC payload alone. `team_name` becomes
+# `teams.name` at acceptance, reaching the junction row, every fixture side and the league table.
+BEWERBUNG_TEAM_NAME_MAX_LENGTH: Final = 60
+# The school's official name, which stands on its own page rather than in a table cell, so it takes
+# the place suffix a short name drops -- "… Kooperative Gesamtschule der Stadt Frankfurt am Main".
+BEWERBUNG_FULL_NAME_MAX_LENGTH: Final = 120
+
+# A school's homepage. `validate_external_url` reads the scheme and the host and leaves the PATH and
+# QUERY unchecked, so this bounds them. Far under what browsers accept: this is a front page.
+BEWERBUNG_WEBSITE_URL_MAX_LENGTH: Final = 300
+
+# One part of one contact person's name. `PERSON_NAME_PATTERN` bounds the ALPHABET and not the
+# length. Generous against a hyphenated double name and a multi-part surname both.
+BEWERBUNG_KONTAKT_NAME_MAX_LENGTH: Final = 80
+
+# The school's estimate of its squad, and the strong players inside it. A ceiling that is a SQUAD
+# SIZE, not `int32`: past this the number is a typo. Not the season's `max_kadergroesse`, which an
+# application is held true against nothing of.
+BEWERBUNG_KADER_GROESSE_MAX: Final = 200
+
 TEAM_SHORTHAND_LENGTH: Final = 2
 
 SAISON_ID_LENGTH: Final = 4

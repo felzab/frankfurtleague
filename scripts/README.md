@@ -1,6 +1,6 @@
 # Scripts
 
-**Verified against:** `bcc1de6d`, 2026-08-28\
+**Verified against:** `d666f6c9`, 2026-08-30\
 **Folder purpose:** the operational scripts for building, testing, running and deploying
 Frankfurt-League, plus the checkers the verification gate runs.
 
@@ -40,8 +40,11 @@ production only when there is no copy on disk yet. Everything else is safe to ru
 Windows, run them from Git Bash, and prefix a hand-typed `docker run -v` with `MSYS_NO_PATHCONV=1` —
 [`../docs/ops/spec.md`](../docs/ops/spec.md) §3 says what MSYS does to the path without it.
 
-One generator sits outside this folder because it needs the frontend's own dependencies:
-`fl_frontend/scripts/generate-brand-assets.mjs`, run as `pnpm brand` from `fl_frontend/`.
+Two run from outside this folder, each because it needs a package's own dependencies:
+`fl_frontend/scripts/generate-brand-assets.mjs`, run as `pnpm brand` from `fl_frontend/`, and
+`fl_backend/tests/openapi_document.py`, which the `--docs` scope runs in `--check` mode because the
+published document is composed from the application's own docstrings
+([`../docs/ops/spec.md`](../docs/ops/spec.md) §1.6).
 
 ## Read next
 

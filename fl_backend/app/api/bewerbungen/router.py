@@ -18,6 +18,8 @@ from app.shared.schemas.custom import CustomRouteObjectId
 # Admin-guarded, not base, as `schiedsrichter` is: an application carries three people's names,
 # addresses, telephone numbers and dates of birth (`READ-CONTACT-001`), and says which schools
 # asked and were turned down.
+
+# `public_router.py` shares this prefix at base tier and reads no stored application.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen",
     dependencies=[Depends(verify_access_admin)],

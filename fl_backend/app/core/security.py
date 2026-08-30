@@ -8,7 +8,7 @@ from pydantic import SecretStr
 
 from app.core.config import BackendConfig, get_config
 from app.core.exceptions import RequestAuthorizationException
-from app.core.recording import Actor, actor_var, request_var
+from app.core.recording import PUBLIC_ACTOR, Actor, actor_var, request_var
 
 # `auto_error=False` so a missing header reaches `get_token` and answers `REQ-AUTH-001`; FastAPI's
 # own 403 would carry none of the error-code contract.
@@ -72,7 +72,10 @@ MISSING_ACTOR = "REQ-AUTH-005"
 
 # Deliberately loose: this is a shape check on a value the frontend composed from its own session,
 # not an address validation. The bound is what stops an arbitrarily long header reaching the log.
-WELL_FORMED_ACTOR = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+\Z")
+
+# C0 is excluded explicitly because `\s` does not cover all of it: 23 controls, NUL among them,
+# otherwise reach `aktionen.actor.email` -- the value an erasure is audited against.
+WELL_FORMED_ACTOR = re.compile(r"[^@\s\x00-\x1f]+@[^@\s\x00-\x1f]+\.[^@\s\x00-\x1f]+\Z")
 ACTOR_MAX_LENGTH = 254
 
 # The methods that record nothing. Admin routers serve reads as well as writes, so demanding an
@@ -109,5 +112,26 @@ async def bind_actor(request: Request) -> AsyncIterator[None]:
     finally:
         # Reset, or the actor bleeds onto whichever request the loop runs next -- the same hazard
         # `CorrelationIdMiddleware` resets its own id for.
+        actor_var.reset(actor_token)
+        request_var.reset(request_token)
+
+
+async def bind_public_actor(request: Request) -> AsyncIterator[None]:
+    """Attribute a write nobody signed in for to the public, and name the route it came through.
+
+    Never `bind_actor`: no browser sends `X-FL-Actor`, so it answers `REQ-AUTH-005` for every
+    public write. An insert logs no `before`.
+    """
+
+    actor_token = actor_var.set(PUBLIC_ACTOR)
+    # The route's template, as `bind_actor` binds it and for the same reason.
+    route = request.scope.get("route")
+    request_token = request_var.set((request.method, getattr(route, "path", request.url.path)))
+
+    try:
+        yield
+    finally:
+        # Reset for `bind_actor`'s reason: the actor would otherwise bleed onto whichever request
+        # the loop runs next -- and this one names no administrator at all.
         actor_var.reset(actor_token)
         request_var.reset(request_token)

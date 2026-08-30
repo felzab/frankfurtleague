@@ -53,6 +53,7 @@ from app.api.teams.schemas import (
     FLSchulform,
     FLTeam,
     FLTeamRecord,
+    FLTrainerZugleich,
     FLTrikotFarbe,
 )
 from app.core.collections import Collection
@@ -166,6 +167,10 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.TEAMS, (), "schulform", get_args(FLSchulform), True),
     (Collection.SAISON_TEAMS, (), "trikot_farbe", get_args(FLTrikotFarbe), True),
     (Collection.BEWERBUNGEN, (), "status", get_args(FLBewerbungStatus), False),
+    # Nullable on both: null is the Trainer holding no second seat, which is the ordinary case rather
+    # than a field nobody filled in.
+    (Collection.SAISON_TEAMS, ("kontakte",), "trainer_ist_zugleich", get_args(FLTrainerZugleich), True),
+    (Collection.BEWERBUNGEN, ("kontakte",), "trainer_ist_zugleich", get_args(FLTrainerZugleich), True),
     # Nullable for `teams.schulform`'s reason on the one, and because a school may state no wish on
     # the other: the null is a real answer rather than a field nobody filled in.
     (Collection.BEWERBUNGEN, ("schule",), "schulform", get_args(FLSchulform), True),

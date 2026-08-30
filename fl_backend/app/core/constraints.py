@@ -81,7 +81,7 @@ _LOGGED_COLLECTIONS = [str(name) for name in Collection if name is not Collectio
 # `tests/core/test_constraints.py` pins each against the recording literal too, so a member added to
 # one alone fails rather than reaching a stored row.
 _AKTION_OPERATIONS = ["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
-_AKTOR_KINDS = ["admin_session", "system"]
+_AKTOR_KINDS = ["admin_session", "system", "public"]
 
 
 def _object(*, required: Sequence[str], properties: Mapping[str, Any], nullable: bool = False) -> Mapping[str, Any]:
@@ -169,14 +169,18 @@ _KONTAKTPERSON = _object(
 # beside them.
 _KONTAKTPERSON_OR_NULL = {**_KONTAKTPERSON, "bsonType": ["object", "null"]}
 
-_KONTAKTE_REQUIRED = ("trainer", "ansprechperson", "stellvertretung", "trainer_ist_ansprechperson")
+# Which second seat the Trainer also holds. Null is nobody, and no member says BOTH -- two flags
+# would spell a state nothing can mean.
+_TRAINER_ZUGLEICH = ["ansprechperson", "stellvertretung"]
+
+_KONTAKTE_REQUIRED = ("trainer", "ansprechperson", "stellvertretung", "trainer_ist_zugleich")
 _KONTAKTE_PROPERTIES = {
     "trainer": _KONTAKTPERSON_OR_NULL,
     "ansprechperson": _KONTAKTPERSON_OR_NULL,
     "stellvertretung": _KONTAKTPERSON_OR_NULL,
-    # Kept through an erasure: it records what somebody ASSERTED about the two slots, which stays
-    # true about the form even once one of them is empty.
-    "trainer_ist_ansprechperson": {"bsonType": "bool"},
+    # Kept through an erasure: it records what somebody ASSERTED about the seats, which stays true
+    # about the form even once one of them is empty.
+    "trainer_ist_zugleich": {"bsonType": _STRING_OR_NULL, "enum": [*_TRAINER_ZUGLEICH, None]},
 }
 
 # The BLOCK is nullable on the junction and required on an application: a season's row is entered
@@ -211,7 +215,7 @@ _BEWERBUNG_SCHULE = _object(
         "shorthand": {"bsonType": "string"},
         "schulform": {"bsonType": _STRING_OR_NULL, "enum": [*_SCHULFORMEN, None]},
         "address": _ADDRESS,
-        "website_url": {"bsonType": "string"},
+        "website_url": {"bsonType": _STRING_OR_NULL},
     },
 )
 
@@ -231,7 +235,8 @@ _BEWERBUNG_KADER = _object(
     required=("voraussichtliche_groesse", "gute_spieler"),
     properties={
         "voraussichtliche_groesse": {"bsonType": "int"},
-        "gute_spieler": {"bsonType": _INT_OR_NULL},
+        # NOT nullable: the form asks for a count, and none of them is zero rather than absent.
+        "gute_spieler": {"bsonType": "int"},
     },
 )
 
@@ -383,7 +388,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "shorthand": {"bsonType": "string"},
                 "description": {"bsonType": "string"},
                 "full_name": {"bsonType": "string"},
-                "website_url": {"bsonType": "string"},
+                "website_url": {"bsonType": _STRING_OR_NULL},
                 "address": _ADDRESS,
                 # Out of `required` on purpose: no club stored before the field carries the key, so
                 # demanding it would refuse every one of them until a backfill ran. A missing key

@@ -112,7 +112,7 @@ OUTGOING_KONTAKTE = {
     "trainer": dict(OUTGOING_KONTAKTPERSON),
     "ansprechperson": dict(OUTGOING_KONTAKTPERSON),
     "stellvertretung": dict(OUTGOING_KONTAKTPERSON),
-    "trainer_ist_ansprechperson": True,
+    "trainer_ist_zugleich": "ansprechperson",
 }
 
 OUTGOING_TRIKOT_FARBE = "bordeaux"

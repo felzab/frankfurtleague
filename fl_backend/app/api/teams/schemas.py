@@ -16,11 +16,12 @@ from app.shared.schemas.custom import (
     PERSON_NAME_PATTERN,
     PHONE_REGEX,
     CustomDateString,
-    CustomExternalUrl,
     CustomNonEmptyString,
     CustomObjectId,
     CustomOptionalDateString,
+    CustomOptionalExternalUrl,
     CustomStrippedNonEmptyString,
+    CustomStrippedOptionalExternalUrl,
 )
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -62,6 +63,11 @@ FLTrikotFarbe = Literal[
     "bordeaux",
     "grau",
 ]
+
+
+# Which second seat one person may hold beside the Trainer's. A closed set rather than a flag per
+# seat: the two are alternatives, and nothing can mean holding both.
+FLTrainerZugleich = Literal["ansprechperson", "stellvertretung"]
 
 
 class FLAustritt(BaseModel):
@@ -131,9 +137,10 @@ class FLSaisonTeamKontakte(BaseModel):
     trainer: FLKontaktperson | None
     ansprechperson: FLKontaktperson | None
     stellvertretung: FLKontaktperson | None
-    # Stored rather than derived by comparing the two blocks: two people can share every field, and
-    # what the admin asserted is not the same claim as what happens to match.
-    trainer_ist_ansprechperson: bool
+    # Which OTHER seat the Trainer also holds, or nobody. One nullable field rather than two flags,
+    # which would let a row claim both at once. Stored rather than derived: two people can share
+    # every field, and an assertion is not a coincidence.
+    trainer_ist_zugleich: FLTrainerZugleich | None
 
 
 # The bounded copies the junction PATCH embeds. The ceilings are here and not on the read models
@@ -209,8 +216,9 @@ class _TeamWritable(BaseModel):
     # The two READ models below add one back.
     schulform: FLSchulform | None
     # Rendered straight into an href on a public page, so the scheme is constrained here as well as
-    # in the frontend (`fl_backend/app/shared/schemas/custom.py :: validate_external_url`).
-    website_url: CustomExternalUrl
+    # in the frontend (`app/shared/schemas/custom.py :: validate_external_url`). NULL where a school
+    # has no site: `""` renders as a link to the page it sits on.
+    website_url: CustomOptionalExternalUrl
     address: FLAddress
 
 
@@ -319,6 +327,9 @@ class _TeamPayload(_TeamWritable):
     # Redeclared for that reason too: the width is a floor as well as a ceiling, and what it holds
     # is the whole of what a league table row names the club by.
     shorthand: Annotated[str, StringConstraints(strip_whitespace=True, min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)]
+    # Stripped on the WRITE side alone, as the three above are: `validate_external_url` leaves
+    # surrounding whitespace on the value, so a pasted URL would be stored with it.
+    website_url: CustomStrippedOptionalExternalUrl
 
 
 # Two names for one shape rather than an alias: the create and the edit are free to diverge, and an

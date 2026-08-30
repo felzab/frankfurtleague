@@ -123,6 +123,24 @@ class TestFailureBodies:
         # Messages, validation details and stack traces belong to the log, never the wire.
         assert set(body) == {"error_code", "correlation_id"}
 
+    def test_no_header_carries_the_message_either(self):
+        """The other channel out: `error_response` forwards `exc.headers`, so a leak is one line away.
+
+        Pinning the body alone leaves that line invisible, and a header reaches every proxy between
+        (`docs/logging/spec.md :: L9`).
+        """
+
+        response = client().get("/api/v0/spiele")
+
+        # The exact SET, not a search for words: a message copied into any header, under any name,
+        # moves this. `www-authenticate` is the one header this exception is allowed to add.
+        assert response.status_code == 401
+        assert set(response.headers) == {"www-authenticate", "content-length", "content-type", "x-correlation-id"}
+
+        # Named too, so the case cannot pass on a set that matched while a value leaked: this is
+        # the message the 401 above actually carries.
+        assert "does not exist or is not valid" not in " ".join(response.headers.values())
+
 
 class TestErrorCodeLogging:
     def test_the_logged_code_is_the_exceptions_own(self, caplog):

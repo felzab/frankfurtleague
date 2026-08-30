@@ -55,7 +55,7 @@ def bewerbung_document(index: int) -> dict[str, Any]:
             "trainer": dict(KONTAKTPERSON),
             "ansprechperson": None,
             "stellvertretung": None,
-            "trainer_ist_ansprechperson": False,
+            "trainer_ist_zugleich": None,
         },
         "trikot": {"vorhandener_satz": "16 rote Trikots", "wunschfarbe": "rot"},
         "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},

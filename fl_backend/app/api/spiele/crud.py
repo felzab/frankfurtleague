@@ -85,19 +85,30 @@ async def find_bracket_faults(
     spiele_collection: AsyncIOMotorCollection,
     teams_collection: AsyncIOMotorCollection,
     saisons_collection: AsyncIOMotorCollection,
+    saison_id: str | None = None,
 ) -> tuple[list[FLBracketFault], list[FLSpielJoined]]:
-    """Every derived fault in every season, and the fixtures they name.
+    """Every derived fault in one season and the fixtures they name; every season without one.
 
-    The season read asks one over the cap, so an archive too large for one pass is DETECTED
-    rather than served as one whose unread seasons hold no faults (`docs/backend/spec.md :: I45`).
+    The season read asks one over the cap, so an archive too large for one pass is DETECTED rather
+    than served as clean (`docs/backend/spec.md :: I45`).
     """
+
+    # The FIXTURES filter is what decides the answer: all three fault sources read that list, and the
+    # walk below skips a season holding none of it.
+
+    # The seasons filter changes read VOLUME and no result -- it is what makes the cap below bound
+    # one season rather than the archive.
+    spiele_filter: Mapping[str, Any] = {} if saison_id is None else {"saison_id": saison_id}
+    saisons_filter: Mapping[str, Any] = {} if saison_id is None else {"_id": saison_id}
 
     # The INTERNAL fixture: `find_departed_occupants` orders a fault on the DAY a club left, which
     # no served side carries. The declared return is the base-tier shape the caller answers with.
     spiele = FLSpielJoinedInternalListAdapter.validate_python(
-        await aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={}))
+        await aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter=spiele_filter))
     )
-    saisons_raw = await pull_many_from_db(collection=saisons_collection, db_filter={}, projection={"rules": 1}, limit=LIST_LIMIT_DEFAULT + 1)
+    saisons_raw = await pull_many_from_db(
+        collection=saisons_collection, db_filter=saisons_filter, projection={"rules": 1}, limit=LIST_LIMIT_DEFAULT + 1
+    )
     if len(saisons_raw) > LIST_LIMIT_DEFAULT:
         raise ValueError(f"the archive holds more than {LIST_LIMIT_DEFAULT} seasons, which is more than one read can report on")
 
@@ -130,8 +141,8 @@ async def find_bracket_faults(
     faults.extend(occupant_faults)
     faulted_ids.update(fault.spiel_id for fault in occupant_faults)
 
-    # Beside the walk for the same reason, and over the whole archive rather than per season: what
-    # groups a clash is the `spieltag_id`, which one season alone holds.
+    # Beside the walk for the same reason, and over whatever the read above returned. Nothing ties a
+    # fixture's `saison_id` to its matchday's, so a scoped read cannot report a clash spanning two.
     double_entries = find_double_entries(spiele)
     faults.extend(double_entries)
     faulted_ids.update(fault.spiel_id for fault in double_entries)

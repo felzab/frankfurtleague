@@ -312,7 +312,7 @@ KONTAKTE = {
     "trainer": dict(KONTAKTPERSON),
     "ansprechperson": dict(KONTAKTPERSON),
     "stellvertretung": dict(KONTAKTPERSON),
-    "trainer_ist_ansprechperson": True,
+    "trainer_ist_zugleich": "ansprechperson",
 }
 
 

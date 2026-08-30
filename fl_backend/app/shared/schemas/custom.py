@@ -106,9 +106,9 @@ DOMAIN_REGEX = re.compile(r"^([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[
 
 EXTERNAL_URL_SCHEMES = frozenset({"http", "https"})
 
-# The three characters `urlsplit` discards before parsing, per WHATWG. Named because what this
-# module RETURNS has to be what it validated.
-URL_STRIPPED_CHARACTERS = str.maketrans("", "", "\t\r\n")
+# Every C0 control, which is what `urlsplit` discards before parsing -- the three WHATWG removes
+# anywhere, and the rest it takes off the ends. What this module RETURNS has to be what it checked.
+URL_STRIPPED_CHARACTERS = str.maketrans("", "", "".join(chr(code) for code in range(0x20)))
 
 
 def validate_calendar_date(value: str) -> str:
@@ -151,8 +151,11 @@ def validate_external_url(value: str) -> str:
     Scheme-restricted: a bare "is this a URL" check accepts `javascript:`, an XSS sink once React
     renders it into an href. Not `AnyHttpUrl`, which normalises and would rewrite a stored value.
     """
-    # Stripped BEFORE parsing, so `parsed` is the exact text every check runs against and the exact
-    # text this returns. `geturl()` would also lowercase the scheme.
+    # Every C0 control, removed BEFORE parsing so what this returns is what the checks ran on.
+    # `geturl()` would also lowercase the scheme.
+
+    # SURROUNDING whitespace is not among them and is the caller's to strip: `urlsplit` ignores it
+    # internally, so a leading space would pass every check and be returned on the value.
     parsed = value.translate(URL_STRIPPED_CHARACTERS)
 
     try:
@@ -192,6 +195,19 @@ def validate_external_url(value: str) -> str:
 
 
 CustomExternalUrl = Annotated[str, AfterValidator(validate_external_url)]
+
+# Absence spelled as NULL, as every other optional value here spells it, and the empty string
+# coerced to it first -- `validate_external_url` would reject `""`, and an empty `href` is a live
+# link to the current page rather than no link at all.
+CustomOptionalExternalUrl = Annotated[CustomExternalUrl | None, BeforeValidator(parse_empty_string_to_none)]
+
+# The WRITE-side spelling, as `CustomStrippedNonEmptyString` is: a URL neither begins nor ends in
+# whitespace, and `validate_external_url` leaves it on -- so a leading space reaches storage and a
+# trailing one is refused for the wrong reason.
+CustomStrippedOptionalExternalUrl = Annotated[
+    Annotated[str, StringConstraints(strip_whitespace=True), AfterValidator(validate_external_url)] | None,
+    BeforeValidator(parse_empty_string_to_none),
+]
 
 CustomSpielNr = Annotated[int, Field(gt=0)]
 

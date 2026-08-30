@@ -142,9 +142,11 @@ def submitted_values(schule: Mapping[str, Any]) -> list[str]:
 
 # Every one of these is stored happily and refused by `FLTeam`, which reads the clubs list. The
 # first is an XSS sink the moment React renders it into an href.
+
+# NOT the empty string, which is a school naming no site rather than naming a bad one: the club
+# model takes it as null, and `TestASchoolWithNoWebsite` below is where that is pinned.
 UNUSABLE_URLS = [
     pytest.param("javascript:alert(1)", id="a javascript scheme"),
-    pytest.param("", id="an empty string"),
     pytest.param("zorbanax.example.de", id="no scheme at all"),
 ]
 
@@ -177,6 +179,16 @@ class TestWhetherTheSchoolMakesAClub:
         assert refusal is not None
         assert refusal.error_code == BEWERBUNG_SCHULE_UNUSABLE
         assert "website_url" in refusal.message
+
+    def test_a_school_naming_no_website_makes_a_club_all_the_same(self):
+        """The inverse of the rows above, and the reason the empty string left them.
+
+        A school without a site is not a school whose details make no club, so acceptance must
+        create one rather than answer `REQ-BEWERBUNG-003`.
+        """
+
+        assert find_new_club_refusal(club_document=composed_club(website_url=None)) is None
+        assert find_new_club_refusal(club_document=composed_club(website_url="")) is None
 
     def test_a_fault_beside_the_url_is_refused_too(self):
         """The whole composed document is judged rather than the one field: `shorthand` is two letters and is indexed unique."""

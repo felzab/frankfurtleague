@@ -39,7 +39,7 @@ class TestTheJoinedDisqualification:
         assert match_3["team2"]["austritt"] == AUSTRITT
 
     def test_the_season_is_the_fixtures_own_and_not_a_resolved_one(self, league: SeededLeague) -> None:
-        """`find_bracket_faults` reads every season in one pass, so keying on `team_id` alone badges a match played before the decision."""
+        """Every match read runs this pipeline, so keying on `team_id` alone badges a match played before the decision."""
 
         match_8 = spiel(league, 8, saison_id=PRIOR_SAISON)
 

@@ -29,6 +29,10 @@ RedactionTarget = tuple[Collection, Sequence[Any]]
 # spelling matches `app/core/logging.py :: NO_REQUEST_SENTINEL`, so one grep finds both.
 SYSTEM_ACTOR_EMAIL = "SYSTEM"
 
+# What a write made through a request by NOBODY is attributed to. Spelled like the sentinel above
+# because it is one: the public form authenticates no person, so no address is held.
+PUBLIC_ACTOR_EMAIL = "PUBLIC"
+
 
 @dataclass(frozen=True)
 class Actor:
@@ -38,7 +42,7 @@ class Actor:
     `kind` records how strongly the identity is held. A stronger scheme later writes a different one.
     """
 
-    kind: Literal["admin_session", "system"]
+    kind: Literal["admin_session", "system", "public"]
     email: str
 
     def as_document(self) -> dict[str, str]:
@@ -46,6 +50,11 @@ class Actor:
 
 
 SYSTEM_ACTOR = Actor(kind="system", email=SYSTEM_ACTOR_EMAIL)
+
+# Its own kind rather than `system`, which means a write made outside a request altogether: a public
+# submission IS a request, made by a visitor the backend authenticates as nobody. Bound by
+# `app/core/security.py :: bind_public_actor`.
+PUBLIC_ACTOR = Actor(kind="public", email=PUBLIC_ACTOR_EMAIL)
 
 # Set by `app/core/security.py :: bind_actor`, which every admin router depends on. The default is
 # the system actor rather than `None`, so a write outside a request records honestly instead of

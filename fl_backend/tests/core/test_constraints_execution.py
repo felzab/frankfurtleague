@@ -184,7 +184,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 "trainer": kontaktperson("Wraxlington"),
                 "ansprechperson": kontaktperson("Quillhilde"),
                 "stellvertretung": kontaktperson("Bramblewick"),
-                "trainer_ist_ansprechperson": False,
+                "trainer_ist_zugleich": None,
             },
             "trikot": {"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
             "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},

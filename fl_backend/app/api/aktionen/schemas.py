@@ -32,7 +32,7 @@ def _stringify_oids(value: Any) -> Any:
 class FLAktor(BaseModel):
     """Who a write was attributed to. Mirrors `app/core/recording.py :: Actor`."""
 
-    kind: Literal["admin_session", "system"]
+    kind: Literal["admin_session", "system", "public"]
     email: str
 
 
