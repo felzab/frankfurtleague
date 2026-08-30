@@ -16,6 +16,7 @@ import { confirmButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -53,6 +54,7 @@ export function FormRolloverSection({
   banners: readonly SaisonBanner[];
 }) {
   const router = useRouter();
+  const saisonHref = useSaisonHref();
   // Only a `future` season has an act on offer: the running season has nothing to switch to, and a
   // `past` one is refused by `REQ-ACTIVATE-002`.
   const panel = formPanel({ tone: saisonStatus === "future" ? "danger" : "neutral" });
@@ -174,7 +176,7 @@ export function FormRolloverSection({
                       {spiel.datum === null ? "Ohne Datum" : formatSpielDatum(spiel.datum)}
                     </span>
                     <Link
-                      href={`/admin/spiele/${spiel.id}`}
+                      href={saisonHref(`/admin/spiele/${spiel.id}`)}
                       className="text-brand hover:text-brand-solid fluid-xxs shrink-0 font-bold transition-colors">
                       Öffnen
                     </Link>

@@ -1,5 +1,5 @@
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
-import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
+import { deriveDraftStatus, emptyAsNull, numberAsNull } from "@/shared/utils/draftStatus";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { tiebreakLabel } from "./constants";
@@ -12,6 +12,10 @@ export type FLSaisonFieldGroup = "Zeitraum" | "Regeln" | "Bewerbung";
 
 export type FLSaisonDraftStatus = FLDraftStatus<FLSaisonFieldGroup>;
 
+/** Both halves or nothing: a forfeit result with one count entered is not a result the list can read out. */
+const forfeitAsNull = ({ sieger_tore, verlierer_tore }: { sieger_tore: number | null; verlierer_tore: number | null }): string | null =>
+  sieger_tore === null || verlierer_tore === null ? null : `${String(sieger_tore)}:${String(verlierer_tore)}`;
+
 /** Every field the season editor can change, in the order the change list reads them. */
 const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<SaisonDraftFields, FLSaisonFieldGroup>[] = [
   { path: "start_date", label: "Beginn", group: "Zeitraum", read: (source) => emptyAsNull(source.start_date) },
@@ -20,13 +24,13 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<SaisonDraftFields, FLSaisonF
     path: "rules.win_points",
     label: "Punkte für einen Sieg",
     group: "Regeln",
-    read: (source) => String(source.rules.win_points),
+    read: (source) => numberAsNull(source.rules.win_points),
   },
   {
     path: "rules.draw_points",
     label: "Punkte für ein Unentschieden",
     group: "Regeln",
-    read: (source) => String(source.rules.draw_points),
+    read: (source) => numberAsNull(source.rules.draw_points),
   },
   {
     path: "rules.tiebreak_order",
@@ -40,32 +44,32 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<SaisonDraftFields, FLSaisonF
     group: "Regeln",
     // One row over both sides: the season regulates them together, so a row per number would report
     // half a decision. `errorPaths` is what still lands each field's own message on it.
-    read: (source) => `${String(source.rules.forfeit_ergebnis.sieger_tore)}:${String(source.rules.forfeit_ergebnis.verlierer_tore)}`,
+    read: (source) => forfeitAsNull(source.rules.forfeit_ergebnis),
     errorPaths: ["rules.forfeit_ergebnis", "rules.forfeit_ergebnis.sieger_tore", "rules.forfeit_ergebnis.verlierer_tore"],
   },
   {
     path: "rules.number_of_groups",
     label: "Gruppen",
     group: "Regeln",
-    read: (source) => String(source.rules.number_of_groups),
+    read: (source) => numberAsNull(source.rules.number_of_groups),
   },
   {
     path: "rules.teams_per_group",
     label: "Teams pro Gruppe",
     group: "Regeln",
-    read: (source) => String(source.rules.teams_per_group),
+    read: (source) => numberAsNull(source.rules.teams_per_group),
   },
   {
     path: "rules.qualifiers_per_group",
     label: "Qualifikanten pro Gruppe",
     group: "Regeln",
-    read: (source) => String(source.rules.qualifiers_per_group),
+    read: (source) => numberAsNull(source.rules.qualifiers_per_group),
   },
   {
     path: "rules.max_kadergroesse",
     label: "Maximale Kadergröße",
     group: "Regeln",
-    read: (source) => String(source.rules.max_kadergroesse),
+    read: (source) => numberAsNull(source.rules.max_kadergroesse),
   },
   {
     path: "rules.erlaubte_stufen",

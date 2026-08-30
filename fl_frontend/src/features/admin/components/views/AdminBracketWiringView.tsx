@@ -97,7 +97,7 @@ function SlotWiring({
  * step with the endpoint's refusals. The Gruppenphase is absent by construction — the write path
  * refuses a `quelle` there.
  */
-export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiele[] }) {
+export function AdminBracketWiringView({ rounds, saisonId }: { rounds: FLSpieltagWithSpiele[]; saisonId: string | null }) {
   // The number an admin checks against is the matchday's own `position`, which the label reads
   // straight off each row rather than counting over this list.
   const labels = spieltagLabels(rounds);
@@ -207,7 +207,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                                   middle-click opens the fixture in its own tab. */}
                               <IconTooltip label="Spiel bearbeiten">
                                 <Link
-                                  href={adminSpielEditHref(spiel.id)}
+                                  href={adminSpielEditHref(spiel.id, saisonId)}
                                   aria-label={`Spiel Nr. ${spiel.spiel_nr} bearbeiten`}
                                   className="bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid-hover flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-xl shadow-sm transition-colors duration-200 md:h-[38px] md:w-[38px]">
                                   <PencilToSquare className="m-0 size-5" />

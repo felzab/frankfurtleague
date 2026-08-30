@@ -37,5 +37,10 @@ export default async function AdminFinalrundenPage(props: NextPageProps) {
     }),
   );
 
-  return <AdminBracketWiringView rounds={rounds} />;
+  return (
+    <AdminBracketWiringView
+      rounds={rounds}
+      saisonId={specifiedSaisonId ?? null}
+    />
+  );
 }

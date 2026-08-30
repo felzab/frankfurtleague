@@ -1,11 +1,11 @@
-import type { FLPostSchiedsrichterPayload } from "./schemas";
+import type { FLPostSchiedsrichterPayload, FLSchiedsrichterPayloadDraft } from "./schemas";
 
 /**
- * Derived from the payload schema the action validates, never restated. `default_payment` stays a
- * plain number: 0 € is a legitimate default, and the "emptied field must not become 0" rule is the
- * match-level override's in `spiele/schemas.ts`.
+ * Derived from the payload schema the action validates, never restated, and widened at the fee: an untouched or
+ * emptied box holds `null`, which the schema refuses by name. Spreading a narrower `T` here would type the write
+ * as `T & { default_payment: number | null }` — assignable to `T`, so the `null` vanishes from the caller's view.
  */
-export type SchiedsrichterDraft = FLPostSchiedsrichterPayload;
+export type SchiedsrichterDraft = FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>;
 
 export type FLSchiedsrichterSortingOptions = "name" | "default_payment";
 

@@ -107,7 +107,6 @@ export function FormBewerbungSection({
                   onChange={(next) => onBewerbungChange({ ...bewerbung, von: next?.toString() ?? "" })}
                   onBlur={() => onFieldLeft(["bewerbung.von"])}
                   maxValue={bis ?? undefined}
-                  rangeMessage="Wähle einen Tag vor dem Ende der Frist."
                 />
                 <SaisonDateField
                   isRequired
@@ -118,7 +117,6 @@ export function FormBewerbungSection({
                   onChange={(next) => onBewerbungChange({ ...bewerbung, bis: next?.toString() ?? "" })}
                   onBlur={() => onFieldLeft(["bewerbung.bis"])}
                   minValue={von ?? undefined}
-                  rangeMessage="Wähle einen Tag nach dem Beginn der Frist."
                 />
               </div>
             </div>

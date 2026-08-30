@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
+
 import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
@@ -15,6 +17,9 @@ const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "u
 const EDITOR_DIR = path.resolve(import.meta.dirname, "components", "forms", "AdminKontakteEditForm");
 const FORM_SOURCE = readFileSync(path.resolve(EDITOR_DIR, "AdminKontakteEditForm.tsx"), "utf8");
 const SECTION_SOURCE = readFileSync(path.resolve(EDITOR_DIR, "FormKontakteSection.tsx"), "utf8");
+const LOESCHEN = readFileSync(path.resolve(EDITOR_DIR, "FormKontakteLoeschenSection.tsx"), "utf8");
+const ERASURE = readFileSync(path.resolve(EDITOR_DIR, "FormKontaktErasure.tsx"), "utf8");
+const ACTIONS_SRC = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 /** Whitespace-collapsed: the section's copy is JSX text, so the formatter picks its line breaks. */
 const SECTION = SECTION_SOURCE.replace(/\s+/g, " ");
 const BANNERS = readFileSync(path.resolve(EDITOR_DIR, "banners.ts"), "utf8");
@@ -224,45 +229,75 @@ describe("the editor's shape", () => {
     assert.ok(!/onChange=\{\(next\) => \{[^}]*onFieldLeft/.test(SECTION_SOURCE), "a change handler judges a seat's field between keystrokes");
     assert.match(
       SECTION,
-      /onValidateSelection\(mirroredJudgedPaths\(\[`kontakte\.\$\{rolle\}\.einwilligung\.erteilt_von`\], isMirroring\)/,
+      /onValidateSelection\(mirroredJudgedPaths\(\[`kontakte\.\$\{rolle\}\.einwilligung\.erteilt_von`\], mirroredSeat\)/,
       "the picked agreement is judged elsewhere",
     );
   });
 
-  /* Both switches hand their re-judging decision to a pure function, and the blur hands its path set
+  /* The claim is honoured at the ONE compose site. Written into the draft it overwrites whichever of
+     two real people it does not name, on the first keystroke and with no undo — a stored row can hold
+     the claim over two DIFFERENT people. */
+  it("honours the claim when the payload is composed, and never in the draft", () => {
+    assert.match(
+      FORM_SOURCE,
+      /kontakte: kontakte === null \? null : mirrorKontakte\(kontakte\)/,
+      "the payload no longer composes the claim, so the editor saves whatever the draft happens to hold",
+    );
+    assert.doesNotMatch(SECTION, /onChange\(\s*mirror/, "the section writes the mirror into the draft");
+    assert.ok(!SECTION.includes("mirrorTrainerSeat"), "the section reaches for the mirror at all");
+  });
+
+  /* The helper can only hand back what the section kept. The draft spells an empty seat `null`, so
+     nothing in it holds the person while the switch is off, and a rebuild there is silent data loss
+     with no undo behind it. */
+  it("keeps what a switched-off seat held, and hands it back on the way on", () => {
+    assert.match(SECTION, /abgelegt\.current\[rolle\] = seat;/, "the section drops what a seat held when it is switched off");
+    assert.match(SECTION, /applySeatPresence\([^)]*abgelegt\.current\[rolle\][^)]*\)/, "the section never hands the helper the person it kept");
+  });
+
+  /* Both controls hand their re-judging decision to a pure function, and the blur hands its path set
      to one: an inline condition at any of the three is a rule stated twice, and `utils.test.ts` is
-     where each of them is proven in both directions. */
+     where each of them is proven in every direction. */
   it("takes every re-judging decision from the shared helpers", () => {
+    // The decision comes FROM the helper, whatever it is passed: the argument list is the switch's
+    // business, and pinning it made restoring a switched-off seat read as a regression.
+    assert.match(SECTION, /const \{ next, revalidate \} = applySeatPresence\(/, "a seat's switch judges the mirror itself");
+    assert.match(SECTION, /const \{ next, revalidate \} = applySharedSeat\(/, "the shared-seat picker judges the mirror itself");
     assert.match(
       SECTION,
-      /const \{ next, revalidate \} = applySeatPresence\(value, rolle, present\);/,
-      "a seat's switch judges the mirror itself",
+      /onFieldLeft\(mirroredJudgedPaths\(paths, mirroredSeat\)\)/,
+      "a left field is judged without the mirror's copy of it",
     );
-    assert.match(
-      SECTION,
-      /const \{ next, revalidate \} = applySharedFlag\(value, shared\);/,
-      "the shared-seat switch judges the mirror itself",
-    );
-    assert.match(SECTION, /onFieldLeft\(mirroredJudgedPaths\(paths, isMirroring\)\)/, "a left field is judged without the mirror's copy of it");
     assert.match(SECTION, /onFieldLeft=\{judgeFieldsLeft\}/, "the seats are handed the raw handler, so the mirror's copy is never re-judged");
   });
 
   /* An empty seat is a saveable state rather than a half-finished one, and the record keeps no field
-     saying why it is empty — so nothing here may say why either. */
+     saying why it is empty — so neither surface may say why either. */
   it("renders an empty seat as its switch alone, and never explains one", () => {
     for (const claim of ["gelöscht", "entfernt worden", "nicht mehr", "unbekannt", "keine Angabe"]) {
       assert.ok(!SECTION.includes(claim), `the section says „${claim}“ about a seat, which the row records no field for`);
+      assert.ok(!LIST_TABLE.includes(claim), `the list says „${claim}“ about a seat, which the row records no field for`);
     }
-    // A dash doing a word's job is what `docs/frontend/spec.md` §1.12 bans; the list beside this
-    // editor spells the empty seat out instead.
-    assert.match(LIST_TABLE, /kontakt\.person === null \? "Niemand hinterlegt"/, "an empty seat stopped reading as a sentence");
+
+    /* The arm that RENDERS it, not merely a null-check somewhere in the file: `LIST_TABLE` collapses
+       whitespace, so a bare `person === null ?` also matches the copy handler's own ternary. */
+    const leerArm = /person === null \? \((.*?)\) : \(/.exec(LIST_TABLE)?.[1] ?? "";
+    assert.notEqual(leerArm, "", "the list no longer gives a seat holding nobody its own arm");
+
+    // Resolved through the file's own constants, so naming the sentence is as good as inlining it.
+    const genannt = /\{(\w+)\}/.exec(leerArm)?.[1];
+    const satz = genannt === undefined ? leerArm : (new RegExp(`${genannt} = "([^"]*)"`).exec(LIST_TABLE)?.[1] ?? "");
+
+    assert.match(satz, /Niemand hinterlegt/, "an empty seat stopped reading as a sentence");
   });
 
   /* Both halves or neither: a `<Form>` with no `validationErrors` shows a server refusal nowhere,
      and its `formRef` is what moves focus onto a refused box. An `action` would reset every
      controlled field (frontend spec I32). */
   it("renders the one field-error map through a form the hook can reach", () => {
-    assert.match(FORM_SOURCE, /<Form\s+ref=\{formRef\}\s+validationErrors=\{fieldErrors\}/, "the field errors reach no form");
+    assert.match(FORM_SOURCE, /<Form\b/, "the editor renders no form");
+    assert.match(FORM_SOURCE, /ref=\{formRef\}/, "the hook cannot reach the form");
+    assert.match(FORM_SOURCE, /validationErrors=\{fieldErrors\}/, "the field errors reach no form");
     assert.match(FORM_SOURCE, /onSubmit=\{runOnSubmit\(requestSave\)\}/, "the form no longer submits through runOnSubmit");
     assert.ok(!/\saction=\{/.test(FORM_SOURCE), "the form takes an action, which React resets each submit");
   });
@@ -397,7 +432,7 @@ describe("the way in and out of the editor", () => {
     assert.match(TEAM_LINK, /Kontakte für Saison \$\{saisonId\} hinterlegen/, "the empty case reads as a count of none");
     assert.match(TEAM_LINK, /1 Kontakteintrag für Saison \$\{saisonId\} bearbeiten/, "the singular reads as a plural");
     assert.match(TEAM_LINK, /\$\{String\(belegt\)\} Kontakteinträge für Saison \$\{saisonId\} bearbeiten/, "the plural moved");
-    // Never „Personen“: `trainer_ist_ansprechperson` seats one person twice, so the entries are what
+    // Never „Personen“: `trainer_ist_zugleich` seats one person twice, so the entries are what
     // can honestly be counted.
     assert.ok(!TEAM_LINK.includes("Personen für Saison"), "the link counts people, and a double-seated person makes that wrong");
   });
@@ -425,10 +460,207 @@ describe("the way in and out of the editor", () => {
     }
   });
 
-  /* A row of the list is one seat, and all three are edited together, so the row's control opens this
-     editor rather than the club's. */
+  /* A row is one club's three seats, edited together, so its control opens this editor and not the
+     club's. The template is READ rather than matched whole: the destination and the season are what
+     must hold, not a variable's name. */
   it("points every row of the list at this editor, with the season riding along", () => {
-    assert.match(LIST_TABLE, /href=\{`\/admin\/kontakte\/\$\{kontakt\.teamId\}\$\{saisonParam\}`\}/, "a row still opens the club editor");
-    assert.ok(!LIST_TABLE.includes("/admin/teams/${kontakt.teamId}"), "a row still links to the club editor for its contacts");
+    const href = /href=\{`(\/admin\/kontakte\/[^`]*)`\}/.exec(LIST_TABLE)?.[1] ?? "";
+
+    assert.notEqual(href, "", "the list offers no link into this editor");
+    assert.match(href, /^\/admin\/kontakte\/\$\{\w+\.teamId\}/, "a row opens something other than this club's seats");
+    assert.match(href, /\$\{saisonParam\}$/, "the row link drops the season it was pressed in");
+    assert.ok(!LIST_TABLE.includes("/admin/teams/${"), "a row still links to the club editor for its contacts");
+  });
+});
+
+describe("how the editor clears a season's contact block", () => {
+  /* A switch that answers „hinterlegt“ and silently drops three people is destructive work wearing a
+     toggle's shape. The deletion says what it does, and it is the one path that writes the null. */
+  it("offers no toggle that empties the block as a side effect", () => {
+    assert.ok(!SECTION.includes("Kontakte hinterlegt"), "the block toggle is back, and it deletes on the way off");
+    assert.ok(!SECTION.includes("toggleBlock"), "the block toggle's logic is back");
+  });
+
+  /* Its own red section, and LAST: every editor puts its destructive section at the bottom, and this
+     one was fixed on the Team editor the same day. */
+  it("puts the deletion in its own section, after everything the form edits", () => {
+    assert.match(
+      FORM_SOURCE,
+      /\{storedMembership !== null && \(\s*<FormKontakteLoeschenSection/,
+      "the deletion renders on a condition other than the junction row existing",
+    );
+    assert.ok(
+      FORM_SOURCE.indexOf("<FormKontakteLoeschenSection") > FORM_SOURCE.indexOf("<FormKontakteSection"),
+      "the deletion sits above the fields it deletes",
+    );
+    assert.match(LOESCHEN, /formPanel\(\{ tone: hasStored \? "danger" : "neutral" \}\)/, "the deletion is not graded as destructive");
+  });
+
+  /* A person's erasure is keyed on an ADDRESS across every season and both collections. This clears
+     ONE junction row. Merging them would answer a request to be forgotten by emptying one season. */
+  it("clears this season's block and never reaches a person's erasure", () => {
+    assert.ok(!LOESCHEN.includes("eraseKontaktperson"), "the section reaches for the erasure action");
+    assert.ok(!LOESCHEN.includes("email"), "the section is keyed on an address rather than on this row");
+    assert.match(LOESCHEN, /Saison-Zugehörigkeit/, "the section does not say which record it clears");
+  });
+});
+
+describe("how the editor asks which person the Trainer is", () => {
+  /* The DIRECTION is the thing that was unreadable. „Zugleich“ names the flag and gets read as „who
+     else is the Trainer also“, which is the way round the mirror does NOT run. */
+  it("asks who the Trainer is, and never who else is also the Trainer", () => {
+    assert.match(TRAINER_ZUGLEICH_FRAGE, /Trainer/, "the question no longer names the Trainer as its subject");
+    assert.doesNotMatch(TRAINER_ZUGLEICH_FRAGE, /zugleich/i, "the question names the flag again instead of the consequence");
+  });
+
+  /* Every answer completes the question as one sentence, which is what carries the direction: the named
+     seat IS the Trainer, so that seat's details are what the Trainer's boxes read. */
+  it("offers answers that complete the question as a sentence", () => {
+    assert.ok(TRAINER_ZUGLEICH_OPTIONS.length >= 3, "the picker no longer offers all three answers");
+
+    for (const option of TRAINER_ZUGLEICH_OPTIONS) {
+      assert.match(option.label, /^(Eine|Die)\b/, `„${option.label}“ does not complete „${TRAINER_ZUGLEICH_FRAGE}“`);
+      assert.doesNotMatch(option.label, /zugleich|sonst/i, `„${option.label}“ answers a question about the flag`);
+    }
+  });
+
+  /* The picker belongs to the Trainer seat, which is what it defines. On the block header it read as a
+     property of the whole block rather than of the person it fills in. */
+  it("renders the picker inside the Trainer seat and nowhere else", () => {
+    assert.match(SECTION, /rolle === "trainer" \? \( <TrainerZugleichPicker/, "the picker is not bound to the Trainer seat");
+    assert.equal((SECTION.match(/<TrainerZugleichPicker/g) ?? []).length, 1, "the picker renders more than once");
+  });
+});
+
+describe("which consent wording a record cites", () => {
+  /* The version NAMES the text. Kept apart, a rewording without a bump leaves every earlier record
+     claiming agreement to a text nobody was shown, and nothing anywhere would catch it. */
+  it("keeps the version in the same object as the wording it names", () => {
+    const CORE = readFileSync(path.resolve(SRC, "core", "einwilligung.ts"), "utf8");
+    const objekt = /export const LIGA_EINWILLIGUNG = \{([\s\S]*?)\} as const;/.exec(CORE)?.[1] ?? "";
+
+    assert.notEqual(objekt, "", "the league's consent constant is gone or no longer one object");
+    assert.match(objekt, /textVersion:/, "the object names no version");
+    assert.match(objekt, /text:/, "the object carries no wording for the version to name");
+  });
+
+  /* Both surfaces gather the SAME consent, so a copy per feature is two texts that drift and two
+     versions that disagree about which one a record cites. */
+  it("is read from that one place by both surfaces", () => {
+    for (const [name, file] of [
+      ["the public form", path.resolve(SRC, "features", "bewerbungen", "utils.ts")],
+      ["the admin editor", path.resolve(SRC, "features", "teams", "utils.ts")],
+    ] as const) {
+      assert.match(readFileSync(file, "utf8"), /LIGA_EINWILLIGUNG/, `${name} stamps a version of its own`);
+    }
+  });
+
+  /* Typed by hand, the version is a value nobody decided stored as though somebody had — and an edit
+     to a STORED one would rewrite which text that person agreed to, which is history. */
+  it("never lets the version be typed, on a new record or a stored one", () => {
+    const feld = /<TextField[^>]*isReadOnly[\s\S]{0,400}?einwilligung\.text_version[\s\S]*?<\/TextField>/.exec(SECTION_SOURCE)?.[0] ?? "";
+
+    assert.notEqual(feld, "", "the Fassung field is no longer read-only");
+    assert.match(feld, /onChange=\{\(\) => undefined\}/, "the Fassung field still writes what is typed into it");
+    assert.doesNotMatch(feld, /setEinwilligung\(\{ text_version/, "the Fassung field still edits the stored version");
+  });
+});
+
+describe("how the editor divides one person from the next", () => {
+  /* Two depths drawn the same way is the defect: a rule between two people looked like the rule
+     between a person's details and their agreement, so neither read as a boundary. */
+  it("gives every seat its own panel rather than a rule inside one", () => {
+    /* The panel and its heading, not what the heading holds: pinning the contents made adding the
+       seat's own info icon read as the panel being lost. */
+    assert.match(
+      SECTION,
+      /<section className=\{panel\.root\(\)\}> <div className=\{panel\.header\(\)\}> <h2 className=\{panel\.heading\(\)\}>/,
+      "a seat is drawn as something other than its own panel",
+    );
+    assert.doesNotMatch(SECTION, /border-t pt-5 first:border-t-0/, "the seats are back to being slices of one panel");
+  });
+
+  /* An empty card carrying a title and nothing else is what the block heading had become once each
+     seat had a card of its own. */
+  it("raises no block panel above the seats", () => {
+    // Any spelling of the heading slot, not just `panel.`: `formPanel().heading()` renders the same
+    // title and would otherwise slip past.
+    assert.doesNotMatch(SECTION, /heading\(\)\}> Kontakte/, "the empty block heading is back above the seats");
+  });
+
+  /* One explanation per seat, on the seat: the three answer different questions, and a reader at a
+     seat should not have to look elsewhere to learn which. */
+  it("explains each seat on its own heading", () => {
+    assert.match(SECTION, /SEAT_HINT\[rolle\]/, "the seats carry no explanation of their own");
+
+    for (const rolle of ["trainer", "ansprechperson", "stellvertretung"]) {
+      // A plain substring, not a built regex: an unescaped paren there is an unterminated group.
+      assert.ok(SECTION.includes(`${rolle}: ( <Hint`), `the ${rolle} seat has no hint of its own`);
+    }
+  });
+
+  /* The lighter rule stays where it belongs: INSIDE a person, between their details and the
+     agreement. One depth, one drawing. */
+  it("keeps exactly one rule inside a seat, for the agreement", () => {
+    const regeln = [...SECTION_SOURCE.matchAll(/border-t pt-\d/g)];
+
+    assert.equal(regeln.length, 1, `the seat draws ${String(regeln.length)} rules where the agreement needs one`);
+  });
+});
+
+describe("what the two destructive controls do to the page", () => {
+  /* Both write on the server and then re-read the page, so an unsaved draft would be diffed against a
+     baseline that moved underneath it. Every one-way control here guards the same way. */
+  it("refuses to write over unsaved work, on both", () => {
+    for (const [name, source] of [
+      ["the person's erasure", ERASURE],
+      ["the season's clear", LOESCHEN],
+    ] as const) {
+      assert.match(source, /if \(!guardAgainstDraft\(isDirty, DRAFT_IN_THE_WAY\)\) return;/, `${name} writes over an unsaved draft`);
+    }
+  });
+
+  /* The row is the team BEING IN the season, so clearing its contacts cannot remove it. Navigating to
+     a list that still shows the entry would read as a failed delete. */
+  it("stays on the page and re-reads it, on both", () => {
+    for (const [name, source] of [
+      ["the person's erasure", ERASURE],
+      ["the season's clear", LOESCHEN],
+    ] as const) {
+      assert.match(source, /router\.refresh\(\);/, `${name} does not re-read the row it just changed`);
+      assert.doesNotMatch(source, /router\.(replace|push)\(/, `${name} navigates away from a page that still has content`);
+    }
+  });
+
+  /* Two presses, never one: both are one-way, and `useTwoPressConfirm` is what every other one-way
+     control in the admin confirms through. */
+  it("confirms before it writes, on both", () => {
+    for (const [name, source] of [
+      ["the person's erasure", ERASURE],
+      ["the season's clear", LOESCHEN],
+    ] as const) {
+      assert.match(source, /press\(async \(\) => \{/, `${name} writes without a confirmation step`);
+      assert.match(source, /<ConfirmReveal>/, `${name} confirms without saying what it takes`);
+    }
+  });
+
+  /* `POST /kontakte/erasure` refuses NOTHING, so an address matching nobody succeeds and clears zero.
+     Reported as „gelöscht“, that is a lie of the quiet kind. */
+  it("tells an erasure apart from a no-op", () => {
+    assert.match(
+      ACTIONS_SRC,
+      /cleared: erasure\.cleared_kontakt_slots \+ erasure\.redacted_aktionen,/,
+      "the action reports no count to judge by",
+    );
+    assert.match(ERASURE, /if \(res\.cleared === 0\) appToast\.warning\(/, "a write that found nothing is reported as a deletion");
+  });
+
+  /* The whole safety of moving this control off a page that showed an address onto a page that shows
+     one season: without the reach spelled out it reads as clearing this seat. */
+  it("states the erasure's reach where it is confirmed", () => {
+    for (const label of ["Saison-Zugehörigkeiten", "Bewerbungen", "Änderungsprotokoll"]) {
+      assert.ok(ERASURE.includes(`label="${label}"`), `the confirmation does not say it reaches ${label}`);
+    }
+    assert.match(ERASURE, /jede, in der diese Adresse steht/, "the confirmation does not say the reach is every season");
   });
 });

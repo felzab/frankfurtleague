@@ -153,7 +153,10 @@ export function FormAustrittSection({
                 <FieldError className={FIELD_ERROR} />
               </TextField>
 
+              {/* ARIA only: react-aria marks no control inside a date picker, so the browser cannot
+                  refuse it empty. `missingVerdicts` supplies the German instead, on submit. */}
               <DatePicker
+                isRequired
                 value={datum}
                 onChange={onDatumChange}
                 onBlur={() => onValidateFields(["austritt.datum"])}

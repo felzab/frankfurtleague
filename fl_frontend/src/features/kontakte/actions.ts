@@ -20,7 +20,7 @@ import type { SaisonTeamKontaktePayloadDraft } from "./types";
  */
 export async function eraseKontaktpersonAction(
   rawPayload: FLKontaktErasurePayload,
-): Promise<{ success: boolean; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<{ success: boolean; cleared?: number; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("eraseKontaktpersonAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -47,8 +47,9 @@ export async function eraseKontaktpersonAction(
 
     return {
       success: true,
-      // Counts alone. Echoing the address here would file a fresh copy of it in this response and in
-      // the toast that renders it, which is the whole of what the request asked to be rid of.
+      /* How much was touched, so a caller can tell an erasure from a no-op: this endpoint refuses
+         nothing, so an address matching nobody succeeds and clears zero. A count, never the address. */
+      cleared: erasure.cleared_kontakt_slots + erasure.redacted_aktionen,
       message: describeKontaktErasureUmfang(erasure),
     };
   });

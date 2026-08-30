@@ -22,6 +22,11 @@ export const FLPatchSpielortPayloadSchema = z.object({
 });
 export type FLPatchSpielortPayload = z.infer<typeof FLPatchSpielortPayloadSchema>;
 
+/** Widened at the money field: an emptied box holds `null`, which the schema above refuses at the submit. */
+export type FLSpielortPayloadDraft<T extends { default_mietpreis: number }> = Omit<T, "default_mietpreis"> & {
+  default_mietpreis: number | null;
+};
+
 /** The retire and reactivate calls: an id in the path, no request body. */
 export const FLSpielortKeyPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,

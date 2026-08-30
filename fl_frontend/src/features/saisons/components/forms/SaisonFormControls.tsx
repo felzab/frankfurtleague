@@ -14,6 +14,7 @@ import {
   FIELD_TRIGGER,
 } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel, SELECT_POPOVER } from "@/shared/components/ui/overlayPanel";
+import { enteredNumber } from "@/shared/utils/numberField";
 
 import type { FLSaisonTiebreakOrder } from "@/features/saisons/schemas";
 import type { Key } from "@heroui/react";
@@ -30,7 +31,6 @@ export function SaisonDateField({
   isRequired = false,
   minValue,
   maxValue,
-  rangeMessage = "Wähle einen Tag im möglichen Zeitraum.",
 }: {
   /** The field's path in the payload, so `Form`'s `validationErrors` reach it by name. */
   name: string;
@@ -42,16 +42,12 @@ export function SaisonDateField({
   onBlur?: () => void;
   isRequired?: boolean;
   /**
-   * Days outside it are greyed out in the calendar and refused by the field, so an illegal value is
-   * UNPICKABLE rather than reported after the fact.
+   * Greys the days out in the CALENDAR, which offers dates, never on the field, which judges them: `aria` folds a
+   * field's bounds into its displayed validation in realtime, so a bound there paints a message on each keystroke
+   * of a half-typed year. The schema is what refuses an out-of-span date, on the blur and at the submit.
    */
   minValue?: CalendarDate;
   maxValue?: CalendarDate;
-  /**
-   * Shown when the value falls outside the bounds, in place of the browser's bare date. Per site,
-   * because the bound means something different at each.
-   */
-  rangeMessage?: string;
 }) {
   return (
     <DatePicker
@@ -59,8 +55,6 @@ export function SaisonDateField({
       value={value}
       onChange={onChange}
       onBlur={onBlur}
-      minValue={minValue}
-      maxValue={maxValue}
       name={name}
       className="w-full">
       {label}
@@ -81,19 +75,14 @@ export function SaisonDateField({
           </DatePicker.Trigger>
         </DateField.Suffix>
       </DateField.Group>
-      <FieldError className={FIELD_ERROR}>
-        {/* Only the range, which is OUR rule and which the browser can state only as a bare date in
-            its own locale. Everything else stays the browser's, in the language the reader chose:
-            `validationErrors` is where native validation puts it. */}
-        {({ validationDetails, validationErrors }) =>
-          validationDetails.rangeOverflow || validationDetails.rangeUnderflow ? rangeMessage : validationErrors.join(" ")
-        }
-      </FieldError>
+      <FieldError className={FIELD_ERROR} />
       <DatePicker.Popover
         className={DATE_PICKER_POPOVER}
         placement={DATE_PICKER_PLACEMENT}>
         <Calendar
           aria-label={ariaLabel}
+          minValue={minValue}
+          maxValue={maxValue}
           className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>
           <Calendar.Header className="bg-transparent">
             {/* The year picker earns its place here more than anywhere else in the app: a season's dates
@@ -119,8 +108,8 @@ export function SaisonDateField({
 }
 
 /**
- * `minValue` doubles as the fallback for a cleared box: an emptied number field reports `NaN` and the
- * payload needs a number, so the draft never holds a value the field cannot render.
+ * An emptied box records `null`, never the floor: substituting `minValue` silently answers a question nobody
+ * answered, and one group is not the same fact as no number entered.
  */
 export function SaisonRuleNumberField({
   name,
@@ -135,8 +124,8 @@ export function SaisonRuleNumberField({
   /** The field's path in the payload, so `Form`'s `validationErrors` reach it by name. */
   name: string;
   label: ReactNode;
-  value: number;
-  onChange: (next: number) => void;
+  value: number | null;
+  onChange: (next: number | null) => void;
   onBlur?: () => void;
   minValue: number;
   maxValue?: number;
@@ -153,11 +142,11 @@ export function SaisonRuleNumberField({
       name={name}
       minValue={minValue}
       maxValue={maxValue}
-      value={value}
+      value={value ?? Number.NaN}
       // Its dimming is `globals.css`'s, keyed on `[data-readonly="true"]`, so every frozen number
       // field in the product dims by the same amount — an `opacity-*` added here would double it.
       isReadOnly={isReadOnly}
-      onChange={(next) => onChange(Number.isNaN(next) ? minValue : next)}
+      onChange={(next) => onChange(enteredNumber(next))}
       onBlur={onBlur}>
       {label}
       <NumberField.Group className={FIELD_GROUP}>

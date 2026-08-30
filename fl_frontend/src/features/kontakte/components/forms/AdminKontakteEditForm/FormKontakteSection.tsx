@@ -1,14 +1,15 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 
 import { parseDate } from "@internationalized/date";
 
 import { Calendar, DateField, DatePicker, FieldError, Input, Switch, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
 
-import { kontaktSeatPaths } from "@/features/kontakte/kontakteDraftStatus";
-import { applySeatPresence, applySharedFlag, mirroredJudgedPaths, mirrorKontakte } from "@/features/kontakte/utils";
-import { EINWILLIGUNG_HERKUNFT_OPTIONS, KONTAKT_ROLLEN } from "@/features/teams/constants";
+import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
+import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
+import { EINWILLIGUNG_HERKUNFT_OPTIONS, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {
@@ -25,21 +26,18 @@ import {
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
+import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
+import { FormKontaktErasure } from "./FormKontaktErasure";
+
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLKontaktEinwilligung } from "@/features/teams/schemas";
+import type { FLKontaktEinwilligung, FLTrainerZugleich } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
 import type { Key } from "@heroui/react";
 import type { CalendarDate } from "@internationalized/date";
+import type { ReactNode } from "react";
 import type { KontakteBanner } from "./banners";
-
-/** `FormAustrittSection`'s chip, which the same reasoning about HeroUI's layered fills produced. */
-const HERKUNFT_CHIP =
-  "border-border bg-transparent text-foreground-muted " +
-  "data-[selected=true]:border-brand-solid data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground " +
-  "data-[selected=true]:ring-brand-solid-foreground " +
-  "fluid-xs h-9 rounded-lg border px-4 font-extrabold tracking-wide transition-colors";
 
 /** The empty string is a date nobody has entered yet, which the picker has to show as empty rather than refuse. */
 function toCalendarDate(stored: string): CalendarDate | null {
@@ -47,7 +45,6 @@ function toCalendarDate(stored: string): CalendarDate | null {
 }
 
 /** Every path the three seats report under. Module scope: the set is the same on every render. */
-const ALL_SEAT_PATHS = KONTAKT_ROLLEN.flatMap(({ value }) => kontaktSeatPaths(value));
 
 /**
  * The three seats a season holds for one club, each with the agreement its details are kept under.
@@ -61,6 +58,7 @@ export function FormKontakteSection({
   banners,
   onChange,
   onFieldLeft,
+  isDirty,
   onValidateSelection,
 }: {
   value: SaisonTeamKontakteDraft | null;
@@ -71,31 +69,40 @@ export function FormKontakteSection({
   banners: readonly KontakteBanner[];
   onChange: (next: SaisonTeamKontakteDraft | null) => void;
   onFieldLeft: (paths: readonly string[]) => void;
+  /** Unsaved work in the draft, which both destructive controls here refuse to write over. */
+  isDirty: boolean;
   /** Judged with the value that arrived in the event, because state has not committed yet. */
   onValidateSelection: (paths: readonly string[], selected: { kontakte: SaisonTeamKontakteDraft | null }) => void;
 }) {
-  const panel = formPanel();
-
   /**
    * Re-judged wherever a switch RESOLVES what a seat holds. All three paths sets, because
    * `mirrorKontakte` moves two seats at once.
    */
   const revalidateSeats = (next: SaisonTeamKontakteDraft | null) => onValidateSelection(ALL_SEAT_PATHS, { kontakte: next });
 
-  /** The Ansprechperson seat tracks the trainer, so no judgement of a trainer field may leave its copy behind. */
-  const isMirroring = value?.trainer_ist_ansprechperson === true;
+  const abgelegt = useRef<Partial<Record<KontaktRolle, KontaktpersonDraft>>>({});
 
-  const judgeFieldsLeft = (paths: readonly string[]) => onFieldLeft(mirroredJudgedPaths(paths, isMirroring));
+  /** The seat that tracks the trainer, so no judgement of a trainer field may leave its copy behind. */
+  /* A block to work against whether one is stored yet or not: entering somebody is what creates
+     it, and only the editor's deletion section takes it away again. */
+  const basis = value ?? buildEmptyKontakte();
+
+  const mirroredSeat = basis.trainer_ist_zugleich;
+
+  const judgeFieldsLeft = (paths: readonly string[]) => onFieldLeft(mirroredJudgedPaths(paths, mirroredSeat));
 
   const applyPerson = (rolle: KontaktRolle, person: KontaktpersonDraft) => {
-    if (value === null) return;
-    onChange(mirrorKontakte({ ...value, [rolle]: person }));
+    onChange({ ...basis, [rolle]: person });
   };
 
   /** Whether the seat holds anybody. A pick, so it is judged on the press rather than on a blur. */
   const setPresence = (rolle: KontaktRolle, present: boolean) => {
-    if (value === null) return;
-    const { next, revalidate } = applySeatPresence(value, rolle, present);
+    // Kept out of the draft, which spells an empty seat as `null` and so has nowhere to hold this:
+    // switching a seat off and on again returns the person rather than three empty boxes.
+    const seat = basis[rolle];
+    if (!present && seat !== null) abgelegt.current[rolle] = seat;
+
+    const { next, revalidate } = applySeatPresence(basis, rolle, present, present ? abgelegt.current[rolle] : undefined);
 
     onChange(next);
     if (revalidate) revalidateSeats(next);
@@ -103,113 +110,159 @@ export function FormKontakteSection({
 
   /** Judged on the pick, as every picked field is, and on the value `mirrorKontakte` would store. */
   const pickHerkunft = (rolle: KontaktRolle, erteilt_von: FLKontaktEinwilligung["erteilt_von"]) => {
-    const seat = value?.[rolle] ?? null;
-    if (value === null || seat === null) return;
+    const seat = basis[rolle];
+    if (seat === null) return;
     const person = { ...seat, einwilligung: { ...seat.einwilligung, erteilt_von } };
-    const next = mirrorKontakte({ ...value, [rolle]: person });
+    const next = { ...basis, [rolle]: person };
 
     onChange(next);
-    onValidateSelection(mirroredJudgedPaths([`kontakte.${rolle}.einwilligung.erteilt_von`], isMirroring), { kontakte: next });
+    onValidateSelection(mirroredJudgedPaths([`kontakte.${rolle}.einwilligung.erteilt_von`], mirroredSeat), { kontakte: next });
   };
 
   /**
-   * Read-only rather than hidden. The flag is an assertion the backend never checks, so a stored row
+   * Read-only rather than hidden. The claim is an assertion the backend never checks, so a stored row
    * can hold it over two DIFFERENT people, and a hidden block leaves that second person one
    * keystroke from being overwritten unseen.
    */
-  const isMirrored = (rolle: KontaktRolle) => rolle === "ansprechperson" && isMirroring;
+  const isMirrored = (rolle: KontaktRolle) => rolle === mirroredSeat;
 
-  const toggleBlock = (present: boolean) => {
-    const next = present ? buildEmptyKontakte() : null;
-
-    onChange(next);
-    if (!present) revalidateSeats(next);
-  };
-
-  const toggleShared = (shared: boolean) => {
-    if (value === null) return;
-    const { next, revalidate } = applySharedFlag(value, shared);
+  /** A pick, so it is judged on the press. One closed set, so no press can claim two seats at once. */
+  const pickSharedSeat = (seat: FLTrainerZugleich | null) => {
+    const { next, revalidate } = applySharedSeat(basis, seat);
 
     onChange(next);
     if (revalidate) revalidateSeats(next);
   };
 
   return (
-    <section className={panel.root()}>
-      <div className={panel.header()}>
-        <h2 className={panel.heading()}>
-          Kontakte
-          <Hint
-            mode="reveal"
-            label="Hinweis zu den Kontakten"
-            body={{
-              lead: "Wer für dieses Team in dieser Saison erreichbar ist.",
-              points: [{ term: "Diese Angaben", text: "bleiben in der Verwaltung und erscheinen nirgends öffentlich." }],
-            }}
+    <>
+      {/* No panel of its own: with each seat in a card, a block heading above them carried a title and
+          nothing else. What is block-level rides here without a frame around it. */}
+      <InlineBanners
+        banners={banners}
+        spot="kontakte-block"
+      />
+
+      {!isMember && (
+        // A link and no control: the seats hang off a season membership, and entering one is the club
+        // page's write rather than this page's.
+        <Link
+          href={teamHref}
+          className="text-brand hover:text-brand-solid fluid-sm w-fit font-bold transition-colors">
+          Zur Seite des Teams
+        </Link>
+      )}
+
+      {/* A PANEL per person, never a rule inside one: drawn the same way, the division between two
+        people and the one inside a person read alike, so neither read as a boundary. The public
+        form seats its three the same way. */}
+      {isMember &&
+        KONTAKT_ROLLEN.map(({ value: rolle, label }) => (
+          <KontaktpersonFields
+            key={rolle}
+            rolle={rolle}
+            label={label}
+            person={basis[rolle]}
+            isMirrored={isMirrored(rolle)}
+            /* The question belongs to the Trainer seat: it asks who the Trainer IS, and the answer is
+             what that seat's boxes then read. */
+            zugleich={
+              rolle === "trainer" ? (
+                <TrainerZugleichPicker
+                  value={basis.trainer_ist_zugleich}
+                  onPick={pickSharedSeat}
+                />
+              ) : null
+            }
+            isDirty={isDirty}
+            onPresenceChange={(present) => setPresence(rolle, present)}
+            onChange={(person) => applyPerson(rolle, person)}
+            onFieldLeft={judgeFieldsLeft}
+            onHerkunftPicked={(erteilt_von) => pickHerkunft(rolle, erteilt_von)}
           />
-        </h2>
-      </div>
+        ))}
+    </>
+  );
+}
 
-      <div className={panel.body()}>
-        <InlineBanners
-          banners={banners}
-          spot="kontakte-block"
-        />
+/**
+ * What each seat is for, on the seat's own heading.
+ *
+ * Three different sentences because the three answer different questions. What they SHARE — that none
+ * of this is published — is true of the whole slice and is stated on the sidemenu's own hint.
+ */
+const SEAT_HINT: Record<KontaktRolle, ReactNode> = {
+  trainer: (
+    <Hint
+      mode="reveal"
+      label="Hinweis zur Trainerin oder zum Trainer"
+      body={{ lead: "Wer das Team am Spieltag betreut und aufstellt." }}
+    />
+  ),
+  ansprechperson: (
+    <Hint
+      mode="reveal"
+      label="Hinweis zur Ansprechperson"
+      body={{ lead: "Wen die Liga zuerst anruft, wenn es um dieses Team geht." }}
+    />
+  ),
+  stellvertretung: (
+    <Hint
+      mode="reveal"
+      label="Hinweis zur Stellvertretung"
+      body={{ lead: "Wen die Liga erreicht, wenn die Ansprechperson gerade nicht kann." }}
+    />
+  ),
+};
 
-        {!isMember && (
-          // A link and no control: the seats hang off a season membership, and entering one is the
-          // club page's write rather than this page's.
-          <Link
-            href={teamHref}
-            className="text-brand hover:text-brand-solid fluid-sm w-fit font-bold transition-colors">
-            Zur Seite des Teams
-          </Link>
-        )}
+/**
+ * Which OTHER seat the Trainer also holds, as one question with three answers. A closed set rather
+ * than a tick per seat: one person cannot hold both, and a control offering that asks for a block
+ * `FLSaisonTeamKontaktePayload` has no way to spell.
+ */
+function TrainerZugleichPicker({ value, onPick }: { value: FLTrainerZugleich | null; onPick: (seat: FLTrainerZugleich | null) => void }) {
+  // `ToggleButtonGroup` takes no `name`, so the proxy field below is what names it; the id names the
+  // group without pulling the changed-field marker into that name.
+  const labelId = "kontakte-trainer-ist-zugleich";
 
-        {isMember && (
-          <Switch
-            isSelected={value !== null}
-            onChange={toggleBlock}>
-            <Switch.Content className={panel.switchContent()}>
-              Kontakte hinterlegt
-              <Switch.Control className={panel.switchControl()}>
-                <Switch.Thumb />
-              </Switch.Control>
-            </Switch.Content>
-          </Switch>
-        )}
+  return (
+    <TextField
+      name="kontakte.trainer_ist_zugleich"
+      value={value ?? ""}
+      onChange={() => undefined}
+      className="flex w-full flex-col gap-y-1">
+      {/* A `Label` and not a plain span: it names the enclosing `TextField`, which carries no
+          `aria-label`, so `useLabel` would warn without it. */}
+      <FieldLabel path="kontakte.trainer_ist_zugleich">
+        <span id={labelId}>{TRAINER_ZUGLEICH_FRAGE}</span>
+      </FieldLabel>
+      <ToggleButtonGroup
+        aria-labelledby={labelId}
+        size="sm"
+        isDetached
+        selectionMode="single"
+        // „Niemand sonst“ is an answer rather than the absence of one, so the group always holds a
+        // selection and the empty state below is unreachable after the first render.
+        disallowEmptySelection
+        selectedKeys={[TRAINER_ZUGLEICH_OPTIONS.find((option) => option.value === value)?.key ?? "niemand"]}
+        onSelectionChange={(keys: Set<Key>) => {
+          const [picked] = [...keys].map(String);
+          const option = TRAINER_ZUGLEICH_OPTIONS.find((candidate) => candidate.key === picked);
+          if (option !== undefined) onPick(option.value);
+        }}
+        className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
+        {TRAINER_ZUGLEICH_OPTIONS.map((option) => (
+          <ToggleButton
+            key={option.key}
+            id={option.key}
+            className={OPTION_CHIP}>
+            {option.label}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
 
-        {isMember && value !== null && (
-          <>
-            <Switch
-              name="kontakte.trainer_ist_ansprechperson"
-              isSelected={value.trainer_ist_ansprechperson}
-              onChange={toggleShared}>
-              <Switch.Content className={panel.switchContent()}>
-                Trainer ist zugleich Ansprechperson
-                <Switch.Control className={panel.switchControl()}>
-                  <Switch.Thumb />
-                </Switch.Control>
-              </Switch.Content>
-            </Switch>
-
-            {KONTAKT_ROLLEN.map(({ value: rolle, label }) => (
-              <KontaktpersonFields
-                key={rolle}
-                rolle={rolle}
-                label={label}
-                person={value[rolle]}
-                isMirrored={isMirrored(rolle)}
-                onPresenceChange={(present) => setPresence(rolle, present)}
-                onChange={(person) => applyPerson(rolle, person)}
-                onFieldLeft={judgeFieldsLeft}
-                onHerkunftPicked={(erteilt_von) => pickHerkunft(rolle, erteilt_von)}
-              />
-            ))}
-          </>
-        )}
-      </div>
-    </section>
+      <Input className="hidden" />
+    </TextField>
   );
 }
 
@@ -222,6 +275,8 @@ function KontaktpersonFields({
   label,
   person,
   isMirrored,
+  zugleich,
+  isDirty,
   onPresenceChange,
   onChange,
   onFieldLeft,
@@ -233,6 +288,9 @@ function KontaktpersonFields({
   person: KontaktpersonDraft | null;
   /** This seat tracks the trainer, so its boxes read out rather than take input. */
   isMirrored: boolean;
+  /** The claim's picker, on the Trainer seat alone. `null` on the two seats the claim can name. */
+  zugleich: ReactNode;
+  isDirty: boolean;
   onPresenceChange: (present: boolean) => void;
   onChange: (next: KontaktpersonDraft) => void;
   onFieldLeft: (paths: readonly string[]) => void;
@@ -241,35 +299,54 @@ function KontaktpersonFields({
   const panel = formPanel();
 
   return (
-    <div className="border-border flex w-full flex-col gap-y-4 border-t pt-5 first:border-t-0 first:pt-0">
-      <h3 className={FORM_SECTION_HEADING}>{label}</h3>
+    <section className={panel.root()}>
+      <div className={panel.header()}>
+        <h2 className={panel.heading()}>
+          {label}
+          {SEAT_HINT[rolle]}
+        </h2>
+      </div>
 
-      {/* The block's own control one seat down, and the same control on purpose: what it answers here
+      <div className={panel.body()}>
+        {zugleich}
+
+        {/* The block's own control one seat down, and the same control on purpose: what it answers here
           is the same question, so a second shape for it would read as a different one. */}
-      <Switch
-        isSelected={person !== null}
-        isDisabled={isMirrored}
-        onChange={onPresenceChange}>
-        <Switch.Content className={panel.switchContent()}>
-          {`${label} hinterlegt`}
-          <Switch.Control className={panel.switchControl()}>
-            <Switch.Thumb />
-          </Switch.Control>
-        </Switch.Content>
-      </Switch>
+        <Switch
+          isSelected={person !== null}
+          isDisabled={isMirrored}
+          onChange={onPresenceChange}>
+          <Switch.Content className={panel.switchContent()}>
+            {`${label} hinterlegt`}
+            <Switch.Control className={panel.switchControl()}>
+              <Switch.Thumb />
+            </Switch.Control>
+          </Switch.Content>
+        </Switch>
 
-      {person !== null && (
-        <KontaktpersonInputs
-          rolle={rolle}
-          label={label}
-          person={person}
-          isMirrored={isMirrored}
-          onChange={onChange}
-          onFieldLeft={onFieldLeft}
-          onHerkunftPicked={onHerkunftPicked}
-        />
-      )}
-    </div>
+        {person !== null && (
+          <KontaktpersonInputs
+            rolle={rolle}
+            label={label}
+            person={person}
+            isMirrored={isMirrored}
+            onChange={onChange}
+            onFieldLeft={onFieldLeft}
+            onHerkunftPicked={onHerkunftPicked}
+          />
+        )}
+
+        {/* On the seat that HOLDS the person, never the mirrored copy: the claim points two seats at
+            one record, and offering the erasure twice would read as two people. */}
+        {person !== null && !isMirrored && person.email !== "" && (
+          <FormKontaktErasure
+            email={person.email}
+            fullName={`${person.vorname} ${person.nachname}`.trim() || person.email}
+            isDirty={isDirty}
+          />
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -406,7 +483,7 @@ function KontaktpersonInputs({
               <ToggleButton
                 key={option.value}
                 id={option.value}
-                className={HERKUNFT_CHIP}>
+                className={OPTION_CHIP}>
                 {option.label}
               </ToggleButton>
             ))}
@@ -418,17 +495,16 @@ function KontaktpersonInputs({
 
         <div className={FIELD_PAIR}>
           <TextField
-            isReadOnly={isMirrored}
+            isReadOnly
             isRequired
             name={`kontakte.${rolle}.einwilligung.text_version`}
             value={person.einwilligung.text_version}
-            onChange={(next) => setEinwilligung({ text_version: next })}
-            onBlur={() => onFieldLeft([`kontakte.${rolle}.einwilligung.text_version`])}>
+            onChange={() => undefined}>
             <FieldLabel path={`kontakte.${rolle}.einwilligung`}>Unterschriebene Fassung</FieldLabel>
-            <Input
-              placeholder="z.B. 2025-08"
-              className={FIELD_INPUT}
-            />
+            {/* Read-only in BOTH directions: a new consent is stamped with the current wording's version,
+                and a stored one keeps the version it was given, or the record would claim agreement to a
+                text this person never saw. */}
+            <Input className={FIELD_INPUT} />
             <FieldError className={FIELD_ERROR} />
           </TextField>
 

@@ -1,6 +1,7 @@
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { austrittZustand } from "@/features/teams/constants";
 import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
+import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLAustrittType, FLGruppenNames } from "@/features/teams/schemas";
@@ -333,8 +334,11 @@ export const formatUndoScopeWarning = (moved: readonly { spiel_nr: number }[]): 
   return `Spielort und Schiedsrichter ${subject} konnten nicht gelesen werden; „Rückgängig“ stellt daher nur das bearbeitete Spiel wieder her`;
 };
 
-/** The one spelling of the route, so a renamed segment cannot leave two surfaces disagreeing. */
-export const adminSpielEditHref = (spielId: string): string => `/admin/spiele/${spielId}`;
+/**
+ * The one spelling of the route. The season is REQUIRED, never optional: an optional one is what a
+ * call site forgets, and this link exits three season-scoped lists.
+ */
+export const adminSpielEditHref = (spielId: string, saisonId: string | null): string => withSaisonId(`/admin/spiele/${spielId}`, saisonId);
 
 /**
  * The inverse of `listFeederSpiele`, over stored wiring. **Both routes matter**: a slot naming this

@@ -4,6 +4,7 @@ import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/compone
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
+import { enteredNumber } from "@/shared/utils/numberField";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 import { PickOrCreateAutocomplete } from "./PickOrCreateAutocomplete";
@@ -42,9 +43,11 @@ export function FormSchiedsrichterSection({
   // as a referee working for free. The `?? NaN` below is the other half.
   const handlePaymentChange = (newPayment: number) => {
     if (schiedsrichterPayload) {
+      const entered = enteredNumber(newPayment);
+
       onSchiedsrichterChange({
         ...schiedsrichterPayload,
-        payment: isNaN(newPayment) ? null : Math.round(newPayment),
+        payment: entered === null ? null : Math.round(entered),
       });
     }
   };

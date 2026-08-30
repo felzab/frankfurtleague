@@ -28,34 +28,44 @@ export type FLSaisonPhase = z.infer<typeof FLSaisonPhaseSchema>;
  * the fixture from exactly these two numbers.
  */
 export const FLSaisonForfeitErgebnisSchema = z.object({
-  sieger_tore: z.int().nonnegative({ error: "Der Sieger bekommt 0 oder mehr Tore." }),
-  verlierer_tore: z.int().nonnegative({ error: "Der Verlierer bekommt 0 oder mehr Tore." }),
+  sieger_tore: z.int({ error: "Bitte gib die Tore für den Sieger ein." }).nonnegative({ error: "Der Sieger bekommt 0 oder mehr Tore." }),
+  verlierer_tore: z
+    .int({ error: "Bitte gib die Tore für den Verlierer ein." })
+    .nonnegative({ error: "Der Verlierer bekommt 0 oder mehr Tore." }),
 });
 export type FLSaisonForfeitErgebnis = z.infer<typeof FLSaisonForfeitErgebnisSchema>;
 
 /**
- * German messages: the season editor binds this schema directly and the browser renders whichever
- * bound fails. The apiContract suite compares the wire shape and deliberately not the messages.
+ * German on the TYPE check as well as the bound: an emptied count reaches the draft as `null` and fails
+ * `z.int()` first, so a message only on `.positive()` leaves Zod's own English on the field.
+ * The apiContract suite compares the wire shape and deliberately not the messages.
  */
 export const FLSaisonRulesSchema = z.object({
-  win_points: z.int().positive({ error: "Ein Sieg bringt mindestens 1 Punkt." }),
-  draw_points: z.int().nonnegative({ error: "Ein Unentschieden bringt 0 oder mehr Punkte." }),
+  win_points: z.int({ error: "Bitte gib die Punkte für einen Sieg ein." }).positive({ error: "Ein Sieg bringt mindestens 1 Punkt." }),
+  draw_points: z
+    .int({ error: "Bitte gib die Punkte für ein Unentschieden ein." })
+    .nonnegative({ error: "Ein Unentschieden bringt 0 oder mehr Punkte." }),
   // Required on both sides: a season that never carried it must fail loudly rather than seed a
   // bracket from a number nobody chose.
-  qualifiers_per_group: z.int().positive({ error: "Mindestens 1 Team pro Gruppe muss weiterkommen." }),
+  qualifiers_per_group: z
+    .int({ error: "Bitte gib die Zahl der Qualifikanten ein." })
+    .positive({ error: "Mindestens 1 Team pro Gruppe muss weiterkommen." }),
   // The season runs the first `number_of_groups` of the closed A-D set, hence the `.max(4)`.
-  number_of_groups: z.int().positive({ error: "Eine Saison braucht mindestens 1 Gruppe." }).max(4, { error: "Es gibt höchstens 4 Gruppen." }),
+  number_of_groups: z
+    .int({ error: "Bitte gib die Zahl der Gruppen ein." })
+    .positive({ error: "Eine Saison braucht mindestens 1 Gruppe." })
+    .max(4, { error: "Es gibt höchstens 4 Gruppen." }),
   // The floor stops a group phase that generates no fixture at all; the ceiling keeps the largest
   // legal season inside the list read's cap, past which a season-scoped read is truncated.
   teams_per_group: z
-    .int()
+    .int({ error: "Bitte gib die Zahl der Teams pro Gruppe ein." })
     .min(2, { error: "Eine Gruppe braucht mindestens 2 Teams, sonst entsteht kein Spiel." })
     .max(16, { error: "Eine Gruppe fasst höchstens 16 Teams." }),
   // German because the season editor binds this schema to its picker. Frozen once the season is
   // `past`: the table is ordered from the rules on every read, so a later change rewrites a record.
   tiebreak_order: z.enum(["tordifferenz", "direkter_vergleich"], { error: "Bitte wähle einen Tiebreak aus." }),
   // Enforced at the squad write rather than here: this bounds a season, not this payload.
-  max_kadergroesse: z.int().positive({ error: "Ein Kader fasst mindestens 1 Spieler." }),
+  max_kadergroesse: z.int({ error: "Bitte gib die maximale Kadergröße ein." }).positive({ error: "Ein Kader fasst mindestens 1 Spieler." }),
   forfeit_ergebnis: FLSaisonForfeitErgebnisSchema,
   // A subset of the league's closed level set, never empty: no level makes every squad entry
   // unfillable.
@@ -102,7 +112,7 @@ export type FLSaisonBewerbung = z.infer<typeof FLSaisonBewerbungSchema>;
 export const FLSaisonSchema = z.object({
   // Exactly 4, mirroring the backend: an unbounded id lets `SaisonSelector` offer a season the
   // backend cannot hold.
-  id: z.string().length(4),
+  id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
 
   start_date: CustomDateStringSchema,
   end_date: CustomDateStringSchema,
@@ -202,7 +212,7 @@ export type FLPostSaisonPayload = z.infer<typeof FLPostSaisonPayloadSchema>;
 export const FLPatchSaisonPayloadSchema = z
   .object({
     // In the PATH on the wire; here because the editor has to know which season it is saving.
-    id: z.string().length(4),
+    id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
     ...saisonPayloadFields,
   })
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
@@ -211,7 +221,7 @@ export type FLPatchSaisonPayload = z.infer<typeof FLPatchSaisonPayloadSchema>;
 
 /** An id in the path and no request body. */
 export const FLActivateSaisonPayloadSchema = z.object({
-  id: z.string().length(4),
+  id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
 });
 export type FLActivateSaisonPayload = z.infer<typeof FLActivateSaisonPayloadSchema>;
 
@@ -234,7 +244,7 @@ export type FLSpielplanShape = z.infer<typeof FLSpielplanShapeSchema>;
  * fails. Both left out is the first draw, which destroys nothing.
  */
 export const FLGenerateSpielplanPayloadSchema = z.object({
-  id: z.string().length(4),
+  id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
   replace: z.boolean().optional(),
   // Nullable as well as optional, mirroring `FLSpielplanShape | None`: either spelling means "draw
   // from the season's stored numbers", which is what `REQ-RULES-011` freezes every other route out of.
@@ -244,7 +254,7 @@ export type FLGenerateSpielplanPayload = z.infer<typeof FLGenerateSpielplanPaylo
 
 /** An id in the path and no request body. */
 export const FLUndrawSpielplanPayloadSchema = z.object({
-  id: z.string().length(4),
+  id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
 });
 export type FLUndrawSpielplanPayload = z.infer<typeof FLUndrawSpielplanPayloadSchema>;
 
@@ -253,7 +263,7 @@ export type FLUndrawSpielplanPayload = z.infer<typeof FLUndrawSpielplanPayloadSc
  * a form built against a season that has since moved cannot write a group nobody stands in.
  */
 export const FLSwapGruppenPayloadSchema = z.object({
-  saison_id: z.string().length(4),
+  saison_id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
   team1_id: CustomObjectIdStringSchema,
   team2_id: CustomObjectIdStringSchema,
 });
@@ -281,7 +291,7 @@ export type FLActivateSaisonResponse = z.infer<typeof FLActivateSaisonResponseSc
  * two counts without a second request, and they are the same numbers the season's watermark keeps.
  */
 export const FLGenerateSpielplanResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string().length(4),
+  saison_id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
   spieltage: z.int().nonnegative(),
   spiele: z.int().nonnegative(),
   generiert_am: CustomDateStringSchema,
@@ -294,7 +304,7 @@ export type FLGenerateSpielplanResponse = z.infer<typeof FLGenerateSpielplanResp
  * the season was already undrawn.
  */
 export const FLUndrawSpielplanResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string().length(4),
+  saison_id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
   spieltage: z.int().nonnegative(),
   spiele: z.int().nonnegative(),
   watermark_cleared: z.boolean(),
@@ -306,7 +316,7 @@ export type FLUndrawSpielplanResponse = z.infer<typeof FLUndrawSpielplanResponse
  * is what lets the toast name them.
  */
 export const FLSwapGruppenResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string().length(4),
+  saison_id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
   team1_id: CustomObjectIdStringSchema,
   team1_gruppe: FLGruppenNamesSchema,
   team2_id: CustomObjectIdStringSchema,

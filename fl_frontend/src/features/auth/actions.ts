@@ -3,17 +3,13 @@
 import { unstable_rethrow } from "next/navigation";
 
 import { AuthError } from "next-auth";
-import { z } from "zod";
 
 import { signIn, signOut } from "@/core/auth";
+import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import type { FormState } from "@/shared/types/types";
-
-const SignInPayloadSchema = z.object({
-  email: z.email("Bitte gib eine gültige E-Mail-Adresse ein."),
-});
 
 // Deliberately identical whether or not the address is allowlisted: this action is public, so a
 // distinguishable "not authorized" is a membership oracle. `submittedEmail` is the caller's own.
@@ -42,13 +38,17 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
     const startedAt = Date.now();
 
     // The only server action reachable without a session, so its input is parsed and never cast.
-    const validated = SignInPayloadSchema.safeParse({ email: formData.get("email") });
+    const submittedEmail = String(formData.get("email") ?? "");
+    const validated = SignInPayloadSchema.safeParse({ email: submittedEmail });
     if (!validated.success) {
       // Safe to be specific: a format check on what the user typed leaks no membership.
       return settleAfterFloor(startedAt, {
         success: false,
         error: "Gib eine gültige E-Mail-Adresse ein.",
         fieldErrors: toFieldErrors(validated.error),
+        // Echoed so the form records the refusal against the address that was SENT, rather than
+        // against whatever is in the box by the time the answer lands.
+        submittedEmail,
       });
     }
 

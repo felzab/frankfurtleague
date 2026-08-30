@@ -21,6 +21,7 @@ import {
 } from "./schemas";
 import { describeSpielplanUmfang } from "./utils";
 
+import type { FLSaisonRulesDraft, SaisonCreateDraft } from "@/features/saisons/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLActivateSaisonPayload,
@@ -29,7 +30,6 @@ import type {
   FLGenerateSpielplanResponse,
   FLPatchSaisonPayload,
   FLPatchSaisonResponse,
-  FLPostSaisonPayload,
   FLSwapGruppenPayload,
   FLSwapGruppenResponse,
   FLUndrawSpielplanPayload,
@@ -238,7 +238,9 @@ function mapSpielplanRefusal(error: unknown, carriedShape: boolean): string | nu
 }
 
 export async function postSaisonAction(
-  rawPayload: FLPostSaisonPayload,
+  // The DRAFT shape: an emptied rule count submits `null`, and the schema below is what turns that into a
+  // field error rather than a type error.
+  rawPayload: SaisonCreateDraft,
 ): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSaisonAction", async () => {
     if (!(await getAdminSession())) {
@@ -280,7 +282,7 @@ export async function postSaisonAction(
   });
 }
 
-export async function patchSaisonAction(rawPayload: FLPatchSaisonPayload): Promise<{
+export async function patchSaisonAction(rawPayload: Omit<FLPatchSaisonPayload, "rules"> & { rules: FLSaisonRulesDraft }): Promise<{
   success: boolean;
   saison?: FLPatchSaisonResponse;
   message?: string;

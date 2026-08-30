@@ -22,18 +22,22 @@ export function TeamIdentityCard({ teamData }: { teamData: FLTeam }) {
       <p className="fluid-xs text-foreground-muted -mt-1.5 font-semibold">{teamData.full_name}</p>
 
       <div className="flex flex-col items-start gap-y-1 pt-2">
-        <Link
-          target="_blank"
-          rel="noopener noreferrer"
-          prefetch={false}
-          href={teamData.website_url}
-          className="fluid-xs text-brand flex flex-row items-center gap-x-2 font-bold hover:underline">
-          <Globe
-            aria-hidden="true"
-            className="size-4 shrink-0"
-          />
-          <span>Schul-Website öffnen</span>
-        </Link>
+        {/* A club may hold no website at all. Rendered anyway, React resolves an empty `href` against
+            the current URL, so the anchor would be an invisible link back to this very page. */}
+        {teamData.website_url !== null && (
+          <Link
+            target="_blank"
+            rel="noopener noreferrer"
+            prefetch={false}
+            href={teamData.website_url}
+            className="fluid-xs text-brand flex flex-row items-center gap-x-2 font-bold hover:underline">
+            <Globe
+              aria-hidden="true"
+              className="size-4 shrink-0"
+            />
+            <span>Schul-Website öffnen</span>
+          </Link>
+        )}
 
         <Link
           href={teamMapUrl}

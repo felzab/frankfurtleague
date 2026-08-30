@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { describeAktionDatensatz, formatAktionZeitpunkt, labelForCollection } from "./utils.ts";
+import { AKTION_HERKUNFT_LABELS, AKTOR_HERKUNFT } from "./constants.ts";
+import { FLAktorSchema } from "./schemas.ts";
+import { describeAktionDatensatz, formatAktionZeitpunkt, herkunftOfAktor, labelForCollection } from "./utils.ts";
 
 describe("formatAktionZeitpunkt", () => {
   it("renders a stored UTC instant in German local time", () => {
@@ -55,5 +57,43 @@ describe("describeAktionDatensatz", () => {
 
   it("reports nothing named only where the row names nothing", () => {
     assert.deepEqual(describeAktionDatensatz({ document_id: null, db_filter: null, modified_count: null }), { kind: "ohne" });
+  });
+});
+
+/** Every kind the read model accepts, read off the mirror so a kind added there reaches the cases below. */
+const AKTOR_KINDS = FLAktorSchema.shape.kind.options;
+
+describe("herkunftOfAktor", () => {
+  /* First: a mirror the cut no longer finds would leave every sweep below iterating nothing and passing. */
+  it("reads the kinds off the mirror at all", () => {
+    assert.deepEqual([...AKTOR_KINDS].sort(), ["admin_session", "public", "system"]);
+  });
+
+  /* The binary this replaced filed anything that was not `system` under the signed-in people. A kind
+     nobody places would render as a person named by a sentinel and filter as one. */
+  it("files every kind the read model accepts under a labelled origin", () => {
+    for (const kind of AKTOR_KINDS) {
+      const herkunft = herkunftOfAktor({ kind: kind, email: "SENTINEL" });
+
+      assert.equal(herkunft, AKTOR_HERKUNFT[kind], `\`${kind}\` is read as something other than the origin it is filed under`);
+      assert.ok(AKTION_HERKUNFT_LABELS[herkunft], `\`${kind}\` is filed under \`${herkunft}\`, which nothing names`);
+    }
+  });
+
+  /* Its own value and not the people's: nobody signed in for a public submission, and nobody is named
+     by the `PUBLIC` its `email` holds. */
+  it("keeps a public submission off both of the origins it is not", () => {
+    assert.equal(herkunftOfAktor({ kind: "public", email: "PUBLIC" }), "public");
+    assert.notEqual(herkunftOfAktor({ kind: "public", email: "PUBLIC" }), herkunftOfAktor({ kind: "admin_session", email: "a@b.de" }));
+    assert.notEqual(herkunftOfAktor({ kind: "public", email: "PUBLIC" }), herkunftOfAktor({ kind: "system", email: "SYSTEM" }));
+  });
+
+  /* An origin is a category and a label is what a reader sees, so two origins sharing one wording would
+     leave the filter offering the same word twice. */
+  it("names each origin in its own words", () => {
+    const labels = Object.values(AKTION_HERKUNFT_LABELS);
+
+    assert.equal(new Set(labels).size, labels.length, "two origins are offered under one wording");
+    for (const label of labels) assert.ok(!/^[A-Z]+$/.test(label), `\`${label}\` is a stored sentinel rather than a wording`);
   });
 });

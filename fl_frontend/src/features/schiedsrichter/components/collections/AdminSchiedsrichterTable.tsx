@@ -1,9 +1,8 @@
 "use client";
 
 import { memo, useTransition } from "react";
-import { useSearchParams } from "next/navigation";
 
-import { Calendar, Pencil, Person } from "@gravity-ui/icons";
+import { Magnifier, Pencil, Person } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
@@ -12,6 +11,7 @@ import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/Ad
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatEuro, formatSpielDatum } from "@/shared/utils/format";
@@ -45,9 +45,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
   // The sidemenu's season rides along, so the fixture list opens on the season being worked in
   // rather than on the current one.
-  const searchParams = useSearchParams();
-  const selectedSaisonId = searchParams.get("saison_id");
-  const saisonParam = selectedSaisonId ? `&saison_id=${encodeURIComponent(selectedSaisonId)}` : "";
+  const saisonHref = useSaisonHref();
 
   const handleCopyKontakt = async (schiedsrichter: FLSchiedsrichter) => {
     const details = [schiedsrichter.name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
@@ -100,10 +98,10 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
       {/* `schiedsrichter` as `buildSpielFacets` declares it, and admin-only there: the public
           Spielsuche declares no such facet, so the same link would filter nothing. */}
       <RowActionLink
-        href={`/admin/spielsuche?schiedsrichter=${schiedsrichter.id}${saisonParam}`}
+        href={saisonHref(`/admin/spielsuche?schiedsrichter=${schiedsrichter.id}`)}
         label="Einsätze anzeigen"
         ariaLabel={`Einsätze von ${schiedsrichter.name} anzeigen`}>
-        <Calendar
+        <Magnifier
           aria-hidden="true"
           width={18}
           height={18}
@@ -116,7 +114,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
       />
       {/* A link and not a press: the referee form edits on a page of its own. */}
       <RowActionLink
-        href={`/admin/schiedsrichter/${schiedsrichter.id}`}
+        href={saisonHref(`/admin/schiedsrichter/${schiedsrichter.id}`)}
         label="Bearbeiten"
         ariaLabel={`Schiedsrichter ${schiedsrichter.name} bearbeiten`}>
         <Pencil

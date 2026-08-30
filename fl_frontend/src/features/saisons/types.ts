@@ -1,5 +1,12 @@
 import type { FLGruppenNames } from "../teams/schemas";
-import type { FLSaisonBewerbung, FLSaisonPhaseSchedule, FLSaisonRules, FLSaisonSpielplan, FLSaisonStatus } from "./schemas";
+import type {
+  FLPostSaisonPayload,
+  FLSaisonBewerbung,
+  FLSaisonPhaseSchedule,
+  FLSaisonRules,
+  FLSaisonSpielplan,
+  FLSaisonStatus,
+} from "./schemas";
 
 // `"_id"` sorts chronologically: the season id is the four-character year string. A property of the
 // id format rather than a coincidence.
@@ -29,7 +36,7 @@ export type SaisonSelectorOption = {
 export type SaisonDraftFields = {
   start_date: string;
   end_date: string;
-  rules: FLSaisonRules;
+  rules: FLSaisonRulesDraft;
   /**
    * `null` is the season that takes no applications at all. Its two dates are `""` while a picker
    * stands empty, which is the mid-edit state the payload schema refuses by name.
@@ -194,3 +201,23 @@ export type SaisonReplacementContext = {
   rows: SaisonReplacementRow[];
   candidates: SaisonReplacementCandidate[];
 };
+
+/**
+ * The rules as an editor HOLDS them, widened the way `FLSpielOrtFieldDraft` is: an emptied count is `null`, and
+ * the schema's `z.int()` refuses it at the submit. One group is not the same fact as no number entered.
+ */
+export type FLSaisonRulesDraft = Omit<
+  FLSaisonRules,
+  "win_points" | "draw_points" | "qualifiers_per_group" | "number_of_groups" | "teams_per_group" | "max_kadergroesse" | "forfeit_ergebnis"
+> & {
+  win_points: number | null;
+  draw_points: number | null;
+  qualifiers_per_group: number | null;
+  number_of_groups: number | null;
+  teams_per_group: number | null;
+  max_kadergroesse: number | null;
+  forfeit_ergebnis: { sieger_tore: number | null; verlierer_tore: number | null };
+};
+
+/** The create form's draft, widened at `rules` for the reason above. */
+export type SaisonCreateDraft = Omit<FLPostSaisonPayload, "rules"> & { rules: FLSaisonRulesDraft };

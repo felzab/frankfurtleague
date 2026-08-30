@@ -16,6 +16,7 @@ import { confirmButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
@@ -39,6 +40,7 @@ export function FormLoeschenSection({
   membershipCount: number;
 }) {
   const router = useRouter();
+  const saisonHref = useSaisonHref();
   // No draft guard, unlike the anonymisation's: that one leaves a form standing whose next save would
   // write the cleared values back. Here the press removes the subject the draft describes.
   const { isConfirming, isPending: isErasing, press, cancel } = useTwoPressConfirm();
@@ -58,7 +60,7 @@ export function FormLoeschenSection({
       appToast.success("Spieler gelöscht", { description: res.message });
       // `replace`, never `push`: this page is the erased player's own and now answers not-found, so
       // Back must not return to it. The action's own revalidation is what refreshes the list.
-      router.replace("/admin/spieler");
+      router.replace(saisonHref("/admin/spieler"));
     });
   };
 

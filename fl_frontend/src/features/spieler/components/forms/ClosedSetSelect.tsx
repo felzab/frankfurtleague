@@ -1,6 +1,6 @@
 "use client";
 
-import { FieldError, Label, ListBox, Select } from "@heroui/react";
+import { FieldError, Label, ListBox, Select, Separator } from "@heroui/react";
 
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
@@ -66,9 +66,14 @@ export function ClosedSetSelect<TValue extends string>({
             key={NONE}
             id={NONE}
             textValue={placeholder}
-            className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm border-border/50 flex flex-row items-center rounded-lg border-b px-3 py-2.5 font-bold transition-colors duration-200">
+            className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
             Keine Angabe
           </ListBox.Item>
+
+          {/* A rule between two rows is an element between them, never an edge painted on one: on the
+              row it stops short of the popover and reads as a half-border. `ListBox` hands its
+              subtree a `SeparatorContext` of `elementType: "div"`, so this belongs here. */}
+          <Separator className="my-1" />
           {options.map((option) => (
             <ListBox.Item
               key={option}

@@ -1,10 +1,10 @@
-import type { FLPostSpielortPayload } from "./schemas";
+import type { FLPostSpielortPayload, FLSpielortPayloadDraft } from "./schemas";
 
 /**
- * Derived from the payload schema the action validates, never restated. `default_mietpreis` stays a
- * plain number for `SchiedsrichterDraft`'s reason: 0 € is a legitimate default.
+ * Derived from the payload schema the action validates, never restated, and widened at the rent for
+ * `SchiedsrichterDraft`'s reason: an untouched or emptied box holds `null`, which the schema refuses by name.
  */
-export type SpielortDraft = FLPostSpielortPayload;
+export type SpielortDraft = FLSpielortPayloadDraft<FLPostSpielortPayload>;
 
 export type FLSpielorteSortingOptions = "name";
 

@@ -35,18 +35,24 @@ export function AdminKontaktErasureForm() {
 
   // Judged when the field is LEFT and never between keystrokes: a message about a half-typed address
   // describes a value nobody finished entering.
-  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { erasure: FLKontaktErasurePayloadSchema },
   });
 
+  // Forgiveness runs on every draft change and only ever RETRACTS: a corrected address clears without a blur.
+  useForgiveFixed({ erasure: { email } });
+
   /**
-   * Runs before arming AND before writing. `validatePaths` publishes the message on the box and
-   * answers nothing a caller can read, so the parse beside it is what closes the press.
+   * Runs before arming AND before writing, and is the shared block rather than a second spelling of it: a
+   * refused address is published through the map that moves focus, so the press lands the caret on the box.
    */
   const judgeAddress = (): boolean => {
-    validatePaths("erasure", { email }, ["email"]);
+    let mayWrite = false;
+    guardSubmit({ erasure: { email } }, () => {
+      mayWrite = true;
+    });
 
-    return FLKontaktErasurePayloadSchema.safeParse({ email }).success;
+    return mayWrite;
   };
 
   const { isConfirming, isPending: isErasing, press, cancel } = useTwoPressConfirm(judgeAddress);
@@ -113,6 +119,10 @@ export function AdminKontaktErasureForm() {
       {/* `runOnSubmit` rather than an `action`, which React resets on every submit, turning each
           controlled field's reset into an `onChange` (frontend spec I32). */}
       <Form
+        // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting
+        // the browser's required message the moment an edited field is cleared. `aria` keeps
+        // `aria-required` and leaves every message to `useDraftFieldErrors`.
+        validationBehavior="aria"
         ref={formRef}
         validationErrors={fieldErrors}
         className={panel.body()}

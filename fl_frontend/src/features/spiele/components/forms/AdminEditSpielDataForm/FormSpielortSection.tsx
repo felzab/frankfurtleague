@@ -4,6 +4,7 @@ import { AdminCreateSpielortForm } from "@/features/spielorte/components/forms/A
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
+import { enteredNumber } from "@/shared/utils/numberField";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 import { PickOrCreateAutocomplete } from "./PickOrCreateAutocomplete";
@@ -47,7 +48,9 @@ export function FormSpielortSection({
   // field carrying no `step`, and rounding at entry beats a schema rejection.
   const handleMietpreisChange = (newPrice: number) => {
     if (ortPayload) {
-      onOrtChange({ ...ortPayload, mietpreis: isNaN(newPrice) ? null : Math.round(newPrice) });
+      const entered = enteredNumber(newPrice);
+
+      onOrtChange({ ...ortPayload, mietpreis: entered === null ? null : Math.round(entered) });
     }
   };
 

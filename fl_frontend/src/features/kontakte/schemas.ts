@@ -27,7 +27,7 @@ export const FLKontaktErasureResponseSchema = BaseAPIResponseSchema.extend({
   cleared_bewerbungen: z.int().nonnegative(),
   /**
    * The slots actually nulled, across both collections. Higher than the two row counts wherever
-   * `trainer_ist_ansprechperson` seated one person twice in one row, which is what makes this the
+   * `trainer_ist_zugleich` seated one person twice in one row, which is what makes this the
    * figure the report counts contact entries by.
    */
   cleared_kontakt_slots: z.int().nonnegative(),
@@ -45,7 +45,7 @@ export const FLPatchSaisonTeamKontaktePayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the junction row is addressed by its natural key. They
   // are carried here because the form has to know which club's season it is writing.
   team_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4),
+  saison_id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen." }),
   // The whole block, or `null` to clear it. REQUIRED with no default: a form that omits it gets a
   // 422, never three people quietly left standing.
   kontakte: FLSaisonTeamKontaktePayloadSchema.nullable(),

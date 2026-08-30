@@ -6,6 +6,7 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { enteredNumber } from "@/shared/utils/numberField";
 
 /**
  * A default and never a stored copy: what a match cost is its own `mietpreis`, and the backend's
@@ -17,9 +18,9 @@ export function FormMieteSection({
   onChange,
   onFieldChanged,
 }: {
-  defaultMietpreis: number;
-  onChange: (next: number) => void;
-  onFieldChanged: (paths: readonly string[], picked: { default_mietpreis: number }) => void;
+  defaultMietpreis: number | null;
+  onChange: (next: number | null) => void;
+  onFieldChanged: (paths: readonly string[], picked: { default_mietpreis: number | null }) => void;
 }) {
   const panel = formPanel();
 
@@ -42,10 +43,11 @@ export function FormMieteSection({
           minValue={0}
           step={5}
           name="default_mietpreis"
-          value={defaultMietpreis}
+          value={defaultMietpreis ?? Number.NaN}
           onChange={(next) => {
-            // `NaN` is what an emptied stepper reports; 0 € is the meaningful floor and the schema's.
-            const value = next === undefined || isNaN(next) ? 0 : next;
+            // An emptied box is "no standard rent entered", never 0 €: the schema's type check is what
+            // then asks for one, in its own German, at the submit.
+            const value = enteredNumber(next);
             onChange(value);
             onFieldChanged(["default_mietpreis"], { default_mietpreis: value });
           }}

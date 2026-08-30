@@ -175,18 +175,15 @@ export type TeamGruppeLock = {
 };
 
 /**
- * One row of `/admin/kontakte`: one SEAT of one club, for the selected season. A club with no
- * contacts on file contributes no rows, so the list never states a person who is not there.
+ * One seat within a team's row. The seat is a SLOT and not a record: `saison_teams.kontakte` is an
+ * embedded object with three named keys, so a seat has no id of its own to be listed under.
  */
-export type AdminKontaktRow = {
-  id: string;
-  teamId: string;
-  teamName: string;
-  teamShorthand: string;
+export type AdminKontaktSeat = {
   rolle: KontaktRolle;
+  label: string;
   /**
    * Null where nobody is recorded in the seat. One nullable block rather than five nullable fields:
-   * a row can then hold a whole person or none, never a name with no way to reach it.
+   * a seat can then hold a whole person or none, never a name with no way to reach it.
    */
   person: {
     vorname: string;
@@ -200,4 +197,20 @@ export type AdminKontaktRow = {
    * two records. Graded once here, so no cell can restate it from the flag alone.
    */
   istTrainerZugleich: boolean;
+};
+
+/**
+ * One club's contacts for ONE season — the shape a record actually has. Keyed by the club, because
+ * `kontakte` hangs off the junction row and the three seats inside it have no identity to be keyed by.
+ */
+export type AdminKontakteRow = {
+  /** The club's id: one junction row per club per season, so it is the row's whole identity. */
+  id: string;
+  teamId: string;
+  teamName: string;
+  teamShorthand: string;
+  /** All three, always, in the order the editor asks for them — an empty seat is what an erasure leaves. */
+  seats: readonly AdminKontaktSeat[];
+  /** Seats HELD, never the three the block always carries: it is what the completeness badge reads. */
+  besetzt: number;
 };

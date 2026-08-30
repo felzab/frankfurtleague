@@ -4,6 +4,7 @@ import { FieldError, Input, Label, NumberField, TextField } from "@heroui/react"
 
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import { enteredNumber } from "@/shared/utils/numberField";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SpielortDraft } from "../../types";
@@ -51,11 +52,11 @@ export function SpielortFormFields<T extends SpielortDraft>({
         name="default_mietpreis"
         isInvalid={errors?.["default_mietpreis"] ? true : undefined}
         step={5}
-        value={draft.default_mietpreis}
+        value={draft.default_mietpreis ?? Number.NaN}
         onChange={(val) =>
           onChange({
             ...draft,
-            default_mietpreis: val === undefined || isNaN(val) ? 0 : val,
+            default_mietpreis: enteredNumber(val),
           })
         }
         formatOptions={{ style: "currency", currency: "EUR" }}>

@@ -172,7 +172,7 @@ export type FLPostSaisonSpielerPayload = z.infer<typeof FLPostSaisonSpielerPaylo
 export const FLPatchSaisonSpielerPayloadSchema = z.object({
   // Both ids are in the PATH on the wire — the junction row is addressed by its natural key.
   spieler_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4),
+  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
   ...saisonSpielerPayloadFields,
 });
 export type FLPatchSaisonSpielerPayload = z.infer<typeof FLPatchSaisonSpielerPayloadSchema>;
@@ -180,7 +180,7 @@ export type FLPatchSaisonSpielerPayload = z.infer<typeof FLPatchSaisonSpielerPay
 /** The junction row's natural key, for the two endpoints that carry no body. */
 export const FLSaisonSpielerKeyPayloadSchema = z.object({
   spieler_id: CustomObjectIdStringSchema,
-  saison_id: z.string().length(4),
+  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
 });
 export type FLSaisonSpielerKeyPayload = z.infer<typeof FLSaisonSpielerKeyPayloadSchema>;
 

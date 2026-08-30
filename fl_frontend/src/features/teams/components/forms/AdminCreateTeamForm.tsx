@@ -5,6 +5,7 @@ import { FieldError, Label, ListBox, Select } from "@heroui/react";
 import { postTeamAction } from "@/features/teams/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { TeamFormFields } from "@/features/teams/components/forms/TeamFormFields";
+import { FLCreateTeamFormPayloadSchema } from "@/features/teams/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
@@ -17,7 +18,8 @@ const EMPTY_DRAFT_BASE = {
   shorthand: "",
   description: "",
   full_name: "",
-  website_url: "",
+  // `null` and not `""`: the payload admits one spelling of "no website", which is this one.
+  website_url: null,
   address: { strasse: "", hausnummer: "", plz: "", stadtteil: "", stadt: "" },
   // Sent as the answer "none": the payload requires the key, and the school form is asked for on the
   // club's own page rather than at the door.
@@ -103,6 +105,8 @@ export function AdminCreateTeamForm({
           </>
         );
       }}
+      schema={FLCreateTeamFormPayloadSchema}
+      toPayload={(draft) => draft}
       onSubmit={async (draft) => {
         const res = await postTeamAction(draft);
         return { ...res, success: res.success && !!res.created_id };

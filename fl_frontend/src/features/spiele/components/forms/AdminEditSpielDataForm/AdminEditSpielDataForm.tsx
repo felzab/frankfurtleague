@@ -15,10 +15,10 @@ import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
-import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielDataAction, readAdminSpielBookingsAction } from "../../../actions";
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
@@ -129,6 +129,7 @@ export function AdminEditSpielDataForm({
   categorize: (spiel: FLSpielWithDraftFields) => ReadonlySet<ActionRequiredCategory>;
 }) {
   const router = useRouter();
+  const saisonHref = useSaisonHref();
   const [isPending, startTransition] = useTransition();
   const [isLeaving, startLeaving] = useTransition();
 
@@ -176,7 +177,7 @@ export function AdminEditSpielDataForm({
 
   // The same schema `patchAdminSpielDataAction` parses, so a message shown here is the one the
   // server would have produced.
-  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { spiel: FLPatchSpielDataPayloadSchema },
   });
 
@@ -342,6 +343,9 @@ export function AdminEditSpielDataForm({
    * For a control the user TYPES into, on blur. Writes only the client-side verdicts: the submit's
    * map calls `reportValidity()`, which on a blur throws focus off the field being tabbed past.
    */
+  // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
+  useForgiveFixed({ spiel: buildPayload() });
+
   const validateFields = (paths: readonly string[]) => validatePaths("spiel", buildPayload(), paths);
 
   /**
@@ -365,7 +369,7 @@ export function AdminEditSpielDataForm({
     // control turns disabled, and no `pointerleave` follows a click that leaves.
     startLeaving(() => {
       if (window.history.length > 1) router.back();
-      else router.push("/admin");
+      else router.push(saisonHref("/admin"));
     });
   };
 
@@ -428,16 +432,20 @@ export function AdminEditSpielDataForm({
     // a message on its own path rather than a value cast onto a type forbidding it
     // (`docs/frontend/spec.md` I33).
     const payload = buildPayload();
-    const narrowed = FLPatchSpielDataPayloadSchema.safeParse(payload);
-    if (!narrowed.success) {
-      // The draft, not `narrowed.data`: a later blur hands `validatePaths` the draft, so the two
-      // compare path by path with no parse standing between them.
-      setSubmitFieldErrors(toFieldErrors(narrowed.error), { spiel: payload });
-      return;
-    }
+    // The shared block, so this form refuses on the same terms as every other one. It records the DRAFT,
+    // not the parsed value: a later blur hands `validatePaths` the draft, so the two compare path by path
+    // with no parse standing between them.
+    guardSubmit({ spiel: payload }, writeAfterBlock);
+  };
+
+  const writeAfterBlock = () => {
+    const payload = buildPayload();
+    // Never `safeParse` here — the block above has already proved it parses, and a second failure branch
+    // would be one nothing can reach.
+    const narrowed = FLPatchSpielDataPayloadSchema.parse(payload);
 
     startTransition(async () => {
-      const res = await patchAdminSpielDataAction(narrowed.data, spielData.saison_id);
+      const res = await patchAdminSpielDataAction(narrowed, spielData.saison_id);
 
       if (!res.success) {
         // A field error rather than a toast, so the message lands on the control to change.
@@ -594,6 +602,10 @@ export function AdminEditSpielDataForm({
           dialog below asks what the fixture is still waiting on. */}
       <SpielExpectedProvider expected={status.expected}>
         <Form
+          // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting
+          // the browser's required message the moment an edited field is cleared. `aria` keeps
+          // `aria-required` and leaves every message to `useDraftFieldErrors`.
+          validationBehavior="aria"
           ref={formRef}
           validationErrors={fieldErrors}
           className="flex min-h-0 w-full flex-1 flex-col"

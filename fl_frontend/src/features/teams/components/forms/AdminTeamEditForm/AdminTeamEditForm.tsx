@@ -20,6 +20,7 @@ import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 
@@ -103,6 +104,7 @@ export function AdminTeamEditForm({
   pageHeader: EditPageHeaderContent;
 }) {
   const router = useRouter();
+  const saisonHref = useSaisonHref();
   const [isPending, startTransition] = useTransition();
   const [isLeaving, startLeaving] = useTransition();
 
@@ -134,7 +136,7 @@ export function AdminTeamEditForm({
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
+  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { team: FLPatchTeamPayloadSchema, saisonTeam: FLPatchSaisonTeamPayloadSchema },
   });
 
@@ -193,6 +195,9 @@ export function AdminTeamEditForm({
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [formRef]);
 
+  // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
+  useForgiveFixed({ team: buildClubPayload(), saisonTeam: buildSaisonPayload() });
+
   const validateClubFields = (paths: readonly string[]) => validatePaths("team", buildClubPayload(), paths);
   const validateSaisonFields = (paths: readonly string[]) => validatePaths("saisonTeam", buildSaisonPayload(), paths);
   // Judged with the value that arrived in the event, because state has not committed yet.
@@ -231,7 +236,7 @@ export function AdminTeamEditForm({
     // control turns disabled, and no `pointerleave` follows a click that leaves.
     startLeaving(() => {
       if (window.history.length > 1) router.back();
-      else router.push("/admin/teams");
+      else router.push(saisonHref("/admin/teams"));
     });
   };
 
@@ -283,6 +288,18 @@ export function AdminTeamEditForm({
   };
 
   const handleFormSubmit = () => {
+    // Only the halves this press writes: `aria` blocks nothing natively, and judging an untouched half
+    // would refuse a save over a field nobody is sending.
+    guardSubmit(
+      {
+        ...(clubDirty ? { team: buildClubPayload() } : {}),
+        ...(saisonDirty ? { saisonTeam: buildSaisonPayload() } : {}),
+      },
+      writeAfterBlock,
+    );
+  };
+
+  const writeAfterBlock = () => {
     startTransition(async () => {
       const collectedErrors: FieldErrors = {};
       // Built once, so what goes to each action is also what a later blur is graded against.
@@ -437,6 +454,10 @@ export function AdminTeamEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
+        // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting
+        // the browser's required message the moment an edited field is cleared. `aria` keeps
+        // `aria-required` and leaves every message to `useDraftFieldErrors`.
+        validationBehavior="aria"
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"
@@ -481,6 +502,16 @@ export function AdminTeamEditForm({
             banners={banners}
           />
 
+          {/* Above the Austritt panel, which is this page's one destructive section and so has to
+              close it: a link seated under a red panel reads as one of its consequences. */}
+          {storedMembership !== null && (
+            <FormKontakteLinkSection
+              saisonId={saison.saisonId}
+              kontakte={storedMembership.kontakte}
+              href={`/admin/kontakte/${team.id}?saison_id=${encodeURIComponent(saison.saisonId)}`}
+            />
+          )}
+
           {storedMembership !== null && (
             <FormAustrittSection
               hasAustritt={hasAustritt}
@@ -499,14 +530,6 @@ export function AdminTeamEditForm({
               datum={datum}
               onDatumChange={setDatum}
               onValidateFields={validateSaisonFields}
-            />
-          )}
-
-          {storedMembership !== null && (
-            <FormKontakteLinkSection
-              saisonId={saison.saisonId}
-              kontakte={storedMembership.kontakte}
-              href={`/admin/kontakte/${team.id}?saison_id=${encodeURIComponent(saison.saisonId)}`}
             />
           )}
         </EditFormLayout>

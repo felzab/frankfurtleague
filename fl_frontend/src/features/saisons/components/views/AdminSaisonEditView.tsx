@@ -3,7 +3,7 @@
 import { AdminSaisonEditForm } from "@/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 
-import type { FLSaisonStatus } from "@/features/saisons/schemas";
+import type { FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type {
   SaisonDraftFields,
   SaisonGruppenSwapContext,
@@ -26,7 +26,7 @@ export function AdminSaisonEditView({
   hasDrawnSpiele,
   spieltagBound,
 }: {
-  saison: { id: string; status: FLSaisonStatus } & SaisonDraftFields;
+  saison: { id: string; status: FLSaisonStatus } & Omit<SaisonDraftFields, "rules"> & { rules: FLSaisonRules };
   rollover: SaisonRolloverContext;
   /** This season's clubs and their groups, plus the knockout count that closes the swap. */
   swap: SaisonGruppenSwapContext;

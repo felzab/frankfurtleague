@@ -1,4 +1,4 @@
-import { einwilligungHerkunftLabel } from "@/features/teams/constants";
+import { einwilligungHerkunftLabel, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, trainerZugleichLabel } from "@/features/teams/constants";
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -71,6 +71,9 @@ export const kontaktSeatPaths = (rolle: KontaktRolle): readonly string[] => [
   ...einwilligungErrorPaths(`kontakte.${rolle}.einwilligung`),
 ];
 
+/** Every seat's paths at once: what a change touching the whole block has to re-judge. */
+export const ALL_SEAT_PATHS: readonly string[] = KONTAKT_ROLLEN.flatMap(({ value }) => kontaktSeatPaths(value));
+
 // Each path is spelled here rather than composed from the seat's key: `fieldLabelPaths.test.ts`
 // reads a literal, and a composed one would leave the Geändert marker silently unwired.
 const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLKontakteDraftFields, FLKontakteFieldGroup>[] = [
@@ -118,14 +121,14 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLKontakteDraftFields, FLKon
     errorPaths: einwilligungErrorPaths("kontakte.stellvertretung.einwilligung"),
   },
   {
-    path: "kontakte.trainer_ist_ansprechperson",
-    // Its own row, because the flag can move while the three people stand: turning it off leaves the
-    // Ansprechperson holding what it copied, and nothing else on the panel would have changed.
-    label: "Trainer ist Ansprechperson",
+    path: "kontakte.trainer_ist_zugleich",
+    // Its own row, because the claim can move while the three people stand: pointing it elsewhere
+    // leaves the old seat holding what it copied, and nothing else on the panel would have changed.
+    label: TRAINER_ZUGLEICH_FRAGE,
     group: "Kontakte",
     read: (source) => {
       const kontakte = source.kontakte;
-      return kontakte === null ? null : kontakte.trainer_ist_ansprechperson ? "Ja" : "Nein";
+      return kontakte === null ? null : trainerZugleichLabel(kontakte.trainer_ist_zugleich);
     },
   },
 ];

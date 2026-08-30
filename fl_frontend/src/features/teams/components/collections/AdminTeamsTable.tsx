@@ -3,7 +3,7 @@
 import { memo, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Calendar, Globe, Pencil, Person, Persons } from "@gravity-ui/icons";
+import { Envelope, Globe, Magnifier, Pencil, PersonPencil, Persons } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
@@ -87,7 +87,19 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         href={`/admin/spieler?team=${team.id}${saisonParam}`}
         label="Spieler anzeigen"
         ariaLabel={`Spieler von ${team.name} anzeigen`}>
-        <Person
+        <PersonPencil
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
+      {/* `team` as `buildKontakteFacets` declares it, and the season rides along beside it: the seats
+          hang off the junction, so without it this opens another season's three people. */}
+      <RowActionLink
+        href={`/admin/kontakte?team=${team.id}${saisonParam}`}
+        label="Kontakte anzeigen"
+        ariaLabel={`Kontakte von ${team.name} anzeigen`}>
+        <Envelope
           aria-hidden="true"
           width={18}
           height={18}
@@ -99,7 +111,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         href={`/admin/spielsuche?team=${team.id}${saisonParam}`}
         label="Spiele anzeigen"
         ariaLabel={`Spiele von ${team.name} anzeigen`}>
-        <Calendar
+        <Magnifier
           aria-hidden="true"
           width={18}
           height={18}
@@ -183,7 +195,9 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                 columns plus 256 for the free-text one, under which it gets nothing. */}
             <Table.Content
               aria-label="Tabelle aller Teams"
-              className="min-w-4xl table-fixed">
+              /* A numeric step rather than a container name: six controls put the owed floor at 944px,
+                  which no `--container-*` names. `adminCrudEmpty.test.ts` resolves both scales. */
+              className="min-w-236 table-fixed">
               <Table.Header>
                 {/* UNDECLARED: fixed layout gives it everything the columns beside it leave, and it
                 is the only one here holding free text. */}
@@ -206,7 +220,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                 </Table.Column>
                 {/* Five controls at most — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
                 holds the arithmetic, and it is the count a new action changes. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-72 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-84 border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
                   Aktionen
                 </Table.Column>
               </Table.Header>

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Form } from "@heroui/react";
 
 import { patchSpieltagAction } from "@/features/spieltage/actions";
-import { FLPatchSpieltagPayloadSchema } from "@/features/spieltage/schemas";
+import { buildPatchSpieltagPayloadSchema } from "@/features/spieltage/schemas";
 import { deriveSpieltagDraftStatus } from "@/features/spieltage/spieltagDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
@@ -17,6 +17,7 @@ import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
 
@@ -65,6 +66,7 @@ export function AdminSpieltagEditForm({
   pageHeader: EditPageHeaderContent;
 }) {
   const router = useRouter();
+  const saisonHref = useSaisonHref();
   const [isPending, startTransition] = useTransition();
   const [isLeaving, startLeaving] = useTransition();
 
@@ -82,8 +84,9 @@ export function AdminSpieltagEditForm({
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, validatePaths, formRef } = useDraftFieldErrors({
-    schemas: { spieltag: FLPatchSpieltagPayloadSchema },
+  const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+    // The span rule is the edited season's, so the schema is built per instance rather than imported.
+    schemas: { spieltag: buildPatchSpieltagPayloadSchema(saisonSpan) },
   });
 
   // `id` is the loaded record's own and the wire carries it in the path, so no refusal can name it.
@@ -120,6 +123,9 @@ export function AdminSpieltagEditForm({
 
   // Every date is picked rather than typed, so every control is judged on change — and the cross-field
   // span rule reports on `ende`, so both paths refresh together or its message never clears.
+  // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
+  useForgiveFixed({ spieltag: buildPayload() });
+
   const validatePicked = (paths: readonly string[], picked: Partial<FLSpieltagDraftFields>) =>
     validatePaths("spieltag", { ...buildPayload(), ...picked }, paths);
 
@@ -140,7 +146,7 @@ export function AdminSpieltagEditForm({
     // control turns disabled, and no `pointerleave` follows a click that leaves.
     startLeaving(() => {
       if (window.history.length > 1) router.back();
-      else router.push("/admin/spieltage");
+      else router.push(saisonHref("/admin/spieltage"));
     });
   };
 
@@ -179,6 +185,12 @@ export function AdminSpieltagEditForm({
   };
 
   const handleFormSubmit = () => {
+    // `aria` blocks nothing natively, so this call is what keeps an incomplete draft off the wire, in the
+    // schema's own German rather than the browser's bubble. It RUNS the write, so there is no answer to drop.
+    guardSubmit({ spieltag: buildPayload() }, writeAfterBlock);
+  };
+
+  const writeAfterBlock = () => {
     startTransition(async () => {
       // Read before the write: the props still hold the pre-save values, and the toast that replays
       // them outlives this component. The payload carries both dates or neither of them, so no replay
@@ -258,6 +270,10 @@ export function AdminSpieltagEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
+        // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting
+        // the browser's required message the moment an edited field is cleared. `aria` keeps
+        // `aria-required` and leaves every message to `useDraftFieldErrors`.
+        validationBehavior="aria"
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"

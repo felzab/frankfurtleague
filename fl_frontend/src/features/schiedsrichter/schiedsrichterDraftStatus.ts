@@ -10,7 +10,7 @@ export type FLSchiedsrichterDraftFields = {
   name: string;
   schule: string | null;
   kontakt: FLKontakt;
-  default_payment: number;
+  default_payment: number | null;
 };
 
 export type FLSchiedsrichterFieldGroup = "Person" | "Kontakt" | "Honorar";
@@ -23,7 +23,12 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSchiedsrichterDraftFields,
   { path: "schule", label: "Schule / Verein", group: "Person", read: (source) => emptyAsNull(source.schule) },
   { path: "kontakt.email", label: "E-Mail", group: "Kontakt", read: (source) => emptyAsNull(source.kontakt.email) },
   { path: "kontakt.telefon", label: "Telefon", group: "Kontakt", read: (source) => emptyAsNull(source.kontakt.telefon) },
-  { path: "default_payment", label: "Standard-Honorar", group: "Honorar", read: (source) => formatEuro(source.default_payment) },
+  {
+    path: "default_payment",
+    label: "Standard-Honorar",
+    group: "Honorar",
+    read: (source) => (source.default_payment === null ? null : formatEuro(source.default_payment)),
+  },
 ];
 
 export function deriveSchiedsrichterDraftStatus({

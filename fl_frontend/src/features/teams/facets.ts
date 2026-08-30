@@ -1,7 +1,7 @@
 import { EINWILLIGUNG_HERKUNFT_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN } from "./constants";
 
 import type { Facet } from "@/shared/utils/facets";
-import type { AdminKontaktRow, AdminTeamRow } from "./types";
+import type { AdminKontakteRow, AdminTeamRow } from "./types";
 
 /** Spelled once so the facet below and a link that has to outrank its default cannot name it differently. */
 const SAISON_PARAM = "zugehoerigkeit";
@@ -65,20 +65,50 @@ export const TEAM_FACETS: readonly Facet<AdminTeamRow>[] = [
  * Module scope, for `TEAM_FACETS`'s reason. No season dimension: the page reads one season already,
  * so a facet here could only ask the question the sidemenu selector has answered.
  */
-export const KONTAKTE_FACETS: readonly Facet<AdminKontaktRow>[] = [
+/** What a club's three seats add up to, which is the question the list is worked down by. */
+export const KONTAKTE_BESETZUNG_OPTIONS = [
+  { value: "vollstaendig", label: "Alle drei besetzt" },
+  { value: "teilweise", label: "Teilweise besetzt" },
+  { value: "leer", label: "Keine Kontakte" },
+] as const;
+
+/** One row answers exactly one of the three, so the facet partitions the list rather than filtering it. */
+export function kontakteBesetzung(besetzt: number): (typeof KONTAKTE_BESETZUNG_OPTIONS)[number]["value"] {
+  if (besetzt === 0) return "leer";
+
+  return besetzt === KONTAKT_ROLLEN.length ? "vollstaendig" : "teilweise";
+}
+
+export const KONTAKTE_FACETS: readonly Facet<AdminKontakteRow>[] = [
   {
-    param: "rolle",
-    label: "Rolle",
-    options: KONTAKT_ROLLEN.map(({ value, label }) => ({ value, label })),
-    read: (kontakt) => [kontakt.rolle],
+    param: "besetzung",
+    label: "Besetzung",
+    options: KONTAKTE_BESETZUNG_OPTIONS.map(({ value, label }) => ({ value, label })),
+    read: (row) => [kontakteBesetzung(row.besetzt)],
   },
   {
     param: "einwilligung",
     label: "Einwilligung",
     options: EINWILLIGUNG_HERKUNFT_OPTIONS.map(({ value, label }) => ({ value, label })),
-    // Who stood behind the agreement is the question an audit arrives with; when it was given is on
-    // the row itself, where a range filter would answer worse than reading the column. A seat holding
-    // nobody answers with none, so no herkunft claims it.
-    read: (kontakt) => (kontakt.person === null ? [] : [kontakt.person.einwilligung.erteilt_von]),
+    /* Across all three seats, because the row is now the club: a club answers every herkunft one of
+       its people gave. Seats holding nobody answer with none, so no herkunft claims them. */
+    read: (row) => [...new Set(row.seats.flatMap((seat) => (seat.person === null ? [] : [seat.person.einwilligung.erteilt_von])))],
   },
 ];
+
+/**
+ * The facets with a club filter in front, so a link from another list can preselect one club — the
+ * shape `fl_frontend/src/features/spieler/facets.ts :: buildSpielerFacets` uses for the same move.
+ */
+export function buildKontakteFacets(teams: readonly { teamId: string; name: string }[]): readonly Facet<AdminKontakteRow>[] {
+  if (teams.length === 0) return KONTAKTE_FACETS;
+
+  const teamFacet: Facet<AdminKontakteRow> = {
+    param: "team",
+    label: "Team",
+    options: teams.map((team) => ({ value: team.teamId, label: team.name })),
+    read: (row) => [row.teamId],
+  };
+
+  return [teamFacet, ...KONTAKTE_FACETS];
+}

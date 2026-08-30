@@ -2,18 +2,28 @@
 
 import { postSpielortAction } from "@/features/spielorte/actions";
 import { SpielortFormFields } from "@/features/spielorte/components/forms/SpielortFormFields";
+import { FLPostSpielortPayloadSchema } from "@/features/spielorte/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { formatAddressFull } from "@/shared/utils/format";
 
 import type { FLSpielort } from "@/features/spielorte/schemas";
-import type { FLAddress } from "@/shared/schemas";
+import type { SpielortDraft } from "@/features/spielorte/types";
 
-type SpielortDraft = { name: string; address: FLAddress; default_mietpreis: number };
+/**
+ * One mapping, read by the block and by the write alike: judging a shape the action does not send is how a form
+ * comes to refuse what the server accepts.
+ */
+const toPayload = (draft: SpielortDraft) => ({
+  name: draft.name,
+  default_mietpreis: draft.default_mietpreis,
+  address: draft.address,
+});
 
 const EMPTY_DRAFT: SpielortDraft = {
   name: "",
   address: { strasse: "", hausnummer: "", plz: "", stadt: "Frankfurt am Main", stadtteil: "" },
-  default_mietpreis: 0,
+  // Empty, not 0: a venue nobody set a rent for has no rent entered, and the schema asks for one by name.
+  default_mietpreis: null,
 };
 
 /**
@@ -31,12 +41,13 @@ export function AdminCreateSpielortForm({ onClose, onCreated }: { onClose: () =>
           onChange={setDraft}
         />
       )}
+      schema={FLPostSpielortPayloadSchema}
+      toPayload={toPayload}
       onSubmit={async (draft) => {
-        const res = await postSpielortAction({
-          name: draft.name,
-          default_mietpreis: draft.default_mietpreis,
-          address: draft.address,
-        });
+        // The block in `EntityForm` has already proved this parses, so the record below reads the PARSED
+        // rent rather than the draft's, which still carries the empty case.
+        const payload = FLPostSpielortPayloadSchema.parse(toPayload(draft));
+        const res = await postSpielortAction(payload);
         const success = res.success && !!res.created_id;
 
         if (success && res.created_id) {
@@ -46,7 +57,7 @@ export function AdminCreateSpielortForm({ onClose, onCreated }: { onClose: () =>
             address: draft.address,
             // A plain search string, as the backend stores it; `formatMapsLink` wraps one for an href.
             maps_link: `${draft.name}, ${formatAddressFull(draft.address)}`,
-            default_mietpreis: draft.default_mietpreis,
+            default_mietpreis: payload.default_mietpreis,
             // Just created, so current — and `null` is what current means.
             inactive_since: null,
           });
