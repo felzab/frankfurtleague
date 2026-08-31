@@ -49,13 +49,12 @@ all — or a snippet's own defect, verbatim.
   input. Write the test before trusting the snippet.
 - **A snippet creates the defect class the wave exists to remove** — a shared dictionary placed where
   it forms a module cycle.
-- **A security tightening breaks the build output.** A stricter CSP requiring a per-request nonce
-  disables every script on prerendered routes, because a build-time shell has no request.
-- **An environment gate refuses to boot the local stack.** Gating on `NODE_ENV === "production"`
-  breaks a local stack that deliberately runs the production image over plain-HTTP localhost; gate on
-  the request's own host instead.
-- **A runtime check cannot resolve its imports** in a bundled or standalone image, where the modules
-  it needs are compiled in rather than present as files.
+- **A security or configuration fix verified only by reasoning is routinely unshippable.** Three
+  shapes so far: a per-request CSP nonce disables every script on prerendered routes, because a
+  build-time shell has no request; a `NODE_ENV === "production"` gate refuses the local stack that
+  deliberately runs the production image over plain-HTTP localhost (gate on the request's own host
+  instead); and a runtime check cannot resolve its imports in a bundled or standalone image, where
+  the modules it needs are compiled in rather than present as files.
 - **A prescribed name does not compile** — a design token in the wrong namespace, or one an earlier
   wave renamed.
 - **Prescribed markup is invalid** — an interactive element nested inside a library trigger that
@@ -252,9 +251,8 @@ the installed version before relying on it.
   button-like element, so putting a `<button>` inside one nests interactive content — check for this
   every time. `isFocusVisible` is a **global** modality flag, so styling keyed off it fires at
   seemingly random moments. Overlays light-dismiss on interaction, and a client-side navigation is
-  not one. A portalled overlay's `bottom` is computed against the viewport and resolved by CSS
-  against its containing block, so anything making `<html>` or `<body>` one opens every top-placed
-  overlay a whole scroll height low (`docs/frontend/spec.md :: I29`).
+  not one. Anything making `<html>` or `<body>` a containing block opens every top-placed overlay a
+  whole scroll height low (`docs/frontend/spec.md :: I29`).
 - **`dynamic({ ssr: false })` with no `loading`** renders `null`, so a click on the trigger looks dead
   until the chunk arrives.
 - **Next writes suggested `tsconfig` defaults for any absent key** — a presence check, not a value

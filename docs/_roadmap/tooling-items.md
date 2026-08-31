@@ -84,7 +84,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 36  | OPS-66  | The CSP's style directive is wider than it needs to be             | Ops, Docs         | S      | Open     | —          |
 | 37  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
 | 38  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
-| 39  | DOC-9   | Pairs of audit checks hunt the same ground                         | Docs              | S      | Open     | —          |
+| 39  | DOC-9   | Pairs of audit checks hunt the same ground                         | Docs              | S      | Closed   | —          |
 | 40  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
 | 41  | OPS-19  | Both repository-wide linters re-read every file                    | FE, Ops           | S      | Open     | —          |
 | 42  | OPS-10  | The comment-only classifier costs a process per file               | Ops               | S      | Open     | —          |
@@ -988,7 +988,7 @@ and 95 are not** — 33 absent from `docs/backend/spec.md`, 32 from `docs/ops/sp
 literally it is unmet almost everywhere at once, and discharging it would take each of those three
 tables to several times its size and make it a second copy of the ranked page.
 
-**Four entries have no target for the requirement at all.** `DOC-2`, `DOC-3`, `DOC-9` and
+**Three entries have no target for the requirement at all.** `DOC-2`, `DOC-3` and
 `FB-20` name only `Docs`, which owns no spec sheet — and so does this entry, which is the same gap
 showing through the thing that records it.
 
@@ -2085,7 +2085,7 @@ branch-scoped checks read stays as it is.
 
 ### 39 · DOC-9 — Pairs of audit checks hunt one another's ground, and only one pair has a boundary about it
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Docs\
 **Effort:** S\
 **Path:** Independent. A prompt is read at the start of a pass, so the repair lands whenever it is
@@ -2125,6 +2125,15 @@ split is a sentence in each prompt, and both pages of a pair move together.
 
 **Not decided:** whether `docs/_auditing/prompts/README.md` should carry a rule that every check
 names its counterpart, or whether the boundary lines stay the only mechanism.
+
+**What concluded it.** The lens split it asked for is in the prompts: f1's dead-vocabulary check
+owns what resolves to nothing and hands a live token bypassed or duplicated to f6, whose
+token-discipline check says the same from its side; ops 1's coverage map hands a cross-surface
+seam — cache-tag wiring named — to crosscut 1 check 8, which in turn refuses any class one
+surface's gate could catch, and both BOUNDARIES lines carry the handoff. The undecided question is
+settled against a README rule: `docs/_auditing/programme.md` §1.6 already states the boundary
+discipline, and OUT-3 bans rules in READMEs, so a README copy would be the second statement this
+entry exists to remove.
 
 ### 40 · DOC-2 — An enforcement claim is resolved in one direction only
 

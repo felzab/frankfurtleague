@@ -17,19 +17,19 @@ The `/audit:*` commands in `.claude/commands/audit/` load and apply this page.
 
 ## 1. The lifecycle
 
-| Phase      | Command           | Sessions     | Writes                                               |
-| ---------- | ----------------- | ------------ | ---------------------------------------------------- |
-| 1 · Passes | `/audit:pass`     | One per pass | One report per pass, in `audit/programme/`           |
-| 2 · Ledger | `/audit:plan`     | One          | `docs/audit/programme/0-remediation-ledger.md`       |
-| 3 · Wave 0 | —                 | My answers   | Answers recorded in the ledger                       |
-| 4 · Waves  | `/audit:wave <n>` | One per wave | Source code, on a branch, plus wave report           |
-| 5 · Close  | `/audit:finish`   | One          | `audit/<yyyy-mm>-<surface>.md`; deletes `programme/` |
+| Phase      | Command           | Sessions     | Writes                                                    |
+| ---------- | ----------------- | ------------ | --------------------------------------------------------- |
+| 1 · Passes | `/audit:pass`     | One per pass | One report per pass, in `docs/audit/programme/`           |
+| 2 · Ledger | `/audit:plan`     | One          | `docs/audit/programme/0-remediation-ledger.md`            |
+| 3 · Wave 0 | —                 | My answers   | Answers recorded in the ledger                            |
+| 4 · Waves  | `/audit:wave <n>` | One per wave | Source code, on a branch, plus wave report                |
+| 5 · Close  | `/audit:finish`   | One          | `docs/audit/<yyyy-mm>-<surface>.md`; deletes `programme/` |
 
 `/audit:status` reads `programme/state.md`, reconstructs from git whatever that file does not cover,
 and resumes interrupted work. Run it first after any crash, token exhaustion, or return from a break.
 
 **One programme runs at a time**, because every working document lives in the single
-`audit/programme/` folder.
+`docs/audit/programme/` folder.
 
 **Mine, and nothing else is:** running each command in its own session with `/clear` between them;
 answering the Wave 0 batch after `/audit:plan`, which `/audit:wave` refuses to run without; answering
@@ -100,16 +100,16 @@ lens rather than letting one report grow too large to load ([`lessons.md`](lesso
 
 ## 2. The artifacts
 
-| Artifact                                  | Holds                                                  | Lifetime         |
-| ----------------------------------------- | ------------------------------------------------------ | ---------------- |
-| `audit/programme/<prefix><n>-*.md`        | Evidence — every finding with its citation             | Deleted at close |
-| `audit/programme/0-remediation-ledger.md` | The plan and its status                                | Deleted at close |
-| `audit/programme/wave-reports.md`         | Narrative — what was done and why                      | Deleted at close |
-| `audit/programme/state.md`                | What each session finished, and what it left in flight | Deleted at close |
-| `audit/register.md`                       | The standing failure-mode register                     | Survives a close |
-| `audit/<yyyy-mm>-<surface>.md`            | The permanent account of one programme                 | Survives a close |
+| Artifact                                       | Holds                                                  | Lifetime         |
+| ---------------------------------------------- | ------------------------------------------------------ | ---------------- |
+| `docs/audit/programme/<prefix><n>-*.md`        | Evidence — every finding with its citation             | Deleted at close |
+| `docs/audit/programme/0-remediation-ledger.md` | The plan and its status                                | Deleted at close |
+| `docs/audit/programme/wave-reports.md`         | Narrative — what was done and why                      | Deleted at close |
+| `docs/audit/programme/state.md`                | What each session finished, and what it left in flight | Deleted at close |
+| `docs/audit/register.md`                       | The standing failure-mode register                     | Survives a close |
+| `docs/audit/<yyyy-mm>-<surface>.md`            | The permanent account of one programme                 | Survives a close |
 
-**`audit/` is gitignored** so that a public repository never publishes a finding still being
+**`docs/audit/` is gitignored** so that a public repository never publishes a finding still being
 remediated. Two consequences: **nothing under it has git history to recover from**, so snapshot the
 ledger to `docs/audit/programme/.snapshots/<date>-<time>.md` before any bulk edit; and **a pull
 request body can point at none of it**, which is why [`../_git/spec.md`](../_git/spec.md) §1.4
@@ -172,14 +172,6 @@ the record for what happened after it: a killed pass is continued by the resume 
 against `git log` and `git diff main...` — a `[~]` row means inspect the diff, the work may be
 partial.
 
-### Reporting a programme's own progress
-
-- **Dry-run one unit before quoting any timeline.** One rehearsed unit turns a guess into an estimate.
-- **Validate the artefact that ships, not its draft.** Where a set exists twice — messages, plans,
-  prescriptions — the validated copy and the used copy must be the same file.
-- **Relay a measurement with the state it describes.** `HEAD`, the working tree and one agent's
-  output are three different things, and a number without that qualifier is read as an instruction.
-
 ---
 
 ## 4. Close-out, identical every wave
@@ -193,8 +185,8 @@ Every step below is the session's job, in this order, with none skipped.
 ```
 
 **The full gate runs on every wave.** The one exception is a wave that changed **documentation
-only**, which may use `./scripts/verify.sh --quick`; [`lessons.md`](lessons.md) §5 holds the classes
-that pass a partial gate and break the built image.
+only**, which runs the scope CLAUDE.md's gate table names for it; [`lessons.md`](lessons.md) §5
+holds the classes that pass a partial gate and break the built image.
 
 ### 4.2 Read what the formatter changed
 

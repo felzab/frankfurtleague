@@ -50,9 +50,9 @@ Run these before check 1, in order.
   behaviour is unverified until it is run or read at the installed source, however many people have
   repeated it.
 - **Say what you could not verify, and why.**
-- **Secrets.** Never read, print, echo, decode or reproduce `.env*` contents or any credential value;
-  refer to secrets by variable name only. A check that would require reading one is reported
-  unverifiable, with the reason. Scope every grep away from ignored paths **before** running it.
+- **Secrets.** `.claude/CLAUDE.md` §1 binds a pass session whole. What it adds for an audit: a check
+  that would require reading a credential is reported unverifiable, with the reason, and every grep
+  is scoped away from ignored paths **before** it runs.
 
 ## Report structure, in this order
 

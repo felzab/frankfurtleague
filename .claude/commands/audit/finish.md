@@ -47,8 +47,9 @@ documents.
    deleted. **The delete is the owner's**, on a clear yes: `rm -rf docs/audit/programme` from the
    repository root, that folder and nothing else. Nothing in it is recoverable
    (`docs/_auditing/programme.md` §2), which is why steps 3 to 5 must be genuinely complete first;
-   `.claude/hooks/guard-branch-bash.sh` refuses a session that removal on `main`, where a resumed
-   close sits once the last wave has merged. Confirm the folder is gone before step 7. Anything else
+   `.claude/hooks/guard-branch-bash.sh` refuses that removal from an assistant session on `main`,
+   which is where a resumed close sits once the last wave has merged — another reason the delete is
+   run by hand. Confirm the folder is gone before step 7. Anything else
    under `docs/audit/` belongs to no programme's lifecycle and stays.
 7. Run the gate at the scope CLAUDE.md's gate section names for what changed, commit the final
    report and any doc updates, push, open the draft pull request and print its link.

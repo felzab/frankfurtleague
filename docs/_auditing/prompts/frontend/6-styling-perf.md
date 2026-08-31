@@ -21,8 +21,9 @@ size, because a plausible-looking token remapping can drop several combinations 
 SECTION B — STYLING SYSTEM
 
 B1. **Token discipline.** Hardcoded colours and arbitrary values in `.tsx` that duplicate or bypass a
-token; tokens declared and consumed by nothing; shadowed or stale token names. Verify each
-proposed token name compiles under the correct Tailwind namespace before recommending it.
+token. Dead vocabulary — classes and tokens resolving to nothing — is f1's; this check judges
+only live tokens bypassed or duplicated. Verify each proposed token name compiles under the
+correct Tailwind namespace before recommending it.
 
 B2. **Dark-mode coverage.** Components styled for one theme; raw values that do not flip; `dark:`
 escape hatches beyond the recorded residual set. **Verify with one page load per theme, seeding

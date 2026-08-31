@@ -23,9 +23,10 @@ THE CHECKS:
    surviving on current components (`onClick` where react-aria expects `onPress`, and similar).
 
 2. **Dead styling vocabulary.** Classes and tokens that compile and resolve to nothing — utilities
-   from a previous library major, tokens renamed out from under their users, arbitrary values
-   duplicating a token. The unknown-class lint rule (`fl_frontend/eslint.config.mjs`) covers one part
-   of this; the check hunts what that rule cannot see (registered-but-dead tokens, shadowed names).
+   from a previous library major, tokens renamed out from under their users. The unknown-class lint
+   rule (`fl_frontend/eslint.config.mjs`) covers one part of this; the check hunts what that rule
+   cannot see (registered-but-dead tokens, shadowed names). A _live_ token duplicated or bypassed by
+   a hand-written value is f6's; this check owns only vocabulary that resolves to nothing.
 
 3. **Legacy idioms outside the table** — "current framework, wrong idiom": `"use server"` on files
    that are Server Components rather than action modules; deep imports into `next/dist/**` or other

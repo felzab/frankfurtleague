@@ -6,8 +6,7 @@
 # Remediation Ledger — \<programme name\>
 
 **Purpose.** The plan and the state for remediating the reports listed below; those reports are the
-evidence. A session reads this file plus the _specific report sections_ its wave names — never a
-whole report, and never more than one.\
+evidence. The context budget a session reads them under is `docs/_auditing/programme.md` §3.\
 **Wave reports.** `docs/audit/programme/wave-reports.md` records what was actually done and why.
 Status here, narrative there.\
 **Wave 0 status:** `OPEN` — \<replace with `SETTLED <yyyy-mm-dd>` once every Part 1 answer is
@@ -17,9 +16,9 @@ recorded; `/audit:wave` refuses to run while this reads `OPEN`\>
 
 \<One row per pass report, in the order the passes were written.\>
 
-| Ref | File                              | Audited at                    | Findings | CRIT  | HIGH  | Character                       |
-| --- | --------------------------------- | ----------------------------- | -------: | :---: | :---: | ------------------------------- |
-| R1  | \<name under `audit/programme/`\> | \<the sha the pass recorded\> |    \<n\> | \<n\> | \<n\> | \<one line on the pass's lens\> |
+| Ref | File                                   | Audited at                    | Findings | CRIT  | HIGH  | Character                       |
+| --- | -------------------------------------- | ----------------------------- | -------: | :---: | :---: | ------------------------------- |
+| R1  | \<name under `docs/audit/programme/`\> | \<the sha the pass recorded\> |    \<n\> | \<n\> | \<n\> | \<one line on the pass's lens\> |
 
 **Drift check, re-run at the start of every wave.** Compare each report's `Audited at` SHA against
 `HEAD` with `git log --oneline <sha>..HEAD -- <that surface's path>`. A report the code has moved a
