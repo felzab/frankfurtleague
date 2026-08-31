@@ -20,6 +20,10 @@ from app.api.teams.services import offered_gruppen
 # Pinned, not derived: pairing partnered groups fixes WHO meets in round one, never WHERE. Of the
 # placements it leaves open, 8 of 24 at 4x2 and 480 of 576 at 4x4 meet a same-group pair sooner.
 # `tests/api/test_spielplan.py` recounts all four.
+
+# Keyed by what the rules may save: `app/api/spiele/schemas.py :: MAX_QUALIFIERS` follows
+# `:: PHASE_ORDER`, so a phase added at its wide end doubles the legal qualifier count and owes
+# this table new rows.
 BRACKET_SEEDING: Mapping[tuple[int, int], tuple[tuple[FLGruppenNames, int], ...]] = {
     (1, 2): (("A", 1), ("A", 2)),
     (1, 4): (("A", 1), ("A", 4), ("A", 2), ("A", 3)),
@@ -260,6 +264,9 @@ def draw_spielplan(*, saison_id: str, rules: FLSaisonRules, entered: Sequence[En
 
     remaining = qualifier_count(rules)
     knockout = knockout_phases_for(remaining)
+    # A bare subscript on purpose: `tests/api/test_spielplan.py :: test_it_holds_exactly_the_combinations_a_season_can_be_saved_in`
+    # derives the legal key set, so a widened `PHASE_ORDER` fails the gate before any request can
+    # reach a missing row.
     seeding = BRACKET_SEEDING[(rules.number_of_groups, rules.qualifiers_per_group)] if knockout else ()
 
     # The round already drawn, left to right; empty before the first, which reads the standings

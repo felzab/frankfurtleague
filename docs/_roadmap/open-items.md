@@ -80,6 +80,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 25  | BE-40 | A bracket slot may name a group its season does not run              | FE, BE          | S      | Open     | —          |
 | 26  | FE-28 | A squad-row return is offered where the cap refuses it               | FE, BE          | M      | Open     | —          |
 | 27  | BE-21 | The seeding table is keyed on a list nothing joins it                | BE              | S      | Open     | —          |
+| 27  | FE-26 | The draw offers a press a too-short season refuses                   | FE              | S      | Open     | —          |
 | 28  | BE-33 | The log read carries every pre-image the page discards               | BE              | S      | Open     | —          |
 | 29  | FE-29 | A date search matches the stored spelling, not the shown one         | FE              | S      | Open     | —          |
 | 30  | FE-24 | A pupil's consent is stored and served, and shown by nothing         | FE              | S      | Open     | —          |
@@ -99,6 +100,18 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 44  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
 | 45  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
 | 46  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Open     | —          |
+| 36  | FE-18 | A vendored stylesheet may reach nothing it declares                  | FE              | S      | Open     | —          |
+| 37  | FE-31 | Every admin success is stated twice, and once invisibly              | FE              | M      | Open     | —          |
+| 38  | FE-19 | Every call site writes a fallback the runtime cannot take            | FE              | M      | Open     | —          |
+| 39  | FE-23 | One adverb is written two ways across the product                    | FE              | S      | Open     | —          |
+| 40  | FE-1  | A fixture carries one date, not a play window                        | FE, BE          | XL     | Open     | —          |
+| 41  | LOG-2 | A cached read's call joins to no render                              | FE, BE, Ops     | L      | Open     | —          |
+| 42  | FB-18 | Only the match editor marks a field somebody waits on                | FE, BE          | L      | Open     | —          |
+| 43  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
+| 44  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Open     | —          |
+| 56  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
+| 45  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
+| 46  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
 | 47  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
 | 48  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
 | 49  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
@@ -733,8 +746,9 @@ message, is the actual scope.
 **Effort:** M\
 **Path:** Leverage for FB-17, whose flow "has to state the narrowing refusals while a value is still
 being chosen" — that sentence is this entry. An ordering preference rather than a block: FB-17 could
-build its own offer, at the price of building it twice. It makes BE-21 timely rather than blocking on
-it, because raising the group cap is what adds the seeding keys that entry's table does not hold.
+build its own offer, at the price of building it twice. Raising the group cap also adds seeding keys
+`fl_backend/app/api/saisons/spielplan.py :: BRACKET_SEEDING` does not hold, which the comment at
+that table states.
 
 **`number_of_groups`, `qualifiers_per_group` and `teams_per_group` are `SaisonRuleNumberField`
 steppers in both the create modal and the Regeln panel, and the combinations they accept are wider
@@ -818,8 +832,8 @@ is a design question at sixteen groups rather than a breakage.
 
 **Not verified.** Nothing here was seen rendering — no admin session is available to the sessions that
 read it — so every claim about a control is read off source and class strings. The legal-set
-arithmetic is derived from the rule functions rather than executed. The bracket's own seeding table is
-`BE-21`'s subject and was not re-measured here.
+arithmetic is derived from the rule functions rather than executed. The bracket's own seeding table
+(`fl_backend/app/api/saisons/spielplan.py :: BRACKET_SEEDING`) was not re-measured here.
 
 ### 13 · BE-44 — Deciding an application does not drain the queue, and duplicates are marked only across the rows one read served
 
@@ -1696,6 +1710,39 @@ the table names no phase list, the subscript states no precondition, and whoever
 **Not measured:** what else a widened phase list would move. This reading follows one table and one
 subscript and stops at the draw.
 
+### 27 · FE-26 — The draw panel offers a press a too-short season will refuse
+
+**Status:** Open\
+**Surfaces:** FE\
+**Effort:** S\
+**Path:** Independent, and cheaper than it looks — see the last paragraph, which corrects the
+assumption that a second copy of the scheduling rule is needed.
+
+**The draw's mirror in
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/blockedReasons.ts :: spielplanBlockedReason`
+mirrors four of the draw's refusals and not `REQ-DATE-005`.** It closes the
+control on `REQ-SPIELPLAN-001`, `-002` and `-005`'s window, on a `past` season, and on `REQ-RULES-001`
+reduced to an empty knockout list. A season whose date span cannot hold the matchdays its own rules
+imply is offered the draw and answered 409 by
+`fl_backend/app/api/saisons/services.py :: find_saison_span_refusal`.
+
+**A polish item rather than a defect, and the function says so itself.** Its docstring calls the mirror
+"A courtesy and not the control", and the refusal an administrator meets is well worded and names the
+repair — `fl_frontend/src/features/saisons/actions.ts :: SPAN_BELOW_SCHEDULE` tells them to move the
+end date back or the start date forward. So the cost of leaving it is one round trip and one banner, on
+a press an administrator would otherwise not have made.
+
+**The premise that it needs a second copy of `schedule_for` is wrong.**
+`find_saison_span_refusal` compares inclusive offered days against the matchdays
+`fl_backend/app/api/saisons/schedule.py :: schedule_for` implies, and the page already holds that sum:
+the season read serves its derived schedule, and
+`fl_frontend/src/features/saisons/utils.ts :: buildSpielplanVorschau` totals `entry.matchdays` off the
+served value rather than recomputing it, as its own comment puts it. The season's `start_date` and
+`end_date` arrive on the same read. **So the mirror is a date subtraction against a number the panel
+already renders**, and nothing about the scheduling rule is duplicated. That makes the objection to
+duplicating a scheduling rule sound in general and inapplicable here — which is worth recording,
+because it is the reason this was left alone.
+
 ### 28 · BE-33 — The log read carries every stored pre-image, and the page that asked for it drops them
 
 **Status:** Open\
@@ -1988,6 +2035,43 @@ than a copy, and that a change to any of the other sentences stops being an edit
 
 ### 36 · FE-31 — Every admin write states its success twice, and the second sentence cannot render
 
+### 36 · FE-18 — A vendored stylesheet ships on every route, and nothing may render what it declares
+
+**Status:** Open\
+**Surfaces:** FE\
+**Effort:** S\
+**Path:** Independent — the header comment in `fl_frontend/src/app/globals.css` moves with it,
+because the claim it makes covers a sibling import as well.
+
+**`fl_frontend/src/app/globals.css` imports HeroUI's `disclosure-group.css`, and the class it
+declares may be rendered by nothing here.** Read against the installed `@heroui/styles` 3.2.4 on
+2026-08-20: that stylesheet declares the lone selector `disclosure-group`; the only component
+emitting that class is HeroUI's own `DisclosureGroup` root, through the base slot of
+`disclosureGroupVariants`; and no module under `fl_frontend/src` imports `DisclosureGroup`. The app's
+accordion is `AccordionRoot`, which renders react-aria's `DisclosureGroup` primitive under the
+`accordion` class from `accordionVariants`.
+
+**The proof is short of what removing an import here has to establish.** Enumerating the
+selectors and grepping both HeroUI packages are done and are above. What is not done is diffing the
+compiled stylesheet either side of the removal, which is what separates a selector nothing renders
+from one a component reaches through a path the source does not show. That step needs a build, and it
+is the whole remaining work.
+
+**The header comment moves with it, and it is wrong in a direction this entry has to settle.** The
+comment above the import list states that `disclosure` and `disclosure-group` back `Accordion`. For
+`disclosure-group` that is false. For `disclosure` it is true through `accordion__heading` alone, the
+only accordion selector `disclosure.css` declares — and `accordion.css` declares the same selector
+with the same declaration, so the accordion would render identically without it. Every other selector
+in `disclosure.css` is a `disclosure__*` name whose element the accordion's slots never emit, react-aria's
+own default class names being replaced wherever HeroUI passes one.
+
+**What it is worth is a byte figure per route rather than an argument**, and the pair is small. The
+value is that the import list and the comment above it stop asserting something the code does not do.
+§1.11 of [`docs/frontend/spec.md`](../frontend/spec.md) is the procedure both imports were added
+under, and its own instruction is to establish membership from the import graph.
+
+### 37 · FE-31 — Every admin write states its success twice, and the second sentence cannot render
+
 **Status:** Open\
 **Surfaces:** FE\
 **Effort:** M\
@@ -2050,6 +2134,8 @@ there the fallback is the ordinary case. Reading the `??` alone does not separat
 
 ### 37 · FE-19 — Every call site writes a fallback for a failure message that always arrives
 
+### 38 · FE-19 — Every call site writes a fallback for a failure message that always arrives
+
 **Status:** Open\
 **Surfaces:** FE\
 **Effort:** M\
@@ -2091,6 +2177,8 @@ whether retrying can help.
 
 ### 38 · FE-23 — One adverb is written two ways, and the split runs through the whole product
 
+### 39 · FE-23 — One adverb is written two ways, and the split runs through the whole product
+
 **Status:** Open\
 **Surfaces:** FE\
 **Effort:** S\
@@ -2128,6 +2216,8 @@ they were written, so a sweep through them would falsify a record rather than co
 
 ### 39 · FE-1 — A fixture carries one date, and a play window cannot be expressed
 
+### 40 · FE-1 — A fixture carries one date, and a play window cannot be expressed
+
 **Status:** Open\
 **Surfaces:** FE, BE\
 **Effort:** XL\
@@ -2152,6 +2242,8 @@ and labelled `heute`) is what the range arithmetic has to preserve. Working it r
 definitions under ranges.
 
 ### 40 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
+
+### 41 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -2221,6 +2313,8 @@ should be guessed.
 
 ### 41 · FB-18 — Only the match editor tells an admin which empty field somebody is waiting on
 
+### 42 · FB-18 — Only the match editor tells an admin which empty field somebody is waiting on
+
 **Status:** Open\
 **Surfaces:** FE, BE\
 **Effort:** L\
@@ -2258,6 +2352,8 @@ its required fields and the rail's Hinweise. Its cost is the per-entity ruling, 
 not grow while it waits.
 
 ### 42 · BE-12 — No retention sweep selects a retired row on its age
+
+### 43 · BE-12 — No retention sweep selects a retired row on its age
 
 **Status:** Open\
 **Surfaces:** BE, DB\
@@ -2309,6 +2405,8 @@ would have to find.
 
 ### 43 · BE-25 — A club's street address is served to an anonymous caller
 
+### 44 · BE-25 — A club's street address is served to an anonymous caller
+
 **Status:** Open\
 **Surfaces:** BE\
 **Effort:** S\
@@ -2334,6 +2432,8 @@ the reasoning is written down as not applying here. **Leaving it unstated is the
 because the next reader re-derives it from scratch.
 
 ### 44 · BE-26 — Two rule summaries name a fixture state the code excludes
+
+### 45 · BE-26 — Two rule summaries name a fixture state the code excludes
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -2369,6 +2469,8 @@ them. The constant's own comment argues that a called-off fixture is one that ne
 which points at the summaries; that remains a domain call rather than a recorded decision.
 
 ### 45 · BE-39 — A refusal composes a repair the product refuses to perform
+
+### 46 · BE-39 — A refusal composes a repair the product refuses to perform
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -2411,8 +2513,8 @@ a message fix. **The German is a hand-written second copy either way**
 (`fl_frontend/src/features/saisons/actions.ts`, its `REQ-RULES-011` arm), so a repair that stops at the
 backend leaves an admin reading the old instruction.
 
-**What ranks it here.** Above **BE-24** and **BE-37**: those cost a read that runs and an operator who
-has already reached for the database, where this misleads an admin on a path the product offers them.
+**What ranks it here.** Above **BE-37**: that costs an operator who has already reached for the
+database, where this misleads an admin on a path the product offers them.
 Below **BE-26**: a summary wrong there may be covering a constant that lets a fixture nobody will replay
 through a refusal, which is a behaviour to settle rather than a sentence to correct.
 
@@ -2498,10 +2600,9 @@ published property in `fl_backend/openapi.json`, and a German sentence in each o
 Both switches are exhaustive, so the compiler names them; nothing names the German. I28's own
 enumeration moves in the same commit.
 
-**What ranks it below BE-24 and above FE-20.** It removes real doubt — an operator repairing wiring
-by hand gets no signal for most of what the write path calls unholdable — where FE-20 removes almost
-none. It sits under BE-24 because that entry's cost is measured on a read that runs today, and this
-one's is paid only after somebody edits the database.
+**What ranks it above FE-20.** It removes real doubt — an operator repairing wiring by hand gets no
+signal for most of what the write path calls unholdable — where FE-20 removes almost none, and its
+own cost is paid only after somebody edits the database.
 
 ### 48 · BE-43 — A club's name is bounded where a stranger types it and unbounded where an administrator does
 
