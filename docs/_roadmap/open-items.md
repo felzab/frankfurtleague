@@ -56,7 +56,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 1   | BE-15 | The recording exists; the restore over it does not                   | FE, BE, DB      | M      | Open     | —          |
 | 2   | BE-23 | Consent's writer is deferred to an expert who has not answered       | BE, DB, Docs    | M      | Standing | —          |
 | 3   | FE-25 | A double-click satisfies the two-press confirmation                  | FE              | S      | Open     | —          |
-| 4   | FB-20 | A name typed into a fixture note is beyond the erasure               | Docs            | S      | Open     | —          |
+| 4   | FB-20 | A name typed into a fixture note is beyond the erasure               | Docs            | S      | Closed   | —          |
 | 5   | BE-42 | Acceptance publishes a school's street address as the club's         | FE, BE, Docs    | S      | Open     | —          |
 | 6   | BE-18 | Gaps the domain declaration does not reach                           | BE              | M      | Open     | —          |
 | 7   | BE-36 | A season's judgement covers five collections and its transaction one | BE, Docs        | M      | Open     | —          |
@@ -336,7 +336,7 @@ is in question.
 
 ### 4 · FB-20 — A name typed into a fixture note is beyond the erasure, and no document records the limit
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Docs\
 **Effort:** S\
 **Path:** Independent. It is the same family as BE-23 and waits on it not at all; it lands
@@ -369,6 +369,11 @@ actually holds a pupil's name is not knowable by search and no search of live da
 could be concluded from one either way. The value of the entry is that the limit is written down
 before somebody asserts the erasure is complete. BE-23 is where the question of what else the log
 accumulates sits, and this is the piece of it whose action does not wait on the Datenschutzexperte.
+
+**Concluded by recording the limit at the invariant's home.** `docs/backend/spec.md :: I42` now
+states that the reach is structured fields alone and that a name typed into `spiele.notiz` sits
+beyond the erasure and its redaction targets. No panel was reworded and no automated free-text
+search was built, per this entry's own argument; the argument is in the closing commit's body.
 
 ### 5 · BE-42 — Acceptance copies a school's postal address into the club, where an anonymous read serves it
 
