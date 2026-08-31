@@ -143,7 +143,22 @@ describe("the armed action row", () => {
   /* The app's one cancel treatment. Spell the classes here and this row drifts from every other
      form's pair the first time `formButton` moves. */
   it("takes the cancel's fill from the shared intent", () => {
-    assert.match(ACTION_ROW, /formButton\(\{ intent: "cancel" \}\)/);
+    assert.match(ACTION_ROW, /formButton\(\{ intent: "cancel"/);
+  });
+
+  /* A row wherever a pair looks uncramped, a column of FULL-WIDTH buttons where it does not — never
+     a column of narrow ones. `stacks` reaches the buttons and the direction the box: either alone
+     leaves the shape this removes. */
+  it("stands its buttons in a full-width column below `sm`", () => {
+    assert.match(ACTION_ROW, /flex-col[^"]*\bsm:flex-row\b/, "the row is not a column below `sm`");
+    // Every centring class rather than the scoped one's presence: `sm:items-center` still matches with
+    // an unscoped one added beside it, which is the shape this refuses.
+    assert.deepEqual(
+      [...ACTION_ROW.matchAll(/[\w:-]*items-center/g)].map((found) => found[0]),
+      ["sm:items-center"],
+      "the row's centring is no longer exactly the `sm:`-scoped one",
+    );
+    assert.match(ACTION_ROW, /formButton\(\{ intent: "cancel", stacks: true \}\)/, "the cancel does not fill the column it stands in");
   });
 });
 

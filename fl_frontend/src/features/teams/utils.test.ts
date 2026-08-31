@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
 
+import { TRIKOT_FARBE_OPTIONS } from "./constants.ts";
 import { buildKontakteFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung } from "./facets.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
@@ -12,6 +13,7 @@ import {
   computeQualifyingTeamIds,
   computeSaisonVerlauf,
   describeReplacementUmfang,
+  offeredTrikotFarben,
   toWebsiteUrl,
 } from "./utils.ts";
 
@@ -510,5 +512,62 @@ describe("what a new consent cites", () => {
 
     assert.equal(frisch.text_version, LIGA_EINWILLIGUNG.textVersion, "a new consent cites a version the league did not stamp");
     assert.notEqual(frisch.text_version, "", "a new consent cites no wording at all");
+  });
+});
+
+describe("which kit colours the wish picker offers", () => {
+  const alle = TRIKOT_FARBE_OPTIONS.map((option) => option.value);
+  const werte = (vergeben: readonly (typeof alle)[number][], value: (typeof alle)[number] | null = null) =>
+    offeredTrikotFarben({ vergeben: vergeben, value: value }).map((option) => option.value);
+
+  /* First, because every case below compares against the palette: a filter that had stopped reading
+     `TRIKOT_FARBE_OPTIONS` would return nothing and make each of them pass over an empty list. */
+  it("offers the whole palette while nothing is assigned", () => {
+    assert.deepEqual(werte([]), alle);
+    assert.ok(alle.length > 1, "the palette holds one colour or none, so no exclusion below can be observed");
+  });
+
+  /* The colours an administrator ASSIGNED, off `saison_teams.trikot_farbe` and never off another
+     application's wish -- reading wishes would carry one school's submission into another's form. */
+  it("leaves out every colour the season has assigned", () => {
+    const uebrig = werte(["rot", "blau"]);
+
+    assert.ok(!uebrig.includes("rot"), "an assigned colour is still offered");
+    assert.ok(!uebrig.includes("blau"), "an assigned colour is still offered");
+    assert.equal(uebrig.length, alle.length - 2, "the exclusion dropped something other than the two assigned colours");
+  });
+
+  /* Order carries the CI document's, so a school reads the same list it reads everywhere else. */
+  it("keeps the palette's own order in what is left", () => {
+    const uebrig = werte(["rot"]);
+
+    assert.deepEqual(
+      uebrig,
+      alle.filter((farbe) => farbe !== "rot"),
+    );
+  });
+
+  /* A stored assignment stays pickable in its own editor: without this, reopening a saved row would
+     offer every colour except the one it holds. */
+  it("keeps the colour the field already holds", () => {
+    assert.ok(werte(["rot", "blau"], "rot").includes("rot"), "the field's own colour was excluded from its own picker");
+  });
+
+  /* The boundary the palette can cross on its own -- sixteen colours against a season capped at 64
+     teams. An empty offer is the answer there, and the field stays required: the picker offers only
+     what the season can still give. */
+  it("offers nothing once the season has assigned every colour", () => {
+    assert.deepEqual(werte(alle), []);
+  });
+
+  /* And only there: emptied a colour early, the picker would withhold one the season still has. */
+  it("still offers the last colour the season has left", () => {
+    assert.deepEqual(werte(alle.slice(1)), alle.slice(0, 1));
+  });
+
+  /* The held value survives the exhausted season as well, its own colour being by definition one of
+     the assigned ones -- so an editor reopening such a row still reads what it holds. */
+  it("keeps the field's own colour even where every colour is assigned", () => {
+    assert.deepEqual(werte(alle, "rot"), ["rot"]);
   });
 });

@@ -56,6 +56,10 @@ BEWERBUNG_FULL_NAME_MAX_LENGTH: Final = 120
 # QUERY unchecked, so this bounds them. Far under what browsers accept: this is a front page.
 BEWERBUNG_WEBSITE_URL_MAX_LENGTH: Final = 300
 
+# The opponent a school would like on the first Spieltag, typed freely rather than picked. It takes
+# `BEWERBUNG_FULL_NAME_MAX_LENGTH`'s width: nothing holds an applicant to a league short name.
+BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH: Final = 120
+
 # One part of one contact person's name. `PERSON_NAME_PATTERN` bounds the ALPHABET and not the
 # length. Generous against a hyphenated double name and a multi-part surname both.
 BEWERBUNG_KONTAKT_NAME_MAX_LENGTH: Final = 80

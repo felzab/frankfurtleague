@@ -4389,6 +4389,51 @@
         }
       }
     },
+    "/api/v0/bewerbungen/trikotfarben/{saison_id}": {
+      "get": {
+        "summary": "The kit colours a Saison has already assigned",
+        "description": "Answer which kit colours this season has assigned, so the form can offer the rest.\n\n404 unless that season's application window is running today, which is the one state the form\nreads this in. The SET alone, naming no club (`READ-BEWERBUNG-001`).",
+        "operationId": "get_trikotfarben_api_v0_bewerbungen_trikotfarben__saison_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungTrikotFarbenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -5003,6 +5048,17 @@
           "kader": {
             "$ref": "#/components/schemas/FLBewerbungKader"
           },
+          "wunschgegner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wunschgegner"
+          },
           "entscheidung": {
             "anyOf": [
               {
@@ -5421,14 +5477,14 @@
             "type": "string",
             "maxLength": 60,
             "minLength": 1,
-            "pattern": "^[^\\r\\n]*$",
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Team Name"
           },
           "full_name": {
             "type": "string",
             "maxLength": 120,
             "minLength": 1,
-            "pattern": "^[^\\r\\n]*$",
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Full Name"
           },
           "shorthand": {
@@ -5567,6 +5623,55 @@
         ],
         "title": "FLBewerbungTrikot",
         "description": "What kit the school already owns, and the colour it would like.\n\nNever copied onto the team: `saison_teams.trikot_farbe` is the colour an administrator ASSIGNED,\nand two schools may wish for one colour."
+      },
+      "FLBewerbungTrikotFarbenResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "vergeben": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "weiss",
+                "schwarz",
+                "rot",
+                "braun",
+                "orange",
+                "gelb",
+                "hellgruen",
+                "gruen",
+                "tuerkis",
+                "hellblau",
+                "blau",
+                "dunkelblau",
+                "violett",
+                "magenta",
+                "bordeaux",
+                "grau"
+              ]
+            },
+            "type": "array",
+            "title": "Vergeben"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "vergeben"
+        ],
+        "title": "FLBewerbungTrikotFarbenResponse",
+        "description": "Which kit colours one season has already ASSIGNED. A set, and nothing about who holds one.\n\nAn allow-list declared from nothing, as `FLBewerbungSchuleOption` is (`READ-BEWERBUNG-001`): a\ncolour beside a club would publish which kit that school wears."
       },
       "FLBewerbungTrikotPayload": {
         "properties": {
@@ -7122,6 +7227,19 @@
           },
           "kader": {
             "$ref": "#/components/schemas/FLBewerbungKaderPayload"
+          },
+          "wunschgegner": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wunschgegner"
           }
         },
         "additionalProperties": false,

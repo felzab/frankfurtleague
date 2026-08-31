@@ -1,8 +1,8 @@
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence, get_args
 
 from pydantic import ValidationError
 
-from app.api.teams.schemas import FLPostTeamPayload
+from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 
@@ -255,6 +255,24 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
     composed["trainer_ist_zugleich"] = kontakte["trainer_ist_zugleich"]
 
     return composed
+
+
+def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
+    """The season's assigned colours, in the palette's own order.
+
+    The RETURN filters through the palette rather than sorting `held` by it: a row assigned nothing
+    yields a null, and one predating the enum a value the model cannot serve.
+    """
+
+    # `set(stored)` is the shorthand this refuses: an unhashable BSON value would raise there, where
+    # this drops it. `app/core/constraints.py :: saison_teams.trikot_farbe` forbids one, so this holds
+    # the boundary rather than a case any test can reach.
+    held = {value for value in stored if isinstance(value, str)}
+
+    # The form excludes what this returns, and a season may field at least as many teams as the palette
+    # has colours. `fl_frontend/src/features/teams/utils.ts :: offeredTrikotFarben` then hands the whole
+    # palette back once every colour is assigned.
+    return [farbe for farbe in get_args(FLTrikotFarbe) if farbe in held]
 
 
 def build_bewerbungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]:

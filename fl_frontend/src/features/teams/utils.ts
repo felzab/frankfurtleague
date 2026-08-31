@@ -2,11 +2,12 @@ import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { computeErgebnisFor, PHASE_RANK } from "@/features/spiele/utils";
 
-import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, WEBSITE_URL_SCHEME } from "./constants";
+import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS, WEBSITE_URL_SCHEME } from "./constants";
 
 import type { FLSaison, FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLSpiel } from "@/features/spiele/schemas";
-import type { FLGruppenTeam, FLKontaktperson, FLTeamMembership, FLTeamWithMemberships } from "./schemas";
+import type { TrikotFarbeOption } from "./constants";
+import type { FLGruppenTeam, FLKontaktperson, FLTeamMembership, FLTeamWithMemberships, FLTrikotFarbe } from "./schemas";
 import type { AdminKontakteRow, AdminKontaktSeat, GruppeOffer, KontaktpersonDraft, SaisonTeamKontakteDraft } from "./types";
 
 /**
@@ -288,4 +289,21 @@ export function toWebsiteUrl(typed: string): string | null {
   const rest = typed.replace(/^https?:\/\//i, "").trim();
 
   return rest === "" ? null : `${WEBSITE_URL_SCHEME}${rest}`;
+}
+
+/**
+ * Which colours a picker offers once the season's ASSIGNED ones are left out. Its own function
+ * because the empty offer is a boundary a test can exercise without rendering.
+ */
+export function offeredTrikotFarben({
+  vergeben,
+  value,
+}: {
+  vergeben: readonly FLTrikotFarbe[];
+  /** The colour the field already holds, which survives the exclusion so a saved row still reads. */
+  value: FLTrikotFarbe | null;
+}): readonly TrikotFarbeOption[] {
+  // The exclusion and nothing else, so the picker never offers a colour the season has given away.
+  // A season holding all sixteen therefore offers nothing, which the required wish has no answer for.
+  return TRIKOT_FARBE_OPTIONS.filter((option) => option.value === value || !vergeben.includes(option.value));
 }

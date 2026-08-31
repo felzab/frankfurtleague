@@ -1,16 +1,19 @@
 from typing import Annotated, Any, Mapping
 
 from fastapi import APIRouter, Body, Depends
+from motor.motor_asyncio import AsyncIOMotorCollection
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungFensterResponse,
     FLBewerbungKuerzelResponse,
     FLBewerbungSchulenResponse,
     FLBewerbungSchuleOptionListAdapter,
+    FLBewerbungTrikotFarbenResponse,
     FLPostBewerbungPayload,
     FLPostBewerbungResponse,
 )
 from app.api.bewerbungen.services import (
+    assigned_trikot_farben,
     compose_kontakte,
     find_already_entered_refusal,
     find_picked_club_refusal,
@@ -49,6 +52,23 @@ SUBMITTED = "eingereicht"
 # What a season read serves this tier: the window and no other field. `docs/backend/spec.md :: I47`
 # withholds a `future` season whole, and one taking applications IS `future`.
 WINDOW_PROJECTION = ["bewerbung"]
+
+
+async def _pull_window(*, saisons_collection: AsyncIOMotorCollection, saison_id: str) -> Mapping[str, Any]:
+    """One season's application window, or the 404 an id naming no season answers.
+
+    A season may carry `bewerbung: null` or no key -- every season stored before the field does.
+    Both are "no window recorded", which is a miss rather than an error.
+    """
+
+    db_filter = {"_id": saison_id}
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter=db_filter, projection=WINDOW_PROJECTION)
+
+    bewerbung = saison_raw.get("bewerbung")
+    if not isinstance(bewerbung, Mapping):
+        raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
+
+    return bewerbung
 
 
 def _fenster(*, saison_id: str, bewerbung: Any, today: str) -> FLBewerbungFensterResponse:
@@ -102,14 +122,7 @@ async def get_fenster(
     404 could not tell from a mistyped id.
     """
 
-    db_filter = {"_id": saison_id}
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter=db_filter, projection=WINDOW_PROJECTION)
-
-    # A season may carry `bewerbung: null` or no key at all -- every season stored before the field
-    # existed does. Both are "no window recorded", which is a miss rather than an error.
-    bewerbung = saison_raw.get("bewerbung")
-    if not isinstance(bewerbung, Mapping):
-        raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
+    bewerbung = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)
 
     return _fenster(saison_id=saison_id, bewerbung=bewerbung, today=today)
 
@@ -149,6 +162,42 @@ async def get_kuerzel(shorthand: str, teams_collection: TeamsCollection) -> FLBe
     taken = await teams_collection.count_documents({"shorthand": shorthand}, limit=1)
 
     return FLBewerbungKuerzelResponse(shorthand=shorthand, vergeben=taken > 0)
+
+
+@router.get(
+    "/trikotfarben/{saison_id}", response_model=FLBewerbungTrikotFarbenResponse, summary="The kit colours a Saison has already assigned"
+)
+async def get_trikotfarben(
+    saison_id: str,
+    saisons_collection: SaisonsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    today: str = Depends(get_german_date_str),
+) -> FLBewerbungTrikotFarbenResponse:
+    """
+    Answer which kit colours this season has assigned, so the form can offer the rest.
+
+    404 unless that season's application window is running today, which is the one state the form
+    reads this in. The SET alone, naming no club (`READ-BEWERBUNG-001`).
+    """
+
+    # Not `refuse_withheld_saison`, which would 404 every season this read exists for: one taking
+    # applications is `future`. The WINDOW gates it instead, so `docs/backend/spec.md :: I47`'s
+    # carve-out stays the window reads' own.
+    bewerbung = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)
+
+    # `window_is_running`, the judgement `/fenster` and the submission already take: one spelling of
+    # "this season is taking applications", so a second cannot drift from it.
+    if not window_is_running(bewerbung=bewerbung, today=today):
+        raise DocumentNotFoundException(filter={"_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
+
+    # `distinct`, never a document read: what leaves the database is the field's values, so no
+    # projection or response model stands between a club's row and this body.
+
+    # A row a club LEFT the season on still holds its colour, and this makes no exception for one:
+    # the assignment stands until an administrator clears it, which is the set the admin sees too.
+    stored = await saison_teams_collection.distinct("trikot_farbe", {"saison_id": saison_id})
+
+    return FLBewerbungTrikotFarbenResponse(saison_id=saison_id, vergeben=assigned_trikot_farben(stored=stored))
 
 
 @router.post("", response_model=FLPostBewerbungResponse, summary="Submit a Bewerbung")
@@ -213,6 +262,10 @@ async def post_bewerbung(
             "kontakte": compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today),
             "trikot": bewerbung_data.trikot.model_dump(mode="json"),
             "kader": bewerbung_data.kader.model_dump(mode="json"),
+            # Written even where the applicant named nobody, though the validator does not require
+            # it: every application this endpoint creates then carries the key, and only the ones
+            # stored before the field lack it.
+            "wunschgegner": bewerbung_data.wunschgegner,
             # Null until the triage decides, which is what `status == "eingereicht"` claims.
             "entscheidung": None,
         },

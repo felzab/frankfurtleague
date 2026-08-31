@@ -6,8 +6,9 @@ import pytest
 from bson import ObjectId
 from pydantic import ValidationError
 
-from app.api.bewerbungen.public_router import get_schulen
+from app.api.bewerbungen.public_router import get_schulen, get_trikotfarben
 from app.api.bewerbungen.schemas import (
+    FLBewerbung,
     FLBewerbungKader,
     FLBewerbungKontaktePayload,
     FLBewerbungKontaktpersonPayload,
@@ -25,6 +26,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_PICKED_CLUB_UNUSABLE,
     BEWERBUNG_SHORTHAND_TAKEN,
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
+    assigned_trikot_farben,
     compose_einwilligung,
     compose_kontakte,
     find_already_entered_refusal,
@@ -36,6 +38,7 @@ from app.api.bewerbungen.services import (
 )
 from app.api.teams.schemas import FLKontaktperson, FLPostTeamPayload, FLTeam, FLTeamRecord, FLTrikotFarbe
 from app.core.dependencies import get_german_date_str, get_germany_now
+from app.core.exceptions import DocumentNotFoundException
 from app.shared.schemas.addresses import FLAddressPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_FULL_NAME_MAX_LENGTH,
@@ -46,6 +49,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_TEAM_NAME_MAX_LENGTH,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WEBSITE_URL_MAX_LENGTH,
+    BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
 )
 
 # Fixed rather than generated, so a failure names the same club every run. Its own hex range, as
@@ -59,6 +63,24 @@ TODAY = "2026-04-01"
 OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
 
 SCHULE: Mapping[str, Any] = {"team_name": "Zorbanax", "shorthand": "ZX"}
+
+# Every character `app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN` refuses, written as code
+# points: a literal one here would be invisible in this file and in every diff of it.
+REFUSED_CHARACTERS = [
+    pytest.param(chr(0x00), id="NUL"),
+    pytest.param(chr(0x0A), id="LF"),
+    pytest.param(chr(0x0B), id="VT"),
+    pytest.param(chr(0x0C), id="FF"),
+    pytest.param(chr(0x0D), id="CR"),
+    pytest.param(chr(0x0D) + chr(0x0A), id="CRLF"),
+    pytest.param(chr(0x85), id="NEL"),
+    pytest.param(chr(0x2028), id="LINE SEPARATOR"),
+    pytest.param(chr(0x2029), id="PARAGRAPH SEPARATOR"),
+]
+
+# The refused characters Python calls whitespace, so `strip_whitespace` removes them before the
+# pattern runs. NUL is the one left out: it is no more whitespace here than it is in the mirror.
+TRIMMED_CHARACTERS = [case for case in REFUSED_CHARACTERS if case.id != "NUL"]
 
 
 def _today() -> date:
@@ -645,29 +667,45 @@ class TestWhatTheSubmissionPayloadRefuses:
 
         assert parsed.schule is not None and parsed.schule.website_url == website_url
 
-    @pytest.mark.parametrize("line_break", ["\n", "\r\n", "\r"])
-    def test_a_school_name_carrying_an_interior_break_is_refused(self, line_break: str):
-        """The decision mail writes one `label: value` per line, so a name holding a break forges one of them."""
+    @pytest.mark.parametrize("refused", REFUSED_CHARACTERS)
+    def test_a_school_name_carrying_one_of_them_inside_is_refused(self, refused: str):
+        """Both name fields, so a pattern applied to one of the pair fails here rather than shipping half-narrowed."""
 
-        forged = f"Zorbanax{line_break}Entscheidung: Absage"
+        forged = f"Zorbanax{refused}Entscheidung: Absage"
 
         for field in ("team_name", "full_name"):
             with pytest.raises(ValidationError):
                 FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(**{field: forged})))
 
-    @pytest.mark.parametrize("line_break", ["\n", "\r\n", "\r"])
-    def test_a_school_name_padded_with_a_break_is_repaired_rather_than_refused(self, line_break: str):
+    @pytest.mark.parametrize("trimmed", TRIMMED_CHARACTERS)
+    def test_a_school_name_padded_with_one_of_them_is_repaired_rather_than_refused(self, trimmed: str):
         """The control, and the reason this is a pattern rather than a rejection of the character.
 
-        `strip_whitespace` runs BEFORE the pattern, so a break at either end is the paste artefact it
-        usually is; only an interior one can forge a line.
+        `strip_whitespace` runs BEFORE the pattern, so padding is the paste artefact it usually is;
+        only an interior character is refused.
         """
 
-        padded = submission(team_id=None, schule=schule(team_name=f"{line_break}Zorbanax{line_break}"))
+        padded = submission(team_id=None, schule=schule(team_name=f"{trimmed}Zorbanax{trimmed}"))
 
         parsed = FLPostBewerbungPayload.model_validate(padded)
 
         assert parsed.schule is not None and parsed.schule.team_name == "Zorbanax"
+
+    def test_a_school_name_padded_with_nul_is_refused_rather_than_trimmed(self):
+        """The one refused character `str.strip` does not remove, which is also what the JavaScript mirror's `trim` does."""
+
+        padded = submission(team_id=None, schule=schule(team_name=f"{chr(0x00)}Zorbanax{chr(0x00)}"))
+
+        with pytest.raises(ValidationError):
+            FLPostBewerbungPayload.model_validate(padded)
+
+    @pytest.mark.parametrize("refused", REFUSED_CHARACTERS)
+    def test_a_stored_name_holding_one_of_them_still_reads(self, refused: str):
+        """The narrowing is the PAYLOAD's alone: a read model refusing a stored value would 500 the triage list."""
+
+        stored = FLBewerbungSchule.model_validate(schule(team_name=f"Zorbanax{refused}Alt", full_name=f"Zorbanax{refused}Alt"))
+
+        assert stored.team_name == f"Zorbanax{refused}Alt"
 
     def test_a_squad_of_nobody_is_refused(self):
         with pytest.raises(ValidationError):
@@ -1073,6 +1111,113 @@ class TestTheColourTheSchoolWants:
         assert FLBewerbungTrikot.model_validate({"vorhandener_satz": "", "wunschfarbe": None}).wunschfarbe is None
 
 
+def stored_application(**overrides: Any) -> dict[str, Any]:
+    """One application in the shape the triage READS it, which is where a narrowed model would fail."""
+
+    return {
+        "_id": str(PICKED_OID),
+        "saison_id": "2026",
+        "eingereicht_am": TODAY,
+        "status": "eingereicht",
+        "team_id": str(PICKED_OID),
+        "schule": None,
+        "kontakte": compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY),
+        "trikot": {"vorhandener_satz": "12 rote Trikots", "wunschfarbe": "blau"},
+        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 4},
+        "entscheidung": None,
+        **overrides,
+    }
+
+
+class TestTheOpponentTheSchoolWants:
+    """A free string and never a reference: a school may name an applicant the league has not accepted yet.
+
+    Optional on the payload where the other nullable fields are required-and-null: the key is one a
+    form deployed before it does not send.
+    """
+
+    def test_a_submission_naming_nobody_is_accepted(self):
+        """The whole of the rest of this module omits the key, so this is what keeps that honest."""
+
+        assert FLPostBewerbungPayload.model_validate(submission()).wunschgegner is None
+
+    @pytest.mark.parametrize(
+        "submitted",
+        [pytest.param(None, id="an explicit null"), pytest.param("", id="an empty box"), pytest.param("   ", id="spaces alone")],
+    )
+    def test_an_empty_wish_is_stored_as_a_null_rather_than_a_blank(self, submitted: str | None):
+        """One spelling of "no preference": a stored `""` is a second, and the triage would render it as a wish."""
+
+        assert FLPostBewerbungPayload.model_validate(submission(wunschgegner=submitted)).wunschgegner is None
+
+    def test_a_named_opponent_survives_intact(self):
+        """The control: a field answering `None` to everything would satisfy every case above."""
+
+        assert FLPostBewerbungPayload.model_validate(submission(wunschgegner="Zorbanax")).wunschgegner == "Zorbanax"
+
+    def test_a_padded_wish_is_trimmed_rather_than_refused(self):
+        assert FLPostBewerbungPayload.model_validate(submission(wunschgegner="  Zorbanax  ")).wunschgegner == "Zorbanax"
+
+    @pytest.mark.parametrize("refused", REFUSED_CHARACTERS)
+    def test_a_wish_carrying_one_of_them_inside_is_refused(self, refused: str):
+        """The same class the two school names take, so the fields carrying it cannot drift into separate rules."""
+
+        with pytest.raises(ValidationError):
+            FLPostBewerbungPayload.model_validate(submission(wunschgegner=f"Zorbanax{refused}Entscheidung: Absage"))
+
+    @pytest.mark.parametrize("trimmed", TRIMMED_CHARACTERS)
+    def test_a_wish_padded_with_one_of_them_is_repaired_rather_than_refused(self, trimmed: str):
+        """`strip_whitespace` runs BEFORE the pattern, so only an interior character is refused."""
+
+        padded = submission(wunschgegner=f"{trimmed}Zorbanax{trimmed}")
+
+        assert FLPostBewerbungPayload.model_validate(padded).wunschgegner == "Zorbanax"
+
+    @pytest.mark.parametrize("trimmed", TRIMMED_CHARACTERS)
+    def test_a_wish_of_nothing_but_padding_is_stored_as_a_null(self, trimmed: str):
+        """`parse_empty_string_to_none` runs first and strips the same set, so no such value reaches the pattern."""
+
+        assert FLPostBewerbungPayload.model_validate(submission(wunschgegner=trimmed * 3)).wunschgegner is None
+
+    def test_a_wish_padded_with_nul_is_refused_rather_than_trimmed(self):
+        """The one refused character `str.strip` does not remove, which is also what the JavaScript mirror's `trim` does."""
+
+        with pytest.raises(ValidationError):
+            FLPostBewerbungPayload.model_validate(submission(wunschgegner=f"{chr(0x00)}Zorbanax{chr(0x00)}"))
+
+    @pytest.mark.parametrize("refused", REFUSED_CHARACTERS)
+    def test_a_stored_wish_holding_one_of_them_still_reads(self, refused: str):
+        """The narrowing is the PAYLOAD's alone, as it is for the school names: the triage reads whatever is stored."""
+
+        stored = stored_application(wunschgegner=f"Zorbanax{refused}Alt")
+
+        assert FLBewerbung.model_validate(stored).wunschgegner == f"Zorbanax{refused}Alt"
+
+    def test_a_wish_over_the_ceiling_is_refused(self, assert_rejects):
+        """An anonymous caller writes it and the record stores it, which is the pair a bound is earned on."""
+
+        assert_rejects(FLPostBewerbungPayload, submission(wunschgegner="Z" * (BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH + 1)), "wunschgegner")
+
+    def test_a_wish_at_the_ceiling_is_accepted(self):
+        """The control: without it the case above would pass on a field that refuses everything."""
+
+        at_the_bound = submission(wunschgegner="Z" * BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH)
+
+        assert len(cast(str, FLPostBewerbungPayload.model_validate(at_the_bound).wunschgegner)) == BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH
+
+    def test_an_application_stored_before_the_field_still_reads(self):
+        """The direction that ships silently: the validator cannot require the key, so the triage meets documents without it."""
+
+        assert FLBewerbung.model_validate(stored_application()).wunschgegner is None
+
+    def test_the_read_model_takes_a_stored_value_over_the_ceiling(self):
+        """The bound is the WRITE side's alone: refusing on read would 500 the triage list over one row (`docs/backend/spec.md :: I36`)."""
+
+        over = stored_application(wunschgegner="Z" * (BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH * 2))
+
+        assert FLBewerbung.model_validate(over).wunschgegner is not None
+
+
 class TestAPastedWebsiteIsTrimmedToFit:
     """`validate_external_url` leaves surrounding whitespace on the value, so the payloads strip first.
 
@@ -1184,9 +1329,11 @@ class _RecordingCollection:
     def __init__(self, documents: list[dict[str, Any]]) -> None:
         self._documents = documents
         self.projection: Any = "the read never ran"
+        self.db_filter: Any = "the read never ran"
 
     def find(self, *, filter: Any = None, projection: Any = None, session: Any = None) -> _RecordingCursor:
         self.projection = projection
+        self.db_filter = filter
 
         return _RecordingCursor(self._documents)
 
@@ -1216,4 +1363,122 @@ class TestTheClubListAsksTheDatabaseForTwoFields:
 
         asyncio.run(get_schulen(teams_collection=cast(Any, collection)))
 
-        assert collection.projection == ["name"]
+        assert collection.db_filter == {"inactive_since": None}
+
+
+class _DistinctCollection:
+    """A junction that answers `distinct` and remembers the field and the filter it was asked for.
+
+    It answers no `find` at all, so an endpoint reading documents here fails rather than passing on
+    a narrowing that never ran.
+    """
+
+    def __init__(self, values: list[Any]) -> None:
+        self._values = values
+        self.key: Any = "the read never ran"
+        self.db_filter: Any = "the read never ran"
+
+    async def distinct(self, key: str, filter: Any = None) -> list[Any]:
+        self.key = key
+        self.db_filter = filter
+
+        return list(self._values)
+
+
+class _WindowCollection:
+    """A seasons collection answering one season's `bewerbung` block, whatever id is asked for.
+
+    The colour read is gated on the window, so a junction fake alone no longer reaches the junction.
+    """
+
+    def __init__(self, bewerbung: Any) -> None:
+        self._bewerbung = bewerbung
+
+    async def find_one(self, filter: Any = None, projection: Any = None, session: Any = None) -> Any:
+        return {"_id": filter["_id"], "bewerbung": self._bewerbung}
+
+
+# The day the window below is judged against, sitting inside its span.
+COLOUR_READ_TODAY = "2026-04-01"
+COLOUR_READ_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+
+
+def _colours_for(junction: _DistinctCollection, *, bewerbung: Any) -> Any:
+    """The colour read against two fakes, so every case below states only the window it varies."""
+
+    return get_trikotfarben(
+        saison_id="2026",
+        saisons_collection=cast(Any, _WindowCollection(bewerbung)),
+        saison_teams_collection=cast(Any, junction),
+        today=COLOUR_READ_TODAY,
+    )
+
+
+class TestTheColoursASeasonHasAlreadyAssigned:
+    """What the public form excludes from its Wunschfarbe picker, taken from the ASSIGNMENTS and never from another applicant's wish."""
+
+    def test_the_palette_orders_the_answer_rather_than_the_junction(self):
+        """Sorted by the league's own vocabulary, so two identical seasons never answer in two orders."""
+
+        assert assigned_trikot_farben(stored=["rot", "weiss", "blau"]) == ["weiss", "rot", "blau"]
+
+    def test_a_row_with_no_colour_assigned_contributes_nothing(self):
+        """`trikot_farbe` is nullable and outside the validator's `required`, so `distinct` yields a null and a missing key alike."""
+
+        assert assigned_trikot_farben(stored=[None, "rot"]) == ["rot"]
+
+    def test_a_value_outside_the_palette_is_dropped_rather_than_served(self):
+        """Filtered THROUGH the palette: a stray value would fail `FLTrikotFarbe` and 500 a public page."""
+
+        assert assigned_trikot_farben(stored=["zorbanaxgruen", "rot"]) == ["rot"]
+
+    def test_a_season_holding_no_assignment_answers_the_empty_set(self):
+        assert assigned_trikot_farben(stored=[]) == []
+
+    def test_the_whole_palette_survives_the_filter(self):
+        """The control, over the whole enum: a filter dropping everything would satisfy the cases above."""
+
+        offered = list(get_args(FLTrikotFarbe))
+
+        assert assigned_trikot_farben(stored=list(reversed(offered))) == offered
+
+    def test_the_read_asks_the_junction_for_one_field_of_one_season(self):
+        """`distinct`, so what leaves the database is the values -- no document carrying the club beside its colour."""
+
+        collection = _DistinctCollection(["rot", None])
+
+        response = asyncio.run(_colours_for(collection, bewerbung=dict(COLOUR_READ_WINDOW)))
+
+        assert collection.key == "trikot_farbe"
+        assert collection.db_filter == {"saison_id": "2026"}
+        # Non-vacuous: the read really ran and really served the colour, so what is asserted above is
+        # what it asked for rather than a request nothing made.
+        assert response.vergeben == ["rot"]
+
+    def test_the_body_carries_the_season_and_the_colours_and_nothing_else(self):
+        """The allow-list, asserted as an exact membership: a subset relation would survive a field added to it."""
+
+        collection = _DistinctCollection([])
+
+        response = asyncio.run(_colours_for(collection, bewerbung=dict(COLOUR_READ_WINDOW)))
+
+        assert set(response.model_dump()) == {"acknowledged", "saison_id", "vergeben"}
+
+    @pytest.mark.parametrize(
+        "bewerbung",
+        [
+            pytest.param(None, id="a season carrying no window"),
+            pytest.param({"offen": False, "von": "2026-03-01", "bis": "2026-04-30"}, id="a span holding today with the flag off"),
+            pytest.param({"offen": True, "von": "2026-05-01", "bis": "2026-06-30"}, id="the flag on and a span not yet begun"),
+            pytest.param({"offen": True, "von": "2026-01-01", "bis": "2026-02-28"}, id="the flag on and a span already over"),
+        ],
+    )
+    def test_a_season_not_taking_applications_never_reaches_the_junction(self, bewerbung: Any):
+        """Judged BEFORE the junction read, so a refused season leaves no query behind to have leaked anything."""
+
+        collection = _DistinctCollection(["rot"])
+
+        with pytest.raises(DocumentNotFoundException):
+            asyncio.run(_colours_for(collection, bewerbung=bewerbung))
+
+        assert collection.key == "the read never ran"

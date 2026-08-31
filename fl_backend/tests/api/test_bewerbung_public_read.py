@@ -47,6 +47,10 @@ OPEN_SAISON = "2026"
 SHUT_SAISON = "2025"
 WINDOWLESS_SAISON = "2024"
 
+# Named because two corpora seed it: a case building its own season still has to be the one the
+# colour read serves, and a span drifting from `seeded_url`'s would make it the one it refuses.
+RUNNING_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+
 # The three near-misses, each ruled out by ONE term of the open-window query and by nothing else.
 # Each sorts AHEAD of the answer, so a query dropping that term picks it rather than `2026`.
 FLAG_OFF_SAISON = "2027"
@@ -65,15 +69,21 @@ ADDRESS: Mapping[str, Any] = {
 # assertions below search decoded bodies by key, where a model's field name would not match.
 WITHHELD_KEYS = frozenset({"shorthand", "address", "website_url", "full_name", "schulform", "description", "inactive_since", "statistik"})
 
+# The colours `OPEN_SAISON` has assigned, in the palette's order rather than the junction's, and the
+# one another season holds -- which the answer for `OPEN_SAISON` may not carry.
+OPEN_SAISON_FARBEN = ["rot", "gruen", "blau"]
+OTHER_SEASON_FARBE = "magenta"
 
-def _saison(saison_id: str, *, bewerbung: Any) -> dict[str, Any]:
+
+def _saison(saison_id: str, *, bewerbung: Any, status: str = "future") -> dict[str, Any]:
     return {
         "_id": saison_id,
         "start_date": f"{saison_id}-01-01",
         "end_date": f"{saison_id}-06-30",
-        # `future` on purpose: `docs/backend/spec.md :: I47` withholds one from this tier, which is
-        # the whole reason the window has a read of its own.
-        "status": "future",
+        # `future` by default: `docs/backend/spec.md :: I47` withholds one from this tier, which is
+        # why the window has a read of its own. Overridden only where a case asks what the status
+        # does, which for these reads is nothing -- they judge the window.
+        "status": status,
         "rules": {
             "win_points": 3,
             "draw_points": 1,
@@ -86,6 +96,22 @@ def _saison(saison_id: str, *, bewerbung: Any) -> dict[str, Any]:
             "erlaubte_stufen": ["Q1", "Q2"],
         },
         "bewerbung": bewerbung,
+    }
+
+
+def _junction(
+    saison_id: str, name: str, shorthand: str, team_id: ObjectId, *, trikot_farbe: str | None, austritt: Any = None
+) -> dict[str, Any]:
+    """One `saison_teams` row -- the colour an administrator ASSIGNED, which is what the colour read answers off."""
+
+    return {
+        "saison_id": saison_id,
+        "team_id": team_id,
+        "gruppe": "A",
+        "austritt": austritt,
+        "trikot_farbe": trikot_farbe,
+        "name": name,
+        "shorthand": shorthand,
     }
 
 
@@ -117,7 +143,7 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
 
         database[Collection.SAISONS].insert_many(
             [
-                _saison(OPEN_SAISON, bewerbung={"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}),
+                _saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW)),
                 _saison(SHUT_SAISON, bewerbung={"offen": True, "von": "2025-03-01", "bis": "2025-04-30"}),
                 # A span holding today, and the flag off: the one term that rules it out.
                 _saison(FLAG_OFF_SAISON, bewerbung={"offen": False, "von": "2026-03-01", "bis": "2026-04-30"}),
@@ -132,6 +158,27 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
         database[Collection.TEAMS].insert_many(
             [_club(name, shorthand, team_id) for name, shorthand, team_id in CLUBS]
             + [_club("Verlassen", "VE", RETIRED_OID, inactive_since="2025-08-01")]
+        )
+        database[Collection.SAISON_TEAMS].insert_many(
+            [
+                _junction(OPEN_SAISON, *CLUBS[0], trikot_farbe="rot"),
+                _junction(OPEN_SAISON, *CLUBS[1], trikot_farbe="blau"),
+                # No colour assigned: `distinct` yields the null this row holds, and the answer must
+                # not carry it.
+                _junction(OPEN_SAISON, *CLUBS[2], trikot_farbe=None),
+                # A club that LEFT the season, still holding its colour: the assignment stands until
+                # an administrator clears it, which is the set the admin sees too.
+                _junction(
+                    OPEN_SAISON,
+                    "Verlassen",
+                    "VE",
+                    RETIRED_OID,
+                    trikot_farbe="gruen",
+                    austritt={"type": "rueckzug", "grund": "keine Mannschaft", "datum": "2026-03-15"},
+                ),
+                # Another season's assignment, so an answer dropping the season term serves it too.
+                _junction(SHUT_SAISON, *CLUBS[0], trikot_farbe=OTHER_SEASON_FARBE),
+            ]
         )
 
         yield url
@@ -308,19 +355,103 @@ class TestTheKuerzelCheck:
         assert "Verlassen" not in answered(seeded_url, f"{PREFIX}/kuerzel/VE").text
 
 
+class TestTheAssignedColoursRead:
+    """What the Wunschfarbe picker excludes. The ASSIGNMENTS on `saison_teams`, never another applicant's wish."""
+
+    def test_one_season_answers_the_colours_it_has_assigned(self, seeded_url: str):
+        response = answered(seeded_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}")
+
+        assert response.status_code == 200
+        assert response.json()["vergeben"] == OPEN_SAISON_FARBEN
+
+    def test_another_season_s_assignment_is_not_among_them(self, seeded_url: str):
+        """Seeded on a second season, so a read dropping the season term would serve it here."""
+
+        assert OTHER_SEASON_FARBE not in answered(seeded_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}").json()["vergeben"]
+
+    def test_the_answer_names_no_club_that_holds_one(self, seeded_url: str):
+        """Searched over the undecoded body: a colour beside a school publishes which kit that school wears."""
+
+        rendered = answered(seeded_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}").text
+
+        for withheld in ("Zetteltal", "Adlerhorst", "ZE", "rueckzug", str(OPEN_OID)):
+            assert withheld not in rendered
+
+    def test_the_body_carries_the_season_and_the_colours_and_nothing_else(self, seeded_url: str):
+        """The allow-list, asserted as an exact membership: a subset relation would survive a field added to it."""
+
+        body = answered(seeded_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}").json()
+
+        assert set(body) == {"acknowledged", "saison_id", "vergeben"}
+
+    def test_a_season_read_that_would_404_still_serves_its_colours(self, seeded_url: str):
+        """The finding this endpoint exists for: `docs/backend/spec.md :: I47` withholds a `future` season's clubs whole."""
+
+        assert answered(seeded_url, f"/api/v{API_VERSION}/teams?saison_id={OPEN_SAISON}").status_code == 404
+
+        assert answered(seeded_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}").status_code == 200
+
+    def test_a_season_taking_applications_with_nothing_assigned_answers_the_empty_set(self, mongo_container: Any):
+        """Its own corpus, `seeded_url` holding no season that both takes applications and has assigned nothing."""
+
+        url = seeded_with(mongo_container, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW))])
+
+        response = answered(url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}")
+
+        assert response.status_code == 200
+        assert response.json()["vergeben"] == []
+
+    @pytest.mark.parametrize(
+        "saison_id",
+        [
+            # Non-vacuous: this season HAS an assignment, so an ungated read would answer 200 with it.
+            pytest.param(SHUT_SAISON, id="a window whose span has passed"),
+            pytest.param(FLAG_OFF_SAISON, id="a span holding today with the flag off"),
+            pytest.param(NOT_YET_OPEN_SAISON, id="the flag on and a span not yet begun"),
+            pytest.param(ALREADY_CLOSED_SAISON, id="the flag on and a span already over"),
+            pytest.param(WINDOWLESS_SAISON, id="a season carrying no window"),
+            pytest.param("1999", id="a season no document names"),
+        ],
+    )
+    def test_a_season_not_taking_applications_answers_as_an_unknown_id_does(self, seeded_url: str, saison_id: str):
+        """One answer for every way a season can fail to be taking applications, so none is distinguishable from no such season."""
+
+        assert answered(seeded_url, f"{PREFIX}/trikotfarben/{saison_id}").status_code == 404
+
+    @pytest.mark.parametrize("status", [pytest.param("active", id="the running season"), pytest.param("past", id="a finished season")])
+    def test_a_season_this_tier_may_read_is_refused_all_the_same(self, mongo_container: Any, status: str):
+        """The gate judges the WINDOW and never the status, so a season `docs/backend/spec.md :: I47` does not withhold is refused too."""
+
+        url = seeded_with(mongo_container, [_saison(OPEN_SAISON, bewerbung=None, status=status)])
+
+        assert answered(url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}").status_code == 404
+
+
 class TestTheTierTheseReadsAreServedAt:
     """Base-tier at a prefix whose other two routers are admin, which is exactly the mix `test_admin_guard.py` exists to catch."""
 
     @pytest.mark.parametrize(
         "path",
-        [f"{PREFIX}/fenster", f"{PREFIX}/fenster/{OPEN_SAISON}", f"{PREFIX}/schulen", f"{PREFIX}/kuerzel/ZE"],
+        [
+            f"{PREFIX}/fenster",
+            f"{PREFIX}/fenster/{OPEN_SAISON}",
+            f"{PREFIX}/schulen",
+            f"{PREFIX}/kuerzel/ZE",
+            f"{PREFIX}/trikotfarben/{OPEN_SAISON}",
+        ],
     )
     def test_the_base_key_reaches_every_one(self, seeded_url: str, path: str):
         assert answered(seeded_url, path).status_code == 200
 
     @pytest.mark.parametrize(
         "path",
-        [f"{PREFIX}/fenster", f"{PREFIX}/fenster/{OPEN_SAISON}", f"{PREFIX}/schulen", f"{PREFIX}/kuerzel/ZE"],
+        [
+            f"{PREFIX}/fenster",
+            f"{PREFIX}/fenster/{OPEN_SAISON}",
+            f"{PREFIX}/schulen",
+            f"{PREFIX}/kuerzel/ZE",
+            f"{PREFIX}/trikotfarben/{OPEN_SAISON}",
+        ],
     )
     def test_no_key_reaches_none_of_them(self, seeded_url: str, path: str):
         """Public here means no SESSION, never no key: the edge reaches this application through the frontend, which holds one."""

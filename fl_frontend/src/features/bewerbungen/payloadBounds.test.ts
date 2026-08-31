@@ -10,6 +10,7 @@ import {
   FLBewerbungKontaktpersonPayloadSchema,
   FLBewerbungSchulePayloadSchema,
   FLBewerbungTrikotPayloadSchema,
+  FLPostBewerbungPayloadSchema,
 } from "./schemas.ts";
 
 import type { ZodType } from "zod";
@@ -21,6 +22,9 @@ const DOCUMENT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "fl_b
  * remembered, and the ceiling added next is the one nobody adds.
  */
 const MIRRORS: Record<string, ZodType> = {
+  // The submission's own root, whose two capped fields sit on no nested block: an application's
+  // season and the opponent it wishes for.
+  FLPostBewerbungPayload: FLPostBewerbungPayloadSchema,
   FLBewerbungSchulePayload: FLBewerbungSchulePayloadSchema,
   FLBewerbungTrikotPayload: FLBewerbungTrikotPayloadSchema,
   FLBewerbungKaderPayload: FLBewerbungKaderPayloadSchema,
@@ -143,6 +147,7 @@ const CAPPED_CONTROLS: Record<string, { file: string; boxes: number }> = {
   // Its box holds the URL WITHOUT the scheme, so the cap is composed rather than the constant alone.
   BEWERBUNG_WEBSITE_URL_MAX_LENGTH: { file: "FormSchuleSection.tsx", boxes: 1 },
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH: { file: "FormTeamSection.tsx", boxes: 1 },
+  BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH: { file: "FormTeamSection.tsx", boxes: 1 },
   // One box: the strong-player box takes its ceiling from `strongPlayerCeiling`, which the cases
   // below compare against the schema by parsing rather than by counting a constant in the JSX.
   BEWERBUNG_KADER_GROESSE_MAX: { file: "FormTeamSection.tsx", boxes: 1 },

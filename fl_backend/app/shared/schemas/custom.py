@@ -100,6 +100,18 @@ PHONE_REGEX = r"^([+]?[ 0-9\-().]{3,20})$"
 # On the WRITE payloads only: a read model refusing a stored name 500s the response for one bad row.
 PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
 
+# NUL, LF, VT, FF, CR, NEL, LINE SEPARATOR, PARAGRAPH SEPARATOR, in code-point order so the class
+# reads left to right. A name is a name and none belongs in one -- cheaper than reasoning about what
+# each renderer downstream does with them.
+
+# `fl_frontend/src/features/bewerbungen/schemas.ts :: einzeiligerName` carries this verbatim. One
+# asymmetry survives: `str.strip` removes U+0085 where JavaScript's `trim` does not, so a value
+# merely PADDED with it is accepted here and refused there.
+
+# Paired with `strip_whitespace`, which runs FIRST, so padding is repaired and only an interior
+# character is refused. NUL is the exception both ends agree on: it is not whitespace either side.
+SINGLE_LINE_PATTERN = r"^[^\x00\n\v\f\r\u0085\u2028\u2029]*$"
+
 # Byte-for-byte the regex zod uses for `z.regexes.domain`, because `ExternalUrlSchema` tests the
 # parsed hostname against exactly this and both ends must accept or reject a value alike.
 DOMAIN_REGEX = re.compile(r"^([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$")

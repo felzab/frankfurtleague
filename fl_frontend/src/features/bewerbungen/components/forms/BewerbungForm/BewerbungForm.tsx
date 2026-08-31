@@ -34,7 +34,7 @@ import type {
   BewerbungSchuleDraft,
   KuerzelVerdikt,
 } from "@/features/bewerbungen/types";
-import type { FLTrainerZugleich } from "@/features/teams/schemas";
+import type { FLTrainerZugleich, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /** What the route answers. Always 200, so a non-2xx here is a genuine transport failure. */
@@ -91,11 +91,14 @@ export function BewerbungForm({
   saisonId,
   schulen,
   isSchulenLesbar,
+  vergebeneFarben,
 }: {
   saisonId: string;
   schulen: readonly { id: string; name: string }[];
   /** Whether the list was read at all, so an empty picker says which of the two emptied it. */
   isSchulenLesbar: boolean;
+  /** The colours an administrator has ASSIGNED this season, which the wish picker then leaves out. */
+  vergebeneFarben: readonly FLTrikotFarbe[];
 }) {
   const [isPending, startTransition] = useTransition();
 
@@ -330,8 +333,14 @@ export function BewerbungForm({
       <FormTeamSection
         trikot={draft.trikot}
         kader={draft.kader}
+        wunschgegner={draft.wunschgegner}
+        // The same list the school picker reads, offered as SUGGESTIONS rather than as a closed set:
+        // a school may wish to play a fellow applicant no list holds yet.
+        schulen={schulen}
+        vergebeneFarben={vergebeneFarben}
         onTrikotChange={(trikot) => applyDraft((current) => ({ ...current, trikot: trikot }))}
         onKaderChange={(kader) => applyDraft((current) => ({ ...current, kader: kader }))}
+        onWunschgegnerChange={(wunschgegner) => applyDraft((current) => ({ ...current, wunschgegner: wunschgegner }))}
         onFieldLeft={validateFields}
         onFarbePicked={(paths, trikot) => {
           const next: BewerbungFormDraft = { ...draft, trikot: trikot };

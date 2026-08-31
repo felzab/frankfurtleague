@@ -83,6 +83,7 @@
 @import "@heroui/styles/components/tooltip.css" layer(components);
 
 /* Pickers */
+@import "@heroui/styles/components/combo-box.css" layer(components);
 @import "@heroui/styles/components/select.css" layer(components);
 @import "@heroui/styles/components/autocomplete.css" layer(components);
 

@@ -10,6 +10,7 @@ import {
   FLBewerbungKuerzelResponseSchema,
   FLBewerbungSchulenResponseSchema,
   FLBewerbungSingleResponseSchema,
+  FLBewerbungTrikotFarbenResponseSchema,
 } from "./schemas";
 
 import type {
@@ -18,6 +19,7 @@ import type {
   FLBewerbungKuerzelResponse,
   FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
+  FLBewerbungTrikotFarbenResponse,
 } from "./schemas";
 import type { FLBewerbungenFilterParams } from "./types";
 
@@ -93,6 +95,21 @@ export async function getBewerbungFenster(saisonId: string): Promise<FLBewerbung
 export async function getBewerbungSchulen(): Promise<FLBewerbungSchulenResponse> {
   return runWithIncomingCorrelationId(() =>
     apiClient<FLBewerbungSchulenResponse>("/bewerbungen/schulen", FLBewerbungSchulenResponseSchema, { authType: "base" }),
+  );
+}
+
+/**
+ * Which colours one season has ASSIGNED — `saison_teams.trikot_farbe`, never a wish. Uncached for
+ * `getBewerbungKuerzel`'s reason: one is assigned between two page loads, and a cached "still
+ * free" outlives that.
+ */
+export async function getBewerbungTrikotfarben(saisonId: string): Promise<FLBewerbungTrikotFarbenResponse> {
+  return runWithIncomingCorrelationId(() =>
+    apiClient<FLBewerbungTrikotFarbenResponse>(
+      `/bewerbungen/trikotfarben/${encodeURIComponent(saisonId)}`,
+      FLBewerbungTrikotFarbenResponseSchema,
+      { authType: "base" },
+    ),
   );
 }
 

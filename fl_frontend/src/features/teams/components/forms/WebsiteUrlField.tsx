@@ -77,10 +77,13 @@ export function WebsiteUrlField({
           <InputGroup.Prefix className="text-foreground-muted fluid-sm border-border self-stretch border-r pr-2 select-none">
             {WEBSITE_URL_SCHEME}
           </InputGroup.Prefix>
+          {/* `min-w-0` because HeroUI gives this input `flex: 1` and no floor of its own: its automatic
+              minimum is then the browser's default input width, which is wider than the room the prefix
+              leaves it, and the typed text renders outside the group's border. */}
           <InputGroup.Input
             maxLength={maxLength}
             placeholder="www.beispielverein.de"
-            className="fluid-sm ps-2"
+            className="fluid-sm min-w-0 ps-2"
           />
         </InputGroup>
         {/* The pair `RowActionDelete` splits, for its reason: the live link's label names what its own press does,

@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `d666f6c9`, 2026-08-30\
+**Verified against:** `9730d69c`, 2026-08-31\
 **Scope:** `fl_frontend/`
 
 A Next.js application on the App Router, with React, HeroUI and Tailwind. It is both the website and, in

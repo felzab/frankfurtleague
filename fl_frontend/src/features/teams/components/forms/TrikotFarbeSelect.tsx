@@ -2,7 +2,8 @@
 
 import { FieldError, Label, ListBox, Select } from "@heroui/react";
 
-import { TRIKOT_FARBE_OPTIONS, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
+import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
+import { offeredTrikotFarben } from "@/features/teams/utils";
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
@@ -37,6 +38,7 @@ export function TrikotFarbeSelect({
   label = "Trikotfarbe",
   isRequired = false,
   withOwnLabel = true,
+  vergeben = [],
 }: {
   value: FLTrikotFarbe | null;
   onChange: (farbe: FLTrikotFarbe | null) => void;
@@ -54,6 +56,11 @@ export function TrikotFarbeSelect({
   isRequired?: boolean;
   /** Off for the caller whose label is a marker-carrying `FieldLabel` rendered outside. */
   withOwnLabel?: boolean;
+  /**
+   * Colours this picker leaves out. Empty for the administrator's own assignment, which is the write
+   * that CREATES the set — a picker excluding what it assigns could not re-assign a colour at all.
+   */
+  vergeben?: readonly FLTrikotFarbe[];
 }) {
   /**
    * **A required picker offers no empty row.** A „Keine Angabe“ row carries a key, so picking it is
@@ -62,6 +69,8 @@ export function TrikotFarbeSelect({
    */
   const leerschluessel = isRequired ? null : KEINE_FARBE;
   const platzhalter = isRequired ? "Bitte auswählen" : "Keine Angabe";
+
+  const optionen = offeredTrikotFarben({ vergeben, value });
 
   const handleChange = (key: Key | null) => {
     if (key === null) return;
@@ -97,7 +106,7 @@ export function TrikotFarbeSelect({
               Keine Angabe
             </ListBox.Item>
           )}
-          {TRIKOT_FARBE_OPTIONS.map((option) => (
+          {optionen.map((option) => (
             <ListBox.Item
               key={option.value}
               id={option.value}

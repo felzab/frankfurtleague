@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 
 import { BewerbungView } from "@/features/bewerbungen/components/views/BewerbungView";
-import { getBewerbungFenster, getBewerbungSchulen } from "@/features/bewerbungen/queries";
+import { getBewerbungFenster, getBewerbungSchulen, getBewerbungTrikotfarben } from "@/features/bewerbungen/queries";
 import { resolveSaisonIdParam } from "@/features/saisons/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -62,6 +62,16 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
         )
       : { isSchulenLesbar: true, schulen: [] };
 
+  // Degraded to the EMPTY set: an unreadable answer means nothing is KNOWN to be taken, which offers
+  // the whole palette. Narrowing instead would withhold a colour nobody holds.
+  const vergeben =
+    fenster.fenster?.laeuft === true
+      ? await getBewerbungTrikotfarben(saison_id).then(
+          (antwort) => antwort.vergeben,
+          () => [],
+        )
+      : [];
+
   return (
     <BewerbungView
       saisonId={saison_id}
@@ -71,6 +81,7 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
       today={getGermanTodayStr()}
       schulen={schulen.schulen}
       isSchulenLesbar={schulen.isSchulenLesbar}
+      vergebeneFarben={vergeben}
     />
   );
 }

@@ -32,6 +32,7 @@ import {
   BEWERBUNG_TEAM_NAME_MAX_LENGTH,
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
   BEWERBUNG_WEBSITE_URL_MAX_LENGTH,
+  BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
   KUERZEL_LAENGE,
 } from "./constants";
 import { geburtsdatumSpanne } from "./utils";
@@ -109,6 +110,9 @@ export const FLBewerbungSchema = z.object({
   kontakte: FLSaisonTeamKontakteSchema,
   trikot: FLBewerbungTrikotSchema,
   kader: FLBewerbungKaderSchema,
+  // A FREE STRING and never a club id: a school may name an applicant the league has not accepted,
+  // so nothing here resolves against the roster. Unbounded on read, as every read field here is.
+  wunschgegner: z.string().nullable(),
   entscheidung: FLBewerbungEntscheidungSchema.nullable(),
 });
 export type FLBewerbung = z.infer<typeof FLBewerbungSchema>;
@@ -219,6 +223,19 @@ export const FLBewerbungKuerzelResponseSchema = BaseAPIResponseSchema.extend({
   vergeben: z.boolean(),
 });
 export type FLBewerbungKuerzelResponse = z.infer<typeof FLBewerbungKuerzelResponseSchema>;
+
+/**
+ * Mirrors `FLBewerbungTrikotFarbenResponse` — which colours one season has ASSIGNED, naming no club
+ * (`READ-BEWERBUNG-001`). The set is `saison_teams.trikot_farbe` and never an application's
+ * `trikot.wunschfarbe`: a wish is no assignment.
+ */
+export const FLBewerbungTrikotFarbenResponseSchema = BaseAPIResponseSchema.extend({
+  saison_id: z.string(),
+  // `vergeben` as the Kürzel read means it — taken, and by nobody this answer names. A list because
+  // JSON has no set; the endpoint is what makes it distinct and palette-ordered.
+  vergeben: z.array(FLTrikotFarbeSchema),
+});
+export type FLBewerbungTrikotFarbenResponse = z.infer<typeof FLBewerbungTrikotFarbenResponseSchema>;
 
 /** Mirrors `FLPostBewerbungResponse`. Nothing of the submission is echoed back into the page. */
 export const FLPostBewerbungResponseSchema = BaseAPIResponseSchema.extend({
@@ -404,11 +421,17 @@ export const FLBewerbungAddressPayloadSchema = FLAddressPayloadSchema.extend({
 export type FLBewerbungAddressPayload = z.infer<typeof FLBewerbungAddressPayloadSchema>;
 
 /**
- * A school's name is one line: `trim` clears a break at either END and leaves the interior one,
- * which is the half that forges a fact in a decision mail (`docs/frontend/spec.md :: I46`).
+ * A name is a name: none of these eight belongs in one, and refusing the class is cheaper than
+ * reasoning about each renderer downstream. CR and LF forge a fact line in a decision mail besides
+ * (`docs/frontend/spec.md :: I46`).
  */
+// Mirrors `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN`. One asymmetry,
+// fail-closed: `strip()` drops U+0085 where `trim()` keeps it, so a value PADDED with one is taken
+// by the API and refused here. No contract test compares patterns.
 const einzeiligerName = (schema: z.ZodString, feld: string) =>
-  schema.refine((wert) => !/[\r\n]/.test(wert), { error: `${feld} darf keinen Zeilenumbruch enthalten.` });
+  schema.refine((wert) => !/[\x00\n\v\f\r\u0085\u2028\u2029]/.test(wert), {
+    error: `${feld} darf keine Zeilenumbrüche oder Steuerzeichen enthalten.`,
+  });
 
 /**
  * Mirrors `FLBewerbungSchulePayload` — a school the league does not hold yet, in the shape an
@@ -506,6 +529,20 @@ export const FLPostBewerbungPayloadSchema = z
     kontakte: FLBewerbungKontaktePayloadSchema,
     trikot: FLBewerbungTrikotPayloadSchema,
     kader: FLBewerbungKaderPayloadSchema,
+    // The one OPTIONAL key on this payload, mirroring the backend's one default: a client that has
+    // not asked yet omits it. Line-bounded like `schule.team_name` and for its reason
+    // (`docs/frontend/spec.md :: I46`).
+    wunschgegner: einzeiligerName(
+      z
+        .string()
+        .trim()
+        .max(BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, {
+          error: `Der Wunschgegner darf höchstens ${String(BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH)} Zeichen lang sein.`,
+        }),
+      "Der Wunschgegner",
+    )
+      .nullable()
+      .optional(),
   })
   .refine((bewerbung) => (bewerbung.team_id === null) !== (bewerbung.schule === null), {
     // On `team_id`, the field the picker renders: the answer „schon dabei oder neu“ is given there,

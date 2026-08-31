@@ -126,6 +126,7 @@ const ZUSAGE = {
   rollenText: "Ansprechperson",
   gruppe: "B",
   trikotFarbeLabel: "Hellgrün",
+  wunschgegner: "Wöhlerschule",
 } satisfies BewerbungZusageData;
 const ABSAGE = {
   teamName: "Ernst-Reuter-Schule",
@@ -162,6 +163,12 @@ function hostileVariants<Data extends Record<string, string | null>>(
  * value was covered.
  */
 const WEBSITE_SENTENCE = `Spielplan, Tabelle und Ergebnisse veröffentlichen wir auf ${SITE_URL}, sobald die Saison startet.`;
+
+/**
+ * Spelled out for the reason above, and WHOLE: what this sentence must not promise is carried by the
+ * half a substring check would drop, so „wir versuchen“ could be slipped in beside a passing assertion.
+ */
+const WUNSCHGEGNER_SENTENCE = `Als Wunschgegner für den ersten Spieltag haben wir ${ZUSAGE.wunschgegner} notiert; über die Paarungen entscheidet der Spielplan.`;
 
 /** The second control, the same on all three: one page that is a dead end for none of their readers. */
 const LIGA_AKTION = { label: "Laufende Saison", href: `${SITE_URL}/dashboard` };
@@ -254,6 +261,50 @@ describe("buildBewerbungZusageEmail", () => {
       // The group survives the colour being absent: an absent value is a row like any other.
       assert.ok(branch.includes(ZUSAGE.gruppe));
     }
+  });
+
+  /* The draw runs AFTER the decision this message states, so the sentence receipts the wish and hands
+     the outcome to the Spielplan. Asserted whole, in the prose, and in both branches. */
+  it("carries a named opponent as a wish rather than as a fixture", () => {
+    const mail = buildBewerbungZusageEmail(ZUSAGE);
+
+    assert.ok(flat(readable(proseBereich(mail.html))).includes(WUNSCHGEGNER_SENTENCE), "the markup branch lost the wish");
+    assert.ok(flat(mail.text).includes(WUNSCHGEGNER_SENTENCE), "the text branch lost the wish");
+    // It stands between the acceptance and where the Spielplan will be published, which is what makes
+    // „entscheidet der Spielplan“ resolve for the reader rather than trail off.
+    assert.ok(mail.text.indexOf(WUNSCHGEGNER_SENTENCE) < mail.text.indexOf(WEBSITE_SENTENCE), "the wish fell below the website sentence");
+  });
+
+  it("says nothing about an opponent where the school named none", () => {
+    const ohne = buildBewerbungZusageEmail({ ...ZUSAGE, wunschgegner: null });
+
+    for (const branch of [flat(readable(ohne.html)), flat(ohne.text)]) {
+      assert.ok(!branch.includes("Wunschgegner"), "the message names the field a school left empty");
+      assert.ok(!branch.includes(ZUSAGE.wunschgegner), "an opponent was named where none was submitted");
+    }
+    // Silence, not a gap: the paragraphs the sentence sits between meet exactly as they do in a
+    // message that never carried one, so the omission leaves nothing for a reader to wonder about.
+    assert.ok(ohne.text.includes(`Wir freuen uns auf die gemeinsame Saison.\n\n${WEBSITE_SENTENCE}`), "the absent sentence left a blank line");
+    assert.ok(!/<p [^>]*>\s*<\/p>/.test(ohne.html), "the absent sentence left an empty paragraph");
+
+    /* An absent key, an explicit null and a blank are one case. Which of the three reaches this module
+       is the payload's business, and a renderer that told them apart would state a wish per shape. */
+    assert.equal(buildBewerbungZusageEmail({ ...ZUSAGE, wunschgegner: undefined }).text, ohne.text);
+    assert.equal(buildBewerbungZusageEmail({ ...ZUSAGE, wunschgegner: "  \n " }).text, ohne.text);
+  });
+
+  /* The emphasis grade marks the one fact a paragraph exists to carry, and this paragraph exists to
+     carry that the draw has not run. A club set in it is read as the fixture, by a reader who skims. */
+  it("leaves a named opponent unemphasised, unlike the team it accepts", () => {
+    const emphasised = [...buildBewerbungZusageEmail(ZUSAGE).html.matchAll(/<strong[^>]*>([\s\S]*?)<\/strong>/g)].map(
+      (match) => match[1] ?? "",
+    );
+
+    assert.ok(
+      emphasised.some((inner) => inner.includes(ZUSAGE.teamName)),
+      "the team name lost its emphasis, so this test proves nothing",
+    );
+    assert.ok(!emphasised.some((inner) => inner.includes(ZUSAGE.wunschgegner)), "the wish is shouted as loudly as the decision");
   });
 
   it("escapes the team name in the markup branch and leaves the text branch alone", () => {
@@ -744,7 +795,7 @@ describe("all three messages", () => {
   it("carry no copy of the submission in the receipt", () => {
     const eingang = buildBewerbungEingangEmail(EINGANG);
 
-    for (const eingetragen of [ZUSAGE.teamName, "erika@beispiel.de", "069 1234567", "Goethe-Gymnasium"]) {
+    for (const eingetragen of [ZUSAGE.teamName, ZUSAGE.wunschgegner, "erika@beispiel.de", "069 1234567", "Goethe-Gymnasium"]) {
       assert.ok(!readable(eingang.html).includes(eingetragen), `the receipt repeats „${eingetragen}“`);
       assert.ok(!eingang.text.includes(eingetragen), `the receipt's text branch repeats „${eingetragen}“`);
     }
@@ -791,6 +842,15 @@ describe("no value can open a line of its own in the text branch", () => {
 
     assert.equal(zusage.text.split("\n").filter((zeile) => zeile.includes("aufgenommen")).length, 1, "the name split the prose");
     assert.ok(!forgedLine(zusage.text), "the prose carried the forged line the panel refused");
+  });
+
+  /* The one applicant value that reaches the prose and NEVER the column of facts, so `renderText`'s
+     own fold can never cover it: without the builder's, it forges the line the panel would refuse. */
+  it("folds a named opponent, which stands in the prose alone", () => {
+    const zusage = buildBewerbungZusageEmail({ ...ZUSAGE, wunschgegner: NAME_MIT_UMBRUCH });
+
+    assert.ok(!forgedLine(zusage.text), "a named opponent forged a fact line");
+    assert.ok(zusage.text.includes(`Echte Schule ${GEFAELSCHT} notiert`), "the named opponent was not carried onto one line");
   });
 
   /* A field the builders do NOT fold on their way in, so this is what pins the guard in `zeile`

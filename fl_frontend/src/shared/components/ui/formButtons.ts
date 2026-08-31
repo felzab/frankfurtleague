@@ -70,6 +70,14 @@ export const formButton = tv({
     },
     /** For forms whose submit is the only control — the sign-in tabs have no "Abbrechen" beside it. */
     fullWidth: { true: "w-full" },
+    /**
+     * For a control in a row that is a column below `sm`. It fills that column, and its height becomes a
+     * floor: HeroUI's `white-space: nowrap` is lifted here, and `h-12` would clip the second line of a
+     * label a phone's width cannot seat on one.
+     */
+    // `size` beside it does not shorten the control: `tv` resolves by declaration order, so `h-10` replaces
+    // `h-auto` while `min-h-12` still floors the box, and the wrap is clipped. No call site pairs them.
+    stacks: { true: "h-auto min-h-12 w-full py-2 text-center whitespace-normal sm:w-auto" },
     /** Height alone, so page chrome stays under the action bar's without becoming a second fill. */
     size: { sm: "h-10" },
   },
@@ -81,7 +89,7 @@ export const formButton = tv({
  * one wears `destructive` — it is the only thing that looks different once `ConfirmReveal` is open.
  */
 export const confirmButton = (isConfirming: boolean): string =>
-  `${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`;
+  `${formButton({ intent: isConfirming ? "destructive" : "submit", stacks: true })} flex items-center gap-x-2`;
 
 /**
  * The numbers cancel `ModalShell`'s body inset exactly, so this is the one place that follows if it moves.

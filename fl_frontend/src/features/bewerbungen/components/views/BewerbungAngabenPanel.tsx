@@ -77,7 +77,7 @@ const ANGABEN_GRID = "grid w-full grid-cols-1 gap-4 sm:grid-cols-2";
  * form three people filled in, and a decision moves `status`, `entscheidung` and `team_id` alone.
  */
 export function BewerbungAngabenPanel({ bewerbung, teamName }: { bewerbung: FLBewerbung; teamName: string | null }) {
-  const { schule, kontakte, trikot, kader, entscheidung } = bewerbung;
+  const { schule, kontakte, trikot, kader, wunschgegner, entscheidung } = bewerbung;
 
   return (
     <>
@@ -143,7 +143,7 @@ export function BewerbungAngabenPanel({ bewerbung, teamName }: { bewerbung: FLBe
         </div>
       </Panel>
 
-      <Panel title="Trikot und Kader">
+      <Panel title="Trikot, Kader und Wunschgegner">
         <dl className={ANGABEN_GRID}>
           <Angabe label="Vorhandener Trikotsatz">{trikot.vorhandener_satz === "" ? <Leer /> : trikot.vorhandener_satz}</Angabe>
           <Angabe label="Wunschfarbe">
@@ -164,13 +164,17 @@ export function BewerbungAngabenPanel({ bewerbung, teamName }: { bewerbung: FLBe
           </Angabe>
           <Angabe label="Voraussichtliche Kadergröße">{String(kader.voraussichtliche_groesse)}</Angabe>
           <Angabe label="Davon starke Spieler">{kader.gute_spieler === null ? <Leer /> : String(kader.gute_spieler)}</Angabe>
+          {/* The school's own words, rendered as TEXT and resolved against no club: it may name a
+              school the league does not hold, and an applicant-controlled value is never markup. An
+              empty string reaches here as readily as the `null` the write path produces. */}
+          <Angabe label="Wunschgegner">{wunschgegner === null || wunschgegner.trim() === "" ? <Leer /> : wunschgegner}</Angabe>
         </dl>
 
         {/* The wish is not the assignment, and the estimate is not a squad: both are what the school
             expected, and nothing checks either against what it fields. */}
         <p className="muted-hint">
           Die Wunschfarbe ist ein Wunsch. Die Trikotfarbe des Teams legst Du bei der Zusage fest, und die Kaderzahlen sind die Schätzung der
-          Schule.
+          Schule. Der Wunschgegner ist frei eingetragen und muss keine Schule sein, die die Liga führt.
         </p>
       </Panel>
 

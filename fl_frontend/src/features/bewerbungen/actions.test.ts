@@ -33,6 +33,9 @@ const TEAMS_ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "team
 /** The backend module whose absence from the triage decides which sentence they take. */
 const RECORDING = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "recording.py"), "utf8");
 
+/** The two decision messages, read for the fields their call sites in `actions.ts` have to fill. */
+const EMAIL = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "core", "bewerbungEmail.ts"), "utf8");
+
 const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
 const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
 /** Where the entry rules acceptance REUSES are declared: they belong to the season's boundary, not the triage's. */
@@ -462,5 +465,37 @@ describe("a message that cannot be sent", () => {
     assert.match(NOTIFY, /konnte nicht verschickt werden/, "the caught failure reports nothing to the administrator");
     assert.match(NOTIFY, /Melde Dich selbst bei den Kontaktpersonen der Bewerbung\./, "the report names no remedy");
     assert.ok(!NOTIFY.includes("throw"), "the notification throws again, so the committed decision still reports a failure");
+  });
+});
+
+describe("what each decision message is told", () => {
+  /* An OPTIONAL field the call site never fills compiles, lints and builds, and mails the message
+     with the sentence it feeds silently missing. Read off the message rather than listed here. */
+  it("fills every field the message declares", () => {
+    const felder = (block: string) => [...block.matchAll(/^ {2}(\w+)\??:/gm)].map((treffer) => treffer[1]!);
+    const zusage = felder(sliceBetween(EMAIL, "export interface BewerbungZusageData", "\n}"));
+    const absage = felder(sliceBetween(EMAIL, "export interface BewerbungAbsageData", "\n}"));
+
+    // Anti-vacuity: a moved interface would leave both lists empty and this assertion true of nothing.
+    assert.ok(zusage.length > 0 && absage.length > 0, "neither message's field list was found, so nothing was compared");
+
+    // The BUILDER's own argument, never the whole action: `gruppe` is also a key of the sentence
+    // `describeAufnahme` composes, so a search over the action passes a mail that dropped it.
+    const zusageAufruf = sliceBetween(ACTIONS, "buildBewerbungZusageEmail({", "})");
+    const absageAufruf = sliceBetween(ACTIONS, "buildBewerbungAbsageEmail({", "})");
+
+    assert.ok(zusageAufruf !== "" && absageAufruf !== "", "one of the two mail builders is no longer called with an object literal");
+
+    // Collected rather than asserted one at a time: a per-field assertion stops at the first gap, so
+    // a second one is invisible until the first is closed.
+    const ungefuellt = [
+      ...zusage.map((feld) => [feld, zusageAufruf, "annehmen"] as const),
+      ...absage.map((feld) => [feld, absageAufruf, "ablehnen"] as const),
+    ]
+      .filter(([feld, aufruf]) => !new RegExp(`\\b${feld}:`).test(aufruf))
+      .map(([feld, , wo]) => `${wo}/${feld}`)
+      .sort();
+
+    assert.deepEqual(ungefuellt, [], `these declared message fields reach no call site: ${ungefuellt.join(", ")}`);
   });
 });
