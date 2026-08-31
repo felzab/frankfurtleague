@@ -77,7 +77,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 23  | FE-33 | Each editor spells its own undo dispatch                             | FE              | M      | Open     | —          |
 | 24  | FE-31 | Every admin success is stated twice, and once invisibly              | FE              | M      | Open     | —          |
 | 25  | FE-19 | Every call site writes a fallback the runtime cannot take            | FE              | M      | Open     | —          |
-| 26  | FE-23 | One adverb is written two ways across the product                    | FE              | S      | Open     | —          |
+| 26  | FE-23 | One adverb is written two ways across the product                    | FE              | S      | Closed   | —          |
 | 27  | FE-1  | A fixture carries one date, not a play window                        | FE, BE          | XL     | Open     | —          |
 | 28  | LOG-2 | A cached read's call joins to no render                              | FE, BE, Ops     | L      | Open     | —          |
 | 29  | FB-18 | Only the match editor marks a field somebody waits on                | FE, BE          | L      | Open     | —          |
@@ -1555,12 +1555,26 @@ whether retrying can help.
 
 ### 26 · FE-23 — One adverb is written two ways, and the split runs through the whole product
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE\
 **Effort:** S\
 **Path:** Independent. Cheapest run string by string with `docs/frontend/spec.md` §1.12 open, the
 way the `Mannschaft` sweep was run — a find-and-replace is what breaks it, because the two words are
 not interchangeable in every sentence position.
+
+**What concluded it.** The sweep, run string by string. Fifteen occurrences stood in
+`fl_frontend/src` at execution, counted without regard to case on 2026-08-31; the sixteen measured
+below counts a different set, and the two are not reconciled here. Every one took `schon` in its
+existing position, so no sentence was recast. **Two of them open a sentence** — the retirement
+consequences in
+`fl_frontend/src/features/schiedsrichter/components/modals/AdminDeleteSchiedsrichterModal.tsx` and
+`fl_frontend/src/features/spielorte/components/modals/AdminDeleteSpielortModal.tsx` — which is why
+the site list below reaches neither, and why the rule this closure writes into
+`docs/frontend/spec.md` §1.12 carries the capital as its trap. The club-banner assertions and the
+draft-errors test's copy of the `REQ-SPIELTAG-001` sentence moved with their strings, and FE-34's
+quotes of the club refusal track the new spelling. The `BANNED_TERMS` row that would stop the next
+`bereits` is the gate's half, on the split this entry draws, and rides the gate's own change rather
+than this closure.
 
 **`bereits` and `schon` both mean _already_, and the product spells both.** `schon` carries the
 larger share — 45 occurrences against 16, measured 2026-08-27 — so what is left is a minority
@@ -1981,7 +1995,7 @@ unbounded one — which is what the code implies today and what no line says.
 **Surfaces:** FE, Docs\
 **Effort:** M — six strings in two constructions, and a copy question that may amend a rule rather than a sentence\
 **Path:** Independent. **FE-23**'s sweep passes through one of these six strings for its own reason —
-„Diese Gruppe ist bereits voll." is one of the two club-slice refusals that entry names — so whichever
+„Diese Gruppe ist schon voll." is one of the two club-slice refusals that entry names — so whichever
 of the two lands second recasts a string the first already touched. An ordering preference, not a block.
 **FE-35** widens the same helper for a fourth rendering of a different code, and the two settle nothing
 for each other.
@@ -1999,7 +2013,7 @@ between groups — `postTeamAction`, `postSaisonTeamAction` and `patchSaisonTeam
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `REQ-ENTER-001` | A `buildRefusal` pair: the application's season has left planning, entry being into a planned one, then „Lehne die Bewerbung ab" | A written-out pair: „Diese Saison läuft schon oder ist abgeschlossen. Nimm das Team in eine geplante Saison auf." |
 | `REQ-ENTER-002` | A `gruppe` field message naming „die Saison der Bewerbung"                                                                       | The same field message naming „die gewählte Saison"                                                               |
-| `REQ-ENTER-003` | „Diese Gruppe ist voll. Wähle eine andere."                                                                                      | „Diese Gruppe ist bereits voll."                                                                                  |
+| `REQ-ENTER-003` | „Diese Gruppe ist voll. Wähle eine andere."                                                                                      | „Diese Gruppe ist schon voll."                                                                                    |
 
 **Two of the three are a surface addressing its own reader**, which is what makes this a ruling rather
 than a correction. `-002` says which season is meant, and the two readers stand on different ones.

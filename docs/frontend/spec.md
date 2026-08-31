@@ -668,6 +668,9 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   `Mannschaft`. `Team` is neuter, and the word that has to agree often sits in the NEXT sentence,
   which no grep for the noun will find; `sideLabel` also numbers a fixture's two seats `Team`, so a
   sentence naming both says the club by name.
+- **_Already_ is `schon`** (my rule, 2026-08-31): never `bereits`, which takes a capital at the
+  head of a sentence, so a case-sensitive sweep leaves those occurrences standing; `bereit` and
+  `bereiten` are other words and stay.
 - **Refusal copy carries a second register on top of this**, declared at
   `fl_frontend/src/shared/utils/adminMutation.ts :: VALIDATION_FAILED`: a FIELD message stays one
   sentence about the value, a FORM message is two with the action second, and field messages are
