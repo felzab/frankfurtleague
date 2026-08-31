@@ -904,9 +904,9 @@ and 95 are not** — 33 absent from `docs/backend/spec.md`, 32 from `docs/ops/sp
 literally it is unmet almost everywhere at once, and discharging it would take each of those three
 tables to several times its size and make it a second copy of the ranked page.
 
-**Three entries have no target for the requirement at all.** `DOC-2`, `DOC-3` and `DOC-9` name
-only `Docs`, which owns no spec sheet — and so does this entry, which is the same gap showing
-through the thing that records it.
+**Four entries have no target for the requirement at all.** `DOC-2`, `DOC-3`, `DOC-9` and
+`FB-20` name only `Docs`, which owns no spec sheet — and so does this entry, which is the same gap
+showing through the thing that records it.
 
 **One written source does speak, and it asks something narrower than the requirement does.**
 OUT-4 in [`docs/standard.md`](../standard.md) describes the section as accepted gaps, each with
