@@ -100,7 +100,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 58  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
 | 46  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
 | 47  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
-| 48  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Open     | —          |
+| 48  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Closed   | —          |
 | 49  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
 | 50  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
 | 51  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
@@ -2488,7 +2488,7 @@ through a refusal, which is a behaviour to settle rather than a sentence to corr
 
 ### 48 · BE-24 — An unnarrowed squad read scans an unindexed collection to learn what it may not serve
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** BE\
 **Effort:** S\
 **Path:** Independent. The candidate homes for an answer are `fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` and `fl_backend/app/api/saisons/cache.py`, and neither waits on anything.
@@ -2525,6 +2525,15 @@ What pays is a caller reaching the API directly.
 **One bound the read already carries**, which either answer keeps: the query asks for one row more than
 `LIST_LIMIT_DEFAULT` and raises where it gets it, because a truncated set narrows on fewer seasons than
 exist ([`docs/backend/spec.md`](../backend/spec.md) I45).
+
+**What concluded it: the index, not the cache.**
+`fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` declares `saisons_status` on `status`, so
+the withheld-season read walks an index instead of scanning the collection. The cache arm was
+rejected for the reason this entry records: that cache is keyed by season id, so it holds no set,
+and a missing set would be indistinguishable from an empty one — the direction that narrows on
+nothing and serves every withheld season's rows. The rejection is recorded at the new row, which
+cites `fl_backend/app/api/saisons/visibility.py :: withheld_saison_ids`; the I45 one-past-the-limit
+bound stands untouched. Nothing is rehomed.
 
 ### 49 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
 
