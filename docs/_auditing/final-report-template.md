@@ -81,8 +81,7 @@ reader greps.\>
 
 \<Everything that survived the programme: open items with their analysis and their triggers ·
 accepted deviations with the recorded reasoning · anything that could not be verified, with the
-reason. **Each entry names where it is now tracked** — an item tracked only here is an item that is
-lost.\>
+reason. **Each entry names where it is now tracked.**\>
 
 ## 8. Verification state at close
 

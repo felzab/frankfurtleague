@@ -192,7 +192,7 @@ describe("the eight admin CRUD tables", () => {
       const widths = declared.map((token) => widthPx(token));
       assert.ok(
         !widths.includes(null),
-        `${file}: declares ${declared.join(" ")}, and the theme resolves none of ${declared.filter((token, index) => widths[index] === null).join(" ")}`,
+        `${file}: declares ${declared.join(" ")}, and the theme resolves none of ${declared.filter((_token, index) => widths[index] === null).join(" ")}`,
       );
 
       const owed = widths.reduce<number>((sum, width) => sum + width!, 0) + freeText * (columns.length - declared.length);

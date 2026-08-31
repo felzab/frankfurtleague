@@ -89,8 +89,10 @@ THE CHECKS, in priority order:
 
 8. **CONTRACT ENFORCEMENT.** For each seam above, name what would catch a regression today: a test, a
    lint rule, a schema check, or nothing. The required table: seam | current enforcement | what a
-   regression would look like in production | cheapest control that would catch it. The seams have no
-   owner, so every one left unenforced will drift again. On a re-run, start from the enforcement
+   regression would look like in production | cheapest control that would catch it. A failure class
+   one surface's gate could catch belongs to ops 1's coverage map; a row sits here only when no
+   single surface can see the regression. The seams have no owner, so every one left unenforced
+   will drift again. On a re-run, start from the enforcement
    decisions in `.claude/CLAUDE.md` §7 and the controls actually present in the gate: a seam already
    enforced needs its control verified, not its contract re-derived.
 
@@ -99,7 +101,7 @@ than a technical one, and picking silently produces a fix in the wrong half. Eve
 names both readings and what each would cost.
 
 BOUNDARIES — not this pass: anything visible from inside one surface. Per-surface structure, excess,
-dead code, styling, accessibility, performance, and single-surface security all belong to their own
-passes — including a definition duplicated twice within one surface, which is that surface's
-architecture pass. Where a check here surfaces a single-surface defect, record it in one line under
+dead code, styling, accessibility, performance, single-surface gate coverage (→ `ops 1`), and
+single-surface security all belong to their own passes — including a definition duplicated twice
+within one surface, which is that surface's architecture pass. Where a check here surfaces a single-surface defect, record it in one line under
 the verdict's cross-surface handoffs and name the owning surface.

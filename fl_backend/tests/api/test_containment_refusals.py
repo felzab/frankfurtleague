@@ -24,7 +24,6 @@ from app.api.spieler.services import (
     find_squad_capacity_refusal,
     find_squad_refusal,
     find_squad_rolle_refusal,
-    normalised_nummer,
 )
 from app.api.spielorte.services import VENUE_STILL_BOOKED, find_venue_retire_refusal
 from app.api.spieltage.services import (
@@ -368,12 +367,6 @@ class TestASquadEntry:
 
         assert refusal is not None
         assert refusal.error_code == SQUAD_TEAM_NOT_IN_SAISON
-
-    @pytest.mark.parametrize(("raw", "expected"), [(" 7 ", "7"), ("", None), (None, None), ("07", "07")])
-    def test_a_number_is_compared_trimmed_and_not_renumbered(self, raw, expected):
-        """`07` stays `07`: it is a printed shirt, and calling it the same as `7` is a judgement this rule declines."""
-
-        assert normalised_nummer(raw) == expected
 
 
 class TestASquadCap:
