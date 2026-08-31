@@ -80,7 +80,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 25  | BE-40 | A bracket slot may name a group its season does not run              | FE, BE          | S      | Open     | —          |
 | 26  | FE-28 | A squad-row return is offered where the cap refuses it               | FE, BE          | M      | Open     | —          |
 | 27  | FE-26 | The draw offers a press a too-short season refuses                   | FE              | S      | Open     | —          |
-| 28  | BE-21 | The seeding table is keyed on a list nothing joins it                | BE              | S      | Open     | —          |
+| 28  | BE-21 | The seeding table is keyed on a list nothing joins it                | BE              | S      | Closed   | —          |
 | 29  | BE-33 | The log read carries every pre-image the page discards               | BE              | S      | Open     | —          |
 | 30  | FE-29 | A date search matches the stored spelling, not the shown one         | FE              | S      | Open     | —          |
 | 31  | FE-24 | A pupil's consent is stored and served, and shown by nothing         | FE              | S      | Open     | —          |
@@ -1684,7 +1684,7 @@ because it is the reason this was left alone.
 
 ### 28 · BE-21 — The bracket's seeding table is keyed on a phase list nothing holds it to
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** BE\
 **Effort:** S\
 **Path:** Independent — the table, the subscript and the constant that decides the keys sit in
@@ -1729,6 +1729,15 @@ the table names no phase list, the subscript states no precondition, and whoever
 
 **Not measured:** what else a widened phase list would move. This reading follows one table and one
 subscript and stops at the draw.
+
+**What concluded it: the coupling stated at both ends, which is the first arm.** A comment at
+`fl_backend/app/api/saisons/spielplan.py :: BRACKET_SEEDING` names what the key set follows —
+`fl_backend/app/api/spiele/schemas.py :: MAX_QUALIFIERS` off `:: PHASE_ORDER` — and that a phase
+added at the wide end owes the table rows; one at the bare subscript names the deriving test as what
+guarantees the key. The refusal arm was rejected as buying an error code and a published row for a
+500 the gate already keeps unreachable, so what this arm leaves — the 500 stands for whoever narrows
+the test rather than the table — is the price the entry records, taken knowingly. Nothing is
+rehomed.
 
 ### 29 · BE-33 — The log read carries every stored pre-image, and the page that asked for it drops them
 
