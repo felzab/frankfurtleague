@@ -38,7 +38,7 @@ async function AktionenTable({ searchParams }: { searchParams: NextPageProps["se
   // Anything but one plain value reads as no narrowing, so a hand-edited URL falls back to the
   // whole log rather than 404ing — `parseLeserichtung`'s rule, one queue over.
   const dokumentId = typeof params.document_id === "string" && params.document_id !== "" ? params.document_id : undefined;
-  const aktionenRes = await getAktionen(dokumentId);
+  const aktionenRes = await getAktionen(dokumentId === undefined ? {} : { document_id: dokumentId });
 
   return (
     <AdminAktionenView

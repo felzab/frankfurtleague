@@ -6,14 +6,14 @@ import { FLAktionenListResponseSchema } from "./schemas";
 import type { FLAktionenListResponse } from "./schemas";
 
 /**
- * Uncached, as every admin-authed read is — `docs/frontend/spec.md` §1.2. `documentId` narrows to
- * one document's history; `apiClient` drops an undefined param, so absent means the whole log.
+ * Uncached, as every admin-authed read is — `docs/frontend/spec.md` §1.2. `document_id` narrows to
+ * one document's history; an omitted key means the whole log.
  */
-export const getAktionen = async (documentId?: string): Promise<FLAktionenListResponse> => {
+export const getAktionen = async (filters: { document_id?: string } = {}): Promise<FLAktionenListResponse> => {
   return runWithIncomingCorrelationId(() =>
     apiClient<FLAktionenListResponse>("/aktionen", FLAktionenListResponseSchema, {
       authType: "admin",
-      params: { document_id: documentId },
+      params: filters,
     }),
   );
 };

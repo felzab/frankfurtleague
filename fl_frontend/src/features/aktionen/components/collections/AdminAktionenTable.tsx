@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { ClockArrowRotateLeft, Cpu, Globe, Person } from "@gravity-ui/icons";
 
@@ -12,6 +13,7 @@ import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
+import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { AKTION_HERKUNFT_LABELS, AKTION_OPERATION_LABELS, AKTION_OPERATION_TINTS, AKTIONEN_CRUD_COPY } from "../../constants";
 import { describeAktionDatensatz, formatAktionZeitpunkt, herkunftOfAktor, labelForCollection } from "../../utils";
@@ -50,6 +52,11 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
 }) {
+  // The shell's season rides along on the history link, so narrowing the log keeps the selector's
+  // season -- `AdminTeamsTable.tsx`'s row links carry it the same way.
+  const searchParams = useSearchParams();
+  const selectedFromUrl = searchParams.get("saison_id");
+
   const handleCopyVorgang = async (aktion: AdminAktionRow) => {
     const copied = await copyTextToClipboard(aktion.correlation_id);
 
@@ -178,7 +185,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
           nothing, so neither has a single history to open. */}
       {aktion.document_id !== null && (
         <RowActionLink
-          href={`/admin/aktionen?document_id=${encodeURIComponent(aktion.document_id)}`}
+          href={withSaisonId(`/admin/aktionen?document_id=${encodeURIComponent(aktion.document_id)}`, selectedFromUrl)}
           label="Änderungen an diesem Datensatz"
           ariaLabel={`Alle Änderungen an Datensatz ${aktion.document_id} anzeigen`}>
           <ClockArrowRotateLeft

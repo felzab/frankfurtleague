@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 import { AKTIONEN_FACETS } from "@/features/aktionen/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import { Callout } from "@/shared/components/ui/Callout";
 import { textLink } from "@/shared/components/ui/textLink";
+import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { AdminAktionenTable } from "../collections/AdminAktionenTable";
 
@@ -29,6 +31,10 @@ export function AdminAktionenView({
   /** The one document the list is narrowed to, or null for the whole log — set by a row's history action. */
   dokumentId: string | null;
 }) {
+  // The way out of the narrowing keeps the shell on the selector's season (`withSaisonId`).
+  const searchParams = useSearchParams();
+  const selectedFromUrl = searchParams.get("saison_id");
+
   return (
     <div className="flex flex-col gap-4">
       {dokumentId !== null && (
@@ -37,7 +43,7 @@ export function AdminAktionenView({
           title="Nur ein Datensatz">
           Angezeigt werden nur die Änderungen an dem Datensatz <span className="font-mono break-all">{dokumentId}</span>.{" "}
           <Link
-            href="/admin/aktionen"
+            href={withSaisonId("/admin/aktionen", selectedFromUrl)}
             className={textLink()}>
             Alle Änderungen anzeigen
           </Link>
