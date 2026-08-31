@@ -116,7 +116,7 @@ case only a stored restore reaches.
 is recorded with the actor, the request, the collection, the document and the image the write
 replaced (`fl_backend/app/core/recording.py`); `/admin/aktionen` lists the rows, narrows to one
 document's history, and its answer says when it is short (`vollstaendig`). A row therefore holds
-what a replay needs, and replaying one is a small change over the spine the eight undo handlers
+what a replay needs, and replaying one is a small change over the spine the editors' undo handlers
 already share. What is missing is the control that does it: a restore offered on a log row, past
 the editor's fifteen-second, browser-held undo — one that survives a reload and reaches a write
 nobody was watching at the time.
