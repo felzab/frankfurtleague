@@ -99,10 +99,6 @@ export async function getBewerbungSchulen(): Promise<FLBewerbungSchulenResponse>
 }
 
 /**
- * Whether a two-letter code already belongs to a club. ONE neutral answer: it separates no active
- * club from a retired one and names none, this check being open to anybody who opens the form.
- */
-/**
  * Which colours one season has ASSIGNED — `saison_teams.trikot_farbe`, never a wish. Uncached for
  * `getBewerbungKuerzel`'s reason: one is assigned between two page loads, and a cached "still
  * free" outlives that.
@@ -117,6 +113,10 @@ export async function getBewerbungTrikotfarben(saisonId: string): Promise<FLBewe
   );
 }
 
+/**
+ * Whether a two-letter code already belongs to a club. ONE neutral answer: it separates no active
+ * club from a retired one and names none, this check being open to anybody who opens the form.
+ */
 export async function getBewerbungKuerzel(shorthand: string): Promise<FLBewerbungKuerzelResponse> {
   return runWithIncomingCorrelationId(() =>
     apiClient<FLBewerbungKuerzelResponse>(`/bewerbungen/kuerzel/${encodeURIComponent(shorthand)}`, FLBewerbungKuerzelResponseSchema, {

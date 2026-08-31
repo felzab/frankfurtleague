@@ -47,6 +47,10 @@ OPEN_SAISON = "2026"
 SHUT_SAISON = "2025"
 WINDOWLESS_SAISON = "2024"
 
+# Named because two corpora seed it: a case building its own season still has to be the one the
+# colour read serves, and a span drifting from `seeded_url`'s would make it the one it refuses.
+RUNNING_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
+
 # The three near-misses, each ruled out by ONE term of the open-window query and by nothing else.
 # Each sorts AHEAD of the answer, so a query dropping that term picks it rather than `2026`.
 FLAG_OFF_SAISON = "2027"
@@ -71,14 +75,15 @@ OPEN_SAISON_FARBEN = ["rot", "gruen", "blau"]
 OTHER_SEASON_FARBE = "magenta"
 
 
-def _saison(saison_id: str, *, bewerbung: Any) -> dict[str, Any]:
+def _saison(saison_id: str, *, bewerbung: Any, status: str = "future") -> dict[str, Any]:
     return {
         "_id": saison_id,
         "start_date": f"{saison_id}-01-01",
         "end_date": f"{saison_id}-06-30",
-        # `future` on purpose: `docs/backend/spec.md :: I47` withholds one from this tier, which is
-        # the whole reason the window has a read of its own.
-        "status": "future",
+        # `future` by default: `docs/backend/spec.md :: I47` withholds one from this tier, which is
+        # why the window has a read of its own. Overridden only where a case asks what the status
+        # does, which for these reads is nothing -- they judge the window.
+        "status": status,
         "rules": {
             "win_points": 3,
             "draw_points": 1,
@@ -138,7 +143,7 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
 
         database[Collection.SAISONS].insert_many(
             [
-                _saison(OPEN_SAISON, bewerbung={"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}),
+                _saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW)),
                 _saison(SHUT_SAISON, bewerbung={"offen": True, "von": "2025-03-01", "bis": "2025-04-30"}),
                 # A span holding today, and the flag off: the one term that rules it out.
                 _saison(FLAG_OFF_SAISON, bewerbung={"offen": False, "von": "2026-03-01", "bis": "2026-04-30"}),
@@ -386,20 +391,40 @@ class TestTheAssignedColoursRead:
 
         assert answered(seeded_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}").status_code == 200
 
-    @pytest.mark.parametrize(
-        "saison_id",
-        [
-            pytest.param(WINDOWLESS_SAISON, id="a season holding no junction row"),
-            pytest.param("1999", id="a season no document names"),
-        ],
-    )
-    def test_a_season_with_nothing_assigned_answers_the_empty_set(self, seeded_url: str, saison_id: str):
-        """No 404 either way, so nothing here tells an unknown season from one that has assigned nothing."""
+    def test_a_season_taking_applications_with_nothing_assigned_answers_the_empty_set(self, mongo_container: Any):
+        """Its own corpus, `seeded_url` holding no season that both takes applications and has assigned nothing."""
 
-        response = answered(seeded_url, f"{PREFIX}/trikotfarben/{saison_id}")
+        url = seeded_with(mongo_container, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW))])
+
+        response = answered(url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}")
 
         assert response.status_code == 200
         assert response.json()["vergeben"] == []
+
+    @pytest.mark.parametrize(
+        "saison_id",
+        [
+            # Non-vacuous: this season HAS an assignment, so an ungated read would answer 200 with it.
+            pytest.param(SHUT_SAISON, id="a window whose span has passed"),
+            pytest.param(FLAG_OFF_SAISON, id="a span holding today with the flag off"),
+            pytest.param(NOT_YET_OPEN_SAISON, id="the flag on and a span not yet begun"),
+            pytest.param(ALREADY_CLOSED_SAISON, id="the flag on and a span already over"),
+            pytest.param(WINDOWLESS_SAISON, id="a season carrying no window"),
+            pytest.param("1999", id="a season no document names"),
+        ],
+    )
+    def test_a_season_not_taking_applications_answers_as_an_unknown_id_does(self, seeded_url: str, saison_id: str):
+        """One answer for every way a season can fail to be taking applications, so none is distinguishable from no such season."""
+
+        assert answered(seeded_url, f"{PREFIX}/trikotfarben/{saison_id}").status_code == 404
+
+    @pytest.mark.parametrize("status", [pytest.param("active", id="the running season"), pytest.param("past", id="a finished season")])
+    def test_a_season_this_tier_may_read_is_refused_all_the_same(self, mongo_container: Any, status: str):
+        """The gate judges the WINDOW and never the status, so a season `docs/backend/spec.md :: I47` does not withhold is refused too."""
+
+        url = seeded_with(mongo_container, [_saison(OPEN_SAISON, bewerbung=None, status=status)])
+
+        assert answered(url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}").status_code == 404
 
 
 class TestTheTierTheseReadsAreServedAt:
@@ -420,7 +445,13 @@ class TestTheTierTheseReadsAreServedAt:
 
     @pytest.mark.parametrize(
         "path",
-        [f"{PREFIX}/fenster", f"{PREFIX}/fenster/{OPEN_SAISON}", f"{PREFIX}/schulen", f"{PREFIX}/kuerzel/ZE"],
+        [
+            f"{PREFIX}/fenster",
+            f"{PREFIX}/fenster/{OPEN_SAISON}",
+            f"{PREFIX}/schulen",
+            f"{PREFIX}/kuerzel/ZE",
+            f"{PREFIX}/trikotfarben/{OPEN_SAISON}",
+        ],
     )
     def test_no_key_reaches_none_of_them(self, seeded_url: str, path: str):
         """Public here means no SESSION, never no key: the edge reaches this application through the frontend, which holds one."""

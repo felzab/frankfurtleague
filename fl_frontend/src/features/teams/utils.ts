@@ -292,9 +292,8 @@ export function toWebsiteUrl(typed: string): string | null {
 }
 
 /**
- * Which colours a picker offers once the season's ASSIGNED ones are left out, and whether the
- * exclusion had to be dropped to leave anything. Its own function because the exhausted case is a
- * boundary a test can exercise without rendering.
+ * Which colours a picker offers once the season's ASSIGNED ones are left out. Its own function
+ * because the empty offer is a boundary a test can exercise without rendering.
  */
 export function offeredTrikotFarben({
   vergeben,
@@ -303,11 +302,8 @@ export function offeredTrikotFarben({
   vergeben: readonly FLTrikotFarbe[];
   /** The colour the field already holds, which survives the exclusion so a saved row still reads. */
   value: FLTrikotFarbe | null;
-}): { optionen: readonly TrikotFarbeOption[]; istAusgeschoepft: boolean } {
-  const uebrig = TRIKOT_FARBE_OPTIONS.filter((option) => option.value === value || !vergeben.includes(option.value));
-
-  // The whole palette rather than nothing: a wish is not unique — two schools may wish for one
-  // colour, and the assignment is the administrator's — so the courtesy steps aside rather than
-  // leaving a required field nobody can answer.
-  return uebrig.length === 0 ? { optionen: TRIKOT_FARBE_OPTIONS, istAusgeschoepft: true } : { optionen: uebrig, istAusgeschoepft: false };
+}): readonly TrikotFarbeOption[] {
+  // The exclusion and nothing else, so the picker never offers a colour the season has given away.
+  // A season holding all sixteen therefore offers nothing, which the required wish has no answer for.
+  return TRIKOT_FARBE_OPTIONS.filter((option) => option.value === value || !vergeben.includes(option.value));
 }

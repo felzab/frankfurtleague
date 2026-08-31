@@ -227,7 +227,7 @@ function renderHtml(nachricht: Nachricht, bloecke: readonly string[]): string {
  * control. Stuffed WHOLE rather than per value, so no field is left out of the guard.
  */
 function renderText(nachricht: Nachricht, body: readonly string[]): string {
-  // A blank line before a stacked fact, so the lines it wraps onto do not read as further facts. Both
+  // A blank line before a stacked fact, so the lines it wraps onto do not read as further facts.
   // Both shapes are normalised here rather than trusted from the payload (`docs/frontend/spec.md :: I46`).
   const zeile = (fakt: Fakt): string =>
     fakt.gestapelt === true ? `${fakt.label}: ${eingerueckt(fakt.value)}` : `${fakt.label}: ${einzeilig(fakt.value)}`;

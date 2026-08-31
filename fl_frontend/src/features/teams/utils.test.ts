@@ -518,7 +518,7 @@ describe("what a new consent cites", () => {
 describe("which kit colours the wish picker offers", () => {
   const alle = TRIKOT_FARBE_OPTIONS.map((option) => option.value);
   const werte = (vergeben: readonly (typeof alle)[number][], value: (typeof alle)[number] | null = null) =>
-    offeredTrikotFarben({ vergeben: vergeben, value: value }).optionen.map((option) => option.value);
+    offeredTrikotFarben({ vergeben: vergeben, value: value }).map((option) => option.value);
 
   /* First, because every case below compares against the palette: a filter that had stopped reading
      `TRIKOT_FARBE_OPTIONS` would return nothing and make each of them pass over an empty list. */
@@ -554,22 +554,20 @@ describe("which kit colours the wish picker offers", () => {
   });
 
   /* The boundary the palette can cross on its own -- sixteen colours against a season capped at 64
-     teams. The whole palette comes back rather than nothing: a wish is not unique, and an empty
-     required picker is an application nobody can submit. */
-  it("gives the whole palette back once the exclusion would leave nothing", () => {
-    const ausgeschoepft = offeredTrikotFarben({ vergeben: alle, value: null });
-
-    assert.equal(ausgeschoepft.istAusgeschoepft, true, "an exhausted palette is not reported as one");
-    assert.deepEqual(
-      ausgeschoepft.optionen.map((option) => option.value),
-      alle,
-    );
+     teams. An empty offer is the answer there, and the field stays required: the picker offers only
+     what the season can still give. */
+  it("offers nothing once the season has assigned every colour", () => {
+    assert.deepEqual(werte(alle), []);
   });
 
-  /* And only then: reported one colour early, the note would tell a school the season was full while
-     fifteen colours were still on offer. */
-  it("reports nothing exhausted while one colour is still free", () => {
-    assert.equal(offeredTrikotFarben({ vergeben: alle.slice(1), value: null }).istAusgeschoepft, false);
-    assert.equal(offeredTrikotFarben({ vergeben: [], value: null }).istAusgeschoepft, false);
+  /* And only there: emptied a colour early, the picker would withhold one the season still has. */
+  it("still offers the last colour the season has left", () => {
+    assert.deepEqual(werte(alle.slice(1)), alle.slice(0, 1));
+  });
+
+  /* The held value survives the exhausted season as well, its own colour being by definition one of
+     the assigned ones -- so an editor reopening such a row still reads what it holds. */
+  it("keeps the field's own colour even where every colour is assigned", () => {
+    assert.deepEqual(werte(alle, "rot"), ["rot"]);
   });
 });

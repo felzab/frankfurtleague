@@ -40,6 +40,7 @@ from app.shared.schemas.bounds import (
 )
 from app.shared.schemas.custom import (
     PERSON_NAME_PATTERN,
+    SINGLE_LINE_PATTERN,
     CustomDateString,
     CustomNonEmptyString,
     CustomObjectId,
@@ -415,14 +416,14 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
     # Stripped before either floor counts it: `team_name` and `shorthand` reach a league table row.
     # The ceilings are here and not on the read model, which the triage reads a stored one through.
 
-    # No interior break in the two the decision mail renders: it writes one `label: value` per line,
-    # so a name holding one forges a line. `strip_whitespace` runs FIRST, so a break at either end is
-    # repaired rather than refused.
+    # `SINGLE_LINE_PATTERN` carries the class and the reason for it. CR and LF earn a second one
+    # here: the decision mail renders these two as `label: value` rows, so a name holding either
+    # forges a line the reader cannot tell from a stated fact.
     team_name: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TEAM_NAME_MAX_LENGTH, pattern=r"^[^\r\n]*$")
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TEAM_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)
     ]
     full_name: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_FULL_NAME_MAX_LENGTH, pattern=r"^[^\r\n]*$")
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_FULL_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)
     ]
     shorthand: Annotated[str, StringConstraints(strip_whitespace=True, min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)]
     # Required and NON-NULL here alone: the form offers the six real Schulformen and no "keine
@@ -499,16 +500,23 @@ class FLPostBewerbungPayload(BaseModel):
     kontakte: FLBewerbungKontaktePayload
     trikot: FLBewerbungTrikotPayload
     kader: FLBewerbungKaderPayload
-    # DEFAULTED where this payload's other nullable keys are required: naming an opponent is
-    # optional, and a form deployed before the field omits it rather than 422ing on every submission.
+    # DEFAULTED where this payload's other nullable keys are required: `scripts/deploy.sh` recreates
+    # both packages at one pinned build, so the only form older than this field is a page already
+    # open in a visitor's browser across a recreate.
 
-    # Constrained as `FLBewerbungSchulePayload.team_name` is, and for its reason: the decision mail
-    # writes one `label: value` per line, so a name holding an interior break forges a line.
+    # What the default costs: `extra="forbid"` makes a misspelled key a 422 while an omitted one is a
+    # silent null, so a frontend regression that stops sending this ships green -- where every
+    # sibling's omission is a 422.
+
+    # `SINGLE_LINE_PATTERN` carries the class and its reason. CR and LF earn a second one here:
+    # `fl_frontend/src/core/bewerbungEmail.ts :: wunschgegnerSatz` sets this inside a sentence, and a
+    # break there still opens a line in a line-oriented text body.
 
     # No floor, `parse_empty_string_to_none` leaving nothing between null and a real name:
     # `min_length` counts characters, so spaces alone would be stored as a wish the school made.
     wunschgegner: Annotated[
-        Annotated[str, StringConstraints(strip_whitespace=True, max_length=BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, pattern=r"^[^\r\n]*$")] | None,
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)]
+        | None,
         BeforeValidator(parse_empty_string_to_none),
     ] = None
 

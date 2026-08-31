@@ -421,11 +421,17 @@ export const FLBewerbungAddressPayloadSchema = FLAddressPayloadSchema.extend({
 export type FLBewerbungAddressPayload = z.infer<typeof FLBewerbungAddressPayloadSchema>;
 
 /**
- * A school's name is one line: `trim` clears a break at either END and leaves the interior one,
- * which is the half that forges a fact in a decision mail (`docs/frontend/spec.md :: I46`).
+ * A name is a name: none of these eight belongs in one, and refusing the class is cheaper than
+ * reasoning about each renderer downstream. CR and LF forge a fact line in a decision mail besides
+ * (`docs/frontend/spec.md :: I46`).
  */
+// Mirrors `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN`. One asymmetry,
+// fail-closed: `strip()` drops U+0085 where `trim()` keeps it, so a value PADDED with one is taken
+// by the API and refused here. No contract test compares patterns.
 const einzeiligerName = (schema: z.ZodString, feld: string) =>
-  schema.refine((wert) => !/[\r\n]/.test(wert), { error: `${feld} darf keinen Zeilenumbruch enthalten.` });
+  schema.refine((wert) => !/[\x00\n\v\f\r\u0085\u2028\u2029]/.test(wert), {
+    error: `${feld} darf keine Zeilenumbrüche oder Steuerzeichen enthalten.`,
+  });
 
 /**
  * Mirrors `FLBewerbungSchulePayload` — a school the league does not hold yet, in the shape an

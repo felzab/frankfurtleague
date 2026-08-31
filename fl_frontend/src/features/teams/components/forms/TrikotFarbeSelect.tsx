@@ -1,7 +1,5 @@
 "use client";
 
-import { useId } from "react";
-
 import { FieldError, Label, ListBox, Select } from "@heroui/react";
 
 import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
@@ -14,14 +12,6 @@ import type { Key } from "@heroui/react";
 
 /** The picker's key for the answer the field spells as `null`, a listbox having no empty item. */
 const KEINE_FARBE = "keine";
-
-/**
- * What the applicant is told once the exclusion leaves nothing to pick. The whole palette comes back
- * rather than an unfillable required field — the reason is at
- * `fl_frontend/src/features/teams/utils.ts :: offeredTrikotFarben`.
- */
-export const ALLE_FARBEN_VERGEBEN =
-  "Für diese Saison sind schon alle Trikotfarben vergeben. Wähle trotzdem eine. Die endgültige Farbe legen wir bei der Zusage fest.";
 
 /**
  * A ring rather than a filled disc, so Weiß reads as a colour on a light page instead of as a gap.
@@ -80,10 +70,7 @@ export function TrikotFarbeSelect({
   const leerschluessel = isRequired ? null : KEINE_FARBE;
   const platzhalter = isRequired ? "Bitte auswählen" : "Keine Angabe";
 
-  const { optionen, istAusgeschoepft } = offeredTrikotFarben({ vergeben, value });
-
-  // Ids rather than a bare `<p>`: a sentence a control is not described BY is one a reader never meets.
-  const hinweisId = useId();
+  const optionen = offeredTrikotFarben({ vergeben, value });
 
   const handleChange = (key: Key | null) => {
     if (key === null) return;
@@ -95,7 +82,6 @@ export function TrikotFarbeSelect({
       isRequired={isRequired}
       name={name}
       aria-label={label}
-      aria-describedby={istAusgeschoepft ? hinweisId : undefined}
       value={value ?? leerschluessel}
       onChange={handleChange}
       className="w-full">
@@ -110,15 +96,6 @@ export function TrikotFarbeSelect({
         <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
       </Select.Trigger>
       <FieldError className={FIELD_ERROR} />
-      {/* Under the trigger rather than in the list: a reader who never opens the picker still meets
-          the reason its offer stopped narrowing. */}
-      {istAusgeschoepft && (
-        <p
-          id={hinweisId}
-          className="fluid-xxs text-foreground-muted mt-1 font-medium">
-          {ALLE_FARBEN_VERGEBEN}
-        </p>
-      )}
       <Select.Popover className={`${overlayPanel()} mt-2 max-h-80 overflow-y-auto p-1.5`}>
         <ListBox aria-label="Trikotfarben">
           {!isRequired && (

@@ -4392,7 +4392,7 @@
     "/api/v0/bewerbungen/trikotfarben/{saison_id}": {
       "get": {
         "summary": "The kit colours a Saison has already assigned",
-        "description": "Answer which kit colours this season has assigned, so the form can offer the rest.\n\nThe SET alone, naming no club: a colour beside a school would tell an anonymous visitor which\nkit that school wears (`READ-BEWERBUNG-001`).",
+        "description": "Answer which kit colours this season has assigned, so the form can offer the rest.\n\n404 unless that season's application window is running today, which is the one state the form\nreads this in. The SET alone, naming no club (`READ-BEWERBUNG-001`).",
         "operationId": "get_trikotfarben_api_v0_bewerbungen_trikotfarben__saison_id__get",
         "security": [
           {
@@ -5477,14 +5477,14 @@
             "type": "string",
             "maxLength": 60,
             "minLength": 1,
-            "pattern": "^[^\\r\\n]*$",
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Team Name"
           },
           "full_name": {
             "type": "string",
             "maxLength": 120,
             "minLength": 1,
-            "pattern": "^[^\\r\\n]*$",
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Full Name"
           },
           "shorthand": {
@@ -7233,7 +7233,7 @@
               {
                 "type": "string",
                 "maxLength": 120,
-                "pattern": "^[^\\r\\n]*$"
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$"
               },
               {
                 "type": "null"
