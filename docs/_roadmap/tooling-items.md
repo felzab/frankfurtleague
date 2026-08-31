@@ -59,7 +59,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 11  | OPS-76  | Most of the database tier runs unconstrained                       | BE, Ops           | M      | Open     | —          |
 | 12  | OPS-56  | The git stepper reads one `git`, on one line                       | Ops               | S      | Open     | —          |
 | 13  | OPS-71  | A citation resolves to a string, not to what it names              | Ops, Docs         | S      | Open     | —          |
-| 14  | OPS-92  | Real-IP recovery can fall back with nothing to say so              | Ops, Docs         | S      | Open     | —          |
+| 14  | OPS-92  | Real-IP recovery can fall back with nothing to say so              | Ops, Docs         | S      | Closed   | —          |
 | 15  | DOC-12  | A Known-open table has no membership test                          | Docs              | S      | Open     | —          |
 | 16  | OPS-95  | A real file in an unaccepted spelling reads as a missing file      | Ops, Docs         | S      | Open     | —          |
 | 17  | OPS-78  | The local edge claims to mirror production, unchecked              | Ops, Docs         | S      | Open     | —          |
@@ -890,7 +890,7 @@ pattern that already recognises that shape.
 
 ### 14 · OPS-92 — Real-IP recovery can fall back to the edge address, and nothing at the origin says that it did
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
 **Path:** Independent. It lands in the same pair of files as **OPS-78**, which is about the two edges
@@ -965,6 +965,17 @@ which changes neither the consequence nor its class; the half that is severe if 
 is a visitor choosing their own key, and that belongs to **OPS-93** rather than here. It sits below
 **OPS-84**, whose clock has already run out and whose distance from the supported line widens on its
 own, and above the entries below, which test 2 does not reach at all.
+
+**What concluded it.** The detectable-fallback repair stands in both edges:
+`nginx/prod.conf :: geo $realip_fallback` (mirrored in `nginx/local.conf`) re-tests `$remote_addr`
+against the trusted ranges after realip has run, and the `fl_json` access line carries the verdict
+as `realip_fallback` — a field inside the existing envelope, no new sink and no network call in any
+deploy path. Each case was exercised against a running nginx (2026-08-31): a recovered address
+reads `0`, an absent header `1`, a malformed one `1`. The marker reaches the header route whole; a
+range published after the fetch falls back outside both copies, so the first route keeps list
+currency as its only answer — recorded, with the second copy's maintenance cost, at
+[`docs/ops/spec.md`](../ops/spec.md) §1.3. The untested add-versus-replace conditional stays
+**OPS-93**'s.
 
 ### 15 · DOC-12 — A spec sheet's Known-open table has no membership test, so nothing can be missing from it
 

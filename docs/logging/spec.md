@@ -100,13 +100,15 @@ as an enum (`fl_frontend/src/core/config.ts :: LOG_FORMAT`). Both normalise case
 
 Per-surface extras: the backend adds `module`/`line` and the access-line fields (`method`, `path`,
 `status`, `duration_ms`); nginx adds `duration_s`, `upstream_duration_s`, `bytes`, `client`,
-`x_forwarded_for`, `host`, `referer`, `user_agent`; the frontend adds whatever a call site passes
+`realip_fallback`, `x_forwarded_for`, `host`, `referer`, `user_agent`; the frontend adds whatever a call site passes
 (`digest`, `route`, `fetch_correlation_id`).
 
 **`client` is the visitor and `x_forwarded_for` is that header as it arrived.** nginx rewrites
 `$remote_addr` from the Cloudflare header named at `nginx/prod.conf :: real_ip_header` for a request
 reaching it through Cloudflare ([`docs/ops/spec.md`](../ops/spec.md) §1.3), so `client` names the
-person rather than the edge; the two are carried separately because a forwarding chain a client wrote
+person rather than the edge — and `realip_fallback` is `1` on a line where that rewrite fell back
+and `client` is an edge after all ([`docs/ops/spec.md`](../ops/spec.md) §1.3); the two are carried
+separately because a forwarding chain a client wrote
 is worth reading beside the address the edge settled on, and neither is the other.
 
 How each surface keeps its stream to one format:
