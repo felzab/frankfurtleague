@@ -53,7 +53,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 5   | OPS-91  | A continuation citation is resolved and checked by nothing         | Ops, Docs         | M      | Open     | —          |
 | 6   | OPS-98  | A formatter reshapes a comment before INC-9 measures it            | BE, Ops, Docs     | S      | Open     | —          |
 | 7   | OPS-90  | A passing scope leaves the report when an earlier one fails        | Ops               | S      | Open     | —          |
-| 8   | OPS-84  | The linter runs a version past its end of life                     | FE, Ops, Docs     | M      | Open     | —          |
+| 8   | OPS-84  | The linter runs a version past its end of life                     | FE, Ops, Docs     | M      | Standing | —          |
 | 9   | OPS-97  | No check can render a Server Component, so §6's rule is unenforced | FE, Ops, Docs     | L      | Open     | —          |
 | 10  | OPS-67  | The runner cannot load a component, so none is tested              | FE, Ops, Docs     | M      | Open     | —          |
 | 11  | OPS-76  | Most of the database tier runs unconstrained                       | BE, Ops           | M      | Open     | —          |
@@ -576,19 +576,22 @@ second time to learn what the first run already knew.
 
 ### 8 · OPS-84 — The linter runs a version past its end of life, and the documentation for it describes another
 
-**Status:** Open\
+**Status:** Standing\
 **Surfaces:** FE, Ops, Docs\
 **Effort:** M\
-**Path:** Independent — it blocks nothing and nothing blocks it. It moves the tool **OPS-19** measures
-and **OPS-65** asks a question of, so each of those is answered against whatever ships here rather than
-ahead of it.
+**Path:** Held upstream rather than by anything on this page, so no entry here can unblock it. The
+trigger that reopens it is an `eslint-plugin-jsx-a11y` release whose peer range admits eslint 10,
+under an `eslint-config-next` whose bundled `eslint-plugin-import` and `eslint-plugin-react` admit it
+too. It still moves the tool **OPS-19** measures, so that entry is answered against whatever ships
+here rather than ahead of it.
 
 **eslint 9.x reached end of life on 2026-08-06, and `fl_frontend/package.json` declares `^9.39.5`.**
 Confirmed on 2026-08-26 against eslint's own version-support page: v9 is listed as end of life rather
 than in maintenance, v10 has been the current major since 2026-02-06, and 9.39.5 — published
-2026-07-10 — is the newest 9.x release in eslint's release notes. **The caret range therefore spans a
-line that will publish nothing further**, so `pnpm update` cannot move it and reports nothing that
-would say it is frozen.
+2026-07-10 — is the newest 9.x release in eslint's release notes; re-confirmed 2026-08-31, when the
+registry served 10.9.1 as `latest` and 9.39.5 as the whole of its `maintenance` channel. **The caret
+range therefore spans a line that will publish nothing further**, so `pnpm update` cannot move it and
+reports nothing that would say it is frozen.
 
 **The linter takes no further fix of any kind, security or otherwise.** What bounds that is where it
 runs — the gate's frontend scope and a developer's machine, never the production image — so this is a
@@ -605,18 +608,36 @@ major version this repository does not run**, with nothing in the reading to mar
 move lands, an eslint API claim here has to come from a version-pinned page or from the installed
 package under `fl_frontend/node_modules`, and has to say which.
 
-**What the move touches.** Flat configuration is already in use, which is the larger half of a v9-to-v10
-migration already done: `fl_frontend/eslint.config.mjs` builds through `defineConfig` and
-`globalIgnores`. What has to be checked one at a time is the plugin set's peer range against v10 —
-`eslint-config-next`, `typescript-eslint` with its `@typescript-eslint` pair,
-`eslint-plugin-better-tailwindcss` and `eslint-plugin-jsx-a11y` — because a plugin that has not moved
-holds the whole upgrade, and one that has moved may carry a changed rule default under it.
-[`docs/frontend/spec.md`](../frontend/spec.md) states what several of those rules are relied on for,
-and is where a moved default lands.
+**The peer-range walk is done — measured 2026-08-31 against the installed packages and the npm
+registry — and it holds the move.** Flat configuration, the larger half of a v9-to-v10 migration, is
+already in use: `fl_frontend/eslint.config.mjs` builds through `defineConfig` and `globalIgnores`.
+The plugin set is what holds, each row below being the package's **newest published release**:
 
-**Not verified:** which v10 changes bite here. The migration guide was not read for this entry, so the
-effort above is a shape rather than a measurement, and any rule whose name or default moved is
-unenumerated.
+| Package                                          | Newest | eslint peer range tops out at | Admits v10 |
+| ------------------------------------------------ | ------ | ----------------------------- | ---------- |
+| `typescript-eslint` + `@typescript-eslint` pair  | 8.66.0 | `^10.0.0`                     | yes        |
+| `eslint-plugin-better-tailwindcss`               | 4.7.0  | `^10.0.0`                     | yes        |
+| `eslint-config-next`                             | 16.3.3 | `>=9.0.0`, open-ended         | range only |
+| `eslint-plugin-jsx-a11y`                         | 6.10.2 | `^9`                          | no         |
+| `eslint-plugin-import` — inside config-next      | 2.32.0 | `^9`                          | no         |
+| `eslint-plugin-react` — inside config-next       | 7.37.5 | `^9.7`                        | no         |
+| `eslint-plugin-react-hooks` — inside config-next | 7.1.1  | `^10.0.0`                     | yes        |
+
+**`eslint-plugin-jsx-a11y` is the direct blocker, and it is dormant.** Its newest release is the one
+installed — 6.10.2, published 2024-10-26 — and `fl_frontend/eslint.config.mjs` imports it directly
+for its rule set. Upstream, two pull requests adding eslint 10 support — jsx-eslint/eslint-plugin-jsx-a11y
+#1079 and #1081, both opened February 2026 — sit open with nothing merged and nothing released behind
+them. `eslint-config-next` compounds it: its own peer range admits v10, but it carries the same plugin
+beside `eslint-plugin-import` and `eslint-plugin-react` as plain dependencies, each on a newest
+release whose peer range stops at `^9` — so the framework config cannot run supported on v10 either.
+**Forcing the install past the declared peer ranges is not the move**: a linter defect fails in the
+direction of passing, and an unsupported combination makes that one direction likelier.
+
+**Not verified:** which v10 changes bite here once the set moves. The migration guide —
+`eslint.org/docs/latest/use/migrate-to-10.0.0` — was not read against the configuration, no move
+shipping while the walk holds it, and a plugin that does move may carry a changed rule default under
+it. [`docs/frontend/spec.md`](../frontend/spec.md) states what several of those rules are relied on
+for, and is where a moved default lands.
 
 **Why it ranks where it does.** Test 2 separates it from everything below it: the date has passed, and the
 distance from the supported line widens on its own with nothing here watching it — the growing
