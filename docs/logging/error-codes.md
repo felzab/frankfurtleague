@@ -90,7 +90,7 @@ having been seeded from the group placings that order decides.
 | `REQ-RULES-009`       | 409    | `max_kadergroesse` would drop below the largest squad the season already holds                                                                         |
 | `REQ-RULES-010`       | 409    | A step paired a level `forfeit_ergebnis` with rules that produce a knockout round                                                                      |
 | `REQ-RULES-011`       | 409    | A drawn season was patched to change one of the SHAPE rules its fixtures were drawn from; the refusal names the repair each moved field has            |
-| `REQ-RULES-012`       | 409    | A season patch moved `tiebreak_order` with a knockout fixture already played, abandoned, forfeited or holding a goal count                             |
+| `REQ-RULES-012`       | 409    | A season patch moved `tiebreak_order` with a knockout fixture already played, abandoned, forfeited, holding a goal count or a stored shoot-out         |
 | `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures with no result and no `sonderereignis` that awards none                                                       |
 | `REQ-ACTIVATE-002`    | 409    | A `past` season was activated — refused unconditionally, since it would reopen the points and groups its table derives from                            |
 | `REQ-ACTIVATE-003`    | 409    | A season holding no fixtures was activated, which would take the league live with nothing to play                                                      |
@@ -120,13 +120,13 @@ having been seeded from the group placings that order decides.
 | `REQ-SPIELPLAN-005`   | 409    | A replace of a season's Spielplan was confirmed for a season that is not `future`, or that already holds a recorded fixture                            |
 | `REQ-SPIELPLAN-006`   | 409    | An undraw was asked of a season that is not `future`, or that holds a fixture with something recorded against it                                       |
 | `REQ-SWAP-001`        | 409    | A group swap named something other than two clubs of that season standing in different groups                                                          |
-| `REQ-SWAP-002`        | 409    | A group swap reached a season with a knockout fixture already played, abandoned, forfeited or holding a goal count                                     |
+| `REQ-SWAP-002`        | 409    | A group swap reached a season with a knockout fixture already played, abandoned, forfeited, holding a goal count or a stored shoot-out                 |
 | `REQ-SWAP-003`        | 409    | A group swap reached a `past` season, whose table is derived from the groups it would exchange                                                         |
-| `REQ-SWAP-004`        | 409    | A group swap named a club whose Gruppenphase fixture was played, abandoned, forfeited or given a goal count                                            |
+| `REQ-SWAP-004`        | 409    | A group swap named a club whose Gruppenphase fixture was played, abandoned, forfeited, given a goal count or a stored shoot-out                        |
 | `REQ-SWAP-005`        | 409    | A group swap would have BROKEN a Spieltag, leaving a club in two of its matches                                                                        |
 | `REQ-SWAP-006`        | 409    | A group swap would field a club that has left the season on a fixture dated on or after its exit, or on an undated one, that records no absence for it |
 | `REQ-REPLACE-001`     | 409    | A club was replaced in a `past` season, whose fixtures are the record of who played                                                                    |
-| `REQ-REPLACE-002`     | 409    | A club was replaced whose fixture in that season was played, abandoned, forfeited or holding a goal count                                              |
+| `REQ-REPLACE-002`     | 409    | A club was replaced whose fixture in that season was played, abandoned, forfeited, holding a goal count or a stored shoot-out                          |
 | `REQ-REPLACE-003`     | 409    | A replacement named an incoming club that already holds a row in the season, or named one club on both ends                                            |
 | `REQ-RETIRE-001`      | 409    | A club entered in an `active` or `future` season was asked to retire                                                                                   |
 | `REQ-RETIRE-003`      | 409    | A venue still booked for an unplayed fixture was asked to retire                                                                                       |

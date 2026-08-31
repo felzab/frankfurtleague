@@ -244,9 +244,9 @@ There are four answers here, and a field can be under more than one of them.
   knockout fixture has left a record re-seeds a bracket that has been part-played. A condition of its own
   rather than one of the freezes above stretched to reach it: the season is still running, its fixtures stay
   as drawn, and nothing else in `rules` re-sorts a group that is already ranked. **What counts as played is**
-  `fl_backend/app/api/teams/services.py :: has_taken_place` — a stored result, an abandonment, a no-show, or
-  a goal count entered against no result — so a fixture called off or struck out leaves the order open, and
-  `REQ-SWAP-002` reads that same window for the same event.
+  `fl_backend/app/api/teams/services.py :: has_taken_place` — a stored result, an abandonment, a no-show, a
+  goal count entered against no result, or a shoot-out stored beside none — so a fixture called off or struck
+  out leaves the order open, and `REQ-SWAP-002` reads that same window for the same event.
 - **Never narrowed below what already exists**, because the data below would be stranded. What decides
   membership here is what the field bounds: `max_kadergroesse` caps stored squad rows and so may not drop
   below the largest squad a season holds, while `erlaubte_stufen` narrows freely even on a finished season,

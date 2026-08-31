@@ -98,14 +98,15 @@ describe("the German each replacement refusal renders", () => {
     assert.doesNotMatch(message, /Lade die Seite neu/);
   });
 
-  /* `has_taken_place` is true for a result, a goal count, an abandonment and a no-show, and FALSE for
-     a fixture called off or annulled — naming either of those sends the admin to a fixture that is
-     still free to move. */
-  it("names the four shapes that leave a record, and no shape that leaves none", () => {
+  /* `has_taken_place` is true for a result, a goal count, a stored shoot-out, an abandonment and a
+     no-show, and FALSE for a fixture called off or annulled — naming either of those sends the admin
+     to a fixture that is still free to move. */
+  it("names the five shapes that leave a record, and no shape that leaves none", () => {
     const message = messageIn(REPLACEMENT_MAP, "REQ-REPLACE-002");
 
     assert.match(message, /Ergebnis/);
     assert.match(message, /Tore/);
+    assert.match(message, /Elfmeterschießen/);
     assert.match(message, /Abbruch/);
     assert.match(message, /Nichtantreten/);
     assert.doesNotMatch(message, /[Aa]usgefallen/);

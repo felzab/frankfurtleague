@@ -65,7 +65,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 11  | BE-29 | Two irreversible operations judge from a capped read                 | BE              | S      | Standing | —          |
 | 12  | BE-35 | A no-op write takes no conflict, so nothing is re-judged             | BE, Docs        | M      | Open     | —          |
 | 13  | BE-17 | Every server-ordered name list sorts in byte order                   | BE, FE          | M      | Open     | —          |
-| 14  | BE-30 | The move guard does not see a stored shoot-out                       | BE              | S      | Open     | —          |
+| 14  | BE-30 | The move guard does not see a stored shoot-out                       | BE              | S      | Closed   | —          |
 | 15  | BE-20 | The certainty walk never hypothesises a called-off fixture           | BE, Docs        | L      | Open     | —          |
 | 16  | FE-17 | A never-clause bounds toast CSS short of the stylesheet              | FE, Docs        | S      | Open     | —          |
 | 17  | BE-32 | A replace reports what it wrote and not what it destroyed            | FE, BE, Docs    | S      | Open     | —          |
@@ -1066,12 +1066,23 @@ are already inconsistent enough that a reader cannot tell which one is deliberat
 
 ### 14 · BE-30 — The predicate that decides whether a fixture happened does not see a stored shoot-out
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** BE\
 **Effort:** S\
 **Path:** Independent, and it is executed with **BE-26**: the two are questions about the same
 predicate, they move the same three refusal codes, and answering one without the other means reading
 `has_taken_place` twice. Batching them belongs here rather than in either rank.
+
+**What concluded it.** The predicate gained the shoot-out clause:
+`fl_backend/app/api/teams/services.py :: has_taken_place` reads `elfmeterschiessen`, every
+endpoint read counted over it projects the field, and the frontend mirror
+`fl_frontend/src/features/saisons/utils.ts :: hasTakenPlace` widened identically, so the swap,
+replacement and tiebreak panels withhold what the write path now refuses, and
+`REQ-REPLACE-002`'s German names the fifth shape. The three rule summaries in
+`fl_backend/app/core/domain.py :: RULES`, `docs/backend/spec.md :: I38` and the tiebreak narrative
+in `docs/domain.md` say so too. The league table still reads none of this — `has_taken_place` feeds
+only the three refusal windows. BE-26's question about the summaries' "called off" wording stands
+untouched. The full argument is in the closing commit body.
 
 **`fl_backend/app/api/teams/services.py :: has_taken_place` returns true on a stored `ergebnis`, on a
 `sonderereignis` in `SONDEREREIGNIS_PRODUCING_A_RECORD`, and on a goal count entered against either
@@ -1806,7 +1817,7 @@ because the next reader re-derives it from scratch.
 the swap reads if they are not.
 
 **`REQ-SWAP-002` and `REQ-SWAP-004` in `fl_backend/app/core/domain.py :: RULES` both read _"played,
-called off or given a goal count"_.** The refusal they describe is
+called off, given a goal count or a stored shoot-out"_.** The refusal they describe is
 `fl_backend/app/api/teams/services.py :: find_gruppe_swap_refusal`, over
 `fl_backend/app/api/spiele/schemas.py :: SONDEREREIGNIS_PRODUCING_A_RECORD`, which holds
 `abgebrochen`, `nichtantreten_team1` and `nichtantreten_team2`. **`ausgefallen` — which is what
