@@ -28,8 +28,8 @@ const VARIANTS: { name: string; classes: ReadonlySet<string> }[] = [
     { name: `formButton ${intent}`, classes: classesOf(formButton({ intent })) },
     { name: `formButton ${intent} fullWidth`, classes: classesOf(formButton({ intent, fullWidth: true })) },
   ]),
-  // The list above pairs every intent with `fullWidth`; the shorter height is a second axis and only
-  // the page chrome takes it, so the one combination that reaches an element is spelled here.
+  // The list above pairs every intent with `fullWidth`. `size` and `stacks` are further axes and only
+  // some intents take either, so every combination that reaches a real element is spelled out below.
   { name: "formButton nav sm", classes: classesOf(formButton({ intent: "nav", size: "sm" })) },
   // The two-press control's own list, which is the one whose height is a floor rather than the base's
   // fixed step, and so the one that would fall back to the vendored height if the floor were all of it.

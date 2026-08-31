@@ -43,7 +43,7 @@ const WEBSITE_SATZ = { vor: "Spielplan, Tabelle und Ergebnisse veröffentlichen 
  * 2026-08-31).
  */
 const wunschgegnerSatz = (gegner: string): string =>
-  `Als Wunschgegner für den ersten Spieltag haben wir ${gegner} notiert und weitergegeben; über die Paarungen entscheidet der Spielplan.`;
+  `Als Wunschgegner für den ersten Spieltag haben wir ${gegner} notiert; über die Paarungen entscheidet der Spielplan.`;
 
 /**
  * For the reader who never applied: anybody can type any address into a public form. Last in the

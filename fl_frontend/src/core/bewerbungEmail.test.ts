@@ -168,7 +168,7 @@ const WEBSITE_SENTENCE = `Spielplan, Tabelle und Ergebnisse veröffentlichen wir
  * Spelled out for the reason above, and WHOLE: what this sentence must not promise is carried by the
  * half a substring check would drop, so „wir versuchen“ could be slipped in beside a passing assertion.
  */
-const WUNSCHGEGNER_SENTENCE = `Als Wunschgegner für den ersten Spieltag haben wir ${ZUSAGE.wunschgegner} notiert und weitergegeben; über die Paarungen entscheidet der Spielplan.`;
+const WUNSCHGEGNER_SENTENCE = `Als Wunschgegner für den ersten Spieltag haben wir ${ZUSAGE.wunschgegner} notiert; über die Paarungen entscheidet der Spielplan.`;
 
 /** The second control, the same on all three: one page that is a dead end for none of their readers. */
 const LIGA_AKTION = { label: "Laufende Saison", href: `${SITE_URL}/dashboard` };

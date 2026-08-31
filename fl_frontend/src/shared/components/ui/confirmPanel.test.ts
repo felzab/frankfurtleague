@@ -151,7 +151,13 @@ describe("the armed action row", () => {
      leaves the shape this removes. */
   it("stands its buttons in a full-width column below `sm`", () => {
     assert.match(ACTION_ROW, /flex-col[^"]*\bsm:flex-row\b/, "the row is not a column below `sm`");
-    assert.match(ACTION_ROW, /\bsm:items-center\b/, "the row centres its items while it is a column");
+    // Every centring class rather than the scoped one's presence: `sm:items-center` still matches with
+    // an unscoped one added beside it, which is the shape this refuses.
+    assert.deepEqual(
+      [...ACTION_ROW.matchAll(/[\w:-]*items-center/g)].map((found) => found[0]),
+      ["sm:items-center"],
+      "the row's centring is no longer exactly the `sm:`-scoped one",
+    );
     assert.match(ACTION_ROW, /formButton\(\{ intent: "cancel", stacks: true \}\)/, "the cancel does not fill the column it stands in");
   });
 });

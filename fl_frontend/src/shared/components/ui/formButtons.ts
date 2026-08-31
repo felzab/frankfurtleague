@@ -75,6 +75,8 @@ export const formButton = tv({
      * floor: HeroUI's `white-space: nowrap` is lifted here, and `h-12` would clip the second line of a
      * label a phone's width cannot seat on one.
      */
+    // `size` beside it does not shorten the control: `tv` resolves by declaration order, so `h-10` replaces
+    // `h-auto` while `min-h-12` still floors the box, and the wrap is clipped. No call site pairs them.
     stacks: { true: "h-auto min-h-12 w-full py-2 text-center whitespace-normal sm:w-auto" },
     /** Height alone, so page chrome stays under the action bar's without becoming a second fill. */
     size: { sm: "h-10" },
