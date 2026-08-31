@@ -79,8 +79,7 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
   if (!hasKoRunden) return "Aus diesen Regeln entsteht keine KO-Runde. Ändere die Zahlen im Abschnitt Regeln und speichere sie.";
 
   // Last, as `find_saison_span_refusal` runs after the rules: no bracket implies no matchday count
-  // worth measuring. Inclusive as the backend counts — a season running one day offers one. A redraw
-  // CARRYING a shape is the endpoint's alone: the served schedule describes the stored numbers.
+  // worth measuring. Inclusive as the backend counts — a season running one day offers one.
   if ((Date.parse(endDate) - Date.parse(startDate)) / MS_PER_DAY + 1 < vorschauSpieltage)
     return (
       "Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben. " +
