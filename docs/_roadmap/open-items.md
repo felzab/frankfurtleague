@@ -81,7 +81,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 26  | FE-26 | The draw offers a press a too-short season refuses                   | FE              | S      | Open     | —          |
 | 27  | BE-21 | The seeding table is keyed on a list nothing joins it                | BE              | S      | Open     | —          |
 | 28  | BE-33 | The log read carries every pre-image the page discards               | BE              | S      | Open     | —          |
-| 29  | FE-29 | A date search matches the stored spelling, not the shown one         | FE              | S      | Open     | —          |
+| 29  | FE-29 | A date search matches the stored spelling, not the shown one         | FE              | S      | Closed   | —          |
 | 30  | FE-24 | A pupil's consent is stored and served, and shown by nothing         | FE              | S      | Open     | —          |
 | 32  | BE-34 | An index's first stated purpose has no caller                        | BE              | S      | Open     | —          |
 | 33  | FE-21 | The editor shell's widest layout step is unrendered                  | FE              | S      | Open     | —          |
@@ -1726,7 +1726,7 @@ to ask for one.
 
 ### 29 · FE-29 — Two admin lists search a stored date while their rows show a German one
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE\
 **Effort:** S\
 **Path:** Independent — the derivation the fix needs already exists one slice over, in
@@ -1763,6 +1763,15 @@ deriving from the formatter rather than from the separator is what keeps them ag
 most of them. What is established is that the two spellings share no run longer than the year, and
 the fix does not rest on the answer — it makes the rendered spelling an exact match rather than a
 near one.
+
+**What concluded it: the derived spelling, beside the stored one, in both views.**
+`fl_frontend/src/features/saisons/components/views/AdminSaisonsView.tsx` and
+`fl_frontend/src/features/spieltage/components/views/AdminSpieltageView.tsx` each map their rows
+through `fl_frontend/src/shared/utils/format.ts :: formatSpielDatum` — the formatter the rows render
+through, never a separator reversal — and name the derived keys in `SEARCH_KEYS` beside the stored
+ones, so a date typed either way finds the match. An undated matchday derives `null` and matches
+nothing, never the placeholder. The derivation sits in each view beside the key list that reads it,
+which is where `SpielsucheView` holds its own.
 
 ### 30 · FE-24 — A pupil's consent is stored and served, and shown by nothing
 
