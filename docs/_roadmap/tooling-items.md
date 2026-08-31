@@ -65,7 +65,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 17  | OPS-78  | The local edge claims to mirror production, unchecked              | Ops, Docs         | S      | Open     | —          |
 | 18  | OPS-70  | Two db-tier runs at once fail in a way that names nothing          | Ops               | M      | Open     | —          |
 | 19  | OPS-73  | A copy test pins what its own author wrote                         | FE, Ops, Docs     | M      | Open     | —          |
-| 20  | OPS-61  | The commit hook's scratch is a path git cannot open                | Ops               | S      | Open     | —          |
+| 20  | OPS-61  | The commit hook's scratch is a path git cannot open                | Ops               | S      | Closed   | —          |
 | 21  | OPS-79  | A projection's coupling is guarded in one direction only           | BE, Ops           | M      | Open     | —          |
 | 22  | OPS-77  | A test fixture asserts the type nothing else checks                | FE, Ops           | M      | Open     | —          |
 | 23  | OPS-72  | The unique-index test pairs by ordinal position                    | BE, Ops           | S      | Open     | —          |
@@ -1219,11 +1219,17 @@ in the same commit is a note about intent wearing a test's clothes.
 
 ### 20 · OPS-61 — The commit hook builds its scratch at a path git cannot open
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Ops\
 **Effort:** S\
 **Path:** Independent. One line, and the idiom it needs is already written in `scripts/verify.sh` and
 `scripts/selfcheck.sh`.
+
+**What concluded it.** `.githooks/pre-commit` now resolves the scratch with `cygpath -w` right after
+`mktemp -d`, falling back to the untouched path where cygpath is absent — the inline spelling
+`scripts/verify.sh` already uses for the pool's shell, and no shared helper, because two call sites
+do not yet pay for one. The recorded fatal and the repair were both reproduced call-for-call from
+this worktree; the full argument is in the closing commit body.
 
 **`.githooks/pre-commit` takes its working directory from `mktemp -d`, which on Git Bash answers
 with the MSYS alias `/tmp/tmp.XXXXXX`.** The hook then hands that path to `git hash-object -w`, and
