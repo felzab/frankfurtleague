@@ -619,10 +619,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "request": _AKTION_REQUEST,
                 "collection": {"bsonType": "string", "enum": _LOGGED_COLLECTIONS},
                 "operation": {"bsonType": "string", "enum": _AKTION_OPERATIONS},
-                # Whatever the recorded collection uses for its own `_id`: an objectId everywhere but
-                # `saisons`, whose is the four-character season string. An array is `delete_many`'s
-                # removed ids, which a redaction's `$in` selects on; null is a fan-out's, which
-                # matched a filter rather than one document.
+                # Whatever the recorded collection uses for its `_id`: an objectId everywhere but
+                # `saisons`, whose is the season string. An array is `delete_many`'s removed ids,
+                # which a redaction's `$in` selects on; null is a fan-out's.
                 "document_id": {"bsonType": ["objectId", "string", "array", "null"]},
                 "db_filter": {"bsonType": ["object", "null"]},
                 # Deliberately unconstrained: it copies a document from whichever collection was

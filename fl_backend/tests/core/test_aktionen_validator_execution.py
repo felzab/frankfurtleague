@@ -167,10 +167,10 @@ def test_the_rows_every_real_write_builds_are_all_accepted(mongo_replica_set_url
 
 
 def test_a_removals_row_is_selected_by_an_erasure_shaped_redaction(mongo_replica_set_url: str):
-    """A `delete_many` row is reached by the same `(collection, document_id)` filter an erasure builds (`docs/backend/spec.md :: I42`).
+    """The erasure's own `(collection, document_id)` filter reaches it (`docs/backend/spec.md :: I42`).
 
-    Selection both ways: naming one removed id empties that removal's whole image array and stamps
-    the row, while the sibling removal's row keeps its image untouched.
+    Selection both ways: naming one removed id empties that removal's image array and
+    stamps the row, while the sibling removal's row keeps its image.
     """
 
     async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:

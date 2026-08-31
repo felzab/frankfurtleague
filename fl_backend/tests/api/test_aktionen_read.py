@@ -81,10 +81,10 @@ class TestARecordedRowSurvivesTheResponseModel:
         assert json.loads(FLAktion.model_validate(row).model_dump_json())["document_id"] == str(document_id)
 
     def test_a_removals_id_array_serves_as_null(self):
-        """A `delete_many` row stores the removed ids for the redaction's `$in` alone (`docs/backend/spec.md :: I42`).
+        """The removed ids serve the redaction's `$in` alone (`docs/backend/spec.md :: I42`).
 
-        On the wire the row stays a set-write: `document_id` names the one row a restore targets,
-        and an array rendered as its Python repr would read as an id that resolves to nothing.
+        On the wire the row stays a set-write: `document_id` names the one row a restore
+        targets, and an array rendered as its Python repr would read as a dead id.
         """
 
         removed = [ObjectId("6890a1b2c3d4e5f607200040"), ObjectId("6890a1b2c3d4e5f607200041")]
