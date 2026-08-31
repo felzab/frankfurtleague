@@ -65,7 +65,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 10  | FB-16 | Nothing announces that a season rollover is due                      | BE, Ops         | M      | Standing | —          |
 | 11  | FB-22 | The season's shape is offered wider than it can be saved             | FE, BE, Docs    | M      | Open     | —          |
 | 13  | FB-17 | Season setup is hand-run, and only an admin enters a squad           | FE, BE, DB, Ops | XL     | Open     | —          |
-| 14  | BE-28 | One removal's log row can outgrow what Mongo stores                  | BE, DB          | S      | Open     | —          |
+| 14  | BE-28 | One removal's log row can outgrow what Mongo stores                  | BE, DB          | S      | Closed   | —          |
 | 15  | BE-29 | Two irreversible operations judge from a capped read                 | BE              | S      | Standing | —          |
 | 16  | BE-35 | A no-op write takes no conflict, so nothing is re-judged             | BE, Docs        | M      | Open     | —          |
 | 17  | BE-17 | Every server-ordered name list sorts in byte order                   | BE, FE          | M      | Open     | —          |
@@ -1063,11 +1063,19 @@ entered by hand that their team is in adds the third.
 
 ### 14 · BE-28 — One removal's log row can outgrow what MongoDB will store, through a field nothing bounds
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** BE, DB\
 **Effort:** S\
 **Path:** Independent. It shares `spiele.notiz` with FB-20 and could be executed with it; neither
 blocks the other.
+
+**What concluded it.** The TEAM_DESCRIPTION precedent, exactly: one constant
+(`fl_backend/app/shared/schemas/bounds.py :: SPIEL_NOTIZ_MAX_LENGTH`, 4096) applied on
+`FLPatchSpielDataPayload.notiz` alone, mirrored by hand in `spiele/schemas.ts`'s payload schema
+with a German refusal, and set as `maxLength` on the note's textarea. The read models and the
+`$jsonSchema` validator stand untouched — a stored longer note still reads — and the log stays
+unbounded, the two decisions the entry endorses. At this bound the largest season's removal row
+sits far under the BSON ceiling by construction. The full argument is in the closing commit body.
 
 **`fl_backend/app/core/crud.py :: delete_many_from_db` stores every removed document in one log row,
 and a BSON document has a fixed server-side ceiling.** The read is unbounded on purpose — the comment

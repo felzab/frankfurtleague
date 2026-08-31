@@ -5,6 +5,7 @@ import { FLAustrittSchema, FLGruppenNamesSchema } from "@/features/teams/schemas
 import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSchema } from "@/shared/schemas";
 
 import { FLSaisonPhaseSchema } from "../saisons/schemas";
+import { NOTIZ_MAX_LENGTH } from "./constants";
 
 export const FLSpielStatusSchema = z.enum(["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"], { error: "FLSpielStatus is invalid" });
 export type FLSpielStatus = z.infer<typeof FLSpielStatusSchema>;
@@ -287,7 +288,10 @@ export const FLPatchSpielDataPayloadSchema = z.object({
   elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
 
   // The same `$set` reason. An emptied textarea submits "", which the backend coerces to null.
-  notiz: z.string().nullable(),
+  notiz: z
+    .string()
+    .max(NOTIZ_MAX_LENGTH, { error: `Die Notiz darf höchstens ${String(NOTIZ_MAX_LENGTH)} Zeichen lang sein.` })
+    .nullable(),
 
   spiel_id: CustomObjectIdStringSchema,
 
