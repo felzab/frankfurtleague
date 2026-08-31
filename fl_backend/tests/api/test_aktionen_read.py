@@ -85,8 +85,6 @@ class TestARecordedRowSurvivesTheResponseModel:
 
         assert json.loads(FLAktion.model_validate(row).model_dump_json())["document_id"] == str(document_id)
 
-<<<<<<< HEAD
-=======
     def test_a_removals_id_array_serves_as_null(self):
         """The removed ids serve the redaction's `$in` alone (`docs/backend/spec.md :: I42`).
 
@@ -99,12 +97,6 @@ class TestARecordedRowSurvivesTheResponseModel:
 
         assert json.loads(FLAktion.model_validate(row).model_dump_json())["document_id"] is None
 
-    def test_a_create_carries_no_pre_image(self):
-        row = stored_row(operation="insert", before=None)
-
-        assert json.loads(FLAktion.model_validate(row).model_dump_json())["before"] is None
-
->>>>>>> docs-corpus-slim
     def test_a_fan_out_row_serializes_with_its_filter_and_count(self):
         row = stored_row(operation="patch_many", document_id=None, before=None, db_filter={"saison_id": "2026"}, modified_count=40)
         served = json.loads(FLAktion.model_validate(row).model_dump_json())
