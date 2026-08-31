@@ -6594,12 +6594,14 @@
         "properties": {
           "vorname": {
             "type": "string",
+            "maxLength": 80,
             "minLength": 1,
             "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
             "title": "Vorname"
           },
           "nachname": {
             "type": "string",
+            "maxLength": 80,
             "minLength": 1,
             "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
             "title": "Nachname"
@@ -7311,6 +7313,7 @@
         "properties": {
           "name": {
             "type": "string",
+            "maxLength": 60,
             "minLength": 1,
             "title": "Name"
           },
@@ -7327,6 +7330,7 @@
           },
           "full_name": {
             "type": "string",
+            "maxLength": 120,
             "minLength": 1,
             "title": "Full Name"
           },
@@ -7352,7 +7356,8 @@
           "website_url": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 300
               },
               {
                 "type": "null"
@@ -7834,6 +7839,7 @@
         "properties": {
           "name": {
             "type": "string",
+            "maxLength": 60,
             "minLength": 1,
             "title": "Name"
           },
@@ -7850,6 +7856,7 @@
           },
           "full_name": {
             "type": "string",
+            "maxLength": 120,
             "minLength": 1,
             "title": "Full Name"
           },
@@ -7875,7 +7882,8 @@
           "website_url": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 300
               },
               {
                 "type": "null"

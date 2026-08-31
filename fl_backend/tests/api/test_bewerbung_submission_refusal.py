@@ -41,15 +41,15 @@ from app.core.dependencies import get_german_date_str, get_germany_now
 from app.core.exceptions import DocumentNotFoundException
 from app.shared.schemas.addresses import FLAddressPayload
 from app.shared.schemas.bounds import (
-    BEWERBUNG_FULL_NAME_MAX_LENGTH,
     BEWERBUNG_KADER_GROESSE_MAX,
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
-    BEWERBUNG_KONTAKT_NAME_MAX_LENGTH,
-    BEWERBUNG_TEAM_NAME_MAX_LENGTH,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
-    BEWERBUNG_WEBSITE_URL_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
+    KONTAKT_NAME_MAX_LENGTH,
+    TEAM_FULL_NAME_MAX_LENGTH,
+    TEAM_NAME_MAX_LENGTH,
+    TEAM_WEBSITE_URL_MAX_LENGTH,
 )
 
 # Fixed rather than generated, so a failure names the same club every run. Its own hex range, as
@@ -751,8 +751,8 @@ class TestWhatTheSubmissionPayloadRefuses:
 # Every ceiling this branch put on the PUBLIC payload, as (label, the field's path, the bound). One
 # row per field rather than per constant, so two fields sharing a constant are still both exercised.
 PUBLIC_CEILINGS = [
-    pytest.param("schule.team_name", "team_name", BEWERBUNG_TEAM_NAME_MAX_LENGTH, id="the club's short name"),
-    pytest.param("schule.full_name", "full_name", BEWERBUNG_FULL_NAME_MAX_LENGTH, id="the school's full name"),
+    pytest.param("schule.team_name", "team_name", TEAM_NAME_MAX_LENGTH, id="the club's short name"),
+    pytest.param("schule.full_name", "full_name", TEAM_FULL_NAME_MAX_LENGTH, id="the school's full name"),
 ]
 
 NAME_SEATS = [(seat, part) for seat in ("trainer", "ansprechperson", "stellvertretung") for part in ("vorname", "nachname")]
@@ -785,16 +785,16 @@ class TestTheCeilingsOnWhatAStrangerMayType:
     def test_a_contact_name_over_its_ceiling_is_refused(self, seat: str, part: str):
         """All six, because a ceiling holding for one seat and not the next is one nobody can rely on."""
 
-        long_name = "A" * (BEWERBUNG_KONTAKT_NAME_MAX_LENGTH + 1)
+        long_name = "A" * (KONTAKT_NAME_MAX_LENGTH + 1)
 
         with pytest.raises(ValidationError):
             FLBewerbungKontaktePayload.model_validate(kontakte(**{seat: person(**{part: long_name})}))
 
     @pytest.mark.parametrize("part", ["vorname", "nachname"])
     def test_a_contact_name_at_its_ceiling_is_accepted(self, part: str):
-        at_the_bound = person(**{part: "A" * BEWERBUNG_KONTAKT_NAME_MAX_LENGTH})
+        at_the_bound = person(**{part: "A" * KONTAKT_NAME_MAX_LENGTH})
 
-        assert len(getattr(FLBewerbungKontaktpersonPayload.model_validate(at_the_bound), part)) == BEWERBUNG_KONTAKT_NAME_MAX_LENGTH
+        assert len(getattr(FLBewerbungKontaktpersonPayload.model_validate(at_the_bound), part)) == KONTAKT_NAME_MAX_LENGTH
 
     @pytest.mark.parametrize("part", ["vorname", "nachname"])
     def test_redeclaring_the_name_kept_its_pattern_and_its_strip(self, part: str):
@@ -812,15 +812,15 @@ class TestTheCeilingOnTheSchoolWebsite:
     def test_a_url_at_the_ceiling_is_accepted(self):
         """The control, and the anchor for the two cases below."""
 
-        at_the_bound = _url_of_length(BEWERBUNG_WEBSITE_URL_MAX_LENGTH)
+        at_the_bound = _url_of_length(TEAM_WEBSITE_URL_MAX_LENGTH)
 
-        assert len(at_the_bound) == BEWERBUNG_WEBSITE_URL_MAX_LENGTH
+        assert len(at_the_bound) == TEAM_WEBSITE_URL_MAX_LENGTH
         assert FLBewerbungSchulePayload.model_validate(schule(website_url=at_the_bound)).website_url == at_the_bound
 
     def test_a_url_one_character_over_is_refused(self, assert_rejects):
         """Valid in scheme and host, so the LENGTH is the only thing that can be refusing it."""
 
-        assert_rejects(FLBewerbungSchulePayload, schule(website_url=_url_of_length(BEWERBUNG_WEBSITE_URL_MAX_LENGTH + 1)), "website_url")
+        assert_rejects(FLBewerbungSchulePayload, schule(website_url=_url_of_length(TEAM_WEBSITE_URL_MAX_LENGTH + 1)), "website_url")
 
     def test_an_oversized_value_is_refused_before_the_host_regex_reads_it(self):
         """Why the ceiling is declared BEFORE the validator rather than around it.
@@ -829,7 +829,7 @@ class TestTheCeilingOnTheSchoolWebsite:
         without doing. Wrap `CustomExternalUrl` instead and this becomes `value_error`.
         """
 
-        enormous = "javascript:" + "a" * (BEWERBUNG_WEBSITE_URL_MAX_LENGTH * 40)
+        enormous = "javascript:" + "a" * (TEAM_WEBSITE_URL_MAX_LENGTH * 40)
 
         with pytest.raises(ValidationError) as failure:
             FLBewerbungSchulePayload.model_validate(schule(website_url=enormous))
@@ -884,26 +884,26 @@ class TestNoCeilingReachesTheReadSide:
 
     def test_a_stored_school_over_every_string_ceiling_still_reads(self):
         stored = {
-            "team_name": "T" * (BEWERBUNG_TEAM_NAME_MAX_LENGTH * 3),
-            "full_name": "F" * (BEWERBUNG_FULL_NAME_MAX_LENGTH * 3),
+            "team_name": "T" * (TEAM_NAME_MAX_LENGTH * 3),
+            "full_name": "F" * (TEAM_FULL_NAME_MAX_LENGTH * 3),
             "shorthand": "ZX",
             "schulform": None,
             "address": dict(ADDRESS),
-            "website_url": _url_of_length(BEWERBUNG_WEBSITE_URL_MAX_LENGTH * 3),
+            "website_url": _url_of_length(TEAM_WEBSITE_URL_MAX_LENGTH * 3),
         }
 
-        assert len(FLBewerbungSchule.model_validate(stored).team_name) == BEWERBUNG_TEAM_NAME_MAX_LENGTH * 3
+        assert len(FLBewerbungSchule.model_validate(stored).team_name) == TEAM_NAME_MAX_LENGTH * 3
 
     def test_a_stored_contact_over_the_name_ceiling_still_reads(self):
         """Read through the junction's own block, which is what every triage read of an application goes through."""
 
-        long_name = "A" * (BEWERBUNG_KONTAKT_NAME_MAX_LENGTH * 3)
+        long_name = "A" * (KONTAKT_NAME_MAX_LENGTH * 3)
         stored = {
             **person(vorname=long_name, nachname=long_name),
             "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v3", "datum": TODAY},
         }
 
-        assert len(FLKontaktperson.model_validate(stored).vorname) == BEWERBUNG_KONTAKT_NAME_MAX_LENGTH * 3
+        assert len(FLKontaktperson.model_validate(stored).vorname) == KONTAKT_NAME_MAX_LENGTH * 3
 
     def test_a_stored_squad_over_the_count_ceiling_still_reads(self):
         stored = {"voraussichtliche_groesse": BEWERBUNG_KADER_GROESSE_MAX * 100, "gute_spieler": BEWERBUNG_KADER_GROESSE_MAX * 100}
@@ -1276,14 +1276,14 @@ class TestAPastedWebsiteIsTrimmedToFit:
         on purpose, which no other case here would notice.
         """
 
-        pasted = f" {_url_of_length(BEWERBUNG_WEBSITE_URL_MAX_LENGTH)}"
+        pasted = f" {_url_of_length(TEAM_WEBSITE_URL_MAX_LENGTH)}"
 
-        assert len(pasted) == BEWERBUNG_WEBSITE_URL_MAX_LENGTH + 1
+        assert len(pasted) == TEAM_WEBSITE_URL_MAX_LENGTH + 1
 
         parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url=pasted)))
 
         assert parsed.schule is not None
-        assert len(parsed.schule.website_url or "") == BEWERBUNG_WEBSITE_URL_MAX_LENGTH
+        assert len(parsed.schule.website_url or "") == TEAM_WEBSITE_URL_MAX_LENGTH
 
     def test_the_read_model_returns_a_stored_value_untouched(self):
         """`docs/backend/spec.md :: I36`: the strip is the WRITE side's, so a read may not transform one.

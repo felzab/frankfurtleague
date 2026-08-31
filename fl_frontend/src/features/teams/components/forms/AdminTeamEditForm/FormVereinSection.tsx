@@ -8,7 +8,14 @@ import { FieldError, Input, ListBox, Select, TextField } from "@heroui/react";
 
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
 import { DescriptionEditModal } from "@/features/teams/components/modals/DescriptionEditModal";
-import { SCHULFORM_OPTIONS, schulformLabel } from "@/features/teams/constants";
+import {
+  SCHULFORM_OPTIONS,
+  schulformLabel,
+  TEAM_FULL_NAME_MAX_LENGTH,
+  TEAM_NAME_MAX_LENGTH,
+  TEAM_WEBSITE_URL_MAX_LENGTH,
+  WEBSITE_URL_SCHEME,
+} from "@/features/teams/constants";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -78,7 +85,8 @@ export function FormVereinSection({
             name="name"
             value={draft.name}
             onChange={(next) => onChange({ ...draft, name: next })}
-            onBlur={() => onFieldLeft(["name"])}>
+            onBlur={() => onFieldLeft(["name"])}
+            maxLength={TEAM_NAME_MAX_LENGTH}>
             <FieldLabel path="name">Name</FieldLabel>
             <Input
               placeholder="z.B. Goethe-Gymnasium"
@@ -105,7 +113,8 @@ export function FormVereinSection({
           name="full_name"
           value={draft.full_name}
           onChange={(next) => onChange({ ...draft, full_name: next })}
-          onBlur={() => onFieldLeft(["full_name"])}>
+          onBlur={() => onFieldLeft(["full_name"])}
+          maxLength={TEAM_FULL_NAME_MAX_LENGTH}>
           <FieldLabel path="full_name">Vollständiger Name</FieldLabel>
           <Input
             placeholder="z.B. Johann-Wolfgang-von-Goethe-Gymnasium"
@@ -160,6 +169,9 @@ export function FormVereinSection({
           onChange={(nextUrl) => onChange({ ...draft, website_url: nextUrl })}
           onFieldLeft={() => onFieldLeft(["website_url"])}
           labelSlot={<FieldLabel path="website_url">Website</FieldLabel>}
+          // The box holds the URL without the scheme, which the group renders as furniture, so the
+          // payload's ceiling is composed rather than passed whole.
+          maxLength={TEAM_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME.length}
         />
 
         <div className="flex w-full flex-col gap-y-1">

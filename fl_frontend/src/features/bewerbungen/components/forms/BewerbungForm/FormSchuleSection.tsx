@@ -5,17 +5,17 @@ import { useId, useState } from "react";
 import { Autocomplete, FieldError, Input, Label, ListBox, SearchField, Select, Separator, TextField, useFilter } from "@heroui/react";
 
 import { dismissControl } from "@/core/dismissControl";
-import {
-  BEWERBUNG_FULL_NAME_MAX_LENGTH,
-  BEWERBUNG_TEAM_NAME_MAX_LENGTH,
-  BEWERBUNG_WEBSITE_URL_MAX_LENGTH,
-  KUERZEL_LAENGE,
-  SCHULE_NICHT_IN_LISTE,
-  SCHULE_NICHT_IN_LISTE_LABEL,
-} from "@/features/bewerbungen/constants";
+import { KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE, SCHULE_NICHT_IN_LISTE_LABEL } from "@/features/bewerbungen/constants";
 import { istNeueSchule } from "@/features/bewerbungen/utils";
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
-import { SCHULFORM_OPTIONS, schulformLabel, WEBSITE_URL_SCHEME } from "@/features/teams/constants";
+import {
+  SCHULFORM_OPTIONS,
+  schulformLabel,
+  TEAM_FULL_NAME_MAX_LENGTH,
+  TEAM_NAME_MAX_LENGTH,
+  TEAM_WEBSITE_URL_MAX_LENGTH,
+  WEBSITE_URL_SCHEME,
+} from "@/features/teams/constants";
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -226,7 +226,7 @@ export function FormSchuleSection({
                 value={schule.team_name}
                 onChange={(next) => setSchuleFeld({ team_name: next })}
                 onBlur={() => onFieldLeft(["schule.team_name"])}
-                maxLength={BEWERBUNG_TEAM_NAME_MAX_LENGTH}>
+                maxLength={TEAM_NAME_MAX_LENGTH}>
                 <Label className={FIELD_LABEL}>Teamname</Label>
                 <Input
                   placeholder="z.B. Goethe-Gymnasium"
@@ -241,7 +241,7 @@ export function FormSchuleSection({
                 value={schule.full_name}
                 onChange={(next) => setSchuleFeld({ full_name: next })}
                 onBlur={() => onFieldLeft(["schule.full_name"])}
-                maxLength={BEWERBUNG_FULL_NAME_MAX_LENGTH}>
+                maxLength={TEAM_FULL_NAME_MAX_LENGTH}>
                 <Label className={FIELD_LABEL}>Vollständiger Schulname</Label>
                 <Input
                   placeholder="z.B. Johann-Wolfgang-von-Goethe-Gymnasium"
@@ -322,7 +322,7 @@ export function FormSchuleSection({
               name="schule.website_url"
               /* The PAYLOAD's ceiling minus the scheme the group renders: the box holds what is typed,
                  and the submitted value is that plus `https://`. */
-              maxLength={BEWERBUNG_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME.length}
+              maxLength={TEAM_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME.length}
               value={schule.website_url}
               onChange={(website_url) => setSchuleFeld({ website_url })}
               onFieldLeft={() => onFieldLeft(["schule.website_url"])}

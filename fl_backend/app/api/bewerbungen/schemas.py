@@ -22,24 +22,22 @@ from app.core.dependencies import get_german_date_str, get_germany_now
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     ADDRESS_STADTTEIL_MAX_LENGTH,
-    BEWERBUNG_FULL_NAME_MAX_LENGTH,
     BEWERBUNG_GRUND_MAX_LENGTH,
     BEWERBUNG_KADER_GROESSE_MAX,
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
-    BEWERBUNG_KONTAKT_NAME_MAX_LENGTH,
-    BEWERBUNG_TEAM_NAME_MAX_LENGTH,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
-    BEWERBUNG_WEBSITE_URL_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
+    TEAM_FULL_NAME_MAX_LENGTH,
+    TEAM_NAME_MAX_LENGTH,
     TEAM_SHORTHAND_LENGTH,
+    TEAM_WEBSITE_URL_MAX_LENGTH,
 )
 from app.shared.schemas.custom import (
-    PERSON_NAME_PATTERN,
     SINGLE_LINE_PATTERN,
     CustomDateString,
     CustomNonEmptyString,
@@ -322,21 +320,10 @@ class FLBewerbungKontaktpersonPayload(FLKontaktpersonPayload):
     """
 
     # Bounded HERE and on no other date field in the application: this is the one a stranger types
-    # about themselves, unreviewed.
+    # about themselves, unreviewed. The name ceilings are inherited: the junction payload states
+    # `KONTAKT_NAME_MAX_LENGTH` itself, so both tiers refuse alike with no redeclaration to drift.
     geburtsdatum: CustomBewerbungGeburtsdatum
     einwilligung: FLBewerbungEinwilligungPayload
-
-    # Redeclared for the ceiling alone -- `PERSON_NAME_PATTERN` bounds the alphabet and not the
-    # length, and this payload is the one an anonymous caller fills in. The pattern and the strip are
-    # restated because a redeclaration replaces the field outright.
-    vorname: Annotated[
-        str,
-        StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN),
-    ]
-    nachname: Annotated[
-        str,
-        StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN),
-    ]
 
 
 class FLBewerbungKontaktePayload(FLSaisonTeamKontaktePayload):
@@ -420,10 +407,10 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
     # here: the decision mail renders these two as `label: value` rows, so a name holding either
     # forges a line the reader cannot tell from a stated fact.
     team_name: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TEAM_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)
     ]
     full_name: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_FULL_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_FULL_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)
     ]
     shorthand: Annotated[str, StringConstraints(strip_whitespace=True, min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)]
     # Required and NON-NULL here alone: the form offers the six real Schulformen and no "keine
@@ -438,7 +425,7 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
     website_url: Annotated[
         Annotated[
             str,
-            StringConstraints(strip_whitespace=True, max_length=BEWERBUNG_WEBSITE_URL_MAX_LENGTH),
+            StringConstraints(strip_whitespace=True, max_length=TEAM_WEBSITE_URL_MAX_LENGTH),
             AfterValidator(validate_external_url),
         ]
         | None,

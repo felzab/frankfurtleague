@@ -1,7 +1,13 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
-import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH } from "@/features/teams/constants";
+import {
+  EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
+  KONTAKT_NAME_MAX_LENGTH,
+  TEAM_FULL_NAME_MAX_LENGTH,
+  TEAM_NAME_MAX_LENGTH,
+  TEAM_WEBSITE_URL_MAX_LENGTH,
+} from "@/features/teams/constants";
 import {
   FLGruppenNamesSchema,
   FLSaisonTeamKontakteSchema,
@@ -23,15 +29,11 @@ import {
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import {
-  BEWERBUNG_FULL_NAME_MAX_LENGTH,
   BEWERBUNG_GRUND_MAX_LENGTH,
   BEWERBUNG_KADER_GROESSE_MAX,
-  BEWERBUNG_KONTAKT_NAME_MAX_LENGTH,
   BEWERBUNG_MAX_ALTER,
   BEWERBUNG_MIN_ALTER,
-  BEWERBUNG_TEAM_NAME_MAX_LENGTH,
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
-  BEWERBUNG_WEBSITE_URL_MAX_LENGTH,
   BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
   KUERZEL_LAENGE,
 } from "./constants";
@@ -267,7 +269,7 @@ export const FLBewerbungEinwilligungPayloadSchema = z.object({
 export type FLBewerbungEinwilligungPayload = z.infer<typeof FLBewerbungEinwilligungPayloadSchema>;
 
 /** Both name boxes and both count boxes share a ceiling, so each sentence is written once. */
-const NAME_ZU_LANG = `Der Name darf höchstens ${String(BEWERBUNG_KONTAKT_NAME_MAX_LENGTH)} Zeichen lang sein.`;
+const NAME_ZU_LANG = `Der Name darf höchstens ${String(KONTAKT_NAME_MAX_LENGTH)} Zeichen lang sein.`;
 const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MAX)} Spieler an.`;
 
 /**
@@ -276,8 +278,8 @@ const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MA
  */
 export const FLBewerbungKontaktpersonPayloadSchema = z.object({
   // The alphabet is `PersonNameSchema`'s and the ceiling is this payload's, as the backend spells it.
-  vorname: PersonNameSchema.max(BEWERBUNG_KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
-  nachname: PersonNameSchema.max(BEWERBUNG_KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
+  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
+  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
   email: z
     .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
     .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
@@ -446,8 +448,8 @@ export const FLBewerbungSchulePayloadSchema = z.object({
       .string()
       .trim()
       .nonempty({ error: "Bitte gib einen Teamnamen ein." })
-      .max(BEWERBUNG_TEAM_NAME_MAX_LENGTH, {
-        error: `Der Teamname darf höchstens ${String(BEWERBUNG_TEAM_NAME_MAX_LENGTH)} Zeichen lang sein.`,
+      .max(TEAM_NAME_MAX_LENGTH, {
+        error: `Der Teamname darf höchstens ${String(TEAM_NAME_MAX_LENGTH)} Zeichen lang sein.`,
       }),
     "Der Teamname",
   ),
@@ -456,8 +458,8 @@ export const FLBewerbungSchulePayloadSchema = z.object({
       .string()
       .trim()
       .nonempty({ error: "Bitte gib den vollständigen Namen der Schule ein." })
-      .max(BEWERBUNG_FULL_NAME_MAX_LENGTH, {
-        error: `Der vollständige Name darf höchstens ${String(BEWERBUNG_FULL_NAME_MAX_LENGTH)} Zeichen lang sein.`,
+      .max(TEAM_FULL_NAME_MAX_LENGTH, {
+        error: `Der vollständige Name darf höchstens ${String(TEAM_FULL_NAME_MAX_LENGTH)} Zeichen lang sein.`,
       }),
     "Der vollständige Name",
   ),
@@ -471,8 +473,8 @@ export const FLBewerbungSchulePayloadSchema = z.object({
   address: FLBewerbungAddressPayloadSchema,
   // Optional, as it is on the club the acceptance would create: a school without a website is one
   // the league still wants, and the two surfaces may not disagree about that.
-  website_url: ExternalUrlSchema.max(BEWERBUNG_WEBSITE_URL_MAX_LENGTH, {
-    error: `Die Adresse darf höchstens ${String(BEWERBUNG_WEBSITE_URL_MAX_LENGTH)} Zeichen lang sein.`,
+  website_url: ExternalUrlSchema.max(TEAM_WEBSITE_URL_MAX_LENGTH, {
+    error: `Die Adresse darf höchstens ${String(TEAM_WEBSITE_URL_MAX_LENGTH)} Zeichen lang sein.`,
   }).nullable(),
 });
 export type FLBewerbungSchulePayload = z.infer<typeof FLBewerbungSchulePayloadSchema>;
