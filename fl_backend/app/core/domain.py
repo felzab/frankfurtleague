@@ -1595,12 +1595,12 @@ UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
         subject="a stored pre-image no current model accepts",
         reason=(
-            "`FLAktion.before` is typed `dict[str, Any] | None` on purpose: an image is what a document looked like "
-            "when it was written, so validating it against today's models would make every row taken before a "
-            "migration unreadable -- which is the one thing the log exists to prevent. NOTHING SHOWS THE IMAGE: "
-            "`/admin/aktionen` reports whether one was recorded and drops it before the row reaches the browser, "
-            "because carrying it would serialise a document out of any collection to render one badge. So a person "
-            "cannot see this state, and the restore that would read an image is BE-15's unbuilt half."
+            "`FLAktionMitStand.before` is typed `dict[str, Any] | None` on purpose: an image is what a document "
+            "looked like when it was written, so validating it against today's models would make every row taken "
+            "before a migration unreadable -- which is the one thing the log exists to prevent. NOTHING SHOWS THE "
+            "IMAGE: the list read serves `stand_gesichert` in its place, and only `GET /aktionen/{aktion_id}` -- "
+            "the one-row read a restore will replay from, called by nothing yet -- carries it. So a person cannot "
+            "see this state, and the restore itself is BE-15's unbuilt half."
         ),
         near=("REQ-VAL-001",),
         proven_by="tests/core/test_unenforced.py::TestAStoredPreImageIsNeverRevalidated",

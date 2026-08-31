@@ -1,11 +1,19 @@
 from fastapi import APIRouter, Depends
 
-from app.api.aktionen.schemas import FLAktionenFilterParams, FLAktionenListAdapter, FLAktionenListResponse
+from app.api.aktionen.schemas import (
+    FLAktionenFilterParams,
+    FLAktionenListAdapter,
+    FLAktionenListResponse,
+    FLAktionMitStand,
+    FLAktionSingleResponse,
+)
 from app.api.aktionen.services import build_aktionen_sort
 from app.core.config import API_VERSION
-from app.core.crud import build_query, pull_many_from_db
+from app.core.crud import build_query, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import AktionenCollection
+from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
+from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/aktionen",
@@ -40,3 +48,18 @@ async def get_aktionen(
         aktionen=FLAktionenListAdapter.validate_python(served),
         vollstaendig=len(read) <= filters.limit,
     )
+
+
+@router.get(by_id("aktion_id"), response_model=FLAktionSingleResponse, summary="One recorded admin action")
+async def get_aktion_by_id(
+    aktion_id: CustomRouteObjectId,
+    aktionen_collection: AktionenCollection,
+) -> FLAktionSingleResponse:
+    """One row with the document its write replaced, which the list withholds.
+
+    The read a restore of one write needs; nothing in the product calls it yet.
+    """
+
+    aktion_raw = await pull_one_from_db(collection=aktionen_collection, db_filter={"_id": aktion_id})
+
+    return FLAktionSingleResponse(aktion=FLAktionMitStand(**aktion_raw))

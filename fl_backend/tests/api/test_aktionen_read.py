@@ -7,7 +7,7 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCollection
 
 from app.api.aktionen.admin_router import get_aktionen
-from app.api.aktionen.schemas import FLAktion, FLAktionenFilterParams, FLAktionenListAdapter
+from app.api.aktionen.schemas import FLAktion, FLAktionenFilterParams, FLAktionenListAdapter, FLAktionMitStand
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # A `spiele` document as Mongo returns it: ids at the top, nested inside the embedded copies, and one
@@ -44,18 +44,18 @@ def stored_row(**overrides):
 class TestARecordedRowSurvivesTheResponseModel:
     """The write side is proved elsewhere; nothing proved a stored row could be served back out.
 
-    Append-only, and the read answers with a list, so one unrenderable row takes the page down and
-    nothing can remove it.
+    Append-only and answered as a list, so one unrenderable row takes the page down and nothing
+    can remove it. The image half is the SINGLE read's alone.
     """
 
     def test_a_stored_pre_image_serializes_to_json(self):
-        serialized = FLAktion.model_validate(stored_row()).model_dump_json()
+        serialized = FLAktionMitStand.model_validate(stored_row()).model_dump_json()
 
         assert json.loads(serialized)["before"]["ergebnis"] == "2:1"
 
     def test_every_objectid_in_the_pre_image_becomes_text(self):
         """`ObjectId` has no JSON form, so one left anywhere under `before` raises on serialization."""
-        before = json.loads(FLAktion.model_validate(stored_row()).model_dump_json())["before"]
+        before = json.loads(FLAktionMitStand.model_validate(stored_row()).model_dump_json())["before"]
 
         assert before["_id"] == "6890a1b2c3d4e5f607200010"
         assert before["team1"]["team_id"] == "6890a1b2c3d4e5f607200011"
@@ -65,7 +65,7 @@ class TestARecordedRowSurvivesTheResponseModel:
 
     def test_the_pre_image_keeps_every_other_value_as_stored(self):
         """A read model repairs nothing: the row answers with the document as it was, minus the id types."""
-        before = FLAktion.model_validate(stored_row()).before
+        before = FLAktionMitStand.model_validate(stored_row()).before
 
         # One document, never the array a removal stores: this row records a patch.
         assert isinstance(before, dict)
@@ -85,11 +85,6 @@ class TestARecordedRowSurvivesTheResponseModel:
 
         assert json.loads(FLAktion.model_validate(row).model_dump_json())["document_id"] == str(document_id)
 
-    def test_a_create_carries_no_pre_image(self):
-        row = stored_row(operation="insert", before=None)
-
-        assert json.loads(FLAktion.model_validate(row).model_dump_json())["before"] is None
-
     def test_a_fan_out_row_serializes_with_its_filter_and_count(self):
         row = stored_row(operation="patch_many", document_id=None, before=None, db_filter={"saison_id": "2026"}, modified_count=40)
         served = json.loads(FLAktion.model_validate(row).model_dump_json())
@@ -102,6 +97,33 @@ class TestARecordedRowSurvivesTheResponseModel:
         rows = FLAktionenListAdapter.validate_python([stored_row(), stored_row(operation="insert", before=None)])
 
         assert len(FLAktionenListAdapter.dump_json(rows)) > 0
+
+
+class TestTheListReportsTheImageWithoutServingIt:
+    """The list row answers `stand_gesichert` in the image's place (`docs/backend/spec.md :: I43`).
+
+    The empty array is load-bearing: a removal that matched nothing secured no document, and must
+    not badge like a kept image (I48).
+    """
+
+    @pytest.mark.parametrize(
+        ("before", "recorded"),
+        [
+            (dict(STORED_SPIEL), True),
+            ([dict(STORED_SPIEL)], True),
+            ([], False),
+            (None, False),
+        ],
+        ids=["one-image", "a-set-of-images", "a-removal-that-matched-nothing", "no-image-kept"],
+    )
+    def test_the_flag_reads_the_stored_image(self, before: object, recorded: bool):
+        assert FLAktion.model_validate(stored_row(before=before)).stand_gesichert is recorded
+
+    def test_the_image_itself_never_reaches_the_list_wire(self):
+        served = json.loads(FLAktion.model_validate(stored_row()).model_dump_json())
+
+        assert "before" not in served
+        assert served["stand_gesichert"] is True
 
 
 class _LogCollection:

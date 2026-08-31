@@ -6,7 +6,7 @@ from typing import Any, Callable
 import pytest
 from bson import ObjectId
 
-from app.api.aktionen.schemas import FLAktion
+from app.api.aktionen.schemas import FLAktion, FLAktionMitStand
 from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaisonRules
@@ -597,7 +597,12 @@ class TestAStoredPreImageIsNeverRevalidated:
     def test_the_stored_image_is_typed_as_data(self):
         """Two arms because a removal takes a set, and neither names a field of any collection."""
 
-        assert FLAktion.model_fields["before"].annotation == dict[str, Any] | list[dict[str, Any]] | None
+        assert FLAktionMitStand.model_fields["before"].annotation == dict[str, Any] | list[dict[str, Any]] | None
+
+    def test_the_list_model_carries_no_image_at_all(self):
+        """The other half of the containment: the page-sized read cannot serve what it does not declare."""
+
+        assert "before" not in FLAktion.model_fields
 
     def test_the_validator_asks_no_more_of_it(self):
         """The other end of the same claim: a `$jsonSchema` tightening it would refuse the write rather than the read."""

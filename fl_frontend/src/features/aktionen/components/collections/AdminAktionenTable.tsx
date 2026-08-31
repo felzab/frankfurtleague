@@ -160,7 +160,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
       );
     }
 
-    if (aktion.standGesichert) return <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stand gesichert</span>;
+    if (aktion.stand_gesichert) return <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stand gesichert</span>;
 
     return null;
   };

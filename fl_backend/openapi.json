@@ -4097,6 +4097,51 @@
         }
       }
     },
+    "/api/v0/aktionen/{aktion_id}": {
+      "get": {
+        "summary": "One recorded admin action",
+        "description": "One row with the document its write replaced, which the list withholds.\n\nThe read a restore of one write needs; nothing in the product calls it yet.",
+        "operationId": "get_aktion_by_id_api_v0_aktionen__aktion_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "aktion_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Aktion Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLAktionSingleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v0/bewerbungen/{bewerbung_id}/annehmen": {
       "post": {
         "summary": "Accept a Bewerbung and enter the school into the season",
@@ -4708,24 +4753,9 @@
             ],
             "title": "Db Filter"
           },
-          "before": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Before"
+          "stand_gesichert": {
+            "type": "boolean",
+            "title": "Stand Gesichert"
           },
           "modified_count": {
             "anyOf": [
@@ -4761,12 +4791,145 @@
           "operation",
           "document_id",
           "db_filter",
-          "before",
+          "stand_gesichert",
           "modified_count",
           "redacted_at"
         ],
         "title": "FLAktion",
         "description": "One recorded write.\n\nA read model, so nothing here refuses a stored value (`docs/backend/spec.md :: I36`): this\ncollection holds copies of documents from every other one, and a row it cannot serve is a row\nnobody can see was recorded."
+      },
+      "FLAktionMitStand": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/FLAktor"
+          },
+          "correlation_id": {
+            "type": "string",
+            "title": "Correlation Id"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAktionRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "collection": {
+            "type": "string",
+            "title": "Collection"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "insert",
+              "insert_many",
+              "patch_one",
+              "patch_many",
+              "delete_many",
+              "erase_many"
+            ],
+            "title": "Operation"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "db_filter": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Db Filter"
+          },
+          "stand_gesichert": {
+            "type": "boolean",
+            "title": "Stand Gesichert"
+          },
+          "modified_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modified Count"
+          },
+          "redacted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redacted At"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "at",
+          "actor",
+          "correlation_id",
+          "request",
+          "collection",
+          "operation",
+          "document_id",
+          "db_filter",
+          "stand_gesichert",
+          "modified_count",
+          "redacted_at",
+          "before"
+        ],
+        "title": "FLAktionMitStand",
+        "description": "One row WITH the document its write replaced, which only `GET /aktionen/{aktion_id}` serves.\n\nIts own model so the list cannot carry an image by accident; the restore (the stored images'\none consumer-to-be) reads a single row through this."
       },
       "FLAktionRequest": {
         "properties": {
@@ -4785,6 +4948,27 @@
           "path"
         ],
         "title": "FLAktionRequest"
+      },
+      "FLAktionSingleResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "aktion": {
+            "$ref": "#/components/schemas/FLAktionMitStand"
+          }
+        },
+        "type": "object",
+        "required": [
+          "aktion"
+        ],
+        "title": "FLAktionSingleResponse"
       },
       "FLAktionenListResponse": {
         "properties": {

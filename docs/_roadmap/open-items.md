@@ -80,7 +80,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 26  | FE-28 | A squad-row return is offered where the cap refuses it               | FE, BE          | M      | Open     | —          |
 | 27  | FE-26 | The draw offers a press a too-short season refuses                   | FE              | S      | Open     | —          |
 | 28  | BE-21 | The seeding table is keyed on a list nothing joins it                | BE              | S      | Open     | —          |
-| 29  | BE-33 | The log read carries every pre-image the page discards               | BE              | S      | Open     | —          |
+| 29  | BE-33 | The log read carries every pre-image the page discards               | BE              | S      | Closed   | —          |
 | 30  | FE-29 | A date search matches the stored spelling, not the shown one         | FE              | S      | Open     | —          |
 | 31  | FE-24 | A pupil's consent is stored and served, and shown by nothing         | FE              | S      | Open     | —          |
 | 32  | BE-34 | An index's first stated purpose has no caller                        | BE              | S      | Open     | —          |
@@ -1732,11 +1732,19 @@ subscript and stops at the draw.
 
 ### 29 · BE-33 — The log read carries every stored pre-image, and the page that asked for it drops them
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** BE\
 **Effort:** S\
 **Path:** Independent. BE-15's second gap — the log page sending the API none of its filters — is the
 neighbouring half of the same read and could be executed with it.
+
+**What concluded it.** The list model `fl_backend/app/api/aktionen/schemas.py :: FLAktion` declares
+no `before` at all: it computes `stand_gesichert` presence-aware from the stored image, so a
+dropped field cannot read as a stored null and an empty removal array badges as unsecured. The image
+moved to `:: FLAktionMitStand`, served only by the new `GET /aktionen/{aktion_id}` — the one-row read
+BE-15's restore will replay from. `docs/backend/spec.md :: I43` now states the split, the Zod mirror
+moved by hand, and the page passes the served rows straight through. The full argument is in the
+closing commit body.
 
 **`GET /aktionen` serves whole `before` images and the only caller discards them.**
 `fl_backend/app/api/aktionen/admin_router.py :: get_aktionen` passes no projection, so

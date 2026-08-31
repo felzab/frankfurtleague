@@ -1,10 +1,7 @@
 import type { FLAktion } from "./schemas";
 
 /**
- * One row of the change log, deliberately not the whole `FLAktion`: passing `before` to a client
- * component would serialise a document out of any collection into the browser to render one badge.
+ * One row of the change log. The pre-image never reaches this type because the API's list never
+ * serves one — the row carries `stand_gesichert` in its place (`docs/backend/spec.md :: I43`).
  */
-export type AdminAktionRow = Omit<FLAktion, "before"> & {
-  /** Whether the document this write replaced was recorded on the row. */
-  standGesichert: boolean;
-};
+export type AdminAktionRow = FLAktion;

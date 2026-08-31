@@ -38,6 +38,8 @@ const BACKEND_ONLY: Record<string, string> = {
   ValidationError: "FastAPI's validation error body; thrown on any non-2xx before a schema parses it",
 
   FLSchiedsrichterSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
+  FLAktionSingleResponse: "GET /{id} is the one read serving a pre-image, for the restore; nothing calls it yet",
+  FLAktionMitStand: "the single read's row; the page consumes only the list's FLAktion, which carries no image",
   FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLSpielerSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLSpieleSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
