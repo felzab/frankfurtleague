@@ -156,8 +156,8 @@ tick it unverified, and never stall the wave on it.\>
 
 Amended as each wave finishes.
 
-\<One entry per wave giving the `{SECTIONS}` and `{NOTES}` values for
-`docs/_auditing/prompts/remediation-wave.md`. Derive `{SECTIONS}` mechanically from the `§` column of
+\<One entry per wave giving the `{SECTIONS}` and `{NOTES}` values for the wave prompt embedded in
+`.claude/commands/audit/wave.md`. Derive `{SECTIONS}` mechanically from the `§` column of
 that wave's rows and re-derive it whenever a row is added, merged or moved, because a hand-maintained
 copy goes stale silently. Once a wave completes, rewrite its entry as a record of the traps it hit, so
 a re-run cannot repeat them.\>

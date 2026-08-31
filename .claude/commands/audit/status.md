@@ -37,7 +37,7 @@ Read-only until resuming; this command itself changes nothing.
    - A wave with `[~]` rows, unticked rows, or a branch ahead of `main` → a wave died mid-run.
      Reconcile the ledger against `git diff main...<branch>` — a `[~]` row means inspect the diff,
      and a ticked row must have its change in a commit. Report the reconciliation, then offer to
-     continue via the resume check in `docs/_auditing/prompts/remediation-wave.md`.
+     continue via the resume check in `.claude/commands/audit/wave.md`'s embedded prompt.
    - Uncommitted changes anywhere → summarise them against the ledger before anything else. **Never
      discard or commit them blind.**
 

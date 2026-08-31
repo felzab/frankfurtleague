@@ -1,7 +1,6 @@
 # Audit prompts
 
-**Folder purpose:** one prompt per audit pass, plus the protocol every pass session runs under and
-the prompt a remediation wave loads.
+**Folder purpose:** one prompt per audit pass, plus the protocol every pass session runs under.
 
 ## Folder overview
 
@@ -12,7 +11,6 @@ prompt is written, added or split.
 | Read                                                                     | For                                                                     |
 | ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
 | [`_shared-protocol.md`](_shared-protocol.md)                             | Running any pass: what to read first, report structure, resume, handoff |
-| [`remediation-wave.md`](remediation-wave.md)                             | Running a remediation wave                                              |
 | [`risk/1-failure-modes.md`](risk/1-failure-modes.md)                     | Failure modes and audit coverage                                        |
 | [`frontend/1-deprecated.md`](frontend/1-deprecated.md)                   | Deprecated and legacy patterns                                          |
 | [`frontend/2-architecture.md`](frontend/2-architecture.md)               | Architecture, excess, dead code, tooling                                |

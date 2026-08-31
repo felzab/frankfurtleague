@@ -11,7 +11,7 @@ pass reads, and the report every finished programme leaves behind.
 | [`lessons.md`](lessons.md)                             | Traps and failure modes to check before running anything                                |
 | [`ledger-template.md`](ledger-template.md)             | Skeleton for the remediation ledger                                                     |
 | [`final-report-template.md`](final-report-template.md) | Skeleton for the report a programme closes with                                         |
-| [`prompts/`](prompts/)                                 | One prompt per pass, plus the shared protocol and the wave prompt                       |
+| [`prompts/`](prompts/)                                 | One prompt per pass, plus the shared protocol                                           |
 
 ## Where an audit's own documents live
 
