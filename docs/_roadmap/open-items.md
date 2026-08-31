@@ -53,7 +53,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | #   | ID    | Item                                                                 | Surfaces        | Effort | Status   | Depends on |
 | --- | ----- | -------------------------------------------------------------------- | --------------- | ------ | -------- | ---------- |
 | 1   | BE-44 | A decision drains no queue, and marking spans the loaded rows        | FE, BE, Docs    | M      | Open     | —          |
-| 2   | BE-15 | The recording exists; the restore over it does not                   | FE, BE, DB      | M      | Open     | —          |
+| 2   | BE-15 | The recording exists; the restore over it does not                   | FE, BE          | M      | Open     | —          |
 | 3   | BE-23 | Consent's writer is deferred to an expert who has not answered       | BE, DB, Docs    | M      | Standing | —          |
 | 4   | BE-18 | Gaps the domain declaration does not reach                           | BE              | M      | Open     | —          |
 | 5   | BE-36 | A season's judgement covers five collections and its transaction one | BE, Docs        | M      | Open     | —          |
@@ -104,58 +104,30 @@ own `Path` line.
 ### 2 · BE-15 — The recording exists; the restore over it does not
 
 **Status:** Open\
-**Surfaces:** FE, BE, DB\
-**Effort:** M — the recording and the page are built\
-**Path:** Independent — what dates it is a second writer arriving this year, not another entry.
+**Surfaces:** FE, BE\
+**Effort:** M — the recording, the log page and the undo spine are built; the restore is a change over them\
+**Path:** Independent. Landing it is what lets **FB-19** consume the log instead of reworking its
+own payloads, which is the leverage that holds this rank. A second person will be writing in the
+season plan this year (confirmed 2026-08-12), which multiplies the writes nobody was watching — the
+case only a stored restore reaches.
 
-**What is built.** Every write funnels through `fl_backend/app/core/crud.py`, so the log records there
-and is complete by construction rather than by discipline — a router that forgets to record cannot
-exist, because no write reaches the driver outside that module. Several routers do reach it for
-reads, so the property is about writes rather than about access, and a write added in that shape
-would escape. A row carries the actor, the request, the collection, the
-document and the image the write replaced (`fl_backend/app/core/recording.py`), and `/admin/aktionen`
-lists them. An ADMIN write's actor travels as a header the frontend composes from its own session,
-and one carrying none is refused rather than attributed to nobody (`docs/backend/spec.md :: I41`); the
-public application form's submit names the public server-side instead, a visitor having no session to
-compose one from (`docs/backend/spec.md :: bind_public_actor`).
+**This entry is the restore alone.** Every write funnels through `fl_backend/app/core/crud.py` and
+is recorded with the actor, the request, the collection, the document and the image the write
+replaced (`fl_backend/app/core/recording.py`); `/admin/aktionen` lists the rows, narrows to one
+document's history, and its answer says when it is short (`vollstaendig`). A row therefore holds
+what a replay needs, and replaying one is a small change over the spine the eight undo handlers
+already share. What is missing is the control that does it: a restore offered on a log row, past
+the editor's fifteen-second, browser-held undo — one that survives a reload and reaches a write
+nobody was watching at the time.
 
-**What remains is the restore, and it is blocked on a measurement.** A row holds what its write
-replaced, so replaying one is a small change over the spine the eight undo handlers already share.
-But `docs/frontend/spec.md` §1.3 admits a route handler for a page-owned editor and refuses one for a
-row control, and a restore on a log row is a row control. Whether Next's E592 reproduces on a page
-that stays mounted is what decides between a server action and a route handler of its own, and
-nobody has measured it. Retention is the other half, and it sits with the Datenschutzexperte.
+**What blocks it is a measurement.** `docs/frontend/spec.md` §1.3 admits a route handler for a
+page-owned editor and refuses one for a row control, and a restore on a log row is a row control.
+Whether Next's E592 reproduces on a page that stays mounted is what decides between a server action
+and a route handler of its own, and nobody has measured it.
 
-**Two gaps in what shipped, both found by a review that had not seen the work written.**
-
-- **A log write that fails outside a transaction reports a failure for a write that committed.**
-  `record_write` runs after the domain write, so where the caller opened no transaction — every
-  create, and every retire and revive through `set_inactive_since` — a failed log insert answers 500
-  while the row exists. An administrator then retries and creates a duplicate. The honest fix is that
-  a write and its log row commit together or not at all, which is **BE-19**'s subject rather than
-  this entry's; recorded here because this entry is what gave BE-19 a case with a legal consequence
-  instead of a data-integrity one.
-- **The log page reads at most 1024 rows and sends the API none of its filters.** Search and the
-  facets run client-side over whatever that first page held, so once the log passes
-  `LIST_LIMIT_MAX` the older rows cannot be reached through the interface at all, and the hint
-  telling an administrator to search by correlation id stops finding anything older. The endpoint
-  already takes `collection`, `operation` and `correlation_id`; nothing sends them.
-
-**What this settles for the domain programme.** D30 gates round 3 on this entry, reasoning that
-writes made before an action log exists are writes nobody can reconstruct. The recording is what that
-gate wanted, and the restore is a convenience over the log rather than the thing being waited for — so
-the gate lifts when the recording reaches `main`, not when it is written. Round 3's phases 1 and 2
-write no data and never depended on it; the phases that migrate and generate do, and for those "the
-log exists" has to mean the tree those writes run against.
-
-**Almost every admin write overwrites in place; what changed is that the log keeps what it
-replaced.** A result is `$set` over its predecessor, and the write that destroys the most is one
-nobody asked for — applying a bracket advancement clears the advanced fixture's `ergebnis`, its `elfmeterschiessen` and a
-no-show recorded on it (`fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`), so correcting
-a quarter-final deletes a semi-final scoreline that a person had entered, as a consequence of an edit
-somewhere else. That destruction is now recorded
-and attributable. Making it **recoverable** past the fifteen-second undo is what this entry still
-carries.
+**Retention is settled: the action log is kept indefinitely.** Decided 2026-08, Datenschutzexperte
+consulted. No log row is ever dropped, and erasing a person reaches the log as `redacted_at`,
+emptied and stamped in place (`docs/backend/spec.md :: I42`) — the values leave, the rows stay.
 
 **Two kinds of write sit outside what any restore could replay — a pupil's erasure, and taking a
 season's draw away — and for different reasons.** The erasure keeps no image at all, the values being
@@ -165,39 +137,13 @@ exists to replay one into (`docs/backend/spec.md :: I48`, `:: I26`). Both are re
 person to read rather than anything a restore can reach, which is a bound on this entry rather than
 work inside it.
 
-**What the reference model does.** Federation administration software treats a disciplinary action as
-a case with an audit trail, because a disqualification is a decision somebody has to be able to
-justify later, and because a sanction that nobody can trace is a sanction that gets disputed. Part of
-that is built — an `austritt` names the route out, the reason and the date — but a
-record of the current state is not a history: it says why the club is out, never
-what its standing was a week ago.
-
-**What I asked this to become (2026-08-06): an admin action-log page listing every edit and every add,
-with a smarter undo built over it.** What is recorded and where it goes are settled; the restore is not:
-
-- **What is recorded:** every write, not only the destructive ones — a page that lists half of them is
-  a page nobody trusts. Settled by recording at the one chokepoint every write passes through, so
-  completeness is structural rather than a discipline anyone can lapse from.
-- **Where it goes:** a collection, because the page reads it. A log stream is out — `deploy.sh`
-  recreates the containers and the history would end at the last deploy (`docs/logging/spec.md`).
-- **Whether a restore is offered:** yes, and that is the part still open. The bound to beat is the one
-  the editor already ships: fifteen seconds, held in the browser, gone on reload. A restore over the
-  stored log outlives that and survives a reload, and it reaches a write nobody was watching at the
-  time — the case the client-held one cannot.
-
-**Still open: how long it is kept, and whether it holds personal data.** A squad row names a person, so
-a history of squad edits is a retention decision rather than a storage one, and it sits with the
-Datenschutzexperte. No log row is ever dropped, so whatever they answer is additive rather than a
-migration. A third question arrived with the design and is answered: a row keeps the document its
-write replaced, so erasing a person has to reach the log or it leaves them intact there — which
-`redacted_at` is for, emptied and stamped in place (`docs/backend/spec.md :: I42`).
-
-**What made it urgent was a second person who can write, and that is now covered.** I confirmed on
-2026-08-12 that a second person will be writing in the season plan this year, and the cost of delay
-was the part that cannot be recovered: a log records from the day it exists and never backwards. That
-day has passed. What is left carries no such clock — an unrestorable write is recoverable by hand from
-the row that recorded it, slowly, which is a different order of problem from one nobody can
-reconstruct at all.
+**The write worth building it for is the one nobody asked for.** Applying a bracket advancement
+clears the advanced fixture's `ergebnis`, its `elfmeterschiessen` and a no-show recorded on it
+(`fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`), so correcting a quarter-final
+deletes a semi-final scoreline that a person had entered, as a consequence of an edit somewhere
+else. That destruction is recorded and attributable; recoverable past the fifteen seconds is what
+this entry adds. Until it lands, an unrestorable write is recovered by hand from the row that
+recorded it — slowly, which is the cost of leaving this open rather than a loss.
 
 ### 3 · BE-23 — The consent gate's writer is deferred to an expert who has not answered, and the log accumulates meanwhile
 
@@ -239,15 +185,17 @@ rests on a judgement nobody qualified has reviewed:
   with that stated. Round 3 makes the record truthful by keeping a backfilled consent
   **distinguishable** from a collected one.
 - **The action log keeps a copy of every person it touches, and it is accumulating now.** D83 found
-  that BE-15 stores the prior document on every write, so the log holds a copy of every `spieler` and
+  that the recording stores the prior document on every write, so the log holds a copy of every `spieler` and
   `saison_spieler` row it has ever touched. D60 declined anonymising a pupil because anonymisation
   "answers a pupil's erasure request by keeping a record of them" — and a prior-document log is
   exactly that record, reached from a direction D60 never looked. **An erasure request is answered
   there too**: `DELETE /spieler/{spieler_id}/erasure` empties and stamps every log row naming that
   person or one of their squad rows, inside the transaction that removes them
   (`docs/backend/spec.md :: I42`). What no request reaches is the copy the log holds of every OTHER
-  pupil, which nobody has asked about and no rule bounds — so what accumulates is the record of those
-  who did not ask, and **how long that is kept is this entry's question rather than the erasure's**.
+  pupil — so what accumulates is the record of those who did not ask. **How long it is kept is
+  settled: the log is kept indefinitely** (decided 2026-08, Datenschutzexperte consulted; **BE-15**
+  states it beside the restore that reads the log), so what stays worth their eyes is the
+  accumulation itself rather than a retention term.
 - **A pupil is hard-deleted and a referee is only anonymised**, and both are built —
   `DELETE /spieler/{spieler_id}/erasure` against
   `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`. D60's asymmetry is forced by the data
@@ -452,7 +400,7 @@ its club rather than the `team_id` a payload takes.
   the Zod mirror checked against it and the payload builder all move in one change.
 - **Restore over the action log instead.** `fl_backend/app/core/recording.py` keeps the document each
   write replaced, so a restore reading it is correct by construction and needs no prior value on the
-  response at all. That is BE-15's remaining half, and taking this route makes this entry a consumer of
+  response at all. That is BE-15's subject, and taking this route makes this entry a consumer of
   that work rather than a repair of its own.
 
 **Not measured:** whether a moved fixture has ever changed under a mounted editor. One person writes
@@ -720,9 +668,9 @@ Saison page and its editor change with it.
 **What ranks it is the rollover.** Everything here is worth having before the next season is set up
 and worth much less after: a season set up by hand is a season this work does nothing for, and its
 squads are typed by one person either way. That is the test — a clock — that separates it from FE-1,
-which carries no date. It ranks under BE-15 because BE-15's cost is the unrecoverable one, and
-because this entry is the largest new source of writes on the page: every write is recorded, and until
-BE-15 lands there is nothing that puts one back.
+which carries no date. It ranks under BE-15 because this entry is the largest new source of writes
+on the page: every write is recorded, and until BE-15's restore lands, putting one back is a hand
+replay from the row that recorded it.
 
 **It is a programme, and its parts are not one change.**
 
