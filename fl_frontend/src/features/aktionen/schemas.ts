@@ -47,5 +47,7 @@ export type FLAktion = z.infer<typeof FLAktionSchema>;
 
 export const FLAktionenListResponseSchema = BaseAPIResponseSchema.extend({
   aktionen: z.array(FLAktionSchema),
+  /** False where the endpoint's cap cut the answer short — and the log only grows, so that day arrives without a flood. */
+  vollstaendig: z.boolean(),
 });
 export type FLAktionenListResponse = z.infer<typeof FLAktionenListResponseSchema>;

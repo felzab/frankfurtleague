@@ -71,7 +71,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 17  | BE-35 | A no-op write takes no conflict, so nothing is re-judged             | BE, Docs        | M      | Open     | —          |
 | 18  | BE-17 | Every server-ordered name list sorts in byte order                   | BE, FE          | M      | Open     | —          |
 | 19  | BE-30 | The move guard does not see a stored shoot-out                       | BE              | S      | Open     | —          |
-| 32  | BE-46 | The action log's read truncates and cannot say so                    | FE, BE          | S      | Open     | —          |
+| 32  | BE-46 | The action log's read truncates and cannot say so                    | FE, BE          | S      | Closed   | —          |
 | 20  | BE-31 | A duplicate-key log line carries the value it refused                | BE, Docs        | S      | Open     | —          |
 | 21  | BE-19 | Nothing says a multi-write request writes atomically                 | BE, Docs        | S      | Open     | —          |
 | 22  | BE-20 | The certainty walk never hypothesises a called-off fixture           | BE, Docs        | L      | Open     | —          |
@@ -1837,13 +1837,20 @@ record and changes nothing else is the whole of this entry.
 
 ### 32 · BE-46 — The action log's read truncates, and its answer cannot say so
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE, BE\
 **Effort:** S\
 **Path:** Independent. **BE-33** is the other change to this one response — it carries every stored
 pre-image the page discards — so the two are executed together and each is ranked on its own. **BE-15**
 would make the restore a second consumer of this read, which is the reason to settle the shape before
 it rather than a block on either.
+
+**What concluded it.** `GET /aktionen` now carries the I45 shape this entry named: the read asks one
+row past the cap, serves the cap, and answers `vollstaendig` beside the rows —
+`fl_backend/app/api/aktionen/admin_router.py :: get_aktionen`, the sibling
+`get_bewerbungen`'s form. The Zod mirror moved by hand with the model, the log page renders a
+standing notice where the flag is false, and `docs/backend/spec.md :: I45` names the read among its
+probe-row sites. The full argument is in the closing commit body.
 
 **`fl_backend/app/api/aktionen/admin_router.py :: get_aktionen` passes `limit=filters.limit` and
 answers `fl_backend/app/api/aktionen/schemas.py :: FLAktionenListResponse`, which carries the rows and

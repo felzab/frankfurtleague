@@ -3982,7 +3982,7 @@
     "/api/v0/aktionen": {
       "get": {
         "summary": "List recorded admin actions",
-        "description": "List what administrators changed, newest first.\n\nAdmin-tier for the obvious reason and one less obvious: a row carries the document a write\nreplaced, so this read answers with data from every collection at once, public or not.",
+        "description": "List what administrators changed, newest first; `vollstaendig` is false on a cut answer.\n\nAdmin-tier twice over: a row carries the document a write replaced, so this read answers\nwith data from every collection at once, public or not.",
         "operationId": "get_aktionen_api_v0_aktionen_get",
         "security": [
           {
@@ -4803,11 +4803,16 @@
             },
             "type": "array",
             "title": "Aktionen"
+          },
+          "vollstaendig": {
+            "type": "boolean",
+            "title": "Vollstaendig"
           }
         },
         "type": "object",
         "required": [
-          "aktionen"
+          "aktionen",
+          "vollstaendig"
         ],
         "title": "FLAktionenListResponse"
       },

@@ -102,3 +102,6 @@ class FLAktionenFilterParams(BaseModel):
 
 class FLAktionenListResponse(BaseAPIResponse):
     aktionen: list[FLAktion]
+    # German for `FLBewerbungenListResponse.vollstaendig`'s reason, and load-bearing here too: the
+    # log only grows and nothing removes a row, so this read reaches the cap by ordinary use.
+    vollstaendig: bool

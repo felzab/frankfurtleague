@@ -1,9 +1,14 @@
+import asyncio
 import json
+from typing import Any, cast
 
 import pytest
 from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorCollection
 
-from app.api.aktionen.schemas import FLAktion, FLAktionenListAdapter
+from app.api.aktionen.admin_router import get_aktionen
+from app.api.aktionen.schemas import FLAktion, FLAktionenFilterParams, FLAktionenListAdapter
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # A `spiele` document as Mongo returns it: ids at the top, nested inside the embedded copies, and one
 # in a list. A pass over the top level alone would leave every id that actually breaks serialization.
@@ -97,3 +102,89 @@ class TestARecordedRowSurvivesTheResponseModel:
         rows = FLAktionenListAdapter.validate_python([stored_row(), stored_row(operation="insert", before=None)])
 
         assert len(FLAktionenListAdapter.dump_json(rows)) > 0
+
+
+class _LogCollection:
+    """One collection, called as `pull_many_from_db` calls the driver: `find`, `sort`, `limit`, `to_list`."""
+
+    def __init__(self, documents: list[dict[str, Any]]) -> None:
+        self.documents = documents
+        # What the route ASKED for, kept because the answer alone cannot tell a read bounded at the
+        # cap from one bounded a document past it.
+        self.requested_limit: int | None = None
+        self.requested_filter: Any = None
+
+    def find(self, filter: Any, projection: Any = None, session: Any = None) -> "_LogCollection":
+        self.requested_filter = filter
+        return self
+
+    def sort(self, sort_by: Any) -> "_LogCollection":
+        for field, direction in reversed(list(sort_by)):
+            self.documents.sort(key=lambda document: str(document[field]), reverse=direction < 0)
+        return self
+
+    def limit(self, count: int) -> "_LogCollection":
+        self.requested_limit = count
+        # Truncating rather than answering everything: this IS the silent loss under test.
+        self.documents = self.documents[:count]
+        return self
+
+    async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
+        return self.documents if length is None else self.documents[:length]
+
+
+def log_of(count: int) -> list[dict[str, Any]]:
+    return [stored_row(_id=ObjectId(f"6890a1b2c3d4e5f607{index:06d}")) for index in range(1, count + 1)]
+
+
+def run_list(collection: _LogCollection, **filters: Any) -> Any:
+    """`asyncio.run`, as `test_bewerbungen_read.py` drives its route; no event-loop plugin is configured."""
+
+    return asyncio.run(
+        get_aktionen(
+            aktionen_collection=cast(AsyncIOMotorCollection, collection),
+            filters=FLAktionenFilterParams.model_validate(filters),
+        )
+    )
+
+
+class TestATruncatedPageSaysSo:
+    """The log only grows and nothing removes a row, so this read reaches the cap by ordinary use.
+
+    The probe-row shape is `get_bewerbungen`'s (`docs/backend/spec.md :: I45`); the boundary
+    cases mirror `test_bewerbungen_read.py`'s.
+    """
+
+    def test_a_log_past_the_cap_is_served_short_and_flagged(self):
+        answered = run_list(_LogCollection(log_of(LIST_LIMIT_DEFAULT + 25)))
+
+        assert len(answered.aktionen) == LIST_LIMIT_DEFAULT
+        assert answered.vollstaendig is False
+
+    def test_a_log_under_the_cap_is_whole(self):
+        answered = run_list(_LogCollection(log_of(7)))
+
+        assert len(answered.aktionen) == 7
+        assert answered.vollstaendig is True
+
+    def test_a_log_exactly_at_the_cap_is_whole(self):
+        """The boundary the probe row exists for: the largest complete answer must not call itself short."""
+
+        answered = run_list(_LogCollection(log_of(LIST_LIMIT_DEFAULT)))
+
+        assert len(answered.aktionen) == LIST_LIMIT_DEFAULT
+        assert answered.vollstaendig is True
+
+    def test_the_read_asks_one_row_past_what_it_serves(self):
+        """Non-vacuity: a read bounded AT the cap could never tell a full list from a truncated one."""
+
+        collection = _LogCollection(log_of(3))
+        run_list(collection)
+
+        assert collection.requested_limit == LIST_LIMIT_DEFAULT + 1
+
+    def test_the_probe_row_is_never_served(self):
+        answered = run_list(_LogCollection(log_of(9)), limit=4)
+
+        assert len(answered.aktionen) == 4
+        assert answered.vollstaendig is False

@@ -43,5 +43,10 @@ async function AktionenTable() {
     standGesichert: Array.isArray(before) ? before.length > 0 : before !== null,
   }));
 
-  return <AdminAktionenView aktionen={rows} />;
+  return (
+    <AdminAktionenView
+      aktionen={rows}
+      vollstaendig={aktionenRes.vollstaendig}
+    />
+  );
 }
