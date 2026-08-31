@@ -95,20 +95,19 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 41  | FB-18 | Only the match editor marks a field somebody waits on                | FE, BE          | L      | Open     | —          |
 | 42  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
 | 43  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Open     | —          |
-| 56  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
+| 55  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
 | 44  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
 | 45  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
 | 46  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Open     | —          |
 | 47  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
 | 48  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
 | 49  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
-| 50  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Closed   | —          |
-| 51  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Open     | —          |
-| 52  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
-| 53  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
-| 54  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
-| 55  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
-| 57  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
+| 50  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Open     | —          |
+| 51  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
+| 52  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
+| 53  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
+| 54  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
+| 56  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -2489,9 +2488,8 @@ published property in `fl_backend/openapi.json`, and a German sentence in each o
 Both switches are exhaustive, so the compiler names them; nothing names the German. I28's own
 enumeration moves in the same commit.
 
-**What ranks it below BE-24 and above FE-20.** It removes real doubt — an operator repairing wiring
-by hand gets no signal for most of what the write path calls unholdable — where FE-20 removes almost
-none. It sits under BE-24 because that entry's cost is measured on a read that runs today, and this
+**What ranks it below BE-24.** It removes real doubt — an operator repairing wiring
+by hand gets no signal for most of what the write path calls unholdable. It sits under BE-24 because that entry's cost is measured on a read that runs today, and this
 one's is paid only after somebody edits the database.
 
 ### 48 · BE-43 — A club's name is bounded where a stranger types it and unbounded where an administrator does
@@ -2610,49 +2608,10 @@ branch, as a comment, why its wording is its own, and leave the pairing to a rea
 
 **What ranks it here.** Below **BE-37**: that entry leaves an operator repairing wiring by hand with no
 signal at all, where every one of these six sentences reaches its reader true today and what is at stake
-is what a later edit does to one of them. Above **FE-20**: taking that token out removes almost no doubt,
-where this settles a copy question on two admin surfaces and closes a coupling the helper beside it was
-written to close.
+is what a later edit does to one of them. What it settles is a copy question on two admin surfaces,
+closing a coupling the helper beside it was written to close.
 
-### 50 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
-
-**Status:** Closed\
-**Surfaces:** FE\
-**Effort:** S\
-**Path:** Independent — `.claude/CLAUDE.md` §7 protects this function's redirect and the season
-selector's fallback beside it, and names nothing about the defaulting.
-
-**`fl_frontend/src/features/saisons/resolvers.ts :: resolveSaisonId` opens by defaulting its awaited
-search parameters to an empty object, and what it awaits is not typed as optional.**
-`fl_frontend/src/shared/types/types.ts :: NextPageProps` declares `searchParams` as a `Promise` of a
-record, `fl_frontend/tsconfig.json` sets `strict`, and every call site is a page or a component a
-page hands its own props to — so no caller the checker admits can supply the value the default
-exists for.
-
-**What the default buys if it is reached at all.** Without it, an absent object throws where the next
-line reads a key. With it, the function degrades to the backend's own default season. So it trades a
-loud failure for a silent one, on a path the checker says nothing reaches.
-
-**What I could not verify (COR-9).** Whether Next.js itself ever renders a page without
-`searchParams`. The type this repository relies on is its own declaration rather than the framework's,
-and Next 16.3.0 emits its own page-props type into a build directory this session has no build for.
-The cheapest way to settle it is to read that generated type after a build, or the framework's
-reference for the page convention. The reading I chose is that the branch is unreachable; the reading
-I rejected is that the framework may omit the value on some render path, which nothing here refutes.
-
-**What ranks it here.** One token, and almost no doubt removed by taking it out — but the same token
-is what a reader has to decide about every time this function is edited, and this function is what
-every season-scoped page opens with.
-
-**What concluded it: the open question settled against the framework's own emitted type, then the
-token removed.** A build of the installed Next 16.3.0 emits `PageProps` into `.next/types/routes.d.ts`
-declaring `searchParams: Promise<Record<string, string | string[] | undefined>>` — required, not
-optional, resolving to a record and never to nothing — so the framework itself types the value as
-always arriving and the default guarded a branch no caller and no render path reaches.
-`fl_frontend/src/features/saisons/resolvers.ts :: resolveSaisonId` now awaits the promise bare. The
-redirect and `SaisonSelector`'s fallback stand untouched, as the `Path` line requires.
-
-### 51 · BE-38 — A squad-number helper has no caller, and its docstring is the only record of the rule it states
+### 50 · BE-38 — A squad-number helper has no caller, and its docstring is the only record of the rule it states
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -2693,12 +2652,11 @@ again from scratch.
 
 **What ranks it here.** Above **FE-32**: each costs a maintainer rather than a user, but that one's doubt is
 settled by reading the sentence beside the id, and this one's only by searching the backend for a caller.
-Below **FE-20**: the same shape of code no caller reaches, sitting in the function every season-scoped page
-opens with rather than among one slice's helpers, so it is re-decided far more often. Deliberately not near
+Deliberately not near
 **BE-34**, which reads like the same finding and is not — that index's unserved half is a read somebody
 wants built, so landing it adds a capability, and nothing here adds one.
 
-### 52 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
+### 51 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2767,7 +2725,7 @@ edit's freedom to part them. Above **FE-32**: that entry misleads nobody and its
 beside the id, where this one's is answered only by noticing that a helper's reach stops short of a
 module, which nothing on either side says.
 
-### 53 · FE-32 — A banner's id names a derivation its own sentence does not state
+### 52 · FE-32 — A banner's id names a derivation its own sentence does not state
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2801,7 +2759,7 @@ when they were written, so rewriting an id there falsifies a record instead of c
 of leaving it is one maintainer's minute in a module that is read whenever a venue's banners change,
 and that is less than every entry above it.
 
-### 54 · BE-7 — `typing` imports instead of `collections.abc`
+### 53 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -2814,7 +2772,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 55 · BE-14 — The certainty walk gives up in a group of six or more
+### 54 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -2873,7 +2831,7 @@ deduplicated, but inside a transaction, whose lifetime is bounded.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 56 · BE-47 — A sort option nothing sends scans the archive it sorts
+### 55 · BE-47 — A sort option nothing sends scans the archive it sorts
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -2914,7 +2872,7 @@ unreachable into the ordinary path and makes the plan above the one an administr
 does not hold. That no caller sends `sort_by` was read off the page and the absence of another consumer
 rather than proven by instrumenting the endpoint.
 
-### 57 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
+### 56 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
 
 **Status:** Standing\
 **Surfaces:** BE\
