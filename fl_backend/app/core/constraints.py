@@ -587,6 +587,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "kontakte": _BEWERBUNG_KONTAKTE,
                 "trikot": _BEWERBUNG_TRIKOT,
                 "kader": _BEWERBUNG_KADER,
+                # Free text, a school being free to name an opponent that has not applied. Out of
+                # `required` for `saison_teams.trikot_farbe`'s reason: an application stored before
+                # the field carries none, and the triage's `$set` re-runs this over the whole document.
+                "wunschgegner": {"bsonType": _STRING_OR_NULL},
                 "entscheidung": _BEWERBUNG_ENTSCHEIDUNG,
             },
         )

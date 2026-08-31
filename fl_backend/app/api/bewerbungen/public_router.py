@@ -7,10 +7,12 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungKuerzelResponse,
     FLBewerbungSchulenResponse,
     FLBewerbungSchuleOptionListAdapter,
+    FLBewerbungTrikotFarbenResponse,
     FLPostBewerbungPayload,
     FLPostBewerbungResponse,
 )
 from app.api.bewerbungen.services import (
+    assigned_trikot_farben,
     compose_kontakte,
     find_already_entered_refusal,
     find_picked_club_refusal,
@@ -151,6 +153,32 @@ async def get_kuerzel(shorthand: str, teams_collection: TeamsCollection) -> FLBe
     return FLBewerbungKuerzelResponse(shorthand=shorthand, vergeben=taken > 0)
 
 
+@router.get(
+    "/trikotfarben/{saison_id}", response_model=FLBewerbungTrikotFarbenResponse, summary="The kit colours a Saison has already assigned"
+)
+async def get_trikotfarben(saison_id: str, saison_teams_collection: SaisonTeamsCollection) -> FLBewerbungTrikotFarbenResponse:
+    """
+    Answer which kit colours this season has assigned, so the form can offer the rest.
+
+    The SET alone, naming no club: a colour beside a school would tell an anonymous visitor which
+    kit that school wears (`READ-BEWERBUNG-001`).
+    """
+
+    # `distinct`, never a document read: what leaves the database is the field's values, so no
+    # projection or response model stands between a club's row and this body.
+
+    # A row a club LEFT the season on still holds its colour, and this makes no exception for one:
+    # the assignment stands until an administrator clears it, which is the set the admin sees too.
+    stored = await saison_teams_collection.distinct("trikot_farbe", {"saison_id": saison_id})
+
+    # No `refuse_withheld_saison`: a season taking applications is `future`, so the gate would 404
+    # every season this read exists for. A deliberate carve-out from I47, as the window reads are.
+
+    # An id naming no season answers the empty set, which is what a season with nothing assigned
+    # answers -- so nothing here tells the two apart.
+    return FLBewerbungTrikotFarbenResponse(saison_id=saison_id, vergeben=assigned_trikot_farben(stored=stored))
+
+
 @router.post("", response_model=FLPostBewerbungResponse, summary="Submit a Bewerbung")
 async def post_bewerbung(
     bewerbung_data: Annotated[FLPostBewerbungPayload, Body()],
@@ -213,6 +241,10 @@ async def post_bewerbung(
             "kontakte": compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today),
             "trikot": bewerbung_data.trikot.model_dump(mode="json"),
             "kader": bewerbung_data.kader.model_dump(mode="json"),
+            # Written even where the applicant named nobody, though the validator does not require
+            # it: every application this endpoint creates then carries the key, and only the ones
+            # stored before the field lack it.
+            "wunschgegner": bewerbung_data.wunschgegner,
             # Null until the triage decides, which is what `status == "eingereicht"` claims.
             "entscheidung": None,
         },

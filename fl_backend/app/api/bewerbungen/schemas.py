@@ -31,6 +31,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_TEAM_NAME_MAX_LENGTH,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WEBSITE_URL_MAX_LENGTH,
+    BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
@@ -128,6 +129,15 @@ class FLBewerbung(BaseModel):
     kontakte: FLSaisonTeamKontakte
     trikot: FLBewerbungTrikot
     kader: FLBewerbungKader
+    # A FREE STRING, never a club reference: the school may name an applicant the league has not
+    # accepted yet, and a picker over the accepted ones would give a LATER applicant the longer list.
+
+    # Beside `trikot` and `kader` rather than inside either: it is a fact about the fixture this
+    # school wants, and neither the kit it owns nor its own estimate of its squad.
+
+    # Defaulted for `app/api/teams/schemas.py :: FLTeam`'s reason: an application stored before the
+    # field carries no key, and a model that 422s over one describes a stored document as impossible.
+    wunschgegner: str | None = None
     entscheidung: FLBewerbungEntscheidung | None
 
 
@@ -489,6 +499,18 @@ class FLPostBewerbungPayload(BaseModel):
     kontakte: FLBewerbungKontaktePayload
     trikot: FLBewerbungTrikotPayload
     kader: FLBewerbungKaderPayload
+    # DEFAULTED where this payload's other nullable keys are required: naming an opponent is
+    # optional, and a form deployed before the field omits it rather than 422ing on every submission.
+
+    # Constrained as `FLBewerbungSchulePayload.team_name` is, and for its reason: the decision mail
+    # writes one `label: value` per line, so a name holding an interior break forges a line.
+
+    # No floor, `parse_empty_string_to_none` leaving nothing between null and a real name:
+    # `min_length` counts characters, so spaces alone would be stored as a wish the school made.
+    wunschgegner: Annotated[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, pattern=r"^[^\r\n]*$")] | None,
+        BeforeValidator(parse_empty_string_to_none),
+    ] = None
 
 
 class FLBewerbungSchuleOption(BaseModel):
@@ -534,6 +556,19 @@ class FLBewerbungKuerzelResponse(BaseAPIResponse):
 
     shorthand: str
     vergeben: bool
+
+
+class FLBewerbungTrikotFarbenResponse(BaseAPIResponse):
+    """Which kit colours one season has already ASSIGNED. A set, and nothing about who holds one.
+
+    An allow-list declared from nothing, as `FLBewerbungSchuleOption` is (`READ-BEWERBUNG-001`): a
+    colour beside a club would publish which kit that school wears.
+    """
+
+    saison_id: str
+    # `vergeben` as the Kürzel read means it -- taken, and by nobody this answer names. A LIST rather
+    # than a set, JSON having none; `assigned_trikot_farben` is what makes it distinct and ordered.
+    vergeben: list[FLTrikotFarbe]
 
 
 class FLPostBewerbungResponse(BaseAPIResponse):

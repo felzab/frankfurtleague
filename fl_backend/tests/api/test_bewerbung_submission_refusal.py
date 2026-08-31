@@ -6,8 +6,9 @@ import pytest
 from bson import ObjectId
 from pydantic import ValidationError
 
-from app.api.bewerbungen.public_router import get_schulen
+from app.api.bewerbungen.public_router import get_schulen, get_trikotfarben
 from app.api.bewerbungen.schemas import (
+    FLBewerbung,
     FLBewerbungKader,
     FLBewerbungKontaktePayload,
     FLBewerbungKontaktpersonPayload,
@@ -25,6 +26,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_PICKED_CLUB_UNUSABLE,
     BEWERBUNG_SHORTHAND_TAKEN,
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
+    assigned_trikot_farben,
     compose_einwilligung,
     compose_kontakte,
     find_already_entered_refusal,
@@ -46,6 +48,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_TEAM_NAME_MAX_LENGTH,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WEBSITE_URL_MAX_LENGTH,
+    BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
 )
 
 # Fixed rather than generated, so a failure names the same club every run. Its own hex range, as
@@ -1073,6 +1076,93 @@ class TestTheColourTheSchoolWants:
         assert FLBewerbungTrikot.model_validate({"vorhandener_satz": "", "wunschfarbe": None}).wunschfarbe is None
 
 
+def stored_application(**overrides: Any) -> dict[str, Any]:
+    """One application in the shape the triage READS it, which is where a narrowed model would fail."""
+
+    return {
+        "_id": str(PICKED_OID),
+        "saison_id": "2026",
+        "eingereicht_am": TODAY,
+        "status": "eingereicht",
+        "team_id": str(PICKED_OID),
+        "schule": None,
+        "kontakte": compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY),
+        "trikot": {"vorhandener_satz": "12 rote Trikots", "wunschfarbe": "blau"},
+        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 4},
+        "entscheidung": None,
+        **overrides,
+    }
+
+
+class TestTheOpponentTheSchoolWants:
+    """A free string and never a reference: a school may name an applicant the league has not accepted yet.
+
+    Optional on the payload where the other nullable fields are required-and-null: the key is one a
+    form deployed before it does not send.
+    """
+
+    def test_a_submission_naming_nobody_is_accepted(self):
+        """The whole of the rest of this module omits the key, so this is what keeps that honest."""
+
+        assert FLPostBewerbungPayload.model_validate(submission()).wunschgegner is None
+
+    @pytest.mark.parametrize(
+        "submitted",
+        [pytest.param(None, id="an explicit null"), pytest.param("", id="an empty box"), pytest.param("   ", id="spaces alone")],
+    )
+    def test_an_empty_wish_is_stored_as_a_null_rather_than_a_blank(self, submitted: str | None):
+        """One spelling of "no preference": a stored `""` is a second, and the triage would render it as a wish."""
+
+        assert FLPostBewerbungPayload.model_validate(submission(wunschgegner=submitted)).wunschgegner is None
+
+    def test_a_named_opponent_survives_intact(self):
+        """The control: a field answering `None` to everything would satisfy every case above."""
+
+        assert FLPostBewerbungPayload.model_validate(submission(wunschgegner="Zorbanax")).wunschgegner == "Zorbanax"
+
+    def test_a_padded_wish_is_trimmed_rather_than_refused(self):
+        assert FLPostBewerbungPayload.model_validate(submission(wunschgegner="  Zorbanax  ")).wunschgegner == "Zorbanax"
+
+    @pytest.mark.parametrize("line_break", ["\n", "\r\n", "\r"])
+    def test_a_wish_carrying_an_interior_break_is_refused(self, line_break: str):
+        """Constrained as `team_name` is, and for its reason: the decision mail writes one `label: value` per line."""
+
+        with pytest.raises(ValidationError):
+            FLPostBewerbungPayload.model_validate(submission(wunschgegner=f"Zorbanax{line_break}Entscheidung: Absage"))
+
+    @pytest.mark.parametrize("line_break", ["\n", "\r\n", "\r"])
+    def test_a_wish_padded_with_a_break_is_repaired_rather_than_refused(self, line_break: str):
+        """`strip_whitespace` runs BEFORE the pattern, so only an interior break can forge a line."""
+
+        padded = submission(wunschgegner=f"{line_break}Zorbanax{line_break}")
+
+        assert FLPostBewerbungPayload.model_validate(padded).wunschgegner == "Zorbanax"
+
+    def test_a_wish_over_the_ceiling_is_refused(self, assert_rejects):
+        """An anonymous caller writes it and the record stores it, which is the pair a bound is earned on."""
+
+        assert_rejects(FLPostBewerbungPayload, submission(wunschgegner="Z" * (BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH + 1)), "wunschgegner")
+
+    def test_a_wish_at_the_ceiling_is_accepted(self):
+        """The control: without it the case above would pass on a field that refuses everything."""
+
+        at_the_bound = submission(wunschgegner="Z" * BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH)
+
+        assert len(cast(str, FLPostBewerbungPayload.model_validate(at_the_bound).wunschgegner)) == BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH
+
+    def test_an_application_stored_before_the_field_still_reads(self):
+        """The direction that ships silently: the validator cannot require the key, so the triage meets documents without it."""
+
+        assert FLBewerbung.model_validate(stored_application()).wunschgegner is None
+
+    def test_the_read_model_takes_a_stored_value_over_the_ceiling(self):
+        """The bound is the WRITE side's alone: refusing on read would 500 the triage list over one row (`docs/backend/spec.md :: I36`)."""
+
+        over = stored_application(wunschgegner="Z" * (BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH * 2))
+
+        assert FLBewerbung.model_validate(over).wunschgegner is not None
+
+
 class TestAPastedWebsiteIsTrimmedToFit:
     """`validate_external_url` leaves surrounding whitespace on the value, so the payloads strip first.
 
@@ -1184,9 +1274,11 @@ class _RecordingCollection:
     def __init__(self, documents: list[dict[str, Any]]) -> None:
         self._documents = documents
         self.projection: Any = "the read never ran"
+        self.db_filter: Any = "the read never ran"
 
     def find(self, *, filter: Any = None, projection: Any = None, session: Any = None) -> _RecordingCursor:
         self.projection = projection
+        self.db_filter = filter
 
         return _RecordingCursor(self._documents)
 
@@ -1216,4 +1308,74 @@ class TestTheClubListAsksTheDatabaseForTwoFields:
 
         asyncio.run(get_schulen(teams_collection=cast(Any, collection)))
 
-        assert collection.projection == ["name"]
+        assert collection.db_filter == {"inactive_since": None}
+
+
+class _DistinctCollection:
+    """A junction that answers `distinct` and remembers the field and the filter it was asked for.
+
+    It answers no `find` at all, so an endpoint reading documents here fails rather than passing on
+    a narrowing that never ran.
+    """
+
+    def __init__(self, values: list[Any]) -> None:
+        self._values = values
+        self.key: Any = "the read never ran"
+        self.db_filter: Any = "the read never ran"
+
+    async def distinct(self, key: str, filter: Any = None) -> list[Any]:
+        self.key = key
+        self.db_filter = filter
+
+        return list(self._values)
+
+
+class TestTheColoursASeasonHasAlreadyAssigned:
+    """What the public form excludes from its Wunschfarbe picker, taken from the ASSIGNMENTS and never from another applicant's wish."""
+
+    def test_the_palette_orders_the_answer_rather_than_the_junction(self):
+        """Sorted by the league's own vocabulary, so two identical seasons never answer in two orders."""
+
+        assert assigned_trikot_farben(stored=["rot", "weiss", "blau"]) == ["weiss", "rot", "blau"]
+
+    def test_a_row_with_no_colour_assigned_contributes_nothing(self):
+        """`trikot_farbe` is nullable and outside the validator's `required`, so `distinct` yields a null and a missing key alike."""
+
+        assert assigned_trikot_farben(stored=[None, "rot"]) == ["rot"]
+
+    def test_a_value_outside_the_palette_is_dropped_rather_than_served(self):
+        """Filtered THROUGH the palette: a stray value would fail `FLTrikotFarbe` and 500 a public page."""
+
+        assert assigned_trikot_farben(stored=["zorbanaxgruen", "rot"]) == ["rot"]
+
+    def test_a_season_holding_no_assignment_answers_the_empty_set(self):
+        assert assigned_trikot_farben(stored=[]) == []
+
+    def test_the_whole_palette_survives_the_filter(self):
+        """The control, over the whole enum: a filter dropping everything would satisfy the cases above."""
+
+        offered = list(get_args(FLTrikotFarbe))
+
+        assert assigned_trikot_farben(stored=list(reversed(offered))) == offered
+
+    def test_the_read_asks_the_junction_for_one_field_of_one_season(self):
+        """`distinct`, so what leaves the database is the values -- no document carrying the club beside its colour."""
+
+        collection = _DistinctCollection(["rot", None])
+
+        response = asyncio.run(get_trikotfarben(saison_id="2026", saison_teams_collection=cast(Any, collection)))
+
+        assert collection.key == "trikot_farbe"
+        assert collection.db_filter == {"saison_id": "2026"}
+        # Non-vacuous: the read really ran and really served the colour, so what is asserted above is
+        # what it asked for rather than a request nothing made.
+        assert response.vergeben == ["rot"]
+
+    def test_the_body_carries_the_season_and_the_colours_and_nothing_else(self):
+        """The allow-list, asserted as an exact membership: a subset relation would survive a field added to it."""
+
+        collection = _DistinctCollection([])
+
+        response = asyncio.run(get_trikotfarben(saison_id="2026", saison_teams_collection=cast(Any, collection)))
+
+        assert set(response.model_dump()) == {"acknowledged", "saison_id", "vergeben"}

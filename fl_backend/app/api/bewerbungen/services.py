@@ -1,8 +1,8 @@
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence, get_args
 
 from pydantic import ValidationError
 
-from app.api.teams.schemas import FLPostTeamPayload
+from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 
@@ -255,6 +255,20 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
     composed["trainer_ist_zugleich"] = kontakte["trainer_ist_zugleich"]
 
     return composed
+
+
+def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
+    """The season's assigned colours, in the palette's own order.
+
+    Filtered THROUGH the palette, not merely sorted by it: a row assigned nothing yields a null, and
+    one predating the enum a value the model cannot serve.
+    """
+
+    # The public form excludes what this returns, so the picker stays workable only while
+    # `FLTrikotFarbe` outnumbers a season's teams -- past that a late applicant is left nothing.
+    held = {value for value in stored if isinstance(value, str)}
+
+    return [farbe for farbe in get_args(FLTrikotFarbe) if farbe in held]
 
 
 def build_bewerbungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]:

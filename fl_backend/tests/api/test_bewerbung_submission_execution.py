@@ -252,6 +252,32 @@ class TestWhatASubmissionStores:
                 "datum": TODAY,
             }
 
+    def test_the_named_opponent_is_stored_as_the_school_wrote_it(self, mongo_replica_set_url: str):
+        """A free string and never a reference: nothing resolves it against a club, at the write or afterwards."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Mapping[str, Any]:
+            response = await submit(database, wunschgegner="Zorbanax-Gesamtschule")
+            stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
+
+            assert stored is not None
+            return stored
+
+        assert on_a_league(mongo_replica_set_url, body)["wunschgegner"] == "Zorbanax-Gesamtschule"
+
+    def test_a_submission_naming_no_opponent_still_writes_the_key(self, mongo_replica_set_url: str):
+        """The validator cannot require it, so only the write keeps every application this endpoint makes one shape."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Mapping[str, Any]:
+            response = await submit(database)
+            stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
+
+            assert stored is not None
+            return stored
+
+        stored = on_a_league(mongo_replica_set_url, body)
+
+        assert "wunschgegner" in stored and stored["wunschgegner"] is None
+
     def test_the_response_echoes_nothing_of_the_submission(self, mongo_replica_set_url: str):
         """The three people's details went one way; a body repeating them is a copy in every proxy between."""
 
@@ -519,6 +545,22 @@ def _parsed_kontakte() -> dict[str, Any]:
     return FLPostBewerbungPayload.model_validate(payload()).kontakte.model_dump(mode="json")
 
 
+def _application_without_a_wish() -> dict[str, Any]:
+    """One application in the shape every one stored before `wunschgegner` existed carries: no such key."""
+
+    return {
+        "saison_id": SAISON_ID,
+        "eingereicht_am": TODAY,
+        "status": "eingereicht",
+        "team_id": EXISTING_OID,
+        "schule": None,
+        "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY),
+        "trikot": {"vorhandener_satz": "16 rote Trikots", "wunschfarbe": "rot"},
+        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+        "entscheidung": None,
+    }
+
+
 def _stored_with(database: AsyncIOMotorDatabase, kader: Mapping[str, Any]) -> Awaitable[str]:
     """One application inserted straight past the models, so only the `$jsonSchema` can be refusing it."""
 
@@ -672,6 +714,45 @@ class TestTheDatabaseStillHoldsAnApplicationWithNoColour:
             return "accepted"
 
         assert on_a_league(mongo_replica_set_url, body) == "rejected"
+
+
+class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheOpponentField:
+    """`wunschgegner` is outside the validator's `required`, which every application predating it depends on.
+
+    The triage's `$set` re-runs the validator over the WHOLE document, so requiring the key would
+    refuse every decision on one of those.
+    """
+
+    def test_a_document_carrying_no_key_at_all_is_accepted(self, mongo_replica_set_url: str):
+        """The shipped `$jsonSchema`, so a document production would refuse fails here too."""
+
+        async def body(database: AsyncIOMotorDatabase) -> Any:
+            created = await database[Collection.BEWERBUNGEN].insert_one(_application_without_a_wish())
+            stored = await database[Collection.BEWERBUNGEN].find_one({"_id": created.inserted_id})
+
+            assert stored is not None
+            # Read back through `FLBewerbung`, not off the raw document: parsing is where a model
+            # without the default would fail.
+            return FLBewerbung(**stored).wunschgegner
+
+        assert on_a_league(mongo_replica_set_url, body) is None
+
+    def test_a_decision_on_one_is_still_accepted(self, mongo_replica_set_url: str):
+        """The failure that would ship silently: nothing writes `wunschgegner`, and the whole document is re-validated."""
+
+        async def body(database: AsyncIOMotorDatabase) -> str:
+            created = await database[Collection.BEWERBUNGEN].insert_one(_application_without_a_wish())
+            try:
+                await database[Collection.BEWERBUNGEN].update_one(
+                    {"_id": created.inserted_id},
+                    {"$set": {"status": "abgelehnt", "entscheidung": {"getroffen_am": TODAY, "von": "admin", "grund": "kein Platz"}}},
+                )
+            except OperationFailure as failure:
+                assert failure.code == DOCUMENT_VALIDATION_FAILED, f"expected a validation failure, got {failure.code}"
+                return "rejected"
+            return "accepted"
+
+        assert on_a_league(mongo_replica_set_url, body) == "accepted"
 
 
 class TestAKuerzelARetiredClubStillHolds:
