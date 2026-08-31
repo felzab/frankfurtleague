@@ -1,6 +1,5 @@
 # Backend tests
 
-**Verified against:** `d828ee1c`, 2026-08-26\
 **Folder purpose:** the regression net under the backend's validation rules — the constraints the
 frontend mirrors rather than enforces, plus what MongoDB actually does with them.
 

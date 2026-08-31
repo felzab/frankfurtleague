@@ -410,7 +410,7 @@ if (( RUN_SCRIPTS )); then
 These are the same errors Pylance shows in the editor."
   ok "the gate's own types are clean"
 
-  # Every check `scripts/check_docs.py :: CHECKS` registers runs against a fixture repo (CUR-5).
+  # Every check `scripts/check_docs.py :: CHECKS` registers runs against a fixture repo (PRE-4).
   # pytest answers its own codes, not the kernel's: 2 is a collection error, which `run_checker`
   # would announce as a considered refusal.
   step "scripts · pytest  (the documentation gate's fixture net, and the kernel's floors)"
@@ -431,16 +431,16 @@ fi
 # --- docs ------------------------------------------------------------------------------------------
 
 # A dangling rule id, a dead link and a citation whose anchor has gone are invisible to every
-# other check here, and each still reads as though it means something (CUR-5).
+# other check here, and each still reads as though it means something.
 if (( RUN_DOCS )); then
   section docs
   DOCS_OK=1
 
   # They collect rather than stop: stopping at the first leaves the commit messages unexamined
   # while the exit code reads as though they were checked.
-  step "docs · citations, links and stamps"
+  step "docs · citations, links and shapes"
   if run_checker collect "scripts/check_docs.py" "The documentation gate failed. Each finding above names its file
-and what no longer resolves. Rules: docs/_standard/chapters/5-currency.md" \
+and what no longer resolves. Checks: scripts/docs_gate/kernel.py :: CHECKS" \
     "$PY" scripts/check_docs.py; then
     ok "documentation references resolve"
   else

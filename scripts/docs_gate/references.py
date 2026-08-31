@@ -20,12 +20,7 @@ from .kernel import (
     REPO_PREFIXES,
     REPO_ROOT,
     SCANNED_SUFFIXES,
-    STAMP_LINE_NUMBER,
-    STAMP_START_RE,
-    STRICT_STAMP_RE,
-    TEMPLATE_EXEMPT_CHECKS,
     Finding,
-    _is_template,
     _read_text,
     _scan_body,
     _tree_index,
@@ -109,10 +104,7 @@ def unwrapped(body: str, markers: tuple[str, ...] = ()) -> str:
 
 
 def _resolve(file_part: str) -> list[Path]:
-    """A citation may give a repo path, a package-relative one, or an unambiguous bare filename.
-
-    A bare name resolves against the tracked index, templates taken out (CUR-5).
-    """
+    """A citation may give a repo path, a package-relative one, or an unambiguous bare filename."""
     direct = REPO_ROOT / file_part
     if direct.is_file():
         return [direct]
@@ -127,7 +119,7 @@ def _resolve(file_part: str) -> list[Path]:
     # repointing the citation at a similar name, which then passes.
     key = os.path.normcase(file_part)
     named = _tree_index().get(key) or _untracked_index().get(key, ())
-    return [p for p in named if p.is_file() and not _is_template(p)][:5]
+    return [p for p in named if p.is_file()][:5]
 
 
 def names_a_file(file_part: str) -> bool:
@@ -177,7 +169,6 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     """
     rel = path.relative_to(REPO_ROOT).as_posix()
     is_markdown = path.suffix == ".md"
-    is_template = _is_template(path)
     raw, error = _read_text(path)
     if raw is None:
         return [Finding("fail", "unreadable", rel, error)]
@@ -202,9 +193,10 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     for rule_id in sorted(set(RULE_ID_RE.findall(body))):
         homes = rules.get(rule_id, [])
         if not homes:
-            found.append(Finding("fail", "rule-id", rel, f"{rule_id} resolves to no rule heading in a tracked docs/_standard/chapters/ page"))
+            found.append(Finding("fail", "rule-id", rel, f"{rule_id} resolves to no rule in a tracked docs/standard.md"))
         elif len(homes) > 1:
-            found.append(Finding("fail", "rule-id", rel, f"{rule_id} is defined in {' and '.join(homes)} -- a citation cannot say which"))
+            detail = f"{rule_id} has more than one home in docs/standard.md ({' and '.join(homes)}) -- a citation cannot say which"
+            found.append(Finding("fail", "rule-id", rel, detail))
 
     if not is_markdown:
         found.extend(check_invariant_citations(rel, body, invariants))
@@ -222,18 +214,6 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
             continue
         found.append(Finding("fail", "line-citation", rel, f"line-number citation `{citation}` -- anchor it to a symbol (COR-6)"))
 
-    # Only the VALUE is tested for a placeholder: the label's own `**` reads as a wildcard, which
-    # would exempt every stamp there is.
-    if not (is_template and "stamp-format" in TEMPLATE_EXEMPT_CHECKS):
-        for number, line in enumerate(body.split("\n"), start=1):
-            if STAMP_START_RE.match(line) is None or is_placeholder(line.partition(":**")[2]):
-                continue
-            if not STRICT_STAMP_RE.fullmatch(line):
-                found.append(Finding("fail", "stamp-format", rel, f"stamp line is not CUR-3's exact shape: {line.strip()}"))
-            elif is_markdown and number != STAMP_LINE_NUMBER:
-                detail = f"the stamp sits at line {number} -- CUR-3 puts it on line {STAMP_LINE_NUMBER}"
-                found.append(Finding("fail", "stamp-format", rel, detail))
-
     anchors = heading_anchors(body) if is_markdown else set()
     for raw_target, fragment in sorted(set(LINK_RE.findall(body))):
         anchor = fragment[1:]
@@ -243,8 +223,6 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
             if is_markdown and anchor and anchor not in anchors:
                 found.append(Finding("fail", "anchor", rel, f"no heading in this file yields #{anchor}"))
             continue
-        if is_template and "link" in TEMPLATE_EXEMPT_CHECKS:
-            continue
         target = (path.parent / raw_target).resolve()
         if not target.exists():
             found.append(Finding("fail", "link", rel, f"link target does not exist: {raw_target}"))
@@ -253,9 +231,6 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
         # the top and looks correct.
         if anchor and target.suffix == ".md" and (reachable := anchors_of(target)) is not None and anchor not in reachable:
             found.append(Finding("fail", "anchor", rel, f"no heading in {raw_target} yields #{anchor}"))
-
-    if is_template and "path" in TEMPLATE_EXEMPT_CHECKS:
-        return found
 
     for token in sorted(set(BACKTICK_RE.findall(body))):
         # Already reported above, and letting the path check fire too would give one defect two
@@ -341,19 +316,3 @@ def check_invariant_citations(rel: str, body: str, invariants: dict[str, list[st
             continue
         found.append(Finding("fail", "rule-id", rel, f"bare `{match.group(1)}`, which {' and '.join(homes)} both define -- name the sheet"))
     return found
-
-
-def cited_paths(body: str) -> set[str]:
-    """Repo paths a page points at: the file half of each citation, plus backticked repo paths."""
-    out: set[str] = set()
-    for citation in CITATION_RE.findall(unwrapped(body)):
-        if is_placeholder(citation):
-            continue
-        if (resolved := repo_path(citation.partition(" :: ")[0].strip())) is not None:
-            out.add(resolved)
-    for token in BACKTICK_RE.findall(body):
-        if " :: " in token or is_placeholder(token):
-            continue
-        if (resolved := repo_path(token)) is not None:
-            out.add(resolved)
-    return out

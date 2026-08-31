@@ -1,7 +1,5 @@
 # Logging
 
-**Verified against:** `6adfac16`, 2026-08-30
-
 **Folder purpose:** how a request is followed across nginx, the frontend and the backend — what a
 log line is on each surface, what an error code means, and how to get from a symptom to the right
 lines.

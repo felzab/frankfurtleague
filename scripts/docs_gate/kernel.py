@@ -30,11 +30,6 @@ REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
 # node_modules and .venv are vendored and not ours to hold to this standard.
 SKIP_DIRS: Final[tuple[str, ...]] = ("docs/audit", "node_modules", ".venv")
 
-TEMPLATE_MARKERS: Final[tuple[str, ...]] = ("/templates/", "-template.md")
-# Exempt only what resolves from where the template is COPIED to; rule ids and citations are the
-# template's own.
-TEMPLATE_EXEMPT_CHECKS: Final[frozenset[str]] = frozenset({"stamp-format", "path", "link"})
-
 # The comment-bearing source suffixes the gate scans (INC-6).
 SOURCE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs", ".py", ".sh")
 # JSON is NOT here: it is scanned rather than read a line at a time, for `_jsonc_comments`' reason.
@@ -60,8 +55,7 @@ REPO_PREFIXES: Final[tuple[str, ...]] = (
     ".githooks/",
 )
 
-# The roots an unprefixed path is written against, so `src/app/admin/admin.css` resolves. Read as
-# prose, one lets a stamped page cite a file without arming branch-impact against it.
+# The roots an unprefixed path is written against, so `src/app/admin/admin.css` resolves.
 PACKAGE_ROOTS: Final[tuple[str, ...]] = ("fl_frontend/", "fl_backend/")
 
 
@@ -81,28 +75,16 @@ SLUG_DROP_RE: Final = re.compile(r"[^\w\- ]")
 
 
 BACKTICK_RE: Final = re.compile(r"`([^`\n]+?)`")
-STAMP_RE: Final = re.compile(r"\*\*Verified against:\*\*\s*`([0-9a-f]{7,40})`")
-STAMP_LINE_RE: Final = re.compile(r"(?m)^.*\*\*Verified against:\*\*.*$")
-# CUR-3's exact shape plus COR-8's optional hard break. A looser line is still found by the
-# STAMP_RE checks, so the two stay in step.
-STRICT_STAMP_RE: Final = re.compile(r"\*\*Verified against:\*\* `[0-9a-f]{7,40}`, \d{4}-\d{2}-\d{2}\\?")
-# Indentation is tolerated here and refused by the shape above: STAMP_RE reads an indented line
-# as the page's stamp, so the format check has to be shown the same line.
-STAMP_START_RE: Final = re.compile(r"^[ \t]*\*\*Verified against")
-STAMP_LINE_NUMBER: Final = 3
 # Built from the directories rather than written out, so the glob selecting a page, the page a
 # check names and a finding's own file cannot drift apart.
 DOCS_DIR: Final = "docs"
-CHAPTERS_DIR: Final = f"{DOCS_DIR}/_standard/chapters"
 ROADMAP_DIR: Final = f"{DOCS_DIR}/_roadmap"
 SPEC_GLOB: Final = f"{DOCS_DIR}/*/spec.md"
 OVERVIEW_GLOB: Final = f"{DOCS_DIR}/*/overview.md"
-CHAPTER_GLOB: Final = f"{CHAPTERS_DIR}/*.md"
 ROADMAP_GLOB: Final = f"{ROADMAP_DIR}/*.md"
 # A fixed page is its own glob, so one spelling answers `tracked_glob` and `tracked_page` alike.
 GLOSSARY_PAGE: Final = f"{DOCS_DIR}/glossary.md"
-RULES_INDEX_PAGE: Final = f"{DOCS_DIR}/_standard/rules-index.md"
-CURRENCY_PAGE: Final = f"{CHAPTERS_DIR}/5-currency.md"
+STANDARD_PAGE: Final = f"{DOCS_DIR}/standard.md"
 ROADMAP_PAGE: Final = f"{ROADMAP_DIR}/open-items.md"
 ROADMAP_TOOLING_PAGE: Final = f"{ROADMAP_DIR}/tooling-items.md"
 TEMPLATES_PAGE: Final = f"{DOCS_DIR}/_git/templates.md"
@@ -112,22 +94,16 @@ SWEEP_PAGE: Final = ".claude/commands/docs/audit.md"
 # asked of these by name instead.
 ROADMAP_RANKED_PAGES: Final[tuple[str, ...]] = (ROADMAP_PAGE, ROADMAP_TOOLING_PAGE)
 
-# The part of CUR-3's criterion a path decides. Which other pages make a current-state claim is a
-# judgment about content, and stays one.
-STAMP_REQUIRED_GLOBS: Final[tuple[str, ...]] = (SPEC_GLOB, OVERVIEW_GLOB, GLOSSARY_PAGE, CHAPTER_GLOB)
-
 
 Severity = Literal["fail", "report"]
 
-# `check-registry` holds CUR-5's table to this mapping and `Finding` refuses a name absent from
-# it, so a check cannot reach a run before its row in that table exists.
+# The registry of record for the gate's checks: `enforced-by` resolves `docs/standard.md`'s claims
+# against it, and `Finding` refuses a name absent from it, so no check reaches a run unregistered.
 CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "anchor": frozenset({"fail"}),
     "bare-path": frozenset({"fail"}),
     "binary-byte": frozenset({"fail"}),
-    "branch-impact": frozenset({"fail"}),
     "branch-scope": frozenset({"report"}),
-    "check-registry": frozenset({"fail"}),
     "citation": frozenset({"fail"}),
     "comment-citation": frozenset({"fail", "report"}),
     "comment-length": frozenset({"fail"}),
@@ -155,14 +131,10 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "readme-cap": frozenset({"fail"}),
     "roadmap-shape": frozenset({"fail"}),
     "rule-id": frozenset({"fail"}),
-    "rule-index": frozenset({"fail"}),
     "rule-shape": frozenset({"fail"}),
     "segment-map": frozenset({"fail"}),
     "sha": frozenset({"report"}),
     "spec-spine": frozenset({"fail"}),
-    "stamp": frozenset({"fail", "report"}),
-    "stamp-format": frozenset({"fail"}),
-    "stamp-missing": frozenset({"fail"}),
     "template-fragment": frozenset({"fail"}),
     "unreadable": frozenset({"fail"}),
 }
@@ -312,11 +284,6 @@ def _skipped(path: Path) -> bool:
     rel = path.relative_to(REPO_ROOT).as_posix()
     segments = rel.split("/")
     return any(rel == d or rel.startswith(f"{d}/") or ("/" not in d and d in segments) for d in SKIP_DIRS)
-
-
-def _is_template(path: Path) -> bool:
-    """A copy-from page: checked, but not for the two things that only resolve after it is copied."""
-    return any(marker in f"/{path.relative_to(REPO_ROOT).as_posix()}" for marker in TEMPLATE_MARKERS)
 
 
 def _shell_comments(text: str) -> str:

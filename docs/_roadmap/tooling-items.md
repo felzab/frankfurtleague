@@ -1,6 +1,5 @@
 # Tooling items
 
-**Verified against:** `7f89dd14`, 2026-08-31\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -50,14 +49,14 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 1   | OPS-93 | The origin trusts every source inside Cloudflare's ranges          | Ops, Docs         | S      | Open     | —          |
 | 2   | OPS-94 | A sweep that enumerates its subjects cannot falsify its own claim  | FE, Ops, Docs     | M      | Open     | —          |
 | 3   | OPS-60 | The gate saturates the machine, then idles through its tail        | Ops               | M      | Open     | —          |
-| 4   | OPS-80 | One stamp move clears a branch's every later edit                  | Ops, Docs         | S      | Open     | —          |
+| 4   | OPS-80 | One stamp move clears a branch's every later edit                  | Ops, Docs         | S      | Closed   | —          |
 | 5   | OPS-91 | A continuation citation is resolved and checked by nothing         | Ops, Docs         | M      | Open     | —          |
-| 6   | OPS-82 | A citation written as a link arms no re-verification               | Ops, Docs         | S      | Open     | —          |
-| 7   | OPS-86 | A root-level file arms no page, whatever cites it                  | Ops, Docs         | S      | Open     | —          |
-| 8   | OPS-75 | The comment reader drops the blocks it exists to measure           | Ops, Docs         | S      | Open     | —          |
+| 6   | OPS-82 | A citation written as a link arms no re-verification               | Ops, Docs         | S      | Closed   | —          |
+| 7   | OPS-86 | A root-level file arms no page, whatever cites it                  | Ops, Docs         | S      | Closed   | —          |
+| 8   | OPS-75 | The comment reader drops the blocks it exists to measure           | Ops, Docs         | S      | Closed   | —          |
 | 9   | OPS-98 | A formatter reshapes a comment before INC-9 measures it            | BE, Ops, Docs     | S      | Open     | —          |
 | 10  | OPS-90 | A passing scope leaves the report when an earlier one fails        | Ops               | S      | Open     | —          |
-| 11  | OPS-99 | The armed set CUR-4 computes is never reported, only re-derived    | Ops, Docs         | S      | Open     | —          |
+| 11  | OPS-99 | The armed set CUR-4 computes is never reported, only re-derived    | Ops, Docs         | S      | Closed   | —          |
 | 12  | OPS-84 | The linter runs a version past its end of life                     | FE, Ops, Docs     | M      | Open     | —          |
 | 13  | OPS-97 | No check can render a Server Component, so §6's rule is unenforced | FE, Ops, Docs     | L      | Open     | —          |
 | 14  | OPS-67 | The runner cannot load a component, so none is tested              | FE, Ops, Docs     | M      | Open     | —          |
@@ -72,7 +71,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 23  | OPS-73 | A copy test pins what its own author wrote                         | FE, Ops, Docs     | M      | Open     | —          |
 | 24  | OPS-61 | The commit hook's scratch is a path git cannot open                | Ops               | S      | Open     | —          |
 | 25  | OPS-79 | A projection's coupling is guarded in one direction only           | BE, Ops           | M      | Open     | —          |
-| 26  | OPS-62 | A pin bump arms every page citing the workflow                     | Ops, Docs         | S      | Open     | —          |
+| 26  | OPS-62 | A pin bump arms every page citing the workflow                     | Ops, Docs         | S      | Closed   | —          |
 | 27  | OPS-77 | A test fixture asserts the type nothing else checks                | FE, Ops           | M      | Open     | —          |
 | 28  | OPS-72 | The unique-index test pairs by ordinal position                    | BE, Ops           | S      | Open     | —          |
 | 29  | OPS-85 | The gate never reads a stylesheet's comments                       | Ops, Docs         | S      | Open     | —          |
@@ -97,7 +96,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 48  | OPS-2  | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
 | 49  | OPS-3  | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
 | 50  | DOC-3  | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
-| 51  | DOC-4  | A stamp is required by a path and owed by a claim                  | Docs              | —      | Standing | —          |
+| 51  | DOC-4  | A stamp is required by a path and owed by a claim                  | Docs              | —      | Closed   | —          |
 | 52  | DOC-10 | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
 | 53  | OPS-81 | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
 
@@ -420,7 +419,7 @@ the result carries its spread and its run count the way the ones above do.
 
 ### 4 · OPS-80 — One stamp move clears a branch, however many edits follow it
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
 **Path:** Independent of every entry here. Landing it changes what `branch-impact` arms on, which is
@@ -428,6 +427,12 @@ the trigger **DOC-4** records; **OPS-82** and **OPS-86** are the other reasons t
 how they compound is stated at OPS-82; it edits `scripts/docs_gate/branch.py :: check_branch_impact`, whose
 materiality classifier is **OPS-62**'s subject; and it should not ride on a branch that is then
 verified with it, for the reason recorded at **OPS-75**.
+
+**What concluded it.** A ruling of 2026-08-31 retired verification stamps and the
+branch-impact restamp whole: CUR-3 and CUR-4 left `docs/standard.md`, no
+page carries a stamp line any more, and the comparison this entry repairs left
+`scripts/docs_gate/branch.py` together with the checks that ran it. A comparison that no
+longer runs cannot be too weak. The full argument is in the closing commit body.
 
 **`scripts/docs_gate/branch.py :: check_stamp_freshness` compares a page's `Verified against` line at
 the branch's fork point against the same line in the working tree, and fails only where the two are
@@ -548,17 +553,15 @@ same failure in the same check reached by another route, and test 1 separates th
 **Status:** Open\
 **Surfaces:** Ops, Docs\
 **Effort:** M\
-**Path:** Independent. It lands in `scripts/docs_gate/references.py` beside **OPS-82** and **OPS-71**,
-the other entries about what a citation resolves to. It should not ride on one branch with **OPS-80**
-or **OPS-82**, for the reason **OPS-75**'s `Path` line records, and the corpus sweep one of the two
-repairs below needs belongs to `/docs:audit` rather than to any branch (CUR-6).
+**Path:** Independent. It lands in `scripts/docs_gate/references.py` beside **OPS-71** and
+**OPS-95**, the other entries about what a citation resolves to, and the corpus sweep one of
+the two repairs below needs belongs to `/docs:audit` rather than to any branch (CUR-6).
 
 **`scripts/docs_gate/references.py :: CITATION_RE` requires at least one character before the `::`,
 so the continuation form — a table cell naming a file once and then citing several of its symbols in
-a row, each written as the separator and the symbol alone — matches nothing.** The `citation` check
-never resolves it, and `scripts/docs_gate/references.py :: cited_paths` reads the same pattern, so the
-file it means is armed by that citation never either. **The gate therefore proves the full citation
-standing beside it and says nothing at all about the continuation**, in one pass over one page.
+a row, each written as the separator and the symbol alone — matches nothing.** The `citation`
+check never resolves it. **The gate therefore proves the full citation standing beside it and
+says nothing at all about the continuation**, in one pass over one page.
 
 **Measured over the tracked corpus on 2026-08-30: 182 of them across seven pages** —
 `docs/backend/spec.md` heaviest, then [`open-items.md`](open-items.md), this page,
@@ -590,15 +593,13 @@ above until the corpus is edited to suit it. Or **ban the form**: report an unma
 finding and require the file part every time. The second costs one sweep of every site it names and
 leaves nothing to remember; the first keeps a table cell short.
 
-**Why it ranks where it does.** Test 1 puts it above **OPS-82** and **OPS-86**: each of those narrows
-what `branch-impact` arms, whose failure is a page nobody is asked to re-read, while this defeats
-`cited_paths` and the `citation` check both — the anchor is never proved and the file is never armed.
-The same test puts **OPS-80** above it for the reason **OPS-82**'s entry states, that entry's argument
-about a repaired resolution buying a restamped page nothing reaching this one unchanged.
+**Why it ranks where it does.** Test 1 puts it at the top of the citation family: it defeats
+the `citation` check itself — an anchor that is never proved — and a claim the gate cannot
+resolve is one that certifies silently, which is the failure the check exists to stop.
 
 ### 6 · OPS-82 — A citation written as a link arms no re-verification when what it names changes
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
 **Path:** Independent — it blocks nothing and nothing blocks it. It changes what `branch-impact` arms
@@ -606,6 +607,10 @@ on, which is the trigger **DOC-4** records; it lands in `scripts/docs_gate/refer
 **OPS-71** and **OPS-91**, the other entries there about what resolution proves; **OPS-86** narrows the refusal in
 `scripts/docs_gate/kernel.py :: repo_path` that this entry leaves deliberately alone; and **OPS-62** decides whether a change
 to a file this would newly arm is material, the two halves being independent of one another.
+
+**What concluded it.** The 2026-08-31 ruling that retired stamps removed the watch list this
+entry widens — no check arms a page any more, by link or by any other spelling. The
+dead-link and dead-anchor arms this entry left deliberately alone are untouched.
 
 **`scripts/docs_gate/branch.py :: check_branch_impact` builds a stamped page's watch list from
 `scripts/docs_gate/references.py :: cited_paths`, and that function reads no markdown link.** It has
@@ -677,7 +682,7 @@ one branch.
 
 ### 7 · OPS-86 — A file at the repository root arms no re-verification, whatever cites it
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
 **Path:** Independent — it blocks nothing and nothing blocks it. It changes what `branch-impact` arms
@@ -685,6 +690,11 @@ on, which is the trigger **DOC-4** records; it lands in `scripts/docs_gate/kerne
 one call from **OPS-82** and **OPS-71**, the other entries about what a citation resolves to; and
 **OPS-62** decides whether a change to a file this would newly arm is material. It should not ride on
 one branch with **OPS-80** or **OPS-82**, for the reason **OPS-75**'s `Path` line records.
+
+**What concluded it.** The 2026-08-31 stamp retirement removed the arming this entry restores
+at the root: no watch list is built, so nothing is left for a root-level citation to be
+dropped from. A citation of a root file is still resolved and its anchor proved — the
+resolution route this entry contrasts — and that half was never broken.
 
 **`scripts/docs_gate/branch.py :: check_branch_impact` builds a stamped page's watch list from
 `scripts/docs_gate/references.py :: cited_paths`, which hands every token to
@@ -759,7 +769,7 @@ a changed `repo_path`.
 
 ### 8 · OPS-75 — The gate's comment reader deletes the blocks it most often measures
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
 **Path:** Independent of every entry here, and it should land **before** anything else on this page is
@@ -767,7 +777,12 @@ measured or verified. **OPS-80**, **OPS-82** and **OPS-91** rank above it and ar
 change; none waits on another, and landing two of them on one branch would leave each verified by the
 other's untested state.
 
-**`scripts/docs_gate/structure.py :: comment_runs` takes a keyword-only `symbol_docs` with no default,
+**What concluded it.** The branch reducing INC-9 to its character bound removed `symbol_docs`
+from the comment reader's signature: every run is returned and measured, the narrow call this
+entry names can no longer be made, and the suite now plants the doc-block and docstring
+shapes that used to vanish. The full argument is in the closing commit body.
+
+**`scripts/docs_gate/structure.py :: comment_runs` took a keyword-only `symbol_docs` with no default,
 and passing it false does not filter symbol docs out of a result — it drops them before the result
 exists.** The block arm sets its `keeping` flag from `symbol_docs` or the absence of a `/**` opener, so
 for a `/**` opener under the narrow call nothing is appended to the run and the closing flush never
@@ -830,17 +845,15 @@ of it, so their failures reach `main` while these do not.
 **Status:** Open\
 **Surfaces:** BE, Ops, Docs\
 **Effort:** S\
-**Path:** Independent. **OPS-75** is the same family reached from the other side — there the gate's
-own reader drops a comment shape before measuring it, here a formatter reshapes one before the reader
-sees it, and neither repair touches the other.
+**Path:** Independent — one formatter behaviour, one reader, and nothing here waits on either.
 
 **`ruff format` removes a blank line inside an argument list, and keeps one at statement level.**
 Exercised on 2026-08-30 through `ruff format -` on two inputs differing only in where the blank line
 sat: between two comment paragraphs inside a call it is stripped and the paragraphs become
 contiguous; between the same two paragraphs in a function body it survives. **So a comment written as
 several paragraphs inside a call reaches the checker as one block**, and
-`scripts/docs_gate/structure.py :: comment_runs` reads it as one — which is what INC-9's two bounds
-are then applied to.
+`scripts/docs_gate/structure.py :: comment_runs` reads it as one — which is what INC-9's bound
+is then applied to.
 
 **The obvious way round it does not work either.** A bare `#` between paragraphs survives the
 formatter, but `comment_runs` yields it as an empty entry INSIDE the run rather than ending the run,
@@ -848,8 +861,8 @@ so the block stays one block and only its character count is unchanged. **The au
 the formatter's behaviour fail in the same direction**, and nothing tells them so.
 
 **The live instance is invisible, and by a decision that is right.** The comment at
-`fl_backend/app/api/teams/admin_router.py :: patch_saison_team`'s replacement write measures 7 lines
-and 443 characters against a cap of 3 and 250, read through the gate's own functions on 2026-08-30.
+`fl_backend/app/api/teams/admin_router.py :: patch_saison_team`'s replacement write measures 443
+characters against the 250-character cap, read through the gate's own functions on 2026-08-30.
 `scripts/docs_gate/structure.py :: check_comment_length` measures a block only where every one of its
 lines is in the branch's added set, and its docstring records why — failing a branch for a word
 changed inside an older block is what gets a check suppressed, and a partly rewritten block is
@@ -863,17 +876,17 @@ is wholly theirs — is failed by a measurement of a shape they did not write.
 **Three repairs, and the cheapest may be enough.** Teach `comment_runs` that a run collapsed by the
 formatter is several — which needs a rule for what separates them, and the formatter has removed the
 evidence. Or measure comment length over the whole file rather than the added lines, which finds every
-old block at once and gives up the reason the added-set narrowing exists. **Or record the trap in
-[`docs/_standard/chapters/2-in-code.md`](../_standard/chapters/2-in-code.md) beside the blank-line
-rule**, so the answer is "put the reasoning above the statement", which is what the one author who met
-this did. The third costs a paragraph and leaves the measurement wrong; the first two are a mechanism.
+old block at once and gives up the reason the added-set narrowing exists. **Or rest on the trap now recorded at INC-9** —
+[`docs/standard.md`](../standard.md) states the blank-line rule and the move-above-the-statement
+answer, which is what the one author who met this did. The third costs nothing further and leaves
+the measurement wrong; the first two are a mechanism.
 **Deciding that a written-down trap is sufficient is a real answer**, and the entry is here because
 that is a judgement rather than a defect.
 
 **Why it ranks where it does.** Test 1 keeps it below the instruments above: what it distorts is one
 bound on one comment shape, where those decide whether a whole corpus's claims can be checked at all.
-It holds above everything below because it is the measuring instrument rather than a thing measured —
-**OPS-75**'s reason — and because the failure is silent at both ends: the gate reports nothing and the
+It holds above everything below because it is the measuring instrument rather than a thing
+measured, and because the failure is silent at both ends: the gate reports nothing and the
 author is given no way to learn why their comment is the wrong length.
 
 ### 10 · OPS-90 — A scope that ran and passed leaves the report entirely when an earlier scope fails
@@ -915,7 +928,7 @@ second time to learn what the first run already knew.
 
 ### 11 · OPS-99 — The armed set CUR-4 computes is discarded, so a branch's re-verification state can only be re-derived
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
 **Path:** Independent, and **not a fix for OPS-80** — that entry is the comparison being too weak, this
@@ -924,6 +937,10 @@ what this one cannot see is recorded below. Both edit
 `scripts/docs_gate/branch.py :: check_branch_impact` and are cheaper taken together. **OPS-82**,
 **OPS-86** and **OPS-91** decide which citations reach the armed set at all, so each one landed changes
 what this reports rather than whether it is worth reporting.
+
+**What concluded it.** The 2026-08-31 ruling retired the armed set itself: nothing computes a
+re-verification closure any more, so there is no working to keep and no report to add. What
+remains of currency is CUR-2's same-commit question, which produces no closure to discard.
 
 **`scripts/docs_gate/branch.py :: check_branch_impact` builds the armed set and then discards it.** It
 collects every stamped page, intersects each page's citations with the branch's changed files, classifies
@@ -1215,7 +1232,7 @@ tab, and `git commit -am wip` is denied, because `tr` has already turned that ta
 carriage return is squeezed by nothing and behaves as the newline does. The class is short by
 exactly the whitespace `tr` does not reach.
 
-**On the standard guard both shapes hide a write into `docs/_standard/`, and that guard already
+**On the standard guard both shapes hide a write to `docs/standard.md`, and that guard already
 disagrees with itself about the newline.** Its interpreter arm is spelled with `[[:space:]]`, which a
 newline satisfies, and the stepper above it is not:
 
@@ -1384,21 +1401,19 @@ tables to several times its size and make it a second copy of the ranked page.
 showing through the thing that records it.
 
 **One written source does speak, and it asks something narrower than the requirement does.**
-[`docs/_standard/templates/spec-sheet.md`](../_standard/templates/spec-sheet.md) describes the section
-as accepted gaps, each with what owns it, set down there so a known limitation never reads as an
-oversight and gets "fixed". **That is a purpose addressed to a reader rather than a membership test**:
-it asks whether somebody standing at this sheet would mistake this gap for a defect, which is a
-judgement a session makes rather than a rule it applies. It is also the only such statement there is.
-OUT-4 fixes the four sections and constrains the contents of section 2 alone, and **no sheet carries a
-sentence under its own `## 4.` heading** — each goes straight from the heading to the table, so the
-template's guidance is copied from rather than read beside the rows.
+OUT-4 in [`docs/standard.md`](../standard.md) describes the section as accepted gaps, each with
+what owns it, set down so a known limitation never reads as an oversight and gets "fixed".
+**That is a purpose addressed to a reader rather than a membership test**: it asks whether
+somebody standing at this sheet would mistake this gap for a defect, which is a judgement a
+session makes rather than a rule it applies. It is also the only such statement there is, and
+**no sheet carries a sentence under its own `## 4.` heading** — each goes straight from the
+heading to the table, so the rule is copied from rather than read beside the rows.
 
-**The two sources also disagree about the column, and the corpus does three things.** The template's
-`#` holds an ordinal and puts the roadmap id in `State`, while both commands place the id in `#`.
-`docs/logging/spec.md` numbers its rows and names no roadmap id; `docs/_git/spec.md` carries no `#`
-column; the other three mix an em dash, for a gap no entry owns, against an id where one exists.
-PRE-1's ladder settles this half — the standard outranks a command file — and it settles nothing about
-membership, the template offering a purpose where the requirement needs a test.
+**The column is also unsettled, and the corpus does three things.** `docs/logging/spec.md`
+numbers its rows and names no roadmap id; `docs/_git/spec.md` carries no `#` column; the other
+three mix an em dash, for a gap no entry owns, against an id where one exists. OUT-4 fixes the
+four sections and constrains the contents of section 2 alone, so nothing settles membership —
+the rule offers a purpose where the requirement needs a test.
 
 **What the work is, and what it is not.** Decide what the table is for, write it where both a sheet's
 reader and a filing session meet it, and make the requirement say the same thing. **A sweep comes only
@@ -1699,12 +1714,18 @@ The gap is that nothing holds them to it.
 
 ### 26 · OPS-62 — A version pin bump arms every stamped page citing that workflow
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
 **Path:** Independent. One classifier arm and a fixture pair; arguing the third immateriality test is
 the larger half. **OPS-80** changes the stamp comparison in the same check, and the two halves are
 independent of one another.
+
+**What concluded it.** The 2026-08-31 stamp retirement removed the check a pin bump was
+tripping: no page is asked to re-verify on any change, a workflow's included, so the monthly
+collision with Dependabot ends with the mechanism rather than with a carve-out. The
+comment-only classifier this entry would have grown a sibling for stays, serving the scope
+decision alone.
 
 **`branch-impact` (CUR-4) fires on any change to a cited file, and a bot cannot answer it.** A
 Dependabot pull request bumping a pinned action changes a workflow, so every stamped page citing that
@@ -1840,7 +1861,7 @@ parametrize list by walking `UNIQUE_INDEXES` and looking each name up. A missing
 The precedent is one file away — `fl_backend/tests/api/test_rules_refusal.py` asserts its own case list
 against the imported field tuple at module level, so an unpaired field fails at import.
 
-### 29 · OPS-85 — The documentation gate never opens a stylesheet, and chapter 2 says it should
+### 29 · OPS-85 — The documentation gate never opens a stylesheet, and the standard says it should
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -1859,17 +1880,17 @@ ever read a stylesheet.** Two filters stand in the way and neither admits one:
 a block. INC-9's bounds, INC-6's comment citations, COR-3's history phrases and COR-4's counts
 all sit downstream of one filter or the other.
 
-**Chapter 2 states its scope by directory and draws no line by file type.**
-[`2-in-code.md`](../_standard/chapters/2-in-code.md)'s `Applies to` names `fl_frontend/src` among
-five roots and then lists what it binds — module headers, symbol docs, inline comments and test
+**The standard's In-code section states its scope by directory and draws no line by file
+type.** [`docs/standard.md`](../standard.md)'s In-code scope line names `fl_frontend/src` among
+five roots, and the section binds module headers, symbol docs, inline comments and test
 docstrings. Both stylesheets sit under that root, so by the written standard their comments carry
 INC-9 and INC-6 and by the gate they carry nothing, and neither page says the two disagree.
 
 **The reach, measured 2026-08-27.** `fl_frontend/src/app/globals.css` and
 `fl_frontend/src/app/admin/admin.css` are the whole of it: two tracked stylesheets, both inside
-chapter 2's scope, holding 161 comment blocks between them — 139 and 22. Three of those break
-INC-9, every one of them in `globals.css`: two run to 255 and 263 characters against a bound of 250,
-and one runs 5 lines and 348 characters against 3 and 250. `admin.css` is clean. **None of the
+the In-code scope, holding 161 comment blocks between them — 139 and 22. Three of those break
+INC-9, every one of them in `globals.css`: two run to 255 and 263 characters against the bound of
+250, and one to 348. `admin.css` is clean. **None of the
 three would fail the gate even with the filter widened**, because `check_comment_bounds` measures
 only a block the branch in hand wrote, which leaves a standing breach to `/docs:audit` (CUR-6).
 
@@ -1880,28 +1901,25 @@ measured 2026-08-27 by handing the checker both revisions with `.css` read as a 
 Neither verdict is one the gate can reach, that file never being in the corpus. **That is this
 entry's sharpest evidence, and it outweighs any count of what is currently clean**: COR-11 held in
 the stylesheet most read for how this application looks only for as long as somebody swept it by
-hand. Running the same checkers over both files raises one further finding, `stamp-format`, and it
-is false — a comment opens on a bold line pinning the vendored HeroUI version, which CUR-3's
-pattern reads as a malformed stamp.
+hand.
 
 **Which way the disagreement should be settled is open, and the measurement is why.** Widening the
 filter is not one line: `.css` has to reach `scripts/docs_gate/kernel.py :: CSTYLE_SUFFIXES` as
 well, or `:: comment_style` hands the file to the `#` reader and every check runs over an empty
-body — OPS-29's silence reproduced in a new place. It also lands with a guard on the stamp pattern
-before the gate can go green. The alternative is to say in chapter 2's `Applies to` where its checks
-stop, which is the cheaper change and leaves every block in the two stylesheets carrying this
+body — OPS-29's silence reproduced in a new place. The alternative is to say in the In-code
+scope line where its checks stop, which is the cheaper change and leaves every block in the two stylesheets carrying this
 application's styling reasoning under no bound at all. A third question rides on whichever is taken:
 both files open on a block INC-2 admits in no stylesheet, and
 `scripts/docs_gate/structure.py :: HEADER_SCOPES` would not bind either on a suffix addition, so a
 widening has to settle that deliberately rather than inherit it — both blocks sit inside INC-9's
-bounds today, so nothing is through that half. **The outcome to avoid is neither**, the enforcement
+bound today, so nothing is through that half. **The outcome to avoid is neither**, the enforcement
 claim and the silence both left standing, which is how the next over-long block gets written into
 the file most read for how this application is styled.
 
 **The byte checks are not in the gap, and no other file type is.**
 `scripts/docs_gate/perkind.py :: check_line_endings` and `:: check_binary_bytes` iterate the index
 rather than the corpus, so CRLF and a stray CR are caught in a stylesheet as anywhere else.
-Sweeping the five roots chapter 2 names for every other suffix the tuple omits, on the same date:
+Sweeping the five roots the In-code scope names for every other suffix the tuple omits, on the same date:
 markdown is in the corpus by its own glob and read in full, the icons are assets carrying no
 comment, and `scripts/ruff.toml` and `fl_backend/app/core/uvicorn_logging.json` are reached for
 citations through `scripts/docs_gate/kernel.py :: OPS_SUFFIXES` but not for INC-9, that check
@@ -2568,7 +2586,7 @@ names its counterpart, or whether the boundary lines stay the only mechanism.
 **Status:** Open\
 **Surfaces:** Docs\
 **Effort:** M\
-**Path:** Independent — a chapter's `Enforced by` field and the check it claims move in one change.
+**Path:** Independent — a rule's `Enforced by` field and the check it claims move in one change.
 
 **`scripts/check_docs.py :: check_enforced_by` fails a rule naming a gate check that does not
 exist, and nothing resolves the opposite direction.** A rule may omit a check that enforces it, and
@@ -2837,14 +2855,13 @@ immediately.
 currently holds. Each is also narrower than the rule it serves, and where it falls short the gate
 answers with silence rather than a finding.
 
-**The rule families are spelt into the patterns.** `scripts/check_docs.py :: RULE_ID_RE` carries the
-standard's prefixes as a closed alternation, and `scripts/docs_gate/perkind.py :: RULE_HEAD_RE`,
-`:: CHAPTER_ROW_RE` and `:: RULE_INDEX_LINE_RE` repeat the same list. A chapter written under a
-prefix none of them carries falls outside all of them at once: citations of its rules resolve to nothing and dangle unreported,
-its rules are not held to PRE-4's anatomy, and none of them is required to take a line in the rules
-index. Widening the alternation by hand is not the answer, because the list is closed so that the
+**The rule families are spelt into the patterns.** `scripts/check_docs.py :: RULE_ID_RE` carries
+the standard's prefixes as a closed alternation, and `scripts/docs_gate/perkind.py ::
+RULE_HEAD_RE` and `:: RULE_INDEX_LINE_RE` repeat the same list. A rule family added under a
+prefix none of them carries falls outside all of them at once: citations of its rules resolve
+to nothing and dangle unreported, and its rules are not held to PRE-4's anatomy. Widening the alternation by hand is not the answer, because the list is closed so that the
 backend's error codes — which carry an extra segment — can never be read as rule ids. A pattern
-whose prefixes disagree with the chapters is a divergence the gate could resolve on its own, the way
+whose prefixes disagree with the standard is a divergence the gate could resolve on its own, the way
 `scripts/check_docs.py :: roadmap_ids` derives the roadmap's ids from the tables defining them
 instead of matching a shape.
 
@@ -2857,17 +2874,22 @@ is not free: this is a discovery pattern run across every page, an indented bold
 ordinary prose also takes, and a check that reports prose is a check that gets ignored. What an
 answer has to find is a way to reach the indented block without reaching indented prose.
 
-**Trigger to revisit:** a chapter added to the standard under a prefix the patterns do not carry, or
-the first page that needs a metadata block indented.
+**Trigger to revisit:** a rule family added to the standard under a prefix the patterns do not
+carry, or the first page that needs a metadata block indented.
 
 ### 51 · DOC-4 — A stamp is required by a path and owed by a claim
 
-**Status:** Standing\
+**Status:** Closed\
 **Surfaces:** Docs\
 **Effort:** —\
 **Path:** Independent — no pass covers it, and only the trigger below reopens it. **OPS-80**,
 **OPS-82** and **OPS-86** are each a change of exactly the kind that trigger names, and OPS-82 is where
 it is read together with that group.
+
+**What concluded it.** The 2026-08-31 ruling retired stamps whole — no page owes one by
+claim or carries one by path, and the glob list this entry watches left the gate with the
+check that read it. The staleness stamps measured is `/docs:audit`'s alone now (CUR-6),
+which closes the gap by removing the half-mechanism rather than finishing it.
 
 **CUR-3 decides a stamp by what a page claims and never by where the page sits.**
 `scripts/check_docs.py :: check_stamp_missing` decides it by `STAMP_REQUIRED_GLOBS`, a list of

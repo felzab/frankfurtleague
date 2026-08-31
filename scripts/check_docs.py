@@ -12,7 +12,7 @@ from __future__ import annotations
 import sys
 
 from checker_kernel import run
-from docs_gate.branch import _stamp_only_delta, check_branch_impact, check_comment_bounds
+from docs_gate.branch import check_comment_bounds
 from docs_gate.kernel import CHECKS, SCANNED_SUFFIXES
 from docs_gate.perkind import (
     METADATA_LINE_RE,
@@ -20,7 +20,6 @@ from docs_gate.perkind import (
     check_enforced_by,
     check_metadata_breaks,
     check_segment_map,
-    check_stamp_missing,
     check_template_fragments,
     roadmap_ids,
 )
@@ -35,13 +34,10 @@ __all__ = [
     "RULE_FIELD_RE",
     "RULE_ID_RE",
     "SCANNED_SUFFIXES",
-    "_stamp_only_delta",
-    "check_branch_impact",
     "check_comment_bounds",
     "check_enforced_by",
     "check_metadata_breaks",
     "check_segment_map",
-    "check_stamp_missing",
     "check_template_fragments",
     "main",
     "roadmap_ids",

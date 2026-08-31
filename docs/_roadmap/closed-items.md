@@ -1,7 +1,5 @@
 # Closed items
 
-**Verified against:** `7f89dd14`, 2026-08-31
-
 Every item that has left a ranked page — [`open-items.md`](open-items.md) or
 [`tooling-items.md`](tooling-items.md) — has a row here. This is a log: nothing in it is waiting for
 anything, and a regression is a new item with a new ID rather than an edit to a row.

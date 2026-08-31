@@ -112,7 +112,7 @@
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/docs-rules-index.sh\"",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/docs-standard.sh\"",
             "timeout": 10
           }
         ]

@@ -1,8 +1,8 @@
 ---
-description: Audit every document in the repo against docs/_standard — /docs:audit, or /docs:audit fix
+description: Audit every document in the repo against docs/standard.md — /docs:audit, or /docs:audit fix
 ---
 
-Audit **all** documentation in this repository against `docs/_standard/`, and against what the code
+Audit **all** documentation in this repository against `docs/standard.md`, and against what the code
 actually does today. Mode from the arguments: `$ARGUMENTS`
 
 | Arguments | Mode      | Does                                                                                     |
@@ -27,11 +27,10 @@ Neither mode runs inside the other's session.
 - **A finding against a generated file names its generator, and the fix goes there.** The emitted
   file is never edited.
 - **A branch-scoped gate check is never a worklist for pre-existing debt.**
-  `scripts/check_docs.py :: check_comment_bounds` reads only the comment blocks this branch added,
-  and `scripts/check_docs.py :: check_branch_impact` only the pages this branch's own changes reach.
+  `scripts/check_docs.py :: check_comment_bounds` reads only the comment blocks this branch added.
   Where the existing population matters — a newly introduced rule above all — measure it directly and
   work that list.
-- **Never restate a rule from `docs/_standard/` — not here, and not in an agent's prompt.** Cite it;
+- **Never restate a rule from `docs/standard.md` — not here, and not in an agent's prompt.** Cite it;
   the reader opens it.
 
 ---
@@ -53,7 +52,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    ./scripts/verify.sh --docs
    ```
 
-   What it fails on is CUR-5's table in `docs/_standard/chapters/5-currency.md`; read it rather than
+   What it fails on is registered in `scripts/docs_gate/kernel.py :: CHECKS`; read it rather than
    assuming its reach. **A red gate ends the session** — report it and stop. Everything below is the
    layer the gate cannot see.
 
@@ -79,12 +78,12 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    | Auditing method             | `docs/_auditing/**`                                                                                                                                                                                                                                        |
    | Git workflow                | `docs/_git/**`                                                                                                                                                                                                                                             |
    | Roadmap                     | `docs/_roadmap/**`                                                                                                                                                                                                                                         |
-   | Documentation standard      | `docs/_standard/**`                                                                                                                                                                                                                                        |
+   | Documentation standard      | `docs/standard.md`                                                                                                                                                                                                                                         |
    | Backend documents           | `docs/backend/**`                                                                                                                                                                                                                                          |
    | Frontend documents          | `docs/frontend/**`                                                                                                                                                                                                                                         |
    | Logging documents           | `docs/logging/**`                                                                                                                                                                                                                                          |
    | Ops documents               | `docs/ops/**`                                                                                                                                                                                                                                              |
-   | Loose documents             | `docs/*`                                                                                                                                                                                                                                                   |
+   | Loose documents             | `docs/domain.md` · `docs/glossary.md` · `docs/README.md`                                                                                                                                                                                                   |
    | Assistant instructions      | `.claude/CLAUDE.md` · `.claude/commands/**`                                                                                                                                                                                                                |
    | Public root documents       | `README.md` · `SECURITY.md`                                                                                                                                                                                                                                |
    | Frontend source             | `fl_frontend/src/**`                                                                                                                                                                                                                                       |
@@ -106,10 +105,8 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 
 5. **Dispatch one agent per segment**, in batches small enough that each report is read as it lands.
    Each prompt carries the agent's file list, the report path it writes to, and everything below
-   plus the rules above. Each agent reads `docs/_standard/chapters/1-core.md` plus the chapter for
-   its shape — `docs/_standard/chapters/2-in-code.md` for source,
-   `docs/_standard/chapters/3-corpus.md` for `/docs`, `docs/_standard/chapters/5-currency.md` for
-   stamps — and applies the rules from there.
+   plus the rules above. Each agent reads `docs/standard.md` in full — the standard is one file —
+   and applies the rules from there.
 
    **Settle before launching any of them how an agent reports finishing and how it reports being
    blocked**, as a closing line every prompt carries: the report path when it finished, what it is
@@ -126,18 +123,18 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 
    ### The check classes
 
-   | #   | Class                                      | The question the agent answers                                                                                              |
-   | --- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-   | C1  | **Cold read** (COR-1)                      | Could a reader with no context — no session, no earlier conversation — act on every sentence?                               |
-   | C2  | **Said twice** (COR-2)                     | Is a fact here also stated elsewhere in this segment, so the copies can disagree later?                                     |
-   | C3  | **Names what exists** (COR-3)              | Does every file, symbol, field, endpoint and behaviour named still exist, cited or named in prose alike?                    |
-   | C4  | **Still true** (PRE-2, COR-4)              | Read the code the claim describes. Does it still do that?                                                                   |
-   | C5  | **Evidence holds** (COR-6, CUR-1)          | Does each anchored citation support the claim beside it?                                                                    |
-   | C6  | **Doubt is stated** (COR-9)                | Is anything unverified written as fact, or a plan written as a description?                                                 |
-   | C7  | **Shape** (COR-7, COR-8, COR-10)           | Does the page meet the shape rules? Judge against the chapter's text, never from memory                                     |
-   | C8  | **Its own shape**                          | Does it meet the rules for what this document _is_ — spec sheet, overview, module header, endpoint docstring, stamped page? |
-   | C9  | **Comment altitude** (INC-1, INC-2, INC-9) | Does a comment say what its code already says, or a header or block break the shape those rules fix?                        |
-   | C10 | **Earns its place** (COR-5)                | Should this text exist at all? The class that proposes a deletion; COR-5 holds a page and a comment to separate bars        |
+   | #   | Class                                      | The question the agent answers                                                                                       |
+   | --- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+   | C1  | **Cold read** (COR-1)                      | Could a reader with no context — no session, no earlier conversation — act on every sentence?                        |
+   | C2  | **Said twice** (COR-2)                     | Is a fact here also stated elsewhere in this segment, so the copies can disagree later?                              |
+   | C3  | **Names what exists** (COR-3)              | Does every file, symbol, field, endpoint and behaviour named still exist, cited or named in prose alike?             |
+   | C4  | **Still true** (PRE-2, COR-4)              | Read the code the claim describes. Does it still do that?                                                            |
+   | C5  | **Evidence holds** (COR-6, CUR-1)          | Does each anchored citation support the claim beside it?                                                             |
+   | C6  | **Doubt is stated** (COR-9)                | Is anything unverified written as fact, or a plan written as a description?                                          |
+   | C7  | **Shape** (COR-7, COR-8, COR-10)           | Does the page meet the shape rules? Judge against the chapter's text, never from memory                              |
+   | C8  | **Its own shape**                          | Does it meet the rules for what this document _is_ — spec sheet, overview, module header, endpoint docstring?        |
+   | C9  | **Comment altitude** (INC-1, INC-2, INC-9) | Does a comment say what its code already says, or a header or block break the shape those rules fix?                 |
+   | C10 | **Earns its place** (COR-5)                | Should this text exist at all? The class that proposes a deletion; COR-5 holds a page and a comment to separate bars |
 
    ### The finding format, one row each
 
@@ -179,10 +176,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    - **CLAUDE.md §7 against the code and the spec sheets.** A row naming a symbol or behaviour the
      code does not carry is a defect in CLAUDE.md (PRE-2); a row the code contradicts is a defect in
      the code rather than in the row.
-   - **`docs/_standard/` against itself**, held to its own rules.
-   - **Every rule against the template it points at.** The shape belongs in one and is cited from
-     the other: a rule restating its template's shape, and a template not instantiating the shape
-     its rule demands, are one defect from either side.
+   - **`docs/standard.md` against itself**, held to its own rules.
    - **Every "Enforced by" line against what the gate actually runs**, which is a stale claim
      wherever it overstates. Check the gate's **scope mapping** as well as its scanner: a scope arm
      that never selects the documentation gate leaves that surface unaudited whatever the scanner
@@ -222,29 +216,26 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 4. **Never run a formatter while editing work is in flight.** One run, at the end, by the session
    that ships.
 
-5. **Fix in verdict order** — `Wrong` first. `docs/_standard/` governs how each repair is written
+5. **Fix in verdict order** — `Wrong` first. `docs/standard.md` governs how each repair is written
    (COR-3, COR-9).
 
    Where a row changes the corpus rather than a sentence:
 
    - **A rename, a renumber, or the deletion of a record some rule mandates, carries an obligation
      past the edit itself** (CUR-2).
-   - **A deviation from a template is repaired in the file, never in the template** (COR-12).
+   - **A deviation from a defined shape is repaired in the file, never by widening the shape**
+     (COR-12).
    - **A rule and the check it names land together, and a new check is proven before it is claimed**
      (PRE-4). Prove it by silence on the repository too, and narrow a check that fires on something
      correct by design before it lands.
 
-6. **Restamp every page you edit** that carries a `Verified against` line, to the commit you verified
-   it at (CUR-3, CUR-4). **Fix a page's false claims before restamping it, and never restamp to clear
-   a gate finding.** A page whose claims belong to work not yet done is handed on unstamped.
-
-7. **Ship it**, per `docs/_git/spec.md`: branch first, `./scripts/verify.sh --docs --format`, push,
+6. **Ship it**, per `docs/_git/spec.md`: branch first, `./scripts/verify.sh --docs --format`, push,
    open the draft pull request and hand over its link. Report the gate's actual exit code, and report
    **net lines, separating relocated from removed** — a reshaping that moves content between files is
    not a reduction, and a diffstat that excludes new untracked files overstates one.
 
    **Split by segment if the diff outgrows one review.**
 
-8. **Anything that is not a documentation fix leaves as a roadmap entry, not a code change.** A
+7. **Anything that is not a documentation fix leaves as a roadmap entry, not a code change.** A
    finding that the code — rather than the document — is wrong is a defect, and this session does not
    fix defects. Hand it to the owner, or to `/roadmap:add` if it needs analysis kept.

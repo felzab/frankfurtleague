@@ -130,8 +130,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # Full history: the documentation gate verifies `Verified against` stamps as ancestors
-          # and diffs stamped pages against the merge base, neither of which a shallow clone can do.
+          # Full history: the documentation gate diffs the branch against the merge base for its
+          # branch-scoped checks and resolves commit ids prose names, neither of which a shallow
+          # clone can do.
           fetch-depth: 0
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
@@ -140,9 +141,9 @@ jobs:
         # verify.sh resolves .venv/bin/python (Linux) or .venv/Scripts/python.exe (Windows) itself.
         working-directory: fl_backend
         run: uv sync --dev
-      # branch-impact classifies a changed .ts file through `scripts/check_scope.py`, whose
+      # The scope check classifies a changed .ts file through `scripts/check_scope.py`, whose
       # TypeScript half needs `scripts/ts_normalize.mjs`. Without the installed tree the answer
-      # degrades to "code", and the branch is asked for restamps it does not owe (CUR-4).
+      # degrades to "code", and the run is asked for scopes it does not owe.
       - uses: ./.github/actions/frontend-toolchain
       - name: Run the docs scope
         run: ./scripts/verify.sh --docs

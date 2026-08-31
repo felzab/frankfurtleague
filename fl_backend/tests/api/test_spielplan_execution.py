@@ -771,7 +771,7 @@ class TestAFailedDrawLeavesNothingBehind:
 
 
 class TestTheActionLogRecordsOneRowPerCollection:
-    """The shape the owner chose over a row per document: a drawn season is one action, and sixty rows would bury it."""
+    """The shape chosen over a row per document: a drawn season is one action, and sixty rows would bury it."""
 
     def test_two_bulk_creates_and_the_watermark_are_one_action(self, mongo_replica_set_url: str):
         """In writing order, which is the order the log is the only record of: the matchdays exist before anything hangs on them."""

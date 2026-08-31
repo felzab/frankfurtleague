@@ -1,6 +1,5 @@
 # Git — spec
 
-**Verified against:** `dbe2978e`, 2026-08-28\
 **Scope:** branching, commits, pull requests, the verification gate, and the GitHub settings that enforce them
 
 | Section                                                | Answers                                                                    |

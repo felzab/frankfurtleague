@@ -58,7 +58,7 @@ Severity = Literal["fail", "report"]
 
 @dataclass(frozen=True)
 class Finding:
-    """One thing a checker found. `fail` decides the exit code; `report` is advisory (CUR-5)."""
+    """One thing a checker found. `fail` decides the exit code; `report` is advisory."""
 
     severity: Severity
     detail: str

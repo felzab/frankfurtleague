@@ -76,4 +76,4 @@ THE CHECKS, in priority order:
 BOUNDARIES — not this pass: write→read consistency → b1 · contract divergence → b2 · auth, injection
 and leakage → b3 · Dockerfile, compose and CI mechanics beyond "does the configured tool run" → the
 ops passes · module headers, docstrings and comment drift → `/docs:audit`, which reads every comment
-in this tree against `docs/_standard/`.
+in this tree against `docs/standard.md`.

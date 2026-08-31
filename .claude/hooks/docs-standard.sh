@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# PostToolUse hook on Edit|Write — emits docs/_standard/rules-index.md once per session, on the
+# PostToolUse hook on Edit|Write — emits docs/standard.md once per session, on the
 # first documentation-shaped edit, tracked by a sentinel named for the session id.
 # Unlike the guards it informs rather than protects, so every failure here is silence, never a block.
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$repo_root" ] || exit 0
 
-index="$repo_root/docs/_standard/rules-index.md"
-[ -f "$index" ] || exit 0
+standard="$repo_root/docs/standard.md"
+[ -f "$standard" ] || exit 0
 
 # node rather than jq: jq is not installed on the dev machine.
-REPO_ROOT="$repo_root" INDEX_PATH="$index" node -e '
+REPO_ROOT="$repo_root" STANDARD_PATH="$standard" node -e '
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -55,27 +55,27 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
   if (!isDocs) return;
 
   const sid = typeof j.session_id === "string" && j.session_id !== "" ? j.session_id : "unknown";
-  const sentinel = path.join(os.tmpdir(), "claude-docs-rules-index-" + sid.replace(/[^A-Za-z0-9-]/g, "_"));
+  const sentinel = path.join(os.tmpdir(), "claude-docs-standard-" + sid.replace(/[^A-Za-z0-9-]/g, "_"));
   if (fs.existsSync(sentinel)) return;
 
   let text;
   try {
-    text = fs.readFileSync(process.env.INDEX_PATH, "utf8");
+    text = fs.readFileSync(process.env.STANDARD_PATH, "utf8");
   } catch {
     return;
   }
   try {
     fs.writeFileSync(sentinel, "");
   } catch {
-    // Without the sentinel the index repeats on every edit, which costs more than never showing it.
+    // Without the sentinel the standard repeats on every edit, which costs more than never showing it.
     return;
   }
 
   const preamble =
     "The edit just written is documentation — a repository markdown file, or source comments — " +
-    "so docs/_standard/ binds it. The rules index follows, one line per rule; the full rules " +
-    "live in docs/_standard/chapters/, and the chapter governing what you are writing is the " +
-    "one to read before writing more. This appears once per session.";
+    "so docs/standard.md binds it. The standard follows — a rule is one list line or one " +
+    "section, and the section governing what you are writing is the one to read before " +
+    "writing more. This appears once per session.";
   process.stdout.write(
     JSON.stringify({
       hookSpecificOutput: {

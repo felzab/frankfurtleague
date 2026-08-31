@@ -10,13 +10,10 @@ from .branch import (
     branch_additions,
     check_added_citations,
     check_branch_diff,
-    check_branch_impact,
     check_comment_bounds,
     check_counts,
     check_history_phrases,
     check_prose_shas,
-    check_stamp_freshness,
-    check_stamps,
 )
 from .copy_rules import check_copy_rules
 from .kernel import (
@@ -26,7 +23,6 @@ from .kernel import (
 )
 from .perkind import (
     check_binary_bytes,
-    check_check_registry,
     check_enforced_by,
     check_glossary,
     check_inputs,
@@ -34,11 +30,9 @@ from .perkind import (
     check_line_endings,
     check_overviews,
     check_roadmap,
-    check_rule_index,
     check_rule_shape,
     check_segment_map,
     check_spec_sheets,
-    check_stamp_missing,
     check_template_fragments,
     invariant_ids,
     rule_ids,
@@ -48,7 +42,7 @@ from .references import check_file
 
 def main() -> int:
     tolerate_console_encoding()
-    parser = argparse.ArgumentParser(description="Documentation gate (docs/_standard/chapters/5-currency.md).")
+    parser = argparse.ArgumentParser(description="Documentation gate; the registry of its checks is scripts/docs_gate/kernel.py :: CHECKS.")
     parser.add_argument("--all", action="store_true", help="list every advisory finding, not just the first ten")
     args = parser.parse_args()
 
@@ -68,10 +62,6 @@ def main() -> int:
     findings: list[Finding] = []
     for path in files:
         findings.extend(check_file(path, existing_rules, existing_invariants))
-    findings.extend(check_stamps(files))
-    findings.extend(check_stamp_missing())
-    findings.extend(check_stamp_freshness(branch))
-    findings.extend(check_branch_impact(branch))
     findings.extend(check_branch_diff(branch))
     findings.extend(check_roadmap())
     findings.extend(check_inputs())
@@ -83,8 +73,6 @@ def main() -> int:
     findings.extend(check_glossary())
     findings.extend(check_enforced_by())
     findings.extend(check_rule_shape())
-    findings.extend(check_rule_index(existing_rules))
-    findings.extend(check_check_registry())
     findings.extend(check_segment_map())
     findings.extend(check_template_fragments())
     findings.extend(check_prose_shas(files))

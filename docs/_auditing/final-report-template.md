@@ -1,8 +1,7 @@
 # Final report
 
 **Shape:** [`programme.md`](programme.md) §1.5. Copy the page below to
-`docs/audit/<yyyy-mm>-<surface>.md` and delete this heading and this line. It carries no stamp
-(CUR-3): a filed report describes one job at one commit rather than current state.
+`docs/audit/<yyyy-mm>-<surface>.md` and delete this heading and this line.
 
 # \<Surface\> audit and remediation — final report
 

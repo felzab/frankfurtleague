@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# PreToolUse hook on Edit|Write|NotebookEdit — a write into docs/_standard/ asks the owner first.
+# PreToolUse hook on Edit|Write|NotebookEdit — a write to docs/standard.md asks the owner first.
 # The standard defines how every other document is written and checked, so a quiet edit changes the
 # rules everything else is held to. A payload whose target cannot be read asks too.
 
 ask() {
-  printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"This edits docs/_standard — the documentation standard changes only with your explicit sign-off (owner rule, 2026-08-08). Approve to let this one write through, or deny and discuss the change first."}}'
+  printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"This edits docs/standard.md — the documentation standard changes only with your explicit sign-off (owner rule, 2026-08-08). Approve to let this one write through, or deny and discuss the change first."}}'
   exit 0
 }
 
@@ -40,14 +40,11 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
     const strip = (p) => p.replace(/^[\\/]{2}[?.][\\/]/, "");
     const fold = (p) => (process.platform === "win32" ? p.toLowerCase() : p);
 
-    const standard = path.resolve(strip(process.env.REPO_ROOT), "docs", "_standard");
+    const standard = path.resolve(strip(process.env.REPO_ROOT), "docs", "standard.md");
     const target = path.resolve(strip(raw));
-    const rel = path.relative(fold(standard), fold(target));
 
-    // Empty means the target IS the folder; a relative result not climbing out means inside it.
-    if (rel === "") return "ask";
-    if (path.isAbsolute(rel)) return "allow";
-    return rel === ".." || rel.startsWith(".." + path.sep) ? "allow" : "ask";
+    // The standard is one file, so containment is equality — folded, Windows paths being case-blind.
+    return fold(target) === fold(standard) ? "ask" : "allow";
   })();
 
   process.stdout.write(verdict);

@@ -1,7 +1,7 @@
 """SCRIPTS · the commit message gate.
 
-A check needing the change itself to decide reports rather than refuses (CUR-5), which is what
-keeps one from being switched off. Only base..HEAD is read; history predates the convention.
+A check needing the change itself to decide reports rather than refuses — a refusal that cries
+wolf is one that gets switched off. Only base..HEAD is read; history predates the convention.
 """
 
 from __future__ import annotations

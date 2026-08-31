@@ -1,6 +1,5 @@
 # Glossary
 
-**Verified against:** `ea1b5c04`, 2026-08-31\
 **Purpose:** the German domain vocabulary — what each term is, where it lives, and what catches people.
 
 The vocabulary appears verbatim in collection names, schema fields, API parameters and URLs. Translating
@@ -252,9 +251,9 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 ## Terms that are not domain vocabulary
 
-| Term                        | Actually                                                                                                                |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `slice`                     | A frontend code-organisation unit under `src/features/`, one per business entity                                        |
-| `surface`                   | A documentation term: frontend, backend, or ops. See [`_standard/chapters/3-corpus.md`](_standard/chapters/3-corpus.md) |
-| `base` / `system` / `admin` | The three API key tiers, not user roles. See the backend spec                                                           |
-| `format`                    | The discriminator on the teams response (`list` · `grouped`, or `single` from `GET /teams/{team_id}`)                   |
+| Term                        | Actually                                                                                              |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `slice`                     | A frontend code-organisation unit under `src/features/`, one per business entity                      |
+| `surface`                   | A documentation term: frontend, backend, or ops. See [`standard.md`](standard.md#corpus)              |
+| `base` / `system` / `admin` | The three API key tiers, not user roles. See the backend spec                                         |
+| `format`                    | The discriminator on the teams response (`list` · `grouped`, or `single` from `GET /teams/{team_id}`) |

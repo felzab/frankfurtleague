@@ -348,11 +348,10 @@ by surface; the order inside a group carries nothing.
 
 ## 8. Documentation
 
-**Read [`rules-index.md`](../docs/_standard/rules-index.md) before writing a document or a comment** —
-one line per rule, and for most rules the whole of it. A rule a line cannot carry also has a chapter
-section; read that one before writing what it governs.
+**Read [`docs/standard.md`](../docs/standard.md) before writing a document or a comment** — a rule
+is one list line or one section; read the section governing what you are about to write.
 
-These bind every session, and are named here because the index arrives only after the first edit:
+These bind every session, and are named here because the standard arrives only after the first edit:
 
 | Rule  | Apply it as                                                                                                                                              |
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -366,24 +365,24 @@ constrains, a §7 line, or a spec-sheet invariant, chosen by which failure it pr
 argument goes in the closing commit body, which `scripts/check_commits.py` enforces.
 
 In code — `fl_frontend/src`, `fl_backend/app`, `fl_backend/tests`, `scripts/` and `.claude/hooks/`,
-which is chapter 2's scope — a comment carries why, never what the line does and never a type
-(INC-1); every FastAPI endpoint gets a docstring (INC-4), bounded like any other comment. **A module
-header survives in a shell script, and in a Python `app/` or `scripts/` module whose fact attaches to
-no symbol — nowhere else** (INC-2). The hooks are exempt from INC-2's shape alone; every other rule in the
-chapter binds them.
+which is the In-code section's scope — a comment carries why, never what the line does and never a
+type (INC-1); every FastAPI endpoint gets a docstring (INC-4), bounded like any other comment. **A
+module header survives in a shell script, and in a Python `app/` or `scripts/` module — its tests
+included — whose fact attaches to no symbol; nowhere else** (INC-2). The hooks are exempt from
+INC-2's shape alone; every other in-code rule binds them.
 
 **`--docs` runs `scripts/check_docs.py` over `/docs`, over source comments, and over the
-configuration files scanned beside them (INC-6).** CUR-5's table is the one place its checks are
-listed. Corpus entry point: [`docs/README.md`](../docs/README.md).
+configuration files scanned beside them (INC-6).** The registry of its checks is
+`scripts/docs_gate/kernel.py :: CHECKS`. Corpus entry point: [`docs/README.md`](../docs/README.md).
 
 ## 9. Commands
 
 Registered in `.claude/commands/`, tab-completable, **slash-only — never launch one from prose.** Behaviour lives in those files.
 
-| Command               | Does                                                                         |
-| --------------------- | ---------------------------------------------------------------------------- |
-| `/audit:*`            | Audit programme lifecycle                                                    |
-| `/roadmap:start <ID>` | Work one open item to a conclusion                                           |
-| `/roadmap:add`        | Turn described items into ranked roadmap entries, then re-rank the file      |
-| `/docs:audit`         | Sweep every document and comment against `docs/_standard/`; `fix` applies it |
-| `/docs:audit-pr`      | Audit and fix the branch's documentation slice before its pull request       |
+| Command               | Does                                                                          |
+| --------------------- | ----------------------------------------------------------------------------- |
+| `/audit:*`            | Audit programme lifecycle                                                     |
+| `/roadmap:start <ID>` | Work one open item to a conclusion                                            |
+| `/roadmap:add`        | Turn described items into ranked roadmap entries, then re-rank the file       |
+| `/docs:audit`         | Sweep every document and comment against `docs/standard.md`; `fix` applies it |
+| `/docs:audit-pr`      | Audit and fix the branch's documentation slice before its pull request        |
