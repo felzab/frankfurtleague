@@ -8011,9 +8011,9 @@
             "type": "integer",
             "title": "Fanned Out To Spiele"
           },
-          "retired_squad_rows": {
+          "ausgetragene_squad_rows": {
             "type": "integer",
-            "title": "Retired Squad Rows"
+            "title": "Ausgetragene Squad Rows"
           }
         },
         "type": "object",
@@ -8027,7 +8027,7 @@
           "name",
           "shorthand",
           "fanned_out_to_spiele",
-          "retired_squad_rows"
+          "ausgetragene_squad_rows"
         ],
         "title": "FLReplaceSaisonTeamResponse",
         "description": "The junction row as the replacement left it, plus what it reached beyond that row.\n\nOf the three fields a replacement clears, the two that leave a GAP are echoed; `austritt` is\nnot, a club that has not withdrawn needing nothing done about it."

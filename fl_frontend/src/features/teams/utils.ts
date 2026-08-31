@@ -42,10 +42,10 @@ const SQUAD_REPAIR =
  */
 export const describeReplacementUmfang = ({
   fannedOutToSpiele,
-  retiredSquadRows,
+  ausgetrageneSquadRows,
 }: {
   fannedOutToSpiele: number;
-  retiredSquadRows: number;
+  ausgetrageneSquadRows: number;
 }): string => {
   const spiele =
     fannedOutToSpiele === 0
@@ -56,14 +56,14 @@ export const describeReplacementUmfang = ({
 
   // The count is of LIVE rows, so zero says the squad stood empty and never that the club had no
   // players: one whose players were all ausgetragen first — the usual order — reports zero too.
-  if (retiredSquadRows === 0) return `${spiele} Im Kader des ausscheidenden Teams stand kein Spieler.`;
+  if (ausgetrageneSquadRows === 0) return `${spiele} Im Kader des ausscheidenden Teams stand kein Spieler.`;
 
   // Below the zero arm and never beside it: German counts nothing with a word, so „0 Kadereinträge“
   // must not be composed at all, not even to be discarded.
   const ausgetragen =
-    retiredSquadRows === 1
+    ausgetrageneSquadRows === 1
       ? "Ein Kadereintrag des ausscheidenden Teams wurde ausgetragen."
-      : `${String(retiredSquadRows)} Kadereinträge des ausscheidenden Teams wurden ausgetragen.`;
+      : `${String(ausgetrageneSquadRows)} Kadereinträge des ausscheidenden Teams wurden ausgetragen.`;
 
   return `${spiele} ${ausgetragen} ${SQUAD_REPAIR}`;
 };

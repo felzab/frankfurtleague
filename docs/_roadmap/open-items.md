@@ -62,7 +62,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 7   | BE-18 | Gaps the domain declaration does not reach                           | BE              | M      | Open     | —          |
 | 8   | BE-36 | A season's judgement covers five collections and its transaction one | BE, Docs        | M      | Open     | —          |
 | 9   | FB-19 | An undo restores a whole fixture from a list read before it          | FE, BE          | L      | Open     | —          |
-| 10  | FB-21 | The response names a squad row with the person's verb                | FE, BE, Docs    | S      | Open     | —          |
+| 10  | FB-21 | The response names a squad row with the person's verb                | FE, BE, Docs    | S      | Closed   | —          |
 | 11  | FB-16 | Nothing announces that a season rollover is due                      | BE, Ops         | M      | Standing | —          |
 | 12  | FB-22 | The season's shape is offered wider than it can be saved             | FE, BE, Docs    | M      | Open     | —          |
 | 14  | FB-17 | Season setup is hand-run, and only an admin enters a squad           | FE, BE, DB, Ops | XL     | Open     | —          |
@@ -634,12 +634,21 @@ people can meet inside.
 
 ### 10 · FB-21 — One response, its mirror and the corpus call a squad row's removal a retirement
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE, BE, Docs\
 **Effort:** S\
 **Path:** Independent. `.claude/CLAUDE.md` §7 forbids generating the Zod mirror, so the mirror moves
 by hand in the same commit; `fl_backend/openapi.json` moves with it, which puts the gate at
 `--backend --db --frontend --docs`.
+
+**What concluded it.** The field is `ausgetragene_squad_rows` on every surface in one commit:
+`FLReplaceSaisonTeamResponse`, the local names in `replace_saison_team`, `fl_backend/openapi.json`
+(property and `required` list, regenerated), the hand-moved Zod mirror in `teams/schemas.ts`, the
+`actions.ts` alias and `describeReplacementUmfang`'s parameter — the German verb the screens
+already speak, chosen over an English recoinage because _ausgetragen_ is the product's own code
+vocabulary one slice over. `docs/glossary.md`'s `inactive_since` entry now declares the
+stilllegen/austragen pair; holding the test corpus to it stays OPS-73's. The full argument is in
+the closing commit body.
 
 **This product separates two verbs and one field name uses the wrong one.** _Stilllegen_ retires a
 person across the whole league; _austragen_ takes one row out of one season's squad. The backend's own
