@@ -44,54 +44,55 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 
 ## The path at a glance
 
-| #   | ID     | Item                                                               | Surfaces          | Effort | Status   | Depends on |
-| --- | ------ | ------------------------------------------------------------------ | ----------------- | ------ | -------- | ---------- |
-| 1   | OPS-93 | The origin trusts every source inside Cloudflare's ranges          | Ops, Docs         | S      | Open     | —          |
-| 2   | OPS-94 | A sweep that enumerates its subjects cannot falsify its own claim  | FE, Ops, Docs     | M      | Open     | —          |
-| 3   | OPS-60 | The gate saturates the machine, then idles through its tail        | Ops               | M      | Open     | —          |
-| 4   | OPS-91 | A continuation citation is resolved and checked by nothing         | Ops, Docs         | M      | Open     | —          |
-| 5   | OPS-98 | A formatter reshapes a comment before INC-9 measures it            | BE, Ops, Docs     | S      | Open     | —          |
-| 6   | OPS-90 | A passing scope leaves the report when an earlier one fails        | Ops               | S      | Open     | —          |
-| 7   | OPS-84 | The linter runs a version past its end of life                     | FE, Ops, Docs     | M      | Open     | —          |
-| 8   | OPS-97 | No check can render a Server Component, so §6's rule is unenforced | FE, Ops, Docs     | L      | Open     | —          |
-| 9   | OPS-67 | The runner cannot load a component, so none is tested              | FE, Ops, Docs     | M      | Open     | —          |
-| 10  | OPS-76 | Most of the database tier runs unconstrained                       | BE, Ops           | M      | Open     | —          |
-| 11  | OPS-56 | The git stepper reads one `git`, on one line                       | Ops               | S      | Open     | —          |
-| 12  | OPS-71 | A citation resolves to a string, not to what it names              | Ops, Docs         | S      | Open     | —          |
-| 13  | OPS-92 | Real-IP recovery can fall back with nothing to say so              | Ops, Docs         | S      | Open     | —          |
-| 14  | DOC-12 | A Known-open table has no membership test                          | Docs              | S      | Open     | —          |
-| 15  | OPS-95 | A real file in an unaccepted spelling reads as a missing file      | Ops, Docs         | S      | Open     | —          |
-| 16  | OPS-78 | The local edge claims to mirror production, unchecked              | Ops, Docs         | S      | Open     | —          |
-| 17  | OPS-70 | Two db-tier runs at once fail in a way that names nothing          | Ops               | M      | Open     | —          |
-| 18  | OPS-73 | A copy test pins what its own author wrote                         | FE, Ops, Docs     | M      | Open     | —          |
-| 19  | OPS-61 | The commit hook's scratch is a path git cannot open                | Ops               | S      | Open     | —          |
-| 20  | OPS-79 | A projection's coupling is guarded in one direction only           | BE, Ops           | M      | Open     | —          |
-| 21  | OPS-77 | A test fixture asserts the type nothing else checks                | FE, Ops           | M      | Open     | —          |
-| 22  | OPS-72 | The unique-index test pairs by ordinal position                    | BE, Ops           | S      | Open     | —          |
-| 23  | OPS-85 | The gate never reads a stylesheet's comments                       | Ops, Docs         | S      | Open     | —          |
-| 24  | OPS-29 | The docs gate is blind inside an embedded one-liner                | Ops, Docs         | S      | Open     | —          |
-| 25  | OPS-11 | The compose guard cannot tell an invocation from a name            | Ops               | S      | Open     | —          |
-| 26  | OPS-74 | One field list is drift-guarded on one side only                   | FE, Ops           | S      | Open     | —          |
-| 27  | OPS-87 | A call site's key tier is held to its route by nothing             | FE, BE, Ops       | M      | Open     | —          |
-| 28  | OPS-68 | Two routes on one path and method collapse to one                  | BE, Ops           | S      | Open     | —          |
-| 29  | OPS-83 | An in-transaction read's session argument is untested              | BE, Ops           | M      | Open     | —          |
-| 30  | DOC-13 | The refusal-code table is held to the backend by nothing           | BE, Ops, Docs     | S      | Open     | —          |
-| 31  | DOC-15 | A refusal's meaning is written three times, unresolved             | FE, BE, Ops, Docs | M      | Open     | —          |
-| 32  | OPS-63 | A comment claims two files hold one pattern, unchecked             | FE, BE, Ops       | S      | Open     | —          |
-| 33  | OPS-69 | A declared-permitted state's reason is checked by nothing          | BE, Ops           | S      | Open     | —          |
-| 34  | OPS-65 | An unused parameter is reported by no checker here                 | FE, Ops           | S      | Open     | —          |
-| 35  | OPS-66 | The CSP's style directive is wider than it needs to be             | Ops, Docs         | S      | Open     | —          |
-| 36  | OPS-12 | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
-| 37  | DOC-14 | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
-| 38  | DOC-9  | Pairs of audit checks hunt the same ground                         | Docs              | S      | Open     | —          |
-| 39  | DOC-2  | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
-| 40  | OPS-19 | Both repository-wide linters re-read every file                    | FE, Ops           | S      | Open     | —          |
-| 41  | OPS-10 | The comment-only classifier costs a process per file               | Ops               | S      | Open     | —          |
-| 42  | OPS-2  | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
-| 43  | OPS-3  | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
-| 44  | DOC-3  | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
-| 45  | DOC-10 | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
-| 46  | OPS-81 | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
+| #   | ID      | Item                                                               | Surfaces          | Effort | Status   | Depends on |
+| --- | ------- | ------------------------------------------------------------------ | ----------------- | ------ | -------- | ---------- |
+| 1   | OPS-93  | The origin trusts every source inside Cloudflare's ranges          | Ops, Docs         | S      | Open     | —          |
+| 2   | OPS-94  | A sweep that enumerates its subjects cannot falsify its own claim  | FE, Ops, Docs     | M      | Open     | —          |
+| 3   | OPS-60  | The gate saturates the machine, then idles through its tail        | Ops               | M      | Open     | —          |
+| 4   | OPS-100 | A changed citation target puts no page in front of the session     | Ops, Docs         | S      | Open     | —          |
+| 5   | OPS-91  | A continuation citation is resolved and checked by nothing         | Ops, Docs         | M      | Open     | —          |
+| 6   | OPS-98  | A formatter reshapes a comment before INC-9 measures it            | BE, Ops, Docs     | S      | Open     | —          |
+| 7   | OPS-90  | A passing scope leaves the report when an earlier one fails        | Ops               | S      | Open     | —          |
+| 8   | OPS-84  | The linter runs a version past its end of life                     | FE, Ops, Docs     | M      | Open     | —          |
+| 9   | OPS-97  | No check can render a Server Component, so §6's rule is unenforced | FE, Ops, Docs     | L      | Open     | —          |
+| 10  | OPS-67  | The runner cannot load a component, so none is tested              | FE, Ops, Docs     | M      | Open     | —          |
+| 11  | OPS-76  | Most of the database tier runs unconstrained                       | BE, Ops           | M      | Open     | —          |
+| 12  | OPS-56  | The git stepper reads one `git`, on one line                       | Ops               | S      | Open     | —          |
+| 13  | OPS-71  | A citation resolves to a string, not to what it names              | Ops, Docs         | S      | Open     | —          |
+| 14  | OPS-92  | Real-IP recovery can fall back with nothing to say so              | Ops, Docs         | S      | Open     | —          |
+| 15  | DOC-12  | A Known-open table has no membership test                          | Docs              | S      | Open     | —          |
+| 16  | OPS-95  | A real file in an unaccepted spelling reads as a missing file      | Ops, Docs         | S      | Open     | —          |
+| 17  | OPS-78  | The local edge claims to mirror production, unchecked              | Ops, Docs         | S      | Open     | —          |
+| 18  | OPS-70  | Two db-tier runs at once fail in a way that names nothing          | Ops               | M      | Open     | —          |
+| 19  | OPS-73  | A copy test pins what its own author wrote                         | FE, Ops, Docs     | M      | Open     | —          |
+| 20  | OPS-61  | The commit hook's scratch is a path git cannot open                | Ops               | S      | Open     | —          |
+| 21  | OPS-79  | A projection's coupling is guarded in one direction only           | BE, Ops           | M      | Open     | —          |
+| 22  | OPS-77  | A test fixture asserts the type nothing else checks                | FE, Ops           | M      | Open     | —          |
+| 23  | OPS-72  | The unique-index test pairs by ordinal position                    | BE, Ops           | S      | Open     | —          |
+| 24  | OPS-85  | The gate never reads a stylesheet's comments                       | Ops, Docs         | S      | Open     | —          |
+| 25  | OPS-29  | The docs gate is blind inside an embedded one-liner                | Ops, Docs         | S      | Open     | —          |
+| 26  | OPS-11  | The compose guard cannot tell an invocation from a name            | Ops               | S      | Open     | —          |
+| 27  | OPS-74  | One field list is drift-guarded on one side only                   | FE, Ops           | S      | Open     | —          |
+| 28  | OPS-87  | A call site's key tier is held to its route by nothing             | FE, BE, Ops       | M      | Open     | —          |
+| 29  | OPS-68  | Two routes on one path and method collapse to one                  | BE, Ops           | S      | Open     | —          |
+| 30  | OPS-83  | An in-transaction read's session argument is untested              | BE, Ops           | M      | Open     | —          |
+| 31  | DOC-13  | The refusal-code table is held to the backend by nothing           | BE, Ops, Docs     | S      | Open     | —          |
+| 32  | DOC-15  | A refusal's meaning is written three times, unresolved             | FE, BE, Ops, Docs | M      | Open     | —          |
+| 33  | OPS-63  | A comment claims two files hold one pattern, unchecked             | FE, BE, Ops       | S      | Open     | —          |
+| 34  | OPS-69  | A declared-permitted state's reason is checked by nothing          | BE, Ops           | S      | Open     | —          |
+| 35  | OPS-65  | An unused parameter is reported by no checker here                 | FE, Ops           | S      | Open     | —          |
+| 36  | OPS-66  | The CSP's style directive is wider than it needs to be             | Ops, Docs         | S      | Open     | —          |
+| 37  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
+| 38  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
+| 39  | DOC-9   | Pairs of audit checks hunt the same ground                         | Docs              | S      | Open     | —          |
+| 40  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
+| 41  | OPS-19  | Both repository-wide linters re-read every file                    | FE, Ops           | S      | Open     | —          |
+| 42  | OPS-10  | The comment-only classifier costs a process per file               | Ops               | S      | Open     | —          |
+| 43  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
+| 44  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
+| 45  | DOC-3   | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
+| 46  | DOC-10  | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
+| 47  | OPS-81  | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -410,7 +411,42 @@ Inside the `scripts` scope, whose checks start together and are collected one st
 2 and 3 are re-ranked against whatever binds the run once the tail moves, and any figure quoted for
 the result carries its spread and its run count the way the ones above do.
 
-### 4 · OPS-91 — A citation continuing a file already named is matched by no pattern, so nothing it claims is checked
+### 4 · OPS-100 — A branch changes what a page cites, and nothing puts that page in front of the session
+
+**Status:** Open\
+**Surfaces:** Ops, Docs\
+**Effort:** S\
+**Path:** Independent. It lands beside the branch-scoped checks in `scripts/docs_gate/branch.py`,
+reads the material classifier that is already there, and `/docs:audit-pr` consumes the same list
+once it exists.
+
+**Nothing mechanical asks a branch to re-read the pages describing what it changed.** The
+same-commit rule (CUR-2) is answered by the author, and the author here is almost always an
+assistant session — the writer most likely to update the code it is touching and to miss the
+prose it is not. The retired restamp cascade carried this forcing and went for its costs; its
+record — the closed OPS-80 row in [`closed-items.md`](closed-items.md) — shows the hard-failing
+version was satisfiable by ritual, one stamp move clearing a branch for good. Failing was the
+wrong verdict, not the wrong idea.
+
+**The repair is the arming computation without the stamps.** A report-verdict check: intersect
+each docs page's resolved citations with the branch's materially changed files — the classifier
+`scripts/check_scope.py` already decides material — and print the pages whose subjects moved. A
+list to read, never a failure, in the same tier as `counts` and `history`: no line to falsify, no
+bookkeeping to go stale, nothing to suppress. The gate's output lands in the session transcript,
+which is exactly where the author is; the review reads the same list in the run the pull request
+records.
+
+**Proven against a planted violation first (PRE-4):** a fixture page citing a fixture source
+file, the source materially edited on the branch, the page named in the report — and the
+negative, a comment-only edit to the cited file arming nothing.
+
+**Why it ranks where it does.** Test 1: every documentation-touching branch after it is safer,
+and the work ahead — the corpus disposition rewrite, the tooling shrink, the test estate — is
+exactly a run of branches that change what pages cite. It sits below OPS-60, whose subject is
+every run's wall clock, and above the citation-resolution family, whose subject is whether a
+claim resolves rather than whether anyone is asked to re-read it.
+
+### 5 · OPS-91 — A citation continuing a file already named is matched by no pattern, so nothing it claims is checked
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -459,7 +495,7 @@ leaves nothing to remember; the first keeps a table cell short.
 the `citation` check itself — an anchor that is never proved — and a claim the gate cannot
 resolve is one that certifies silently, which is the failure the check exists to stop.
 
-### 5 · OPS-98 — The formatter rewrites a comment between the author and the checker, so its shape inside a call is not the shape INC-9 is measured on
+### 6 · OPS-98 — The formatter rewrites a comment between the author and the checker, so its shape inside a call is not the shape INC-9 is measured on
 
 **Status:** Open\
 **Surfaces:** BE, Ops, Docs\
@@ -508,7 +544,7 @@ It holds above everything below because it is the measuring instrument rather th
 measured, and because the failure is silent at both ends: the gate reports nothing and the
 author is given no way to learn why their comment is the wrong length.
 
-### 6 · OPS-90 — A scope that ran and passed leaves the report entirely when an earlier scope fails
+### 7 · OPS-90 — A scope that ran and passed leaves the report entirely when an earlier scope fails
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -545,7 +581,7 @@ reaches `main`. The same test puts it above everything below, on two counts — 
 reports through that table, and a session that fixes the failing scope pays for the passing ones a
 second time to learn what the first run already knew.
 
-### 7 · OPS-84 — The linter runs a version past its end of life, and the documentation for it describes another
+### 8 · OPS-84 — The linter runs a version past its end of life, and the documentation for it describes another
 
 **Status:** Open\
 **Surfaces:** FE, Ops, Docs\
@@ -594,7 +630,7 @@ distance from the supported line widens on its own with nothing here watching it
 migration that test names. It sits under the entries above it on test 1, none of which this makes
 cheaper, safer or possible.
 
-### 8 · OPS-97 — Nothing here can render a Server Component, so no check can reach the boundary rule the repository already states
+### 9 · OPS-97 — Nothing here can render a Server Component, so no check can reach the boundary rule the repository already states
 
 **Status:** Open\
 **Surfaces:** FE, Ops, Docs\
@@ -641,7 +677,7 @@ OPS-94's instances is that this one has already reached a user**, rather than me
 unfalsifiable: the cost of leaving it undone is not hypothetical, and the next crossing is a
 different prop in a different file.
 
-### 9 · OPS-67 — No component can be loaded by the frontend test runner, so no component test can be written
+### 10 · OPS-67 — No component can be loaded by the frontend test runner, so no component test can be written
 
 **Status:** Open\
 **Surfaces:** FE, Ops, Docs\
@@ -690,7 +726,7 @@ at, each with a `.test.ts` beside it while the `.tsx` consuming them has none. *
 exactly where the runner stops is the reading this entry takes**, and it is a reading rather than a
 measurement: no comment in either file states it.
 
-### 10 · OPS-76 — Most of the database tier runs against collections production would not accept
+### 11 · OPS-76 — Most of the database tier runs against collections production would not accept
 
 **Status:** Open\
 **Surfaces:** BE, Ops\
@@ -731,7 +767,7 @@ one requires; a tier of that is a work package, and every seed it corrects is a 
 describing a document the product cannot hold. **What it buys is that the database tier stops being
 able to prove behaviour over impossible data** — which is the one thing that tier exists for.
 
-### 11 · OPS-56 — The git subcommand stepper reads one `git`, on one line
+### 12 · OPS-56 — The git subcommand stepper reads one `git`, on one line
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -812,7 +848,7 @@ that matrix twice for one line of code**, which is why they are one entry.
 distinction to hold on to is that the subcommand table here is complete and the stepper never
 reaches it, which is the opposite of a guard whose vocabulary is genuinely short of a shape.
 
-### 12 · OPS-71 — A citation is proved by a substring, so one that resolves to the wrong thing passes
+### 13 · OPS-71 — A citation is proved by a substring, so one that resolves to the wrong thing passes
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -853,7 +889,7 @@ has no index the gate could resolve a function name against. So this narrows the
 shape rather than replacing it, and `scripts/docs_gate/references.py :: INVARIANT_CITE_RE` is the
 pattern that already recognises that shape.
 
-### 13 · OPS-92 — Real-IP recovery can fall back to the edge address, and nothing at the origin says that it did
+### 14 · OPS-92 — Real-IP recovery can fall back to the edge address, and nothing at the origin says that it did
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -931,7 +967,7 @@ is a visitor choosing their own key, and that belongs to **OPS-93** rather than 
 **OPS-84**, whose clock has already run out and whose distance from the supported line widens on its
 own, and above the entries below, which test 2 does not reach at all.
 
-### 14 · DOC-12 — A spec sheet's Known-open table has no membership test, so nothing can be missing from it
+### 15 · DOC-12 — A spec sheet's Known-open table has no membership test, so nothing can be missing from it
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -986,7 +1022,7 @@ has passed, and what accumulates is one unanswerable pair per filing rather than
 places it** — one decision retires a requirement that is unverifiable at 95 places today, and that
 decision is the whole of the S, the sweep it authorises being separate work.
 
-### 15 · OPS-95 — A citation naming a real file in an unaccepted spelling is reported as a file that does not exist
+### 16 · OPS-95 — A citation naming a real file in an unaccepted spelling is reported as a file that does not exist
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -1024,7 +1060,7 @@ wrong through it, no date makes it worse, and no work is redone. **Test 4 places
 that turns a misdiagnosis into an instruction, over a population any comment or page can enter, which
 is worth less than the entries above it and more than an entry whose whole subject is one file.
 
-### 16 · OPS-78 — The local edge claims to mirror production, and nothing reads either half of the claim
+### 17 · OPS-78 — The local edge claims to mirror production, and nothing reads either half of the claim
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -1076,7 +1112,7 @@ share. **A second `nginx -t` over `local.conf` is a different question and a muc
 proves the file parses and proves nothing about the pair. Both are worth having, and that one is the
 half that could ship on its own.
 
-### 17 · OPS-70 — Two db-tier runs at once fail in a way that names nothing
+### 18 · OPS-70 — Two db-tier runs at once fail in a way that names nothing
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -1130,7 +1166,7 @@ because an unrepeated symptom is worth having written down when the mechanism is
 `verify.sh` scope per job and each job takes its own runner, so two db-tier runs would have to land on
 one host — which a hosted runner is not.
 
-### 18 · OPS-73 — A copy test compares source text against a literal its own author typed
+### 19 · OPS-73 — A copy test compares source text against a literal its own author typed
 
 **Status:** Open\
 **Surfaces:** FE, Ops, Docs\
@@ -1181,7 +1217,7 @@ linter can express is held. **The line to draw is the authority, not the mechani
 compares the tree against something outside itself is sound, and one that compares it against a literal
 in the same commit is a note about intent wearing a test's clothes.
 
-### 19 · OPS-61 — The commit hook builds its scratch at a path git cannot open
+### 20 · OPS-61 — The commit hook builds its scratch at a path git cannot open
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -1215,7 +1251,7 @@ spells the pool's own shell and how `scripts/selfcheck.sh` builds its container 
 that hands a POSIX-looking path to a Windows binary owes the same resolution, so it is worth deciding
 whether they should share one helper rather than a spelling each.
 
-### 20 · OPS-79 — A projection and the predicate reading it are coupled in one direction, and the open one fails quietly
+### 21 · OPS-79 — A projection and the predicate reading it are coupled in one direction, and the open one fails quietly
 
 **Status:** Open\
 **Surfaces:** BE, Ops\
@@ -1268,7 +1304,7 @@ save may move while nothing counts as recorded, so those two are covered by name
 `:: holds_a_recorded_fact` and `:: _a_side_is_off_the_draw` read today is fetched by the projection.
 The gap is that nothing holds them to it.
 
-### 21 · OPS-77 — A test fixture asserts its own type, and the assertion is the only thing holding it to the model
+### 22 · OPS-77 — A test fixture asserts its own type, and the assertion is the only thing holding it to the model
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -1328,7 +1364,7 @@ no type-level mechanism reaches that — not a cast's removal, not a factory, no
 catches it is a reader, or a predicate that eventually disagrees with it. The two failures share a
 file and nothing else.
 
-### 22 · OPS-72 — A unique index and the case proving it are paired by position, and only a count holds them
+### 23 · OPS-72 — A unique index and the case proving it are paired by position, and only a count holds them
 
 **Status:** Open\
 **Surfaces:** BE, Ops\
@@ -1370,7 +1406,7 @@ parametrize list by walking `UNIQUE_INDEXES` and looking each name up. A missing
 The precedent is one file away — `fl_backend/tests/api/test_rules_refusal.py` asserts its own case list
 against the imported field tuple at module level, so an unpaired field fails at import.
 
-### 23 · OPS-85 — The documentation gate never opens a stylesheet, and the standard says it should
+### 24 · OPS-85 — The documentation gate never opens a stylesheet, and the standard says it should
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -1446,7 +1482,7 @@ demonstrated behind it, on that escape alone — the effort tie-break would othe
 first, that one riding another change rather than being one. It stays below **OPS-72**, whose
 subject is a test that reports an index proven when it is not.
 
-### 24 · OPS-29 — The documentation gate reads nothing inside an embedded node one-liner
+### 25 · OPS-29 — The documentation gate reads nothing inside an embedded node one-liner
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -1507,7 +1543,7 @@ advisory over three lines**. The reason is structural rather than lucky — COR-
 `check_comment_length` all read `branch_additions`, so they cannot fire on a line no branch added,
 and the over-length block named above surfaces only when somebody rewrites it.
 
-### 25 · OPS-11 — The local-compose guard cannot tell an invocation from a mention
+### 26 · OPS-11 — The local-compose guard cannot tell an invocation from a mention
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -1556,7 +1592,7 @@ when `-f` actually carries the local file as its value.
 local file named, and for a command that is not compose at all, so the probes have a home; the third
 assertion above is the one with no probe today.
 
-### 26 · OPS-74 — One field list is drift-guarded on the backend and hand-written on the frontend
+### 27 · OPS-74 — One field list is drift-guarded on the backend and hand-written on the frontend
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -1602,7 +1638,7 @@ tuple parsed out of `fl_backend/app/api/saisons/services.py`, with each entry's 
 appear in the `REQ-RULES-011` arm. A further field then fails the frontend suite the same day it fails
 nothing on the backend.
 
-### 27 · OPS-87 — A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches
+### 28 · OPS-87 — A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -1645,7 +1681,7 @@ frontend half from the call sites, and that derivation — not the comparison �
 **The decision is whether that is worth building** against a failure mode that is loud in one
 direction and, in the other, costs a wider key on a request that would have succeeded anyway.
 
-### 28 · OPS-68 — Two routes sharing a path and a method collapse to one before the guard sweep reads them
+### 29 · OPS-68 — Two routes sharing a path and a method collapse to one before the guard sweep reads them
 
 **Status:** Open\
 **Surfaces:** BE, Ops\
@@ -1678,7 +1714,7 @@ segment cannot be read as an id; the admin route carries a static `/admin` after
 each of the two paths, by the guard that refuses the wrong key. **This entry is about the sweep's
 blind spot in general, not about that route.**
 
-### 29 · OPS-83 — An in-transaction read's session argument is held to its comment by nothing
+### 30 · OPS-83 — An in-transaction read's session argument is held to its comment by nothing
 
 **Status:** Open\
 **Surfaces:** BE, Ops\
@@ -1718,7 +1754,7 @@ the design question inside the entry, and writing it for this site alone leaves 
 **Not verified here:** the database tier was not run for this entry. That dropping the argument leaves
 it green is a report; the mechanism above is what the code says would allow it.
 
-### 30 · DOC-13 — Every refusal code is written twice, and nothing resolves one spelling against the other
+### 31 · DOC-13 — Every refusal code is written twice, and nothing resolves one spelling against the other
 
 **Status:** Open\
 **Surfaces:** BE, Ops, Docs\
@@ -1770,7 +1806,7 @@ partly-spelled code. What a check reading the backend by SHAPE rather than by de
 to tolerate is a glob in prose: `fl_backend/app/core/domain.py` writes `REQ-STATE-*` inside an
 `Unenforced` reason, naming the pair rather than a code the table could carry a row for.
 
-### 31 · DOC-15 — A refusal code's meaning is written three times in prose, and nothing resolves any pair of them
+### 32 · DOC-15 — A refusal code's meaning is written three times in prose, and nothing resolves any pair of them
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops, Docs\
@@ -1822,7 +1858,7 @@ added. Test 4 places it below **DOC-13** — that one buys a complete answer for
 this costs more and can never answer the half that matters — and above **OPS-63**, whose population is
 one comment about two files where this reaches every refusal the product can state.
 
-### 32 · OPS-63 — A comment claims two files hold the same pattern, and nothing holds them to it
+### 33 · OPS-63 — A comment claims two files hold the same pattern, and nothing holds them to it
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -1878,7 +1914,7 @@ a reader following that comment never arrives at them.
 - **Generate one end from the other.** Refused for the mirror as a whole, and refusing it
   for one constant is the same argument at a smaller scale.
 
-### 33 · OPS-69 — A declared-permitted state carries its reason in prose, and no checker reads it
+### 34 · OPS-69 — A declared-permitted state carries its reason in prose, and no checker reads it
 
 **Status:** Open\
 **Surfaces:** BE, Ops\
@@ -1904,7 +1940,7 @@ confidently from something no longer true, and the states it covers are the ones
 The cheapest check is the one the file already invites — resolve every anchor and every index name
 a `reason=` mentions, the way the three neighbouring fields are resolved.
 
-### 34 · OPS-65 — An unused parameter is reported by neither checker the frontend runs
+### 35 · OPS-65 — An unused parameter is reported by neither checker the frontend runs
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -1939,7 +1975,7 @@ declared rather than omitted. `noUnusedParameters` is not among the keys it writ
 installed Next 16.3.0 on 2026-08-20 — so adding it neither collides with that pass nor has to be
 defended against it.
 
-### 35 · OPS-66 — The style directive concedes more than the reason recorded for it needs
+### 36 · OPS-66 — The style directive concedes more than the reason recorded for it needs
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -1980,7 +2016,7 @@ attribute half is the whole of the value. That the prerendered HTML carries no i
 is the spec sheet's claim rather than this entry's measurement, and it is worth re-checking beside
 the one above it.
 
-### 36 · OPS-12 — Nothing checks a generated file against the generator that owns it
+### 37 · OPS-12 — Nothing checks a generated file against the generator that owns it
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -2016,7 +2052,7 @@ the formatter has run over each side so the comparison is about content rather t
 and fails where it differs from the committed one, and the images are left to review with that
 exclusion written down rather than assumed.
 
-### 37 · DOC-14 — A file that arrives as a rename brings its comment blocks in as context, so INC-9 measures none of them
+### 38 · DOC-14 — A file that arrives as a rename brings its comment blocks in as context, so INC-9 measures none of them
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -2047,7 +2083,7 @@ inside it as the branch's own prose. **The narrower question is the decision:** 
 `check_comment_length` alone should treat a rename's destination as added while the set the other
 branch-scoped checks read stays as it is.
 
-### 38 · DOC-9 — Pairs of audit checks hunt one another's ground, and only one pair has a boundary about it
+### 39 · DOC-9 — Pairs of audit checks hunt one another's ground, and only one pair has a boundary about it
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -2090,7 +2126,7 @@ split is a sentence in each prompt, and both pages of a pair move together.
 **Not decided:** whether `docs/_auditing/prompts/README.md` should carry a rule that every check
 names its counterpart, or whether the boundary lines stay the only mechanism.
 
-### 39 · DOC-2 — An enforcement claim is resolved in one direction only
+### 40 · DOC-2 — An enforcement claim is resolved in one direction only
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -2122,7 +2158,7 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 40 · OPS-19 — Both repository-wide linters re-read every file on every run
+### 41 · OPS-19 — Both repository-wide linters re-read every file on every run
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -2239,7 +2275,7 @@ resolves it to two over a file set this size — a numeric 2 makes that explicit
 taken from a development machine: the flag ships on local evidence, and that condition stands open
 against it.
 
-### 41 · OPS-10 — Deciding whether a change is comments only costs a process per file
+### 42 · OPS-10 — Deciding whether a change is comments only costs a process per file
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -2269,7 +2305,7 @@ spawning it replaced.
 **Not measured:** what the spawns actually cost, and how much of a gate run is attributable to them.
 The mechanism above is read from the code; the magnitude is not.
 
-### 42 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 43 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -2308,7 +2344,7 @@ a faster diagnosis is worth a new way for `deploy.sh` to refuse.
 cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 43 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 44 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -2353,7 +2389,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately.
 
-### 44 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 45 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -2386,7 +2422,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a rule family added to the standard under a prefix the patterns do not
 carry, or the first page that needs a metadata block indented.
 
-### 45 · DOC-10 — A block already over a bound is excused by its opening line alone
+### 46 · DOC-10 — A block already over a bound is excused by its opening line alone
 
 **Status:** Standing\
 **Surfaces:** Ops, Docs\
@@ -2414,7 +2450,7 @@ rests on.
 **Trigger to revisit:** a branch charged for a block whose length it did not create, or any change to
 how `check_comment_length` decides whose block a block is.
 
-### 46 · OPS-81 — One commit imports a frontend module the commit after it adds
+### 47 · OPS-81 — One commit imports a frontend module the commit after it adds
 
 **Status:** Standing\
 **Surfaces:** FE, Ops\
