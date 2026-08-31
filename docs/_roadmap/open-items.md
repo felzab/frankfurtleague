@@ -79,7 +79,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 24  | BE-32 | A replace reports what it wrote and not what it destroyed            | FE, BE, Docs    | S      | Open     | —          |
 | 25  | BE-40 | A bracket slot may name a group its season does not run              | FE, BE          | S      | Open     | —          |
 | 26  | FE-28 | A squad-row return is offered where the cap refuses it               | FE, BE          | M      | Open     | —          |
-| 27  | FE-26 | The draw offers a press a too-short season refuses                   | FE              | S      | Open     | —          |
+| 27  | FE-26 | The draw offers a press a too-short season refuses                   | FE              | S      | Closed   | —          |
 | 28  | BE-21 | The seeding table is keyed on a list nothing joins it                | BE              | S      | Open     | —          |
 | 29  | BE-33 | The log read carries every pre-image the page discards               | BE              | S      | Open     | —          |
 | 30  | FE-29 | A date search matches the stored spelling, not the shown one         | FE              | S      | Open     | —          |
@@ -1652,7 +1652,7 @@ already full.
 
 ### 27 · FE-26 — The draw panel offers a press a too-short season will refuse
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE\
 **Effort:** S\
 **Path:** Independent, and cheaper than it looks — see the last paragraph, which corrects the
@@ -1682,6 +1682,15 @@ served value rather than recomputing it, as its own comment puts it. The season'
 already renders**, and nothing about the scheduling rule is duplicated. That makes the objection to
 duplicating a scheduling rule sound in general and inapplicable here — which is worth recording,
 because it is the reason this was left alone.
+
+**What concluded it: the fifth reason, as the date subtraction the paragraph above describes.**
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/blockedReasons.ts :: spielplanBlockedReason`
+mirrors `REQ-DATE-005` last, the position the endpoint gives `find_saison_span_refusal`: inclusive
+days between the season's stored `start_date` and `end_date` against the matchday sum
+`buildSpielplanVorschau` takes off the served schedule. The sentence names the Zeitraum section and
+the save, the repair the refusal's own mapping composes. A redraw carrying a moved shape stays the
+endpoint's to judge — the served schedule describes the stored numbers — and the comment at the
+check records that bound.
 
 ### 28 · BE-21 — The bracket's seeding table is keyed on a phase list nothing holds it to
 
