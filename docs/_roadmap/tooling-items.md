@@ -80,7 +80,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 32  | DOC-15  | A refusal's meaning is written three times, unresolved             | FE, BE, Ops, Docs | M      | Open     | —          |
 | 33  | OPS-63  | A comment claims two files hold one pattern, unchecked             | FE, BE, Ops       | S      | Open     | —          |
 | 34  | OPS-69  | A declared-permitted state's reason is checked by nothing          | BE, Ops           | S      | Open     | —          |
-| 35  | OPS-65  | An unused parameter is reported by no checker here                 | FE, Ops           | S      | Open     | —          |
+| 35  | OPS-65  | An unused parameter is reported by no checker here                 | FE, Ops           | S      | Closed   | —          |
 | 36  | OPS-66  | The CSP's style directive is wider than it needs to be             | Ops, Docs         | S      | Open     | —          |
 | 37  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
 | 38  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
@@ -1942,7 +1942,7 @@ a `reason=` mentions, the way the three neighbouring fields are resolved.
 
 ### 35 · OPS-65 — An unused parameter is reported by neither checker the frontend runs
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE, Ops\
 **Effort:** S\
 **Path:** Independent — `fl_frontend/tsconfig.json` is the file, and the single site the flag reports
@@ -1974,6 +1974,14 @@ parameter is there at all. Whether that trade is worth taking is the decision th
 declared rather than omitted. `noUnusedParameters` is not among the keys it writes — read from the
 installed Next 16.3.0 on 2026-08-20 — so adding it neither collides with that pass nor has to be
 defended against it.
+
+**What concluded it: the trade taken, at the measured cost.** `fl_frontend/tsconfig.json` declares
+`noUnusedParameters` beside `noUnusedLocals`, and the checker reported exactly the two measured
+sites and no more. `handleSignIn`'s parameter is `_prevState` with a comment naming
+`useActionState`'s calling convention — the comment carrying the why the underscore alone would
+have dropped, which is what answered the readability cost the entry weighed — and the leading token
+in `adminCrudEmpty.test.ts`'s filter callback is underscored bare, an ignored slot in a two-line
+callback needing no sentence.
 
 ### 36 · OPS-66 — The style directive concedes more than the reason recorded for it needs
 

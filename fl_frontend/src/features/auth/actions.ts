@@ -33,7 +33,9 @@ async function settleAfterFloor<T>(startedAt: number, result: T): Promise<T> {
  * Public by necessity, so nginx rate-limits POSTs to `/signin` (ops spec I4) — the only thing
  * between this and an open email relay.
  */
-export async function handleSignIn(prevState: FormState | undefined, formData: FormData): Promise<FormState> {
+// `_prevState` is required by `useActionState`'s calling convention -- the action receives the
+// previous state first -- and read by nothing: the form re-renders from the returned state alone.
+export async function handleSignIn(_prevState: FormState | undefined, formData: FormData): Promise<FormState> {
   return runWithIncomingCorrelationId(async () => {
     const startedAt = Date.now();
 
