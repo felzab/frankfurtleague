@@ -464,22 +464,3 @@ describe("a message that cannot be sent", () => {
     assert.ok(!NOTIFY.includes("throw"), "the notification throws again, so the committed decision still reports a failure");
   });
 });
-
-describe("what the acceptance message is told about the wished opponent", () => {
-  /* `BewerbungZusageData.wunschgegner` is OPTIONAL, so a call site that never passes it compiles,
-     lints, builds and mails a message with the sentence silently missing. This is what stands
-     between that and a school being told its wish was noted. */
-  it("hands the mail builder the wish the application carries", () => {
-    assert.match(
-      ANNEHMEN_ACTION,
-      /wunschgegner: annahmeOperation\.updated_document\.wunschgegner/,
-      "the acceptance message is built without the opponent the school wished for",
-    );
-  });
-
-  /* Off the STORED application and never off the acceptance's own payload: the payload carries a
-     group and a kit colour, so a wish read there could only be one nobody submitted. */
-  it("reads it off the stored application rather than off the decision's payload", () => {
-    assert.doesNotMatch(ANNEHMEN_ACTION, /wunschgegner: validated\.data/, "the message names a wish the acceptance payload invented");
-  });
-});

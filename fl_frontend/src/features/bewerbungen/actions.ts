@@ -236,9 +236,6 @@ export async function annehmenBewerbungAction(rawPayload: FLAnnehmenBewerbungPay
           // `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS`, which
           // `core/bewerbungEmail.ts` may not import.
           trikotFarbeLabel: annahmeOperation.trikot_farbe === null ? null : trikotFarbeLabel(annahmeOperation.trikot_farbe),
-          // Off the STORED application rather than off any form: the acceptance payload carries no
-          // wish, and the message names what the school actually submitted.
-          wunschgegner: annahmeOperation.updated_document.wunschgegner,
         }),
     });
 
