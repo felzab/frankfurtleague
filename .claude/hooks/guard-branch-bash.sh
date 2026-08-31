@@ -77,12 +77,15 @@ if [[ "$padded" =~ [[:space:]/](sed|perl|ruby|awk|gawk|yq)[0-9.]*(\.exe)?[[:spac
   esac
 fi
 
-# Global options sit between program and subcommand (`git -c user.name=x commit`), so the subcommand
-# is reached by stepping over them. extglob is on for that one expansion alone.
+# Global options sit between program and subcommand, so the stepper skips them. Every `git` is
+# walked — a leading read otherwise shadows a chained write — and the class reaches the newline
+# and CR `tr` leaves alone. extglob is on for that one expansion.
 shopt -s extglob
-rest="${padded#*[ /]git?(.exe) }"
-shopt -u extglob
-if [ "$rest" != "$padded" ]; then
+gitscan="$padded"
+while :; do
+  rest="${gitscan#*[[:space:]/]git?(.exe) }"
+  [ "$rest" = "$gitscan" ] && break
+  gitscan="$rest"
   while :; do
     case "$rest" in
       *" "*) ;;
@@ -97,13 +100,16 @@ if [ "$rest" != "$padded" ]; then
       *) break ;;
     esac
   done
-  case "${rest%% *}" in
+  # The subcommand word ends at any whitespace: a newline straight after it must not glue the next
+  # line's first word onto it.
+  case "${rest%%[[:space:]]*}" in
     am | apply | cherry-pick | clean | commit | merge | rebase | reset | restore | revert | stash | switch) writes=1 ;;
     # `git checkout -b` is how a session leaves `main` and must never be refused; the pathspec form
     # writes a tracked file and is the spelling that has to be.
     checkout) case "$padded" in *" -- "*) writes=1 ;; esac ;;
   esac
-fi
+done
+shopt -u extglob
 
 # Every redirect spelling, once a descriptor duplication is out of the way: `>&1`, `>&2` and `>&-`
 # name no file, while `>&f`, `->f` and `=>f` all redirect INTO f because `>` ends the word before it.

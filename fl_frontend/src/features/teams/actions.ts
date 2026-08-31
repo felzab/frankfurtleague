@@ -429,7 +429,7 @@ export async function replaceSaisonTeamAction(
     // admin is looking at, so "none were" is as much the answer as a number is.
     const umfang = describeReplacementUmfang({
       fannedOutToSpiele: replacement.fanned_out_to_spiele,
-      retiredSquadRows: replacement.retired_squad_rows,
+      ausgetrageneSquadRows: replacement.ausgetragene_squad_rows,
     });
 
     return {

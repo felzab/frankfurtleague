@@ -548,7 +548,7 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     fanned_out_to_spiele: int
     # Reported for the same reason, and separately: the outgoing club's squad leaves the season with
     # it, and zero is a real answer -- a club can hold a junction row and no squad at all.
-    retired_squad_rows: int
+    ausgetragene_squad_rows: int
 
 
 FLTeamsResponse = Annotated[

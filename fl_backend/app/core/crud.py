@@ -200,6 +200,9 @@ async def delete_many_from_db(
     await record_write(
         collection=collection,
         operation="delete_many",
+        # The removed ids, so a person's erasure can select this row: its `(collection,
+        # document_id)` filter matches an array field on its members (`docs/backend/spec.md :: I42`).
+        document_id=[document["_id"] for document in before],
         db_filter=db_filter,
         before=before,
         modified_count=result.deleted_count,

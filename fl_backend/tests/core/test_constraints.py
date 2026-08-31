@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
-from app.api.aktionen.schemas import FLAktion, FLAktionRequest, FLAktor
+from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktor
 from app.api.bewerbungen.schemas import (
     FLBewerbung,
     FLBewerbungEntscheidung,
@@ -89,7 +89,9 @@ OUT_OF_SCOPE_KEYWORDS = {
 # fourth keeps this an equality check: `FLTeam` and `FLSpieler` are assembled from several collections.
 MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple[type[BaseModel], ...], frozenset[str]]] = [
     # `schedule` is derived from this season's `rules` and stored nowhere.
-    (Collection.AKTIONEN, (), FLAktion, frozenset()),
+    # The single read's model: the LIST model drops `before` and computes `stand_gesichert`,
+    # which no document stores.
+    (Collection.AKTIONEN, (), FLAktionMitStand, frozenset({"stand_gesichert"})),
     (Collection.AKTIONEN, ("actor",), FLAktor, frozenset()),
     (Collection.AKTIONEN, ("request",), FLAktionRequest, frozenset()),
     (Collection.SAISONS, (), FLSaison, frozenset({"schedule"})),

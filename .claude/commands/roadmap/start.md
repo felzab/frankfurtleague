@@ -77,9 +77,9 @@ the change (CLAUDE.md §2).
      commit 1's body**, which `git blame` reaches from the constraint, and
      `scripts/check_commits.py` refuses a commit with none.
    - **`git grep -n "<ID>"` enumerates every reference commit 1 must update**, which CLAUDE.md's
-     same-commit rule requires. They live in the `## 4. Known-open` table of a surface spec sheet
-     (its `#` column) and in an audit pass prompt under `docs/_auditing/prompts/`. INC-6 keeps the
-     id out of a source comment, which carries the constraint itself.
+     same-commit rule requires. They live in an audit pass prompt under `docs/_auditing/prompts/`.
+     A spec sheet's `## 4. Known-open` table names no roadmap id (OUT-4), and INC-6 keeps one out
+     of a source comment, which carries the constraint itself.
    - **Commit 2 renumbers the index table and every `### <rank> ·` heading together**, leaving the
      page one run from 1 with no gap, and re-derives the `Status` of every row — reading each row's
      `Status` and `Depends on` together is what catches the rows nobody edited.

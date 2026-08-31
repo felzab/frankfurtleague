@@ -476,8 +476,8 @@ export const FLReplaceSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
   // Reported rather than assumed, as the rename's count is: this fan-out is the half of the endpoint
   // that fails silently.
   fanned_out_to_spiele: z.int().nonnegative(),
-  // The outgoing club's live squad rows for this season, retired by the same transaction. Its own
-  // figure beside the fixtures': the players did not transfer, and their registration survives.
-  retired_squad_rows: z.int().nonnegative(),
+  // The outgoing club's live squad rows for this season, ausgetragen by the same transaction. Its
+  // own figure beside the fixtures': the players did not transfer, and their registration survives.
+  ausgetragene_squad_rows: z.int().nonnegative(),
 });
 export type FLReplaceSaisonTeamResponse = z.infer<typeof FLReplaceSaisonTeamResponseSchema>;

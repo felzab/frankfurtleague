@@ -200,21 +200,6 @@ def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excludin
     }
 
 
-def normalised_nummer(nummer: str | None) -> str | None:
-    """A squad number as any comparison reads it, or `None`.
-
-    Leading zeros are NOT stripped: "07" is a shirt somebody had printed, and calling it the same
-    shirt as "7" is a judgement this rule does not make.
-    """
-
-    if nummer is None:
-        return None
-
-    stripped = nummer.strip()
-
-    return stripped or None
-
-
 def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
     """Why this squad row must be refused, or `None`.
 

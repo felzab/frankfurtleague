@@ -619,10 +619,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "request": _AKTION_REQUEST,
                 "collection": {"bsonType": "string", "enum": _LOGGED_COLLECTIONS},
                 "operation": {"bsonType": "string", "enum": _AKTION_OPERATIONS},
-                # Whatever the recorded collection uses for its own `_id`: an objectId everywhere but
-                # `saisons`, whose is the four-character season string. Null on a fan-out, which
-                # matched a filter rather than one document.
-                "document_id": {"bsonType": ["objectId", "string", "null"]},
+                # Whatever the recorded collection uses for its `_id`: an objectId everywhere but
+                # `saisons`, whose is the season string. An array is `delete_many`'s removed ids,
+                # which a redaction's `$in` selects on; null is a fan-out's.
+                "document_id": {"bsonType": ["objectId", "string", "array", "null"]},
                 "db_filter": {"bsonType": ["object", "null"]},
                 # Deliberately unconstrained: it copies a document from whichever collection was
                 # written, so a schema tight enough to be worth having would refuse the next one.
@@ -721,6 +721,15 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "bewerbungen_saison_id_status_queue",
         (("saison_id", ASCENDING), ("status", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
         "one season's queue narrowed to one status, which is what a triage tab reads",
+    ),
+    # An index, not a season-cache set: that cache is keyed by season id, and a missing set would
+    # read as an empty one, which narrows on nothing
+    # (`app/api/saisons/visibility.py :: withheld_saison_ids`).
+    SupportIndex(
+        Collection.SAISONS,
+        "saisons_status",
+        (("status", ASCENDING),),
+        "the withheld-season set every unnarrowed base-tier read must exclude",
     ),
 )
 

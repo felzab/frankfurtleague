@@ -1,6 +1,13 @@
 import type { FLSonderereignis } from "./schemas";
 
 /**
+ * The note's bound, mirroring the backend's `SPIEL_NOTIZ_MAX_LENGTH`
+ * (`fl_backend/app/shared/schemas/bounds.py`). Every frontend enforcement point reads it from
+ * here, so no two can disagree about the cap.
+ */
+export const NOTIZ_MAX_LENGTH = 4096;
+
+/**
  * The one German spelling of each Sonderereignis. **A label table and never a predicate**: what a
  * member means differs per consumer, and each of those sets is written at its own call site.
  */

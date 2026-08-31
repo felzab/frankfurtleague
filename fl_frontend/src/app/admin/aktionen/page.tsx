@@ -8,11 +8,11 @@ import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
-import type { AdminAktionRow } from "@/features/aktionen/types";
+import type { NextPageProps } from "@/shared/types/types";
 
 // Not async, so the chrome never waits on the list: the search field must not sit behind a
 // round-trip. No create control at all, since every row here is written by one of the other pages.
-export default function AdminAktionenPage() {
+export default function AdminAktionenPage(props: NextPageProps) {
   return (
     <AdminCrudShell
       search={
@@ -25,23 +25,26 @@ export default function AdminAktionenPage() {
         />
       }>
       <Suspense fallback={<AdminCrudFallback />}>
-        <AktionenTable />
+        <AktionenTable searchParams={props.searchParams} />
       </Suspense>
     </AdminCrudShell>
   );
 }
 
-async function AktionenTable() {
+async function AktionenTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   // The image builder reaches no backend, so the fetch below has to be kept out of the build.
   await connection();
-  const aktionenRes = await getAktionen();
+  const params = (await searchParams) ?? {};
+  // Anything but one plain value reads as no narrowing, so a hand-edited URL falls back to the
+  // whole log rather than 404ing — `parseLeserichtung`'s rule, one queue over.
+  const dokumentId = typeof params.document_id === "string" && params.document_id !== "" ? params.document_id : undefined;
+  const aktionenRes = await getAktionen(dokumentId === undefined ? {} : { document_id: dokumentId });
 
-  // An empty ARRAY is a removal whose filter matched nothing, which secured no document — distinct
-  // from null, which is a write that kept no image at all, and the two must not badge alike.
-  const rows: AdminAktionRow[] = aktionenRes.aktionen.map(({ before, ...aktion }) => ({
-    ...aktion,
-    standGesichert: Array.isArray(before) ? before.length > 0 : before !== null,
-  }));
-
-  return <AdminAktionenView aktionen={rows} />;
+  return (
+    <AdminAktionenView
+      aktionen={aktionenRes.aktionen}
+      vollstaendig={aktionenRes.vollstaendig}
+      dokumentId={dokumentId ?? null}
+    />
+  );
 }
