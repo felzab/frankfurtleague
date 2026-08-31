@@ -722,6 +722,15 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("saison_id", ASCENDING), ("status", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
         "one season's queue narrowed to one status, which is what a triage tab reads",
     ),
+    # An index, not a season-cache set: that cache is keyed by season id, and a missing set would
+    # read as an empty one, which narrows on nothing
+    # (`app/api/saisons/visibility.py :: withheld_saison_ids`).
+    SupportIndex(
+        Collection.SAISONS,
+        "saisons_status",
+        (("status", ASCENDING),),
+        "the withheld-season set every unnarrowed base-tier read must exclude",
+    ),
 )
 
 
