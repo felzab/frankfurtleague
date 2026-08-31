@@ -31,6 +31,11 @@ const VARIANTS: { name: string; classes: ReadonlySet<string> }[] = [
   // The list above pairs every intent with `fullWidth`; the shorter height is a second axis and only
   // the page chrome takes it, so the one combination that reaches an element is spelled here.
   { name: "formButton nav sm", classes: classesOf(formButton({ intent: "nav", size: "sm" })) },
+  // The two-press control's own list, which is the one whose height is a floor rather than the base's
+  // fixed step, and so the one that would fall back to the vendored height if the floor were all of it.
+  { name: "confirmButton armed", classes: classesOf(confirmButton(true)) },
+  { name: "confirmButton resting", classes: classesOf(confirmButton(false)) },
+  { name: "formButton cancel stacks", classes: classesOf(formButton({ intent: "cancel", stacks: true })) },
   ...(["primary", "outline"] as const).flatMap((intent) => [
     { name: `ctaButton ${intent}`, classes: classesOf(ctaButton({ intent, hover: "aria" })) },
     { name: `ctaButton ${intent} sm`, classes: classesOf(ctaButton({ intent, hover: "css", size: "sm" })) },
@@ -241,6 +246,25 @@ describe("the fill that grades a two-press confirm's next press", () => {
     for (const className of submit) {
       assert.ok(resting.has(className), `the resting press has lost the ordinary \`${className}\``);
       assert.ok(!armed.has(className), `the armed press wears the ordinary \`${className}\``);
+    }
+  });
+});
+
+describe("the width a button takes in a row that becomes a column", () => {
+  /* A row wherever a pair looks uncramped, a column of FULL-WIDTH buttons where it does not. The wrap
+     and the floor travel with the width: `white-space: nowrap` at a phone's width puts a sentence-long
+     label through the side of the panel. */
+  it("fills the column, takes its own width back at `sm`, and lets the label wrap", () => {
+    for (const emitted of [confirmButton(true), confirmButton(false), formButton({ intent: "cancel", stacks: true })]) {
+      const classes = classesOf(emitted);
+
+      assert.ok(classes.has("w-full"), `${emitted}: does not fill the column it stands in`);
+      assert.ok(classes.has("sm:w-auto"), `${emitted}: keeps the column's full width once the row returns`);
+      assert.ok(classes.has("whitespace-normal"), `${emitted}: cannot wrap, so a long label leaves the panel through its side`);
+      // The floor and the fixed step are one property, so the recipe emitting both would decide it by
+      // stylesheet order rather than by which one it means.
+      assert.ok(!classes.has("h-12"), `${emitted}: a fixed height clips the second line of a wrapped label`);
+      assert.ok(classes.has("min-h-12"), `${emitted}: an unwrapped label no longer measures the same as every other button`);
     }
   });
 });

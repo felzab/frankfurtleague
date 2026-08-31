@@ -143,7 +143,16 @@ describe("the armed action row", () => {
   /* The app's one cancel treatment. Spell the classes here and this row drifts from every other
      form's pair the first time `formButton` moves. */
   it("takes the cancel's fill from the shared intent", () => {
-    assert.match(ACTION_ROW, /formButton\(\{ intent: "cancel" \}\)/);
+    assert.match(ACTION_ROW, /formButton\(\{ intent: "cancel"/);
+  });
+
+  /* A row wherever a pair looks uncramped, a column of FULL-WIDTH buttons where it does not — never
+     a column of narrow ones. `stacks` reaches the buttons and the direction the box: either alone
+     leaves the shape this removes. */
+  it("stands its buttons in a full-width column below `sm`", () => {
+    assert.match(ACTION_ROW, /flex-col[^"]*\bsm:flex-row\b/, "the row is not a column below `sm`");
+    assert.match(ACTION_ROW, /\bsm:items-center\b/, "the row centres its items while it is a column");
+    assert.match(ACTION_ROW, /formButton\(\{ intent: "cancel", stacks: true \}\)/, "the cancel does not fill the column it stands in");
   });
 });
 

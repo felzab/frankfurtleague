@@ -52,6 +52,9 @@ export function AddressFields({
 
   return (
     <div className="flex w-full flex-col gap-4">
+      {/* The 2:1 split is over the free space: two percentage widths summing to 100% put the whole
+          `gap-3` past the container. `min-w-0` because a field's automatic minimum is its input's
+          intrinsic width, which no shrinking goes under. */}
       <div className="flex gap-3">
         <TextField
           isRequired
@@ -61,7 +64,7 @@ export function AddressFields({
           onBlur={() => onFieldLeft?.([`${namePrefix}.strasse`])}
           maxLength={ADDRESS_STRASSE_MAX_LENGTH}
           isInvalid={errors?.[`${namePrefix}.strasse`] ? true : undefined}
-          className="w-2/3">
+          className="min-w-0 flex-2">
           {renderLabel ? renderLabel(`${namePrefix}.strasse`, "Straße") : <Label className={FIELD_LABEL}>Straße</Label>}
           <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.strasse`]}</FieldError>
@@ -74,7 +77,7 @@ export function AddressFields({
           onBlur={() => onFieldLeft?.([`${namePrefix}.hausnummer`])}
           maxLength={ADDRESS_HAUSNUMMER_MAX_LENGTH}
           isInvalid={errors?.[`${namePrefix}.hausnummer`] ? true : undefined}
-          className="w-1/3">
+          className="min-w-0 flex-1">
           {renderLabel ? renderLabel(`${namePrefix}.hausnummer`, "Nr.") : <Label className={FIELD_LABEL}>Nr.</Label>}
           <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.hausnummer`]}</FieldError>
@@ -89,7 +92,7 @@ export function AddressFields({
           onChange={(next) => updateField("plz", next)}
           onBlur={() => onFieldLeft?.([`${namePrefix}.plz`])}
           isInvalid={errors?.[`${namePrefix}.plz`] ? true : undefined}
-          className="w-1/3">
+          className="min-w-0 flex-1">
           {renderLabel ? renderLabel(`${namePrefix}.plz`, "PLZ") : <Label className={FIELD_LABEL}>PLZ</Label>}
           <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.plz`]}</FieldError>
@@ -102,7 +105,7 @@ export function AddressFields({
           onBlur={() => onFieldLeft?.([`${namePrefix}.stadt`])}
           maxLength={ADDRESS_STADT_MAX_LENGTH}
           isInvalid={errors?.[`${namePrefix}.stadt`] ? true : undefined}
-          className="w-2/3">
+          className="min-w-0 flex-2">
           {renderLabel ? renderLabel(`${namePrefix}.stadt`, "Stadt") : <Label className={FIELD_LABEL}>Stadt</Label>}
           <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.stadt`]}</FieldError>
