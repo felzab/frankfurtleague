@@ -1,4 +1,21 @@
+from typing import Any
+
+from bson import ObjectId
+
 from app.core.crud import build_sort
+
+
+def document_id_term(value: str | None) -> dict[str, Any] | None:
+    """One document's history — `aktionen_target`'s first purpose.
+
+    Compiled rather than dumped: a row stores the id as its collection does — an `ObjectId`
+    everywhere but `saisons`, whose `_id` is the season string — and text matches no `ObjectId`.
+    """
+
+    if value is None:
+        return None
+
+    return {"document_id": ObjectId(value) if ObjectId.is_valid(value) else value}
 
 
 def build_aktionen_sort(*, order: str) -> list[tuple[str, int]]:

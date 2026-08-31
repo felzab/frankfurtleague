@@ -7,7 +7,7 @@ from app.api.aktionen.schemas import (
     FLAktionMitStand,
     FLAktionSingleResponse,
 )
-from app.api.aktionen.services import build_aktionen_sort
+from app.api.aktionen.services import build_aktionen_sort, document_id_term
 from app.core.config import API_VERSION
 from app.core.crud import build_query, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import AktionenCollection
@@ -36,7 +36,11 @@ async def get_aktionen(
     # log only grows, so the cap arrives by ordinary use, and a short page must say so.
     read = await pull_many_from_db(
         collection=aktionen_collection,
-        db_filter=build_query(filters, terms={"collection", "operation", "correlation_id"}),
+        db_filter=build_query(
+            filters,
+            terms={"collection", "operation", "correlation_id"},
+            compiled=document_id_term(filters.document_id),
+        ),
         limit=filters.limit + 1,
         sort_by=build_aktionen_sort(order=filters.order),
     )

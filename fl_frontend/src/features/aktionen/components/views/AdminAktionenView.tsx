@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
+
 import { AKTIONEN_FACETS } from "@/features/aktionen/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import { Callout } from "@/shared/components/ui/Callout";
+import { textLink } from "@/shared/components/ui/textLink";
 
 import { AdminAktionenTable } from "../collections/AdminAktionenTable";
 
@@ -16,9 +19,32 @@ const SEARCH_KEYS = ["actor.email", "document_id", "correlation_id", "request.pa
  * **Neither modal renderer is passed, and that is the shape of this resource**: the log is written by every other admin
  * page and edited by none, so a row has nothing to open and nothing to delete.
  */
-export function AdminAktionenView({ aktionen, vollstaendig }: { aktionen: AdminAktionRow[]; vollstaendig: boolean }) {
+export function AdminAktionenView({
+  aktionen,
+  vollstaendig,
+  dokumentId,
+}: {
+  aktionen: AdminAktionRow[];
+  vollstaendig: boolean;
+  /** The one document the list is narrowed to, or null for the whole log — set by a row's history action. */
+  dokumentId: string | null;
+}) {
   return (
     <div className="flex flex-col gap-4">
+      {dokumentId !== null && (
+        <Callout
+          severity="info"
+          title="Nur ein Datensatz">
+          Angezeigt werden nur die Änderungen an dem Datensatz <span className="font-mono break-all">{dokumentId}</span>.{" "}
+          <Link
+            href="/admin/aktionen"
+            className={textLink()}>
+            Alle Änderungen anzeigen
+          </Link>
+          .
+        </Callout>
+      )}
+
       {/* Not dismissible: a standing property of the answer, and a closed notice would leave a
           partial log looking whole. */}
       {!vollstaendig && (

@@ -119,6 +119,9 @@ class FLAktionenFilterParams(BaseModel):
     collection: str | None = None
     operation: FLAktionOperation | None = None
     correlation_id: str | None = None
+    # `str`, never `CustomObjectId`: `saisons` stores its season string here, which the ObjectId
+    # spelling would 422. `app/api/aktionen/services.py :: document_id_term` compiles it.
+    document_id: str | None = None
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     # Newest first, and no `sort_by`: every other order over an append-only log is a report rather

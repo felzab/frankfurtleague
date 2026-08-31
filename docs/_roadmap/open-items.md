@@ -82,7 +82,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 28  | BE-21 | The seeding table is keyed on a list nothing joins it                | BE              | S      | Open     | —          |
 | 29  | FE-29 | A date search matches the stored spelling, not the shown one         | FE              | S      | Open     | —          |
 | 30  | FE-24 | A pupil's consent is stored and served, and shown by nothing         | FE              | S      | Open     | —          |
-| 31  | BE-34 | An index's first stated purpose has no caller                        | BE              | S      | Open     | —          |
+| 31  | BE-34 | An index's first stated purpose has no caller                        | BE              | S      | Closed   | —          |
 | 32  | FE-21 | The editor shell's widest layout step is unrendered                  | FE              | S      | Open     | —          |
 | 33  | FE-30 | `Team` names a club and the league's own people                      | FE, Docs        | S      | Open     | —          |
 | 34  | FE-33 | Each editor spells its own undo dispatch                             | FE              | M      | Open     | —          |
@@ -1804,10 +1804,17 @@ record and changes nothing else is the whole of this entry.
 
 ### 31 · BE-34 — An index's first stated purpose has no caller
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** BE\
 **Effort:** S\
 **Path:** Independent. BE-15's log page work touches the same read and could carry it.
+
+**What concluded it.** The entry's preferred arm: `FLAktionenFilterParams` gained `document_id`,
+compiled to the stored spelling by `fl_backend/app/api/aktionen/services.py :: document_id_term` —
+an `ObjectId` everywhere but `saisons`, whose season string stands as given — so `get_aktionen`
+narrows on exactly the pair `aktionen_target` indexes. The log page mirrors it: each row naming
+one document links to the list narrowed to it, and a notice names the active narrowing beside the
+way out of it. The full argument is in the closing commit body.
 
 **`fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` declares `aktionen_target` over
 `(collection, document_id)` with the rule "one document's history, and the rows a person's erasure must

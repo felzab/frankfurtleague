@@ -81,8 +81,8 @@ its own: `"use cache"` keys on the arguments rather than on caller identity, so 
 be a slot of admin-authorized data any caller could reach.** A reason of their own stands behind
 `getAdminSpieleActionRequired`, whose `bracket_faults` are derived per request over the stored
 bracket, so a cached copy would be wrong the moment a document moved under it, and behind
-`getAktionen`, whose rows carry the documents a write replaced or removed — one entry holding data
-from every collection at once. None carries a cache tag either: a tag only means something inside a
+`getAktionen`, whose rows describe the writes made to every collection at once — one entry holding
+admin-tier facts about all of them. None carries a cache tag either: a tag only means something inside a
 cache scope. Each seeds the request's correlation scope, which a `"use cache"` read cannot
 ([`docs/logging/spec.md`](../logging/spec.md#11-the-correlation-id)).
 

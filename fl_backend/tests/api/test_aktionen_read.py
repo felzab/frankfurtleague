@@ -197,6 +197,33 @@ class TestATruncatedPageSaysSo:
         assert len(answered.aktionen) == LIST_LIMIT_DEFAULT
         assert answered.vollstaendig is True
 
+
+class TestTheListNarrowsOnOneDocument:
+    """`aktionen_target`'s first purpose: one document's history, asked for in the STORED spelling.
+
+    The term is compiled rather than dumped (`app/api/aktionen/services.py :: document_id_term`).
+    """
+
+    def test_an_objectid_spelling_asks_for_the_stored_objectid(self):
+        collection = _LogCollection(log_of(3))
+        run_list(collection, document_id="6890a1b2c3d4e5f607200010")
+
+        assert collection.requested_filter["document_id"] == ObjectId("6890a1b2c3d4e5f607200010")
+
+    def test_a_season_id_asks_for_the_stored_string(self):
+        """`saisons` is the one collection whose `_id` is its season string, so the text stands as given."""
+
+        collection = _LogCollection(log_of(3))
+        run_list(collection, document_id="2026_27")
+
+        assert collection.requested_filter["document_id"] == "2026_27"
+
+    def test_an_unfiltered_read_names_no_document(self):
+        collection = _LogCollection(log_of(3))
+        run_list(collection)
+
+        assert "document_id" not in collection.requested_filter
+
     def test_the_read_asks_one_row_past_what_it_serves(self):
         """Non-vacuity: a read bounded AT the cap could never tell a full list from a truncated one."""
 
