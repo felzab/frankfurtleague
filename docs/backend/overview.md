@@ -5,9 +5,8 @@
 A FastAPI application over MongoDB, with one authorization tier per router ([`spec.md`](spec.md) I7). The
 single fact that explains most of its shape: **no browser reaches a route here that reads or writes application
 data.** The edge carries exactly one exact-match path to this service, the liveness probe, and routes every other
-`/api` path to the frontend — some by a block naming it, the rest by the catch-all
-([`../ops/spec.md`](../ops/spec.md) I13 and §1.3). The one path it does carry takes no key and touches no
-database, so every caller of a route serving application data is the Next.js container over the Docker network —
+`/api` path to the frontend ([`../ops/spec.md`](../ops/spec.md) I13 and §1.3). The one path it does carry
+takes no key and touches no database, so every caller of a route serving application data is the Next.js container over the Docker network —
 which is why authentication is shared API keys rather than user sessions, and why this service sets no cache
 headers of its own — what reaches a reader cached was cached by the frontend or by the edge
 ([`../ops/spec.md`](../ops/spec.md) §1.3). The one cache it keeps is internal: a TTL-bounded, process-local read
@@ -37,8 +36,7 @@ access more than one endpoint needs. A slice carries only the files it needs, it
 all reads and declares no `admin_router.py`, while `aktionen` — the action log, which serves back what every
 admin write recorded — and `kontakte` — one contact person's erasure — have nothing public to offer and
 declare no `router.py`. `bewerbungen` declares a third, `public_router.py`, because the application form
-reads and writes at a tier neither of its other two carries ([`spec.md`](spec.md) I7). All routers are mounted under `/api/v{API_VERSION}`, a constant of the code rather
-than a setting ([`spec.md`](spec.md) §1.5).
+reads and writes at a tier neither of its other two carries ([`spec.md`](spec.md) I7).
 
 ## Authorization
 
@@ -53,15 +51,13 @@ Bearer keys, not user identities:
 Guards sit on the `APIRouter` rather than on an endpoint, so an endpoint reaches the wrong authorization only
 by being written in the wrong file ([`spec.md`](spec.md) I7). What the file name does not settle is the tier:
 a read router declares its own, so a slice only the admin surfaces read is guarded `admin`
-throughout. No response shape follows the caller's key either — a tier served less is served by a different
-endpoint, which is why a read carries an `/admin` twin. [`spec.md`](spec.md) §1.1 is which tier answers each
-endpoint, and its `READ-*` rules are what each is served.
+throughout. No response shape follows the caller's key either, which is why a read carries an `/admin` twin
+([`spec.md`](spec.md) §1.7). [`spec.md`](spec.md) §1.1 is which tier answers each endpoint, and its `READ-*`
+rules are what each is served.
 
 The `system` slice carries no blanket guard at all: the endpoints needing one declare it themselves, and
 `/system/is_live` is deliberately unguarded — it is the container healthcheck and the public uptime probe both,
-and a probe that needs a secret fails for the wrong reasons. It is also the one path the edge carries to this
-service ([`../ops/spec.md`](../ops/spec.md) I13), which is safe because the probe takes no key and touches no
-database ([`spec.md`](spec.md) I7).
+and a probe that needs a secret fails for the wrong reasons ([`spec.md`](spec.md) I7).
 
 Every `admin_router.py` declares `bind_actor` in that same `dependencies` list, which is what attributes a write
 to the administrator who made it — and refuses one it cannot attribute, before the handler runs
@@ -77,9 +73,8 @@ Collections are injected as typed dependencies rather than reached for directly.
 **The application refuses to start unless MongoDB answers and the database's own constraints apply.**
 `lifespan` pings the server, then `core/constraints.py` reapplies every `$jsonSchema` validator and unique
 index on every boot ([`spec.md`](spec.md) I9 and I15) — so the cluster cannot hold a set this repository does
-not describe, and a constraint survives a restore. The same pass builds the action log's read indexes, which
-constrain nothing and are declared apart from the unique ones for exactly that reason
-(`fl_backend/app/core/constraints.py :: SupportIndex`). Those validators are a hand-written copy of the
+not describe, and a constraint survives a restore. The same pass builds the action log's read indexes
+(`fl_backend/app/core/constraints.py :: SupportIndex`, whose docstring holds the split). Those validators are a hand-written copy of the
 Pydantic models, which keeps the rules where a hand edit lands: `saison_teams` has write payloads but no
 stored-document model, and Compass is reachable whatever the API offers. What holds the copy to its model is
 [`spec.md`](spec.md) I17; the database user's `collMod` requirement is §4.
@@ -89,13 +84,12 @@ helpers are keyword-only and take a session, which is what lets a read inside a 
 transaction's own writes. The query and sort builders behind a list read are pure, so no resource
 translates a filter term or a tie-break chain its own way. The rest is what a write does beyond the driver
 call: a refusal turned into the 409 it means, a retirement written as a date on `inactive_since`, a create
-stamped live, and one action-log row appended per write, the log's own collection excepted
-(`app/core/recording.py`). Recording at the one chokepoint every write already passes through is what makes
-that log complete by construction rather than by discipline; what a single-document write records, what one
-touching a whole set records instead, and what a removal records, are [`spec.md`](spec.md) I39, I40 and I48.
-A handler reaches for Motor directly only to iterate a cursor, to sort a single-document read, to count
-without reading the documents, or where absence is a meaningful answer rather than a 404. One contract
-governs the module: a `*_one_*` helper raises on a miss and never returns `None` — [`spec.md`](spec.md) I2.
+stamped live, and one action-log row appended per write, the log's own collection excepted — the module's
+own header holds why that makes the log complete by construction; what a single-document write records,
+what one touching a whole set records instead, and what a removal records, are [`spec.md`](spec.md) I39,
+I40 and I48. A handler reaches for Motor directly only to iterate a cursor, to sort a single-document read,
+to count without reading the documents, or where absence is a meaningful answer rather than a 404; the
+miss contract every helper keeps is [`spec.md`](spec.md) I2.
 
 ## Time
 
@@ -105,10 +99,9 @@ is not negotiable.
 
 ## Errors
 
-Every failure the application raises is a `BaseAPIException` carrying an `error_code`, and a handler supplies a
-code for every failure it does not — so a log line names a specific failure rather than a status class. The
-subclasses, the handlers carrying codes of their own, the full table and the rule that every failure response is
-`{error_code, correlation_id}` are [`docs/logging/error-codes.md`](../logging/error-codes.md).
+Every failure the application raises carries an `error_code`, so a log line names a specific failure rather
+than a status class. The subclasses, the handlers carrying codes of their own, the full table and the
+response contract are [`docs/logging/error-codes.md`](../logging/error-codes.md).
 
 ## Testing
 
@@ -117,8 +110,7 @@ subclasses, the handlers carrying codes of their own, the full table and the rul
 §4 for what the suite reaches only indirectly).
 
 The frontend mirrors the backend's validation constraints in Zod rather than enforcing them itself, so this
-suite is the only regression net under them — and the frontend's toolchain runs nothing against the backend,
-which is why `scripts/verify.sh` runs ruff and pytest as a separate step.
+suite is the only regression net under them ([`spec.md`](spec.md) §1.6).
 
 ## Read next
 
