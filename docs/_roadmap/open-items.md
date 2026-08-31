@@ -80,7 +80,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 26  | FE-1  | A fixture carries one date, not a play window                        | FE, BE          | XL     | Open     | —          |
 | 27  | LOG-2 | A cached read's call joins to no render                              | FE, BE, Ops     | L      | Open     | —          |
 | 28  | FB-18 | Only the match editor marks a field somebody waits on                | FE, BE          | L      | Open     | —          |
-| 29  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
+| 29  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Closed   | —          |
 | 30  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
 | 31  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
 | 32  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
@@ -466,8 +466,7 @@ people can meet inside.
 **Status:** Standing\
 **Surfaces:** BE, Ops\
 **Effort:** M\
-**Path:** Independent — its leverage is that it settles where a scheduled job can run here at all,
-which BE-12 leans on for its own "what runs it".
+**Path:** Independent — its leverage is that it settles where a scheduled job can run here at all.
 
 **Deferred by me on 2026-08-12: not worth building yet.** The trigger that turns it into work is a
 rollover actually being missed.
@@ -1683,53 +1682,29 @@ not grow while it waits.
 
 ### 29 · BE-12 — No retention sweep selects a retired row on its age
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** BE, DB\
 **Effort:** M\
 **Path:** Independent — the spieler pages retire rows, so an `inactive_since` can accumulate at all.
 
-**`inactive_since` is a date rather than a flag so that a retired row can eventually be purged**, and
-no sweep selects on it.
+**Concluded by a decision rather than a sweep. Decided 2026-08, Datenschutzexperte consulted: a
+retired row is never purged on its age.** The questions this entry held open — how old is old
+enough, what still references the row, whether freeing a shorthand from `uniq_shorthand` is a
+feature or a hazard, and what runs the sweep — are answered together by there being no sweep: none
+is built, and none is to be built.
 
-**The one removal of a retired row is `DELETE /spieler/{spieler_id}/erasure`, and it is not that
-sweep.** It takes the person, every one of their squad rows and their values in the action log, in one transaction, and
-`REQ-PURGE-001` makes retirement its PRECONDITION rather than its trigger — so it answers a request
-about one named subject and never a date about many
-(`fl_backend/app/core/domain.py :: UNENFORCED`). It narrows this entry rather than closing it: what
-is still owed is the selection on age, and the collections nothing removes from at all.
+**Where the decision went.** Its home is the "a retired row kept indefinitely" entry of
+`fl_backend/app/core/domain.py :: UNENFORCED`, which is where a reader looking for what this system
+tolerates finds it and where its proof is wired:
+`fl_backend/tests/core/test_unenforced.py :: TestNoPurgeReachesARetiredRow` holds every removal to
+`fl_backend/app/core/crud.py` and refuses one selecting on `inactive_since`, so the sweep this
+entry contemplated fails a default-tier test the day somebody writes it. The known-open row in
+`docs/backend/spec.md` turns Accepted and cites that entry.
 
-The field is carried by `teams`, `spieler`, `saison_spieler`, `spielorte` and
-`schiedsrichter`. A retired `teams`, `spielorte` or `schiedsrichter` row stays forever, keeps its
-slot in whatever unique index covers it, and is filtered out of every default read; a retired
-`spieler` or `saison_spieler` row stays until somebody asks to be erased.
-
-**Today that is fine and the numbers say so.** Nothing is retired anywhere: 0 rows across those
-collections, against 16 teams, 362 players, 362 squad rows, 6 venues and 7 referees
-(measured 2026-08-06). This is a prospective item: it exists so the field's purpose is recorded rather
-than rediscovered.
-
-**What a purge has to answer, none of it decided:**
-
-- **How old is old enough**, and is it one threshold or one per collection? A venue nobody has booked
-  for three years and a squad row from a season that was played are different kinds of stale.
-- **What still references the row.** This is the hard half and it is why the delete was soft in the
-  first place: `spiele` embeds a copy of a venue, a referee and each team, and references each by id.
-  A purge that is not preceded by a reachability check reintroduces exactly the orphaned references
-  the soft delete refused. `saison_spieler` is the collection with no such embedding, and `spieler`
-  has none either — which is what let the erasure remove both outright.
-- **Whether releasing a shorthand from `uniq_shorthand` is a feature or a hazard.** Purging a retired
-  club frees its shorthand for reuse, which is the point — and it also means a future club can hold
-  letters that historical matches still name, if any survived the check above.
-- **What runs it.** A scheduled job, a script I run by hand, or an admin control. The repository runs
-  no application-level scheduler — the weekly `cron` in `.github/workflows/codeql.yml` analyses source
-  and reaches nothing this could hang off, as FB-16 sets out — which makes the hand-run script the
-  cheapest by a distance.
-
-`saisons`, `saison_teams` and `spieltage` carry no such field and need none. Nothing removes a
-`saisons` or a `saison_teams` row at all, and a `spieltage` row is removed only with the season's whole
-draw — by a confirmed replace that writes fresh ones in the same transaction (`REQ-SPIELPLAN-005`), or by
-an undraw that writes none back (`REQ-SPIELPLAN-006`) — so none of them can accumulate a row a purge
-would have to find.
+**What the decision does not move.** A pupil's own erasure request stays the one removal of a
+retired row — it selects a subject, never an age, and `REQ-PURGE-001` makes retirement its
+precondition rather than its trigger. `inactive_since` stays a date, never a boolean
+(`docs/backend/spec.md :: I12`): it records when a row retired, not when a sweep may take it.
 
 ### 31 · BE-26 — Two rule summaries name a fixture state the code excludes
 
