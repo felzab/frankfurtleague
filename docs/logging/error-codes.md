@@ -56,9 +56,9 @@ it is never on its own proof that the document is absent.
 resubmission of the stored values through, because a season patch replaces `rules` wholesale.
 `REQ-DATE-008` is the same shape one payload
 over: a matchday patch carries `beginn` and `ende` together, so an `ende`-only edit resubmits the stored `beginn`. The
-two wiring codes read the same way on a third payload: a match patch carries both `quelle` fields, so `REQ-WIRING-001`
-and `REQ-WIRING-002` judge the side whose source the save MOVES and leave a fixture already wired out of rule editable
-(`docs/backend/spec.md :: I44`).
+wiring codes read the same way on a third payload: a match patch carries both `quelle` fields, so `REQ-WIRING-001`,
+`REQ-WIRING-002` and `REQ-WIRING-003` judge the side whose source the save MOVES and leave a fixture already wired out
+of rule editable (`docs/backend/spec.md :: I44`).
 
 **The draw freezes a season's SHAPE alone**: `REQ-RULES-011` names `number_of_groups`, `teams_per_group` and
 `qualifiers_per_group`, the rules the fixtures were drawn from. The freeze is ABSOLUTE on the patch and it is not a dead
@@ -137,6 +137,7 @@ having been seeded from the group placings that order decides.
 | `REQ-CLASH-001`       | 409    | A venue or a referee would serve two fixtures less than four hours apart                                                                               |
 | `REQ-WIRING-001`      | 409    | A save MOVED a side's source to bracket wiring the season cannot hold; a fixture already wired that way stays editable                                 |
 | `REQ-WIRING-002`      | 409    | A save MOVED a side's source to a group placing on a round past the one this season's bracket opens on                                                 |
+| `REQ-WIRING-003`      | 409    | A save MOVED a side's source to a placing in a group this season does not run                                                                          |
 | `REQ-ELIGIBILITY-001` | 409    | A team that has left the season stands on a match dated on or after its exit, and the save changed an input the rule reads                             |
 | `REQ-ELIGIBILITY-002` | 409    | A newly fielded team holds no `saison_teams` row for the fixture's season                                                                              |
 | `REQ-RESULT-001`      | 409    | A side carrying goals on a played fixture was emptied rather than switched                                                                             |

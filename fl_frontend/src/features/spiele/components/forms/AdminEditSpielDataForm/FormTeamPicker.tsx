@@ -53,6 +53,9 @@ const recommendedChoiceFor = (hasFeeders: boolean): QuelleChoice => (hasFeeders 
 /** `gruppe` is a required enum with no empty member to start from. */
 const DEFAULT_GRUPPE: FLGruppenNames = "A";
 
+/** The closed set, of which a season runs the first `number_of_groups`. */
+const ALL_GRUPPEN = ["A", "B", "C", "D"] satisfies FLGruppenNames[];
+
 /**
  * The placings offered when the team list cannot say, which needs a season mismatch between the
  * context's lists and the fixture — possible only on the action-required route.
@@ -89,6 +92,7 @@ export function FormTeamPicker({
   label,
   fieldName,
   teams,
+  numberOfGroups,
   teamPayload,
   onTeamChange,
   quelle,
@@ -110,6 +114,11 @@ export function FormTeamPicker({
    */
   fieldName: "team1" | "team2";
   teams: FLTeam[];
+  /**
+   * The season's `rules.number_of_groups`, bounding the group offer the way the write path does
+   * (`REQ-WIRING-003`). `null` — a season the context could not resolve — offers the closed set.
+   */
+  numberOfGroups: number | null;
   teamPayload: FLSpielTeamField | null;
   onTeamChange: (payload: FLSpielTeamField | null) => void;
   quelle: FLSpielQuelle | null;
@@ -437,7 +446,10 @@ export function FormTeamPicker({
             </Autocomplete.Trigger>
             <Autocomplete.Popover className={overlayPanel()}>
               <ListBox className="p-1">
-                {(["A", "B", "C", "D"] satisfies FLGruppenNames[]).map((name) => (
+                {/* The season's own count bounds the offer, as `REQ-WIRING-003` bounds the save. The
+                    current selection keeps its row, so a fixture wired past the count reads
+                    truthfully and re-sending it unchanged stays a save the write path takes. */}
+                {ALL_GRUPPEN.filter((name, index) => index < (numberOfGroups ?? ALL_GRUPPEN.length) || name === quelle.gruppe).map((name) => (
                   <ListBox.Item
                     key={name}
                     id={name}

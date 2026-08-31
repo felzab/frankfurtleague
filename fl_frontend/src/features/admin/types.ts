@@ -10,4 +10,7 @@ export interface AdminContext {
   // The season's whole fixture list, for the bracket source picker: a feeder is picked from the
   // season's legal matches rather than typed, and the editor holds one match, not its season.
   saisonSpiele: FLSpiel[];
+  // The season's own `rules.number_of_groups`, bounding the Herkunft group offer the way the write
+  // path does (`REQ-WIRING-003`). `null` where no season resolves, and the picker then offers all.
+  numberOfGroups: number | null;
 }

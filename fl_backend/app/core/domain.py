@@ -757,7 +757,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONDITIONAL,
         "never on a group-phase fixture, never naming a later or missing match, and never feeding one "
         "outcome into two slots (`REQ-WIRING-001`); never seeding from a group placing past the round "
-        "the bracket opens on (`REQ-WIRING-002`)",
+        "the bracket opens on (`REQ-WIRING-002`); never from a group the season does not run "
+        "(`REQ-WIRING-003`)",
         "app.api.spiele.services.find_wiring_refusal",
     ),
     FieldPolicy(
@@ -1276,6 +1277,18 @@ RULES: tuple[Rule, ...] = (
         summary=(
             "a group placing seeds only the round this season's bracket opens on; every later slot is fed by a match, "
             "judged on the side whose source this save moves"
+        ),
+        implemented_by="app.api.spiele.services.find_wiring_refusal",
+        tested_by="tests/api/test_wiring_refusal.py::TestEveryRefusalCarriesItsCode",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-WIRING-003",
+        operation="PATCH /spiele/{spiel_id}",
+        aggregate="Saison-Spielplan",
+        summary=(
+            "a group placing may name only a group the season runs, judged against the season's own "
+            "`number_of_groups` on the side whose source this save moves"
         ),
         implemented_by="app.api.spiele.services.find_wiring_refusal",
         tested_by="tests/api/test_wiring_refusal.py::TestEveryRefusalCarriesItsCode",

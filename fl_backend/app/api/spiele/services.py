@@ -34,7 +34,7 @@ from app.api.spiele.schemas import (
     records_an_absence,
 )
 from app.api.teams.schemas import FLGruppenNames
-from app.api.teams.services import DecidedStanding
+from app.api.teams.services import DecidedStanding, offered_gruppen
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
@@ -1051,6 +1051,10 @@ WIRING_UNSUPPORTED = "REQ-WIRING-001"
 # different source on that side, or a hand-set team.
 WIRING_SEED_PAST_THE_OPENING_ROUND = "REQ-WIRING-002"
 
+# Its own code again: the picker offers only the season's groups, so this arriving means the season
+# was redrawn narrower under the open form, and the repair is a reload rather than another source.
+WIRING_GRUPPE_NOT_RUN = "REQ-WIRING-003"
+
 
 def _wiring_refusal(message: str) -> WriteRefusal:
     """One code for every shape with the same repair -- the season moved under the page, so reload."""
@@ -1058,7 +1062,15 @@ def _wiring_refusal(message: str) -> WriteRefusal:
     return WriteRefusal(error_code=WIRING_UNSUPPORTED, message=message)
 
 
-def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> WriteRefusal | None:
+def find_wiring_refusal(
+    spiel_id: CustomObjectId,
+    payload: FLPatchSpielDataPayload,
+    season: Sequence[FLSpiel],
+    *,
+    # No default, as `find_spielplan_refusal`'s arguments have none: a caller that forgot it would
+    # accept a slot wired to a group the season does not run.
+    number_of_groups: int,
+) -> WriteRefusal | None:
     """Why this patch's bracket wiring must be refused (`docs/backend/spec.md :: I27`) -- the WRITE PATH only."""
 
     stored = stored_in_slice(spiel_id, season)
@@ -1104,6 +1116,14 @@ def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPaylo
                     f"{label}_quelle names Spiel {quelle.spiel_nr} ({source.saison_phase}), "
                     f"which is not played before this fixture ({stored.saison_phase})"
                 )
+
+        # Before the round check, as a dangling `spiel_nr` is judged before its phase: whether the
+        # season runs the group at all comes first, whichever round the slot is in.
+        if isinstance(quelle, FLSpielQuelleGruppe) and quelle.gruppe not in offered_gruppen(number_of_groups):
+            return WriteRefusal(
+                error_code=WIRING_GRUPPE_NOT_RUN,
+                message=f"{label}_quelle names Gruppe {quelle.gruppe}, a group this season does not run",
+            )
 
         # A group placing seeds the bracket's ENTRANCE; every later slot is fed by a match. Which
         # round that is comes off the rounds the season HOLDS, never a phase name: a bracket of four

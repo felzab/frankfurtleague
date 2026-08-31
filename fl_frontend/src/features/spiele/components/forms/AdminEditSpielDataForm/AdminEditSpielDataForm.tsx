@@ -109,6 +109,7 @@ export function AdminEditSpielDataForm({
   spielorte,
   schiedsrichter,
   saisonSpiele,
+  numberOfGroups,
   today,
   categorize,
   pageHeader,
@@ -118,6 +119,8 @@ export function AdminEditSpielDataForm({
   spielorte: FLSpielort[];
   schiedsrichter: FLSchiedsrichter[];
   saisonSpiele: FLSpiel[];
+  /** The season's `rules.number_of_groups`, bounding the Herkunft group offer; `null` offers all. */
+  numberOfGroups: number | null;
   today: string;
   /** Rendered inside the scroll container, so it scrolls while the action bar stays put. */
   pageHeader: EditPageHeaderContent;
@@ -639,6 +642,7 @@ export function AdminEditSpielDataForm({
               spielData={spielData}
               saisonSpiele={saisonSpiele}
               teams={teams}
+              numberOfGroups={numberOfGroups}
               knockoutTeamIds={knockoutTeamIds}
               spieltagOccupancy={spieltagOccupancy}
               team1Payload={team1Payload}

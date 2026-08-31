@@ -68,7 +68,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 14  | BE-30 | The move guard does not see a stored shoot-out                       | BE              | S      | Open     | —          |
 | 15  | BE-20 | The certainty walk never hypothesises a called-off fixture           | BE, Docs        | L      | Open     | —          |
 | 16  | FE-17 | A never-clause bounds toast CSS short of the stylesheet              | FE, Docs        | S      | Open     | —          |
-| 17  | BE-40 | A bracket slot may name a group its season does not run              | FE, BE          | S      | Open     | —          |
+| 17  | BE-40 | A bracket slot may name a group its season does not run              | FE, BE          | S      | Closed   | —          |
 | 18  | FE-28 | A squad-row return is offered where the cap refuses it               | FE, BE          | M      | Open     | —          |
 | 19  | FE-24 | A pupil's consent is stored and served, and shown by nothing         | FE              | S      | Open     | —          |
 | 20  | FE-21 | The editor shell's widest layout step is unrendered                  | FE              | S      | Open     | —          |
@@ -1173,13 +1173,24 @@ written against.
 
 ### 17 · BE-40 — A bracket slot may be wired to a group its own season does not run
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE, BE\
 **Effort:** S\
 **Path:** Independent. Adjacent to `BE-37` and deliberately not part of it: that entry's subject is a
 shape the write path REFUSES standing unreported in storage, and this is one the write path does not
 refuse at all. `FB-22` widens it — every group the cap gains is another the picker offers and no rule
 bounds — but neither blocks the other.
+
+**What concluded it.** The stronger arm, as scoped: `find_wiring_refusal` takes the season's
+`number_of_groups` (required keyword, handed by the patch endpoint from the rules it already reads)
+and refuses a moved source naming a group outside `offered_gruppen` under its own `REQ-WIRING-003` —
+a row in `fl_backend/app/core/domain.py :: RULES`, a row in `docs/logging/error-codes.md`, and a
+German case appended in `fl_frontend/src/shared/utils/actionError.ts` whose repair is a reload,
+because the picker now bounds its offer: `FormTeamPicker` slices the closed letter set by the
+season's own `rules.number_of_groups`, threaded from the admin context, the current selection
+keeping its row so a fixture wired past the count stays re-submittable unchanged. The
+`gruppe_too_small` fault and `_seed_from_gruppe`'s silent branch stand untouched — the fault is
+`BE-37`'s recorded fallback shape. The full argument is in the closing commit body.
 
 **`fl_backend/app/api/spiele/services.py :: find_wiring_refusal` never asks whether the season runs
 the group a `quelle` names.** It judges the feeding phase, self-reference and duplicate sources, and
