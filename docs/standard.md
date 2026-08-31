@@ -356,7 +356,8 @@ and `L<n>` on the logging sheet, permanent and never reused **within their own s
 not unique across the corpus, so a citation crossing sheets names the sheet. **Section 2 holds
 that table and nothing else**; a symptom a reader would observe is a row in section 3, and the
 argument for an invariant is in the commit that made it. Section 4 holds the accepted gaps, each
-with what owns it, so a known limitation never reads as an oversight and gets "fixed". Every claim
+stated in the sheet's own words — a roadmap id never appears there, an open entry living on its
+ranked page alone — so a known limitation never reads as an oversight and gets "fixed". Every claim
 carries an anchored citation (COR-6).
 
 **Why:** fixed closing sections make separate spec sheets read as one document, and a contract

@@ -69,36 +69,35 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 15  | BE-17 | Every server-ordered name list sorts in byte order                   | BE, FE          | M      | Open     | —          |
 | 16  | BE-30 | The move guard does not see a stored shoot-out                       | BE              | S      | Open     | —          |
 | 17  | BE-46 | The action log's read truncates and cannot say so                    | FE, BE          | S      | Open     | —          |
-| 18  | BE-19 | Nothing says a multi-write request writes atomically                 | BE, Docs        | S      | Open     | —          |
-| 19  | BE-20 | The certainty walk never hypothesises a called-off fixture           | BE, Docs        | L      | Open     | —          |
-| 20  | FE-17 | A never-clause bounds toast CSS short of the stylesheet              | FE, Docs        | S      | Open     | —          |
-| 21  | BE-32 | A replace reports what it wrote and not what it destroyed            | FE, BE, Docs    | S      | Open     | —          |
-| 22  | BE-40 | A bracket slot may name a group its season does not run              | FE, BE          | S      | Open     | —          |
-| 23  | FE-28 | A squad-row return is offered where the cap refuses it               | FE, BE          | M      | Open     | —          |
-| 24  | BE-33 | The log read carries every pre-image the page discards               | BE              | S      | Open     | —          |
-| 25  | FE-24 | A pupil's consent is stored and served, and shown by nothing         | FE              | S      | Open     | —          |
-| 26  | BE-34 | An index's first stated purpose has no caller                        | BE              | S      | Open     | —          |
-| 27  | FE-21 | The editor shell's widest layout step is unrendered                  | FE              | S      | Open     | —          |
-| 28  | FE-30 | `Team` names a club and the league's own people                      | FE, Docs        | S      | Open     | —          |
-| 29  | FE-33 | Each editor spells its own undo dispatch                             | FE              | M      | Open     | —          |
-| 30  | FE-31 | Every admin success is stated twice, and once invisibly              | FE              | M      | Open     | —          |
-| 31  | FE-19 | Every call site writes a fallback the runtime cannot take            | FE              | M      | Open     | —          |
-| 32  | FE-23 | One adverb is written two ways across the product                    | FE              | S      | Open     | —          |
-| 33  | FE-1  | A fixture carries one date, not a play window                        | FE, BE          | XL     | Open     | —          |
-| 34  | LOG-2 | A cached read's call joins to no render                              | FE, BE, Ops     | L      | Open     | —          |
-| 35  | FB-18 | Only the match editor marks a field somebody waits on                | FE, BE          | L      | Open     | —          |
-| 36  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
-| 37  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Open     | —          |
-| 38  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
-| 39  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
-| 40  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
-| 41  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
-| 42  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
-| 43  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
-| 44  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
-| 45  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
-| 46  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
-| 47  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
+| 18  | BE-20 | The certainty walk never hypothesises a called-off fixture           | BE, Docs        | L      | Open     | —          |
+| 19  | FE-17 | A never-clause bounds toast CSS short of the stylesheet              | FE, Docs        | S      | Open     | —          |
+| 20  | BE-32 | A replace reports what it wrote and not what it destroyed            | FE, BE, Docs    | S      | Open     | —          |
+| 21  | BE-40 | A bracket slot may name a group its season does not run              | FE, BE          | S      | Open     | —          |
+| 22  | FE-28 | A squad-row return is offered where the cap refuses it               | FE, BE          | M      | Open     | —          |
+| 23  | BE-33 | The log read carries every pre-image the page discards               | BE              | S      | Open     | —          |
+| 24  | FE-24 | A pupil's consent is stored and served, and shown by nothing         | FE              | S      | Open     | —          |
+| 25  | BE-34 | An index's first stated purpose has no caller                        | BE              | S      | Open     | —          |
+| 26  | FE-21 | The editor shell's widest layout step is unrendered                  | FE              | S      | Open     | —          |
+| 27  | FE-30 | `Team` names a club and the league's own people                      | FE, Docs        | S      | Open     | —          |
+| 28  | FE-33 | Each editor spells its own undo dispatch                             | FE              | M      | Open     | —          |
+| 29  | FE-31 | Every admin success is stated twice, and once invisibly              | FE              | M      | Open     | —          |
+| 30  | FE-19 | Every call site writes a fallback the runtime cannot take            | FE              | M      | Open     | —          |
+| 31  | FE-23 | One adverb is written two ways across the product                    | FE              | S      | Open     | —          |
+| 32  | FE-1  | A fixture carries one date, not a play window                        | FE, BE          | XL     | Open     | —          |
+| 33  | LOG-2 | A cached read's call joins to no render                              | FE, BE, Ops     | L      | Open     | —          |
+| 34  | FB-18 | Only the match editor marks a field somebody waits on                | FE, BE          | L      | Open     | —          |
+| 35  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
+| 36  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Open     | —          |
+| 37  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
+| 38  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
+| 39  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
+| 40  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
+| 41  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
+| 42  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
+| 43  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
+| 44  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
+| 45  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
+| 46  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -1205,91 +1204,7 @@ hand-written fixture already disagree about which fields they trust.
 `REQ-SWAP-002`, `REQ-SWAP-004` and `REQ-REPLACE-002` at once, and each has a German counterpart and a
 summary in `fl_backend/app/core/domain.py :: RULES` that would then be describing a wider rule.
 
-### 18 · BE-19 — Nothing states that a request making more than one write makes them together
-
-**Status:** Open\
-**Surfaces:** BE, Docs\
-**Effort:** S\
-**Path:** Independent — the sweep is below and is done. What is left is where the rule is recorded,
-and whether anything holds a later endpoint to it. **BE-15** owns the action log whose own pairing
-is below, and blocks nothing here. Backend audit pass B1's multi-document write check
-(`docs/_auditing/prompts/backend/1-consistency.md`) asks the same question of the code.
-
-**Every request in `fl_backend/app/` that makes more than one write already makes them inside a
-transaction, and no written source says it has to.** Measured 2026-08-20 by reading every call site
-of the write helpers in `fl_backend/app/core/crud.py` — `:: patch_one_in_db`, `:: patch_many_in_db`
-and `:: post_one_to_db` — together with the helpers layered over them, and every direct driver call
-under `fl_backend/app/`. `:: post_many_to_db` is not in that reading: it is a later helper, and the
-sweep answers for the tree it was taken over rather than for this one.
-
-**What the sweep leaves out on purpose.** The venue, referee and club patch endpoints each wrap their
-rename and its fan-out in `with_transaction` and argue that choice at the line, so they are not the
-shape being looked for. What the sweep asks is whether that shape survives anywhere else: a write
-that lands, followed by a further write nothing can take back.
-
-**It does not, and each surviving multi-write path argues itself at the line.**
-
-| The path                                                           | How it writes                                                                                                               |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `fl_backend/app/api/saisons/admin_router.py :: activate_saison`    | `with_transaction`, judging on in-session reads, then demoting whichever season holds `active` and promoting the target     |
-| `fl_backend/app/api/saisons/admin_router.py :: swap_gruppen`       | `with_transaction`, judging through the session so a retry after a write conflict re-reads                                  |
-| `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`    | `with_transaction` around the save, the sides another fixture gives up, and the bracket's resolution                        |
-| `fl_backend/app/api/saisons/admin_router.py :: generate_spielplan` | `with_transaction` over the judgement, a confirmed replace's removals, both inserts and the watermark                       |
-| `fl_backend/app/api/saisons/admin_router.py :: undraw_spielplan`   | `with_transaction` over the judgement, both removals and the `$unset` that clears the watermark                             |
-| `fl_backend/app/api/spieler/admin_router.py :: erase_spieler`      | `with_transaction` over the person, every squad row and the log rows the erasure redacts                                    |
-| `fl_backend/app/api/teams/admin_router.py :: replace_saison_team`  | `with_transaction` over the season's fixtures, the junction row that changes hands, and the outgoing club's live squad rows |
-
-**The draw, the undraw, the erasure and the replacement sit outside that reading, and each was read on
-its own rather than by a sweep** — which is the entry's point restated: the rule holds because whoever wrote
-each of them chose to follow it, and nothing tells the next one.
-
-**The rule reaches one further path, and there it does not hold: the action log's own pairing.**
-Every write appends a log row (`fl_backend/app/core/recording.py`), and where the caller opened no
-transaction the two are separate writes — so a failed log insert answers 500 for a domain write that
-committed, and the administrator's retry duplicates it. That is this entry's rule applied to a path
-where getting it wrong costs an attribution nobody can reconstruct rather than a row nobody can
-join.
-
-**What the sweep found instead are neighbouring shapes, and each is already answered.**
-
-- **A read that decides a write.** `fl_backend/app/api/teams/admin_router.py :: post_saison_team`
-  counts a group's occupants and then inserts, and the comment at the count accepts the race on a
-  single-admin surface. BE-18 carries that acceptance and the date on it.
-  `fl_backend/app/api/spieltage/admin_router.py :: patch_spieltag` joined it with `REQ-DATE-008`: it
-  reads its two dated neighbours and then writes the span between them, and accepts the race in the
-  same words plus one of its own — the interleaving writes two different documents, so a session
-  finds no write conflict and both commit. It is read-write skew, which snapshot isolation is
-  defined not to detect. The soft deletes share the shape —
-  `fl_backend/app/api/spielorte/admin_router.py :: delete_spielort` reads what is still booked and
-  then stamps — and none of them writes more than once.
-- **Applying the database's own constraints.**
-  `fl_backend/app/core/constraints.py :: apply_constraints` writes a validator per collection and
-  an index per rule and raises on the first failure, which its own docstring argues for: a run
-  that stops part-way looks exactly like one that finished. It is idempotent and runs at boot, so
-  the next successful boot reapplies from the start.
-- **A restore that spans requests.** `fl_frontend/src/app/api/admin/teams/undo/route.ts` calls the
-  club patch and then the membership patch, which is the same shape across the wire, where no
-  transaction is available at all. Its answer is to name which half committed rather than to hide it,
-  and `fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest` is what carries that refusal
-  string back to the browser. A different answer to the same question, taken where the backend's is
-  out of reach.
-
-**The question this entry asks is where the rule lives, given that the code already follows it.**
-Nothing tells a session writing the next endpoint that a request making more than one write makes
-them together, and nothing reports one that does not. `fl_backend/app/core/domain.py` is the obvious
-home and is refused one: `.claude/CLAUDE.md` §7 forbids importing it from `app/`, generating it and
-enforcing it, so a line there would be a list a reader consults rather than a control. The
-alternatives are an invariant on [`docs/backend/spec.md`](../backend/spec.md), whose §2 already
-records each transactional write path separately — I46 holds the season's draw to atomicity across
-its three collections and reaches no other endpoint, which is the shape of the gap rather than a
-closing of it — and a sweep of the source tree in the shape
-`fl_backend/tests/api/test_route_order.py` already uses.
-
-**Not measured:** whether such a sweep can tell a genuine multi-write handler from a helper that
-merely accepts an optional session. The enumeration above was read rather than executed, and that
-reading is what a check would have to mechanise.
-
-### 19 · BE-20 — The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing
+### 18 · BE-20 — The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing
 
 **Status:** Open\
 **Surfaces:** BE, Docs\
@@ -1313,7 +1228,7 @@ reading is what a check would have to mechanise.
 
 **Not measured:** whether the state has ever arisen in the live database, and what the walk contradicts on this season's own shape rather than on generated groups. Against the season shape and rules BE-14 records, only the placeability mechanism above is reachable.
 
-### 20 · FE-17 — A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more
+### 19 · FE-17 — A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more
 
 **Status:** Open\
 **Surfaces:** FE, Docs\
@@ -1358,7 +1273,7 @@ selectors overridden in the same file, and no clause governs them. §1.11 of the
 is what governs both cases, and it already asks a stylesheet rule to name the HeroUI version it was
 written against.
 
-### 21 · BE-32 — The draw reports what it wrote and never what a confirmed replace destroyed
+### 20 · BE-32 — The draw reports what it wrote and never what a confirmed replace destroyed
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -1391,7 +1306,7 @@ this one currently confirms nothing. **`FLGenerateSpielplanResponse` is a respon
 `docs/backend/spec.md :: I49` deliberately does not reach — worth saying in the change itself, so
 nobody adds `extra="forbid"` to it while implementing.
 
-### 22 · BE-40 — A bracket slot may be wired to a group its own season does not run
+### 21 · BE-40 — A bracket slot may be wired to a group its own season does not run
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -1443,7 +1358,7 @@ inspected in the live database to confirm the picker's behaviour there; the clai
 component's own source. Whether any stored fixture currently names a group outside its season's count
 was not measured.
 
-### 23 · FE-28 — Two surfaces offer a squad-row return the season's cap will refuse
+### 22 · FE-28 — Two surfaces offer a squad-row return the season's cap will refuse
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -1490,7 +1405,7 @@ ranked entry rather than a fix.
 actionable, and no data is at risk. What it costs is one press and one toast, on a squad that is
 already full.
 
-### 24 · BE-33 — The log read carries every stored pre-image, and the page that asked for it drops them
+### 23 · BE-33 — The log read carries every stored pre-image, and the page that asked for it drops them
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -1521,7 +1436,7 @@ than remove the field: a computed flag, or the field replaced by its own presenc
 the other constraint** — it reads an image for one row, so whatever shape this takes must leave a way
 to ask for one.
 
-### 25 · FE-24 — A pupil's consent is stored and served, and shown by nothing
+### 24 · FE-24 — A pupil's consent is stored and served, and shown by nothing
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1595,7 +1510,7 @@ history of anyone having trusted a short answer.
 branch it would have joined was already about the application queue. The shape to copy is settled, so
 what is left is the edit rather than the design.
 
-### 26 · BE-34 — An index's first stated purpose has no caller
+### 25 · BE-34 — An index's first stated purpose has no caller
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -1627,7 +1542,7 @@ serves `document_id` as text, so the filter has a value to match on. `FLAktionen
 query-parameter model, which `docs/backend/spec.md :: I49` excludes and not by omission, so widening it
 is untouched by that rule.
 
-### 27 · FE-21 — The shared editor shell's widest layout step has never been rendered
+### 26 · FE-21 — The shared editor shell's widest layout step has never been rendered
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1657,7 +1572,7 @@ breakpoint and the space the shell actually gets are different numbers.
 [`docs/_auditing/lessons.md`](../_auditing/lessons.md) §6 records that a session cannot sign in, so
 the honest scope is a look at one editor past 96rem, in a real browser, by somebody who can.
 
-### 28 · FE-30 — `Team` names a club and the people who run the league, and the public site renders both
+### 27 · FE-30 — `Team` names a club and the people who run the league, and the public site renders both
 
 **Status:** Open\
 **Surfaces:** FE, Docs\
@@ -1696,7 +1611,7 @@ either as a trap on that entry or as a row in the same page's `Terms that are no
 table, which already holds the words that only look like domain vocabulary. Leaving it undecided is
 what makes the next public string naming either sense a coin toss.
 
-### 29 · FE-33 — Every page-owned editor spells its own undo dispatch, and the copy inside it is written once per slice
+### 28 · FE-33 — Every page-owned editor spells its own undo dispatch, and the copy inside it is written once per slice
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1740,7 +1655,7 @@ message and destroyed-something argument those editors pass.
 sentence it pins; what an extraction buys is that the next editor written gets the behaviour rather
 than a copy, and that a change to any of the other sentences stops being an edit in every slice.
 
-### 30 · FE-31 — Every admin write states its success twice, and the second sentence cannot render
+### 29 · FE-31 — Every admin write states its success twice, and the second sentence cannot render
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1802,7 +1717,7 @@ components go with it: `successMessage` stops being required, or stops existing.
 and its three siblings take a locally computed argument that is `undefined` on an ordinary save, so
 there the fallback is the ordinary case. Reading the `??` alone does not separate the two.
 
-### 31 · FE-19 — Every call site writes a fallback for a failure message that always arrives
+### 30 · FE-19 — Every call site writes a fallback for a failure message that always arrives
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1843,7 +1758,7 @@ weight and a fallback that is the only sentence naming what did not happen read 
 its own reason for one — the diagnosis is already in the server log, and what an admin needs is
 whether retrying can help.
 
-### 32 · FE-23 — One adverb is written two ways, and the split runs through the whole product
+### 31 · FE-23 — One adverb is written two ways, and the split runs through the whole product
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1880,7 +1795,7 @@ which is the argument that moved the `Mannschaft` sweep early rather than late.
 **`docs/audit/` is out of scope and stays that way.** Those pages quote the strings that stood when
 they were written, so a sweep through them would falsify a record rather than correct a claim.
 
-### 33 · FE-1 — A fixture carries one date, and a play window cannot be expressed
+### 32 · FE-1 — A fixture carries one date, and a play window cannot be expressed
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -1905,7 +1820,7 @@ harder, and the intent (a fixture whose play window includes today is found by t
 and labelled `heute`) is what the range arithmetic has to preserve. Working it re-derives both
 definitions under ranges.
 
-### 34 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
+### 33 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -1973,7 +1888,7 @@ log-injection risk and must be validated or replaced the same way.
 collector fits on the current host beside the capped services. Each is input to step 1 and neither
 should be guessed.
 
-### 35 · FB-18 — Only the match editor tells an admin which empty field somebody is waiting on
+### 34 · FB-18 — Only the match editor tells an admin which empty field somebody is waiting on
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -2011,7 +1926,7 @@ markers are absent rather than misleading, and every other editor already says w
 its required fields and the rail's Hinweise. Its cost is the per-entity ruling, and that cost does
 not grow while it waits.
 
-### 36 · BE-12 — No retention sweep selects a retired row on its age
+### 35 · BE-12 — No retention sweep selects a retired row on its age
 
 **Status:** Open\
 **Surfaces:** BE, DB\
@@ -2061,7 +1976,7 @@ draw — by a confirmed replace that writes fresh ones in the same transaction (
 an undraw that writes none back (`REQ-SPIELPLAN-006`) — so none of them can accumulate a row a purge
 would have to find.
 
-### 37 · BE-25 — A club's street address is served to an anonymous caller
+### 36 · BE-25 — A club's street address is served to an anonymous caller
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -2087,7 +2002,7 @@ caller rendering none of them. Either the list shape is narrowed the way the sta
 the reasoning is written down as not applying here. **Leaving it unstated is the thing to avoid**,
 because the next reader re-derives it from scratch.
 
-### 39 · BE-26 — Two rule summaries name a fixture state the code excludes
+### 38 · BE-26 — Two rule summaries name a fixture state the code excludes
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -2122,7 +2037,7 @@ words the same membership, so the register states both readings and matches the 
 them. The constant's own comment argues that a called-off fixture is one that never took place,
 which points at the summaries; that remains a domain call rather than a recorded decision.
 
-### 40 · BE-39 — A refusal composes a repair the product refuses to perform
+### 39 · BE-39 — A refusal composes a repair the product refuses to perform
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -2170,7 +2085,7 @@ database, where this misleads an admin on a path the product offers them.
 Below **BE-26**: a summary wrong there may be covering a constant that lets a fixture nobody will replay
 through a refusal, which is a behaviour to settle rather than a sentence to correct.
 
-### 41 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
+### 40 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -2216,7 +2131,7 @@ enumeration moves in the same commit.
 signal for most of what the write path calls unholdable — where FE-20 removes almost none, and its
 own cost is paid only after somebody edits the database.
 
-### 42 · BE-43 — A club's name is bounded where a stranger types it and unbounded where an administrator does
+### 41 · BE-43 — A club's name is bounded where a stranger types it and unbounded where an administrator does
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -2265,7 +2180,7 @@ application's constants become the shared ones wherever the numbers agree. Or ho
 belongs to the surface a stranger writes through, and record why the admin side is trusted with an
 unbounded one — which is what the code implies today and what no line says.
 
-### 43 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
+### 42 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
 
 **Status:** Open\
 **Surfaces:** FE, Docs\
@@ -2336,7 +2251,7 @@ is what a later edit does to one of them. Above **FE-20**: taking that token out
 where this settles a copy question on two admin surfaces and closes a coupling the helper beside it was
 written to close.
 
-### 44 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
+### 43 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2405,7 +2320,7 @@ edit's freedom to part them. Above **FE-32**: that entry misleads nobody and its
 beside the id, where this one's is answered only by noticing that a helper's reach stops short of a
 module, which nothing on either side says.
 
-### 45 · BE-7 — `typing` imports instead of `collections.abc`
+### 44 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -2418,7 +2333,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 46 · BE-14 — The certainty walk gives up in a group of six or more
+### 45 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -2477,7 +2392,7 @@ deduplicated, but inside a transaction, whose lifetime is bounded.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 38 · BE-47 — A sort option nothing sends scans the archive it sorts
+### 37 · BE-47 — A sort option nothing sends scans the archive it sorts
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -2518,7 +2433,7 @@ unreachable into the ordinary path and makes the plan above the one an administr
 does not hold. That no caller sends `sort_by` was read off the page and the absence of another consumer
 rather than proven by instrumenting the endpoint.
 
-### 47 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
+### 46 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
 
 **Status:** Standing\
 **Surfaces:** BE\
