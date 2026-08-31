@@ -80,19 +80,18 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 26  | FE-1  | A fixture carries one date, not a play window                        | FE, BE          | XL     | Open     | —          |
 | 27  | LOG-2 | A cached read's call joins to no render                              | FE, BE, Ops     | L      | Open     | —          |
 | 28  | FB-18 | Only the match editor marks a field somebody waits on                | FE, BE          | L      | Open     | —          |
-| 29  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Closed   | —          |
-| 30  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
-| 31  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
-| 32  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
-| 33  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
-| 34  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
-| 35  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
-| 36  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
-| 37  | BE-42 | Acceptance publishes a school's street address as the club's         | Docs            | S      | Decided  | —          |
-| 38  | BE-25 | A club's street address is served to an anonymous caller             | Docs            | S      | Decided  | —          |
-| 39  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
-| 40  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
-| 41  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
+| 29  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
+| 30  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
+| 31  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
+| 32  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
+| 33  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
+| 34  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
+| 35  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
+| 36  | BE-42 | Acceptance publishes a school's street address as the club's         | Docs            | S      | Decided  | —          |
+| 37  | BE-25 | A club's street address is served to an anonymous caller             | Docs            | S      | Decided  | —          |
+| 38  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
+| 39  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
+| 40  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -1680,33 +1679,7 @@ markers are absent rather than misleading, and every other editor already says w
 its required fields and the rail's Hinweise. Its cost is the per-entity ruling, and that cost does
 not grow while it waits.
 
-### 29 · BE-12 — No retention sweep selects a retired row on its age
-
-**Status:** Closed\
-**Surfaces:** BE, DB\
-**Effort:** M\
-**Path:** Independent — the spieler pages retire rows, so an `inactive_since` can accumulate at all.
-
-**Concluded by a decision rather than a sweep. Decided 2026-08, Datenschutzexperte consulted: a
-retired row is never purged on its age.** The questions this entry held open — how old is old
-enough, what still references the row, whether freeing a shorthand from `uniq_shorthand` is a
-feature or a hazard, and what runs the sweep — are answered together by there being no sweep: none
-is built, and none is to be built.
-
-**Where the decision went.** Its home is the "a retired row kept indefinitely" entry of
-`fl_backend/app/core/domain.py :: UNENFORCED`, which is where a reader looking for what this system
-tolerates finds it and where its proof is wired:
-`fl_backend/tests/core/test_unenforced.py :: TestNoPurgeReachesARetiredRow` holds every removal to
-`fl_backend/app/core/crud.py` and refuses one selecting on `inactive_since`, so the sweep this
-entry contemplated fails a default-tier test the day somebody writes it. The known-open row in
-`docs/backend/spec.md` turns Accepted and cites that entry.
-
-**What the decision does not move.** A pupil's own erasure request stays the one removal of a
-retired row — it selects a subject, never an age, and `REQ-PURGE-001` makes retirement its
-precondition rather than its trigger. `inactive_since` stays a date, never a boolean
-(`docs/backend/spec.md :: I12`): it records when a row retired, not when a sweep may take it.
-
-### 31 · BE-26 — Two rule summaries name a fixture state the code excludes
+### 30 · BE-26 — Two rule summaries name a fixture state the code excludes
 
 **Status:** Open\
 **Surfaces:** BE\
@@ -1741,7 +1714,7 @@ words the same membership, so the register states both readings and matches the 
 them. The constant's own comment argues that a called-off fixture is one that never took place,
 which points at the summaries; that remains a domain call rather than a recorded decision.
 
-### 32 · BE-39 — A refusal composes a repair the product refuses to perform
+### 31 · BE-39 — A refusal composes a repair the product refuses to perform
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -1789,7 +1762,7 @@ database, where this misleads an admin on a path the product offers them.
 Below **BE-26**: a summary wrong there may be covering a constant that lets a fixture nobody will replay
 through a refusal, which is a behaviour to settle rather than a sentence to correct.
 
-### 33 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
+### 32 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -1835,7 +1808,7 @@ enumeration moves in the same commit.
 signal for most of what the write path calls unholdable — where FE-20 removes almost none, and its
 own cost is paid only after somebody edits the database.
 
-### 34 · BE-43 — A club's name is bounded where a stranger types it and unbounded where an administrator does
+### 33 · BE-43 — A club's name is bounded where a stranger types it and unbounded where an administrator does
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -1885,7 +1858,7 @@ application's constants become the shared ones wherever the numbers agree. Or ho
 belongs to the surface a stranger writes through, and record why the admin side is trusted with an
 unbounded one — which is what the code implies today and what no line says.
 
-### 35 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
+### 34 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
 
 **Status:** Open\
 **Surfaces:** FE, Docs\
@@ -1956,7 +1929,7 @@ is what a later edit does to one of them. Above **FE-20**: taking that token out
 where this settles a copy question on two admin surfaces and closes a coupling the helper beside it was
 written to close.
 
-### 36 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
+### 35 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2025,7 +1998,7 @@ edit's freedom to part them. Above **FE-32**: that entry misleads nobody and its
 beside the id, where this one's is answered only by noticing that a helper's reach stops short of a
 module, which nothing on either side says.
 
-### 37 · BE-42 — Acceptance copies a school's postal address into the club, where an anonymous read serves it
+### 36 · BE-42 — Acceptance copies a school's postal address into the club, where an anonymous read serves it
 
 **Status:** Decided\
 **Surfaces:** Docs\
@@ -2055,7 +2028,7 @@ names a school's correspondence address once acceptance has made a club of it. W
 into that table beside `READ-ADDRESS-001` is the work this entry still carries, so the registry
 answers for a club's address the way it already answers for a venue's.
 
-### 38 · BE-25 — A club's street address is served to an anonymous caller
+### 37 · BE-25 — A club's street address is served to an anonymous caller
 
 **Status:** Decided\
 **Surfaces:** Docs\
@@ -2076,7 +2049,7 @@ included, and the public application form says so where the address is collected
 argument that narrowed the standings row to `FLGruppenTeam` is thereby written down as stopping
 short of `FLTeam`, whose detail page renders the field through `TeamIdentityCard`.
 
-### 39 · BE-7 — `typing` imports instead of `collections.abc`
+### 38 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -2089,7 +2062,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 40 · BE-14 — The certainty walk gives up in a group of six or more
+### 39 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -2148,7 +2121,7 @@ deduplicated, but inside a transaction, whose lifetime is bounded.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 30 · BE-47 — A sort option nothing sends scans the archive it sorts
+### 29 · BE-47 — A sort option nothing sends scans the archive it sorts
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -2189,7 +2162,7 @@ unreachable into the ordinary path and makes the plan above the one an administr
 does not hold. That no caller sends `sort_by` was read off the page and the absence of another consumer
 rather than proven by instrumenting the endpoint.
 
-### 41 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
+### 40 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
 
 **Status:** Standing\
 **Surfaces:** BE\
