@@ -70,7 +70,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 16  | BE-17 | Every server-ordered name list sorts in byte order                   | BE, FE          | M      | Open     | —          |
 | 17  | BE-30 | The move guard does not see a stored shoot-out                       | BE              | S      | Open     | —          |
 | 30  | BE-46 | The action log's read truncates and cannot say so                    | FE, BE          | S      | Open     | —          |
-| 18  | BE-31 | A duplicate-key log line carries the value it refused                | BE, Docs        | S      | Open     | —          |
+| 18  | BE-31 | A duplicate-key log line carries the value it refused                | BE, Docs        | S      | Closed   | —          |
 | 19  | BE-19 | Nothing says a multi-write request writes atomically                 | BE, Docs        | S      | Open     | —          |
 | 20  | BE-20 | The certainty walk never hypothesises a called-off fixture           | BE, Docs        | L      | Open     | —          |
 | 21  | FE-17 | A never-clause bounds toast CSS short of the stylesheet              | FE, Docs        | S      | Open     | —          |
@@ -1252,7 +1252,7 @@ summary in `fl_backend/app/core/domain.py :: RULES` that would then be describin
 
 ### 18 · BE-31 — A duplicate-key log line carries the value the index refused
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** BE, Docs\
 **Effort:** S\
 **Path:** Independent, and it has a date on it: FB-17's registration half is the first thing likely to
@@ -1281,6 +1281,12 @@ recognised by name and birthdate under an index leaks both, into a log stream `d
 **The fix costs nothing and can land now**: parse the index name out of the details and log that alone,
 which is what the docstring already claims and what the 409 already returns. Doing it before the
 trigger is what makes the trigger a non-event.
+
+**Concluded by that fix.** `fl_backend/app/core/exception_handlers.py :: refused_index_of` parses
+the index name out of the server's report and the handler logs that alone, `NO_DATA_TEXT` where no
+name parses; `fl_backend/tests/api/test_error_responses.py :: TestValidationLoggingWithholdsTheValue`
+holds the line to `docs/logging/spec.md :: L9` with planted values. The clock half — a unique index
+over a person's own values — stays FB-17's. The argument is in the closing commit's body.
 
 ### 19 · BE-19 — Nothing states that a request making more than one write makes them together
 
