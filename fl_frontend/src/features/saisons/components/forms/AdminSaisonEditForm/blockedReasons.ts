@@ -15,7 +15,15 @@ export type SpielplanControlInput = {
   erfassteSpieleCount: number;
   /** Whether the season's served schedule reaches a knockout round at all. */
   hasKoRunden: boolean;
+  /** The season's STORED span, `REQ-DATE-005`'s offered side — what the draw would run on. */
+  startDate: string;
+  endDate: string;
+  /** `REQ-DATE-005`'s required side: the matchdays the SERVED schedule implies, `buildSpielplanVorschau`'s sum. */
+  vorschauSpieltage: number;
 };
+
+// One day of UTC milliseconds. Date-only strings parse as UTC midnights, so dividing by it is exact.
+const MS_PER_DAY = 86_400_000;
 
 /**
  * `REQ-SPIELPLAN-005`'s window, mirroring the two figures
@@ -26,8 +34,8 @@ function isReplaceWindowOpen({ saisonStatus, erfassteSpieleCount }: SpielplanCon
   return saisonStatus === "future" && erfassteSpieleCount === 0;
 }
 
-/** The undraw's half of the same input. `hasKoRunden` describes a bracket a removal never draws. */
-export type UndrawControlInput = Omit<SpielplanControlInput, "hasKoRunden">;
+/** The undraw's half of the same input. The bracket and the span describe a draw a removal never makes. */
+export type UndrawControlInput = Omit<SpielplanControlInput, "hasKoRunden" | "startDate" | "endDate" | "vorschauSpieltage">;
 
 /**
  * **One expression for every reader**: the replace flag, the reason gating it, the undraw's offer and
@@ -40,11 +48,11 @@ export function spielplanHoldsADraw({ hasSpielplan, hasDrawnSpiele, spieltageCou
 
 /**
  * Why the draw is closed, or `null` while it is on offer. **A courtesy and not the control**: the
- * draw endpoint refuses each of these itself, over both its refusal passes, and this only stops the
+ * draw endpoint refuses each of these itself, over its own refusal passes, and this only stops the
  * page offering an act it already knows the answer to.
  */
 export function spielplanBlockedReason(input: SpielplanControlInput): string | null {
-  const { saisonStatus, hasKoRunden } = input;
+  const { saisonStatus, hasKoRunden, startDate, endDate, vorschauSpieltage } = input;
 
   // Ahead of the window, unlike `find_spielplan_refusal`: a season that is over is answered by the
   // state it stands in, which neither closure has a way out of. `past` alone, or a season
@@ -65,10 +73,18 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
       : `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. Neu anlegen lässt sich der Spielplan erst wieder, wenn bei keinem Spiel mehr etwas davon eingetragen ist.`;
   }
 
-  // Last, as the endpoint asks it: `find_rules_refusal` runs after the whole spielplan pass, and on
-  // its `stored=None` path `REQ-RULES-001` reduces to a qualifier product reaching no bracket, which
-  // is exactly an empty knockout list.
+  // After the window, as the endpoint asks it: `find_rules_refusal` runs after the whole spielplan
+  // pass, and on its `stored=None` path `REQ-RULES-001` reduces to a qualifier product reaching no
+  // bracket, which is exactly an empty knockout list.
   if (!hasKoRunden) return "Aus diesen Regeln entsteht keine KO-Runde. Ändere die Zahlen im Abschnitt Regeln und speichere sie.";
+
+  // Last, as `find_saison_span_refusal` runs after the rules: no bracket implies no matchday count
+  // worth measuring. Inclusive as the backend counts — a season running one day offers one.
+  if ((Date.parse(endDate) - Date.parse(startDate)) / MS_PER_DAY + 1 < vorschauSpieltage)
+    return (
+      "Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben. " +
+      "Verlege im Abschnitt Zeitraum das Enddatum nach hinten oder das Startdatum nach vorne und speichere die Saison."
+    );
 
   return null;
 }
