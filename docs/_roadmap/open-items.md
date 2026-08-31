@@ -55,7 +55,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 13  | BE-44 | A decision drains no queue, and marking spans the loaded rows        | FE, BE, Docs    | M      | Open     | —          |
 | 1   | BE-15 | The recording exists; the restore over it does not                   | FE, BE, DB      | M      | Open     | —          |
 | 2   | BE-23 | Consent's writer is deferred to an expert who has not answered       | BE, DB, Docs    | M      | Standing | —          |
-| 3   | FE-25 | A double-click satisfies the two-press confirmation                  | FE              | S      | Open     | —          |
+| 3   | FE-25 | A double-click satisfies the two-press confirmation                  | FE              | S      | Closed   | —          |
 | 4   | BE-27 | A removal's log row can never be redacted                            | BE, DB, Docs    | S      | Open     | —          |
 | 5   | FB-20 | A name typed into a fixture note is beyond the erasure               | Docs            | S      | Open     | —          |
 | 6   | BE-42 | Acceptance publishes a school's street address as the club's         | FE, BE, Docs    | S      | Open     | —          |
@@ -300,7 +300,7 @@ registered since through `POST /spieler` carries `erziehungsberechtigt` instead.
 
 ### 3 · FE-25 — One hook guards every irreversible admin press, and a double-click satisfies it
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE\
 **Effort:** S\
 **Path:** Independent. It sits on the panels FB-19 and BE-15 are about and blocks neither.
@@ -334,6 +334,14 @@ doubt, and it does not hold in the one case where a person's hand rather than th
 **Read off the hook's own branch and React's render behaviour rather than measured** (COR-9):
 confirming it wants the local stack and a real double-click, and only the interval at which it bites
 is in question.
+
+**What concluded it: the interval guard, in the hook.**
+`fl_frontend/src/shared/hooks/useTwoPressConfirm.ts :: useTwoPressConfirm` records the arming press's
+timestamp and ignores a confirming press landing within `DOUBLE_PRESS_MS` of it — ignored rather than
+swallowed, so the alert stands and a press taken after reading it confirms with no fresh arming owed.
+The threshold and its argument — 500 ms, the double-click distance Windows ships as its default — sit
+at the constant. The hook's own test battery drives a press inside the window and one past it through
+a scripted clock, the two behaviours the guard adds.
 
 ### 4 · BE-27 — A removal's log row records whole documents and no redaction can reach it
 
