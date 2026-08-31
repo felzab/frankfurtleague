@@ -87,7 +87,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 33  | FE-21 | The editor shell's widest layout step is unrendered                  | FE              | S      | Open     | —          |
 | 34  | FE-30 | `Team` names a club and the league's own people                      | FE, Docs        | S      | Open     | —          |
 | 35  | FE-33 | Each editor spells its own undo dispatch                             | FE              | M      | Open     | —          |
-| 36  | FE-18 | A vendored stylesheet may reach nothing it declares                  | FE              | S      | Open     | —          |
+| 36  | FE-18 | A vendored stylesheet may reach nothing it declares                  | FE              | S      | Closed   | —          |
 | 37  | FE-31 | Every admin success is stated twice, and once invisibly              | FE              | M      | Open     | —          |
 | 38  | FE-19 | Every call site writes a fallback the runtime cannot take            | FE              | M      | Open     | —          |
 | 39  | FE-23 | One adverb is written two ways across the product                    | FE              | S      | Open     | —          |
@@ -1989,7 +1989,7 @@ than a copy, and that a change to any of the other sentences stops being an edit
 
 ### 36 · FE-18 — A vendored stylesheet ships on every route, and nothing may render what it declares
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE\
 **Effort:** S\
 **Path:** Independent — the header comment in `fl_frontend/src/app/globals.css` moves with it,
@@ -2021,6 +2021,14 @@ own default class names being replaced wherever HeroUI passes one.
 value is that the import list and the comment above it stop asserting something the code does not do.
 §1.11 of [`docs/frontend/spec.md`](../frontend/spec.md) is the procedure both imports were added
 under, and its own instruction is to establish membership from the import graph.
+
+**What concluded it: the build diff came back exactly the dead rule.** `next build` was run either
+side of removing the `disclosure-group.css` import, and the compiled stylesheet after is the one
+before minus the single rule `.disclosure-group{contain:layout style;width:100%}` — 50 bytes per
+route, no other chunk moved. That is the one outcome under which the entry allows the removal, so
+the import is gone and the header comment now states `disclosure`'s reach as `accordion__heading`
+alone, the bound the paragraph above establishes. `disclosure.css` stays imported, as the entry
+scopes. Nothing is rehomed.
 
 ### 37 · FE-31 — Every admin write states its success twice, and the second sentence cannot render
 
