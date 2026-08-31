@@ -728,6 +728,15 @@ else
     probe "$hb" denied cmd "$(printf 'printf x > docs/audit/log.txt\ngit commit -am wip')" 'bash guard: newline then commit'
     probe "$hb" denied cmd "$(printf 'printf x > docs/audit/log.txt\npnpm format')"        'bash guard: newline then format'
 
+    # Every git occurrence is stepped, not the first alone: a leading git read must not shadow the
+    # write chained behind it, and a newline or carriage return fronts a git as surely as a space.
+    probe "$hb" denied cmd 'git status && git reset --hard'                    'bash guard: a reset behind a leading git read'
+    probe "$hb" denied cmd 'git add -A && git commit -m x'                     'bash guard: an add in front of a commit'
+    probe "$hb" denied cmd 'git fetch && git rebase main'                      'bash guard: a fetch in front of a rebase'
+    probe "$hb" denied cmd "$(printf 'cd fl_backend\ngit commit -am wip')"     'bash guard: a git write on a second line'
+    probe "$hb" denied cmd "$(printf 'echo start\rgit reset --hard')"          'bash guard: a carriage return fronting a git write'
+    probe "$hb" denied cmd "$(printf 'ls\ngit stash\necho done')"              'bash guard: a subcommand ended by a newline'
+
     # --- An interpreter's own write API, one probe per pattern -----------------------------------
 
     # Each line matches one pattern and no other: delete that pattern and this probe alone goes
@@ -937,6 +946,8 @@ else
     probe "$hs" asked   cmd 'printf x ->docs/standard.md'                      'standard bash guard: -> redirect'
     probe "$hs" asked   cmd 'sed -e s/a/b/ -i docs/standard.md'                'standard bash guard: sed -i behind another flag'
     probe "$hs" asked   cmd 'git checkout -- docs/standard.md'                 'standard bash guard: git checkout --'
+    probe "$hs" asked   cmd "$(printf 'echo start\ngit checkout -- docs/standard.md')" 'standard bash guard: a discard on a second line'
+    probe "$hs" asked   cmd 'git status && git checkout -- docs/standard.md'   'standard bash guard: a discard behind a git read'
     probe "$hs" asked   cmd 'rm docs/standard.md'                              'standard bash guard: a deletion'
     probe "$hs" asked   raw 'not json'                                         'standard bash guard: unparseable payload'
     # Neither program is on the interpreter list beside it, so the in-place arm is what answers.
@@ -975,10 +986,20 @@ else
     probe "$hk" allowed file "${hook_root}/scripts/outside.ts"         'stale-class guard: the string out of scope'
     probe "$hk" allowed file "${hook_root}/fl_frontend/src/gone.ts"    'stale-class guard: a file that is not there'
 
-    # --- guard-local-compose.sh ------------------------------------------------------------------
+    # --- guard-local-compose.sh: an invocation is a word position, not a phrase ------------------
     probe "$hc" denied  cmd 'docker compose up -d'                             'compose guard: bare docker compose'
+    probe "$hc" denied  cmd 'docker-compose up -d'                             'compose guard: the hyphenated spelling'
+    probe "$hc" denied  cmd 'sudo docker compose up -d'                        'compose guard: behind sudo'
+    probe "$hc" denied  cmd 'MSYS_NO_PATHCONV=1 docker compose up -d'          'compose guard: behind an env assignment'
+    probe "$hc" denied  cmd 'docker compose --project-name x up'               'compose guard: a flag before the subcommand'
+    probe "$hc" denied  cmd 'echo ok && docker compose up -d'                  'compose guard: an invocation after a separator'
+    probe "$hc" denied  cmd 'docker compose down # docker-compose.local.yml'   'compose guard: the local file outside a -f value'
+    probe "$hc" denied  cmd 'grep x docker-compose.local.yml && docker compose down' 'compose guard: a mention in one command releases no other'
     probe "$hc" allowed cmd 'docker compose -f docker-compose.local.yml up -d' 'compose guard: local file named'
+    probe "$hc" allowed cmd 'docker compose --file=docker-compose.local.yml up' 'compose guard: the long flag spelling'
     probe "$hc" allowed cmd 'docker ps'                                        'compose guard: not compose at all'
+    probe "$hc" allowed cmd 'grep -rn "docker compose" docs'                   'compose guard: a mention is not an invocation'
+    probe "$hc" allowed cmd "$(printf 'cat <<EOF\nDrive local Docker only through ./scripts/local.sh, never bare docker compose\nEOF')" 'compose guard: a heredoc stating the rule'
 
     # Absolute paths only here: elsewhere a backslash is an ordinary character and a `/c/…` name is
     # a directory outside the tree.
