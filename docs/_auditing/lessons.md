@@ -37,16 +37,15 @@ all — or a snippet's own defect, verbatim.
 
 **Instances**
 
-- **A finding inverts on an answer.** Written from one surface, it can be the exact opposite of
-  correct once the other surface, or I, am consulted. This is what Wave 0 exists for.
+- **A finding inverts on an answer** — written from one surface, it can be the exact opposite of
+  correct once the other surface, or I, am consulted; Wave 0 exists for this.
 - **A finding has nothing to fix** — the code was removed by an earlier wave, no input path reaches
   the state it defends against, or a library already handles it. A cost claim ("N components mounted
   up front") is a measurement and has to be measured.
-- **A recommendation is contradicted by the official documentation.** A report flagging "I could not
-  verify this" is doing its job, and makes the row cheap to close.
+- **A recommendation is contradicted by the official documentation.**
 - **A snippet contains the bug it claims to fix.** Splitting a delimiter-only string yields two empty
   strings and `Number("")` is `0`, so a "validation fix" reports a valid `0:0` score for garbage
-  input. Write the test before trusting the snippet.
+  input.
 - **A snippet creates the defect class the wave exists to remove** — a shared dictionary placed where
   it forms a module cycle.
 - **A security or configuration fix verified only by reasoning is routinely unshippable.** Three
@@ -100,7 +99,7 @@ builder matching nothing, a hook above a Suspense boundary collapsing a route gr
 ## 4. Verify a library or platform claim at its source
 
 **Rule:** a plausible-sounding belief about an installed library or a hosting platform reads exactly
-like a checked fact, and these are the costliest wrong turns a programme takes. Read the installed
+like a checked fact. Read the installed
 package in `node_modules` or the installed Python distribution, or measure the running system, before
 building on any assumption about it. For a platform — repository settings, permission scopes,
 registry linking, security tooling — open the settings page, run the command, or fetch the raw file.
@@ -121,7 +120,7 @@ reported green.
 - **A green local gate is not a green image.** A module-scope environment read fails only in the
   builder stage, and a file that compiles at the repository root may not be traced into
   `output: "standalone"` — which silently disables an environment gate and all production error
-  logging. This is why the gate builds the images and sanity-checks their contents.
+  logging.
 - **A silent skip makes a suite lie.** `pytest -q` hides what failed, so use `-ra --showlocals`;
   `parametrize` over an empty list skips rather than fails, so give a discovery-driven test a count
   floor; a bare `pytest.raises(ValidationError)` passes whatever went wrong, so assert the failing
@@ -222,8 +221,7 @@ not the variable.**
 successes to everyone else. A wave report carries, in order: purpose in lay terms · changes by
 theme · decisions with their reasoning · where the audit was wrong · verification with real output ·
 discovered along the way · left undone · revisions after first publication. State what could not be
-verified and why, rather than implying coverage, because an implied coverage claim routes no later
-human check to the place that needs one.
+verified and why, rather than implying coverage.
 
 **Instances**
 

@@ -43,9 +43,9 @@ session runs: [`prompts/_shared-protocol.md`](prompts/_shared-protocol.md). How 
 §1.6.
 
 **Run them risk → surface → crosscut.** The risk pass assigns each outcome to the pass that should
-look there and sets the severity every later pass inherits; run late, a hazard no lens covers reads
-as silence rather than as a gap. Each surface pass cites the earlier reports of its own surface
-instead of re-reporting them, and states whether it covered the hazards assigned to it. Crosscut goes
+look there and sets the severity every later pass inherits. Each surface pass cites the earlier
+reports of its own surface instead of re-reporting them, and states whether it covered the hazards
+assigned to it. Crosscut goes
 last because the seams between surfaces belong to none of them.
 
 Every pass ends by naming the **controls that would prevent recurrence** for the classes it found;
@@ -55,16 +55,14 @@ those become the ledger's guardrail backlog.
 
 Built **once**, after the last pass, from each report's **summary table and verdict only** — never a
 whole report; [`prompts/_shared-protocol.md`](prompts/_shared-protocol.md) makes those sections a
-contract so nothing the ledger needs is stranded in a report body. Shape:
-[`ledger-template.md`](ledger-template.md).
+contract. Shape: [`ledger-template.md`](ledger-template.md).
 
 **Every hazard the risk pass recorded leaves the programme as a ledger row, an accepted risk or a
 roadmap item — never as nothing.**
 
 ### 1.3 Wave 0
 
-Every blocking question answered and every decision of mine settled **before any code changes**. A
-fix written against an unanswered question can be the exact opposite of correct.
+Every blocking question answered and every decision of mine settled **before any code changes**.
 
 ### 1.4 Waves
 
@@ -82,10 +80,8 @@ lost. What the report carries: [`final-report-template.md`](final-report-templat
 ### 1.6 Writing a prompt
 
 **A prompt states how to derive an inventory, never the inventory itself** — a grep or a config read,
-not a list of files; a rule, not a count. Anything hardcoded drifts from the code, and no gate
-detects that. **Every prompt names its boundaries**, meaning which findings belong to which other
-pass; without them one defect becomes several differently-worded findings and the ledger's overlap
-map turns into archaeology. Begin a prompt by binding
+not a list of files; a rule, not a count. **Every prompt names its boundaries**, meaning which
+findings belong to which other pass. Begin a prompt by binding
 [`prompts/_shared-protocol.md`](prompts/_shared-protocol.md), and put nothing in it that the shared
 protocol already covers.
 
@@ -93,7 +89,7 @@ A new lens is numbered inside its surface folder as `<n>-<kebab-lens>.md` and ta
 [`prompts/README.md`](prompts/README.md); `/audit:pass` resolves `<surface>/<n>-*.md` by glob, so
 nothing else needs updating. **Name the report path it writes to** —
 `docs/audit/programme/<prefix><n>-<lens>.md`, where the prefix is `r` risk · `f` frontend ·
-`b` backend · `o` ops · `x` crosscut, so a report is identifiable from its filename alone. Split a
+`b` backend · `o` ops · `x` crosscut. Split a
 lens rather than letting one report grow too large to load ([`lessons.md`](lessons.md) §9).
 
 ---
@@ -123,10 +119,8 @@ requires a body that stands alone.
   for a fresh session to continue from it plus git alone. A row is status, not story — anything
   longer belongs in the wave report.
 - **A wave report is revised in place, never appended to**, under "Revisions after first
-  publication". A correction appended below text that still says the old thing leaves a document
-  contradicting itself.
-- **`state.md` is appended to, never revised.** Its value is its order: an entry rewritten after the
-  fact describes a session that is no longer there to correct it.
+  publication".
+- **`state.md` is appended to, never revised.** Its value is its order.
 
 ---
 
@@ -136,16 +130,14 @@ requires a body that stands alone.
   between sessions: carrying one pass's context into the next makes the model summarise instead of
   scan.
 - **Context budget.** Never load a whole pass report, and never load more than one. A wave session
-  gets the ledger plus only the report sections its rows name, derived from the rows' `§` column —
-  re-derive that list whenever a row is added, merged or moved.
+  gets the ledger plus only the report sections its rows name, derived from the rows' `§` column.
 - **Findings are claims, not facts.** Every wave starts by re-verifying the findings it is about to
   act on against the current code. [`lessons.md`](lessons.md) §1 catalogues the shapes.
 - **Ask more, not less.** An ambiguous finding, a user-visible change, a decision that reopens
   something ratified, two fixes that conflict — each is a question for me, collected during planning
   and put as **one batch** with measured options and a recommendation.
 - **Independent review is a phase, not a favour.** After implementation and before the wave report,
-  review the wave's own diff as if it were unreviewed code from a stranger. Re-checking the list that
-  produced the diff is a weaker lens and misses what this catches.
+  review the wave's own diff as if it were unreviewed code from a stranger.
 
 ### Recording work as it happens
 
@@ -154,7 +146,7 @@ requires a body that stands alone.
 **Every pass and every wave appends one line to `docs/audit/programme/state.md` when it begins**,
 naming what it is about to do, **and one when it ends**, naming what it produced. Append before the
 work rather than after it — the entry a successor most needs describes what was in flight when the
-session stopped, and a session cannot write that once it is gone.
+session stopped.
 
 ```
 2026-08-09 16:10 · wave 3 · start · rows R2-S4, R2-S5 · branch wave-3-write-path
@@ -163,8 +155,7 @@ session stopped, and a session cannot write that once it is gone.
 
 **In a wave:** commit code per row or small row-group, and update the ledger **at the same moment** —
 `[~]` when work on a row starts, `[x]` when its commit lands. **Never batch a whole wave into one
-commit.** A large uncommitted diff is unreviewable while it exists, unrecoverable if it is lost, and
-hides which rows are actually finished from everyone including the session writing it.
+commit.**
 
 Where `state.md` is missing, or its last entry is older than the newest commit or artifact, it is not
 the record for what happened after it: a killed pass is continued by the resume protocol in
@@ -201,8 +192,8 @@ own ledger row with a trigger — never tick it unverified, and never stall the 
 
 Then the guardrails. For every defect class this wave fixed, either its control from the ledger's
 guardrail backlog is in place and was **demonstrated failing against the old code**, or a row records
-why no control is possible. A control never shown to fail on its target is an untested assertion. The
-warning-then-error sequence it lands under is [`ledger-template.md`](ledger-template.md) Part 1b.
+why no control is possible. The warning-then-error sequence it lands under is
+[`ledger-template.md`](ledger-template.md) Part 1b.
 
 ### 4.4 Independent review
 
@@ -235,9 +226,7 @@ link; marking a draft ready is the act of saying it passed review, and that is m
 to it. Its behaviour is in `.claude/commands/docs/audit.md`; where it sits against the gate and
 against one branch's slice is CUR-6.
 
-It shares only report-only working documents under the gitignored `docs/audit/`, and findings
-re-verified before anything acts on them. It has no risk pass, no severities I set, and no ledger or
-waves — its fixes go in one pull request, and its report expires rather than being permanent.
+It has no risk pass, no severities I set, and no ledger or waves — its fixes go in one pull request,
+and its report expires rather than being permanent.
 
-**That report goes beside `programme/`, never inside it** — `/audit:finish` deletes that folder, and
-a sweep belongs to no programme's lifecycle.
+**That report goes beside `programme/`, never inside it** — `/audit:finish` deletes that folder.

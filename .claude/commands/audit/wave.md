@@ -7,21 +7,20 @@ session, on its own branch.
 
 **Preconditions — check first, report what fails, stop where stated:**
 
-| Check                                                   | If it fails                                                                                                                                                      |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The ledger exists                                       | **Stop.** Run `/audit:plan` first                                                                                                                                |
-| Its `Wave 0 status:` line reads `SETTLED <date>`        | **Stop.** Wave 0 answers routinely invert findings, so a wave run before them can ship the opposite of the right fix. Present the open Part 1 questions and wait |
-| The named wave exists in the ledger                     | **Stop.** List the waves that do exist                                                                                                                           |
-| Every earlier wave is closed (no `[ ]` or `[~]`)        | **Stop** unless the owner says to proceed. Waves are dependency-ordered — later ones assume earlier work landed                                                  |
-| `main` is up to date with `origin/main`                 | Pull before branching, so the wave does not build on a stale base                                                                                                |
-| The working tree is clean                               | **Stop.** Uncommitted work would be swept into this wave's commits                                                                                               |
-| Report drift since each cited report's `Audited at` SHA | Report it and raise the verification bar for this wave's rows accordingly                                                                                        |
+| Check                                                   | If it fails                                                                                                     |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| The ledger exists                                       | **Stop.** Run `/audit:plan` first                                                                               |
+| Its `Wave 0 status:` line reads `SETTLED <date>`        | **Stop.** Present the open Part 1 questions and wait                                                            |
+| The named wave exists in the ledger                     | **Stop.** List the waves that do exist                                                                          |
+| Every earlier wave is closed (no `[ ]` or `[~]`)        | **Stop** unless the owner says to proceed. Waves are dependency-ordered — later ones assume earlier work landed |
+| `main` is up to date with `origin/main`                 | Pull before branching, so the wave does not build on a stale base                                               |
+| The working tree is clean                               | **Stop.** Uncommitted work would be swept into this wave's commits                                              |
+| Report drift since each cited report's `Audited at` SHA | Report it and raise the verification bar for this wave's rows accordingly                                       |
 
 **Steps:**
 
-1. Read `docs/_auditing/lessons.md` in full — it records the traps this wave will otherwise walk
-   into, and passing the preconditions above is no reason to skip that read. Then read the ledger
-   and locate the wave.
+1. Read `docs/_auditing/lessons.md` in full — passing the preconditions above is no reason to skip
+   that read. Then read the ledger and locate the wave.
 2. Take the wave's `{SECTIONS}` and `{NOTES}` from the ledger's Part 6 entry. Re-derive `{SECTIONS}`
    from the wave rows' `§` column and compare against Part 6 — if they differ, Part 6 is stale:
    correct it first, then use the derived list.
@@ -57,8 +56,7 @@ READ FIRST, in this order:
 3. These report sections, and NOTHING else:
 {SECTIONS}
 
-Never read a whole report. Loading more than the sections above summarises away
-the caveats that matter. Sections marked "Already-correct" exist to stop you
+Never read a whole report. Sections marked "Already-correct" exist to stop you
 fixing things that are right — respect them.
 
 RESUME CHECK, before anything else: reconcile per programme.md section 3,

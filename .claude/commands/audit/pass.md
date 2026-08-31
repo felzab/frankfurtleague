@@ -19,7 +19,7 @@ Run the audit pass named by the arguments — the surface, then the pass number:
 **Steps:**
 
 1. **Read `docs/_auditing/lessons.md` in full**, before resolving anything else. It records the traps
-   earlier programmes hit; a pass that skips it repeats them.
+   earlier programmes hit.
 2. Resolve the prompt file by glob: `docs/_auditing/prompts/<surface>/<n>-*.md`. The available
    surfaces and pass numbers are the rows of `docs/_auditing/prompts/README.md`, read from there
    rather than from a list here.
@@ -35,5 +35,4 @@ Run the audit pass named by the arguments — the surface, then the pass number:
 5. Execute the pass exactly as the prompt specifies, writing to the report path it names.
 6. Finish per the protocol's handoff: confirm the report file exists on disk, append a done entry to
    `state.md` naming what it produced, then tell the owner the pass is complete and that they must
-   run `/clear` before the next pass — stale context from this pass poisons the next one. Start no
-   further pass in this session.
+   run `/clear` before the next pass. Start no further pass in this session.

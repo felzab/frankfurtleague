@@ -50,8 +50,7 @@ line-scoped edits, and diff against the latest `.snapshots/` copy before moving 
 
 # Part 1 — Wave 0: what blocks work
 
-Written once, before any wave runs. Everything here is settled **before any code changes**, because
-an answer routinely inverts a finding.
+Written once, before any wave runs. Everything here is settled **before any code changes**.
 
 **A hazard the risk pass reported as covered by no pass is settled here as well** — as a ledger row,
 as an accepted risk with my reasoning recorded, or as a roadmap item. Never as nothing: no later part
@@ -95,7 +94,7 @@ with its reason.\>
 `error` while known violations remain fails the gate on the first run:
 
 1. **Lands in wave N** — at warning level, with the current violation count recorded on its row as an
-   explicit baseline. From that point it already catches anything new.
+   explicit baseline.
 2. **Enforced from wave M** — the wave clearing the last violation flips it to `error` in the same
    commit that removes that violation. A deferred flip is its own row with a trigger.
 
@@ -111,7 +110,7 @@ Written once, before any wave runs.
 
 \<One table: Single fix | Closes (all IDs) | Wave. The passes run independently against the same
 tree, so one defect surfaces in several reports under different lenses; these rows are the fix-once
-items, and working the reports in sequence instead means fixing each more than once.\>
+items.\>
 
 ---
 
@@ -157,6 +156,5 @@ Amended as each wave finishes.
 
 \<One entry per wave giving the `{SECTIONS}` and `{NOTES}` values for the wave prompt embedded in
 `.claude/commands/audit/wave.md`. Derive `{SECTIONS}` mechanically from the `§` column of
-that wave's rows and re-derive it whenever a row is added, merged or moved, because a hand-maintained
-copy goes stale silently. Once a wave completes, rewrite its entry as a record of the traps it hit, so
-a re-run cannot repeat them.\>
+that wave's rows and re-derive it whenever a row is added, merged or moved. Once a wave completes,
+rewrite its entry as a record of the traps it hit, so a re-run cannot repeat them.\>

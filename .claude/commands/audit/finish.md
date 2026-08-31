@@ -16,9 +16,7 @@ documents.
 
 **Steps:**
 
-1. **Read `docs/_auditing/lessons.md` in full**, before anything else. Step 5 merges into it, and a
-   merge written without reading the existing sections becomes the per-run dump that file exists to
-   prevent.
+1. **Read `docs/_auditing/lessons.md` in full**, before anything else. Step 5 merges into it.
 2. Read `docs/_auditing/final-report-template.md`, the completed ledger and the wave reports in full
    — this is the one context where reading them whole is the job — plus the most recent earlier
    report for this surface in `docs/audit/`, which section 2 compares against.
