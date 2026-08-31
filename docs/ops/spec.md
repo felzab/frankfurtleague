@@ -449,6 +449,13 @@ squashed precisely so they survive ([`docs/_git/spec.md`](../_git/spec.md) §1.4
 can ride nowhere, a commit message having no path to filter on, so it runs in the always-on
 `changes` job instead.
 
+**The `changes` job also writes an advisory line-delta glance** into its run summary on every pull
+request: `git diff --numstat` against the merge base, bucketed by path into product code, tests,
+documentation, tooling and generated files — `fl_backend/openapi.json` and the lockfiles, which a
+regeneration would otherwise let drown the headline — with the generated bucket excluded from the
+net. It puts a number in front of a reader and decides nothing: no threshold exists to tune, and
+the step runs under `continue-on-error`, so it can fail no job and shrink no scope.
+
 The **ops** scope exists because the compose files and the nginx config have no compiler and no
 test suite — without it, a typo in either surfaces on the server, at deploy time. `nginx -t` runs
 against throwaway self-signed certificates and loopback upstream hosts, because a config test loads
