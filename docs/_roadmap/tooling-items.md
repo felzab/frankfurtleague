@@ -79,7 +79,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 31  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
 | 32  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
 | 33  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
-| 34  | OPS-19  | Both repository-wide linters re-read every file                    | FE, Ops           | S      | Open     | —          |
+| 34  | OPS-19  | Both repository-wide linters re-read every file                    | FE, Ops           | S      | Closed   | —          |
 | 35  | OPS-10  | The comment-only classifier costs a process per file               | Ops               | S      | Open     | —          |
 | 36  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
 | 37  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
@@ -1779,13 +1779,25 @@ added for OUT-7 lands with the field that claims it.
 
 ### 34 · OPS-19 — Both repository-wide linters re-read every file on every run
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE, Ops\
 **Effort:** S\
 **Path:** Independent — two package scripts, a gitignore line, and the consequence note in
 `docs/ops/spec.md` §1.6. The prettier half lands in `format` and the eslint half in `frontend`
 (`docs/ops/spec.md` §1.6's scope table), so what either buys on wall clock is decided by which pool
 member is binding at the scope being run.
+
+**What concluded it.** `format:check` passes `--cache --cache-strategy content`, the strategy
+chosen rather than defaulted, and the safety property was re-proved on the warm cache: a planted
+spacing edit to a tracked file fails a warm cached run naming the file. The cache lands under
+`fl_frontend/node_modules/.cache/prettier/`, an ignored path, so the `.gitignore` lines this entry
+anticipated have nothing to carry — prettier's default cache location is already unreachable by
+git. The eslint half is settled against, on this entry's own evidence: the content key misses
+`better-tailwindcss`'s stylesheet entry point, a widened key re-opens on every cross-file input
+the plugin gains and a miss fails silently in the passing direction, so the step keeps
+`--concurrency=2` alone. The measurements and both consequence notes — the one untracked file a
+gate run writes, and the plugin-bump caveat prettier's cache carries — now live beside the
+settings they justify, in [`docs/ops/spec.md`](../ops/spec.md) §1.6.
 
 **`fl_frontend/package.json`'s `lint` and `format:check` scripts point eslint and prettier at the whole
 repository, and neither is given a cache.** `fl_frontend/tsconfig.json` sets `incremental: true`; nothing else in

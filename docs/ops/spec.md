@@ -384,14 +384,29 @@ stretch and every step after it reads as free.
 
 **The eslint step passes `--concurrency=2`, a value answering a diagnostic rather than the clock**:
 `auto` warns through `ESLintPoorConcurrencyWarning` and every larger measured setting warns too, so
-raising the number buys its time by suppressing a correct diagnostic — the measurements are
-`docs/_roadmap/tooling-items.md :: OPS-19`.
+raising the number buys its time by suppressing a correct diagnostic. Measured 2026-08-26 across
+roughly twenty runs: `auto` — eight workers on the development machine — holds a net-linting ratio
+of 0.556 to 0.571 against the installed floor of 0.7 and warns; 2 holds 0.720 to 0.743 and does
+not; 4 and 6 warn too, so no value is both faster than `auto` and quiet. **The step carries no
+`--cache`, deliberately**: eslint's key covers the config and the linted file alone, and
+`fl_frontend/eslint.config.mjs` points `better-tailwindcss` at `src/app/globals.css`, a file the
+key never sees — measured 2026-08-26, a warm `--cache --cache-strategy content` answers exit 0
+over a stylesheet rename the uncached run reports four findings for. A key widened by hashing that
+stylesheet into the config was tried and works, but every cross-file input the plugin gains
+re-opens it, and a miss fails silently in the passing direction — the one direction a check may
+never fail in.
 
 **No formatter the gate runs writes a tracked file** — prettier runs in check mode everywhere, so a
 run cannot hand back a tree different from the one its later steps measured. Formatting happens at
 commit time instead: `.githooks/pre-commit` formats what is staged and re-stages it, and refuses a
 file staged in part. The hook is convenience and never the enforcement — a clone that has not
-pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what bind.
+pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what bind. The check
+does write one untracked file: `format:check` passes `--cache --cache-strategy content`, whose
+cache lands under `fl_frontend/node_modules/.cache/prettier/`, an ignored path needing no
+`.gitignore` line of its own. The content key re-checks any file whose bytes changed; what it
+cannot see is a prettier plugin's own change, so a plugin bump warrants deleting that cache file —
+prettier's documented caveat, accepted because a plugin moves only through the lockfile and CI
+runs uncached either way.
 
 **One tracked file a gate run writes is not a formatter's doing**: `next build` rewrites
 `fl_frontend/tsconfig.json` whenever a `compilerOptions` key it checks for is absent, so the
