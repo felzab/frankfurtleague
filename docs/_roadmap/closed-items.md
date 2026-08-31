@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `d666f6c9`, 2026-08-30
+**Verified against:** `7f89dd14`, 2026-08-31
 
 Every item that has left a ranked page — [`open-items.md`](open-items.md) or
 [`tooling-items.md`](tooling-items.md) — has a row here. This is a log: nothing in it is waiting for
@@ -143,3 +143,4 @@ so no earlier commit exists for its row to cite.
 | OPS-88 | The documentation corpus was the git index, so a file a branch had not staged was scanned by nothing                                  | Ops, Docs     | M      | —                            | [`12d462af`](https://github.com/felzab/frankfurtleague/commit/12d462af) |
 | OPS-89 | A refusal mapper outside a slice's `actions.ts` was reached by no sweep                                                               | FE, Ops, Docs | S      | —                            | [`1c4591a4`](https://github.com/felzab/frankfurtleague/commit/1c4591a4) |
 | OPS-96 | Most toast copy reached a user through no test                                                                                        | FE, Ops, Docs | M      | —                            | [`1c4591a4`](https://github.com/felzab/frankfurtleague/commit/1c4591a4) |
+| DOC-11 | Audit programmes stayed open, and their findings sat outside the ranked pages                                                         | Docs          | M      | —                            | [`dd5f4334`](https://github.com/felzab/frankfurtleague/commit/dd5f4334) |
