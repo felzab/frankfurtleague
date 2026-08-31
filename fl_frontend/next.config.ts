@@ -55,6 +55,12 @@ const nextConfig: NextConfig = {
     // for this to barrel-optimise and listing it was a no-op.
     optimizePackageImports: ["@heroui/react", "@gravity-ui/icons"],
   },
+  // Not a suppression: `tsc --noEmit` is its own gate step ahead of the build (docs/ops/spec.md
+  // §1.6) and CI runs it on every frontend change, so the build running tsc again only re-checked
+  // the tree the step before it had just cleared.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   output: "standalone",
   // No `partialPrefetching`, although Next's ISR guide presents it as `cacheComponents`' partner:
   // enabling it was measured to change nothing this app needed.
