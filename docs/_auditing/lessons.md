@@ -45,7 +45,7 @@ all — or a snippet's own defect, verbatim.
 - **A recommendation is contradicted by the official documentation.**
 - **A snippet contains the bug it claims to fix.** Splitting a delimiter-only string yields two empty
   strings and `Number("")` is `0`, so a "validation fix" reports a valid `0:0` score for garbage
-  input.
+  input. Write the test before trusting the snippet.
 - **A snippet creates the defect class the wave exists to remove** — a shared dictionary placed where
   it forms a module cycle.
 - **A security or configuration fix verified only by reasoning is routinely unshippable.** Three
@@ -99,7 +99,7 @@ builder matching nothing, a hook above a Suspense boundary collapsing a route gr
 ## 4. Verify a library or platform claim at its source
 
 **Rule:** a plausible-sounding belief about an installed library or a hosting platform reads exactly
-like a checked fact. Read the installed
+like a checked fact, and these are the costliest wrong turns a programme takes. Read the installed
 package in `node_modules` or the installed Python distribution, or measure the running system, before
 building on any assumption about it. For a platform — repository settings, permission scopes,
 registry linking, security tooling — open the settings page, run the command, or fetch the raw file.
