@@ -37,25 +37,23 @@ all — or a snippet's own defect, verbatim.
 
 **Instances**
 
-- **A finding inverts on an answer.** Written from one surface, it can be the exact opposite of
-  correct once the other surface, or I, am consulted. This is what Wave 0 exists for.
+- **A finding inverts on an answer** — written from one surface, it can be the exact opposite of
+  correct once the other surface, or I, am consulted; Wave 0 exists for this.
 - **A finding has nothing to fix** — the code was removed by an earlier wave, no input path reaches
   the state it defends against, or a library already handles it. A cost claim ("N components mounted
   up front") is a measurement and has to be measured.
-- **A recommendation is contradicted by the official documentation.** A report flagging "I could not
-  verify this" is doing its job, and makes the row cheap to close.
+- **A recommendation is contradicted by the official documentation.**
 - **A snippet contains the bug it claims to fix.** Splitting a delimiter-only string yields two empty
   strings and `Number("")` is `0`, so a "validation fix" reports a valid `0:0` score for garbage
   input. Write the test before trusting the snippet.
 - **A snippet creates the defect class the wave exists to remove** — a shared dictionary placed where
   it forms a module cycle.
-- **A security tightening breaks the build output.** A stricter CSP requiring a per-request nonce
-  disables every script on prerendered routes, because a build-time shell has no request.
-- **An environment gate refuses to boot the local stack.** Gating on `NODE_ENV === "production"`
-  breaks a local stack that deliberately runs the production image over plain-HTTP localhost; gate on
-  the request's own host instead.
-- **A runtime check cannot resolve its imports** in a bundled or standalone image, where the modules
-  it needs are compiled in rather than present as files.
+- **A security or configuration fix verified only by reasoning is routinely unshippable.** Three
+  shapes so far: a per-request CSP nonce disables every script on prerendered routes, because a
+  build-time shell has no request; a `NODE_ENV === "production"` gate refuses the local stack that
+  deliberately runs the production image over plain-HTTP localhost (gate on the request's own host
+  instead); and a runtime check cannot resolve its imports in a bundled or standalone image, where
+  the modules it needs are compiled in rather than present as files.
 - **A prescribed name does not compile** — a design token in the wrong namespace, or one an earlier
   wave renamed.
 - **Prescribed markup is invalid** — an interactive element nested inside a library trigger that
@@ -122,7 +120,7 @@ reported green.
 - **A green local gate is not a green image.** A module-scope environment read fails only in the
   builder stage, and a file that compiles at the repository root may not be traced into
   `output: "standalone"` — which silently disables an environment gate and all production error
-  logging. This is why the gate builds the images and sanity-checks their contents.
+  logging.
 - **A silent skip makes a suite lie.** `pytest -q` hides what failed, so use `-ra --showlocals`;
   `parametrize` over an empty list skips rather than fails, so give a discovery-driven test a count
   floor; a bare `pytest.raises(ValidationError)` passes whatever went wrong, so assert the failing
@@ -223,8 +221,7 @@ not the variable.**
 successes to everyone else. A wave report carries, in order: purpose in lay terms · changes by
 theme · decisions with their reasoning · where the audit was wrong · verification with real output ·
 discovered along the way · left undone · revisions after first publication. State what could not be
-verified and why, rather than implying coverage, because an implied coverage claim routes no later
-human check to the place that needs one.
+verified and why, rather than implying coverage.
 
 **Instances**
 
@@ -252,9 +249,8 @@ the installed version before relying on it.
   button-like element, so putting a `<button>` inside one nests interactive content — check for this
   every time. `isFocusVisible` is a **global** modality flag, so styling keyed off it fires at
   seemingly random moments. Overlays light-dismiss on interaction, and a client-side navigation is
-  not one. A portalled overlay's `bottom` is computed against the viewport and resolved by CSS
-  against its containing block, so anything making `<html>` or `<body>` one opens every top-placed
-  overlay a whole scroll height low (`docs/frontend/spec.md :: I29`).
+  not one. Anything making `<html>` or `<body>` a containing block opens every top-placed overlay a
+  whole scroll height low (`docs/frontend/spec.md :: I29`).
 - **`dynamic({ ssr: false })` with no `loading`** renders `null`, so a click on the trigger looks dead
   until the chunk arrives.
 - **Next writes suggested `tsconfig` defaults for any absent key** — a presence check, not a value

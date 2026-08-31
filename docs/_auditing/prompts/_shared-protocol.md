@@ -24,7 +24,7 @@ Run these before check 1, in order.
 2. **Run the resume protocol below.** A target report already on disk decides whether this session
    starts, resumes or stops.
 3. **Read the installed versions** from `fl_frontend/package.json` and `fl_backend/pyproject.toml`
-   and state them in the report header. Every judgment is relative to those, not to training data.
+   and state them in the report header.
 4. **Read the rows assigned to this pass** in `docs/audit/register.md` and in the coverage map of
    `docs/audit/programme/r1-failure-modes.md`, where those exist. The verdict must state whether each
    was covered.
@@ -44,23 +44,21 @@ Run these before check 1, in order.
   any existing file unless resuming. **Never commit or stage anything under that tree** — it is
   gitignored so that unfixed findings never publish.
 - **Derive every count you state** by counting at run time; never copy one from this file, a prompt,
-  an earlier report, or memory. Where a claim covers N instances, enumerate the population: a correct
-  conclusion about one site is not evidence the set was complete.
+  an earlier report, or memory. Where a claim covers N instances, enumerate the population.
 - **Build it and measure.** A claim about a regex, an exit code, a guard's verdict or a library's
-  behaviour is unverified until it is run or read at the installed source, however many people have
-  repeated it.
+  behaviour is unverified until it is run or read at the installed source.
 - **Say what you could not verify, and why.**
-- **Secrets.** Never read, print, echo, decode or reproduce `.env*` contents or any credential value;
-  refer to secrets by variable name only. A check that would require reading one is reported
-  unverifiable, with the reason. Scope every grep away from ignored paths **before** running it.
+- **Secrets.** `.claude/CLAUDE.md` §1 binds a pass session whole. What it adds for an audit: a check
+  that would require reading a credential is reported unverifiable, with the reason, and every grep
+  is scoped away from ignored paths **before** it runs.
 
 ## Report structure, in this order
 
 1. **Header**, carrying an **`Audited at commit:`** line and a **`Tree state:`** line — clean, or
    dirty with the file count — both read from `git` at the start of the pass. Every later phase
-   measures drift against that SHA, and a report written against a dirty tree describes code that may
-   never land. Then: files-read count and exclusions, installed versions, scope note, any checks cut
-   and why, which earlier reports were cited, and for a standards-anchored pass the standard version
+   measures drift against that SHA. Then: files-read count and exclusions, installed versions, scope
+   note, any checks cut and why, which earlier reports were cited, and for a standards-anchored pass
+   the standard version
    fetched.
 
 2. **Coverage ledger** — one row per numbered check: check number · the exact grep patterns used and
@@ -74,11 +72,9 @@ Run these before check 1, in order.
    `path/to/file.ext:LINE`, a statement of the defect, **replacement:** the concrete fix,
    **evidence:** one of `read` · `grepped (<n> sites)` · `measured (<what, with the number>)` ·
    `unverified (<why>)`, a severity tag, and for a security finding **exploit:** who can do what,
-   concretely — theoretical risk with no reachable path is INFO at most. **The evidence tag is not
-   optional:** a cost claim without a measurement, and a count without a grep behind it, are the two
-   ways a report misleads the wave that acts on it. Each section also records an explicit "Zero
-   occurrences" with what was searched, already-correct usages worth naming so nobody "fixes" them,
-   and near-misses that are **not** findings, each with a one-line reason.
+   concretely — theoretical risk with no reachable path is INFO at most. Each section also records
+   an explicit "Zero occurrences" with what was searched, already-correct usages worth naming so
+   nobody "fixes" them, and near-misses that are **not** findings, each with a one-line reason.
 
 5. **Verdict** — see the contract below.
 
@@ -94,15 +90,13 @@ Severity states **what happens if this is real**, never how alarming the code lo
 | **LOW**      | Friction, inconsistency or maintenance cost, with correct behaviour throughout                                                                   |
 | **INFO**     | No reachable path, or an observation with no defect behind it                                                                                    |
 
-**A silent wrong answer outranks a loud outage**, which is noticed within the hour where a league
-table quietly wrong for a month is believed. Where a finding could sit in two rows, the one that
-fails silently takes the higher.
+**A silent wrong answer outranks a loud outage.** Where a finding could sit in two rows, the one
+that fails silently takes the higher.
 
 A finding reachable only from a privileged position is rated **for that position** and is still real,
 so do not drop it; and never soften a genuine CRITICAL because the project is small. Where
-`docs/audit/register.md` already rates an outcome, **use its severity rather than deriving one** — it
-was confirmed with me, and a pass silently re-rating it makes severity mean two things at once. Raise
-a rating you believe is wrong as an open question.
+`docs/audit/register.md` already rates an outcome, **use its severity rather than deriving one**.
+Raise a rating you believe is wrong as an open question.
 
 ## Required tables
 
@@ -110,10 +104,9 @@ A prompt names the tables its lens must produce. Two shapes are shared, and are 
 
 **Anchoring to an external standard.** Where a pass names one, **fetch the current control list at
 run time and state the exact version in the report header** — never reproduce one from memory, and
-never copy one into a prompt, because a stale control list reads as coverage. One row per control
-group: control | what implements it here, with the file | evidence | `met` / `gap` /
-`not applicable`. **Every `not applicable` carries its reason**; an unexplained N/A is
-indistinguishable from a control nobody looked at. Every `gap` becomes a numbered finding below with
+never copy one into a prompt. One row per control group: control | what implements it here, with the
+file | evidence | `met` / `gap` / `not applicable`. **Every `not applicable` carries its reason.**
+Every `gap` becomes a numbered finding below with
 a file:line — a gap named only in the coverage table is an observation. The table is a floor, not the
 lens: the pass's own checks still run in full, and a defect the standard has no control for is still
 a finding.
@@ -123,8 +116,7 @@ class, from the candidate table that prompt gives | which copy or construct dies
 it | size removed, in lines and exported names | verdict.
 
 - **Every `duplicated` row names which copy dies** and confirms the survivor is reachable from where
-  the dying copy's importers stand. A row proposing "extract a shared helper" without naming what it
-  deletes adds a module and removes nothing.
+  the dying copy's importers stand.
 - **Every `one-caller` row states what inlining it would cost.** A single caller is a candidate, not
   a verdict.
 - **Every `hand-rolled` row cites the API that replaces it**, verified at the installed version.
@@ -138,14 +130,12 @@ it | size removed, in lines and exported names | verdict.
   those candidates in full plus enough surrounding code to judge intent. **Scan, do not summarise.**
 - **No finding without a file:line**, and no vague "consider refactoring". Where unsure whether
   something is intentional, read the surrounding code until you can say.
-- **Negative results are first-class output.** An audit that only lists problems cannot be trusted
-  about what it checked, and a narrative summary never substitutes for a required table.
+- **Negative results are first-class output.** A narrative summary never substitutes for a required
+  table.
 - **Report the blast radius, not the first site.** Where a finding names a pattern, grep for it and
-  give the full site count — a report naming one site invites a fix applied to one of four call
-  sites, which can be worse than no fix at all.
+  give the full site count.
 - **Where a "violation" is plausibly a deliberate decision**, say so explicitly, name what depends on
-  it, state what reversing it would cost, and present it as a decision to confirm. A reader must
-  never act on this report and break something load-bearing.
+  it, state what reversing it would cost, and present it as a decision to confirm.
 
 ## Ask, don't guess
 
@@ -154,8 +144,7 @@ judgment depends on information outside the code (deployment reality, product in
 workflow exists), or where two plausible readings lead to opposite findings.
 
 Put questions to me as one batch at the end of the current check, each with its evidence and your
-best reading, and carry every one into the verdict. A wrong silent guess becomes a false positive
-that costs a remediation session later. **Err toward asking.**
+best reading, and carry every one into the verdict. **Err toward asking.**
 
 ## The verdict is the ledger's input contract
 
@@ -186,13 +175,11 @@ own labelled list, pointing at the numbered sections rather than restating them:
 Complete checks at full depth in the priority order the pass prompt gives. Where you cannot finish
 all of them, state plainly in the header which you cut and why. **Never silently thin coverage across
 all checks to make them fit** — six checks done properly with four declared incomplete beats ten done
-shallowly, because the ledger can schedule what was declared and cannot schedule what was quietly
-skipped.
+shallowly.
 
 **Write incrementally.** Append each check's section as that check completes and update its
 coverage-ledger row at the same moment; before any long or risky operation, the file on disk should
-already state `INCOMPLETE — resumed from here` at the open check. An agent that stops while holding
-everything in flight loses all of it.
+already state `INCOMPLETE — resumed from here` at the open check.
 
 **Say in the header if the report grows past what a wave session could load a section of**
 ([`../lessons.md`](../lessons.md) §9).

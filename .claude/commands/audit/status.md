@@ -9,12 +9,10 @@ Read-only until resuming; this command itself changes nothing.
 
 **Steps:**
 
-1. **Read `docs/_auditing/lessons.md` in full**, before anything else. Resuming means acting on work
-   another session left behind, which is where its traps bite hardest.
+1. **Read `docs/_auditing/lessons.md` in full**, before anything else.
 
 2. **Read `docs/audit/programme/state.md` first.** Its last entry names the session that stopped and
-   what it was doing when it did — the answer this command exists to produce, and cheaper and more
-   exact than any inference from the tree. **Trust it only as far as `docs/_auditing/programme.md`
+   what it was doing when it did. **Trust it only as far as `docs/_auditing/programme.md`
    §3 allows**: a stale or missing file is not the record for what happened after it. Say which case
    you are in, and cover what it does not answer with step 3.
 
@@ -37,7 +35,7 @@ Read-only until resuming; this command itself changes nothing.
    - A wave with `[~]` rows, unticked rows, or a branch ahead of `main` → a wave died mid-run.
      Reconcile the ledger against `git diff main...<branch>` — a `[~]` row means inspect the diff,
      and a ticked row must have its change in a commit. Report the reconciliation, then offer to
-     continue via the resume check in `docs/_auditing/prompts/remediation-wave.md`.
+     continue via the resume check in `.claude/commands/audit/wave.md`'s embedded prompt.
    - Uncommitted changes anywhere → summarise them against the ledger before anything else. **Never
      discard or commit them blind.**
 
@@ -50,4 +48,3 @@ Read-only until resuming; this command itself changes nothing.
    to resume in the invocation, proceed directly with the matching protocol.
 
 8. **Append what you did to `state.md`** before handing back, where the session resumed anything.
-   A resume that leaves no entry is the next crash's blind spot.

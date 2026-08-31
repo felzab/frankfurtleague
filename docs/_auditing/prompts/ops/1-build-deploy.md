@@ -54,7 +54,9 @@ THE CHECKS, in priority order:
 
 5. **THE GATE'S COVERAGE MAP.** The required table: failure class | caught by the frontend scope? | by
    `verify.sh` full? | by CI? | by nothing. Include the known residents of "by nothing"
-   (rendered-output defects, cache-tag wiring, anything behind auth) and hunt for new ones. Verify CI
+   (rendered-output defects, anything behind auth) and hunt for new ones; a class that is a
+   cross-surface seam — cache-tag wiring is one — is crosscut 1 check 8's row, not this table's.
+   Verify CI
    (`verify.yml`) runs the scopes its path mapping claims (scope jobs per touched surface on a pull
    request, everything on main), that the tree-diff step still guards the write-mode formatter, and
    that every action reference in `.github/workflows/` and `.github/actions/` is pinned to a full
@@ -92,5 +94,5 @@ recreation after an out-of-band reference edit is a known example of an accepted
 `docs/ops/spec.md` for the others before filing any of them as findings.
 
 BOUNDARIES — not this pass: nginx security posture, headers, TLS, rate limits, secret reachability →
-`ops 2` · application-code findings discovered while probing images → file as questions or rows for
-the owning surface's programme, not here beyond a pointer.
+`ops 2` · seam enforcement → the crosscut pass · application-code findings discovered while probing
+images → file as questions or rows for the owning surface's programme, not here beyond a pointer.

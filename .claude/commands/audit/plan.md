@@ -12,15 +12,14 @@ Change no source file. The ledger and the wave-reports stub are the only writes.
 | Check                                               | If it fails                                                                                                               |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | The ledger does not already exist                   | **Stop.** Rebuilding it destroys recorded state. Offer `/audit:status` instead                                            |
-| Every report in `programme/` has a complete verdict | **Stop.** Name the incomplete ones — planning from a half-written report plans half the work                              |
+| Every report in `programme/` has a complete verdict | **Stop.** Name the incomplete ones                                                                                        |
 | The programme's intended passes have all run        | List the missing ones and **ask** whether to plan without them, rather than deciding                                      |
 | The risk and crosscut reports both exist            | Warn: no hazard coverage from the risk pass, or no seam coverage. Say what will be thin                                   |
 | Report `Audited at` SHAs are close to `HEAD`        | Report the drift per report. A report far behind `HEAD` needs its findings verified harder, and the wave rows must say so |
 
 **Steps:**
 
-1. **Read `docs/_auditing/lessons.md` in full**, before anything else. Its ledger-discipline and
-   wave-mechanics sections are the failure modes this command exists to avoid.
+1. **Read `docs/_auditing/lessons.md` in full**, before anything else.
 2. Read `docs/_auditing/programme.md` and `docs/_auditing/ledger-template.md` in full.
 3. Inventory the reports: read each report's **summary table and verdict or fix-priority sections
    only** — never a whole report. Build the source-reports table from them.
@@ -34,10 +33,9 @@ Change no source file. The ledger and the wave-reports stub are the only writes.
    every pass's coverage statement: a hazard no pass covered becomes a ledger row, an accepted risk
    with the reasoning recorded, or a roadmap item — never nothing.
 7. Assign every finding to a wave, ordered by dependency rather than severity (the template lists the
-   proven ordering constraints). **Schedule guardrails as early as their dependencies allow** — a
-   control in Wave 1 catches mistakes made in every later wave, the same control last catches
-   nothing. Use as many waves as the structure needs; split any wave whose pull request would be
-   unreviewable. Derive each wave's Part 6 `{SECTIONS}` list mechanically from its rows' `§` column.
+   proven ordering constraints). **Schedule guardrails as early as their dependencies allow.** Use as
+   many waves as the structure needs; split any wave whose pull request would be unreviewable. Derive
+   each wave's Part 6 `{SECTIONS}` list mechanically from its rows' `§` column.
 8. Write the ledger from the template, then create `docs/audit/programme/wave-reports.md` as a stub:
    the per-wave report shape (`docs/_auditing/programme.md` §4.5) plus an empty section list, one
    heading per planned wave.

@@ -6,8 +6,7 @@
 # Remediation Ledger — \<programme name\>
 
 **Purpose.** The plan and the state for remediating the reports listed below; those reports are the
-evidence. A session reads this file plus the _specific report sections_ its wave names — never a
-whole report, and never more than one.\
+evidence. The context budget a session reads them under is `docs/_auditing/programme.md` §3.\
 **Wave reports.** `docs/audit/programme/wave-reports.md` records what was actually done and why.
 Status here, narrative there.\
 **Wave 0 status:** `OPEN` — \<replace with `SETTLED <yyyy-mm-dd>` once every Part 1 answer is
@@ -17,9 +16,9 @@ recorded; `/audit:wave` refuses to run while this reads `OPEN`\>
 
 \<One row per pass report, in the order the passes were written.\>
 
-| Ref | File                              | Audited at                    | Findings | CRIT  | HIGH  | Character                       |
-| --- | --------------------------------- | ----------------------------- | -------: | :---: | :---: | ------------------------------- |
-| R1  | \<name under `audit/programme/`\> | \<the sha the pass recorded\> |    \<n\> | \<n\> | \<n\> | \<one line on the pass's lens\> |
+| Ref | File                                   | Audited at                    | Findings | CRIT  | HIGH  | Character                       |
+| --- | -------------------------------------- | ----------------------------- | -------: | :---: | :---: | ------------------------------- |
+| R1  | \<name under `docs/audit/programme/`\> | \<the sha the pass recorded\> |    \<n\> | \<n\> | \<n\> | \<one line on the pass's lens\> |
 
 **Drift check, re-run at the start of every wave.** Compare each report's `Audited at` SHA against
 `HEAD` with `git log --oneline <sha>..HEAD -- <that surface's path>`. A report the code has moved a
@@ -51,8 +50,7 @@ line-scoped edits, and diff against the latest `.snapshots/` copy before moving 
 
 # Part 1 — Wave 0: what blocks work
 
-Written once, before any wave runs. Everything here is settled **before any code changes**, because
-an answer routinely inverts a finding.
+Written once, before any wave runs. Everything here is settled **before any code changes**.
 
 **A hazard the risk pass reported as covered by no pass is settled here as well** — as a ledger row,
 as an accepted risk with my reasoning recorded, or as a roadmap item. Never as nothing: no later part
@@ -96,7 +94,7 @@ with its reason.\>
 `error` while known violations remain fails the gate on the first run:
 
 1. **Lands in wave N** — at warning level, with the current violation count recorded on its row as an
-   explicit baseline. From that point it already catches anything new.
+   explicit baseline.
 2. **Enforced from wave M** — the wave clearing the last violation flips it to `error` in the same
    commit that removes that violation. A deferred flip is its own row with a trigger.
 
@@ -112,7 +110,7 @@ Written once, before any wave runs.
 
 \<One table: Single fix | Closes (all IDs) | Wave. The passes run independently against the same
 tree, so one defect surfaces in several reports under different lenses; these rows are the fix-once
-items, and working the reports in sequence instead means fixing each more than once.\>
+items.\>
 
 ---
 
@@ -156,8 +154,7 @@ tick it unverified, and never stall the wave on it.\>
 
 Amended as each wave finishes.
 
-\<One entry per wave giving the `{SECTIONS}` and `{NOTES}` values for
-`docs/_auditing/prompts/remediation-wave.md`. Derive `{SECTIONS}` mechanically from the `§` column of
-that wave's rows and re-derive it whenever a row is added, merged or moved, because a hand-maintained
-copy goes stale silently. Once a wave completes, rewrite its entry as a record of the traps it hit, so
-a re-run cannot repeat them.\>
+\<One entry per wave giving the `{SECTIONS}` and `{NOTES}` values for the wave prompt embedded in
+`.claude/commands/audit/wave.md`. Derive `{SECTIONS}` mechanically from the `§` column of
+that wave's rows and re-derive it whenever a row is added, merged or moved. Once a wave completes,
+rewrite its entry as a record of the traps it hit, so a re-run cannot repeat them.\>
