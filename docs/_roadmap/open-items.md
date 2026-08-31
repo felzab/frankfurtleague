@@ -102,7 +102,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 47  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
 | 48  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
 | 49  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Open     | —          |
-| 50  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Open     | —          |
+| 50  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Closed   | —          |
 | 51  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
 | 52  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
 | 53  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
@@ -2609,7 +2609,7 @@ every season-scoped page opens with.
 
 ### 50 · BE-38 — A squad-number helper has no caller, and its docstring is the only record of the rule it states
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** BE\
 **Effort:** S\
 **Path:** Independent — FB-17 is where a comparison between two squad numbers would first be wanted,
@@ -2645,6 +2645,12 @@ sentence somewhere that survives the deletion — the `UNENFORCED` entry above, 
 [`docs/backend/spec.md`](../backend/spec.md) invariant — and then delete. Or keep it until a surface exists
 that compares two numbers, on the ground that a rule already carrying a test is cheaper than one derived
 again from scratch.
+
+**Concluded by the middle route.** The `07`-is-not-`7` sentence now lives in
+`fl_backend/app/core/domain.py :: UNENFORCED`'s shared-shirt entry, which already said no read
+compares two numbers and not what the same number means; the helper and its parametrised test are
+gone with their rule recorded, so neither cost in the paragraph above survives. The argument is in
+the closing commit's body.
 
 **What ranks it here.** Above **FE-32**: each costs a maintainer rather than a user, but that one's doubt is
 settled by reading the sentence beside the id, and this one's only by searching the backend for a caller.
