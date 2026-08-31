@@ -38,6 +38,14 @@ import type { Aktion } from "./emailShell";
 const WEBSITE_SATZ = { vor: "Spielplan, Tabelle und Ergebnisse veröffentlichen wir auf ", nach: ", sobald die Saison startet." } as const;
 
 /**
+ * A wish answered as one. The Spielplan is drawn after the decision, so nothing here knows whether it
+ * can be met, and „wir versuchen“ would promise a result of a draw that has not run (my wording of
+ * 2026-08-31).
+ */
+const wunschgegnerSatz = (gegner: string): string =>
+  `Als Wunschgegner für den ersten Spieltag haben wir ${gegner} notiert und weitergegeben; über die Paarungen entscheidet der Spielplan.`;
+
+/**
  * For the reader who never applied: anybody can type any address into a public form. Last in the
  * body and above the buttons, never in the grey close a reader skims -- and in `renderHtml`, so
  * no application message can ship without it.
@@ -84,6 +92,8 @@ export interface BewerbungZusageData {
   gruppe: string;
   /** Absent while no kit colour has been assigned; the message then states that rather than guessing one. */
   trikotFarbeLabel: string | null;
+  /** Absent where the school named none, and the message then says nothing: a draw that has not run can promise nothing. */
+  wunschgegner?: string | null;
 }
 
 /** What a declined application is told. `grund` is the administrator's own wording, carried verbatim. */
@@ -235,11 +245,21 @@ function renderText(nachricht: Nachricht, body: readonly string[]): string {
  * **The two parts state the same facts.** A mail client renders one or the other, so anything only the
  * text half carried would reach only the readers whose client refuses HTML.
  */
-export function buildBewerbungZusageEmail({ teamName, saisonId, rollenText, gruppe, trikotFarbeLabel }: BewerbungZusageData): BewerbungEmail {
+export function buildBewerbungZusageEmail({
+  teamName,
+  saisonId,
+  rollenText,
+  gruppe,
+  trikotFarbeLabel,
+  wunschgegner,
+}: BewerbungZusageData): BewerbungEmail {
   // Folded once, before either branch: the name reaches this message's prose as well as its panel, and
   // both halves must state one string. `fl_frontend/src/core/bewerbungEmail.ts :: renderText` folds the
   // facts it prints and nothing else.
   const team = einzeilig(teamName);
+  // Folded for a reason `renderText` cannot cover: this one stands in the prose ALONE, so no fact line
+  // it prints would ever reach it. Blank counts as unnamed, so the silence rests on no payload's trim.
+  const gegner = einzeilig(wunschgegner ?? "").trim();
 
   const nachricht: Nachricht = {
     headingVor: "Zusage für die",
@@ -263,12 +283,17 @@ export function buildBewerbungZusageEmail({ teamName, saisonId, rollenText, grup
     paragraph(
       `${strong(escapeHtml(team))} ist für die ${saisonPhrase(saisonId)} der ${BRAND_NAME} aufgenommen. Wir freuen uns auf die gemeinsame Saison.`,
     ),
+    // Unemphasised, unlike the name above it: a school skims the bold, and a club set in it would read
+    // as the fixture the draw has not drawn.
+    ...(gegner === "" ? [] : [paragraph(wunschgegnerSatz(escapeHtml(gegner)))]),
     paragraph(`${WEBSITE_SATZ.vor}${link(SITE_URL, SITE_URL)}${WEBSITE_SATZ.nach}`),
   ]);
 
   const text = renderText(nachricht, [
     `${team} ist für die Saison ${saisonId} der ${BRAND_NAME} aufgenommen.`,
     "Wir freuen uns auf die gemeinsame Saison.",
+    // The separating blank line rides WITH the sentence, so an unnamed opponent leaves no gap behind.
+    ...(gegner === "" ? [] : ["", wunschgegnerSatz(gegner)]),
     "",
     `${WEBSITE_SATZ.vor}${SITE_URL}${WEBSITE_SATZ.nach}`,
   ]);
