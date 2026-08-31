@@ -102,7 +102,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 47  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
 | 48  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
 | 49  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
-| 50  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Open     | —          |
+| 50  | FE-20 | Search parameters default against an absent value                    | FE              | S      | Closed   | —          |
 | 51  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Open     | —          |
 | 52  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
 | 53  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
@@ -2616,7 +2616,7 @@ written to close.
 
 ### 50 · FE-20 — A page's search parameters are defaulted against a value the checker says cannot arrive
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE\
 **Effort:** S\
 **Path:** Independent — `.claude/CLAUDE.md` §7 protects this function's redirect and the season
@@ -2643,6 +2643,14 @@ I rejected is that the framework may omit the value on some render path, which n
 **What ranks it here.** One token, and almost no doubt removed by taking it out — but the same token
 is what a reader has to decide about every time this function is edited, and this function is what
 every season-scoped page opens with.
+
+**What concluded it: the open question settled against the framework's own emitted type, then the
+token removed.** A build of the installed Next 16.3.0 emits `PageProps` into `.next/types/routes.d.ts`
+declaring `searchParams: Promise<Record<string, string | string[] | undefined>>` — required, not
+optional, resolving to a record and never to nothing — so the framework itself types the value as
+always arriving and the default guarded a branch no caller and no render path reaches.
+`fl_frontend/src/features/saisons/resolvers.ts :: resolveSaisonId` now awaits the promise bare. The
+redirect and `SaisonSelector`'s fallback stand untouched, as the `Path` line requires.
 
 ### 51 · BE-38 — A squad-number helper has no caller, and its docstring is the only record of the rule it states
 
