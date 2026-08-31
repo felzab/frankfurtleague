@@ -204,10 +204,10 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 
 ## 4. Known-open
 
-| #   | Item                                                       | State                                                                                                                                                                             |
-| --- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | No aggregation and no index                                | Accepted — reading production logs is `ssh` plus `docker compose logs`                                                                                                            |
-| 2   | nginx's error log is plain text at its default level       | Accepted — the format is not configurable (1.2)                                                                                                                                   |
-| 3   | Boot lines fall outside the one-document-per-line contract | Accepted — nothing can govern what a process prints before its logging is set up                                                                                                  |
-| 4   | Dev cannot demonstrate a cross-service join                | Accepted — no component there sees both hops; `./scripts/local.sh` exercises it                                                                                                   |
-| 5   | The Auth.js callback route runs under no request scope     | Accepted — `fl_frontend/src/app/api/auth/[...nextauth]/route.ts` re-exports the library's own handlers, so a line raised there carries `SYSTEM`; the two sign-in actions seed one |
+| Item                                                       | State                                                                                                                                                                             |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No aggregation and no index                                | Accepted — reading production logs is `ssh` plus `docker compose logs`                                                                                                            |
+| nginx's error log is plain text at its default level       | Accepted — the format is not configurable (1.2)                                                                                                                                   |
+| Boot lines fall outside the one-document-per-line contract | Accepted — nothing can govern what a process prints before its logging is set up                                                                                                  |
+| Dev cannot demonstrate a cross-service join                | Accepted — no component there sees both hops; `./scripts/local.sh` exercises it                                                                                                   |
+| The Auth.js callback route runs under no request scope     | Accepted — `fl_frontend/src/app/api/auth/[...nextauth]/route.ts` re-exports the library's own handlers, so a line raised there carries `SYSTEM`; the two sign-in actions seed one |

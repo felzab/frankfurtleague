@@ -54,7 +54,7 @@ describe("buildSpielortBanners", () => {
   it("states the fan-out exactly once, however many identity fields were touched", () => {
     // One write, so two entries would be the same consequence read twice.
     for (const touched of [{ isNameChanged: true }, { isAddressChanged: true }, { isNameChanged: true, isAddressChanged: true }]) {
-      assert.deepEqual(ids(build(touched)), ["spielort.maps-link-derived"]);
+      assert.deepEqual(ids(build(touched)), ["spielort.name-adresse-changed"]);
     }
   });
 
@@ -69,6 +69,6 @@ describe("buildSpielortBanners", () => {
      screen before the admin types, so it keeps its rail entry and asks nothing when they save. */
   it("confirms the save the draft causes and never the situation it inherited", () => {
     assert.equal(resolveBlockingBanners(build({ isRetired: true })), null);
-    assert.deepEqual(ids(resolveBlockingBanners(build({ isRetired: true, isNameChanged: true })) ?? []), ["spielort.maps-link-derived"]);
+    assert.deepEqual(ids(resolveBlockingBanners(build({ isRetired: true, isNameChanged: true })) ?? []), ["spielort.name-adresse-changed"]);
   });
 });

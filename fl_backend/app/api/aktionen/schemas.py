@@ -67,12 +67,13 @@ class FLAktion(BaseModel):
     @field_validator("document_id", mode="before")
     @classmethod
     def _as_text(cls, value: Any) -> str | None:
-        """An ObjectId everywhere but `saisons`, whose `_id` is already the season string.
+        """An ObjectId everywhere but `saisons`, whose `_id` is the season string.
 
-        Text rather than a union: the wire carries it only to identify the row a restore targets.
+        Text rather than a union: the wire names only the row a restore targets; a
+        removal's id array serves the redaction alone (`docs/backend/spec.md :: I42`).
         """
 
-        return None if value is None else str(value)
+        return None if value is None or isinstance(value, list) else str(value)
 
     @field_validator("before", mode="before")
     @classmethod
