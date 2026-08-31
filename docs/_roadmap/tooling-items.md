@@ -69,7 +69,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 21  | OPS-72  | The unique-index test pairs by ordinal position                    | BE, Ops           | S      | Open     | —          |
 | 22  | OPS-85  | The gate never reads a stylesheet's comments                       | Ops, Docs         | S      | Open     | —          |
 | 23  | OPS-29  | The docs gate is blind inside an embedded one-liner                | Ops, Docs         | S      | Open     | —          |
-| 24  | OPS-11  | The compose guard cannot tell an invocation from a name            | Ops               | S      | Open     | —          |
+| 24  | OPS-11  | The compose guard cannot tell an invocation from a name            | Ops               | S      | Closed   | —          |
 | 25  | OPS-74  | One field list is drift-guarded on one side only                   | FE, Ops           | S      | Open     | —          |
 | 26  | OPS-87  | A call site's key tier is held to its route by nothing             | FE, BE, Ops       | M      | Open     | —          |
 | 27  | OPS-68  | Two routes on one path and method collapse to one                  | BE, Ops           | S      | Open     | —          |
@@ -1046,7 +1046,8 @@ first reading available to whoever hits it is that their own change broke the sc
 **What it costs is a wrong conclusion rather than a wait.** The gate is the evidence a branch rests
 on, and a db-tier result anything running beside it can corrupt is a result nobody can quote —
 including a green one, which is the half that does not announce itself. A loud but misleading failure
-is the expensive direction, the same asymmetry OPS-11 argues from.
+is the expensive direction — a false alarm is one re-run from resolved, while a corrupted green
+announces nothing.
 
 **What is established about the harness, and what is not.** Almost every db-marked suite names its own
 database — `fl_backend/tests/core/test_constraints_execution.py :: DATABASE_NAME` is
@@ -1428,10 +1429,18 @@ and the over-length block named above surfaces only when somebody rewrites it.
 
 ### 24 · OPS-11 — The local-compose guard cannot tell an invocation from a mention
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Ops\
 **Effort:** S\
 **Path:** Independent — `scripts/selfcheck.sh` already drives this hook the way the hook runner does.
+
+**What concluded it.** The guard now decides by word position, the way `guard-branch-bash.sh`
+decides: it splits the command at separators, steps a leading `sudo` or environment assignment, and
+refuses only where the invoked program is `docker` with `compose` first or is `docker-compose` —
+released solely by a `-f` (or `--file`) whose value names `docker-compose.local.yml`. A grep and a
+heredoc sentence naming the phrase pass; an invocation naming the local file in a trailing comment
+refuses; and `scripts/selfcheck.sh` grew from three probe rows to fourteen, the missing
+outside-a-`-f`-value assertion among them. The verdict diff is in the closing commit body.
 
 **`.claude/hooks/guard-local-compose.sh` matches the command as text.** It denies a shell command
 containing `docker compose`, or `docker-compose` followed by a space, unless that same command also

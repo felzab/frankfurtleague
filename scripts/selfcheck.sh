@@ -986,10 +986,20 @@ else
     probe "$hk" allowed file "${hook_root}/scripts/outside.ts"         'stale-class guard: the string out of scope'
     probe "$hk" allowed file "${hook_root}/fl_frontend/src/gone.ts"    'stale-class guard: a file that is not there'
 
-    # --- guard-local-compose.sh ------------------------------------------------------------------
+    # --- guard-local-compose.sh: an invocation is a word position, not a phrase ------------------
     probe "$hc" denied  cmd 'docker compose up -d'                             'compose guard: bare docker compose'
+    probe "$hc" denied  cmd 'docker-compose up -d'                             'compose guard: the hyphenated spelling'
+    probe "$hc" denied  cmd 'sudo docker compose up -d'                        'compose guard: behind sudo'
+    probe "$hc" denied  cmd 'MSYS_NO_PATHCONV=1 docker compose up -d'          'compose guard: behind an env assignment'
+    probe "$hc" denied  cmd 'docker compose --project-name x up'               'compose guard: a flag before the subcommand'
+    probe "$hc" denied  cmd 'echo ok && docker compose up -d'                  'compose guard: an invocation after a separator'
+    probe "$hc" denied  cmd 'docker compose down # docker-compose.local.yml'   'compose guard: the local file outside a -f value'
+    probe "$hc" denied  cmd 'grep x docker-compose.local.yml && docker compose down' 'compose guard: a mention in one command releases no other'
     probe "$hc" allowed cmd 'docker compose -f docker-compose.local.yml up -d' 'compose guard: local file named'
+    probe "$hc" allowed cmd 'docker compose --file=docker-compose.local.yml up' 'compose guard: the long flag spelling'
     probe "$hc" allowed cmd 'docker ps'                                        'compose guard: not compose at all'
+    probe "$hc" allowed cmd 'grep -rn "docker compose" docs'                   'compose guard: a mention is not an invocation'
+    probe "$hc" allowed cmd "$(printf 'cat <<EOF\nDrive local Docker only through ./scripts/local.sh, never bare docker compose\nEOF')" 'compose guard: a heredoc stating the rule'
 
     # Absolute paths only here: elsewhere a backslash is an ordinary character and a `/c/…` name is
     # a directory outside the tree.
