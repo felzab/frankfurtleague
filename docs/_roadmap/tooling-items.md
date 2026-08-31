@@ -66,7 +66,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 18  | OPS-77  | A test fixture asserts the type nothing else checks                | FE, Ops           | M      | Open     | —          |
 | 19  | OPS-72  | The unique-index test pairs by ordinal position                    | BE, Ops           | S      | Open     | —          |
 | 20  | OPS-85  | The gate never reads a stylesheet's comments                       | Ops, Docs         | S      | Open     | —          |
-| 21  | OPS-29  | The docs gate is blind inside an embedded one-liner                | Ops, Docs         | S      | Open     | —          |
+| 21  | OPS-29  | The docs gate is blind inside an embedded one-liner                | Ops, Docs         | S      | Closed   | —          |
 | 22  | OPS-74  | One field list is drift-guarded on one side only                   | FE, Ops           | S      | Open     | —          |
 | 23  | OPS-87  | A call site's key tier is held to its route by nothing             | FE, BE, Ops       | M      | Open     | —          |
 | 24  | OPS-68  | Two routes on one path and method collapse to one                  | BE, Ops           | S      | Open     | —          |
@@ -1230,11 +1230,19 @@ subject is a test that reports an index proven when it is not.
 
 ### 21 · OPS-29 — The documentation gate reads nothing inside an embedded node one-liner
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
 **Path:** Independent. **A rider on the next `scripts/docs_gate/` change** rather than a change of
 its own, on the measurement below.
+
+**Closed by teaching the shell reader `//`, the expected fix.**
+`scripts/docs_gate/kernel.py :: _shell_comments` keeps a line-leading `//`, and `:: comment_runs`
+reads the same marker for `.sh`, so the embedded regions now sit inside `bare-path`, the citation
+checks, `comment-length` and the added-line advisories; a committed-hook scenario in
+`scripts/tests/test_check_docs.py` pins the reach. INC-6's enforcement claim holds as written, so
+the amendment alternative below lapses, and the run over this tree raised nothing new — the
+measured prediction.
 
 **`scripts/docs_gate/kernel.py :: comment_style` picks one comment reader per file, by suffix, and
 cannot switch languages inside a file.** A `.sh` file gets the `#` reader and everything downstream

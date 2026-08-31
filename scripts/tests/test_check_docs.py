@@ -1533,6 +1533,41 @@ def test_a_prose_sha_committed_on_a_branch_is_resolved_against_the_clone() -> No
     _assert_corpus_restored()
 
 
+def test_a_hook_s_embedded_javascript_comments_are_read() -> None:
+    """The shell reader takes a leading `//` beside `#`, so a hook's embedded node region is inside INC-6, INC-9 and COR-3."""
+    hook = ".claude/hooks/embedded.sh"
+    over = ["// a line of a block that runs past what a comment may hold" for _ in range(6)]
+
+    def plant() -> None:
+        _write(
+            _gate().root,
+            hook,
+            _page(
+                "#!/usr/bin/env bash",
+                HASH + " HOOKS · a guard whose logic is an embedded node one-liner.",
+                'node -e "',
+                "// resolves nowhere: docs/gone-under-a-slash.md",
+                "",
+                *over,
+                "",
+                "// previously this one-liner guarded nothing",
+                '"',
+            ),
+        )
+
+    code, reported = _committed(plant, hook)
+    expected = Counter(
+        {
+            ("fail", "bare-path", hook): 1,
+            ("fail", "comment-length", hook): 1,
+            ("report", "history", BRANCH_DIFF): 1,
+        }
+    )
+    assert reported == expected, _shape(reported)
+    assert code == 1
+    _assert_corpus_restored()
+
+
 def test_a_commit_touching_no_comment_and_no_prose_stays_silent() -> None:
     """A code-only commit arms the branch checks and gives them nothing: no finding, no advisory."""
     code, reported = _committed(lambda: _replace(SAMPLE, "VALUE = 1", "VALUE = 2"), SAMPLE)

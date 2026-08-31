@@ -289,13 +289,14 @@ def _skipped(path: Path) -> bool:
 def _shell_comments(text: str) -> str:
     """Shell comments only, line count preserved.
 
-    Narrower than the Python branch's `#` rule, shell reaching for `#` in expansions
-    (`${name#prefix}`) and colour escapes. A quoted ` #` is what leaks.
+    `#` mid-line needs the space lead, shell spelling `${name#prefix}` and colour escapes; a
+    line-leading `//` is kept too, being an embedded node one-liner's comment, which no other
+    reader reaches (INC-6).
     """
     keep: list[str] = []
     for line in text.split("\n"):
         stripped = line.lstrip()
-        if stripped.startswith("#") and not stripped.startswith("#!"):
+        if (stripped.startswith("#") and not stripped.startswith("#!")) or stripped.startswith("//"):
             keep.append(line)
             continue
         marker = line.find(" #")
@@ -579,11 +580,13 @@ def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
                 closing = "*/"
             continue
 
-        marker = "#" if hash_only else "//"
-        if text.startswith(marker):
+        # `.sh` takes `//` beside `#`: a hook's embedded node one-liner comments there, and INC-9's
+        # bound has to measure those blocks the way `_shell_comments` reads them (INC-6).
+        markers = ("#", "//") if suffix == ".sh" else ("#",) if hash_only else ("//",)
+        if text.startswith(markers):
             if not current:
                 first_line = number
-            current.append(text.lstrip("#").strip() if hash_only else text[2:].strip())
+            current.append(text.lstrip("#").strip() if text.startswith("#") else text[2:].strip())
             continue
         flush()
 
