@@ -728,6 +728,15 @@ else
     probe "$hb" denied cmd "$(printf 'printf x > docs/audit/log.txt\ngit commit -am wip')" 'bash guard: newline then commit'
     probe "$hb" denied cmd "$(printf 'printf x > docs/audit/log.txt\npnpm format')"        'bash guard: newline then format'
 
+    # Every git occurrence is stepped, not the first alone: a leading git read must not shadow the
+    # write chained behind it, and a newline or carriage return fronts a git as surely as a space.
+    probe "$hb" denied cmd 'git status && git reset --hard'                    'bash guard: a reset behind a leading git read'
+    probe "$hb" denied cmd 'git add -A && git commit -m x'                     'bash guard: an add in front of a commit'
+    probe "$hb" denied cmd 'git fetch && git rebase main'                      'bash guard: a fetch in front of a rebase'
+    probe "$hb" denied cmd "$(printf 'cd fl_backend\ngit commit -am wip')"     'bash guard: a git write on a second line'
+    probe "$hb" denied cmd "$(printf 'echo start\rgit reset --hard')"          'bash guard: a carriage return fronting a git write'
+    probe "$hb" denied cmd "$(printf 'ls\ngit stash\necho done')"              'bash guard: a subcommand ended by a newline'
+
     # --- An interpreter's own write API, one probe per pattern -----------------------------------
 
     # Each line matches one pattern and no other: delete that pattern and this probe alone goes
@@ -937,6 +946,8 @@ else
     probe "$hs" asked   cmd 'printf x ->docs/standard.md'                      'standard bash guard: -> redirect'
     probe "$hs" asked   cmd 'sed -e s/a/b/ -i docs/standard.md'                'standard bash guard: sed -i behind another flag'
     probe "$hs" asked   cmd 'git checkout -- docs/standard.md'                 'standard bash guard: git checkout --'
+    probe "$hs" asked   cmd "$(printf 'echo start\ngit checkout -- docs/standard.md')" 'standard bash guard: a discard on a second line'
+    probe "$hs" asked   cmd 'git status && git checkout -- docs/standard.md'   'standard bash guard: a discard behind a git read'
     probe "$hs" asked   cmd 'rm docs/standard.md'                              'standard bash guard: a deletion'
     probe "$hs" asked   raw 'not json'                                         'standard bash guard: unparseable payload'
     # Neither program is on the interpreter list beside it, so the in-place arm is what answers.

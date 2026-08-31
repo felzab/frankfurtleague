@@ -57,7 +57,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 9   | OPS-97  | No check can render a Server Component, so §6's rule is unenforced | FE, Ops, Docs     | L      | Open     | —          |
 | 10  | OPS-67  | The runner cannot load a component, so none is tested              | FE, Ops, Docs     | M      | Open     | —          |
 | 11  | OPS-76  | Most of the database tier runs unconstrained                       | BE, Ops           | M      | Open     | —          |
-| 12  | OPS-56  | The git stepper reads one `git`, on one line                       | Ops               | S      | Open     | —          |
+| 12  | OPS-56  | The git stepper reads one `git`, on one line                       | Ops               | S      | Closed   | —          |
 | 13  | OPS-71  | A citation resolves to a string, not to what it names              | Ops, Docs         | S      | Open     | —          |
 | 14  | OPS-92  | Real-IP recovery can fall back with nothing to say so              | Ops, Docs         | S      | Open     | —          |
 | 15  | DOC-12  | A Known-open table has no membership test                          | Docs              | S      | Open     | —          |
@@ -768,11 +768,20 @@ able to prove behaviour over impossible data** — which is the one thing that t
 
 ### 12 · OPS-56 — The git subcommand stepper reads one `git`, on one line
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Ops\
 **Effort:** S\
 **Path:** Independent. One expression carries both halves below, so they are one repair and one
 re-measurement of `scripts/selfcheck.sh` step 13.
+
+**What concluded it.** One change to the shared block, landed byte-identically in both guards: the
+stepper walks every `git` occurrence instead of stripping to the earliest, its delimiter class
+widens from `[ /]` to `[[:space:]/]` — reaching the newline and carriage return `tr` leaves alone —
+and the subcommand word now ends at any whitespace rather than the first space. Step 13's matrix
+was re-measured: every released shape in the tables below flips to its correct verdict, the
+standard guard's two arms agree on the newline, and eight new probes pin the flipped shapes, while
+the branch step, the escape hatch and every read stay released. The verdict diff is in the closing
+commit body.
 
 **The stepper the two bash guards share opens on `${padded#*[ /]git?(.exe) }`, and that one
 expression is short on two axes at once.** It strips to the **earliest** occurrence of the program
