@@ -77,19 +77,18 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 29  | DOC-15  | A refusal's meaning is written three times, unresolved             | FE, BE, Ops, Docs | M      | Open     | —          |
 | 30  | OPS-63  | A comment claims two files hold one pattern, unchecked             | FE, BE, Ops       | S      | Open     | —          |
 | 31  | OPS-69  | A declared-permitted state's reason is checked by nothing          | BE, Ops           | S      | Open     | —          |
-| 32  | OPS-65  | An unused parameter is reported by no checker here                 | FE, Ops           | S      | Open     | —          |
-| 33  | OPS-66  | The CSP's style directive is wider than it needs to be             | Ops, Docs         | S      | Open     | —          |
-| 34  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
-| 35  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
-| 36  | DOC-9   | Pairs of audit checks hunt the same ground                         | Docs              | S      | Open     | —          |
-| 37  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
-| 38  | OPS-19  | Both repository-wide linters re-read every file                    | FE, Ops           | S      | Open     | —          |
-| 39  | OPS-10  | The comment-only classifier costs a process per file               | Ops               | S      | Open     | —          |
-| 40  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
-| 41  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
-| 42  | DOC-3   | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
-| 43  | DOC-10  | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
-| 44  | OPS-81  | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
+| 32  | OPS-66  | The CSP's style directive is wider than it needs to be             | Ops, Docs         | S      | Open     | —          |
+| 33  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
+| 34  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
+| 35  | DOC-9   | Pairs of audit checks hunt the same ground                         | Docs              | S      | Open     | —          |
+| 36  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
+| 37  | OPS-19  | Both repository-wide linters re-read every file                    | FE, Ops           | S      | Open     | —          |
+| 38  | OPS-10  | The comment-only classifier costs a process per file               | Ops               | S      | Open     | —          |
+| 39  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
+| 40  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
+| 41  | DOC-3   | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
+| 42  | DOC-10  | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
+| 43  | OPS-81  | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -1774,42 +1773,7 @@ confidently from something no longer true, and the states it covers are the ones
 The cheapest check is the one the file already invites — resolve every anchor and every index name
 a `reason=` mentions, the way the three neighbouring fields are resolved.
 
-### 32 · OPS-65 — An unused parameter is reported by neither checker the frontend runs
-
-**Status:** Open\
-**Surfaces:** FE, Ops\
-**Effort:** S\
-**Path:** Independent — `fl_frontend/tsconfig.json` is the file, and the single site the flag reports
-is named below.
-
-**`fl_frontend/tsconfig.json` declares `noUnusedLocals` and leaves `noUnusedParameters` out, and the
-lint rule beside it cannot cover the gap.** `fl_frontend/eslint.config.mjs` runs
-`@typescript-eslint/no-unused-vars` with an underscore escape and takes that rule's default for
-arguments, which reports a parameter only when nothing after it is read. A parameter a framework's
-calling convention forces into the leading position is therefore invisible to both.
-
-**Enabling it costs two underscores, measured.** Running the installed checker over the project
-with the flag on 2026-08-28 reported exactly two sites:
-`fl_frontend/src/features/auth/actions.ts :: handleSignIn`, whose `prevState` is required by
-`useActionState`'s calling convention and read by nothing, and a leading `token` in a filter callback
-in `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`, which the lint rule's `after-used`
-default cannot see because the `index` after it is read. TypeScript takes a leading underscore as
-the escape, which is the spelling `fl_frontend/eslint.config.mjs` already configures, so the flag and
-the rule would agree.
-
-**What it is worth, and what it costs beyond the underscore.** It closes a class the toolchain
-otherwise cannot see, and the class is small — those two sites are the whole of it. A
-parameter kept for a calling convention is exactly the shape that has to be underscored to satisfy
-it, and an underscore in front of `prevState` reads as "ignored" where the name is what says why the
-parameter is there at all. Whether that trade is worth taking is the decision this entry asks for.
-
-**Nothing else moves with it.** `next build` writes its suggested defaults into
-`fl_frontend/tsconfig.json` for any key absent from `compilerOptions`, which is why `allowJs` is
-declared rather than omitted. `noUnusedParameters` is not among the keys it writes — read from the
-installed Next 16.3.0 on 2026-08-20 — so adding it neither collides with that pass nor has to be
-defended against it.
-
-### 33 · OPS-66 — The style directive concedes more than the reason recorded for it needs
+### 32 · OPS-66 — The style directive concedes more than the reason recorded for it needs
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -1850,7 +1814,7 @@ attribute half is the whole of the value. That the prerendered HTML carries no i
 is the spec sheet's claim rather than this entry's measurement, and it is worth re-checking beside
 the one above it.
 
-### 34 · OPS-12 — Nothing checks a generated file against the generator that owns it
+### 33 · OPS-12 — Nothing checks a generated file against the generator that owns it
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -1886,7 +1850,7 @@ the formatter has run over each side so the comparison is about content rather t
 and fails where it differs from the committed one, and the images are left to review with that
 exclusion written down rather than assumed.
 
-### 35 · DOC-14 — A file that arrives as a rename brings its comment blocks in as context, so INC-9 measures none of them
+### 34 · DOC-14 — A file that arrives as a rename brings its comment blocks in as context, so INC-9 measures none of them
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -1917,7 +1881,7 @@ inside it as the branch's own prose. **The narrower question is the decision:** 
 `check_comment_length` alone should treat a rename's destination as added while the set the other
 branch-scoped checks read stays as it is.
 
-### 36 · DOC-9 — Pairs of audit checks hunt one another's ground, and only one pair has a boundary about it
+### 35 · DOC-9 — Pairs of audit checks hunt one another's ground, and only one pair has a boundary about it
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -1960,7 +1924,7 @@ split is a sentence in each prompt, and both pages of a pair move together.
 **Not decided:** whether `docs/_auditing/prompts/README.md` should carry a rule that every check
 names its counterpart, or whether the boundary lines stay the only mechanism.
 
-### 37 · DOC-2 — An enforcement claim is resolved in one direction only
+### 36 · DOC-2 — An enforcement claim is resolved in one direction only
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -1992,7 +1956,7 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 38 · OPS-19 — Both repository-wide linters re-read every file on every run
+### 37 · OPS-19 — Both repository-wide linters re-read every file on every run
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -2109,7 +2073,7 @@ resolves it to two over a file set this size — a numeric 2 makes that explicit
 taken from a development machine: the flag ships on local evidence, and that condition stands open
 against it.
 
-### 39 · OPS-10 — Deciding whether a change is comments only costs a process per file
+### 38 · OPS-10 — Deciding whether a change is comments only costs a process per file
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -2139,7 +2103,7 @@ spawning it replaced.
 **Not measured:** what the spawns actually cost, and how much of a gate run is attributable to them.
 The mechanism above is read from the code; the magnitude is not.
 
-### 40 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 39 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -2178,7 +2142,7 @@ a faster diagnosis is worth a new way for `deploy.sh` to refuse.
 cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 41 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 40 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -2223,7 +2187,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately.
 
-### 42 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 41 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -2256,7 +2220,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a rule family added to the standard under a prefix the patterns do not
 carry, or the first page that needs a metadata block indented.
 
-### 43 · DOC-10 — A block already over a bound is excused by its opening line alone
+### 42 · DOC-10 — A block already over a bound is excused by its opening line alone
 
 **Status:** Standing\
 **Surfaces:** Ops, Docs\
@@ -2284,7 +2248,7 @@ rests on.
 **Trigger to revisit:** a branch charged for a block whose length it did not create, or any change to
 how `check_comment_length` decides whose block a block is.
 
-### 44 · OPS-81 — One commit imports a frontend module the commit after it adds
+### 43 · OPS-81 — One commit imports a frontend module the commit after it adds
 
 **Status:** Standing\
 **Surfaces:** FE, Ops\

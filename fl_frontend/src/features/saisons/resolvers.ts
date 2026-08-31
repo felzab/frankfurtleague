@@ -17,7 +17,7 @@ export async function resolveSaisonId(
   searchParamsPromise: NextPageProps["searchParams"],
   tier: "base" | "admin" = "base",
 ): Promise<string | undefined> {
-  const searchParams = (await searchParamsPromise) ?? {};
+  const searchParams = await searchParamsPromise;
   const requested = saisonIdSchema.parse(searchParams.saison_id);
 
   // Absent and malformed both parse to `undefined`; only the raw key separates them, and only the
