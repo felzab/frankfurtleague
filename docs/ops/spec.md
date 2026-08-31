@@ -206,32 +206,24 @@ large Auth.js cookies.
 
 Set at server level with `always`:
 
-| Header                      | Value                                                                                                                                                                                                                                                              |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload`                                                                                                                                                                                                                     |
-| `X-Frame-Options`           | `SAMEORIGIN`                                                                                                                                                                                                                                                       |
-| `X-Content-Type-Options`    | `nosniff`                                                                                                                                                                                                                                                          |
-| `Referrer-Policy`           | `strict-origin-when-cross-origin`                                                                                                                                                                                                                                  |
-| `Content-Security-Policy`   | `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self';` |
+| Header                      | Value                                                                                                                                                                                                                                              |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload`                                                                                                                                                                                                     |
+| `X-Frame-Options`           | `SAMEORIGIN`                                                                                                                                                                                                                                       |
+| `X-Content-Type-Options`    | `nosniff`                                                                                                                                                                                                                                          |
+| `Referrer-Policy`           | `strict-origin-when-cross-origin`                                                                                                                                                                                                                  |
+| `Content-Security-Policy`   | `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self';` |
 
 `'unsafe-inline'` remains on `script-src` because a per-request nonce cannot cover build-time
 prerendered HTML, which this application prerenders (`cacheComponents` in
 `fl_frontend/next.config.ts`). The compensating control is the `react/no-danger` rule
 [`docs/frontend/spec.md`](../frontend/spec.md) §1.8 records.
 
-The style half concedes only the **attribute** form: `style-src` is `'self'` and `style-src-attr`
-carries `'unsafe-inline'`, because several components set a runtime-computed inline `style`
-attribute — `fl_frontend/src/shared/components/ui/FilterPanel.tsx`'s overlay widths, the toast
-timer bar's duration, the two Trikot colour swatches, HeroUI's scroll-shadow variable and every
-react-aria portalled overlay's position — for which CSP offers no nonce or hash, while an injected
-`<style>` **element** is refused, closing the attribute-selector exfiltration and interface-redress
-route the old element-wide concession left open. Two facts carry the narrowing, both measured
-2026-08-31: every browser released since December 2022 applies `style-src-attr` to attributes
-(Chrome 75, Edge 79, Firefox 108, Safari 15.4 — an older client falls back to `style-src` and
-drops the markup's style attributes, a cosmetic loss on ~4.5% of traffic); and the prerendered
-tree's one inline `<style>` element sits in Next's default global-error document, which the policy
-leaves unstyled — accepted, since that page serves only when the root layout itself fails to
-render.
+`style-src` carries it for a narrower reason: several components set a runtime-computed inline
+`style` **attribute**, for which CSP offers no nonce or hash. The prerendered HTML carries no
+inline `<style>` block, so the policy could still be narrowed to `style-src 'self'` with
+`style-src-attr 'unsafe-inline'` — an nginx change rather than a documentation one, and
+`docs/_roadmap/tooling-items.md :: OPS-66` owns it.
 
 **The rest of the policy is load-bearing and does not depend on `script-src`:** `frame-ancestors
 'none'` blocks framing, `object-src 'none'` blocks plugin content, `base-uri 'self'` blocks base-tag

@@ -80,7 +80,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 32  | OPS-63  | A comment claims two files hold one pattern, unchecked             | FE, BE, Ops       | S      | Open     | —          |
 | 33  | OPS-69  | A declared-permitted state's reason is checked by nothing          | BE, Ops           | S      | Open     | —          |
 | 34  | OPS-65  | An unused parameter is reported by no checker here                 | FE, Ops           | S      | Open     | —          |
-| 35  | OPS-66  | The CSP's style directive is wider than it needs to be             | Ops, Docs         | S      | Closed   | —          |
+| 35  | OPS-66  | The CSP's style directive is wider than it needs to be             | Ops, Docs         | S      | Open     | —          |
 | 36  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
 | 37  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
 | 38  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
@@ -1896,7 +1896,7 @@ defended against it.
 
 ### 35 · OPS-66 — The style directive concedes more than the reason recorded for it needs
 
-**Status:** Closed\
+**Status:** Open\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
 **Path:** Independent. An nginx change, so the gate is the full form with the images built
@@ -1934,18 +1934,6 @@ is a real capability — exfiltration by attribute selector, and interface redre
 attribute half is the whole of the value. That the prerendered HTML carries no inline `<style>` block
 is the spec sheet's claim rather than this entry's measurement, and it is worth re-checking beside
 the one above it.
-
-**What concluded it.** Both edges send `style-src 'self'` with `style-src-attr 'unsafe-inline'`,
-in all three header sites per file. The opening checks landed first: MDN records the fallback
-chain (`style-src-attr`, then `style-src`, then `default-src`) and the directive as Baseline
-widely available — Chrome 75, Edge 79, Firefox 108, Safari 15.4, ~95.5% of traffic — so support is
-not materially incomplete, an older client failing toward blocked markup attributes rather than
-toward anything open. The §1.4 premise re-measured true as that sheet now states it: FilterPanel,
-the toast timer bar, the two Trikot swatches, HeroUI's scroll-shadow and react-aria's overlays all
-write style attributes. The no-`<style>`-element claim measured FALSE by one document — Next's
-default global-error page inlines its own stylesheet, and the narrowed policy leaves that page,
-served only when the root layout itself fails, unstyled — which
-[`docs/ops/spec.md`](../ops/spec.md) §1.4 records as accepted, beside the residual-support caveat.
 
 ### 36 · OPS-12 — Nothing checks a generated file against the generator that owns it
 
