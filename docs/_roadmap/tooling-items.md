@@ -52,7 +52,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 4   | OPS-100 | A changed citation target puts no page in front of the session     | Ops, Docs         | S      | Open     | —          |
 | 5   | OPS-91  | A continuation citation is resolved and checked by nothing         | Ops, Docs         | M      | Open     | —          |
 | 6   | OPS-98  | A formatter reshapes a comment before INC-9 measures it            | BE, Ops, Docs     | S      | Open     | —          |
-| 7   | OPS-90  | A passing scope leaves the report when an earlier one fails        | Ops               | S      | Open     | —          |
+| 7   | OPS-90  | A passing scope leaves the report when an earlier one fails        | Ops               | S      | Closed   | —          |
 | 8   | OPS-84  | The linter runs a version past its end of life                     | FE, Ops, Docs     | M      | Open     | —          |
 | 9   | OPS-97  | No check can render a Server Component, so §6's rule is unenforced | FE, Ops, Docs     | L      | Open     | —          |
 | 10  | OPS-67  | The runner cannot load a component, so none is tested              | FE, Ops, Docs     | M      | Open     | —          |
@@ -538,10 +538,20 @@ author is given no way to learn why their comment is the wrong length.
 
 ### 7 · OPS-90 — A scope that ran and passed leaves the report entirely when an earlier scope fails
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Ops\
 **Effort:** S\
 **Path:** Independent. It touches `scripts/verify.sh :: replay_scope` alone, and nothing waits on it.
+
+**What concluded it.** The narrow change the entry named is taken: `scripts/verify.sh` now adopts
+every later scope that finished with a verdict — rows alone, never the captured output — before
+the first failure ends the run, through `scripts/verify.sh :: adopt_finished`; a crashed or
+interrupted later worker stays out of the table, its rank-5 row being indistinguishable from
+findings, which is the entry's own reasoning kept. Proved on a full-form run with a planted
+formatting violation: docs and format failed and the closing table still carried all nine
+sections, the five later scopes as `pass`, exit 1. The behaviour is recorded in
+[`docs/ops/spec.md`](../ops/spec.md) §1.6, and the §4 known-open row this gap held is gone with
+it.
 
 **A combined run failing in one scope leaves every later scope in neither the closing table nor the
 "not run" line.** `./scripts/verify.sh --ops --docs` failing in the docs section is the shape to look

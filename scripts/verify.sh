@@ -306,9 +306,30 @@ if (( PARALLEL )); then
     # Crashed and interrupted end the run here, having no row that could say so. Findings and a
     # refusal are already in the rows, which `finish` reads back.
     adopt_ending "$status"
-    if (( status )); then finish; fi
+    REPLAY_STATUS="$status"
   }
-  for u_scope in "${SCOPE_ORDER[@]}"; do replay_scope "$u_scope"; done
+
+  # Past the first failure: rows alone, never captured output -- the table tells a passing scope
+  # from one that never ran while the ending stays the failure's. Only a finished verdict may
+  # speak; a crash's rank-5 row would read as findings.
+  adopt_finished() { # $1 scope
+    local scope="$1" status="${UNIT_STATUS[$1]:-}" rank ms findings advisories name
+    case "$status" in 0|1|2) ;; *) return 0 ;; esac
+    if [[ -s "${POOL_DIR}/${scope}.ledger" ]]; then
+      while IFS=$'\t' read -r rank ms findings advisories name; do
+        adopt_section "$name" "$rank" "$ms" "$findings" "$advisories"
+      done < "${POOL_DIR}/${scope}.ledger"
+    fi
+  }
+
+  REPLAY_STATUS=0
+  ENDING=0
+  for u_scope in "${SCOPE_ORDER[@]}"; do
+    if (( ! ENDING )); then replay_scope "$u_scope"; ENDING="$REPLAY_STATUS"; else adopt_finished "$u_scope"; fi
+  done
+  # After every finished scope's rows are in: `finish` reads the worst rank back, so a refusal
+  # ahead of a later scope's findings still answers 1, the definite verdict (`_RANK_LABELS`).
+  if (( ENDING )); then finish; fi
   wrap_up
 fi
 
