@@ -71,7 +71,7 @@ select = [
     # Measured at zero findings across app and tests when selected, so it costs nothing today.
     # This is NOT the `UP` family, which is a real migration and belongs to roadmap item BE-7.
     "FURB",  # refurb — mechanical modernisations
-    # Docstring FORMATTING only (docs/_standard/chapters/2-in-code.md, INC-7). Deliberately NOT the D1xx
+    # Docstring FORMATTING only (docs/standard.md, INC-7). Deliberately NOT the D1xx
     # missing-docstring family: requiring a docstring on every symbol manufactures boilerplate, and
     # the standard asks for prose where there is a reason to record, not coverage for its own sake.
     "D200",  # one-line docstring should fit on one line

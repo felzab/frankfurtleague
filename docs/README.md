@@ -1,6 +1,5 @@
 # Documentation
 
-**Verified against:** `a468e858`, 2026-08-21\
 **Folder purpose:** everything written down about Frankfurt-League — a Next.js frontend, a FastAPI backend, MongoDB, deployed with Docker Compose behind nginx on a single host.
 
 ## Folder overview
@@ -21,7 +20,7 @@
 | [`_roadmap/open-items.md`](_roadmap/open-items.md)       | What is planned for the product, ranked, and what is deliberately not                       |
 | [`_roadmap/tooling-items.md`](_roadmap/tooling-items.md) | What is planned for the toolchain and the documentation corpus, ranked                      |
 | [`_roadmap/closed-items.md`](_roadmap/closed-items.md)   | What happened to an item no longer listed                                                   |
-| [`_standard/`](_standard/)                               | Writing or changing any documentation — the rules and the shapes                            |
+| [`standard.md`](standard.md)                             | Writing or changing any documentation — the rules and the shapes                            |
 | [`_auditing/`](_auditing/)                               | Running an audit or a remediation programme                                                 |
 | `audit/`                                                 | **Gitignored.** Working documents; what lives there is listed in [`_auditing/`](_auditing/) |
 

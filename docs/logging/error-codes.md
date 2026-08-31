@@ -1,6 +1,5 @@
 # Logging — error codes
 
-**Verified against:** `ea1b5c04`, 2026-08-31\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation

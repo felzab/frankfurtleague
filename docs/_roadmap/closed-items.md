@@ -1,7 +1,5 @@
 # Closed items
 
-**Verified against:** `7f89dd14`, 2026-08-31
-
 Every item that has left a ranked page — [`open-items.md`](open-items.md) or
 [`tooling-items.md`](tooling-items.md) — has a row here. This is a log: nothing in it is waiting for
 anything, and a regression is a new item with a new ID rather than an edit to a row.
@@ -144,3 +142,10 @@ so no earlier commit exists for its row to cite.
 | OPS-89 | A refusal mapper outside a slice's `actions.ts` was reached by no sweep                                                               | FE, Ops, Docs | S      | —                            | [`1c4591a4`](https://github.com/felzab/frankfurtleague/commit/1c4591a4) |
 | OPS-96 | Most toast copy reached a user through no test                                                                                        | FE, Ops, Docs | M      | —                            | [`1c4591a4`](https://github.com/felzab/frankfurtleague/commit/1c4591a4) |
 | DOC-11 | Audit programmes stayed open, and their findings sat outside the ranked pages                                                         | Docs          | M      | —                            | [`dd5f4334`](https://github.com/felzab/frankfurtleague/commit/dd5f4334) |
+| OPS-80 | One stamp move cleared a branch's every later edit                                                                                    | Ops, Docs     | S      | —                            | [`559634f7`](https://github.com/felzab/frankfurtleague/commit/559634f7) |
+| OPS-82 | A citation written as a link armed no re-verification                                                                                 | Ops, Docs     | S      | —                            | [`559634f7`](https://github.com/felzab/frankfurtleague/commit/559634f7) |
+| OPS-86 | A repository-root file armed no page, whatever cited it                                                                               | Ops, Docs     | S      | —                            | [`559634f7`](https://github.com/felzab/frankfurtleague/commit/559634f7) |
+| OPS-75 | The gate's comment reader dropped the blocks it existed to measure                                                                    | Ops, Docs     | S      | —                            | [`559634f7`](https://github.com/felzab/frankfurtleague/commit/559634f7) |
+| OPS-99 | The armed set the restamp check computed was discarded, never reported                                                                | Ops, Docs     | S      | —                            | [`559634f7`](https://github.com/felzab/frankfurtleague/commit/559634f7) |
+| OPS-62 | A version pin bump armed every stamped page citing the workflow                                                                       | Ops, Docs     | S      | —                            | [`559634f7`](https://github.com/felzab/frankfurtleague/commit/559634f7) |
+| DOC-4  | A stamp was required by a path and owed by a claim                                                                                    | Docs          | —      | —                            | [`559634f7`](https://github.com/felzab/frankfurtleague/commit/559634f7) |

@@ -1,7 +1,7 @@
-"""SCRIPTS · INC-2's header anatomy and INC-9's block bounds.
+"""SCRIPTS · INC-2's header anatomy and INC-9's block bound.
 
 Both read a file's raw text rather than its scanned body: a header is defined by where it sits, and
-a block's length is measured in the lines a reader meets.
+a block's length is measured over the text a reader meets.
 """
 
 from __future__ import annotations
@@ -29,12 +29,7 @@ SEE_ENTRY_RE: Final = re.compile(r"\s+")
 SUFFIXED_RE: Final = re.compile(r"\.[A-Za-z]{1,5}$")
 
 
-# Both hold at once: three long lines and one very long line are the same comment with its line
-# breaks moved. This is the inline cap.
-COMMENT_LINE_CAP: Final = 3
-# A symbol doc's extra lines pay for its delimiters, a summary and the blank line after it -- never
-# for prose, which is why the character cap stays one number for every shape.
-DOC_LINE_CAP: Final = 6
+# INC-9's one bound, the same for every shape: inline comment, symbol doc and test docstring alike.
 COMMENT_CHAR_CAP: Final = 250
 
 
@@ -42,7 +37,7 @@ COMMENT_CHAR_CAP: Final = 250
 # the shape of a header that exists, so a file with none passes unchecked.
 HEADER_SCOPES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     # TypeScript is out of scope: INC-2 permits no header there, so a block opening one of its
-    # files is a symbol doc, which `comment-length` bounds well inside `HEADER_CAP`.
+    # files is an ordinary comment block, which `comment-length` bounds (INC-9).
     ("fl_backend/app/", (".py",)),
     ("fl_backend/tests/", (".py",)),
     ("scripts/", (".py", ".sh")),
@@ -124,11 +119,11 @@ def _header_line(line: str, suffix: str) -> str:
     return text
 
 
-def comment_runs(raw: str, suffix: str, *, symbol_docs: bool) -> list[tuple[int, list[str]]]:
+def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
     """Each run of consecutive comment lines below the module header, as (first line, text lines).
 
-    Markers come off, being what the bounds do not measure. The header is skipped either way:
-    INC-2 caps it separately.
+    Markers come off, being what the bound does not measure. The header is skipped -- INC-2 caps
+    it. A symbol doc is a run like any other (INC-9).
     """
     lines = raw.split("\n")
     start_at = 0
@@ -142,7 +137,6 @@ def comment_runs(raw: str, suffix: str, *, symbol_docs: bool) -> list[tuple[int,
     current: list[str] = []
     first_line = 0
     closing: str | None = None
-    keeping = True
     hash_only = suffix in (".py", ".sh")
 
     def flush() -> None:
@@ -154,28 +148,21 @@ def comment_runs(raw: str, suffix: str, *, symbol_docs: bool) -> list[tuple[int,
     for number, line in enumerate(lines[start_at:], start=start_at + 1):
         text = line.strip()
         if closing is not None:  # inside a block comment or a docstring
-            if keeping:
-                current.append(_header_line(text.removesuffix(closing), suffix))
+            current.append(_header_line(text.removesuffix(closing), suffix))
             if closing in text:
                 closing = None
-                if keeping:
-                    flush()
-                keeping = True
+                flush()
             continue
 
         opened = PY_DOCSTRING_OPEN_RE.match(text) if hash_only else None
         if opened is not None:
             flush()
-            keeping = symbol_docs
             first_line = number
             body = text[opened.end() :]
             quote = opened.group(1)
-            if keeping:
-                current.append(body.removesuffix(quote).strip())
+            current.append(body.removesuffix(quote).strip())
             if quote in body:
-                if keeping:
-                    flush()
-                keeping = True
+                flush()
             else:
                 closing = quote
             continue
@@ -184,8 +171,6 @@ def comment_runs(raw: str, suffix: str, *, symbol_docs: bool) -> list[tuple[int,
         # would go unbounded. Tested before the plain `/*` arm, which the brace hides it from.
         if not hash_only and text.startswith("{/*"):
             flush()
-            # It interrupts markup and documents no symbol, so it is inline under either pass.
-            keeping = True
             first_line = number
             body = text.lstrip("{/*").strip()
             current.append(body.removesuffix("*/}").strip())
@@ -197,15 +182,11 @@ def comment_runs(raw: str, suffix: str, *, symbol_docs: bool) -> list[tuple[int,
 
         if not hash_only and text.startswith("/*"):
             flush()
-            keeping = symbol_docs or not text.startswith("/**")
             first_line = number
             body = text.lstrip("/*").strip()
-            if keeping:
-                current.append(body.removesuffix("*/").strip())
+            current.append(body.removesuffix("*/").strip())
             if "*/" in text[2:]:
-                if keeping:
-                    flush()
-                keeping = True
+                flush()
             else:
                 closing = "*/"
             continue
@@ -229,7 +210,7 @@ def _misplaced_header(raw: str, suffix: str) -> tuple[int, list[str]] | None:
     with only blanks, a shebang and directives above it opens the file.
     """
     lines = raw.split("\n")
-    for first_line, block in comment_runs(raw, suffix, symbol_docs=True):
+    for first_line, block in comment_runs(raw, suffix):
         title = next((text for text in block if text), "")
         if not HEADER_TITLE_RE.fullmatch(title):
             continue
@@ -244,24 +225,18 @@ def _block_text(block: list[str]) -> str:
     return " ".join(line for line in block if line).strip()
 
 
-def _over_bounds(block: list[str], cap: int) -> bool:
-    """Whether a comment block breaks either of INC-9's bounds."""
-    return len(block) > cap or len(_block_text(block)) > COMMENT_CHAR_CAP
+def _over_bound(block: list[str]) -> bool:
+    """Whether a comment block breaks INC-9's character bound."""
+    return len(_block_text(block)) > COMMENT_CHAR_CAP
 
 
-def _openings_over_bounds(text: str, style: str) -> frozenset[str]:
-    """The opening line of every comment block in some text that breaks a bound.
+def _openings_over_bound(text: str, style: str) -> frozenset[str]:
+    """The opening line of every comment block in some text that breaks the bound.
 
     The opening is what identifies a block across an edit deeper inside it, where a line number
     moves with every insertion above.
     """
-    inline = {(first, len(block)) for first, block in comment_runs(text, style, symbol_docs=False)}
-    openings: set[str] = set()
-    for first, block in comment_runs(text, style, symbol_docs=True):
-        cap = COMMENT_LINE_CAP if (first, len(block)) in inline else DOC_LINE_CAP
-        if _over_bounds(block, cap):
-            openings.add(_opening(block))
-    return frozenset(openings)
+    return frozenset(_opening(block) for _, block in comment_runs(text, style) if _over_bound(block))
 
 
 def _opening(block: list[str]) -> str:
@@ -270,7 +245,7 @@ def _opening(block: list[str]) -> str:
 
 
 def check_comment_length(path: Path, raw: str, added: set[int], fork_text: Callable[[], str | None] | None = None) -> list[Finding]:
-    """A comment block this branch touched, unless it broke a bound before this branch touched it.
+    """A comment block this branch touched, unless it was over the bound before the branch was.
 
     Requiring the WHOLE block to be added missed every one a branch lengthened; failing a word
     changed inside an older block is `/docs:audit-pr`'s slice (CUR-6).
@@ -279,22 +254,18 @@ def check_comment_length(path: Path, raw: str, added: set[int], fork_text: Calla
     # Derived here so no caller can pass a suffix a Dockerfile does not have: read for `//` it
     # would yield no block, and the check would run, report nothing, and look wired.
     style = comment_style(path)
-    # A block the narrow pass also yields is inline; what only the wide pass has is a symbol doc,
-    # which INC-9 gives the longer line cap.
-    inline = {(first, len(block)) for first, block in comment_runs(raw, style, symbol_docs=False)}
 
     found: list[Finding] = []
     older: frozenset[str] | None = None
-    for first_line, block in comment_runs(raw, style, symbol_docs=True):
+    for first_line, block in comment_runs(raw, style):
         numbers = range(first_line, first_line + len(block))
-        cap = COMMENT_LINE_CAP if (first_line, len(block)) in inline else DOC_LINE_CAP
-        if added.isdisjoint(numbers) or not _over_bounds(block, cap):
+        if added.isdisjoint(numbers) or not _over_bound(block):
             continue
         if older is None:
             # Read here rather than per call: the fork costs a git spawn per file, and a file whose
-            # touched blocks all keep their bounds never needs one.
+            # touched blocks all keep the bound never needs one.
             before = fork_text() if fork_text is not None else None
-            older = frozenset() if before is None else _openings_over_bounds(before, style)
+            older = frozenset() if before is None else _openings_over_bound(before, style)
         if _opening(block) in older:
             continue
         text = _block_text(block)
@@ -303,8 +274,8 @@ def check_comment_length(path: Path, raw: str, added: set[int], fork_text: Calla
                 "fail",
                 "comment-length",
                 rel,
-                f"the comment block at line {first_line} runs {len(block)} lines and {len(text)} characters"
-                f" -- INC-9 caps this shape at {cap} lines and {COMMENT_CHAR_CAP} characters",
+                f"the comment block at line {first_line} runs {len(text)} characters"
+                f" -- INC-9 caps a block at {COMMENT_CHAR_CAP}, every shape alike",
             )
         )
     return found

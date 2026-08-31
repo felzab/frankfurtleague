@@ -1,6 +1,5 @@
 # Open items
 
-**Verified against:** `ea1b5c04`, 2026-08-31\
 **Purpose:** what is open on the product, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -1673,7 +1672,7 @@ repair — `fl_frontend/src/features/saisons/actions.ts :: SPAN_BELOW_SCHEDULE` 
 end date back or the start date forward. So the cost of leaving it is one round trip and one banner, on
 a press an administrator would otherwise not have made.
 
-**The premise that it needs a second copy of `schedule_for` is wrong, and the entry should say so.**
+**The premise that it needs a second copy of `schedule_for` is wrong.**
 `find_saison_span_refusal` compares inclusive offered days against the matchdays
 `fl_backend/app/api/saisons/schedule.py :: schedule_for` implies, and the page already holds that sum:
 the season read serves its derived schedule, and

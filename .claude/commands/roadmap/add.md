@@ -19,15 +19,15 @@ branch named for the change (CLAUDE.md §2).
 
 1. **Read all of these before writing a line.**
 
-   | Read                                | For                                                                                 |
-   | ----------------------------------- | ----------------------------------------------------------------------------------- |
-   | `docs/_roadmap/protocol.md`         | Which page an entry belongs on, the ranking rubric (§1), the status derivation (§3) |
-   | `docs/_roadmap/README.md`           | What belongs on the roadmap, and what belongs to a settled decision or a spec sheet |
-   | `docs/_roadmap/open-items.md`       | Every open product entry, and the shape "What every entry carries" fixes            |
-   | `docs/_roadmap/tooling-items.md`    | Every open tooling entry, written in that same shape                                |
-   | `docs/_roadmap/closed-items.md`     | The retired ids, and the numbers already spent                                      |
-   | `docs/_standard/chapters/1-core.md` | An entry is documentation: COR-1, COR-3, COR-4, COR-6 and COR-9 bind it             |
-   | `docs/_auditing/lessons.md`         | How a claim is verified before it is written down                                   |
+   | Read                             | For                                                                                 |
+   | -------------------------------- | ----------------------------------------------------------------------------------- |
+   | `docs/_roadmap/protocol.md`      | Which page an entry belongs on, the ranking rubric (§1), the status derivation (§3) |
+   | `docs/_roadmap/README.md`        | What belongs on the roadmap, and what belongs to a settled decision or a spec sheet |
+   | `docs/_roadmap/open-items.md`    | Every open product entry, and the shape "What every entry carries" fixes            |
+   | `docs/_roadmap/tooling-items.md` | Every open tooling entry, written in that same shape                                |
+   | `docs/_roadmap/closed-items.md`  | The retired ids, and the numbers already spent                                      |
+   | `docs/standard.md`               | An entry is documentation: COR-1, COR-3, COR-4, COR-6 and COR-9 bind it             |
+   | `docs/_auditing/lessons.md`      | How a claim is verified before it is written down                                   |
 
 2. **Triage every bullet and say each outcome back before writing anything.**
 
@@ -124,12 +124,9 @@ branch named for the change (CLAUDE.md §2).
 
    Correct what is wrong, and report what this step caught.
 
-10. **Restamp every stamped page this change touched**, in CUR-3's shape and only after re-reading
-    it. Step 8 edits spec sheets, and each carries a stamp.
-
-11. **Ship it as one commit**, closing per CLAUDE.md §2 with the gate at `--docs --format`. The
+10. **Ship it as one commit**, closing per CLAUDE.md §2 with the gate at `--docs --format`. The
     two-commit protocol belongs to closing an item and does not apply here.
 
-12. **Hand over:** the new ids and where each ranked · every entry that moved and the test that moved
+11. **Hand over:** the new ids and where each ranked · every entry that moved and the test that moved
     it · the questions answered and how each shaped an entry · what step 9 caught · what you could
     not verify · which entries the new ones block or unblock.

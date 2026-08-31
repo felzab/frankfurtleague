@@ -16,20 +16,15 @@ import check_pr_body
 from .kernel import (
     BACKTICK_RE,
     BACKTICK_SPAN_RE,
-    CHAPTER_GLOB,
-    CHAPTERS_DIR,
     CHECKS,
-    CURRENCY_PAGE,
     DOCS_DIR,
     GLOSSARY_PAGE,
     OVERVIEW_GLOB,
     REPO_ROOT,
     ROADMAP_GLOB,
     ROADMAP_RANKED_PAGES,
-    RULES_INDEX_PAGE,
     SPEC_GLOB,
-    STAMP_RE,
-    STAMP_REQUIRED_GLOBS,
+    STANDARD_PAGE,
     SWEEP_PAGE,
     TEMPLATES_PAGE,
     Finding,
@@ -56,7 +51,6 @@ RULE_FIELDS: Final[tuple[str, ...]] = ("Rule", "Why", "Exceptions", "Enforced by
 # optional field is deleted rather than filled with a dash.
 REQUIRED_RULE_FIELDS: Final[tuple[str, ...]] = ("Rule", "Enforced by")
 RULE_FIELD_RE: Final = re.compile(r"^[ \t]*\*\*([A-Z][A-Za-z ]{0,30}):\*\*", re.MULTILINE)
-CHAPTER_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*((?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2})\s*\|", re.MULTILINE)
 RULE_INDEX_LINE_RE: Final = re.compile(r"^[ \t]*[-*]\s+\*\*((?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2}):\*\*", re.MULTILINE)
 # Runs to the next rule bullet or heading, not to a blank line: a list item's continuation is
 # indented under it, so a blank line inside one ends nothing.
@@ -71,7 +65,6 @@ INDEX_ENFORCED_RE: Final = re.compile(r"[*_]Enforced by[*_](.*)", re.DOTALL)
 
 # PRE-4 closes the `Enforced by` field's vocabulary, so a bare backticked lower-case token in it
 # names a check.
-CHECK_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*`([a-z][a-z-]*)`\s*\|.*\|\s*(Fail|Report)\s*\|\s*$", re.MULTILINE)
 ENFORCED_BY_RE: Final = re.compile(r"^[ \t]*\*\*Enforced by:\*\*(.*?)(?=\n[ \t]*\n|\Z)", re.MULTILINE | re.DOTALL)
 CHECK_NAME_RE: Final = re.compile(r"`([a-z][a-z0-9-]*)`")
 
@@ -82,11 +75,10 @@ EXCLUDED_HEADER_RE: Final = re.compile(r"^[ \t]*\|\s*Excluded\s*\|\s*Why\s*\|", 
 SEGMENT_SAMPLE: Final = 8
 
 
-# A glob over a tree that is not there yields nothing, so an absent input degrades the check
-# reading it to silence with the run green. Named here so the absence itself fails.
+# A page that is not there yields nothing, so an absent input degrades the check reading it to
+# silence with the run green. Named here so the absence itself fails.
 REQUIRED_INPUTS: Final[tuple[str, ...]] = (
-    CHAPTERS_DIR,
-    RULES_INDEX_PAGE,
+    STANDARD_PAGE,
     *ROADMAP_RANKED_PAGES,
     TEMPLATES_PAGE,
     GLOSSARY_PAGE,
@@ -148,7 +140,7 @@ OWNER_EXEMPT_PREFIX: Final = ".claude/"
 
 
 def rule_blocks(text: str) -> list[tuple[str, str, str]]:
-    """Each rule a chapter states: id, the rest of the heading line, and the lines under it.
+    """Each section rule the standard states: id, the rest of the heading line, and the lines under it.
 
     Ends at the next heading of any level, so a rule's fields never come from the rule below.
     Fenced examples arrive already blanked.
@@ -166,23 +158,20 @@ def rule_blocks(text: str) -> list[tuple[str, str, str]]:
 
 
 def rule_ids() -> dict[str, list[str]]:
-    """Every rule id the standard defines, mapped to the pages defining it.
+    """Every rule id `docs/standard.md` defines, mapped to its homes (PRE-4).
 
-    Empty when the standard is gone, so every cited id then fails -- `rule-id`'s whole purpose.
+    Empty when the standard is gone, so every cited id then fails. More than one entry under an id
+    is a duplicate home, which `rule-id` reports at every citer.
     """
     ids: dict[str, list[str]] = {}
-    for chapter in tracked_glob(CHAPTER_GLOB):
-        if (text := _readable(chapter)) is None:
-            continue
-        for rule_id, _, _ in rule_blocks(text):
-            ids.setdefault(rule_id, []).append(chapter.relative_to(REPO_ROOT).as_posix())
-
-    index = tracked_page(RULES_INDEX_PAGE)
-    text = None if index is None else _readable(index)
-    for rule_id in [] if text is None else RULE_INDEX_LINE_RE.findall(text):
-        # The index is a fallback home, never an additional one: a rule with a chapter section
-        # would otherwise resolve twice, which the list value reports as a defect.
-        ids.setdefault(rule_id, [RULES_INDEX_PAGE])
+    page = tracked_page(STANDARD_PAGE)
+    text = None if page is None else _readable(page)
+    if text is None:
+        return ids
+    for rule_id, _, _ in rule_blocks(text):
+        ids.setdefault(rule_id, []).append("a section")
+    for rule_id in RULE_INDEX_LINE_RE.findall(text):
+        ids.setdefault(rule_id, []).append("a list line")
     return ids
 
 
@@ -268,25 +257,6 @@ def check_owner_voice(rel: str, body: str) -> list[Finding]:
     if OWNER_PHRASE_RE.search(mentions_removed) is None:
         return []
     return [Finding("fail", "owner-voice", rel, "names “the owner” -- write it in the first person or as a neutral imperative (COR-11)")]
-
-
-def check_stamp_missing() -> list[Finding]:
-    """A page whose kind CUR-3 settles must carry a stamp carries one.
-
-    Every other stamp check polices a stamp that exists, so an unstamped page is invisible to all.
-    """
-    found: list[Finding] = []
-    for pattern in STAMP_REQUIRED_GLOBS:
-        # An untracked page is nobody's to fail: it is absent from the checkout this stamp would
-        # be read in.
-        for path in tracked_glob(pattern):
-            if (body := _readable(path)) is None or STAMP_RE.search(body) is not None:
-                continue
-            rel = path.relative_to(REPO_ROOT).as_posix()
-            found.append(
-                Finding("fail", "stamp-missing", rel, "carries no `Verified against` stamp, so nothing can measure it going stale (CUR-3)")
-            )
-    return found
 
 
 def check_roadmap() -> list[Finding]:
@@ -606,37 +576,32 @@ def check_binary_bytes() -> list[Finding]:
 
 
 def check_enforced_by() -> list[Finding]:
-    """A rule's `Enforced by` field names gate checks this script actually emits.
+    """A rule's enforcement claim names gate checks this script actually emits.
 
-    A drifted claim is worse than an unenforced rule: it reads as covered.
+    Read in each of PRE-4's shapes: a section's `**Enforced by:**` field, and a list line's
+    `_Enforced by_`. A drifted claim is worse than an unenforced rule: it reads as covered.
     """
-    chapters = tracked_glob(CHAPTER_GLOB)
-    if not chapters:
-        return [Finding("fail", "enforced-by", CHAPTERS_DIR, "no tracked chapter, so no enforcement claim can be resolved")]
+    page = tracked_page(STANDARD_PAGE)
+    text = None if page is None else _readable(page)
+    if text is None:
+        # The claims live in the standard itself, so its absence leaves nothing here to resolve;
+        # `inputs` fails the absence, and `unreadable` a page that cannot be read.
+        return []
 
     found: list[Finding] = []
 
-    def resolve(rel: str, field: str) -> None:
+    def resolve(field: str) -> None:
         field = " ".join(field.split())
         for name in CHECK_NAME_RE.findall(field):
             if name not in CHECKS:
                 detail = f"claims enforcement by gate check `{name}`, which this gate does not emit: {field[:80]}"
-                found.append(Finding("fail", "enforced-by", rel, detail))
+                found.append(Finding("fail", "enforced-by", STANDARD_PAGE, detail))
 
-    for chapter in chapters:
-        rel = chapter.relative_to(REPO_ROOT).as_posix()
-        if (text := _readable(chapter)) is None:
-            continue  # reported as `unreadable` where the file is scanned in its own right
-        for match in ENFORCED_BY_RE.finditer(text):
-            resolve(rel, match.group(1))
-
-    # A rule the index states alone claims enforcement there, and an unresolved name is the same
-    # defect wherever it is written.
-    index = tracked_page(RULES_INDEX_PAGE)
-    if index is not None and (text := _readable(index)) is not None:
-        for block in RULE_INDEX_BLOCK_RE.findall(text):
-            if (claim := INDEX_ENFORCED_RE.search(block)) is not None:
-                resolve(RULES_INDEX_PAGE, claim.group(1))
+    for match in ENFORCED_BY_RE.finditer(text):
+        resolve(match.group(1))
+    for block in RULE_INDEX_BLOCK_RE.findall(text):
+        if (claim := INDEX_ENFORCED_RE.search(block)) is not None:
+            resolve(claim.group(1))
     return found
 
 
@@ -655,82 +620,30 @@ def _ordered_subsequence(fields: tuple[str, ...], order: tuple[str, ...]) -> boo
 
 
 def check_rule_shape() -> list[Finding]:
-    """Every rule in the standard keeps PRE-4's anatomy, which is what the rest of this gate parses.
+    """Every section rule in the standard keeps PRE-4's anatomy, which is what the rest of this gate parses.
 
     A rule written in another shape falls outside `rule-id` and `enforced-by` while every citation
     of it still resolves.
     """
-    found: list[Finding] = []
-    for chapter in tracked_glob(CHAPTER_GLOB):
-        rel = chapter.relative_to(REPO_ROOT).as_posix()
-        if (text := _readable(chapter)) is None:
-            continue
-        tabled = set(CHAPTER_ROW_RE.findall(text))
-        for rule_id, claim, block in rule_blocks(text):
-            if not RULE_CLAIM_RE.match(claim):
-                detail = f"{rule_id}'s heading is not `### {rule_id} — <the rule as a claim>` (PRE-4)"
-                found.append(Finding("fail", "rule-shape", rel, detail))
-            fields = tuple(RULE_FIELD_RE.findall(block))
-            if not _ordered_subsequence(fields, RULE_FIELDS):
-                detail = f"{rule_id} carries [{', '.join(fields)}] -- PRE-4 draws them from [{', '.join(RULE_FIELDS)}], in that order"
-                found.append(Finding("fail", "rule-shape", rel, detail))
-            elif missing := tuple(name for name in REQUIRED_RULE_FIELDS if name not in fields):
-                detail = f"{rule_id} states no {' and no '.join(f'**{name}:**' for name in missing)} -- PRE-4 requires both"
-                found.append(Finding("fail", "rule-shape", rel, detail))
-            if rule_id not in tabled:
-                found.append(Finding("fail", "rule-shape", rel, f"{rule_id} has no row in this chapter's rule table (PRE-4)"))
-    return found
-
-
-def check_rule_index(rules: dict[str, list[str]]) -> list[Finding]:
-    """Every rule takes one line in the rules index, and no rule takes two (PRE-4).
-
-    The index is what a session reads instead of the chapters, so a rule missing from it is one
-    most readers never meet. The reverse is `rule-id`'s.
-    """
-    rel = RULES_INDEX_PAGE
-    page = tracked_page(rel)
-    if page is None or (text := _readable(page)) is None:
-        return [Finding("fail", "rule-index", rel, "untracked, unreadable or missing, so no rule's index line can be resolved")]
-
-    listed: list[str] = RULE_INDEX_LINE_RE.findall(text)
-    found: list[Finding] = []
-    for rule_id in sorted(set(rules) - set(listed)):
-        detail = f"{rule_id} has no index line, so it is stated only in {' and '.join(rules[rule_id])}"
-        found.append(Finding("fail", "rule-index", rel, detail))
-    for rule_id in sorted({name for name in listed if listed.count(name) > 1}):
-        found.append(Finding("fail", "rule-index", rel, f"{rule_id} takes {listed.count(rule_id)} index lines -- PRE-4 gives it one"))
-    return found
-
-
-def check_check_registry() -> list[Finding]:
-    """CUR-5's table lists exactly the checks this script emits, at the verdicts it emits them.
-
-    A check with no row tells nobody what its failure means, and a row outliving its check sends
-    a reader after a defence that is gone.
-    """
-    rel = CURRENCY_PAGE
-    page = tracked_page(rel)
-    text = None if page is None else _read_text(page)[0]
+    page = tracked_page(STANDARD_PAGE)
+    text = None if page is None else _readable(page)
     if text is None:
-        return [Finding("fail", "check-registry", rel, "untracked or unreadable, so the list of checks cannot be compared against the gate")]
-
-    listed: dict[str, set[str]] = {}
-    for name, verdict in CHECK_ROW_RE.findall(text):
-        listed.setdefault(name, set()).add(verdict.lower())
-    if not listed:
-        return [Finding("fail", "check-registry", rel, "carries no check row -- CUR-5's table is where every check is listed")]
+        # Absence is `inputs`' finding; an untracked or unreadable standard also empties
+        # `rule_ids`, which fails every citation through `rule-id`.
+        return []
 
     found: list[Finding] = []
-    for name in sorted(set(CHECKS) - set(listed)):
-        verdicts = " and ".join(sorted(v.capitalize() for v in CHECKS[name]))
-        found.append(Finding("fail", "check-registry", rel, f"gate check `{name}` has no row -- add one, verdict {verdicts}"))
-    for name in sorted(set(listed) - set(CHECKS)):
-        found.append(Finding("fail", "check-registry", rel, f"a row names gate check `{name}`, which this gate does not emit"))
-    for name in sorted(set(listed) & set(CHECKS)):
-        if listed[name] != set(CHECKS[name]):
-            wanted = " and ".join(sorted(v.capitalize() for v in CHECKS[name]))
-            found.append(Finding("fail", "check-registry", rel, f"gate check `{name}` is emitted as {wanted}, which its rows do not say"))
+    for rule_id, claim, block in rule_blocks(text):
+        if not RULE_CLAIM_RE.match(claim):
+            detail = f"{rule_id}'s heading is not `### {rule_id} — <the rule as a claim>` (PRE-4)"
+            found.append(Finding("fail", "rule-shape", STANDARD_PAGE, detail))
+        fields = tuple(RULE_FIELD_RE.findall(block))
+        if not _ordered_subsequence(fields, RULE_FIELDS):
+            detail = f"{rule_id} carries [{', '.join(fields)}] -- PRE-4 draws them from [{', '.join(RULE_FIELDS)}], in that order"
+            found.append(Finding("fail", "rule-shape", STANDARD_PAGE, detail))
+        elif missing := tuple(name for name in REQUIRED_RULE_FIELDS if name not in fields):
+            detail = f"{rule_id} states no {' and no '.join(f'**{name}:**' for name in missing)} -- PRE-4 requires both"
+            found.append(Finding("fail", "rule-shape", STANDARD_PAGE, detail))
     return found
 
 

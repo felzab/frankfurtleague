@@ -2,7 +2,7 @@
 description: Audit and fix the branch's documentation slice before its pull request — /docs:audit-pr
 ---
 
-Audit the documentation this branch touches — and only that — against `docs/_standard/`, and fix what
+Audit the documentation this branch touches — and only that — against `docs/standard.md`, and fix what
 fails **on the branch itself**. It takes no arguments (`$ARGUMENTS`): the branch in the working tree
 is the scope.
 
@@ -26,16 +26,10 @@ stop.
 
    - every changed `.md`, read in full;
    - the comments, module headers and docstrings of every changed source file — shell, YAML,
-     Dockerfiles and workflows included;
-   - every stamped page whose citations name a changed file. `python scripts/check_docs.py` names
-     each such page for as long as its restamp is missing, so take the set from the check. A
-     branch-scoped check is the right source **because the scope is the branch**; it is never a
-     worklist for anything older.
+     Dockerfiles and workflows included.
 
-4. **Load the standard**: `docs/_standard/rules-index.md`, then the chapter for each shape in the
-   subset — `docs/_standard/chapters/2-in-code.md` for source comments,
-   `docs/_standard/chapters/3-corpus.md` for `/docs` pages, and
-   `docs/_standard/chapters/5-currency.md` wherever anything is stamped.
+4. **Load the standard**: read `docs/standard.md` in full — it is one file, and every shape in the
+   subset is governed from there.
 
 5. **Audit the subset with the check classes** from [`audit.md`](audit.md#the-check-classes), applied
    from there rather than from a copy. The slice adds the one question a whole-corpus sweep cannot
@@ -46,9 +40,6 @@ stop.
 6. **Fix in place, on this branch**, under [`audit.md`](audit.md#fix-mode) and the ground rules it
    carries for resolving a duplicate. Each fix is no longer than what it replaces. The slice adds:
 
-   - **Restamp only after the page's claims are true.** Fix what is false first, never restamp to
-     clear a gate finding, and re-verify a page named by the branch-impact check against the
-     branch's state before moving its stamp (CUR-3, CUR-4).
    - **A defect that predates this branch and sits outside the subset goes to `/roadmap:add`**, not
      into the slice.
 

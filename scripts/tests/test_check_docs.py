@@ -42,11 +42,6 @@ NEWLINE: Final = chr(10)
 NUL_BYTE: Final = chr(0)
 CR_BYTE: Final = chr(13)
 
-PLACEHOLDER_SHA: Final = "0000000"
-STAMP_DATE: Final = "2026-08-10"
-RESTAMP_DATE: Final = "2026-08-11"
-ABSENT_SHA: Final = "0abc123"
-
 NOTES: Final = "docs/notes.md"
 # A second page of the same basename, so a bare-name citation can be made to resolve twice; and a
 # file no scan reads, so a citation can name something unreadable without `unreadable` firing too.
@@ -71,9 +66,9 @@ QUOTED_ERROR: Final = "121 · Plan executor error during update :: caused by :: 
 LEGACY_OPENING: Final = "an opening line of a comment block the corpus itself committed over what a comment may ever hold"
 LEGACY_MIDDLE: Final = "a middle line a plant edits, leaving the block over a character bound it was already over before"
 LEGACY_CLOSING: Final = "a closing line carrying the block past the character bound well before any plant was ever written"
-SHORT_LINE: Final = "a block inside both bounds until something is added to it"
-# What a plant adds to the short block to carry it past the character bound and nothing else: one
-# line, so the LINE bound stays inside its cap and only the branch's own text can be what fires.
+SHORT_LINE: Final = "a block inside the character bound until something is added to it"
+# What a plant adds to the short block to carry it past the character bound and nothing else, so
+# only the branch's own text can be what fires.
 LENGTHENING_LINE: Final = "a clause that carries the block past the character bound " * 4
 # The one C-style module in the corpus. A JSX comment opens with a brace, so no other fixture puts
 # that shape in front of the reader, and it is bounded as an inline comment rather than a symbol doc.
@@ -95,15 +90,13 @@ JSON_CONFIG: Final = "fl_frontend/tsconfig.json"
 CONF_FILE: Final = "nginx/nginx.conf"
 SHELL_FILE: Final = "nginx/entrypoint.sh"
 DOCKERFILE: Final = "fl_backend/Dockerfile"
-CORE: Final = "docs/_standard/chapters/1-core.md"
-CURRENCY: Final = "docs/_standard/chapters/5-currency.md"
-RULES_INDEX: Final = "docs/_standard/rules-index.md"
+# The one-file standard, carrying both of the shapes a rule may take (PRE-4).
+STANDARD: Final = "docs/standard.md"
 GLOSSARY: Final = "docs/glossary.md"
 BACKEND_SPEC: Final = "docs/backend/spec.md"
 FRONTEND_SPEC: Final = "docs/frontend/spec.md"
 OVERVIEW: Final = "docs/backend/overview.md"
 FRONTEND_OVERVIEW: Final = "docs/frontend/overview.md"
-EXTRA_CHAPTER: Final = "docs/_standard/chapters/9-extra.md"
 ROADMAP: Final = "docs/_roadmap/open-items.md"
 # The tooling half of the split roadmap, so the shape check has more than the one ranked page to
 # loop over.
@@ -155,21 +148,12 @@ def _page(*lines: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _stamp() -> str:
-    return "**Verified against:** `" + PLACEHOLDER_SHA + "`, " + STAMP_DATE
-
-
-def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> dict[str, str]:
+def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
     """The clean corpus, keyed by repository path.
 
-    The currency table and the pull request form derive from the checker's own constants; a
-    hand-written copy would fail the fixture the day a check is added.
+    The pull request form derives from the body gate's own constants; a hand-written copy would
+    fail the fixture the day a fragment is reworded.
     """
-    rows = [
-        "| `" + name + "` | The finding names it | " + verdict.capitalize() + " |"
-        for name in sorted(checks)
-        for verdict in sorted(checks[name])
-    ]
     return {
         GITATTRIBUTES: _page("* text=auto eol=lf", "*.bin binary"),
         # The copy of scripts/ this fixture imports the gate from sits in the tree untracked, and
@@ -184,7 +168,7 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
         NOTES: _page(
             _heading(1, "Notes"),
             "",
-            "A page with no stamp, which is where a planted violation is written.",
+            "A plain page, which is where a planted violation is written.",
             "",
             "A bare name resolves to the tracked file alone: `glossary.md :: the competition year`.",
             "",
@@ -225,8 +209,6 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
         GLOSSARY: _page(
             _heading(1, "Glossary"),
             "",
-            _stamp(),
-            "",
             "The vocabulary, one entry each.",
             "",
             _heading(2, "Terms"),
@@ -244,12 +226,7 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
         BACKEND_SPEC: _page(
             _heading(1, "Backend — spec"),
             "",
-            _stamp(),
-            "",
             "The contract the store answers to. `fl_backend/app/sample.py` holds the sample module.",
-            "",
-            "The legacy module is cited across a wrap, and only there: `fl_backend/app/legacy.py ::",
-            "LEGACY` is what the stamp on this page has to be watched against.",
             "",
             _heading(2, "1. Contract"),
             "",
@@ -275,8 +252,6 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
         ),
         FRONTEND_SPEC: _page(
             _heading(1, "Frontend — spec"),
-            "",
-            _stamp(),
             "",
             "The contract the pages answer to.",
             "",
@@ -305,8 +280,6 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
         OVERVIEW: _page(
             _heading(1, "Backend — overview"),
             "",
-            _stamp(),
-            "",
             "A router, a service and a store.",
             "",
             _heading(2, "How it is organised"),
@@ -320,8 +293,6 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
         FRONTEND_OVERVIEW: _page(
             _heading(1, "Frontend — overview"),
             "",
-            _stamp(),
-            "",
             "A route, a view and a store.",
             "",
             _heading(2, "How it is organised"),
@@ -332,71 +303,37 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
             "",
             "The sheet beside this page.",
         ),
-        CORE: _page(
-            _heading(1, "Core rules"),
+        STANDARD: _page(
+            _heading(1, "Documentation standard"),
             "",
             # The one page whose metadata block runs to two entries, so the break rule has both a
             # line that must carry one and a line that must not -- and so a join has something to
-            # join to. Every other stamped page carries a block of one.
-            _stamp() + "\\",
+            # join to. Every other page carries a block of one.
+            "**Purpose:** every rule this corpus is held to, in one file.\\",
             "**Applies to:** every written artifact this corpus holds.",
             "",
-            "| ID | Rule |",
-            "| --- | --- |",
-            "| COR-1 | Write for a reader with no context |",
+            # Both of a rule's shapes: list lines, and sections carrying the ordered fields. The
+            # enforcement claims name real checks, so the clean corpus resolves every one.
+            "- **COR-1:** write for a reader with no context. _Enforced by_ `citation` and `path`.",
+            "- **COR-13:** a rule stated as a list line alone still claims enforcement. _Enforced by_ review judgment.",
             "",
-            _heading(3, "COR-1 — Write for a reader with no context"),
+            _heading(3, "COR-2 — Say it once"),
             "",
-            "**Rule:** every page is understandable to a reader meeting the repository for the first time.",
+            "**Rule:** a fact is stated in full in exactly one place and cited from everywhere else.",
             "",
-            "**Why:** the author has the context and cannot feel its absence.",
-            "",
-            "**Exceptions:** —",
-            "",
-            "**Enforced by:** `citation` and `path`.",
-            "",
-            "**Example:** a lesson survives as a rule stated in the present tense.",
-        ),
-        CURRENCY: _page(
-            _heading(1, "Currency rules"),
-            "",
-            _stamp(),
-            "",
-            "| ID | Rule |",
-            "| --- | --- |",
-            "| CUR-5 | Every gate check takes a row in the table |",
-            "",
-            _heading(3, "CUR-5 — Every gate check takes a row in the table below"),
-            "",
-            "**Rule:** the table lists every check the gate emits, at the verdict it emits.",
-            "",
-            "**Why:** the table is the one place a check's meaning is written down.",
+            "**Why:** a fact stated twice eventually disagrees with itself.",
             "",
             "**Exceptions:** —",
             "",
-            "**Enforced by:** `check-registry`.",
+            "**Enforced by:** `glossary-entry`.",
             "",
-            "**Example:** a check added with no row fails the gate until the row exists.",
+            "**Example:** a claim cited rather than repeated.",
             "",
-            _heading(2, "The checks"),
+            _heading(3, "OUT-42 — A second section, so a plant can break one shape per rule"),
             "",
-            "| Check | Means | Verdict |",
-            "| --- | --- | --- |",
-            *rows,
-        ),
-        RULES_INDEX: _page(
-            _heading(1, "Rules index"),
+            "**Rule:** the corpus carries a rule in each shape it may take, and more than one section.",
             "",
-            "Every rule in one line, with the chapter stating it.",
-            "",
-            _heading(2, "[Core rules](chapters/1-core.md)"),
-            "",
-            "- **COR-1:** write for a reader with no context.",
-            "- **COR-13:** a rule stated here alone still claims enforcement. _Enforced by_ review judgment.",
-            "",
-            _heading(2, "[Currency rules](chapters/5-currency.md)"),
-            "",
-            "- **CUR-5:** every gate check takes a row in the currency chapter's table.",
+            "**Enforced by:** `rule-shape`.",
         ),
         ROADMAP: _page(
             _heading(1, "Open items"),
@@ -578,8 +515,8 @@ def _write(root: Path, rel: str, text: str) -> None:
     path.write_bytes(text.encode("utf-8"))
 
 
-def _build(root: Path, pages: dict[str, str]) -> str:
-    """Write and commit the corpus, stamp it, and return a commit HEAD cannot reach."""
+def _build(root: Path, pages: dict[str, str]) -> None:
+    """Write and commit the corpus."""
     for rel, text in pages.items():
         _write(root, rel, text)
     # Tracked, and outside every scanned suffix, so a citation can name a file the reader cannot
@@ -596,22 +533,9 @@ def _build(root: Path, pages: dict[str, str]) -> str:
     _git(root, "add", "--", *pages, UNDECODABLE)
     _git(root, "commit", "-m", "Corpus: the gate finds nothing here")
 
-    verified = _git(root, "rev-parse", "--short=7", "HEAD")
-    for rel, text in pages.items():
-        if PLACEHOLDER_SHA in text:
-            _write(root, rel, text.replace(PLACEHOLDER_SHA, verified))
-    _git(root, "add", "--", *pages, UNDECODABLE)
-    _git(root, "commit", "-m", "Corpus: every stamp names the commit it was read against")
-
     # An untracked twin of a corpus page: the bare name the notes page cites must resolve past it.
     # `_reset` asserts it survives, because a deleted twin resolves that citation for the wrong reason.
     _write(root, UNTRACKED_TWIN, (root / GLOSSARY).read_text(encoding="utf-8"))
-
-    # A commit this clone HOLDS but HEAD cannot reach, which is what a stamp naming a dropped branch
-    # looks like -- the only way to tell it from a commit the clone never had. Kept on a ref.
-    aside = _git(root, "commit-tree", "HEAD^{tree}", "-m", "A commit no branch of this history reaches")
-    _git(root, "branch", "aside", aside)
-    return aside[:7]
 
 
 @dataclass(frozen=True)
@@ -621,8 +545,6 @@ class Fixture:
     gate: ModuleType
     body_gate: ModuleType
     root: Path
-    # A real commit that is not an ancestor of HEAD, for the stamp finding that needs one.
-    unreachable_sha: str
 
 
 def _discard(root: Path) -> None:
@@ -657,8 +579,8 @@ def _load() -> Fixture:
     # location, so importing this copy is what points every check at the corpus below instead of here.
     assert Path(gate.__file__ or "").resolve().parent.parent == root, "the gate under test is not the copy"
     body_gate = importlib.import_module("check_pr_body")
-    unreachable = _build(root, _corpus(gate.CHECKS, body_gate.TEMPLATE_FRAGMENTS))
-    return Fixture(gate, body_gate, root, unreachable)
+    _build(root, _corpus(body_gate.TEMPLATE_FRAGMENTS))
+    return Fixture(gate, body_gate, root)
 
 
 _STATE: list[Fixture] = []
@@ -787,42 +709,20 @@ def _read(rel: str) -> str:
     return (root / rel).read_text(encoding="utf-8")
 
 
-def _restamp(rel: str) -> None:
-    _replace(rel, ", " + STAMP_DATE, ", " + RESTAMP_DATE)
-
-
-def _replace(rel: str, old: str, new: str, *, restamp: bool = False) -> None:
+def _replace(rel: str, old: str, new: str) -> None:
     root = _gate().root
     text = _read(rel)
     assert old in text, "the corpus no longer carries " + repr(old) + " in " + rel
     _write(root, rel, text.replace(old, new, 1))
-    if restamp:
-        _restamp(rel)
 
 
-def _stage(*rels: str) -> None:
-    """A file a plant ADDED, put in the index so the gate reads it.
-
-    The gate resolves against `git ls-files`, so a page left untracked is one no check sees.
-    """
-    _git(_gate().root, "add", "--", *rels)
-
-
-def _append(rel: str, *lines: str, restamp: bool = False) -> None:
+def _append(rel: str, *lines: str) -> None:
     root = _gate().root
     _write(root, rel, _read(rel) + "\n" + "\n".join(lines) + "\n")
-    if restamp:
-        _restamp(rel)
 
 
-def _drop(rel: str, line: str, *, restamp: bool = False) -> None:
+def _drop(rel: str, line: str) -> None:
     _replace(rel, line + "\n", "")
-    if restamp:
-        _restamp(rel)
-
-
-def _stamp_line(rel: str) -> str:
-    return next(line for line in _read(rel).split("\n") if line.startswith("**Verified against:**"))
 
 
 def _delete(rel: str) -> None:
@@ -830,28 +730,16 @@ def _delete(rel: str) -> None:
     (root / rel).unlink()
 
 
-def _plant_rule_index() -> None:
-    """A rule with no line in the index, and a rule taking two."""
-    _drop(RULES_INDEX, "- **COR-1:** write for a reader with no context.")
-    _append(RULES_INDEX, "- **CUR-5:** every gate check takes a row in the currency chapter's table.")
-
-
 def _plant_rule_shapes() -> None:
-    """Fields out of shape, a rule with no table row, and a heading with no claim."""
-    _drop(CORE, "**Rule:** every page is understandable to a reader meeting the repository for the first time.")
-    _drop(CORE, "| COR-1 | Write for a reader with no context |", restamp=True)
-    _replace(
-        CURRENCY,
-        _heading(3, "CUR-5 — Every gate check takes a row in the table below"),
-        _heading(3, "CUR-5 stated as a title rather than a claim"),
-        restamp=True,
-    )
+    """A heading with no claim, and a section stating no required field."""
+    _replace(STANDARD, _heading(3, "COR-2 — Say it once"), _heading(3, "COR-2 stated as a title rather than a claim"))
+    _drop(STANDARD, "**Rule:** the corpus carries a rule in each shape it may take, and more than one section.")
 
 
 def _plant_glossary() -> None:
     """Fields that are not OUT-6's, and a heading that is not either."""
     _replace(GLOSSARY, "**Trap:**", "**Pitfall:**")
-    _replace(GLOSSARY, _heading(3, "`saison` — the competition year"), _heading(3, "saison, the competition year"), restamp=True)
+    _replace(GLOSSARY, _heading(3, "`saison` — the competition year"), _heading(3, "saison, the competition year"))
 
 
 def _plant_invariant_rows() -> None:
@@ -866,33 +754,24 @@ def _plant_invariant_rows() -> None:
         "| I1 | The write path validates its input | The sample module's own suite |\n"
         "| I1 | A row repeating an id | The reader cannot tell which rule is meant |\n"
         "| A malformed document | Delete it and post again |",
-        restamp=True,
     )
     _replace(
         FRONTEND_SPEC,
         "| I1 | A route names its own data | The route's own test |",
         "| I1 | A route names its own data |",
-        restamp=True,
     )
 
 
 def _plant_overviews() -> None:
     """A page that does not close on OUT-5's heading, and one that does not open on it."""
-    _replace(OVERVIEW, _heading(2, "Read next"), _heading(2, "Where next"), restamp=True)
-    _replace(FRONTEND_OVERVIEW, _heading(2, "How it is organised"), _heading(2, "The shape of it"), restamp=True)
+    _replace(OVERVIEW, _heading(2, "Read next"), _heading(2, "Where next"))
+    _replace(FRONTEND_OVERVIEW, _heading(2, "How it is organised"), _heading(2, "The shape of it"))
 
 
 def _plant_spec_spines() -> None:
     """Sections that are not OUT-4's, and a contract numbered with a gap."""
-    _replace(BACKEND_SPEC, _heading(2, "4. Known-open"), _heading(2, "4. Open questions"), restamp=True)
-    _replace(FRONTEND_SPEC, _heading(3, "1.1 The route"), _heading(3, "1.2 The route"), restamp=True)
-
-
-def _plant_check_registry() -> None:
-    """A row this gate does not emit, a check with no row, and a row at the wrong verdict."""
-    _append(CURRENCY, "| `not-a-check` | The finding names it | Fail |", restamp=True)
-    _drop(CURRENCY, "| `unreadable` | The finding names it | Fail |")
-    _replace(CURRENCY, "| `link` | The finding names it | Fail |", "| `link` | The finding names it | Report |")
+    _replace(BACKEND_SPEC, _heading(2, "4. Known-open"), _heading(2, "4. Open questions"))
+    _replace(FRONTEND_SPEC, _heading(3, "1.1 The route"), _heading(3, "1.2 The route"))
 
 
 def _plant_module_headers() -> None:
@@ -1010,61 +889,21 @@ def _plant_header_see() -> None:
     )
 
 
-def _plant_stamps() -> None:
-    """Every producer of `stamp`.
-
-    A page changed without restamping, a SHA this clone does not hold, and one it holds but cannot
-    reach from HEAD -- the last being the only way to tell a dropped branch from a shallow clone.
-    """
-    _append(GLOSSARY, "A sentence added under the entry.")
-    _replace(FRONTEND_SPEC, _stamp_line(FRONTEND_SPEC), "**Verified against:** `" + ABSENT_SHA + "`, " + STAMP_DATE)
-    unreachable = "**Verified against:** `" + _gate().unreachable_sha + "`, " + STAMP_DATE
-    _replace(BACKEND_SPEC, _stamp_line(BACKEND_SPEC), unreachable)
-
-
 def _plant_rule_ids() -> None:
-    """An unresolvable id, an id two chapters define, and an ambiguous invariant.
+    """An unresolvable id, an id with more than one home, and an ambiguous invariant.
 
-    The extra chapter is staged because `rule_ids` reads the TRACKED chapters; staged, it is also
-    scanned in its own right, hence its stamp and PRE-4's anatomy.
+    The duplicate is another list line under an id the standard already states: a citation of an
+    id with more than one home cannot say which is meant (PRE-4).
     """
     _append(NOTES, "A claim citing COR-99.")
     _append(SAMPLE, HASH + " a bare I1 with no sheet named")
-    _write(
-        _gate().root,
-        EXTRA_CHAPTER,
-        _page(
-            _heading(1, "Extra rules"),
-            "",
-            # The core chapter's stamp, minus its hard break: it carries one because a second entry
-            # follows it there, and this page's block is a single line that must carry none.
-            _stamp_line(CORE).removesuffix("\\"),
-            "",
-            "| ID | Rule |",
-            "| --- | --- |",
-            "| COR-1 | Write for a reader with no context |",
-            "",
-            _heading(3, "COR-1 — Write for a reader with no context"),
-            "",
-            "**Rule:** another chapter states the same rule, which is what makes it unresolvable.",
-            "",
-            "**Why:** a citation that resolves twice cannot be followed.",
-            "",
-            "**Exceptions:** —",
-            "",
-            "**Enforced by:** `rule-id`.",
-            "",
-            "**Example:** a rule copied into another chapter.",
-        ),
-    )
-    _stage(EXTRA_CHAPTER)
+    _append(STANDARD, "- **COR-1:** write for a reader with no context, stated again.")
 
 
 def _plant_branch_scope() -> None:
     """A clone with no base ref, as a fork and a trimmed checkout both are.
 
-    Renamed rather than rewritten: HEAD keeps its ancestors, so every stamp still resolves and the
-    findings are the advisory alone.
+    Renamed rather than rewritten: HEAD keeps its history, so the findings are the advisory alone.
     """
     _git(_gate().root, "branch", "-m", "main", "trunk")
 
@@ -1114,13 +953,13 @@ def _plant_history() -> None:
 
 
 def _plant_enforced_by() -> None:
-    """PRE-4's enforcement claim wherever a rule states one: a chapter, and the index.
+    """PRE-4's enforcement claim in both shapes: a section's field, and a list line's claim.
 
-    A rule with no chapter section claims enforcement in the index alone, so a chapter-only plant
-    would pass with every line-only claim unresolved.
+    A rule with no section claims enforcement in its list line alone, so a field-only plant would
+    pass with every line claim unresolved.
     """
-    _replace(CORE, "`citation` and `path`", "`no-such-check`", restamp=True)
-    _replace(RULES_INDEX, "_Enforced by_ review judgment.", "_Enforced by_ gate check `absent-check`.")
+    _replace(STANDARD, "**Enforced by:** `glossary-entry`.", "**Enforced by:** `no-such-check`.")
+    _replace(STANDARD, "_Enforced by_ review judgment.", "_Enforced by_ gate check `absent-check`.")
 
 
 def _plant_counts() -> None:
@@ -1159,7 +998,7 @@ def _plant_metadata_breaks() -> None:
     guarded on every run.
     """
     _append(NOTES, "**Scope:** the gate", "**Purpose:** a planted block")
-    _replace(CORE, "\\\n**Applies to:**", "\\n**Applies to:**")
+    _replace(STANDARD, "\\\n**Applies to:**", "\\n**Applies to:**")
     _append(TWIN_NOTES, "**Status:** Open**Surfaces:** Ops")
 
 
@@ -1181,16 +1020,6 @@ def _plant_anchors() -> None:
     """A fragment this page does not yield, and one another page does not."""
     _append(NOTES, "[here](#nowhere)")
     _append(ROADMAP, "[there](../notes.md#nowhere-either)")
-
-
-def _plant_stamp_formats() -> None:
-    """A stamp that is not CUR-3's shape, and one that is but sits off line 3.
-
-    The page that moves its stamp is restamped as well, because a page changed with its stamp line
-    untouched is `stamp`'s finding rather than this one.
-    """
-    _replace(FRONTEND_SPEC, _stamp_line(FRONTEND_SPEC), _stamp_line(FRONTEND_SPEC) + " extra")
-    _replace(FRONTEND_OVERVIEW, _stamp_line(FRONTEND_OVERVIEW), "\n" + _stamp_line(FRONTEND_OVERVIEW), restamp=True)
 
 
 def _plant_copy_dash() -> None:
@@ -1230,26 +1059,16 @@ def _plant_copy_corpus() -> None:
 
 
 def _plant_comment_bounds() -> None:
-    """Each of INC-9's bounds against each of its shapes, one file apiece.
+    """INC-9's one bound against every comment shape, one file apiece.
 
-    A block over both proves neither: lifting one cap leaves the other firing, and the case stays
-    green with half the rule gone.
+    The docstring and the doc block prove the shapes a narrower comment reader once dropped are
+    measured: a bound enforced over inline runs alone would leave every symbol doc unmeasured.
     """
-    _append(SAMPLE, *[HASH + " a line of a block that runs past what a comment may hold" for _ in range(4)])
-    # One line, so nothing but the character bound can fire on this block.
+    _append(SAMPLE, *[HASH + " a line of a block that runs past what a comment may hold" for _ in range(6)])
+    # One line, so nothing but this block's own text can be what fires.
     _append(SECOND_SAMPLE, HASH + " " + ("a clause that carries the block past the character bound " * 5))
-    _append(THIRD_SAMPLE, QUOTES + "a docstring summary line", "", *["a line of its prose"] * 4, QUOTES)
-    # Inside the line cap a symbol doc is given, so only the character bound reaches it.
-    _append(LABEL_SAMPLE, QUOTES + ("a docstring clause carrying the block past the character bound " * 5) + QUOTES)
-    # Past the inline cap and inside the symbol doc's, so a JSX block routed through the doc path
-    # stays silent here -- which is the whole of what this shape has to prove.
-    _append(
-        TSX_SAMPLE,
-        "{/* a jsx block long enough to pass the cap an inline comment takes",
-        "    with room to spare under the cap a symbol doc is given",
-        "    and well inside what a comment may hold in characters",
-        "    so the cap it was measured against is the visible thing */}",
-    )
+    _append(THIRD_SAMPLE, QUOTES + "a docstring summary line", "", *["a line of its prose carrying the block past the bound"] * 5, QUOTES)
+    _append(TSX_SAMPLE, "/** a symbol doc " + ("whose clauses carry it past the character bound " * 6) + "*/")
 
 
 def _plant_comment_citations() -> None:
@@ -1300,23 +1119,21 @@ CASES: Final[tuple[Case, ...]] = (
         _plant_bare_paths,
     ),
     Case("binary-byte", _fails("binary-byte", NOTES, UMLAUT_MODULE), _plant_binary_bytes),
-    Case("branch-scope", _reports("branch-scope", *[BRANCH_DIFF] * 3), _plant_branch_scope, _undo_branch_scope),
-    Case("branch-impact", _fails("branch-impact", BACKEND_SPEC), lambda: _append(SAMPLE, "EXTRA = 2")),
-    Case("check-registry", _fails("check-registry", CURRENCY, CURRENCY, CURRENCY), _plant_check_registry),
+    Case("branch-scope", _reports("branch-scope", BRANCH_DIFF), _plant_branch_scope, _undo_branch_scope),
     Case("citation", _fails("citation", NOTES, ROADMAP, ROADMAP, TEMPLATES, SWEEP, TWIN_NOTES), _plant_citations),
     Case(
         "comment-citation",
         _fails("comment-citation", SAMPLE, SECOND_SAMPLE) + _reports("comment-citation", SAMPLE, SAMPLE),
         _plant_comment_citations,
     ),
-    Case("comment-length", _fails("comment-length", SAMPLE, SECOND_SAMPLE, THIRD_SAMPLE, LABEL_SAMPLE, TSX_SAMPLE), _plant_comment_bounds),
+    Case("comment-length", _fails("comment-length", SAMPLE, SECOND_SAMPLE, THIRD_SAMPLE, TSX_SAMPLE), _plant_comment_bounds),
     Case("copy-corpus", _fails("copy-corpus", COPY_ROOT, COPY_ROOT), _plant_copy_corpus),
     Case("copy-dash", _fails("copy-dash", *[COPY_SAMPLE] * 3), _plant_copy_dash),
     Case("copy-formal", _fails("copy-formal", COPY_SAMPLE), _plant_copy_formal),
     Case("copy-informal", _fails("copy-informal", COPY_SAMPLE), _plant_copy_informal),
     Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
     Case("counts", _reports("counts", NOTES, SAMPLE), _plant_counts),
-    Case("enforced-by", _fails("enforced-by", CORE, RULES_INDEX), _plant_enforced_by),
+    Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD), _plant_enforced_by),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
     Case("header-see", _fails("header-see", *[SAMPLE] * 4), _plant_header_see),
     Case("history", _reports("history", BRANCH_DIFF), _plant_history),
@@ -1324,30 +1141,26 @@ CASES: Final[tuple[Case, ...]] = (
     Case(
         "invariant-id",
         _fails("invariant-id", BACKEND_SPEC),
-        lambda: _append(BACKEND_SPEC, "The read path also rests on I7.", restamp=True),
+        lambda: _append(BACKEND_SPEC, "The read path also rests on I7."),
     ),
     Case("invariant-row", _fails("invariant-row", BACKEND_SPEC, BACKEND_SPEC, FRONTEND_SPEC), _plant_invariant_rows),
     Case("line-citation", _fails("line-citation", NOTES, SAMPLE), _plant_line_citations),
     Case("line-endings", _fails("line-endings", NOTES, UMLAUT_MODULE), _plant_crlf),
     Case("link", _fails("link", NOTES), lambda: _append(NOTES, "[gone](gone.md)")),
-    Case("metadata-break", _fails("metadata-break", NOTES, TWIN_NOTES, CORE), _plant_metadata_breaks),
+    Case("metadata-break", _fails("metadata-break", NOTES, TWIN_NOTES, STANDARD), _plant_metadata_breaks),
     Case("module-header", _fails("module-header", *[SAMPLE] * 3, *[SECOND_SAMPLE] * 2, THIRD_SAMPLE, LABEL_SAMPLE), _plant_module_headers),
     Case("overview-spine", _fails("overview-spine", OVERVIEW, FRONTEND_OVERVIEW), _plant_overviews),
     Case("owner-voice", _fails("owner-voice", NOTES), lambda: _append(NOTES, "The owner reads it.")),
     Case("path", _fails("path", NOTES), lambda: _append(NOTES, "`docs/gone.md` is named here.")),
     Case("readme-cap", _fails("readme-cap", ROOT_README), lambda: _append(ROOT_README, *["A line." for _ in range(130)])),
     Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 8, *[TOOLING_ROADMAP] * 3), _plant_roadmap),
-    # The extra chapter names its own duplicated id, so it reports the collision alongside the pages
-    # that merely cite it -- the plant stages it, which is what puts it in the scan.
-    Case("rule-id", _fails("rule-id", NOTES, SAMPLE, CORE, RULES_INDEX, EXTRA_CHAPTER), _plant_rule_ids),
-    Case("rule-index", _fails("rule-index", RULES_INDEX, RULES_INDEX), _plant_rule_index),
-    Case("rule-shape", _fails("rule-shape", CORE, CORE, CURRENCY), _plant_rule_shapes),
+    # The standard names its own duplicated id, which is what reports the collision: every citer of
+    # a multiply homed id fails, and the definition lines are themselves citations.
+    Case("rule-id", _fails("rule-id", NOTES, SAMPLE, STANDARD), _plant_rule_ids),
+    Case("rule-shape", _fails("rule-shape", STANDARD, STANDARD), _plant_rule_shapes),
     Case("segment-map", _fails("segment-map", SWEEP, SWEEP), _plant_segment_map),
     Case("sha", _reports("sha", NOTES), lambda: _append(NOTES, "The commit `abc1234` is gone.")),
     Case("spec-spine", _fails("spec-spine", BACKEND_SPEC, FRONTEND_SPEC), _plant_spec_spines),
-    Case("stamp", _fails("stamp", GLOSSARY, BACKEND_SPEC) + _reports("stamp", FRONTEND_SPEC), _plant_stamps),
-    Case("stamp-format", _fails("stamp-format", FRONTEND_SPEC, FRONTEND_OVERVIEW), _plant_stamp_formats),
-    Case("stamp-missing", _fails("stamp-missing", OVERVIEW), lambda: _drop(OVERVIEW, _stamp_line(OVERVIEW))),
     Case(
         "template-fragment",
         _fails("template-fragment", TEMPLATES),
@@ -1514,7 +1327,7 @@ def test_an_unstaged_file_s_lines_are_read_as_lines_this_branch_added() -> None:
     git has no version of a file the index never reached, so the block below sits in no hunk.
     """
     _reset()
-    over = [HASH + " a line of a block that runs past what a comment may hold" for _ in range(4)]
+    over = [HASH + " a line of a block that runs past what a comment may hold" for _ in range(6)]
     _write(_gate().root, UNSTAGED_BLOCK, _page(QUOTES + "BACKEND · an unstaged module." + QUOTES, "", "VALUE = 1", "", *over))
     try:
         _, reported = _run()
@@ -1627,23 +1440,6 @@ def test_a_code_span_is_not_joined_across_a_blank_line() -> None:
     _assert_corpus_restored()
 
 
-def test_a_wrapped_citation_reaches_the_watch_list_cur_4_restamps_from() -> None:
-    """CUR-4 reads the same citations, so a wrap hidden from it drops a page out of branch-impact.
-
-    Driven through the legacy module, cited across a wrap and nowhere else, so a reader stopping
-    at the newline builds a watch list this change cannot appear in.
-    """
-    _reset()
-    _append(LEGACY_SAMPLE, "EXTRA = 3")
-    try:
-        _, reported = _run()
-    finally:
-        _reset()
-    reason = "a file cited only across a wrap never reached the watch list: "
-    assert reported[("fail", "branch-impact", BACKEND_SPEC)] == 1, reason + _shape(reported)
-    _assert_corpus_restored()
-
-
 def test_a_quoted_error_is_not_a_citation_and_a_broken_wrapped_one_still_is() -> None:
     """The separator alone is not evidence: COR-6's left half names a file, and quoted text does not.
 
@@ -1665,12 +1461,12 @@ def test_a_quoted_error_is_not_a_citation_and_a_broken_wrapped_one_still_is() ->
 
 
 def test_the_comment_bounds_read_a_file_by_its_format_not_its_suffix() -> None:
-    """INC-9's bounds are measured through the reader the FORMAT needs, not `path.suffix`.
+    """INC-9's bound is measured through the reader the FORMAT needs, not `path.suffix`.
 
     No corpus file separates the two: a suffixless path read for a C-style marker yields no block,
     so the check would run, report nothing, and look wired.
     """
-    block = [HASH + " a line of a block that runs past what a comment may hold" for _ in range(4)]
+    block = [HASH + " a line of a block that runs past what a comment may hold" for _ in range(6)]
     # A first line that opens no comment: a leading run of hashes is the module header, which INC-2
     # bounds instead and which `comment_runs` therefore steps over.
     raw = _page("FROM scratch", *block)

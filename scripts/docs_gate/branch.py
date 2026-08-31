@@ -7,27 +7,19 @@ from functools import cache, partial
 from pathlib import Path
 from typing import Final, Iterable
 
-import check_scope
-
 from .kernel import (
     OPS_FILENAMES,
     REPO_ROOT,
     SCANNED_SUFFIXES,
     SOURCE_SUFFIXES,
-    STAMP_LINE_RE,
-    STAMP_RE,
     Finding,
     _read_text,
     _scan_body,
     _skipped,
     git,
-    git_status,
-    scanned_files,
-    strip_fences,
     untracked_files,
 )
 from .perkind import roadmap_ids
-from .references import cited_paths
 from .structure import INCODE_SCOPES, check_comment_length
 
 # COR-3's banned shapes. Reported, never failed: "the former ... the latter" is ordinary English, so
@@ -123,42 +115,6 @@ def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
     return found
 
 
-@cache
-def _commit_present(sha: str) -> bool:
-    """Whether this clone holds the named commit. Cached: a repository stamps many pages at one."""
-    return git("cat-file", "-e", f"{sha}^{{commit}}") is not None
-
-
-@cache
-def _ancestor_of_head(sha: str) -> bool:
-    """Whether the named commit is behind HEAD. A git that cannot answer leaves the finding."""
-    return git_status("merge-base", "--is-ancestor", sha, "HEAD") == 0
-
-
-def check_stamps(paths: Iterable[Path]) -> list[Finding]:
-    """A `Verified against` SHA must be a real ancestor of HEAD.
-
-    An unknown SHA is only reported: a shallow clone genuinely does not have the object, and that is
-    the checkout's shape rather than the page's defect.
-    """
-    found: list[Finding] = []
-    for path in paths:
-        rel = path.relative_to(REPO_ROOT).as_posix()
-        raw = _read_text(path)[0]
-        if raw is None:
-            continue
-        match = STAMP_RE.search(strip_fences(raw))
-        if match is None:
-            continue
-        sha = match.group(1)
-
-        if not _commit_present(sha):
-            found.append(Finding("report", "stamp", rel, f"commit {sha} is not in this clone"))
-        elif not _ancestor_of_head(sha):
-            found.append(Finding("fail", "stamp", rel, f"commit {sha} is not an ancestor of HEAD"))
-    return found
-
-
 @dataclass(frozen=True, slots=True)
 class Branch:
     """The base ref this run was given, and the commit it resolved to.
@@ -185,53 +141,6 @@ def _branch_scope_skipped(checks: str, missing: str) -> Finding:
     return Finding("report", "branch-scope", "(branch diff)", f"{checks} did not run: git could not {missing}")
 
 
-def check_stamp_freshness(branch: Branch) -> list[Finding]:
-    """A stamped page changed on this branch must also change its stamp (CUR-4).
-
-    Editing the page without moving the stamp leaves its claim attached to work nobody verified, and
-    no other check can tell: an old SHA is a valid ancestor forever.
-    """
-    if (fork := branch.fork) is None:
-        return [_branch_scope_skipped("stamp freshness (CUR-4)", branch.unresolved)]
-    # Against the fork and the WORKING TREE, not HEAD: the gate runs before a commit exists, so
-    # comparing committed state would let the edit through on the run that could catch it.
-    changed = git("diff", "--name-only", fork, "--", "*.md")
-    if changed is None:
-        return [_branch_scope_skipped("stamp freshness (CUR-4)", "read this branch's diff")]
-    if not changed:
-        return []
-
-    found: list[Finding] = []
-    for rel in changed.split("\n"):
-        if not rel:
-            continue
-        path = REPO_ROOT / rel
-        if not path.is_file() or _skipped(path):
-            continue
-        current = _read_text(path)[0]
-        if current is None or STAMP_RE.search(strip_fences(current)) is None:
-            continue
-
-        before = _blob_at(fork, rel)
-        if before is None and not _absent_at_fork(fork, rel):
-            found.append(_branch_scope_skipped(f"this page's fork state ({rel})", f"read {rel} at the fork"))
-            continue
-        if before is None:  # added on this branch, so there is no earlier stamp to compare
-            continue
-        old_line = STAMP_LINE_RE.search(before)
-        new_line = STAMP_LINE_RE.search(current)
-        if old_line and new_line and old_line.group(0) == new_line.group(0):
-            found.append(
-                Finding(
-                    "fail",
-                    "stamp",
-                    rel,
-                    "changed on this branch without its `Verified against` line moving -- re-verify the page, then restamp (CUR-4)",
-                )
-            )
-    return found
-
-
 @cache
 def _blob_at(fork: str, rel: str) -> str | None:
     """One file as the fork commit holds it, or None where the commit has no such file.
@@ -239,114 +148,6 @@ def _blob_at(fork: str, rel: str) -> str | None:
     Cached: several checks ask for the same page's earlier version, and `git show` is a process each.
     """
     return git("show", f"{fork}:{rel}")
-
-
-def _absent_at_fork(fork: str, rel: str) -> bool:
-    """Whether the fork commit genuinely lacks `rel`, rather than git declining to say.
-
-    `--full-tree` roots the pathspec at the repository: read relative to the cwd, a false "absent"
-    exempts a stamped page in silence.
-    """
-    return git("ls-tree", "--full-tree", "--name-only", fork, "--", rel) == ""
-
-
-def _stamp_only_delta(fork: str, rel: str) -> bool:
-    """A markdown delta consisting only of moved stamp lines is a restamp, not a change.
-
-    Restamping is `branch-impact`'s own remedy, so a restamp re-arming it on every citer would turn
-    one edit into a repository-wide cascade.
-    """
-    if not rel.endswith(".md"):
-        return False
-    before = _blob_at(fork, rel)
-    after = _read_text(REPO_ROOT / rel)[0]
-    if before is None or after is None:
-        return False
-
-    def keep_placeholders(match: re.Match[str]) -> str:
-        return "" if STAMP_RE.search(match.group(0)) else match.group(0)
-
-    # git() strips what `git show` returns while read_text keeps the trailing newline, so without
-    # this the two sides never compare equal.
-    normalised_before = STAMP_LINE_RE.sub(keep_placeholders, before).strip()
-    normalised_after = STAMP_LINE_RE.sub(keep_placeholders, after).strip()
-    return normalised_before == normalised_after
-
-
-# Named rather than spelled inline: the formatter would fold the tuple into PEP 758's
-# `except A, B:`, newer than `checker_kernel.py :: PARSE_FLOOR`.
-UNREADABLE: Final = (OSError, UnicodeDecodeError)
-
-
-def _material(fork: str, path: str) -> bool:
-    """Whether a changed file is one a stamped page citing it must be re-verified against.
-
-    A file the classifier cannot read counts as material: an uncaught raise here would take the run
-    down before a finding is printed.
-    """
-    try:
-        if Path(path).suffix in check_scope.PARSEABLE and check_scope.is_comment_only(fork, path):
-            return False
-    except UNREADABLE:
-        return True
-    return not _stamp_only_delta(fork, path)
-
-
-def check_branch_impact(branch: Branch) -> list[Finding]:
-    """A stamped page whose cited files materially changed on this branch must restamp (CUR-4)."""
-    if (fork := branch.fork) is None:
-        return [_branch_scope_skipped("branch impact (CUR-4)", branch.unresolved)]
-    listed = check_scope.changed_files(fork)
-    if listed is None:
-        return [_branch_scope_skipped("branch impact (CUR-4)", "read this branch's diff")]
-    changed = set(listed)
-    if not changed:
-        return []
-
-    # Collected before anything is classified: materiality costs a git call and a parser run per
-    # file, and a file no stamped page cites can never reach a finding.
-    pages: list[tuple[str, str, set[str]]] = []
-    for path in scanned_files():
-        if path.suffix != ".md":
-            continue
-        raw = _read_text(path)[0]
-        if raw is None:
-            continue
-        body = _scan_body(path)
-        if STAMP_RE.search(body) is None:
-            continue
-        if cited := cited_paths(body) & changed:
-            pages.append((path.relative_to(REPO_ROOT).as_posix(), raw, cited))
-
-    material = {path for path in sorted({path for _, _, cited in pages for path in cited}) if _material(fork, path)}
-    if not material:
-        return []
-
-    found: list[Finding] = []
-    for rel, raw, cited in pages:
-        hits = sorted(cited & material)
-        if not hits:
-            continue
-
-        before = _blob_at(fork, rel)
-        if before is None and not _absent_at_fork(fork, rel):
-            found.append(_branch_scope_skipped(f"this page's fork state ({rel})", f"read {rel} at the fork"))
-            continue
-        if before is None:  # added on this branch, so its stamp is already this branch's work
-            continue
-        old_line = STAMP_LINE_RE.search(before)
-        new_line = STAMP_LINE_RE.search(raw)
-        if old_line and new_line and old_line.group(0) == new_line.group(0):
-            shown = ", ".join(hits[:4]) + (f", and {len(hits) - 4} more" if len(hits) > 4 else "")
-            found.append(
-                Finding(
-                    "fail",
-                    "branch-impact",
-                    rel,
-                    f"this branch materially changed {shown}, which this stamped page cites -- re-verify the page, then restamp (CUR-4)",
-                )
-            )
-    return found
 
 
 def _unresolved_commits(shas: Iterable[str]) -> set[str] | None:
@@ -380,13 +181,12 @@ def _unresolved_commits(shas: Iterable[str]) -> set[str] | None:
 def check_prose_shas(paths: Iterable[Path]) -> list[Finding]:
     """A commit SHA named in prose or in a comment resolves in this clone. Always a report.
 
-    Reported for the reason `stamp` reports an unknown SHA: a shallow clone genuinely lacks the
-    object.
+    Reported rather than failed: a shallow clone genuinely lacks the object, and that is the
+    checkout's shape rather than the page's defect.
     """
     per_file: dict[str, set[str]] = {}
     for path in paths:
-        # Stamp lines come out first: `stamp` already resolves those.
-        for sha in PROSE_SHA_RE.findall(STAMP_LINE_RE.sub("", _scan_body(path))):
+        for sha in PROSE_SHA_RE.findall(_scan_body(path)):
             if any(c.isdigit() for c in sha) and any(c.isalpha() for c in sha):
                 per_file.setdefault(path.relative_to(REPO_ROOT).as_posix(), set()).add(sha)
 
@@ -498,7 +298,7 @@ def check_branch_diff(branch: Branch) -> list[Finding]:
 
 
 def check_comment_bounds(branch: Branch) -> list[Finding]:
-    """INC-9's bounds, over the comment blocks this branch wrote."""
+    """INC-9's bound, over the comment blocks this branch wrote."""
     # Silent rather than advisory: `check_branch_diff` already names this check among those reading
     # one diff.
     if (fork := branch.fork) is None:

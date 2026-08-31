@@ -1,6 +1,5 @@
 # Backend — overview
 
-**Verified against:** `ea1b5c04`, 2026-08-31\
 **Scope:** `fl_backend/`
 
 A FastAPI application over MongoDB, with one authorization tier per router ([`spec.md`](spec.md) I7). The
