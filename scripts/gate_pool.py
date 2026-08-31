@@ -25,22 +25,24 @@ NOT_STARTED: Final = "not-started"
 
 MANIFEST: Final = "manifest.tsv"
 
-
-@dataclass(frozen=True)
-class Unit:
-    """One scope, and the scopes that must finish before it may start.
-
-    `after` is not a schedule but the scopes this one shares mutable state with, which verify.sh
-    holds beside the scope bodies: what is shared is a fact about them, not about the pool.
-    """
-
-    scope: str
-    after: tuple[str, ...]
+# The tail is submitted first: threads spawn in this order and a --width below the scope count
+# admits in it, so the run's floor stays its longest scope. Full-form profile, 2026-08-26; a
+# scope absent here sorts last, in the order given.
+TYPICAL_MS: Final[dict[str, int]] = {
+    "db": 86_000,
+    "frontend": 61_000,
+    "scripts": 46_000,
+    "backend": 38_000,
+    "format": 33_000,
+    "docs": 10_000,
+    "images": 8_000,
+    "ops": 2_400,
+}
 
 
 @dataclass
 class Result:
-    """What one unit did, as the manifest carries it.
+    """What one scope did, as the manifest carries it.
 
     `status` is a string on purpose: no integer is free to mean `NOT_STARTED`, and verify.sh has to
     tell that apart from an exit code a scope really returned.
@@ -53,7 +55,7 @@ class Result:
 
 @dataclass
 class Pool:
-    """The run's own state, shared by the thread driving each unit."""
+    """The run's own state, shared by the thread driving each scope."""
 
     directory: Path
     bash: str
@@ -67,36 +69,16 @@ class Pool:
         return int((time.monotonic() - self.started) * 1000)
 
 
-def parse_unit(text: str) -> Unit:
-    """`scope` or `scope:after,after` -- the form verify.sh writes its constraint table in."""
-    scope, _, after = text.partition(":")
-    if not scope:
-        raise ValueError("a unit needs a scope name: " + repr(text))
-    return Unit(scope=scope, after=tuple(name for name in after.split(",") if name))
+def longest_first(scopes: list[str]) -> list[str]:
+    """The scopes in submission order, the given order breaking ties.
 
-
-def ordered(units: list[Unit]) -> list[Unit]:
-    """The units in an order where every dependency is submitted before whatever waits on it.
-
-    An absent future raises inside a worker thread, reported as a scope that produced nothing
-    rather than as the typo it is.
+    A schedule and never a verdict: the manifest and the replay stay in the caller's own order,
+    so re-profiling `TYPICAL_MS` changes nothing a reader compares.
     """
-    known = {unit.scope for unit in units}
-    for unit in units:
-        unknown = sorted(set(unit.after) - known)
-        if unknown:
-            raise ValueError(unit.scope + " must follow scopes this run does not have: " + ", ".join(unknown))
-    settled: list[Unit] = []
-    placed: set[str] = set()
-    remaining = list(units)
-    while remaining:
-        ready = [unit for unit in remaining if placed.issuperset(unit.after)]
-        if not ready:
-            raise ValueError("the units' constraints form a cycle: " + ", ".join(unit.scope for unit in remaining))
-        settled.extend(ready)
-        placed.update(unit.scope for unit in ready)
-        remaining = [unit for unit in remaining if unit not in ready]
-    return settled
+    for scope in scopes:
+        if not scope:
+            raise ValueError("a unit needs a scope name")
+    return sorted(scopes, key=lambda scope: -TYPICAL_MS.get(scope, 0))
 
 
 def spawn(pool: Pool, scope: str) -> int:
@@ -122,33 +104,27 @@ def spawn(pool: Pool, scope: str) -> int:
         return child.wait()
 
 
-def run_unit(pool: Pool, unit: Unit) -> None:
-    """Wait for what this scope shares state with, take a slot, run it, record it.
-
-    The slot is taken after the wait, so a thread holding one never waits on another unit: a width
-    limit would otherwise deadlock against the shared-state order.
-    """
-    for name in unit.after:
-        pool.futures[name].result()
+def run_unit(pool: Pool, scope: str) -> None:
+    """Take a slot, run the scope, record what it returned and when."""
     with pool.slots:
-        result = pool.results[unit.scope]
+        result = pool.results[scope]
         result.started_ms = pool.elapsed_ms()
         try:
-            result.status = str(spawn(pool, unit.scope))
+            result.status = str(spawn(pool, scope))
         finally:
             result.ended_ms = pool.elapsed_ms()
 
 
-def write_manifest(pool: Pool, units: list[Unit]) -> None:
-    """One row per unit, in the order it was given, written as bytes with LF endings.
+def write_manifest(pool: Pool, scopes: list[str]) -> None:
+    """One row per scope, in the order it was given, written as bytes with LF endings.
 
     Bytes rather than text: bash reads this file back, and a Windows text handle ends every row
     with a carriage return.
     """
     rows: list[str] = []
-    for unit in units:
-        result = pool.results[unit.scope]
-        rows.append(f"{unit.scope}\t{result.status}\t{result.started_ms}\t{result.ended_ms}\n")
+    for scope in scopes:
+        result = pool.results[scope]
+        rows.append(f"{scope}\t{result.status}\t{result.started_ms}\t{result.ended_ms}\n")
     (pool.directory / MANIFEST).write_bytes("".join(rows).encode("utf-8"))
 
 
@@ -158,27 +134,26 @@ def main() -> int:
     parser.add_argument("--bash", required=True, help="the shell to run each worker under -- the parent's own")
     parser.add_argument("--verify", required=True, help="the gate script a worker is one scope of")
     parser.add_argument("--width", type=int, default=0, help="most workers at once; 0 for no limit")
-    parser.add_argument("unit", nargs="+", help="scope, or scope:after,after")
+    parser.add_argument("unit", nargs="+", help="a scope name per unit")
     given = parser.parse_args()
 
-    units = ordered([parse_unit(text) for text in given.unit])
+    scopes: list[str] = given.unit
+    submission = longest_first(scopes)
     pool = Pool(
         directory=Path(given.dir),
         bash=given.bash,
         verify=given.verify,
-        slots=threading.Semaphore(given.width if given.width > 0 else len(units)),
-        results={unit.scope: Result() for unit in units},
+        slots=threading.Semaphore(given.width if given.width > 0 else len(scopes)),
+        results={scope: Result() for scope in scopes},
         started=time.monotonic(),
     )
 
-    # One thread per unit, not per slot: an executor sized to the slots would run out of threads
-    # for the waiters, which hold nothing.
     try:
-        with ThreadPoolExecutor(max_workers=len(units)) as threads:
-            for unit in units:
-                pool.futures[unit.scope] = threads.submit(run_unit, pool, unit)
-            for unit in units:
-                pool.futures[unit.scope].result()
+        with ThreadPoolExecutor(max_workers=len(scopes)) as threads:
+            for scope in submission:
+                pool.futures[scope] = threads.submit(run_unit, pool, scope)
+            for scope in submission:
+                pool.futures[scope].result()
     except KeyboardInterrupt:
         # Ctrl-C already reached every worker through the process group, and each is winding down
         # through its own trap: returning first strands a half-built image or a stand-in .env.
@@ -186,7 +161,7 @@ def main() -> int:
     finally:
         # Written even when a unit's thread raised: without the manifest a crash here reads as a
         # gate that proved nothing, rather than one that proved what it got through.
-        write_manifest(pool, units)
+        write_manifest(pool, scopes)
     return EXIT_OK
 
 

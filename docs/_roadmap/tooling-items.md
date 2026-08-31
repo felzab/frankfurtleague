@@ -272,31 +272,30 @@ same way, which no reader has a rule to catch it by.
 **Status:** Open\
 **Surfaces:** Ops\
 **Effort:** M\
-**Path:** Independent — it blocks nothing and nothing blocks it. It answers what **OPS-19** and
-**OPS-10** defer to: each proposes removing work from inside one scope, and the profile below names
-which section binds the run, so neither moves the gate's wall clock here while `db` is the tail. It
+**Path:** Independent — it blocks nothing and nothing blocks it. The profile below names which
+section binds the run, so removing work from inside any other scope moves nothing here while `db`
+is the tail. It
 shares a prerequisite with **OPS-70**, whose candidate repair — a database name carrying the run's own
 identity — is exactly what the first lever needs; taking the two together is an ordering note, not a
 dependency. Its own branch: it reaches the pool manifest, which carries the exit contract.
 
-**The gate's floor is its longest section plus whatever waits behind it.** `scripts/verify.sh` writes one unit
-per scope in the form `scope:after,after`, `scripts/gate_pool.py :: parse_unit` reads it, and
-`:: ordered` holds a unit back until every scope its `after` names has finished. Nothing passes
-`--width`, so the pool opens one slot per unit and every unconstrained scope starts at once. `ops` is
-the exception and the run's tail: it follows three scopes, and in the run tabulated below it starts at
-91 seconds of 94 to do 2.4 seconds of work. The constraint and what it protects are
-`scripts/verify.sh :: scope_shares` and [`docs/ops/spec.md`](../ops/spec.md) §1.6.
+**The gate's floor is its longest section, and the schedule is a pure max.** Nothing passes
+`--width`, so the pool opens one slot per scope, every scope starts at once, and the
+expected-longest are submitted first (`scripts/gate_pool.py :: TYPICAL_MS`,
+[`docs/ops/spec.md`](../ops/spec.md) §1.6). No scope waits on another: the compose parse reads its
+stand-in `.env` files from a scratch copy rather than the real trees, so what remains of the wall
+clock is the longest section itself — the database tier below.
 
-**Two scopes writing one `__pycache__` is not a coupling, and a second chain must not be added on
+**Two scopes writing one `__pycache__` is not a coupling, and a chain must not be added on
 that reasoning.** `docs` and `scripts` have shared two of those directories unconstrained since the
 pool was written: CPython writes a bytecode file to a temporary name and renames it, nothing in this
 repository reads pytest's `nodeids`, and `lastfailed` is written only when its value changes and
 steers only `--lf`, which the gate never passes. The argument in full is `d828ee1c`'s, and it is worth
 reading before any scope here is made to wait on another.
 
-**How the chain is read off a run, rather than inferred.** Sample `ps` while a full-form run is going
-and record when each worker's process first appears: the unconstrained scopes appear together within
-seconds, and any scope appearing later is one the pool held. That separates a scope that is slow from
+**How a start is read off a run, rather than inferred.** Sample `ps` while a full-form run is going
+and record when each worker's process first appears: every scope should appear within seconds of
+the pool opening, and one appearing later is one something held. That separates a scope that is slow from
 a scope that started late, which a per-scope duration cannot — a section reported at two seconds is
 two seconds of work at the end of a wait the closing table never names.
 
@@ -369,7 +368,8 @@ worker that silently cleared a neighbour's seeds fails somewhere else entirely.
 **The profile: one full-form run with images, `d828ee1c`, 2026-08-26.** Taken on an idle machine — a
 contended measurement measures the contention ([`docs/ops/spec.md`](../ops/spec.md) §3), and for the
 database tier the difference between a figure and OPS-70 is exactly that. Starts-at is `ps` sampling,
-seconds from the run's start. What a tier costs on its own belongs to
+seconds from the run's start; the `ops` row's late start is the wait that run's schedule imposed on
+it, which the pure-max schedule above does not. What a tier costs on its own belongs to
 [`docs/backend/spec.md`](../backend/spec.md); what this table holds is the gate's own sections, which
 include the waiting.
 

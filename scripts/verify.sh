@@ -76,14 +76,13 @@ gate_exit() {
 trap gate_exit EXIT
 
 if (( RUN_OPS || RUN_IMAGES )); then
-  STANDIN_BE=0; STANDIN_FE=0
+  OPS_SCRATCH=""
   # The tag carries this run's pid, so the forced removal below reaches only what this run built.
   # Under a fixed tag a concurrent run would delete them, and `-f` asks no questions.
   VERIFY_TAG="frankfurtleague-verify-$$"
   cleanup() {
     rm -rf "${REPO_ROOT}/.tmp-nginx-check"
-    if (( STANDIN_BE )); then rm -f fl_backend/.env; fi
-    if (( STANDIN_FE )); then rm -f fl_frontend/.env; fi
+    if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH"; fi
     docker image rm -f "${VERIFY_TAG}:frontend" "${VERIFY_TAG}:backend" >/dev/null 2>&1 || true
   }
 fi
@@ -109,31 +108,6 @@ add_scope images   "$RUN_IMAGES"
 
 # A worker is given one scope, so its own answer would be every other scope in the gate.
 if ! worker; then set_not_run "$NOT_RUN"; fi
-
-# Absence means independent of every other scope, which is what lets the pool start it at once.
-scope_shares() { # $1 scope · prints the scopes it must follow
-  case "$1" in
-    # Its stand-in .env files appear and vanish in both trees, which the backend's tests and
-    # `next build` read while they run.
-    ops) printf 'backend db frontend' ;;
-  esac
-  return 0
-}
-
-# Named only where this run covers them: the pool refuses a constraint naming a scope it was not
-# given, so a typo above is an error rather than a guarantee quietly dropped.
-UNITS=()
-build_units() {
-  local IFS=' ' name other after
-  for name in "${SCOPE_ORDER[@]}"; do
-    after=""
-    for other in $(scope_shares "$name"); do
-      case " ${SCOPES_RAN} " in *" ${other} "*) after+="${other}," ;; esac
-    done
-    UNITS+=("${name}${after:+:${after%,}}")
-  done
-}
-build_units
 
 wrap_up() {
   # In a worker the ending belongs to the parent, which alone knows what the run left unproven.
@@ -208,7 +182,7 @@ fi
 # serial one it must match. Serial where concurrency cannot pay or be watched: CI runs a scope
 # per job, streaming cannot be replayed, serial is the oracle.
 PARALLEL=1
-if (( SERIAL || VERBOSE )) || worker || [[ -n "${CI:-}" ]] || (( ${#UNITS[@]} < 2 )); then PARALLEL=0; fi
+if (( SERIAL || VERBOSE )) || worker || [[ -n "${CI:-}" ]] || (( ${#SCOPE_ORDER[@]} < 2 )); then PARALLEL=0; fi
 
 POOL_PY=""
 if (( PARALLEL )); then
@@ -235,10 +209,10 @@ if (( PARALLEL )); then
 
   # The parent spins for the whole pool: a worker's own spinner is dead, its stdout being a file,
   # and this is the one stretch of a run where nothing prints for a minute.
-  spinner_start "${#UNITS[@]} scopes running concurrently"
+  spinner_start "${#SCOPE_ORDER[@]} scopes running concurrently"
   POOL_RC=0
   "$POOL_PY" scripts/gate_pool.py --dir "$POOL_DIR" --bash "$POOL_BASH" --verify scripts/verify.sh \
-    "${UNITS[@]}" || POOL_RC=$?
+    "${SCOPE_ORDER[@]}" || POOL_RC=$?
   spinner_stop
   # The pool answers on the checkers' scale, never the workers': a failure here is this program
   # failing, which is a crash whatever the scopes did.
@@ -584,13 +558,17 @@ if (( RUN_OPS )); then
   section ops
 
   step "ops · compose files parse"
-  # Compose refuses to parse a file whose env_file is missing, and a CI checkout has neither .env.
-  # A stand-in is created only where the file is absent, and the EXIT trap removes it.
-  if [[ ! -f fl_backend/.env ]]; then : > fl_backend/.env; STANDIN_BE=1; fi
-  if [[ ! -f fl_frontend/.env ]]; then : > fl_frontend/.env; STANDIN_FE=1; fi
-  quietly docker compose -f docker-compose.yml config --quiet \
+  # Compose refuses to parse a file whose env_file is missing, so each file is parsed from a
+  # scratch copy beside stand-in .envs -- never the real trees, which the backend, db and
+  # frontend scopes read while they run. The EXIT trap removes the scratch.
+  OPS_SCRATCH="$(mktemp -d)"
+  mkdir -p "${OPS_SCRATCH}/fl_backend" "${OPS_SCRATCH}/fl_frontend"
+  cp docker-compose.yml docker-compose.local.yml "${OPS_SCRATCH}/"
+  : > "${OPS_SCRATCH}/fl_backend/.env"
+  : > "${OPS_SCRATCH}/fl_frontend/.env"
+  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" config --quiet \
     || die "docker-compose.yml does not parse."
-  quietly docker compose -f docker-compose.local.yml config --quiet \
+  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.local.yml" config --quiet \
     || die "docker-compose.local.yml does not parse."
   ok "both compose files parse"
 

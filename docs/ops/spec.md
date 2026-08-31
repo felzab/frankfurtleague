@@ -366,8 +366,10 @@ stream: a terminal merging stdout and stderr sees a scope's error lines after it
 than between it, which is the merge and not a defect. `--serial` runs them one at a time and is
 what a byte-identity comparison is measured
 against; `--verbose`, a run covering one scope, CI (already one scope per job) and a machine with
-no interpreter at the checkers' floor are serial too. `ops` follows `backend`, `db` and `frontend`,
-whose trees its stand-in `.env` files appear in. **The `--frontend` implication above is the
+no interpreter at the checkers' floor are serial too. No scope waits on another — the compose
+parse reads its stand-in `.env` files from a scratch copy, never the real trees — and the pool
+submits the expected-longest scopes first (`scripts/gate_pool.py :: TYPICAL_MS`), so the run's
+floor is its longest scope. **The `--frontend` implication above is the
 parent's, never a worker's** — a worker runs the one scope it is given. `scripts/gate_pool.py` owns
 the spawning and nothing else; the sections and closing statements stay in `scripts/_lib.sh`.
 
