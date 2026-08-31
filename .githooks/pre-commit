@@ -54,6 +54,9 @@ if [ ${#staged[@]} -eq 0 ]; then
 fi
 
 work="$(mktemp -d)"
+# `git hash-object` cannot open mktemp's MSYS alias (/tmp/…) from a worktree, where no conversion
+# layer rewrites the argument — the resolution `scripts/selfcheck.sh :: mount_source` also applies.
+work="$(cygpath -w "$work" 2>/dev/null || printf '%s' "$work")"
 trap 'rm -rf "$work"' EXIT
 
 declare -A candidate
