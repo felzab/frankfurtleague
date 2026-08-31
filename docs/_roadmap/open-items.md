@@ -160,8 +160,9 @@ nobody has measured it. Retention is the other half, and it sits with the Datens
   telling an administrator to search by correlation id stops finding anything older. The endpoint
   already takes `collection`, `operation` and `correlation_id`; nothing sends them.
 
-**What this settles for the domain programme.** D30 gates round 3 on this entry, reasoning that
-writes made before an action log exists are writes nobody can reconstruct. The recording is what that
+**What this settles for the domain programme.** The domain programme sequenced round 3 behind this
+entry, on the reasoning that writes made before an action log exists are writes nobody can
+reconstruct. The recording is what that
 gate wanted, and the restore is a convenience over the log rather than the thing being waited for — so
 the gate lifts when the recording reaches `main`, not when it is written. Round 3's phases 1 and 2
 write no data and never depended on it; the phases that migrate and generate do, and for those "the
@@ -232,9 +233,9 @@ early costs nothing, because the schema does not move whichever way it is answer
 an engineering fact — no schema records a consent, its scope or who gave it — and every sentence below
 touching a lawful basis is a question for somebody qualified rather than an answer from one.
 
-**`einwilligung.bestaetigt_am` has a schema and no writer.** D64 defers who sets it, and records that
-**the schema is identical under every answer they can give** — `umfang`, `erteilt_von`, `datum` and
-`bestaetigt_am` are written either way, so the field, the rule that publishes nobody without a
+**`einwilligung.bestaetigt_am` has a schema and no writer.** Who sets it is deferred to the
+Datenschutzexperte — a deferral taken knowing **the schema is identical under every answer they can
+give**: `umfang`, `erteilt_von`, `datum` and `bestaetigt_am` are written either way, so the field, the rule that publishes nobody without a
 recorded consent, and the registration form are all built before the answer arrives, and the answer
 selects a writer **without a migration**. What
 changes is only which of three designs is built:
@@ -251,17 +252,20 @@ all. _Jugend trainiert für Olympia_ publishes school by school and names no pup
 **What is worth putting to them while they are there.** Each is settled in the corpus and each
 rests on a judgement nobody qualified has reviewed:
 
-- **Every existing pupil is stamped as publicly consented.** D59 backfills `umfang:
-"kader_oeffentlich"` for all of them so nothing changes on deploy. The reservation is recorded at
-  the decision: this asserts a consent for which no evidence is held, and D24 establishes that a
-  published Datenschutzerklärung does not by itself create a lawful basis. The decision was taken
+- **Every existing pupil is stamped as publicly consented.** The deploy-time backfill wrote
+  `umfang: "kader_oeffentlich"` — and `bestaetigt_am`, without which the publish rule would have
+  emptied every public squad list — for all of them, so nothing changed on deploy. The reservation
+  is recorded at the decision: this asserts a consent for which no evidence is held, and — the
+  operator being an eingetragener Verein, not a school, so no school-law basis applies — a published
+  Datenschutzerklärung does not by itself create a lawful basis. The decision was taken
   with that stated. Round 3 makes the record truthful by keeping a backfilled consent
   **distinguishable** from a collected one.
-- **The action log keeps a copy of every person it touches, and it is accumulating now.** D83 found
-  that BE-15 stores the prior document on every write, so the log holds a copy of every `spieler` and
-  `saison_spieler` row it has ever touched. D60 declined anonymising a pupil because anonymisation
-  "answers a pupil's erasure request by keeping a record of them" — and a prior-document log is
-  exactly that record, reached from a direction D60 never looked. **An erasure request is answered
+- **The action log keeps a copy of every person it touches, and it is accumulating now.** The log's
+  design surfaced that BE-15 stores the prior document on every write, so the log holds a copy of
+  every `spieler` and `saison_spieler` row it has ever touched. Anonymising a pupil was declined
+  because anonymisation "answers a pupil's erasure request by keeping a record of them" — and a
+  prior-document log is
+  exactly that record, reached from a direction that decision never looked. **An erasure request is answered
   there too**: `DELETE /spieler/{spieler_id}/erasure` empties and stamps every log row naming that
   person or one of their squad rows, inside the transaction that removes them
   (`docs/backend/spec.md :: I42`). What no request reaches is the copy the log holds of every OTHER
@@ -269,13 +273,13 @@ rests on a judgement nobody qualified has reviewed:
   who did not ask, and **how long that is kept is this entry's question rather than the erasure's**.
 - **A pupil is hard-deleted and a referee is only anonymised**, and both are built —
   `DELETE /spieler/{spieler_id}/erasure` against
-  `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`. D60's asymmetry is forced by the data
+  `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`. The asymmetry is forced by the data
   — `spiele` holds no player reference of any kind, while it embeds a referee's name and id on every
   fixture — but whether the asymmetry is the right answer is not a data question.
 - **"Under 16 needs a guardian" cannot be enforced by any server rule.** No birthdate is stored and
-  `stufe` is only a proxy, so it lives at the form as a warning on `E1` and `E2`. D64 **declines
-  storing `geburtsdatum`**, on the reasoning that it answers a privacy problem by storing a strictly
-  more identifying fact about a minor than the one being protected. That decline is the part most
+  `stufe` is only a proxy, so it lives at the form as a warning on `E1` and `E2`. Storing
+  `geburtsdatum` was **declined**, on the reasoning that it answers a privacy problem by storing a
+  strictly more identifying fact about a minor than the one being protected. That decline is the part most
   worth having confirmed or overturned.
 - **The consent a registration composes asserts a guardian, and the caller is an administrator.**
   `fl_backend/app/api/spieler/services.py :: registration_einwilligung` writes `erteilt_von` as
@@ -1826,8 +1830,9 @@ beside editable fields owes the reader a word saying which it is.
 
 **What it would show is uniform, measured against the live database on 2026-08-22:** each of the 362
 stored pupils carries a consent, every one `umfang: kader_oeffentlich` and
-`erteilt_von: bestandsuebernahme`, each with a confirmation date. That is D59's backfill rather than a
-collected consent, and it is what makes the display worth something: a record nobody can see is a
+`erteilt_von: bestandsuebernahme`, each with a confirmation date. That is the deploy-time backfill
+(BE-23 carries its reservation) rather than a collected consent, and it is what makes the display
+worth something: a record nobody can see is a
 record nobody can check, and whether that backfill should stand at all is BE-23's subject.
 
 **What it must not quietly become.** Rendering the field is not gating publication on it, not making it
