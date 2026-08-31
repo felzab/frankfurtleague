@@ -78,6 +78,10 @@ admin-authorized data any caller could reach.** None carries a cache tag either:
 something inside a cache scope. Each seeds the request's correlation scope, which a `"use cache"`
 read cannot ([`docs/logging/spec.md`](../logging/spec.md#11-the-correlation-id)).
 
+**Which read an admin editor opens on is the editor's own.** The matchday editor reads
+`GET /spieltage/{spieltag_id}/admin`; the club editor reads no detail endpoint at all, narrowing
+`GET /teams/memberships`, which already carries every season the club holds a row in.
+
 **The application form's reads are base-tier and uncached, and the tier is not what settles it.**
 Each answers a question judged against the present moment rather than a property of the season —
 whether a window is running today, whether a Kürzel, a club or a kit colour is still free — so a
