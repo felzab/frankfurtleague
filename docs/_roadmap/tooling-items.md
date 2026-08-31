@@ -84,15 +84,14 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 36  | OPS-66  | The CSP's style directive is wider than it needs to be             | Ops, Docs         | S      | Open     | —          |
 | 37  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
 | 38  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
-| 39  | DOC-9   | Pairs of audit checks hunt the same ground                         | Docs              | S      | Closed   | —          |
-| 40  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
-| 41  | OPS-19  | Both repository-wide linters re-read every file                    | FE, Ops           | S      | Open     | —          |
-| 42  | OPS-10  | The comment-only classifier costs a process per file               | Ops               | S      | Open     | —          |
-| 43  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
-| 44  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
-| 45  | DOC-3   | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
-| 46  | DOC-10  | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
-| 47  | OPS-81  | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
+| 39  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
+| 40  | OPS-19  | Both repository-wide linters re-read every file                    | FE, Ops           | S      | Open     | —          |
+| 41  | OPS-10  | The comment-only classifier costs a process per file               | Ops               | S      | Open     | —          |
+| 42  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
+| 43  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
+| 44  | DOC-3   | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
+| 45  | DOC-10  | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
+| 46  | OPS-81  | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -2083,59 +2082,7 @@ inside it as the branch's own prose. **The narrower question is the decision:** 
 `check_comment_length` alone should treat a rename's destination as added while the set the other
 branch-scoped checks read stays as it is.
 
-### 39 · DOC-9 — Pairs of audit checks hunt one another's ground, and only one pair has a boundary about it
-
-**Status:** Closed\
-**Surfaces:** Docs\
-**Effort:** S\
-**Path:** Independent. A prompt is read at the start of a pass, so the repair lands whenever it is
-made and pays nothing until a pass runs.
-
-**Pairs of checks under `docs/_auditing/prompts/` ask for the same findings, and each pair fails
-differently.**
-
-**The frontend pair contradicts a boundary its own page states.**
-`docs/_auditing/prompts/frontend/1-deprecated.md`'s dead-styling-vocabulary check hunts classes and
-tokens resolving to nothing, tokens renamed out from under their users, and arbitrary values
-duplicating a token. `docs/_auditing/prompts/frontend/6-styling-perf.md`'s token-discipline check
-hunts arbitrary values duplicating or bypassing a token, tokens declared and consumed by nothing, and
-shadowed or stale token names. That same page's boundary line hands "deprecated utilities and dead
-styling vocabulary" to the pass above, so a check and the boundary under it disagree about who owns
-the ground.
-
-**The ops and crosscut pair has no boundary at all.**
-`docs/_auditing/prompts/ops/1-build-deploy.md`'s gate-coverage check builds a required table of
-failure classes against what catches each, naming the known residents of "by nothing" — cache-tag
-wiring among them. `docs/_auditing/prompts/crosscut/1-contracts-and-seams.md`'s contract-enforcement
-check builds a required table of seams against what would catch a regression today, and cache-tag
-wiring is one of its own seams. Neither page's boundary section names the other, so the overlap is
-invisible from either.
-
-**Why it is worth a repair rather than a shrug.** A required table is required, so both passes fill
-theirs and the same row is derived and reported in each — the duplication the remediation ledger then
-has to notice, which [`docs/_auditing/lessons.md`](../_auditing/lessons.md) §7 records as the
-ledger's own failure mode. A check duplicated across passes also splits the evidence for one finding
-across reports nobody reads together.
-
-**What the repair has to preserve.** A boundary line is how a pass knows what it is not, so the
-answer is not simply deleting a check. What each pass needs is a lens: the frontend pair splits on
-whether the vocabulary is _dead_ or merely _bypassed_, and the ops and crosscut pair splits on
-whether a row is a failure class the gate could catch or a seam no single surface can see. Either
-split is a sentence in each prompt, and both pages of a pair move together.
-
-**Not decided:** whether `docs/_auditing/prompts/README.md` should carry a rule that every check
-names its counterpart, or whether the boundary lines stay the only mechanism.
-
-**What concluded it.** The lens split it asked for is in the prompts: f1's dead-vocabulary check
-owns what resolves to nothing and hands a live token bypassed or duplicated to f6, whose
-token-discipline check says the same from its side; ops 1's coverage map hands a cross-surface
-seam — cache-tag wiring named — to crosscut 1 check 8, which in turn refuses any class one
-surface's gate could catch, and both BOUNDARIES lines carry the handoff. The undecided question is
-settled against a README rule: `docs/_auditing/programme.md` §1.6 already states the boundary
-discipline, and OUT-3 bans rules in READMEs, so a README copy would be the second statement this
-entry exists to remove.
-
-### 40 · DOC-2 — An enforcement claim is resolved in one direction only
+### 39 · DOC-2 — An enforcement claim is resolved in one direction only
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -2167,7 +2114,7 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 41 · OPS-19 — Both repository-wide linters re-read every file on every run
+### 40 · OPS-19 — Both repository-wide linters re-read every file on every run
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -2284,7 +2231,7 @@ resolves it to two over a file set this size — a numeric 2 makes that explicit
 taken from a development machine: the flag ships on local evidence, and that condition stands open
 against it.
 
-### 42 · OPS-10 — Deciding whether a change is comments only costs a process per file
+### 41 · OPS-10 — Deciding whether a change is comments only costs a process per file
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -2314,7 +2261,7 @@ spawning it replaced.
 **Not measured:** what the spawns actually cost, and how much of a gate run is attributable to them.
 The mechanism above is read from the code; the magnitude is not.
 
-### 43 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 42 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -2353,7 +2300,7 @@ a faster diagnosis is worth a new way for `deploy.sh` to refuse.
 cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 44 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 43 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -2398,7 +2345,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately.
 
-### 45 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 44 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -2431,7 +2378,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a rule family added to the standard under a prefix the patterns do not
 carry, or the first page that needs a metadata block indented.
 
-### 46 · DOC-10 — A block already over a bound is excused by its opening line alone
+### 45 · DOC-10 — A block already over a bound is excused by its opening line alone
 
 **Status:** Standing\
 **Surfaces:** Ops, Docs\
@@ -2459,7 +2406,7 @@ rests on.
 **Trigger to revisit:** a branch charged for a block whose length it did not create, or any change to
 how `check_comment_length` decides whose block a block is.
 
-### 47 · OPS-81 — One commit imports a frontend module the commit after it adds
+### 46 · OPS-81 — One commit imports a frontend module the commit after it adds
 
 **Status:** Standing\
 **Surfaces:** FE, Ops\
