@@ -95,7 +95,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 41  | FB-18 | Only the match editor marks a field somebody waits on                | FE, BE          | L      | Open     | —          |
 | 42  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
 | 43  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Open     | —          |
-| 55  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
+| 54  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
 | 44  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
 | 45  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
 | 46  | BE-24 | An unnarrowed squad read scans an unindexed collection               | BE              | S      | Open     | —          |
@@ -104,10 +104,9 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 49  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
 | 50  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Open     | —          |
 | 51  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
-| 52  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Closed   | —          |
-| 53  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
-| 54  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
-| 56  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
+| 52  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
+| 53  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
+| 55  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -2650,9 +2649,8 @@ sentence somewhere that survives the deletion — the `UNENFORCED` entry above, 
 that compares two numbers, on the ground that a rule already carrying a test is cheaper than one derived
 again from scratch.
 
-**What ranks it here.** Above **FE-32**: each costs a maintainer rather than a user, but that one's doubt is
-settled by reading the sentence beside the id, and this one's only by searching the backend for a caller.
-Deliberately not near
+**What ranks it here.** It costs a maintainer rather than a user, and its doubt is settled only by
+searching the backend for a caller. Deliberately not near
 **BE-34**, which reads like the same finding and is not — that index's unserved half is a read somebody
 wants built, so landing it adds a capability, and nothing here adds one.
 
@@ -2721,52 +2719,10 @@ fails on a sentence that is right.
 
 **What ranks it here.** Below **BE-38**: settling that entry's question costs a search of the whole
 backend for a caller, where the four sentences here say the same thing today and the cost is a later
-edit's freedom to part them. Above **FE-32**: that entry misleads nobody and its doubt is answered by reading the sentence
-beside the id, where this one's is answered only by noticing that a helper's reach stops short of a
-module, which nothing on either side says.
+edit's freedom to part them. Its own doubt is answered only by noticing that a helper's reach stops
+short of a module, which nothing on either side says.
 
-### 52 · FE-32 — A banner's id names a derivation its own sentence does not state
-
-**Status:** Closed\
-**Surfaces:** FE\
-**Effort:** S\
-**Path:** Independent — the rename is three sites inside the venue slice.
-
-**`spielort.maps-link-derived` is raised whenever a venue's name or its address differs from what is
-stored, and what it tells the reader is that every match at that venue changes with it**
-(`fl_frontend/src/features/spielorte/components/forms/AdminSpielortEditForm/banners.ts :: buildSpielortBanners`).
-The sentence names the consequence — fixtures long since played will show the new name and lead to
-the new address — and states no derivation at all. Nothing a reader sees mentions a map link, and the
-banner also fires on a plain rename, which the words `maps-link` do not cover either.
-
-**The derivation the id names is real and lives elsewhere.** `maps_link` is composed server-side from
-the venue's name and its address, as [`docs/glossary.md`](../glossary.md)'s `Spielort` entry records.
-So the id is a true statement about the backend and a false description of the banner — the
-failure a stable id exists to prevent, since the id is the handle a maintainer greps for and it now
-leads to a rule about a different field.
-
-**What a rename costs, measured 2026-08-26.** Three sites, all inside the slice: the
-`SpielortBannerId` union, the object literal, and one assertion in the module's own tests. Nothing
-else keys on it — a banner id is a React key and a `supersedes` target
-(`fl_frontend/src/shared/components/ui/railBanner.ts :: RailBanner`), never persisted, never in a URL,
-never sent to the API, and no page under `/docs` outside `docs/audit/` names this one. The six sibling
-banner modules share the type's shape and none of its values, so none of them moves.
-
-**`docs/audit/` stays out of scope**, for the reason **FE-23** gives: those pages quote what stood
-when they were written, so rewriting an id there falsifies a record instead of correcting a claim.
-
-**What ranks it last among the open items.** No reader is misled and no behaviour is wrong. The cost
-of leaving it is one maintainer's minute in a module that is read whenever a venue's banners change,
-and that is less than every entry above it.
-
-**What concluded it: the rename, at the three measured sites.** The id is now
-`spielort.name-adresse-changed`, stating what raises the banner — either identity field differing
-from what is stored — in the grammar the sibling ids already use (`spieltag.zeitraum-changed`,
-`schiedsrichter.name-changed`); the sentence keeps naming the fixture consequence. The union, the
-object literal and the module's tests moved together, and a grep confirms nothing else keys on the
-old spelling outside `docs/audit/`, which stays as written for the reason the entry gives.
-
-### 53 · BE-7 — `typing` imports instead of `collections.abc`
+### 52 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -2779,7 +2735,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 54 · BE-14 — The certainty walk gives up in a group of six or more
+### 53 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -2838,7 +2794,7 @@ deduplicated, but inside a transaction, whose lifetime is bounded.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 55 · BE-47 — A sort option nothing sends scans the archive it sorts
+### 54 · BE-47 — A sort option nothing sends scans the archive it sorts
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -2879,7 +2835,7 @@ unreachable into the ordinary path and makes the plan above the one an administr
 does not hold. That no caller sends `sort_by` was read off the page and the absence of another consumer
 rather than proven by instrumenting the endpoint.
 
-### 56 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
+### 55 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
 
 **Status:** Standing\
 **Surfaces:** BE\
