@@ -1115,14 +1115,15 @@ panel to say a replaced club's players were _stillgelegt_ and forbade _ausgetrag
 arguing that wording it as a removal would mislead. **Both halves were the wrong way round**: the
 endpoint stamps `saison_spieler` and touches no `spieler` document, so the forbidden word was the
 correct one. The suite was green throughout, and the test was what would have had to be edited before
-the defect could be fixed. The replacement response's field name drifted the same
-way until the pair was declared.
+the defect could be fixed. FB-21 on `open-items.md` is the field name that drifted for the same missing
+declaration.
 
 **A DOM runner does not close it, which is why this is not OPS-67.** Rendering the panel and asserting
 on the rendered text would fail in precisely the same way, because the fault is in what the assertion
 compares against, not in how it reads the component. **What closes it is an authority for the vocabulary
-and a test that reads it** — the pair of verbs declared once in `docs/glossary.md`, whose
-`inactive_since` entry fixes _stilllegen_ against _austragen_; and the consequential sentences composed by an exported function, as
+and a test that reads it** — the pair of verbs declared once in `docs/glossary.md`, which today
+describes `inactive_since` as "the day something left" for every subject and fixes no German for any of
+them; and the consequential sentences composed by an exported function, as
 `fl_frontend/src/features/teams/utils.ts :: describeReplacementUmfang` and
 `fl_frontend/src/features/saisons/utils.ts :: describeSpielplanUmfang` already are, so the assertion is
 over a value rather than over a file's bytes.
