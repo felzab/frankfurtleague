@@ -10,6 +10,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLBewerbungFensterResponse } from "@/features/bewerbungen/schemas";
+import type { FLTrikotFarbe } from "@/features/teams/schemas";
 
 /** Where a school goes when this page cannot take its application, whatever closed it. */
 const ZUM_KONTAKT = { href: "/kontakt", label: "Zum Kontakt" };
@@ -38,6 +39,7 @@ export function BewerbungView({
   today,
   schulen,
   isSchulenLesbar,
+  vergebeneFarben,
 }: {
   saisonId: string;
   /** `null` where the season takes no applications at all, which is its own answer. */
@@ -50,6 +52,8 @@ export function BewerbungView({
   schulen: readonly { id: string; name: string }[];
   /** Whether that list was read at all, so an empty picker says which of the two emptied it. */
   isSchulenLesbar: boolean;
+  /** The colours an administrator has ASSIGNED this season, which the wish picker then leaves out. */
+  vergebeneFarben: readonly FLTrikotFarbe[];
 }) {
   const zustand = isUnlesbar ? "unlesbar" : fensterZustand(fenster, today);
 
@@ -110,6 +114,7 @@ export function BewerbungView({
           saisonId={saisonId}
           schulen={schulen}
           isSchulenLesbar={isSchulenLesbar}
+          vergebeneFarben={vergebeneFarben}
         />
       )}
 

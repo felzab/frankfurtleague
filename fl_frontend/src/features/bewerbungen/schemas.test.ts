@@ -6,8 +6,8 @@ import { describe, it } from "node:test";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { SCHULE_NICHT_IN_LISTE } from "./constants.ts";
-import { FLPostBewerbungPayloadSchema } from "./schemas.ts";
+import { BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
+import { FLBewerbungTrikotFarbenResponseSchema, FLPostBewerbungPayloadSchema } from "./schemas.ts";
 import { bewerbungPayload, buildEmptyBewerbungDraft, geburtsdatumSpanne } from "./utils.ts";
 
 import type { BewerbungFormDraft, BewerbungKontaktpersonDraft, BewerbungSchuleDraft } from "./types.ts";
@@ -378,6 +378,84 @@ describe("the colour the school wishes for", () => {
 
   it("accepts one naming a colour, and asks for nothing about the shirts themselves", () => {
     assert.deepEqual(refusedPaths(gueltig({ trikot: { vorhandener_satz: "", wunschfarbe: "blau" } })), []);
+  });
+});
+
+describe("what the season's assigned colours parse as", () => {
+  const antwort = (vergeben: unknown) => FLBewerbungTrikotFarbenResponseSchema.safeParse({ acknowledged: 1, saison_id: "2627", vergeben });
+
+  /* First, because the refusals below are only refusals if the shape parses at all. */
+  it("reads a season that has assigned some of the palette, and one that has assigned none", () => {
+    assert.equal(antwort(["rot", "blau"]).success, true);
+    assert.equal(antwort([]).success, true);
+  });
+
+  /* Pinned HERE rather than by `apiContract.test.ts`: that comparison reads a field's own type and
+     never descends into an array's items, so `z.array(z.string())` would agree with the document. */
+  it("refuses a colour the league's palette does not hold", () => {
+    assert.equal(antwort(["rot", "neonpink"]).success, false, "the mirror admits a colour outside FLTrikotFarbe");
+    assert.equal(antwort(["rot", 7]).success, false, "the mirror admits a value that is not a colour at all");
+  });
+});
+
+describe("the opponent the school wishes for", () => {
+  /* Free text and never a club id: a school may name one that has not applied yet, which is the whole
+     reason this is not a picker. */
+  it("accepts a name the league holds no club for", () => {
+    assert.deepEqual(refusedPaths(gueltig({ wunschgegner: "Irgendeine Schule, die es noch nicht gibt" })), []);
+  });
+
+  /* Optional, so an untouched box submits. `null` and not `""`: one spelling of „kein Wunsch“, or the
+     stored record carries two and every reader has to test for both. */
+  it("submits an untouched box as null rather than as an empty string", () => {
+    const payload = bewerbungPayload(gueltig({ wunschgegner: "" }));
+
+    assert.equal(payload.wunschgegner, null);
+    assert.deepEqual(refusedPaths(gueltig({ wunschgegner: "" })), []);
+  });
+
+  /* Spaces alone are no more a wish than an empty box is, and `min_length` counts characters — so the
+     form and `parse_empty_string_to_none` have to agree about which entries mean „kein Wunsch“. */
+  it("submits a box holding only spaces as null too", () => {
+    assert.equal(bewerbungPayload(gueltig({ wunschgegner: "   " })).wunschgegner, null);
+  });
+
+  /* Sent untrimmed, as every other name on this payload is: the backend strips before it stores, so a
+     trim here would be a second place deciding what the stored value is. */
+  it("sends a named opponent as it was typed", () => {
+    assert.equal(bewerbungPayload(gueltig({ wunschgegner: " Goethe-Gymnasium " })).wunschgegner, " Goethe-Gymnasium ");
+  });
+
+  it("refuses a name past the payload's ceiling", () => {
+    assert.deepEqual(refusedPaths(gueltig({ wunschgegner: "G".repeat(BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH + 1) })), ["wunschgegner"]);
+    assert.deepEqual(refusedPaths(gueltig({ wunschgegner: "G".repeat(BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH) })), []);
+  });
+
+  /* The forgery `docs/frontend/spec.md :: I46` describes, on the one applicant-controlled value this
+     change adds: the decision mail sets one fact to the line, so an interior break opens a line the
+     reader cannot tell from a stated one. */
+  for (const [was, wert] of [
+    ["a line feed", "Goethe\nStartgeld: 500 Euro"],
+    ["a carriage return and line feed", "Goethe\r\nStartgeld: 500 Euro"],
+    ["a lone carriage return", "Goethe\rStartgeld: 500 Euro"],
+  ]) {
+    it(`refuses an opponent broken by ${was}`, () => {
+      assert.deepEqual(refusedPaths(gueltig({ wunschgegner: wert })), ["wunschgegner"]);
+    });
+  }
+
+  /* A break at either END is trimmed rather than refused, as it is for a school's own name: a paste
+     artefact is nobody's second line. */
+  it("trims an opponent padded with a break rather than refusing it", () => {
+    assert.deepEqual(refusedPaths(gueltig({ wunschgegner: "\n Goethe \n" })), []);
+  });
+
+  /* The one OPTIONAL key on this payload, mirroring the one default the backend model carries: a
+     client that has not asked yet omits it rather than 422ing on a field the deploy before required. */
+  it("accepts a submission that names no such key at all", () => {
+    const { wunschgegner: _weggelassen, ...ohne } = bewerbungPayload(gueltig());
+
+    assert.equal(FLPostBewerbungPayloadSchema.safeParse(ohne).success, true);
   });
 });
 

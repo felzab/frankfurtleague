@@ -32,6 +32,7 @@ import {
   BEWERBUNG_TEAM_NAME_MAX_LENGTH,
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
   BEWERBUNG_WEBSITE_URL_MAX_LENGTH,
+  BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
   KUERZEL_LAENGE,
 } from "./constants";
 import { geburtsdatumSpanne } from "./utils";
@@ -109,6 +110,9 @@ export const FLBewerbungSchema = z.object({
   kontakte: FLSaisonTeamKontakteSchema,
   trikot: FLBewerbungTrikotSchema,
   kader: FLBewerbungKaderSchema,
+  // A FREE STRING and never a club id: a school may name an applicant the league has not accepted,
+  // so nothing here resolves against the roster. Unbounded on read, as every read field here is.
+  wunschgegner: z.string().nullable(),
   entscheidung: FLBewerbungEntscheidungSchema.nullable(),
 });
 export type FLBewerbung = z.infer<typeof FLBewerbungSchema>;
@@ -219,6 +223,19 @@ export const FLBewerbungKuerzelResponseSchema = BaseAPIResponseSchema.extend({
   vergeben: z.boolean(),
 });
 export type FLBewerbungKuerzelResponse = z.infer<typeof FLBewerbungKuerzelResponseSchema>;
+
+/**
+ * Mirrors `FLBewerbungTrikotFarbenResponse` — which colours one season has ASSIGNED, naming no club
+ * (`READ-BEWERBUNG-001`). The set is `saison_teams.trikot_farbe` and never an application's
+ * `trikot.wunschfarbe`: a wish is no assignment.
+ */
+export const FLBewerbungTrikotFarbenResponseSchema = BaseAPIResponseSchema.extend({
+  saison_id: z.string(),
+  // `vergeben` as the Kürzel read means it — taken, and by nobody this answer names. A list because
+  // JSON has no set; the endpoint is what makes it distinct and palette-ordered.
+  vergeben: z.array(FLTrikotFarbeSchema),
+});
+export type FLBewerbungTrikotFarbenResponse = z.infer<typeof FLBewerbungTrikotFarbenResponseSchema>;
 
 /** Mirrors `FLPostBewerbungResponse`. Nothing of the submission is echoed back into the page. */
 export const FLPostBewerbungResponseSchema = BaseAPIResponseSchema.extend({
@@ -506,6 +523,20 @@ export const FLPostBewerbungPayloadSchema = z
     kontakte: FLBewerbungKontaktePayloadSchema,
     trikot: FLBewerbungTrikotPayloadSchema,
     kader: FLBewerbungKaderPayloadSchema,
+    // The one OPTIONAL key on this payload, mirroring the backend's one default: a client that has
+    // not asked yet omits it. Line-bounded like `schule.team_name` and for its reason
+    // (`docs/frontend/spec.md :: I46`).
+    wunschgegner: einzeiligerName(
+      z
+        .string()
+        .trim()
+        .max(BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, {
+          error: `Der Wunschgegner darf höchstens ${String(BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH)} Zeichen lang sein.`,
+        }),
+      "Der Wunschgegner",
+    )
+      .nullable()
+      .optional(),
   })
   .refine((bewerbung) => (bewerbung.team_id === null) !== (bewerbung.schule === null), {
     // On `team_id`, the field the picker renders: the answer „schon dabei oder neu“ is given there,

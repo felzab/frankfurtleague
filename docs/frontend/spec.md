@@ -94,8 +94,18 @@ on inviting applications after the window shut. `getBewerbungKuerzel` answers wh
 which another school can take between two page loads — and `"use cache"` keys on the argument, so a
 cached "free" survives the moment it stops being true and the form offers a Kürzel the write then
 refuses (`REQ-BEWERBUNG-008`). `getBewerbungSchulen` is the same question one step out: a club
-entered this morning would be missing from the picker for as long as an entry stood. None carries a
-cache tag either, for the reason above.
+entered this morning would be missing from the picker for as long as an entry stood.
+`getBewerbungTrikotfarben` is that question a third time: an administrator assigns a kit colour
+between two page loads, and a cached "still free" outlives the moment it stopped being true. None
+carries a cache tag either, for the reason above.
+
+**The club list and the assigned-colour read each degrade toward the WIDER offer.** The club
+list falls back to the new-school arm, and the assigned-colour read falls back to the empty set —
+which offers the whole palette, because an unreadable answer means nothing is known to be taken.
+Narrowing on a failed read would withhold a colour nobody holds, and a wish is not unique in any
+case: two schools may wish for one colour, and the assignment is the administrator's
+(`fl_frontend/src/features/teams/utils.ts :: offeredTrikotFarben`, which drops the exclusion
+entirely once it would leave a required picker with nothing in it).
 
 **A page reading one of them from more than one boundary shares a single round trip, and that
 sharing is NOT the data cache.** `fl_frontend/src/core/api.ts :: apiClient` bounds every call with an

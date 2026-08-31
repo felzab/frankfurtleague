@@ -81,7 +81,7 @@ export function schulformLabel(schulform: FLSchulform): string {
   return SCHULFORM_OPTIONS.find((option) => option.value === schulform)?.label ?? "";
 }
 
-type TrikotFarbeOption = {
+export type TrikotFarbeOption = {
   readonly value: FLTrikotFarbe;
   readonly label: string;
   /** The swatch's fill, taken from the league's CI document and authoritative over any eyeballed match. */

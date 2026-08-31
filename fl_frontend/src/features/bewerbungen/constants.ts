@@ -63,6 +63,9 @@ export const BEWERBUNG_WEBSITE_URL_MAX_LENGTH = 300;
 export const BEWERBUNG_KONTAKT_NAME_MAX_LENGTH = 80;
 export const BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH = 500;
 export const BEWERBUNG_KADER_GROESSE_MAX = 200;
+// `BEWERBUNG_FULL_NAME_MAX_LENGTH`'s width rather than the team name's: nothing holds an applicant to
+// the league's short name, so what they type is a school's own name.
+export const BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH = 120;
 
 /**
  * The span a contact person's birthdate has to fall in, bound on the PUBLIC payload alone: a date

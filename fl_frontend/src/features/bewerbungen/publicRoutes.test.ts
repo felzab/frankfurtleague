@@ -23,6 +23,17 @@ const POST_ROUTE = readFileSync(path.join(APP_DIR, "api", "bewerbung", "route.ts
 const PUBLIC_ROUTE = readFileSync(path.join(SRC_DIR, "shared", "utils", "publicRoute.ts"), "utf8");
 const UNDO_ROUTE = readFileSync(path.join(SRC_DIR, "shared", "utils", "undoRoute.ts"), "utf8");
 const FORM = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "forms", "BewerbungForm", "BewerbungForm.tsx"), "utf8");
+const TEAM_SECTION = readFileSync(
+  path.join(SRC_DIR, "features", "bewerbungen", "components", "forms", "BewerbungForm", "FormTeamSection.tsx"),
+  "utf8",
+);
+
+/**
+ * The wish control's props, cut out so each assertion reads it and nothing near it. Bounded by its
+ * own `<Label>`: an arrow function in a prop carries a `>`, so a cut to the first one would read
+ * half the control.
+ */
+const WUNSCHGEGNER = /<ComboBox([\s\S]*?)<Label/.exec(TEAM_SECTION)?.[1] ?? "";
 
 /**
  * The `saison` slot per ground, each cut out so an assertion reads that arm and nothing near it. The BASE is
@@ -340,5 +351,75 @@ describe("how the page spells the box a panel sits in", () => {
   it("takes the state panel's box from formPanel", () => {
     assert.match(VIEW, /formPanel\(\)\.root\(\)/, "the state panel hand-writes a box the form already has a recipe for");
     assert.doesNotMatch(VIEW, /"border-border bg-surface flex w-full flex-col/, "a second spelling of the panel box is back");
+  });
+});
+
+describe("how the form asks for a wished opponent", () => {
+  /* First: a cut that found nothing would leave every assertion below reading the empty string, and
+     `doesNotMatch` passes over that happily. */
+  it("finds the control at all", () => {
+    assert.notEqual(WUNSCHGEGNER, "", "the team section renders no ComboBox for the wished opponent");
+    assert.match(TEAM_SECTION, /<Label className=\{FIELD_LABEL\}>Wunschgegner/, "the control carries no label naming the wish");
+  });
+
+  /* The whole reason this is not a picker. Dropped, the control still compiles, still lints, still
+     builds -- and silently refuses every school that is not already one of the league's clubs, which
+     includes every fellow applicant. */
+  it("takes a name the list does not hold", () => {
+    assert.match(WUNSCHGEGNER, /allowsCustomValue/, "the wished opponent became a picker over the league's own clubs");
+  });
+
+  /* `name` IS the payload path: `<Form validationErrors>` distributes by it, so a refusal reaches
+     this box only under the name the schema spells. */
+  it("names the field as the payload spells it", () => {
+    assert.match(WUNSCHGEGNER, /name="wunschgegner"/, "a refusal about the wish would reach no control");
+  });
+
+  /* A TYPED field is judged when it is left. Moved onto the change handler, the form would grade a
+     name between two keystrokes -- the pattern §7 forbids. */
+  it("judges it on blur rather than between keystrokes", () => {
+    assert.match(WUNSCHGEGNER, /onBlur=\{\(\) => onFieldLeft\(\["wunschgegner"\]\)\}/, "the wish is no longer judged when the field is left");
+    assert.doesNotMatch(WUNSCHGEGNER, /onInputChange=\{[^}]*onFieldLeft/, "the wish is judged between two keystrokes");
+  });
+
+  /* The league's whole roster and never a season-scoped set: one growing with each acceptance would
+     hand a late applicant the longer list. `docs/backend/spec.md :: I47` withholds one in any case. */
+  it("suggests the league's clubs, the same list the school picker reads", () => {
+    assert.match(
+      FORM,
+      /<FormTeamSection[\s\S]*?schulen=\{schulen\}/,
+      "the suggestions no longer come from the club list the page already read",
+    );
+    assert.match(TEAM_SECTION, /\{schulen\.map\(/, "the team section offers no suggestions at all");
+  });
+});
+
+describe("which kit colours the wish picker leaves out", () => {
+  /* Colours an administrator ASSIGNED, off the endpoint that answers `saison_teams.trikot_farbe`.
+     Read off another application's `trikot.wunschfarbe` instead, the picker would carry one school's
+     submission into another school's form. */
+  it("reads the season's assignments and no other application's wish", () => {
+    assert.match(PAGE, /getBewerbungTrikotfarben\(saison_id\)/, "the page no longer reads which colours the season has assigned");
+    assert.doesNotMatch(PAGE, /wunschfarbe/, "the application page reads a wish where it must read an assignment");
+    assert.doesNotMatch(VIEW, /wunschfarbe/, "the application view reads a wish where it must read an assignment");
+  });
+
+  /* Three hops, each of which can be dropped on its own and leaves the picker offering all sixteen
+     with every gate green. */
+  it("carries them from the page down to the picker", () => {
+    assert.match(PAGE, /vergebeneFarben=\{vergeben\}/, "the page reads the assigned colours and hands them to nothing");
+    assert.match(VIEW, /vergebeneFarben=\{vergebeneFarben\}/, "the view drops the assigned colours before the form");
+    assert.match(TEAM_SECTION, /vergeben=\{vergebeneFarben\}/, "the team section drops the assigned colours before the picker");
+  });
+
+  /* A failed read means "nothing is KNOWN to be taken", which offers the whole palette. Failing the
+     other way would withhold a colour nobody holds -- and a wish is not unique in any case. */
+  it("degrades to the empty set rather than to a narrowed palette", () => {
+    // The CALL, never the import that names it first: the statement's own semicolon is what bounds
+    // the read, and cut from the import the slice ends at the end of that line instead.
+    const zweig = PAGE.slice(PAGE.indexOf("await getBewerbungTrikotfarben"));
+
+    assert.notEqual(zweig, "", "the page no longer awaits the read this assertion is about");
+    assert.match(zweig.slice(0, zweig.indexOf(";")), /\(\) => \[\]/, "an unreadable answer no longer offers the whole palette");
   });
 });
