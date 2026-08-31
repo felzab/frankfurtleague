@@ -547,12 +547,12 @@ class TestTheOutgoingClubsSquadIsRetired:
 
         async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
             response = await call_replace(database, client)
-            return response.retired_squad_rows, await squad_now(database)
+            return response.ausgetragene_squad_rows, await squad_now(database)
 
-        retired, squad = on_a_seeded_season(mongo_replica_set_url, body)
+        ausgetragen, squad = on_a_seeded_season(mongo_replica_set_url, body)
 
-        assert retired == LIVE_IN_THE_OUTGOING_SQUAD
-        assert retired == sum(1 for row in squad.values() if row["inactive_since"] == REPLACED_ON)
+        assert ausgetragen == LIVE_IN_THE_OUTGOING_SQUAD
+        assert ausgetragen == sum(1 for row in squad.values() if row["inactive_since"] == REPLACED_ON)
 
     def test_an_abort_takes_the_retirement_back(self, mongo_replica_set_url: str):
         """Kills dropping `session=`, which retires a squad for a replacement that never landed. The echo rejects the stored `gruppe`."""

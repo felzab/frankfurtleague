@@ -1,7 +1,7 @@
-from typing import Any, Literal
+from typing import Any, Literal, Mapping
 
 from bson import ObjectId
-from pydantic import BaseModel, Field, TypeAdapter, field_validator
+from pydantic import BaseModel, Field, TypeAdapter, field_validator, model_validator
 
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
@@ -58,11 +58,25 @@ class FLAktion(BaseModel):
     operation: FLAktionOperation
     document_id: str | None
     db_filter: dict[str, str] | None
-    # A list is `delete_many`'s: a removal follows no write a restore could replay, so one row
-    # carries every image it took (`docs/backend/spec.md :: I48`).
-    before: dict[str, Any] | list[dict[str, Any]] | None
+    # In the image's place, never beside it: a list page of stored pre-images is megabytes serving
+    # one badge. An empty array is a removal that matched nothing, and secured nothing.
+    stand_gesichert: bool
     modified_count: int | None
     redacted_at: str | None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _judge_the_stored_image(cls, data: Any) -> Any:
+        """Whether the row secured an image, computed from the stored `before` this model drops.
+
+        Presence-aware, so a dropped field cannot read as a stored null
+        (`docs/backend/spec.md :: I48`).
+        """
+
+        if isinstance(data, Mapping) and "stand_gesichert" not in data:
+            image = data.get("before")
+            data = {**data, "stand_gesichert": len(image) > 0 if isinstance(image, list) else image is not None}
+        return data
 
     @field_validator("document_id", mode="before")
     @classmethod
@@ -74,6 +88,18 @@ class FLAktion(BaseModel):
         """
 
         return None if value is None or isinstance(value, list) else str(value)
+
+
+class FLAktionMitStand(FLAktion):
+    """One row WITH the document its write replaced, which only `GET /aktionen/{aktion_id}` serves.
+
+    Its own model so the list cannot carry an image by accident; the restore (the stored images'
+    one consumer-to-be) reads a single row through this.
+    """
+
+    # A list is `delete_many`'s: a removal follows no write a restore could replay, so one row
+    # carries every image it took (`docs/backend/spec.md :: I48`).
+    before: dict[str, Any] | list[dict[str, Any]] | None
 
     @field_validator("before", mode="before")
     @classmethod
@@ -94,6 +120,9 @@ class FLAktionenFilterParams(BaseModel):
     collection: str | None = None
     operation: FLAktionOperation | None = None
     correlation_id: str | None = None
+    # `str`, never `CustomObjectId`: `saisons` stores its season string here, which the ObjectId
+    # spelling would 422. `app/api/aktionen/services.py :: document_id_term` compiles it.
+    document_id: str | None = None
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     # Newest first, and no `sort_by`: every other order over an append-only log is a report rather
@@ -103,3 +132,10 @@ class FLAktionenFilterParams(BaseModel):
 
 class FLAktionenListResponse(BaseAPIResponse):
     aktionen: list[FLAktion]
+    # German for `FLBewerbungenListResponse.vollstaendig`'s reason, and load-bearing here too: the
+    # log only grows and nothing removes a row, so this read reaches the cap by ordinary use.
+    vollstaendig: bool
+
+
+class FLAktionSingleResponse(BaseAPIResponse):
+    aktion: FLAktionMitStand

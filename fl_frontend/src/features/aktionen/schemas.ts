@@ -36,9 +36,9 @@ export const FLAktionSchema = z.object({
   // instead, and on a bulk create, which named nothing at all (`docs/backend/spec.md :: I40`).
   document_id: z.string().nullable(),
   db_filter: z.record(z.string(), z.string()).nullable(),
-  // The replaced document, in whatever shape its own collection gives it. An array is a removal's,
-  // which took a set and holds every image it removed (`docs/backend/spec.md :: I48`).
-  before: z.union([z.record(z.string(), z.unknown()), z.array(z.record(z.string(), z.unknown()))]).nullable(),
+  // In the replaced document's place: the list never carries an image, only whether the row secured
+  // one — `GET /aktionen/{aktion_id}` is the read that serves it (`docs/backend/spec.md :: I43`).
+  stand_gesichert: z.boolean(),
   modified_count: z.int().nullable(),
   // Set once a person's erasure, or a referee's anonymisation, has overwritten the values this row recorded.
   redacted_at: z.string().nullable(),
@@ -47,5 +47,7 @@ export type FLAktion = z.infer<typeof FLAktionSchema>;
 
 export const FLAktionenListResponseSchema = BaseAPIResponseSchema.extend({
   aktionen: z.array(FLAktionSchema),
+  /** False where the endpoint's cap cut the answer short — and the log only grows, so that day arrives without a flood. */
+  vollstaendig: z.boolean(),
 });
 export type FLAktionenListResponse = z.infer<typeof FLAktionenListResponseSchema>;

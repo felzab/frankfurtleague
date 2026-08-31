@@ -21,7 +21,7 @@ const ACTIONS_WIDTH: Record<number, string> = { 1: "w-32", 2: "w-36", 3: "w-48",
  * together; `freeText` is owed PER undeclared column, not per table.
  */
 const TABLES = [
-  { file: "features/aktionen/components/collections/AdminAktionenTable.tsx", controls: 1, alternates: 0, freeText: 224 },
+  { file: "features/aktionen/components/collections/AdminAktionenTable.tsx", controls: 2, alternates: 0, freeText: 224 },
   { file: "features/bewerbungen/components/collections/AdminBewerbungenTable.tsx", controls: 1, alternates: 0, freeText: 256 },
   { file: "features/teams/components/collections/AdminKontakteTable.tsx", controls: 2, alternates: 0, freeText: 256 },
   { file: "features/saisons/components/collections/AdminSaisonsTable.tsx", controls: 3, alternates: 0, freeText: 304 },

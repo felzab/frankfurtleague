@@ -6,11 +6,14 @@ import { FLAktionenListResponseSchema } from "./schemas";
 import type { FLAktionenListResponse } from "./schemas";
 
 /**
- * Uncached, as every admin-authed read is — `docs/frontend/spec.md` §1.2. Doubly so here: a row
- * carries the document a write replaced, so a shared entry would hold data from any collection.
+ * Uncached, as every admin-authed read is — `docs/frontend/spec.md` §1.2. `document_id` narrows to
+ * one document's history; an omitted key means the whole log.
  */
-export const getAktionen = async (): Promise<FLAktionenListResponse> => {
+export const getAktionen = async (filters: { document_id?: string } = {}): Promise<FLAktionenListResponse> => {
   return runWithIncomingCorrelationId(() =>
-    apiClient<FLAktionenListResponse>("/aktionen", FLAktionenListResponseSchema, { authType: "admin" }),
+    apiClient<FLAktionenListResponse>("/aktionen", FLAktionenListResponseSchema, {
+      authType: "admin",
+      params: filters,
+    }),
   );
 };

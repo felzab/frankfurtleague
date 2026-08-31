@@ -270,7 +270,8 @@ describe("computeSaisonVerlauf", () => {
   });
 });
 
-const umfang = (fannedOutToSpiele: number, retiredSquadRows: number) => describeReplacementUmfang({ fannedOutToSpiele, retiredSquadRows });
+const umfang = (fannedOutToSpiele: number, ausgetrageneSquadRows: number) =>
+  describeReplacementUmfang({ fannedOutToSpiele, ausgetrageneSquadRows });
 
 describe("describeReplacementUmfang", () => {
   it("reports the fixtures with their own zero and their own singular", () => {
@@ -284,7 +285,7 @@ describe("describeReplacementUmfang", () => {
     assert.match(umfang(0, 4), /4 Kadereinträge des ausscheidenden Teams wurden ausgetragen\./);
   });
 
-  /* `retired_squad_rows` counts the LIVE rows this write stamped, so zero is a fact about the squad
+  /* `ausgetragene_squad_rows` counts the LIVE rows this write stamped, so zero is a fact about the squad
      at that moment and never about the club's history: one whose players were all ausgetragen first
      reports zero too. */
   it("says the squad stood empty at zero, never that the club had no players", () => {

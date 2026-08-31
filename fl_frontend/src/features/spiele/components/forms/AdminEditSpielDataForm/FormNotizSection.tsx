@@ -4,6 +4,7 @@ import { Xmark } from "@gravity-ui/icons";
 
 import { FieldError, TextArea, TextField } from "@heroui/react";
 
+import { NOTIZ_MAX_LENGTH } from "@/features/spiele/constants";
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
@@ -60,6 +61,7 @@ export function FormNotizSection({
           // "" is held as null at once, so the draft compares equal to a fixture without a note.
           onChange={(next) => onNotizChange(next === "" ? null : next)}
           onBlur={() => onValidateFields(["notiz"])}
+          maxLength={NOTIZ_MAX_LENGTH}
           isInvalid={status?.error ? true : undefined}>
           <FieldLabel
             path="notiz"

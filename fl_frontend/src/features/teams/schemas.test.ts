@@ -72,7 +72,7 @@ const replacement = (overrides: Record<string, unknown> = {}) => ({
   name: "SC Riederwald",
   shorthand: "RW",
   fanned_out_to_spiele: 3,
-  retired_squad_rows: 11,
+  ausgetragene_squad_rows: 11,
   ...overrides,
 });
 
@@ -134,13 +134,15 @@ describe("FLReplaceSaisonTeamResponseSchema", () => {
     assert.deepEqual(pathsRefused(FLReplaceSaisonTeamResponseSchema, withoutCount), ["fanned_out_to_spiele"]);
   });
 
-  /* Its own required figure: a squad retirement that reported nothing would read as zero, and the
+  /* Its own required figure: a squad austragen that reported nothing would read as zero, and the
      save message would tell an admin no player was touched while eleven were. */
-  it("requires the retired squad count, which is not derivable from the fixture fan-out", () => {
-    const { retired_squad_rows: _retired, ...withoutCount } = replacement();
+  it("requires the ausgetragen squad count, which is not derivable from the fixture fan-out", () => {
+    const { ausgetragene_squad_rows: _ausgetragen, ...withoutCount } = replacement();
 
-    assert.deepEqual(pathsRefused(FLReplaceSaisonTeamResponseSchema, withoutCount), ["retired_squad_rows"]);
-    assert.deepEqual(pathsRefused(FLReplaceSaisonTeamResponseSchema, replacement({ retired_squad_rows: -1 })), ["retired_squad_rows"]);
+    assert.deepEqual(pathsRefused(FLReplaceSaisonTeamResponseSchema, withoutCount), ["ausgetragene_squad_rows"]);
+    assert.deepEqual(pathsRefused(FLReplaceSaisonTeamResponseSchema, replacement({ ausgetragene_squad_rows: -1 })), [
+      "ausgetragene_squad_rows",
+    ]);
   });
 
   /* A replacement always clears the austritt, so the response states none. Parsed away rather than

@@ -4,7 +4,13 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from app.api.teams.schemas import FLAustritt, FLAustrittType, FLGruppenNames
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH, TEAM_SHORTHAND_LENGTH
+from app.shared.schemas.bounds import (
+    LIST_LIMIT_DEFAULT,
+    LIST_LIMIT_MAX,
+    SAISON_ID_LENGTH,
+    SPIEL_NOTIZ_MAX_LENGTH,
+    TEAM_SHORTHAND_LENGTH,
+)
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomErgebnisString,
@@ -384,9 +390,9 @@ class FLPatchSpielDataPayload(BaseModel):
     ort: FLSpielOrtFieldPayload | None
     schiedsrichter: FLSpielSchiedsrichterFieldPayload | None
 
-    # Here for the same `$set` reason. An emptied textarea arrives as "" and the validator below
-    # turns it to None, which is how a note is removed.
-    notiz: str | None
+    # Here for the same `$set` reason; "" becomes None below, which is how a note is removed.
+    # The bound is the log row's ceiling (`app/shared/schemas/bounds.py`), no read model's business.
+    notiz: str | None = Field(max_length=SPIEL_NOTIZ_MAX_LENGTH)
 
     @model_validator(mode="before")
     @classmethod
