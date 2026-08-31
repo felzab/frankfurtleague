@@ -140,6 +140,69 @@ change. Its own reason is above." ;;
   esac
 }
 
+# --- steps run as jobs -------------------------------------------------------------------------------
+
+# Steps may start together and be collected one at a time, each the function `do_<check>` its
+# scope defines. Never while watched: `--verbose` exists to stream each tool's output, and
+# `--serial` is the oracle the concurrent form has to match.
+STEP_JOBS=1
+if (( SERIAL || VERBOSE )); then STEP_JOBS=0; fi
+
+bg_start() { # $1 the check, whose command is the function `do_<check>`
+  if (( ! STEP_JOBS )); then return 0; fi
+  if [[ -z "$BG_DIR" ]]; then BG_DIR="$(mktemp -d)"; fi
+  # `set +e` inside, so a check's own non-zero status is recorded rather than ending the job
+  # before it can be written. The duration lands first: with the status present, it is there too.
+  (
+    set +e
+    _t0="$(_now_ms)"
+    "do_$1" > "${BG_DIR}/${1}.out" 2>&1
+    _rc=$?
+    printf '%s' "$(( $(_now_ms) - _t0 ))" > "${BG_DIR}/${1}.ms"
+    printf '%s' "$_rc" > "${BG_DIR}/${1}.rc"
+  ) &
+  BG_PID["$1"]=$!
+}
+
+bg_join() { # $1 the check — wait for it, and re-date the step to the work's own length
+  if (( ! STEP_JOBS )); then return 0; fi
+  local ms
+  spinner_start "$_STEP_LABEL"
+  wait "${BG_PID[$1]}" 2>/dev/null || true
+  spinner_stop
+  ms="$(cat "${BG_DIR}/${1}.ms" 2>/dev/null || true)"
+  if [[ "$ms" =~ ^[0-9]+$ ]]; then step_took_ms "$ms"; fi
+}
+
+bg_replay() { # $1 the check — its own output and exit status, wherever it ran
+  # With no job started this IS the check: one call site for both forms, so `--verbose` and
+  # `--serial` take the path the gate has always taken rather than a second one nobody reads.
+  if (( ! STEP_JOBS )); then "do_$1"; return; fi
+  local rc
+  if [[ -s "${BG_DIR}/${1}.out" ]]; then cat "${BG_DIR}/${1}.out"; fi
+  rc="$(cat "${BG_DIR}/${1}.rc" 2>/dev/null || true)"
+  # Never 1, 2 or 130: each is a verdict a check earns by finishing, and a job that left no
+  # status earned none. `bg_verdict` and pytest's own case route it to the crash path.
+  if [[ ! "$rc" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "the ${1} check left no exit status behind, so it did not run to completion"
+    return 3
+  fi
+  return "$rc"
+}
+
+# A remedy is owed only where the check reached a verdict. A job that left no status reached
+# none, so 3 takes the crash path instead of announcing findings the check never made.
+bg_verdict() { # $1 the check · $2 the line to blame a crash on · $3 the remedy for a failure
+  local rc=0
+  quietly bg_replay "$1" || rc=$?
+  case "$rc" in
+    0)   ;;
+    1)   die "$3" ;;
+    130) on_interrupt ;;
+    *)   on_error "$rc" "$2" "$1" ;;
+  esac
+}
+
 # --- scope -------------------------------------------------------------------------------------------
 
 # Before any scope runs: the same refusal after a `next build` has cost the minutes it exists to
@@ -296,67 +359,6 @@ if (( RUN_SCRIPTS )); then
   # not disturb it.
   do_pyright()   { ( cd "${REPO_ROOT}/scripts" && "$PY" -m pyright ); }
   do_pytest()    { "$PY" -m pytest scripts/tests; }
-
-  # Never while a run is being watched: `--verbose` exists to stream each tool's own output, and a
-  # stream held in a file until its step arrives is no longer one. `--serial` is the oracle the
-  # concurrent form has to match, so it takes the same path.
-  STEP_JOBS=1
-  if (( SERIAL || VERBOSE )); then STEP_JOBS=0; fi
-  if (( STEP_JOBS )); then BG_DIR="$(mktemp -d)"; fi
-
-  bg_start() { # $1 the check, whose command is the function `do_<check>`
-    if (( ! STEP_JOBS )); then return 0; fi
-    # `set +e` inside, so a check's own non-zero status is recorded rather than ending the job
-    # before it can be written. The duration lands first: with the status present, it is there too.
-    (
-      set +e
-      _t0="$(_now_ms)"
-      "do_$1" > "${BG_DIR}/${1}.out" 2>&1
-      _rc=$?
-      printf '%s' "$(( $(_now_ms) - _t0 ))" > "${BG_DIR}/${1}.ms"
-      printf '%s' "$_rc" > "${BG_DIR}/${1}.rc"
-    ) &
-    BG_PID["$1"]=$!
-  }
-
-  bg_join() { # $1 the check — wait for it, and re-date the step to the work's own length
-    if (( ! STEP_JOBS )); then return 0; fi
-    local ms
-    spinner_start "scripts · $1"
-    wait "${BG_PID[$1]}" 2>/dev/null || true
-    spinner_stop
-    ms="$(cat "${BG_DIR}/${1}.ms" 2>/dev/null || true)"
-    if [[ "$ms" =~ ^[0-9]+$ ]]; then step_took_ms "$ms"; fi
-  }
-
-  bg_replay() { # $1 the check — its own output and exit status, wherever it ran
-    # With no job started this IS the check: one call site for both forms, so `--verbose` and
-    # `--serial` take the path the gate has always taken rather than a second one nobody reads.
-    if (( ! STEP_JOBS )); then "do_$1"; return; fi
-    local rc
-    if [[ -s "${BG_DIR}/${1}.out" ]]; then cat "${BG_DIR}/${1}.out"; fi
-    rc="$(cat "${BG_DIR}/${1}.rc" 2>/dev/null || true)"
-    # Never 1, 2 or 130: each is a verdict a check earns by finishing, and a job that left no
-    # status earned none. `bg_verdict` and pytest's own case route it to the crash path.
-    if [[ ! "$rc" =~ ^[0-9]+$ ]]; then
-      printf '%s\n' "the ${1} check left no exit status behind, so it did not run to completion"
-      return 3
-    fi
-    return "$rc"
-  }
-
-  # A remedy is owed only where the check reached a verdict. A job that left no status reached
-  # none, so 3 takes the crash path instead of announcing findings the check never made.
-  bg_verdict() { # $1 the check · $2 the line to blame a crash on · $3 the remedy for a failure
-    local rc=0
-    quietly bg_replay "$1" || rc=$?
-    case "$rc" in
-      0)   ;;
-      1)   die "$3" ;;
-      130) on_interrupt ;;
-      *)   on_error "$rc" "$2" "scripts · $1" ;;
-    esac
-  }
 
   bg_start selfcheck; bg_start ruff; bg_start pyright; bg_start pytest
 
@@ -656,23 +658,31 @@ this step in the job."
       # `scope` keeps the images' caches apart, buildx overwriting rather than merging a key. It stays
       # the bare image name: a run id would miss earlier runs' layers. `version` stays unpinned,
       # buildx picking the live cache service.
-      quietly docker buildx build --load \
+      docker buildx build --load \
         --cache-from "type=gha,scope=${name}" \
         --cache-to "type=gha,scope=${name},mode=max" \
         -f "$dockerfile" -t "${VERIFY_TAG}:${name}" "$context"
     else
-      quietly docker build -f "$dockerfile" -t "${VERIFY_TAG}:${name}" "$context"
+      docker build -f "$dockerfile" -t "${VERIFY_TAG}:${name}" "$context"
     fi
   }
 
+  # Started together: the builds share no state -- separate tags, separate cache scopes -- so the
+  # scope costs its slower build rather than the sum. Each verdict is still collected at its own
+  # step, in written order. `docs/ops/spec.md` §1.6.
+  do_build_frontend() { build_image frontend fl_frontend/Dockerfile fl_frontend; }
+  do_build_backend()  { build_image backend fl_backend/Dockerfile fl_backend; }
+  bg_start build_frontend; bg_start build_backend
+
   step "images · docker build frontend  (the check the frontend scope cannot do)"
-  build_image frontend fl_frontend/Dockerfile fl_frontend \
-    || die "The frontend image failed to build. This is the failure the frontend scope cannot see."
+  bg_join build_frontend
+  bg_verdict build_frontend "${LINENO}" \
+    "The frontend image failed to build. This is the failure the frontend scope cannot see."
   ok "frontend image builds"
 
   step "images · docker build backend"
-  build_image backend fl_backend/Dockerfile fl_backend \
-    || die "The backend image failed to build."
+  bg_join build_backend
+  bg_verdict build_backend "${LINENO}" "The backend image failed to build."
   ok "backend image builds"
 
   step "images · instrumentation.js is actually in the frontend image"

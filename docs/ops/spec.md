@@ -373,8 +373,9 @@ floor is its longest scope. **The `--frontend` implication above is the
 parent's, never a worker's** — a worker runs the one scope it is given. `scripts/gate_pool.py` owns
 the spawning and nothing else; the sections and closing statements stay in `scripts/_lib.sh`.
 
-**The scripts scope carries that shape one level down**: its checks start together and each is
-collected at its own step, so the scope costs its slowest check rather than the sum. Every verdict
+**The scripts and images scopes carry that shape one level down**: the scripts checks start
+together, as do the two image builds, and each is collected at its own step, so the scope costs
+its slowest check rather than the sum. Every verdict
 is still reached in written order, a job records an exit status and never speaks, and a job that
 left no status is read as a crash rather than as a pass; the serial exceptions above are this
 level's too. A step joined after its work ran beside its neighbours is re-dated to that work's own
