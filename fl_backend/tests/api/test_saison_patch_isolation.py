@@ -16,7 +16,9 @@ from app.api.saisons.schemas import (
     FLSaisonRules,
     FLSpielplanShape,
 )
-from app.api.saisons.services import RULES_SHAPE_AFTER_DRAW
+from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW
+from app.api.spieler.admin_router import post_saison_spieler
+from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
@@ -40,6 +42,13 @@ QUALIFIERS = 2
 # The edit the second administrator submits. A WIDENING, so nothing but `REQ-RULES-011` can refuse
 # it: `REQ-RULES-003` reads the narrowing direction, and the season's span covers the longer schedule.
 WIDER_PER_GROUP = 6
+
+# The squad the seed fills, and the cap the narrowing patch proposes: equal, so `REQ-RULES-009`
+# has nothing to refuse until the rival's insert lands.
+SEEDED_SQUAD = 3
+
+# The one squad the seed and the rival both write, the first seeded club's.
+SQUAD_TEAM_ID = ObjectId(f"6890a1b2c3d4e5f6079{0:05d}")
 
 
 def rules_document(**overrides: Any) -> dict[str, Any]:
@@ -79,6 +88,26 @@ def entry_rows() -> list[dict[str, Any]]:
             "shorthand": f"{gruppe}{seat + 1}",
         }
         for index, (seat, gruppe) in enumerate(product(range(TEAMS_PER_GROUP), offered_gruppen(GROUPS)))
+    ]
+
+
+def squad_rows(count: int) -> list[dict[str, Any]]:
+    """One club's live squad at `count`, every validator-required key stated."""
+
+    return [
+        {
+            "_id": ObjectId(f"6890a1b2c3d4e5f6076{index:05d}"),
+            "spieler_id": ObjectId(f"6890a1b2c3d4e5f6075{index:05d}"),
+            "saison_id": SAISON_ID,
+            "team_id": SQUAD_TEAM_ID,
+            "is_nachgetragen": False,
+            "stufe": None,
+            "position": None,
+            "nummer": None,
+            "rolle": None,
+            "inactive_since": None,
+        }
+        for index in range(count)
     ]
 
 
@@ -181,6 +210,26 @@ async def call_patch_rules(
     )
 
 
+async def call_add_a_player(database: AsyncIOMotorDatabase) -> Any:
+    """The rival write: one more player into the seeded squad, through the route, outside any transaction."""
+
+    return await post_saison_spieler(
+        spieler_id=ObjectId(f"6890a1b2c3d4e5f6075{SEEDED_SQUAD:05d}"),
+        saison_spieler_data=FLPostSaisonSpielerPayload(
+            saison_id=SAISON_ID,
+            team_id=SQUAD_TEAM_ID,
+            nummer=None,
+            position=None,
+            stufe=None,
+            is_nachgetragen=False,
+            rolle=None,
+        ),
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+    )
+
+
 async def season_now(database: AsyncIOMotorDatabase) -> dict[str, Any]:
     """Read outside any transaction -- what a later request would find."""
 
@@ -195,6 +244,61 @@ async def counts_now(database: AsyncIOMotorDatabase) -> tuple[int, int]:
         await database[Collection.SPIELTAGE].count_documents({"saison_id": SAISON_ID}),
         await database[Collection.SPIELE].count_documents({"saison_id": SAISON_ID}),
     )
+
+
+async def live_squad_now(database: AsyncIOMotorDatabase) -> int:
+    """The seeded club's live rows, counted as `REQ-RULES-009`'s judgement counts them."""
+
+    return await database[Collection.SAISON_SPIELER].count_documents({"saison_id": SAISON_ID, "team_id": SQUAD_TEAM_ID, "inactive_since": None})
+
+
+class TestAPlayerAddedMidPatchIsJudgedAgain:
+    """Two administrators on one season: the squad is at the proposed cap when the patch judges, and over it when it writes.
+
+    The rival writes `saison_spieler`, which the callback only reads: no conflict, no retry;
+    the out-of-session re-judgement refuses.
+    """
+
+    def test_the_narrowing_is_refused_on_the_player_added_under_it(self, mongo_replica_set_url: str):
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await database[Collection.SAISON_SPIELER].insert_many(squad_rows(SEEDED_SQUAD))
+
+            async def add_between() -> None:
+                await call_add_a_player(database)
+
+            seasons = SeasonsRunningAHookBeforeTheWrite(database[Collection.SAISONS], add_between)
+
+            with pytest.raises(DocumentConflictException) as refusal:
+                await call_patch_rules(database, client, saisons_collection=seasons, max_kadergroesse=SEEDED_SQUAD)
+
+            return refusal.value, seasons.season_reads, await season_now(database), await live_squad_now(database)
+
+        refusal, season_reads, stored, squad = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        # `REQ-RULES-009` weighs the largest live squad, and it stood AT the proposed cap when this
+        # request first judged: the refusal can only come from the re-judgement after the write.
+        assert refusal.error_code == RULES_KADER_BELOW_USE
+        # TWO, and neither is a retry: the judgement's read, then the echo read the write itself
+        # makes -- the refusal lands after the write, so the write's own re-read has happened.
+        assert season_reads == 2, "a third read means the write conflicted and the retry re-entered the callback"
+
+        assert stored["rules"]["max_kadergroesse"] == 18, "the narrowing landed on top of the rival's insert"
+        assert squad == SEEDED_SQUAD + 1, "the rival's insert was lost, so the refusal above had nothing to refuse"
+
+    def test_the_same_narrowing_commits_when_no_player_is_added(self, mongo_replica_set_url: str):
+        """The control: without it the case above would pass on an endpoint that refused every narrowing."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await database[Collection.SAISON_SPIELER].insert_many(squad_rows(SEEDED_SQUAD))
+
+            response = await call_patch_rules(database, client, max_kadergroesse=SEEDED_SQUAD)
+
+            return response, await season_now(database)
+
+        response, stored = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert response.updated_document.rules.max_kadergroesse == SEEDED_SQUAD
+        assert stored["rules"]["max_kadergroesse"] == SEEDED_SQUAD
 
 
 class TestADrawLandingMidPatchIsJudgedAgain:

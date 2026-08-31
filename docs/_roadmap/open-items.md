@@ -57,7 +57,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 3   | BE-23 | Consent's writer is deferred to an expert who has not answered       | BE, DB, Docs    | M      | Standing | —          |
 | 4   | BE-42 | Acceptance publishes a school's street address as the club's         | FE, BE, Docs    | S      | Open     | —          |
 | 5   | BE-18 | Gaps the domain declaration does not reach                           | BE              | M      | Open     | —          |
-| 6   | BE-36 | A season's judgement covers five collections and its transaction one | BE, Docs        | M      | Open     | —          |
+| 6   | BE-36 | A season's judgement covers five collections and its transaction one | BE, Docs        | M      | Closed   | —          |
 | 7   | FB-19 | An undo restores a whole fixture from a list read before it          | FE, BE          | L      | Open     | —          |
 | 8   | FB-16 | Nothing announces that a season rollover is due                      | BE, Ops         | M      | Standing | —          |
 | 9   | FB-22 | The season's shape is offered wider than it can be saved             | FE, BE, Docs    | M      | Open     | —          |
@@ -373,7 +373,7 @@ because the live data already holds the state and refusing it would make those r
 
 ### 6 · BE-36 — The patch judges a season from five collections and writes one, so four of them can move under it
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** BE, Docs\
 **Effort:** M\
 **Path:** Independent. **BE-35** states the principle this is the other half of — a transaction
@@ -381,6 +381,16 @@ protects a judgement over exactly the documents its callback writes — so which
 record it and the second cite it rather than restate it (COR-2). It rests on the same premise as
 BE-18 and carries the same date: the concession underneath it is a single-admin surface, which
 BE-15's second writer and FB-17's self-registration page would each remove. It blocks neither.
+
+**What concluded it.** The foundation reproduced, then the second candidate, as the entry leans:
+`fl_backend/tests/api/test_saison_patch_isolation.py :: TestAPlayerAddedMidPatchIsJudgedAgain` drove
+the `REQ-RULES-009` row against a real replica set — a squad write mid-patch raised no conflict and
+the narrowing committed over it — and `patch_saison`'s callback now re-reads the largest live squad
+and the dated matchday spans OUTSIDE its session immediately before answering and refuses on what
+moved, covering `REQ-DATE-004` in the same pass. The principle went to
+`docs/backend/spec.md :: I53`, this being the half that landed first; the residual commit window and
+the occupancy concession are in the Known-open row beside it. The full argument is in the closing
+commit body.
 
 **`fl_backend/app/api/saisons/admin_router.py :: patch_saison` runs its whole judgement inside
 `session.with_transaction`, and the callback writes `saisons` alone.** A write conflict is raised on

@@ -319,50 +319,61 @@ async def patch_saison(
             if phase is not None:
                 attached_by_phase[phase] = max(attached_by_phase.get(phase, 0), attached)
 
-        largest_squad_rows = await saison_spieler_collection.aggregate(
-            [
-                {"$match": {"saison_id": saison_id, "inactive_since": None}},
-                {"$group": {"_id": "$team_id", "held": {"$sum": 1}}},
-                {"$sort": {"held": -1}},
-                {"$limit": 1},
-            ],
-            session=session,
-        ).to_list(length=1)
-        largest_squad = int(largest_squad_rows[0]["held"]) if largest_squad_rows else 0
+        async def movable_figures(figures_session: AsyncIOMotorClientSession | None) -> tuple[int, list[tuple[str, str]]]:
+            """The judged figures a rival can move without conflicting on `saisons`: the largest live squad and the dated matchday spans.
 
-        refuse(
-            find_rules_refusal(
-                saison_status=str(stored_raw["status"]),
-                # Validated, not read raw: a season missing a rules key fails here rather than comparing
-                # against a default nobody chose.
-                stored=FLSaisonRules.model_validate(stored_raw["rules"]),
-                proposed=saison_data.rules,
-                occupancy_by_gruppe=occupancy,
-                highest_wired_platz=highest_platz,
-                largest_squad=largest_squad,
-                attached_by_phase=attached_by_phase,
-                drawn_fixtures=drawn_fixtures,
-                played_knockout_fixtures=played_knockout,
-            )
-        )
+            Occupancy stays out on `app/api/teams/admin_router.py :: post_saison_team`'s concession
+            -- a planning bound the draw reports.
+            """
 
-        # Dated rows only, filtered in the QUERY rather than after `str()`: a generated matchday carries
-        # no span until somebody sets one, and a null stringified to "None" sorts above every date and
-        # would be reported as falling outside the season.
-        spieltag_spans = [
-            (str(row["beginn"]), str(row["ende"]))
-            async for row in spieltage_collection.find(
-                {"saison_id": saison_id, "beginn": {"$ne": None}, "ende": {"$ne": None}}, {"beginn": 1, "ende": 1}, session=session
+            largest_squad_rows = await saison_spieler_collection.aggregate(
+                [
+                    {"$match": {"saison_id": saison_id, "inactive_since": None}},
+                    {"$group": {"_id": "$team_id", "held": {"$sum": 1}}},
+                    {"$sort": {"held": -1}},
+                    {"$limit": 1},
+                ],
+                session=figures_session,
+            ).to_list(length=1)
+
+            # Dated rows only, filtered in the QUERY rather than after `str()`: a generated matchday carries
+            # no span until somebody sets one, and a null stringified to "None" sorts above every date and
+            # would be reported as falling outside the season.
+            spieltag_spans = [
+                (str(row["beginn"]), str(row["ende"]))
+                async for row in spieltage_collection.find(
+                    {"saison_id": saison_id, "beginn": {"$ne": None}, "ende": {"$ne": None}}, {"beginn": 1, "ende": 1}, session=figures_session
+                )
+            ]
+
+            return (int(largest_squad_rows[0]["held"]) if largest_squad_rows else 0, spieltag_spans)
+
+        def judge(largest_squad: int, spieltag_spans: Sequence[tuple[str, str]]) -> None:
+            refuse(
+                find_rules_refusal(
+                    saison_status=str(stored_raw["status"]),
+                    # Validated, not read raw: a season missing a rules key fails here rather than comparing
+                    # against a default nobody chose.
+                    stored=FLSaisonRules.model_validate(stored_raw["rules"]),
+                    proposed=saison_data.rules,
+                    occupancy_by_gruppe=occupancy,
+                    highest_wired_platz=highest_platz,
+                    largest_squad=largest_squad,
+                    attached_by_phase=attached_by_phase,
+                    drawn_fixtures=drawn_fixtures,
+                    played_knockout_fixtures=played_knockout,
+                )
             )
-        ]
-        refuse(
-            find_saison_span_refusal(
-                start_date=saison_data.start_date,
-                end_date=saison_data.end_date,
-                rules=saison_data.rules,
-                spieltag_spans=spieltag_spans,
+            refuse(
+                find_saison_span_refusal(
+                    start_date=saison_data.start_date,
+                    end_date=saison_data.end_date,
+                    rules=saison_data.rules,
+                    spieltag_spans=spieltag_spans,
+                )
             )
-        )
+
+        judge(*await movable_figures(session))
 
         updated_document_raw = await patch_one_in_db(
             collection=saisons_collection,
@@ -371,6 +382,11 @@ async def patch_saison(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
+
+        # Re-judged OUTSIDE the session before answering: the write set is `saisons` alone, so a
+        # rival squad write or matchday re-date raises no conflict and no retry (I53;
+        # `REQ-RULES-009`, `REQ-DATE-004`). A rival landing after this read still slips through.
+        judge(*await movable_figures(None))
 
         return FLPatchSaisonResponse(updated_document=FLSaison.model_validate(with_schedule(updated_document_raw)))
 
