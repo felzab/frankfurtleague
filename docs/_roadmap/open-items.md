@@ -73,7 +73,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 19  | BE-30 | The move guard does not see a stored shoot-out                       | BE              | S      | Open     | —          |
 | 32  | BE-46 | The action log's read truncates and cannot say so                    | FE, BE          | S      | Open     | —          |
 | 20  | BE-31 | A duplicate-key log line carries the value it refused                | BE, Docs        | S      | Open     | —          |
-| 21  | BE-19 | Nothing says a multi-write request writes atomically                 | BE, Docs        | S      | Open     | —          |
+| 21  | BE-19 | Nothing says a multi-write request writes atomically                 | BE, Docs        | S      | Closed   | —          |
 | 22  | BE-20 | The certainty walk never hypothesises a called-off fixture           | BE, Docs        | L      | Open     | —          |
 | 23  | FE-17 | A never-clause bounds toast CSS short of the stylesheet              | FE, Docs        | S      | Open     | —          |
 | 24  | BE-32 | A replace reports what it wrote and not what it destroyed            | FE, BE, Docs    | S      | Open     | —          |
@@ -1367,7 +1367,7 @@ trigger is what makes the trigger a non-event.
 
 ### 21 · BE-19 — Nothing states that a request making more than one write makes them together
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** BE, Docs\
 **Effort:** S\
 **Path:** Independent — the sweep is below and is done. What is left is where the rule is recorded,
@@ -1448,6 +1448,20 @@ closing of it — and a sweep of the source tree in the shape
 **Not measured:** whether such a sweep can tell a genuine multi-write handler from a helper that
 merely accepts an optional session. The enumeration above was read rather than executed, and that
 reading is what a check would have to mechanise.
+
+**Closed.** The rule is recorded, and the sweep the entry doubted is mechanised. The rule's home is
+I52 on [`docs/backend/spec.md`](../backend/spec.md) — a request making more than one write makes
+them in one transaction, and an endpoint that opens one makes no write beside it — and what holds a
+later endpoint to it is `fl_backend/tests/api/test_write_transactions.py`, a sweep parsing every
+module under `fl_backend/app/` and counting the write-helper and driver-write call sites reachable
+from each route-decorated handler outside a `with_transaction` callback. The "not measured" question
+is answered by construction rather than by judgement: the sweep never reads a helper's `session=`
+parameter, so the shape it could not have distinguished never reaches it — what it counts is bare
+write sites, and a planted second write, direct or through a same-module helper, turns exactly the
+planted endpoint red. What stays past a lexical read — whether a write inside a transaction's
+callback carries its session — stays with the comment at each site and the isolation suite. The
+action log's pairing stays named and unfixed, rehomed to that sheet's §4 as its own row, "A write
+and its log row can commit apart".
 
 ### 22 · BE-20 — The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing
 
