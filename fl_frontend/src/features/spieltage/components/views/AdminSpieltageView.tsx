@@ -11,8 +11,8 @@ import type { AdminSpieltagRow } from "@/features/spieltage/types";
 import type { SpieltagPhaseProgress } from "@/features/spieltage/utils";
 
 // Module scope: a fresh array here would defeat `useFuzzySearch`'s memo on every render. `label` is
-// a field of the row rather than of the document, because a search matches what is read — the rule
-// that also puts the rows' German date spellings beside the stored ones here.
+// the row's field, not the document's, because a search matches what is read — which also puts the
+// German date spellings beside the stored ones.
 const SEARCH_KEYS = ["label", "beginn", "ende", "searchable_beginn", "searchable_ende"] as const;
 
 /**
@@ -33,9 +33,9 @@ export function AdminSpieltageView({
    */
   phaseProgress?: readonly SpieltagPhaseProgress[];
 }) {
-  // A reader types the spelling they have seen on the rows. Deriving it through the formatter the
-  // list renders with — never a string reversal — is what keeps the two spellings agreeing. An
-  // undated matchday derives `null`, which matches nothing — never the rendered placeholder.
+  // A reader types the spelling they have seen. Deriving it through the formatter the list renders
+  // with — never a string reversal — keeps the two spellings agreeing. An undated matchday derives
+  // `null`, matching nothing — never the placeholder.
   const processedSpieltage = useMemo(
     () =>
       spieltage.map((spieltag) => ({

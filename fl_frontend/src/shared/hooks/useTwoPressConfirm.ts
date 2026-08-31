@@ -7,9 +7,9 @@ import { useRef, useState, useTransition } from "react";
 export const DOUBLE_PRESS_MS = 500;
 
 /**
- * The confirm-then-write control, in one place: the first press arms, the second writes — unless it
- * lands within `DOUBLE_PRESS_MS` of the arming press — and a `guard` returning false does neither.
- * Eight irreversible operations run through it, so no two can drift apart.
+ * The confirm-then-write control: the first press arms, the second writes — unless it lands within
+ * `DOUBLE_PRESS_MS` of the arming press — and a `guard` returning false does neither. Eight
+ * irreversible operations share it, so no two drift apart.
  */
 export function useTwoPressConfirm(guard?: () => boolean): {
   isConfirming: boolean;
@@ -38,9 +38,9 @@ export function useTwoPressConfirm(guard?: () => boolean): {
       return;
     }
 
-    // A double-click reaches here armed: React re-renders between the two clicks, so the second one
-    // reads `isConfirming` as true before the alert was readable. Ignored rather than disarmed, so
-    // the alert stands and a press taken after reading it still confirms.
+    // A double-click reaches here armed: React re-renders between the clicks, so the second reads
+    // `isConfirming` as true before the alert was readable. Ignored rather than disarmed, so the
+    // alert stands and a press taken after reading it still confirms.
     if (Date.now() - armedAt.current < DOUBLE_PRESS_MS) return;
 
     startWriting(async () => {

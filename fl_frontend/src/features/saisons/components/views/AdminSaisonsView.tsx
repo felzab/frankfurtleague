@@ -8,9 +8,9 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { AdminSaisonRow } from "@/features/saisons/types";
 
-// Module scope: a fresh array here would defeat `useFuzzySearch`'s memo on every render. The dates
-// are searchable because an admin looks for a season by when it ran — in the German spelling the
-// rows show and in the stored one both, so a date typed either way finds the match.
+// Module scope: a fresh array here would defeat `useFuzzySearch`'s memo on every render. Dates are
+// searchable in the German spelling the rows show and in the stored one, so a date typed either
+// way finds the match.
 const SEARCH_KEYS = ["id", "start_date", "end_date", "searchable_start_date", "searchable_end_date"] as const;
 
 /**
