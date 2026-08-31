@@ -22,8 +22,9 @@ import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
-import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
+import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSaisonBanners } from "./banners";
 import { FormBewerbungSection } from "./FormBewerbungSection";
@@ -48,26 +49,6 @@ import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { CalendarDate } from "@internationalized/date";
-
-/**
- * A `fetch` and not a server action: by the time the offer is pressed this component is unmounted, and
- * an action dispatched from another route trips Next's E592 invariant and truncates mid-response.
- * **Revert once E592 is fixed upstream.**
- */
-async function postSaisonUndo(payload: FLPatchSaisonPayload): Promise<{ success: boolean; message?: string; error?: string }> {
-  const response = await fetch("/api/admin/saisons/undo", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    // The route answers 200 with the outcome in the body, so a non-2xx is a transport failure.
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${String(response.status)}`);
-  }
-
-  return response.json() as Promise<{ success: boolean; message?: string; error?: string }>;
-}
 
 /**
  * **One save bar over ONE endpoint**: `PATCH /saisons/{saison_id}` replaces the dates and all of
@@ -294,73 +275,30 @@ export function AdminSaisonEditForm({
       setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
-      offerUndo(undoPayload);
+      // A warning, never a success, wherever the table moved: it is scored and ordered from `rules`
+      // on read, so the move goes unnoticed.
+      const pointsMoved = undoPayload.rules.win_points !== rules.win_points || undoPayload.rules.draw_points !== rules.draw_points;
+      const tiebreakMoved = undoPayload.rules.tiebreak_order !== rules.tiebreak_order;
+
+      offerUndo({
+        endpoint: "/api/admin/saisons/undo",
+        body: undoPayload,
+        // The points first where both moved: a rescore subsumes a re-sort, and one toast holds one
+        // sentence. `undefined` on the quiet branch: the title already says the change is saved, and
+        // repeating it would only push the Rückgängig control down.
+        message: pointsMoved
+          ? "Die Punkte gelten ab sofort für jedes Spiel dieser Saison, auch für die längst gespielten."
+          : tiebreakMoved
+            ? "Punktgleiche Teams stehen ab sofort in einer anderen Reihenfolge, auch in längst gespielten Gruppen."
+            : undefined,
+        warn: pointsMoved || tiebreakMoved,
+        router,
+      });
 
       // AFTER the undo payload is built: typed values left in state let a save-then-undo reopen on
       // values the season no longer holds.
       resetDraftToStored();
       leavePage();
-    });
-  };
-
-  /**
-   * The toast outlives this component, so the press runs detached — `AdminEditSpielDataForm` has the
-   * pitfalls. **A warning, never a success, wherever the table moved**: it is scored and ordered from
-   * `rules` on read, so the move goes unnoticed.
-   */
-  const offerUndo = (payload: FLPatchSaisonPayload) => {
-    const pointsMoved = payload.rules.win_points !== rules.win_points || payload.rules.draw_points !== rules.draw_points;
-    const tiebreakMoved = payload.rules.tiebreak_order !== rules.tiebreak_order;
-
-    // The points first where both moved: a rescore subsumes a re-sort, and one toast holds one sentence.
-    // `undefined` on the quiet branch: the title already says the change is saved, and a sentence
-    // repeating it would push the Rückgängig control down for nothing.
-    const description = pointsMoved
-      ? "Die Punkte gelten ab sofort für jedes Spiel dieser Saison, auch für die längst gespielten."
-      : tiebreakMoved
-        ? "Punktgleiche Teams stehen ab sofort in einer anderen Reihenfolge, auch in längst gespielten Gruppen."
-        : undefined;
-
-    const report = pointsMoved || tiebreakMoved ? appToast.warning : appToast.success;
-    report("Änderung gespeichert", {
-      description,
-      timeout: UNDO_TIMEOUT_MS,
-      actionProps: {
-        children: "Rückgängig",
-        onPress: () => {
-          appToast.clear();
-          const pendingKey = appToast.pending("Änderung wird zurückgenommen...");
-
-          void postSaisonUndo(payload).then(
-            (result) => {
-              appToast.close(pendingKey);
-              if (!result.success) {
-                appToast.danger("Rücknahme fehlgeschlagen", { description: result.error ?? "Die Änderung steht weiterhin." });
-                return;
-              }
-
-              // Reported BEFORE the refresh: the restore is committed and nothing below changes that.
-              appToast.success("Änderung zurückgenommen", { description: result.message });
-
-              // Best-effort: a refresh that cannot run costs a stale screen, never the restore.
-              try {
-                router.refresh();
-              } catch (refreshError) {
-                console.warn("Undo committed, refresh failed", refreshError);
-              }
-            },
-            (dispatchError) => {
-              appToast.close(pendingKey);
-              console.warn("Undo dispatch failed", dispatchError);
-              appToast.danger("Rücknahme konnte nicht gesendet werden", {
-                // The connection alone: the request never reached a judgement, so naming
-                // the Saison would send the admin to inspect values nothing here read.
-                description: "Die Änderung steht weiterhin. Prüfe die Verbindung.",
-              });
-            },
-          );
-        },
-      },
     });
   };
 

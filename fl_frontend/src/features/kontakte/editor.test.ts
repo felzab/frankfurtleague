@@ -41,6 +41,8 @@ const LIST_TABLE = readFileSync(path.resolve(SRC, "features", "teams", "componen
 
 /** The undo the editor dispatches to, read as source for the same reason the editor is. */
 const UNDO_ROUTE = readFileSync(path.resolve(SRC, "app", "api", "admin", "kontakte", "undo", "route.ts"), "utf8");
+/** The shared dispatch the editor rides, whose own copy is `undoDispatch.test.ts`'s to hold. */
+const DISPATCH = readFileSync(path.resolve(SRC, "shared", "utils", "undoDispatch.ts"), "utf8");
 
 const KONTAKTE_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte";
 
@@ -60,7 +62,7 @@ const RESPONSE_SCHEMA = sliceBetween(
 );
 const SUBMIT = sliceBetween(FORM_SOURCE, "const handleFormSubmit", "return (");
 const REQUEST_LEAVE = sliceBetween(FORM_SOURCE, "const requestLeave", "const resetDraftToStored");
-const OFFER_UNDO = sliceBetween(FORM_SOURCE, "const offerUndo", "return (");
+const OFFER_UNDO = sliceBetween(FORM_SOURCE, "offerUndo({", "});");
 /* Cut at the signature's closing brace rather than at the declaration: the parameter list spans
    several lines, and each would otherwise read as a statement of the body. */
 const PAGE_CONTENT = sliceBetween(PAGE_SOURCE, "}) {", null);
@@ -89,7 +91,7 @@ describe("the contacts write against the backend's refusal register", () => {
     assert.ok(SUBMIT.includes("patchSaisonTeamKontakteAction("), "the submit's slice does not reach its dispatch");
     assert.ok(REQUEST_LEAVE.includes("leavePage()"), "the leave request's slice does not reach the navigation it guards");
     assert.ok(!REQUEST_LEAVE.includes("resetDraftToStored"), "the leave request's slice reaches forward over the reset");
-    assert.ok(OFFER_UNDO.includes("appToast.success("), "the undo offer's slice does not reach the toast it raises");
+    assert.ok(OFFER_UNDO.includes("body: undoPayload,"), "the undo offer's slice does not reach the payload it hands on");
     assert.notEqual(PAGE_CONTENT, "", "the page's data component is no longer where the cut looks for it");
   });
 
@@ -331,11 +333,11 @@ describe("the editor's shape", () => {
   /* A page-owned editor, so §1.3 allows its undo a route handler. The write replaces the block whole
      on a row the path names, so the pre-save block restores through the same PATCH. */
   it("offers an undo, and dispatches it to its own route handler", () => {
-    assert.match(FORM_SOURCE, /children: "Rückgängig"/, "the editor no longer offers an undo");
+    assert.ok(OFFER_UNDO.includes('endpoint: "/api/admin/kontakte/undo"'), "the undo dispatches somewhere other than its own route");
     // A `fetch` and not a server action: the press lands after this component has unmounted, which is
     // the whole of why the eight undos are route handlers at all.
-    assert.match(FORM_SOURCE, /await fetch\("\/api\/admin\/kontakte\/undo", \{/, "the undo dispatches somewhere other than its own route");
-    assert.ok(!FORM_SOURCE.includes('"use server"'), "the undo went back to a server action while E592 still reproduces");
+    assert.match(DISPATCH, /await fetch\(endpoint, \{/, "the shared dispatch no longer posts over fetch");
+    assert.ok(!DISPATCH.includes('"use server"'), "the undo went back to a server action while E592 still reproduces");
   });
 
   /* The eighth handler, on the spine the others share, replaying the save's own mutation rather than
@@ -361,7 +363,7 @@ describe("the editor's shape", () => {
     const writtenAt = SUBMIT.indexOf("patchSaisonTeamKontakteAction(");
     assert.ok(capturedAt !== -1 && writtenAt !== -1 && capturedAt < writtenAt, "the undo payload is captured after the write that moves it");
     // Unconditional: a ratified decision keeps the offer on the save the confirmation dialog gated too.
-    assert.match(SUBMIT, /offerUndo\(undoPayload, res\.message\);/, "the undo offer is scoped to some saves rather than every one");
+    assert.match(SUBMIT, /offerUndo\(\{/, "the undo offer is scoped to some saves rather than every one");
   });
 });
 
@@ -371,19 +373,11 @@ describe("what the undo says when it cannot run", () => {
      holds the payload and the reason — diagnoses first. */
   // The diagnosis itself: `fl_frontend/src/features/kontakte/utils.test.ts :: describeUnrestorableKontakte`.
   it("diagnoses an unrestorable block itself rather than dispatching it", () => {
-    assert.match(OFFER_UNDO, /const unrestorable = describeUnrestorableKontakte\(payload\);/, "the offer no longer judges its own payload");
-    const judgedAt = OFFER_UNDO.indexOf("describeUnrestorableKontakte");
-    const dispatchedAt = OFFER_UNDO.indexOf("postKontakteUndo(payload)");
+    assert.match(OFFER_UNDO, /unrestorable: describeUnrestorableKontakte\(undoPayload\),/, "the offer no longer judges its own payload");
+    const judgedAt = DISPATCH.indexOf("if (unrestorable !== null)");
+    const dispatchedAt = DISPATCH.indexOf("postUndo(endpoint, body)");
     assert.ok(judgedAt !== -1 && dispatchedAt !== -1 && judgedAt < dispatchedAt, "the payload is judged after the dispatch it would spare");
-    assert.match(OFFER_UNDO, /if \(unrestorable !== null\) \{[\s\S]*?return;/, "an unrestorable block is dispatched anyway");
-  });
-
-  /* The dispatch never reached a judgement: the route answers 200 with the outcome in the body for
-     every reportable case, so a throw here is the transport. Sending the admin to inspect the
-     contact data names something nothing on this path read. */
-  it("blames only the transport where the dispatch never landed", () => {
-    assert.match(OFFER_UNDO, /description: "Die Änderung steht weiterhin\. Prüfe die Verbindung\."/, "the transport failure moved");
-    assert.ok(!OFFER_UNDO.includes("Prüfe die Verbindung und die Kontaktdaten"), "a failed dispatch blames data nothing judged");
+    assert.match(DISPATCH, /if \(unrestorable !== null\) \{[\s\S]*?return;/, "an unrestorable block is dispatched anyway");
   });
 });
 

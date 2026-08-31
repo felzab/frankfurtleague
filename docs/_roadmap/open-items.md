@@ -74,7 +74,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 20  | FE-24 | A pupil's consent is stored and served, and shown by nothing         | FE              | S      | Open     | —          |
 | 21  | FE-21 | The editor shell's widest layout step is unrendered                  | FE              | S      | Open     | —          |
 | 22  | FE-30 | `Team` names a club and the league's own people                      | FE, Docs        | S      | Open     | —          |
-| 23  | FE-33 | Each editor spells its own undo dispatch                             | FE              | M      | Open     | —          |
+| 23  | FE-33 | Each editor spells its own undo dispatch                             | FE              | M      | Closed   | —          |
 | 24  | FE-31 | Every admin success is stated twice, and once invisibly              | FE              | M      | Open     | —          |
 | 25  | FE-19 | Every call site writes a fallback the runtime cannot take            | FE              | M      | Open     | —          |
 | 26  | FE-23 | One adverb is written two ways across the product                    | FE              | S      | Open     | —          |
@@ -1408,47 +1408,28 @@ what makes the next public string naming either sense a coin toss.
 
 ### 23 · FE-33 — Every page-owned editor spells its own undo dispatch, and the copy inside it is written once per slice
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE\
 **Effort:** M\
 **Path:** Independent. `.claude/CLAUDE.md` §7 fixes two edges any extraction has to keep — a
 route-handled undo may not sit outside a page-owned editor, and the offer is scoped to the
-destructive save — so what moves is the dispatch, never where the undo lives. Landing it first would
-leave **FE-31** and **FE-19** one site to sweep instead of one per editor.
+destructive save — so what moves is the dispatch, never where the undo lives.
 
-**Eight editors declare their own `post…Undo` and spell the toast's action body inline, measured
-2026-08-28.** Each helper — `fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx :: postKontakteUndo`
-and its siblings under `saisons`, `schiedsrichter`, `spiele`, `spieler`, `spielorte`, `spieltage` and
-`teams` — posts JSON to its own `/api/admin/<slice>/undo`, throws on a non-2xx because the route
-answers 200 with the outcome in the body, and returns the same `{ success, message?, error? }`; the
-doc comment explaining why each is a `fetch` and not a server action, Next's E592 invariant and the
-instruction to revert once it is fixed upstream, is written out above every one of them. Each
-`offerUndo` beside it clears the standing toasts, opens a pending one under its own key, dispatches,
-and answers the same four outcomes in the same order: a refusal the route reported, a committed
-restore, a refresh that failed after the restore committed, and a dispatch that never landed.
+**Concluded by extraction.** The dispatch and the toast's action body are one function,
+`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`: the `fetch`, its E592 comment, the
+pending toast and the outcomes' order live there once, and each editor passes its endpoint, its
+pre-save payload, its copy and its flags — `saisons` its table-moved warning, `teams` and `spiele`
+their destroyed-something grade, `kontakte` its pre-judged unrestorable refusal, `spiele` its
+raw-error rejection report.
 
-**The route half of the same flow is already shared, which is what makes the client half look
-accidental.** `fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest` is the spine every
-`fl_frontend/src/app/api/admin/*/undo/route.ts` runs on, and each route supplies only its schema, its
-restore and its invalidation. Nothing corresponding stands on the calling side.
+**Where the copy's guard went.** `fl_frontend/src/shared/utils/undoDispatch.test.ts` replaces the
+test that enumerated the editors: it holds the one rejection sentence at its one site, and refuses
+any editor a `fetch` of its own — so the next editor written rides the helper rather than growing a
+copy.
 
-**What holds the copy together is a test that enumerates the files.**
-`fl_frontend/src/shared/utils/undoDispatchCopy.test.ts` reads the editors by path and asserts one
-German sentence inside each rejection handler, `AdminEditSpielDataForm` excluded on purpose because
-it reports the raw error instead. A sentence that has to be identical in every editor the test
-enumerates is what a shared dispatch removes.
-
-**What varies is small and known, which is what makes the extraction tractable.** Two editors take
-the payload alone (`saisons`, `spieltage`); `kontakte`, `schiedsrichter`, `spielorte` and `spieler`
-take an optional message beside it; `teams` and `spiele` take a third argument saying whether the
-save destroyed something, and `spiele` also carries a list of payloads and its season id. `kontakte`
-alone computes a refusal that makes the restore impossible before the offer is pressed. A helper
-would carry the payload as a type parameter, the endpoint, the entity's noun, and the optional
-message and destroyed-something argument those editors pass.
-
-**What it is worth is a judgement about churn.** Nothing is broken today and the test catches the one
-sentence it pins; what an extraction buys is that the next editor written gets the behaviour rather
-than a copy, and that a change to any of the other sentences stops being an edit in every slice.
+**What the extraction does not move.** The offer stays on every save of a page-owned editor, and the
+dispatch stays a route-handled `fetch` until E592 is fixed upstream — the §7 edges above, standing
+where they stood.
 
 ### 24 · FE-31 — Every admin write states its success twice, and the second sentence cannot render
 
@@ -1507,10 +1488,10 @@ meets on `error`. Narrowing `FormState` into a union whose succeeding member req
 turns every fallback into a compile error rather than a judgement per site, and the two shared
 components go with it: `successMessage` stops being required, or stops existing.
 
-**What must survive the sweep.** The four entity editors' undo toasts read the same way and are live:
-`fl_frontend/src/features/spielorte/components/forms/AdminSpielortEditForm/AdminSpielortEditForm.tsx :: offerUndo`
-and its three siblings take a locally computed argument that is `undefined` on an ordinary save, so
-there the fallback is the ordinary case. Reading the `??` alone does not separate the two.
+**What must survive the sweep.** The undo toasts' fallbacks read the same way and are live:
+`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo` renders `message ?? fallback`, and the
+`message` the entity editors pass is `undefined` on an ordinary save, so there the fallback is the
+ordinary case. Reading the `??` alone does not separate the two.
 
 ### 25 · FE-19 — Every call site writes a fallback for a failure message that always arrives
 

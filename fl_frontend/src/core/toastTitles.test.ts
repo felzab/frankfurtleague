@@ -293,7 +293,7 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Noch nicht abgeschickt": { variant: "danger", identifies: "one site" },
   "Nur teilweise gespeichert": { variant: "danger", identifies: "its description" },
   "Reaktivieren fehlgeschlagen": { variant: "danger", identifies: "its description" },
-  "Rücknahme fehlgeschlagen": { variant: "danger", identifies: "its description" },
+  "Rücknahme fehlgeschlagen": { variant: "danger", identifies: "one site" },
   "Rücknahme konnte nicht gesendet werden": { variant: "danger", identifies: "its description" },
   "Rücknahme nicht möglich": { variant: "danger", identifies: "one site" },
   "Saison angelegt": { variant: "success", identifies: "one site" },
@@ -327,9 +327,9 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Vorgangsnummer kopiert": { variant: "success", identifies: "one site" },
   "Wechsel fehlgeschlagen": { variant: "danger", identifies: "one site" },
   "Zusage fehlgeschlagen": { variant: "danger", identifies: "one site" },
-  "Änderung gespeichert": { variant: "success", identifies: "its description" },
-  "Änderung wird zurückgenommen...": { variant: "pending", identifies: "the press" },
-  "Änderung zurückgenommen": { variant: "success", identifies: "its description" },
+  "Änderung gespeichert": { variant: "success", identifies: "one site" },
+  "Änderung wird zurückgenommen...": { variant: "pending", identifies: "one site" },
+  "Änderung zurückgenommen": { variant: "success", identifies: "one site" },
 };
 
 const registered = Object.keys(TOAST_TITLES).sort();
@@ -338,7 +338,7 @@ const CONFIRMS: readonly ToastVariant[] = ["success", "pending"];
 describe("every toast title the product raises", () => {
   it("is found by the sweep at all", () => {
     // Floors on the call sweep, so a renamed helper cannot leave every case below vacuously true.
-    assert.ok(sites.length >= 100, `expected at least 100 toast call sites, found ${String(sites.length)}`);
+    assert.ok(sites.length >= 80, `expected at least 80 toast call sites, found ${String(sites.length)}`);
     assert.ok(raised.size >= 50, `expected at least 50 distinct titles, found ${String(raised.size)}`);
   });
 

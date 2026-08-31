@@ -18,7 +18,8 @@ import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
-import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
+import { appToast } from "@/shared/utils/appToast";
+import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { patchAdminSpielDataAction, readAdminSpielBookingsAction } from "../../../actions";
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
@@ -72,30 +73,6 @@ import type { SpielRefusalCode } from "./banners";
  * restore that never dispatched, so it must not follow the undo window wherever that is taken.
  */
 const DIAGNOSIS_TIMEOUT_MS = 15000;
-
-/**
- * A `fetch` rather than a server action: the offer is pressed from another route, where a dispatch
- * re-renders the abandoned editor segment and trips Next's E592 invariant mid-response.
- * **Revert this to a server action once E592 is fixed upstream.**
- */
-async function postSpielUndo(
-  payloads: FLPatchSpielDataPayload[],
-  saisonId: string,
-): Promise<{ success: boolean; message?: string; error?: string }> {
-  const response = await fetch("/api/admin/spiele/undo", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    // The route answers 200 with the outcome in the body for every reportable case, so a non-2xx is
-    // a transport failure and belongs in the rejection branch.
-    body: JSON.stringify({ payloads, saison_id: saisonId }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${String(response.status)}`);
-  }
-
-  return response.json() as Promise<{ success: boolean; message?: string; error?: string }>;
-}
 
 /**
  * Lookup lists arrive as props: `useAdmin()` here would make `spiele` depend on `admin`.
@@ -483,69 +460,25 @@ export function AdminEditSpielDataForm({
       const undoNote = read?.success === false ? formatUndoScopeWarning(moved) : "";
       const description = [res.message ?? "", undoNote].filter(Boolean).join(". ");
 
-      offerUndo(buildUndoPayloads(spielData, moved, bookings), description, affected.length > 0);
+      offerUndo({
+        endpoint: "/api/admin/spiele/undo",
+        body: { payloads: buildUndoPayloads(spielData, moved, bookings), saison_id: spielData.saison_id },
+        message: description || undefined,
+        fallback: "Die Spieldaten wurden aktualisiert.",
+        warn: affected.length > 0,
+        router,
+        // The raw error stays in the description, uniquely here: the dispatch failed in the browser,
+        // so no server log holds the diagnosis. One that reached the server stays generic.
+        reportRejection: (dispatchError) =>
+          appToast.danger("Rücknahme konnte nicht gesendet werden", {
+            description: dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError),
+            timeout: DIAGNOSIS_TIMEOUT_MS,
+          }),
+      });
 
       // AFTER the undo payloads are built, which read `spielData` rather than these atoms.
       resetDraftToStored();
       leavePage();
-    });
-  };
-
-  /**
-   * **The toast outlives this component**: the press runs a detached closure, so `updateTag` alone
-   * re-renders nothing and `router.refresh()` is needed.
-   */
-  const offerUndo = (payloads: FLPatchSpielDataPayload[], message?: string, destroyedSomething = false) => {
-    const raise = destroyedSomething ? appToast.warning : appToast.success;
-
-    raise("Änderung gespeichert", {
-      description: message || "Die Spieldaten wurden aktualisiert.",
-      timeout: UNDO_TIMEOUT_MS,
-      actionProps: {
-        children: "Rückgängig",
-        onPress: () => {
-          appToast.clear();
-
-          // Stands until the replay answers: HeroUI's default timeout would retire the spinner
-          // mid-flight. Closed by its key, never `clear()`, which takes other toasts with it.
-          const pendingKey = appToast.pending("Änderung wird zurückgenommen...");
-
-          // The TWO-ARGUMENT form, not a style choice: a trailing `.catch` also catches what the
-          // SUCCESS handler throws, reporting a committed restore as "could not be sent".
-          void postSpielUndo(payloads, spielData.saison_id).then(
-            (result) => {
-              appToast.close(pendingKey);
-              if (!result.success) {
-                appToast.danger("Rücknahme fehlgeschlagen", { description: result.error || "Die Änderung steht weiterhin." });
-                return;
-              }
-
-              // Reported BEFORE the refresh: the restore is committed and nothing below changes it.
-              appToast.success("Änderung zurückgenommen", { description: result.message });
-
-              // Best-effort, never allowed to fail the undo: a refresh that cannot run costs a
-              // stale screen until the next navigation, never the restore.
-              try {
-                router.refresh();
-              } catch (refreshError) {
-                console.warn("Undo committed, refresh failed", refreshError);
-              }
-            },
-            (dispatchError) => {
-              appToast.close(pendingKey);
-              console.warn("Undo dispatch failed", dispatchError);
-
-              // **The raw error stays in the description, uniquely here**: the dispatch failed in
-              // the browser, so no server log holds the diagnosis. One that reached the server
-              // stays generic.
-              appToast.danger("Rücknahme konnte nicht gesendet werden", {
-                description: dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError),
-                timeout: DIAGNOSIS_TIMEOUT_MS,
-              });
-            },
-          );
-        },
-      },
     });
   };
 
