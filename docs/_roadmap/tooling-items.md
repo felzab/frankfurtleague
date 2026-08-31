@@ -1935,6 +1935,25 @@ attribute half is the whole of the value. That the prerendered HTML carries no i
 is the spec sheet's claim rather than this entry's measurement, and it is worth re-checking beside
 the one above it.
 
+**The narrowing was implemented, measured against a running stack, and reverted — the element half
+is not free.** Measured 2026-08-31 on the local stack at the home page, with
+`style-src 'self'; style-src-attr 'unsafe-inline'` served: the prerendered HTML carries no inline
+`<style>` block, confirming that half of the premise, **but the component library injects one at
+runtime** — react-aria appends a stylesheet holding
+`@layer { [data-react-aria-pressable] { touch-action: pan-x pan-y pinch-zoom } }`, and the policy
+blocks it. The element stays in the DOM with its `sheet` null, so nothing renders differently and
+no check goes red: on that page 19 elements carry `data-react-aria-pressable` and each computes
+`touch-action: auto` instead of the value the library sets. The cost lands on touch devices alone —
+the double-tap-zoom and gesture conflicts that rule exists to prevent — which is why a desktop
+browser, the full gate and the image build all read clean.
+
+**So the work is no longer "narrow it" but "narrow it without breaking the library's own
+stylesheet".** A hash pins a string the library owns and a version bump silently re-breaks it;
+`style-src-attr` cannot reach an element; asking the library for a nonce hook is upstream work. The
+honest options are to leave the concession and record why, or to find whether the library exposes a
+supported way to move that rule into the built stylesheet. Whichever is chosen, the measurement
+above is the thing to re-run at the end, because it is the only signal this defect emits.
+
 ### 36 · OPS-12 — Nothing checks a generated file against the generator that owns it
 
 **Status:** Open\
