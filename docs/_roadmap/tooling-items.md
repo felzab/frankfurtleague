@@ -80,17 +80,16 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 32  | OPS-63  | A comment claims two files hold one pattern, unchecked             | FE, BE, Ops       | S      | Open     | —          |
 | 33  | OPS-69  | A declared-permitted state's reason is checked by nothing          | BE, Ops           | S      | Open     | —          |
 | 34  | OPS-65  | An unused parameter is reported by no checker here                 | FE, Ops           | S      | Open     | —          |
-| 35  | OPS-66  | The CSP's style directive is wider than it needs to be             | Ops, Docs         | S      | Closed   | —          |
-| 36  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
-| 37  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
-| 38  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
-| 39  | OPS-19  | Both repository-wide linters re-read every file                    | FE, Ops           | S      | Open     | —          |
-| 40  | OPS-10  | The comment-only classifier costs a process per file               | Ops               | S      | Open     | —          |
-| 41  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
-| 42  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
-| 43  | DOC-3   | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
-| 44  | DOC-10  | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
-| 45  | OPS-81  | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
+| 35  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
+| 36  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
+| 37  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
+| 38  | OPS-19  | Both repository-wide linters re-read every file                    | FE, Ops           | S      | Open     | —          |
+| 39  | OPS-10  | The comment-only classifier costs a process per file               | Ops               | S      | Open     | —          |
+| 40  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
+| 41  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
+| 42  | DOC-3   | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
+| 43  | DOC-10  | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
+| 44  | OPS-81  | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -1894,60 +1893,7 @@ declared rather than omitted. `noUnusedParameters` is not among the keys it writ
 installed Next 16.3.0 on 2026-08-20 — so adding it neither collides with that pass nor has to be
 defended against it.
 
-### 35 · OPS-66 — The style directive concedes more than the reason recorded for it needs
-
-**Status:** Closed\
-**Surfaces:** Ops, Docs\
-**Effort:** S\
-**Path:** Independent. An nginx change, so the gate is the full form with the images built
-([`docs/ops/spec.md`](../ops/spec.md) §1.6) and the deploy is watched: the config is mounted
-read-only and nginx waits on both upstreams being healthy, so a bad block takes the site down rather
-than turning something red.
-
-**`nginx/prod.conf` sends `style-src 'self' 'unsafe-inline'`, and the narrower pair that serves the
-same purpose is `style-src 'self'` with `style-src-attr 'unsafe-inline'`.**
-[`docs/ops/spec.md`](../ops/spec.md) §1.4 records why the directive keeps the concession — a
-runtime-computed inline `style` attribute, for which CSP offers neither a nonce nor a hash — and
-records the narrowing as an nginx change rather than a documentation one. This entry is that change,
-and what it needs first is a premise that page states more narrowly than the tree does.
-
-**The premise needs re-measuring before a line is written.** That section states that nothing else in
-the application sets an inline style attribute. `fl_frontend/src/shared/components/ui/FilterPanel.tsx`
-sets one, carrying the custom properties its overlay's width is computed from; and the component
-library sets one on every portalled overlay, react-aria's popover writing its resolved position and
-its trigger width as an inline style. PRE-1 puts the code above the spec sheet, so that sentence is
-the loser and moves in the same change (CUR-2). **None of it changes the candidate**, because
-`style-src-attr 'unsafe-inline'` covers a style attribute wherever it comes from. What it changes is
-the residual risk, the population under that directive being far larger than the page implies.
-
-**The residual risk, stated rather than hidden, and unverified here (COR-9).** The narrowing rests
-on a client applying `style-src-attr` in place of `style-src` to a style attribute; where a client
-does not implement the attribute directive, the fallback leaves `style-src 'self'` governing
-attributes as well — and on that client every overlay loses its computed position and the toast's
-timer bar loses its duration. Neither the fallback rule nor the client population has been checked
-at a source here, so confirming both is the work's opening step rather than an assumption inside it.
-
-**What it buys.** `'unsafe-inline'` on `style-src` also admits an injected `<style>` element, which
-is a real capability — exfiltration by attribute selector, and interface redress — on a policy whose
-`script-src` half is already conceded and compensated by `react/no-danger`
-([`docs/frontend/spec.md`](../frontend/spec.md) §1.8). Dropping the element half while keeping the
-attribute half is the whole of the value. That the prerendered HTML carries no inline `<style>` block
-is the spec sheet's claim rather than this entry's measurement, and it is worth re-checking beside
-the one above it.
-
-**What concluded it.** Both edges send `style-src 'self'` with `style-src-attr 'unsafe-inline'`,
-in all three header sites per file. The opening checks landed first: MDN records the fallback
-chain (`style-src-attr`, then `style-src`, then `default-src`) and the directive as Baseline
-widely available — Chrome 75, Edge 79, Firefox 108, Safari 15.4, ~95.5% of traffic — so support is
-not materially incomplete, an older client failing toward blocked markup attributes rather than
-toward anything open. The §1.4 premise re-measured true as that sheet now states it: FilterPanel,
-the toast timer bar, the two Trikot swatches, HeroUI's scroll-shadow and react-aria's overlays all
-write style attributes. The no-`<style>`-element claim measured FALSE by one document — Next's
-default global-error page inlines its own stylesheet, and the narrowed policy leaves that page,
-served only when the root layout itself fails, unstyled — which
-[`docs/ops/spec.md`](../ops/spec.md) §1.4 records as accepted, beside the residual-support caveat.
-
-### 36 · OPS-12 — Nothing checks a generated file against the generator that owns it
+### 35 · OPS-12 — Nothing checks a generated file against the generator that owns it
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -1983,7 +1929,7 @@ the formatter has run over each side so the comparison is about content rather t
 and fails where it differs from the committed one, and the images are left to review with that
 exclusion written down rather than assumed.
 
-### 37 · DOC-14 — A file that arrives as a rename brings its comment blocks in as context, so INC-9 measures none of them
+### 36 · DOC-14 — A file that arrives as a rename brings its comment blocks in as context, so INC-9 measures none of them
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -2014,7 +1960,7 @@ inside it as the branch's own prose. **The narrower question is the decision:** 
 `check_comment_length` alone should treat a rename's destination as added while the set the other
 branch-scoped checks read stays as it is.
 
-### 38 · DOC-2 — An enforcement claim is resolved in one direction only
+### 37 · DOC-2 — An enforcement claim is resolved in one direction only
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -2046,7 +1992,7 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 39 · OPS-19 — Both repository-wide linters re-read every file on every run
+### 38 · OPS-19 — Both repository-wide linters re-read every file on every run
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -2163,7 +2109,7 @@ resolves it to two over a file set this size — a numeric 2 makes that explicit
 taken from a development machine: the flag ships on local evidence, and that condition stands open
 against it.
 
-### 40 · OPS-10 — Deciding whether a change is comments only costs a process per file
+### 39 · OPS-10 — Deciding whether a change is comments only costs a process per file
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -2193,7 +2139,7 @@ spawning it replaced.
 **Not measured:** what the spawns actually cost, and how much of a gate run is attributable to them.
 The mechanism above is read from the code; the magnitude is not.
 
-### 41 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 40 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -2232,7 +2178,7 @@ a faster diagnosis is worth a new way for `deploy.sh` to refuse.
 cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 42 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 41 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -2277,7 +2223,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately.
 
-### 43 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 42 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -2310,7 +2256,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a rule family added to the standard under a prefix the patterns do not
 carry, or the first page that needs a metadata block indented.
 
-### 44 · DOC-10 — A block already over a bound is excused by its opening line alone
+### 43 · DOC-10 — A block already over a bound is excused by its opening line alone
 
 **Status:** Standing\
 **Surfaces:** Ops, Docs\
@@ -2338,7 +2284,7 @@ rests on.
 **Trigger to revisit:** a branch charged for a block whose length it did not create, or any change to
 how `check_comment_length` decides whose block a block is.
 
-### 45 · OPS-81 — One commit imports a frontend module the commit after it adds
+### 44 · OPS-81 — One commit imports a frontend module the commit after it adds
 
 **Status:** Standing\
 **Surfaces:** FE, Ops\
