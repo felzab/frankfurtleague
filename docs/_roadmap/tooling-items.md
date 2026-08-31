@@ -60,7 +60,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 12  | OPS-56  | The git stepper reads one `git`, on one line                       | Ops               | S      | Open     | —          |
 | 13  | OPS-71  | A citation resolves to a string, not to what it names              | Ops, Docs         | S      | Open     | —          |
 | 14  | OPS-92  | Real-IP recovery can fall back with nothing to say so              | Ops, Docs         | S      | Open     | —          |
-| 15  | DOC-12  | A Known-open table has no membership test                          | Docs              | S      | Open     | —          |
+| 15  | DOC-12  | A Known-open table has no membership test                          | Docs              | S      | Closed   | —          |
 | 16  | OPS-95  | A real file in an unaccepted spelling reads as a missing file      | Ops, Docs         | S      | Open     | —          |
 | 17  | OPS-78  | The local edge claims to mirror production, unchecked              | Ops, Docs         | S      | Open     | —          |
 | 18  | OPS-70  | Two db-tier runs at once fail in a way that names nothing          | Ops               | M      | Open     | —          |
@@ -969,7 +969,7 @@ own, and above the entries below, which test 2 does not reach at all.
 
 ### 15 · DOC-12 — A spec sheet's Known-open table has no membership test, so nothing can be missing from it
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Docs\
 **Effort:** S\
 **Path:** Independent. It decides what `.claude/commands/roadmap/add.md`'s indexing step is asking
@@ -1021,6 +1021,17 @@ out to be, which is downstream of the decision rather than an input to it.
 has passed, and what accumulates is one unanswerable pair per filing rather than work to redo. **Test 4
 places it** — one decision retires a requirement that is unverifiable at 95 places today, and that
 decision is the whole of the S, the sweep it authorises being separate work.
+
+**Closed.** The decision: roadmap ids leave the `## 4. Known-open` tables entirely — a row there
+states an accepted gap in the sheet's own words, and an open entry lives on its ranked page alone.
+That is the membership test the requirement lacked, made mechanical: the table indexes nothing, so
+nothing can be missing from it. The rule's home is OUT-4 in [`docs/standard.md`](../standard.md),
+and the requirement left `.claude/commands/roadmap/add.md` step 8 and
+`.claude/commands/roadmap/start.md` step 5. Every id row across the four id-carrying sheets was
+judged one by one — a row stating a gap a reader at that sheet would otherwise take for a defect
+stayed, stated in place; a row carrying only a pointer to the ranked page left with its id — and the
+argument per row is in the closing commit's body. The id column went with the ids, the numbers on
+`docs/logging/spec.md`'s rows included, leaving every sheet in `docs/_git/spec.md`'s shape.
 
 ### 16 · OPS-95 — A citation naming a real file in an unaccepted spelling is reported as a file that does not exist
 

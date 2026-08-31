@@ -102,13 +102,13 @@ branch named for the change (CLAUDE.md §2).
 
 8. **Add the new ids wherever the repository indexes them**, per CLAUDE.md's same-commit rule:
 
-   - The `## 4. Known-open` table of the spec sheet for each surface the entry names. That table's
-     `#` column is where a roadmap id lives in `docs/`.
    - The audit pass prompt under `docs/_auditing/prompts/` that owns the check, where the entry's
      `Path` line names a pass. The reference is mutual: the prompt names the id, and the entry's
      `Path` line names the prompt.
    - **Never a source comment.** INC-6 bans a roadmap id there — a comment states the constraint
      itself.
+   - **Never a spec sheet's `## 4. Known-open` table.** A row there states an accepted gap in the
+     sheet's own words and names no roadmap id (OUT-4).
 
    Leave every other reference alone.
 
