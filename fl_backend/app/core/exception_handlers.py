@@ -1,3 +1,4 @@
+import re
 from typing import Any, Mapping, Sequence
 
 from bson.errors import InvalidId
@@ -67,16 +68,28 @@ async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyErr
     The index NAME is logged rather than returned: it names a collection and its fields.
     """
     fl_logger.warning(
-        f"Unique index refused a write: {failure_message_of(exc)}",
+        f"Unique index refused a write: {refused_index_of(exc) or NO_DATA_TEXT}",
         extra={"error_code": "DB-COMMON-002"},
     )
 
     return error_response(status.HTTP_409_CONFLICT, "DB-COMMON-002")
 
 
-def failure_message_of(exc: DuplicateKeyError) -> str:
-    """The server's own `errmsg`, which names the index; `str(exc)` flattens it to a code."""
-    return exc.details.get("errmsg", str(exc)) if exc.details else str(exc)
+# The server's own spelling in `errmsg`; `keyValue` sits right beside it, which is why the whole
+# sentence must never travel (`docs/logging/spec.md :: L9`).
+_INDEX_NAME = re.compile(r"index: (\S+) dup key")
+
+
+def refused_index_of(exc: DuplicateKeyError) -> str | None:
+    """The name of the unique index that refused, and nothing else of the server's report.
+
+    `errmsg` embeds the duplicate key as a document -- the field AND the value that collided -- so
+    it is parsed for the one token the line may carry rather than logged.
+    """
+
+    match = _INDEX_NAME.search((exc.details or {}).get("errmsg", ""))
+
+    return match.group(1) if match else None
 
 
 async def motor_db_exception_handler(request: Request, exc: PyMongoError):

@@ -8,9 +8,11 @@ from bson import ObjectId
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field, ValidationError
-from pymongo.errors import BulkWriteError, PyMongoError, WriteError
+from pymongo.errors import BulkWriteError, DuplicateKeyError, PyMongoError, WriteError
 
 from app.core.exception_handlers import (
+    NO_DATA_TEXT,
+    duplicate_key_exception_handler,
     motor_db_exception_handler,
     pydantic_validation_exception_handler,
     register_exception_handlers,
@@ -241,6 +243,30 @@ REFUSED_BULK_INSERT_REPORT: dict[str, Any] = {
 }
 
 
+# Distinctive for the same reason `REJECTED_NAME` is: its absence from a whole log document has to be
+# evidence rather than coincidence.
+REFUSED_SHORTHAND = "ZRBX"
+
+# The server's whole report for a single-document duplicate key: `errmsg` quotes the refused value a
+# second time beside `keyValue`, which is why neither may travel to the line.
+REFUSED_DUPLICATE_KEY_REPORT: dict[str, Any] = {
+    "index": 0,
+    "code": 11000,
+    "errmsg": f'E11000 duplicate key error collection: fl_test.teams index: uniq_shorthand dup key: {{ shorthand: "{REFUSED_SHORTHAND}" }}',
+    "keyPattern": {"shorthand": 1},
+    "keyValue": {"shorthand": REFUSED_SHORTHAND},
+}
+
+
+def duplicate_key_document(caplog, details: dict[str, Any] | None) -> str:
+    """The line the duplicate-key handler writes for one server report."""
+
+    with caplog.at_level(logging.WARNING, logger="frankfurtleague"):
+        asyncio.run(duplicate_key_exception_handler(None, DuplicateKeyError("E11000 duplicate key error", 11000, details)))  # type: ignore[arg-type]
+
+    return logged_document(caplog)
+
+
 # The same refusal with an ARRAY of documents as the refused value, each shaped like a report: a walk
 # reading every key would descend into these, where a value of any other shape would slip past unseen.
 REFUSED_SUBDOCUMENT_REPORT: dict[str, Any] = {
@@ -369,6 +395,28 @@ class TestValidationLoggingWithholdsTheValue:
         assert REFUSED_SPIELER_OID not in document
         assert "dup key" not in document
         assert "DB-FAIL-001" in document
+
+    def test_a_duplicate_keys_refused_value_never_reaches_the_line(self, caplog):
+        document = duplicate_key_document(caplog, REFUSED_DUPLICATE_KEY_REPORT)
+
+        # `errmsg` quotes the value once and `keyValue` carries it again, so both stay off the line.
+        assert REFUSED_SHORTHAND not in document
+        assert "dup key" not in document
+
+    def test_a_duplicate_key_still_names_the_index_that_refused(self, caplog):
+        document = duplicate_key_document(caplog, REFUSED_DUPLICATE_KEY_REPORT)
+
+        assert "uniq_shorthand" in document
+        assert "DB-COMMON-002" in document
+
+    @pytest.mark.parametrize("details", [None, {"code": 11000}, {"errmsg": "E11000 duplicate key error, malformed"}])
+    def test_a_report_with_no_parsable_index_still_writes_a_line(self, caplog, details):
+        """Total over whatever the driver hands it: only the server decides the report's shape, and a handler must not raise while handling."""
+
+        document = duplicate_key_document(caplog, details)
+
+        assert NO_DATA_TEXT in document
+        assert "DB-COMMON-002" in document
 
     def test_the_refusal_still_hands_back_an_id_to_quote(self):
         response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/name", json={"vorname": REJECTED_NAME})
