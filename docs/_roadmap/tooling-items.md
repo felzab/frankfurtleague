@@ -1,6 +1,6 @@
 # Tooling items
 
-**Verified against:** `ea1b5c04`, 2026-08-31\
+**Verified against:** `7f89dd14`, 2026-08-31\
 **Purpose:** what is open on the toolchain, the gate and the documentation corpus, ranked — each entry carrying the analysis its decision needs
 
 | Section                                               | Answers                                                  |
@@ -66,7 +66,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 17  | OPS-71 | A citation resolves to a string, not to what it names              | Ops, Docs         | S      | Open     | —          |
 | 18  | OPS-92 | Real-IP recovery can fall back with nothing to say so              | Ops, Docs         | S      | Open     | —          |
 | 19  | DOC-12 | A Known-open table has no membership test                          | Docs              | S      | Open     | —          |
-| 20  | DOC-11 | Audit programmes stay open, and their rows go unranked             | Docs              | M      | Open     | —          |
+| 20  | DOC-11 | Audit programmes stay open, and their rows go unranked             | Docs              | M      | Closed   | —          |
 | 21  | OPS-95 | A real file in an unaccepted spelling reads as a missing file      | Ops, Docs         | S      | Open     | —          |
 | 22  | OPS-78 | The local edge claims to mirror production, unchecked              | Ops, Docs         | S      | Open     | —          |
 | 23  | OPS-70 | Two db-tier runs at once fail in a way that names nothing          | Ops               | M      | Open     | —          |
@@ -1422,11 +1422,18 @@ which costs an M and a programme closed with me to reach a gain of the same kind
 
 ### 20 · DOC-11 — Audit programmes are left open, and their findings sit outside the ranked pages
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** Docs\
 **Effort:** M\
 **Path:** Independent. `/audit:finish` is the command that performs it, and it closes a programme with
 me rather than alone.
+
+**What concluded it.** A ruling of 2026-08-31 ended every programme under `docs/audit/` at once,
+in place of `/audit:finish`: a salvage skim over the folder was offered and I declined it —
+nothing in the folder is still worth rehoming — so no row moves to a ranked page, none folds
+into an existing entry, and the final report is skipped with the rest. The full argument is in the
+closing commit body. The folder itself outlives the commit: deleting it is mine to do once this
+branch merges, the branch guard refusing an agent the command.
 
 **`docs/_roadmap/README.md` divides the world in two — a defect under active remediation is a ledger row
 under `docs/audit/`, and everything else is a ranked entry here — and an unclosed programme is a third
