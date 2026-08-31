@@ -1,6 +1,6 @@
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
-export type SpielortBannerId = "spielort.retired" | "spielort.maps-link-derived";
+export type SpielortBannerId = "spielort.retired" | "spielort.name-adresse-changed";
 
 export type SpielortBannerSpot = "adresse";
 
@@ -35,7 +35,7 @@ export function buildSpielortBanners({
   // `ort.maps_link` on every Spiel here, whichever of the two was touched.
   if (isNameChanged || isAddressChanged) {
     banners.push({
-      id: "spielort.maps-link-derived",
+      id: "spielort.name-adresse-changed",
       severity: "warning",
       raisedBy: "change",
       title: "Jedes Spiel an diesem Ort ändert sich mit",

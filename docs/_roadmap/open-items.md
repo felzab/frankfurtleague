@@ -104,7 +104,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 49  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
 | 50  | BE-38 | A helper with no caller holds a shirt-number rule alone              | BE              | S      | Open     | —          |
 | 51  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
-| 52  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Open     | —          |
+| 52  | FE-32 | A banner id names a mechanism its copy omits                         | FE              | S      | Closed   | —          |
 | 53  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
 | 54  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
 | 56  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
@@ -2727,7 +2727,7 @@ module, which nothing on either side says.
 
 ### 52 · FE-32 — A banner's id names a derivation its own sentence does not state
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE\
 **Effort:** S\
 **Path:** Independent — the rename is three sites inside the venue slice.
@@ -2758,6 +2758,13 @@ when they were written, so rewriting an id there falsifies a record instead of c
 **What ranks it last among the open items.** No reader is misled and no behaviour is wrong. The cost
 of leaving it is one maintainer's minute in a module that is read whenever a venue's banners change,
 and that is less than every entry above it.
+
+**What concluded it: the rename, at the three measured sites.** The id is now
+`spielort.name-adresse-changed`, stating what raises the banner — either identity field differing
+from what is stored — in the grammar the sibling ids already use (`spieltag.zeitraum-changed`,
+`schiedsrichter.name-changed`); the sentence keeps naming the fixture consequence. The union, the
+object literal and the module's tests moved together, and a grep confirms nothing else keys on the
+old spelling outside `docs/audit/`, which stays as written for the reason the entry gives.
 
 ### 53 · BE-7 — `typing` imports instead of `collections.abc`
 
