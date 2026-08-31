@@ -50,6 +50,8 @@ export function FormSpielplanSection({
   saisonId,
   saisonStatus,
   rules,
+  startDate,
+  endDate,
   spielplan,
   spieltageCount,
   schedule,
@@ -65,6 +67,9 @@ export function FormSpielplanSection({
    * values would promise a season this press cannot write.
    */
   rules: FLSaisonRules;
+  /** The season's STORED span, exactly as `rules` above is stored: `REQ-DATE-005`'s mirror judges the season the press would draw, never a draft. */
+  startDate: string;
+  endDate: string;
   /** `REQ-SPIELPLAN-001`: the season already holds fixtures, whoever put them there. */
   hasDrawnSpiele: boolean;
   /** Runs before either write; `false` cancels. The editor refuses while a draft is unsaved. */
@@ -86,6 +91,9 @@ export function FormSpielplanSection({
     spieltageCount,
     erfassteSpieleCount: bestand.erfasst,
     hasKoRunden: vorschau.koRunden.length > 0,
+    startDate,
+    endDate,
+    vorschauSpieltage: vorschau.spieltage,
   };
 
   const drawBlockedReason = spielplanBlockedReason(controlInput);

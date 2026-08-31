@@ -12,6 +12,9 @@ const spielplanInput = (overrides: Partial<SpielplanControlInput> = {}): Spielpl
   spieltageCount: 0,
   erfassteSpieleCount: 0,
   hasKoRunden: true,
+  startDate: "2026-05-01",
+  endDate: "2026-07-31",
+  vorschauSpieltage: 8,
   ...overrides,
 });
 
@@ -83,6 +86,7 @@ describe("spielplanBlockedReason", () => {
       { ...DRAWN, saisonStatus: "past" as const },
       { ...DRAWN, erfassteSpieleCount: 2 },
       { ...DRAWN, hasKoRunden: false },
+      { ...DRAWN, endDate: "2026-05-02" },
     ]) {
       assert.notEqual(spielplanBlock(closed), null, `${JSON.stringify(closed)} is expected to be closed`);
       assert.equal(replacesDraw(closed), false);
@@ -101,6 +105,26 @@ describe("spielplanBlockedReason", () => {
 
   it("names a spielplan condition ahead of the rules fault, as the endpoint runs its two passes", () => {
     assert.match(spielplanBlock({ ...DRAWN, hasKoRunden: false, erfassteSpieleCount: 1 }) ?? "", /schon etwas eingetragen/);
+  });
+
+  /* `REQ-DATE-005` mirrored as a date subtraction against the served schedule's own sum: the season
+     read carries the span and the schedule together, so no scheduling rule is recomputed here. */
+  it("closes the draw where the span cannot hold the schedule, and names the repair", () => {
+    const reason = spielplanBlock({ startDate: "2026-05-01", endDate: "2026-05-07", vorschauSpieltage: 8 });
+
+    assert.match(reason ?? "", /zu kurz/);
+    assert.match(reason ?? "", /Abschnitt Zeitraum/);
+  });
+
+  /* Inclusive as `find_saison_span_refusal` counts: a season running one day offers one. Count
+     exclusively and this mirror refuses a season whose draw the endpoint writes. */
+  it("counts the offered days inclusively, as the endpoint does", () => {
+    assert.equal(spielplanBlock({ startDate: "2026-05-01", endDate: "2026-05-08", vorschauSpieltage: 8 }), null);
+    assert.notEqual(spielplanBlock({ startDate: "2026-05-02", endDate: "2026-05-08", vorschauSpieltage: 8 }), null);
+  });
+
+  it("names the rules fault ahead of the span, as the endpoint orders its passes", () => {
+    assert.match(spielplanBlock({ hasKoRunden: false, endDate: "2026-05-01" }) ?? "", /keine KO-Runde/);
   });
 
   /* The one place this mirror parts from `find_spielplan_refusal`, which judges `REQ-SPIELPLAN-005`
@@ -170,10 +194,11 @@ describe("spielplanUndrawBlockedReason", () => {
     assert.equal(undrawBlock({ ...DRAWN, erfassteSpieleCount: 0 }), null);
   });
 
-  /* The knockout list decides what a DRAW would write and nothing about a removal. Read it here and
-     a season whose rules stopped reaching a bracket could never be taken back and repaired. */
+  /* The knockout list and the span decide what a DRAW would write and nothing about a removal. Read
+     either here and a season whose rules or dates went wrong could never be taken back and repaired. */
   it("ignores the schedule the draw is judged on", () => {
     assert.equal(undrawBlock({ ...DRAWN, hasKoRunden: false }), null);
+    assert.equal(undrawBlock({ ...DRAWN, endDate: "2026-05-01" }), null);
   });
 });
 
