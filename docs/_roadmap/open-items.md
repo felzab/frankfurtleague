@@ -68,7 +68,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 14  | BE-30 | The move guard does not see a stored shoot-out                       | BE              | S      | Open     | —          |
 | 15  | BE-20 | The certainty walk never hypothesises a called-off fixture           | BE, Docs        | L      | Open     | —          |
 | 16  | FE-17 | A never-clause bounds toast CSS short of the stylesheet              | FE, Docs        | S      | Open     | —          |
-| 17  | BE-32 | A replace reports what it wrote and not what it destroyed            | FE, BE, Docs    | S      | Open     | —          |
+| 17  | BE-32 | A replace reports what it wrote and not what it destroyed            | FE, BE, Docs    | S      | Closed   | —          |
 | 18  | BE-40 | A bracket slot may name a group its season does not run              | FE, BE          | S      | Open     | —          |
 | 19  | FE-28 | A squad-row return is offered where the cap refuses it               | FE, BE          | M      | Open     | —          |
 | 20  | FE-24 | A pupil's consent is stored and served, and shown by nothing         | FE              | S      | Open     | —          |
@@ -1174,12 +1174,21 @@ written against.
 
 ### 17 · BE-32 — The draw reports what it wrote and never what a confirmed replace destroyed
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE, BE, Docs\
 **Effort:** S\
 **Path:** Independent. It moves `fl_backend/openapi.json`, so its gate scope is
 `--backend --db --frontend --docs`, and the Zod mirror moves by hand in the same commit
 (`.claude/CLAUDE.md` §7).
+
+**What concluded it.** The two fields and the sentence, as scoped: `removed_spieltage` and
+`removed_spiele` on `FLGenerateSpielplanResponse`, defaulted to zero and read off the two
+`DeleteResult`s the confirmed replace produces, with a comment at the model recording that
+`docs/backend/spec.md :: I49` reaches request bodies alone, so no `extra="forbid"` lands there. The
+German in `fl_frontend/src/features/saisons/actions.ts` now composes its deletion sentence from the
+response's counts through `describeSpielplanUmfang`, so a replace that removed nothing announces no
+deletion. The Zod mirror moved by hand, `openapi.json` is regenerated, and the replace execution
+suite pins the counts. The full argument is in the closing commit body.
 
 **`fl_backend/app/api/saisons/schemas.py :: FLGenerateSpielplanResponse` carries `saison_id`,
 `spieltage`, `spiele` and `generiert_am` — the counts the draw wrote.** Where the request confirmed a
