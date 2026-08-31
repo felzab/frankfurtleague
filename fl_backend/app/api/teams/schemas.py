@@ -220,6 +220,9 @@ class _TeamWritable(BaseModel):
     # in the frontend (`app/shared/schemas/custom.py :: validate_external_url`). NULL where a school
     # has no site: `""` renders as a link to the page it sits on.
     website_url: CustomOptionalExternalUrl
+    # Public wherever a read serves it: decided 2026-08, Datenschutzexperte consulted. A club's
+    # address is a school's street and stays on the base tier, and the application form says so
+    # where the address is asked for.
     address: FLAddress
 
 
