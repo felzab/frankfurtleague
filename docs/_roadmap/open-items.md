@@ -56,7 +56,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 1   | BE-15 | The recording exists; the restore over it does not                   | FE, BE, DB      | M      | Open     | —          |
 | 2   | BE-23 | Consent's writer is deferred to an expert who has not answered       | BE, DB, Docs    | M      | Standing | —          |
 | 3   | FE-25 | A double-click satisfies the two-press confirmation                  | FE              | S      | Open     | —          |
-| 4   | BE-27 | A removal's log row can never be redacted                            | BE, DB, Docs    | S      | Open     | —          |
+| 4   | BE-27 | A removal's log row can never be redacted                            | BE, DB, Docs    | S      | Closed   | —          |
 | 5   | FB-20 | A name typed into a fixture note is beyond the erasure               | Docs            | S      | Open     | —          |
 | 6   | BE-42 | Acceptance publishes a school's street address as the club's         | FE, BE, Docs    | S      | Open     | —          |
 | 7   | BE-18 | Gaps the domain declaration does not reach                           | BE              | M      | Open     | —          |
@@ -337,7 +337,7 @@ is in question.
 
 ### 4 · BE-27 — A removal's log row records whole documents and no redaction can reach it
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** BE, DB, Docs\
 **Effort:** S\
 **Path:** Independent, and it belongs beside BE-23, which is the conversation about what the log may
@@ -378,6 +378,12 @@ helper, making `erase_many_from_db` the only door. The first keeps the restore B
 second makes the leak unrepresentable. **The state is latent and the gate stays green either way**,
 which is what puts it here rather than in a ledger: nothing today is leaking, and nothing today would
 notice the day it starts.
+
+**Concluded by the first arm.** `fl_backend/app/core/crud.py :: delete_many_from_db` records the
+removed ids on the row's `document_id`, an array the existing `(collection, document_id)` filter
+matches on its members, so the restore BE-15 wants keeps its images; the wire serves the field null
+for that shape, keeping the read model and its mirror unchanged. The guarantee's widened reach is
+recorded at `docs/backend/spec.md :: I42`; the argument is in the closing commit's body.
 
 ### 5 · FB-20 — A name typed into a fixture note is beyond the erasure, and no document records the limit
 

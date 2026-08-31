@@ -70,9 +70,11 @@ class FLAktion(BaseModel):
         """An ObjectId everywhere but `saisons`, whose `_id` is already the season string.
 
         Text rather than a union: the wire carries it only to identify the row a restore targets.
+        A `delete_many` row stores the removed ids as an array for the redaction's `$in` alone
+        (`docs/backend/spec.md :: I42`); on the wire it stays the set-write it always was, null.
         """
 
-        return None if value is None else str(value)
+        return None if value is None or isinstance(value, list) else str(value)
 
     @field_validator("before", mode="before")
     @classmethod

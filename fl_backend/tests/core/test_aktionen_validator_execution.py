@@ -8,7 +8,7 @@ from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
-from app.core.recording import Operation
+from app.core.recording import Operation, build_redaction_filter, build_redaction_update
 from tests.database import a_clean_database
 
 pytestmark = pytest.mark.db
@@ -158,9 +158,49 @@ def test_the_rows_every_real_write_builds_are_all_accepted(mongo_replica_set_url
     # how many the set held.
     assert [image["shorthand"] for image in rows[4]["before"]] == ["HE"]
     assert rows[4]["db_filter"] == {"shorthand": "HE"} and rows[4]["modified_count"] == 1
+    # The removed ids beside the images, which is what lets an erasure's `(collection, document_id)`
+    # filter select this row (`docs/backend/spec.md :: I42`).
+    assert rows[4]["document_id"] == [image["_id"] for image in rows[4]["before"]]
     # The erasure's whole record: what it matched and how many it took, and none of what it erased.
     assert rows[5]["before"] is None
     assert rows[5]["db_filter"] == {"shorthand": "CS"} and rows[5]["modified_count"] == 1
+
+
+def test_a_removals_row_is_selected_by_an_erasure_shaped_redaction(mongo_replica_set_url: str):
+    """A `delete_many` row is reached by the same `(collection, document_id)` filter an erasure builds (`docs/backend/spec.md :: I42`).
+
+    Selection both ways: naming one removed id empties that removal's whole image array and stamps
+    the row, while the sibling removal's row keeps its image untouched.
+    """
+
+    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        teams = database[Collection.TEAMS]
+
+        async def remove_two_sets(session: AsyncIOMotorClientSession) -> None:
+            await post_many_to_db(collection=teams, documents=[bulk_team_document(code) for code in ("HE", "CS")], session=session)
+            # Two removals, so the redaction below has a row it must reach and one it must not.
+            await delete_many_from_db(collection=teams, db_filter={"shorthand": "HE"}, session=session)
+            await delete_many_from_db(collection=teams, db_filter={"shorthand": "CS"}, session=session)
+
+        async with await client.start_session() as session:
+            await session.with_transaction(remove_two_sets)
+
+        target_row = await database[Collection.AKTIONEN].find_one({"db_filter.shorthand": "HE"})
+        assert target_row is not None
+        redacted = await patch_many_in_db(
+            collection=database[Collection.AKTIONEN],
+            db_filter=build_redaction_filter([(Collection.TEAMS, [target_row["document_id"][0]])]),
+            update=build_redaction_update(at=RECORDED_AT),
+        )
+
+        return redacted.modified_count, [row async for row in database[Collection.AKTIONEN].find({"operation": "delete_many"}).sort("_id", 1)]
+
+    modified, rows = on_a_replica_set(mongo_replica_set_url, body)
+
+    assert modified == 1
+    assert rows[0]["before"] is None and rows[0]["redacted_at"] == RECORDED_AT
+    # The sibling removal's floor: a filter matching on `collection` alone would have swept it too.
+    assert [image["shorthand"] for image in rows[1]["before"]] == ["CS"] and rows[1]["redacted_at"] is None
 
 
 def test_the_base_row_every_rejection_below_deviates_from_is_accepted(mongo_container: Any):
@@ -207,12 +247,14 @@ def test_a_malformed_row_is_rejected(mongo_container: Any, row: dict[str, Any], 
         (
             recorded_row(
                 operation="delete_many",
-                document_id=None,
+                # The removed ids as an array, the shape `delete_many_from_db` records so a
+                # redaction's `$in` can select the row (`docs/backend/spec.md :: I42`).
+                document_id=[TEAM_OID, SECOND_TEAM_OID],
                 db_filter={"inactive_since": "2024-01-01"},
                 before=[team_document(), team_document() | {"_id": SECOND_TEAM_OID, "shorthand": "HE"}],
                 modified_count=2,
             ),
-            "a removal, whose images are an array rather than one document",
+            "a removal, whose images and removed ids are arrays rather than one document and one id",
         ),
         (
             recorded_row(operation="erase_many", document_id=None, db_filter={"_id": str(TEAM_OID)}, before=None, modified_count=1),
