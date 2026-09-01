@@ -1,0 +1,28 @@
+# .editorconfig — the file conventions Prettier does not reach: Python, shell, TOML, nginx and the
+# Dockerfiles. Where both apply, `.prettierrc.json` wins, so the values here restate what Prettier
+# already produces rather than competing with it.
+
+root = true
+
+[*]
+charset = utf-8
+# `.gitattributes` normalises a tracked file at commit, which leaves a CRLF invisible until a shell
+# script fails on the Linux server. This settles it in the editor, before the file is written.
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# 4 and 144 are what `ruff format` and `[tool.ruff] line-length` in `fl_backend/pyproject.toml`
+# produce, so an editor honouring this file and the gate agree on a Python file neither has seen.
+[*.py]
+indent_size = 4
+max_line_length = 144
+
+[*.conf]
+indent_size = 4
+
+# The one pair `.gitattributes` keeps on CRLF, because a Windows shell reads nothing else.
+[*.{bat,cmd}]
+end_of_line = crlf

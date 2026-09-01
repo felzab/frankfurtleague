@@ -1,0 +1,24 @@
+// .vscode/settings.json — the editor layer of the formatting rules. Prettier's installation guide
+// orders the layers editor, then CI, then a pre-commit hook: a save that formats is what keeps
+// `.githooks/pre-commit` from having to reformat and re-stage the same file.
+
+// Per language rather than one workspace-wide `editor.formatOnSave`: that arms whatever formatter
+// a developer happens to have for Python, shell or TOML, none of which is what the gate checks.
+// `.editorconfig` carries what those files need instead.
+
+// The three paths make the editor read exactly what the gate reads. Prettier resolves the plugins
+// named in `.prettierrc.json` against the working directory, and the repository root holds no
+// `node_modules`, so the module it loads has to be named rather than discovered.
+{
+  "prettier.prettierPath": "fl_frontend/node_modules/prettier",
+  "prettier.configPath": ".prettierrc.json",
+  "prettier.ignorePath": ".prettierignore",
+  "[typescript]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[typescriptreact]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[javascript]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[json]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[jsonc]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[markdown]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[yaml]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[css]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" }
+}
