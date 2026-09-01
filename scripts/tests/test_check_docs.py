@@ -40,6 +40,8 @@ NEWLINE: Final = chr(10)
 # Built for a second reason on top of that one: python refuses to compile a source file holding a
 # NUL, so the byte this case plants cannot be written here even escaped past the gate's own reader.
 NUL_BYTE: Final = chr(0)
+# Not text in any encoding, which is what makes a reader answer None rather than a shorter page.
+UNDECODABLE_BYTES: Final = b"\xff\xfe not decodable as utf-8\n"
 CR_BYTE: Final = chr(13)
 # Built like the markers above: spelled out, this line would open a fence in every reader that
 # scans this file, and the corpus below would be read as one block of prose.
@@ -104,6 +106,9 @@ ROADMAP: Final = "docs/_roadmap/open-items.md"
 # The tooling half of the split roadmap, so the shape check has more than the one ranked page to
 # loop over.
 TOOLING_ROADMAP: Final = "docs/_roadmap/tooling-items.md"
+# The log a ranked page is resolved against: an id standing on both is a removal applied by halves.
+CLOSED_ROADMAP: Final = "docs/_roadmap/closed-items.md"
+CLOSED_ROW: Final = "| FX-8 | An item that was concluded | Closed |"
 # Its one ranked item. The corpus writes the row and the entry, the plant rewrites them, and one
 # spelling here is what keeps the page the plant edits and the page the corpus holds in step.
 TOOLING_ITEM: Final = "Rank the tooling work apart"
@@ -131,6 +136,9 @@ GITIGNORE: Final = ".gitignore"
 # scratch file somebody left in the tree; the skipped one a running audit programme's working notes.
 IGNORED_MODULE: Final = "ignored/scratch.py"
 SKIPPED_MODULE: Final = "docs/audit/scratch.py"
+# A module python refuses to tokenize, so the comment reader falls back to its marker scan. Planted
+# rather than committed: the corpus every other case is measured against holds no such file.
+UNTOKENIZABLE_MODULE: Final = "fl_backend/app/untokenizable.py"
 # A file a plant writes and never stages, which is what a branch holds when the gate runs.
 UNSTAGED_MODULE: Final = "fl_backend/app/unstaged.py"
 UNSTAGED_BLOCK: Final = "fl_backend/app/unstaged_block.py"
@@ -174,6 +182,10 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "A plain page, which is where a planted violation is written.",
             "",
             "A bare name resolves to the tracked file alone: `glossary.md :: the competition year`.",
+            "",
+            # The continuation form, resolving. A resolver that stopped placing one would fail every
+            # case in the loop here, which is what parts a real placement from a silent skip.
+            "`fl_backend/app/sample.py :: VALUE` and `:: S` are both defined there.",
             "",
             "A citation that wraps is still one citation: `docs/glossary.md ::",
             "the competition year` resolves across the break.",
@@ -370,6 +382,15 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             _heading(3, TOOLING_ENTRY),
             "",
             "**Status:** Open",
+        ),
+        CLOSED_ROADMAP: _page(
+            _heading(1, "Closed items"),
+            "",
+            "**Purpose:** what has left a ranked page.",
+            "",
+            "| ID | Item | Status |",
+            "| --- | --- | --- |",
+            CLOSED_ROW,
         ),
         TEMPLATES: _page(
             _heading(1, "Templates"),
@@ -574,6 +595,16 @@ def _discard(root: Path) -> None:
         shutil.rmtree(root, onexc=_clear_readonly)
 
 
+def _withdraw(*names: str) -> None:
+    """Drop a module and every submodule of it from the cache, before an import and after it.
+
+    Two fixtures import a copy of scripts/ under the same names, and `checker_kernel` holds
+    REPO_ROOT: whichever loads second is otherwise handed the first one's tree.
+    """
+    for cached in [name for name in sys.modules if any(name == root or name.startswith(root + ".") for root in names)]:
+        del sys.modules[cached]
+
+
 def _load() -> Fixture:
     """The checker, imported from a copy of scripts/ inside a fresh fixture repository."""
     root = Path(tempfile.mkdtemp(prefix="check-docs-fixture-")).resolve()
@@ -584,11 +615,13 @@ def _load() -> Fixture:
     ignored = shutil.ignore_patterns("__pycache__", "tests", ".ruff_cache", ".pytest_cache", ".mypy_cache")
     shutil.copytree(REPO_ROOT / SCRIPTS_COPY, root / SCRIPTS_COPY, ignore=ignored)
     sys.path.insert(0, str(root / SCRIPTS_COPY))
+    _withdraw("check_docs", "check_pr_body", "checker_kernel", "docs_gate")
     gate = importlib.import_module("check_docs")
     # The seam itself, stated as an assertion: the checker derives its repository root from its own
     # location, so importing this copy is what points every check at the corpus below instead of here.
     assert Path(gate.__file__ or "").resolve().parent.parent == root, "the gate under test is not the copy"
     body_gate = importlib.import_module("check_pr_body")
+    assert vars(sys.modules["checker_kernel"])["REPO_ROOT"] == root, "the gate under test reads another fixture's tree"
     _build(root, _corpus(body_gate.TEMPLATE_FRAGMENTS))
     return Fixture(gate, body_gate, root)
 
@@ -608,8 +641,11 @@ def _module(name: str) -> ModuleType:
     Imported directly rather than widening the entry point's re-exports, which would put a name in
     the shipped file that exists for a test.
     """
+    # The fixture first: loading it is what puts its copy of scripts/ on the path, so a case whose
+    # only reach into the gate is this call would otherwise import nothing at all.
+    root = _gate().root
     module = importlib.import_module(name)
-    assert Path(module.__file__ or "").resolve().is_relative_to(_gate().root), name + " is not the copy under test"
+    assert Path(module.__file__ or "").resolve().is_relative_to(root), name + " is not the copy under test"
     return module
 
 
@@ -846,6 +882,9 @@ def _plant_roadmap() -> None:
     _append(ROADMAP, _heading(3, "2 · FX-9 — An entry no table defines"), "", "**Status:** Closed")
     _replace(TOOLING_ROADMAP, TOOLING_ROW, TOOLING_ROW + "\n| 2 | TL-2 | A tooling row with no entry below it |")
     _replace(TOOLING_ROADMAP, _heading(3, TOOLING_ENTRY), _heading(3, "2 · TL-1 — " + TOOLING_ITEM))
+    # The half-applied removal: the log records the tooling entry as finished while the page still
+    # ranks it. Neither file contradicts itself, so only the two read together can say so.
+    _replace(CLOSED_ROADMAP, CLOSED_ROW, CLOSED_ROW + "\n| TL-1 | " + TOOLING_ITEM + " | Closed |")
 
 
 def _plant_segment_map() -> None:
@@ -860,6 +899,11 @@ def _plant_segment_map() -> None:
 def _write_bytes(root: Path, rel: str, text: str) -> None:
     """A plant's exact bytes, `_write` being the same call. Named so a byte plant reads as deliberate."""
     (root / rel).write_bytes(text.encode("utf-8"))
+
+
+def _write_raw(rel: str, data: bytes) -> None:
+    """Bytes that are not text at all: an undecodable page, or one carrying both line endings."""
+    (_gate().root / rel).write_bytes(data)
 
 
 def _plant_crlf() -> None:
@@ -1036,6 +1080,10 @@ def _plant_citations() -> None:
     _append(TEMPLATES, "`notes.md :: a bare name can be made to resolve twice` resolves more than once.")
     _append(SWEEP, "`docs/data.bin :: anything` cannot be read.")
     _append(TWIN_NOTES, "`docs/notes.md :: no such anchor` resolves to a page without it.")
+    # Present as text and defined nowhere: the shape a substring test reads as alive, which is how a
+    # citation of a deleted symbol survives inside a longer name.
+    _append(NOTES, "`fl_backend/app/sample.py :: VALU` names a prefix of a symbol rather than one.")
+    _append(ROADMAP, "`fl_backend/app/sample.py :: VALUE` continues onto `:: MISSING`.")
 
 
 def _plant_anchors() -> None:
@@ -1108,6 +1156,9 @@ def _plant_comment_citations() -> None:
         SAMPLE,
         HASH + " an audit id § S2 belongs to no clone",
         HASH + " and the last session is not a citation",
+        # The pattern's other half. `first` is the one ordinal COUNT_WORDS leaves out, so this line
+        # reaches the review reference and nothing else.
+        HASH + " nor is the first review, which no clone holds",
         HASH + " nor is FX-1 on its own",
     )
     _append(SECOND_SAMPLE, HASH + " the ledger 3 entry is not a citation either")
@@ -1147,10 +1198,10 @@ CASES: Final[tuple[Case, ...]] = (
     ),
     Case("binary-byte", _fails("binary-byte", NOTES, UMLAUT_MODULE), _plant_binary_bytes),
     Case("branch-scope", _reports("branch-scope", BRANCH_DIFF), _plant_branch_scope, _undo_branch_scope),
-    Case("citation", _fails("citation", NOTES, ROADMAP, ROADMAP, TEMPLATES, SWEEP, TWIN_NOTES), _plant_citations),
+    Case("citation", _fails("citation", NOTES, NOTES, ROADMAP, ROADMAP, ROADMAP, TEMPLATES, SWEEP, TWIN_NOTES), _plant_citations),
     Case(
         "comment-citation",
-        _fails("comment-citation", SAMPLE, SECOND_SAMPLE) + _reports("comment-citation", SAMPLE, SAMPLE),
+        _fails("comment-citation", SAMPLE, SECOND_SAMPLE) + _reports("comment-citation", SAMPLE, SAMPLE, SAMPLE),
         _plant_comment_citations,
     ),
     Case("comment-length", _fails("comment-length", SAMPLE, SECOND_SAMPLE, THIRD_SAMPLE, TSX_SAMPLE), _plant_comment_bounds),
@@ -1180,7 +1231,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case("owner-voice", _fails("owner-voice", NOTES), lambda: _append(NOTES, "The owner reads it.")),
     Case("path", _fails("path", NOTES), lambda: _append(NOTES, "`docs/gone.md` is named here.")),
     Case("readme-cap", _fails("readme-cap", ROOT_README), lambda: _append(ROOT_README, *["A line." for _ in range(130)])),
-    Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 8, *[TOOLING_ROADMAP] * 3), _plant_roadmap),
+    Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 7, *[TOOLING_ROADMAP] * 4), _plant_roadmap),
     # The standard names its own duplicated id, which is what reports the collision: every citer of
     # a multiply homed id fails, and the definition lines are themselves citations.
     Case("rule-id", _fails("rule-id", NOTES, SAMPLE, STANDARD), _plant_rule_ids),
@@ -1821,6 +1872,317 @@ def test_a_nul_at_the_first_byte_is_reported_and_one_inside_a_token_never_ends_t
     assert reported[("fail", "binary-byte", NOTES)] == 1, _shape(reported)
     assert "offset 0" in bytes_found[0].detail, bytes_found[0].detail
     _assert_corpus_restored()
+
+
+# --- the arms a check takes when its own input refuses ---------------------------------------------
+
+
+def test_a_ranked_page_that_cannot_be_decoded_is_read_against_nothing() -> None:
+    """A page the reader refuses yields no heading and no row, which is the shape of a clean page."""
+    _reset()
+    _write_raw(TOOLING_ROADMAP, UNDECODABLE_BYTES)
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "roadmap-shape", TOOLING_ROADMAP)] == 1, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_closed_log_outside_the_index_leaves_the_ranked_pages_resolved_against_nothing() -> None:
+    """Untracked rather than absent: absence is `inputs`' finding, and this is the reading check's own."""
+    _reset()
+    _git(_gate().root, "rm", "--cached", "-q", "--", CLOSED_ROADMAP)
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "roadmap-shape", CLOSED_ROADMAP)] == 1, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_closed_log_that_cannot_be_decoded_leaves_the_ranked_pages_resolved_against_nothing() -> None:
+    _reset()
+    _write_raw(CLOSED_ROADMAP, UNDECODABLE_BYTES)
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "roadmap-shape", CLOSED_ROADMAP)] == 1, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_file_the_byte_check_cannot_open_is_named_rather_than_passed_over() -> None:
+    """Silence there is indistinguishable from a file proved to hold neither byte."""
+    _reset()
+    checks = _module("docs_gate.checks")
+    _clear_caches(_gate().root / SCRIPTS_COPY)
+    target = _gate().root / NOTES
+    real = Path.read_bytes
+
+    def refusing(self: Path) -> bytes:
+        if self == target:
+            raise OSError("the file could not be opened")
+        return real(self)
+
+    Path.read_bytes = refusing
+    try:
+        found = [finding for finding in checks.check_binary_bytes() if finding.file == NOTES]
+    finally:
+        Path.read_bytes = real
+        _reset()
+    assert len(found) == 1, found
+    assert "could not be opened" in found[0].detail, found[0].detail
+
+
+def test_a_clone_git_will_not_read_says_the_shas_went_unresolved() -> None:
+    """A refused batch is every SHA unread, and saying nothing about that looks like a clean answer."""
+    _reset()
+    branch = _module("docs_gate.branch")
+    kernel = _module("docs_gate.kernel")
+    _append(NOTES, "The commit `abc1234` is named here.")
+    _clear_caches(_gate().root / SCRIPTS_COPY)
+    real = branch.git_input
+
+    def refusing(*args: str, stdin: str) -> str | None:
+        return None
+
+    # Through the module's own namespace: a module carries no declared attribute for a checker to
+    # assign to, and the dict is the same binding the function reads at each call.
+    vars(branch)["git_input"] = refusing
+    try:
+        found = branch.check_prose_shas(kernel.scanned_files())
+    finally:
+        vars(branch)["git_input"] = real
+        _reset()
+    assert len(found) == 1, found
+    assert "prose SHA resolution did not run" in found[0].detail, found[0].detail
+    _assert_corpus_restored()
+
+
+# --- the copy scanner's own verdict ------------------------------------------------------------------
+
+# Each ends the scan somewhere it did not start, and each is a shape a real edit reaches. The last
+# two are why frames alone cannot answer: a brace in code moves a depth and opens no frame.
+UNREADABLE_AS_TYPESCRIPT: Final[tuple[tuple[str, str], ...]] = (
+    ("a brace closing nothing inside an element", "export function A() { return <p>Text}</p>; }"),
+    ("an element nothing closes", "export function A() { return <p>Text; }"),
+    ("a template nothing closes", "export const A = `Text;"),
+    ("a closer past the top level", "export const A = 1;" + NEWLINE + "}"),
+    ("a block nothing closes", "export function A() {" + NEWLINE + "  return 1;"),
+)
+
+READABLE_AS_TYPESCRIPT: Final[tuple[str, ...]] = (
+    "export const A = 'Text';",
+    "export function A() { return <p>Text</p>; }",
+)
+
+
+def test_the_copy_scanner_answers_whether_it_read_the_file_to_the_end() -> None:
+    """Two consumers go quiet together when this stops answering: the finding below, and the floor test's assertion over the list it fills."""
+    scanner = _module("docs_gate.copy_rules")
+    wrong: list[str] = []
+    for name, source in UNREADABLE_AS_TYPESCRIPT:
+        if scanner._scan(source + NEWLINE, jsx=True)[1]:
+            wrong.append(name + " was read as balanced")
+    for source in READABLE_AS_TYPESCRIPT:
+        if not scanner._scan(source + NEWLINE, jsx=True)[1]:
+            wrong.append("a file that balances was refused: " + source)
+    assert not wrong, NEWLINE.join(wrong)
+
+
+def test_a_file_the_copy_scanner_cannot_read_to_the_end_is_reported() -> None:
+    """Without it a mis-parsed file passes the copy sweep with no span read out of it at all."""
+    _reset()
+    _append(COPY_SAMPLE, UNREADABLE_AS_TYPESCRIPT[0][1])
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "copy-corpus", COPY_SAMPLE)] == 1, _shape(reported)
+    _assert_corpus_restored()
+
+
+# --- source the tokenizer refuses ------------------------------------------------------------------
+
+
+def test_a_module_python_cannot_tokenize_still_has_its_comments_read() -> None:
+    """Reading no comments would look like a file holding none, which every comment check passes."""
+    _reset()
+    # An unterminated triple quote: tokenize raises, and the marker reader keeps the lines anyway.
+    _write(_gate().root, UNTOKENIZABLE_MODULE, _page(HASH + " a comment naming docs/gone.md", "unterminated = " + QUOTES))
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "bare-path", UNTOKENIZABLE_MODULE)] == 1, _shape(reported)
+    _assert_corpus_restored()
+
+
+# --- the rows and alternatives nothing else plants ---------------------------------------------------
+
+
+def test_a_working_tree_holding_both_endings_is_named_as_mixed() -> None:
+    """`crlf` and `mixed` are two answers from git, and a file carrying one line of each gives the second."""
+    _reset()
+    _write_raw(NOTES, _read(NOTES).encode("utf-8") + b"A line with a return\r\nand one without\n")
+    try:
+        _, reported = _run()
+        endings = [finding for finding in _module("docs_gate.checks").check_line_endings() if finding.file == NOTES]
+    finally:
+        _reset()
+    assert reported[("fail", "line-endings", NOTES)] == 1, _shape(reported)
+    assert "MIXED" in endings[0].detail, endings[0].detail
+    _assert_corpus_restored()
+
+
+def test_a_citation_naming_a_file_by_its_name_alone_is_resolved_by_its_kind() -> None:
+    """A Dockerfile carries no suffix, so only the filename register makes the left half read as a file."""
+    _reset()
+    _append(NOTES, "The image is built by `nginx/Dockerfile :: CMD`.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 1, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_hyphen_holding_a_compound_open_is_not_punctuation() -> None:
+    """Rendered alone is the one position the exemption is reached in: elsewhere the word behind the hyphen already settles it."""
+    _reset()
+    _append(COPY_SAMPLE, "export function Verkauf() {", "  return <p>Ticket<span>-</span> und Cateringverkäufe stehen bereit.</p>;", "}")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert not [key for key in reported if key[1] == "copy-dash"], _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_repository_path_never_resolves_through_a_traversal() -> None:
+    """What comes back has to be a git listing's spelling, and a normalised traversal is not one."""
+    kernel = _module("docs_gate.kernel")
+    assert kernel.repo_path(NOTES) == NOTES
+    for token in ("../" + NOTES, "docs/../" + NOTES, "/" + NOTES, "./" + NOTES):
+        assert kernel.repo_path(token) is None, token
+
+
+def test_a_skipped_folder_is_skipped_at_every_depth() -> None:
+    """`node_modules` occurs nested and never at the root, so a prefix test alone reaches none of it."""
+    kernel = _module("docs_gate.kernel")
+    root = _gate().root
+    assert kernel._skipped(root / "fl_frontend" / "node_modules" / "pkg" / "readme.md")
+    assert kernel._skipped(root / "docs" / "audit" / "notes.md")
+    assert not kernel._skipped(root / NOTES)
+
+
+def test_a_directory_only_ignore_rule_is_asked_in_both_spellings() -> None:
+    """The corpus's own ignored folder is on disk, so only a rule naming one that is not can reach the retry."""
+    _reset()
+    kernel = _module("docs_gate.kernel")
+    absent = "absent-folder"
+    _write(_gate().root, GITIGNORE, _read(GITIGNORE) + "/" + absent + "/" + NEWLINE)
+    _clear_caches(_gate().root / SCRIPTS_COPY)
+    try:
+        assert not (_gate().root / absent).exists(), "the folder is there, so the retry is not what answers"
+        assert kernel.is_gitignored(absent)
+        assert not kernel.is_gitignored(NOTES)
+    finally:
+        _clear_caches(_gate().root / SCRIPTS_COPY)
+        _reset()
+    _assert_corpus_restored()
+
+
+# --- how a Python module is cut into comment blocks ------------------------------------------------
+
+# Built line by line, so this file's own text carries neither a margin quote nor a bare marker for
+# the gate to read as its own. `_module` hands back the copy under test.
+MARGIN_SCRIPT: Final[tuple[str, ...]] = (
+    QUOTES + "A module." + QUOTES,
+    "",
+    "SCRIPT = " + QUOTES + "#!/usr/bin/env bash",
+    "echo one",
+    QUOTES,
+    "",
+    "def run() -> int:",
+    "    total = 1",
+    "    return total",
+)
+
+PARAGRAPHED: Final[tuple[str, ...]] = (
+    "def widen() -> None:",
+    "    " + QUOTES + "A summary line.",
+    "",
+    "    A second paragraph, which a reader meets as one block with the summary above it.",
+    "",
+    "    A third, so a bound measured per paragraph would read three short blocks here.",
+    "    " + QUOTES,
+    "    return None",
+)
+
+TRAILING: Final[tuple[str, ...]] = (
+    "TOTAL = 1  " + HASH + " why the total is held here",
+    HASH + " a block of its own, on its own line",
+)
+
+CLOSING_QUOTE: Final[tuple[str, ...]] = (
+    "def widen() -> None:",
+    "    " + QUOTES + "A docstring." + QUOTES,
+    "    " + HASH + " a comment against the closing quote, which is a block of its own",
+    "    return None",
+)
+
+UNTOKENIZABLE: Final[tuple[str, ...]] = (
+    HASH + " a comment naming docs/gone.md",
+    "unterminated = " + QUOTES,
+)
+
+
+def _runs(lines: tuple[str, ...]) -> list[tuple[int, str]]:
+    """Every comment block the gate reads out of one module, as (first line, measured text)."""
+    kernel = _module("docs_gate.kernel")
+    branch = _module("docs_gate.branch")
+    return [(first, branch._block_text(block)) for first, block in kernel.comment_runs(NEWLINE.join(lines), ".py")]
+
+
+def test_a_string_literal_closing_at_the_margin_opens_no_comment_block() -> None:
+    """A multi-line literal's closing quote is not a docstring opening, and the code under it is not prose.
+
+    Read as one, the lines below it are measured against INC-9's bound, which reports a finding
+    about code that no edit to any comment can clear.
+    """
+    measured = _runs(MARGIN_SCRIPT)
+    assert not [text for _, text in measured if "return total" in text or "echo one" in text], measured
+
+
+def test_a_docstring_is_one_block_however_many_paragraphs_it_holds() -> None:
+    """Split at its blank lines, a docstring over the bound measures as several short blocks and passes."""
+    measured = _runs(PARAGRAPHED)
+    assert len(measured) == 1, measured
+    for fragment in ("A summary line.", "A second paragraph", "A third"):
+        assert fragment in measured[0][1], measured
+
+
+def test_a_comment_standing_after_code_opens_no_block() -> None:
+    """The bound measures the prose a reader meets on its own line, which is what the scan before it measured."""
+    measured = _runs(TRAILING)
+    assert len(measured) == 1, measured
+    assert "why the total is held here" not in measured[0][1], measured
+
+
+def test_a_comment_against_a_closing_quote_is_a_block_of_its_own() -> None:
+    """Merged, a docstring and the comment under it measure as one, which is a bound nobody wrote."""
+    measured = _runs(CLOSING_QUOTE)
+    assert len(measured) == 2, measured
+    assert measured[0][1] == "A docstring.", measured
+    assert measured[1][1].startswith("a comment against"), measured
+
+
+def test_a_module_that_will_not_tokenize_still_yields_its_comments() -> None:
+    """Reading none would look like a file holding none, which every comment check then passes."""
+    measured = _runs(UNTOKENIZABLE)
+    assert [text for _, text in measured if "docs/gone.md" in text], measured
 
 
 def _select(names: list[str]) -> int:

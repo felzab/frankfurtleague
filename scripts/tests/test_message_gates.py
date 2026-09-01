@@ -9,7 +9,12 @@ from __future__ import annotations
 
 import ast
 import importlib
+import os
+import subprocess
 import sys
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
@@ -361,3 +366,147 @@ def test_the_bot_exemption_drops_the_sign_off_and_nothing_else() -> None:
     still_binding = [what for _, what, binds_a_bot in commits.BANNED if binds_a_bot]
     assert len(still_binding) == len(commits.BANNED) - 1
     assert "a Signed-off-by trailer" not in still_binding
+
+
+# --- the outer layer: what git hands the rules, and what the hook hands them ------------------------
+
+# The gate resolves a bot by the AUTHOR pair git records, so the layer above `check_message` needs a
+# repository with real commits in it. Nothing below writes to this one's own.
+
+
+def _run_git(root: Path, *args: str, author: tuple[str, str] | None = None) -> str:
+    environment = dict(os.environ)
+    if author is not None:
+        for role in ("AUTHOR", "COMMITTER"):
+            environment["GIT_" + role + "_NAME"], environment["GIT_" + role + "_EMAIL"] = author
+    done = subprocess.run(("git", *args), cwd=root, capture_output=True, text=True, encoding="utf-8", env=environment, check=False)
+    if done.returncode != 0:
+        raise RuntimeError("git " + " ".join(args) + " failed: " + (done.stderr.strip() or done.stdout.strip()))
+    return done.stdout.strip()
+
+
+def _fixture_repository(root: Path) -> None:
+    """A repository with nothing inherited: no signing key, no hooks path, no ident from the machine."""
+    _run_git(root, "init", "-q", "-b", "main")
+    for key, value in (("user.name", "A Person"), ("user.email", "person@example.com"), ("commit.gpgsign", "false"), ("core.hooksPath", "")):
+        _run_git(root, "config", key, value)
+
+
+def _commit(root: Path, message: str, author: tuple[str, str]) -> str:
+    """An empty commit: the subject under test is the message and the ident, and a diff decides neither."""
+    _run_git(root, "commit", "-q", "--allow-empty", "-m", message, author=author)
+    return _run_git(root, "rev-parse", "HEAD")
+
+
+@contextmanager
+def _rooted_at(root: Path) -> Iterator[None]:
+    """The checker's repository root pointed at a fixture.
+
+    `git` is the kernel's, and it reads REPO_ROOT out of the kernel's own globals at each call, so
+    the function object is the handle: the module itself was withdrawn from the cache at import.
+    """
+    globals_ = commits.git.__globals__
+    real = globals_["REPO_ROOT"]
+    globals_["REPO_ROOT"] = root
+    try:
+        yield
+    finally:
+        globals_["REPO_ROOT"] = real
+
+
+SIGNED_OFF: Final = "Ops: bump the pinned action" + chr(10) * 2 + CLEAN_BODY + chr(10) * 2 + "Signed-off-by: A Bot <bot@example.com>"
+
+
+def test_a_bot_is_resolved_by_the_exact_pair_git_recorded() -> None:
+    """Every row of the register is driven, and so is a near miss on each half: half an address would release a domain."""
+    wrong: list[str] = []
+    with tempfile.TemporaryDirectory() as scratch:
+        root = Path(scratch)
+        _fixture_repository(root)
+        for name, email in sorted(commits.BOT_IDENTITIES):
+            cases = (
+                ("the pair itself", (name, email), False),
+                ("its name beside another address", (name, "someone@example.com"), True),
+                ("its address under another name", ("A Person", email), True),
+            )
+            for what, author, refused in cases:
+                sha = _commit(root, SIGNED_OFF, author)
+                with _rooted_at(root):
+                    found = [finding.detail for finding in commits.check_commit(sha)]
+                signed = [detail for detail in found if "Signed-off-by" in detail]
+                if bool(signed) is not refused:
+                    wrong.append(f"{name}: {what} gave {signed or 'no finding'}, and the exemption {'binds' if refused else 'releases'} it")
+    assert not wrong, chr(10).join(wrong)
+
+
+def test_a_commit_git_will_not_read_is_failed_rather_than_skipped() -> None:
+    """A message nothing read is indistinguishable from a clean one, so the unread commit is the finding."""
+    with tempfile.TemporaryDirectory() as scratch:
+        root = Path(scratch)
+        _fixture_repository(root)
+        _commit(root, _message(), ("A Person", "person@example.com"))
+        with _rooted_at(root):
+            found = commits.check_commit("0" * 40)
+    assert len(found) == 1, found
+    assert "never judged" in found[0].detail, found[0].detail
+
+
+def test_the_hook_reads_the_message_git_has_yet_to_strip() -> None:
+    """git strips its comment block only AFTER this hook runs, so an unstripped line is what the rules would judge.
+
+    The planted line is past the body's hard maximum: a comment breaking no rule passes whether
+    it is stripped or not, which decides nothing.
+    """
+    with tempfile.TemporaryDirectory() as scratch:
+        root = Path(scratch)
+        _fixture_repository(root)
+        path = root / "COMMIT_EDITMSG"
+        with _rooted_at(root):
+            explain = "Lines starting with it are ignored, and an empty message aborts the commit."
+            commented = f"{commits.comment_char()} Please enter the commit message for your changes. {explain}"
+            assert len(commented) > commits.LINE_MAX, "the planted comment breaks no rule, so stripping it decides nothing"
+            path.write_text(_message() + chr(10) + commented + chr(10), encoding="utf-8", newline=chr(10))
+            clean = commits.check_message_file(path)
+            path.write_text("no scope here." + chr(10) * 2 + CLEAN_BODY + chr(10), encoding="utf-8", newline=chr(10))
+            refused = commits.check_message_file(path)
+    assert clean == 0, "a clean message was refused, so the comment block reached the rules"
+    assert refused == 1, refused
+
+
+def test_a_message_git_is_composing_is_not_the_author_s_to_answer_for() -> None:
+    """A merge or a revert leaves the ref behind, which is what parts it from anyone typing the same subject."""
+    with tempfile.TemporaryDirectory() as scratch:
+        root = Path(scratch)
+        _fixture_repository(root)
+        first = _commit(root, _message(), ("A Person", "person@example.com"))
+        with _rooted_at(root):
+            assert not commits.git_is_composing()
+            (root / ".git" / "MERGE_HEAD").write_text(first + chr(10), encoding="utf-8", newline=chr(10))
+            assert commits.git_is_composing()
+            path = root / "COMMIT_EDITMSG"
+            path.write_text("no scope here." + chr(10), encoding="utf-8", newline=chr(10))
+            assert commits.check_message_file(path) == 0, "a message git wrote was judged as an author's"
+
+
+def test_the_comment_marker_is_git_s_own_answer() -> None:
+    """`auto` picks per message and cannot be resolved here, so it has to read as the default rather than as the word."""
+    with tempfile.TemporaryDirectory() as scratch:
+        root = Path(scratch)
+        _fixture_repository(root)
+        with _rooted_at(root):
+            assert commits.comment_char() == "#"
+            _run_git(root, "config", "core.commentChar", ";")
+            assert commits.comment_char() == ";"
+            _run_git(root, "config", "core.commentChar", "auto")
+            assert commits.comment_char() == "#"
+
+
+def test_a_branch_with_no_commits_is_parted_from_a_listing_git_refused() -> None:
+    """None is not an empty list: a refused listing is every message on the branch passing unread."""
+    with tempfile.TemporaryDirectory() as scratch:
+        root = Path(scratch)
+        _fixture_repository(root)
+        _commit(root, _message(), ("A Person", "person@example.com"))
+        with _rooted_at(root):
+            assert commits.branch_commits("HEAD") == []
+            assert commits.branch_commits("no-such-ref") is None
