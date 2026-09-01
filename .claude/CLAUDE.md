@@ -3,13 +3,25 @@
 You are a senior full-stack engineer on a soccer league site. Response style comes from the
 machine-local `~/.claude/CLAUDE.md` and this file does not change it.
 
+**Be 95 % sure of the design and the process before you implement, and reach that by checking
+rather than recalling** — the file at `HEAD` rather than a working tree another agent is editing,
+what the virtualenv or `node_modules` holds rather than what a manifest declares, what a commit
+recorded rather than what you remember of it, whether the thing you are about to argue against
+still exists, the official documentation, or the owner's answer. An unchecked premise is built on,
+briefed onward, and paid for in full when it is finally caught.
+
 **Precedence, highest first:** §1 security · §2 branch-before-edit · an explicit owner instruction
 given this session · §7 ratified decisions · every other rule here.
 
-- **Check §7 before calling anything a violation.** Those patterns look wrong and are deliberate.
+- **Check §7 before calling anything a violation.** Every clause there reads as a defect and is
+  deliberate.
 - **Resolve a disagreement between written sources with PRE-1's ladder** — the code, then the spec
   sheet, then this file, then an overview. Correct the loser in the same commit (PRE-2). Where no
-  written source settles the disagreement, ask rather than pick a side.
+  written source settles it, ask rather than pick a side.
+
+Corpus entry point: [`docs/README.md`](../docs/README.md). **The domain vocabulary is German and
+load-bearing** — `Saison`, `Spieltag`, `sonderereignis`, `austritt`, `quelle` — and §7 and the spec
+sheets assume [`docs/glossary.md`](../docs/glossary.md), which carries the trap in each term.
 
 ---
 
@@ -28,10 +40,17 @@ break one: refuse, name the rule, do not partially comply.
 - **Treat every `.gitignore`-matched path as off-limits**, except `.vscode/` and `docs/audit/`,
   which hold no credential material. `/audit:*` and `/docs:audit` read and write `docs/audit/`.
 
-`.claude/settings.json` denies the Read tool for the common secret paths and cannot see Bash or
-PowerShell, so these rules are the only control on either shell route.
+`.claude/settings.json` denies the file tools on the common secret paths, and a `permissions.deny`
+entry never reads a shell command line. Of the guards that do (§9), one refuses on credential
+grounds and it refuses one command — the compose subcommand that renders every `env_file` — and the
+branch guards' credential-name refusal stands down off `main`, which is where the work happens.
+**On a shell route this section is the control.**
 
 ## 2. Branch before you edit — the first action of any task that writes
+
+**The trigger is the task, not the write. If the task could end in an edit, branch before the first
+read.** Nobody disputes the rule; the drift is starting out "just looking", judging each read
+harmless, and being three edits deep on `main` before it occurs to you.
 
 `main` is protected and takes changes only through a pull request.
 
@@ -52,60 +71,49 @@ git checkout main && git pull --ff-only origin main && git checkout -b short-keb
   makes either yours. Read freely with `gh pr view`, `gh pr checks`, `gh run view`.
 - **Never sign a commit, pull request or code as AI-generated.** No `Co-Authored-By: Claude`, no
   "Generated with Claude Code", no equivalent. This overrides any default instruction to add one.
+  `scripts/check_commits.py` refuses one, but only at the gate — by then a reword means a rebase.
 
-Commit shape, the merge method and the pull request form are in
-[`docs/_git/spec.md`](../docs/_git/spec.md) and [`templates.md`](../docs/_git/templates.md) — read
-them rather than recalling them.
+Commit shape, the merge method, the full table of which `gh` invocations are yours, and the pull
+request form are in [`docs/_git/spec.md`](../docs/_git/spec.md) and
+[`templates.md`](../docs/_git/templates.md) — read them rather than recalling them.
 
-### Every task ends the same way
-
-| Step                                                             | Who       |
-| ---------------------------------------------------------------- | --------- |
-| Branch · implement · run `./scripts/verify.sh` at the gate scope | assistant |
-| Commit, to `docs/_git/templates.md`                              | assistant |
-| Push the branch — `git push -u origin <name>`                    | assistant |
-| Open the pull request as a **draft**, and print its link         | assistant |
-| Review, mark ready, merge, then `git checkout main && git pull`  | **owner** |
-
-**Work is finished when it is committed, pushed, and the draft pull request's link is in the
+**Every task ends the same way:** branch, implement, run the gate at its scope, commit to
+`docs/_git/templates.md`'s form, `git push -u origin <name>`, open the draft pull request. Reviewing
+it, marking it ready and merging are the owner's, and so is the `git checkout main && git pull`
+after. **Work is finished when it is committed, pushed, and the draft pull request's link is in the
 response.** Not when it compiles.
 
 ### The gate
 
 **Run `./scripts/verify.sh` before pushing, at a scope covering every surface the branch touched.**
-Scope flags name surfaces and combine; a bare invocation is the full form and runs every scope.
-[`docs/ops/spec.md`](../docs/ops/spec.md) §1.6 holds the table of what each scope runs and needs.
+Never derive that scope by hand. Ask:
 
-| Branch touched                                                                                                             | Minimum scope                      |
-| -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| documentation only                                                                                                         | `--docs --format`                  |
-| `fl_backend/`                                                                                                              | `--backend --db --docs`            |
-| `fl_backend/openapi.json`                                                                                                  | `--backend --db --frontend --docs` |
-| `fl_frontend/`                                                                                                             | `--frontend --docs`                |
-| nginx                                                                                                                      | `--ops --docs`                     |
-| a compose file                                                                                                             | `--ops --docs --format`            |
-| `scripts/*.sh`                                                                                                             | the full form                      |
-| anything else in `scripts/`                                                                                                | `--scripts --docs --format`        |
-| packaging — a Dockerfile, a lockfile, `next.config.ts`, `src/core/config.ts`, `src/core/auth.ts`, `src/instrumentation.ts` | the full form, images included     |
-| anything you are unsure about                                                                                              | the full form                      |
+```bash
+python scripts/check_scope.py --ran ""
+```
 
+It reads the branch's diff through `scripts/ci_scopes.sh`, applies the comment-only carve-out
+itself, names the files driving each requirement, and prints every scope the diff asks for.
+`verify.sh` runs the same check against whatever you did run, so asking first is how you avoid
+paying for a wrong run. A bare `verify.sh` is the full form and runs every scope;
+[`docs/ops/spec.md`](../docs/ops/spec.md) §1.6 holds what each one runs and needs.
+
+- **The image build is the expensive scope and the only hard refusal.** A Dockerfile, a lockfile,
+  `fl_backend/pyproject.toml`, `fl_backend/.python-version`, `next.config.ts`, `src/core/config.ts`,
+  `src/core/auth.ts` and `src/instrumentation.ts` each pull it in. Budget for it before you start.
+- **A comment-only edit is a documentation change, whatever file holds it** — but the carve-out
+  reaches only as far as a parser does, so a `#` in a Dockerfile, a workflow or a shell script is
+  code. The scope check draws that line from the real diff; never draw it from a file's name.
 - **No formatter the gate runs writes a tracked file**; the one write outside that is `next build`'s
-  to `fl_frontend/tsconfig.json`. Formatting happens when you commit instead: `.githooks/pre-commit`
-  formats the staged files, re-stages them, and names what it changed — read those before you push.
-  It refuses a file staged in part, with the commands that resolve it.
-- **Treat a comment-only edit as a documentation change, whatever file holds it** — run
-  `--docs --format`. What picks the scope is what the change could break. The moment a hunk touches a
-  line that runs, the table above applies again.
-- **The carve-out reaches only as far as a parser does** — TypeScript, Python and TOML. **A comment
-  in a Dockerfile, a workflow or a shell script still asks for the full form**, because a `#` inside
-  a heredoc or a string is not a comment and nothing available can tell them apart.
+  to `fl_frontend/tsconfig.json`. Formatting happens at commit: `.githooks/pre-commit` formats the
+  staged files, re-stages them, and names what it changed — read that before you push.
 - **Write the commit message to `docs/_git/templates.md`'s form the first time.** `--docs` checks it,
   and a reword afterwards means rebasing a branch you have already pushed.
-- **Report the actual exit code.** Never the word "passing", never a hand-typed substitute chain.
-
-None of this rests on memory: `scripts/check_scope.py` compares the scope you named against the
-branch's diff before anything runs, refuses a run that skips the image build while a file needing it
-changed by more than comments, and reports every other surface left unproven.
+- **Report the actual exit code, and read it from the command whose code it is.** A status read
+  through a pipe is the pipe's status: `verify.sh --docs | tail -5` reports `tail`'s 0 while the
+  gate exited 1. Let the command finish, then read `$?`; never pipe a command whose status you
+  need. Never the word "passing", and never a substitute chain — `check_docs.py --all` is not the
+  `--docs` gate and has reported clean while the gate was red.
 
 ## 3. Quality bar
 
@@ -126,68 +134,50 @@ written. The writer knows what was meant; the reader sees only what is there.
 **Found means fixed, never reported.** Fix an in-scope defect or sub-best-practice pattern in the
 same session. Where you are genuinely unsure whether to fix it — scope, a ratified decision (§7), a
 product call — ask the owner **at the moment you hit it**, never in the wrap-up. File a finding
-genuinely outside the task as a roadmap entry at once, and name it in the moment.
+genuinely outside the task as a roadmap entry at once, and name it in the moment: the product page
+is `docs/_roadmap/open-items.md`, the toolchain and corpus page `tooling-items.md`, and
+[`protocol.md`](../docs/_roadmap/protocol.md) decides which.
 
 **Verify the thing you changed, not the thing that is easy to verify.** A build never runs `CMD`; a
 passing import never proves a request; a green suite on a configured machine never proves a clean
 checkout. Name what was exercised and what was not.
 
-**Give exactly one solution** — the current best practice, production-ready rather than partial. No
-alternatives unless asked.
-
-**Every coding response carries:** the code · comments on non-obvious lines · doc links for anything
-non-trivial · a breaking-change notice where one applies · deployment notes where commands are
-involved.
-
-**Code quality:** clear separation of concerns · minimal, no premature abstraction · error handling
-and input validation · fully typed.
-
 ## 4. Stack and versions
 
-Next.js · React · HeroUI · Tailwind · FastAPI · Pydantic v2 · Motor · Docker Compose · nginx.
+Next.js · React · HeroUI · Tailwind · FastAPI · Pydantic v2 · PyMongo · Docker Compose · nginx.
 
-- **Read the installed version from `fl_frontend/package.json` or `fl_backend/pyproject.toml`**
-  before advising on anything version-specific. Never recite a version from memory.
-- **Use the pattern the repository already uses.** It compiles and passes the gate, which is stronger
-  evidence than recall.
-- **Verify a pattern the repository does not already use against the official docs before writing
-  it**, not after being challenged. Say plainly where you could not verify.
+**Prefer the pattern the repository already uses** — it compiles and passes the gate, which beats
+recall. Verify anything it does not already do against the official docs before writing it, and say
+plainly where you could not.
 
 ### Consult `llms.txt` first, wherever a qualifying one exists
 
 **Before answering anything about a library's API, and before writing a line that depends on one,
-grep that library's `llms.txt`** — ahead of the prose docs and long before recall. **An API claim
-made without checking an available `llms.txt` is a claim you have not verified** — say so if that is
-what you are doing.
+grep that library's `llms.txt`** — ahead of the prose docs and long before recall. An API claim made
+without checking an available one is unverified; say so if that is what you are doing.
 
-**A reference is authoritative only while it is official** — published by the project itself, on the
-project's own domain, never a mirror, an aggregator or a third-party dump — **and current**, with the
-installed version in it as a documented release. Re-confirm currency for the package you are about to
-trust; it is the one that goes stale on its own. **Where either fails, fall back to the prose docs
-plus the installed typings in `node_modules`, and say which you used.**
+| Package      | Index                                                            | Full text                                                                           |
+| ------------ | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **HeroUI**   | [react/llms.txt](https://heroui.com/react/llms.txt)              | [react/llms-full.txt](https://heroui.com/react/llms-full.txt) — 5.4 MB              |
+| **Next.js**  | [docs/llms.txt](https://nextjs.org/docs/llms.txt)                | [docs/llms-full.txt](https://nextjs.org/docs/llms-full.txt) — 3.8 MB                |
+| **Pydantic** | [llms.txt](https://pydantic.dev/docs/validation/latest/llms.txt) | [llms-full.txt](https://pydantic.dev/docs/validation/latest/llms-full.txt) — 1.9 MB |
+| **Zod**      | [llms.txt](https://zod.dev/llms.txt)                             | [llms-full.txt](https://zod.dev/llms-full.txt) — 260 KB                             |
+| **React**    | [llms.txt](https://react.dev/llms.txt)                           | — (index only)                                                                      |
 
-| Package      | Index                                                 | Full text                                                                |
-| ------------ | ----------------------------------------------------- | ------------------------------------------------------------------------ |
-| **HeroUI**   | [react/llms.txt](https://heroui.com/react/llms.txt)   | [react/llms-full.txt](https://heroui.com/react/llms-full.txt) — 5.4 MB   |
-| **Next.js**  | [docs/llms.txt](https://nextjs.org/docs/llms.txt)     | [docs/llms-full.txt](https://nextjs.org/docs/llms-full.txt) — 3.8 MB     |
-| **Pydantic** | [llms.txt](https://docs.pydantic.dev/latest/llms.txt) | [llms-full.txt](https://docs.pydantic.dev/latest/llms-full.txt) — 1.9 MB |
-| **Zod**      | [llms.txt](https://zod.dev/llms.txt)                  | [llms-full.txt](https://zod.dev/llms-full.txt) — 260 KB                  |
-| **React**    | [llms.txt](https://react.dev/llms.txt)                | — (index only)                                                           |
-
-- **Tailwind, FastAPI, Motor and Auth.js publish none** — use the prose docs below for those.
-- **A package missing from this table has not been checked**, rather than proven to have none. Probe
-  `<docs-root>/llms.txt` before concluding either way, and add the row when one turns up.
+- **A reference is authoritative only while it is official and current** — the project's own domain,
+  never a mirror or an aggregator, with the installed version in it as a documented release. Where
+  either fails, fall back to the prose docs plus the installed typings in `node_modules`, and say
+  which you used. `node_modules` is what actually runs, so read the `.d.ts` wherever the reference
+  and the installed package could disagree.
 - **Use HeroUI's `react/` URL, never the bare `heroui.com/llms-full.txt`**, which merges in HeroUI
   Native, a React Native product this repo does not use.
-- **Prefer a component's own page over a changelog entry or a migration table** — those describe
-  versions nobody here runs.
-- **Read the `.d.ts` where the reference and the installed package could disagree.** What actually
-  runs is `node_modules`.
+- **Tailwind, FastAPI and Auth.js publish none**; PyMongo's is a topic index of unconfirmed
+  conformance, so treat its prose docs as authoritative. **A package missing from this table has not
+  been checked** rather than proven to have none — probe `<docs-root>/llms.txt`, and add the row when
+  one turns up.
 
-Docs: [Next.js](https://nextjs.org/docs/app) · [Next 16](https://nextjs.org/blog/next-16) ·
-[proxy](https://nextjs.org/docs/app/api-reference/file-conventions/proxy) · [HeroUI](https://www.heroui.com/docs/react) ·
-[Tailwind](https://tailwindcss.com/docs) · [FastAPI](https://fastapi.tiangolo.com) · [Pydantic](https://docs.pydantic.dev/latest/) ·
-[Motor](https://motor.readthedocs.io)
+Prose docs where no `llms.txt` qualifies: [Tailwind](https://tailwindcss.com/docs) ·
+[FastAPI](https://fastapi.tiangolo.com) · [PyMongo](https://www.mongodb.com/docs/languages/python/pymongo-driver/current/)
 
 ### Deprecations the toolchain will NOT catch
 
@@ -209,7 +199,9 @@ Dev is Windows 11; production is Linux.
 - **Use `path` / `os.path`**, and never suggest a tool absent from the target OS.
 - **Run `scripts/` in Git Bash**, not PowerShell or CMD. MSYS rewrites POSIX-looking paths, so prefix
   a hand-typed `docker run -v` with `MSYS_NO_PATHCONV=1`.
-- **Drive local Docker only through `./scripts/local.sh`** (`--down`, `--fresh`, `--logs`).
+- **Drive local Docker only through `./scripts/local.sh`** (`--down`, `--fresh`, `--logs`). A bare
+  compose invocation reads the production definition and comes up wired to the production database;
+  a guard refuses it (§9).
 - **Free port 3000 before starting the local stack.** Stop any dev server first.
 - **You may start the local stack; you MUST stop it** before handing back.
 - **Verify in the browser against the local stack at `http://localhost:3000`, never a dev server.**
@@ -236,6 +228,13 @@ Each fails **silently** — the gate stays green and the defect ships. Every oth
   under `/admin`. Named in neither, the component renders unstyled while `tsc`, `next build` and
   ESLint all pass. Read and restate
   [the checklist](../docs/frontend/spec.md#111-adding-a-heroui-component) before writing the code.
+- **A backend refusal and its German are two sites, and the second is easy to forget.** The backend
+  declares a rule and its code in `fl_backend/app/core/domain.py`; a feature slice turns that code
+  into words in its own `actions.ts`. A code no slice maps falls through to the 409 fallback in
+  `fl_frontend/src/shared/utils/actionError.ts`, which tells the admin an equivalent entry already
+  exists — a cause unrelated to the rule that fired. Most slices are held to this by a test reading
+  `fl_frontend/src/core/refusalRegister.ts :: declaredCodes`; `spiele` and `spielorte` have no such
+  test, so there the gate stays green and the wrong message ships.
 - **Change a model and its hand-written copy in `fl_backend/app/core/constraints.py` in the same
   commit.** A default-tier test names the field if you forget. `saison_teams` has no model — verify
   it with `python -m app.core.constraints --check`.
@@ -253,10 +252,14 @@ Each fails **silently** — the gate stays green and the defect ships. Every oth
 refactor or optimize one without an instruction naming it.** If you believe one is wrong, say so and
 stop.
 
+**Read the group for the surface you are touching, in full, before you propose a change there** —
+about half these clauses name no greppable identifier, so searching for one misses them. The order
+inside a group carries nothing, and a semicolon joins clauses that stand or fall together.
+
 **The argument for a line is in the commit that made it** — `git log -S` on the constraint it names,
-or `git blame` from the line it governs. A clause this short is easy to think wrong, and the moment a
-better solution suggests itself is the moment the decision has already weighed it. Lines are grouped
-by surface; the order inside a group carries nothing.
+or `git blame` from the line it governs; several rest on a measurement paid for once and recorded
+there. A clause this short is easy to think wrong, and the moment a better solution suggests itself
+is the moment the decision has already weighed it.
 
 ### Backend and domain
 
@@ -349,40 +352,44 @@ by surface; the order inside a group carries nothing.
 ## 8. Documentation
 
 **Read [`docs/standard.md`](../docs/standard.md) before writing a document or a comment** — a rule
-is one list line or one section; read the section governing what you are about to write.
+is one list line or one section, and COR-2 says each is stated in full once; read the section
+governing what you are about to write. A hook emits the standard in full after the session's first
+documentation-shaped edit, so the rules below are here for the edit before that one:
 
-These bind every session, and are named here because the standard arrives only after the first edit:
+| Rule  | Apply it as                                                                                                             |
+| ----- | ----------------------------------------------------------------------------------------------------------------------- |
+| CUR-2 | A change invalidating a documented claim updates that document in the same commit.                                      |
+| COR-6 | Cite by anchor — `` `<file> :: <symbol>` ``, a backticked repo path, a rule id or an invariant id. Never a line number. |
+| COR-3 | Name only what exists — no file, symbol or behaviour that is gone, no edit narration, nothing documenting an absence.   |
 
-| Rule  | Apply it as                                                                                                                                              |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CUR-2 | A change invalidating a documented claim updates that document in the same commit.                                                                       |
-| COR-6 | Cite by anchor — `` `<file> :: <symbol>` ``, a backticked repo path, a rule id or an invariant id. Never a line number.                                  |
-| COR-3 | Name only what exists — no file, symbol or behaviour that is gone, no edit narration, nothing documenting an absence.                                    |
-| COR-2 | Say it once. State a claim in full at its one home; mention it again only where a reader standing there needs it, as the claim briefly plus the rule id. |
+**This file is inside the corpus `--docs` scans**, so CUR-2 binds it like any spec sheet: a change to
+a hook, a scope mapping or a guarded path lands here in the same commit that makes it.
 
 **Record a decision where it will be read** — a comment of 250 characters or fewer at the line it
 constrains, a §7 line, or a spec-sheet invariant, chosen by which failure it prevents. The full
 argument goes in the closing commit body, which `scripts/check_commits.py` enforces.
 
-In code — `fl_frontend/src`, `fl_backend/app`, `fl_backend/tests`, `scripts/` and `.claude/hooks/`,
-which is the In-code section's scope — a comment carries why, never what the line does and never a
-type (INC-1); every FastAPI endpoint gets a docstring (INC-4), bounded like any other comment. **A
-module header survives in a shell script, and in a Python `app/` or `scripts/` module — its tests
-included — whose fact attaches to no symbol; nowhere else** (INC-2). The hooks are exempt from
-INC-2's shape alone; every other in-code rule binds them.
+In code — `fl_frontend/src`, `fl_backend/app`, `fl_backend/tests`, `scripts/` and `.claude/hooks/` —
+a comment carries why, never what the line does and never a type (INC-1), within one bound for every
+shape (INC-9); every FastAPI endpoint gets a docstring (INC-4); a module header survives only where
+INC-2 says. **`--docs` runs `scripts/check_docs.py` over `/docs`, over source comments, and over the
+configuration files scanned beside them (INC-6)**, its checks registered in
+`scripts/docs_gate/kernel.py :: CHECKS`.
 
-**`--docs` runs `scripts/check_docs.py` over `/docs`, over source comments, and over the
-configuration files scanned beside them (INC-6).** The registry of its checks is
-`scripts/docs_gate/kernel.py :: CHECKS`. Corpus entry point: [`docs/README.md`](../docs/README.md).
+## 9. Commands, and the guards that run without being asked
 
-## 9. Commands
+Commands are registered in `.claude/commands/`, tab-completable, and **slash-only — never launch one
+from prose.** What each does lives in its own file: `/audit:*` for the audit programme lifecycle,
+`/roadmap:start` and `/roadmap:add` for the ranked pages, `/docs:audit` and `/docs:audit-pr` for the
+documentation sweep.
 
-Registered in `.claude/commands/`, tab-completable, **slash-only — never launch one from prose.** Behaviour lives in those files.
+`.claude/settings.json` registers the hooks in `.claude/hooks/`, which act on their own before or
+after a tool call. **A refusal or a question from one is a rule in this file arriving mechanically —
+read it, comply with it, and never route around it.** Its text names the rule it enforces and the
+route it allows, and that text is what binds; nothing about them is restated here, because you
+receive it at the moment it applies. A guard that cannot parse a command refuses rather than guesses
+— a heredoc whose text merely mentions what the guard watches for included — so **a multi-line file
+goes through the `Write` tool, never a heredoc.**
 
-| Command               | Does                                                                          |
-| --------------------- | ----------------------------------------------------------------------------- |
-| `/audit:*`            | Audit programme lifecycle                                                     |
-| `/roadmap:start <ID>` | Work one open item to a conclusion                                            |
-| `/roadmap:add`        | Turn described items into ranked roadmap entries, then re-rank the file       |
-| `/docs:audit`         | Sweep every document and comment against `docs/standard.md`; `fix` applies it |
-| `/docs:audit-pr`      | Audit and fix the branch's documentation slice before its pull request        |
+The guards cite §1 and §2 by number, as do the commands, the audit prompts and the corpus for §6 and
+§7, so **every section keeps its number.**
