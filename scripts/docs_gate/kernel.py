@@ -140,6 +140,20 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
 }
 
 
+# GitHub's workflow-command escaping. The message takes the first three; a property value takes the
+# separators as well, an unescaped comma there starting a property nobody wrote. `%` goes first, or
+# it would escape the codes the others just wrote.
+COMMAND_ESCAPES: Final[tuple[tuple[str, str], ...]] = (("%", "%25"), ("\r", "%0D"), ("\n", "%0A"))
+PROPERTY_ESCAPES: Final[tuple[tuple[str, str], ...]] = ((":", "%3A"), (",", "%2C"))
+
+
+def _escaped(text: str, *, in_property: bool) -> str:
+    """One run of text as a workflow command may carry it."""
+    for char, code in COMMAND_ESCAPES + (PROPERTY_ESCAPES if in_property else ()):
+        text = text.replace(char, code)
+    return text
+
+
 @dataclass(frozen=True, slots=True)
 class Finding:
     """One problem, already resolved to whether it fails the run.
@@ -169,6 +183,19 @@ class Finding:
     def human(self) -> str:
         # Six spaces: the message column of the scripts' shared output standard (scripts/_lib.sh).
         return f"      {self.where}: {self.detail}  [{self.check}]"
+
+    def github(self) -> str:
+        """One workflow command, which a runner turns into an annotation on the pull request's diff.
+
+        The severity deciding the exit code decides the annotation's too, so a reader of the diff
+        meets the verdict the gate reached rather than a second one.
+        """
+        command = "error" if self.severity == "fail" else "warning"
+        fields = [f"file={_escaped(self.file, in_property=True)}"]
+        if self.line is not None:
+            fields.append(f"line={self.line}")
+        fields.append(f"title={_escaped(self.check, in_property=True)}")
+        return f"::{command} {','.join(fields)}::{_escaped(self.detail, in_property=False)}"
 
 
 def is_placeholder(text: str) -> bool:

@@ -1189,10 +1189,36 @@ def check_invariant_citations(rel: str, body: str, invariants: dict[str, list[st
 # --- the run -------------------------------------------------------------------------------------
 
 
+# What a person reads at once. A pull request's annotations are not read as a list, so `github`
+# carries every advisory whatever `--all` says.
+ADVISORY_CAP: Final = 10
+
+
+def _print_human(failures: list[Finding], advisories: list[Finding], *, everything: bool) -> None:
+    """The indented report: failures in full, then as many advisories as a reader will take."""
+    if failures:
+        print(f"\n      {len(failures)} failing finding(s):")
+        for finding in failures:
+            print(finding.human())
+
+    if advisories:
+        print(f"\n      {len(advisories)} advisory finding(s):")
+        for finding in advisories if everything else advisories[:ADVISORY_CAP]:
+            print(finding.human())
+        if not everything and len(advisories) > ADVISORY_CAP:
+            print(f"      ... and {len(advisories) - ADVISORY_CAP} more -- scripts/check_docs.py --all lists every one")
+
+
 def main() -> int:
     tolerate_console_encoding()
     parser = argparse.ArgumentParser(description="Documentation gate; the registry of its checks is scripts/docs_gate/kernel.py :: CHECKS.")
     parser.add_argument("--all", action="store_true", help="list every advisory finding, not just the first ten")
+    parser.add_argument(
+        "--output-format",
+        choices=("human", "github"),
+        default="human",
+        help="human: the indented report. github: one workflow command per finding, which a runner annotates the diff with",
+    )
     args = parser.parse_args()
 
     files = scanned_files()
@@ -1232,19 +1258,13 @@ def main() -> int:
     findings.extend(check_copy_rules())
 
     failures = [f for f in findings if f.severity == "fail"]
-    reports = [f for f in findings if f.severity == "report"]
+    advisories = [f for f in findings if f.severity == "report"]
 
-    if failures:
-        print(f"\n      {len(failures)} failing finding(s):")
-        for finding in failures:
-            print(finding.human())
-
-    if reports:
-        print(f"\n      {len(reports)} advisory finding(s):")
-        for finding in reports if args.all else reports[:10]:
-            print(finding.human())
-        if not args.all and len(reports) > 10:
-            print(f"      ... and {len(reports) - 10} more -- scripts/check_docs.py --all lists every one")
+    if args.output_format == "github":
+        for finding in (*failures, *advisories):
+            print(finding.github())
+    else:
+        _print_human(failures, advisories, everything=args.all)
 
     docs = sum(1 for f in files if f.suffix == ".md")
     sources = len(files) - docs
