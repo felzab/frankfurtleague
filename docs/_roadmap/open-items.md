@@ -83,15 +83,14 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 29  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
 | 30  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Open     | —          |
 | 31  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
-| 32  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Closed   | —          |
-| 33  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
-| 34  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
-| 35  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
-| 36  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
-| 37  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
-| 38  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
-| 39  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
-| 40  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
+| 32  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
+| 33  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
+| 34  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
+| 35  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
+| 36  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
+| 37  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
+| 38  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
+| 39  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -1757,53 +1756,7 @@ caller rendering none of them. Either the list shape is narrowed the way the sta
 the reasoning is written down as not applying here. **Leaving it unstated is the thing to avoid**,
 because the next reader re-derives it from scratch.
 
-### 32 · BE-26 — Two rule summaries name a fixture state the code excludes
-
-**Status:** Closed\
-**Surfaces:** BE\
-**Effort:** S\
-**Path:** Independent — two `summary=` strings if they are the wrong half, and a constant more than
-the swap reads if they are not.
-
-**What concluded it.** The summaries were the wrong half. `REQ-SWAP-002` and `REQ-SWAP-004` in
-`fl_backend/app/core/domain.py :: RULES` now read _"played, abandoned, forfeited, given a goal count
-or a stored shoot-out"_, which is the membership
-`fl_backend/app/api/spiele/schemas.py :: SONDEREREIGNIS_PRODUCING_A_RECORD` holds and the wording
-`REQ-REPLACE-002` already used for the same predicate. Nothing else moved: the constant keeps
-`ausgefallen` out, so a called-off fixture leaves both windows open, and every other statement of
-these two rules — `docs/logging/error-codes.md`'s rows and `docs/backend/spec.md`'s §3 rows — said
-"abandoned, forfeited" already. The class this instance belonged to is **DOC-15** on
-[`tooling-items.md`](tooling-items.md): no check compares a rule's sentence with the condition its
-code refuses on, and that stays open. The full argument is in the closing commit body.
-
-**`REQ-SWAP-002` and `REQ-SWAP-004` in `fl_backend/app/core/domain.py :: RULES` both read _"played,
-called off, given a goal count or a stored shoot-out"_.** The refusal they describe is
-`fl_backend/app/api/teams/services.py :: find_gruppe_swap_refusal`, over
-`fl_backend/app/api/spiele/schemas.py :: SONDEREREIGNIS_PRODUCING_A_RECORD`, which holds
-`abgebrochen`, `nichtantreten_team1` and `nichtantreten_team2`. **`ausgefallen` — which is what
-"called off" names — is not in it**, so a called-off fixture does not block a swap and the summaries
-say it does.
-
-**Nothing catches it.** `fl_backend/tests/core/test_domain.py` resolves each rule's `implemented_by`
-and `tested_by` and asserts the code appears in both, and reads no `summary=` string; the gate
-compares no sentence against the code it describes. The register is also what
-`docs/logging/error-codes.md` and the frontend's German are written from, so the wrong reading
-propagates rather than staying put.
-
-**Decide which is wrong before editing either, and the constant is not the swap's alone.**
-`fl_backend/app/api/teams/services.py :: has_taken_place` reads it for `REQ-REPLACE-002` as well, so
-adding `ausgefallen` would also stop a club replacement on any season holding a called-off fixture —
-the case that refusal is meant to be able to move. The draw's own window reads no such membership:
-`fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact` treats ANY `sonderereignis` as
-recorded, so a called-off fixture already closes it and the constant reaches neither the replace nor
-the undraw. If the summaries are right, the constant is missing
-`ausgefallen`, and every refusal reading it lets through a fixture nobody will replay. If the
-constant is right, the summaries want "abandoned" in place of "called off" — which is how `REQ-REPLACE-002` already
-words the same membership, so the register states both readings and matches the code in only one of
-them. The constant's own comment argues that a called-off fixture is one that never took place,
-which points at the summaries; that remains a domain call rather than a recorded decision.
-
-### 33 · BE-39 — A refusal composes a repair the product refuses to perform
+### 32 · BE-39 — A refusal composes a repair the product refuses to perform
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -1848,10 +1801,8 @@ backend leaves an admin reading the old instruction.
 
 **What ranks it here.** Above **BE-37**: that costs an operator who has already reached for the
 database, where this misleads an admin on a path the product offers them.
-Below **BE-26**: a summary wrong there may be covering a constant that lets a fixture nobody will replay
-through a refusal, which is a behaviour to settle rather than a sentence to correct.
 
-### 34 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
+### 33 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -1897,7 +1848,7 @@ enumeration moves in the same commit.
 signal for most of what the write path calls unholdable — where FE-20 removes almost none, and its
 own cost is paid only after somebody edits the database.
 
-### 35 · BE-43 — A club's name is bounded where a stranger types it and unbounded where an administrator does
+### 34 · BE-43 — A club's name is bounded where a stranger types it and unbounded where an administrator does
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -1946,7 +1897,7 @@ application's constants become the shared ones wherever the numbers agree. Or ho
 belongs to the surface a stranger writes through, and record why the admin side is trusted with an
 unbounded one — which is what the code implies today and what no line says.
 
-### 36 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
+### 35 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
 
 **Status:** Open\
 **Surfaces:** FE, Docs\
@@ -2017,7 +1968,7 @@ is what a later edit does to one of them. Above **FE-20**: taking that token out
 where this settles a copy question on two admin surfaces and closes a coupling the helper beside it was
 written to close.
 
-### 37 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
+### 36 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2086,7 +2037,7 @@ edit's freedom to part them. Above **FE-32**: that entry misleads nobody and its
 beside the id, where this one's is answered only by noticing that a helper's reach stops short of a
 module, which nothing on either side says.
 
-### 38 · BE-7 — `typing` imports instead of `collections.abc`
+### 37 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -2099,7 +2050,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 39 · BE-14 — The certainty walk gives up in a group of six or more
+### 38 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -2199,7 +2150,7 @@ unreachable into the ordinary path and makes the plan above the one an administr
 does not hold. That no caller sends `sort_by` was read off the page and the absence of another consumer
 rather than proven by instrumenting the endpoint.
 
-### 40 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
+### 39 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
 
 **Status:** Standing\
 **Surfaces:** BE\
