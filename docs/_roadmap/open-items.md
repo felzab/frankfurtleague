@@ -80,7 +80,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 26  | LOG-2 | A cached read's call joins to no render                              | FE, BE, Ops     | L      | Open     | —          |
 | 27  | FB-18 | Only the match editor marks a field somebody waits on                | FE, BE          | L      | Open     | —          |
 | 28  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
-| 29  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Open     | —          |
+| 29  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Closed   | —          |
 | 30  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
 | 31  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
 | 32  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
@@ -1685,7 +1685,7 @@ would have to find.
 
 ### 29 · BE-25 — A club's street address is served to an anonymous caller
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** BE\
 **Effort:** S\
 **Path:** Independent — one response model, and the decision below is what any change to it has to
@@ -1708,6 +1708,14 @@ public model is an allow-list of what its surface renders, and argued the standi
 caller rendering none of them. Either the list shape is narrowed the way the standings row was, or
 the reasoning is written down as not applying here. **Leaving it unstated is the thing to avoid**,
 because the next reader re-derives it from scratch.
+
+**Closed on the second answer: a club's street address stays public.** The reasoning is written down
+where the model is, as a comment at `fl_backend/app/api/teams/schemas.py :: FLTeam` naming the two
+things that stop the principle reaching it — the field has a surface that renders it, and no `READ-*`
+rule covers a club's address. No new rule is declared, because a rule would state a bound nothing
+enforces; `docs/backend/spec.md` §1.7's table keeps the shape it has. The list shape is not narrowed
+either: `format=list` serves what the model serves, and the ruling is about the field rather than the
+route. No model, route or validator moves.
 
 ### 31 · BE-26 — Two rule summaries name a fixture state the code excludes
 
