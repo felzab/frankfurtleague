@@ -268,7 +268,7 @@ if (( PARALLEL )); then
     fi
     # Crashed and interrupted end the run here, having no row that could say so. Findings and a
     # refusal are already in the rows, which `finish` reads back.
-    adopt_ending "$status"
+    adopt_ending "$status" "the ${scope} scope"
     if (( status )); then finish; fi
   }
   for u_scope in "${SCOPE_ORDER[@]}"; do replay_scope "$u_scope"; done

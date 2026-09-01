@@ -490,6 +490,11 @@ end_worker() {
   exit 0
 }
 
+# One worker's rows, reset by `adopt_ending`: 1 while every row that worker sent home reads as a
+# plain pass. A run total cannot answer this — a finding from an earlier scope would stand in for
+# the next scope's silence and hide the disagreement below.
+_ADOPTED_CLEAN=1
+
 # Prints nothing: bytes and ledger travel apart, so a line here appears twice or out of order. An
 # adopted row must stay indistinguishable from one run in-process, or a parallel run's table
 # stops matching the serial one byte for byte.
@@ -510,14 +515,17 @@ adopt_section() {
   _SECTION_FINDINGS+=("$findings"); _SECTION_ADVISORIES+=("$advisories")
   _RUN_FINDINGS=$(( _RUN_FINDINGS + findings ))
   _RUN_ADVISORIES=$(( _RUN_ADVISORIES + advisories ))
+  # What the worker's own status is checked against below. A row `finish` already refuses to call
+  # green needs no cross-check, and a counted finding is the corroboration itself.
+  if (( findings > 0 || rank < 1 || rank > 3 )); then _ADOPTED_CLEAN=0; fi
   return 0
 }
 
 # The endings a row cannot carry: `on_error` and `on_interrupt` rank their section `failed`, so a
 # parent reading rows alone would report a crash or an interrupt as findings. Every other status
 # returns, the rows being the whole story there.
-adopt_ending() { # $1 the worker's exit status
-  local rc="$1"
+adopt_ending() { # $1 the worker's exit status, $2 what to call that worker in a refusal
+  local rc="$1" who="${2:-a worker}"
   [[ "$rc" =~ ^[0-9]+$ ]] || die "adopt_ending: '${rc}' is not an exit status."
   if (( rc == 130 )); then _closing interrupted; exit 130; fi
 
@@ -526,6 +534,16 @@ adopt_ending() { # $1 the worker's exit status
   # a killed scope.
   if (( rc > 255 )); then rc=3; fi
   if (( rc >= 3 )); then _closing crashed; exit "$rc"; fi
+
+  # 1 and 2 are the statuses whose whole meaning lives in the rows, and rows reading as a plain
+  # pass carry neither. Graded 2 rather than 1: the run has contradicted itself, and calling it a
+  # finding would send a reader after something no row names.
+  if (( (rc == 1 || rc == 2) && _ADOPTED_CLEAN )); then
+    refuse "${who} exited ${rc}, and every section row it sent home reads as a plain pass.
+A status and the rows it travelled with are two accounts of one run, and these two disagree, so
+neither stands as a verdict. scripts/_lib.sh :: emit_section_ledger is what fills those rows."
+  fi
+  _ADOPTED_CLEAN=1
   return 0
 }
 

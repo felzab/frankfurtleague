@@ -41,7 +41,9 @@ ENDINGS: Final[tuple[Ending, ...]] = (
     Ending("a clean run", ("section demo", 'ok "checked"', "finish"), 0, "Green"),
     Ending("a section that reported a finding", ("section demo", "step work", 'fail "one thing"', "finish"), 1, "finding(s) in this run"),
     Ending("a refusal", ('refuse "the input could not be judged"',), 2, "Refused after"),
-    Ending("die inside a section", ("section demo", 'die "the tool is missing"'), 1, "finding(s) in this run"),
+    # The count, not just the prose: `die` owes the run a finding as well as the status, and a
+    # statement reading "0 finding(s)" beside exit 1 sends the reader looking for nothing.
+    Ending("die inside a section", ("section demo", 'die "the tool is missing"'), 1, "1 finding(s) in this run"),
     Ending("a command that failed under set -e", ("section demo", "false"), 3, "Crashed after"),
     # Already past the crash floor, so the underlying status survives rather than being flattened.
     Ending("a command that failed with a status of its own", ("section demo", "(exit 7)"), 7, "Crashed after"),
@@ -51,7 +53,14 @@ ENDINGS: Final[tuple[Ending, ...]] = (
     Ending("a worker killed with a status above 255", ("adopt_ending 2304",), 3, "Crashed after"),
     Ending("a worker that was interrupted", ("adopt_ending 130",), 130, "Interrupted after"),
     Ending("a worker that crashed", ("adopt_ending 4",), 4, "Crashed after"),
-    Ending("a worker whose rows tell the whole story", ("adopt_ending 1", "section demo", 'ok "checked"', "finish"), 0, "Green"),
+    Ending("a worker whose rows tell the whole story", ("adopt_section demo 2 10 0 0", "adopt_ending 0", "finish"), 0, "Green"),
+    # A status of 1 or 2 says something the rows have to corroborate. Where they read as a plain
+    # pass instead, the two accounts disagree and neither is a verdict — graded 2, never green.
+    Ending("a worker status its rows contradict", ("adopt_section demo 2 10 0 0", "adopt_ending 1"), 2, "two accounts of one run"),
+    Ending("a worker refusal its rows contradict", ("adopt_section demo 2 10 0 0", "adopt_ending 2"), 2, "two accounts of one run"),
+    # Rank 0 is the parent's own word for a scope that proved nothing, so a status of 1 over it is
+    # corroborated rather than contradicted, and `finish` still refuses to call the run green.
+    Ending("a worker that sent no ledger home", ("adopt_section demo 0 0 0 0", "adopt_ending 1", "finish"), 1, "closed with no verdict"),
     Ending("a section that closed with no verdict", ("section demo", "finish"), 1, "closed with no verdict"),
     Ending("an adopted row that refused", ("adopt_section scope 4 10 0 0", "finish"), 2, "Refused after"),
     Ending("an adopted row that failed while counting no finding", ("adopt_section scope 5 10 0 0", "finish"), 1, "finding(s) in this run"),
@@ -63,11 +72,13 @@ ENDINGS: Final[tuple[Ending, ...]] = (
         1,
         "finding(s) in this run",
     ),
+    # The count is held to here for `adopt_section`'s reason for feeding the run total at all: the
+    # rank arms alone would exit 1 over a statement reading "0 finding(s)".
     Ending(
         "adopted rows carrying a finding and a refusal together",
         ("adopt_section one 5 10 1 0", "adopt_section two 4 10 0 0", "finish"),
         1,
-        "finding(s) in this run",
+        "1 finding(s) in this run",
     ),
     Ending("an adopted rank outside the label table", ("adopt_section scope 6 10 0 0",), 1, "is outside 0-5"),
     Ending("an adopted count that is not a number", ("adopt_section scope 4 ten 0 0",), 1, "is not a count"),
