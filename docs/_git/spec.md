@@ -306,8 +306,8 @@ is what makes that true.
 
 ## 4. Known-open
 
-| Item                                                   | State                                                                                                                  |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| Deployment is manual, and merging does not trigger it  | Deliberate. The gap between merged and live is worth more than the automation on a site I own and operate alone        |
-| Repository settings are unversioned                    | GitHub offers no export. §1.6 is the only record, and it is checked by re-reading, never by a gate                     |
-| The `--ops` scope alone omits the commit-message check | CI closes the gap by running the check in the always-on `changes` job, since a commit message has no path to filter on |
+| Item                                                   | State                                                                                                           |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| Deployment is manual, and merging does not trigger it  | Deliberate. The gap between merged and live is worth more than the automation on a site I own and operate alone |
+| Repository settings are unversioned                    | GitHub offers no export. §1.6 is the only record, and it is checked by re-reading, never by a gate              |
+| The `--ops` scope alone omits the commit-message check | CI closes the gap with a `commits` job nothing filters by path, since a commit message has no path to filter on |

@@ -449,8 +449,21 @@ one, which would answer differently per machine.
 
 **Commit messages ride in the docs scope**, the commit bodies being documentation and merges never
 squashed precisely so they survive ([`docs/_git/spec.md`](../_git/spec.md) §1.4). In CI the check
-can ride nowhere, a commit message having no path to filter on, so it runs in the always-on
-`changes` job instead.
+can ride nowhere, a commit message having no path to filter on, so `.github/workflows/verify.yml`
+gives it a `commits` job of its own, filtered by nothing and depended on by nothing. It is not in
+the `changes` job that every scope job waits on: the backend install the check needs would then sit
+on the critical path of the whole run, and on a push to `main` — where there is no branch to
+measure — it would be installed for a step that does not run. The `verify` aggregate lists
+`commits` among its `needs`, which is what keeps the required check gating on it.
+
+**The two call sites resolve the base differently, and the difference is safe in one direction
+only.** CI passes `--base origin/<the pull request's base>`; the gate passes nothing and takes
+`scripts/checker_kernel.py :: DEFAULT_BASE`, which is `main`. They agree for a pull request into
+`main`, which is every pull request here — `main` is the only long-lived branch
+([`docs/_git/spec.md`](../_git/spec.md) §1.2). Where a branch is stacked on another and merges into
+it, the default reads from `main` instead and so covers the commits below the fork as well: a
+superset, already checked when the branch beneath was, so the local run is stricter than CI rather
+than blinder.
 
 The **ops** scope exists because the compose files and the nginx config have no compiler and no
 test suite — without it, a typo in either surfaces on the server, at deploy time. `nginx -t` runs

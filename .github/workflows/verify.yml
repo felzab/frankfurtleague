@@ -64,20 +64,32 @@ jobs:
             ./scripts/ci_scopes.sh --all >> "$GITHUB_OUTPUT"
           fi
 
+  # Commit messages are checked in a job of their own, not in the docs job and not in `changes`:
+  # they are the one thing with no path, so a frontend-only pull request would skip the docs scope
+  # and merge unchecked -- while nothing waits on this job, so its backend install sits off the
+  # critical path every scope job's `needs: changes` puts a step on.
+  commits:
+    # A push to main has no branch to measure, so the whole job is skipped rather than installing a
+    # toolchain for a step that would not run.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history: the check reads this branch's commits against the merge base.
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
       - name: Create the backend virtualenv
-        # The commit check below runs on the interpreter fl_backend pins, never on whichever Python
-        # the runner image happens to ship: one floor for every caller, so a check cannot pass here
-        # and fail on a development machine over a language version. Warm, this costs a few seconds.
+        # The commit check runs on the interpreter fl_backend pins, never on whichever Python the
+        # runner image happens to ship: one floor for every caller, so a check cannot pass here and
+        # fail on a development machine over a language version.
         working-directory: fl_backend
         run: uv sync --dev
-
-      # Commit messages are checked here, not in the docs job: they are the one thing with no path,
-      # so a frontend-only pull request would skip the docs scope and merge unchecked.
       - name: Check the branch's commit messages
-        if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
         run: fl_backend/.venv/bin/python scripts/check_commits.py --base "origin/${BASE_REF}"
@@ -308,7 +320,7 @@ jobs:
   # THE REQUIRED STATUS CHECK. The ruleset on main requires a check named `verify`; this job is it.
   # It runs on every event, so path filtering can never leave the required check hanging.
   verify:
-    needs: [changes, scripts, docs, format, backend, backend-db, frontend, ops, images]
+    needs: [changes, commits, scripts, docs, format, backend, backend-db, frontend, ops, images]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
