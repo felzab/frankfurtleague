@@ -78,7 +78,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 30  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
 | 31  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
 | 32  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
-| 33  | OPS-10  | The comment-only classifier costs a process per file               | Ops               | S      | Open     | —          |
+| 33  | OPS-10  | Naming the image build's culprits costs a process per file         | Ops               | S      | Open     | —          |
 | 34  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
 | 35  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
 | 36  | DOC-3   | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
@@ -1738,35 +1738,38 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 33 · OPS-10 — Deciding whether a change is comments only costs a process per file
+### 33 · OPS-10 — Naming the files that required the image build costs a process per file
 
 **Status:** Open\
 **Surfaces:** Ops\
 **Effort:** S\
-**Path:** Independent — what the classifier answers does not change, only what the answer costs.
+**Path:** Independent — what the check answers does not change, only what the answer costs.
 
-**`scripts/check_scope.py :: is_comment_only` spawns per file, and the gate runs it over the whole
-diff.** Each changed file costs a `git show` for its earlier version, and each changed TypeScript
-file then costs a fresh node process, because `scripts/check_scope.py :: typescript_same` hands one
-pair at a time to `scripts/ts_normalize.mjs`. The cost therefore scales with how many files a branch
-touched rather than with what is in them, and it is paid on every gate run at a docs or frontend
-scope. `scripts/check_scope.py :: images_culprits` has the same shape on the failure path, running
-`scripts/ci_scopes.sh` once per file to name which one required the image build.
+**`scripts/check_scope.py :: images_culprits` runs `scripts/ci_scopes.sh` once for every material
+path**, to learn which of them is the reason the images scope is required. The cost scales with how
+many files a branch touched rather than with what is in them.
 
-**Why it is worth doing and why it is not urgent.** The gate is run before every push, so its
-runtime is charged to every change, and a spawn is the part of this work that does not shrink with
-the size of the file it is asked about. Against that, nothing is wrong with the answers: the
-classifier is correct, and what a slow gate costs is patience.
+**It is the last per-file spawn in this checker, and it sits on the failure path alone.** The
+passing path reads every earlier version through one `git cat-file --batch`, and answers every
+TypeScript pair through as few `scripts/ts_normalize.mjs` batch processes as one command line
+holds, both driven from `scripts/check_scope.py :: material_paths`. What is left is therefore
+charged only to a run already ending in the images refusal, which is why this sits last of the open
+entries rather than among the work above it.
 
-**What must not change.** The carve-out reaches exactly as far as a parser does, so a batched run
-still has to answer
-"same" only where a parser proved it, and still has to count every error — a file that will not
-parse, a missing toolchain, a crashed process — as code. A batch that loses which pair produced
-which verdict, or that turns one file's parse failure into a verdict for the rest, is worse than the
-spawning it replaced.
+**What keeps it from being free.** `scripts/ci_scopes.sh` answers for a file list, not for a file,
+so nothing it prints says which member of the list turned a scope on — asking it once per path is
+what buys that. The alternatives are a per-file mode in the mapping script, which puts a second
+output shape in the one file every workflow reads, or halving the list until each culprit is
+isolated, which is more machinery than a failure path deserves.
 
-**Not measured:** what the spawns actually cost, and how much of a gate run is attributable to them.
-The mechanism above is read from the code; the magnitude is not.
+**What must not change.** The refusal has to keep naming the files, and keep naming all of them: an
+answer that reports one culprit, or none, removes the only thing telling an author which change
+asked for the image build. CLAUDE.md §7 holds separately that the comment classifier must never give
+a CI job a way to shrink itself, so nothing here may narrow the set of paths the mapping is asked
+about.
+
+**Not measured:** what the spawn actually costs, and how much of a failing gate run is attributable
+to it. The mechanism above is read from the code; the magnitude is not.
 
 ### 34 · OPS-2 — Nothing validates the contents of a restored `.env`
 

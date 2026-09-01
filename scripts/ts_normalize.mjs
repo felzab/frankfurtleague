@@ -5,7 +5,9 @@
  * and a regex cannot give it (`docs/ops/spec.md` §1.5). Both versions are reprinted through
  * TypeScript's own printer with `removeComments` on, which emits from the syntax tree, so a
  * type-only edit still reads as a change. Prints `same` or `different` and exits 0; exits 1 with a
- * reason on stderr when it cannot answer, and the caller then treats the change as code.
+ * reason on stderr when it cannot answer, and the caller then treats the change as code. With
+ * `--batch`, pairs of paths follow and each answers on its own line -- `same`, `different`, or
+ * `error: <reason>` for the pair alone -- so one process serves a whole diff.
  */
 
 import { readFileSync } from "node:fs";
@@ -45,7 +47,28 @@ function normalize(path) {
   return printer.printFile(source);
 }
 
-const [oldPath, newPath] = process.argv.slice(2);
+const args = process.argv.slice(2);
+
+// One process for many pairs: node and the typescript package load once rather than once per
+// changed file. One answer line per pair, and a pair that cannot be answered degrades alone --
+// its `error` line is the caller's "code".
+if (args[0] === "--batch") {
+  const paths = args.slice(1);
+  if (paths.length === 0 || paths.length % 2 !== 0) {
+    console.error("usage: node scripts/ts_normalize.mjs --batch <old-file> <new-file> [...]");
+    process.exit(1);
+  }
+  for (let i = 0; i < paths.length; i += 2) {
+    try {
+      console.log(normalize(paths[i]) === normalize(paths[i + 1]) ? "same" : "different");
+    } catch (error) {
+      console.log(`error: ${String(error.message).replace(/\s+/g, " ")}`);
+    }
+  }
+  process.exit(0);
+}
+
+const [oldPath, newPath] = args;
 if (!oldPath || !newPath) {
   console.error("usage: node scripts/ts_normalize.mjs <old-file> <new-file>");
   process.exit(1);
