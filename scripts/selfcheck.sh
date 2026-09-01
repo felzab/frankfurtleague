@@ -147,8 +147,14 @@ par_run() { # $1 unit function, called as `$1 <index> <item> <label>` once per q
 # annotated at the line instead, so a new unused-looking assignment justifies itself where written.
 
 # New releases add checks, so a difference nobody names is the drift this pin exists to remove.
-# Nothing bumps it: dependabot reads `uses:` references, and this is a shell string.
+# Nothing bumps either line here: dependabot reads `uses:` references, not shell strings. A version
+# bumped by hand replaces the digest below.
 SHELLCHECK_VERSION="0.11.0"
+
+# GitHub's own digest for that release's `linux.x86_64.tar.xz`: CI unpacks it as root onto PATH, so
+# an asset replaced under a tag that never moved is caught rather than trusted.
+# shellcheck disable=SC2034  # .github/workflows/verify.yml reads it
+SHELLCHECK_LINUX_X86_64_SHA256="8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
 
 # Availability is decided here, not encoded in a status: shellcheck's own 2 means "a file could
 # not be read", so a numeric sentinel would report a real failure as an absent tool.

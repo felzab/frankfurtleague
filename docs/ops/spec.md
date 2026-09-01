@@ -323,7 +323,10 @@ exactly this reason — otherwise the parser half would be exercised on no machi
 **shellcheck and actionlint are pinned, and nothing but a person bumps them** — the versions are
 written in the self-check itself, where no dependency ecosystem can read them, the deliberate
 manual half of a pinning policy Dependabot otherwise maintains
-([`docs/_git/spec.md`](../_git/spec.md) §1.6). A `shellcheck` on PATH is used and warned about off
+([`docs/_git/spec.md`](../_git/spec.md) §1.6). The shellcheck pin carries the release tarball's
+sha256 beside it (`scripts/selfcheck.sh :: SHELLCHECK_LINUX_X86_64_SHA256`), because CI is what
+downloads that tarball and unpacks it as root onto `PATH`, and a release asset can be replaced
+without its tag moving. A `shellcheck` on PATH is used and warned about off
 the pin; with no binary and no daemon each step skips rather than fails outside CI, so the shell
 and the workflows go unlinted while the rest of the scope passes — in CI the same shortfall is a
 finding. `require_docker` runs for the ops, database and image scopes alone, so nothing announces
@@ -488,8 +491,21 @@ one, which would answer differently per machine.
 
 **Commit messages ride in the docs scope**, the commit bodies being documentation and merges never
 squashed precisely so they survive ([`docs/_git/spec.md`](../_git/spec.md) §1.4). In CI the check
-can ride nowhere, a commit message having no path to filter on, so it runs in the always-on
-`changes` job instead.
+can ride nowhere, a commit message having no path to filter on, so `.github/workflows/verify.yml`
+gives it a `commits` job of its own, filtered by nothing and depended on by nothing. It is not in
+the `changes` job that every scope job waits on: the backend install the check needs would then sit
+on the critical path of the whole run, and on a push to `main` — where there is no branch to
+measure — it would be installed for a step that does not run. The `verify` aggregate lists
+`commits` among its `needs`, which is what keeps the required check gating on it.
+
+**The two call sites resolve the base differently, and the difference is safe in one direction
+only.** CI passes `--base origin/<the pull request's base>`; the gate passes nothing and takes
+`scripts/checker_kernel.py :: DEFAULT_BASE`, which is `main`. They agree for a pull request into
+`main`, which is every pull request here — `main` is the only long-lived branch
+([`docs/_git/spec.md`](../_git/spec.md) §1.2). Where a branch is stacked on another and merges into
+it, the default reads from `main` instead and so covers the commits below the fork as well: a
+superset, already checked when the branch beneath was, so the local run is stricter than CI rather
+than blinder.
 
 The **ops** scope exists because the compose files and the nginx config have no compiler and no
 test suite — without it, a typo in either surfaces on the server, at deploy time. `nginx -t` runs
