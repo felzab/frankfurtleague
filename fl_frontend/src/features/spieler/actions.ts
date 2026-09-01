@@ -47,7 +47,7 @@ import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCrea
 
 // The index spans retired rows and creating never revives, so the message names the one path that does.
 const ALREADY_IN_SAISON = buildRefusal({
-  reason: "Dieser Spieler hat in dieser Saison bereits einen Kadereintrag, möglicherweise einen ausgetragenen",
+  reason: "Dieser Spieler hat in dieser Saison schon einen Kadereintrag, möglicherweise einen ausgetragenen",
   repair: "Reaktiviere den Eintrag, statt einen neuen anzulegen",
 });
 
@@ -60,7 +60,7 @@ const SQUAD_TEAM_NOT_IN_SAISON =
 // Neither role is named: the reactivate offers no role on screen, and one sentence has to serve it
 // as well as the two the editor picks between.
 const SQUAD_ROLLE_TAKEN = buildRefusal({
-  reason: "In diesem Team ist diese Rolle bereits vergeben",
+  reason: "In diesem Team ist diese Rolle schon vergeben",
   repair: "Nimm sie dem anderen Spieler zuerst ab, dann kannst Du sie hier vergeben",
 });
 

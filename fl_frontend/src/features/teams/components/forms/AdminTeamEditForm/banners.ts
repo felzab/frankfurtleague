@@ -80,7 +80,7 @@ export function buildTeamBanners({
           saisonStatus === "future"
             ? "Reaktiviere das stillgelegte Team und nimm es danach hier auf."
             : saisonStatus === "active"
-              ? "Auch reaktiviert ließe sich das stillgelegte Team nur in eine geplante Saison aufnehmen, und diese läuft bereits."
+              ? "Auch reaktiviert ließe sich das stillgelegte Team nur in eine geplante Saison aufnehmen, und diese läuft schon."
               : "Auch reaktiviert ließe sich das stillgelegte Team nur in eine geplante Saison aufnehmen, und diese ist beendet.",
         inline: "saison-kein-eintritt",
       });
@@ -102,7 +102,7 @@ export function buildTeamBanners({
         title: `In Saison ${saisonId} steht das Teilnehmerfeld fest`,
         body:
           saisonStatus === "active"
-            ? "Aufnehmen lässt sich ein Team nur in eine geplante Saison, und diese läuft bereits."
+            ? "Aufnehmen lässt sich ein Team nur in eine geplante Saison, und diese läuft schon."
             : "Aufnehmen lässt sich ein Team nur in eine geplante Saison, und diese ist beendet.",
         inline: "saison-kein-eintritt",
       });
