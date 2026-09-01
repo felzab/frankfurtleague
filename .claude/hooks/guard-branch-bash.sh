@@ -95,6 +95,14 @@ if [[ "$verbs" =~ [[:space:]/](sed|perl|ruby|awk|gawk|yq)[0-9.]*(\.exe)?[[:space
   esac
 fi
 
+# `-o` selects matches for grep and names a destination for `docker compose config`, sort, curl and
+# wget, so it is a write only behind one of those — and behind the compose spelling matched whole.
+if [[ "$verbs" =~ [[:space:]/](docker[[:space:]]compose|docker-compose|sort|curl|wget)[0-9.]*(\.exe)?[[:space:]] ]]; then
+  case "$verbs" in
+    *" -o "* | *" -o="* | *" --lock-image-digests"*) writes=1 ;;
+  esac
+fi
+
 # Global options sit between program and subcommand, so the stepper skips them. Every `git` is
 # walked, over the separator-normalised string: a leading read otherwise shadows a chained write,
 # and `;git commit` fronts a git as plainly as a space does.
@@ -139,8 +147,8 @@ esac
 
 # <<< SHARED WRITE SHAPES END <<<
 
-# A write no shape above describes is invisible — `pnpm format`, `sort -o f`, a program reading
-# its target out of a file. What this hook enforces is the shapes it knows.
+# A write no shape above describes is invisible — `pnpm format`, a program reading its target out of
+# a file. What this hook enforces is the shapes it knows.
 
 # The interpreter shape stays out of the shared block: here it would refuse every `python` on `main`.
 [ "$writes" = "1" ] || exit 0
