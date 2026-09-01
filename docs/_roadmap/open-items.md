@@ -83,7 +83,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 29  | BE-12 | No retention sweep selects a retired row on its age                  | BE, DB          | M      | Open     | —          |
 | 30  | BE-25 | A club's street address is served to an anonymous caller             | BE              | S      | Open     | —          |
 | 31  | BE-47 | A sort option nothing sends scans the archive it sorts               | BE              | S      | Standing | —          |
-| 32  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
+| 32  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Closed   | —          |
 | 33  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
 | 34  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
 | 35  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
@@ -1759,11 +1759,22 @@ because the next reader re-derives it from scratch.
 
 ### 32 · BE-26 — Two rule summaries name a fixture state the code excludes
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** BE\
 **Effort:** S\
 **Path:** Independent — two `summary=` strings if they are the wrong half, and a constant more than
 the swap reads if they are not.
+
+**What concluded it.** The summaries were the wrong half. `REQ-SWAP-002` and `REQ-SWAP-004` in
+`fl_backend/app/core/domain.py :: RULES` now read _"played, abandoned, forfeited, given a goal count
+or a stored shoot-out"_, which is the membership
+`fl_backend/app/api/spiele/schemas.py :: SONDEREREIGNIS_PRODUCING_A_RECORD` holds and the wording
+`REQ-REPLACE-002` already used for the same predicate. Nothing else moved: the constant keeps
+`ausgefallen` out, so a called-off fixture leaves both windows open, and every other statement of
+these two rules — `docs/logging/error-codes.md`'s rows and `docs/backend/spec.md`'s §3 rows — said
+"abandoned, forfeited" already. The class this instance belonged to is **DOC-15** on
+[`tooling-items.md`](tooling-items.md): no check compares a rule's sentence with the condition its
+code refuses on, and that stays open. The full argument is in the closing commit body.
 
 **`REQ-SWAP-002` and `REQ-SWAP-004` in `fl_backend/app/core/domain.py :: RULES` both read _"played,
 called off, given a goal count or a stored shoot-out"_.** The refusal they describe is
