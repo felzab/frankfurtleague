@@ -1816,7 +1816,9 @@ are covered only in part: a source not strictly earlier in the running order is 
 closes a cycle, and one outcome feeding two slots only where both slots sit on one fixture — and
 then as `same_team`, which states that two sources resolve to one club
 (`fl_backend/app/api/spiele/schemas.py :: FLBracketFaultSpiel`) rather than that one source is read
-twice.
+twice. One shape is faulted and misnamed: a placing in a group the season does not run reaches
+`gruppe_too_small`, true of the arithmetic — an unrun group stands nobody — and wrong about the
+cause, which is that the group is not in the season at all.
 
 **Only a hand edit puts a fixture in that state, and that is what ranks it here.** The draw composes
 its wiring from the bracket's own shape rather than from a caller
