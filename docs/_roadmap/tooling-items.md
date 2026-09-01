@@ -79,7 +79,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 31  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
 | 32  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
 | 33  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
-| 34  | OPS-19  | Both repository-wide linters re-read every file                    | FE, Ops           | S      | Open     | —          |
+| 34  | OPS-19  | The repository-wide formatter re-reads every file                  | FE, Ops           | S      | Open     | —          |
 | 35  | OPS-10  | The comment-only classifier costs a process per file               | Ops               | S      | Open     | —          |
 | 36  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
 | 37  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
@@ -1777,7 +1777,7 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 34 · OPS-19 — Both repository-wide linters re-read every file on every run
+### 34 · OPS-19 — The repository-wide formatter re-reads every file on every run
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -1787,10 +1787,12 @@ added for OUT-7 lands with the field that claims it.
 (`docs/ops/spec.md` §1.6's scope table), so what either buys on wall clock is decided by which pool
 member is binding at the scope being run.
 
-**`fl_frontend/package.json`'s `lint` and `format:check` scripts point eslint and prettier at the whole
-repository, and neither is given a cache.** `fl_frontend/tsconfig.json` sets `incremental: true`; nothing else in
-either tree keeps state between runs, so both tools re-read every file they are pointed at whether or
-not anything about it has changed since the last run said the same thing.
+**`fl_frontend/package.json`'s `format:check` script points prettier at the whole repository and
+gives it no cache**, so prettier re-reads every file it is pointed at whether or not anything about
+it has changed since the last run said the same thing. **The eslint half of this entry is taken**:
+`lint` carries `--cache --cache-strategy content` over a key `fl_frontend/eslint.config.mjs ::
+crossFileDigest` widens to the inputs eslint's own key misses, and `fl_frontend/tsconfig.json`'s
+`incremental: true` already keeps tsc's state between runs.
 
 **What the two steps cost**, measured 2026-08-11 on a development machine while the gate was
 profiled: prettier over the repository is 41.5 s with other scopes running beside it and 33.3 s
@@ -1816,14 +1818,29 @@ machine — sixteen cores, repository clean — against the invocations the gate
 | `eslint .`, `--cache --cache-strategy content`, cold | 20.5 s     |
 | `eslint .`, `--cache --cache-strategy content`, warm | 4.5 s      |
 
+**What the shipped pair costs, measured 2026-09-01 on the same machine while a dozen agents ran
+beside it.** Absolute figures are worthless under that load and the ratios are not; each pair was
+run alternating, back to back, and every run is reported.
+
+| Run, 2026-09-01, relative under load                        | Runs                 | Median |
+| ----------------------------------------------------------- | -------------------- | ------ |
+| `eslint . --concurrency=2`, no cache — the step as it stood | 23.8 / 24.2 / 23.0 s | 23.8 s |
+| `eslint . --concurrency=2 --cache --cache-strategy content` | 26.1 / 22.0 / 34.9 s | 26.1 s |
+| `eslint . --concurrency=off`, no cache                      | 28.1 / 31.3 / 32.3 s | 31.3 s |
+| `eslint . --concurrency=off --cache …`, warm — what shipped | 28.6 / 5.5 / 5.1 s   | 5.5 s  |
+
+The second row is the finding: a cache under `--concurrency=2` buys nothing, and the fourth row's
+first run is the cold fill. Against the step as it stood the shipped form is roughly **a quarter of
+its time warm and about a fifth slower cold**, so a fresh worktree and a CI runner each pay once for
+what every later run recovers.
+
 1. **Does a cache survive usefully between local runs?** Yes — decisively for eslint and modestly for
    prettier, and together they remove **about twenty-eight seconds of scope-time from a warm local
    run** (2026-08-12) — scope-time rather than wall clock, because the two halves fall in different
    pool members. Prettier's floor of 25.6 s with a fully warm cache and nothing changed says most of
    its time is startup, discovery and ignore-matching rather than formatting, which bounds what any
-   cache can ever buy on that step. **The eslint rows carry no concurrency setting, and the step
-   carries one** (the last block of this entry), so what a cache removes on top of that is not among
-   these figures.
+   cache can ever buy on that step. **The eslint rows carry no concurrency setting**, which the
+   2026-09-01 table above supplies and which turns out to decide the step.
 2. **Does `--cache` change what the check proves?** Not once the key is chosen rather than defaulted.
    A cached clean verdict is exactly as good as its key, and `scripts/verify.sh` passes
    `--no-optimistic-repeat-install` to pnpm precisely because that tool's fast path keys on
@@ -1840,9 +1857,16 @@ machine — sixteen cores, repository clean — against the invocations the gate
    hashed set whenever the plugin gains another cross-file input or a second entry point is added,
    and getting it wrong fails silently, which is the trade to weigh rather than assume.
 
-   **The concurrency lever on this step is settled on its own terms and substitutes for no key.** Its
-   record is the last block of this entry; what it changes here is the baseline, a cache on eslint
-   having to buy its time on top of `--concurrency=2` rather than on top of a serial run.
+   **The digest closes it, and the proof is a control rather than a green run.** With the digest
+   pinned to a constant — the `--cache-strategy content` key alone — the rename above leaves a warm
+   run at exit 0 while the same tree uncached exits 1 naming two uses; with the digest live, the warm
+   run exits 1 and names them. The set hashed is every stylesheet under `fl_frontend/src` rather than
+   the entry point alone, so `admin.css` and any stylesheet added later are covered without anyone
+   remembering to add them, and `fl_frontend/pnpm-lock.yaml` besides, because `stringify` drops rule
+   implementations as functions and a plugin bump would otherwise change what the rules say without
+   changing the key. **The standing obligation is narrowed rather than removed**: a rule gaining a
+   cross-file input that is neither a stylesheet nor a package is still a silent miss, and the
+   comment at that constant carries the instruction.
 
 3. **Can CI persist one?** **Out of scope, decided 2026-08-12: the local win only.** It needs no CI
    change to collect, so `.github/workflows/verify.yml` is left alone and the image build cache —
@@ -1850,22 +1874,30 @@ machine — sixteen cores, repository clean — against the invocations the gate
    revisiting, nor does `.claude/CLAUDE.md` §7's line for it. This is a boundary on the work rather
    than a question still open inside it, and reopening it is its own decision.
 
-**Done when:** `fl_frontend/package.json`'s `format:check` passes `--cache`, and its `lint` either
-passes one over a key that also covers `fl_frontend/eslint.config.mjs`'s `better-tailwindcss` entry
-point — `--cache-strategy content` alone is refused above — or is settled against, the concurrency
-lever it was weighed against having shipped at `--concurrency=2` on the evidence below. Whichever
-caches land,
-`fl_frontend/.gitignore` carries the line for each cache file, which it has for none of them today.
-**One consequence lands with it and belongs beside the
-change**: a cache means the gate writes an untracked file into the working tree on every run.
-`.claude/CLAUDE.md`'s rule that no formatter the gate runs writes a _tracked_ file still holds, and
-`docs/ops/spec.md` §1.6 is where the note goes.
+**Done when:** `fl_frontend/package.json`'s `format:check` passes `--cache`, or is settled against.
+**The eslint half is met** — `lint` carries `--cache --cache-strategy content` over the widened key,
+`fl_frontend/.gitignore` carries the `.eslintcache` line, and `docs/ops/spec.md` §1.6 carries both
+the non-composition and the untracked-write note.
 
-**The concurrency lever on the same eslint step is taken, and its value is chosen against a
-diagnostic rather than against the clock**, which is what leaves the cache question standing on its
-own. `fl_frontend/package.json`'s `lint` passes `--concurrency=2`. eslint 9.39.5 takes the flag as a
-first-class option under flat configuration, and `fl_frontend/eslint.config.mjs` declares no `project`
-or `projectService`, so the configuration is not type-aware and a worker parses independently.
+**What prettier still needs, and why it did not land beside eslint.** Its cache has the same shape of
+hazard and no place to put the answer: `.prettierrc.json` loads `prettier-plugin-tailwindcss`, which
+sorts classes against the Tailwind design system, and prettier's cache key is its own version, the
+resolved options and the file — an unknown option is rejected, so there is no `settings` to hash a
+stylesheet into as `fl_frontend/eslint.config.mjs :: crossFileDigest` does. `--cache-location`
+carrying a computed hash is the remaining candidate and needs a script rather than a package field.
+Prettier lands in the `format` scope, which is not what binds the gate's wall clock, so the entry
+stays open at the cheaper half rather than shipping a key that cannot be shown honest.
+
+**The concurrency lever is dropped, because the two never combined.** eslint reads its cache on the
+single-thread path alone. In the installed package, `lintFilesWithMultithreading` passes every file
+path to `runWorkers` and reaches the cache only afterwards, to write results, while
+`lintFilesWithoutMultithreading` passes it into `lintFile`, where `needsReprocessing` is what skips a
+file; `calculateAutoWorkerCount` consults the cache only to size the worker pool, and not at all
+under `content`. **So a run carrying both flags lints all 622 files and pays to write a cache
+it never reads** — measured alternating on the development machine under load, three pairs, cached
+and uncached medians within a second of each other at roughly 24 s. The block below records what
+`--concurrency=2` was worth while it stood; it is kept because the number was never wrong, only
+superseded by a lever that could not run beside it.
 
 **What decides the number is `LOW_NET_LINTING_RATIO`, the 0.7 floor the installed package sets.** Under
 it eslint emits `ESLintPoorConcurrencyWarning`, a Node process warning stating that the setting is poor

@@ -379,9 +379,15 @@ level's too. A step joined after its work ran beside its neighbours is re-dated 
 length (`scripts/_lib.sh :: step_took_ms`), without which the first step joined absorbs the whole
 stretch and every step after it reads as free.
 
-**The eslint step passes `--concurrency=2`, a value answering a diagnostic rather than the clock**:
-`auto` warns through `ESLintPoorConcurrencyWarning` and every larger measured setting warns too, so
-raising the number buys its time by suppressing a correct diagnostic — the measurements are
+**The eslint step is cached rather than threaded, the two not composing.** `--cache` is consulted
+only on eslint's single-thread path: the installed eslint hands every file path to its workers in
+`lintFilesWithMultithreading` and reaches the cache afterwards only to write results, so a run
+carrying both flags pays the write and skips nothing. **What makes the cached verdict honest is
+`fl_frontend/eslint.config.mjs :: crossFileDigest`** — eslint keys a cached verdict on the linted
+file and the resolved config alone, and `better-tailwindcss/no-unknown-classes` decides every
+file's verdict by reading a stylesheet it never lints, so the stylesheets under `fl_frontend/src`
+and `fl_frontend/pnpm-lock.yaml` are hashed into `settings` to bring them inside that key. The
+measurements, and what the digest must grow to cover, are
 `docs/_roadmap/tooling-items.md :: OPS-19`.
 
 **No formatter the gate runs writes a tracked file** — prettier runs in check mode everywhere, so a
@@ -389,6 +395,12 @@ run cannot hand back a tree different from the one its later steps measured. For
 commit time instead: `.githooks/pre-commit` formats what is staged and re-stages it, and refuses a
 file staged in part. The hook is convenience and never the enforcement — a clone that has not
 pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what bind.
+
+**The untracked files a run writes are caches, and each is gitignored where it lands**: `tsc`
+writes `fl_frontend/tsconfig.tsbuildinfo` under `incremental`, and the eslint step writes
+`fl_frontend/.eslintcache`. Neither is a formatter's output and neither is tracked, so the rule
+above is untouched — and a cache the gate reads is only as good as its key, which is why the
+eslint one carries the digest above.
 
 **One tracked file a gate run writes is not a formatter's doing**: `next build` rewrites
 `fl_frontend/tsconfig.json` whenever a `compilerOptions` key it checks for is absent, so the
