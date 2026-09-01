@@ -949,7 +949,8 @@ RULES: tuple[Rule, ...] = (
         code="REQ-RULES-012",
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
-        summary="`tiebreak_order` is frozen once a knockout fixture of the season has been played",
+        summary="`tiebreak_order` is frozen once a knockout fixture of the season has been played, abandoned, forfeited, "
+        "given a goal count or a stored shoot-out",
         implemented_by="app.api.saisons.services.find_rules_refusal",
         tested_by="tests/api/test_rules_refusal.py::TestAStartedKnockoutFreezesTheTiebreak",
         multi_document=True,
