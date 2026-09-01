@@ -957,6 +957,19 @@ client side flat at 4 — so no pool the driver holds accumulates connections to
 further db-tier runs, one of them deliberately concurrent with another, were green, and the
 `connection pool paused` symptom did not reproduce.
 
+**Width is a second contributor to the same socket pressure, measured on this repository's own runs.**
+A db-tier run at `-n auto --dist loadfile` left 799 more sockets in `TIME_WAIT` than it found — 596
+before, 1,395 after — while a serial run of the same 769 tests on the same machine went net negative,
+1,149 before and 844 after. A dozen agents each running one distributed tier is therefore some 9,600
+sockets before anything else on the host touches a port, which is most of the band above. The
+mechanism is structural rather than a leak: a worker is a pytest session of its own, so each opens its
+own clients against the two shared servers, and `fl_backend/tests/conftest.py :: mongo_database` and
+`fl_backend/tests/database.py :: shared_client` are per process rather than per run. **This attributes
+neither occurrence** — it says the width the gate's own db scope already runs at is a contributor any
+repair has to survive, and gives the arithmetic a diagnosis can start from. **Count the state with
+`Get-NetTCPConnection -State TimeWait`**: a localised Windows `netstat` prints the state in the host's
+own language, so a grep for `TIME_WAIT` reads zero on a machine holding thousands.
+
 **The two occurrences stay separate, and the port exhaustion does not account for the earlier one.** The
 2026-08-26 round's controls point away from load and nothing recorded about it names a port or a socket
 count, so what the corpus holds is one occurrence with a measured mechanism and one still unattributed.
