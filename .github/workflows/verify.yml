@@ -64,20 +64,69 @@ jobs:
             ./scripts/ci_scopes.sh --all >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Report the branch's line delta
+        # The re-bloat glance: a per-bucket line delta in the run summary, so growth is visible on
+        # the pull request adding it. Advisory by construction — no threshold, no verdict, and
+        # continue-on-error keeps a failure away from this job's outputs.
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          base="$(git merge-base "origin/${BASE_REF}" HEAD)"
+          # --no-renames: a rename counts as its full add and delete in one bucket, netting zero,
+          # where a rename spec's combined spelling would classify as neither side.
+          git diff --numstat --no-renames "$base" HEAD | awk -F'\t' -v base="$base" '
+            $1 == "-" { next }
+            {
+              b = "product code"
+              if ($3 == "fl_backend/openapi.json" || $3 ~ /(^|\/)(pnpm-lock\.yaml|uv\.lock)$/) b = "generated"
+              else if ($3 ~ /^(fl_backend|scripts)\/tests\// || $3 ~ /\.test\.(ts|tsx)$/) b = "tests"
+              else if ($3 ~ /\.md$/ || $3 ~ /^docs\//) b = "documentation"
+              else if ($3 ~ /^(scripts|nginx|certs)\/|^\.|^docker-compose|(^|\/)(Dockerfile|\.[^\/]+)$/) b = "tooling"
+              seen[b] = 1; add[b] += $1; del[b] += $2
+            }
+            END {
+              n = split("product code,tests,documentation,tooling,generated", names, ",")
+              net = 0
+              for (i = 1; i < n; i++) net += add[names[i]] - del[names[i]]
+              printf "### Line delta against merge base %.7s\n\n", base
+              printf "**Net: %+d lines** (generated files excluded)\n\n", net
+              print "| Bucket | Added | Removed | Net |"
+              print "| --- | ---: | ---: | ---: |"
+              for (i = 1; i <= n; i++) {
+                b = names[i]
+                if (seen[b]) printf "| %s%s | %d | %d | %+d |\n", b, (i == n ? " (excluded)" : ""), add[b], del[b], add[b] - del[b]
+              }
+            }
+          ' >> "$GITHUB_STEP_SUMMARY"
+
+  # Commit messages are checked in a job of their own, not in the docs job and not in `changes`:
+  # they are the one thing with no path, so a frontend-only pull request would skip the docs scope
+  # and merge unchecked -- while nothing waits on this job, so its backend install sits off the
+  # critical path every scope job's `needs: changes` puts a step on.
+  commits:
+    # A push to main has no branch to measure, so the whole job is skipped rather than installing a
+    # toolchain for a step that would not run.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history: the check reads this branch's commits against the merge base.
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
       - name: Create the backend virtualenv
-        # The commit check below runs on the interpreter fl_backend pins, never on whichever Python
-        # the runner image happens to ship: one floor for every caller, so a check cannot pass here
-        # and fail on a development machine over a language version. Warm, this costs a few seconds.
+        # The commit check runs on the interpreter fl_backend pins, never on whichever Python the
+        # runner image happens to ship: one floor for every caller, so a check cannot pass here and
+        # fail on a development machine over a language version.
         working-directory: fl_backend
         run: uv sync --dev
-
-      # Commit messages are checked here, not in the docs job: they are the one thing with no path,
-      # so a frontend-only pull request would skip the docs scope and merge unchecked.
       - name: Check the branch's commit messages
-        if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
         run: fl_backend/.venv/bin/python scripts/check_commits.py --base "origin/${BASE_REF}"
@@ -103,16 +152,27 @@ jobs:
         # The runner image ships its own shellcheck, and selfcheck.sh prefers a binary on PATH over
         # the image it pins -- so without this CI lints the branch against a different rule set from
         # a development machine, and says so only as an advisory that leaves the run green. The
-        # version is read from selfcheck.sh rather than repeated here: a second copy is a pair
-        # nothing compares, and that file carries the note about bumping it by hand.
+        # version and the digest are read from selfcheck.sh rather than repeated here: a second copy
+        # is a pair nothing compares, and that file carries the note about bumping both by hand.
+        #
+        # The digest is checked before anything is unpacked: a release asset can be replaced without
+        # its tag moving, and this lands as root in a directory on PATH beside a checkout. Fetched to
+        # a file rather than piped into tar, so a truncated stream is a mismatch rather than a
+        # partial write nothing hashed.
         run: |
           version="$(sed -n 's/^SHELLCHECK_VERSION="\([0-9.]*\)"$/\1/p' scripts/selfcheck.sh)"
-          if [ -z "$version" ]; then
-            echo "::error::no SHELLCHECK_VERSION in scripts/selfcheck.sh -- the pin moved or its spelling changed."
+          digest="$(sed -n 's/^SHELLCHECK_LINUX_X86_64_SHA256="\([0-9a-f]*\)"$/\1/p' scripts/selfcheck.sh)"
+          if [ -z "$version" ] || [ -z "$digest" ]; then
+            echo "::error::no SHELLCHECK_VERSION or SHELLCHECK_LINUX_X86_64_SHA256 in scripts/selfcheck.sh -- a pin moved or its spelling changed."
             exit 1
           fi
-          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.linux.x86_64.tar.xz" |
-            sudo tar -xJ --strip-components=1 -C /usr/local/bin "shellcheck-v${version}/shellcheck"
+          tarball="${RUNNER_TEMP}/shellcheck-v${version}.linux.x86_64.tar.xz"
+          curl -fsSL -o "$tarball" "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.linux.x86_64.tar.xz"
+          if ! printf '%s  %s\n' "$digest" "$tarball" | sha256sum -c -; then
+            echo "::error::the shellcheck tarball does not match the digest in scripts/selfcheck.sh -- nothing was installed."
+            exit 1
+          fi
+          sudo tar -xJf "$tarball" --strip-components=1 -C /usr/local/bin "shellcheck-v${version}/shellcheck"
           shellcheck --version
       # Only typescript is wanted here, and a pnpm install is the only way to get it at the pinned
       # version. Without it the comment classifier's TypeScript half — the delicate one, and why it
@@ -163,9 +223,8 @@ jobs:
       # prettier and its plugins are dependencies of fl_frontend, so the check needs that install
       # even though what it reads is mostly outside it.
       - uses: ./.github/actions/frontend-toolchain
-      - name: Check formatting
-        working-directory: fl_frontend
-        run: pnpm format:check
+      - name: Run the format scope
+        run: ./scripts/verify.sh --format
 
   backend:
     needs: changes
@@ -232,6 +291,15 @@ jobs:
           persist-credentials: false
       # The scope builds the application, so the installed tree is the job.
       - uses: ./.github/actions/frontend-toolchain
+      # The source trees are in the key, not the lockfile alone: a key coarser than what the cache
+      # depends on hits exactly every run, and actions/cache does not write on an exact hit. The
+      # prefix restore is safe because the Next cache is content-addressed.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fl_frontend/.next/cache
+          key: nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**', 'fl_frontend/next.config.ts') }}
+          restore-keys: |
+            nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
       - name: Run the frontend scope
         run: ./scripts/verify.sh --frontend
       - name: Fail if the build rewrote tsconfig.json
@@ -281,6 +349,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+      - name: Create the backend virtualenv
+        # The two builds start together only through `scripts/gate_pool.py`, which needs a python at
+        # the checkers' floor -- above this image's own. Without this venv the scope costs their sum
+        # rather than the longer of the two, against the timeout above.
+        working-directory: fl_backend
+        run: uv sync --dev
       # buildx talks to the Actions cache service itself, so there is no actions/cache
       # step and no cache directory to carry. This action exists because the runner injects the
       # service credentials into JavaScript actions alone.
@@ -297,10 +374,15 @@ jobs:
   # THE REQUIRED STATUS CHECK. The ruleset on main requires a check named `verify`; this job is it.
   # It runs on every event, so path filtering can never leave the required check hanging.
   verify:
-    needs: [changes, scripts, docs, format, backend, backend-db, frontend, ops, images]
+    needs: [changes, commits, scripts, docs, format, backend, backend-db, frontend, ops, images]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # A job-level grant replaces the workflow-level one whole, so `contents` is spelled again
+    # here for the sparse checkout below; the runs API the wall-clock step reads needs `actions`.
+    permissions:
+      actions: read
+      contents: read
     steps:
       # First, so it prints whether or not the verdict below refuses. A green `verify` says nothing
       # about which scopes ran, and a mapping that turned every scope off looks identical to a
@@ -314,6 +396,154 @@ jobs:
           RESULTS: ${{ toJSON(needs) }}
         run: |
           printf '%s' "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+      - name: Read the wall-clock reference
+        # One file out of the tree, and only where the step below runs. Sparse rather than a full
+        # checkout: this job runs on every event and owes the required check its start time.
+        # `continue-on-error` for the reason the report below carries it: this job IS the required
+        # check, and nothing advisory may fail it. Without the file the report says so and stops.
+        continue-on-error: true
+        if: github.event_name == 'push'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The token is not needed after checkout, for the reason the changes job gives above.
+          persist-credentials: false
+          sparse-checkout: .github/gate-wall-clock.tsv
+          sparse-checkout-cone-mode: false
+
+      - name: Report the gate's wall clock
+        # The re-bloat glance for time: per-job medians over the last window of main runs against a
+        # reference table held in the tree. Advisory by construction — nothing here decides an
+        # outcome, and continue-on-error keeps it away from the verdict this job is.
+        continue-on-error: true
+        # Main pushes only, because they alone run every scope: a pull request's jobs are
+        # path-filtered, so no window cut from them compares like for like.
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          window=12
+          reference=.github/gate-wall-clock.tsv
+          if [ ! -s "$reference" ]; then
+            echo "Gate wall clock: $reference is missing, so there is nothing to compare against." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # `completed`, not `success`: a run that failed still carries jobs that succeeded, and
+          # discarding the whole run throws their timings away. It excludes the run doing the
+          # reporting, which is still in flight.
+          runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?branch=main&event=push&status=completed&per_page=${window}" --jq '.workflow_runs[].id')"
+          count="$(printf '%s\n' "$runs" | awk 'NF' | wc -l)"
+          if [ "$count" -lt "$window" ]; then
+            echo "Gate wall clock: $count completed main runs on record, $window needed for a window." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          for id in $runs; do
+            # First step's start to last step's end, rather than the job's own timestamps, which
+            # carry the wait for a runner — pool queueing is noise about GitHub, not about the gate.
+            # `verify` is this report and `changes` is a checkout plus a path mapping: neither is
+            # the gate's work, and one rule has to cover both.
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" --jq '
+              .jobs[]
+              | select(.name != "verify" and .name != "changes")
+              | if .conclusion == "skipped"
+                then ["skipped", .name, 0]
+                elif .conclusion == "success"
+                   and ([.steps[]? | select(.started_at != null)] | length) > 0
+                   and ([.steps[]? | select(.completed_at != null)] | length) > 0
+                then ["ok", .name,
+                      (([.steps[] | select(.completed_at != null) | .completed_at | fromdateiso8601] | max)
+                       - ([.steps[] | select(.started_at != null) | .started_at | fromdateiso8601] | min))]
+                else ["dropped", .name, 0]
+                end
+              | @tsv'
+          done | awk -F'\t' -v w="$window" -v ref="$reference" '
+            BEGIN { whole = 1 }
+            # The reference table first, one row per job: name, seconds, floor percent.
+            FNR == NR {
+              if ($0 ~ /^#/ || NF < 3) next
+              base[$1] = $2 + 0
+              limit[$1] = $3 + 0
+              if ($1 != "total") names[++nn] = $1
+              next
+            }
+            # A job whose scope the mapping turned off, which never started and so failed at
+            # nothing: counted apart, or a job skipped on every main push reads as a run that broke.
+            $1 == "skipped" { skipped++; next }
+            $1 == "dropped" { dropped++; next }
+            $1 == "ok" {
+              k = $2
+              # Reported rather than measured: a job added to the gate with no row here would
+              # otherwise be counted into nothing and vanish from the report silently.
+              if (!(k in base)) {
+                if (!(k in extra)) { extra[k] = 1; unref = unref (unref == "" ? "" : ", ") k }
+                next
+              }
+              c = ++n[k]
+              # Insertion into the group in order, so the median needs no external sort at all.
+              while (c > 1 && v[k, c - 1] > $3) { v[k, c] = v[k, c - 1]; c-- }
+              v[k, c] = $3
+            }
+            # Median, not mean: the images job swings more than tenfold between a warm layer cache
+            # and a cold one, and one cold run would carry a mean nobody could read past.
+            function med(k,   c) {
+              c = n[k]
+              if (c == 0) return -1
+              if (c % 2) return int(v[k, (c + 1) / 2] + 0.5)
+              return int((v[k, c / 2] + v[k, c / 2 + 1]) / 2 + 0.5)
+            }
+            END {
+              for (i = 1; i <= nn; i++) {
+                j = names[i]
+                m = med(j)
+                if (m < 0) { gone = gone (gone == "" ? "" : ", ") j; whole = 0; continue }
+                total += m
+                # A reference of zero has no percentage to give, and dividing by it would take the
+                # whole redirect group down under set -e, leaving a header and no rows. Named in
+                # the trailer rather than dropped, a zero here being a hand edit somebody left half
+                # done.
+                if (base[j] <= 0) {
+                  unref = unref (unref == "" ? "" : ", ") j
+                  continue
+                }
+                d = (m - base[j]) * 100 / base[j]
+                a = (d < 0) ? -d : d
+                # The quiet state: under its own floor a job says nothing at all, so a row in this
+                # table is always a figure somebody has to account for.
+                if (a <= limit[j]) continue
+                line = sprintf("| `%s` | %ds | %ds | %+ds (%+.1f%%) | %d%% |", j, m, base[j], m - base[j], d, limit[j])
+                k = ++loud
+                while (k > 1 && rank[k - 1] < m) { rank[k] = rank[k - 1]; row[k] = row[k - 1]; k-- }
+                rank[k] = m
+                row[k] = line
+              }
+              # Only where every referenced job was observed: a window missing one leaves a sum
+              # that is short rather than one that is faster.
+              if (whole && ("total" in base) && base["total"] > 0) {
+                d = (total - base["total"]) * 100 / base["total"]
+                a = (d < 0) ? -d : d
+                if (a > limit["total"]) {
+                  loud++
+                  row[loud] = sprintf("| **the whole gate** | **%ds** | **%ds** | **%+ds (%+.1f%%)** | **%d%%** |", total, base["total"], total - base["total"], d, limit["total"])
+                }
+              }
+              if (loud == 0) {
+                printf "**Gate wall clock:** every job median over the last %d main runs sits inside its own floor.\n", w
+              } else {
+                print "### Gate wall clock"
+                print ""
+                printf "Medians over the last %d main runs that have moved past their own floor:\n", w
+                print ""
+                print "| Job | median | reference | delta | floor |"
+                print "| --- | ---: | ---: | ---: | ---: |"
+                for (i = 1; i <= loud; i++) print row[i]
+              }
+              printf "\nThe reference is `%s`, a fixed table updated by hand and never recomputed from the recent past, which is what would let a slowdown become the new normal one window at a time. Each floor is the p95 movement of that median when a %d-run window is resampled from the reference population, so a delta under it is a reshuffle and not a change. A figure spans a job from its first step to its last, leaving the wait for a runner out.\n", ref, w
+              printf "\n%d job run(s) in this window did not succeed and are outside the sample, so a scope slow enough to fail or to reach its timeout is invisible here.\n", dropped
+              if (skipped) printf "\n%d job run(s) never started, their scope turned off by the path mapping rather than by anything they did.\n", skipped
+              if (gone != "") printf "\nNo successful run in this window: %s.\n", gone
+              if (unref != "") printf "\nMeasured with no reference to compare against: %s.\n", unref
+            }
+          ' "$reference" - >> "$GITHUB_STEP_SUMMARY"
+
       - name: Fail if any scope job failed or was cancelled
         # A skipped job is a pass here: path filtering skipped it on purpose. Pure expressions, no
         # shell parsing of the needs context.

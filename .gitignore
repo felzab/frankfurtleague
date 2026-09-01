@@ -69,8 +69,12 @@ __pycache__/
 # secret -- CLAUDE.md §1 carves this path out.
 docs/audit/
 
-# Editor settings -- personal preference, and nothing in the toolchain reads them.
-.vscode/
+# Editor settings. The two workspace files are tracked, because they point the editor at the same
+# prettier, configuration and ignore file the gate runs -- a save then produces what CI checks.
+# Everything else here is one developer's: a launch profile, a window layout, a local override.
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 
 # The copy of the production database `./scripts/local.sh --seed` restores the local stack from.
 # Real data, and this repository is public.

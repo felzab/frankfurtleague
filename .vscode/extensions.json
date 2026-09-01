@@ -1,0 +1,12 @@
+// .vscode/extensions.json — the formatter and the checkers `.vscode/settings.json` assumes are
+// installed. Without the Prettier extension every formatter mapping in that file resolves to
+// nothing, and a save leaves the document alone without saying so.
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "editorconfig.editorconfig",
+    "dbaeumer.vscode-eslint",
+    "ms-python.python",
+    "ms-python.vscode-pylance"
+  ]
+}

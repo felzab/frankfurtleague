@@ -13,18 +13,17 @@ import sys
 
 from checker_kernel import run
 from docs_gate.branch import check_comment_bounds
-from docs_gate.kernel import CHECKS, SCANNED_SUFFIXES
-from docs_gate.perkind import (
+from docs_gate.checks import (
     METADATA_LINE_RE,
     RULE_FIELD_RE,
+    RULE_ID_RE,
     check_enforced_by,
     check_metadata_breaks,
     check_segment_map,
     check_template_fragments,
-    roadmap_ids,
+    main,
 )
-from docs_gate.references import RULE_ID_RE
-from docs_gate.run import main
+from docs_gate.kernel import CHECKS, SCANNED_SUFFIXES, roadmap_ids
 
 # Named for export rather than for use here: every one below is cited from a document, a command
 # file or a sibling checker.

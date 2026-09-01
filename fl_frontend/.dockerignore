@@ -26,9 +26,11 @@
 # Build output. The builder writes its own; the host's copy could only shadow it.
 .next/
 
-# Machine-local typechecker state (~700 KB, rewritten by every `pnpm typecheck`). In the context it
-# makes the builder's `COPY . .` layer key depend on whether anyone ran the typechecker.
+# Machine-local tool state, rewritten by every `pnpm typecheck` and every `pnpm lint` (~700 KB and
+# ~320 KB). In the context either makes the builder's `COPY . .` layer key depend on whether anyone
+# ran the tool.
 tsconfig.tsbuildinfo
+.eslintcache
 
 **/*.log
 

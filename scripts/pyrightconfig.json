@@ -1,13 +1,19 @@
 // scripts/pyrightconfig.json — the type checker for the gate's own python, which the
 // `[tool.pyright]` block in `fl_backend/pyproject.toml` does not reach: a type error in a checker
-// here is a gate reporting the wrong scope. Why it sits beside that python rather than at the
-// repository root, and why `pythonVersion` is pinned rather than inferred: `docs/ops/spec.md` §1.6.
-//
+// here is a gate reporting the wrong scope.
+
+// Why it sits beside that python rather than at the repository root, and why `pythonVersion` is
+// pinned rather than inferred: `docs/ops/spec.md` §1.6.
+
 // No venvPath or venv, deliberately: every import here is standard library or a sibling module, and
-// naming fl_backend/.venv would make the gate's own tooling depend on the backend environment being
-// installed. `typeCheckingMode` follows that block's, for the reason recorded there.
+// naming the backend's virtualenv would make the gate's own tooling depend on that environment
+// being installed.
+
+// `standard` is pyright's own default, and this folder is clean at it. The backend keeps `basic`
+// for the reason its own block records, so the two settings are measured separately rather than
+// one following the other.
 {
   "include": ["."],
-  "typeCheckingMode": "basic",
+  "typeCheckingMode": "standard",
   "pythonVersion": "3.14"
 }

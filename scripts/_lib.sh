@@ -490,6 +490,13 @@ end_worker() {
   exit 0
 }
 
+# What one worker's rows add up to, reset by `adopt_ending`. A run total cannot answer this — a
+# finding from an earlier scope would stand in for the next scope's silence and hide the
+# disagreement below.
+_ADOPTED_FINDINGS=0
+_ADOPTED_WORST=0
+_ADOPTED_UNPROVEN=0
+
 # Prints nothing: bytes and ledger travel apart, so a line here appears twice or out of order. An
 # adopted row must stay indistinguishable from one run in-process, or a parallel run's table
 # stops matching the serial one byte for byte.
@@ -510,14 +517,19 @@ adopt_section() {
   _SECTION_FINDINGS+=("$findings"); _SECTION_ADVISORIES+=("$advisories")
   _RUN_FINDINGS=$(( _RUN_FINDINGS + findings ))
   _RUN_ADVISORIES=$(( _RUN_ADVISORIES + advisories ))
+  # What the worker's own status is checked against below: a finding is what a 1 has to name and a
+  # rank of 4 what a 2 has to, while a rank under 1 is a scope nothing proved.
+  _ADOPTED_FINDINGS=$(( _ADOPTED_FINDINGS + findings ))
+  if (( rank > _ADOPTED_WORST )); then _ADOPTED_WORST="$rank"; fi
+  if (( rank < 1 )); then _ADOPTED_UNPROVEN=1; fi
   return 0
 }
 
 # The endings a row cannot carry: `on_error` and `on_interrupt` rank their section `failed`, so a
 # parent reading rows alone would report a crash or an interrupt as findings. Every other status
 # returns, the rows being the whole story there.
-adopt_ending() { # $1 the worker's exit status
-  local rc="$1"
+adopt_ending() { # $1 the worker's exit status, $2 what to call that worker in a refusal
+  local rc="$1" who="${2:-a worker}"
   [[ "$rc" =~ ^[0-9]+$ ]] || die "adopt_ending: '${rc}' is not an exit status."
   if (( rc == 130 )); then _closing interrupted; exit 130; fi
 
@@ -526,7 +538,26 @@ adopt_ending() { # $1 the worker's exit status
   # a killed scope.
   if (( rc > 255 )); then rc=3; fi
   if (( rc >= 3 )); then _closing crashed; exit "$rc"; fi
+
+  # 1 and 2 are the statuses whose whole meaning lives in the rows, so rows naming neither leave
+  # the run contradicting itself. A rank under 1 is exempt: `finish` already refuses to call that
+  # green, and no row could have explained a scope nothing proved.
+  if (( ! _ADOPTED_UNPROVEN )); then
+    if (( rc == 1 && _ADOPTED_FINDINGS == 0 )); then _contradicted "$who" 1 "carries no finding"; fi
+    if (( rc == 2 && _ADOPTED_WORST < 4 )); then _contradicted "$who" 2 "carries no refusal"; fi
+  fi
+  _ADOPTED_FINDINGS=0
+  _ADOPTED_WORST=0
+  _ADOPTED_UNPROVEN=0
   return 0
+}
+
+# Graded 3, never 2: against `scripts/checker_kernel.py`'s contract 2 asks for the input to be
+# fixed, and no input made a worker and its parent disagree. The fault is the handoff's.
+_contradicted() { # $1 what to call the worker, $2 its exit status, $3 what its rows lack
+  on_error 3 "${BASH_LINENO[0]}" "${1} exited ${2}, and every section row it sent home ${3}.
+A status and the rows it travelled with are two accounts of one run, and these two disagree, so
+neither stands as a verdict. scripts/_lib.sh :: emit_section_ledger is what fills those rows."
 }
 
 # Its own ending: the check ran and its result cannot stand as a verdict. Ranked above `pass`, so
@@ -637,12 +668,29 @@ git_sha()    { git rev-parse --short=7 HEAD; }
 git_branch() { git rev-parse --abbrev-ref HEAD; }
 git_clean()  { [[ -z "$(git status --porcelain)" ]]; }
 
+# --- Redaction -------------------------------------------------------------------------------------
+
+# A filter for anything a CONTAINER's log is printed through. `mongodb-connection-string-url` throws
+# `Invalid connection string "<uri>"` with the credential still in it, and the patterns
+# `wait_healthy` greps for select the failures carrying one.
+redact_uri_credentials() {
+  # Stopped at the FIRST `@` after the scheme: no password character defeats that, where a
+  # delimiter class leaves an ill-formed password unmatched and a greedy run costs the host.
+  # `I`, for a scheme echoed back in another case.
+  sed -E 's#(mongodb(\+srv)?://)[^@]*@#\1<redacted>@#gI'
+}
+
 # --- Health ----------------------------------------------------------------------------------------
+
+# Which arm answered, for a caller that has to tell a verdict on the service from a question nobody
+# answered: every failing arm returns 1, and only `unhealthy` and `timeout` are about the service.
+WAIT_HEALTHY_REASON=""
 
 # A started container and a working app are different statements: on a bad environment variable
 # the frontend stays up and 500s on every route.
 wait_healthy() {
   local compose_file="$1" service="$2" timeout="${3:-150}" waited=0 state cid rc log_tail matched
+  WAIT_HEALTHY_REASON=""
   info "waiting for '${service}' to become healthy (up to ${timeout}s)"
   while (( waited < timeout )); do
     rc=0
@@ -650,13 +698,15 @@ wait_healthy() {
     # An unasked question and an answered one both leave `cid` empty, and "no running container"
     # about a daemon that never replied sends an operator to the container, not the engine.
     if (( rc )); then
+      WAIT_HEALTHY_REASON="unasked"
       warn "could not ask compose about '${service}' — 'docker compose ps' exited ${rc}.
 This says nothing about the container; the daemon or the compose file is what did not answer."
       return 1
     fi
     if [[ -z "$cid" ]]; then
+      WAIT_HEALTHY_REASON="no-container"
       warn "'${service}' has no running container"
-      docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | detail
+      docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
       return 1
     fi
     # A service with no healthcheck reports "" — treat "running" as good enough for those.
@@ -664,10 +714,11 @@ This says nothing about the container; the daemon or the compose file is what di
     case "$state" in
       healthy|running) ok "'${service}' is ${state}"; return 0 ;;
       unhealthy)
+        WAIT_HEALTHY_REASON="unhealthy"
         warn "'${service}' reports UNHEALTHY. Its own explanation, if it gave one:"
         # Filtered in memory: `grep | head` fails the pipeline on SIGPIPE under `pipefail`, which
         # prints the arm below underneath the lines it just found.
-        log_tail="$(docker compose -f "$compose_file" logs --tail=60 "$service" 2>&1 || true)"
+        log_tail="$(docker compose -f "$compose_file" logs --tail=60 "$service" 2>&1 | redact_uri_credentials || true)"
         matched="$(printf '%s\n' "$log_tail" | grep -iE "invalid environment|failed to prepare|error|refused" || true)"
         if [[ -n "$matched" ]]; then
           printf '%s\n' "$matched" | excerpt 12
@@ -682,8 +733,10 @@ This says nothing about the container; the daemon or the compose file is what di
     esac
     sleep 3; waited=$(( waited + 3 ))
   done
+  # shellcheck disable=SC2034  # read by the scripts that source this file
+  WAIT_HEALTHY_REASON="timeout"
   warn "'${service}' did not become healthy within ${timeout}s. Last 30 log lines:"
-  docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | detail
+  docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
   return 1
 }
 
