@@ -246,7 +246,7 @@ class TestEveryReadInsideATransactionCarriesIt:
         assert unplaced == []
 
     def test_no_read_inside_one_is_left_off_its_session(self):
-        """Drop `session=` from any of the seven reads in `judge_and_write_the_rules` and this fails; the db tier does not.
+        """Drop `session=` from any of the eight reads in `judge_and_write_the_rules` and this fails; the db tier does not.
 
         That read judges the season as whatever committed last left it, and the patch beneath it
         lands in a snapshot that never held it.

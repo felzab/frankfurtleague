@@ -16,7 +16,8 @@ from app.api.saisons.schemas import (
     FLSaisonRules,
     FLSpielplanShape,
 )
-from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW
+from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW, RULES_TIEBREAK_AFTER_KNOCKOUT
+from app.api.spiele.schemas import KNOCKOUT_PHASES
 from app.api.spieler.admin_router import post_saison_spieler
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.teams.services import offered_gruppen
@@ -46,6 +47,10 @@ WIDER_PER_GROUP = 6
 # The squad the seed fills, and the cap the narrowing patch proposes: equal, so `REQ-RULES-009`
 # has nothing to refuse until the rival's insert lands.
 SEEDED_SQUAD = 3
+
+# The other order the season could rank a group by. NOT a shape field, so `REQ-RULES-011` passes it
+# on a drawn season and `REQ-RULES-012` is the only rule left to refuse it.
+REORDERED_TIEBREAK = "direkter_vergleich"
 
 # The one squad the seed and the rival both write, the first seeded club's.
 SQUAD_TEAM_ID = ObjectId(f"6890a1b2c3d4e5f6079{0:05d}")
@@ -230,6 +235,27 @@ async def call_add_a_player(database: AsyncIOMotorDatabase) -> Any:
     )
 
 
+async def call_abandon_a_knockout(database: AsyncIOMotorDatabase) -> None:
+    """The rival write: one drawn knockout fixture is marked abandoned, straight into `spiele`.
+
+    Not through the fixture route: a knockout slot drawn from a `quelle` names no teams yet, so
+    there is no result for that route to take.
+    """
+
+    fixture = await database[Collection.SPIELE].find_one({"saison_id": SAISON_ID, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}})
+    assert fixture is not None, "the draw left this season no knockout fixture to record against"
+
+    await database[Collection.SPIELE].update_one({"_id": fixture["_id"]}, {"$set": {"sonderereignis": "abgebrochen"}})
+
+
+async def abandoned_knockouts_now(database: AsyncIOMotorDatabase) -> int:
+    """The records this file's rival leaves, counted where `app/api/teams/services.py :: has_taken_place` would answer True."""
+
+    return await database[Collection.SPIELE].count_documents(
+        {"saison_id": SAISON_ID, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}, "sonderereignis": "abgebrochen"}
+    )
+
+
 async def season_now(database: AsyncIOMotorDatabase) -> dict[str, Any]:
     """Read outside any transaction -- what a later request would find."""
 
@@ -346,6 +372,55 @@ class TestADrawLandingMidPatchIsJudgedAgain:
         assert response.updated_document.rules.teams_per_group == WIDER_PER_GROUP
         assert stored["rules"]["teams_per_group"] == WIDER_PER_GROUP
         assert counts == (0, 0), "the control drew a Spielplan of its own"
+
+
+class TestAKnockoutResultLandingMidPatchIsJudgedAgain:
+    """Two administrators on one season: no knockout fixture holds a record when the patch judges, and one does when it writes.
+
+    The rival writes `spiele`, which the callback only reads: no conflict, no retry; the
+    out-of-session re-judgement refuses.
+    """
+
+    def test_the_reorder_is_refused_on_the_record_left_under_it(self, mongo_replica_set_url: str):
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await call_draw(database, client)
+
+            async def abandon_between() -> None:
+                await call_abandon_a_knockout(database)
+
+            seasons = SeasonsRunningAHookBeforeTheWrite(database[Collection.SAISONS], abandon_between)
+
+            with pytest.raises(DocumentConflictException) as refusal:
+                await call_patch_rules(database, client, saisons_collection=seasons, tiebreak_order=REORDERED_TIEBREAK)
+
+            return refusal.value, seasons.season_reads, await season_now(database), await abandoned_knockouts_now(database)
+
+        refusal, season_reads, stored, abandoned = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        # `REQ-RULES-012` weighs the knockout fixtures holding a record, and there were none when
+        # this request first judged: the refusal can only come from the re-judgement after the write.
+        assert refusal.error_code == RULES_TIEBREAK_AFTER_KNOCKOUT
+        # TWO, and neither is a retry: the judgement's read, then the echo read the write itself
+        # makes -- the rival touched `spiele` alone, so nothing conflicted.
+        assert season_reads == 2, "a third read means the write conflicted and the retry re-entered the callback"
+
+        assert stored["rules"]["tiebreak_order"] == "tordifferenz", "the reorder landed on top of the rival's record"
+        assert abandoned == 1, "the rival's record was lost, so the refusal above had nothing to refuse"
+
+    def test_the_same_reorder_commits_when_no_record_lands(self, mongo_replica_set_url: str):
+        """The control: without it the case above would pass on an endpoint that refused every reorder."""
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            await call_draw(database, client)
+
+            response = await call_patch_rules(database, client, tiebreak_order=REORDERED_TIEBREAK)
+
+            return response, await season_now(database)
+
+        response, stored = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert response.updated_document.rules.tiebreak_order == REORDERED_TIEBREAK
+        assert stored["rules"]["tiebreak_order"] == REORDERED_TIEBREAK
 
 
 class TestAnUnknownSeasonIsStillNotFound:
