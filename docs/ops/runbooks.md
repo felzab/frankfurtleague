@@ -31,6 +31,12 @@ the machine is outside the repository. What it does tell you:
   because nothing was running, because only half the pair was, or because compose could not be asked; nor
   where compose stops answering during the health wait, the run refusing at exit 2 instead, because a
   rollback undoes a build and nothing there reached a verdict on the new one.
+- **A rollback is local to the server, and the registry still names the build that failed.** Nothing in
+  the deploy path pushes or re-tags anything at ghcr, so `git pull && ./scripts/deploy.sh` afterwards
+  pulls the failed build straight back. **After a rollback, deploy by tag** — `./scripts/deploy.sh <tag>`,
+  the tag the rollback names — until a good build is published. Nothing is put back where the pull left
+  `:latest` naming the images that were already running: restoring them would restore the build that
+  just failed, and the script says so instead ([`spec.md`](spec.md) §4).
 - After the health wait, what `deploy.sh` checks is the **running stack rather than a config file**: that
   nginx is running and reloaded, the security headers as they are actually served, and the liveness probe
   through the edge. `./scripts/deploy.sh --status` reads that last one too — every other row it prints comes

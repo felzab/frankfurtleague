@@ -1112,11 +1112,30 @@ redact_case 'mongodb://u:pw,x@host.example.net/db' \
 redact_case 'mongodb://u:pw@h1.example.net,h2.example.net/db?replicaSet=rs' \
             'mongodb://<redacted>@h1.example.net,h2.example.net/db?replicaSet=rs'
 
+# Fails OPEN where the bound is a character class: a delimiter in the password leaves no `@` inside
+# the class, so nothing matches — and ill-formed is the very string a driver could not parse.
+redact_case 'mongodb://admin:S3cr3t/Pw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+redact_case 'mongodb://admin:S3cr3t?Pw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+redact_case 'mongodb://admin:S3cr3t"Pw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+redact_case 'mongodb://admin:S3cr3t Pw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+redact_case $'mongodb://admin:S3cr3t\tPw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+
 # Bounded: an `@` further along the line is not the userinfo's, and reaching it costs the host.
 redact_case 'mongodb://u:pw@host.example.net/db?authSource=admin&appName=x@y' \
             'mongodb://<redacted>@host.example.net/db?authSource=admin&appName=x@y'
 redact_case 'mongodb://u:pw@host.example.net?appName=x@y' \
             'mongodb://<redacted>@host.example.net?appName=x@y'
+# A bare `@` past a comma: any class wide enough for a password holding one admits it too, so only
+# stopping at the FIRST `@` keeps the host, which is what a failing deploy is read from.
+redact_case 'uri=mongodb://u1:p1@h1.example.net:27017,ops@example.com' \
+            'uri=mongodb://<redacted>@h1.example.net:27017,ops@example.com'
+redact_case 'MONGODB_URI=mongodb://u:p@rs0.example.net:27017,AUTH_USER=admin@example.com' \
+            'MONGODB_URI=mongodb://<redacted>@rs0.example.net:27017,AUTH_USER=admin@example.com'
 # Two URIs in one JSON object, which is the shape a log line carries them in: nothing between them.
 redact_case 'a:"mongodb://u:pw@h1.example.net/","mongodb://v:qw@h2.example.net/"' \
             'a:"mongodb://<redacted>@h1.example.net/","mongodb://<redacted>@h2.example.net/"'
@@ -1129,6 +1148,11 @@ redact_case 'mongodb+srv://cluster.example.net/db' 'mongodb+srv://cluster.exampl
 redact_case 'write to nobody@example.net about it' 'write to nobody@example.net about it'
 # The gap docs/logging/spec.md section 4 records: no URI around it, so nothing matches.
 redact_case 'MONGO_PASSWORD=pw' 'MONGO_PASSWORD=pw'
+
+# The second gap that page records: no userinfo, so the first `@` after the scheme belongs to
+# somebody else and the host goes with it. Nothing on this line was ever secret.
+redact_case 'mongodb://localhost:27017 and mail nobody@example.net' \
+            'mongodb://<redacted>@example.net'
 
 info "${REDACTED_OK} redaction fixture(s) came back exactly as specified"
 

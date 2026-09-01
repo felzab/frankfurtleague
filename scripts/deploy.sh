@@ -106,7 +106,17 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
 running, let alone serving this build. It was NOT reloaded. Its own output is above."
     return 2
   fi
-  after="$(service_cid nginx)" || after=""
+  rc=0
+  after="$(service_cid nginx)" || rc=$?
+  if (( rc )); then
+    # The answer the `before` read gives, for the same reason: this function's 1 is a definite "the
+    # edge is not serving this build", and a compose that declined to answer establishes neither.
+    warn "compose could not say whether nginx is running after the rest of the stack came up (exit ${rc}),
+so nothing here establishes that the site serves this build. It was NOT reloaded, and whether the up
+above replaced it — which would need no reload — is exactly what could not be read.
+Ask it directly:  docker compose -f ${COMPOSE} ps"
+    return 2
+  fi
   if [[ -z "$after" ]]; then
     fail "nginx is NOT running — the site is unreachable even though the application is healthy."
     detail "Check:  docker compose -f ${COMPOSE} logs nginx"
@@ -156,7 +166,7 @@ deploy replaced and every request through it answers 502."
 # Called only with both previous image ids held: a rollback restoring one service and not the other
 # leaves the mismatched pair `--status` refuses to call live.
 roll_back() { # $1 how the build being restored is named on screen
-  local name="$1" tag_rc=0 up_rc=0 healthy=1 edge_rc=0
+  local name="$1" tag_rc=0 up_rc=0 healthy=1 edge_rc=0 unasked=0
   step "Rolling back to ${name}"
   quietly docker tag "$PREV_FE_IMG" "$IMAGE_FRONTEND" || tag_rc=1
   quietly docker tag "$PREV_BE_IMG" "$IMAGE_BACKEND"  || tag_rc=1
@@ -174,8 +184,18 @@ so the site is down. Compose's own output is above."
     return 1
   fi
   wait_healthy "$COMPOSE" backend 150  || healthy=0
+  if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then unasked=1; fi
   wait_healthy "$COMPOSE" frontend 180 || healthy=0
+  if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then unasked=1; fi
   if (( ! healthy )); then
+    if (( unasked )); then
+      # `warn`, not `fail`: the run is already a finding from the build that failed, and a second one
+      # would name something to fix where nothing here reached a verdict to name.
+      warn "compose stopped answering while the restored build was waited on, so nothing here says
+whether it is healthy. Both images were re-tagged and both containers recreated.
+Ask it directly:  docker compose -f ${COMPOSE} ps"
+      return 1
+    fi
     fail "THE RESTORED BUILD IS NOT HEALTHY EITHER, so the site is down and nothing here can lift it."
     detail "Both services' logs:  docker compose -f ${COMPOSE} logs frontend backend"
     return 1
@@ -186,6 +206,17 @@ so the site is down. Compose's own output is above."
   if (( edge_rc )); then return "$edge_rc"; fi
   # Not "the site is back", which neither read above establishes: the edge is answered by --status.
   ok "rolled back — ${name} is healthy again and nginx is proxying to it"
+  # Nothing here reaches the registry, so its `:latest` still resolves to the build that just failed
+  # and a bare re-run fetches it, fails again, and pays the whole outage a second time.
+  if [[ -n "$PREV_PIN" ]]; then
+    detail "The registry's :latest still names the build that just failed, so DO NOT re-run this" \
+           "script bare. Deploy by tag until a good build is published:" \
+           "  ./scripts/deploy.sh ${PREV_PIN}"
+  else
+    detail "The registry's :latest still names the build that just failed, so DO NOT re-run this" \
+           "script bare. Publish a good build, or deploy one by tag:" \
+           "  ./scripts/deploy.sh <tag>       (./scripts/deploy.sh --status lists them)"
+  fi
   return 0
 }
 
@@ -254,11 +285,14 @@ Deploy the build both packages have:  ./scripts/deploy.sh ${RUNNING_BE}"
   status_code="$(curl -s -o /dev/null -w '%{http_code}' --max-redirs 0 --max-time 10 "$PROBE_URL" 2>/dev/null || true)"
   if [[ "$status_code" == "200" ]]; then
     ok "the edge answers the liveness probe"
-  elif [[ -z "$status_code" ]]; then
-    # An advisory, not the refusal below, which speaks for the container rows: those are complete
-    # and are what a registry is pruned from, whether or not this host can reach its own front door.
-    warn "curl reached no HTTP status at all, which is not the same as the site being down: this
-host's own DNS, egress or TLS trust sits between the two. Ask from somewhere else before acting."
+  elif [[ "$status_code" == "000" || -z "$status_code" ]]; then
+    # `000` is what curl writes where no HTTP response arrived at all — DNS, TCP, TLS and timeout
+    # alike; empty is curl itself not running. An advisory, not the refusal below, which speaks
+    # for the container rows either way.
+    warn "curl reached no HTTP status at all, which is not the same as the site being down: this script
+runs on the server, so this is the host asking for its own public hostname, and its DNS, its egress,
+whether the network routes 443 back to it and its TLS trust all sit between the two.
+Ask from somewhere else before acting."
   else
     fail "the edge answered ${PROBE_URL} with ${status_code}, not 200, so whatever is running above is
 not what a visitor is being served."
@@ -349,9 +383,7 @@ else
     if (( PREV_RC )); then
       PREV_PIN=""
       warn "the running image's build label could not be read, so a rollback can restore it but cannot name it"
-    elif [[ "$PREV_PIN" =~ $PIN_RE ]]; then
-      info "rollback target: ${PREV_PIN}"
-    else
+    elif [[ ! "$PREV_PIN" =~ $PIN_RE ]]; then
       PREV_PIN=""
       warn "the running image carries no published-tag label, so a rollback can restore it but cannot name it"
     fi
@@ -376,8 +408,21 @@ else
   if [[ -z "$PREV_BE_IMG" ]]; then
     RECORDED=0
     warn "the backend container's image could not be read, so this deploy has nothing to roll back to"
+  elif [[ -n "$PREV_PIN" ]]; then
+    # A name for the PAIR, so it may not come from one half: the two packages move independently, and
+    # a rollback offered under a tag the backend was never running names a build nobody was running.
+    PREV_BE_PIN="$(published_tag "$PREV_BE_IMG")" || PREV_BE_PIN=""
+    if [[ "$PREV_BE_PIN" != "$PREV_PIN" ]]; then
+      warn "the two running services carry different build labels, so a rollback can restore this exact
+pair but cannot name it: frontend ${PREV_PIN}, backend ${PREV_BE_PIN:-unreadable or unlabelled}."
+      PREV_PIN=""
+    fi
   fi
 fi
+
+# Announced once both halves have been read: the name belongs to the PAIR, and printing the
+# frontend's label as it is read announces a target the backend's can still take away.
+if [[ -n "$PREV_PIN" ]]; then info "rollback target: ${PREV_PIN}"; fi
 
 # Both halves or neither: `roll_back` restores a pair or does not run.
 ROLLBACK_READY=0
@@ -453,6 +498,15 @@ sees it: each service is healthy against its own half. NOTHING has been recreate
 Deploy the build both packages have:  ./scripts/deploy.sh ${BE_BUILD}"
 fi
 
+# What `:latest` resolves to now the pull is behind us. A rollback to the images ALREADY running is a
+# second full outage ending where this run started, so it is read here rather than reasoned about.
+NEW_FE_IMG="$(docker image inspect --format '{{.Id}}' "$IMAGE_FRONTEND" 2>/dev/null || true)"
+NEW_BE_IMG="$(docker image inspect --format '{{.Id}}' "$IMAGE_BACKEND"  2>/dev/null || true)"
+SAME_BUILD=0
+if [[ -n "$NEW_FE_IMG" && "$NEW_FE_IMG" == "$PREV_FE_IMG" && "$NEW_BE_IMG" == "$PREV_BE_IMG" ]]; then
+  SAME_BUILD=1
+fi
+
 # --- recreate ---------------------------------------------------------------------------------------
 
 section "deploy"
@@ -474,28 +528,39 @@ fi
 
 step "Waiting for health"
 HEALTHY=1
+# Set where a wait ENDED on a question compose declined: asking again afterwards is a different
+# question at a different moment, and a compose that recovered by then would hand this deploy a
+# rollback of a build nothing judged.
+UNASKED=0
 # Both are waited on even when the first fails: chaining them means one deploy reports one problem,
 # and the second is discovered by deploying again.
 wait_healthy "$COMPOSE" backend 150  || HEALTHY=0
+if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then UNASKED=1; fi
 wait_healthy "$COMPOSE" frontend 180 || HEALTHY=0
+if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then UNASKED=1; fi
 if (( UP_RC )); then HEALTHY=0; fi
 
 # `wait_healthy` answers 1 for "reports UNHEALTHY" and "could not ask compose" alike, and only the
-# first is a verdict on this build. Asking compose again separates them.
+# first is a verdict on this build. `UNASKED` and one more question separate them.
 if (( ! HEALTHY && ! UP_RC )); then
   # Not where `up` itself exited non-zero: the recreate was attempted and did not complete, so this
   # deploy has a verdict whether or not the daemon answered afterwards.
   ASK_RC=0
   service_cid backend  >/dev/null || ASK_RC=$?
   service_cid frontend >/dev/null || ASK_RC=$?
-  if (( ASK_RC )); then
+  if (( ASK_RC || UNASKED )); then
+    ASKED="compose cannot be asked about this stack (exit ${ASK_RC})"
+    (( ASK_RC )) || ASKED="compose stopped answering while this deploy waited for health"
     # Nothing is rolled back from here even where preflight held a target: putting a build back acts
     # on a verdict about the new one, and this run reached none.
-    refuse "compose cannot be asked about this stack (exit ${ASK_RC}), so nothing here says whether
+    refuse "${ASKED}, so nothing here says whether
 the new version is healthy — and the containers WERE recreated, so the site's state is unknown too.
+nginx has NOT been reloaded, so it is still resolving the containers this deploy replaced and every
+request through it answers 502 whether the new build is healthy or not.
 No rollback runs on that: it would be undoing a build nothing here has judged.
-Ask it directly:  docker compose -f ${COMPOSE} ps
-Then, if the new build turns out to be the problem:  ./scripts/deploy.sh ${PREV_PIN:-<a published tag>}"
+Reload the edge first:  docker compose -f ${COMPOSE} exec -T nginx nginx -s reload
+Then ask what is running:  docker compose -f ${COMPOSE} ps
+And if the new build turns out to be the problem:  ./scripts/deploy.sh ${PREV_PIN:-<a published tag>}"
   fi
 fi
 
@@ -521,13 +586,24 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   fi
 
   step "Security headers, as served over HTTPS"
-  headers="$(curl -fsSI https://frankfurtleague.de 2>/dev/null | grep -iE "content-security-policy|strict-transport-security" || true)"
+  # No `-f`: it discards the reply for any status past 399, so an edge answering 502 with every
+  # header set reads exactly like an edge that answered nothing at all. Read first, then graded.
+  head_out="$(curl -sSI --max-time 10 https://frankfurtleague.de 2>/dev/null || true)"
+  headers="$(printf '%s\n' "$head_out" | grep -iE "content-security-policy|strict-transport-security" || true)"
   if [[ -n "$headers" ]]; then
     printf '%s\n' "$headers" | detail
     ok "the edge is serving them"
+  elif [[ -z "$head_out" ]]; then
+    SITE_VERIFIED=0
+    # An advisory for `--status`'s reason: nothing came back at all, and this host asking for its
+    # own public hostname is not the front door a visitor reaches.
+    warn "No reply came back over HTTPS at all, so nothing here says whether the headers are served.
+This host's own DNS, egress and TLS trust sit between the two. Ask from somewhere else."
   else
     SITE_VERIFIED=0
-    warn "Could not read the headers over HTTPS — check nginx and the certificates in certs/."
+    fail "the edge replied over HTTPS carrying neither Content-Security-Policy nor
+Strict-Transport-Security, so every visitor is being served without them."
+    detail "Check nginx/prod.conf and the certificates in certs/."
   fi
 
   # The container healthcheck calls this from inside, so it stays green while the edge answers a
@@ -537,11 +613,19 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   probe_code="$(curl -s -o /dev/null -w '%{http_code}' --max-redirs 0 --max-time 10 "$PROBE_URL" 2>/dev/null || true)"
   if [[ "$probe_code" == "200" ]]; then
     ok "the edge answers it"
-  else
+  elif [[ "$probe_code" == "000" || -z "$probe_code" ]]; then
     SITE_VERIFIED=0
-    warn "The edge answered /api/v0/system/is_live with ${probe_code:-no status}, not 200. An uptime
-monitor watching it sees the same thing. Check nginx's liveness location, api_trusted_hosts, and
-whether anything in front is redirecting."
+    warn "curl reached no HTTP status at all, which is not the same as the site being down: this is the
+host asking for its own public hostname, and its DNS, its egress and its TLS trust sit between the
+two. Ask from somewhere else before acting."
+  else
+    # `fail`, not `warn`: `--status` calls this same observation a finding, and an advisory closes
+    # the run green over an edge no visitor is being served by (`docs/ops/spec.md` §1.7).
+    SITE_VERIFIED=0
+    fail "the edge answered /api/v0/system/is_live with ${probe_code}, not 200, so what is running
+above is not what a visitor is being served. An uptime monitor watching it sees the same thing."
+    detail "Check nginx's liveness location, api_trusted_hosts, and whether anything in front is" \
+           "redirecting."
   fi
 
   end_section
@@ -556,7 +640,12 @@ else
          "rather than refusing the connection." \
          "If a log above says 'Invalid environment variables: <NAMES>', that is the startup gate" \
          "doing its job: fix those names in the .env file and run this script again."
-  if (( ROLLBACK_READY )); then
+  if (( SAME_BUILD )); then
+    detail "" "This deploy pulled the images that were ALREADY running, so there is nothing to put" \
+              "back: a rollback would restore the build that just failed and cost a second outage" \
+              "to arrive back where this run started. Deploy a different build instead:" \
+              "  ./scripts/deploy.sh <tag>       (./scripts/deploy.sh --status lists them)"
+  elif (( ROLLBACK_READY )); then
     # Read rather than discarded: the rollback's own failures are already findings, but its 2 says
     # the restored build's edge could not be established, which no finding above it states.
     RB_RC=0
