@@ -37,8 +37,7 @@ export async function ablehnenBewerbung({ id, ...fields }: FLAblehnenBewerbungPa
 
 /**
  * Records one school's application. **The only write on this slice a visitor reaches**, and the only
- * one made at the base tier: the endpoint is public, and over-declaring the tier succeeds silently
- * (`OPS-87`).
+ * one made at the base tier: the endpoint is public, and over-declaring the tier succeeds silently.
  */
 export async function postBewerbung(payload: FLPostBewerbungPayload): Promise<FLPostBewerbungResponse> {
   return apiClient<FLPostBewerbungResponse>("/bewerbungen", FLPostBewerbungResponseSchema, {

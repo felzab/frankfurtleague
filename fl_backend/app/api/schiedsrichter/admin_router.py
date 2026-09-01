@@ -12,11 +12,24 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichter,
     FLSchiedsrichterWriteResponse,
 )
-from app.api.schiedsrichter.services import ANONYMISED_KONTAKT, find_referee_retire_refusal
+from app.api.schiedsrichter.services import (
+    ANONYMISED_KONTAKT,
+    find_anonymisation_refusal,
+    find_referee_retire_refusal,
+    holds_a_kontakt_value,
+)
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import insert_live, patch_many_in_db, patch_one_in_db, pull_many_from_db, refuse, set_inactive_since
+from app.core.crud import (
+    insert_live,
+    patch_many_in_db,
+    patch_one_in_db,
+    pull_many_from_db,
+    pull_one_from_db,
+    refuse,
+    set_inactive_since,
+)
 from app.core.dependencies import (
     AktionenCollection,
     DBClient,
@@ -150,11 +163,30 @@ async def anonymise_schiedsrichter(
 ) -> FLSchiedsrichterWriteResponse:
     """Null the referee's telephone number and email address, in the row and in the log.
 
-    The row and its `name` stay: every Spiel embeds both, so a removal would strand copies.
-    No precondition -- details may go while they still officiate.
+    The row and its `name` stay: every Spiel embeds both, so a removal would strand copies. A
+    re-entry under it is refused (`REQ-ANONYMISE-001`).
     """
 
     async def clear_the_details_and_the_record(session: AsyncIOMotorClientSession) -> FLSchiedsrichterWriteResponse:
+        async def a_kontakt_value_stands(kontakt_session: AsyncIOMotorClientSession | None) -> bool:
+            """Whether the row still carries a contact value, read either through the transaction or outside it.
+
+            A `schiedsrichter_id` naming nobody raises the 404 here, before anything is written.
+            """
+
+            return holds_a_kontakt_value(
+                await pull_one_from_db(
+                    collection=schiedsrichter_collection,
+                    db_filter={"_id": schiedsrichter_id},
+                    projection={"kontakt": 1},
+                    session=kontakt_session,
+                )
+            )
+
+        # BEFORE the write, which is what makes the guard below reachable: a row this snapshot reads
+        # as cleared already is `$set` to what it holds.
+        rewrites_nothing = not await a_kontakt_value_stands(session)
+
         updated_document_raw = await patch_one_in_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
@@ -170,6 +202,12 @@ async def anonymise_schiedsrichter(
             update=build_redaction_update(at=log_stamp(germany_now)),
             session=session,
         )
+
+        # A `$set` rewriting nothing joins no write set, so a `PATCH` re-entering the details raises
+        # no conflict to retry on. Re-read OUTSIDE the session, where that PATCH is visible and this
+        # write is not (I53) -- hence only on the no-op path.
+        if rewrites_nothing:
+            refuse(find_anonymisation_refusal(re_entered=await a_kontakt_value_stands(None)))
 
         return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
 

@@ -435,6 +435,7 @@ class FLSpielCommon(BaseModel):
     saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
     # DEFAULTED, unlike `elfmeterschiessen`: nothing tells a missing key from a stored null.
+    # Public BY DECISION, and a name typed into it outlives an erasure (`READ-FREETEXT-001`).
     notiz: str | None = None
 
 

@@ -27,9 +27,13 @@ const PAGE = readFileSync(
 const RECORDING = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "recording.py"), "utf8");
 
 const ANONYMISE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/anonymisieren";
+const ANONYMISE_CODES = ["REQ-ANONYMISE-001"];
 
 /* The anonymisation is the last declaration in the module, so its slice runs to the end of the file. */
 const ANONYMISE_ACTION = sliceBetween(ACTIONS, "export async function anonymiseSchiedsrichterAction", null);
+/* Read per slice rather than over the file: two mappers live here, and a search over the whole source
+   is satisfied by whichever one happens to carry the arm. */
+const ANONYMISE_MAP = sliceBetween(ACTIONS, "function mapAnonymiseRefusal", "export async function postSchiedsrichterAction");
 const RETIRE_ACTION = sliceBetween(
   ACTIONS,
   "export async function deleteSchiedsrichterAction",
@@ -39,17 +43,28 @@ const RETIRE_ACTION = sliceBetween(
 describe("the anonymisation against the backend's refusal register", () => {
   /* First, because a boundary string that stopped matching leaves the slices empty and every
      assertion over them would then fail for something that is not the defect. */
-  it("cuts the action out of the file before reading it", () => {
+  it("cuts the mapper and the action out of the file before reading them", () => {
+    assert.ok(ANONYMISE_MAP.includes("serverErrorCode"), "the anonymisation's arms are outside its slice");
+    assert.ok(!ANONYMISE_MAP.includes("REQ-RETIRE-004"), "the anonymisation's slice runs back into the retire's mapper");
+
     assert.ok(ANONYMISE_ACTION.includes("anonymiseSchiedsrichter(validated.data)"), "the anonymisation's call is outside its slice");
     assert.ok(!ANONYMISE_ACTION.includes("deleteSchiedsrichter("), "the anonymisation's slice reaches the retire");
     assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire's slice no longer holds its mapper call");
   });
 
-  /* The endpoint refuses nothing: a referee may want their details gone while they still officiate.
-     A rule declared against it later fails here, rather than reaching the admin unmapped. */
-  it("has no refusal to map, and maps none", () => {
-    assert.deepEqual(declaredCodes(ANONYMISE_OPERATION), []);
-    assert.ok(!ANONYMISE_ACTION.includes("serverErrorCode"), "the anonymisation maps a code its endpoint does not answer");
+  /* A re-entry landing mid-anonymisation is the one refusal here, and it needs a sentence: the write
+     looks done and the details are back. A rule declared later and left unmapped fails this. */
+  it("maps every refusal its endpoint declares", () => {
+    const declared = declaredCodes(ANONYMISE_OPERATION);
+
+    // Asserted before the loop rather than left to it: an operation the register stopped naming
+    // declares nothing, the loop then runs zero times, and a green result would claim the mapper
+    // covers an endpoint whose refusals it has in fact stopped reading.
+    assert.deepEqual(declared, ANONYMISE_CODES);
+    for (const code of declared)
+      assert.ok(ANONYMISE_MAP.includes(`serverErrorCode === "${code}"`), `${code} reaches the admin as an unhandled conflict`);
+
+    assert.ok(ANONYMISE_ACTION.includes("mapAnonymiseRefusal(error)"), "the anonymisation consults some other mapper");
     assert.ok(!ANONYMISE_ACTION.includes("mapRetireRefusal"), "the retire's refusal is reported about a contact deletion");
   });
 
@@ -58,6 +73,7 @@ describe("the anonymisation against the backend's refusal register", () => {
   it("leaves the retirement's own refusal on the retirement", () => {
     assert.deepEqual(declaredCodes("DELETE /schiedsrichter/{schiedsrichter_id}"), ["REQ-RETIRE-004"]);
     assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire stopped consulting its mapper");
+    assert.ok(!RETIRE_ACTION.includes("mapAnonymiseRefusal"), "the contact deletion's refusal is reported about a retirement");
   });
 });
 

@@ -159,7 +159,7 @@ function collectNavigations(): Navigation[] {
 }
 
 /**
- * The `OPS-94` shape, avoided: this enumerates NAVIGATIONS, then asks each whether it carries the
+ * The shape PRE-4 bans, avoided: this enumerates NAVIGATIONS, then asks each whether it carries the
  * season. Going by `saison_id` finds only the links that already have it — how these stayed invisible.
  */
 describe("every admin navigation carries the season", () => {

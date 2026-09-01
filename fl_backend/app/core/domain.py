@@ -757,7 +757,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONDITIONAL,
         "never on a group-phase fixture, never naming a later or missing match, and never feeding one "
         "outcome into two slots (`REQ-WIRING-001`); never seeding from a group placing past the round "
-        "the bracket opens on (`REQ-WIRING-002`)",
+        "the bracket opens on (`REQ-WIRING-002`); never from a group the season does not run "
+        "(`REQ-WIRING-003`)",
         "app.api.spiele.services.find_wiring_refusal",
     ),
     FieldPolicy(
@@ -948,7 +949,8 @@ RULES: tuple[Rule, ...] = (
         code="REQ-RULES-012",
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
-        summary="`tiebreak_order` is frozen once a knockout fixture of the season has been played",
+        summary="`tiebreak_order` is frozen once a knockout fixture of the season has been played, abandoned, forfeited, "
+        "given a goal count or a stored shoot-out",
         implemented_by="app.api.saisons.services.find_rules_refusal",
         tested_by="tests/api/test_rules_refusal.py::TestAStartedKnockoutFreezesTheTiebreak",
         multi_document=True,
@@ -1119,7 +1121,7 @@ RULES: tuple[Rule, ...] = (
         code="REQ-SWAP-002",
         operation="POST /saisons/{saison_id}/gruppen/swap",
         aggregate="Saison",
-        summary="no group swap once a knockout fixture has been played, called off or given a goal count",
+        summary="no group swap once a knockout fixture has been played, abandoned, forfeited, given a goal count or a stored shoot-out",
         implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
         tested_by="tests/api/test_gruppe_swap_refusal.py::TestTheKnockoutClosesTheWindow",
         multi_document=True,
@@ -1137,7 +1139,8 @@ RULES: tuple[Rule, ...] = (
         code="REQ-SWAP-004",
         operation="POST /saisons/{saison_id}/gruppen/swap",
         aggregate="Saison",
-        summary="no group swap once either club's gruppenphase fixture has been played, called off or given a goal count",
+        summary="no group swap once either club's gruppenphase fixture has been played, abandoned, forfeited, given a goal count "
+        "or a stored shoot-out",
         implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
         tested_by="tests/api/test_gruppe_swap_refusal.py::TestTheRoundRobinClosesTheWindow",
         multi_document=True,
@@ -1176,7 +1179,8 @@ RULES: tuple[Rule, ...] = (
         code="REQ-REPLACE-002",
         operation="POST /teams/{team_id}/saisons/{saison_id}/replace",
         aggregate="Saison",
-        summary="no replacement once the outgoing club's fixture has been played, abandoned, forfeited or given a goal count",
+        summary="no replacement once the outgoing club's fixture has been played, abandoned, forfeited, given a goal count "
+        "or a stored shoot-out",
         implemented_by="app.api.teams.services.find_replacement_refusal",
         tested_by="tests/api/test_saison_team_replacement_refusal.py::TestTheOutgoingClubMustHavePlayedNothing",
         multi_document=True,
@@ -1282,6 +1286,18 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-WIRING-003",
+        operation="PATCH /spiele/{spiel_id}",
+        aggregate="Saison-Spielplan",
+        summary=(
+            "a group placing may name only a group the season runs, judged against the season's own "
+            "`number_of_groups` on the side whose source this save moves"
+        ),
+        implemented_by="app.api.spiele.services.find_wiring_refusal",
+        tested_by="tests/api/test_wiring_refusal.py::TestEveryRefusalCarriesItsCode",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-STATE-002",
         operation="PATCH /spiele/{spiel_id}",
         aggregate="Saison-Spielplan",
@@ -1353,6 +1369,15 @@ RULES: tuple[Rule, ...] = (
         summary="a referee still assigned to an unplayed fixture may not be retired",
         implemented_by="app.api.schiedsrichter.services.find_referee_retire_refusal",
         tested_by="tests/api/test_containment_refusals.py::TestRetiringAVenueOrAReferee",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-ANONYMISE-001",
+        operation="POST /schiedsrichter/{schiedsrichter_id}/anonymisieren",
+        aggregate="Schiedsrichter",
+        summary="contact details entered again while an anonymisation runs are refused, never left standing",
+        implemented_by="app.api.schiedsrichter.services.find_anonymisation_refusal",
+        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestAReEntryLandingMidAnonymisationIsRefused",
         multi_document=True,
     ),
     Rule(
@@ -1535,11 +1560,15 @@ UNENFORCED: tuple[Unenforced, ...] = (
         surfaced_by="/admin/action_required",
     ),
     Unenforced(
-        subject="a retired row's eventual purge",
+        subject="a retired row kept indefinitely",
         reason=(
-            "`inactive_since` is a date so a purge can select on it; no RETENTION sweep is built (roadmap BE-12). A pupil's "
-            "erasure removes one named person on request and is not that sweep -- it selects a subject, never an age, and "
-            "`REQ-PURGE-001` makes retirement its precondition rather than its trigger."
+            "Decided 2026-08, Datenschutzexperte consulted: a retired row is never purged on its age, so there is no "
+            "RETENTION sweep to build and none may be added. The one removal is a pupil's own erasure request, which "
+            "selects a subject, never an age, and `REQ-PURGE-001` makes retirement its precondition rather than its "
+            "trigger. `inactive_since` stays a date (`docs/backend/spec.md :: I12`): it records WHEN a row retired, "
+            "not when a sweep may take it. What the proof reaches is a removal through `app/core/crud.py`'s two "
+            "helpers: refused where its literal filter names the field at any depth, failed outright where the "
+            "filter is a variable. A sweep inside that module, or outside `app/`, is unscanned."
         ),
         near=("REQ-RETIRE-001",),
         proven_by="tests/core/test_unenforced.py::TestNoPurgeReachesARetiredRow",

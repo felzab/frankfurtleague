@@ -44,6 +44,17 @@ export function toActionErrorResult(error: unknown): NonNullable<FormState> {
         }),
       };
     }
+    if (error.statusCode === 409 && error.serverErrorCode === "REQ-WIRING-003") {
+      // The picker offers only the season's own groups, so this arriving means the season was
+      // redrawn narrower under the open form: the offer itself is stale, and a reload renews it.
+      return {
+        success: false,
+        error: buildRefusal({
+          reason: "Als Herkunft ist ein Platz in einer Gruppe gewählt, die es in dieser Saison nicht gibt",
+          repair: "Lade die Seite neu und wähle dann eine Gruppe dieser Saison",
+        }),
+      };
+    }
     if (error.statusCode === 409 && error.serverErrorCode !== undefined && error.serverErrorCode in OCCUPANT_REFUSALS) {
       // Unlike the stale-form refusal above, reloading fixes none of these. The code rides back out
       // so the form can put the message on the side that caused it.

@@ -219,6 +219,19 @@ class TestEveryReadInsideATransactionCarriesIt:
 
         assert unseen == []
 
+    def test_the_sweep_follows_a_helper_declared_inside_a_callback(self):
+        """Narrow `tests/core/app_source.py :: transactional_callbacks` back to its top scope and this fails.
+
+        A read moved into a helper declared inside the callback still runs in the transaction, so
+        the clause below has to reach it.
+        """
+
+        seen = {callback.where: {helper for helper, _ in callback.reads} for callback in transactional_callbacks(SESSION_TAKING_HELPERS)}
+
+        # `movable_figures` is the only reader nested inside the season patch's callback, and its
+        # squad aggregate is the only `aggregate` anywhere under that callback.
+        assert "aggregate" in seen["app/api/saisons/admin_router.py :: judge_and_write_the_rules"]
+
     def test_every_call_handing_the_session_on_is_placed(self):
         """Drop a name from `DRIVER_READS` and this fails, where the read clause below would only go quiet.
 
@@ -233,7 +246,7 @@ class TestEveryReadInsideATransactionCarriesIt:
         assert unplaced == []
 
     def test_no_read_inside_one_is_left_off_its_session(self):
-        """Drop `session=` from any of the seven reads in `judge_and_write_the_rules` and this fails; the db tier does not.
+        """Drop `session=` from any of the eight reads in `judge_and_write_the_rules` and this fails; the db tier does not.
 
         That read judges the season as whatever committed last left it, and the patch beneath it
         lands in a snapshot that never held it.

@@ -162,6 +162,11 @@ class TestWhatCountsAsARecord:
 
         assert has_taken_place(fixture(**{slot: {"tore": 0}})) is True
 
+    def test_a_shoot_out_without_a_result_is_a_record(self):
+        """The other hand-edited shape: a save keeps a shoot-out only beside a result, so one standing alone records a decided tie."""
+
+        assert has_taken_place(fixture(elfmeterschiessen={"team1": 5, "team2": 4})) is True
+
     def test_an_empty_bracket_slot_does_not_raise(self):
         """A knockout fixture carries a null side until the bracket resolves, and the outgoing club can stand opposite one."""
 

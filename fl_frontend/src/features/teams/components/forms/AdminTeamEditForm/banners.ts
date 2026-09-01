@@ -118,7 +118,9 @@ export function buildTeamBanners({
       severity: "danger",
       raisedBy: "change",
       title: "Der Grund wird veröffentlicht",
-      body: "Er steht danach auf der Teamseite und an jedem Spiel des Teams.",
+      // The team page and nowhere else: a served fixture side carries the exit TYPE and no reason
+      // (`docs/backend/spec.md :: I32`).
+      body: "Er steht danach auf der öffentlichen Teamseite.",
       inline: "austritt-eintrag",
     });
   }
