@@ -14,6 +14,8 @@ from app.main import create_app
 from tests.config import build_test_config
 from tests.database import a_clean_database_sync
 
+from .conftest import unwritten
+
 pytestmark = pytest.mark.db
 
 ADMIN_AUTH = {"Authorization": "Bearer test-key-admin"}
@@ -77,7 +79,9 @@ def spiel_document(
     }
 
 
-@pytest.fixture
+# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# from being left as a claim.
+@pytest.fixture(scope="module")
 def seeded_url(mongo_container: Any) -> Iterator[str]:
     """Two seasons, in the database `build_test_config` names.
 
@@ -86,10 +90,11 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
     """
 
     url = str(mongo_container.get_connection_url())
+    database_name = build_test_config().db_base_name
 
     client = MongoClient(url)
     try:
-        database = a_clean_database_sync(client, url, build_test_config().db_base_name)
+        database = a_clean_database_sync(client, url, database_name)
         database[Collection.SPIELE].insert_many(
             [
                 spiel_document(WANTED, saison_id=SAISON, spiel_nr=1, spieltag_id=SPIELTAG),
@@ -98,7 +103,8 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
             ]
         )
 
-        yield url
+        with unwritten(url, database_name):
+            yield url
     finally:
         client.close()
 

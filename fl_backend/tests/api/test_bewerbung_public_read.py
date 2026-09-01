@@ -18,12 +18,22 @@ from app.main import create_app
 from tests.config import build_test_config
 from tests.database import a_clean_database_sync
 
+from .conftest import config_for, unwritten
+
 BASE_AUTH = {"Authorization": "Bearer test-key-base"}
 
 # The code a request carrying no bearer token at all answers (`app/core/security.py :: get_token`).
 MISSING_BEARER_TOKEN = "REQ-AUTH-001"
 
 CONTAINER_SELECTION_MS = 30_000
+
+# The database `build_test_config` names -- the one an app built from that config resolves its
+# collections from, and the home of the corpus every case sharing `seeded_url` reads.
+CORPUS_DATABASE = build_test_config().db_base_name
+
+# `seeded_with`'s own, because it clears where it seeds: given the database above, the first case
+# building a season list of its own would leave every later one reading a corpus nobody seeded.
+WINDOW_DATABASE = "fl_bewerbung_window_test"
 
 PREFIX = f"/api/v{API_VERSION}/bewerbungen"
 
@@ -129,17 +139,24 @@ def _club(name: str, shorthand: str, team_id: ObjectId, *, inactive_since: str |
     }
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
+def _uncached_saisons() -> None:
+    """Process-global and keyed by season id alone, so an entry another test -- or another database -- left would answer here."""
+
+    invalidate_saison_cache()
+
+
+# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# from being left as a claim.
+@pytest.fixture(scope="module")
 def seeded_url(mongo_container: Any) -> Iterator[str]:
-    """The corpus, in the database `build_test_config` names -- the one the app resolves its collections from."""
+    """Six seasons spanning every way a window can stand, four clubs, and the colours one season has assigned, in `CORPUS_DATABASE`."""
 
     url = str(mongo_container.get_connection_url())
-    database_name = build_test_config().db_base_name
 
     client = MongoClient(url)
     try:
-        database = a_clean_database_sync(client, url, database_name)
-        invalidate_saison_cache()
+        database = a_clean_database_sync(client, url, CORPUS_DATABASE)
 
         database[Collection.SAISONS].insert_many(
             [
@@ -181,13 +198,14 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
             ]
         )
 
-        yield url
+        with unwritten(url, CORPUS_DATABASE):
+            yield url
     finally:
         client.close()
 
 
 def seeded_with(mongo_container: Any, saisons: list[dict[str, Any]]) -> str:
-    """A corpus of exactly the seasons handed in, for a case that decides which one `/fenster` picks.
+    """A corpus of exactly the seasons handed in, in `WINDOW_DATABASE`, for a case that decides which one `/fenster` picks.
 
     `seeded_url` cannot serve those: a boundary season would sort behind its fixed answer and never
     be the one returned.
@@ -197,8 +215,7 @@ def seeded_with(mongo_container: Any, saisons: list[dict[str, Any]]) -> str:
 
     client = MongoClient(url)
     try:
-        database = a_clean_database_sync(client, url, build_test_config().db_base_name)
-        invalidate_saison_cache()
+        database = a_clean_database_sync(client, url, WINDOW_DATABASE)
         database[Collection.SAISONS].insert_many(saisons)
 
         return url
@@ -206,13 +223,13 @@ def seeded_with(mongo_container: Any, saisons: list[dict[str, Any]]) -> str:
         client.close()
 
 
-def answered(uri: str, path: str, headers: Mapping[str, str] = BASE_AUTH) -> Response:
+def answered(uri: str, path: str, headers: Mapping[str, str] = BASE_AUTH, *, database_name: str = CORPUS_DATABASE) -> Response:
     """One request per client: Motor binds to the loop `TestClient` first ran on.
 
     No lifespan either, for the reason `fl_backend/tests/api/test_malformed_ids.py :: client` gives.
     """
 
-    app = create_app(build_test_config())
+    app = create_app(config_for(database_name))
     app.state.db_client = AsyncIOMotorClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
     app.dependency_overrides[get_germany_now] = lambda: NOW
 
@@ -396,7 +413,7 @@ class TestTheAssignedColoursRead:
 
         url = seeded_with(mongo_container, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW))])
 
-        response = answered(url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}")
+        response = answered(url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=WINDOW_DATABASE)
 
         assert response.status_code == 200
         assert response.json()["vergeben"] == []
@@ -424,7 +441,7 @@ class TestTheAssignedColoursRead:
 
         url = seeded_with(mongo_container, [_saison(OPEN_SAISON, bewerbung=None, status=status)])
 
-        assert answered(url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}").status_code == 404
+        assert answered(url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=WINDOW_DATABASE).status_code == 404
 
 
 class TestTheTierTheseReadsAreServedAt:
@@ -495,7 +512,7 @@ class TestTheOpenWindowQueryIsInclusiveAtBothEnds:
 
         url = seeded_with(mongo_container, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
 
-        response = answered(url, f"{PREFIX}/fenster")
+        response = answered(url, f"{PREFIX}/fenster", database_name=WINDOW_DATABASE)
 
         assert response.status_code == 200
         assert response.json()["saison_id"] == OPEN_SAISON
@@ -507,7 +524,7 @@ class TestTheOpenWindowQueryIsInclusiveAtBothEnds:
 
         url = seeded_with(mongo_container, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
 
-        assert answered(url, f"{PREFIX}/fenster").status_code == 404
+        assert answered(url, f"{PREFIX}/fenster", database_name=WINDOW_DATABASE).status_code == 404
 
     @pytest.mark.parametrize("bewerbung", BOUNDARY_WINDOWS)
     def test_the_query_and_the_served_judgement_agree_on_the_edge(self, mongo_container: Any, bewerbung: dict[str, Any]):
@@ -519,4 +536,4 @@ class TestTheOpenWindowQueryIsInclusiveAtBothEnds:
 
         url = seeded_with(mongo_container, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
 
-        assert answered(url, f"{PREFIX}/fenster/{OPEN_SAISON}").json()["laeuft"] is True
+        assert answered(url, f"{PREFIX}/fenster/{OPEN_SAISON}", database_name=WINDOW_DATABASE).json()["laeuft"] is True
