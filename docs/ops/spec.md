@@ -301,10 +301,12 @@ repository, so `.github/workflows/pr-body.yml` is the only place it is addressab
 javascript helper is `scripts/ts_normalize.mjs`, whose header argues the exception.
 
 **`scripts/tests/` is the pytest suite that proves the gate's own coverage** (PRE-4): it plants one
-violation per check `scripts/check_docs.py` registers and asserts the check finds it, holds the
-python in `scripts/` to parsing at `scripts/checker_kernel.py :: PARSE_FLOOR`, and asserts every
-shell arm degrading on a crash spells `scripts/checker_kernel.py :: EXIT_CRASH` as its own literal
-— a copy left behind being invisible to the run it silently reprieves.
+violation per check `scripts/check_docs.py` registers and asserts the check finds it, reaches each
+of `scripts/_lib.sh`'s endings in a throwaway script and asserts the status a caller branches on,
+holds the python in `scripts/` to parsing at
+`scripts/checker_kernel.py :: PARSE_FLOOR`, and asserts every shell arm degrading on a crash spells
+`scripts/checker_kernel.py :: EXIT_CRASH` as its own literal — a copy left behind being invisible to
+the run it silently reprieves.
 
 **`scripts/selfcheck.sh` tests the scripts themselves**, and it is the scripts scope's first step —
 reach for it directly after editing anything in `scripts/`, `.claude/hooks/` or `.githooks/`. Its
