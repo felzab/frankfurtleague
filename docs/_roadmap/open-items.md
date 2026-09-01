@@ -558,7 +558,8 @@ field is the wrong control, it is that two of these three fields do not describe
 **`SHAPE_FIELDS` is where the offer belongs.** Its own docstring says it is "One table for the fields
 and the confirmation both, so no readout can label a number differently from the field above it", so
 the redraw confirmation inherits a corrected offer for free.
-`fl_frontend/src/shared/components/ui/refusableOption.ts :: pickIfOffered` and `:: RefusableSelect`
+`fl_frontend/src/shared/components/ui/refusableOption.ts :: pickIfOffered` and
+`fl_frontend/src/shared/components/ui/RefusableSelect.tsx :: RefusableSelect`
 are the mechanism already built for an option that closes, and they fix the repository's answer to a
 stored value the offer no longer holds: a closed option resolves to `null`. Where the stored value
 must stay visible rather than clear, the pattern is the Herkunft picker's — keep the row only where

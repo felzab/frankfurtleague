@@ -9,7 +9,8 @@ counted. A row is cited by its ID, and its position carries no meaning. What eac
 the rule that the row is a pointer while the closing commit's body is the record — is in
 [`protocol.md`](protocol.md#the-closed-row).
 
-**`OPS-8`, `OPS-40` and `FE-36` are in no roadmap file, and nothing takes any of the three numbers.**
+**`OPS-8`, `OPS-40`, `FE-36` and `DOC-16` are in no roadmap file, and no later item takes any of
+those numbers.**
 Nothing records what `OPS-8` was. `OPS-40` was the shared write-shape block missing
 `open(path, "w")`, withdrawn before it reached a ranked page, so it has no row here. The fix is
 [`4cc32fa0`](https://github.com/felzab/frankfurtleague/commit/4cc32fa0), whose body records it, and
@@ -21,6 +22,12 @@ restored is stated where it is read — `fl_frontend/src/shared/utils/publicRout
 `fl_frontend/src/shared/utils/undoRoute.ts` each carry the rule that a route whose body carries the
 outcome answers 200, because a non-2xx reads as a transport failure and hides that body from every
 caller.
+
+**`DOC-16` was withdrawn the same way, and inside a single pull request.** It was filed against
+`scripts/docs_gate/checks.py :: check_roadmap` reading one ranked page at a time and never opening
+this log, and `:: _ranked_against_the_log`, which resolves the two against each other, landed in the
+same branch that filed it. No commit ever carried the entry, so it is owed no row here. **The next
+free `DOC` id is 17**: a withdrawn number is spent exactly as a closed one is.
 
 **Forty-seven rows carry an em dash where a closing commit should be**, and every one belongs to the
 `scripts/` and CI rebuild. Forty-six were triaged out rather than worked — thirty-seven on
@@ -189,3 +196,5 @@ so no earlier commit exists for its row to cite.
 | BE-17  | Every server-ordered name list came back in byte order, so a German name landed in the wrong place                                                         | BE, FE        | M      | —                            | [`66d0c840`](https://github.com/felzab/frankfurtleague/commit/66d0c840) |
 | FE-33  | Every page-owned editor spelled its own undo dispatch, and the toast's action body was written once per slice                                              | FE            | M      | —                            | [`afaaee80`](https://github.com/felzab/frankfurtleague/commit/afaaee80) |
 | OPS-94 | A sweep deriving its subjects from the property it asserted could confirm its claim but never falsify it                                                   | FE, Ops, Docs | M      | —                            | [`ae5ca765`](https://github.com/felzab/frankfurtleague/commit/ae5ca765) |
+| OPS-19 | Both repository-wide linters re-read every file on every run, neither of them given a cache                                                                | FE, Ops       | S      | —                            | [`96b9328f`](https://github.com/felzab/frankfurtleague/commit/96b9328f) |
+| OPS-91 | A citation continuing a file already named matched no pattern, so nothing it claimed was checked                                                           | Ops, Docs     | M      | —                            | —                                                                       |
