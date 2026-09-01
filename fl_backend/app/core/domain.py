@@ -1541,7 +1541,9 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "RETENTION sweep to build and none may be added. The one removal is a pupil's own erasure request, which "
             "selects a subject, never an age, and `REQ-PURGE-001` makes retirement its precondition rather than its "
             "trigger. `inactive_since` stays a date (`docs/backend/spec.md :: I12`): it records WHEN a row retired, "
-            "not when a sweep may take it."
+            "not when a sweep may take it. What the proof reaches is a removal through `app/core/crud.py`'s two "
+            "helpers: refused where its literal filter names the field at any depth, failed outright where the "
+            "filter is a variable. A sweep inside that module, or outside `app/`, is unscanned."
         ),
         near=("REQ-RETIRE-001",),
         proven_by="tests/core/test_unenforced.py::TestNoPurgeReachesARetiredRow",
