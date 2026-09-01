@@ -19,7 +19,8 @@ import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
-import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
+import { appToast } from "@/shared/utils/appToast";
+import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSpieltagBanners } from "./banners";
 import { FormZeitraumSection } from "./FormZeitraumSection";
@@ -29,26 +30,6 @@ import type { FLSpieltagDraftFields } from "@/features/spieltage/spieltagDraftSt
 import type { AdminSpieltagEditRow } from "@/features/spieltage/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
-
-/**
- * A `fetch` and not a server action: by the time the offer is pressed this component is unmounted, and
- * an action dispatched from another route trips Next's E592 invariant and truncates mid-response.
- * **Revert once E592 is fixed upstream.**
- */
-async function postSpieltagUndo(payload: FLPatchSpieltagPayload): Promise<{ success: boolean; message?: string; error?: string }> {
-  const response = await fetch("/api/admin/spieltage/undo", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    // The route answers 200 with the outcome in the body, so a non-2xx is a transport failure.
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${String(response.status)}`);
-  }
-
-  return response.json() as Promise<{ success: boolean; message?: string; error?: string }>;
-}
 
 /**
  * The matchday editor's form. **A page carrying one date or two is deliberate**: what earns the page
@@ -208,61 +189,23 @@ export function AdminSpieltagEditForm({
       setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
-      if (undoPayload === null) appToast.success("Änderung gespeichert", { description: "Der Spieltag hat jetzt einen Zeitraum." });
-      else offerUndo(undoPayload);
+      if (undoPayload === null) {
+        appToast.success("Änderung gespeichert", { description: "Der Spieltag hat jetzt einen Zeitraum." });
+      } else {
+        // The replay can be refused: it is an ordinary `PATCH`, so a span narrowed meanwhile comes
+        // back as `REQ-DATE-003` rather than a restore.
+        offerUndo({
+          endpoint: "/api/admin/spieltage/undo",
+          body: undoPayload,
+          fallback: "Der Spieltag wurde aktualisiert.",
+          router,
+        });
+      }
 
       // AFTER the undo payload is built, which reads the props rather than these atoms: typed values
       // left in state let a save-then-undo reopen on values the matchday no longer holds.
       resetDraftToStored();
       leavePage();
-    });
-  };
-
-  /**
-   * The toast outlives this component, so the press runs detached — `AdminEditSpielDataForm` has the
-   * pitfalls. **The replay can be refused**: it is an ordinary `PATCH`, so a span narrowed meanwhile
-   * comes back as `REQ-DATE-003` rather than a restore.
-   */
-  const offerUndo = (payload: FLPatchSpieltagPayload) => {
-    appToast.success("Änderung gespeichert", {
-      description: "Der Spieltag wurde aktualisiert.",
-      timeout: UNDO_TIMEOUT_MS,
-      actionProps: {
-        children: "Rückgängig",
-        onPress: () => {
-          appToast.clear();
-          const pendingKey = appToast.pending("Änderung wird zurückgenommen...");
-
-          void postSpieltagUndo(payload).then(
-            (result) => {
-              appToast.close(pendingKey);
-              if (!result.success) {
-                appToast.danger("Rücknahme fehlgeschlagen", { description: result.error ?? "Die Änderung steht weiterhin." });
-                return;
-              }
-
-              // Reported BEFORE the refresh: the restore is committed and nothing below changes that.
-              appToast.success("Änderung zurückgenommen", { description: result.message });
-
-              // Best-effort: a refresh that cannot run costs a stale screen, never the restore.
-              try {
-                router.refresh();
-              } catch (refreshError) {
-                console.warn("Undo committed, refresh failed", refreshError);
-              }
-            },
-            (dispatchError) => {
-              appToast.close(pendingKey);
-              console.warn("Undo dispatch failed", dispatchError);
-              appToast.danger("Rücknahme konnte nicht gesendet werden", {
-                // The connection alone: the request never reached a judgement, so naming
-                // the Spieltag would send the admin to inspect values nothing here read.
-                description: "Die Änderung steht weiterhin. Prüfe die Verbindung.",
-              });
-            },
-          );
-        },
-      },
     });
   };
 

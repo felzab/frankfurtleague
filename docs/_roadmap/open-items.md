@@ -69,21 +69,20 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 15  | FE-24 | A pupil's consent is stored and served, and shown by nothing      | FE              | S      | Open     | —          |
 | 16  | FE-21 | The editor shell's widest layout step is unrendered               | FE              | S      | Open     | —          |
 | 17  | FE-30 | `Team` names a club and the league's own people                   | FE, Docs        | S      | Open     | —          |
-| 18  | FE-33 | Each editor spells its own undo dispatch                          | FE              | M      | Open     | —          |
-| 19  | FE-31 | Every admin success is stated twice, and once invisibly           | FE              | M      | Open     | —          |
-| 20  | FE-19 | Every call site writes a fallback the runtime cannot take         | FE              | M      | Open     | —          |
-| 21  | FE-1  | A fixture carries one date, not a play window                     | FE, BE          | XL     | Open     | —          |
-| 22  | LOG-2 | A cached read's call joins to no render                           | FE, BE, Ops     | L      | Open     | —          |
-| 23  | FB-18 | Only the match editor marks a field somebody waits on             | FE, BE          | L      | Open     | —          |
-| 24  | BE-47 | A sort option nothing sends scans the archive it sorts            | BE              | S      | Standing | —          |
-| 25  | BE-39 | A refusal composes a repair the product refuses to perform        | FE, BE, Docs    | S      | Open     | —          |
-| 26  | BE-37 | Wiring the write path refuses stands unreported in storage        | FE, BE, Docs    | M      | Open     | —          |
-| 27  | FE-34 | Three entry refusals are rendered twice and compared by nothing   | FE, Docs        | M      | Open     | —          |
-| 28  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach | FE              | S      | Open     | —          |
-| 29  | BE-42 | Acceptance publishes a school's street address as the club's      | Docs            | S      | Decided  | —          |
-| 30  | BE-7  | `typing` imports instead of `collections.abc`                     | BE              | —      | Decided  | —          |
-| 31  | BE-14 | The certainty walk gives up in a group of six or more             | BE              | —      | Standing | —          |
-| 32  | BE-45 | A tie-break that cannot fire blocks the index it was written for  | BE              | S      | Standing | —          |
+| 18  | FE-31 | Every admin success is stated twice, and once invisibly           | FE              | M      | Open     | —          |
+| 19  | FE-19 | Every call site writes a fallback the runtime cannot take         | FE              | M      | Open     | —          |
+| 20  | FE-1  | A fixture carries one date, not a play window                     | FE, BE          | XL     | Open     | —          |
+| 21  | LOG-2 | A cached read's call joins to no render                           | FE, BE, Ops     | L      | Open     | —          |
+| 22  | FB-18 | Only the match editor marks a field somebody waits on             | FE, BE          | L      | Open     | —          |
+| 23  | BE-47 | A sort option nothing sends scans the archive it sorts            | BE              | S      | Standing | —          |
+| 24  | BE-39 | A refusal composes a repair the product refuses to perform        | FE, BE, Docs    | S      | Open     | —          |
+| 25  | BE-37 | Wiring the write path refuses stands unreported in storage        | FE, BE, Docs    | M      | Open     | —          |
+| 26  | FE-34 | Three entry refusals are rendered twice and compared by nothing   | FE, Docs        | M      | Open     | —          |
+| 27  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach | FE              | S      | Open     | —          |
+| 28  | BE-42 | Acceptance publishes a school's street address as the club's      | Docs            | S      | Decided  | —          |
+| 29  | BE-7  | `typing` imports instead of `collections.abc`                     | BE              | —      | Decided  | —          |
+| 30  | BE-14 | The certainty walk gives up in a group of six or more             | BE              | —      | Standing | —          |
+| 31  | BE-45 | A tie-break that cannot fire blocks the index it was written for  | BE              | S      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -1117,59 +1116,13 @@ either as a trap on that entry or as a row in the same page's `Terms that are no
 table, which already holds the words that only look like domain vocabulary. Leaving it undecided is
 what makes the next public string naming either sense a coin toss.
 
-### 18 · FE-33 — Every page-owned editor spells its own undo dispatch, and the copy inside it is written once per slice
-
-**Status:** Open\
-**Surfaces:** FE\
-**Effort:** M\
-**Path:** Independent. `.claude/CLAUDE.md` §7 fixes two edges any extraction has to keep — a
-route-handled undo may not sit outside a page-owned editor, and the offer is scoped to the
-destructive save — so what moves is the dispatch, never where the undo lives. Landing it first would
-leave **FE-31** and **FE-19** one site to sweep instead of one per editor.
-
-**Eight editors declare their own `post…Undo` and spell the toast's action body inline, measured
-2026-08-28.** Each helper — `fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx :: postKontakteUndo`
-and its siblings under `saisons`, `schiedsrichter`, `spiele`, `spieler`, `spielorte`, `spieltage` and
-`teams` — posts JSON to its own `/api/admin/<slice>/undo`, throws on a non-2xx because the route
-answers 200 with the outcome in the body, and returns the same `{ success, message?, error? }`; the
-doc comment explaining why each is a `fetch` and not a server action, Next's E592 invariant and the
-instruction to revert once it is fixed upstream, is written out above every one of them. Each
-`offerUndo` beside it clears the standing toasts, opens a pending one under its own key, dispatches,
-and answers the same four outcomes in the same order: a refusal the route reported, a committed
-restore, a refresh that failed after the restore committed, and a dispatch that never landed.
-
-**The route half of the same flow is already shared, which is what makes the client half look
-accidental.** `fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest` is the spine every
-`fl_frontend/src/app/api/admin/*/undo/route.ts` runs on, and each route supplies only its schema, its
-restore and its invalidation. Nothing corresponding stands on the calling side.
-
-**What holds the copy together is a test that enumerates the files.**
-`fl_frontend/src/shared/utils/undoDispatchCopy.test.ts` reads the editors by path and asserts one
-German sentence inside each rejection handler, `AdminEditSpielDataForm` excluded on purpose because
-it reports the raw error instead. A sentence that has to be identical in every editor the test
-enumerates is what a shared dispatch removes.
-
-**What varies is small and known, which is what makes the extraction tractable.** Two editors take
-the payload alone (`saisons`, `spieltage`); `kontakte`, `schiedsrichter`, `spielorte` and `spieler`
-take an optional message beside it; `teams` and `spiele` take a third argument saying whether the
-save destroyed something, and `spiele` also carries a list of payloads and its season id. `kontakte`
-alone computes a refusal that makes the restore impossible before the offer is pressed. A helper
-would carry the payload as a type parameter, the endpoint, the entity's noun, and the optional
-message and destroyed-something argument those editors pass.
-
-**What it is worth is a judgement about churn.** Nothing is broken today and the test catches the one
-sentence it pins; what an extraction buys is that the next editor written gets the behaviour rather
-than a copy, and that a change to any of the other sentences stops being an edit in every slice.
-
-### 19 · FE-31 — Every admin write states its success twice, and the second sentence cannot render
+### 18 · FE-31 — Every admin write states its success twice, and the second sentence cannot render
 
 **Status:** Open\
 **Surfaces:** FE\
 **Effort:** M\
 **Path:** Independent, and worth executing with **FE-19** — one narrowing of
-`fl_frontend/src/shared/types/types.ts :: FormState` settles both entries, a member each. **FE-33**
-extracts the dispatch the editors named at the end share, so taking it first leaves the caveat below
-standing at one site rather than at each of them.
+`fl_frontend/src/shared/types/types.ts :: FormState` settles both entries, a member each.
 
 **Twenty distinct German sentences stand ready for a success that will never render one of them — 24
 occurrences across 23 files under `fl_frontend/src`, measured 2026-08-26.** Behind each of them is an
@@ -1218,12 +1171,12 @@ meets on `error`. Narrowing `FormState` into a union whose succeeding member req
 turns every fallback into a compile error rather than a judgement per site, and the two shared
 components go with it: `successMessage` stops being required, or stops existing.
 
-**What must survive the sweep.** The four entity editors' undo toasts read the same way and are live:
-`fl_frontend/src/features/spielorte/components/forms/AdminSpielortEditForm/AdminSpielortEditForm.tsx :: offerUndo`
-and its three siblings take a locally computed argument that is `undefined` on an ordinary save, so
-there the fallback is the ordinary case. Reading the `??` alone does not separate the two.
+**What must survive the sweep.** The undo toasts' fallbacks read the same way and are live:
+`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo` renders `message ?? fallback`, and the
+`message` the entity editors pass is `undefined` on an ordinary save, so there the fallback is the
+ordinary case. Reading the `??` alone does not separate the two.
 
-### 20 · FE-19 — Every call site writes a fallback for a failure message that always arrives
+### 19 · FE-19 — Every call site writes a fallback for a failure message that always arrives
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1264,7 +1217,7 @@ weight and a fallback that is the only sentence naming what did not happen read 
 its own reason for one — the diagnosis is already in the server log, and what an admin needs is
 whether retrying can help.
 
-### 21 · FE-1 — A fixture carries one date, and a play window cannot be expressed
+### 20 · FE-1 — A fixture carries one date, and a play window cannot be expressed
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -1289,7 +1242,7 @@ harder, and the intent (a fixture whose play window includes today is found by t
 and labelled `heute`) is what the range arithmetic has to preserve. Working it re-derives both
 definitions under ranges.
 
-### 22 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
+### 21 · LOG-2 — A cached read's call joins to no render, and telemetry has nowhere to go
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -1357,7 +1310,7 @@ log-injection risk and must be validated or replaced the same way.
 collector fits on the current host beside the capped services. Each is input to step 1 and neither
 should be guessed.
 
-### 23 · FB-18 — Only the match editor tells an admin which empty field somebody is waiting on
+### 22 · FB-18 — Only the match editor tells an admin which empty field somebody is waiting on
 
 **Status:** Open\
 **Surfaces:** FE, BE\
@@ -1395,7 +1348,7 @@ markers are absent rather than misleading, and every other editor already says w
 its required fields and the rail's Hinweise. Its cost is the per-entity ruling, and that cost does
 not grow while it waits.
 
-### 25 · BE-39 — A refusal composes a repair the product refuses to perform
+### 24 · BE-39 — A refusal composes a repair the product refuses to perform
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -1441,7 +1394,7 @@ backend leaves an admin reading the old instruction.
 **What ranks it here.** Above **BE-37**: that costs an operator who has already reached for the
 database, where this misleads an admin on a path the product offers them.
 
-### 26 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
+### 25 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -1489,7 +1442,7 @@ enumeration moves in the same commit.
 signal for most of what the write path calls unholdable — where FE-20 removes almost none, and its
 own cost is paid only after somebody edits the database.
 
-### 27 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
+### 26 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
 
 **Status:** Open\
 **Surfaces:** FE, Docs\
@@ -1557,7 +1510,7 @@ is what a later edit does to one of them. Above **FE-20**: taking that token out
 where this settles a copy question on two admin surfaces and closes a coupling the helper beside it was
 written to close.
 
-### 28 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
+### 27 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1626,7 +1579,7 @@ edit's freedom to part them. Above **FE-32**: that entry misleads nobody and its
 beside the id, where this one's is answered only by noticing that a helper's reach stops short of a
 module, which nothing on either side says.
 
-### 29 · BE-42 — Acceptance copies a school's postal address into the club, where an anonymous read serves it
+### 28 · BE-42 — Acceptance copies a school's postal address into the club, where an anonymous read serves it
 
 **Status:** Decided\
 **Surfaces:** Docs\
@@ -1656,7 +1609,7 @@ so neither is to be proposed again without overturning it.
 read and the acceptance sits between two of them, so whether a school's correspondence address is
 the league's to copy into a club is a question about the write, which no read rule can answer.
 
-### 30 · BE-7 — `typing` imports instead of `collections.abc`
+### 29 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -1669,7 +1622,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 31 · BE-14 — The certainty walk gives up in a group of six or more
+### 30 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -1728,7 +1681,7 @@ deduplicated, but inside a transaction, whose lifetime is bounded.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 24 · BE-47 — A sort option nothing sends scans the archive it sorts
+### 23 · BE-47 — A sort option nothing sends scans the archive it sorts
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -1769,7 +1722,7 @@ unreachable into the ordinary path and makes the plan above the one an administr
 does not hold. That no caller sends `sort_by` was read off the page and the absence of another consumer
 rather than proven by instrumenting the endpoint.
 
-### 32 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
+### 31 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
 
 **Status:** Standing\
 **Surfaces:** BE\
