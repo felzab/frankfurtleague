@@ -23,7 +23,7 @@ import subprocess
 import sys
 import tempfile
 from collections import Counter
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -613,6 +613,18 @@ ADVISORY: Final = "advisory finding"
 # counting the triples separates a check with two producers from one that has lost one.
 Reported = tuple[str, str, str]
 
+# What a printed finding names before its detail: a file, or a file and the line the check looked
+# at, which `scripts/docs_gate/kernel.py :: Finding` renders. The line is read out here rather than
+# folded into the file, so a case can turn on either.
+SUBJECT_RE: Final = re.compile(r"^(.*?)(?::(\d+))?$")
+
+
+def _subject(text: str) -> tuple[str, int | None]:
+    """A printed finding's file, and the line it named or None."""
+    match = SUBJECT_RE.match(text.partition(": ")[0])
+    assert match is not None, "a finding named nothing: " + text
+    return match.group(1), None if match.group(2) is None else int(match.group(2))
+
 
 def _reported(output: str) -> Counter[Reported]:
     """Every finding the run printed, counted.
@@ -634,7 +646,7 @@ def _reported(output: str) -> Counter[Reported]:
         # A finding under no severity heading means the run's shape moved. Left silent it would read
         # as a check that stopped firing, which is the one answer this file must not invent.
         elif severity:
-            seen[(severity, match.group(1), text.partition(": ")[0])] += 1
+            seen[(severity, match.group(1), _subject(text)[0])] += 1
         else:
             stray.append(text)
     if stray:
@@ -1044,9 +1056,14 @@ def _plant_copy_informal() -> None:
 
 
 def _plant_copy_term() -> None:
-    """The retired word for a club, in both the forms the sweep reads."""
+    """Both retired words: a club in both forms the sweep reads, and an adverb opening a sentence.
+
+    `bereits` is no noun, so the capital a sentence's start gives it is a spelling the pattern
+    reads only by folding case there.
+    """
     _append(COPY_SAMPLE, 'export const WER = "Die Mannschaft steht in dieser Gruppe.";')
     _append(COPY_SAMPLE, 'export const ALLE = "Alle Mannschaften stehen in der Tabelle.";')
+    _append(COPY_SAMPLE, 'export const OFFEN = "Bereits eingetragene Spiele behalten diesen Ort.";')
 
 
 def _plant_copy_corpus() -> None:
@@ -1131,7 +1148,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case("copy-dash", _fails("copy-dash", *[COPY_SAMPLE] * 3), _plant_copy_dash),
     Case("copy-formal", _fails("copy-formal", COPY_SAMPLE), _plant_copy_formal),
     Case("copy-informal", _fails("copy-informal", COPY_SAMPLE), _plant_copy_informal),
-    Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
+    Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
     Case("counts", _reports("counts", NOTES, SAMPLE), _plant_counts),
     Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD), _plant_enforced_by),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
@@ -1382,7 +1399,7 @@ def test_a_word_changed_inside_an_older_block_is_not_this_branch_s() -> None:
     Driven apart from the case above: silence proves nothing while a second block is speaking.
     """
     _reset()
-    cap = _module("docs_gate.structure").COMMENT_CHAR_CAP
+    cap = _module("docs_gate.branch").COMMENT_CHAR_CAP
     legacy = " ".join((LEGACY_OPENING, LEGACY_MIDDLE, LEGACY_CLOSING))
     # The premise, asserted: a corpus block INSIDE the bound would let this case pass on nothing.
     assert len(legacy) > cap, "the corpus block is inside the bound, so nothing here is exempted"
@@ -1470,9 +1487,169 @@ def test_the_comment_bounds_read_a_file_by_its_format_not_its_suffix() -> None:
     # A first line that opens no comment: a leading run of hashes is the module header, which INC-2
     # bounds instead and which `comment_runs` therefore steps over.
     raw = _page("FROM scratch", *block)
-    bounds = _module("docs_gate.structure").check_comment_length
+    bounds = _module("docs_gate.branch").check_comment_length
     found = bounds(_gate().root / DOCKERFILE, raw, set(range(1, len(block) + 2)))
     assert [finding.check for finding in found] == ["comment-length"], "the block was read by the wrong format's reader"
+
+
+def test_a_check_that_knows_where_it_looked_prints_the_line_beside_the_file() -> None:
+    """A location belongs in the finding, not in its prose: `<file>:<line>` is what an editor opens.
+
+    The block opens on the third line, so a bound reported against the file alone would leave a
+    reader searching a module for the run that broke it.
+    """
+    block = [HASH + " a line of a block that runs past what a comment may hold" for _ in range(6)]
+    raw = _page("FROM scratch", "", *block)
+    bounds = _module("docs_gate.branch").check_comment_length
+    found = bounds(_gate().root / DOCKERFILE, raw, set(range(1, len(block) + 3)))
+    assert [finding.line for finding in found] == [3], "the block's opening line did not reach the finding"
+    assert _subject(found[0].human().strip()) == (DOCKERFILE, 3), found[0].human()
+
+
+@contextlib.contextmanager
+def _swapped(module: ModuleType, name: str, value: object) -> Iterator[None]:
+    """One module attribute replaced for a case, and put back whatever the body raises.
+
+    Through `setattr`: a module imported by name is a `ModuleType`, whose attributes a type
+    checker cannot know.
+    """
+    kept = getattr(module, name)
+    setattr(module, name, value)
+    try:
+        yield
+    finally:
+        setattr(module, name, kept)
+
+
+def test_an_eol_listing_this_gate_cannot_parse_fails_rather_than_reading_as_a_clean_tree() -> None:
+    """Both byte readers skip a record they cannot parse, so a shape git stops writing empties them.
+
+    Nothing else holds the tree to `.gitattributes`, and nothing else hunts a NUL or a stray CR, so
+    two loops over nothing would retire both with the run green.
+    """
+    checks = _module("docs_gate.checks")
+    rows, records = checks._eol_rows, checks._eol_records
+    try:
+        with _swapped(checks, "LS_FILES_EOL_RE", re.compile("a record shape git does not write")):
+            rows.cache_clear()
+            found = checks.check_line_endings() + checks.check_binary_bytes()
+    finally:
+        rows.cache_clear()
+        records.cache_clear()
+    assert sorted(finding.check for finding in found) == ["binary-byte", "line-endings"], [f.detail for f in found]
+
+
+def test_an_empty_fragment_list_fails_rather_than_confirming_a_form_it_never_read() -> None:
+    """The list the body gate quotes is what this check confirms, so an empty one confirms nothing.
+
+    Emptied, the loop runs zero times and the check passes -- while the body gate it stands behind
+    accepts every unfilled pull request.
+    """
+    checks = _module("docs_gate.checks")
+    with _swapped(_module("check_pr_body"), "TEMPLATE_FRAGMENTS", ()):
+        found = checks.check_template_fragments()
+    assert [finding.check for finding in found] == ["template-fragment"], [f.detail for f in found]
+
+
+# --- committed branches --------------------------------------------------------------------------
+
+SCENARIO_BRANCH: Final = "scenario"
+
+
+def _committed(plant: Callable[[], None], *rels: str) -> tuple[int, Counter[Reported]]:
+    """The gate's answer over a branch whose change is committed rather than sitting in the tree.
+
+    The cases above leave HEAD at the fork; a pushed branch is a commit past it, and the
+    added-line checks must read that diff the same way.
+    """
+    _reset()
+    root = _gate().root
+    _git(root, "checkout", "-q", "-b", SCENARIO_BRANCH)
+    try:
+        plant()
+        _git(root, "add", "--", *rels)
+        _git(root, "commit", "-q", "-m", "Scenario: a branch commit the gate reads")
+        return _run()
+    finally:
+        _git(root, "checkout", "-q", "main")
+        _git(root, "branch", "-q", "-D", SCENARIO_BRANCH)
+        _reset()
+
+
+def test_a_roadmap_id_committed_in_a_comment_is_read_as_this_branch_s() -> None:
+    """A committed comment is still the branch's own addition, so INC-6's advisory names it."""
+    code, reported = _committed(lambda: _append(SAMPLE, HASH + " see FX-1 for the shape"), SAMPLE)
+    assert reported == Counter({("report", "comment-citation", SAMPLE): 1}), _shape(reported)
+    assert code == 0
+    _assert_corpus_restored()
+
+
+def test_an_over_long_block_committed_on_a_branch_is_measured() -> None:
+    """INC-9 reads the fork diff, so a block a commit added is measured like an unstaged one."""
+    over = [HASH + " a line of a block that runs past what a comment may hold" for _ in range(6)]
+    code, reported = _committed(lambda: _append(SAMPLE, *over), SAMPLE)
+    assert reported == Counter({("fail", "comment-length", SAMPLE): 1}), _shape(reported)
+    assert code == 1
+    _assert_corpus_restored()
+
+
+def test_a_history_phrase_committed_in_a_docstring_is_read() -> None:
+    """COR-3's advisory reads the scanned body at the diff's line numbers, a docstring included."""
+    code, reported = _committed(_plant_history, SECOND_SAMPLE)
+    assert reported == Counter({("report", "history", BRANCH_DIFF): 1}), _shape(reported)
+    assert code == 0
+    _assert_corpus_restored()
+
+
+def test_a_prose_sha_committed_on_a_branch_is_resolved_against_the_clone() -> None:
+    """The SHA advisory reads the corpus as committed, and an unresolvable commit stays reported."""
+    code, reported = _committed(lambda: _append(NOTES, "The commit `abc1234` is gone."), NOTES)
+    assert reported == Counter({("report", "sha", NOTES): 1}), _shape(reported)
+    assert code == 0
+    _assert_corpus_restored()
+
+
+def test_a_hook_s_embedded_javascript_comments_are_read() -> None:
+    """The shell reader takes a leading `//` beside `#`, so a hook's embedded node region is inside INC-6, INC-9 and COR-3."""
+    hook = ".claude/hooks/embedded.sh"
+    over = ["// a line of a block that runs past what a comment may hold" for _ in range(6)]
+
+    def plant() -> None:
+        _write(
+            _gate().root,
+            hook,
+            _page(
+                "#!/usr/bin/env bash",
+                HASH + " HOOKS · a guard whose logic is an embedded node one-liner.",
+                'node -e "',
+                "// resolves nowhere: docs/gone-under-a-slash.md",
+                "",
+                *over,
+                "",
+                "// previously this one-liner guarded nothing",
+                '"',
+            ),
+        )
+
+    code, reported = _committed(plant, hook)
+    expected = Counter(
+        {
+            ("fail", "bare-path", hook): 1,
+            ("fail", "comment-length", hook): 1,
+            ("report", "history", BRANCH_DIFF): 1,
+        }
+    )
+    assert reported == expected, _shape(reported)
+    assert code == 1
+    _assert_corpus_restored()
+
+
+def test_a_commit_touching_no_comment_and_no_prose_stays_silent() -> None:
+    """A code-only commit arms the branch checks and gives them nothing: no finding, no advisory."""
+    code, reported = _committed(lambda: _replace(SAMPLE, "VALUE = 1", "VALUE = 2"), SAMPLE)
+    assert not reported, "a code-only branch commit raised findings: " + _shape(reported)
+    assert code == 0
+    _assert_corpus_restored()
 
 
 def _select(names: list[str]) -> int:

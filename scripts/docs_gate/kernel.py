@@ -11,8 +11,6 @@ from __future__ import annotations
 import io
 import os
 import re
-import subprocess
-import sys
 import tokenize
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -20,11 +18,9 @@ from functools import cache
 from pathlib import Path, PurePosixPath
 from typing import Final, Literal
 
-# From the shared kernel rather than a second copy: a checker taking git from its own drifts
-# into its own behaviour, the principle `checker_kernel.py`'s own docstring states.
-from checker_kernel import git
-
-REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
+# From the shared kernel rather than a second copy: a checker taking git, the repository root or
+# the reading errors from its own drifts into its own behaviour, the principle that file states.
+from checker_kernel import REPO_ROOT, UNREADABLE, git, git_status
 
 # docs/audit is a running programme's gitignored working documents, absent from any clone;
 # node_modules and .venv are vendored and not ours to hold to this standard.
@@ -140,27 +136,62 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
 }
 
 
+# GitHub's workflow-command escaping. A message needs the group below alone; a property value
+# needs the separators as well, an unescaped comma there starting a property nobody wrote. `%` goes first, or
+# it would escape the codes the others just wrote.
+COMMAND_ESCAPES: Final[tuple[tuple[str, str], ...]] = (("%", "%25"), ("\r", "%0D"), ("\n", "%0A"))
+PROPERTY_ESCAPES: Final[tuple[tuple[str, str], ...]] = ((":", "%3A"), (",", "%2C"))
+
+
+def _escaped(text: str, *, in_property: bool) -> str:
+    """One run of text as a workflow command may carry it."""
+    for char, code in COMMAND_ESCAPES + (PROPERTY_ESCAPES if in_property else ()):
+        text = text.replace(char, code)
+    return text
+
+
 @dataclass(frozen=True, slots=True)
 class Finding:
     """One problem, already resolved to whether it fails the run.
 
     Not `checker_kernel.py :: Finding`, which validates against nothing;
-    `scripts/docs_gate/branch.py` holds both in one namespace, so the collision is live.
+    `scripts/docs_gate/checks.py` holds both in one namespace, so the collision is live.
     """
 
     severity: Severity
     check: str
     file: str
     detail: str
+    # A place to open rather than to search for. None wherever the check judges a whole file, a
+    # listing or the branch's diff, none of which sit on one line.
+    line: int | None = None
 
     def __post_init__(self) -> None:
         # An unregistered name is how the registry falls behind the code it claims to describe.
         if self.severity not in CHECKS.get(self.check, frozenset()):
             raise ValueError(f"check `{self.check}` is not registered in CHECKS at severity `{self.severity}`")
 
-    def line(self) -> str:
+    @property
+    def where(self) -> str:
+        """The subject, carrying the line where the check knows one: what an editor jumps to."""
+        return self.file if self.line is None else f"{self.file}:{self.line}"
+
+    def human(self) -> str:
         # Six spaces: the message column of the scripts' shared output standard (scripts/_lib.sh).
-        return f"      {self.file}: {self.detail}  [{self.check}]"
+        return f"      {self.where}: {self.detail}  [{self.check}]"
+
+    def github(self) -> str:
+        """One workflow command, which a runner turns into an annotation on the pull request's diff.
+
+        The severity deciding the exit code decides the annotation's too, so a reader of the diff
+        meets the verdict the gate reached rather than a second one.
+        """
+        command = "error" if self.severity == "fail" else "warning"
+        fields = [f"file={_escaped(self.file, in_property=True)}"]
+        if self.line is not None:
+            fields.append(f"line={self.line}")
+        fields.append(f"title={_escaped(self.check, in_property=True)}")
+        return f"::{command} {','.join(fields)}::{_escaped(self.detail, in_property=False)}"
 
 
 def is_placeholder(text: str) -> bool:
@@ -181,16 +212,13 @@ def strip_fences(text: str) -> str:
     return "\n".join(out)
 
 
-def git_status(*args: str) -> int | None:
-    """Run git for its exit code alone, or None where it could not be launched. Never raises.
+def line_of(body: str, offset: int) -> int:
+    """The 1-based line an offset sits on.
 
-    None answers neither yes nor no, and each caller resolves it in the direction that keeps a
-    finding rather than dropping one.
+    Every reader here keeps a file's line count -- `strip_fences` and `comments_only` blank a line
+    rather than dropping it -- so an offset into a scanned body numbers the line the file holds.
     """
-    try:
-        return subprocess.run(("git", *args), cwd=REPO_ROOT, capture_output=True, check=False).returncode
-    except OSError:
-        return None
+    return body.count("\n", 0, offset) + 1
 
 
 @cache
@@ -201,7 +229,7 @@ def _read_text(path: Path) -> tuple[str | None, str]:
     """
     try:
         return path.read_text(encoding="utf-8"), ""
-    except (OSError, UnicodeDecodeError) as exc:
+    except UNREADABLE as exc:
         return None, str(exc)
 
 
@@ -289,13 +317,14 @@ def _skipped(path: Path) -> bool:
 def _shell_comments(text: str) -> str:
     """Shell comments only, line count preserved.
 
-    Narrower than the Python branch's `#` rule, shell reaching for `#` in expansions
-    (`${name#prefix}`) and colour escapes. A quoted ` #` is what leaks.
+    `#` mid-line needs the space lead, shell spelling `${name#prefix}` and colour escapes; a
+    line-leading `//` is kept too, being an embedded node one-liner's comment, which no other
+    reader reaches (INC-6).
     """
     keep: list[str] = []
     for line in text.split("\n"):
         stripped = line.lstrip()
-        if stripped.startswith("#") and not stripped.startswith("#!"):
+        if (stripped.startswith("#") and not stripped.startswith("#!")) or stripped.startswith("//"):
             keep.append(line)
             continue
         marker = line.find(" #")
@@ -445,6 +474,154 @@ def comment_style(path: Path) -> str:
     return path.suffix if path.suffix in SOURCE_SUFFIXES or path.suffix == ".json" else ".sh"
 
 
+# A directive stays above the header (INC-7), so the header scan steps over it.
+DIRECTIVE_RE: Final = re.compile(r"^\s*([\"'])use (client|server|strict)\1;?\s*$")
+PY_DOCSTRING_OPEN_RE: Final = re.compile(r"^[rRuU]?(\"\"\"|''')")
+
+
+def _module_header(raw: str, suffix: str) -> list[str] | None:
+    """The module header's lines, delimiters included, or None where there is none.
+
+    A shebang is a directive, so counting it would spend a capped line. An unterminated delimiter
+    runs to the file's end, which the line cap then fails.
+    """
+    lines = raw.split("\n")
+    i = 0
+    if suffix == ".sh":
+        while i < len(lines) and (not lines[i].strip() or lines[i].startswith("#!")):
+            i += 1
+        start = i
+        while i < len(lines) and lines[i].lstrip().startswith("#"):
+            i += 1
+        return lines[start:i] or None
+    if suffix == ".py":
+        while i < len(lines) and (not lines[i].strip() or lines[i].lstrip().startswith("#")):
+            i += 1
+        if i == len(lines):
+            return None
+        opened = PY_DOCSTRING_OPEN_RE.match(lines[i].lstrip())
+        if opened is None:
+            return None
+        quote = opened.group(1)
+        if quote in lines[i].lstrip()[opened.end() :]:  # a one-line docstring closes on its own line
+            return lines[i : i + 1]
+        start = i
+        i += 1
+        while i < len(lines) and quote not in lines[i]:
+            i += 1
+        return lines[start : i + 1]
+
+    while i < len(lines) and (not lines[i].strip() or DIRECTIVE_RE.match(lines[i])):
+        i += 1
+    if i == len(lines) or not lines[i].lstrip().startswith("/*"):
+        return None
+    start = i
+    while i < len(lines) and "*/" not in lines[i]:
+        i += 1
+    return lines[start : i + 1]
+
+
+def _header_line(line: str, suffix: str) -> str:
+    """One header line with its comment decoration removed -- the text INC-2's shapes apply to."""
+    text = line.strip()
+    if suffix == ".sh":
+        return text.lstrip("#").strip()
+    if suffix == ".py":
+        text = PY_DOCSTRING_OPEN_RE.sub("", text)
+        return text.removesuffix('"""').removesuffix("'''").strip()
+    text = text.removesuffix("*/").strip()
+    for opener in ("/**", "/*", "*"):
+        if text.startswith(opener):
+            return text[len(opener) :].strip()
+    return text
+
+
+def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
+    """Each run of consecutive comment lines below the module header, as (first line, text lines).
+
+    Markers come off, being what the bound does not measure. The header is skipped -- INC-2 caps
+    it. A symbol doc is a run like any other (INC-9).
+    """
+    lines = raw.split("\n")
+    start_at = 0
+    if (header := _module_header(raw, suffix)) is not None:
+        for index in range(len(lines)):
+            if lines[index : index + len(header)] == header:
+                start_at = index + len(header)
+                break
+
+    runs: list[tuple[int, list[str]]] = []
+    current: list[str] = []
+    first_line = 0
+    closing: str | None = None
+    hash_only = suffix in (".py", ".sh")
+
+    def flush() -> None:
+        nonlocal current, first_line
+        if current and any(current):
+            runs.append((first_line, current))
+        current = []
+
+    for number, line in enumerate(lines[start_at:], start=start_at + 1):
+        text = line.strip()
+        if closing is not None:  # inside a block comment or a docstring
+            current.append(_header_line(text.removesuffix(closing), suffix))
+            if closing in text:
+                closing = None
+                flush()
+            continue
+
+        opened = PY_DOCSTRING_OPEN_RE.match(text) if hash_only else None
+        if opened is not None:
+            flush()
+            first_line = number
+            body = text[opened.end() :]
+            quote = opened.group(1)
+            current.append(body.removesuffix(quote).strip())
+            if quote in body:
+                flush()
+            else:
+                closing = quote
+            continue
+
+        # `{/* … */}` opens with a brace, so it matches neither arm below and every JSX comment
+        # would go unbounded. Tested before the plain `/*` arm, which the brace hides it from.
+        if not hash_only and text.startswith("{/*"):
+            flush()
+            first_line = number
+            body = text.lstrip("{/*").strip()
+            current.append(body.removesuffix("*/}").strip())
+            if "*/}" in text[3:]:
+                flush()
+            else:
+                closing = "*/}"
+            continue
+
+        if not hash_only and text.startswith("/*"):
+            flush()
+            first_line = number
+            body = text.lstrip("/*").strip()
+            current.append(body.removesuffix("*/").strip())
+            if "*/" in text[2:]:
+                flush()
+            else:
+                closing = "*/"
+            continue
+
+        # `.sh` takes `//` beside `#`: a hook's embedded node one-liner comments there, and INC-9's
+        # bound has to measure those blocks the way `_shell_comments` reads them (INC-6).
+        markers = ("#", "//") if suffix == ".sh" else ("#",) if hash_only else ("//",)
+        if text.startswith(markers):
+            if not current:
+                first_line = number
+            current.append(text.lstrip("#").strip() if text.startswith("#") else text[2:].strip())
+            continue
+        flush()
+
+    flush()
+    return runs
+
+
 def _of_kind(candidates: Iterable[Path]) -> tuple[Path, ...]:
     """The corpus files in a listing: a scanned kind, on disk, outside the skipped directories.
 
@@ -492,7 +669,9 @@ def scanned_files() -> tuple[Path, ...]:
     The gate runs before the commit, so the index alone hands a branch that adds files a green
     answer CI will not repeat.
     """
-    return _of_kind((*tracked_files(), *untracked_files()))
+    # Merged rather than filtered again: both halves are already `_of_kind`'s answer, and a second
+    # pass stats every path to learn what it just learnt.
+    return tuple(sorted({*tracked_files(), *untracked_files()}))
 
 
 @cache
@@ -521,6 +700,24 @@ def tracked_page(rel: str) -> Path | None:
     Reading one off disk would pass a page written and never added.
     """
     return next((path for spelling, path in _tracked_index() if spelling.as_posix() == rel), None)
+
+
+# The id is captured loose, so a malformed one is caught against the vocabulary, not skipped.
+ROADMAP_ID_DEF_RE: Final = re.compile(r"^[ \t]*\|\s*(?:\d+\s*\|\s*)?\*{0,2}([A-Z]{1,4}-\d{1,3})\*{0,2}\s*\|", re.MULTILINE)
+
+
+@cache
+def roadmap_ids() -> frozenset[str]:
+    """Every hyphenated id the roadmap tables define.
+
+    Read rather than guessed: the prefixes are open-ended, so a pattern would catch `UTF-8`. An
+    unhyphenated id is left out, that shape occurring in code for unrelated reasons.
+    """
+    ids: set[str] = set()
+    for page in tracked_glob(ROADMAP_GLOB):
+        if (text := _read_text(page)[0]) is not None:
+            ids.update(ROADMAP_ID_DEF_RE.findall(text))
+    return frozenset(ids)
 
 
 def atx_heading(line: str, level: int | None = None) -> str | None:
@@ -618,14 +815,3 @@ def _scan_body(path: Path) -> str:
     if raw is None:
         return ""
     return strip_fences(raw) if path.suffix == ".md" else comments_only(raw, comment_style(path))
-
-
-def tolerate_console_encoding() -> None:
-    """A console codepage must never decide whether a finding is printed.
-
-    A dash meets a Windows codepage that cannot encode it, which raises inside `print` and takes
-    the run down with every finding unreported.
-    """
-    for stream in (sys.stdout, sys.stderr):
-        if isinstance(stream, io.TextIOWrapper):
-            stream.reconfigure(errors="replace")

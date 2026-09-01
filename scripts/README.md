@@ -17,7 +17,7 @@ Frankfurt-League, plus the checkers the verification gate runs.
 | `scripts/_lib.sh`                 | —             | Shared helpers; sourced, never run directly                                                               |
 | `scripts/checker_kernel.py`       | —             | What every checker is built on; imported, never run directly                                              |
 | `scripts/check_docs.py`           | any           | The documentation gate                                                                                    |
-| `scripts/docs_gate/`              | —             | The documentation gate's checks, one module per seam                                                      |
+| `scripts/docs_gate/`              | —             | The documentation gate: the kernel's readers, the corpus checks, the branch checks, and the copy rules    |
 | `scripts/check_commits.py`        | any           | The branch's commit messages                                                                              |
 | `scripts/check_scope.py`          | any           | The scopes a run named, against the diff it was given                                                     |
 | `scripts/check_compose_mirror.py` | any           | The local stack against production, minus the differences it declares                                     |
