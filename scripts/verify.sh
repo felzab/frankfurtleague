@@ -185,8 +185,10 @@ add_scope ops      "$RUN_OPS"
 add_scope db       "$RUN_DB"
 add_scope images   "$RUN_IMAGES"
 
-# A worker is given one scope, so its own answer would be every other scope in the gate.
-if ! worker; then set_not_run "$NOT_RUN"; fi
+# A worker is given one scope, so its own answer would be every other scope in the gate. The
+# selected list travels beside it: the run announces those as covered, and one it ends before
+# opening leaves no row and belongs in neither list.
+if ! worker; then set_not_run "$NOT_RUN"; set_selected "$SCOPES_RAN"; fi
 
 wrap_up() {
   # In a worker the ending belongs to the parent, which alone knows what the run left unproven.

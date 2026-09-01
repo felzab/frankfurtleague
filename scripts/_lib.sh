@@ -75,6 +75,10 @@ _RUN_ADVISORIES=0
 # would be lost by a replayed failure.
 _NOT_RUN=""
 
+# What the run announced it covers, which `_NOT_RUN` is not: that holds the scopes nobody asked
+# for. A selected scope the run stopped short of is in neither list, and has no row either.
+_SELECTED=""
+
 VERBOSE="${VERBOSE:-0}"
 
 # A worker prints no summary: the parent prints the table once, into bytes replayed verbatim.
@@ -117,6 +121,7 @@ verbose() { (( VERBOSE )); }
 worker() { (( _WORKER )); }
 
 set_not_run() { _NOT_RUN="$*"; }
+set_selected() { _SELECTED="$*"; }
 
 _RUN_T0="$(_now_ms)"
 
@@ -378,12 +383,35 @@ end_section() {
   _SECTION_OPEN=-1
 }
 
+# A selected scope that opened no section: the run ended before it. No rank can say this -- each
+# of those is a verdict some section reached, and this scope reached none.
+_UNREACHED=()
+_find_unreached() {
+  local IFS=' ' scope i found count="${#_SECTION_NAMES[@]}"
+  _UNREACHED=()
+  for scope in $_SELECTED; do
+    found=0
+    for (( i = 0; i < count; i++ )); do
+      if [[ "${_SECTION_NAMES[i]}" == "$scope" ]]; then found=1; break; fi
+    done
+    if (( ! found )); then _UNREACHED+=("$scope"); fi
+  done
+  return 0
+}
+
 # Padded before the colour wraps it: printf counts an escape sequence's bytes as width.
 _summary_table() {
-  local count="${#_SECTION_NAMES[@]}" i w=7 rank colour
-  if (( count == 0 )); then return 0; fi
+  local count="${#_SECTION_NAMES[@]}" i w=7 rank colour left
+  _find_unreached
+  left="${#_UNREACHED[@]}"
+  if (( count == 0 && left == 0 )); then return 0; fi
   for (( i = 0; i < count; i++ )); do
     if (( ${#_SECTION_NAMES[i]} > w )); then w=${#_SECTION_NAMES[i]}; fi
+  done
+  # The unreached names widen the same column: measured after the loop above, a longer one
+  # here would print past the width every row above it already took.
+  for (( i = 0; i < left; i++ )); do
+    if (( ${#_UNREACHED[i]} > w )); then w=${#_UNREACHED[i]}; fi
   done
   printf '\n      %s%-*s  %-10s  %9s  %8s%s\n' "$C_DIM" "$w" "section" "result" "duration" "findings" "$C_RESET"
   for (( i = 0; i < count; i++ )); do
@@ -397,6 +425,12 @@ _summary_table() {
     printf '      %-*s  %s%-10s%s  %9s  %8s\n' \
       "$w" "${_SECTION_NAMES[i]}" "$colour" "${_RANK_LABELS[rank]}" "$C_RESET" \
       "$(fmt_ms "${_SECTION_MS[i]}")" "${_SECTION_FINDINGS[i]}"
+  done
+  # Dashes rather than zeros: a duration and a finding count are what a section that ran
+  # leaves behind, so `0.0s  0` under this label would read as a scope that ran and passed.
+  for (( i = 0; i < left; i++ )); do
+    printf '      %-*s  %s%-10s%s  %9s  %8s\n' \
+      "$w" "${_UNREACHED[i]}" "$C_DIM" "unreached" "$C_RESET" "-" "-"
   done
 }
 
