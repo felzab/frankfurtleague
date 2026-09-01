@@ -23,7 +23,7 @@ import subprocess
 import sys
 import tempfile
 from collections import Counter
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -1504,6 +1504,51 @@ def test_a_check_that_knows_where_it_looked_prints_the_line_beside_the_file() ->
     found = bounds(_gate().root / DOCKERFILE, raw, set(range(1, len(block) + 3)))
     assert [finding.line for finding in found] == [3], "the block's opening line did not reach the finding"
     assert _subject(found[0].human().strip()) == (DOCKERFILE, 3), found[0].human()
+
+
+@contextlib.contextmanager
+def _swapped(module: ModuleType, name: str, value: object) -> Iterator[None]:
+    """One module attribute replaced for a case, and put back whatever the body raises.
+
+    Through `setattr`: a module imported by name is a `ModuleType`, whose attributes a type
+    checker cannot know.
+    """
+    kept = getattr(module, name)
+    setattr(module, name, value)
+    try:
+        yield
+    finally:
+        setattr(module, name, kept)
+
+
+def test_an_eol_listing_this_gate_cannot_parse_fails_rather_than_reading_as_a_clean_tree() -> None:
+    """Both byte readers skip a record they cannot parse, so a shape git stops writing empties them.
+
+    Nothing else holds the tree to `.gitattributes`, and nothing else hunts a NUL or a stray CR, so
+    two loops over nothing would retire both with the run green.
+    """
+    checks = _module("docs_gate.checks")
+    rows, records = checks._eol_rows, checks._eol_records
+    try:
+        with _swapped(checks, "LS_FILES_EOL_RE", re.compile("a record shape git does not write")):
+            rows.cache_clear()
+            found = checks.check_line_endings() + checks.check_binary_bytes()
+    finally:
+        rows.cache_clear()
+        records.cache_clear()
+    assert sorted(finding.check for finding in found) == ["binary-byte", "line-endings"], [f.detail for f in found]
+
+
+def test_an_empty_fragment_list_fails_rather_than_confirming_a_form_it_never_read() -> None:
+    """The list the body gate quotes is what this check confirms, so an empty one confirms nothing.
+
+    Emptied, the loop runs zero times and the check passes -- while the body gate it stands behind
+    accepts every unfilled pull request.
+    """
+    checks = _module("docs_gate.checks")
+    with _swapped(_module("check_pr_body"), "TEMPLATE_FRAGMENTS", ()):
+        found = checks.check_template_fragments()
+    assert [finding.check for finding in found] == ["template-fragment"], [f.detail for f in found]
 
 
 # --- committed branches --------------------------------------------------------------------------

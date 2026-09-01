@@ -117,6 +117,10 @@ EXCLUDED_HEADER_RE: Final = re.compile(r"^[ \t]*\|\s*Excluded\s*\|\s*Why\s*\|", 
 SEGMENT_SAMPLE: Final = 8
 
 
+# The checker whose quoted fragments `template-fragment` confirms, named so a fault in the list
+# itself points at the file to fix rather than at the form it reads.
+PR_BODY_CHECKER: Final = "scripts/check_pr_body.py"
+
 # A page that is not there yields nothing, so an absent input degrades the check reading it to
 # silence with the run green. Named here so the absence itself fails.
 REQUIRED_INPUTS: Final[tuple[str, ...]] = (
@@ -127,6 +131,9 @@ REQUIRED_INPUTS: Final[tuple[str, ...]] = (
     SWEEP_PAGE,
 )
 
+# The file both byte checks answer to, and what each names when the fault is the listing rather
+# than one path inside it.
+GITATTRIBUTES: Final = ".gitattributes"
 # `git ls-files --eol` answers endings, attributes and git's text/binary verdict in one call.
 LS_FILES_EOL_RE: Final = re.compile(r"^i/(\S+)\s+w/(\S+)\s+attr/(.*?)\s*\t(.*)$")
 # Binary reads as `-text` and never appears here, which is what a PNG needs: it holds CR-LF byte
@@ -515,16 +522,36 @@ def check_inputs() -> list[Finding]:
 
 
 @cache
-def _eol_rows() -> tuple[tuple[str, str, str], ...] | None:
-    """`git ls-files --eol` parsed to (worktree endings, attributes, path), or None where git refused.
+def _eol_records() -> tuple[str, ...] | None:
+    """Every `git ls-files --eol` record as git wrote it, or None where git refused.
 
     NUL-separated: git octal-escapes a path outside ASCII otherwise, and that spelling names a
     file no checkout holds.
     """
     listing = git("ls-files", "--eol", "-z")
-    if listing is None:
+    return None if listing is None else tuple(record for record in listing.split("\0") if record)
+
+
+@cache
+def _eol_rows() -> tuple[tuple[str, str, str], ...] | None:
+    """The records parsed to (worktree endings, attributes, path), or None where git refused."""
+    records = _eol_records()
+    if records is None:
         return None
-    return tuple((match.group(2), match.group(3), match.group(4)) for line in listing.split("\0") if (match := LS_FILES_EOL_RE.match(line)))
+    return tuple((m.group(2), m.group(3), m.group(4)) for record in records if (m := LS_FILES_EOL_RE.match(record)))
+
+
+def _eol_unread(check: str, unproven: str) -> list[Finding]:
+    """This check's finding where the listing held records and the pattern reached none of them.
+
+    An empty loop reports nothing and passes. A partial gap is ordinary rather than a fault: a
+    staged deletion writes a record carrying no worktree field.
+    """
+    records, rows = _eol_records(), _eol_rows()
+    if not records or rows is None or rows:
+        return []
+    detail = f"none of {len(records)} `git ls-files --eol` records matched a known shape, so {unproven}"
+    return [Finding("fail", check, GITATTRIBUTES, detail)]
 
 
 def check_line_endings() -> list[Finding]:
@@ -538,9 +565,9 @@ def check_line_endings() -> list[Finding]:
         # A run that cannot read the index proves nothing about the tree, and silence is
         # indistinguishable from a clean answer.
         detail = "git could not report the tree's line endings, so nothing was held to `.gitattributes`"
-        return [Finding("fail", "line-endings", ".gitattributes", detail)]
+        return [Finding("fail", "line-endings", GITATTRIBUTES, detail)]
 
-    found: list[Finding] = []
+    found = _eol_unread("line-endings", "that part of the tree was held to `.gitattributes` by nothing")
     for worktree, attributes, rel in rows:
         if worktree not in NON_LF_WORKTREE or CRLF_MANDATED in attributes:
             continue
@@ -572,9 +599,9 @@ def check_binary_bytes() -> list[Finding]:
         # A run that cannot list the tree read no bytes, and silence would be indistinguishable
         # from a clean answer.
         detail = "git could not list the tree, so no tracked file was read for a NUL or a CR byte"
-        return [Finding("fail", "binary-byte", ".gitattributes", detail)]
+        return [Finding("fail", "binary-byte", GITATTRIBUTES, detail)]
 
-    found: list[Finding] = []
+    found = _eol_unread("binary-byte", "that part of the tree went unread for a NUL and a CR byte")
     for worktree, attributes, rel in rows:
         # An exact token, never a substring: the exemption must not widen to an attribute that
         # merely ends in the word, which is how a rule like this grows to cover a source file.
@@ -763,6 +790,10 @@ def check_template_fragments() -> list[Finding]:
     `check_pr_body.py :: TEMPLATE_FRAGMENTS` matches that prose verbatim, so rewording the form
     leaves it passing every body, the unfilled one it exists to catch included.
     """
+    if not check_pr_body.TEMPLATE_FRAGMENTS:
+        detail = "quotes no fragment, so every unfilled pull request body reads as filled in and this check confirms nothing"
+        return [Finding("fail", "template-fragment", PR_BODY_CHECKER, detail)]
+
     rel = TEMPLATES_PAGE
     page = tracked_page(rel)
     text = None if page is None else _read_text(page)[0]
