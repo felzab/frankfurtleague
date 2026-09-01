@@ -287,6 +287,14 @@ def saison() -> PayloadFactory:
     )
 
 
+# A majority write's acknowledgement waits on the oplog entry reaching the journal, and this
+# container's data is discarded at session end, so the disk buys nothing the tier needs.
+TMPFS_DATA_PATH = "/data/db"
+# Docker's raw mount options, not a size: `with_tmpfs_mount`'s docstring offers `1g`, which the
+# daemon refuses at start. Bounded at all because an unsized tmpfs takes half the host's memory.
+TMPFS_DATA_OPTIONS = "size=1g"
+
+
 @pytest.fixture(scope="session")
 def mongo_container() -> Iterator[Any]:
     """
@@ -298,7 +306,7 @@ def mongo_container() -> Iterator[Any]:
     # a DeprecationWarning.
     from testcontainers.community.mongodb import MongoDbContainer
 
-    with MongoDbContainer("mongo:8") as container:
+    with MongoDbContainer("mongo:8").with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS) as container:
         yield container
 
 
@@ -327,6 +335,7 @@ def mongo_replica_set_url() -> Iterator[str]:
         # fragile on a Windows host. The other container keeps its credentials for the limited-user tests.
         .with_command("--replSet rs0 --bind_ip_all")
         .with_exposed_ports(27017)
+        .with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS)
         .waiting_for(LogMessageWaitStrategy(re.compile(r"waiting for connections", re.IGNORECASE)))
     )
 
