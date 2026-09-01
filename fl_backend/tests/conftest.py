@@ -297,6 +297,11 @@ TMPFS_DATA_PATH = "/data/db"
 # daemon refuses at start. Bounded at all because an unsized tmpfs takes half the host's memory.
 TMPFS_DATA_OPTIONS = "size=1g"
 
+# Megabytes, and it moves with the bound above: mongod would derive its 990 MiB floor, a ceiling
+# over the ~820 MiB the mount leaves free. It truncates on that, not the filesystem: a full mount
+# is ENOSPC, then `WT_PANIC`, then a dead container.
+REPLICA_SET_OPLOG_MB = 128
+
 # What `pytest_configure_node` hands each worker, so one pair of containers serves the whole run.
 STANDALONE_KEY = "fl_standalone_mongodb_url"
 REPLICA_SET_KEY = "fl_replica_set_mongodb_url"
@@ -343,7 +348,7 @@ def _replica_set_mongod() -> Iterator[str]:
         DockerContainer("mongo:8")
         # No `--auth`: with `--replSet` mongod demands a bind-mounted keyFile whose permissions it checks,
         # fragile on a Windows host. The other container keeps its credentials for the limited-user tests.
-        .with_command("--replSet rs0 --bind_ip_all")
+        .with_command(f"--replSet rs0 --bind_ip_all --oplogSize {REPLICA_SET_OPLOG_MB}")
         .with_exposed_ports(27017)
         .with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS)
         .waiting_for(LogMessageWaitStrategy(re.compile(r"waiting for connections", re.IGNORECASE)))
