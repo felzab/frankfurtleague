@@ -25,13 +25,6 @@ done
 
 RUNNABLE=(local.sh verify.sh publish.sh deploy.sh ci_scopes.sh selfcheck.sh)
 
-# The `.githooks/` entries carry no suffix, so they are taken by directory: nothing else lints
-# them, and a commit-msg hook that does not parse breaks committing where it was installed.
-SHELL_FILES=()
-for f in scripts/*.sh .claude/hooks/*.sh .githooks/*; do
-  if [[ -f "$f" ]]; then SHELL_FILES+=("$f"); fi
-done
-
 # The roots keep the names `.gitignore` documents, and each run owns a subdirectory inside them:
 # concurrent runs share a path, and one run's setup would delete another's tree from under it.
 SCOPE_FIXTURES="${REPO_ROOT}/.tmp-scope-fixtures"
@@ -63,6 +56,40 @@ _ledger() { # $1 verb · $2 message
 }
 note_skip() { skip "$*"; _ledger skip "$*"; }
 note_warn() { warn "$*"; _ledger warn "$*"; }
+
+# --- Which files are shell scripts ---------------------------------------------------------------
+
+# Asked of the tree, not written down: a directory glob covers what existed the day it was written,
+# and a script landing anywhere else is unchecked in silence with every step still green.
+
+# `--others --exclude-standard`: a script is covered the moment it exists rather than the moment it
+# is added, and a gitignored path is nobody's to lint.
+TRACKED="${SELFCHECK_TMP}/tracked.txt"
+TRACKED_RC=0
+git ls-files --cached --others --exclude-standard > "$TRACKED" 2>/dev/null || TRACKED_RC=$?
+SHELL_FILES=()
+if (( TRACKED_RC != 0 )); then
+  note_fail "git could not list the repository's files (exit ${TRACKED_RC}), so no shell script was linted, parsed or checked below"
+else
+  while IFS= read -r f || [[ -n "$f" ]]; do
+    # `-f` because git lists what the index holds, which a deleted-but-unstaged path outlives.
+    [[ -f "$f" ]] || continue
+    case "${f##*/}" in
+      *.sh) ;;
+      # The hooks carry no suffix and nothing else lints them, so an extensionless file is asked
+      # what runs it. Any other extension is some other language.
+      *.*)  continue ;;
+      *)    IFS= read -r shebang < "$f" || true
+            [[ "$shebang" =~ ^#!.*(/|[[:space:]])(ba)?sh([[:space:]]|$) ]] || continue ;;
+    esac
+    SHELL_FILES+=("$f")
+  done < "$TRACKED"
+  # A list that came back empty is git having answered about some other tree, not a repository
+  # holding no shell scripts.
+  if (( ${#SHELL_FILES[@]} == 0 )); then
+    note_fail "no shell script was found anywhere in the repository, so every per-file step below reads nothing"
+  fi
+fi
 
 # --- Running the independent checks concurrently -------------------------------------------------
 
@@ -103,10 +130,12 @@ par_run() { # $1 unit function, called as `$1 <index> <item> <label>` once per q
   # Every worker takes every width'th item, not a contiguous block: the queue is grouped by subject,
   # and blocks would hand one worker every cheap unit and another every expensive one.
   for (( w = 0; w < width; w++ )); do
-    # `set +e` inside: a unit's own failure must end that unit, not the rest of its share. The ERR
-    # trap is not inherited into a subshell, so nothing outside sees it either.
+    # `set +e` and `trap - ERR` together: a unit failing must end that unit, not the rest of this
+    # worker's share. `set +e` does not disable an ERR trap, and `_lib.sh`'s `set -E` hands one to
+    # every subshell.
     (
       set +e
+      trap - ERR
       for (( i = w; i < total; i += width )); do
         printf -v idx '%05d' "$i"
         "$fn" "$i" "${PAR_ITEMS[i]}" "${PAR_LABELS[i]}" > "${dir}/${idx}" 2>/dev/null
@@ -119,15 +148,19 @@ par_run() { # $1 unit function, called as `$1 <index> <item> <label>` once per q
     printf -v idx '%05d' "$i"
     f="${dir}/${idx}"
     # An empty file is a worker that died before deciding — a failed spawn, not a verdict. Asked
-    # again in the parent, because a real silence answers twice.
+    # again serially, because a real silence answers twice. In a subshell, because `|| true` grades
+    # a status and does not contain an `exit`.
     if [[ ! -s "$f" ]]; then
-      "$fn" "$i" "${PAR_ITEMS[i]}" "${PAR_LABELS[i]}" > "$f" 2>/dev/null || true
+      ( "$fn" "$i" "${PAR_ITEMS[i]}" "${PAR_LABELS[i]}" ) > "$f" 2>/dev/null || true
     fi
     if [[ ! -s "$f" ]]; then
       note_fail "${PAR_LABELS[i]}: this check produced no verdict, twice"
       continue
     fi
-    while IFS=$'\t' read -r verb msg; do
+    # `|| [[ -n "$verb" ]]`: `read` returns non-zero on an unterminated final line, having filled the
+    # variables anyway. Without it that verdict is dropped in silence — the file is not empty, so the
+    # arm above does not fire either.
+    while IFS=$'\t' read -r verb msg || [[ -n "$verb" ]]; do
       case "$verb" in
         info) info "$msg" ;;
         fail) note_fail "$msg" ;;
@@ -192,7 +225,11 @@ run_actionlint() {
 # and is collected later: the wait then overlaps every cheap check instead of following them.
 SC_OUT="${SELFCHECK_TMP}/shellcheck.out"; SC_RC="${SELFCHECK_TMP}/shellcheck.rc"
 AL_OUT="${SELFCHECK_TMP}/actionlint.out"; AL_RC="${SELFCHECK_TMP}/actionlint.rc"
+# `trap - ERR` beside `set +e`, which does not disable an ERR trap: a checker with findings would
+# otherwise take its own reporter down before the status was written, and the step would read
+# "it did not run to completion".
 ( set +e
+  trap - ERR
   if shellcheck_available; then
     run_shellcheck "${SHELL_FILES[@]}" > "$SC_OUT" 2>&1; printf '%s' "$?" > "$SC_RC"
   else
@@ -200,6 +237,7 @@ AL_OUT="${SELFCHECK_TMP}/actionlint.out"; AL_RC="${SELFCHECK_TMP}/actionlint.rc"
   fi ) &
 SC_PID=$!
 ( set +e
+  trap - ERR
   if actionlint_available; then
     run_actionlint > "$AL_OUT" 2>&1; printf '%s' "$?" > "$AL_RC"
   else
@@ -244,42 +282,176 @@ step "3. Executable bit is set in git"
 # One query for the whole set: on Windows a spawn costs more than the work it saves. `_lib.sh`
 # is excluded, being sourced rather than executed.
 declare -A GIT_MODE=()
-while IFS=$'\t' read -r meta path; do
-  GIT_MODE["$path"]="${meta%% *}"
-done < <(git ls-files -s -- "${RUNNABLE[@]/#/scripts/}" 2>/dev/null)
-for f in "${RUNNABLE[@]}"; do
-  [[ -f "scripts/$f" ]] || continue
-  mode="${GIT_MODE["scripts/$f"]:-}"
-  if [[ "$mode" == "100755" ]]; then
-    info "$f"
-  elif [[ -z "$mode" ]]; then
-    info "$f (not tracked by git yet)"
-  else
-    note_fail "$f is mode ${mode} in git, not 100755 — it will not be executable on the server. Fix:  git update-index --chmod=+x scripts/$f"
+# Through a file with the status kept, not a process substitution: a failed query is
+# indistinguishable from a repository holding no such files, and every script then takes the
+# "not tracked" arm below. `docs/ops/spec.md`'s I10 has no other enforcement.
+GIT_MODES="${SELFCHECK_TMP}/git-modes.tsv"
+GIT_MODES_RC=0
+git ls-files -s -- "${RUNNABLE[@]/#/scripts/}" > "$GIT_MODES" 2>"${GIT_MODES}.err" || GIT_MODES_RC=$?
+if (( GIT_MODES_RC != 0 )); then
+  note_fail "git could not be asked which modes it records (exit ${GIT_MODES_RC}), so no script's executable bit was checked: $(tr '\n' ' ' < "${GIT_MODES}.err" | cut -c1-200)"
+else
+  while IFS=$'\t' read -r meta path; do
+    GIT_MODE["$path"]="${meta%% *}"
+  done < "$GIT_MODES"
+  # A per-script "not tracked" is a new script awaiting its first `git add`; ALL of them at once,
+  # with the files on disk, is git having answered about some other tree.
+  if (( ${#GIT_MODE[@]} == 0 )); then
+    note_fail "git named none of the ${#RUNNABLE[@]} scripts, so there were no modes to check — this ran against something that is not the repository"
   fi
-done
+  for f in "${RUNNABLE[@]}"; do
+    [[ -f "scripts/$f" ]] || continue
+    mode="${GIT_MODE["scripts/$f"]:-}"
+    if [[ "$mode" == "100755" ]]; then
+      info "$f"
+    elif [[ -z "$mode" ]]; then
+      info "$f (not tracked by git yet)"
+    else
+      note_fail "$f is mode ${mode} in git, not 100755 — it will not be executable on the server. Fix:  git update-index --chmod=+x scripts/$f"
+    fi
+  done
+fi
 
 step "4. Every helper called is defined"
-# Out of an array rather than a `grep` per name, which would be a process per script-and-helper
-# pair — most of this check's cost.
+# The names checked are read out of the SCRIPTS, never out of `_lib.sh`: a pattern built from what
+# is defined can only match names that resolve, which is `docs/standard.md` PRE-4. A hand-written
+# pattern is the same thing one edit later.
+
+# Command position only: a name in a string, a comment, a case pattern or a `for` variable is not a
+# call. Underscored names only — the helper convention here, and the one class no external program
+# collides with. A single-word helper is outside it.
+
+# shellcheck disable=SC2016  # awk's own $0 and $1, which must not expand before awk reads them
+CMD_WORDS='
+# Q is built here rather than passed with -v: MSYS re-parses a Windows command line and eats the
+# quote out of an argument that is one.
+BEGIN { Q = sprintf("%c", 39); q = 0; cmd = 1; heredoc = ""; incase = 0; pat = 0; skipnext = 0; arith = 0; sd = 0 }
+{
+  line = $0
+  if (heredoc != "") {
+    t = line; sub(/^[ \t]+/, "", t)
+    if (t == heredoc) heredoc = ""
+    next
+  }
+  if (q == 0 && sd == 0) { cmd = 1; pat = incase }
+  n = length(line); word = ""
+  for (i = 1; i <= n; i++) {
+    c = substr(line, i, 1)
+    # A command substitution opens a command position of its own, quoted or not.
+    if (c == "$" && substr(line, i+1, 1) == "(" && substr(line, i+2, 1) != "(") {
+      sd++; sq[sd] = q; q = 0; cmd = 1; pat = 0; i++; continue
+    }
+    if (q == 1) { if (c == Q) q = 0; continue }
+    if (q == 2) { if (c == "\\") { i++; continue }; if (c == "\"") q = 0; continue }
+    if (arith) { if (c == ")" && substr(line, i+1, 1) == ")") { i++; arith = 0; cmd = 0 }; continue }
+    if (c == "\\") { i++; continue }
+    if (c ~ /[A-Za-z0-9_.\/:=,-]/) { word = word c; continue }
+    if (word != "") { emit(word, c); word = "" }
+    if (c == Q)    { q = 1; cmd = 0; continue }
+    if (c == "\"") { q = 2; cmd = 0; continue }
+    # `#` opens a comment only where a word does: after `$` it is the parameter count, and after
+    # `${` the length prefix. Reading either as a comment threw the rest of the line away.
+    if (c == "#" && (i == 1 || substr(line, i-1, 1) ~ /[ \t;&|(]/)) break
+    if (c == "<" && substr(line, i+1, 1) == "<" && substr(line, i+2, 1) != "<") {
+      rest = substr(line, i+2); sub(/^-/, "", rest); sub(/^[ \t]+/, "", rest)
+      fc = substr(rest, 1, 1)
+      if (fc == Q || fc == "\"") rest = substr(rest, 2)
+      if (match(rest, /^[A-Za-z_][A-Za-z0-9_]*/)) heredoc = substr(rest, RSTART, RLENGTH)
+      i++; cmd = 0; continue
+    }
+    if (c == "(" && substr(line, i+1, 1) == "(") { i++; arith = 1; continue }
+    if (c == "[") { cmd = 0; continue }
+    if (c == ")") { if (sd > 0) { q = sq[sd]; sd--; cmd = 0 } else { cmd = 1; pat = 0 }; continue }
+    if (c ~ /[;|&({!`]/) { cmd = 1; pat = incase; continue }
+    if (c == "}") { cmd = 1; continue }
+  }
+  if (word != "") emit(word, " ")
+}
+function emit(w, nextc, atcmd) {
+  if (w == "case") { incase = 1; cmd = 1; pat = 1; return }
+  if (w == "esac") { incase = 0; cmd = 0; return }
+  if (w ~ /^(if|then|else|elif|do|while|until|time|in|done|fi|coproc)$/) { cmd = 1; return }
+  if (w == "for" || w == "select" || w == "function") { cmd = 1; skipnext = 1; return }
+  atcmd = (cmd && !pat)
+  cmd = 0
+  if (skipnext) { skipnext = 0; return }
+  if (w ~ /=/) { if (atcmd) cmd = 1; return }
+  if (w !~ /^[a-z_][a-z0-9_]*$/ || w !~ /_/) return
+  # `word`: a bare occurrence that is neither a call nor a definition — the shape a helper takes
+  # when it is handed to a wrapper rather than run, which step 7 below asks about.
+  if (!atcmd) { if (!pat) print "word\t" w; return }
+  if (nextc == "[" || nextc == "+") return
+  if (nextc == "(") { print "def\t" w } else { print "call\t" w }
+}
+'
+
 declare -A DEFINED=()
 while IFS= read -r fn; do DEFINED["$fn"]=1; done \
   < <(grep -oE '^[a-z_]+\(\)' scripts/_lib.sh | tr -d '()')
+CALL_SITES=0
 for f in "${RUNNABLE[@]}"; do
   [[ -f "scripts/$f" ]] || continue
-  # Anything that looks like one of our helpers: our naming is consistent enough to enumerate.
-  called="$(grep -oE '\b(require_[a-z_]+|wait_healthy|redact_uri_credentials|image_[a-z_]+|git_[a-z_]+|any_python|venv_python|end_section|section|finish|refuse|add_findings|spinner_start|spinner_stop|fmt_duration|fmt_ms|excerpt|verbose|step_took_ms|step|ok|info|skip|warn|fail|die|detail|quietly|usage|on_error|on_interrupt|emit_section_ledger|adopt_section|adopt_ending|end_worker|worker)\b' "scripts/$f" | sort -u || true)"
-  missing=""
-  while IFS= read -r fn; do
-    [[ -z "$fn" ]] && continue
-    [[ -n "${DEFINED["$fn"]:-}" ]] || missing+=" $fn"
-  done <<< "$called"
+  sites="${SELFCHECK_TMP}/call-sites.tsv"
+  # awk's own status, because a reader that failed reports the same nothing as a script calling no
+  # helper at all — and that nothing would read as a pass.
+  if ! awk "$CMD_WORDS" "scripts/$f" > "$sites" 2>/dev/null; then
+    note_fail "$f: its call sites could not be read, so no helper of its was checked"
+    continue
+  fi
+  # A definition may sit below its first call, so the whole file is read for definitions first.
+  declare -A LOCAL_DEF=()
+  while IFS=$'\t' read -r kind name || [[ -n "$kind" ]]; do
+    [[ "$kind" == def ]] && LOCAL_DEF["$name"]=1
+  done < "$sites"
+  missing=""; seen=0
+  while IFS=$'\t' read -r kind name || [[ -n "$kind" ]]; do
+    [[ "$kind" == call ]] || continue
+    seen=$(( seen + 1 ))
+    [[ -n "${DEFINED["$name"]:-}" || -n "${LOCAL_DEF["$name"]:-}" ]] && continue
+    [[ "$missing" == *" ${name}"* ]] || missing+=" $name"
+  done < "$sites"
+  CALL_SITES=$(( CALL_SITES + seen ))
   if [[ -n "$missing" ]]; then
     note_fail "$f calls undefined helper(s):$missing"
   else
-    info "$f — all helpers resolve"
+    # The count is part of the verdict: a reader with nothing to read also has nothing to report.
+    info "$f — ${seen} helper call site(s), all resolve"
   fi
+  unset LOCAL_DEF
 done
+if (( CALL_SITES == 0 )); then
+  note_fail "no helper call site was found in any script, so nothing this step printed was proven"
+fi
+
+# The reader's bound drops single-word helpers, `die` and `ok` among them. `docs/ops/spec.md`'s
+# output standard names that vocabulary by a route that is not `_lib.sh`, so a verb it documents
+# and `_lib.sh` has stopped defining is a finding.
+VOCAB_SHEET="docs/ops/spec.md"
+vocab="${SELFCHECK_TMP}/output-verbs.txt"
+vocab_rc=0
+awk '
+  /^\*\*The output standard\./ { armed = 1; next }
+  armed && /^\|/ { inside = 1; if (match($0, /^\| `[a-z_]+`/)) print substr($0, RSTART + 3, RLENGTH - 4); next }
+  inside { exit }
+' "$VOCAB_SHEET" > "$vocab" 2>/dev/null || vocab_rc=$?
+# Skips, not findings: editing the sheet selects `docs` and `format`, never `scripts`, so a
+# reformatted table would redden a job its own gate cannot run. The undefined-verb arm stays a
+# finding: only a `_lib.sh` edit reaches it.
+if (( vocab_rc != 0 )); then
+  note_skip "${VOCAB_SHEET} could not be read (awk exit ${vocab_rc}), so the documented output vocabulary was not checked"
+elif [[ ! -s "$vocab" ]]; then
+  note_skip "no verb was read out of ${VOCAB_SHEET}'s output standard, so the vocabulary was not checked — the table's shape moved"
+else
+  undefined=""
+  while IFS= read -r verb || [[ -n "$verb" ]]; do
+    [[ -n "${DEFINED["$verb"]:-}" ]] || undefined+=" $verb"
+  done < "$vocab"
+  if [[ -n "$undefined" ]]; then
+    note_fail "${VOCAB_SHEET} documents output verb(s) _lib.sh no longer defines —${undefined} — so every script speaking one calls nothing"
+  else
+    info "$(wc -l < "$vocab" | tr -d ' ') documented output verb(s), each still defined in _lib.sh"
+  fi
+fi
 
 step "5. --help works from an unrelated directory"
 unit_help() { # $1 index · $2 script name · $3 label
@@ -310,8 +482,23 @@ par_run unit_unknown_option
 step "7. Machine-specific scripts declare a target platform"
 # Only the scripts that MUST run on one machine: the read-and-build ones would be pinned to an OS
 # for nothing, and that also blocks CI.
+
+# Through the reader above, not a text search: `grep -q require_platform` is satisfied by the name
+# sitting in a comment. Run, or handed to a wrapper, both count; a mention in a comment or a string
+# does not. Wired is all this proves, not that it fires.
 for f in local.sh publish.sh deploy.sh; do
-  if grep -q "require_platform" "scripts/$f"; then info "$f"; else note_fail "$f has no require_platform guard"; fi
+  guard="${SELFCHECK_TMP}/platform-sites.tsv"
+  if ! awk "$CMD_WORDS" "scripts/$f" > "$guard" 2>/dev/null; then
+    note_fail "$f: its call sites could not be read, so its platform guard was not checked"
+    continue
+  fi
+  guard_rc=0
+  grep -qE "^(call|word)$(printf '\t')require_platform\$" "$guard" || guard_rc=$?
+  case "$guard_rc" in
+    0) info "$f" ;;
+    1) note_fail "$f does not invoke require_platform — the name appearing in a comment or a string is not a guard" ;;
+    *) note_fail "$f: its call sites could not be searched (grep exit ${guard_rc}), so its platform guard was not checked" ;;
+  esac
 done
 
 step "8. Documented flags match accepted flags"
@@ -332,7 +519,47 @@ unit_flags() { # $1 index · $2 script name · $3 label
 for f in "${RUNNABLE[@]}"; do par_add "$f" "$f"; done
 par_run unit_flags
 
-step "9. The guards keep one copy of each shared block"
+step "9. Every scope verify.sh declares has a CI job, and every CI job names a scope"
+# A scope added to verify.sh with no job behind it never runs in CI, with every gate green: step 8
+# reads verify.sh against itself, and `check_scope.py :: SCOPES` guards the other direction alone.
+# Two listings, two routes, per PRE-4.
+
+# What verify.sh declares is its `add_scope` lines; what CI runs is every flag handed to
+# `verify.sh` in a workflow `run:` line — a job's key is a label, `backend-db` running `--db`.
+WORKFLOW=".github/workflows/verify.yml"
+declared="${SELFCHECK_TMP}/scopes-declared.txt"
+ran="${SELFCHECK_TMP}/scopes-in-ci.txt"
+declared_rc=0; ran_rc=0
+grep -oE '^add_scope[[:space:]]+[a-z]+' scripts/verify.sh | awk '{ print $2 }' | sort -u > "$declared" || declared_rc=$?
+# The workflow read stands alone, its status kept: under `pipefail` a later stage's 1 for "nothing
+# came through" would hide this stage's 2 for a file it could not open.
+grep -E '^[[:space:]]+(-[[:space:]]+)?run:[[:space:]]+\./scripts/verify\.sh([[:space:]]|$)' "$WORKFLOW" \
+  > "${ran}.lines" 2>/dev/null || ran_rc=$?
+if (( ran_rc <= 1 )); then
+  grep -oE -- '--[a-z]+' "${ran}.lines" | sed 's/^--//' | sort -u > "$ran" || true
+fi
+# grep's 1 is "no match", a real answer graded below; 2 and above is a file it could not read.
+if (( declared_rc > 1 || ran_rc > 1 )); then
+  note_fail "the scope listings could not be read (grep exit ${declared_rc} on verify.sh, ${ran_rc} on ${WORKFLOW}), so nothing here was compared"
+elif [[ ! -s "$declared" ]]; then
+  note_fail "verify.sh declares no scope through add_scope, so there was nothing to compare against the workflow"
+elif [[ ! -s "$ran" ]]; then
+  note_fail "${WORKFLOW} hands verify.sh no flag in any run: line, so no scope is proven to run in CI"
+else
+  unjobbed="$(comm -23 "$declared" "$ran" | tr '\n' ' ')"
+  unscoped="$(comm -13 "$declared" "$ran" | tr '\n' ' ')"
+  if [[ -n "$unjobbed" ]]; then
+    note_fail "verify.sh declares scope(s) no CI job runs — ${unjobbed% } — so each never runs in CI. Add a job to ${WORKFLOW} whose run: line hands verify.sh the flag."
+  fi
+  if [[ -n "$unscoped" ]]; then
+    note_fail "${WORKFLOW} hands verify.sh flag(s) it declares as no scope — ${unscoped% } — so that job runs nothing it names. A CI invocation names scopes alone."
+  fi
+  if [[ -z "$unjobbed" && -z "$unscoped" ]]; then
+    info "$(wc -l < "$declared" | tr -d ' ') scope(s), each declared by verify.sh and each run by a job in ${WORKFLOW##*/}"
+  fi
+fi
+
+step "10. The guards keep one copy of each shared block"
 # Sourcing one fragment instead fails OPEN: with it missing the guard exits 0 and prints nothing,
 # and a PreToolUse hook printing no verdict has denied nothing. Duplication fails loud, here.
 
@@ -371,7 +598,7 @@ compare_sentinel_block() { # $1 sentinel name · $2 hook path · $3 hook path
 compare_sentinel_block 'SHARED WRITE SHAPES' .claude/hooks/guard-branch-bash.sh .claude/hooks/guard-standard-bash.sh
 compare_sentinel_block 'SHARED EXEMPTION' .claude/hooks/guard-branch-bash.sh .claude/hooks/guard-branch-powershell.sh
 
-step "10. shellcheck"
+step "11. shellcheck"
 wait "$SC_PID" 2>/dev/null || true
 if [[ -s "$SC_RC" ]]; then sc_rc="$(cat "$SC_RC")"; else sc_rc="unfinished"; fi
 
@@ -403,7 +630,7 @@ case "$sc_rc" in
   *) note_fail "shellcheck reported findings:"; excerpt 40 < "$SC_OUT" ;;
 esac
 
-step "11. actionlint on the workflows"
+step "12. actionlint on the workflows"
 # The class of bug that otherwise surfaces on the first live run. Same ladder as shellcheck's.
 wait "$AL_PID" 2>/dev/null || true
 if [[ -s "$AL_RC" ]]; then al_rc="$(cat "$AL_RC")"; else al_rc="unfinished"; fi
@@ -421,7 +648,7 @@ case "$al_rc" in
   *) note_fail "actionlint reported findings:"; excerpt 40 < "$AL_OUT" ;;
 esac
 
-step "12. The gate's comment-only classifier"
+step "13. The gate's comment-only classifier"
 # A wrong answer is silent: classify a real code change as comments and the image build never runs
 # before the push. The fixtures pin each direction for every language the classifier parses.
 
@@ -518,7 +745,7 @@ else
   rm -rf "${FIXTURES:?}"
 fi
 
-step "13. The hooks refuse what they exist to refuse"
+step "14. The hooks refuse what they exist to refuse"
 # A guard is the code whose failure nobody observes: a refusal that does not happen announces
 # nothing, and neither does an exemption that swallows too much.
 
@@ -590,28 +817,41 @@ else
     PROBE_HOOK+=("$1"); PROBE_WANT+=("$2"); PROBE_KIND+=("$3"); PROBE_SUBJ+=("$4")
     par_add "$5" ""
   }
+  # A hook says "allowed" by printing nothing — and an absent file, a parse error, a non-zero exit
+  # and a verdict on the wrong stream are silent too. Dropping the status and stderr leaves a broken
+  # guard indistinguishable from a working one.
   unit_probe() { # $1 index · $2 unused · $3 label
-    local i="$1" payload out got
+    local i="$1" payload out err why got rc=0
     case "${PROBE_KIND[i]}" in
       cmd)  payload="$(cmd_payload "${PROBE_SUBJ[i]}")" ;;
       file) payload="$(file_payload "${PROBE_SUBJ[i]}")" ;;
       resp) payload="$(resp_payload "${PROBE_SUBJ[i]}")" ;;
       *)    payload="${PROBE_SUBJ[i]}" ;;
     esac
-    out="$( cd "$HOOK_REPO" && printf '%s' "$payload" | bash "${HOOKS_DIR}/${PROBE_HOOK[i]}" 2>/dev/null )" || true
+    err="${SELFCHECK_TMP}/probe-${i}.err"
+    out="$( cd "$HOOK_REPO" && printf '%s' "$payload" | bash "${HOOKS_DIR}/${PROBE_HOOK[i]}" 2>"$err" )" || rc=$?
     case "$out" in
       *'"permissionDecision":"deny"'*) got=denied ;;
       *'"permissionDecision":"ask"'*)  got=asked ;;
       *'"decision":"block"'*)          got=blocked ;;
       *hookSpecificOutput*)            got=emitted ;;
-      "")                              got=allowed ;;
+      # Every hook path that decides anything exits 0 with JSON on stdout, so a non-zero status is
+      # a crash rather than a verdict, and stderr is only consulted where stdout said nothing.
+      "")  if   (( rc != 0 ));   then got="crashed (exit ${rc})"
+           elif [[ -s "$err" ]]; then got="crashed (wrote to stderr)"
+           else                       got=allowed; fi ;;
       *)                               got=unreadable ;;
     esac
     if [[ "$got" == "${PROBE_WANT[i]}" ]]; then
       printf 'info\t%s — %s\n' "$3" "$got"
     else
-      printf 'fail\t%s: expected %s, got %s\n' "$3" "${PROBE_WANT[i]}" "$got"
+      # Folded onto one line: par_run reads one verdict per line, so a newline here would be read
+      # back as a second, unreadable record.
+      why=""
+      if [[ "$got" == crashed* && -s "$err" ]]; then why=" — $(tr '\n\t' '  ' < "$err" | cut -c1-200)"; fi
+      printf 'fail\t%s: expected %s, got %s%s\n' "$3" "${PROBE_WANT[i]}" "$got" "$why"
     fi
+    rm -f "$err"
   }
 
   rm -rf "${HOOKFX:?}"
@@ -624,9 +864,9 @@ else
     # The MSYS drive spelling of the same root — one of the classes the guard must place.
     hook_msys="/$(printf '%s' "$hook_root" | sed -E 's#^([A-Za-z]):#\L\1#')"
 
-    hb=guard-branch-bash.sh;   hs=guard-standard-bash.sh;   ht=guard-branch.sh
-    he=guard-standard-edit.sh; hc=guard-local-compose.sh;   hk=guard-stale-type-class.sh
-    hp=guard-branch-powershell.sh
+    hb='guard-branch-bash.sh';   hs='guard-standard-bash.sh';   ht='guard-branch.sh'
+    he='guard-standard-edit.sh'; hc='guard-local-compose.sh';   hk='guard-stale-type-class.sh'
+    hp='guard-branch-powershell.sh'
 
     # --- guard-branch.sh on main: the tool route -------------------------------------------------
 
@@ -811,6 +1051,18 @@ else
     probe "$hb" denied  cmd 'echo x | tee scripts/verify.sh'                   'bash guard: tee, spaced'
     probe "$hb" denied  cmd 'sed  -i s/a/b/ scripts/verify.sh'                 'bash guard: sed -i, doubled space'
     probe "$hb" denied  cmd 'sed -e s/a/b/ -i scripts/verify.sh'               'bash guard: sed with -i behind another flag'
+    # A verb is a word to this scan, so every spelling that leaves it a word has to reach it: a
+    # directory in front, and ANSI-C quoting the shell takes off before it runs anything.
+    probe "$hb" denied  cmd '/bin/rm -rf fl_frontend/src'                      'bash guard: a deletion spelled with a path'
+    probe "$hb" denied  cmd "\$'rm' -rf fl_frontend/src"                       'bash guard: a deletion in ANSI-C quotes'
+    probe "$hb" denied  cmd "\$'sed' -i s/a/b/ scripts/verify.sh"              'bash guard: an in-place editor in ANSI-C quotes'
+    # A quoted `>` is text, and refusing on one refused an ordinary grep; a quoted one an
+    # interpreter is handed is a redirect that shell performs.
+    probe "$hb" allowed cmd 'grep -n "a -> b" notes.md'                        'bash guard: an arrow inside quotes is not a redirect'
+    probe "$hb" allowed cmd "git log --format='%h > %s'"                       'bash guard: an arrow inside a git format string'
+    probe "$hb" denied  cmd 'bash -c "printf x > scripts/verify.sh"'           'bash guard: a redirect inside an interpreter argument'
+    probe "$hb" denied  cmd "sh -c 'printf x > scripts/verify.sh'"             'bash guard: the single-quoted spelling of the same'
+    probe "$hb" denied  cmd 'awk {print > "scripts/verify.sh"} notes.md'       'bash guard: a redirect inside an awk program'
     # Each commits, merges or patches on main while naming a git subcommand a raw-string scan
     # does not see.
     probe "$hb" denied  cmd 'git -c user.name=x commit -am wip'                'bash guard: a commit on main behind -c'
@@ -999,6 +1251,8 @@ else
     # Neither program is on the interpreter list beside it, so the in-place arm is what answers.
     probe "$hs" asked   cmd 'awk -i inplace {print} docs/standard.md'          'standard bash guard: awk -i inplace'
     probe "$hs" asked   cmd '/usr/bin/sed -i s/a/b/ docs/standard.md'          'standard bash guard: an editor spelled with a path'
+    probe "$hs" asked   cmd "\$'sed' -i s/a/b/ docs/standard.md"               'standard bash guard: an editor in ANSI-C quotes'
+    probe "$hs" allowed cmd 'grep -n "a -> b" docs/standard.md'                'standard bash guard: an arrow inside quotes is not a redirect'
     # The guard asks on path EQUALITY, so a name sharing the standard's prefix must pass untouched.
     probe "$hs" allowed cmd 'printf x > docs/standard-notes.md'                'standard bash guard: a sibling name is not the standard'
     probe "$hs" allowed cmd 'grep -i foo docs/standard.md'                     'standard bash guard: grep -i is not an in-place edit'
@@ -1050,6 +1304,10 @@ else
     probe "$hc" allowed cmd "$(printf 'cat <<EOF\nDrive local Docker only through ./scripts/local.sh, never bare docker compose\nEOF')" 'compose guard: a heredoc into a program that runs neither an argument nor its input'
     probe "$hc" denied  cmd "$(printf 'sh <<EOF\ndocker compose config\nEOF')" 'compose guard: a heredoc into an interpreter'
     probe "$hc" denied  cmd "$(printf "bash <<'X'\ndocker compose up -d\nX")" 'compose guard: a quoted heredoc into an interpreter'
+    # A delimiter is the whole word, and a body that never closes swallowed the command behind it.
+    probe "$hc" denied  cmd "$(printf 'cat <<END-OF\nx\nEND-OF\ndocker compose up -d')" 'compose guard: a punctuated heredoc delimiter'
+    probe "$hc" denied  cmd "$(printf "cat <<'E-F'\nx\nE-F\ndocker compose up -d")"     'compose guard: a punctuated delimiter, quoted'
+    probe "$hc" denied  cmd "$(printf 'echo "a << b"\ndocker compose up -d')"           'compose guard: a heredoc opener inside a string'
 
     # `config` resolves every env_file into the rendered environment block, so it PRINTS
     # ./fl_backend/.env, and -o saves it anywhere. It refuses whichever file is named: consent to a
@@ -1164,6 +1422,19 @@ else
         probe "$hb" denied  cmd  "cp docs/audit/note.md ${hook_msys}/scripts/verify.sh" 'bash guard: MSYS /c/ spelling, tracked'
         probe "$hs" asked   cmd  "printf x > ${hook_msys}/docs/standard.md"    'standard bash guard: MSYS /c/ spelling'
         probe "$he" asked   file "${hook_root}/DOCS/STANDARD.MD"               'standard edit guard: a case respelling'
+        # A backslash suppresses alias expansion and changes nothing else, so each of these runs the
+        # verb it hides; on Windows the same character separates a path.
+        probe "$hb" denied  cmd  '\rm -rf fl_frontend/src'                     'bash guard: a backslash in front of rm'
+        probe "$hb" denied  cmd  'r\m -rf fl_frontend/src'                     'bash guard: a backslash inside rm'
+        probe "$hb" denied  cmd  '\git commit -am wip'                         'bash guard: a backslash in front of git'
+        probe "$hb" denied  cmd  'C:\bin\rm -rf fl_frontend/src'               'bash guard: a deletion spelled with a Windows path'
+        probe "$hb" denied  cmd  "\$'\\x72\\x6d' -rf fl_frontend/src"          'bash guard: a verb spelled in hex escapes'
+        probe "$hs" asked   cmd  '\sed -i s/a/b/ docs/standard.md'             'standard bash guard: a backslash in front of sed'
+        ;;
+      # Every CI job is ubuntu-latest, so this group is proven on a developer's machine and nowhere
+      # else. Left silent it is the shortfall step 15 exists to force into the open.
+      *)
+        note_skip "the Windows-only path spellings were not probed — backslash, drive-letter, MSYS /c/ and case-varied paths exist only there, and this is $(uname -s)"
         ;;
     esac
     par_run unit_probe
@@ -1196,8 +1467,19 @@ else
   # standard, stop staying quiet and it is restated on every edit. Serial, because the dedupe
   # marker is state the probes share.
   standard_hook="${REPO_ROOT}/.claude/hooks/docs-standard.sh"
+  # A crash is silent, and silence is this hook's pass — so the status and stderr are turned into
+  # output of their own rather than dropped, and every reader below sees a crash as a wrong answer.
+  standard_err="${SELFCHECK_TMP}/standard-hook.err"
   probe_standard() { # $1 payload on stdin — from the repository root
-    printf '%s' "$1" | bash "$standard_hook" 2>/dev/null || true
+    local rc=0 out
+    out="$(printf '%s' "$1" | bash "$standard_hook" 2>"$standard_err")" || rc=$?
+    if (( rc != 0 )); then
+      printf 'crashed (exit %s): %s' "$rc" "$(tr '\n\t' '  ' < "$standard_err" | cut -c1-200)"
+    elif [[ -z "$out" && -s "$standard_err" ]]; then
+      printf 'crashed (wrote to stderr): %s' "$(tr '\n\t' '  ' < "$standard_err" | cut -c1-200)"
+    else
+      printf '%s' "$out"
+    fi
   }
   expect_silent() { # $1 label · $2 hook output — the contract is silence
     if [[ -z "$2" ]]; then info "$1 — silent"; else note_fail "$1: expected silence, got '$2'"; fi
@@ -1213,6 +1495,9 @@ else
   sid="sc-${RUN_ID}-${RANDOM}"
   out="$(probe_standard "$(standard_md_payload "$sid" "${standard_root}/docs/README.md")")"
   case "$out" in
+    # Read before the emission arm: a crash reported through stderr can carry the very marker the
+    # arm below looks for, and a crash is not an emission.
+    crashed*) note_fail "standard hook: first repo .md edit — ${out}" ;;
     *hookSpecificOutput*) info "standard hook: first repo .md edit — emitted" ;;
     *) note_fail "standard hook: expected the standard on a first repo .md edit, got '${out:-nothing}'" ;;
   esac
@@ -1222,20 +1507,40 @@ else
   rm -f "$(node -e 'process.stdout.write(require("os").tmpdir())')"/claude-docs-standard-"${sid}"* 2>/dev/null || true
 fi
 
-step "14. Every deliberate non-run reaches the gate"
-# Any message shape, not a quoted one alone, so `skip bareword` is caught too. The first exclusion
-# drops prose using the word; the second exempts the definitions themselves.
-stray="$(grep -nE '(^|[^_[:alnum:]])(skip|warn)[[:space:]]+[^[:space:]]' scripts/selfcheck.sh \
-  | grep -vE '^[0-9]+:[[:space:]]*#' \
-  | grep -vE '^[0-9]+:(note_skip|note_warn)\(\)' || true)"
-if [[ -n "$stray" ]]; then
+step "15. Every deliberate non-run reaches the gate"
+# Any message shape, not a quoted one alone, so `skip bareword` is caught too.
+
+# The sweep's own status is kept and the exclusions are one pattern: `grep … || true` reports a file
+# it could not read exactly as it reports a clean one, and under `pipefail` a second stage exiting 1
+# hides a first exiting 2.
+SWEEP="${SELFCHECK_TMP}/ledger-sweep.txt"
+sweep_rc=0
+grep -nE '(^|[^_[:alnum:]])(skip|warn)[[:space:]]+[^[:space:]]' scripts/selfcheck.sh > "$SWEEP" 2>/dev/null \
+  || sweep_rc=$?
+sweep_lines=0
+if [[ -s "$SWEEP" ]]; then sweep_lines="$(wc -l < "$SWEEP")"; fi
+# The exclusions: prose using the word, and the two definitions themselves.
+stray=""
+stray_rc=0
+if (( sweep_rc <= 1 )); then
+  stray="$(grep -vE '^[0-9]+:([[:space:]]*#|(note_skip|note_warn)\(\))' "$SWEEP")" || stray_rc=$?
+fi
+if (( sweep_rc > 1 )); then
+  note_fail "this file could not be swept for unledgered shortfalls (grep exit ${sweep_rc}), so nothing below was checked"
+elif (( stray_rc > 1 )); then
+  note_fail "the sweep's result could not be filtered (grep exit ${stray_rc}), so nothing below was checked"
+# The definitions of note_skip and note_warn match the sweep and are then excluded, so a run that
+# matched nothing at all read something other than this file.
+elif (( sweep_lines == 0 )); then
+  note_fail "the sweep matched nothing whatever, not even the two definitions it excludes — it did not read this file"
+elif [[ -n "$stray" ]]; then
   note_fail "these lines announce a shortfall the gate cannot see — call note_skip or note_warn instead:"
   printf '%s\n' "$stray" | excerpt 5
 else
-  info "every deliberate non-run here is written to the ledger verify.sh replays"
+  info "every deliberate non-run here is written to the ledger verify.sh replays (${sweep_lines} line(s) swept)"
 fi
 
-step "15. The container-log redaction"
+step "16. The container-log redaction"
 # Wrong in either direction and silent in both: a credential reaching the operator's terminal, or
 # the host redacted out of the log a failing deploy is read from. Each case below is a real
 # error-message shape, the bound being a regex nobody re-derives.
