@@ -599,3 +599,33 @@ def test_the_declared_rank_is_global_and_not_each_lane_counting_from_zero():
     # The premise, not a detail: with the failure first in its own lane the case proves nothing.
     assert ran.index("aktionen queue") < ran.index("declared second, lane position 1")
     assert str(raised.value) == "declared second, lane position 1"
+
+
+def test_the_failure_chosen_is_not_the_first_lane_s_but_the_first_declared():
+    """Two lanes fail, and the one that OPENS first is the one that fails LATER.
+
+    `lanes` is insertion-ordered, so the first-opened lane's failure is the first `gather` hands
+    back -- and in every other case here that is also the first declared.
+    """
+    ran: list[str] = []
+
+    async def succeed(label: str) -> None:
+        ran.append(label)
+
+    async def fail(label: str) -> None:
+        ran.append(label)
+        raise RuntimeError(label)
+
+    declared: list[tuple[str, Any]] = [
+        ("aktionen", partial(succeed, "aktionen opens the first lane")),
+        ("bewerbungen", partial(fail, "declared second")),
+        ("aktionen", partial(fail, "declared third")),
+    ]
+
+    with pytest.raises(RuntimeError) as raised:
+        asyncio.run(_apply_concurrently(declared))
+
+    # The premise, not a detail: one failure orders nothing, and the first lane has to be the one
+    # holding the later-declared of the two.
+    assert {"declared second", "declared third"} <= set(ran)
+    assert str(raised.value) == "declared second"
