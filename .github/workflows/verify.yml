@@ -64,6 +64,43 @@ jobs:
             ./scripts/ci_scopes.sh --all >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Report the branch's line delta
+        # The re-bloat glance: a per-bucket line delta in the run summary, so growth is visible on
+        # the pull request adding it. Advisory by construction — no threshold, no verdict, and
+        # continue-on-error keeps a failure away from this job's outputs.
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          base="$(git merge-base "origin/${BASE_REF}" HEAD)"
+          # --no-renames: a rename counts as its full add and delete in one bucket, netting zero,
+          # where a rename spec's combined spelling would classify as neither side.
+          git diff --numstat --no-renames "$base" HEAD | awk -F'\t' -v base="$base" '
+            $1 == "-" { next }
+            {
+              b = "product code"
+              if ($3 == "fl_backend/openapi.json" || $3 ~ /(^|\/)(pnpm-lock\.yaml|uv\.lock)$/) b = "generated"
+              else if ($3 ~ /^(fl_backend|scripts)\/tests\// || $3 ~ /\.test\.(ts|tsx)$/) b = "tests"
+              else if ($3 ~ /\.md$/ || $3 ~ /^docs\//) b = "documentation"
+              else if ($3 ~ /^(scripts|nginx|certs)\/|^\.|^docker-compose|(^|\/)(Dockerfile|\.[^\/]+)$/) b = "tooling"
+              seen[b] = 1; add[b] += $1; del[b] += $2
+            }
+            END {
+              n = split("product code,tests,documentation,tooling,generated", names, ",")
+              net = 0
+              for (i = 1; i < n; i++) net += add[names[i]] - del[names[i]]
+              printf "### Line delta against merge base %.7s\n\n", base
+              printf "**Net: %+d lines** (generated files excluded)\n\n", net
+              print "| Bucket | Added | Removed | Net |"
+              print "| --- | ---: | ---: | ---: |"
+              for (i = 1; i <= n; i++) {
+                b = names[i]
+                if (seen[b]) printf "| %s%s | %d | %d | %+d |\n", b, (i == n ? " (excluded)" : ""), add[b], del[b], add[b] - del[b]
+              }
+            }
+          ' >> "$GITHUB_STEP_SUMMARY"
+
   # Commit messages are checked in a job of their own, not in the docs job and not in `changes`:
   # they are the one thing with no path, so a frontend-only pull request would skip the docs scope
   # and merge unchecked -- while nothing waits on this job, so its backend install sits off the
