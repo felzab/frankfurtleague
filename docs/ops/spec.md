@@ -377,12 +377,15 @@ parent's, never a worker's** — a worker runs the one scope it is given. `scrip
 the spawning and nothing else; the sections and closing statements stay in `scripts/_lib.sh`.
 
 **A worker's exit status and the rows it sent home are two accounts of one run, and the parent holds
-them to each other.** A status of 1 or 2 over rows that all read as a plain pass is refused at exit 2
-rather than adopted (`scripts/_lib.sh :: adopt_ending`): those rows are the only place a finding or a
-refusal could be named, so a run contradicting itself has judged nothing, and the alternative reading
-— trusting the rows — is a green run over a scope that said it found something. Rank 0, the stand-in
-for a scope that sent no ledger at all, is already a state §1.7's closing table will not call green,
-so a status of 1 beside it is corroborated rather than contradicted.
+them to each other** (`scripts/_lib.sh :: adopt_ending`). A status of 1 names a finding and a status
+of 2 names a refusal; the rows are the only place either could be recorded, so a status whose rows
+name neither is a run contradicting itself, which has judged nothing. The alternative reading —
+trusting the rows — is a green run over a scope that said it found something. **It ends at 3, the
+code for the environment, and never at 2**: 2 asks for the input the check was given to be fixed
+(`scripts/checker_kernel.py`'s exit contract), and no input made a worker and its parent disagree —
+the fault is in the handoff, which is this gate's own plumbing. Rank 0, the stand-in for a scope that
+sent no ledger at all, is exempt: it is already a state §1.7's closing table will not call green, and
+no row could have explained a scope nothing proved.
 
 **The scripts scope carries that shape one level down**: its checks start together and each is
 collected at its own step, so the scope costs its slowest check rather than the sum. Every verdict

@@ -54,10 +54,14 @@ ENDINGS: Final[tuple[Ending, ...]] = (
     Ending("a worker that was interrupted", ("adopt_ending 130",), 130, "Interrupted after"),
     Ending("a worker that crashed", ("adopt_ending 4",), 4, "Crashed after"),
     Ending("a worker whose rows tell the whole story", ("adopt_section demo 2 10 0 0", "adopt_ending 0", "finish"), 0, "Green"),
-    # A status of 1 or 2 says something the rows have to corroborate. Where they read as a plain
-    # pass instead, the two accounts disagree and neither is a verdict — graded 2, never green.
-    Ending("a worker status its rows contradict", ("adopt_section demo 2 10 0 0", "adopt_ending 1"), 2, "two accounts of one run"),
-    Ending("a worker refusal its rows contradict", ("adopt_section demo 2 10 0 0", "adopt_ending 2"), 2, "two accounts of one run"),
+    # A 1 names a finding and a 2 names a refusal, and a plain-pass row carries neither. Neither
+    # account is then a verdict: graded 3, the code for the run's own plumbing, never green.
+    Ending("a worker status its rows contradict", ("adopt_section demo 2 10 0 0", "adopt_ending 1"), 3, "carries no finding"),
+    Ending("a worker refusal its rows contradict", ("adopt_section demo 2 10 0 0", "adopt_ending 2"), 3, "carries no refusal"),
+    # A rank of 4 is the row a 2 names, and a 1 over it names a finding no row holds: the two arms
+    # are read apart, so neither status is corroborated by the other's row.
+    Ending("a refusal its rows carry", ("adopt_section demo 4 10 0 0", "adopt_ending 2", "finish"), 2, "Refused after"),
+    Ending("a finding named over a row that refused", ("adopt_section demo 4 10 0 0", "adopt_ending 1"), 3, "carries no finding"),
     # Rank 0 is the parent's own word for a scope that proved nothing, so a status of 1 over it is
     # corroborated rather than contradicted, and `finish` still refuses to call the run green.
     Ending("a worker that sent no ledger home", ("adopt_section demo 0 0 0 0", "adopt_ending 1", "finish"), 1, "closed with no verdict"),
