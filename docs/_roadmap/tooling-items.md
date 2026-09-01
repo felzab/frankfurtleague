@@ -66,25 +66,24 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 18  | OPS-77  | A test fixture asserts the type nothing else checks                | FE, Ops           | M      | Open     | —          |
 | 19  | OPS-72  | The unique-index test pairs by ordinal position                    | BE, Ops           | S      | Open     | —          |
 | 20  | OPS-85  | The gate never reads a stylesheet's comments                       | Ops, Docs         | S      | Open     | —          |
-| 21  | OPS-29  | The docs gate is blind inside an embedded one-liner                | Ops, Docs         | S      | Open     | —          |
-| 22  | OPS-74  | One field list is drift-guarded on one side only                   | FE, Ops           | S      | Open     | —          |
-| 23  | OPS-87  | A call site's key tier is held to its route by nothing             | FE, BE, Ops       | M      | Open     | —          |
-| 24  | OPS-68  | Two routes on one path and method collapse to one                  | BE, Ops           | S      | Open     | —          |
-| 25  | OPS-83  | An in-transaction read's session argument is untested              | BE, Ops           | M      | Open     | —          |
-| 26  | DOC-13  | The refusal-code table is held to the backend by nothing           | BE, Ops, Docs     | S      | Open     | —          |
-| 27  | DOC-15  | A refusal's meaning is written three times, unresolved             | FE, BE, Ops, Docs | M      | Open     | —          |
-| 28  | OPS-63  | A comment claims two files hold one pattern, unchecked             | FE, BE, Ops       | S      | Open     | —          |
-| 29  | OPS-69  | A declared-permitted state's reason is checked by nothing          | BE, Ops           | S      | Open     | —          |
-| 30  | OPS-66  | The CSP's style directive is wider than it needs to be             | Ops, Docs         | S      | Open     | —          |
-| 31  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
-| 32  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
-| 33  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
-| 34  | OPS-10  | Naming the image build's culprits costs a process per file         | Ops               | S      | Open     | —          |
-| 35  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
-| 36  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
-| 37  | DOC-3   | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
-| 38  | DOC-10  | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
-| 39  | OPS-81  | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
+| 21  | OPS-74  | One field list is drift-guarded on one side only                   | FE, Ops           | S      | Open     | —          |
+| 22  | OPS-87  | A call site's key tier is held to its route by nothing             | FE, BE, Ops       | M      | Open     | —          |
+| 23  | OPS-68  | Two routes on one path and method collapse to one                  | BE, Ops           | S      | Open     | —          |
+| 24  | OPS-83  | An in-transaction read's session argument is untested              | BE, Ops           | M      | Open     | —          |
+| 25  | DOC-13  | The refusal-code table is held to the backend by nothing           | BE, Ops, Docs     | S      | Open     | —          |
+| 26  | DOC-15  | A refusal's meaning is written three times, unresolved             | FE, BE, Ops, Docs | M      | Open     | —          |
+| 27  | OPS-63  | A comment claims two files hold one pattern, unchecked             | FE, BE, Ops       | S      | Open     | —          |
+| 28  | OPS-69  | A declared-permitted state's reason is checked by nothing          | BE, Ops           | S      | Open     | —          |
+| 29  | OPS-66  | The CSP's style directive is wider than it needs to be             | Ops, Docs         | S      | Open     | —          |
+| 30  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
+| 31  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
+| 32  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
+| 33  | OPS-10  | Naming the image build's culprits costs a process per file         | Ops               | S      | Open     | —          |
+| 34  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
+| 35  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
+| 36  | DOC-3   | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
+| 37  | DOC-10  | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
+| 38  | OPS-81  | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -1166,10 +1165,8 @@ against the imported field tuple at module level, so an unpaired field fails at 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
-**Path:** Independent. It sits beside **OPS-29**, the same failure one level down — that one is a
-language the reader cannot switch to inside a file it already scans, this one is a file the corpus
-never lists at all. **DOC-3** is the third of the family, where a pattern rather than a filter is
-what falls short of its rule. None waits on another and each fix is in a different place.
+**Path:** Independent. **DOC-3** is its nearest relative, where a pattern rather than a filter is
+what falls short of its rule. Neither waits on the other and each fix is in a different place.
 
 **`scripts/docs_gate/kernel.py :: SOURCE_SUFFIXES` does not carry `.css`, so no comment check has
 ever read a stylesheet.** Two filters stand in the way and neither admits one:
@@ -1206,7 +1203,7 @@ hand.
 **Which way the disagreement should be settled is open, and the measurement is why.** Widening the
 filter is not one line: `.css` has to reach `scripts/docs_gate/kernel.py :: CSTYLE_SUFFIXES` as
 well, or `:: comment_style` hands the file to the `#` reader and every check runs over an empty
-body — OPS-29's silence reproduced in a new place. The alternative is to say in the In-code
+body, checked by nothing and reported as nothing. The alternative is to say in the In-code
 scope line where its checks stop, which is the cheaper change and leaves every block in the two stylesheets carrying this
 application's styling reasoning under no bound at all. A third question rides on whichever is taken:
 both files open on a block INC-2 admits in no stylesheet, and
@@ -1232,73 +1229,10 @@ Test 4 places it — an afternoon that brings the reach measured above under bou
 already claims bind it, in the one file where a rule is known to have been broken and caught by
 hand rather than by the check written for it. **What it does not do is clear a standing breach**:
 the three INC-9 blocks fail no branch even with the suffix widened, so they stay `/docs:audit`'s
-whichever way this goes. It holds above **OPS-29**, the same shape of hole with nothing
-demonstrated behind it, on that escape alone — the effort tie-break would otherwise take OPS-29
-first, that one riding another change rather than being one. It stays below **OPS-72**, whose
-subject is a test that reports an index proven when it is not.
+whichever way this goes. It stays below **OPS-72**, whose subject is a test that reports an index
+proven when it is not.
 
-### 21 · OPS-29 — The documentation gate reads nothing inside an embedded node one-liner
-
-**Status:** Open\
-**Surfaces:** Ops, Docs\
-**Effort:** S\
-**Path:** Independent. **A rider on the next `scripts/docs_gate/` change** rather than a change of
-its own, on the measurement below.
-
-**`scripts/docs_gate/kernel.py :: comment_style` picks one comment reader per file, by suffix, and
-cannot switch languages inside a file.** A `.sh` file gets the `#` reader and everything downstream
-inherits it — `scripts/docs_gate/kernel.py :: comments_only`, `:: _scan_body`, and
-`scripts/docs_gate/branch.py :: branch_additions`, which indexes into the scanned body by line
-number, so a `//` line lands on an empty position and drops out. The content is not shortened, it is
-absent. That same reader takes `.conf`, `.yml`, `.yaml`, `.toml` and any file with no suffix at all,
-`Dockerfile` included.
-
-**Measured on 2026-08-19 rather than reasoned.** Thirty-seven tracked files reach the `#` reader;
-eleven carry a non-URL `//`; six of those are `.claude/hooks/*.sh` with genuine embedded JavaScript,
-and they hold 59 `//` comment blocks no gate check has ever read. **A branch that adds `//`
-comments to one of those files adds nothing `branch_additions` returns** — measured against
-`.claude/hooks/guard-branch-bash.sh`, where every added `//` comment line is absent from it. No
-standing figure goes with that half, because the count is a property of whichever branch is asked:
-take it by diffing the file against the fork point and comparing its `//` lines against what
-`branch_additions` returns.
-
-**The citation half is the sharper one and has to be named on its own.** `check_added_citations`
-(INC-6) sees none of that region, so a citation written inside one of those blocks can dangle
-**silently and permanently** — nothing resolves it on a branch, and nothing resolves it in a standing
-sweep either. One written there today would resolve or dangle unobserved either way, and nothing
-would notice the day it stopped resolving.
-
-**The length half is the quiet one, which is why it ranks under the other.** A breach there is
-harmless until it is found and obvious once it is, and every one of those blocks sits inside INC-9's
-three lines and 250 characters as of 2026-08-19. What the gap costs is therefore not a live breach
-but the next block written over either bound: `check_comment_length` (INC-9) takes it in any other
-file and has never measured this region at all. `check_history_phrases` (COR-3) and `check_counts`
-(COR-4) are blind in the same region for the same reason.
-
-**This sits outside the scope classifier's accepted boundary, and not marginally.** That boundary is
-`scripts/check_scope.py`'s, and every limit it accepts errs toward _more_ checking:
-what no parser can prove is code, so the full gate is demanded. Here unreadable means checked by
-nothing and reported as nothing — a different module, a different check family, and the opposite
-failure direction, so that boundary cannot be cited to accept it.
-
-**What the change has to be scoped for.** INC-6's `Enforced by` names its checks over every tracked
-TypeScript, JavaScript, Python and shell file, and for the embedded-JavaScript region of a shell file
-that claim is false — a field claiming _more_ than the gate delivers, where DOC-2 records the
-opposite direction. Teaching the shell reader to take `//` runs beside `#` runs is the expected fix.
-The honest alternative is amending INC-6's `Enforced by` to say where its checks stop. **The outcome
-to avoid is the third one** — leaving both the silence and the enforcement claim standing, which is
-how the next dangling citation gets written into the one place a reader trusts most.
-
-**What teaching the reader would newly raise is one advisory, not forty-three**, which is what makes
-this a rider rather than its own change. Measured on 2026-08-12 by running the real checkers over a
-body carrying only the `//` text of all ten files: rule-id, citation, line-citation, bare-path and
-voice raise **nothing**, because the `//` blocks are clean and every citation in them
-resolves; COR-3's `check_history_phrases` raises nothing; and COR-4's `check_counts` raises **one
-advisory over three lines**. The reason is structural rather than lucky — COR-3, COR-4 and
-`check_comment_length` all read `branch_additions`, so they cannot fire on a line no branch added,
-and the over-length block named above surfaces only when somebody rewrites it.
-
-### 22 · OPS-74 — One field list is drift-guarded on the backend and hand-written on the frontend
+### 21 · OPS-74 — One field list is drift-guarded on the backend and hand-written on the frontend
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -1344,7 +1278,7 @@ tuple parsed out of `fl_backend/app/api/saisons/services.py`, with each entry's 
 appear in the `REQ-RULES-011` arm. A further field then fails the frontend suite the same day it fails
 nothing on the backend.
 
-### 23 · OPS-87 — A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches
+### 22 · OPS-87 — A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -1387,7 +1321,7 @@ frontend half from the call sites, and that derivation — not the comparison �
 **The decision is whether that is worth building** against a failure mode that is loud in one
 direction and, in the other, costs a wider key on a request that would have succeeded anyway.
 
-### 24 · OPS-68 — Two routes sharing a path and a method collapse to one before the guard sweep reads them
+### 23 · OPS-68 — Two routes sharing a path and a method collapse to one before the guard sweep reads them
 
 **Status:** Open\
 **Surfaces:** BE, Ops\
@@ -1420,7 +1354,7 @@ segment cannot be read as an id; the admin route carries a static `/admin` after
 each of the two paths, by the guard that refuses the wrong key. **This entry is about the sweep's
 blind spot in general, not about that route.**
 
-### 25 · OPS-83 — An in-transaction read's session argument is held to its comment by nothing
+### 24 · OPS-83 — An in-transaction read's session argument is held to its comment by nothing
 
 **Status:** Open\
 **Surfaces:** BE, Ops\
@@ -1460,7 +1394,7 @@ the design question inside the entry, and writing it for this site alone leaves 
 **Not verified here:** the database tier was not run for this entry. That dropping the argument leaves
 it green is a report; the mechanism above is what the code says would allow it.
 
-### 26 · DOC-13 — Every refusal code is written twice, and nothing resolves one spelling against the other
+### 25 · DOC-13 — Every refusal code is written twice, and nothing resolves one spelling against the other
 
 **Status:** Open\
 **Surfaces:** BE, Ops, Docs\
@@ -1512,7 +1446,7 @@ partly-spelled code. What a check reading the backend by SHAPE rather than by de
 to tolerate is a glob in prose: `fl_backend/app/core/domain.py` writes `REQ-STATE-*` inside an
 `Unenforced` reason, naming the pair rather than a code the table could carry a row for.
 
-### 27 · DOC-15 — A refusal code's meaning is written three times in prose, and nothing resolves any pair of them
+### 26 · DOC-15 — A refusal code's meaning is written three times in prose, and nothing resolves any pair of them
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops, Docs\
@@ -1564,7 +1498,7 @@ added. Test 4 places it below **DOC-13** — that one buys a complete answer for
 this costs more and can never answer the half that matters — and above **OPS-63**, whose population is
 one comment about two files where this reaches every refusal the product can state.
 
-### 28 · OPS-63 — A comment claims two files hold the same pattern, and nothing holds them to it
+### 27 · OPS-63 — A comment claims two files hold the same pattern, and nothing holds them to it
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -1620,7 +1554,7 @@ a reader following that comment never arrives at them.
 - **Generate one end from the other.** Refused for the mirror as a whole, and refusing it
   for one constant is the same argument at a smaller scale.
 
-### 29 · OPS-69 — A declared-permitted state carries its reason in prose, and no checker reads it
+### 28 · OPS-69 — A declared-permitted state carries its reason in prose, and no checker reads it
 
 **Status:** Open\
 **Surfaces:** BE, Ops\
@@ -1646,7 +1580,7 @@ confidently from something no longer true, and the states it covers are the ones
 The cheapest check is the one the file already invites — resolve every anchor and every index name
 a `reason=` mentions, the way the three neighbouring fields are resolved.
 
-### 30 · OPS-66 — The style directive concedes more than the reason recorded for it needs
+### 29 · OPS-66 — The style directive concedes more than the reason recorded for it needs
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -1689,7 +1623,7 @@ attribute half is the whole of the value. That the prerendered HTML carries no i
 is the spec sheet's claim rather than this entry's measurement, and it is worth re-checking beside
 the one above it.
 
-### 31 · OPS-12 — Nothing checks a generated file against the generator that owns it
+### 30 · OPS-12 — Nothing checks a generated file against the generator that owns it
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -1725,7 +1659,7 @@ the formatter has run over each side so the comparison is about content rather t
 and fails where it differs from the committed one, and the images are left to review with that
 exclusion written down rather than assumed.
 
-### 32 · DOC-14 — A file that arrives as a rename brings its comment blocks in as context, so INC-9 measures none of them
+### 31 · DOC-14 — A file that arrives as a rename brings its comment blocks in as context, so INC-9 measures none of them
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -1756,7 +1690,7 @@ inside it as the branch's own prose. **The narrower question is the decision:** 
 `check_comment_length` alone should treat a rename's destination as added while the set the other
 branch-scoped checks read stays as it is.
 
-### 33 · DOC-2 — An enforcement claim is resolved in one direction only
+### 32 · DOC-2 — An enforcement claim is resolved in one direction only
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -1788,7 +1722,7 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 34 · OPS-10 — Naming the files that required the image build costs a process per file
+### 33 · OPS-10 — Naming the files that required the image build costs a process per file
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -1821,7 +1755,7 @@ about.
 **Not measured:** what the spawn actually costs, and how much of a failing gate run is attributable
 to it. The mechanism above is read from the code; the magnitude is not.
 
-### 35 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 34 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -1862,7 +1796,7 @@ cannot tolerate the minutes between a bad deploy and the end of its automatic ro
 eleven of them, both health waits running to their timeouts and then the restored pair's doing the same. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 36 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 35 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -1907,7 +1841,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately.
 
-### 37 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 36 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -1940,7 +1874,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a rule family added to the standard under a prefix the patterns do not
 carry, or the first page that needs a metadata block indented.
 
-### 38 · DOC-10 — A block already over a bound is excused by its opening line alone
+### 37 · DOC-10 — A block already over a bound is excused by its opening line alone
 
 **Status:** Standing\
 **Surfaces:** Ops, Docs\
@@ -1968,7 +1902,7 @@ rests on.
 **Trigger to revisit:** a branch charged for a block whose length it did not create, or any change to
 how `check_comment_length` decides whose block a block is.
 
-### 39 · OPS-81 — One commit imports a frontend module the commit after it adds
+### 38 · OPS-81 — One commit imports a frontend module the commit after it adds
 
 **Status:** Standing\
 **Surfaces:** FE, Ops\
