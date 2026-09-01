@@ -275,9 +275,10 @@ same way, which no reader has a rule to catch it by.
 **Path:** Independent — it blocks nothing and nothing blocks it. It answers what **OPS-19** and
 **OPS-10** defer to: each proposes removing work from inside one scope, and the profile below names
 which section binds the run, so neither moves the gate's wall clock here while `db` is the tail. It
-shares a prerequisite with **OPS-70**, whose candidate repair — a database name carrying the run's own
-identity — is exactly what the first lever needs; taking the two together is an ordering note, not a
-dependency. Its own branch: it reaches the pool manifest, which carries the exit contract.
+shares no prerequisite with **OPS-70**: the first lever shipped over database names carrying the
+_worker_ that chose them, which separates two workers of one run and leaves that entry's two
+concurrent runs — every worker of which draws the same suffix — exactly where they were. Its own
+branch: it reaches the pool manifest, which carries the exit contract.
 
 **The gate's floor is its longest section plus whatever waits behind it.** `scripts/verify.sh` writes one unit
 per scope in the form `scope:after,after`, `scripts/gate_pool.py :: parse_unit` reads it, and
@@ -328,7 +329,11 @@ No timing here is trustworthy: the machine was contended throughout the work, an
 rule is that a db-tier figure counts only as a pair of runs within a fifth of a second of each other
 on an idle machine (**OPS-70**). Two questions are open with it — what `auto` should be, sixteen
 workers sharing one `mongod` being a guess rather than a finding, and whether the shared server
-becomes the new tail once the workers stop waiting on their own.
+becomes the new tail once the workers stop waiting on their own. Sixteen workers driving one
+single-node replica set produced no transaction contention across the runs taken while it was built,
+but none of those runs stressed it and the machine carried other work throughout — `WriteConflict` at
+a wider width is plausible and unproven, and it belongs inside the width question rather than beside
+it.
 
 **2 · Distribute the fixture net — a lever on one scope, not yet on the gate.**
 `scripts/tests/test_check_docs.py :: _load` copies `scripts/` into a throwaway repository, commits a

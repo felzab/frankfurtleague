@@ -11,7 +11,7 @@ from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
 from pymongo.database import Database
 
-from tests.worker import worker_database
+from tests.worker import guard_every_database, release_every_database, worker_database
 
 # testcontainers' reaper teardown logs after pytest closes its capture stream, printing a traceback on
 # a passing run. Not `raiseExceptions = False`: that would hide real handler failures too.
@@ -293,18 +293,24 @@ def saison() -> PayloadFactory:
 # What `pytest_configure_node` hands each worker, so one pair of containers serves the whole run.
 STANDALONE_KEY = "fl_standalone_mongodb_url"
 REPLICA_SET_KEY = "fl_replica_set_mongodb_url"
+# Why the pair is absent, when it is. Handed to the workers in its place, so one asking for a server
+# refuses naming the cause rather than the controller taking the run down before a test is collected.
+UNSTARTED_KEY = "fl_mongodb_unstarted"
 
 REPLICA_SET_ELECTION_TIMEOUT_S = 60
 
 # The controller's own, never a worker's: a worker process holds neither, and both are empty on a
 # serial run, where the fixtures below start containers of their own.
 _SHARED_SERVERS: dict[str, str] = {}
+_UNSTARTED: dict[str, str] = {}
 _SHARED_STACK = ExitStack()
 
-# `fl_backend/pyproject.toml :: addopts`, the one run wanting no server. A cost heuristic: it names
-# the marker deselecting every test that would ask for one, so a stale spelling costs two idle
-# containers and nothing else.
-_DEFAULT_TIER_MARKEXPR = "not db"
+_NO_SERVER = (
+    "this test asked for a `mongod` under `-n`, and the xdist controller started none because the run's `-m` deselects the db tier."
+    " A test wanting one carries `@pytest.mark.db`, and this one does not: without it, it runs in the default tier too, which has no server."
+)
+
+_UNSTARTABLE = "the xdist controller could not start the db tier's servers, so no test needing one can run in this worker -- {reason}"
 
 
 @contextmanager
@@ -355,6 +361,28 @@ def _replica_set_mongod() -> Iterator[str]:
         yield url
 
 
+def _default_tier_markexpr(config: pytest.Config) -> str | None:
+    """The `-m` that `fl_backend/pyproject.toml :: addopts` passes, or `None` where it passes none.
+
+    Read rather than copied: a copy kept here drifts from that line with nothing to say so.
+    """
+
+    addopts: list[str] = config.getini("addopts")
+    for index, option in enumerate(addopts):
+        if option == "-m" and index + 1 < len(addopts):
+            return addopts[index + 1].strip()
+        if option.startswith("--markexpr="):
+            return option.split("=", 1)[1].strip()
+
+    return None
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Runs in the controller and in every worker, before either collects."""
+
+    guard_every_database()
+
+
 def pytest_configure_node(node: Any) -> None:
     """xdist's controller hook, unreached without `-n`.
 
@@ -362,18 +390,30 @@ def pytest_configure_node(node: Any) -> None:
     testcontainers' reaper reclaims a container when its starter disconnects.
     """
 
-    if node.config.option.markexpr.strip() == _DEFAULT_TIER_MARKEXPR:
+    # A cost heuristic and nothing more: the default tier's own expression is the one run known to
+    # want no server, and every other spelling of it pays a start rather than deciding anything.
+    if node.config.option.markexpr.strip() == _default_tier_markexpr(node.config):
         return
 
-    if not _SHARED_SERVERS:
-        _SHARED_SERVERS[STANDALONE_KEY] = _SHARED_STACK.enter_context(_standalone_mongod())
-        _SHARED_SERVERS[REPLICA_SET_KEY] = _SHARED_STACK.enter_context(_replica_set_mongod())
+    if not _SHARED_SERVERS and not _UNSTARTED:
+        try:
+            _SHARED_SERVERS[STANDALONE_KEY] = _SHARED_STACK.enter_context(_standalone_mongod())
+            _SHARED_SERVERS[REPLICA_SET_KEY] = _SHARED_STACK.enter_context(_replica_set_mongod())
+        except Exception as error:
+            # Carried to the fixtures rather than raised: raising in this hook is an INTERNALERROR
+            # with no test summary, on a run the heuristic above only guessed selects a db test.
+            _SHARED_STACK.close()
+            _SHARED_SERVERS.clear()
+            _UNSTARTED[UNSTARTED_KEY] = f"{type(error).__name__}: {error}"
 
-    node.workerinput.update(_SHARED_SERVERS)
+    node.workerinput.update(_SHARED_SERVERS or _UNSTARTED)
 
 
 def pytest_unconfigure(config: pytest.Config) -> None:
     """Runs in the controller and in every worker; only the controller ever filled the stack."""
+
+    release_every_database()
+    _UNSTARTED.clear()
 
     if _SHARED_SERVERS:
         _SHARED_SERVERS.clear()
@@ -381,9 +421,21 @@ def pytest_unconfigure(config: pytest.Config) -> None:
 
 
 def _shared(request: pytest.FixtureRequest, key: str) -> str | None:
-    """The controller's url for this server, or `None` on a serial run, where this process starts its own."""
+    """The controller's url, or `None` on a serial run, where this process starts its own.
 
-    return getattr(request.config, "workerinput", {}).get(key)
+    A worker starts none: reaching this without one means a server the controller was never told
+    about, and a pair per worker is the arithmetic the shared pair avoids.
+    """
+
+    workerinput: dict[str, Any] | None = getattr(request.config, "workerinput", None)
+    if workerinput is None:
+        return None
+
+    url = workerinput.get(key)
+    if url is None:
+        pytest.fail(_UNSTARTABLE.format(reason=workerinput[UNSTARTED_KEY]) if UNSTARTED_KEY in workerinput else _NO_SERVER)
+
+    return str(url)
 
 
 @pytest.fixture(scope="session")

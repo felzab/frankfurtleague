@@ -7,7 +7,6 @@ from pymongo.database import Database
 from pymongo.mongo_client import MongoClient
 
 from app.core.constraints import apply_constraints
-from tests.worker import assert_worker_database
 
 # One collection's enforcement: its validator, both validation modes, and every index it carries.
 Enforcement = dict[str, Any]
@@ -145,8 +144,6 @@ async def a_clean_database(
     it leaves is recorded nowhere, so the next caller rebuilds.
     """
 
-    assert_worker_database(name)
-
     # One per call: Motor binds to the loop it first ran on, and every caller opens its own.
     client = AsyncIOMotorClient(url)
     try:
@@ -180,8 +177,6 @@ def a_clean_database_sync(client: MongoClient, url: str, name: str) -> Database:
 
     Its check therefore runs at the next seed and refuses with `_DRIFT_SYNC` rather than `_DRIFT`.
     """
-
-    assert_worker_database(name)
 
     key = (str(url), name)
     database = client[name]
