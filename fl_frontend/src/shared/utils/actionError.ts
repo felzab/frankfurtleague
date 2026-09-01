@@ -19,7 +19,7 @@ const OCCUPANT_REFUSALS: Record<string, string> = {
   "REQ-STATE-002": "Ein Spiel mit diesem Sonderereignis wird nicht gewertet. Entferne zuerst die Tore.",
   "REQ-STATE-003": "Ein Nichtantreten braucht beide Teams. Besetze zuerst den offenen Platz.",
   // The repair is on the OTHER fixture, so it rides the same rail rather than this field.
-  "REQ-SPIELTAG-001": "Dieses Team spielt am selben Spieltag bereits in einem anderen Spiel.",
+  "REQ-SPIELTAG-001": "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel.",
 };
 
 /**

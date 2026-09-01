@@ -1981,7 +1981,7 @@ unbounded one — which is what the code implies today and what no line says.
 **Surfaces:** FE, Docs\
 **Effort:** M — six strings in two constructions, and a copy question that may amend a rule rather than a sentence\
 **Path:** Independent. **FE-23**'s sweep passes through one of these six strings for its own reason —
-„Diese Gruppe ist bereits voll." is one of the two club-slice refusals that entry names — so whichever
+„Diese Gruppe ist schon voll." is one of the two club-slice refusals that entry names — so whichever
 of the two lands second recasts a string the first already touched. An ordering preference, not a block.
 **FE-35** widens the same helper for a fourth rendering of a different code, and the two settle nothing
 for each other.
@@ -1999,7 +1999,7 @@ between groups — `postTeamAction`, `postSaisonTeamAction` and `patchSaisonTeam
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `REQ-ENTER-001` | A `buildRefusal` pair: the application's season has left planning, entry being into a planned one, then „Lehne die Bewerbung ab" | A written-out pair: „Diese Saison läuft schon oder ist abgeschlossen. Nimm das Team in eine geplante Saison auf." |
 | `REQ-ENTER-002` | A `gruppe` field message naming „die Saison der Bewerbung"                                                                       | The same field message naming „die gewählte Saison"                                                               |
-| `REQ-ENTER-003` | „Diese Gruppe ist voll. Wähle eine andere."                                                                                      | „Diese Gruppe ist bereits voll."                                                                                  |
+| `REQ-ENTER-003` | „Diese Gruppe ist voll. Wähle eine andere."                                                                                      | „Diese Gruppe ist schon voll."                                                                                    |
 
 **Two of the three are a surface addressing its own reader**, which is what makes this a ruling rather
 than a correction. `-002` says which season is meant, and the two readers stand on different ones.

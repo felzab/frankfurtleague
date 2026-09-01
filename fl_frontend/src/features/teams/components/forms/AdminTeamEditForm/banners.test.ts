@@ -82,7 +82,7 @@ describe("buildTeamBanners", () => {
     assert.match(retired("future"), /nimm es danach hier auf/);
     assert.doesNotMatch(retired("active"), /hier auf/);
     assert.doesNotMatch(retired("past"), /hier auf/);
-    assert.match(retired("active"), /läuft bereits/);
+    assert.match(retired("active"), /läuft schon/);
     assert.match(retired("past"), /ist beendet/);
   });
 
@@ -90,7 +90,7 @@ describe("buildTeamBanners", () => {
     const closed = (status: "active" | "past") =>
       build({ isMember: false, saisonStatus: status }).find((banner) => banner.id === "team.not-in-saison-closed")?.body ?? "";
 
-    assert.match(closed("active"), /läuft bereits/);
+    assert.match(closed("active"), /läuft schon/);
     assert.match(closed("past"), /beendet/);
   });
 

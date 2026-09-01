@@ -52,7 +52,7 @@ function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     return { fieldErrors: { gruppe: "Diese Gruppe gibt es in der gewählten Saison nicht." } };
   }
   if (error.serverErrorCode === "REQ-ENTER-003") {
-    return { fieldErrors: { gruppe: "Diese Gruppe ist bereits voll." } };
+    return { fieldErrors: { gruppe: "Diese Gruppe ist schon voll." } };
   }
   if (error.serverErrorCode === "REQ-ENTER-004") {
     // Names the route still open rather than stopping at the refusal: the swap control sits under
@@ -323,7 +323,7 @@ export async function postSaisonTeamAction(
         return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       }
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
-        return { success: false, error: "Dieses Team ist bereits in dieser Saison. Lade die Seite neu." };
+        return { success: false, error: "Dieses Team ist schon in dieser Saison. Lade die Seite neu." };
       }
       throw error;
     }
