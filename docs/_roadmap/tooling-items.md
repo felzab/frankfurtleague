@@ -49,7 +49,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 1   | OPS-93  | The origin trusts every source inside Cloudflare's ranges          | Ops, Docs         | S      | Open     | —          |
 | 2   | OPS-94  | A sweep that enumerates its subjects cannot falsify its own claim  | FE, Ops, Docs     | M      | Open     | —          |
 | 3   | OPS-60  | The gate saturates the machine, then idles through its tail        | Ops               | M      | Open     | —          |
-| 4   | DOC-16  | Three passages are absent from the two specification sheets        | FE, BE, Docs      | S      | Open     | —          |
+| 4   | DOC-16  | Four passages are absent from the two specification sheets         | FE, BE, Docs      | S      | Open     | —          |
 | 5   | OPS-100 | A changed citation target puts no page in front of the session     | Ops, Docs         | S      | Open     | —          |
 | 6   | OPS-91  | A continuation citation is resolved and checked by nothing         | Ops, Docs         | M      | Open     | —          |
 | 7   | OPS-98  | A formatter reshapes a comment before INC-9 measures it            | BE, Ops, Docs     | S      | Open     | —          |
@@ -405,7 +405,7 @@ Inside the `scripts` scope, whose checks start together and are collected one st
 2 and 3 are re-ranked against whatever binds the run once the tail moves, and any figure quoted for
 the result carries its spread and its run count the way the ones above do.
 
-### 4 · DOC-16 — Three passages are absent from the two specification sheets, and a closed item sends a reader to one of them
+### 4 · DOC-16 — Four passages are absent from the two specification sheets, and a closed item sends a reader to one of them
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -443,15 +443,23 @@ finds a name inside free text. **[`closed-items.md`](closed-items.md)'s FB-20 ro
 exactly that limit**, its item line reading that a name typed into a fixture note was beyond the
 erasure and no document recorded it — and no document states it.
 
+**The same row lost a fourth sentence, naming which log rows one redaction reaches.** A
+`delete_many` row names every removed document in `document_id` — an array, which the redaction
+filter's `$in` matches on its members — so the one row holding a whole set of images sits inside
+the same `(collection, document_id)` selection as a row naming one. Without it the erasure reads
+as one document at a time, and the bulk removal I48 keeps an array of pre-images for is the case
+no document places inside the reach.
+
 **This is a restoration rather than a rewrite.** Each subject still stands: the fourteen names all
 resolve, and I42's own held-by column still names `fl_backend/app/core/recording.py ::
-build_redaction_filter`, the selector the absent sentence describes. The work is to reinsert the
-three passages, confirm each against the code it describes, and leave the surrounding claims alone.
+build_redaction_filter`, the selector both absent I42 sentences describe. The work is to reinsert
+the four passages, confirm each against the code it describes, and leave the surrounding claims
+alone.
 
 **Why it ranks where it does.** Test 2 lifts it over the citation family: the passages are readable
 in one commit's parent and in no working file, so the restoration is the kind of work that gets
 harder on its own. Test 3 keeps it above **OPS-100** and the entries under it, which have a clock but
-cost nothing extra when they wait — the three passages land in sections other branches are editing
+cost nothing extra when they wait — the four passages land in sections other branches are editing
 now, so a sheet reworked before the restoration is reconciled against it twice. It sits below
 **OPS-60** because that entry pays back on every gate run after it and this one pays back once, and
 its **S** is what breaks the tie with the M-sized entries beneath it.
