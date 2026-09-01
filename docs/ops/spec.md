@@ -378,21 +378,38 @@ scope, CI (already one scope per job) and a machine with no interpreter at the c
 serial too. **No scope waits on another** — the compose parse reads its stand-in `.env` files from
 a scratch copy, never the real trees — so every scope starts at once and the run's floor is its
 longest. The pool submits the expected-longest first (`scripts/gate_pool.py :: TYPICAL_MS`), which
-decides nothing while every scope holds a slot of its own: it is the admission order a `--width`
-below the scope count would take, and nothing passes one. **The `--frontend` implication above is
+decides nothing while every unit holds a slot of its own: it is the admission order a `--width`
+below the unit count would take, and nothing passes one. **The `--frontend` implication above is
 the parent's, never a worker's** — a worker runs the one scope it is given. `scripts/gate_pool.py`
 owns the spawning and nothing else; the sections and closing statements stay in `scripts/_lib.sh`.
 
-**The scripts and images scopes carry that shape one level down**: the scripts checks start
-together, as do the two image builds, and each is collected at its own step, so the scope costs its
-slowest check rather than the sum. Every verdict is still reached in written order, a job records
-an exit status and never speaks, and a job that left no status is read as a crash rather than as a
-pass. **Only `--serial` and `--verbose` reach this level** (`scripts/verify.sh :: STEP_JOBS`); the
-pool's other serial exceptions are the pool's alone, so a one-scope run and CI both still start
-their checks together — CI's `images` job runs its two `docker buildx build` invocations side by
-side, each exporting its own `type=gha` cache. A step joined after its work ran beside its
-neighbours is re-dated to that work's own length (`scripts/_lib.sh :: step_took_ms`), without which
-the first step joined absorbs the whole stretch and every step after it reads as free.
+**The scripts and images scopes carry that shape one level down, through the same pool**: the
+scripts checks start together, as do the two image builds, and each is collected at its own step,
+so the scope costs its slowest check rather than the sum. Every verdict is still reached in written
+order, a unit records an exit status and never speaks, and a unit that left none is read as a crash
+rather than as a pass. **Only `--serial`, `--verbose` and a machine with no interpreter at the
+checkers' floor reach this level** (`scripts/verify.sh :: STEP_JOBS`); the pool's other serial
+exceptions are the pool's alone, so a one-scope run and CI both still start their checks together —
+CI's `images` job runs its two `docker buildx build` invocations side by side, each exporting its
+own `type=gha` cache. A step joined after its work ran beside its neighbours is re-dated to that
+work's own length (`scripts/_lib.sh :: step_took_ms`), without which the first step joined absorbs
+the whole stretch and every step after it reads as free.
+
+**A unit carries its own command, which is what lets one runner serve both levels.** A scope unit
+is a `verify.sh` run of that scope, given `FL_GATE_WORKER` and the ledger path its rows travel in;
+a step unit is a `verify.sh` run given `FL_GATE_STEP`, which names one `do_<check>` body and is
+answered before any section opens, so a step's capture holds the check's own output and none of the
+gate's chrome. A scope's two streams are captured apart and replayed each to its own; a step's are
+captured merged and replayed as one, the interleaving being the only thing that says which line a
+tool wrote first. **A step unit reclaims nothing on its way out**
+(`scripts/verify.sh :: gate_exit`): it created none of the run's scratch and inherits all of it, so
+a trap of its own would delete the ledger it appended to or the image it just built. For the same
+reason the ops and images reclaims are each guarded by the scope that created them — those two
+scopes are separate processes, and whichever finished first would otherwise reach the other's
+certificate or its freshly built image. **A status outside the range a verdict can occupy is a
+kill, not a pass**: `return` masks its argument to a byte and a killed process leaves 2304 on
+Windows, which masks to 0, so `scripts/verify.sh :: unit_replay` and
+`scripts/_lib.sh :: adopt_ending` both classify before the mask.
 
 **The eslint step passes `--concurrency=2`, a value answering a diagnostic rather than the clock**:
 `auto` warns through `ESLintPoorConcurrencyWarning` and every larger measured setting warns too, so

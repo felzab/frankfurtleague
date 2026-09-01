@@ -13,7 +13,7 @@ Frankfurt-League, plus the checkers the verification gate runs.
 | `scripts/deploy.sh`               | prod — Linux  | Pull and restart in place, verify health, roll back                                                       |
 | `scripts/selfcheck.sh`            | any           | Test the scripts themselves                                                                               |
 | `scripts/ci_scopes.sh`            | any           | Map changed paths to gate scopes; the one copy CI reads                                                   |
-| `scripts/gate_pool.py`            | any           | The gate's scopes as concurrent processes, for `verify.sh` to replay                                      |
+| `scripts/gate_pool.py`            | any           | The gate's units as concurrent processes, for `verify.sh` to replay                                       |
 | `scripts/_lib.sh`                 | —             | Shared helpers; sourced, never run directly                                                               |
 | `scripts/checker_kernel.py`       | —             | What every checker is built on; imported, never run directly                                              |
 | `scripts/check_docs.py`           | any           | The documentation gate                                                                                    |
