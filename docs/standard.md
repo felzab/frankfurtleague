@@ -193,10 +193,11 @@ scannable side by side — and every other rule here binds them.
 ### INC-2 — The module header, and where one survives
 
 **Rule:** a module header survives in a **shell script**, and in a Python module under
-`fl_backend/app/` or `scripts/` — its tests included — carrying a fact that attaches to no symbol:
-an exit contract, a one-cache-per-run rule, a carve-out the whole module rests on. TypeScript,
-TSX, JavaScript and `fl_backend/tests` modules carry none: a comment sits at the thing it
-explains. Where one survives it is a plain block — a title line `<TOKEN> · <what this module is>`,
+`fl_backend/app/`, `fl_backend/tests/` or `scripts/` — the tests in both trees included — carrying
+a fact that attaches to no symbol: an exit contract, a one-cache-per-run rule, a carve-out the
+whole module rests on; `scripts/docs_gate/checks.py :: HEADER_SCOPES` is that scope. TypeScript,
+TSX and JavaScript modules carry none: a comment sits at the thing it explains. Where one survives
+it is a plain block — a title line `<TOKEN> · <what this module is>`,
 at most three sentences why-first, a sentence of plain "what" allowed where the file's contents do
 not carry it, optional plain `Invariants:` and `See:` lists one line per entry, no other list
 label, no ruled lines, no fixed column, no upper-case label rows. A header states a rule in a line
