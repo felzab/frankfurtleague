@@ -1,7 +1,8 @@
 from typing import Annotated, Any, Mapping, Sequence
 
 from fastapi import APIRouter, Body, Depends
-from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
@@ -75,8 +76,8 @@ async def _rewrite_the_outgoing_clubs_sides(
     spiele: Sequence[Mapping[str, Any]],
     outgoing_team_id: Any,
     incoming_side: Mapping[str, Any],
-    spiele_collection: AsyncIOMotorCollection,
-    session: AsyncIOMotorClientSession,
+    spiele_collection: AsyncCollection,
+    session: AsyncClientSession,
 ) -> int:
     """Hand this club's sides to the incoming one; returns how many FIXTURES moved.
 
@@ -193,7 +194,7 @@ async def patch_team(
     season keeps the name it was played under.
     """
 
-    async def rename_and_fan_out(session: AsyncIOMotorClientSession) -> FLPatchTeamResponse:
+    async def rename_and_fan_out(session: AsyncClientSession) -> FLPatchTeamResponse:
         updated_raw = await patch_one_in_db(
             collection=teams_collection,
             db_filter={"_id": team_id},
@@ -238,7 +239,7 @@ async def patch_team(
 
     # One transaction over every write here: a rename reaching some and not the rest leaves a season
     # disagreeing with itself. `with_transaction` is safe to retry, every write deriving from the payload.
-    async with await db.start_session() as session:
+    async with db.start_session() as session:
         return await session.with_transaction(rename_and_fan_out)
 
 
@@ -512,7 +513,7 @@ async def replace_saison_team(
     # season rather than about a junction row nobody expected to find in it.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
-    async def hand_the_row_over(session: AsyncIOMotorClientSession) -> FLReplaceSaisonTeamResponse:
+    async def hand_the_row_over(session: AsyncClientSession) -> FLReplaceSaisonTeamResponse:
         """The whole replacement: judge, rewrite the fixtures, then the row. Everything it decides on is read in-session."""
 
         # For the 404 alone, and deliberately NOT a read of the club it names: D43 repairs a row
@@ -618,5 +619,5 @@ async def replace_saison_team(
     # One transaction over every write: a row handed over while its fixtures are not leaves the
     # season fielding a club that holds no place in it. `with_transaction` is safe to retry, the
     # callback re-reading everything it judges on.
-    async with await db.start_session() as session:
+    async with db.start_session() as session:
         return await session.with_transaction(hand_the_row_over)

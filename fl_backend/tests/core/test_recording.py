@@ -4,8 +4,9 @@ from typing import Any, Mapping, Sequence, cast
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 from pymongo import ReturnDocument
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertManyResult, InsertOneResult, UpdateResult
 
 from app.core.collections import Collection
@@ -42,13 +43,13 @@ ROUTE = ("PATCH", "/api/v0/teams/{team_id}")
 CORRELATION_ID = "0123456789abcdef0123456789abcdef"
 
 # A stand-in for a transaction handle: what is proved is that the row travels inside whatever the caller passed.
-SESSION = cast(AsyncIOMotorClientSession, object())
+SESSION = cast(AsyncClientSession, object())
 
 
 class _FakeCollection:
     """One collection, called as `app/core/crud.py` and `app/core/recording.py` call the driver.
 
-    `name` is a plain `str` as Motor's is, which leaves the recursion guard a real `StrEnum`
+    `name` is a plain `str` as the driver's is, which leaves the recursion guard a real `StrEnum`
     comparison to make rather than an identity one it would pass for free.
     """
 
@@ -106,8 +107,8 @@ def build(name: str = Collection.TEAMS, **state: Any) -> tuple[_FakeCollection, 
     return _FakeCollection(name, log=log, **state), log
 
 
-def as_collection(stub: _FakeCollection) -> AsyncIOMotorCollection:
-    return cast(AsyncIOMotorCollection, stub)
+def as_collection(stub: _FakeCollection) -> AsyncCollection:
+    return cast(AsyncCollection, stub)
 
 
 def record_inside_a_request(**arguments: Any) -> None:

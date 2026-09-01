@@ -2,7 +2,8 @@ from datetime import datetime
 from typing import Annotated, Any, Mapping, Sequence
 
 from fastapi import APIRouter, Body, Depends
-from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.kontakte.schemas import FLKontaktErasurePayload, FLKontaktErasureResponse
 from app.api.kontakte.services import (
@@ -24,9 +25,7 @@ router = APIRouter(
 )
 
 
-async def _clear_each(
-    collection: AsyncIOMotorCollection, rows: Sequence[Mapping[str, Any]], email: str, session: AsyncIOMotorClientSession
-) -> int:
+async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, Any]], email: str, session: AsyncClientSession) -> int:
     """Null this person's slots row by row, and answer how many slots.
 
     `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`
@@ -58,7 +57,7 @@ async def erase_kontaktperson(
     `DELETE`: RFC 9110 §9.3.5 gives a `DELETE` body no semantics.
     """
 
-    async def clear_the_person_and_their_record(session: AsyncIOMotorClientSession) -> FLKontaktErasureResponse:
+    async def clear_the_person_and_their_record(session: AsyncClientSession) -> FLKontaktErasureResponse:
         """Find, then clear, then redact. Everything judged is read in-session, so a retry re-reads it."""
 
         email = str(erasure_data.email)
@@ -114,5 +113,5 @@ async def erase_kontaktperson(
     # ONE transaction over all of it (D83): rows cleared while the log still holds the block reports
     # an erasure that did not happen, and clearing one collection without the other answers the
     # request in name only.
-    async with await db.start_session() as session:
+    async with db.start_session() as session:
         return await session.with_transaction(clear_the_person_and_their_record)

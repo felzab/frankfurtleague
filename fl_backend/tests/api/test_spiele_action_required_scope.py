@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Iterator
 from typing import Any
 
@@ -5,8 +6,7 @@ import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
 from httpx import Response
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import MongoClient
+from pymongo import AsyncMongoClient, MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -104,15 +104,16 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
 
 
 def answered(uri: str, path: str) -> Response:
-    """One request per client: Motor binds to the loop `TestClient` first ran on."""
+    """One request per client: `AsyncMongoClient` binds to the loop `TestClient` first ran on."""
 
     app = create_app(build_test_config())
-    app.state.db_client = AsyncIOMotorClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
+    app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
 
     try:
         return TestClient(app, raise_server_exceptions=False).get(path, headers=dict(ADMIN_AUTH))
     finally:
-        app.state.db_client.close()
+        # A loop of its own, for the reason `fl_backend/tests/api/test_malformed_ids.py :: client` gives.
+        asyncio.run(app.state.db_client.close())
 
 
 def ids_of(response: Response) -> set[str]:

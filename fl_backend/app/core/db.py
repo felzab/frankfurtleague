@@ -1,11 +1,9 @@
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
-from motor.motor_asyncio import (
-    AsyncIOMotorClient,
-    AsyncIOMotorCollection,
-    AsyncIOMotorDatabase,
-)
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
 from app.core.config import BackendConfig, get_config
@@ -18,7 +16,7 @@ from app.core.logging import fl_logger
 async def lifespan(app: FastAPI):
     config = get_config()
 
-    app.state.db_client = AsyncIOMotorClient(
+    app.state.db_client = AsyncMongoClient(
         host=config.mongodb_uri.get_secret_value(),
         serverSelectionTimeoutMS=config.db_server_selection_timeout,
         minPoolSize=config.db_min_connections,
@@ -48,10 +46,10 @@ async def lifespan(app: FastAPI):
 
     finally:
         if app.state.db_client:
-            app.state.db_client.close()
+            await app.state.db_client.close()
 
 
-async def get_db_client(request: Request) -> AsyncIOMotorClient:
+async def get_db_client(request: Request) -> AsyncMongoClient:
     if not hasattr(request.app.state, "db_client"):
         raise DatabaseUnavailableException(error_code=NO_DATABASE_CLIENT)
     return request.app.state.db_client
@@ -60,7 +58,7 @@ async def get_db_client(request: Request) -> AsyncIOMotorClient:
 async def get_database(
     request: Request,
     config: BackendConfig = Depends(get_config),
-) -> AsyncIOMotorDatabase:
+) -> AsyncDatabase:
     # Through `Depends`, not `get_config()`: reading the global would resolve every collection
     # dependency against the real database rather than an injected one.
     if not hasattr(request.app.state, "db_client"):
@@ -69,68 +67,68 @@ async def get_database(
 
 
 async def get_spiele_collection(
-    db: AsyncIOMotorDatabase = Depends(get_database),
-) -> AsyncIOMotorCollection:
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
     return db[Collection.SPIELE]
 
 
 async def get_spieler_collection(
-    db: AsyncIOMotorDatabase = Depends(get_database),
-) -> AsyncIOMotorCollection:
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
     return db[Collection.SPIELER]
 
 
 async def get_spieltage_collection(
-    db: AsyncIOMotorDatabase = Depends(get_database),
-) -> AsyncIOMotorCollection:
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
     return db[Collection.SPIELTAGE]
 
 
 async def get_teams_collection(
-    db: AsyncIOMotorDatabase = Depends(get_database),
-) -> AsyncIOMotorCollection:
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
     return db[Collection.TEAMS]
 
 
 async def get_saisons_collection(
-    db: AsyncIOMotorDatabase = Depends(get_database),
-) -> AsyncIOMotorCollection:
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
     return db[Collection.SAISONS]
 
 
 async def get_spielorte_collection(
-    db: AsyncIOMotorDatabase = Depends(get_database),
-) -> AsyncIOMotorCollection:
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
     return db[Collection.SPIELORTE]
 
 
 async def get_schiedsrichter_collection(
-    db: AsyncIOMotorDatabase = Depends(get_database),
-) -> AsyncIOMotorCollection:
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
     return db[Collection.SCHIEDSRICHTER]
 
 
 # The two junctions. A READ reaches them by name inside a `$lookup`; a write opens them directly,
 # there being nothing to join.
 async def get_saison_teams_collection(
-    db: AsyncIOMotorDatabase = Depends(get_database),
-) -> AsyncIOMotorCollection:
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
     return db[Collection.SAISON_TEAMS]
 
 
 async def get_aktionen_collection(
-    db: AsyncIOMotorDatabase = Depends(get_database),
-) -> AsyncIOMotorCollection:
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
     return db[Collection.AKTIONEN]
 
 
 async def get_saison_spieler_collection(
-    db: AsyncIOMotorDatabase = Depends(get_database),
-) -> AsyncIOMotorCollection:
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
     return db[Collection.SAISON_SPIELER]
 
 
 async def get_bewerbungen_collection(
-    db: AsyncIOMotorDatabase = Depends(get_database),
-) -> AsyncIOMotorCollection:
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
     return db[Collection.BEWERBUNGEN]

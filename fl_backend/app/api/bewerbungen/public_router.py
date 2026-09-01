@@ -1,7 +1,7 @@
 from typing import Annotated, Any, Mapping
 
 from fastapi import APIRouter, Body, Depends
-from motor.motor_asyncio import AsyncIOMotorCollection
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungFensterResponse,
@@ -54,7 +54,7 @@ SUBMITTED = "eingereicht"
 WINDOW_PROJECTION = ["bewerbung"]
 
 
-async def _pull_window(*, saisons_collection: AsyncIOMotorCollection, saison_id: str) -> Mapping[str, Any]:
+async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -> Mapping[str, Any]:
     """One season's application window, or the 404 an id naming no season answers.
 
     A season may carry `bewerbung: null` or no key -- every season stored before the field does.

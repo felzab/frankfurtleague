@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spieler.admin_router import (
     delete_saison_spieler,
@@ -51,7 +51,7 @@ RULES = {
     "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
 }
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def spieler_id_for(index: int) -> ObjectId:
@@ -83,7 +83,7 @@ def legacy_squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since:
 
 
 def on_a_database(container: Any, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first runs on."""
+    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first runs on."""
 
     async def _run() -> Any:
         async with a_clean_database(container.get_connection_url(), DATABASE_NAME) as (_, database):
@@ -108,13 +108,13 @@ def on_a_database(container: Any, body: Body) -> Any:
     return asyncio.run(_run())
 
 
-async def fill(database: AsyncIOMotorDatabase, team_id: ObjectId, count: int) -> None:
+async def fill(database: AsyncDatabase, team_id: ObjectId, count: int) -> None:
     """`count` live rows in one squad, none of them a player any test then writes."""
 
     await database.saison_spieler.insert_many([squad_row(spieler_id=spieler_id_for(index), team_id=team_id) for index in range(count)])
 
 
-async def enter(database: AsyncIOMotorDatabase, spieler_id: ObjectId, team_id: ObjectId, *, rolle: Any = None) -> Any:
+async def enter(database: AsyncDatabase, spieler_id: ObjectId, team_id: ObjectId, *, rolle: Any = None) -> Any:
     return await post_saison_spieler(
         spieler_id=spieler_id,
         saison_spieler_data=FLPostSaisonSpielerPayload(
@@ -126,7 +126,7 @@ async def enter(database: AsyncIOMotorDatabase, spieler_id: ObjectId, team_id: O
     )
 
 
-async def move(database: AsyncIOMotorDatabase, spieler_id: ObjectId, team_id: ObjectId, *, nummer: str | None = None, rolle: Any = None) -> Any:
+async def move(database: AsyncDatabase, spieler_id: ObjectId, team_id: ObjectId, *, nummer: str | None = None, rolle: Any = None) -> Any:
     return await patch_saison_spieler(
         spieler_id=spieler_id,
         saison_id=SAISON_ID,
@@ -139,7 +139,7 @@ async def move(database: AsyncIOMotorDatabase, spieler_id: ObjectId, team_id: Ob
     )
 
 
-async def revive(database: AsyncIOMotorDatabase, spieler_id: ObjectId) -> Any:
+async def revive(database: AsyncDatabase, spieler_id: ObjectId) -> Any:
     return await reactivate_saison_spieler(
         spieler_id=spieler_id,
         saison_id=SAISON_ID,
@@ -149,7 +149,7 @@ async def revive(database: AsyncIOMotorDatabase, spieler_id: ObjectId) -> Any:
     )
 
 
-async def hand_the_junction_row_over(database: AsyncIOMotorDatabase, team_id: ObjectId) -> None:
+async def hand_the_junction_row_over(database: AsyncDatabase, team_id: ObjectId) -> None:
     """The state `POST /teams/{team_id}/saisons/{saison_id}/replace` leaves: the row is repointed, so this club holds none in the season."""
 
     await database.saison_teams.update_one({"saison_id": SAISON_ID, "team_id": team_id}, {"$set": {"team_id": INCOMING_TEAM_OID}})
@@ -161,7 +161,7 @@ class TestTheConsentRecordIsComposedAndNeverAccepted:
     def test_creating_a_player_stores_a_collected_consent(self, mongo_container: Any):
         """`erziehungsberechtigt` with both dates set -- a guardian filing a registration today really is consenting."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             response = await post_spieler(
                 spieler_data=FLPostSpielerPayload(vorname="Max", nachname="Mustermann"),
                 spieler_collection=database.spieler,
@@ -191,7 +191,7 @@ class TestTheConsentRecordIsComposedAndNeverAccepted:
     def test_correcting_a_name_leaves_the_consent_record_standing(self, mongo_container: Any):
         """`$set` names only the payload's keys, so the sub-document is left alone rather than replaced -- against a real update."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             created = await post_spieler(
                 spieler_data=FLPostSpielerPayload(vorname="Max", nachname="Mustermann"),
                 spieler_collection=database.spieler,
@@ -215,7 +215,7 @@ class TestTheSquadCapOnEveryWritePath:
     """`REQ-SQUAD-003` on all three: the cap belongs to the DESTINATION squad, never to the verb that fills it."""
 
     def test_entering_a_full_squad_is_refused(self, mongo_container: Any):
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> DocumentConflictException:
             await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE)
 
             with pytest.raises(DocumentConflictException) as excinfo:
@@ -230,7 +230,7 @@ class TestTheSquadCapOnEveryWritePath:
     def test_entering_a_squad_with_room_goes_through(self, mongo_container: Any):
         """The floor under the case above, or that refusal could be a blanket one."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE - 1)
             return await enter(database, spieler_id_for(90), HOME_TEAM_OID)
 
@@ -239,7 +239,7 @@ class TestTheSquadCapOnEveryWritePath:
     def test_a_retired_row_holds_no_place(self, mongo_container: Any):
         """A player who left the squad gave their place back, which is what makes the count a LIVE one."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE - 1)
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
@@ -251,7 +251,7 @@ class TestTheSquadCapOnEveryWritePath:
     def test_transferring_into_a_full_squad_is_refused(self, mongo_container: Any):
         """The DESTINATION is judged: the player's own place is in the team they are leaving."""
 
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> DocumentConflictException:
             await fill(database, AWAY_TEAM_OID, MAX_KADERGROESSE)
             await enter(database, spieler_id_for(90), HOME_TEAM_OID)
 
@@ -265,7 +265,7 @@ class TestTheSquadCapOnEveryWritePath:
         assert refusal.error_code == SQUAD_FULL
 
     def test_transferring_into_a_squad_with_room_goes_through(self, mongo_container: Any):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await fill(database, AWAY_TEAM_OID, MAX_KADERGROESSE - 1)
             await enter(database, spieler_id_for(90), HOME_TEAM_OID)
             return await move(database, spieler_id_for(90), AWAY_TEAM_OID)
@@ -275,7 +275,7 @@ class TestTheSquadCapOnEveryWritePath:
     def test_an_edit_that_moves_nobody_passes_at_capacity(self, mongo_container: Any):
         """The over-breadth trap: the player already holds one of the places, so counting their own row would refuse a shirt change."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE - 1)
             await enter(database, spieler_id_for(90), HOME_TEAM_OID)
             # The squad is now exactly full, and this write changes only the shirt.
@@ -289,7 +289,7 @@ class TestTheSquadCapOnEveryWritePath:
     def test_reactivating_into_a_squad_that_has_since_filled_up_is_refused(self, mongo_container: Any):
         """The gap a create cannot cover: the retired row keeps the unique key, so reviving it is the only way back in."""
 
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> DocumentConflictException:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )
@@ -307,7 +307,7 @@ class TestTheSquadCapOnEveryWritePath:
     def test_reactivating_into_a_squad_with_room_goes_through(self, mongo_container: Any):
         """And it keeps the number the retired row carried, which is why reviving is not a re-create."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await database.saison_spieler.insert_one(
                 {**squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01"), "nummer": "9"}
             )
@@ -325,7 +325,7 @@ class TestTheOneRolePerSquadOnEveryWritePath:
     """`REQ-SQUAD-004` on all three, for the reason the cap is on all three: the role belongs to the DESTINATION squad."""
 
     def test_entering_a_squad_whose_role_is_taken_is_refused(self, mongo_container: Any):
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> DocumentConflictException:
             await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
 
             with pytest.raises(DocumentConflictException) as excinfo:
@@ -338,7 +338,7 @@ class TestTheOneRolePerSquadOnEveryWritePath:
     def test_entering_a_squad_whose_other_role_is_taken_goes_through(self, mongo_container: Any):
         """The floor under the case above: the rule is per role, so a squad with a Kapitaen still has its Co-Kapitaen to give."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
             return await enter(database, spieler_id_for(90), HOME_TEAM_OID, rolle="co_kapitaen")
 
@@ -347,7 +347,7 @@ class TestTheOneRolePerSquadOnEveryWritePath:
     def test_a_retired_holder_gives_the_role_back(self, mongo_container: Any):
         """The same live-rows-only count the cap takes: a player who left the squad is not leading it."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen", inactive_since="2026-03-01")
             )
@@ -358,7 +358,7 @@ class TestTheOneRolePerSquadOnEveryWritePath:
     def test_another_squads_holder_is_not_consulted(self, mongo_container: Any):
         """The scope is one team in one season: two clubs each field a Kapitaen."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=AWAY_TEAM_OID, rolle="kapitaen"))
             return await enter(database, spieler_id_for(90), HOME_TEAM_OID, rolle="kapitaen")
 
@@ -367,7 +367,7 @@ class TestTheOneRolePerSquadOnEveryWritePath:
     def test_transferring_a_role_into_a_squad_that_holds_it_is_refused(self, mongo_container: Any):
         """The DESTINATION is judged, as the cap judges it: the armband travels with the player."""
 
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> DocumentConflictException:
             await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=AWAY_TEAM_OID, rolle="kapitaen"))
             await enter(database, spieler_id_for(90), HOME_TEAM_OID, rolle="kapitaen")
 
@@ -381,7 +381,7 @@ class TestTheOneRolePerSquadOnEveryWritePath:
     def test_an_edit_that_keeps_the_role_where_it_is_passes(self, mongo_container: Any):
         """The over-breadth trap: counting the writing player's own row would refuse a captain changing their shirt."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await enter(database, spieler_id_for(90), HOME_TEAM_OID, rolle="kapitaen")
             return await move(database, spieler_id_for(90), HOME_TEAM_OID, nummer="7", rolle="kapitaen")
 
@@ -392,7 +392,7 @@ class TestTheOneRolePerSquadOnEveryWritePath:
     def test_giving_up_a_role_is_never_refused(self, mongo_container: Any):
         """The repair every refusal above names has to be reachable, and on a squad already holding the role twice it is the only one."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
             await enter(database, spieler_id_for(90), HOME_TEAM_OID)
             return await move(database, spieler_id_for(90), HOME_TEAM_OID, rolle=None)
@@ -402,7 +402,7 @@ class TestTheOneRolePerSquadOnEveryWritePath:
     def test_reactivating_into_a_squad_that_has_since_given_the_role_away_is_refused(self, mongo_container: Any):
         """The path a rule can forget: no payload carries the role here, so the STORED row is what has to be judged."""
 
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> DocumentConflictException:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, rolle="kapitaen", inactive_since="2026-03-01")
             )
@@ -418,7 +418,7 @@ class TestTheOneRolePerSquadOnEveryWritePath:
     def test_reactivating_a_roleless_row_asks_nothing(self, mongo_container: Any):
         """A row holding no role competes with nobody, so the rule must not stand between it and its return."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )
@@ -434,7 +434,7 @@ class TestReactivatingIntoASeasonTheClubHasLeft:
     def test_reviving_a_row_whose_club_left_the_season_is_refused(self, mongo_container: Any):
         """Kills the reactivate asking the cap alone: the row goes live naming a club the season holds no junction row for."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )
@@ -454,7 +454,7 @@ class TestReactivatingIntoASeasonTheClubHasLeft:
     def test_reviving_a_row_whose_club_is_still_entered_goes_through(self, mongo_container: Any):
         """The floor under the refusal above, or it could be a blanket one: the ordinary revival is what the surface exists for."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )
@@ -467,7 +467,7 @@ class TestReactivatingIntoASeasonTheClubHasLeft:
     def test_the_club_is_asked_before_the_cap(self, mongo_container: Any):
         """Both refusals hold, the live rows seeded by hand: kills the two swapped, sending an admin to free a place in a squad with no club."""
 
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> DocumentConflictException:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )
@@ -489,7 +489,7 @@ class TestASquadRowPredatingTheTwoFieldsStillEchoes:
     """
 
     def test_leaving_a_squad_answers_for_one(self, mongo_container: Any):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await database.saison_spieler.insert_one(legacy_squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID))
 
             return await delete_saison_spieler(
@@ -507,7 +507,7 @@ class TestASquadRowPredatingTheTwoFieldsStillEchoes:
     def test_returning_to_a_squad_answers_for_one_too(self, mongo_container: Any):
         """The other write naming neither flag: the soft delete's case cannot speak for a revive that reads its own stored row."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await database.saison_spieler.insert_one(
                 legacy_squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )

@@ -1,8 +1,9 @@
+import asyncio
 from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 
 from app.main import create_app
 from tests.config import build_test_config
@@ -26,15 +27,17 @@ UNREACHED_DATABASE = "DB-FAIL-001"
 
 @pytest.fixture
 def client() -> Iterator[TestClient]:
-    """Per test and load-bearing: `TestClient` runs each request on a fresh event loop while Motor binds to the first it sees."""
+    """Per test and load-bearing: `TestClient` runs each request on a fresh event loop while `AsyncMongoClient` binds to the first it sees."""
     app = create_app(build_test_config())
-    app.state.db_client = AsyncIOMotorClient(host=UNANSWERED_URI, serverSelectionTimeoutMS=100)
+    app.state.db_client = AsyncMongoClient(host=UNANSWERED_URI, serverSelectionTimeoutMS=100)
     try:
         # No lifespan: it reads the settings singleton rather than the injected config, so it would
         # build a client against whatever `.env` happens to hold.
         yield TestClient(app, raise_server_exceptions=False)
     finally:
-        app.state.db_client.close()
+        # A loop of its own: closing is a coroutine on this driver while this fixture is
+        # synchronous, and `TestClient` has already torn down the loop the request ran on.
+        asyncio.run(app.state.db_client.close())
 
 
 MALFORMED_IDS = ["not-an-id", NON_HEX_ID, HEX_ID[:-1], f"{HEX_ID}0"]

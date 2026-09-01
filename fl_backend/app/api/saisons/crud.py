@@ -1,6 +1,6 @@
 from typing import Any, Mapping
 
-from motor.motor_asyncio import AsyncIOMotorCollection
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.cache import CURRENT_SAISON_CACHE_KEY, read_cached_saison, saison_cache_generation, store_cached_saison
 from app.api.saisons.schemas import FLSaisonRules
@@ -9,7 +9,7 @@ from app.core.crud import pull_one_from_db
 CURRENT_SAISON_FILTER = {"status": "active"}
 
 
-async def pull_current_saison(saisons_collection: AsyncIOMotorCollection) -> Mapping[str, Any]:
+async def pull_current_saison(saisons_collection: AsyncCollection) -> Mapping[str, Any]:
     """The season marked `active`, from the cache when it holds one.
 
     Raises 404 when none is active rather than degrading to an unfiltered query, and the miss is
@@ -32,7 +32,7 @@ async def pull_current_saison(saisons_collection: AsyncIOMotorCollection) -> Map
     return saison_raw
 
 
-async def pull_current_saison_id(saisons_collection: AsyncIOMotorCollection) -> str:
+async def pull_current_saison_id(saisons_collection: AsyncCollection) -> str:
     """The current season's id. The cached document already holds it, so this projects nothing."""
 
     saison_raw = await pull_current_saison(saisons_collection=saisons_collection)
@@ -41,7 +41,7 @@ async def pull_current_saison_id(saisons_collection: AsyncIOMotorCollection) -> 
 
 
 async def pull_saison_id_and_rules(
-    saisons_collection: AsyncIOMotorCollection,
+    saisons_collection: AsyncCollection,
     saison_id: str | None,
 ) -> tuple[str, FLSaisonRules]:
     """A season's id and its scoring rules, usually from the cache.

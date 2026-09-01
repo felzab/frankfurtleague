@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spiele.admin_router import get_spiel_for_admin
@@ -179,11 +179,11 @@ def spieltag_document(saison_id: str) -> dict[str, Any]:
     }
 
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on."""
+    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first ran on."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
@@ -210,7 +210,7 @@ def on_a_league(url: str, body: Body) -> Any:
 def raised_by(url: str, body: Body) -> DocumentNotFoundException:
     """The refusal a read answered with, so a test asserts on its status rather than only that it refused."""
 
-    async def _catching(database: AsyncIOMotorDatabase) -> DocumentNotFoundException:
+    async def _catching(database: AsyncDatabase) -> DocumentNotFoundException:
         with pytest.raises(DocumentNotFoundException) as refusal:
             await body(database)
 
@@ -219,7 +219,7 @@ def raised_by(url: str, body: Body) -> DocumentNotFoundException:
     return on_a_league(url, _catching)
 
 
-async def read_teams(database: AsyncIOMotorDatabase, saison_id: str | None) -> Any:
+async def read_teams(database: AsyncDatabase, saison_id: str | None) -> Any:
     return await get_teams(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -228,7 +228,7 @@ async def read_teams(database: AsyncIOMotorDatabase, saison_id: str | None) -> A
     )
 
 
-async def read_team(database: AsyncIOMotorDatabase, saison_id: str | None) -> Any:
+async def read_team(database: AsyncDatabase, saison_id: str | None) -> Any:
     return await get_team(
         team_id=TEAM_OID,
         teams_collection=database[Collection.TEAMS],
@@ -237,7 +237,7 @@ async def read_team(database: AsyncIOMotorDatabase, saison_id: str | None) -> An
     )
 
 
-async def read_spieler(database: AsyncIOMotorDatabase, saison_id: str | None, team_id: ObjectId | None = None) -> Any:
+async def read_spieler(database: AsyncDatabase, saison_id: str | None, team_id: ObjectId | None = None) -> Any:
     return await get_spieler(
         spieler_collection=database[Collection.SPIELER],
         saisons_collection=database[Collection.SAISONS],
@@ -251,7 +251,7 @@ def squad_rows_served(response: Any) -> set[tuple[str, str | None]]:
     return {(row.vorname, row.nummer) for row in response.spieler}
 
 
-async def read_spiele(database: AsyncIOMotorDatabase, saison_id: str | None) -> Any:
+async def read_spiele(database: AsyncDatabase, saison_id: str | None) -> Any:
     return await get_spiele(
         spiele_collection=database[Collection.SPIELE],
         saisons_collection=database[Collection.SAISONS],
@@ -260,7 +260,7 @@ async def read_spiele(database: AsyncIOMotorDatabase, saison_id: str | None) -> 
     )
 
 
-async def read_spiel(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
+async def read_spiel(database: AsyncDatabase, saison_id: str) -> Any:
     return await get_spiel(
         spiel_id=an_id("2", saison_id),
         spiele_collection=database[Collection.SPIELE],
@@ -268,7 +268,7 @@ async def read_spiel(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
     )
 
 
-async def read_spieltage(database: AsyncIOMotorDatabase, saison_id: str | None) -> Any:
+async def read_spieltage(database: AsyncDatabase, saison_id: str | None) -> Any:
     return await get_spieltage(
         spieltage_collection=database[Collection.SPIELTAGE],
         saisons_collection=database[Collection.SAISONS],
@@ -276,7 +276,7 @@ async def read_spieltage(database: AsyncIOMotorDatabase, saison_id: str | None) 
     )
 
 
-async def read_spieltag(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
+async def read_spieltag(database: AsyncDatabase, saison_id: str) -> Any:
     return await get_spieltag(
         spieltag_id=an_id("3", saison_id),
         spieltage_collection=database[Collection.SPIELTAGE],
@@ -419,13 +419,13 @@ class TestTheAdminTierStillReadsThePlannedSeason:
     """Non-vacuity as well as the rule: every refusal above ran on a season that HOLDS these documents."""
 
     def test_a_planned_fixture_is_served_to_the_editor(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await get_spiel_for_admin(spiel_id=an_id("2", PLANNED), spiele_collection=database[Collection.SPIELE])
 
         assert on_a_league(mongo_replica_set_url, body).spiel.saison_id == PLANNED
 
     def test_the_planned_membership_is_listed(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await get_team_memberships(teams_collection=database[Collection.TEAMS])
 
         response = on_a_league(mongo_replica_set_url, body)
@@ -438,7 +438,7 @@ class TestTheAdminTierStillReadsThePlannedSeason:
         The second one especially -- a loose join serves that person with no row either way, so nothing else here would notice it missing.
         """
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await get_spieler_memberships(spieler_collection=database[Collection.SPIELER])
 
         response = on_a_league(mongo_replica_set_url, body)
@@ -447,7 +447,7 @@ class TestTheAdminTierStillReadsThePlannedSeason:
         assert planned == {SPIELER_VORNAME, PLANNED_ONLY_VORNAME}
 
     def test_the_planned_matchday_is_listed(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await get_spieltage_for_admin(
                 spieltage_collection=database[Collection.SPIELTAGE],
                 saisons_collection=database[Collection.SAISONS],

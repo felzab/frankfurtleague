@@ -4,7 +4,8 @@ from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import generate_spielplan, patch_saison
 from app.api.saisons.cache import invalidate_saison_cache
@@ -85,7 +86,7 @@ def entry_rows() -> list[dict[str, Any]]:
 class SeasonsRunningAHookBeforeTheWrite:
     """The seasons collection, running one hook immediately before the first update asked of it.
 
-    A stand-in rather than a subclass: Motor builds a collection off a database handle, so what the
+    A stand-in rather than a subclass: the driver builds a collection off a database handle, so what the
     endpoint is handed has to answer every other call by delegating.
     """
 
@@ -114,11 +115,11 @@ class SeasonsRunningAHookBeforeTheWrite:
         return await self._inner.find_one_and_update(*args, **kwargs)
 
 
-Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
+Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_seeded_saison(url: str, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on. A transaction cannot create a collection."""
+    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first ran on. A transaction cannot create a collection."""
 
     async def _run() -> Any:
         # The SHIPPED validators and unique indexes, and every collection -- including the one the
@@ -135,7 +136,7 @@ def on_a_seeded_saison(url: str, body: Body) -> Any:
     return asyncio.run(_run())
 
 
-async def call_draw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> FLGenerateSpielplanResponse:
+async def call_draw(database: AsyncDatabase, client: AsyncMongoClient) -> FLGenerateSpielplanResponse:
     """The shape the season already carries, so the draw moves the fixtures and no rule of its own."""
 
     return await generate_spielplan(
@@ -153,8 +154,8 @@ async def call_draw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) 
 
 
 async def call_patch_rules(
-    database: AsyncIOMotorDatabase,
-    client: AsyncIOMotorClient,
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
     *,
     saison_id: str = SAISON_ID,
     saisons_collection: Any = None,
@@ -181,7 +182,7 @@ async def call_patch_rules(
     )
 
 
-async def season_now(database: AsyncIOMotorDatabase) -> dict[str, Any]:
+async def season_now(database: AsyncDatabase) -> dict[str, Any]:
     """Read outside any transaction -- what a later request would find."""
 
     stored = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
@@ -190,7 +191,7 @@ async def season_now(database: AsyncIOMotorDatabase) -> dict[str, Any]:
     return dict(stored)
 
 
-async def counts_now(database: AsyncIOMotorDatabase) -> tuple[int, int]:
+async def counts_now(database: AsyncDatabase) -> tuple[int, int]:
     return (
         await database[Collection.SPIELTAGE].count_documents({"saison_id": SAISON_ID}),
         await database[Collection.SPIELE].count_documents({"saison_id": SAISON_ID}),
@@ -205,7 +206,7 @@ class TestADrawLandingMidPatchIsJudgedAgain:
     """
 
     def test_the_widening_is_refused_on_the_draw_that_landed_under_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn: list[FLGenerateSpielplanResponse] = []
 
             async def draw_between() -> None:
@@ -232,7 +233,7 @@ class TestADrawLandingMidPatchIsJudgedAgain:
     def test_the_same_widening_commits_when_no_draw_lands(self, mongo_replica_set_url: str):
         """The control: without it the case above would pass on an endpoint that refused every widening."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_patch_rules(database, client, teams_per_group=WIDER_PER_GROUP)
 
             return response, await season_now(database), await counts_now(database)
@@ -248,7 +249,7 @@ class TestAnUnknownSeasonIsStillNotFound:
     """The read raising it runs inside the transaction, which has to abort on it rather than carry it."""
 
     def test_a_season_id_naming_nothing_answers_404(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentNotFoundException) as missing:
                 await call_patch_rules(database, client, saison_id="2099")
 

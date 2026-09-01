@@ -4,8 +4,8 @@ from typing import Any, Awaitable, Callable, Mapping, Sequence, get_args
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import ValidationError
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spieler.router import get_spieler, get_spieler_by_id
@@ -61,7 +61,7 @@ SPIELER_OIDS = {
 
 STORED_SURNAMES = ("Müller", "Adler", "Öztürk", "Weber")
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def _spieler(key: str, vorname: str, nachname: str | None, *, inactive_since: str | None = None) -> dict[str, Any]:
@@ -287,7 +287,7 @@ class TestTheBaseTierReadExecuted:
     def _read(self, container: Any, filters: FLSpielerFilterParams | None = None) -> dict[str, Any]:
         """The endpoint's own answer, dumped as the wire carries it -- the only shape that can show nothing leaked."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             response = await get_spieler(
                 spieler_collection=database.spieler,
                 saisons_collection=database.saisons,
@@ -304,7 +304,7 @@ class TestTheBaseTierReadExecuted:
     def _rows(self, container: Any, filters: FLSpielerFilterParams | None = None) -> list[Mapping[str, Any]]:
         """What mongod yields for the pipeline, one step BEFORE `FLSpielerPublic`, which declares five fields and drops the rest either way."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await aggregate_many_from_db(collection=database.spieler, pipeline=build_spieler_pipeline(filters or _filters()))
 
         return on_a_database(container, body)
@@ -312,7 +312,7 @@ class TestTheBaseTierReadExecuted:
     def test_the_corpus_really_holds_what_the_response_must_not(self, mongo_container: Any):
         """First, because every assertion below would pass just as well against a seed that stored neither."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             person = await database.spieler.find_one({"_id": SPIELER_OIDS["Mueller"]})
             row = await database.saison_spieler.find_one({"spieler_id": SPIELER_OIDS["Mueller"]})
 
@@ -327,7 +327,7 @@ class TestTheBaseTierReadExecuted:
     def test_the_corpus_really_holds_a_retired_person_beside_a_retired_row(self, mongo_container: Any):
         """The same guard for `READ-SQUAD-001`: both cases below pass against a corpus where nobody retired at all."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             person = await database.spieler.find_one({"_id": SPIELER_OIDS["Weber"]})
             live_row = await database.saison_spieler.find_one({"spieler_id": SPIELER_OIDS["Weber"]})
             retired_row = await database.saison_spieler.find_one({"spieler_id": SPIELER_OIDS["Kraus"]})
@@ -402,7 +402,7 @@ class TestTheBaseTierReadExecuted:
         assert [row["position"] for row in served] == [None, "Abwehr", "Angriff", "Mittelfeld", "Tor"]
 
     def _read_one(self, container: Any, key: str) -> dict[str, Any]:
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             response = await get_spieler_by_id(spieler_id=SPIELER_OIDS[key], spieler_collection=database.spieler)
 
             return response.model_dump(mode="json", by_alias=True)
@@ -424,7 +424,7 @@ class TestTheBaseTierReadExecuted:
 
 
 def on_a_database(container: Any, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first runs on."""
+    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first runs on."""
 
     async def _run() -> Any:
         async with a_clean_database(container.get_connection_url(), DATABASE_NAME) as (_, database):

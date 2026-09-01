@@ -1,8 +1,9 @@
 from typing import Annotated, Any, Mapping, Sequence
 
 from fastapi import APIRouter, Body, Depends
-from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 from pymongo import ReturnDocument
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import (
@@ -119,9 +120,9 @@ async def _rewrite_gruppenphase_sides(
     *,
     spiele: Sequence[Mapping[str, Any]],
     team_ids: Sequence[Any],
-    spiele_collection: AsyncIOMotorCollection,
-    teams_collection: AsyncIOMotorCollection,
-    session: AsyncIOMotorClientSession,
+    spiele_collection: AsyncCollection,
+    teams_collection: AsyncCollection,
+    session: AsyncClientSession,
 ) -> int:
     """Rewrite each club's side of these fixtures to the other, returning how many were touched.
 
@@ -260,7 +261,7 @@ async def patch_saison(
     finished or drawn season has fixed is refused, as is a rule narrowed below what it holds.
     """
 
-    async def judge_and_write_the_rules(session: AsyncIOMotorClientSession) -> FLPatchSaisonResponse:
+    async def judge_and_write_the_rules(session: AsyncClientSession) -> FLPatchSaisonResponse:
         """Judge, then write the season's dates and rules. Everything judged is read in-session."""
 
         # THROUGH the session, as the draw's reads are: a retry after a write conflict has to judge
@@ -319,14 +320,16 @@ async def patch_saison(
             if phase is not None:
                 attached_by_phase[phase] = max(attached_by_phase.get(phase, 0), attached)
 
-        largest_squad_rows = await saison_spieler_collection.aggregate(
-            [
-                {"$match": {"saison_id": saison_id, "inactive_since": None}},
-                {"$group": {"_id": "$team_id", "held": {"$sum": 1}}},
-                {"$sort": {"held": -1}},
-                {"$limit": 1},
-            ],
-            session=session,
+        largest_squad_rows = await (
+            await saison_spieler_collection.aggregate(
+                [
+                    {"$match": {"saison_id": saison_id, "inactive_since": None}},
+                    {"$group": {"_id": "$team_id", "held": {"$sum": 1}}},
+                    {"$sort": {"held": -1}},
+                    {"$limit": 1},
+                ],
+                session=session,
+            )
         ).to_list(length=1)
         largest_squad = int(largest_squad_rows[0]["held"]) if largest_squad_rows else 0
 
@@ -377,7 +380,7 @@ async def patch_saison(
     # `with_transaction`, not a bare `start_transaction`: a draw landing between this request's
     # judgement and its write would leave the season's rules contradicting its own fixtures, and the
     # retry re-judges against it.
-    async with await db.start_session() as session:
+    async with db.start_session() as session:
         patched = await session.with_transaction(judge_and_write_the_rules)
 
     # After the commit: an aborted patch leaves the cache nothing to unlearn.
@@ -401,7 +404,7 @@ async def activate_saison(
     judgement. The outgoing must be finished, and a `past` target refused.
     """
 
-    async def judge_and_roll_the_league_over(session: AsyncIOMotorClientSession) -> FLActivateSaisonResponse:
+    async def judge_and_roll_the_league_over(session: AsyncClientSession) -> FLActivateSaisonResponse:
         """Judge, then demote every incumbent and promote the target. Everything judged is read in-session."""
 
         # THROUGH the session, as the draw's reads are: a retry after a write conflict judges the
@@ -466,7 +469,7 @@ async def activate_saison(
     # `with_transaction`, not a bare `start_transaction`: a draw filling the outgoing season or an
     # undraw emptying the target writes a season this one writes too, so it conflicts and the
     # retry judges the league again rather than closing it blind.
-    async with await db.start_session() as session:
+    async with db.start_session() as session:
         rolled_over = await session.with_transaction(judge_and_roll_the_league_over)
 
     # After the commit: an aborted rollover leaves the cache nothing to unlearn.
@@ -495,7 +498,7 @@ async def swap_gruppen(
     # A read first, so an unknown season is a 404 rather than a 409 about clubs holding no row in it.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
-    async def exchange_the_two_gruppen(session: AsyncIOMotorClientSession) -> FLSwapGruppenResponse:
+    async def exchange_the_two_gruppen(session: AsyncClientSession) -> FLSwapGruppenResponse:
         """The whole swap: judge, then write both rows. Everything it decides on is read in-session."""
 
         both_ids = [swap_data.team1_id, swap_data.team2_id]
@@ -595,7 +598,7 @@ async def swap_gruppen(
 
     # `with_transaction`, not a bare `start_transaction`: two admins on one season can write-conflict,
     # and the callback re-reads everything it judges on, so a retry is safe.
-    async with await db.start_session() as session:
+    async with db.start_session() as session:
         return await session.with_transaction(exchange_the_two_gruppen)
 
 
@@ -622,7 +625,7 @@ async def generate_spielplan(
     # A read first, so an unknown season is a 404 rather than a refusal about what it does not hold.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
-    async def draw_the_whole_season(session: AsyncIOMotorClientSession) -> FLGenerateSpielplanResponse:
+    async def draw_the_whole_season(session: AsyncClientSession) -> FLGenerateSpielplanResponse:
         """Judge, then write both collections and the watermark. Everything judged is read in-session."""
 
         # THROUGH the session, as the group swap's callback is: a retry after a write conflict has to
@@ -760,7 +763,7 @@ async def generate_spielplan(
 
     # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges
     # on, and a retry is safe because it generates its own ids and wires by `spiel_nr`, never by one.
-    async with await db.start_session() as session:
+    async with db.start_session() as session:
         drawn_response = await session.with_transaction(draw_the_whole_season)
 
     # After the commit: an aborted draw leaves the cache nothing to unlearn.
@@ -784,7 +787,7 @@ async def undraw_spielplan(
     rules to `PATCH` and the groups to an entry.
     """
 
-    async def undraw_the_whole_season(session: AsyncIOMotorClientSession) -> FLUndrawSpielplanResponse:
+    async def undraw_the_whole_season(session: AsyncClientSession) -> FLUndrawSpielplanResponse:
         """Judge, then remove both collections and the watermark. Everything judged is read in-session."""
 
         # THROUGH the session, as the draw's reads are: a retry after a write conflict judges the
@@ -834,7 +837,7 @@ async def undraw_spielplan(
 
     # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges
     # on, and a retry is safe because it removes a set by filter rather than by any id it read.
-    async with await db.start_session() as session:
+    async with db.start_session() as session:
         undrawn = await session.with_transaction(undraw_the_whole_season)
 
     # After the commit: an aborted undraw leaves the cache nothing to unlearn.

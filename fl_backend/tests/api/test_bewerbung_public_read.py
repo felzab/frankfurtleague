@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from typing import Any, Iterator, Mapping
 from zoneinfo import ZoneInfo
@@ -6,8 +7,7 @@ import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
 from httpx import Response
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import MongoClient
+from pymongo import AsyncMongoClient, MongoClient
 
 from app.api.bewerbungen.schemas import FLBewerbungSchuleOption
 from app.api.saisons.cache import invalidate_saison_cache
@@ -207,19 +207,20 @@ def seeded_with(mongo_container: Any, saisons: list[dict[str, Any]]) -> str:
 
 
 def answered(uri: str, path: str, headers: Mapping[str, str] = BASE_AUTH) -> Response:
-    """One request per client: Motor binds to the loop `TestClient` first ran on.
+    """One request per client: `AsyncMongoClient` binds to the loop `TestClient` first ran on.
 
     No lifespan either, for the reason `fl_backend/tests/api/test_malformed_ids.py :: client` gives.
     """
 
     app = create_app(build_test_config())
-    app.state.db_client = AsyncIOMotorClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
+    app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
     app.dependency_overrides[get_germany_now] = lambda: NOW
 
     try:
         return TestClient(app, raise_server_exceptions=False).get(path, headers=dict(headers))
     finally:
-        app.state.db_client.close()
+        # A loop of its own, for the reason `fl_backend/tests/api/test_malformed_ids.py :: client` gives.
+        asyncio.run(app.state.db_client.close())
 
 
 pytestmark = pytest.mark.db

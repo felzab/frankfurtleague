@@ -5,7 +5,7 @@ import textwrap
 from typing import Any, cast
 
 import pytest
-from motor.motor_asyncio import AsyncIOMotorCollection
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons import cache
 from app.api.saisons.cache import (
@@ -75,8 +75,8 @@ class SuspendingCollection(CountingCollection):
         return answer
 
 
-def as_collection(stub: CountingCollection) -> AsyncIOMotorCollection:
-    return cast(AsyncIOMotorCollection, stub)
+def as_collection(stub: CountingCollection) -> AsyncCollection:
+    return cast(AsyncCollection, stub)
 
 
 @pytest.fixture(autouse=True)

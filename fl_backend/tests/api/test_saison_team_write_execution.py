@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable, Sequence
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.teams.admin_router import patch_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamPayload
@@ -89,7 +89,7 @@ def fixture_document(team_id: ObjectId) -> dict[str, Any]:
     }
 
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_season(
@@ -101,7 +101,7 @@ def on_a_season(
     spiele: Sequence[dict[str, Any]] = (),
     seeded_kontakte: dict[str, Any] | None = None,
 ) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on.
+    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first ran on.
 
     `future` by default, the one status a group move is open in -- so a refusal a test reaches is the
     gate it names rather than the season's standing.
@@ -124,7 +124,7 @@ def on_a_season(
 
 
 async def call_patch(
-    database: AsyncIOMotorDatabase,
+    database: AsyncDatabase,
     team_id: ObjectId = ADLER,
     *,
     gruppe: str = "A",
@@ -148,7 +148,7 @@ async def call_patch(
     )
 
 
-async def stored_row(database: AsyncIOMotorDatabase, team_id: ObjectId = ADLER) -> dict[str, Any]:
+async def stored_row(database: AsyncDatabase, team_id: ObjectId = ADLER) -> dict[str, Any]:
     row = await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": team_id})
     assert row is not None, f"the seed holds no junction row for {team_id}"
 
@@ -159,7 +159,7 @@ class TestRecordingAnExitFromTheSeason:
     """An austritt is the only way out of a season -- there is no delete -- and it writes the record without moving anyone."""
 
     def test_the_record_is_stored_and_echoed(self, mongo_container: Any):
-        def go(database: AsyncIOMotorDatabase) -> Awaitable[Any]:
+        def go(database: AsyncDatabase) -> Awaitable[Any]:
             return _both(database, austritt=dict(EXIT))
 
         response, row = on_a_season(mongo_container, go)
@@ -201,7 +201,7 @@ class TestRecordingAnExitFromTheSeason:
     def test_clearing_it_reinstates_the_club(self, mongo_container: Any):
         """`austritt` has no default, so a payload omitting it is a 422; sending null is how the record is deliberately withdrawn."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await call_patch(database, austritt=dict(EXIT))
             await call_patch(database, austritt=None)
 
@@ -219,7 +219,7 @@ class TestMovingAClubBetweenGroups:
     def test_a_started_season_with_a_fixture_drawn_refuses_it_and_writes_nothing(self, mongo_container: Any):
         """`REQ-ENTER`'s move lock through the route: the group phase is a round robin, so a move after the draw strands every fixture."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(DocumentConflictException) as conflict:
                 await call_patch(database, gruppe="B")
 
@@ -233,7 +233,7 @@ class TestMovingAClubBetweenGroups:
     def test_a_full_destination_refuses_it(self, mongo_container: Any):
         """The entry gate reached through the move: a group at its cap cannot take one more however the club arrives."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(DocumentConflictException) as conflict:
                 await call_patch(database, gruppe="B")
 
@@ -245,7 +245,7 @@ class TestMovingAClubBetweenGroups:
         assert row["gruppe"] == "A"
 
     def test_a_group_the_season_does_not_run_refuses_it(self, mongo_container: Any):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(DocumentConflictException) as conflict:
                 await call_patch(database, gruppe=UNOFFERED_GRUPPE)
 
@@ -256,7 +256,7 @@ class TestMovingAClubBetweenGroups:
     def test_a_row_no_document_names_is_a_404(self, mongo_container: Any):
         """Read before anything is judged, so an unknown club is a missing row rather than a refusal about a group."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(DocumentNotFoundException):
                 await call_patch(database, ABSENT, gruppe="B")
 
@@ -289,7 +289,7 @@ class TestTheEchoCarriesTheSeasonsOwnIdentity:
         assert (response.name, response.shorthand) != CLUB_NAMES[ADLER]
 
 
-async def _both(database: AsyncIOMotorDatabase, **overrides: Any) -> Any:
+async def _both(database: AsyncDatabase, **overrides: Any) -> Any:
     """The response and the row it wrote: an echo agreeing with a document nobody updated proves nothing."""
 
     response = await call_patch(database, **overrides)
@@ -328,7 +328,7 @@ class TestTheSeasonsKit:
     def test_a_second_write_sending_null_clears_it(self, mongo_container: Any):
         """The wholesale replace, from the direction that removes data: unassigning a colour is one PATCH."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await call_patch(database, trikot_farbe="bordeaux")
             await call_patch(database)
 
@@ -362,7 +362,7 @@ class TestTheContactBlockThisPatchDoesNotOwn:
     def test_a_row_stored_with_no_block_at_all_still_echoes(self, mongo_container: Any):
         """A row entered before the key existed: the validator does not require it, so `.get` is what keeps the echo alive."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await database[Collection.SAISON_TEAMS].update_one({"saison_id": SAISON_ID, "team_id": ADLER}, {"$unset": {"kontakte": ""}})
 
             return await call_patch(database, gruppe="B"), await stored_row(database)

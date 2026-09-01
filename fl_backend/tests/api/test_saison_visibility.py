@@ -2,7 +2,7 @@ import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import get_saisons_for_admin
 from app.api.saisons.cache import invalidate_saison_cache
@@ -61,11 +61,11 @@ class TestTheTermItselfWithholdsThePlannedSeason:
         assert base_tier_status_term("future") == {"status": {"$eq": "future", "$ne": "future"}}
 
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on."""
+    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first ran on."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
@@ -82,7 +82,7 @@ def on_a_league(url: str, body: Body) -> Any:
 @pytest.mark.db
 class TestAPlannedSeasonIsWithheldFromTheBaseTier:
     def test_the_list_serves_the_finished_and_the_running_season_only(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await get_saisons(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams())
 
         response = on_a_league(mongo_replica_set_url, body)
@@ -92,14 +92,14 @@ class TestAPlannedSeasonIsWithheldFromTheBaseTier:
     def test_asking_for_the_planned_status_answers_an_empty_list(self, mongo_replica_set_url: str):
         """The compound term is what makes this empty rather than the whole season list."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await get_saisons(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams(status="future"))
 
         assert on_a_league(mongo_replica_set_url, body).saisons == []
 
     @pytest.mark.parametrize("saison_id", [ARCHIVED, RUNNING])
     def test_a_readable_season_is_still_served_by_id(self, saison_id: str, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await get_saison(saison_id=saison_id, saisons_collection=database[Collection.SAISONS])
 
         assert on_a_league(mongo_replica_set_url, body).saison.id == saison_id
@@ -107,7 +107,7 @@ class TestAPlannedSeasonIsWithheldFromTheBaseTier:
     def test_the_planned_season_is_a_404_and_never_a_403(self, mongo_replica_set_url: str):
         """404 because the FILTER excludes it: a 403 would confirm that next season's draw exists."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(DocumentNotFoundException) as refusal:
                 await get_saison(saison_id=PLANNED, saisons_collection=database[Collection.SAISONS])
 
@@ -121,7 +121,7 @@ class TestTheAdminTierReadsEverySeason:
     def test_the_planned_season_is_listed_beside_the_others(self, mongo_replica_set_url: str):
         """An admin who cannot select a planned season cannot enter a club into one, which is the only window there is."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await get_saisons_for_admin(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams())
 
         response = on_a_league(mongo_replica_set_url, body)
@@ -129,7 +129,7 @@ class TestTheAdminTierReadsEverySeason:
         assert [saison.id for saison in response.saisons] == [ARCHIVED, RUNNING, PLANNED]
 
     def test_it_still_honours_a_status_filter(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await get_saisons_for_admin(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams(status="future"))
 
         assert [saison.id for saison in on_a_league(mongo_replica_set_url, body).saisons] == [PLANNED]

@@ -3,7 +3,9 @@ from typing import Any, Awaitable, Callable, get_args
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorClientSession, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
@@ -70,11 +72,11 @@ def recorded_row(**overrides: Any) -> dict[str, Any]:
     }
 
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_database(container: Any, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first runs on."""
+    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first runs on."""
 
     async def _run() -> Any:
         async with a_clean_database(container.get_connection_url(), DATABASE_NAME, constraints=True) as (_, database):
@@ -83,7 +85,7 @@ def on_a_database(container: Any, body: Body) -> Any:
     return asyncio.run(_run())
 
 
-ClientBody = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
+ClientBody = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_replica_set(url: str, body: ClientBody) -> Any:
@@ -100,7 +102,7 @@ def on_a_replica_set(url: str, body: ClientBody) -> Any:
 
 
 def insert_outcome(container: Any, row: dict[str, Any]) -> str:
-    async def body(database: AsyncIOMotorDatabase) -> str:
+    async def body(database: AsyncDatabase) -> str:
         try:
             await database[Collection.AKTIONEN].insert_one(row)
         except OperationFailure as failure:
@@ -114,10 +116,10 @@ def insert_outcome(container: Any, row: dict[str, Any]) -> str:
 def test_the_rows_every_real_write_builds_are_all_accepted(mongo_replica_set_url: str):
     """Row and `$jsonSchema` are hand-written from one shape, and a drift between them is a write refused in production and nowhere else."""
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> list[dict[str, Any]]:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[dict[str, Any]]:
         teams = database[Collection.TEAMS]
 
-        async def write_one_of_every_operation(session: AsyncIOMotorClientSession) -> None:
+        async def write_one_of_every_operation(session: AsyncClientSession) -> None:
             await post_one_to_db(collection=teams, document=team_document(), session=session)
             await patch_one_in_db(collection=teams, db_filter={"_id": TEAM_OID}, update={"$set": {"name": RENAMED}}, session=session)
             # A dotted key, which is what every reference fan-out matches on and what the row then stores.
@@ -131,7 +133,7 @@ def test_the_rows_every_real_write_builds_are_all_accepted(mongo_replica_set_url
 
         # All six inside one, as a multi-write router runs it: the removals require a session, and a
         # retry is safe only because every write here carries it -- an abort takes back what a replay redoes.
-        async with await client.start_session() as session:
+        async with client.start_session() as session:
             await session.with_transaction(write_one_of_every_operation)
 
         # Read after the commit -- what a later request sees, so nothing below is asserted on a row
@@ -173,16 +175,16 @@ def test_a_removals_row_is_selected_by_an_erasure_shaped_redaction(mongo_replica
     stamps the row, while the sibling removal's row keeps its image.
     """
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         teams = database[Collection.TEAMS]
 
-        async def remove_two_sets(session: AsyncIOMotorClientSession) -> None:
+        async def remove_two_sets(session: AsyncClientSession) -> None:
             await post_many_to_db(collection=teams, documents=[bulk_team_document(code) for code in ("HE", "CS")], session=session)
             # Two removals, so the redaction below has a row it must reach and one it must not.
             await delete_many_from_db(collection=teams, db_filter={"shorthand": "HE"}, session=session)
             await delete_many_from_db(collection=teams, db_filter={"shorthand": "CS"}, session=session)
 
-        async with await client.start_session() as session:
+        async with client.start_session() as session:
             await session.with_transaction(remove_two_sets)
 
         target_row = await database[Collection.AKTIONEN].find_one({"db_filter.shorthand": "HE"})

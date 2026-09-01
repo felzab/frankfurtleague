@@ -915,7 +915,7 @@ announces nothing.
 database — `fl_backend/tests/core/test_constraints_execution.py :: DATABASE_NAME` is
 `fl_constraints_test`, and nearly every sibling suite carries a distinct one — so the suites do not
 collide with one another. **The exception is worth eliminating first**: the suites seeding through
-pymongo rather than Motor take their name from `fl_backend/tests/config.py :: build_test_config`'s
+pymongo's synchronous client rather than its async one take their name from `fl_backend/tests/config.py :: build_test_config`'s
 `db_base_name`, so they share one database within a run and would share it across two. `fl_test`,
 which `fl_backend/tests/conftest.py :: mongo_database` hands out, is a second such name, and the
 partition its sharers keep to is recorded at `fl_backend/tests/api/conftest.py :: league`.

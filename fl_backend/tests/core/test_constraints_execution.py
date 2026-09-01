@@ -4,7 +4,8 @@ from typing import Any, Awaitable, Callable, Mapping
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.aktionen.services import build_aktionen_sort
@@ -217,14 +218,17 @@ def valid_document(collection: str, **overrides: Any) -> dict[str, Any]:
     return document
 
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_database(container: Any, body: Body, *, constrained: bool = True) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first runs on. `constrained=False` is the production ordering."""
+    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first runs on.
+
+    `constrained=False` is the production ordering.
+    """
 
     async def _run() -> Any:
-        client = AsyncIOMotorClient(container.get_connection_url())
+        client = AsyncMongoClient(container.get_connection_url())
         try:
             # Dropped on the way IN, never out: this suite alone changes the schema it runs on, so
             # what isolates it is the drop the next call makes, and a second one buys nothing.
@@ -234,7 +238,7 @@ def on_a_database(container: Any, body: Body, *, constrained: bool = True) -> An
                 await apply_constraints(database)
             return await body(database)
         finally:
-            client.close()
+            await client.close()
 
     return asyncio.run(_run())
 
@@ -254,7 +258,7 @@ def on_the_shipped_schema(container: Any, body: Body) -> Any:
 
 
 def insert_outcome(container: Any, collection: str, document: dict[str, Any]) -> str:
-    async def body(database: AsyncIOMotorDatabase) -> str:
+    async def body(database: AsyncDatabase) -> str:
         try:
             await database[collection].insert_one(document)
         except OperationFailure as failure:
@@ -385,7 +389,7 @@ def test_every_shape_the_generator_watermark_takes_is_accepted(mongo_container: 
     ids=[index.name for index in UNIQUE_INDEXES],
 )
 def test_each_unique_index_refuses_the_second_document(mongo_container: Any, collection: str, first: dict[str, Any], second: dict[str, Any]):
-    async def body(database: AsyncIOMotorDatabase) -> str:
+    async def body(database: AsyncDatabase) -> str:
         await database[collection].insert_one(first)
         try:
             await database[collection].insert_one(second)
@@ -400,7 +404,7 @@ def test_each_unique_index_refuses_the_second_document(mongo_container: Any, col
 def test_the_same_spiel_nr_in_another_season_is_fine(mongo_container: Any):
     """The index is compound for a reason: match 1 exists in every season."""
 
-    async def body(database: AsyncIOMotorDatabase) -> int:
+    async def body(database: AsyncDatabase) -> int:
         await database.spiele.insert_one(valid_documents()["spiele"])
         await database.spiele.insert_one(valid_document("spiele", saison_id="2025"))
         return await database.spiele.count_documents({})
@@ -411,7 +415,7 @@ def test_the_same_spiel_nr_in_another_season_is_fine(mongo_container: Any):
 def test_the_same_position_in_another_phase_is_fine(mongo_container: Any):
     """`saison_phase` is a key for this reason: the positions restart per phase, so every phase of a season has a 1."""
 
-    async def body(database: AsyncIOMotorDatabase) -> int:
+    async def body(database: AsyncDatabase) -> int:
         await database.spieltage.insert_one(valid_documents()["spieltage"])
         await database.spieltage.insert_one(valid_document("spieltage", _id=SPIELORT_OID, saison_phase="finale"))
         return await database.spieltage.count_documents({})
@@ -422,7 +426,7 @@ def test_the_same_position_in_another_phase_is_fine(mongo_container: Any):
 def test_every_validator_is_attached_strictly(mongo_container: Any):
     """Not `moderate`, which exempts the documents worth catching, and not `warn`, which lets the write land."""
 
-    async def body(database: AsyncIOMotorDatabase) -> dict[str, tuple[bool, str, str]]:
+    async def body(database: AsyncDatabase) -> dict[str, tuple[bool, str, str]]:
         found = {}
         async for collection in await database.list_collections():
             options = collection.get("options", {})
@@ -441,11 +445,11 @@ def test_every_validator_is_attached_strictly(mongo_container: Any):
 def test_applying_twice_changes_nothing(mongo_container: Any):
     """A second `create_index` with the same name and options is a no-op; different options is an error, so the declared ones must match."""
 
-    async def body(database: AsyncIOMotorDatabase) -> tuple[int, int]:
+    async def body(database: AsyncDatabase) -> tuple[int, int]:
         second = await apply_constraints(database)
         built = 0
         for index in UNIQUE_INDEXES:
-            names = [existing["name"] async for existing in database[index.collection].list_indexes()]
+            names = [existing["name"] async for existing in await database[index.collection].list_indexes()]
             assert index.name in names, f"{index.name} missing from {index.collection}: {names}"
             built += 1
         return second.validators, built
@@ -456,7 +460,7 @@ def test_applying_twice_changes_nothing(mongo_container: Any):
 def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_container: Any):
     """The tempting fix — catch it, log it, carry on — leaves a database that looks constrained and is not."""
 
-    async def body(database: AsyncIOMotorDatabase) -> str:
+    async def body(database: AsyncDatabase) -> str:
         await database.teams.insert_many([valid_documents()["teams"], valid_document("teams", _id=SPIELER_OID, name="Lessing II")])
         try:
             await apply_constraints(database)
@@ -471,10 +475,10 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_conta
 def test_the_privilege_probe_answers_granted_and_writes_nothing(mongo_container: Any, constrained: bool):
     """Both replies: an empty database answers `NamespaceNotFound`, a constrained one `IndexNotFound`, and the probe must leave no trace."""
 
-    async def body(database: AsyncIOMotorDatabase) -> tuple[str, list[str], list[str]]:
+    async def body(database: AsyncDatabase) -> tuple[str, list[str], list[str]]:
         answer = await probe_collmod_privilege(database)
         target = next(iter(COLLECTION_VALIDATORS))
-        hidden = [index["name"] async for index in database[target].list_indexes() if index.get("hidden")]
+        hidden = [index["name"] async for index in await database[target].list_indexes() if index.get("hidden")]
         return answer, await database.list_collection_names(), hidden
 
     answer, collections, hidden = on_a_database(mongo_container, body, constrained=constrained)
@@ -488,9 +492,9 @@ def test_every_needed_privilege_is_reported_independently(mongo_container: Any):
     username = f"limited_{secrets.token_hex(4)}"
     password = secrets.token_hex(16)
 
-    async def body(database: AsyncIOMotorDatabase) -> list[tuple[str, str]]:
+    async def body(database: AsyncDatabase) -> list[tuple[str, str]]:
         await database.command("createUser", username, pwd=password, roles=[{"role": "readWrite", "db": DATABASE_NAME}])
-        limited = AsyncIOMotorClient(
+        limited = AsyncMongoClient(
             host=mongo_container.get_container_host_ip(),
             port=int(mongo_container.get_exposed_port(27017)),
             username=username,
@@ -500,7 +504,7 @@ def test_every_needed_privilege_is_reported_independently(mongo_container: Any):
         try:
             return await probe_privileges(limited[DATABASE_NAME])
         finally:
-            limited.close()
+            await limited.close()
             await database.command("dropUser", username)
 
     verdicts = dict(on_a_database(mongo_container, body, constrained=False))
@@ -513,9 +517,9 @@ def test_the_privilege_probe_says_denied_for_a_readwrite_user(mongo_container: A
     username = f"limited_{secrets.token_hex(4)}"
     password = secrets.token_hex(16)
 
-    async def body(database: AsyncIOMotorDatabase) -> str:
+    async def body(database: AsyncDatabase) -> str:
         await database.command("createUser", username, pwd=password, roles=[{"role": "readWrite", "db": DATABASE_NAME}])
-        limited = AsyncIOMotorClient(
+        limited = AsyncMongoClient(
             host=mongo_container.get_container_host_ip(),
             port=int(mongo_container.get_exposed_port(27017)),
             username=username,
@@ -525,7 +529,7 @@ def test_the_privilege_probe_says_denied_for_a_readwrite_user(mongo_container: A
         try:
             return await probe_collmod_privilege(limited[DATABASE_NAME])
         finally:
-            limited.close()
+            await limited.close()
             await database.command("dropUser", username)
 
     assert on_a_database(mongo_container, body, constrained=False).startswith("DENIED")
@@ -534,7 +538,7 @@ def test_the_privilege_probe_says_denied_for_a_readwrite_user(mongo_container: A
 def test_the_check_mode_finds_what_the_validators_would_reject(mongo_container: Any):
     """The validator document is read back as a query — `$jsonSchema` is both — so no second implementation can disagree."""
 
-    async def body(database: AsyncIOMotorDatabase) -> tuple[int, list[Any], int]:
+    async def body(database: AsyncDatabase) -> tuple[int, list[Any], int]:
         await database.saison_spieler.insert_many(
             [
                 valid_documents()["saison_spieler"],
@@ -562,7 +566,7 @@ def test_the_check_mode_finds_what_the_validators_would_reject(mongo_container: 
 def test_the_cross_document_rules_report_a_clean_database_as_clean(mongo_container: Any):
     """Asserted FIRST and separately: a rule that fires on everything enforces nothing and reads exactly like one that works."""
 
-    async def body(database: AsyncIOMotorDatabase) -> dict[str, int]:
+    async def body(database: AsyncDatabase) -> dict[str, int]:
         await database.teams.insert_one(valid_documents()["teams"])
         await database.saison_teams.insert_one(valid_documents()["saison_teams"])
         await database.spiele.insert_one(valid_documents()["spiele"])
@@ -580,7 +584,7 @@ def test_the_cross_document_rules_find_what_no_validator_and_no_index_can(mongo_
     whole gap this report exists to close.
     """
 
-    async def body(database: AsyncIOMotorDatabase) -> tuple[dict[str, int], dict[str, list[Any]]]:
+    async def body(database: AsyncDatabase) -> tuple[dict[str, int], dict[str, list[Any]]]:
         await database.teams.insert_one(valid_documents()["teams"])
 
         # One club on two fixtures of ONE Spieltag. The second names a different opponent, so the
@@ -631,7 +635,7 @@ def test_the_cross_document_rules_find_what_no_validator_and_no_index_can(mongo_
 def test_a_club_on_both_sides_of_one_fixture_is_one_group_not_two(mongo_container: Any):
     """`n`, not the size of `spiele`: the two sides collapse to one `spiel_nr`, and counting those would miss it."""
 
-    async def body(database: AsyncIOMotorDatabase) -> tuple[int, list[Any]]:
+    async def body(database: AsyncDatabase) -> tuple[int, list[Any]]:
         side = {"team_id": TEAM_OID, "name": "Lessing", "tore": None, "shorthand": "LE"}
         await database.spiele.insert_one(valid_document("spiele", ergebnis=None, team1=dict(side), team2=dict(side)))
 
@@ -649,9 +653,9 @@ def test_the_identity_report_names_the_user_and_its_roles(mongo_container: Any):
     username = f"named_{secrets.token_hex(4)}"
     password = secrets.token_hex(16)
 
-    async def body(database: AsyncIOMotorDatabase) -> tuple[str, list[str]]:
+    async def body(database: AsyncDatabase) -> tuple[str, list[str]]:
         await database.command("createUser", username, pwd=password, roles=[{"role": "readWrite", "db": DATABASE_NAME}])
-        named = AsyncIOMotorClient(
+        named = AsyncMongoClient(
             host=mongo_container.get_container_host_ip(),
             port=int(mongo_container.get_exposed_port(27017)),
             username=username,
@@ -661,7 +665,7 @@ def test_the_identity_report_names_the_user_and_its_roles(mongo_container: Any):
         try:
             return await report_identity(named[DATABASE_NAME])
         finally:
-            named.close()
+            await named.close()
             await database.command("dropUser", username)
 
     identity, roles = on_a_database(mongo_container, body, constrained=False)
@@ -705,9 +709,9 @@ def winning_stages(explained: Mapping[str, Any]) -> list[str]:
 def test_every_declared_support_index_is_built(mongo_container: Any):
     """`apply_constraints` creates each one. Only the unique indexes were checked before, so a typo here built nothing."""
 
-    async def body(database: AsyncIOMotorDatabase) -> int:
+    async def body(database: AsyncDatabase) -> int:
         for index in SUPPORT_INDEXES:
-            names = [existing["name"] async for existing in database[index.collection].list_indexes()]
+            names = [existing["name"] async for existing in await database[index.collection].list_indexes()]
             assert index.name in names, f"{index.name} missing from {index.collection}: {names}"
         return len(SUPPORT_INDEXES)
 
@@ -722,7 +726,7 @@ def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_containe
     The sort comes from `build_bewerbungen_sort`, so a change there is judged rather than mirrored.
     """
 
-    async def body(database: AsyncIOMotorDatabase) -> list[str]:
+    async def body(database: AsyncDatabase) -> list[str]:
         await database["bewerbungen"].insert_many(
             [
                 valid_document(
@@ -760,7 +764,7 @@ def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_container:
     over a handful of rows.
     """
 
-    async def body(database: AsyncIOMotorDatabase) -> list[str]:
+    async def body(database: AsyncDatabase) -> list[str]:
         await database["aktionen"].insert_many(
             [
                 valid_documents()["aktionen"]

@@ -1,4 +1,4 @@
-from motor.motor_asyncio import AsyncIOMotorCollection
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.cache import read_cached_saison, saison_cache_generation, store_cached_saison
 from app.api.saisons.services import WITHHELD_FROM_BASE_TIER
@@ -7,7 +7,7 @@ from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 
-async def saison_is_withheld(*, saisons_collection: AsyncIOMotorCollection, saison_id: str) -> bool:
+async def saison_is_withheld(*, saisons_collection: AsyncCollection, saison_id: str) -> bool:
     """Whether this season's contents are closed to a caller with no admin scope.
 
     `base_tier_status_term` narrows the season LIST on `WITHHELD_FROM_BASE_TIER`; a read scoped BY
@@ -32,7 +32,7 @@ async def saison_is_withheld(*, saisons_collection: AsyncIOMotorCollection, sais
     return saison_raw["status"] == WITHHELD_FROM_BASE_TIER
 
 
-async def refuse_withheld_saison(*, saisons_collection: AsyncIOMotorCollection, saison_id: str) -> None:
+async def refuse_withheld_saison(*, saisons_collection: AsyncCollection, saison_id: str) -> None:
     """The 404 an id naming no season already answers, for one this tier may not read.
 
     Matching that answer is what leaves a season being drawn up indistinguishable from one nobody
@@ -43,7 +43,7 @@ async def refuse_withheld_saison(*, saisons_collection: AsyncIOMotorCollection, 
         raise DocumentNotFoundException(filter={"_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
 
 
-async def withheld_saison_ids(*, saisons_collection: AsyncIOMotorCollection) -> list[str]:
+async def withheld_saison_ids(*, saisons_collection: AsyncCollection) -> list[str]:
     """Every season id closed to this tier -- `saison_is_withheld` asked of all of them at once.
 
     The SET form, for a read that resolves no season and joins rows from every one: it holds no id

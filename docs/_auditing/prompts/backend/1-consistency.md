@@ -18,7 +18,7 @@ DELIVERABLE: the write→read map (check 1), reported in full rather than only i
 denormalisation inventory (check 2) and the out-of-band constraint inventory (check 8).
 
 CONTEXT — derive, do not assume: enumerate the collections from `app/core/db.py`; the write sites by
-grepping for the CRUD helpers in `app/core/crud.py` and for raw Motor calls (`update_*`, `insert_*`,
+grepping for the CRUD helpers in `app/core/crud.py` and for raw driver calls (`update_*`, `insert_*`,
 `delete_*`, `$set`, `$inc`, `find_one_and_*`, `bulk`); and the read pipelines from each
 `services.py`. The domain model splits identity from season-scoped data (`teams` / `saison_teams`,
 `spieler` / `saison_spieler`), and the `$lookup` and strict-join semantics in `teams/services.py` are
@@ -41,7 +41,7 @@ THE CHECKS, in priority order:
    is a finding.**
 
 3. **MULTI-DOCUMENT WRITE ATOMICITY.** Enumerate every endpoint performing more than one write. What
-   happens when write N succeeds and write N+1 fails? Are Motor sessions or transactions used
+   happens when write N succeeds and write N+1 fails? Are driver sessions or transactions used
    anywhere? Is the partial state reachable, observable, repairable? Do not prescribe transactions
    reflexively — state the actual partial states and what each costs, and present the remedies
    (transaction, ordering that fails safe, a recompute endpoint) as options with trade-offs.

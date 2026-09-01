@@ -8,8 +8,8 @@ import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
 from httpx import Response
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from pymongo import MongoClient
+from pymongo import AsyncMongoClient, MongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.public_router import post_bewerbung
@@ -142,13 +142,13 @@ def payload(**overrides: Any) -> dict[str, Any]:
     }
 
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW) -> Any:
     """The SHIPPED validators and indexes, so a document production would refuse fails here too.
 
-    One client and event loop per call: Motor binds to the loop it first ran on.
+    One client and event loop per call: `AsyncMongoClient` binds to the loop it first ran on.
     """
 
     async def _run() -> Any:
@@ -185,7 +185,7 @@ def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW) -> Any:
     return asyncio.run(_run())
 
 
-async def submit(database: AsyncIOMotorDatabase, **overrides: Any) -> Any:
+async def submit(database: AsyncDatabase, **overrides: Any) -> Any:
     return await post_bewerbung(
         bewerbung_data=FLPostBewerbungPayload.model_validate(payload(**overrides)),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
@@ -200,7 +200,7 @@ class TestWhatASubmissionStores:
     """The document the shipped `$jsonSchema` accepts, which is the only shape the triage can then read."""
 
     def test_a_picked_club_is_stored_as_an_undecided_application(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Mapping[str, Any]:
+        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             response = await submit(database)
             stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
 
@@ -220,7 +220,7 @@ class TestWhatASubmissionStores:
     def test_a_new_school_is_stored_with_no_club_named(self, mongo_replica_set_url: str):
         """The other branch, which the validator types differently: `schule` is the object and `team_id` the null."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Mapping[str, Any]:
+        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             response = await submit(database, team_id=None, schule=schule_block())
             stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
 
@@ -235,7 +235,7 @@ class TestWhatASubmissionStores:
     def test_each_consent_is_the_one_the_server_composed(self, mongo_replica_set_url: str):
         """The applicant supplied a wording version and a tick; the scope, the source and the day are the league's."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Mapping[str, Any]:
+        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             response = await submit(database)
             stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
 
@@ -255,7 +255,7 @@ class TestWhatASubmissionStores:
     def test_the_named_opponent_is_stored_as_the_school_wrote_it(self, mongo_replica_set_url: str):
         """A free string and never a reference: nothing resolves it against a club, at the write or afterwards."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Mapping[str, Any]:
+        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             response = await submit(database, wunschgegner="Zorbanax-Gesamtschule")
             stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
 
@@ -267,7 +267,7 @@ class TestWhatASubmissionStores:
     def test_a_submission_naming_no_opponent_still_writes_the_key(self, mongo_replica_set_url: str):
         """The validator cannot require it, so only the write keeps every application this endpoint makes one shape."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Mapping[str, Any]:
+        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             response = await submit(database)
             stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
 
@@ -290,7 +290,7 @@ class TestWhatTheLogRecords:
     """An insert carries no `before`, so the row says an application arrived and never what was in it."""
 
     def test_one_row_naming_the_application_and_holding_no_image(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Mapping[str, Any]:
+        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             response = await submit(database)
             rows = await database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)}).to_list(length=None)
 
@@ -306,7 +306,7 @@ class TestWhatTheLogRecords:
     def test_no_submitted_value_reaches_the_row(self, mongo_replica_set_url: str):
         """Searched as TEXT over the whole row: a field carried in under any key would show up here."""
 
-        async def body(database: AsyncIOMotorDatabase) -> str:
+        async def body(database: AsyncDatabase) -> str:
             await submit(database)
             rows = await database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)}).to_list(length=None)
 
@@ -321,7 +321,7 @@ class TestWhatTheLogRecords:
 def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, **overrides: Any) -> DocumentConflictException:
     """One submission expected to be refused, with the exception it raised."""
 
-    async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+    async def body(database: AsyncDatabase) -> DocumentConflictException:
         with pytest.raises(DocumentConflictException) as failure:
             await submit(database, **overrides)
 
@@ -351,7 +351,7 @@ class TestTheRefusalsTheWritePathAnswers:
     def test_a_season_no_document_names_is_a_404(self, mongo_replica_set_url: str):
         """A 404 rather than `REQ-BEWERBUNG-004`: nothing was refused, the season the body names does not exist."""
 
-        async def body(database: AsyncIOMotorDatabase) -> None:
+        async def body(database: AsyncDatabase) -> None:
             with pytest.raises(DocumentNotFoundException):
                 await submit(database, saison_id="1999")
 
@@ -403,7 +403,7 @@ class TestTwoSchoolsMayApplyForOneSeason:
     """Explicitly NOT refused: a season takes many applications, and nothing here is a queue of one."""
 
     def test_a_second_new_school_is_stored_beside_the_first(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> int:
+        async def body(database: AsyncDatabase) -> int:
             await submit(database, team_id=None, schule=schule_block())
             await submit(database, team_id=None, schule=schule_block(team_name="Yttrium", shorthand="YT"))
 
@@ -444,7 +444,7 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
         database[Collection.TEAMS].insert_one(club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND))
 
         app = create_app(build_test_config())
-        app.state.db_client = AsyncIOMotorClient(host=url, serverSelectionTimeoutMS=30_000)
+        app.state.db_client = AsyncMongoClient(host=url, serverSelectionTimeoutMS=30_000)
         app.dependency_overrides[get_germany_now] = lambda: NOW
 
         try:
@@ -454,7 +454,8 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
                 headers={"Authorization": "Bearer test-key-base"} if headers is None else dict(headers),
             )
         finally:
-            app.state.db_client.close()
+            # A loop of its own, for the reason `fl_backend/tests/api/test_malformed_ids.py :: client` gives.
+            asyncio.run(app.state.db_client.close())
 
         # Read HERE: the client below is closed on the way out, and a handle returned through it
         # would be dead by the time a case touched it.
@@ -561,7 +562,7 @@ def _application_without_a_wish() -> dict[str, Any]:
     }
 
 
-def _stored_with(database: AsyncIOMotorDatabase, kader: Mapping[str, Any]) -> Awaitable[str]:
+def _stored_with(database: AsyncDatabase, kader: Mapping[str, Any]) -> Awaitable[str]:
     """One application inserted straight past the models, so only the `$jsonSchema` can be refusing it."""
 
     async def _insert() -> str:
@@ -618,7 +619,7 @@ class TestTheDatabaseHoldsAClubWithNoWebsite:
     """
 
     def test_an_application_naming_no_website_is_stored(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             response = await submit(database, team_id=None, schule=schule_block(website_url=None))
             stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
 
@@ -635,7 +636,7 @@ class TestTheDatabaseHoldsAClubWithNoWebsite:
     def test_a_club_naming_no_website_is_stored(self, mongo_replica_set_url: str):
         """`teams` carries its own validator, and acceptance is what writes a club from an application."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await database[Collection.TEAMS].insert_one(club_document(UNKNOWN_OID, "Ohnesite", "OS") | {"website_url": None})
             stored = await database[Collection.TEAMS].find_one({"_id": UNKNOWN_OID})
 
@@ -647,7 +648,7 @@ class TestTheDatabaseHoldsAClubWithNoWebsite:
     def test_the_key_is_still_required_even_when_null(self, mongo_replica_set_url: str):
         """Nullable, not optional: `required` names the key, so an omitted one is still a rejection."""
 
-        async def body(database: AsyncIOMotorDatabase) -> str:
+        async def body(database: AsyncDatabase) -> str:
             document = club_document(UNKNOWN_OID, "Ohneschluessel", "OK")
             del document["website_url"]
             try:
@@ -669,7 +670,7 @@ class TestTheDatabaseStillHoldsAnApplicationWithNoColour:
     def test_a_stored_null_colour_is_accepted_and_reads_back_through_the_model(self, mongo_replica_set_url: str):
         """Read back through `FLBewerbung`, not with a raw `find_one`: parsing is where a narrowed model would fail."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             document = {
                 "saison_id": SAISON_ID,
                 "eingereicht_am": TODAY,
@@ -694,7 +695,7 @@ class TestTheDatabaseStillHoldsAnApplicationWithNoColour:
     def test_the_key_is_still_required_even_when_null(self, mongo_replica_set_url: str):
         """Nullable, not optional: `required` names the key on the stored shape."""
 
-        async def body(database: AsyncIOMotorDatabase) -> str:
+        async def body(database: AsyncDatabase) -> str:
             document = {
                 "saison_id": SAISON_ID,
                 "eingereicht_am": TODAY,
@@ -726,7 +727,7 @@ class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheOpponentField:
     def test_a_document_carrying_no_key_at_all_is_accepted(self, mongo_replica_set_url: str):
         """The shipped `$jsonSchema`, so a document production would refuse fails here too."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             created = await database[Collection.BEWERBUNGEN].insert_one(_application_without_a_wish())
             stored = await database[Collection.BEWERBUNGEN].find_one({"_id": created.inserted_id})
 
@@ -740,7 +741,7 @@ class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheOpponentField:
     def test_a_decision_on_one_is_still_accepted(self, mongo_replica_set_url: str):
         """The failure that would ship silently: nothing writes `wunschgegner`, and the whole document is re-validated."""
 
-        async def body(database: AsyncIOMotorDatabase) -> str:
+        async def body(database: AsyncDatabase) -> str:
             created = await database[Collection.BEWERBUNGEN].insert_one(_application_without_a_wish())
             try:
                 await database[Collection.BEWERBUNGEN].update_one(
@@ -782,7 +783,7 @@ class TestAKuerzelARetiredClubStillHolds:
     def test_the_availability_check_and_the_write_agree_about_a_retired_club(self, mongo_replica_set_url: str):
         """Two lookups, one rule. They drifted before: the read was pinned against narrowing and the write was not."""
 
-        async def body(database: AsyncIOMotorDatabase) -> int:
+        async def body(database: AsyncDatabase) -> int:
             return await database[Collection.TEAMS].count_documents({"shorthand": RETIRED_SHORTHAND})
 
         assert on_a_league(mongo_replica_set_url, body) == 1

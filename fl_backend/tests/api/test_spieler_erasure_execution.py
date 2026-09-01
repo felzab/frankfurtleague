@@ -5,7 +5,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.spieler.admin_router import (
@@ -72,7 +73,7 @@ RULES = {
     "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
 }
 
-Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
+Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
@@ -106,7 +107,7 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     return asyncio.run(_run())
 
 
-async def a_pupil_with_a_history(database: AsyncIOMotorDatabase, *, vorname: str, team_id: ObjectId, retired: bool) -> ObjectId:
+async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_id: ObjectId, retired: bool) -> ObjectId:
     """A person created, put in two squads and then edited on every row, through the real endpoints.
 
     The edits are the point: an `insert` row carries no image, so a person seeded from creates alone
@@ -159,7 +160,7 @@ async def a_pupil_with_a_history(database: AsyncIOMotorDatabase, *, vorname: str
     return spieler_id
 
 
-async def a_pupil_who_never_joined_a_squad(database: AsyncIOMotorDatabase) -> ObjectId:
+async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
     """A person created, renamed and retired who holds no squad row, so the redaction's squad branch names no id."""
 
     created = await post_spieler(
@@ -179,7 +180,7 @@ async def a_pupil_who_never_joined_a_squad(database: AsyncIOMotorDatabase) -> Ob
     return spieler_id
 
 
-async def call_erasure(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, spieler_id: ObjectId) -> Any:
+async def call_erasure(database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId) -> Any:
     return await erase_spieler(
         spieler_id=spieler_id,
         spieler_collection=database[Collection.SPIELER],
@@ -190,7 +191,7 @@ async def call_erasure(database: AsyncIOMotorDatabase, client: AsyncIOMotorClien
     )
 
 
-async def log_rows_naming(database: AsyncIOMotorDatabase, spieler_id: ObjectId) -> list[dict[str, Any]]:
+async def log_rows_naming(database: AsyncDatabase, spieler_id: ObjectId) -> list[dict[str, Any]]:
     """Every log row about this person, found INDEPENDENTLY of the endpoint's own filter.
 
     The squad rows are reached through their stored image rather than the id list the endpoint
@@ -214,7 +215,7 @@ async def log_rows_naming(database: AsyncIOMotorDatabase, spieler_id: ObjectId) 
     )
 
 
-async def images_in_the_whole_log(database: AsyncIOMotorDatabase) -> list[dict[str, Any]]:
+async def images_in_the_whole_log(database: AsyncDatabase) -> list[dict[str, Any]]:
     """Every image the log still holds, read WITHOUT the endpoint's `(collection, document_id)` filter.
 
     `log_rows_naming` reproduces that filter, so a shape the endpoint misses the helper misses too.
@@ -232,7 +233,7 @@ def images_naming(images: list[dict[str, Any]], spieler_id: ObjectId) -> list[di
     return [image for image in images if spieler_id in (image.get("_id"), image.get("spieler_id"))]
 
 
-async def every_collection_as_text(database: AsyncIOMotorDatabase) -> str:
+async def every_collection_as_text(database: AsyncDatabase) -> str:
     """The whole database rendered, so a value can be looked for where nobody thought to put it."""
 
     return str([await database[name].find().to_list(length=None) for name in await database.list_collection_names()])
@@ -244,7 +245,7 @@ class TestARetiredPupilIsErasedWhole:
     def test_the_person_is_gone_from_the_collection(self, mongo_replica_set_url: str):
         """Catches an erasure that only stamps `inactive_since` again -- the soft delete wearing a new route."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             await call_erasure(database, client, spieler_id)
 
@@ -255,7 +256,7 @@ class TestARetiredPupilIsErasedWhole:
     def test_every_squad_row_they_held_is_gone(self, mongo_replica_set_url: str):
         """Catches removing the person alone: the squad read `$lookup`s outward from `spieler`, so an orphan is invisible."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             response = await call_erasure(database, client, spieler_id)
 
@@ -268,7 +269,7 @@ class TestARetiredPupilIsErasedWhole:
     def test_another_pupil_keeps_their_squad_row(self, mongo_replica_set_url: str):
         """The over-breadth floor: catches a removal filtered on the collection rather than on `spieler_id`."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             other_id = await a_pupil_with_a_history(database, vorname="Erika", team_id=AWAY_TEAM_OID, retired=False)
             await call_erasure(database, client, spieler_id)
@@ -286,7 +287,7 @@ class TestARetiredPupilIsErasedWhole:
         The pre-state is asserted too, without which a filter matching nothing would pass this test.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             before_erasure = await log_rows_naming(database, spieler_id)
             response = await call_erasure(database, client, spieler_id)
@@ -306,7 +307,7 @@ class TestARetiredPupilIsErasedWhole:
     def test_another_pupils_log_rows_keep_their_images(self, mongo_replica_set_url: str):
         """Catches an `$or` branch matching on `collection` alone, which would empty the whole log."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             other_id = await a_pupil_with_a_history(database, vorname="Erika", team_id=AWAY_TEAM_OID, retired=False)
             await call_erasure(database, client, spieler_id)
@@ -324,7 +325,7 @@ class TestARetiredPupilIsErasedWhole:
         Exactly two rows are added, the two removals' own, and neither names the log.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             before_count = await database[Collection.AKTIONEN].count_documents({})
             await call_erasure(database, client, spieler_id)
@@ -343,7 +344,7 @@ class TestARetiredPupilIsErasedWhole:
     def test_the_erasure_stays_readable_as_an_action(self, mongo_replica_set_url: str):
         """Catches a redaction that stamps its own two rows: what the erasure did would then be as unreadable as what it removed."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             await call_erasure(database, client, spieler_id)
 
@@ -367,7 +368,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
         either fails here rather than passing vacuously.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname=ERASED_VORNAME, team_id=HOME_TEAM_OID, retired=True)
             left_behind = await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": spieler_id, "inactive_since": {"$ne": None}})
             seeded = images_naming(await images_in_the_whole_log(database), spieler_id)
@@ -388,7 +389,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
         wholesale would pass.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname=ERASED_VORNAME, team_id=HOME_TEAM_OID, retired=True)
             await a_pupil_with_a_history(database, vorname=OTHER_VORNAME, team_id=AWAY_TEAM_OID, retired=False)
             await call_erasure(database, client, spieler_id)
@@ -409,7 +410,7 @@ class TestAPupilWhoNeverJoinedASquad:
     def test_every_other_squad_rows_images_are_left_standing(self, mongo_replica_set_url: str):
         """Catches an empty id list widened to match every squad row, which would empty the log for the whole league."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             other_id = await a_pupil_with_a_history(database, vorname=OTHER_VORNAME, team_id=AWAY_TEAM_OID, retired=False)
             response = await call_erasure(database, client, await a_pupil_who_never_joined_a_squad(database))
 
@@ -423,7 +424,7 @@ class TestAPupilWhoNeverJoinedASquad:
     def test_their_own_record_is_erased_all_the_same(self, mongo_replica_set_url: str):
         """Catches an erasure that only reaches a person who held a squad row."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_who_never_joined_a_squad(database)
             await call_erasure(database, client, spieler_id)
 
@@ -441,7 +442,7 @@ class TestTheErasureIsRefusedUntilTheyAreRetired:
     def test_a_pupil_still_in_the_league_is_refused(self, mongo_replica_set_url: str):
         """Catches dropping the precondition, which would put an unrecoverable write one click from the squad list."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> DocumentConflictException:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> DocumentConflictException:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=False)
 
             with pytest.raises(DocumentConflictException) as excinfo:
@@ -454,7 +455,7 @@ class TestTheErasureIsRefusedUntilTheyAreRetired:
     def test_the_refused_call_removes_and_redacts_nothing(self, mongo_replica_set_url: str):
         """The refusal is raised INSIDE the transaction, so it has to abort rather than leave half a write."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=False)
 
             with pytest.raises(DocumentConflictException):
@@ -471,7 +472,7 @@ class TestTheErasureIsRefusedUntilTheyAreRetired:
     def test_retiring_them_first_lets_the_same_call_through(self, mongo_replica_set_url: str):
         """The floor under the refusal: without it, a blanket failure would read as the precondition working."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=False)
             await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY)
 
@@ -491,7 +492,7 @@ class TestAHalfDoneErasureCommitsNothing:
         Catches running the three outside one transaction, and dropping the session from either removal.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             # Narrow enough to refuse the redaction's `$set`, wide enough to admit the removals' own
             # rows, which are recorded with `redacted_at` null.

@@ -3,7 +3,8 @@ from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import activate_saison
@@ -84,7 +85,7 @@ def spiel_document(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
     }
 
 
-Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
+Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(
@@ -110,7 +111,7 @@ def on_a_league(
     return asyncio.run(_run())
 
 
-async def call_activate(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, saison_id: str) -> Any:
+async def call_activate(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str) -> Any:
     return await activate_saison(
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
@@ -119,7 +120,7 @@ async def call_activate(database: AsyncIOMotorDatabase, client: AsyncIOMotorClie
     )
 
 
-async def statuses_now(database: AsyncIOMotorDatabase) -> dict[str, str]:
+async def statuses_now(database: AsyncDatabase) -> dict[str, str]:
     """Read outside any transaction -- what a later request would see."""
 
     rows = await database[Collection.SAISONS].find({}).to_list(length=None)
@@ -131,7 +132,7 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
     def test_every_incumbent_is_demoted_and_the_target_promoted(self, mongo_replica_set_url: str):
         """Two seasons seeded active, a state no validator refuses: the `update_many` repairs it rather than demoting one of them."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_activate(database, client, TARGET)
 
             return response, await statuses_now(database)
@@ -158,7 +159,7 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
     def test_reactivating_the_incumbent_demotes_nobody(self, mongo_replica_set_url: str):
         """The `$ne` on the target: its own unplayed fixture is seeded, and only a rule reading it as outgoing would refuse this."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_activate(database, client, TARGET)
 
             return response, await statuses_now(database)
@@ -178,7 +179,7 @@ class TestARefusedRolloverWritesNothing:
     def test_an_unfinished_incumbent_keeps_the_target_where_it_is(self, mongo_replica_set_url: str):
         """The outgoing season's fixture has no result and is not cancelled, which is what `unplayed_spiel_nrs` counts."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_activate(database, client, TARGET)
 
@@ -198,7 +199,7 @@ class TestARefusedRolloverWritesNothing:
     def test_an_unknown_season_demotes_nobody(self, mongo_replica_set_url: str):
         """The read before the transaction: without it the league would be left with no active season at all."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentNotFoundException):
                 await call_activate(database, client, "2099")
 
@@ -217,7 +218,7 @@ class TestAMidFlightFailureTakesTheDemotionBack:
     def test_a_refused_promotion_leaves_the_incumbent_active(self, mongo_replica_set_url: str):
         """A validator refusing `active` lets the demotion land and stops the promotion -- the half-rollover the transaction exists for."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database.command(
                 "collMod",
                 Collection.SAISONS.value,
@@ -254,7 +255,7 @@ class TestTheRolloverRefusesAFinishedTarget:
     def test_a_past_target_is_refused_with_no_incumbent_to_answer_for_it(self, mongo_replica_set_url: str):
         """Nothing holds `active`, so `REQ-ACTIVATE-001` has an empty list and only the target can be the reason."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_activate(database, client, ARCHIVED)
 
@@ -268,7 +269,7 @@ class TestTheRolloverRefusesAFinishedTarget:
     def test_the_incumbent_keeps_running(self, mongo_replica_set_url: str):
         """The incumbent is finished, so the rollover would otherwise land: the demotion is what a missed refusal costs."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_activate(database, client, ARCHIVED)
 
