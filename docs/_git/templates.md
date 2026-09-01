@@ -49,7 +49,9 @@ programme in progress leads with its own name (`Wave 6`):
 Dependabot writes to the same shape, leading with whichever prefix `.github/dependabot.yml` gives
 the update entry. It shares the dependency scopes above with a person; its base-image prefixes are
 its alone, an image bump made by hand being `Ops`. `scripts/check_commits.py :: KNOWN_SCOPES` is the
-recorded vocabulary, those prefixes and the scopes above together.
+recorded vocabulary, those prefixes and the scopes above together. A subject reaching more than one surface
+combines them — `Backend + Frontend` — and each component is resolved against that vocabulary on its
+own (`scripts/check_commits.py :: unknown_scope`).
 
 `scripts/check_commits.py` refuses a `Co-authored-by` or a `Signed-off-by` trailer
 (`scripts/check_commits.py :: BANNED`), and a subject or a body line past the hard maximum

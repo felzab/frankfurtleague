@@ -303,7 +303,8 @@ javascript helper is `scripts/ts_normalize.mjs`, whose header argues the excepti
 **`scripts/tests/` is the pytest suite that proves the gate's own coverage** (PRE-4): it plants one
 violation per check `scripts/check_docs.py` registers and asserts the check finds it, reaches each
 of `scripts/_lib.sh`'s endings in a throwaway script and asserts the status a caller branches on,
-holds the python in `scripts/` to parsing at
+drives `scripts/check_commits.py` and `scripts/check_pr_body.py` from a table holding every
+reporting site in either to a case that reaches it, holds the python in `scripts/` to parsing at
 `scripts/checker_kernel.py :: PARSE_FLOOR`, and asserts every shell arm degrading on a crash spells
 `scripts/checker_kernel.py :: EXIT_CRASH` as its own literal — a copy left behind being invisible to
 the run it silently reprieves.
