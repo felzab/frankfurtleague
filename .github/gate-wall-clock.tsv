@@ -14,6 +14,10 @@
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it, or the next report says the total has drifted.
 #
+# The `format` job has no row and needs none: a push to main turns every scope on, and that job runs
+# only where `frontend` does not, so it is skipped on every run this report is cut from. The check
+# it carries runs inside `frontend` on those pushes, which is where its seconds already are.
+#
 # job	seconds	floor
 backend	37	14
 backend-db	67	22
