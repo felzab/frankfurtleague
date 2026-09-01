@@ -2,6 +2,10 @@ from pydantic import SecretStr
 
 from app.core.config import BackendConfig
 
+# The host `build_test_config` trusts below, spelled as a URL because that is what an in-process
+# request needs: `TrustedHostMiddleware` refuses any other `Host` before a route sees it.
+TEST_BASE_URL = "http://testserver"
+
 
 def build_test_config() -> BackendConfig:
     """Init arguments outrank every pydantic-settings source, so no `.env` is read and a bare checkout runs the suite.

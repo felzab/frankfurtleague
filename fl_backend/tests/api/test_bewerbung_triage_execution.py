@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId, encode
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
@@ -27,7 +27,7 @@ from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
-from tests.config import build_test_config
+from tests.config import TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database
 
 # Module level, as `tests/api/test_spieler_erasure_execution.py` marks its suite: every test below
@@ -283,8 +283,8 @@ async def through_the_app(
     here would let a test claim to serve one while serving the other.
     """
 
-    # Its own client, first used on the TestClient's own loop: `AsyncMongoClient` binds to the loop it first ran
-    # on, and the seeding client belongs to this test's.
+    # Its own client, built and reached on this coroutine's loop alone: the driver refuses a client
+    # reached from a second one, and the seeding client belongs to another.
     app_db_client = AsyncMongoClient(url)
 
     async def _client() -> AsyncMongoClient:
@@ -302,13 +302,12 @@ async def through_the_app(
     headers = {**ADMIN_AUTH} if actor is None else {**ADMIN_AUTH, ACTOR_HEADER: actor}
     path = f"/api/v{API_VERSION}/bewerbungen/{bewerbung_id}/{endpoint}"
 
-    def _request() -> Any:
-        return TestClient(APP).post(path, json=dict(payload), headers=headers)
-
     try:
-        # In a thread of its own, so this test's loop keeps running while the app's loop serves the
-        # request: `TestClient` is synchronous and would otherwise block the loop it was called from.
-        return await asyncio.to_thread(_request)
+        # Awaited on this loop rather than driven from a thread: the app, the client it reaches and
+        # the close below then all belong to the one loop the driver binds to.
+        transport = ASGITransport(app=APP)
+        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+            return await http.post(path, json=dict(payload), headers=headers)
     finally:
         for dependency in (get_db_client, get_database, get_germany_now):
             APP.dependency_overrides.pop(dependency, None)

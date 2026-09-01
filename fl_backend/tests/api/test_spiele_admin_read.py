@@ -4,14 +4,13 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi.testclient import TestClient
-from httpx import Response
+from httpx import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient, MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
-from tests.config import build_test_config
+from tests.config import TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
 
 ADMIN_AUTH = {"Authorization": "Bearer test-key-admin"}
@@ -89,19 +88,24 @@ def junction_row() -> dict[str, Any]:
 
 
 def answered(uri: str, path: str, headers: Mapping[str, str], *, selection_timeout_ms: int) -> Response:
-    """One request per client: `AsyncMongoClient` binds to the loop `TestClient` first ran on.
+    """One request per client, the request and the close on ONE loop.
 
-    No lifespan either, for the reason `fl_backend/tests/api/test_malformed_ids.py :: client` gives.
+    Both halves for the reason `fl_backend/tests/api/test_malformed_ids.py :: answered` gives, no
+    lifespan included.
     """
 
-    app = create_app(build_test_config())
-    app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=selection_timeout_ms)
+    async def _answered() -> Response:
+        app = create_app(build_test_config())
+        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=selection_timeout_ms)
 
-    try:
-        return TestClient(app, raise_server_exceptions=False).get(path, headers=dict(headers))
-    finally:
-        # A loop of its own, for the reason `fl_backend/tests/api/test_malformed_ids.py :: client` gives.
-        asyncio.run(app.state.db_client.close())
+        try:
+            transport = ASGITransport(app=app, raise_app_exceptions=False)
+            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+                return await http.get(path, headers=dict(headers))
+        finally:
+            await app.state.db_client.close()
+
+    return asyncio.run(_answered())
 
 
 @pytest.fixture

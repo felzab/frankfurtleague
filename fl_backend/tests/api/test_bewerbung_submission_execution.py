@@ -6,8 +6,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi.testclient import TestClient
-from httpx import Response
+from httpx import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient, MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -29,7 +28,7 @@ from app.core.exceptions import DocumentConflictException, DocumentNotFoundExcep
 from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
-from tests.config import build_test_config
+from tests.config import TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync
 
 # Module level, as `tests/api/test_bewerbung_triage_execution.py` marks its suite: every test below
@@ -443,19 +442,23 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
         )
         database[Collection.TEAMS].insert_one(club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND))
 
-        app = create_app(build_test_config())
-        app.state.db_client = AsyncMongoClient(host=url, serverSelectionTimeoutMS=30_000)
-        app.dependency_overrides[get_germany_now] = lambda: NOW
+        async def _submitted() -> Response:
+            app = create_app(build_test_config())
+            app.state.db_client = AsyncMongoClient(host=url, serverSelectionTimeoutMS=30_000)
+            app.dependency_overrides[get_germany_now] = lambda: NOW
 
-        try:
-            response = TestClient(app, raise_server_exceptions=False).post(
-                f"/api/v{API_VERSION}/bewerbungen",
-                json=dict(body),
-                headers={"Authorization": "Bearer test-key-base"} if headers is None else dict(headers),
-            )
-        finally:
-            # A loop of its own, for the reason `fl_backend/tests/api/test_malformed_ids.py :: client` gives.
-            asyncio.run(app.state.db_client.close())
+            try:
+                transport = ASGITransport(app=app, raise_app_exceptions=False)
+                async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+                    return await http.post(
+                        f"/api/v{API_VERSION}/bewerbungen",
+                        json=dict(body),
+                        headers={"Authorization": "Bearer test-key-base"} if headers is None else dict(headers),
+                    )
+            finally:
+                await app.state.db_client.close()
+
+        response = asyncio.run(_submitted())
 
         # Read HERE: the client below is closed on the way out, and a handle returned through it
         # would be dead by the time a case touched it.
