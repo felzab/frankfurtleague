@@ -1591,8 +1591,9 @@ carries is the crossing itself, and nothing else waits on it.
 **`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung` builds a club out of the
 school's own block and inserts it into `teams`, the address included.**
 `fl_backend/app/api/bewerbungen/services.py :: compose_new_club` maps the school's `address` straight
-into the club document through `_CLUB_FIELDS_FROM_SCHULE`, beside `full_name`, `shorthand`,
-`schulform` and `website_url`, and the acceptance writes that document inside its transaction.
+into the club document through `_CLUB_FIELDS_FROM_SCHULE`, beside `team_name`, `full_name`,
+`shorthand`, `schulform` and `website_url`, and the acceptance writes that document inside its
+transaction.
 
 **Decided 2026-08, Datenschutzexperte consulted: the address stays public, and the form says so
 where it is asked for.** The rule stands at the read that serves the field
@@ -1604,10 +1605,16 @@ narrowing the public model, or not copying the field at acceptance — are rejec
 so neither is to be proposed again without overturning it.
 
 **What remains is the crossing itself.** The registry answers for both ends of it:
-`READ-ADDRESS-002` declares a club's address public, `READ-ADDRESS-001` a venue's, and
-`READ-CONTACT-001` withholds the application that carries the school's. Each of those governs ONE
-read and the acceptance sits between two of them, so whether a school's correspondence address is
-the league's to copy into a club is a question about the write, which no read rule can answer.
+`READ-CONTACT-001` withholds the application that carries the school's address, and
+`READ-ADDRESS-002` declares a club's public. Each governs ONE read and the acceptance sits between
+them, so whether a school's correspondence address is the league's to copy into a club is a question
+about the write, which no read rule can answer — and the registry holds no write rule that says.
+
+**`docs/backend/spec.md`'s known-open row and this entry agree, and it is worth saying which each
+carries.** The row calls the crossing accepted, because the decision above settled it and the
+landing side is ruled. This entry stays `Decided` for the sentence the registry is still missing: a
+write rule saying the acceptance may copy the field. That is the whole of its `Docs` surface, and
+nothing in it reopens the decision.
 
 ### 29 · BE-7 — `typing` imports instead of `collections.abc`
 

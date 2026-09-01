@@ -1463,11 +1463,13 @@ of the class.
 `fl_backend/app/core/domain.py :: RULES` gives each rule a `summary`;
 [`docs/logging/error-codes.md`](../logging/error-codes.md) gives each code a row stating what it
 refuses and with which status; and the frontend turns the code into the German sentence an admin or an
-applicant actually reads. Measured on 2026-08-30: 73 codes, 73 rows, 66 summaries, and 66 codes named
-as string literals in 13 non-test frontend modules — each slice's `actions.ts`,
-`fl_frontend/src/shared/utils/actionError.ts`, and
-`fl_frontend/src/features/bewerbungen/utils.ts` for the public application form. The three sets agree
-today, which is what makes this a class rather than a defect.
+applicant actually reads, naming it as a string literal in each slice's `actions.ts`, in
+`fl_frontend/src/shared/utils/actionError.ts`, and in
+`fl_frontend/src/features/bewerbungen/utils.ts` for the public application form. **No figure is
+quoted for how many**, deliberately: every branch that adds a refusal adds to all three listings and
+has no reason to open this page, so a dated count here is stale by the branch after the one that
+takes it — and the three listings named above ARE the count, each a grep from a reader who wants it.
+The three sets agree today, which is what makes this a class rather than a defect.
 
 **What the checks that exist do reach.** `fl_backend/tests/core/test_domain.py` resolves each rule's
 `implemented_by` and `tested_by` and asserts the code appears in both; it opens no `summary`. On the
