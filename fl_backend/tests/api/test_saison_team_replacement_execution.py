@@ -273,8 +273,8 @@ def on_a_seeded_season(
 ) -> Any:
     """One client and event loop per call: `AsyncMongoClient` binds to the loop it first ran on.
 
-    `active` by default: a mid-season withdrawal is what this endpoint is for. The SHIPPED
-    validators too, `constrained=False` being the case whose subject is a row they forbid.
+    `active` by default: this endpoint is for a mid-season withdrawal. The SHIPPED validators too,
+    `constrained=False` being the case whose subject they forbid.
     """
 
     # `spiele` by hand where no validator is installed: a transaction cannot create a collection.

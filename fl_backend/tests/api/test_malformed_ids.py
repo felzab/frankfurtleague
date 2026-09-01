@@ -29,11 +29,8 @@ UNREACHED_DATABASE = "DB-FAIL-001"
 def answered(path: str, *, params: Mapping[str, Any] | None = None) -> Response:
     """One request per client, the request and the close on ONE loop.
 
-    The driver refuses a client reached from a second loop, so a helper that returns the response
-    rather than the client is what keeps both on the loop `asyncio.run` opens here.
-
-    No lifespan: it reads the settings singleton rather than the injected config, so it would build
-    a client against whatever `.env` happens to hold.
+    The driver binds a client to the loop it first ran on, so this returns the response, never the
+    client. No lifespan: it would read the settings singleton and build a client at `.env`.
     """
 
     async def _answered() -> Response:

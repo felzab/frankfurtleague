@@ -86,8 +86,8 @@ def entry_rows() -> list[dict[str, Any]]:
 class SeasonsRunningAHookBeforeTheWrite:
     """The seasons collection, running one hook immediately before the first update asked of it.
 
-    A stand-in rather than a subclass: the driver builds a collection off a database handle, so what the
-    endpoint is handed has to answer every other call by delegating.
+    A stand-in rather than a subclass: the driver builds a collection off a database handle, so what
+    the endpoint is handed must delegate every other call.
     """
 
     def __init__(self, inner: Any, hook: Callable[[], Awaitable[Any]]) -> None:

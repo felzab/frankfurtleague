@@ -283,8 +283,9 @@ async def through_the_app(
     here would let a test claim to serve one while serving the other.
     """
 
-    # Its own client, built and reached on this coroutine's loop alone: the driver refuses a client
-    # reached from a second one, and the seeding client belongs to another.
+    # A client of its own rather than the seeding one: this helper closes what it injects, and the
+    # seeding client has to outlive the request -- every caller reads `database` afterwards to
+    # assert what the request wrote.
     app_db_client = AsyncMongoClient(url)
 
     async def _client() -> AsyncMongoClient:

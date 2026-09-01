@@ -49,7 +49,7 @@ SESSION = cast(AsyncClientSession, object())
 class _FakeCollection:
     """One collection, called as `app/core/crud.py` and `app/core/recording.py` call the driver.
 
-    `name` is a plain `str` as the driver's is, which leaves the recursion guard a real `StrEnum`
+    `name` is a plain `str` as the driver's is, so the recursion guard has a real `StrEnum`
     comparison to make rather than an identity one it would pass for free.
     """
 
