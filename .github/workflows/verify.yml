@@ -163,9 +163,8 @@ jobs:
       # prettier and its plugins are dependencies of fl_frontend, so the check needs that install
       # even though what it reads is mostly outside it.
       - uses: ./.github/actions/frontend-toolchain
-      - name: Check formatting
-        working-directory: fl_frontend
-        run: pnpm format:check
+      - name: Run the format scope
+        run: ./scripts/verify.sh --format
 
   backend:
     needs: changes
