@@ -78,12 +78,13 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 30  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
 | 31  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
 | 32  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
-| 33  | OPS-10  | Naming the image build's culprits costs a process per file         | Ops               | S      | Open     | —          |
-| 34  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
-| 35  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
-| 36  | DOC-3   | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
-| 37  | DOC-10  | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
-| 38  | OPS-81  | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
+| 33  | OPS-19  | The repository-wide linter re-reads every file                     | FE, Ops           | S      | Open     | —          |
+| 34  | OPS-10  | Naming the image build's culprits costs a process per file         | Ops               | S      | Open     | —          |
+| 35  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
+| 36  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
+| 37  | DOC-3   | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
+| 38  | DOC-10  | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
+| 39  | OPS-81  | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -587,9 +588,9 @@ author is given no way to learn why their comment is the wrong length.
 **Status:** Open\
 **Surfaces:** FE, Ops, Docs\
 **Effort:** M\
-**Path:** Independent — it blocks nothing and nothing blocks it. It moves the tool whose concurrency
-and cache decisions `docs/ops/spec.md` §1.6 records, and **OPS-65** asks a question of, so each is
-re-answered against whatever ships here rather than ahead of it.
+**Path:** Independent — it blocks nothing and nothing blocks it. It moves the tool **OPS-19** measures
+and **OPS-65** asks a question of, so each of those is answered against whatever ships here rather
+than ahead of it.
 
 **eslint 9.x reached end of life on 2026-08-06, and `fl_frontend/package.json` declares `^9.39.5`.**
 Confirmed on 2026-08-26 against eslint's own version-support page: v9 is listed as end of life rather
@@ -1722,7 +1723,133 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 33 · OPS-10 — Naming the files that required the image build costs a process per file
+### 33 · OPS-19 — The repository-wide linter re-reads every file on every run
+
+**Status:** Open\
+**Surfaces:** FE, Ops\
+**Effort:** S\
+**Path:** Independent — one package script left, and the consequence note in `docs/ops/spec.md`
+§1.6. The prettier half landed in `format` and the eslint half lands in `frontend`
+(`docs/ops/spec.md` §1.6's scope table), so what either buys on wall clock is decided by which pool
+member is binding at the scope being run.
+
+**The prettier half is taken.** `format:check` passes `--cache --cache-strategy content`, the
+strategy chosen rather than defaulted, and the safety property was re-proved on the warm cache: a
+planted spacing edit to a tracked file fails a warm cached run naming the file. The cache lands
+under `fl_frontend/node_modules/.cache/prettier/`, an ignored path, so the `.gitignore` line this
+entry anticipated for it has nothing to carry. Its one consequence — the plugin-bump caveat that
+cache carries — is recorded beside the setting, in [`docs/ops/spec.md`](../ops/spec.md) §1.6.
+**What stands open is the eslint half**, and what holds it there is question 2's key rather than
+the clock.
+
+**`fl_frontend/package.json`'s `lint` script points eslint at the whole repository and gives it no
+cache.** `fl_frontend/tsconfig.json` sets `incremental: true` and `format:check` now keeps the
+cache above; nothing else in either tree keeps state between runs, so eslint re-reads every file
+it is pointed at whether or not anything about it has changed since the last run said the same
+thing.
+
+**What the two steps cost**, measured 2026-08-11 on a development machine while the gate was
+profiled: prettier over the repository is 41.5 s with other scopes running beside it and 33.3 s
+alone, and eslint is 21.5 s — the longest step in the frontend scope, where a warm Turbopack cache
+leaves `next build` at half of it. On a runner the order reverses and eslint is the second-largest
+step behind `next build`, 16 s against 28 s over fourteen runs on 2026-08-11, inside the job that
+sets a pull request's critical path.
+
+**Why this may be worth more than the concurrency the gate already has.** Running the scopes
+concurrently moved the wall clock and spent about a quarter more processor time to do it. A cache
+does not redistribute the work, it removes it — and it lowers the floor in CI as well as locally,
+which concurrency cannot: `.github/workflows/verify.yml` runs one scope per job, so inside a job
+there is nothing to overlap it with.
+
+**The three unknowns this was filed on are answered**, measured on 2026-08-12 on the development
+machine — sixteen cores, repository clean — against the invocations the gate uses:
+
+| Run, 2026-08-12                                      | Wall clock |
+| ---------------------------------------------------- | ---------- |
+| `prettier --check ..`, no cache — what it replaced   | 34.5 s     |
+| `prettier --check ..`, `--cache`, warm               | 25.6 s     |
+| `eslint .`, no cache and no concurrency              | 23.4 s     |
+| `eslint .`, `--cache --cache-strategy content`, cold | 20.5 s     |
+| `eslint .`, `--cache --cache-strategy content`, warm | 4.5 s      |
+
+1. **Does a cache survive usefully between local runs?** Yes — decisively for eslint and modestly for
+   prettier, and together they remove **about twenty-eight seconds of scope-time from a warm local
+   run** (2026-08-12) — scope-time rather than wall clock, because the two halves fall in different
+   pool members. Prettier's floor of 25.6 s with a fully warm cache and nothing changed says most of
+   its time is startup, discovery and ignore-matching rather than formatting, which bounds what any
+   cache can ever buy on that step. **The eslint rows carry no concurrency setting, and the step
+   carries one** (the last block of this entry), so what a cache removes on top of that is not among
+   these figures.
+2. **Does `--cache` change what the check proves?** Not once the key is chosen rather than defaulted.
+   A cached clean verdict is exactly as good as its key, and `scripts/verify.sh` passes
+   `--no-optimistic-repeat-install` to pnpm precisely because that tool's fast path keys on
+   timestamps, where a stale one lets a real mismatch answer that everything is already up to date.
+   `--cache-strategy content` hashes the linted file's contents instead — **and that is not
+   sufficient here, measured 2026-08-26.** `fl_frontend/eslint.config.mjs` points
+   `better-tailwindcss` at `entryPoint: "src/app/globals.css"`, so `no-unknown-classes` decides every
+   file's verdict by reading a file it never lints, and eslint's key covers the config and the linted
+   file alone. Renaming a class in `globals.css` leaves a warm `--cache --cache-strategy content` at
+   exit 0 while the uncached run exits 1 naming four uses of it. **The suspicion this entry was filed
+   with is therefore NOT discharged by choosing the key.** It is closable by hashing that stylesheet
+   into the resolved config, which changes eslint's own config hash and invalidates the cache — tried,
+   and the same experiment then reports all four. That carries a standing obligation to grow the
+   hashed set whenever the plugin gains another cross-file input or a second entry point is added,
+   and getting it wrong fails silently, which is the trade to weigh rather than assume.
+
+   **The concurrency lever on this step is settled on its own terms and substitutes for no key.** Its
+   record is the last block of this entry; what it changes here is the baseline, a cache on eslint
+   having to buy its time on top of `--concurrency=2` rather than on top of a serial run.
+
+3. **Can CI persist one?** **Out of scope, decided 2026-08-12: the local win only.** It needs no CI
+   change to collect, so `.github/workflows/verify.yml` is left alone and the image build cache —
+   buildx's `type=gha`, with no `actions/cache` step — needs no
+   revisiting, nor does `.claude/CLAUDE.md` §7's line for it. This is a boundary on the work rather
+   than a question still open inside it, and reopening it is its own decision.
+
+**Done when:** `fl_frontend/package.json`'s `lint` either passes `--cache` over a key that also
+covers `fl_frontend/eslint.config.mjs`'s `better-tailwindcss` entry point — `--cache-strategy
+content` alone is refused above — or is settled against, the concurrency lever it was weighed
+against having shipped at `--concurrency=2` on the evidence below. `format:check` carries its own
+already, and its cache file lands where git cannot reach it, so `fl_frontend/.gitignore` needs a
+line only for whichever cache eslint would write. **One consequence lands with it and belongs
+beside the change**: a cache means the gate writes an untracked file into the working tree on
+every run. `.claude/CLAUDE.md`'s rule that no formatter the gate runs writes a _tracked_ file
+still holds, and `docs/ops/spec.md` §1.6 is where the note goes.
+
+**The concurrency lever on the same eslint step is taken, and its value is chosen against a
+diagnostic rather than against the clock**, which is what leaves the cache question standing on its
+own. `fl_frontend/package.json`'s `lint` passes `--concurrency=2`. eslint 9.39.5 takes the flag as a
+first-class option under flat configuration, and `fl_frontend/eslint.config.mjs` declares no `project`
+or `projectService`, so the configuration is not type-aware and a worker parses independently.
+
+**What decides the number is `LOW_NET_LINTING_RATIO`, the 0.7 floor the installed package sets.** Under
+it eslint emits `ESLintPoorConcurrencyWarning`, a Node process warning stating that the setting is poor
+for the tree just linted, and that check runs identically whatever the setting — only the wording of
+its advice moves — so a number quiets it only by genuinely clearing the floor. Measured on the
+development machine across roughly twenty runs: `auto`, which is eight workers there, holds a ratio of
+0.556 to 0.571 and warns, and that is not a near miss — about 44% of each worker's life is bootstrap
+and file reading rather than linting. Two workers hold 0.720 to 0.743 and warned in none of the runs
+taken. **No value is both faster than `auto` and quiet**: 4 and 6 are marginally faster and still warn,
+so `auto`'s speed was purchasable only by suppressing a correct diagnostic. Node offers the precise
+mechanism for that — `--disable-warning=ESLintPoorConcurrencyWarning`, which `fl_frontend/package.json`'s
+own `test` script already uses for an unrelated warning — and it is deliberately unused here.
+
+**`auto` also carries a failure mode no warm timing shows.** On a cold V8 compile cache it takes about
+28.2 s against about 21.0 s serial, 34% _slower_; disabling the compile cache makes `auto` faster
+again, which places the cause on eight workers writing one compile-cache directory at once. That is a
+one-off per fresh cache rather than a recurring cost, and it arrives as a regression when it arrives.
+`--concurrency=2` is about 16.5 s warm against about 20.0 s serial, and neutral to slightly better
+cold. **Output equivalence was re-proved at both settings**: 48 files planted across nine rule
+families, under `stylish` and `json`, byte-identical to the serial run including ordering.
+
+**What CI does with it is arithmetic, and one condition this entry set is still unmet.** The installed
+eslint's `calculateWorkerCount` takes `auto` to `availableParallelism() >> 1`, so a four-core runner
+resolves it to two over a file set this size — a numeric 2 makes that explicit rather than moving it.
+**The three CI runs beating the recorded baseline are not among the measurements above**, and cannot be
+taken from a development machine: the flag ships on local evidence, and that condition stands open
+against it.
+
+### 34 · OPS-10 — Naming the files that required the image build costs a process per file
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -1755,7 +1882,7 @@ about.
 **Not measured:** what the spawn actually costs, and how much of a failing gate run is attributable
 to it. The mechanism above is read from the code; the magnitude is not.
 
-### 34 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 35 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -1796,7 +1923,7 @@ cannot tolerate the minutes between a bad deploy and the end of its automatic ro
 eleven of them, both health waits running to their timeouts and then the restored pair's doing the same. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 35 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 36 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -1841,7 +1968,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately.
 
-### 36 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 37 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -1874,7 +2001,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a rule family added to the standard under a prefix the patterns do not
 carry, or the first page that needs a metadata block indented.
 
-### 37 · DOC-10 — A block already over a bound is excused by its opening line alone
+### 38 · DOC-10 — A block already over a bound is excused by its opening line alone
 
 **Status:** Standing\
 **Surfaces:** Ops, Docs\
@@ -1902,7 +2029,7 @@ rests on.
 **Trigger to revisit:** a branch charged for a block whose length it did not create, or any change to
 how `check_comment_length` decides whose block a block is.
 
-### 38 · OPS-81 — One commit imports a frontend module the commit after it adds
+### 39 · OPS-81 — One commit imports a frontend module the commit after it adds
 
 **Status:** Standing\
 **Surfaces:** FE, Ops\

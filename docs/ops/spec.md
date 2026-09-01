@@ -391,9 +391,11 @@ one that never ran, and a session fixing the failure knows what it need not pay 
 run's exit is then the worst adopted rank, findings outranking a refusal as everywhere else
 (`scripts/_lib.sh :: finish`); byte-identity with the serial run is a green run's property, a
 failing serial run having stopped where the parallel one did not. **A scope whose exit status its
-own rows cannot account for is refused as a crash** — a 1 carrying no finding, a 2 carrying no
-refusal — because the rows are all `finish` reads, so a status nothing in them explains is exactly
-what would otherwise close the run green over a scope that failed. `--serial` runs them one at a
+own rows cannot account for ends the run at 3** (`scripts/_lib.sh :: adopt_ending`) — a 1 carrying
+no finding, a 2 carrying no refusal — because the rows are all `finish` reads, so a status nothing
+in them explains is exactly what would otherwise close the run green over a scope that failed. The
+grade is the environment's and never 2, the code that asks for the input the check was given to be
+fixed: no input made a worker and its parent disagree, the fault being the handoff's. `--serial` runs them one at a
 time and is what a byte-identity comparison is measured against; `--verbose`, a run covering one
 scope, CI (already one scope per job) and a machine with no interpreter at the checkers' floor are
 serial too. **No scope waits on another** — the compose parse reads its stand-in `.env` files from
@@ -435,10 +437,17 @@ absorbs the whole stretch and every step after it reads as free.
 so a scope whose first check fails still costs its longest unit before saying so; what that buys is
 one mechanism for both levels, the alternative being a second per-unit join living beside the pool.
 A green run, which is the common one, costs the same either way. **The pool ends its units rather
-than outliving them** (`scripts/gate_pool.py :: terminate`): a `SIGTERM`, or the caller going away,
-stops every unit still running and lets each wind down through its own trap. The caller cannot do
-this itself — bash holds a trap until its foreground child returns, and that child is the pool — and
-neither guard is armed on Windows, where a terminate runs no handler and a dead parent's pid stands.
+than outliving them** (`scripts/gate_pool.py :: terminate`): a `SIGTERM`, an interrupt, or the
+caller going away stops every unit still running and lets each wind down through its own trap. The
+caller cannot do this itself — bash holds a trap until its foreground child returns, and that child
+is the pool — and neither of the two guards `scripts/gate_pool.py :: arm` installs is armed on
+Windows, where a terminate runs no handler and a dead parent's pid stands. **What is signalled is a
+unit's process GROUP, and each unit is given a session of its own to make one**: a unit is a bash
+run, whose trap fires the moment bash is signalled while the build it was waiting on runs to its
+end — orphaned, still writing into the scratch the caller reclaims on its way out. The session that
+buys this is also what takes the units out of the terminal's own group, so a `Ctrl-C` reaches the
+pool alone and the pool passes it on (`scripts/gate_pool.py :: drive`) rather than trusting the
+signal to have arrived.
 
 **A unit carries its own command, which is what lets one runner serve both levels.** A scope unit
 is a `verify.sh` run of that scope, given `FL_GATE_WORKER` and the ledger path its rows travel in;
