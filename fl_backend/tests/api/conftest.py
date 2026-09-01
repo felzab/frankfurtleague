@@ -74,8 +74,7 @@ def unwritten(url: str, database_name: str) -> Iterator[None]:
     `tests/database.py :: _schema` compares the schema instead, which a write never touches.
     """
 
-    # A client of its own: the seeding one is asynchronous, and this guard compares from a synchronous
-    # fixture with no loop to await it on.
+    # A client of its own: the seeding one is asynchronous, and this guard's comparison is synchronous.
     client = MongoClient(url)
     try:
         seeded = _documents(client[database_name])

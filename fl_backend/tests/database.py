@@ -52,9 +52,6 @@ def on_the_seed_loop(seed: Coroutine[Any, Any, Any]) -> Any:
 
     if _LOOP is None:
         _LOOP = asyncio.new_event_loop()
-        # The thread's current loop as well: `asyncio.get_event_loop` raises where none is set, so a
-        # caller reaching for a loop outside a running coroutine finds this one.
-        asyncio.set_event_loop(_LOOP)
         atexit.register(_release)
 
     return _LOOP.run_until_complete(seed)
