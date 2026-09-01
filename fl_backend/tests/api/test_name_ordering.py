@@ -111,7 +111,11 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_seeded_league(url: str, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on."""
+    """Seeds the four reference collections, then runs `body` against them.
+
+    On the tier's own loop and shared client (`tests/database.py :: on_the_seed_loop`), never one
+    of its own: an `AsyncMongoClient` binds to the loop it opened on.
+    """
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):

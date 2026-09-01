@@ -396,6 +396,10 @@ def pytest_configure(config: pytest.Config) -> None:
     guard_every_database()
 
 
+# `optionalhook`, because xdist SPECS this hook. Where an environment is behind `uv.lock` the plugin
+# is absent, and pluggy answers an unknown hook with `PluginValidationError` -- an INTERNALERROR at
+# exit 3 on every run, the default tier included.
+@pytest.hookimpl(optionalhook=True)
 def pytest_configure_node(node: Any) -> None:
     """xdist's controller hook, unreached without `-n`.
 
