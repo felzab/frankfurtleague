@@ -220,7 +220,7 @@ if (( SERIAL || VERBOSE )); then STEP_JOBS=0; fi
 PARALLEL=1
 if (( SERIAL || VERBOSE )) || worker || [[ -n "${CI:-}" ]] || (( ${#SCOPE_ORDER[@]} < 2 )); then PARALLEL=0; fi
 
-POOL_PY=""
+POOL_PY=""; POOL_BASH=""
 if (( PARALLEL || STEP_JOBS )); then
   # The floor is asked of the kernel rather than restated here, so one file owns it: a python too
   # old to import the kernel is too old to run the pool. With none, both forms fall back to the
@@ -229,12 +229,12 @@ if (( PARALLEL || STEP_JOBS )); then
   if [[ -z "$POOL_PY" ]] \
     || ! "$POOL_PY" -c "import sys; sys.path.insert(0, 'scripts'); import checker_kernel" >/dev/null 2>&1; then
     PARALLEL=0; STEP_JOBS=0
+  else
+    # The parent's own shell, spelled the way a Windows python can launch it. `cygpath` does not
+    # exist on Linux, where `$BASH` is already an absolute path python can use.
+    POOL_BASH="$(cygpath -w "$BASH" 2>/dev/null || printf '%s' "$BASH")"
   fi
 fi
-
-# The parent's own shell, spelled the way a Windows python can launch it. `cygpath` does not
-# exist on Linux, where `$BASH` is already an absolute path python can use.
-POOL_BASH="$(cygpath -w "$BASH" 2>/dev/null || printf '%s' "$BASH")"
 
 POOL_DIR=""
 declare -A UNIT_STATUS=()
@@ -259,13 +259,13 @@ pool_add_step() { # $1 check · $2 the scope flag the run carrying its body is g
 
 pool_wait() { # $1 merge each unit's two streams? · $2 the spinner's label
   local rc=0 name status began ended want=0 seen=0
-  local -a command=("$POOL_PY" scripts/gate_pool.py --dir "$POOL_DIR" --units "${POOL_DIR}/units.tsv")
-  if (( $1 )); then command+=(--merge); fi
+  local -a pool_cmd=("$POOL_PY" scripts/gate_pool.py --dir "$POOL_DIR" --units "${POOL_DIR}/units.tsv")
+  if (( $1 )); then pool_cmd+=(--merge); fi
   while IFS= read -r name; do want=$(( want + 1 )); done < "${POOL_DIR}/units.tsv"
   # The parent spins for the whole pool: a unit's own spinner is dead, its stdout being a file,
   # and this is the one stretch of a run where nothing prints for a minute.
   spinner_start "$2"
-  "${command[@]}" || rc=$?
+  "${pool_cmd[@]}" || rc=$?
   spinner_stop
   # The pool answers on the checkers' scale, never its units': a failure here is that program
   # failing, which is a crash whatever the units did.
