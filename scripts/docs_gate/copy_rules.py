@@ -50,9 +50,14 @@ SENTENCE_OPENER_RE: Final = re.compile(rf"(?:\A|[.!?:;•·|]|[„“\"'(»–�
 # token -- `text-dir`, `dir-rtl`.
 INFORMAL_RE: Final = re.compile(r"(?<![\w\-/.])(?:du|dein(?:e|em|en|er|es)?|dir|dich)(?![\w\-/])")
 
-# One German word per concept (§1.12): a club is a `Team` whatever grammar the sentence prefers.
-BANNED_TERMS: Final[dict[str, str]] = {"Mannschaft": "Team"}
-BANNED_TERM_RE: Final = re.compile(rf"\b(?:{'|'.join(BANNED_TERMS)})(?:en|s)?\b")
+# One German word per concept (§1.12): a club is a `Team` and a done thing is `schon`, whatever
+# grammar the sentence prefers.
+BANNED_TERMS: Final[dict[str, str]] = {"Mannschaft": "Team", "bereits": "schon"}
+
+# A lower-case entry is no noun, so German capitalises it at a sentence's start and `(?i:)` is what
+# reads that position. A capitalised entry stays exact: folded, it would match the lower-case
+# spelling that means a key rather than copy.
+BANNED_TERM_RE: Final = re.compile(rf"\b(?:{'|'.join(term if term[:1].isupper() else f'(?i:{term})' for term in BANNED_TERMS)})(?:en|s)?\b")
 
 # What separates a reader's sentence from a developer's log line or a list of classes: umlauts,
 # plus German function words that no Tailwind class, import specifier or field name spells.
@@ -509,7 +514,8 @@ def _term_findings(rel: str, span: Copy) -> list[Finding]:
     """A concept spelled with a word §1.12 retired."""
     found: list[Finding] = []
     for match in BANNED_TERM_RE.finditer(span.text):
-        wanted = next(preferred for banned, preferred in BANNED_TERMS.items() if match.group(0).startswith(banned))
+        hit = match.group(0).lower()
+        wanted = next(preferred for banned, preferred in BANNED_TERMS.items() if hit.startswith(banned.lower()))
         found.append(Finding("fail", "copy-term", rel, f"`{match.group(0)}` in `{span.excerpt(match.start())}` -- say `{wanted}` (§1.12)"))
     return found
 

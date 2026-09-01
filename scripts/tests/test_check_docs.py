@@ -1044,9 +1044,14 @@ def _plant_copy_informal() -> None:
 
 
 def _plant_copy_term() -> None:
-    """The retired word for a club, in both the forms the sweep reads."""
+    """Both retired words: a club in both forms the sweep reads, and an adverb opening a sentence.
+
+    `bereits` is no noun, so the capital a sentence's start gives it is a spelling the pattern
+    reads only by folding case there.
+    """
     _append(COPY_SAMPLE, 'export const WER = "Die Mannschaft steht in dieser Gruppe.";')
     _append(COPY_SAMPLE, 'export const ALLE = "Alle Mannschaften stehen in der Tabelle.";')
+    _append(COPY_SAMPLE, 'export const OFFEN = "Bereits eingetragene Spiele behalten diesen Ort.";')
 
 
 def _plant_copy_corpus() -> None:
@@ -1131,7 +1136,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case("copy-dash", _fails("copy-dash", *[COPY_SAMPLE] * 3), _plant_copy_dash),
     Case("copy-formal", _fails("copy-formal", COPY_SAMPLE), _plant_copy_formal),
     Case("copy-informal", _fails("copy-informal", COPY_SAMPLE), _plant_copy_informal),
-    Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
+    Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
     Case("counts", _reports("counts", NOTES, SAMPLE), _plant_counts),
     Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD), _plant_enforced_by),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
