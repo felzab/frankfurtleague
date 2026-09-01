@@ -637,6 +637,17 @@ git_sha()    { git rev-parse --short=7 HEAD; }
 git_branch() { git rev-parse --abbrev-ref HEAD; }
 git_clean()  { [[ -z "$(git status --porcelain)" ]]; }
 
+# --- Redaction -------------------------------------------------------------------------------------
+
+# A filter for anything a CONTAINER's log is printed through. `mongodb-connection-string-url` throws
+# `Invalid connection string "<uri>"` with the credential still in it, and the patterns
+# `wait_healthy` greps for select the failures carrying one.
+redact_uri_credentials() {
+  # Greedy to the last `@` in the token: a password holding one has to be percent-encoded in a
+  # MongoDB URI, so over-redacting a host is the only direction this can be wrong in.
+  sed -E 's#(mongodb(\+srv)?://)[^[:space:]]*@#\1<redacted>@#g'
+}
+
 # --- Health ----------------------------------------------------------------------------------------
 
 # A started container and a working app are different statements: on a bad environment variable
@@ -656,7 +667,7 @@ This says nothing about the container; the daemon or the compose file is what di
     fi
     if [[ -z "$cid" ]]; then
       warn "'${service}' has no running container"
-      docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | detail
+      docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
       return 1
     fi
     # A service with no healthcheck reports "" — treat "running" as good enough for those.
@@ -667,7 +678,7 @@ This says nothing about the container; the daemon or the compose file is what di
         warn "'${service}' reports UNHEALTHY. Its own explanation, if it gave one:"
         # Filtered in memory: `grep | head` fails the pipeline on SIGPIPE under `pipefail`, which
         # prints the arm below underneath the lines it just found.
-        log_tail="$(docker compose -f "$compose_file" logs --tail=60 "$service" 2>&1 || true)"
+        log_tail="$(docker compose -f "$compose_file" logs --tail=60 "$service" 2>&1 | redact_uri_credentials || true)"
         matched="$(printf '%s\n' "$log_tail" | grep -iE "invalid environment|failed to prepare|error|refused" || true)"
         if [[ -n "$matched" ]]; then
           printf '%s\n' "$matched" | excerpt 12
@@ -683,7 +694,7 @@ This says nothing about the container; the daemon or the compose file is what di
     sleep 3; waited=$(( waited + 3 ))
   done
   warn "'${service}' did not become healthy within ${timeout}s. Last 30 log lines:"
-  docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | detail
+  docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
   return 1
 }
 
