@@ -40,6 +40,11 @@ DEFAULT_BASE: Final = "main"
 # 758's `except A, B:`, newer than `PARSE_FLOOR`.
 UNREADABLE: Final = (OSError, UnicodeDecodeError)
 
+# What launching git can raise. `ValueError` is the NUL: a token carrying one is exactly what
+# `binary-byte` exists to report, and reaching the child raises before any check can say so.
+# Named for `UNREADABLE`'s reason.
+UNLAUNCHABLE: Final = (OSError, ValueError)
+
 # At import rather than inside `run`: a checker importing this is already compiled, so this is the
 # first line of any of them an old interpreter reaches.
 
@@ -87,7 +92,7 @@ def _git_run(args: tuple[str, ...], stdin: str | None) -> subprocess.CompletedPr
             errors="replace",
             check=False,
         )
-    except OSError:
+    except UNLAUNCHABLE:
         return None
 
 
