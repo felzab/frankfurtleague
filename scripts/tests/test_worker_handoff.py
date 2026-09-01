@@ -97,15 +97,26 @@ HANDOFFS: Final[tuple[Handoff, ...]] = (
         "closed with no verdict",
     ),
     # The false green, which only a disagreement produces: a status naming a finding over rows that
-    # name none. Graded a refusal, the run having contradicted itself.
+    # name none. Graded with the run's own faults, the handoff being what broke.
     Handoff(
-        "a status its rows contradict",
+        "a status naming a finding its rows do not carry",
         ("section demo", 'ok "checked"'),
         ((2, 0, 0, "demo"),),
         0,
-        2,
-        "two accounts of one run",
+        3,
+        "carries no finding",
         replay_as=1,
+    ),
+    # The other half of the same disagreement, and the one a single clean-or-not flag cannot see:
+    # a refusal is a rank, not a count, so the rows have to be read for the rank the status claims.
+    Handoff(
+        "a status naming a refusal its rows do not carry",
+        ("section demo", 'ok "checked"'),
+        ((2, 0, 0, "demo"),),
+        0,
+        3,
+        "carries no refusal",
+        replay_as=2,
     ),
 )
 
@@ -265,26 +276,37 @@ def test_a_ledger_refuses_to_travel_at_all_over_a_finding_no_row_can_carry() -> 
     assert "were recorded outside any section" in seen.worker_output
 
 
-def test_a_scope_whose_status_its_rows_contradict_is_caught_after_a_scope_whose_rows_were_dirty() -> None:
+def test_a_scope_whose_status_its_rows_contradict_is_caught_behind_a_scope_that_found_something() -> None:
     """Two scopes, because the cross-check reads state a run accumulates.
 
-    A first scope leaving an unproven row is what would stand in for the second scope's silence and
-    let the false green through behind it.
+    The first scope's finding would stand in for the second scope's silence. Its status is replayed
+    as 0 only so the replay reaches the second at all.
     """
     env = _base_env()
     with tempfile.TemporaryDirectory() as scratch:
         parent = Path(scratch) / "parent.sh"
         _write(parent, PARENT_SCRIPT)
-        # Rank 0, and a status of 0 beside it: the one shape that leaves a row dirty without ending
-        # the replay where it stands.
-        first_code, _, first, first_rows = _run_worker(Path(scratch), "one", ("section one",), env)
+        found = ("section one", "step work", 'fail "a real finding"')
+        first_code, _, first, first_rows = _run_worker(Path(scratch), "one", found, env)
         second_code, _, second, second_rows = _run_worker(Path(scratch), "two", ("section two", 'ok "checked"'), env)
-        assert (first_code, first_rows) == (0, ((0, 0, 0, "one"),))
+        assert (first_code, first_rows) == (1, ((5, 1, 0, "one"),))
         assert (second_code, second_rows) == (0, ((2, 0, 0, "two"),))
         code, output = _bash(
             parent,
             ("one", first.as_posix(), "0", "two", second.as_posix(), "1"),
             env,
         )
-    assert code == 2, f"the second scope's disagreement exited {code}"
+    assert code == 3, f"the second scope's disagreement exited {code}"
     assert "the two scope exited 1" in output, output
+
+
+def test_a_scope_that_sent_no_ledger_home_is_not_read_as_a_scope_contradicting_itself() -> None:
+    """Rank 0 is the parent's own stand-in, which `finish` already refuses to call green.
+
+    Read as a disagreement it would answer 3 over a worker that reported honestly and only died
+    before it could write the row.
+    """
+    case = next(one for one in HANDOFFS if one.name == "a finding recorded before the first section")
+    seen = _replay(case)
+    assert seen.rows == ()
+    assert seen.parent_code == 1, f"a scope with no ledger of its own exited {seen.parent_code}"
