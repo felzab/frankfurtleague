@@ -56,8 +56,6 @@ export const KUERZEL_LAENGE = 2;
 /**
  * The submission's own ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here too because
  * the public endpoint refuses a length with a bare `REQ-VAL-001` and no field detail, so nothing marks the box.
- * The club-field and contact-name ceilings live in `fl_frontend/src/features/teams/constants.ts`:
- * they bound the admin editors and this form alike.
  */
 export const BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH = 500;
 export const BEWERBUNG_KADER_GROESSE_MAX = 200;

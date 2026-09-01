@@ -320,8 +320,7 @@ class FLBewerbungKontaktpersonPayload(FLKontaktpersonPayload):
     """
 
     # Bounded HERE and on no other date field in the application: this is the one a stranger types
-    # about themselves, unreviewed. The name ceilings are inherited: the junction payload states
-    # `KONTAKT_NAME_MAX_LENGTH` itself, so both tiers refuse alike with no redeclaration to drift.
+    # about themselves, unreviewed.
     geburtsdatum: CustomBewerbungGeburtsdatum
     einwilligung: FLBewerbungEinwilligungPayload
 

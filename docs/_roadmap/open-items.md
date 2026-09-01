@@ -85,7 +85,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 31  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
 | 32  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
 | 33  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
-| 34  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Open     | —          |
+| 34  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Closed   | —          |
 | 35  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
 | 36  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
 | 37  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
@@ -1843,7 +1843,7 @@ own cost is paid only after somebody edits the database.
 
 ### 34 · BE-43 — A club's name is bounded where a stranger types it and unbounded where an administrator does
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE, BE, Docs\
 **Effort:** S\
 **Path:** Independent. **BE-25** and **BE-42** ask which of a club's fields a public READ may serve
@@ -1889,6 +1889,18 @@ Zod schema and the Pydantic payload — which is why the application's numbers a
 application's constants become the shared ones wherever the numbers agree. Or hold that a ceiling
 belongs to the surface a stranger writes through, and record why the admin side is trusted with an
 unbounded one — which is what the code implies today and what no line says.
+
+**Closed on the first answer, taken as a ruling rather than derived here.** The four ceilings in
+`fl_backend/app/shared/schemas/bounds.py` are shared names — `TEAM_NAME_MAX_LENGTH`,
+`TEAM_FULL_NAME_MAX_LENGTH`, `TEAM_WEBSITE_URL_MAX_LENGTH` and `KONTAKT_NAME_MAX_LENGTH` — and
+`fl_backend/app/api/teams/schemas.py :: _TeamPayload` and `:: FLKontaktpersonPayload` state them, so
+both tiers refuse at one number. The decision is recorded as a comment at each field rather than as a
+new invariant, which is what `docs/backend/spec.md :: I36` asks for: whether a bound belongs on one
+side or both is decided per field, at the field. `fl_frontend/src/features/teams/constants.ts` holds
+the four numbers for the Zod schemas and the input controls, and
+`:: FLBewerbungKontaktpersonPayload` keeps no name redeclaration, the parent stating the ceiling. The
+read models and every `$jsonSchema` are untouched, so a stored longer value still reads.
+`docs/backend/spec.md` §4's row leaves with the finding.
 
 ### 35 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
 

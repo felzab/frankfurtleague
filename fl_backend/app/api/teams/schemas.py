@@ -334,10 +334,9 @@ class _TeamPayload(_TeamWritable):
     model_config = ConfigDict(extra="forbid")
 
     address: FLAddressPayload
-    # Stripped and CEILINGED on the WRITE side alone, the read models taking a stored value as it
-    # stands (`docs/backend/spec.md :: I36`): `name` is copied onto the season's junction row and
-    # onto every fixture side, so spaces alone would reach a league table row. The ceilings are the
-    # application's, so both tiers refuse alike.
+    # Stripped and CEILINGED on the WRITE side alone, a stored value still reading as it stands
+    # (`docs/backend/spec.md :: I36`). `name` reaches a league table row, so a space would show
+    # there. The ceilings are the application's: both tiers refuse alike.
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_NAME_MAX_LENGTH)]
     full_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_FULL_NAME_MAX_LENGTH)]
     # Redeclared for that reason too: the width is a floor as well as a ceiling, and what it holds
