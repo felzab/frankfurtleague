@@ -1,10 +1,10 @@
-import asyncio
 from itertools import product
 from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import generate_spielplan, patch_saison
 from app.api.saisons.cache import invalidate_saison_cache
@@ -23,11 +23,12 @@ from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_saison_patch_isolation_test"
+DATABASE_NAME = worker_database("fl_saison_patch_isolation_test")
 
 SAISON_ID = "2026"
 SAISON_START = "2026-01-01"
@@ -119,8 +120,8 @@ def squad_rows(count: int) -> list[dict[str, Any]]:
 class SeasonsRunningAHookBeforeTheWrite:
     """The seasons collection, running one hook immediately before the first update asked of it.
 
-    A stand-in rather than a subclass: Motor builds a collection off a database handle, so what the
-    endpoint is handed has to answer every other call by delegating.
+    A stand-in rather than a subclass: the driver builds a collection off a database handle, so what
+    the endpoint is handed must delegate every other call.
     """
 
     def __init__(self, inner: Any, hook: Callable[[], Awaitable[Any]]) -> None:
@@ -148,11 +149,11 @@ class SeasonsRunningAHookBeforeTheWrite:
         return await self._inner.find_one_and_update(*args, **kwargs)
 
 
-Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
+Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_seeded_saison(url: str, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on. A transaction cannot create a collection."""
+    """A transaction cannot create a collection, so every one a body writes in is built by the seed."""
 
     async def _run() -> Any:
         # The SHIPPED validators and unique indexes, and every collection -- including the one the
@@ -166,10 +167,10 @@ def on_a_seeded_saison(url: str, body: Body) -> Any:
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
-async def call_draw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> FLGenerateSpielplanResponse:
+async def call_draw(database: AsyncDatabase, client: AsyncMongoClient) -> FLGenerateSpielplanResponse:
     """The shape the season already carries, so the draw moves the fixtures and no rule of its own."""
 
     return await generate_spielplan(
@@ -187,8 +188,8 @@ async def call_draw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) 
 
 
 async def call_patch_rules(
-    database: AsyncIOMotorDatabase,
-    client: AsyncIOMotorClient,
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
     *,
     saison_id: str = SAISON_ID,
     saisons_collection: Any = None,
@@ -215,7 +216,7 @@ async def call_patch_rules(
     )
 
 
-async def call_add_a_player(database: AsyncIOMotorDatabase) -> Any:
+async def call_add_a_player(database: AsyncDatabase) -> Any:
     """The rival write: one more player into the seeded squad, through the route, outside any transaction."""
 
     return await post_saison_spieler(
@@ -235,7 +236,7 @@ async def call_add_a_player(database: AsyncIOMotorDatabase) -> Any:
     )
 
 
-async def call_abandon_a_knockout(database: AsyncIOMotorDatabase) -> None:
+async def call_abandon_a_knockout(database: AsyncDatabase) -> None:
     """The rival write: one drawn knockout fixture is marked abandoned, straight into `spiele`.
 
     Not through the fixture route: a knockout slot drawn from a `quelle` names no teams yet, so
@@ -248,7 +249,7 @@ async def call_abandon_a_knockout(database: AsyncIOMotorDatabase) -> None:
     await database[Collection.SPIELE].update_one({"_id": fixture["_id"]}, {"$set": {"sonderereignis": "abgebrochen"}})
 
 
-async def abandoned_knockouts_now(database: AsyncIOMotorDatabase) -> int:
+async def abandoned_knockouts_now(database: AsyncDatabase) -> int:
     """The records this file's rival leaves, counted where `app/api/teams/services.py :: has_taken_place` would answer True."""
 
     return await database[Collection.SPIELE].count_documents(
@@ -256,7 +257,7 @@ async def abandoned_knockouts_now(database: AsyncIOMotorDatabase) -> int:
     )
 
 
-async def season_now(database: AsyncIOMotorDatabase) -> dict[str, Any]:
+async def season_now(database: AsyncDatabase) -> dict[str, Any]:
     """Read outside any transaction -- what a later request would find."""
 
     stored = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
@@ -265,14 +266,14 @@ async def season_now(database: AsyncIOMotorDatabase) -> dict[str, Any]:
     return dict(stored)
 
 
-async def counts_now(database: AsyncIOMotorDatabase) -> tuple[int, int]:
+async def counts_now(database: AsyncDatabase) -> tuple[int, int]:
     return (
         await database[Collection.SPIELTAGE].count_documents({"saison_id": SAISON_ID}),
         await database[Collection.SPIELE].count_documents({"saison_id": SAISON_ID}),
     )
 
 
-async def live_squad_now(database: AsyncIOMotorDatabase) -> int:
+async def live_squad_now(database: AsyncDatabase) -> int:
     """The seeded club's live rows, counted as `REQ-RULES-009`'s judgement counts them."""
 
     return await database[Collection.SAISON_SPIELER].count_documents({"saison_id": SAISON_ID, "team_id": SQUAD_TEAM_ID, "inactive_since": None})
@@ -286,7 +287,7 @@ class TestAPlayerAddedMidPatchIsJudgedAgain:
     """
 
     def test_the_narrowing_is_refused_on_the_player_added_under_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISON_SPIELER].insert_many(squad_rows(SEEDED_SQUAD))
 
             async def add_between() -> None:
@@ -314,7 +315,7 @@ class TestAPlayerAddedMidPatchIsJudgedAgain:
     def test_the_same_narrowing_commits_when_no_player_is_added(self, mongo_replica_set_url: str):
         """The control: without it the case above would pass on an endpoint that refused every narrowing."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISON_SPIELER].insert_many(squad_rows(SEEDED_SQUAD))
 
             response = await call_patch_rules(database, client, max_kadergroesse=SEEDED_SQUAD)
@@ -335,7 +336,7 @@ class TestADrawLandingMidPatchIsJudgedAgain:
     """
 
     def test_the_widening_is_refused_on_the_draw_that_landed_under_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn: list[FLGenerateSpielplanResponse] = []
 
             async def draw_between() -> None:
@@ -362,7 +363,7 @@ class TestADrawLandingMidPatchIsJudgedAgain:
     def test_the_same_widening_commits_when_no_draw_lands(self, mongo_replica_set_url: str):
         """The control: without it the case above would pass on an endpoint that refused every widening."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_patch_rules(database, client, teams_per_group=WIDER_PER_GROUP)
 
             return response, await season_now(database), await counts_now(database)
@@ -382,7 +383,7 @@ class TestAKnockoutResultLandingMidPatchIsJudgedAgain:
     """
 
     def test_the_reorder_is_refused_on_the_record_left_under_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
 
             async def abandon_between() -> None:
@@ -410,7 +411,7 @@ class TestAKnockoutResultLandingMidPatchIsJudgedAgain:
     def test_the_same_reorder_commits_when_no_record_lands(self, mongo_replica_set_url: str):
         """The control: without it the case above would pass on an endpoint that refused every reorder."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
 
             response = await call_patch_rules(database, client, tiebreak_order=REORDERED_TIEBREAK)
@@ -427,7 +428,7 @@ class TestAnUnknownSeasonIsStillNotFound:
     """The read raising it runs inside the transaction, which has to abort on it rather than carry it."""
 
     def test_a_season_id_naming_nothing_answers_404(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentNotFoundException) as missing:
                 await call_patch_rules(database, client, saison_id="2099")
 

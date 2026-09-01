@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
-from motor.motor_asyncio import AsyncIOMotorClientSession
+from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
@@ -82,7 +82,7 @@ async def patch_schiedsrichter(
     Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
     """
 
-    async def rename_and_fan_out(session: AsyncIOMotorClientSession) -> FLPatchSchiedsrichterResponse:
+    async def rename_and_fan_out(session: AsyncClientSession) -> FLPatchSchiedsrichterResponse:
         updated_document_raw = await patch_one_in_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
@@ -103,7 +103,7 @@ async def patch_schiedsrichter(
     # One transaction: a rename landing on the referee and not on their fixtures is the stale copy
     # the fan-out exists to prevent. `with_transaction` over a bare `start_transaction` -- the
     # callback derives both writes from the payload, so a retry is safe.
-    async with await db.start_session() as session:
+    async with db.start_session() as session:
         return await session.with_transaction(rename_and_fan_out)
 
 
@@ -167,8 +167,8 @@ async def anonymise_schiedsrichter(
     re-entry under it is refused (`REQ-ANONYMISE-001`).
     """
 
-    async def clear_the_details_and_the_record(session: AsyncIOMotorClientSession) -> FLSchiedsrichterWriteResponse:
-        async def a_kontakt_value_stands(kontakt_session: AsyncIOMotorClientSession | None) -> bool:
+    async def clear_the_details_and_the_record(session: AsyncClientSession) -> FLSchiedsrichterWriteResponse:
+        async def a_kontakt_value_stands(kontakt_session: AsyncClientSession | None) -> bool:
             """Whether the row still carries a contact value, read either through the transaction or outside it.
 
             A `schiedsrichter_id` naming nobody raises the 404 here, before anything is written.
@@ -214,5 +214,5 @@ async def anonymise_schiedsrichter(
     # ONE transaction over both (D83): a referee cleared while the log still holds their details
     # reports an anonymisation that did not happen. `with_transaction` over a bare one -- the
     # callback derives both writes from the path id, so a retry is safe.
-    async with await db.start_session() as session:
+    async with db.start_session() as session:
         return await session.with_transaction(clear_the_details_and_the_record)

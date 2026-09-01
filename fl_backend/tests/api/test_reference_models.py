@@ -210,6 +210,16 @@ class TestEinwilligung:
 
         assert composed.bestaetigt_am == composed.datum
 
+    def test_the_create_payload_carries_no_consent_field(self):
+        """An admin able to state one could publish a pupil on a claim nobody made."""
+
+        assert "einwilligung" not in FLPostSpielerPayload.model_fields
+
+    def test_the_patch_payload_carries_no_consent_field(self):
+        """The load-bearing half, because `patch_spieler` `$set`s this model's whole dump."""
+
+        assert "einwilligung" not in FLPatchSpielerPayload.model_fields
+
     def test_a_registration_never_claims_a_carry_over(self):
         """`bestandsuebernahme` is reserved for the backfill; composing it here would make a real consent unfindable among the assumed ones."""
 

@@ -1,8 +1,10 @@
 import asyncio
+import atexit
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Iterable, Mapping
+from typing import Any, AsyncIterator, Coroutine, Iterable, Mapping, Sequence
 
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.database import Database
 from pymongo.mongo_client import MongoClient
 
@@ -13,8 +15,61 @@ Enforcement = dict[str, Any]
 Schema = dict[str, Enforcement]
 
 # A module global rather than a fixture: what reads it is the plain `on_a_*` helper each suite
-# defines, and the whole db tier runs in one process.
+# defines, and the tier -- one worker of it, under `-n` -- runs in one process.
 _BUILT: dict[tuple[str, str], tuple[bool, Schema]] = {}
+
+# Module globals for the same reason `_BUILT` is one, and torn down by `_release` at interpreter exit
+# rather than by a fixture no plain helper could take.
+_LOOP: asyncio.AbstractEventLoop | None = None
+_CLIENTS: dict[str, AsyncMongoClient] = {}
+
+
+def _release() -> None:
+    """At interpreter exit, nothing else outliving the tier to close what its seeds share."""
+
+    if _LOOP is None:
+        return
+
+    # Run on the tier's loop while it is still open: `AsyncMongoClient.close` is a coroutine, so a
+    # bare call would close nothing and leave a warning where the connections should have gone.
+    for client in _CLIENTS.values():
+        _LOOP.run_until_complete(client.close())
+    _CLIENTS.clear()
+
+    # What a per-call `asyncio.run` does at its own end: an async generator left open is finalised
+    # while the loop it belongs to still runs, rather than at collection with no loop to run on.
+    _LOOP.run_until_complete(_LOOP.shutdown_asyncgens())
+    _LOOP.close()
+
+
+def on_the_seed_loop(seed: Coroutine[Any, Any, Any]) -> Any:
+    """A client's connections belong to the loop that opened them, so ONE lasting loop is what lets every seed share one client.
+
+    `run_until_complete` copies the context into a task the same way, so a `ContextVar` a body sets still reaches no other test.
+    """
+
+    global _LOOP
+
+    if _LOOP is None:
+        _LOOP = asyncio.new_event_loop()
+        atexit.register(_release)
+
+    return _LOOP.run_until_complete(seed)
+
+
+def shared_client(url: str) -> AsyncMongoClient:
+    """One client per url for the whole tier: a topology handshake costs a client to open, not a seed to run.
+
+    Public because a module reading a seeded corpus needs that client without `a_clean_database`'s clearing.
+    """
+
+    client = _CLIENTS.get(url)
+    if client is None:
+        client = AsyncMongoClient(url)
+        _CLIENTS[url] = client
+
+    return client
+
 
 _DRIFT = (
     "'{database}' carries enforcement this session did not build ({moved}). A body that narrows a validator, or adds or drops"
@@ -58,10 +113,16 @@ def _enforcement(info: Mapping[str, Any], specs: Iterable[Mapping[str, Any]]) ->
     }
 
 
-async def _schema(database: AsyncIOMotorDatabase) -> Schema:
+async def _index_specs(database: AsyncDatabase, name: str) -> Sequence[Mapping[str, Any]]:
+    """`list_indexes` hands its cursor back through a coroutine, so a gather over it needs a call of its own to await twice."""
+
+    return await (await database[name].list_indexes()).to_list(length=None)
+
+
+async def _schema(database: AsyncDatabase) -> Schema:
     infos = _data(await (await database.list_collections()).to_list(length=None))
     # Concurrently: one `listIndexes` per collection is the whole added cost of naming the culprit.
-    specs = await asyncio.gather(*(database[info["name"]].list_indexes().to_list(length=None) for info in infos))
+    specs = await asyncio.gather(*(_index_specs(database, info["name"]) for info in infos))
 
     return {info["name"]: _enforcement(info, found) for info, found in zip(infos, specs, strict=True)}
 
@@ -109,7 +170,7 @@ def _reusable(key: tuple[str, str], constraints: bool, collections: Iterable[str
     return built[1]
 
 
-async def _build(client: AsyncIOMotorClient, database: AsyncIOMotorDatabase, constraints: bool, collections: Iterable[str]) -> Schema:
+async def _build(client: AsyncMongoClient, database: AsyncDatabase, constraints: bool, collections: Iterable[str]) -> Schema:
     await client.drop_database(database.name)
     if constraints:
         await apply_constraints(database)
@@ -119,7 +180,7 @@ async def _build(client: AsyncIOMotorClient, database: AsyncIOMotorDatabase, con
     return await _schema(database)
 
 
-async def _clear(database: AsyncIOMotorDatabase, baseline: Schema) -> None:
+async def _clear(database: AsyncDatabase, baseline: Schema) -> None:
     """Isolation without rebuilding a schema no test changed: every collection the last call left is emptied."""
 
     # Concurrently: ten sequential round trips is most of what building the schema once saves.
@@ -137,39 +198,37 @@ async def a_clean_database(
     constraints: bool = False,
     collections: Iterable[str] = (),
     mutates_schema: bool = False,
-) -> AsyncIterator[tuple[AsyncIOMotorClient, AsyncIOMotorDatabase]]:
-    """A client of this call's own, and a database emptied for this test on a schema built once.
+) -> AsyncIterator[tuple[AsyncMongoClient, AsyncDatabase]]:
+    """The tier's client for this url, and a database emptied for this test on a schema built once.
 
     `mutates_schema=True` is the opt-out for a body that narrows a validator or moves an index: what
     it leaves is recorded nowhere, so the next caller rebuilds.
     """
 
-    # One per call: Motor binds to the loop it first ran on, and every caller opens its own.
-    client = AsyncIOMotorClient(url)
-    try:
-        key = (str(url), name)
-        database = client[name]
+    # Shared, and bound to `on_the_seed_loop`'s loop, which every seed runs on; closing it belongs to
+    # `_release` at exit, so a body that raises leaves the next test a client rather than none.
+    client = shared_client(url)
+    key = (str(url), name)
+    database = client[name]
 
-        baseline = _reusable(key, constraints, collections)
-        # Dropped before either path runs: a build or a clear that raises would otherwise leave an
-        # entry describing a database that no longer matches it, failing the next test for this one.
-        _BUILT.pop(key, None)
+    baseline = _reusable(key, constraints, collections)
+    # Dropped before either path runs: a build or a clear that raises would otherwise leave an
+    # entry describing a database that no longer matches it, failing the next test for this one.
+    _BUILT.pop(key, None)
 
-        if baseline is None:
-            baseline = await _build(client, database, constraints, collections)
-        else:
-            await _clear(database, baseline)
+    if baseline is None:
+        baseline = await _build(client, database, constraints, collections)
+    else:
+        await _clear(database, baseline)
 
-        yield client, database
+    yield client, database
 
-        # After the body rather than before the next one, so the test pytest names is the one that
-        # moved the schema -- and so being last, or alone under `-k`, cannot exempt a body from this.
-        if not mutates_schema:
-            present = await _schema(database)
-            _guard(_DRIFT, name, baseline, present)
-            _BUILT[key] = (constraints, present)
-    finally:
-        client.close()
+    # After the body rather than before the next one, so the test pytest names is the one that
+    # moved the schema -- and so being last, or alone under `-k`, cannot exempt a body from this.
+    if not mutates_schema:
+        present = await _schema(database)
+        _guard(_DRIFT, name, baseline, present)
+        _BUILT[key] = (constraints, present)
 
 
 def a_clean_database_sync(client: MongoClient, url: str, name: str) -> Database:

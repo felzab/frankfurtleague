@@ -1,10 +1,10 @@
-import asyncio
 from itertools import product
 from typing import Any, Awaitable, Callable, Sequence
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import activate_saison, generate_spielplan, undraw_spielplan
 from app.api.saisons.cache import invalidate_saison_cache
@@ -14,11 +14,12 @@ from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_activation_isolation_test"
+DATABASE_NAME = worker_database("fl_activation_isolation_test")
 
 OUTGOING = "2025"
 TARGET = "2026"
@@ -91,7 +92,7 @@ def entry_rows(saison_id: str) -> list[dict[str, Any]]:
 class SeasonsRunningAHookBeforeTheRollover:
     """A `saisons` stand-in running one hook just before the demotion, so the interleaving is a fact rather than a race.
 
-    Not a subclass: Motor builds a collection off a database handle, so it has to answer every
+    Not a subclass: the driver builds a collection off a database handle, so it has to answer every
     other call by delegating.
     """
 
@@ -120,7 +121,7 @@ class SeasonsRunningAHookBeforeTheRollover:
         return await self._inner.update_many(*args, **kwargs)
 
 
-Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
+Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(
@@ -132,7 +133,7 @@ def on_a_league(
     drawn: Sequence[str] = (),
     finished: Sequence[str] = (),
 ) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on. A transaction cannot create a collection."""
+    """A transaction cannot create a collection, so every one a body writes in is built by the seed."""
 
     async def _run() -> Any:
         # The SHIPPED validators and unique indexes, and every collection -- including the one the
@@ -155,10 +156,10 @@ def on_a_league(
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
-async def call_draw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, saison_id: str) -> Any:
+async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str) -> Any:
     """No `shape` on the payload, so the draw runs on the rules the season already carries and moves none of them."""
 
     return await generate_spielplan(
@@ -173,7 +174,7 @@ async def call_draw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, 
     )
 
 
-async def call_undraw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, saison_id: str) -> Any:
+async def call_undraw(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str) -> Any:
     return await undraw_spielplan(
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
@@ -184,8 +185,8 @@ async def call_undraw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient
 
 
 async def call_activate(
-    database: AsyncIOMotorDatabase,
-    client: AsyncIOMotorClient,
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
     saison_id: str,
     *,
     saisons_collection: Any = None,
@@ -200,7 +201,7 @@ async def call_activate(
     )
 
 
-async def rollover_under(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, hook: Callable[[], Awaitable[Any]]) -> tuple[str, int]:
+async def rollover_under(database: AsyncDatabase, client: AsyncMongoClient, hook: Callable[[], Awaitable[Any]]) -> tuple[str, int]:
     """`hook` lands between the rollover's judgement and its write.
 
     Only a refusal is caught: a write conflict reaching the caller is a retry that never happened,
@@ -218,7 +219,7 @@ async def rollover_under(database: AsyncIOMotorDatabase, client: AsyncIOMotorCli
     return outcome, seasons.season_reads
 
 
-async def statuses_now(database: AsyncIOMotorDatabase) -> dict[str, str]:
+async def statuses_now(database: AsyncDatabase) -> dict[str, str]:
     """Read outside any transaction -- what a later request would see."""
 
     rows = await database[Collection.SAISONS].find({}).to_list(length=None)
@@ -226,7 +227,7 @@ async def statuses_now(database: AsyncIOMotorDatabase) -> dict[str, str]:
     return {row["_id"]: row["status"] for row in rows}
 
 
-async def unplayed_now(database: AsyncIOMotorDatabase, saison_id: str) -> int:
+async def unplayed_now(database: AsyncDatabase, saison_id: str) -> int:
     """Fixtures owing a result, spelled as `unplayed_spiel_nrs` reads them: no result, and no cancellation standing in for one."""
 
     return await database[Collection.SPIELE].count_documents(
@@ -234,7 +235,7 @@ async def unplayed_now(database: AsyncIOMotorDatabase, saison_id: str) -> int:
     )
 
 
-async def fixtures_now(database: AsyncIOMotorDatabase, saison_id: str) -> int:
+async def fixtures_now(database: AsyncDatabase, saison_id: str) -> int:
     return await database[Collection.SPIELE].count_documents({"saison_id": saison_id})
 
 
@@ -245,7 +246,7 @@ class TestADrawLandingMidRolloverIsJudgedAgain:
     """
 
     def test_the_rollover_is_refused_on_the_fixtures_drawn_under_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def draw_the_outgoing_season() -> None:
                 # Permitted while it is `active`: `REQ-SPIELPLAN-003` refuses a draw on a `past`
                 # season alone, which is exactly why the rollover may not close this one blind.
@@ -277,7 +278,7 @@ class TestAnUndrawLandingMidRolloverIsJudgedAgain:
     """The target is drawn when the rollover judges and undrawn when it writes, which `REQ-ACTIVATE-003` exists to refuse."""
 
     def test_the_rollover_is_refused_on_the_fixtures_removed_under_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def undraw_the_target() -> None:
                 # Permitted on a `future` season with nothing recorded against it, which the target
                 # of a rollover is by definition.
@@ -310,7 +311,7 @@ class TestARivalRolloverLandingMidRolloverIsJudgedAgain:
     """
 
     def test_a_target_demoted_under_the_rollover_is_refused_as_past(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def promote_the_rival() -> None:
                 # Permitted: both incumbents are played out, so this rollover has nothing of its own
                 # to refuse -- and it demotes the pair, the target included.
@@ -348,7 +349,7 @@ class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
     """
 
     def test_a_reactivated_target_demoted_under_the_rollover_is_refused_as_past(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def promote_the_rival() -> None:
                 # Permitted: the one incumbent is played out, so this rollover has nothing of its own
                 # to refuse -- and it demotes the target.
@@ -383,7 +384,7 @@ class TestTheRolloverStillCommitsWithNothingInterfering:
     """The control: without it every case above would pass on an endpoint that refused every rollover."""
 
     def test_the_outgoing_season_is_demoted_and_the_target_promoted(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_activate(database, client, TARGET)
 
             return response, await statuses_now(database)
@@ -404,7 +405,7 @@ class TestTheRolloverStillCommitsWithNothingInterfering:
     def test_the_sole_incumbent_is_re_activated_rather_than_refused(self, mongo_replica_set_url: str):
         """The second control, and the one the re-judgement above could break: re-activation is deliberately permitted."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_activate(database, client, TARGET)
 
             return response, await statuses_now(database)

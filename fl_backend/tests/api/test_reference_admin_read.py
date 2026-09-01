@@ -1,19 +1,21 @@
+import asyncio
 from collections.abc import Iterator, Mapping
 from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi.testclient import TestClient
-from httpx import Response
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import MongoClient
+from httpx import ASGITransport, AsyncClient, Response
+from pymongo import AsyncMongoClient, MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
-from tests.config import build_test_config
+from tests.config import TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
+from tests.worker import worker_database
+
+from .conftest import config_for, unwritten
 
 ADMIN_AUTH = {"Authorization": "Bearer test-key-admin"}
 BASE_AUTH = {"Authorization": "Bearer test-key-base"}
@@ -33,6 +35,14 @@ UNANSWERED_URI = "mongodb://localhost:1"
 
 UNANSWERED_SELECTION_MS = 100
 CONTAINER_SELECTION_MS = 10_000
+
+# The database `build_test_config` names -- the one an app built from that config resolves its
+# collections from, and the home of the corpus every reading case here shares.
+CORPUS_DATABASE = build_test_config().db_base_name
+
+# The one case that POSTs takes a database of its own: a venue created into the corpus above would
+# stand in the venue list every other case reads.
+CREATED_VENUE_DATABASE = worker_database("fl_reference_admin_write_test")
 
 # Fixed rather than generated, so a failure names the same fixture every run.
 SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607240001")
@@ -125,52 +135,75 @@ def schiedsrichter_documents() -> list[dict[str, Any]]:
     ]
 
 
-def answered(uri: str, path: str, headers: Mapping[str, str], *, selection_timeout_ms: int) -> Response:
-    """One request per client: Motor binds to the loop `TestClient` first ran on.
+def answered(uri: str, path: str, headers: Mapping[str, str], *, selection_timeout_ms: int, database_name: str = CORPUS_DATABASE) -> Response:
+    """One request per client, the request and the close on ONE loop.
 
-    No lifespan either, for the reason `fl_backend/tests/api/test_malformed_ids.py :: client` gives.
+    Both halves for the reason `fl_backend/tests/api/test_malformed_ids.py :: answered` gives, no
+    lifespan included.
     """
 
-    app = create_app(build_test_config())
-    app.state.db_client = AsyncIOMotorClient(host=uri, serverSelectionTimeoutMS=selection_timeout_ms)
+    async def _answered() -> Response:
+        app = create_app(config_for(database_name))
+        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=selection_timeout_ms)
 
-    try:
-        return TestClient(app, raise_server_exceptions=False).get(path, headers=dict(headers))
-    finally:
-        app.state.db_client.close()
+        try:
+            transport = ASGITransport(app=app, raise_app_exceptions=False)
+            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+                return await http.get(path, headers=dict(headers))
+        finally:
+            await app.state.db_client.close()
+
+    return asyncio.run(_answered())
 
 
-def created(uri: str, payload: Mapping[str, Any], *, selection_timeout_ms: int) -> Response:
-    """POST one venue, on its own client for `answered`'s reason.
+def created(uri: str, payload: Mapping[str, Any], *, selection_timeout_ms: int, database_name: str) -> Response:
+    """POST one venue, on its own client and loop for `answered`'s reason.
 
     `X-FL-Actor` rides along because the WRITE router binds an actor and refuses a write carrying
     none (`docs/backend/spec.md :: I41`).
     """
 
-    app = create_app(build_test_config())
-    app.state.db_client = AsyncIOMotorClient(host=uri, serverSelectionTimeoutMS=selection_timeout_ms)
+    async def _created() -> Response:
+        app = create_app(config_for(database_name))
+        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=selection_timeout_ms)
 
+        try:
+            transport = ASGITransport(app=app, raise_app_exceptions=False)
+            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+                return await http.post(SPIELORTE, json=dict(payload), headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
+        finally:
+            await app.state.db_client.close()
+
+    return asyncio.run(_created())
+
+
+# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# from being left as a claim.
+@pytest.fixture(scope="module")
+def seeded_url(mongo_url: str) -> Iterator[str]:
+    """The venue and both referees, in `CORPUS_DATABASE`."""
+
+    client = MongoClient(mongo_url)
     try:
-        client = TestClient(app, raise_server_exceptions=False)
-        return client.post(SPIELORTE, json=dict(payload), headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
-    finally:
-        app.state.db_client.close()
-
-
-@pytest.fixture
-def seeded_url(mongo_container: Any) -> Iterator[str]:
-    """The venue and both referees, in the database `build_test_config` names -- the one the app resolves its collections from."""
-
-    url = str(mongo_container.get_connection_url())
-    database_name = build_test_config().db_base_name
-
-    client = MongoClient(url)
-    try:
-        database = a_clean_database_sync(client, url, database_name)
+        database = a_clean_database_sync(client, mongo_url, CORPUS_DATABASE)
         database[Collection.SPIELORTE].insert_one(spielort_document())
         database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_documents())
 
-        yield url
+        with unwritten(mongo_url, CORPUS_DATABASE):
+            yield mongo_url
+    finally:
+        client.close()
+
+
+@pytest.fixture
+def empty_url(mongo_url: str) -> str:
+    """`CREATED_VENUE_DATABASE`, holding nothing: the case that POSTs composes the venue it reads back."""
+
+    client = MongoClient(mongo_url)
+    try:
+        a_clean_database_sync(client, mongo_url, CREATED_VENUE_DATABASE)
+
+        return mongo_url
     finally:
         client.close()
 
@@ -253,20 +286,20 @@ def test_the_admin_read_carries_what_the_match_editor_prefills_a_fixture_from(se
 
 
 @pytest.mark.db
-def test_the_street_address_is_still_public_through_the_maps_link(seeded_url: str):
+def test_the_street_address_is_still_public_through_the_maps_link(empty_url: str):
     """`READ-ADDRESS-001`: the parts are admin-tier because `maps_link` already carries them.
 
     COMPOSED here rather than seeded, so the equality holds
     `app/api/spielorte/admin_router.py :: _maps_link` and not a string this file wrote.
     """
 
-    creation = created(seeded_url, POSTED_VENUE, selection_timeout_ms=CONTAINER_SELECTION_MS)
+    creation = created(empty_url, POSTED_VENUE, selection_timeout_ms=CONTAINER_SELECTION_MS, database_name=CREATED_VENUE_DATABASE)
     assert creation.status_code == 201, creation.json()
 
     path = f"{SPIELORTE}/{creation.json()['created_id']}"
-    venue = answered(seeded_url, path, ADMIN_AUTH, selection_timeout_ms=CONTAINER_SELECTION_MS).json()["spielort"]
+    read_back = answered(empty_url, path, ADMIN_AUTH, selection_timeout_ms=CONTAINER_SELECTION_MS, database_name=CREATED_VENUE_DATABASE)
 
-    assert venue["maps_link"] == COMPOSED_MAPS_LINK
+    assert read_back.json()["spielort"]["maps_link"] == COMPOSED_MAPS_LINK
 
 
 @pytest.mark.db

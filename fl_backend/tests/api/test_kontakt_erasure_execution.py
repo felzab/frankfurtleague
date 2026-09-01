@@ -1,11 +1,11 @@
-import asyncio
 from datetime import datetime
 from typing import Any, Awaitable, Callable, Mapping
 from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.kontakte.admin_router import erase_kontaktperson
@@ -14,9 +14,10 @@ from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.teams.schemas import FLSaisonTeamKontakte
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
-DATABASE_NAME = "fl_kontakt_erasure_test"
+DATABASE_NAME = worker_database("fl_kontakt_erasure_test")
 
 # Asserted on rather than caught broadly, so an unrelated failure cannot pass as a rejection.
 DOCUMENT_VALIDATION_FAILED = 121
@@ -205,13 +206,13 @@ def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:
     }
 
 
-Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
+Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 # The echo, both collections keyed by `_id`, and the whole log -- what most cases below read.
 Snapshot = tuple[FLKontaktErasureResponse, dict[Any, Mapping[str, Any]], list[Mapping[str, Any]]]
 
 
-async def a_row_with_a_history(database: AsyncIOMotorDatabase, collection: str, row_id: ObjectId) -> None:
+async def a_row_with_a_history(database: AsyncDatabase, collection: str, row_id: ObjectId) -> None:
     """Two recorded writes over a seeded row, which is what leaves the log holding these people.
 
     The first replaces the FORMER block, so the numbers it held live in the log alone; the second
@@ -222,7 +223,7 @@ async def a_row_with_a_history(database: AsyncIOMotorDatabase, collection: str, 
     await patch_one_in_db(collection=database[collection], db_filter={"_id": row_id}, update={"$set": {"gruppe": "B"}})
 
 
-async def a_bewerbung_with_a_history(database: AsyncIOMotorDatabase, row_id: ObjectId) -> None:
+async def a_bewerbung_with_a_history(database: AsyncDatabase, row_id: ObjectId) -> None:
     """The junction's shape, with the second write over a field an application actually carries."""
 
     collection = database[Collection.BEWERBUNGEN]
@@ -257,10 +258,10 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
-async def call_erasure(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, email: str = ERASED_EMAIL) -> FLKontaktErasureResponse:
+async def call_erasure(database: AsyncDatabase, client: AsyncMongoClient, email: str = ERASED_EMAIL) -> FLKontaktErasureResponse:
     return await erase_kontaktperson(
         erasure_data=FLKontaktErasurePayload(email=email),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -271,7 +272,7 @@ async def call_erasure(database: AsyncIOMotorDatabase, client: AsyncIOMotorClien
     )
 
 
-async def stored_rows(database: AsyncIOMotorDatabase) -> dict[Any, Mapping[str, Any]]:
+async def stored_rows(database: AsyncDatabase) -> dict[Any, Mapping[str, Any]]:
     """Both collections keyed by `_id`, so a failing assertion names the row rather than a list position."""
 
     found: dict[Any, Mapping[str, Any]] = {}
@@ -282,7 +283,7 @@ async def stored_rows(database: AsyncIOMotorDatabase) -> dict[Any, Mapping[str, 
     return found
 
 
-async def log_rows_naming(database: AsyncIOMotorDatabase, collection: Collection, row_id: ObjectId) -> list[Mapping[str, Any]]:
+async def log_rows_naming(database: AsyncDatabase, collection: Collection, row_id: ObjectId) -> list[Mapping[str, Any]]:
     """Every log row about this document, spelled out here rather than taken from the endpoint's own filter.
 
     A wrong filter in the endpoint cannot then make these assertions agree with it.
@@ -328,7 +329,7 @@ def a_row_naming(row_id: ObjectId, email: str) -> dict[str, Any]:
     return a_junction_row(row_id, LATER_SAISON, a_block_holding({**person(UNREACHED_NACHNAME, UNREACHED_TELEFON), "email": email}))
 
 
-async def a_swap_moves_them_out(database: AsyncIOMotorDatabase) -> None:
+async def a_swap_moves_them_out(database: AsyncDatabase) -> None:
     """The auditor's sequence: seed the person into a row, then edit her out of it through a real write.
 
     `patch_one_in_db` is what an administrator's contact edit runs through, so the pre-image it files
@@ -373,13 +374,13 @@ def after_erasing_a_swapped_out_person(url: str, runs: int = 1) -> Snapshot:
 
             return response, await stored_rows(database), log
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 def after_erasing_the_case_table(url: str) -> tuple[FLKontaktErasureResponse, dict[Any, Mapping[str, Any]]]:
     """The seeded league plus one row per spelling in both tables, erased with a third spelling again."""
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await database[Collection.SAISON_TEAMS].insert_many(
             [a_row_naming(row_id, email) for email, row_id in (*CASE_ROW_OIDS.items(), *NEAR_ROW_OIDS.items())]
         )
@@ -393,7 +394,7 @@ def after_erasing_the_case_table(url: str) -> tuple[FLKontaktErasureResponse, di
 def after_erasing(url: str, email: str = ERASED_EMAIL) -> Snapshot:
     """The echo, both collections and the whole log together: one seeded database serves all three."""
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         response = await call_erasure(database, client, email)
         log = await database[Collection.AKTIONEN].find().sort("_id", 1).to_list(length=None)
 
@@ -494,7 +495,7 @@ def test_the_block_survives_with_all_four_of_its_keys(mongo_replica_set_url: str
 def test_nulling_an_applications_whole_block_is_what_the_validator_refuses(mongo_replica_set_url: str):
     """Without this the dotted keys read as style. `bewerbungen.kontakte` is required and non-nullable as a BLOCK."""
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> str:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
         try:
             await database[Collection.BEWERBUNGEN].update_one({"_id": BEWERBUNG_OID}, {"$set": {"kontakte": None}})
         except OperationFailure as failure:
@@ -524,7 +525,7 @@ def test_every_log_row_naming_a_reached_document_is_emptied_and_stamped(mongo_re
     The pre-state is asserted too, without which a filter matching nothing would pass.
     """
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         seeded = await log_rows_naming(database, Collection.SAISON_TEAMS, ROW_A_EARLIER_OID)
         await call_erasure(database, client)
 
@@ -546,7 +547,7 @@ def test_the_row_the_erasures_own_patch_wrote_is_redacted_too(mongo_replica_set_
     would not be found here.
     """
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         seeded = {row["_id"] for row in await log_rows_naming(database, Collection.SAISON_TEAMS, ROW_A_LATER_OID)}
         await call_erasure(database, client)
         rows = await log_rows_naming(database, Collection.SAISON_TEAMS, ROW_A_LATER_OID)
@@ -582,7 +583,7 @@ def test_no_value_of_theirs_survives_anywhere_in_the_database(mongo_replica_set_
 def test_the_log_rows_of_a_row_nobody_erased_keep_their_images(mongo_replica_set_url: str):
     """Kills a filter matching on `collection` alone, which would empty every club's rows at once."""
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await call_erasure(database, client)
 
         return (
@@ -602,7 +603,7 @@ def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
     Exactly one row is added per cleared document, each a clearing patch's own, and none names the log.
     """
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         before_count = await database[Collection.AKTIONEN].count_documents({})
         await call_erasure(database, client)
 
@@ -622,7 +623,7 @@ def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
 def test_an_address_naming_nobody_is_a_clean_no_op(mongo_replica_set_url: str):
     """Kills an `$in` of no ids reading as "every row": `build_redaction_filter` matches nothing, never everything."""
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         before_count = await database[Collection.AKTIONEN].count_documents({})
         response = await call_erasure(database, client, UNKNOWN_EMAIL)
 
@@ -650,7 +651,7 @@ def test_a_refused_redaction_takes_every_clearing_back(mongo_replica_set_url: st
     A `$jsonSchema` refusing a stamped row fails the LAST write, once both collections are cleared.
     """
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         # Narrow enough to refuse the redaction's `$set`, wide enough to admit the clearing patches'
         # own rows, which are recorded with `redacted_at` null.
         await database.command(
@@ -770,7 +771,7 @@ def test_a_log_row_of_an_application_holding_no_image_of_them_is_stamped_anyway(
     application filed one naming somebody else.
     """
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         application = database[Collection.BEWERBUNGEN]
         # Seeded holding nobody the erasure may reach, then patched to a block that names them: the
         # image that write filed is the one carrying no address of theirs.

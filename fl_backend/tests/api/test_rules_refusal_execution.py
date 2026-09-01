@@ -1,9 +1,8 @@
-import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import patch_saison
 from app.api.saisons.cache import invalidate_saison_cache
@@ -11,11 +10,12 @@ from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
 from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW, RULES_TIEBREAK_AFTER_KNOCKOUT
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_rules_refusal_test"
+DATABASE_NAME = worker_database("fl_rules_refusal_test")
 
 SAISON_ID = "2026"
 PRIOR_SAISON_ID = "2025"
@@ -176,7 +176,7 @@ def knockout_spiele(*, played: int = 0) -> list[dict[str, Any]]:
     ]
 
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_database(
@@ -186,8 +186,6 @@ def on_a_database(
     spiele: list[dict[str, Any]] | None = None,
     spieltage: list[dict[str, Any]] | None = None,
 ) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first runs on."""
-
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
             # Process-global and keyed by season id, so an entry another module left would answer for this one.
@@ -201,10 +199,10 @@ def on_a_database(
 
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
-async def patch_the_rules(database: AsyncIOMotorDatabase, **overrides: Any) -> Any:
+async def patch_the_rules(database: AsyncDatabase, **overrides: Any) -> Any:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it changes."""
 
     return await patch_saison(
@@ -236,7 +234,7 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
     def test_the_decoy_rows_hold_no_cap_up(self, mongo_replica_set_url: str):
         """One call for the three: each decoy is larger than this cap, so any of them reaching the figure refuses instead."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await patch_the_rules(database, max_kadergroesse=PERMITTED_KADER)
 
         response = on_a_database(mongo_replica_set_url, body)
@@ -246,7 +244,7 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
     def test_a_cap_below_the_live_squad_is_refused(self, mongo_replica_set_url: str):
         """The control: without it the case above would also pass on an aggregation that answered nothing at all."""
 
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> DocumentConflictException:
             with pytest.raises(DocumentConflictException) as refusal:
                 await patch_the_rules(database, max_kadergroesse=REFUSED_KADER)
 
@@ -265,7 +263,7 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
     def test_widening_a_group_after_the_draw_is_refused(self, mongo_replica_set_url: str):
         """A widening crosses no other bound: `REQ-RULES-003` reads the narrowing direction and the matchday stays under the wider count."""
 
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> DocumentConflictException:
             with pytest.raises(DocumentConflictException) as refusal:
                 await patch_the_rules(database, teams_per_group=WIDER_PER_GROUP)
 
@@ -279,7 +277,7 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
     def test_the_same_edit_goes_through_while_nothing_is_drawn(self, mongo_replica_set_url: str):
         """The same season and the same matchday, minus its fixtures: a season still being set up widens freely."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await patch_the_rules(database, teams_per_group=WIDER_PER_GROUP)
 
         response = on_a_database(mongo_replica_set_url, body)
@@ -297,7 +295,7 @@ class TestTheKnockoutIsWhatFreezesTheTiebreak:
     def test_a_played_knockout_fixture_freezes_the_order(self, mongo_replica_set_url: str):
         """The bracket was seeded from the group placings this order decides, and one round of it is now on the record."""
 
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> DocumentConflictException:
             with pytest.raises(DocumentConflictException) as refusal:
                 await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
 
@@ -319,7 +317,7 @@ class TestTheKnockoutIsWhatFreezesTheTiebreak:
 
         decided = [{**knockout_spiele()[0], "elfmeterschiessen": {"team1": 5, "team2": 4}}, *knockout_spiele()[1:]]
 
-        async def body(database: AsyncIOMotorDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> DocumentConflictException:
             with pytest.raises(DocumentConflictException) as refusal:
                 await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
 
@@ -337,7 +335,7 @@ class TestTheKnockoutIsWhatFreezesTheTiebreak:
     def test_a_drawn_but_unplayed_bracket_leaves_the_order_open(self, mongo_replica_set_url: str):
         """The boundary: the fixtures exist and are wired, and re-seeding them costs nobody a round they already played."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
 
         response = on_a_database(
@@ -354,7 +352,7 @@ class TestTheKnockoutIsWhatFreezesTheTiebreak:
 
         played_gruppenphase = [{**drawn_spiele()[0], "ergebnis": "2:0"}, *drawn_spiele()[1:]]
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
 
         response = on_a_database(

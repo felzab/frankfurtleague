@@ -15,7 +15,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Literal, Mapping, Sequence
 
-from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core.collections import Collection
 from app.core.logging import correlation_id_var
@@ -78,13 +79,13 @@ def log_stamp(moment: datetime) -> str:
 
 async def record_write(
     *,
-    collection: AsyncIOMotorCollection,
+    collection: AsyncCollection,
     operation: Operation,
     document_id: Any = None,
     db_filter: Mapping[str, Any] | None = None,
     before: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None = None,
     modified_count: int | None = None,
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncClientSession | None = None,
 ) -> None:
     """Append one row describing a write that has just happened.
 

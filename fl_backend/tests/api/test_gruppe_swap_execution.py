@@ -1,9 +1,9 @@
-import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import swap_gruppen
@@ -19,11 +19,12 @@ from app.api.teams.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_swap_test"
+DATABASE_NAME = worker_database("fl_swap_test")
 
 # Named rather than caught broadly: another failure must not read as the rollback this suite proves.
 DOCUMENT_VALIDATION_FAILED = 121
@@ -58,7 +59,7 @@ AUSTRITT = {"type": "disqualifikation", "grund": "Regelverstoss", "datum": "2026
 AFTER_THE_EXIT = "2026-05-01"
 
 
-async def record_an_austritt(database: AsyncIOMotorDatabase, team_id: ObjectId) -> None:
+async def record_an_austritt(database: AsyncDatabase, team_id: ObjectId) -> None:
     await database[Collection.SAISON_TEAMS].update_one({"saison_id": SAISON_ID, "team_id": team_id}, {"$set": {"austritt": AUSTRITT}})
 
 
@@ -114,7 +115,7 @@ def knockout_fixture(*, ergebnis: str | None, sonderereignis: str | None = None,
     return fixture if spieltag_id is None else {**fixture, "spieltag_id": spieltag_id}
 
 
-Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
+Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_seeded_season(
@@ -143,10 +144,10 @@ def on_a_seeded_season(
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
-async def call_swap(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, team1_id: ObjectId, team2_id: ObjectId) -> Any:
+async def call_swap(database: AsyncDatabase, client: AsyncMongoClient, team1_id: ObjectId, team2_id: ObjectId) -> Any:
     return await swap_gruppen(
         saison_id=SAISON_ID,
         swap_data=FLSwapGruppenPayload(team1_id=team1_id, team2_id=team2_id),
@@ -158,7 +159,7 @@ async def call_swap(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, 
     )
 
 
-async def gruppen_now(database: AsyncIOMotorDatabase) -> dict[ObjectId, str]:
+async def gruppen_now(database: AsyncDatabase) -> dict[ObjectId, str]:
     """Read outside any transaction — what a later request would see."""
 
     rows = await database[Collection.SAISON_TEAMS].find({"saison_id": SAISON_ID}).to_list(length=None)
@@ -166,13 +167,13 @@ async def gruppen_now(database: AsyncIOMotorDatabase) -> dict[ObjectId, str]:
     return {row["team_id"]: row["gruppe"] for row in rows}
 
 
-async def sides_now(database: AsyncIOMotorDatabase) -> dict[int, tuple[ObjectId | None, ObjectId | None]]:
+async def sides_now(database: AsyncDatabase) -> dict[int, tuple[ObjectId | None, ObjectId | None]]:
     rows = await database[Collection.SPIELE].find({"saison_id": SAISON_ID}).to_list(length=None)
 
     return {row["spiel_nr"]: ((row["team1"] or {}).get("team_id"), (row["team2"] or {}).get("team_id")) for row in rows if "spiel_nr" in row}
 
 
-async def spiele_now(database: AsyncIOMotorDatabase) -> dict[int, dict[str, Any]]:
+async def spiele_now(database: AsyncDatabase) -> dict[int, dict[str, Any]]:
     rows = await database[Collection.SPIELE].find({"saison_id": SAISON_ID}).to_list(length=None)
 
     return {row["spiel_nr"]: row for row in rows if "spiel_nr" in row}
@@ -184,7 +185,7 @@ DRAWN_ROUND_ROBIN = [gruppen_fixture(1, ALPHA, ALPHA_RIVAL), gruppen_fixture(2, 
 
 class TestASwapCommitsBothRows:
     def test_the_two_clubs_end_in_each_others_groups(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_swap(database, client, ALPHA, BETA)
             return response, await gruppen_now(database)
 
@@ -198,7 +199,7 @@ class TestASwapCommitsBothRows:
     def test_swapping_back_restores_the_season(self, mongo_replica_set_url: str):
         """The fixture assertion is the point: a rewrite over the clubs rather than a snapshot would swap a side twice, back to the start."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_swap(database, client, ALPHA, BETA)
             await call_swap(database, client, BETA, ALPHA)
             return await gruppen_now(database), await sides_now(database)
@@ -213,7 +214,7 @@ class TestTheDrawnFixturesMoveWithTheClubs:
     def test_each_club_takes_over_the_others_fixtures(self, mongo_replica_set_url: str):
         """Both slots: a rewrite handling one would leave the other naming a club that has left."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_swap(database, client, ALPHA, BETA)
             return response.rewritten_spiele, await sides_now(database)
 
@@ -225,7 +226,7 @@ class TestTheDrawnFixturesMoveWithTheClubs:
     def test_the_display_copies_move_with_the_id(self, mongo_replica_set_url: str):
         """Rewriting `team_id` alone is silent: every card shows the old club's name over the new club's fixture."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_swap(database, client, ALPHA, BETA)
             return await spiele_now(database)
 
@@ -237,7 +238,7 @@ class TestTheDrawnFixturesMoveWithTheClubs:
     def test_the_opponent_and_the_slot_are_left_alone(self, mongo_replica_set_url: str):
         """The date, venue and matchday stay with the fixture, so each club inherits the other's schedule rather than carrying its own."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await spiele_now(database)
             await call_swap(database, client, ALPHA, BETA)
             return before, await spiele_now(database)
@@ -251,7 +252,7 @@ class TestTheDrawnFixturesMoveWithTheClubs:
     def test_a_fixture_of_neither_club_is_untouched(self, mongo_replica_set_url: str):
         """A rewrite filtered on the season rather than on the two clubs passes every assertion above and fails this."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_swap(database, client, ALPHA, BETA)
             return response.rewritten_spiele, await sides_now(database)
 
@@ -269,7 +270,7 @@ class TestTheDrawnFixturesMoveWithTheClubs:
 
         knockout = {**knockout_fixture(ergebnis=None), "spiel_nr": 9, "team1": side(ALPHA), "team2": None}
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_swap(database, client, ALPHA, BETA)
             return response.rewritten_spiele, await sides_now(database)
 
@@ -281,7 +282,7 @@ class TestTheDrawnFixturesMoveWithTheClubs:
     def test_a_fixture_between_the_two_clubs_exchanges_both_sides(self, mongo_replica_set_url: str):
         """Both clubs in one fixture: the passes are disjoint, and the count is of fixtures moved, not writes landed."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_swap(database, client, ALPHA, BETA)
             return response.rewritten_spiele, await spiele_now(database)
 
@@ -294,7 +295,7 @@ class TestTheDrawnFixturesMoveWithTheClubs:
     def test_a_club_with_no_drawn_fixture_leaves_the_other_unscheduled(self, mongo_replica_set_url: str):
         """Alpha arrives with nothing scheduled: the remaining draw is the admin's."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_swap(database, client, ALPHA, BETA)
             return response.rewritten_spiele, await sides_now(database)
 
@@ -306,7 +307,7 @@ class TestTheDrawnFixturesMoveWithTheClubs:
     def test_no_club_is_fielded_twice_on_one_matchday(self, mongo_replica_set_url: str):
         """Group fixtures only; a mixed Spieltag is `REQ-SWAP-005`'s. The before count is asserted so an illegal seed cannot pass."""
 
-        async def occupancy(database: AsyncIOMotorDatabase) -> int:
+        async def occupancy(database: AsyncDatabase) -> int:
             """The most matches any one club is fielded in on a single matchday."""
 
             rows = await database[Collection.SPIELE].find({"saison_id": SAISON_ID}).to_list(length=None)
@@ -319,7 +320,7 @@ class TestTheDrawnFixturesMoveWithTheClubs:
                         counts[key] = counts.get(key, 0) + 1
             return max(counts.values(), default=0)
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await occupancy(database)
             await call_swap(database, client, ALPHA, BETA)
             return before, await occupancy(database)
@@ -334,7 +335,7 @@ class TestAMidFlightFailureTakesBothWritesBack:
     def test_neither_row_moves_when_the_second_write_is_refused(self, mongo_replica_set_url: str):
         """A narrower `$jsonSchema` refuses group A, so the second write fails inside an already-changed transaction."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database.command(
                 "collMod",
                 Collection.SAISON_TEAMS.value,
@@ -361,7 +362,7 @@ class TestTheRefusalsReadTheRealDocuments:
     def test_a_club_with_no_junction_row_is_refused(self, mongo_replica_set_url: str):
         """The unit test hands the rule a `None`; this proves the handler produces one from its filter and projection."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_swap(database, client, ALPHA, OUTSIDER)
             return refusal.value.error_code, await gruppen_now(database)
@@ -374,7 +375,7 @@ class TestTheRefusalsReadTheRealDocuments:
     def test_a_past_season_is_refused(self, mongo_replica_set_url: str):
         """Nothing has been played, so the season being over is the only thing refusing this."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, await sides_now(database)
@@ -387,7 +388,7 @@ class TestTheRefusalsReadTheRealDocuments:
     def test_a_played_knockout_fixture_closes_the_window(self, mongo_replica_set_url: str):
         """Two fixtures seeded and one taken place: a filter matching every knockout document would still refuse."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, refusal.value.error_detail["message"], await gruppen_now(database)
@@ -406,7 +407,7 @@ class TestTheRefusalsReadTheRealDocuments:
     def test_a_knockout_fixture_that_left_a_record_closes_the_window_too(self, mongo_replica_set_url: str, sonderereignis: str):
         """An abandonment and a no-show each happened, so the bracket already stands on these groups even with no `ergebnis`."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
@@ -422,7 +423,7 @@ class TestTheRefusalsReadTheRealDocuments:
     def test_a_knockout_fixture_called_off_before_it_happened_leaves_it_open(self, mongo_replica_set_url: str):
         """The distinction the boolean hid: nothing took place, so there is no history the exchange would rewrite."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_swap(database, client, ALPHA, BETA)
             return await gruppen_now(database)
 
@@ -437,7 +438,7 @@ class TestTheRefusalsReadTheRealDocuments:
     def test_a_knockout_fixture_still_to_be_played_leaves_it_open(self, mongo_replica_set_url: str):
         """A drawn bracket is not a begun one: a count over every knockout document would close the window early."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_swap(database, client, ALPHA, BETA)
             return await gruppen_now(database)
 
@@ -452,7 +453,7 @@ class TestTheRefusalsReadTheRealDocuments:
     def test_a_played_group_fixture_closes_the_window(self, mongo_replica_set_url: str):
         """The damage: Alpha would carry group A's points into group B's table, because the statistics never read a group."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, await sides_now(database)
@@ -470,7 +471,7 @@ class TestTheRefusalsReadTheRealDocuments:
     def test_a_group_fixture_that_left_a_record_closes_the_window_too(self, mongo_replica_set_url: str, sonderereignis: str):
         """A no-show is a forfeit and an abandonment is a match that happened; either is a round-robin entry Alpha would carry away."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
@@ -487,7 +488,7 @@ class TestTheRefusalsReadTheRealDocuments:
     def test_a_group_fixture_that_left_no_record_leaves_the_window_open(self, mongo_replica_set_url: str, sonderereignis: str):
         """The distinction the boolean hid: neither club took part, so both sides are still free to move."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_swap(database, client, ALPHA, BETA)
             return await gruppen_now(database)
 
@@ -502,7 +503,7 @@ class TestTheRefusalsReadTheRealDocuments:
     def test_a_group_fixture_holding_one_goal_count_closes_the_window(self, mongo_replica_set_url: str):
         """Reachable because `apply_payload_to_spiel` strips goals only where a side is absent; the rewrite would leave them for Beta."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, await spiele_now(database)
@@ -523,7 +524,7 @@ class TestTheRefusalsReadTheRealDocuments:
 
         scored_knockout = {**knockout_fixture(ergebnis=None), "spiel_nr": 9, "team1": side(ALPHA_RIVAL, 2), "team2": side(BETA_RIVAL)}
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
@@ -537,7 +538,7 @@ class TestTheRefusalsReadTheRealDocuments:
 
         decided_knockout = {**knockout_fixture(ergebnis=None), "spiel_nr": 9, "elfmeterschiessen": {"team1": 5, "team2": 4}}
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
@@ -551,7 +552,7 @@ class TestTheRefusalsReadTheRealDocuments:
 
         decided = {**gruppen_fixture(1, ALPHA, ALPHA_RIVAL), "elfmeterschiessen": {"team1": 5, "team2": 4}}
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
@@ -565,7 +566,7 @@ class TestTheRefusalsReadTheRealDocuments:
 
         manual_pick = {**knockout_fixture(ergebnis=None, spieltag_id=SPIELTAG), "spiel_nr": 9, "team1": side(ALPHA), "team2": None}
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, await gruppen_now(database), await sides_now(database)
@@ -594,7 +595,7 @@ class TestTheRefusalsReadTheRealDocuments:
             "team2": None,
         }
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_swap(database, client, ALPHA, BETA)
             return await gruppen_now(database), await sides_now(database)
 
@@ -616,7 +617,7 @@ class TestTheRefusalsReadTheRealDocuments:
 
         manual_pick = {**knockout_fixture(ergebnis=None, spieltag_id=SPIELTAG), "spiel_nr": 9, "team1": side(ALPHA), "team2": None}
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_swap(database, client, ALPHA, BETA)
             return await gruppen_now(database), await sides_now(database)
 
@@ -636,7 +637,7 @@ class TestTheRefusalsReadTheRealDocuments:
     def test_a_played_group_fixture_between_two_other_clubs_leaves_it_open(self, mongo_replica_set_url: str):
         """`REQ-SWAP-004` is about the two clubs' own participation: a count over the whole phase would refuse every swap."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_swap(database, client, ALPHA, BETA)
             return await gruppen_now(database)
 
@@ -651,7 +652,7 @@ class TestTheRefusalsReadTheRealDocuments:
     def test_a_swap_landing_a_departed_club_on_a_later_fixture_is_refused(self, mongo_replica_set_url: str):
         """`REQ-SWAP-006` against real documents: the junction read supplies the exit day and the projection the fixture's date."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await record_an_austritt(database, ALPHA)
             with pytest.raises(DocumentConflictException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
@@ -674,7 +675,7 @@ class TestTheRefusalsReadTheRealDocuments:
     def test_a_fixture_awarding_nothing_takes_a_departed_club_anyway(self, mongo_replica_set_url: str, sonderereignis: str):
         """The case above but for the event: `REQ-SWAP-004` leaves these two open, so refusing here would make one page disagree with itself."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await record_an_austritt(database, ALPHA)
             await call_swap(database, client, ALPHA, BETA)
             return await gruppen_now(database), await sides_now(database)

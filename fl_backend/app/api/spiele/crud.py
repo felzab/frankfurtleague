@@ -1,6 +1,7 @@
 from typing import Any, Literal, Mapping, Sequence
 
-from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
@@ -35,11 +36,11 @@ from app.shared.schemas.custom import CustomObjectId
 
 
 async def _resolve_one_saison(
-    teams_collection: AsyncIOMotorCollection,
+    teams_collection: AsyncCollection,
     saison_id: str,
     rules: FLSaisonRules,
     spiele: Sequence[FLSpielCommon],
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncClientSession | None = None,
 ) -> BracketResolution:
     """One season's bracket resolved against its own standings.
 
@@ -86,9 +87,9 @@ async def _resolve_one_saison(
 
 
 async def find_bracket_faults(
-    spiele_collection: AsyncIOMotorCollection,
-    teams_collection: AsyncIOMotorCollection,
-    saisons_collection: AsyncIOMotorCollection,
+    spiele_collection: AsyncCollection,
+    teams_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
     saison_id: str | None = None,
 ) -> tuple[list[FLBracketFault], list[FLSpielJoined]]:
     """Every derived fault in one season and the fixtures they name; every season without one.
@@ -159,9 +160,9 @@ async def find_bracket_faults(
 
 
 async def pull_saison_membership(
-    saison_teams_collection: AsyncIOMotorCollection,
+    saison_teams_collection: AsyncCollection,
     saison_id: str,
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncClientSession | None = None,
 ) -> dict[CustomObjectId, SaisonMembership]:
     """Which teams hold a row for this season, under which name, and from which DAY each is out.
 
@@ -188,9 +189,9 @@ async def pull_saison_membership(
 
 
 async def pull_booked_venue(
-    spielorte_collection: AsyncIOMotorCollection,
+    spielorte_collection: AsyncCollection,
     spielort_id: CustomObjectId | None,
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncClientSession | None = None,
 ) -> BookedVenue | None:
     """The venue this payload's reference names, or `None` for no reference and for one naming no row.
 
@@ -209,9 +210,9 @@ async def pull_booked_venue(
 
 
 async def pull_booked_referee(
-    schiedsrichter_collection: AsyncIOMotorCollection,
+    schiedsrichter_collection: AsyncCollection,
     schiedsrichter_id: CustomObjectId | None,
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncClientSession | None = None,
 ) -> BookedReferee | None:
     """The referee this payload's reference names, for the reason `pull_booked_venue` exists."""
 
@@ -226,7 +227,7 @@ async def pull_booked_referee(
 
 
 async def preview_bracket_after_patch(
-    teams_collection: AsyncIOMotorCollection,
+    teams_collection: AsyncCollection,
     saison_id: str,
     rules: FLSaisonRules,
     season: Sequence[FLSpiel],
@@ -270,11 +271,11 @@ def _stored_side(side: FLSpielTeamField | None) -> Mapping[str, Any] | None:
 
 
 async def advance_bracket_winners(
-    spiele_collection: AsyncIOMotorCollection,
-    teams_collection: AsyncIOMotorCollection,
+    spiele_collection: AsyncCollection,
+    teams_collection: AsyncCollection,
     saison_id: str,
     rules: FLSaisonRules,
-    session: AsyncIOMotorClientSession,
+    session: AsyncClientSession,
 ) -> tuple[list[FLSpielAdvancement], list[FLBracketFault]]:
     """Resolve one season's bracket and write back every fixture whose slots disagree.
 
@@ -382,9 +383,9 @@ def apply_release_to_spiel(spiel: FLSpiel, release: SpieltagRelease) -> FLSpiel:
 
 
 async def release_spieltag_sides(
-    spiele_collection: AsyncIOMotorCollection,
+    spiele_collection: AsyncCollection,
     releases: Sequence[SpieltagRelease],
-    session: AsyncIOMotorClientSession,
+    session: AsyncClientSession,
 ) -> list[FLSpielReleasedSide]:
     """Empty each side another fixture gives up so a team can play this Spieltag.
 

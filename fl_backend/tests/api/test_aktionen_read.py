@@ -4,7 +4,7 @@ from typing import Any, cast
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorCollection
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.admin_router import get_aktionen
 from app.api.aktionen.schemas import FLAktion, FLAktionenFilterParams, FLAktionenListAdapter, FLAktionMitStand
@@ -176,7 +176,7 @@ def run_list(collection: _LogCollection, **filters: Any) -> Any:
 
     return asyncio.run(
         get_aktionen(
-            aktionen_collection=cast(AsyncIOMotorCollection, collection),
+            aktionen_collection=cast(AsyncCollection, collection),
             filters=FLAktionenFilterParams.model_validate(filters),
         )
     )

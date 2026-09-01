@@ -1,13 +1,12 @@
+import asyncio
 from collections.abc import Iterator, Mapping
 from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi.testclient import TestClient
-from httpx import Response
-from motor.motor_asyncio import AsyncIOMotorClient
+from httpx import ASGITransport, AsyncClient, Response
 from pydantic import BaseModel
-from pymongo import MongoClient
+from pymongo import AsyncMongoClient, MongoClient
 
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spiele.schemas import (
@@ -27,8 +26,10 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.main import create_app
-from tests.config import build_test_config
+from tests.config import TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
+
+from .conftest import unwritten
 
 ADMIN_AUTH = {"Authorization": "Bearer test-key-admin"}
 BASE_AUTH = {"Authorization": "Bearer test-key-base"}
@@ -173,35 +174,49 @@ def keys_under(payload: Any, field: str) -> set[str]:
 
 
 def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
-    """One request per client: Motor binds to the loop `TestClient` first ran on.
+    """One request per client, the request and the close on ONE loop.
 
-    No lifespan either, for the reason `fl_backend/tests/api/test_malformed_ids.py :: client` gives.
+    Both halves for the reason `fl_backend/tests/api/test_malformed_ids.py :: answered` gives, no
+    lifespan included.
     """
 
-    app = create_app(build_test_config())
-    app.state.db_client = AsyncIOMotorClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
+    async def _answered() -> Response:
+        app = create_app(build_test_config())
+        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
 
-    try:
-        return TestClient(app, raise_server_exceptions=False).get(path, headers=dict(headers))
-    finally:
-        app.state.db_client.close()
+        try:
+            transport = ASGITransport(app=app, raise_app_exceptions=False)
+            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+                return await http.get(path, headers=dict(headers))
+        finally:
+            await app.state.db_client.close()
+
+    return asyncio.run(_answered())
 
 
-@pytest.fixture
-def seeded_url(mongo_container: Any) -> Iterator[str]:
+@pytest.fixture(autouse=True)
+def _uncached_saisons() -> None:
+    """Process-global and keyed by season id alone, so an entry another test -- or another module -- left would answer here."""
+
+    invalidate_saison_cache()
+
+
+# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# from being left as a claim.
+@pytest.fixture(scope="module")
+def seeded_url(mongo_url: str) -> Iterator[str]:
     """The fixture and its junction row, in the database `build_test_config` names -- the one the app resolves its collections from."""
 
-    url = str(mongo_container.get_connection_url())
     database_name = build_test_config().db_base_name
 
-    client = MongoClient(url)
+    client = MongoClient(mongo_url)
     try:
-        database = a_clean_database_sync(client, url, database_name)
-        invalidate_saison_cache()
+        database = a_clean_database_sync(client, mongo_url, database_name)
         database[Collection.SPIELE].insert_one(stored_document())
         database[Collection.SAISON_TEAMS].insert_one(junction_row())
 
-        yield url
+        with unwritten(mongo_url, database_name):
+            yield mongo_url
     finally:
         client.close()
 

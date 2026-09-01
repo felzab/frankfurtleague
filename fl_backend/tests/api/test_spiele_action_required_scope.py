@@ -1,18 +1,19 @@
+import asyncio
 from collections.abc import Iterator
 from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi.testclient import TestClient
-from httpx import Response
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import MongoClient
+from httpx import ASGITransport, AsyncClient, Response
+from pymongo import AsyncMongoClient, MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
-from tests.config import build_test_config
+from tests.config import TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
+
+from .conftest import unwritten
 
 pytestmark = pytest.mark.db
 
@@ -77,19 +78,21 @@ def spiel_document(
     }
 
 
-@pytest.fixture
-def seeded_url(mongo_container: Any) -> Iterator[str]:
+# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# from being left as a claim.
+@pytest.fixture(scope="module")
+def seeded_url(mongo_url: str) -> Iterator[str]:
     """Two seasons, in the database `build_test_config` names.
 
     The other season carries BOTH halves: a fixture needing attention, and a stored double entry,
     so a scope reaching only one half still fails a case here.
     """
 
-    url = str(mongo_container.get_connection_url())
+    database_name = build_test_config().db_base_name
 
-    client = MongoClient(url)
+    client = MongoClient(mongo_url)
     try:
-        database = a_clean_database_sync(client, url, build_test_config().db_base_name)
+        database = a_clean_database_sync(client, mongo_url, database_name)
         database[Collection.SPIELE].insert_many(
             [
                 spiel_document(WANTED, saison_id=SAISON, spiel_nr=1, spieltag_id=SPIELTAG),
@@ -98,21 +101,27 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
             ]
         )
 
-        yield url
+        with unwritten(mongo_url, database_name):
+            yield mongo_url
     finally:
         client.close()
 
 
 def answered(uri: str, path: str) -> Response:
-    """One request per client: Motor binds to the loop `TestClient` first ran on."""
+    """One request per client, the request and the close on ONE loop, per `fl_backend/tests/api/test_malformed_ids.py :: answered`."""
 
-    app = create_app(build_test_config())
-    app.state.db_client = AsyncIOMotorClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
+    async def _answered() -> Response:
+        app = create_app(build_test_config())
+        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
 
-    try:
-        return TestClient(app, raise_server_exceptions=False).get(path, headers=dict(ADMIN_AUTH))
-    finally:
-        app.state.db_client.close()
+        try:
+            transport = ASGITransport(app=app, raise_app_exceptions=False)
+            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+                return await http.get(path, headers=dict(ADMIN_AUTH))
+        finally:
+            await app.state.db_client.close()
+
+    return asyncio.run(_answered())
 
 
 def ids_of(response: Response) -> set[str]:

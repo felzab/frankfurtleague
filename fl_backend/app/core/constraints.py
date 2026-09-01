@@ -1,10 +1,11 @@
 import argparse
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from functools import partial
+from typing import Any, Awaitable, Callable, Mapping, Sequence
 
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from pymongo import ASCENDING, DESCENDING
+from pymongo import ASCENDING, DESCENDING, AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
@@ -743,7 +744,7 @@ class ConstraintSummary:
     support_indexes: int
 
 
-async def _apply_validator(db: AsyncIOMotorDatabase, collection_name: str, validator: Mapping[str, Any]) -> None:
+async def _apply_validator(db: AsyncDatabase, collection_name: str, validator: Mapping[str, Any]) -> None:
     command = {
         "collMod": collection_name,
         "validator": validator,
@@ -761,26 +762,84 @@ async def _apply_validator(db: AsyncIOMotorDatabase, collection_name: str, valid
         raise RuntimeError(f"Could not apply the validator for '{collection_name}': {failure}") from failure
 
 
-async def apply_constraints(db: AsyncIOMotorDatabase) -> ConstraintSummary:
-    """Apply every validator, unique index and support index to `db`.
+async def _apply_unique_index(db: AsyncDatabase, index: UniqueIndex) -> None:
+    try:
+        await db[index.collection].create_index([(key, ASCENDING) for key in index.keys], name=index.name, unique=True)
+    except OperationFailure as failure:
+        raise RuntimeError(f"Could not build unique index '{index.collection}.{index.name}' ({index.rule}): {failure}") from failure
+
+
+async def _apply_support_index(db: AsyncDatabase, support: SupportIndex) -> None:
+    try:
+        await db[support.collection].create_index(list(support.keys), name=support.name)
+    except OperationFailure as failure:
+        raise RuntimeError(f"Could not build support index '{support.collection}.{support.name}' ({support.rule}): {failure}") from failure
+
+
+# One declared operation, not yet started: a coroutine built for a lane that stops early would be
+# left un-awaited, which is a warning rather than an error and so goes unseen.
+_Runner = Callable[[], Awaitable[None]]
+
+
+async def _run_lane(lane: Sequence[tuple[int, _Runner]]) -> tuple[int, Exception] | None:
+    """Run one namespace's operations in order, stopping at the first that fails.
+
+    The failure is RETURNED, not raised: raising it would hand the caller whichever lane lost the
+    race, and the caller owes a promise about which failure that is.
+    """
+    for position, run in lane:
+        try:
+            await run()
+        # `Exception` and not `BaseException`: a cancellation escapes the lane, short-circuits `gather` and
+        # reaches the caller whatever its declared position. Ranking it would make a stopped boot wait for
+        # every slower lane first.
+        except Exception as failure:
+            return position, failure
+
+    return None
+
+
+async def _apply_concurrently(declared: Sequence[tuple[str, _Runner]]) -> None:
+    """Apply `declared` concurrently and raise the `Exception` DECLARED first, not the one that arrived.
+
+    One lane per namespace: MongoDB documents `create` as locking the collection it names, and
+    documents nothing about two index builds racing on one.
+    """
+    lanes: dict[str, list[tuple[int, _Runner]]] = {}
+    # Numbered BEFORE the split, so a rank is the DECLARED position and not the position within a lane:
+    # `aktionen_correlation_id` does not open its lane and `bewerbungen_queue` does, so per-lane
+    # numbering would report the later-declared one.
+    for position, (namespace, run) in enumerate(declared):
+        lanes.setdefault(namespace, []).append((position, run))
+
+    outcomes = await asyncio.gather(*(_run_lane(lane) for lane in lanes.values()))
+    failures = [outcome for outcome in outcomes if outcome is not None]
+
+    if failures:
+        raise min(failures, key=lambda failure: failure[0])[1]
+
+
+async def apply_constraints(db: AsyncDatabase) -> ConstraintSummary:
+    """Apply every validator, then every index, to `db`.
 
     A validator is REPLACED, an index only ever ADDED: `create_index` cannot change the keys under a
-    name in use, so a renamed one stays until dropped by hand. Raises on the FIRST failure.
+    name in use, so a renamed one stays until dropped by hand. Raises the `Exception` declared first.
     """
-    for collection_name, validator in COLLECTION_VALIDATORS.items():
-        await _apply_validator(db, collection_name, validator)
+    # Two phases rather than one: building an index CREATES its collection implicitly and without a
+    # validator, so an overlap would leave a collection nothing ever validates.
+    await _apply_concurrently(
+        [
+            (collection_name, partial(_apply_validator, db, collection_name, validator))
+            for collection_name, validator in COLLECTION_VALIDATORS.items()
+        ]
+    )
 
-    for index in UNIQUE_INDEXES:
-        try:
-            await db[index.collection].create_index([(key, ASCENDING) for key in index.keys], name=index.name, unique=True)
-        except OperationFailure as failure:
-            raise RuntimeError(f"Could not build unique index '{index.collection}.{index.name}' ({index.rule}): {failure}") from failure
-
-    for support in SUPPORT_INDEXES:
-        try:
-            await db[support.collection].create_index(list(support.keys), name=support.name)
-        except OperationFailure as failure:
-            raise RuntimeError(f"Could not build support index '{support.collection}.{support.name}' ({support.rule}): {failure}") from failure
+    await _apply_concurrently(
+        [
+            *((index.collection, partial(_apply_unique_index, db, index)) for index in UNIQUE_INDEXES),
+            *((support.collection, partial(_apply_support_index, db, support)) for support in SUPPORT_INDEXES),
+        ]
+    )
 
     return ConstraintSummary(validators=len(COLLECTION_VALIDATORS), unique_indexes=len(UNIQUE_INDEXES), support_indexes=len(SUPPORT_INDEXES))
 
@@ -807,7 +866,7 @@ class RelationReport:
     examples: list[Any]
 
 
-async def report_violations(db: AsyncIOMotorDatabase) -> list[ViolationReport]:
+async def report_violations(db: AsyncDatabase) -> list[ViolationReport]:
     """Count the documents each validator would reject, writing nothing.
 
     `$jsonSchema` is a query operator as well as a validator, so `$nor` over it is the rule read
@@ -831,7 +890,7 @@ async def report_violations(db: AsyncIOMotorDatabase) -> list[ViolationReport]:
     return reports
 
 
-async def report_duplicates(db: AsyncIOMotorDatabase) -> list[DuplicateReport]:
+async def report_duplicates(db: AsyncDatabase) -> list[DuplicateReport]:
     reports: list[DuplicateReport] = []
 
     for index in UNIQUE_INDEXES:
@@ -839,8 +898,8 @@ async def report_duplicates(db: AsyncIOMotorDatabase) -> list[DuplicateReport]:
             {"$group": {"_id": {key: f"${key}" for key in index.keys}, "n": {"$sum": 1}}},
             {"$match": {"n": {"$gt": 1}}},
         ]
-        counted = await db[index.collection].aggregate([*offenders, {"$count": "groups"}]).to_list(length=1)
-        examples = await db[index.collection].aggregate([*offenders, {"$limit": 5}]).to_list(length=5)
+        counted = await (await db[index.collection].aggregate([*offenders, {"$count": "groups"}])).to_list(length=1)
+        examples = await (await db[index.collection].aggregate([*offenders, {"$limit": 5}])).to_list(length=5)
 
         reports.append(
             DuplicateReport(
@@ -853,7 +912,7 @@ async def report_duplicates(db: AsyncIOMotorDatabase) -> list[DuplicateReport]:
     return reports
 
 
-async def report_relations(db: AsyncIOMotorDatabase) -> list[RelationReport]:
+async def report_relations(db: AsyncDatabase) -> list[RelationReport]:
     """Count the stored groups each cross-document rule is broken by, writing nothing.
 
     Enforced by the write path and by nothing in the database, so nothing else names one.
@@ -872,8 +931,8 @@ async def report_relations(db: AsyncIOMotorDatabase) -> list[RelationReport]:
         {"$match": {"n": {"$gt": 1}}},
     ]
 
-    counted = await db[Collection.SPIELE].aggregate([*spieltag_occupancy, {"$count": "groups"}]).to_list(length=1)
-    examples = await db[Collection.SPIELE].aggregate([*spieltag_occupancy, {"$limit": 5}]).to_list(length=5)
+    counted = await (await db[Collection.SPIELE].aggregate([*spieltag_occupancy, {"$count": "groups"}])).to_list(length=1)
+    examples = await (await db[Collection.SPIELE].aggregate([*spieltag_occupancy, {"$limit": 5}])).to_list(length=5)
 
     # Reported rather than swept once: nothing in the API can create a phantom or remove one, so
     # this report is the only thing that would ever surface it.
@@ -884,8 +943,8 @@ async def report_relations(db: AsyncIOMotorDatabase) -> list[RelationReport]:
         {"$group": {"_id": {"team_id": "$team_id"}, "saisons": {"$addToSet": "$saison_id"}}},
     ]
 
-    orphans_counted = await db[Collection.SAISON_TEAMS].aggregate([*phantom_junctions, {"$count": "groups"}]).to_list(length=1)
-    orphans = await db[Collection.SAISON_TEAMS].aggregate([*phantom_junctions, {"$limit": 5}]).to_list(length=5)
+    orphans_counted = await (await db[Collection.SAISON_TEAMS].aggregate([*phantom_junctions, {"$count": "groups"}])).to_list(length=1)
+    orphans = await (await db[Collection.SAISON_TEAMS].aggregate([*phantom_junctions, {"$limit": 5}])).to_list(length=5)
 
     return [
         RelationReport(
@@ -901,7 +960,7 @@ async def report_relations(db: AsyncIOMotorDatabase) -> list[RelationReport]:
     ]
 
 
-async def probe_collmod_privilege(db: AsyncIOMotorDatabase) -> str:
+async def probe_collmod_privilege(db: AsyncDatabase) -> str:
     """Answer whether this connection may run `collMod`, writing nothing.
 
     Aimed at a REAL collection `apply_constraints` will touch: privileges are granted per namespace,
@@ -927,7 +986,7 @@ async def probe_collmod_privilege(db: AsyncIOMotorDatabase) -> str:
     raise RuntimeError(f"'{target}' unexpectedly has an index named '{ABSENT_INDEX_NAME}'; the collMod probe must not modify anything.")
 
 
-async def report_identity(db: AsyncIOMotorDatabase) -> tuple[str, list[str]]:
+async def report_identity(db: AsyncDatabase) -> tuple[str, list[str]]:
     """Who the SERVER thinks this connection is, and which roles it carries.
 
     A correct role on the wrong user looks exactly like a broken one; nothing else separates them.
@@ -940,7 +999,7 @@ async def report_identity(db: AsyncIOMotorDatabase) -> tuple[str, list[str]]:
     return users or "(not authenticated)", roles
 
 
-async def probe_read_privilege(db: AsyncIOMotorDatabase) -> str:
+async def probe_read_privilege(db: AsyncDatabase) -> str:
     try:
         await db[next(iter(COLLECTION_VALIDATORS), ABSENT_COLLECTION_NAME)].count_documents({})
     except OperationFailure as failure:
@@ -951,11 +1010,14 @@ async def probe_read_privilege(db: AsyncIOMotorDatabase) -> str:
     return "granted"
 
 
-async def probe_privileges(db: AsyncIOMotorDatabase) -> list[tuple[str, str]]:
-    """Every privilege this module needs, each asked INDEPENDENTLY, so one report names all the gaps.
+async def probe_privileges(db: AsyncDatabase) -> list[tuple[str, str]]:
+    """Two of the privileges this module needs, each asked INDEPENDENTLY, so one report names both gaps.
 
     A check aborting on the first refusal hides the next until that one is fixed.
     """
+    # Three go unprobed -- `create`, `createIndex`, and the `listCollections` `create_collection`
+    # sends ahead of each. Only a FRESH database reaches them, and asking for the first two means
+    # exercising them, which this probe cannot.
     return [("find", await probe_read_privilege(db)), ("collMod", await probe_collmod_privilege(db))]
 
 
@@ -1027,7 +1089,7 @@ async def _run(check: bool) -> int:
     # environment, and the tests import this module with none.
     from app.core.config import get_config
 
-    client = AsyncIOMotorClient(
+    client = AsyncMongoClient(
         host=get_config().mongodb_uri.get_secret_value(),
         serverSelectionTimeoutMS=get_config().db_server_selection_timeout,
     )
@@ -1048,7 +1110,7 @@ async def _run(check: bool) -> int:
         print(f"  Authenticated as: {identity}")
         print(f"  Roles the server sees: {', '.join(roles) or '(none)'}\n")
 
-        print("  Privileges — every action this module needs, asked separately")
+        print("  Privileges — two of the actions this module needs, asked separately")
         privileges = await probe_privileges(database)
         for action, verdict in privileges:
             print(f"    {'ok  ' if verdict == 'granted' else 'FAIL'}  {action:<10} {verdict}")
@@ -1096,7 +1158,7 @@ async def _run(check: bool) -> int:
         return 2
 
     finally:
-        client.close()
+        await client.close()
 
 
 def _main() -> int:

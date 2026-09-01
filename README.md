@@ -11,7 +11,7 @@ football league, at [frankfurtleague.de](https://frankfurtleague.de).
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)
-![MongoDB](https://img.shields.io/badge/MongoDB-motor-47A248?logo=mongodb&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-pymongo-47A248?logo=mongodb&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)
 
 </div>
@@ -48,7 +48,7 @@ maintainer, a live audience each season.
 | Layer        | What                                                                  |
 | ------------ | --------------------------------------------------------------------- |
 | **Frontend** | Next.js (App Router, React Server Components), HeroUI v3, Tailwind v4 |
-| **Backend**  | FastAPI, Pydantic v2, Motor (async MongoDB)                           |
+| **Backend**  | FastAPI, Pydantic v2, PyMongo (async MongoDB)                         |
 | **Auth**     | Auth.js — magic-link sign-in, admin by email allowlist                |
 | **Deploy**   | Docker Compose behind nginx, on a single host                         |
 

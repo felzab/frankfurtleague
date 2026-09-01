@@ -1,9 +1,8 @@
-import asyncio
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Iterator
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spiele.admin_router import get_spiel_for_admin
@@ -20,9 +19,12 @@ from app.api.teams.router import get_team, get_teams
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamSingleFilterParams
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.worker import worker_database
 
-DATABASE_NAME = "fl_saison_contents_visibility_test"
+from .conftest import unwritten
+
+DATABASE_NAME = worker_database("fl_saison_contents_visibility_test")
 
 ARCHIVED = "2024"
 RUNNING = "2025"
@@ -179,17 +181,17 @@ def spieltag_document(saison_id: str) -> dict[str, Any]:
     }
 
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on."""
+# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# from being left as a claim.
+@pytest.fixture(scope="module")
+def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
+    """Three seasons, one club entered in each, and a fixture, a matchday and squad rows per season."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME) as (_, database):
-            # Process-global and keyed by season id, so an entry another module left would answer here.
-            invalidate_saison_cache()
-
+    async def _seed() -> None:
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_many([saison_document(saison_id) for saison_id in STATUS_OF])
             await database[Collection.TEAMS].insert_one(team_document())
             await database[Collection.SAISON_TEAMS].insert_many([junction_row(saison_id) for saison_id in STATUS_OF])
@@ -202,15 +204,26 @@ def on_a_league(url: str, body: Body) -> Any:
                 [*(squad_row(saison_id) for saison_id in STATUS_OF), squad_row(PLANNED, PLANNED_ONLY_OID, kind="5")]
             )
 
-            return await body(database)
+    on_the_seed_loop(_seed())
 
-    return asyncio.run(_run())
+    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+        yield mongo_replica_set_url
+
+
+def on_a_league(url: str, body: Body) -> Any:
+    async def _run() -> Any:
+        # Process-global and keyed by season id, so an entry another test left would answer here.
+        invalidate_saison_cache()
+
+        return await body(shared_client(url)[DATABASE_NAME])
+
+    return on_the_seed_loop(_run())
 
 
 def raised_by(url: str, body: Body) -> DocumentNotFoundException:
     """The refusal a read answered with, so a test asserts on its status rather than only that it refused."""
 
-    async def _catching(database: AsyncIOMotorDatabase) -> DocumentNotFoundException:
+    async def _catching(database: AsyncDatabase) -> DocumentNotFoundException:
         with pytest.raises(DocumentNotFoundException) as refusal:
             await body(database)
 
@@ -219,7 +232,7 @@ def raised_by(url: str, body: Body) -> DocumentNotFoundException:
     return on_a_league(url, _catching)
 
 
-async def read_teams(database: AsyncIOMotorDatabase, saison_id: str | None) -> Any:
+async def read_teams(database: AsyncDatabase, saison_id: str | None) -> Any:
     return await get_teams(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -228,7 +241,7 @@ async def read_teams(database: AsyncIOMotorDatabase, saison_id: str | None) -> A
     )
 
 
-async def read_team(database: AsyncIOMotorDatabase, saison_id: str | None) -> Any:
+async def read_team(database: AsyncDatabase, saison_id: str | None) -> Any:
     return await get_team(
         team_id=TEAM_OID,
         teams_collection=database[Collection.TEAMS],
@@ -237,7 +250,7 @@ async def read_team(database: AsyncIOMotorDatabase, saison_id: str | None) -> An
     )
 
 
-async def read_spieler(database: AsyncIOMotorDatabase, saison_id: str | None, team_id: ObjectId | None = None) -> Any:
+async def read_spieler(database: AsyncDatabase, saison_id: str | None, team_id: ObjectId | None = None) -> Any:
     return await get_spieler(
         spieler_collection=database[Collection.SPIELER],
         saisons_collection=database[Collection.SAISONS],
@@ -251,7 +264,7 @@ def squad_rows_served(response: Any) -> set[tuple[str, str | None]]:
     return {(row.vorname, row.nummer) for row in response.spieler}
 
 
-async def read_spiele(database: AsyncIOMotorDatabase, saison_id: str | None) -> Any:
+async def read_spiele(database: AsyncDatabase, saison_id: str | None) -> Any:
     return await get_spiele(
         spiele_collection=database[Collection.SPIELE],
         saisons_collection=database[Collection.SAISONS],
@@ -260,7 +273,7 @@ async def read_spiele(database: AsyncIOMotorDatabase, saison_id: str | None) -> 
     )
 
 
-async def read_spiel(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
+async def read_spiel(database: AsyncDatabase, saison_id: str) -> Any:
     return await get_spiel(
         spiel_id=an_id("2", saison_id),
         spiele_collection=database[Collection.SPIELE],
@@ -268,7 +281,7 @@ async def read_spiel(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
     )
 
 
-async def read_spieltage(database: AsyncIOMotorDatabase, saison_id: str | None) -> Any:
+async def read_spieltage(database: AsyncDatabase, saison_id: str | None) -> Any:
     return await get_spieltage(
         spieltage_collection=database[Collection.SPIELTAGE],
         saisons_collection=database[Collection.SAISONS],
@@ -276,7 +289,7 @@ async def read_spieltage(database: AsyncIOMotorDatabase, saison_id: str | None) 
     )
 
 
-async def read_spieltag(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
+async def read_spieltag(database: AsyncDatabase, saison_id: str) -> Any:
     return await get_spieltag(
         spieltag_id=an_id("3", saison_id),
         spieltage_collection=database[Collection.SPIELTAGE],
@@ -288,34 +301,34 @@ async def read_spieltag(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
 class TestThePlannedSeasonsContentsAreWithheldFromTheBaseTier:
     """The season RESOURCE is closed by `base_tier_status_term`; these are the reads scoped by one."""
 
-    def test_its_squads_are_not_listed(self, mongo_replica_set_url: str):
-        assert raised_by(mongo_replica_set_url, lambda database: read_teams(database, PLANNED)).status_code == 404
+    def test_its_squads_are_not_listed(self, seeded_league: str):
+        assert raised_by(seeded_league, lambda database: read_teams(database, PLANNED)).status_code == 404
 
-    def test_a_club_is_not_served_with_the_planned_seasons_figures(self, mongo_replica_set_url: str):
+    def test_a_club_is_not_served_with_the_planned_seasons_figures(self, seeded_league: str):
         """The club is season-independent; `gruppe` and `statistik` are not, so the season decides."""
 
-        assert raised_by(mongo_replica_set_url, lambda database: read_team(database, PLANNED)).status_code == 404
+        assert raised_by(seeded_league, lambda database: read_team(database, PLANNED)).status_code == 404
 
-    def test_its_fixtures_list_as_nothing(self, mongo_replica_set_url: str):
+    def test_its_fixtures_list_as_nothing(self, seeded_league: str):
         """Empty rather than a refusal: an id naming no season already lists nothing here."""
 
-        assert on_a_league(mongo_replica_set_url, lambda database: read_spiele(database, PLANNED)).spiele == []
+        assert on_a_league(seeded_league, lambda database: read_spiele(database, PLANNED)).spiele == []
 
-    def test_one_of_its_fixtures_is_not_served_by_id(self, mongo_replica_set_url: str):
-        assert raised_by(mongo_replica_set_url, lambda database: read_spiel(database, PLANNED)).status_code == 404
+    def test_one_of_its_fixtures_is_not_served_by_id(self, seeded_league: str):
+        assert raised_by(seeded_league, lambda database: read_spiel(database, PLANNED)).status_code == 404
 
-    def test_its_players_are_not_listed(self, mongo_replica_set_url: str):
+    def test_its_players_are_not_listed(self, seeded_league: str):
         """Empty rather than a refusal, as the fixtures are: this read resolves no season, so an id naming none already lists nothing here."""
 
-        assert on_a_league(mongo_replica_set_url, lambda database: read_spieler(database, PLANNED)).spieler == []
+        assert on_a_league(seeded_league, lambda database: read_spieler(database, PLANNED)).spieler == []
 
-    def test_its_squad_rows_are_absent_from_a_list_nothing_narrowed(self, mongo_replica_set_url: str):
+    def test_its_squad_rows_are_absent_from_a_list_nothing_narrowed(self, seeded_league: str):
         """The planned shirt is gone, the readable ones are not, and the planned-only person is still a person.
 
         The middle claim is what stops this passing against a read that serves nothing at all.
         """
 
-        served = on_a_league(mongo_replica_set_url, lambda database: read_spieler(database, None))
+        served = on_a_league(seeded_league, lambda database: read_spieler(database, None))
 
         assert squad_rows_served(served) == {
             (SPIELER_VORNAME, NUMMER_OF[ARCHIVED]),
@@ -323,40 +336,40 @@ class TestThePlannedSeasonsContentsAreWithheldFromTheBaseTier:
             (PLANNED_ONLY_VORNAME, None),
         }
 
-    def test_its_squad_rows_are_absent_from_a_list_narrowed_by_club(self, mongo_replica_set_url: str):
+    def test_its_squad_rows_are_absent_from_a_list_narrowed_by_club(self, seeded_league: str):
         """The other route in: the club plays in all three seasons, and `?team_id=` alone names no season for the id gate to judge.
 
         Naming a team makes the junction join strict, so the player left with no row drops out here rather than reading as a player.
         """
 
-        served = on_a_league(mongo_replica_set_url, lambda database: read_spieler(database, None, team_id=TEAM_OID))
+        served = on_a_league(seeded_league, lambda database: read_spieler(database, None, team_id=TEAM_OID))
 
         assert squad_rows_served(served) == {(SPIELER_VORNAME, NUMMER_OF[ARCHIVED]), (SPIELER_VORNAME, NUMMER_OF[RUNNING])}
 
-    def test_its_matchdays_are_not_listed(self, mongo_replica_set_url: str):
-        assert raised_by(mongo_replica_set_url, lambda database: read_spieltage(database, PLANNED)).status_code == 404
+    def test_its_matchdays_are_not_listed(self, seeded_league: str):
+        assert raised_by(seeded_league, lambda database: read_spieltage(database, PLANNED)).status_code == 404
 
-    def test_one_of_its_matchdays_is_not_served_by_id(self, mongo_replica_set_url: str):
-        assert raised_by(mongo_replica_set_url, lambda database: read_spieltag(database, PLANNED)).status_code == 404
+    def test_one_of_its_matchdays_is_not_served_by_id(self, seeded_league: str):
+        assert raised_by(seeded_league, lambda database: read_spieltag(database, PLANNED)).status_code == 404
 
 
 @pytest.mark.db
 class TestTheWithheldSeasonReadsAsOneThatWasNeverCreated:
     """No 403 and no answer of its own: nothing tells the planned season from an id naming none."""
 
-    def test_the_squad_list_refuses_an_unknown_season_the_same_way(self, mongo_replica_set_url: str):
-        assert raised_by(mongo_replica_set_url, lambda database: read_teams(database, UNKNOWN)).status_code == 404
+    def test_the_squad_list_refuses_an_unknown_season_the_same_way(self, seeded_league: str):
+        assert raised_by(seeded_league, lambda database: read_teams(database, UNKNOWN)).status_code == 404
 
-    def test_the_matchday_list_refuses_an_unknown_season_the_same_way(self, mongo_replica_set_url: str):
-        assert raised_by(mongo_replica_set_url, lambda database: read_spieltage(database, UNKNOWN)).status_code == 404
+    def test_the_matchday_list_refuses_an_unknown_season_the_same_way(self, seeded_league: str):
+        assert raised_by(seeded_league, lambda database: read_spieltage(database, UNKNOWN)).status_code == 404
 
-    def test_the_fixture_list_answers_an_unknown_season_with_the_same_empty_list(self, mongo_replica_set_url: str):
-        assert on_a_league(mongo_replica_set_url, lambda database: read_spiele(database, UNKNOWN)).spiele == []
+    def test_the_fixture_list_answers_an_unknown_season_with_the_same_empty_list(self, seeded_league: str):
+        assert on_a_league(seeded_league, lambda database: read_spiele(database, UNKNOWN)).spiele == []
 
-    def test_the_player_list_answers_an_unknown_season_with_the_same_empty_list(self, mongo_replica_set_url: str):
+    def test_the_player_list_answers_an_unknown_season_with_the_same_empty_list(self, seeded_league: str):
         """The pair the planned season has to be indistinguishable from: a non-empty answer there would confirm the season exists."""
 
-        assert on_a_league(mongo_replica_set_url, lambda database: read_spieler(database, UNKNOWN)).spieler == []
+        assert on_a_league(seeded_league, lambda database: read_spieler(database, UNKNOWN)).spieler == []
 
 
 @pytest.mark.db
@@ -364,34 +377,34 @@ class TestTheWithheldSeasonReadsAsOneThatWasNeverCreated:
 class TestAReadableSeasonIsServedInFull:
     """The control for every refusal above: the same reads, one status along."""
 
-    def test_its_squads_are_listed(self, saison_id: str, mongo_replica_set_url: str):
-        response = on_a_league(mongo_replica_set_url, lambda database: read_teams(database, saison_id))
+    def test_its_squads_are_listed(self, saison_id: str, seeded_league: str):
+        response = on_a_league(seeded_league, lambda database: read_teams(database, saison_id))
 
         assert [team.id for team in response.teams] == [TEAM_OID]
 
-    def test_a_club_is_served_with_that_seasons_figures(self, saison_id: str, mongo_replica_set_url: str):
-        assert on_a_league(mongo_replica_set_url, lambda database: read_team(database, saison_id)).team.gruppe == "A"
+    def test_a_club_is_served_with_that_seasons_figures(self, saison_id: str, seeded_league: str):
+        assert on_a_league(seeded_league, lambda database: read_team(database, saison_id)).team.gruppe == "A"
 
-    def test_its_fixtures_are_listed(self, saison_id: str, mongo_replica_set_url: str):
-        response = on_a_league(mongo_replica_set_url, lambda database: read_spiele(database, saison_id))
+    def test_its_fixtures_are_listed(self, saison_id: str, seeded_league: str):
+        response = on_a_league(seeded_league, lambda database: read_spiele(database, saison_id))
 
         assert [spiel.saison_id for spiel in response.spiele] == [saison_id]
 
-    def test_one_of_its_fixtures_is_served_by_id(self, saison_id: str, mongo_replica_set_url: str):
-        assert on_a_league(mongo_replica_set_url, lambda database: read_spiel(database, saison_id)).spiel.saison_id == saison_id
+    def test_one_of_its_fixtures_is_served_by_id(self, saison_id: str, seeded_league: str):
+        assert on_a_league(seeded_league, lambda database: read_spiel(database, saison_id)).spiel.saison_id == saison_id
 
-    def test_its_matchdays_are_listed(self, saison_id: str, mongo_replica_set_url: str):
-        response = on_a_league(mongo_replica_set_url, lambda database: read_spieltage(database, saison_id))
+    def test_its_matchdays_are_listed(self, saison_id: str, seeded_league: str):
+        response = on_a_league(seeded_league, lambda database: read_spieltage(database, saison_id))
 
         assert [spieltag.saison_id for spieltag in response.spieltage] == [saison_id]
 
-    def test_one_of_its_matchdays_is_served_by_id(self, saison_id: str, mongo_replica_set_url: str):
-        assert on_a_league(mongo_replica_set_url, lambda database: read_spieltag(database, saison_id)).spieltag.saison_id == saison_id
+    def test_one_of_its_matchdays_is_served_by_id(self, saison_id: str, seeded_league: str):
+        assert on_a_league(seeded_league, lambda database: read_spieltag(database, saison_id)).spieltag.saison_id == saison_id
 
-    def test_its_players_are_listed(self, saison_id: str, mongo_replica_set_url: str):
+    def test_its_players_are_listed(self, saison_id: str, seeded_league: str):
         """The shirt as well as the name: the same person holds a row in all three seasons, so only the number says which one was served."""
 
-        response = on_a_league(mongo_replica_set_url, lambda database: read_spieler(database, saison_id))
+        response = on_a_league(seeded_league, lambda database: read_spieler(database, saison_id))
 
         assert squad_rows_served(response) == {(SPIELER_VORNAME, NUMMER_OF[saison_id])}
 
@@ -400,16 +413,16 @@ class TestAReadableSeasonIsServedInFull:
 class TestTheResolvedSeasonNeedsNoGate:
     """An omitted `saison_id` resolves the `active` season, which no status can withhold."""
 
-    def test_the_fixture_list_still_answers_the_running_season(self, mongo_replica_set_url: str):
-        response = on_a_league(mongo_replica_set_url, lambda database: read_spiele(database, None))
+    def test_the_fixture_list_still_answers_the_running_season(self, seeded_league: str):
+        response = on_a_league(seeded_league, lambda database: read_spiele(database, None))
 
         assert [spiel.saison_id for spiel in response.spiele] == [RUNNING]
 
-    def test_the_squad_list_still_answers_the_running_season(self, mongo_replica_set_url: str):
-        assert on_a_league(mongo_replica_set_url, lambda database: read_teams(database, None)).teams != []
+    def test_the_squad_list_still_answers_the_running_season(self, seeded_league: str):
+        assert on_a_league(seeded_league, lambda database: read_teams(database, None)).teams != []
 
-    def test_the_matchday_list_still_answers_the_running_season(self, mongo_replica_set_url: str):
-        response = on_a_league(mongo_replica_set_url, lambda database: read_spieltage(database, None))
+    def test_the_matchday_list_still_answers_the_running_season(self, seeded_league: str):
+        response = on_a_league(seeded_league, lambda database: read_spieltage(database, None))
 
         assert [spieltag.saison_id for spieltag in response.spieltage] == [RUNNING]
 
@@ -418,42 +431,42 @@ class TestTheResolvedSeasonNeedsNoGate:
 class TestTheAdminTierStillReadsThePlannedSeason:
     """Non-vacuity as well as the rule: every refusal above ran on a season that HOLDS these documents."""
 
-    def test_a_planned_fixture_is_served_to_the_editor(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+    def test_a_planned_fixture_is_served_to_the_editor(self, seeded_league: str):
+        async def body(database: AsyncDatabase) -> Any:
             return await get_spiel_for_admin(spiel_id=an_id("2", PLANNED), spiele_collection=database[Collection.SPIELE])
 
-        assert on_a_league(mongo_replica_set_url, body).spiel.saison_id == PLANNED
+        assert on_a_league(seeded_league, body).spiel.saison_id == PLANNED
 
-    def test_the_planned_membership_is_listed(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+    def test_the_planned_membership_is_listed(self, seeded_league: str):
+        async def body(database: AsyncDatabase) -> Any:
             return await get_team_memberships(teams_collection=database[Collection.TEAMS])
 
-        response = on_a_league(mongo_replica_set_url, body)
+        response = on_a_league(seeded_league, body)
 
         assert PLANNED in [membership.saison_id for team in response.teams for membership in team.memberships]
 
-    def test_the_planned_squad_rows_are_listed(self, mongo_replica_set_url: str):
+    def test_the_planned_squad_rows_are_listed(self, seeded_league: str):
         """What makes the empty base-tier answers above mean something: the planned season really holds BOTH rows they withheld.
 
         The second one especially -- a loose join serves that person with no row either way, so nothing else here would notice it missing.
         """
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await get_spieler_memberships(spieler_collection=database[Collection.SPIELER])
 
-        response = on_a_league(mongo_replica_set_url, body)
+        response = on_a_league(seeded_league, body)
         planned = {person.vorname for person in response.spieler for membership in person.memberships if membership.saison_id == PLANNED}
 
         assert planned == {SPIELER_VORNAME, PLANNED_ONLY_VORNAME}
 
-    def test_the_planned_matchday_is_listed(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+    def test_the_planned_matchday_is_listed(self, seeded_league: str):
+        async def body(database: AsyncDatabase) -> Any:
             return await get_spieltage_for_admin(
                 spieltage_collection=database[Collection.SPIELTAGE],
                 saisons_collection=database[Collection.SAISONS],
                 filters=FLSpieltageFilterParams(saison_id=PLANNED),
             )
 
-        response = on_a_league(mongo_replica_set_url, body)
+        response = on_a_league(seeded_league, body)
 
         assert [spieltag.saison_id for spieltag in response.spieltage] == [PLANNED]

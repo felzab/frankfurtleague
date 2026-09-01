@@ -1,11 +1,11 @@
-import asyncio
 from datetime import datetime
 from typing import Any, Awaitable, Callable, Mapping
 from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.schiedsrichter.admin_router import anonymise_schiedsrichter, patch_schiedsrichter
@@ -16,9 +16,10 @@ from app.core.constraints import SUPPORT_INDEXES
 from app.core.exceptions import DocumentConflictException
 from app.core.recording import build_redaction_filter
 from app.shared.schemas.kontakt import FLKontakt
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
-DATABASE_NAME = "fl_schiedsrichter_anonymisierung_test"
+DATABASE_NAME = worker_database("fl_schiedsrichter_anonymisierung_test")
 
 # Asserted on rather than caught broadly, so an unrelated failure cannot pass as a rejection.
 DOCUMENT_VALIDATION_FAILED = 121
@@ -95,10 +96,10 @@ class TestTheUpdateNamesTheMembersAndNeverTheBlock:
         assert all(value is None for value in cleared.model_dump().values())
 
 
-Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
+Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-async def a_referee_with_a_history(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, schiedsrichter_id: ObjectId) -> None:
+async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId) -> None:
     """Details EDITED through the real endpoint, which leaves the log holding the pair the edit replaced.
 
     Without the edit the log would hold no contact value at all and every assertion below would pass
@@ -134,10 +135,10 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
-async def call_anonymisation(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> FLSchiedsrichterWriteResponse:
+async def call_anonymisation(database: AsyncDatabase, client: AsyncMongoClient) -> FLSchiedsrichterWriteResponse:
     return await anonymise_schiedsrichter(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
@@ -147,13 +148,13 @@ async def call_anonymisation(database: AsyncIOMotorDatabase, client: AsyncIOMoto
     )
 
 
-async def stored_referees(database: AsyncIOMotorDatabase) -> dict[Any, Mapping[str, Any]]:
+async def stored_referees(database: AsyncDatabase) -> dict[Any, Mapping[str, Any]]:
     """Keyed by `_id`, so a failing assertion names the referee rather than a list position."""
 
     return {row["_id"]: row for row in await database[Collection.SCHIEDSRICHTER].find().to_list(length=None)}
 
 
-async def log_rows_naming(database: AsyncIOMotorDatabase, schiedsrichter_id: ObjectId) -> list[Mapping[str, Any]]:
+async def log_rows_naming(database: AsyncDatabase, schiedsrichter_id: ObjectId) -> list[Mapping[str, Any]]:
     """Every log row about this referee, spelled out here rather than taken from the endpoint's own filter.
 
     A wrong filter in the endpoint cannot then make these assertions agree with it.
@@ -184,7 +185,7 @@ def index_names(plan: Any) -> set[str]:
 def after_anonymising(url: str) -> tuple[FLSchiedsrichterWriteResponse, dict[Any, Mapping[str, Any]], list[Mapping[str, Any]]]:
     """The echo, the whole collection and the whole log together: one seeded database serves all three."""
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         response = await call_anonymisation(database, client)
         log = await database[Collection.AKTIONEN].find().sort("_id", 1).to_list(length=None)
 
@@ -217,7 +218,7 @@ def test_the_kontakt_block_survives_with_both_of_its_keys(mongo_replica_set_url:
 def test_nulling_the_whole_block_is_what_the_validator_refuses(mongo_replica_set_url: str):
     """Without this the dotted keys read as style. The refusal is what makes them the only spelling that works."""
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> str:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
         try:
             await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER_OID}, {"$set": {"kontakt": None}})
         except OperationFailure as failure:
@@ -267,7 +268,7 @@ def test_every_log_row_naming_them_is_emptied_and_stamped(mongo_replica_set_url:
     The pre-state is asserted too, without which a filter matching nothing would pass.
     """
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         seeded = await log_rows_naming(database, SCHIEDSRICHTER_OID)
         await call_anonymisation(database, client)
 
@@ -288,7 +289,7 @@ def test_the_row_the_anonymisations_own_patch_wrote_is_redacted_too(mongo_replic
     The row is identified as the one this call added, so no ordering of the log can hide it.
     """
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         seeded = {row["_id"] for row in await log_rows_naming(database, SCHIEDSRICHTER_OID)}
         await call_anonymisation(database, client)
 
@@ -323,7 +324,7 @@ def test_no_contact_value_of_theirs_survives_anywhere_in_the_log(mongo_replica_s
 def test_the_other_referees_log_rows_keep_their_images(mongo_replica_set_url: str):
     """Kills a filter matching on `collection` alone, which would empty every referee's rows at once."""
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await call_anonymisation(database, client)
 
         return await log_rows_naming(database, OTHER_SCHIEDSRICHTER_OID)
@@ -341,7 +342,7 @@ def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
     Exactly one row is added, the patch's own, and none of them names the log.
     """
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         before_count = await database[Collection.AKTIONEN].count_documents({})
         await call_anonymisation(database, client)
 
@@ -361,7 +362,7 @@ def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
 def test_the_redaction_filter_reads_the_target_index(mongo_replica_set_url: str):
     """Kills a filter shape that scans: the log is the one collection that only grows, so a scan degrades forever."""
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         plan = await database.command(
             "explain",
             {
@@ -385,7 +386,7 @@ def test_a_refused_redaction_takes_the_clearing_back(mongo_replica_set_url: str)
     A `$jsonSchema` refusing a stamped row fails the SECOND write, once the clearing has landed.
     """
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         # Narrow enough to refuse the redaction's `$set`, wide enough to admit the patch's own row,
         # which is recorded with `redacted_at` null.
         await database.command(
@@ -432,7 +433,7 @@ class AktionenRunningAHookBeforeTheRedaction:
         return await self._inner.update_many(*args, **kwargs)
 
 
-async def anonymise_under(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, hook: Callable[[], Awaitable[Any]] | None) -> Any:
+async def anonymise_under(database: AsyncDatabase, client: AsyncMongoClient, hook: Callable[[], Awaitable[Any]] | None) -> Any:
     """The endpoint with `hook` landing between the referee write and the redaction. Only a refusal is caught."""
 
     aktionen: Any = database[Collection.AKTIONEN]
@@ -457,7 +458,7 @@ class TestAReEntryLandingMidAnonymisationIsRefused:
 
     @pytest.mark.db
     def test_details_re_entered_under_the_erasure_are_refused_rather_than_left_standing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # The first run is what leaves the row cleared, which is the state this case is about.
             await anonymise_under(database, client, None)
 
@@ -483,7 +484,7 @@ class TestAReEntryLandingMidAnonymisationIsRefused:
     def test_a_second_run_with_nothing_interfering_still_answers(self, mongo_replica_set_url: str):
         """The control: without it the guard above could refuse every re-run, which is a working erasure an admin cannot repeat."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await anonymise_under(database, client, None)
             response = await anonymise_under(database, client, None)
 

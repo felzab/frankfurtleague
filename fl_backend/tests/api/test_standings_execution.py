@@ -3,6 +3,7 @@ from typing import Any, Iterator
 import pytest
 from bson import ObjectId
 from pydantic import ValidationError
+from pymongo import MongoClient
 from pymongo.database import Database
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
@@ -11,10 +12,11 @@ from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeam, FLTeamsFilterParams, FLTeamStatistikScope
 from app.api.teams.services import ZERO_STATISTIK, build_statistik_by_team, build_team_pipeline
 from app.core.collections import Collection
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_standings_test"
+DATABASE_NAME = worker_database("fl_standings_test")
 
 SAISON_ID = "2026"
 PRIOR_SAISON_ID = "2025"
@@ -153,14 +155,14 @@ def spiel_documents() -> list[dict[str, Any]]:
 
 
 @pytest.fixture(scope="module")
-def seeded(mongo_container: Any) -> Iterator[Database]:
+def seeded(mongo_url: str) -> Iterator[Database]:
     """A database of this module's own: the session-scoped `league` owns the collections of `fl_test`.
 
     Built once for the module and dropped on the way out: `tests/database.py` amortises a per-test
     build, and its registry would outlive the database.
     """
 
-    client = mongo_container.get_connection_client()
+    client = MongoClient(mongo_url)
     try:
         client.drop_database(DATABASE_NAME)
         database = client[DATABASE_NAME]

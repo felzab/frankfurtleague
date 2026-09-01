@@ -1,7 +1,7 @@
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Body, Depends, Query
-from motor.motor_asyncio import AsyncIOMotorClientSession
+from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
 from app.api.spiele.crud import (
@@ -220,7 +220,7 @@ async def patch_spiel_data(
     # because a forfeit is awarded from these rather than typed.
     _, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=saison_id)
 
-    async def judge(session: AsyncIOMotorClientSession | None) -> tuple[list[FLSpiel], list[SpieltagRelease], FLSpiel]:
+    async def judge(session: AsyncClientSession | None) -> tuple[list[FLSpiel], list[SpieltagRelease], FLSpiel]:
         """Judge this payload against the season, and compose the fixture it saves to.
 
         Every refusal is raised here, so the `dry_run` preview cannot succeed where the save is
@@ -355,7 +355,7 @@ async def patch_spiel_data(
 
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can
     # write-conflict on the same advanced fixture, and the callback is safe to retry.
-    async def write_result_and_resolve_bracket(session: AsyncIOMotorClientSession) -> FLPatchSpielDataResponse:
+    async def write_result_and_resolve_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
         # Inside the transaction, so a retry after a write conflict revalidates against fresh reads.
         _, releases, patched = await judge(session=session)
 
@@ -384,5 +384,5 @@ async def patch_spiel_data(
 
         return FLPatchSpielDataResponse(advanced_to=advanced_to, released_sides=released_sides, bracket_faults=bracket_faults)
 
-    async with await db.start_session() as session:
+    async with db.start_session() as session:
         return await session.with_transaction(write_result_and_resolve_bracket)

@@ -330,7 +330,7 @@ fields without a default are required at boot and the process refuses to start w
 | `DB_MAX_CONNECTIONS`          | int                                             | `100`      |
 | `INTERNAL_API_KEY_*`          | `BASE` / `SYSTEM` / `ADMIN`, each a `SecretStr` | — required |
 | `LOG_LEVEL_APP`               | `DEBUG`…`CRITICAL`, case-normalised             | `INFO`     |
-| `LOG_LEVEL_DB`                | same vocabulary, for motor/pymongo              | `WARNING`  |
+| `LOG_LEVEL_DB`                | same vocabulary, for pymongo                    | `WARNING`  |
 | `LOG_FORMAT`                  | `json` \| `console`, case-normalised            | **`json`** |
 
 `LOG_FORMAT` defaults to the **production** format on purpose: a `.env` that omits it must not
@@ -368,7 +368,9 @@ it rewrites and which it must leave alone. What is reached only indirectly is §
 already pulled — what a run costs here rather than in CI, and a figure moves with the machine as
 much as with the suite. A db-tier measurement is taken alone or discarded
 ([`docs/ops/spec.md`](../ops/spec.md) §3); the gate's own `db` section costs more than the tier does
-alone, the other sections running beside it.
+alone, the other sections running beside it. **The `db` figure is a serial run**, and what the gate
+now runs is distributed (below); no figure is stamped for that one, and
+[`docs/_roadmap/tooling-items.md`](../_roadmap/tooling-items.md) `:: OPS-60` is where it is owed.
 
 `fl_backend/pyproject.toml :: addopts` deselects the marker, so a bare `pytest` runs the fast tier only.
 A command-line `-m` overrides it — addopts are prepended rather than merged — so `pytest -m db` runs
@@ -399,11 +401,63 @@ failure means the code rather than the machine. **A field that is not passed sti
 `.env`**, which the settings model declares (`fl_backend/app/core/config.py :: model_config`), which is
 why a test about a default asserts on the model's field rather than on a constructed instance.
 
-**The container fixtures live in the root `conftest.py`**, not in `api/`, because suites under both
+**The server fixtures live in the root `conftest.py`**, not in `api/`, because suites under both
 `api/` and `core/` want a database; each is session-scoped, so one `mongod` serves every suite that
-asks for it. Why `fl_backend/tests/conftest.py :: mongo_container` yields the _container_ rather
-than a client, and why `:: mongo_replica_set_url` is a second container rather than a flag on the
-first, is written at each fixture.
+asks for it. Both yield a connection url rather than a container:
+`fl_backend/tests/conftest.py :: mongo_url` is a standalone `mongod`, and `:: mongo_replica_set_url`
+a second one, single-node and transactional, for the reason written at `:: _replica_set_mongod`.
+
+#### The tier distributed
+
+**The `db` tier runs over worker processes** — `pytest -m db -n auto --dist loadfile`, which is what
+`scripts/verify.sh`'s db scope invokes; a bare `pytest -m db` still runs it serially and is the
+first thing to try against a failure that only appears distributed. **`loadfile` is a cost choice
+and not a correctness one.** It sends a whole file to one worker, so a module-scoped corpus is built
+once for the module that asks for it rather than once per worker holding a slice of it. What makes
+that corpus and a suite's `DATABASE_NAME` one process's property is the per-worker naming below,
+which is why the design holds under `--dist load`, splitting a file, just as well.
+
+**A worker is a pytest session of its own, so the two servers are the controller's rather than each
+worker's.** `fl_backend/tests/conftest.py :: pytest_configure_node` starts them once in the xdist
+controller and hands every worker their urls. Starting them there is also what keeps them:
+testcontainers' reaper reclaims a container when the process that started it disconnects, and the
+controller outlives every worker. **A serial run is the only one that starts a server of its own** —
+under `-n` a run selecting a db test is a run the controller started the pair for, so `:: _shared`
+refuses rather than starting a second pair, and the refusal names what a worker arriving there
+without a url actually is: a test missing `@pytest.mark.db`.
+
+**The controller starting no pair is never the run's own failure.** It skips them where the run's
+`-m` is the one `fl_backend/pyproject.toml :: addopts` passes, which `:: _default_tier_markexpr`
+reads off `addopts` rather than repeating; that is a cost heuristic, and any other spelling of the
+same selection pays a start it does not need. Where the start itself fails, the reason travels to the
+workers and surfaces at whichever fixture wants a server, so a run selecting no db test passes
+however its mark expression is spelled rather than ending in an `INTERNALERROR` before collection.
+
+**Every database the tier names is that worker's own.** `fl_backend/tests/worker.py :: worker_database`
+appends the worker id to a base name — each suite's module-level `DATABASE_NAME`,
+`fl_backend/tests/config.py :: CORPUS_DATABASE`, and the `fl_test` that `:: mongo_database` hands
+out. **The two shared names are what forced it**: no suite's `DATABASE_NAME` is spelled twice, and
+`loadfile` keeps each on one worker, but `CORPUS_DATABASE` is read by the suites seeding through
+pymongo's synchronous client and `fl_test` by the suites reading `:: league` and `:: squads`, so two
+workers would have held one name against one server — and
+`fl_backend/tests/database.py :: a_clean_database` empties the database it is handed, so each would
+have cleared the other's seeds mid-test and failed a test somewhere else entirely. **Every name is
+scoped rather than those two**, which is what keeps a run correct under `--dist load`, which splits a
+file, as well. On a serial run `PYTEST_XDIST_WORKER` is unset, the
+suffix is empty, and every name is what it was.
+
+**The rule is held where a database is opened, not where a suite seeds.**
+`fl_backend/tests/worker.py :: guard_every_database` wraps the driver's database constructor for the
+session — pymongo's synchronous `Database`, which a fixture seeding through `MongoClient` opens, and
+its async twin, which the async seeds and the app under test open — so `:: assert_worker_database`
+sees every `client[name]` the process makes. The hand-rolled seeds are held to it exactly as the
+helpers in `fl_backend/tests/database.py` are: `fl_backend/tests/api/test_standings_execution.py :: seeded` and
+`fl_backend/tests/core/test_constraints_execution.py :: on_a_database` name their own database and
+open it themselves, and neither can reach a server without passing the guard. What it refuses is a
+name `:: worker_database` never issued, and it refuses it unconditionally — membership in that
+record is a question a serial run can answer, where a suffix empty on that run is not. `admin` is
+exempt, being the driver's handshake and the fixtures' `ping`, `hello` and `replSetInitiate` and
+nobody's seed.
 
 **One test guards a rule nothing else can.**
 `fl_backend/tests/core/test_constraints.py :: test_every_mirrored_model_matches_its_validator` compares
@@ -442,7 +496,14 @@ and cannot suffer same-basename collisions.
   reads.
 - **A `db` test reading a seeded corpus is served by a fixture that seeds once instead** —
   `fl_backend/tests/api/conftest.py :: league` and its siblings, each dropping the collections it
-  owns and seeding them for the session, the modules taking one reading rather than writing.
+  owns and seeding them for the session, the modules taking one reading rather than writing. A
+  module whose every case reads takes a corpus of its own the same way, at module scope.
+- **A module-scoped corpus is held to being read rather than trusted to be.**
+  `fl_backend/tests/api/conftest.py :: unwritten` wraps one, compares its documents at the module's
+  end against what the seed wrote, and names the collections a write moved. The drift check above
+  cannot: its subject is the schema, which a write never touches. A module holding one case that
+  WRITES hands that case a database of its own, `:: config_for`, rather than dropping the shared
+  corpus back to a seed per test.
 - **The `db` corpus is documented where it is seeded**, in `fl_backend/tests/api/conftest.py`: a
   comment at each seeded club and each fixture names the one thing it is there to make observable,
   and the tests reading it derive their expected figures in their own docstrings.

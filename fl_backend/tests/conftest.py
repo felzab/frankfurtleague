@@ -3,12 +3,15 @@ import logging
 import re
 import time
 from collections.abc import Callable, Iterator
+from contextlib import ExitStack, contextmanager
 from typing import Any
 
 import pytest
 from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
 from pymongo.database import Database
+
+from tests.worker import guard_every_database, release_every_database, worker_database
 
 # testcontainers' reaper teardown logs after pytest closes its capture stream, printing a traceback on
 # a passing run. Not `raiseExceptions = False`: that would hide real handler failures too.
@@ -287,36 +290,56 @@ def saison() -> PayloadFactory:
     )
 
 
-@pytest.fixture(scope="session")
-def mongo_container() -> Iterator[Any]:
-    """
-    Imported inside the function, so the default tier never pays for `testcontainers`.
+# A majority write's acknowledgement waits on the oplog entry reaching the journal, and this
+# container's data is discarded at session end, so the disk buys nothing the tier needs.
+TMPFS_DATA_PATH = "/data/db"
+# Docker's raw mount options, not a size: `with_tmpfs_mount`'s docstring offers `1g`, which the
+# daemon refuses at start. Bounded at all because an unsized tmpfs takes half the host's memory.
+TMPFS_DATA_OPTIONS = "size=1g"
 
-    Yields the container rather than a client: pymongo and Motor each build their own.
-    """
+# Megabytes, and it moves with the bound above: mongod would derive its 990 MiB floor, a ceiling
+# over the ~820 MiB the mount leaves free. It truncates on that, not the filesystem: a full mount
+# is ENOSPC, then `WT_PANIC`, then a dead container.
+REPLICA_SET_OPLOG_MB = 128
+
+# What `pytest_configure_node` hands each worker, so one pair of containers serves the whole run.
+STANDALONE_KEY = "fl_standalone_mongodb_url"
+REPLICA_SET_KEY = "fl_replica_set_mongodb_url"
+# Why the pair is absent, when it is. Handed to the workers in its place, so one asking for a server
+# refuses naming the cause rather than the controller taking the run down before a test is collected.
+UNSTARTED_KEY = "fl_mongodb_unstarted"
+
+REPLICA_SET_ELECTION_TIMEOUT_S = 60
+
+# The controller's own, never a worker's: a worker process holds neither, and both are empty on a
+# serial run, where the fixtures below start containers of their own.
+_SHARED_SERVERS: dict[str, str] = {}
+_UNSTARTED: dict[str, str] = {}
+_SHARED_STACK = ExitStack()
+
+_NO_SERVER = (
+    "this test asked for a `mongod` under `-n`, and the xdist controller started none because the run's `-m` deselects the db tier."
+    " A test wanting one carries `@pytest.mark.db`, and this one does not: without it, it runs in the default tier too, which has no server."
+)
+
+_UNSTARTABLE = "the xdist controller could not start the db tier's servers, so no test needing one can run in this worker -- {reason}"
+
+
+@contextmanager
+def _standalone_mongod() -> Iterator[str]:
+    """Imported inside the function, so the default tier never pays for `testcontainers`."""
+
     # The `community` path is the current one; the bare `testcontainers.mongodb` still resolves, on
     # a DeprecationWarning.
     from testcontainers.community.mongodb import MongoDbContainer
 
-    with MongoDbContainer("mongo:8") as container:
-        yield container
+    with MongoDbContainer("mongo:8").with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS) as container:
+        yield str(container.get_connection_url())
 
 
-@pytest.fixture(scope="session")
-def mongo_database(mongo_container: Any) -> Iterator[Database]:
-    client = mongo_container.get_connection_client()
-    try:
-        yield client["fl_test"]
-    finally:
-        client.close()
-
-
-REPLICA_SET_ELECTION_TIMEOUT_S = 60
-
-
-@pytest.fixture(scope="session")
-def mongo_replica_set_url() -> Iterator[str]:
-    """A standalone `mongod` answers any transaction with `IllegalOperation`, so `mongo_container` cannot serve the transactional endpoints."""
+@contextmanager
+def _replica_set_mongod() -> Iterator[str]:
+    """`_standalone_mongod`'s server answers any transaction with `IllegalOperation`, so the transactional endpoints need this second one."""
 
     from testcontainers.core.container import DockerContainer
     from testcontainers.core.wait_strategies import LogMessageWaitStrategy
@@ -325,8 +348,9 @@ def mongo_replica_set_url() -> Iterator[str]:
         DockerContainer("mongo:8")
         # No `--auth`: with `--replSet` mongod demands a bind-mounted keyFile whose permissions it checks,
         # fragile on a Windows host. The other container keeps its credentials for the limited-user tests.
-        .with_command("--replSet rs0 --bind_ip_all")
+        .with_command(f"--replSet rs0 --bind_ip_all --oplogSize {REPLICA_SET_OPLOG_MB}")
         .with_exposed_ports(27017)
+        .with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS)
         .waiting_for(LogMessageWaitStrategy(re.compile(r"waiting for connections", re.IGNORECASE)))
     )
 
@@ -348,3 +372,115 @@ def mongo_replica_set_url() -> Iterator[str]:
             client.close()
 
         yield url
+
+
+def _default_tier_markexpr(config: pytest.Config) -> str | None:
+    """The `-m` that `fl_backend/pyproject.toml :: addopts` passes, or `None` where it passes none.
+
+    Read rather than copied: a copy kept here drifts from that line with nothing to say so.
+    """
+
+    addopts: list[str] = config.getini("addopts")
+    for index, option in enumerate(addopts):
+        if option == "-m" and index + 1 < len(addopts):
+            return addopts[index + 1].strip()
+        if option.startswith("--markexpr="):
+            return option.split("=", 1)[1].strip()
+
+    return None
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Runs in the controller and in every worker, before either collects."""
+
+    guard_every_database()
+
+
+def pytest_configure_node(node: Any) -> None:
+    """xdist's controller hook, unreached without `-n`.
+
+    A worker is a session of its own and would start both servers. The controller also KEEPS them:
+    testcontainers' reaper reclaims a container when its starter disconnects.
+    """
+
+    # A cost heuristic and nothing more: the default tier's own expression is the one run known to
+    # want no server, and every other spelling of it pays a start rather than deciding anything.
+    if node.config.option.markexpr.strip() == _default_tier_markexpr(node.config):
+        return
+
+    if not _SHARED_SERVERS and not _UNSTARTED:
+        try:
+            _SHARED_SERVERS[STANDALONE_KEY] = _SHARED_STACK.enter_context(_standalone_mongod())
+            _SHARED_SERVERS[REPLICA_SET_KEY] = _SHARED_STACK.enter_context(_replica_set_mongod())
+        except Exception as error:
+            # Carried to the fixtures rather than raised: raising in this hook is an INTERNALERROR
+            # with no test summary, on a run the heuristic above only guessed selects a db test.
+            _SHARED_STACK.close()
+            _SHARED_SERVERS.clear()
+            _UNSTARTED[UNSTARTED_KEY] = f"{type(error).__name__}: {error}"
+
+    node.workerinput.update(_SHARED_SERVERS or _UNSTARTED)
+
+
+def pytest_unconfigure(config: pytest.Config) -> None:
+    """Runs in the controller and in every worker; only the controller ever filled the stack."""
+
+    release_every_database()
+    _UNSTARTED.clear()
+
+    if _SHARED_SERVERS:
+        _SHARED_SERVERS.clear()
+        _SHARED_STACK.close()
+
+
+def _shared(request: pytest.FixtureRequest, key: str) -> str | None:
+    """The controller's url, or `None` on a serial run, where this process starts its own.
+
+    A worker starts none: reaching this without one means a server the controller was never told
+    about, and a pair per worker is the arithmetic the shared pair avoids.
+    """
+
+    workerinput: dict[str, Any] | None = getattr(request.config, "workerinput", None)
+    if workerinput is None:
+        return None
+
+    url = workerinput.get(key)
+    if url is None:
+        pytest.fail(_UNSTARTABLE.format(reason=workerinput[UNSTARTED_KEY]) if UNSTARTED_KEY in workerinput else _NO_SERVER)
+
+    return str(url)
+
+
+@pytest.fixture(scope="session")
+def mongo_url(request: pytest.FixtureRequest) -> Iterator[str]:
+    """A url rather than a container: a connection string is all the suites take, and under `-n` the process holding it runs no test."""
+
+    shared = _shared(request, STANDALONE_KEY)
+    if shared is not None:
+        yield shared
+        return
+
+    with _standalone_mongod() as url:
+        yield url
+
+
+@pytest.fixture(scope="session")
+def mongo_replica_set_url(request: pytest.FixtureRequest) -> Iterator[str]:
+    """The transactional server; see `_replica_set_mongod` for why it is a second one."""
+
+    shared = _shared(request, REPLICA_SET_KEY)
+    if shared is not None:
+        yield shared
+        return
+
+    with _replica_set_mongod() as url:
+        yield url
+
+
+@pytest.fixture(scope="session")
+def mongo_database(mongo_url: str) -> Iterator[Database]:
+    client = MongoClient(mongo_url)
+    try:
+        yield client[worker_database("fl_test")]
+    finally:
+        client.close()

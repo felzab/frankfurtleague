@@ -92,7 +92,7 @@ def refused_index_of(exc: DuplicateKeyError) -> str | None:
     return match.group(1) if match else None
 
 
-async def motor_db_exception_handler(request: Request, exc: PyMongoError):
+async def db_exception_handler(request: Request, exc: PyMongoError):
     # `str(exc)` quotes the document the server refused -- `consideredValue` under a validator, the
     # whole `op` under a bulk write -- and a traceback renders it a second time in its last line.
     fl_logger.error(
@@ -175,6 +175,6 @@ def register_exception_handlers(app: FastAPI):
     # Starlette resolves a handler by walking `type(exc).__mro__`, so this subclass wins over the
     # line below by being more specific, not by being registered first.
     app.add_exception_handler(DuplicateKeyError, duplicate_key_exception_handler)  # type: ignore
-    app.add_exception_handler(PyMongoError, motor_db_exception_handler)  # type: ignore
+    app.add_exception_handler(PyMongoError, db_exception_handler)  # type: ignore
     app.add_exception_handler(InvalidId, invalid_bson_oid_exception_handler)  # type: ignore
     app.add_exception_handler(Exception, global_catch_all_exception_handler)

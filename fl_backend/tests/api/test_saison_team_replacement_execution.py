@@ -1,11 +1,11 @@
-import asyncio
 import copy
 from typing import Any, Awaitable, Callable, Sequence
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pydantic import ValidationError
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.teams.admin_router import replace_saison_team
 from app.api.teams.schemas import FLReplaceSaisonTeamPayload
@@ -17,11 +17,16 @@ from app.api.teams.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_replacement_test"
+DATABASE_NAME = worker_database("fl_replacement_test")
+
+# Its own name rather than a second schema under `DATABASE_NAME`: the constrained and unconstrained
+# cases enforce different things, and a shared name rebuilds whichever the last call did not ask for.
+UNCONSTRAINED_DATABASE_NAME = worker_database("fl_replacement_unconstrained_test")
 
 SAISON_ID = "2026"
 PRIOR_SAISON_ID = "2025"
@@ -258,7 +263,7 @@ SEASON_FIXTURES = [
     gruppen_fixture(6, PHANTOM, ENTERED),
 ]
 
-Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
+Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_seeded_season(
@@ -270,17 +275,17 @@ def on_a_seeded_season(
     junctions: Sequence[dict[str, Any]] | None = None,
     constrained: bool = True,
 ) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on.
+    """`active` by default: a mid-season withdrawal is what this endpoint is for.
 
-    `active` by default: a mid-season withdrawal is what this endpoint is for. The SHIPPED
-    validators too, `constrained=False` being the case whose subject is a row they forbid.
+    The SHIPPED validators too, `constrained=False` being the case whose subject is a row they forbid.
     """
 
     # `spiele` by hand where no validator is installed: a transaction cannot create a collection.
     collections = () if constrained else (Collection.SPIELE,)
+    database_name = DATABASE_NAME if constrained else UNCONSTRAINED_DATABASE_NAME
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=constrained, collections=collections) as (client, database):
+        async with a_clean_database(url, database_name, constraints=constrained, collections=collections) as (client, database):
             # Each season spans its own calendar year, so the two seeded spans do not overlap.
             await database[Collection.SAISONS].insert_many(
                 [
@@ -298,12 +303,12 @@ def on_a_seeded_season(
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def call_replace(
-    database: AsyncIOMotorDatabase,
-    client: AsyncIOMotorClient,
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
     team_id: ObjectId = WITHDRAWN,
     incoming_team_id: ObjectId = INCOMING,
     *,
@@ -323,23 +328,23 @@ async def call_replace(
     )
 
 
-async def rows_now(database: AsyncIOMotorDatabase) -> list[dict[str, Any]]:
+async def rows_now(database: AsyncDatabase) -> list[dict[str, Any]]:
     """Read outside any transaction -- what a later request would see."""
 
     return await database[Collection.SAISON_TEAMS].find({"saison_id": SAISON_ID}).to_list(length=None)
 
 
-async def row_of(database: AsyncIOMotorDatabase, team_id: ObjectId) -> dict[str, Any] | None:
+async def row_of(database: AsyncDatabase, team_id: ObjectId) -> dict[str, Any] | None:
     return await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": team_id})
 
 
-async def spiele_now(database: AsyncIOMotorDatabase) -> dict[int, dict[str, Any]]:
+async def spiele_now(database: AsyncDatabase) -> dict[int, dict[str, Any]]:
     rows = await database[Collection.SPIELE].find({}).to_list(length=None)
 
     return {row["spiel_nr"]: row for row in rows}
 
 
-async def squad_now(database: AsyncIOMotorDatabase) -> dict[int, dict[str, Any]]:
+async def squad_now(database: AsyncDatabase) -> dict[int, dict[str, Any]]:
     """Every squad row of every season, keyed by the `nummer` its seed carries."""
 
     rows = await database[Collection.SAISON_SPIELER].find({}).to_list(length=None)
@@ -347,25 +352,25 @@ async def squad_now(database: AsyncIOMotorDatabase) -> dict[int, dict[str, Any]]
     return {int(row["nummer"]): row for row in rows}
 
 
-async def _row_after(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, team_id: ObjectId = WITHDRAWN) -> Any:
+async def _row_after(database: AsyncDatabase, client: AsyncMongoClient, team_id: ObjectId = WITHDRAWN) -> Any:
     await call_replace(database, client, team_id=team_id)
 
     return await row_of(database, INCOMING)
 
 
-async def _spiele_after(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+async def _spiele_after(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     await call_replace(database, client)
 
     return await spiele_now(database)
 
 
-async def _squad_after(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+async def _squad_after(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     await call_replace(database, client)
 
     return await squad_now(database)
 
 
-async def _refused(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, incoming: ObjectId = INCOMING) -> Any:
+async def _refused(database: AsyncDatabase, client: AsyncMongoClient, incoming: ObjectId = INCOMING) -> Any:
     """The code, plus the two surfaces a refusal has to have left alone."""
 
     with pytest.raises(DocumentConflictException) as refusal:
@@ -380,7 +385,7 @@ class TestAllFourLayersMoveTogether:
     def test_the_row_names_the_incoming_club(self, mongo_replica_set_url: str):
         """Layer one. Kills a fan-out that rewrites the fixtures and leaves the junction row where it was."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_replace(database, client)
             return await row_of(database, INCOMING), await row_of(database, WITHDRAWN)
 
@@ -400,7 +405,7 @@ class TestAllFourLayersMoveTogether:
     def test_every_side_the_club_held_moves_and_is_counted(self, mongo_replica_set_url: str):
         """Layer three, on both slots and past the group phase. Kills a single-pass rewrite, and a count assumed rather than returned."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_replace(database, client)
             return response.fanned_out_to_spiele, await spiele_now(database)
 
@@ -421,7 +426,7 @@ class TestAllFourLayersMoveTogether:
     def test_the_row_and_the_fixtures_spell_the_club_the_same_way(self, mongo_replica_set_url: str):
         """One read feeds both layers, so the two cannot part company (`docs/backend/spec.md :: I11`)."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_replace(database, client)
             return await row_of(database, INCOMING), await spiele_now(database)
 
@@ -450,7 +455,7 @@ class TestAllFourLayersMoveTogether:
     def test_the_seed_really_carried_them(self, mongo_replica_set_url: str):
         """The floor under the case above: read back after the write, a null proves nothing about a row that went in holding nothing."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await row_of(database, WITHDRAWN)
 
         seeded = on_a_seeded_season(mongo_replica_set_url, body)
@@ -462,7 +467,7 @@ class TestAllFourLayersMoveTogether:
     def test_the_group_and_the_row_count_are_left_alone(self, mongo_replica_set_url: str):
         """The row is rewritten IN PLACE. Kills a delete-and-insert, which frees the place and lets the group refill."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_replace(database, client)
             return await rows_now(database), await row_of(database, INCOMING)
 
@@ -475,7 +480,7 @@ class TestAllFourLayersMoveTogether:
     def test_the_schedule_survives_intact(self, mongo_replica_set_url: str):
         """D43's promise. Kills a rewrite that redraws the fixture rather than replacing one side of it."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await spiele_now(database)
             await call_replace(database, client)
             return before, await spiele_now(database)
@@ -491,7 +496,7 @@ class TestAllFourLayersMoveTogether:
     def test_the_echo_describes_the_row_that_landed(self, mongo_replica_set_url: str):
         """Built off the after-image. Kills an echo assembled from the payload, which cannot disagree with itself."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_replace(database, client)
             return response, await row_of(database, INCOMING)
 
@@ -545,7 +550,7 @@ class TestTheOutgoingClubsSquadIsRetired:
     def test_the_count_reports_what_the_write_touched(self, mongo_replica_set_url: str):
         """`docs/backend/spec.md :: I13`. Kills a count assumed rather than taken from the write, which the rows themselves then contradict."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_replace(database, client)
             return response.ausgetragene_squad_rows, await squad_now(database)
 
@@ -557,7 +562,7 @@ class TestTheOutgoingClubsSquadIsRetired:
     def test_an_abort_takes_the_retirement_back(self, mongo_replica_set_url: str):
         """Kills dropping `session=`, which retires a squad for a replacement that never landed. The echo rejects the stored `gruppe`."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(ValidationError):
                 await call_replace(database, client)
             return await squad_now(database)
@@ -590,7 +595,7 @@ class TestTheReplacementReachesNothingElse:
         assert spiele[5]["team1"] == side(WITHDRAWN, 3), "a past season keeps the name it was played under"
 
     def test_the_other_junction_rows_are_untouched(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_replace(database, client)
             return await row_of(database, RIVAL)
 
@@ -614,7 +619,7 @@ class TestAPhantomRowIsRepaired:
     def test_its_fixtures_move_with_it(self, mongo_replica_set_url: str):
         """Kills a fan-out composing the new side out of the OUTGOING club, which here has no document to read."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_replace(database, client, team_id=PHANTOM)
             return response.fanned_out_to_spiele, await spiele_now(database)
 
@@ -626,7 +631,7 @@ class TestAPhantomRowIsRepaired:
     def test_a_row_with_no_austritt_is_replaceable(self, mongo_replica_set_url: str):
         """The phantom row carries none. Kills a gate demanding a recorded exit, which a replacement before activation never has."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await row_of(database, PHANTOM)
             await call_replace(database, client, team_id=PHANTOM)
             return before, await row_of(database, INCOMING)
@@ -657,7 +662,7 @@ class TestAClubThatHasPlayedIsNotReplaced:
     def test_a_fixture_called_off_still_permits_it(self, mongo_replica_set_url: str):
         """Kills trusting `REQ-SWAP-002`/`-004`'s summaries: `ausgefallen` is "called off" and leaves NO record to rewrite."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_replace(database, client)
             return await row_of(database, INCOMING)
 
@@ -706,7 +711,7 @@ class TestTheSeasonGateOnTheRoute:
     def test_a_planned_or_started_season_permits_it(self, mongo_replica_set_url: str, saison_status: str):
         """Kills borrowing D34's `future`-only window: a club withdraws from a season that has already started."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_replace(database, client)
             return await row_of(database, INCOMING)
 
@@ -739,7 +744,7 @@ class TestWhoMayArrive:
     def test_an_id_naming_no_club_is_a_404(self, mongo_replica_set_url: str):
         """Kills pointing the row at a club that is not there -- which is the phantom this endpoint exists to repair."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentNotFoundException):
                 await call_replace(database, client, incoming_team_id=ABSENT)
             return await row_of(database, WITHDRAWN)
@@ -753,7 +758,7 @@ class TestWhatIsAddressed:
     def test_a_club_holding_no_row_in_the_season_is_a_404(self, mongo_replica_set_url: str):
         """A replacement addresses a junction row, not a club: `RETIRED` holds a `teams` document and no row here."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentNotFoundException):
                 await call_replace(database, client, team_id=RETIRED)
             return await spiele_now(database)
@@ -763,7 +768,7 @@ class TestWhatIsAddressed:
         assert spiele[1]["team1"] == side(WITHDRAWN)
 
     def test_an_unknown_season_is_a_404(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentNotFoundException):
                 await call_replace(database, client, saison_id="1999")
             return await row_of(database, WITHDRAWN)

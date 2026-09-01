@@ -12,11 +12,11 @@ dependencies = [
     # `email` extra rather than a requirement, so nothing else in the tree brings it.
     "email-validator>=2.3.0",
     "fastapi>=0.138.0",
-    "motor>=3.7.1",
     "pydantic>=2.13.4",
     "pydantic-core>=2.46.4",
     "pydantic-settings>=2.14.2",
-    # Also the home of `bson`, which app/ imports under that name.
+    # The driver, through `AsyncMongoClient`. Also the home of `bson`, which app/ imports under
+    # that name.
     "pymongo>=4.17.0",
     "starlette>=1.3.1",
     # `ZoneInfo("Europe/Berlin")` in app/core/dependencies.py reads the operating system's time-zone
@@ -54,6 +54,10 @@ dev = [
     # Starts a real mongod for the `db`-marked tests. Only those tests import it, and
     # they are deselected by default, so a normal `pytest` run never loads it or touches Docker.
     "testcontainers[mongodb]>=4.15.0",
+    # Distributes the `db` tier over worker processes, which `scripts/verify.sh`'s db scope asks for
+    # with `-n auto --dist loadfile`. No module imports it and a bare `pytest` never engages it: the
+    # plugin is inert without `-n`, so the default tier runs exactly as it did.
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.ruff]

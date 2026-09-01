@@ -2,7 +2,8 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
-from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.schemas import (
@@ -93,8 +94,8 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
 
 async def _refuse_a_full_squad(
     *,
-    saison_spieler_collection: AsyncIOMotorCollection,
-    saisons_collection: AsyncIOMotorCollection,
+    saison_spieler_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
     saison_id: str,
     team_id: CustomObjectId,
     spieler_id: CustomObjectId,
@@ -122,7 +123,7 @@ async def _refuse_a_full_squad(
 
 async def _refuse_a_taken_rolle(
     *,
-    saison_spieler_collection: AsyncIOMotorCollection,
+    saison_spieler_collection: AsyncCollection,
     saison_id: str,
     team_id: CustomObjectId,
     spieler_id: CustomObjectId,
@@ -250,7 +251,7 @@ async def erase_spieler(
     No log row is dropped: images are emptied in place and stamped (`docs/backend/spec.md :: I42`).
     """
 
-    async def erase_the_person_and_their_record(session: AsyncIOMotorClientSession) -> FLSpielerErasureResponse:
+    async def erase_the_person_and_their_record(session: AsyncClientSession) -> FLSpielerErasureResponse:
         """Judge, then remove both collections and redact the log. Everything judged is read in-session."""
 
         stored_raw = await pull_one_from_db(
@@ -296,7 +297,7 @@ async def erase_spieler(
     # ONE transaction over all THREE (D83): a person removed while the log still holds their
     # values reports an erasure that did not happen. `with_transaction` over a bare one -- the
     # callback re-reads everything it judges, so a retry is safe.
-    async with await db.start_session() as session:
+    async with db.start_session() as session:
         return await session.with_transaction(erase_the_person_and_their_record)
 
 

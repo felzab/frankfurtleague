@@ -1,10 +1,10 @@
-import asyncio
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.cache import invalidate_saison_cache
@@ -28,12 +28,13 @@ from app.api.spiele.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_spiele_write_test"
+DATABASE_NAME = worker_database("fl_spiele_write_test")
 
 # Named rather than caught broadly: another failure must not read as the rollback this suite proves.
 DOCUMENT_VALIDATION_FAILED = 121
@@ -389,7 +390,7 @@ def one_venue_twice(*, sonderereignis: str | None) -> list[dict[str, Any]]:
     return [{**held, "ort": ort, "sonderereignis": sonderereignis}, {**filling, "ort": ort}]
 
 
-Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
+Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_seeded_season(url: str, body: Body, *, spiele: list[dict[str, Any]], mutates_schema: bool = False) -> Any:
@@ -416,12 +417,12 @@ def on_a_seeded_season(url: str, body: Body, *, spiele: list[dict[str, Any]], mu
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def call_patch(
-    database: AsyncIOMotorDatabase,
-    client: AsyncIOMotorClient,
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
     spiel_id: ObjectId,
     spiel_data: FLPatchSpielDataPayload,
     *,
@@ -442,7 +443,7 @@ async def call_patch(
     )
 
 
-async def payload_for(database: AsyncIOMotorDatabase, spiel_id: ObjectId, **overrides: Any) -> FLPatchSpielDataPayload:
+async def payload_for(database: AsyncDatabase, spiel_id: ObjectId, **overrides: Any) -> FLPatchSpielDataPayload:
     """The stored fixture as a payload changing nothing but `overrides`.
 
     Read off the document because this endpoint writes wholesale: a field a test left out would be
@@ -455,13 +456,13 @@ async def payload_for(database: AsyncIOMotorDatabase, spiel_id: ObjectId, **over
     return FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, **overrides))
 
 
-async def read_spiel(database: AsyncIOMotorDatabase, spiel_id: ObjectId) -> FLSpiel:
+async def read_spiel(database: AsyncDatabase, spiel_id: ObjectId) -> FLSpiel:
     """Read outside any transaction -- what a later request would see."""
 
     return FLSpiel.model_validate(await database[Collection.SPIELE].find_one({"_id": spiel_id}))
 
 
-async def spiele_now(database: AsyncIOMotorDatabase) -> dict[int, dict[str, Any]]:
+async def spiele_now(database: AsyncDatabase) -> dict[int, dict[str, Any]]:
     """The RAW documents, keyed by `spiel_nr`: a model would answer with its own defaults for a key the write dropped."""
 
     rows = await database[Collection.SPIELE].find({"saison_id": SAISON_ID}).to_list(length=None)
@@ -478,7 +479,7 @@ class TestTheBookingReadAsksWhoUsedTheGround:
         ids=["abandoned-occupies", "called-off-frees", "annulled-frees", "no-show-frees"],
     )
     def test_only_a_fixture_that_took_place_still_holds_its_slot(self, mongo_replica_set_url: str, sonderereignis: str, refused: bool):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, uhrzeit="18:00:00")
 
             try:
@@ -507,7 +508,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         [pytest.param(SPIELORT_UNKNOWN, id="a ground no row answers to"), pytest.param(SPIELORT_RETIRED, id="a retired ground")],
     )
     def test_booking_a_venue_the_league_cannot_offer_is_refused(self, mongo_replica_set_url: str, chosen: ObjectId):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, ort={"spielort_id": chosen, "mietpreis": 80})
 
             with pytest.raises(DocumentConflictException) as refused:
@@ -524,7 +525,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
     def test_booking_a_referee_the_league_cannot_offer_is_refused(self, mongo_replica_set_url: str):
         """The other reference, because a rule reading one only would pass that one and miss this."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             assigned = {"schiedsrichter_id": SCHIEDSRICHTER_RETIRED, "payment": 20}
             spiel_data = await payload_for(database, GRUPPE_FILLING, schiedsrichter=assigned)
 
@@ -538,7 +539,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
     def test_a_live_venue_is_stored_under_the_name_the_venue_carries(self, mongo_replica_set_url: str):
         """The composition end to end: the ground and the rent are the payload's, the name and the link the venue's."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, ort={"spielort_id": SPIELORT, "mietpreis": 95})
             await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
@@ -551,7 +552,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
     def test_a_live_referee_is_stored_under_the_name_the_referee_carries(self, mongo_replica_set_url: str):
         """The same composition on the other reference, whose fee is what the league pays out -- and the venue's case cannot speak for it."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             assigned = {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 35}
             spiel_data = await payload_for(database, GRUPPE_FILLING, schiedsrichter=assigned)
             await call_patch(database, client, GRUPPE_FILLING, spiel_data)
@@ -565,7 +566,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
     def test_a_retired_venue_an_old_fixture_already_holds_blocks_no_edit(self, mongo_replica_set_url: str):
         """`REQ-RETIRE-003` lets a venue retire while only played fixtures still name it; refusing their edits would be a false refusal."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, uhrzeit="19:00:00")
             await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
@@ -582,7 +583,7 @@ class TestASavedSideIsNamedByTheSeason:
     def test_the_stored_name_comes_from_the_junction_rather_than_the_payload(self, mongo_replica_set_url: str):
         """A club renamed while the season runs: the fixture's copy is rewritten from the junction on the next save of it."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"name": "Gamma-Schule", "shorthand": "GS"}})
             spiel_data = await payload_for(database, GRUPPE_FILLING)
             await call_patch(database, client, GRUPPE_FILLING, spiel_data)
@@ -601,7 +602,7 @@ class TestTheStateRefusalIsReachedThroughTheRoute:
     """That `find_state_refusal` is WIRED, not merely written: an unwired refusal is a green suite and a dead rule."""
 
     def test_goals_on_a_fixture_that_awards_nothing_are_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, VIERTELFINALE, sonderereignis="ausgefallen", team1=side(ALPHA, 3), team2=side(BETA, 1))
 
             with pytest.raises(DocumentConflictException) as refused:
@@ -645,7 +646,7 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
     ):
         """The WIDENED case: both sides stay exactly as stored and only `datum` moves, which is the save `stays` would otherwise skip."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"austritt": GAMMA_AUSTRITT}})
             spiel_data = await payload_for(database, GRUPPE_FILLING, datum=datum)
 
@@ -663,7 +664,7 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
     def test_the_refusal_names_the_club_under_the_name_the_season_carries(self, mongo_replica_set_url: str):
         """The season's name reaches the message only through the junction projection, so a key dropped from it fails here."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISON_TEAMS].update_one(
                 {"team_id": GAMMA}, {"$set": {"austritt": GAMMA_AUSTRITT, "name": "Gamma-Schule"}}
             )
@@ -684,7 +685,7 @@ class TestASavedResultCarriesThroughTheBracket:
     def test_the_refilled_slot_loses_its_result_and_its_shoot_out(self, mongo_replica_set_url: str):
         """Alpha replaces Beta in the semi-final, and `docs/backend/spec.md :: I25b` says both halves of the old result go."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1))
             response = await call_patch(database, client, VIERTELFINALE, spiel_data)
 
@@ -717,7 +718,7 @@ class TestASavedResultCarriesThroughTheBracket:
     ):
         """A no-show naming a club the bracket replaced describes nobody, and `REQ-STATE-003` then refuses every later save of it."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1))
             response = await call_patch(database, client, VIERTELFINALE, spiel_data)
 
@@ -738,7 +739,7 @@ class TestASavedResultCarriesThroughTheBracket:
     def test_a_save_changing_nothing_advances_nobody(self, mongo_replica_set_url: str):
         """The control for the test above: the seeded season already agrees with its wiring, so that advancement is the save's doing."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, VIERTELFINALE)
             response = await call_patch(database, client, VIERTELFINALE, spiel_data)
 
@@ -755,7 +756,7 @@ class TestAMidFlightFailureTakesTheWholeSaveBack:
     def test_neither_the_edit_nor_the_advancement_survives(self, mongo_replica_set_url: str):
         """A validator admitting only a string `ergebnis` refuses the advancement's null, after the admin's own edit has landed."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database.command(
                 "collMod",
                 Collection.SPIELE.value,
@@ -835,7 +836,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
     ):
         """`release_spieltag_sides` writes a hand-built `$set` where the preview applies the model; nothing else holds the two to one answer."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             rows = await database[Collection.SPIELE].find({"saison_id": SAISON_ID}).to_list(length=None)
             season = FLSpielListAdapter.validate_python(rows)
             before = next(spiel for spiel in season if spiel.id == GRUPPE_HELD)
@@ -888,7 +889,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
         `PathNotViable`, and the save falls. The report stays per side, so the preview names both.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             rows = await database[Collection.SPIELE].find({"saison_id": SAISON_ID}).to_list(length=None)
             season = FLSpielListAdapter.validate_python(rows)
             before = next(spiel for spiel in season if spiel.id == GRUPPE_HELD)
@@ -945,7 +946,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
         payload also fields -- the double entry `docs/backend/spec.md :: I30` bars.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             rows = await database[Collection.SPIELE].find({"saison_id": SAISON_ID}).to_list(length=None)
             season = FLSpielListAdapter.validate_python(rows)
             by_id = {spiel.id: spiel for spiel in season}
@@ -997,7 +998,7 @@ class TestAResultThatReordersItsGroupIsPreviewedAsItIsSaved:
     def test_the_preview_names_the_advancement_the_save_makes(self, mongo_replica_set_url: str):
         """A `gruppe` slot resolves against a table derived from the season's fixtures, and the fixture under edit is one of them."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # Alpha 5:0 turns a 0:3 defeat into the group's best goal difference, so first place -- and
             # with it the semi-final's slot -- changes hands.
             spiel_data = await payload_for(database, GRUPPE_DECIDER, team1=side(ALPHA, 5), team2=side(BETA, 0))

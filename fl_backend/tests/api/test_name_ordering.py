@@ -5,12 +5,11 @@ twice over -- an umlaut that belongs beside its base letter, and a lower-case in
 beside its capital.
 """
 
-import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.schiedsrichter.router import get_schiedsrichter
 from app.api.schiedsrichter.schemas import FLSchiedsrichterFilterParams
@@ -19,11 +18,12 @@ from app.api.spielorte.router import get_spielorte
 from app.api.spielorte.schemas import FLSpielorteFilterParams
 from app.api.teams.admin_router import get_team_memberships
 from app.core.collections import Collection
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_name_ordering_test"
+DATABASE_NAME = worker_database("fl_name_ordering_test")
 
 # „Ö" belongs beside „O" and „von" beside „V", where a byte comparison puts the first after every
 # capital and the second after „Z".
@@ -107,7 +107,7 @@ def spieler_documents() -> list[dict[str, Any]]:
     ]
 
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_seeded_league(url: str, body: Body) -> Any:
@@ -122,7 +122,7 @@ def on_a_seeded_league(url: str, body: Body) -> Any:
 
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 class TestTheStoredOrderIsNotTheOrderAnyListServes:
@@ -137,7 +137,7 @@ class TestEveryNameListIsOrderedAsGermanReads:
     """Each read serves the same four names, and each attaches the collation at its own call site."""
 
     def test_the_venue_list_reads_in_german(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             response = await get_spielorte(spielorte_collection=database[Collection.SPIELORTE], filters=FLSpielorteFilterParams())
 
             return [spielort.name for spielort in response.spielorte]
@@ -145,7 +145,7 @@ class TestEveryNameListIsOrderedAsGermanReads:
         assert on_a_seeded_league(mongo_replica_set_url, body) == GERMAN_ORDER
 
     def test_the_referee_list_reads_in_german(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             response = await get_schiedsrichter(
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER], filters=FLSchiedsrichterFilterParams()
             )
@@ -155,7 +155,7 @@ class TestEveryNameListIsOrderedAsGermanReads:
         assert on_a_seeded_league(mongo_replica_set_url, body) == GERMAN_ORDER
 
     def test_the_club_memberships_read_in_german(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             response = await get_team_memberships(teams_collection=database[Collection.TEAMS])
 
             return [team.name for team in response.teams]
@@ -163,7 +163,7 @@ class TestEveryNameListIsOrderedAsGermanReads:
         assert on_a_seeded_league(mongo_replica_set_url, body) == GERMAN_ORDER
 
     def test_the_squad_memberships_read_in_german(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             response = await get_spieler_memberships(spieler_collection=database[Collection.SPIELER])
 
             return [spieler.vorname for spieler in response.spieler]

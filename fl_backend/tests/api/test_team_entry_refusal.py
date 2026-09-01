@@ -1,9 +1,8 @@
-import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spieler.schemas import FLSpielerStufe
@@ -20,7 +19,8 @@ from app.api.teams.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
@@ -97,7 +97,7 @@ class TestWhetherTheClubIsStillInTheLeague:
         assert "2026-03-01" in refusal.message
 
 
-DATABASE_NAME = "fl_team_entry_test"
+DATABASE_NAME = worker_database("fl_team_entry_test")
 SAISON_ID = "2026"
 
 # Fixed rather than generated, so a failure names the same club every run.
@@ -125,12 +125,10 @@ def club_document(team_id: ObjectId, inactive_since: str | None) -> dict[str, An
     }
 
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, saison_status: str = "future") -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on."""
-
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, collections=(Collection.SAISON_TEAMS,)) as (_, database):
             await database[Collection.SAISONS].insert_one(
@@ -141,10 +139,10 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "future") -> Any:
 
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
-async def enter(database: AsyncIOMotorDatabase, team_id: ObjectId, gruppe: str = "A") -> Any:
+async def enter(database: AsyncDatabase, team_id: ObjectId, gruppe: str = "A") -> Any:
     return await post_saison_team(
         team_id=team_id,
         saison_team_data=FLPostSaisonTeamPayload.model_validate({"saison_id": SAISON_ID, "gruppe": gruppe}),
@@ -154,7 +152,7 @@ async def enter(database: AsyncIOMotorDatabase, team_id: ObjectId, gruppe: str =
     )
 
 
-async def junction_rows(database: AsyncIOMotorDatabase) -> list[dict[str, Any]]:
+async def junction_rows(database: AsyncDatabase) -> list[dict[str, Any]]:
     return await database[Collection.SAISON_TEAMS].find().to_list(length=None)
 
 
@@ -163,7 +161,7 @@ class TestEnteringAClubThroughTheEndpoint:
     """`REQ-ENTER-005` and D52 against a real mongod: a refusal that exists is not a refusal that is reached."""
 
     def test_a_retired_club_is_refused_with_the_rule_that_stopped_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(DocumentConflictException) as conflict:
                 await enter(database, RETIRED_OID)
 
@@ -178,7 +176,7 @@ class TestEnteringAClubThroughTheEndpoint:
     def test_the_clubs_standing_is_reported_before_the_group_it_asked_for(self, mongo_replica_set_url: str):
         """A group the season does not run would refuse too; naming it sends an admin to fix the wrong thing."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(DocumentConflictException) as conflict:
                 await enter(database, RETIRED_OID, gruppe="D")
 
@@ -189,7 +187,7 @@ class TestEnteringAClubThroughTheEndpoint:
     def test_a_club_no_document_names_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
         """The referential hole D52 closes: without the read, the row would name a club `teams` does not hold."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(DocumentNotFoundException):
                 await enter(database, ABSENT_OID)
 
@@ -200,7 +198,7 @@ class TestEnteringAClubThroughTheEndpoint:
     def test_a_live_club_is_entered_under_the_name_it_carries_today(self, mongo_replica_set_url: str):
         """The other half of that one read: the season's copy is seeded here or it is seeded nowhere."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             response = await enter(database, LIVE_OID)
 
             return response, await junction_rows(database)
@@ -216,7 +214,7 @@ class TestEnteringAClubThroughTheEndpoint:
     def test_the_season_gate_still_reaches_a_live_club(self, mongo_replica_set_url: str):
         """So the club gate above cannot be passing by refusing everything before the season is ever judged."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(DocumentConflictException) as conflict:
                 await enter(database, LIVE_OID)
 

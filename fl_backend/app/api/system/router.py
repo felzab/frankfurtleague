@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.system.schemas import CheckIsLiveResponse, CheckIsReadyResponse, SystemInfoResponse
 from app.core.config import API_VERSION
@@ -27,7 +27,7 @@ async def check_is_live(request: Request) -> JSONResponse:
 
 
 @router.get("/is_ready", dependencies=[Depends(verify_access_system)], response_model=CheckIsReadyResponse, summary="Readiness probe")
-async def check_is_ready(request: Request, db: Annotated[AsyncIOMotorDatabase, Depends(get_database)]):
+async def check_is_ready(request: Request, db: Annotated[AsyncDatabase, Depends(get_database)]):
     """
     Readiness: can this process reach its database?
 

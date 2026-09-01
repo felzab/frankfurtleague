@@ -31,14 +31,14 @@ THE CHECKS, in priority order:
 
 3. **EXCESS — code that should not exist.** The candidates for this surface:
 
-   | Class         | The candidate                                                                                |
-   | ------------- | -------------------------------------------------------------------------------------------- |
-   | `duplicated`  | The same model, pipeline stage, filter or helper defined in two or more modules              |
-   | `one-caller`  | An abstraction — wrapper, dependency, adapter, helper — with a single call site              |
-   | `hand-rolled` | A reimplementation of what FastAPI, Pydantic, Motor or the standard library already provides |
-   | `simpler`     | A plainly simpler construction reaching the same result                                      |
-   | `dead-export` | A schema, adapter, helper or `__init__.py` export nothing imports                            |
-   | `dead-config` | A settings key, ruff ignore, pytest marker or dependency nothing reads                       |
+   | Class         | The candidate                                                                                  |
+   | ------------- | ---------------------------------------------------------------------------------------------- |
+   | `duplicated`  | The same model, pipeline stage, filter or helper defined in two or more modules                |
+   | `one-caller`  | An abstraction — wrapper, dependency, adapter, helper — with a single call site                |
+   | `hand-rolled` | A reimplementation of what FastAPI, Pydantic, PyMongo or the standard library already provides |
+   | `simpler`     | A plainly simpler construction reaching the same result                                        |
+   | `dead-export` | A schema, adapter, helper or `__init__.py` export nothing imports                              |
+   | `dead-config` | A settings key, ruff ignore, pytest marker or dependency nothing reads                         |
    - **A duplicated model is worse than a dead one**, because editing the wrong copy is silently
      ineffective. Sweep specifically for same-named and near-identical classes.
    - `.claude/CLAUDE.md` §7 bears directly on this check: the `$jsonSchema` validators duplicate the

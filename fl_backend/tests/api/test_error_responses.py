@@ -12,8 +12,8 @@ from pymongo.errors import BulkWriteError, DuplicateKeyError, PyMongoError, Writ
 
 from app.core.exception_handlers import (
     NO_DATA_TEXT,
+    db_exception_handler,
     duplicate_key_exception_handler,
-    motor_db_exception_handler,
     pydantic_validation_exception_handler,
     register_exception_handlers,
 )
@@ -312,7 +312,7 @@ def database_crash_document(caplog, exc: PyMongoError) -> str:
         try:
             raise exc
         except PyMongoError as live:
-            asyncio.run(motor_db_exception_handler(None, live))  # type: ignore[arg-type]
+            asyncio.run(db_exception_handler(None, live))  # type: ignore[arg-type]
 
     return logged_document(caplog)
 

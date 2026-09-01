@@ -1,21 +1,21 @@
-import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.teams.admin_router import patch_saison_team_kontakte
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 # Every test here writes through a real mongod: the point of the endpoint is which KEYS a `$set`
 # leaves alone, and nothing short of a stored document can show that.
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_saison_team_kontakte_test"
+DATABASE_NAME = worker_database("fl_saison_team_kontakte_test")
 
 SAISON_ID = "2026"
 # A second season the SAME club holds a row in, seeded first so it is what a filter missing
@@ -85,15 +85,11 @@ def junction_document(saison_id: str, kontakte: dict[str, Any] | None) -> dict[s
     }
 
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, seeded: dict[str, Any] | None = SEEDED_KONTAKTE) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on.
-
-    `constraints=True`, so what this endpoint stores is judged by the database's own validator
-    rather than by Pydantic alone.
-    """
+    """`constraints=True`, so what this endpoint stores is judged by the database's own validator rather than by Pydantic alone."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
@@ -104,11 +100,11 @@ def on_a_league(url: str, body: Body, *, seeded: dict[str, Any] | None = SEEDED_
 
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def write_kontakte(
-    database: AsyncIOMotorDatabase,
+    database: AsyncDatabase,
     kontakte: dict[str, Any] | None,
     *,
     team_id: ObjectId = TEAM_OID,
@@ -122,20 +118,20 @@ async def write_kontakte(
     )
 
 
-async def row_now(database: AsyncIOMotorDatabase, saison_id: str = SAISON_ID) -> dict[str, Any]:
+async def row_now(database: AsyncDatabase, saison_id: str = SAISON_ID) -> dict[str, Any]:
     found = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OID, "saison_id": saison_id})
     assert found is not None, f"the seeded row for {saison_id} is gone"
 
     return found
 
 
-async def junction_log(database: AsyncIOMotorDatabase) -> list[dict[str, Any]]:
+async def junction_log(database: AsyncDatabase) -> list[dict[str, Any]]:
     return await database[Collection.AKTIONEN].find({"collection": str(Collection.SAISON_TEAMS)}).sort("_id", 1).to_list(length=None)
 
 
 class TestTheBlockIsWritten:
     def test_the_stored_block_is_the_one_sent_and_the_echo_is_the_stored_one(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             response = await write_kontakte(database, NEW_KONTAKTE)
 
             return response, await row_now(database)
@@ -150,7 +146,7 @@ class TestTheBlockIsWritten:
     def test_a_null_clears_the_block(self, mongo_replica_set_url: str):
         """How a team with no recorded contacts is expressed at entry, and the only way back to it."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             response = await write_kontakte(database, None)
 
             return response, await row_now(database)
@@ -163,7 +159,7 @@ class TestTheBlockIsWritten:
     def test_an_empty_slot_round_trips(self, mongo_replica_set_url: str):
         """A row an erasure emptied stays editable: two null slots are sent, stored and echoed back."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             response = await write_kontakte(database, ONE_SLOT_FILLED)
 
             return response, await row_now(database)
@@ -179,7 +175,7 @@ class TestNothingElseOnTheRowMoves:
     """The whole reason the endpoint exists: two editors write one row and must not clobber each other."""
 
     def test_the_group_the_exit_and_the_kit_colour_are_left_exactly_as_seeded(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await write_kontakte(database, NEW_KONTAKTE)
 
             return await row_now(database)
@@ -196,7 +192,7 @@ class TestNothingElseOnTheRowMoves:
     def test_the_same_clubs_other_season_is_not_the_row_that_moves(self, mongo_replica_set_url: str):
         """`saison_id` is half the filter: without it the club's earliest row takes the write."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await write_kontakte(database, NEW_KONTAKTE)
 
             return await row_now(database, OTHER_SAISON_ID), await row_now(database)
@@ -209,7 +205,7 @@ class TestNothingElseOnTheRowMoves:
 
 class TestAPairNoRowAnswers:
     def test_an_unknown_club_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(DocumentNotFoundException):
                 await write_kontakte(database, NEW_KONTAKTE, team_id=ABSENT_OID)
 
@@ -224,7 +220,7 @@ class TestAPairNoRowAnswers:
     def test_a_season_the_club_holds_no_row_in_is_a_404(self, mongo_replica_set_url: str):
         """The pair is what is addressed: a club that exists and a season that exists still name no row."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(DocumentNotFoundException):
                 await write_kontakte(database, NEW_KONTAKTE, saison_id="2027")
 
@@ -237,7 +233,7 @@ class TestTheWriteIsRecorded:
     def test_one_action_row_carries_the_block_this_write_replaced(self, mongo_replica_set_url: str):
         """The undo path: the pre-image is the only copy of three people's details a mistake overwrote."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             await write_kontakte(database, NEW_KONTAKTE)
 
             return await row_now(database), await junction_log(database)

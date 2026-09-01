@@ -1,13 +1,13 @@
-import asyncio
 from datetime import datetime
 from typing import Any, Awaitable, Callable, Mapping, cast
 from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId, encode
-from fastapi.testclient import TestClient
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
-from pymongo import monitoring
+from httpx import ASGITransport, AsyncClient
+from pymongo import AsyncMongoClient, monitoring
+from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.admin_router import ablehnen_bewerbung, annehmen_bewerbung
@@ -26,14 +26,15 @@ from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
-from tests.config import build_test_config
-from tests.database import a_clean_database
+from tests.config import TEST_BASE_URL, build_test_config
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 # Module level, as `tests/api/test_spieler_erasure_execution.py` marks its suite: every test below
 # reaches a real mongod, and a marker per test would be one a new test could be written without.
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_bewerbung_triage_test"
+DATABASE_NAME = worker_database("fl_bewerbung_triage_test")
 
 # Asserted on rather than caught broadly, so an unrelated failure cannot pass as the rollback.
 DOCUMENT_VALIDATION_FAILED = 121
@@ -171,14 +172,13 @@ def junction_document(team_id: ObjectId, name: str, shorthand: str, gruppe: str)
     return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": gruppe, "austritt": None, "name": name, "shorthand": shorthand}
 
 
-Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
+Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, saison_status: str = "future", occupied: int = 0, mutates_schema: bool = False) -> Any:
     """The SHIPPED validators and indexes, so a document production would refuse fails here too.
 
-    One client and event loop per call: Motor binds to the loop it first ran on. `occupied` fills
-    group `A`, the only route to `REQ-ENTER-003`.
+    `occupied` fills group `A`, the only route to `REQ-ENTER-003`.
     """
 
     async def _run() -> Any:
@@ -208,12 +208,12 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "future", occupied
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def accept(
-    database: AsyncIOMotorDatabase,
-    client: AsyncIOMotorClient,
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
     bewerbung_id: ObjectId,
     *,
     gruppe: str = "A",
@@ -242,7 +242,7 @@ _GRUND_SENTENCE = "Grün-weiß gestreifte Trikots gehören leider nicht in die S
 GRUND_AT_THE_BOUND = (_GRUND_SENTENCE * (BEWERBUNG_GRUND_MAX_LENGTH // len(_GRUND_SENTENCE) + 1))[: BEWERBUNG_GRUND_MAX_LENGTH - 1] + "."
 
 
-async def decline(database: AsyncIOMotorDatabase, bewerbung_id: ObjectId, *, grund: str = GRUND) -> Any:
+async def decline(database: AsyncDatabase, bewerbung_id: ObjectId, *, grund: str = GRUND) -> Any:
     return await ablehnen_bewerbung(
         bewerbung_id=bewerbung_id,
         ablehnung_data=FLAblehnenBewerbungPayload(grund=grund),
@@ -252,14 +252,14 @@ async def decline(database: AsyncIOMotorDatabase, bewerbung_id: ObjectId, *, gru
     )
 
 
-async def stored_bewerbung(database: AsyncIOMotorDatabase, bewerbung_id: ObjectId) -> Mapping[str, Any]:
+async def stored_bewerbung(database: AsyncDatabase, bewerbung_id: ObjectId) -> Mapping[str, Any]:
     stored = await database[Collection.BEWERBUNGEN].find_one({"_id": bewerbung_id})
     assert stored is not None, "the seeded application is gone, which no triage endpoint may do"
 
     return stored
 
 
-async def junction_rows(database: AsyncIOMotorDatabase, **narrow: Any) -> list[Mapping[str, Any]]:
+async def junction_rows(database: AsyncDatabase, **narrow: Any) -> list[Mapping[str, Any]]:
     return await database[Collection.SAISON_TEAMS].find(narrow).to_list(length=None)
 
 
@@ -282,14 +282,15 @@ async def through_the_app(
     here would let a test claim to serve one while serving the other.
     """
 
-    # Its own client, first used on the TestClient's own loop: Motor binds to the loop it first ran
-    # on, and the seeding client belongs to this test's.
-    app_db_client = AsyncIOMotorClient(url)
+    # A client of its own rather than the seeding one: this helper closes what it injects, and the
+    # seeding client has to outlive the request -- every caller reads `database` afterwards to
+    # assert what the request wrote.
+    app_db_client = AsyncMongoClient(url)
 
-    async def _client() -> AsyncIOMotorClient:
+    async def _client() -> AsyncMongoClient:
         return app_db_client
 
-    async def _database() -> AsyncIOMotorDatabase:
+    async def _database() -> AsyncDatabase:
         return app_db_client[DATABASE_NAME]
 
     # Popped rather than cleared afterwards: `create_app` installs its own `get_config` override, and
@@ -301,17 +302,16 @@ async def through_the_app(
     headers = {**ADMIN_AUTH} if actor is None else {**ADMIN_AUTH, ACTOR_HEADER: actor}
     path = f"/api/v{API_VERSION}/bewerbungen/{bewerbung_id}/{endpoint}"
 
-    def _request() -> Any:
-        return TestClient(APP).post(path, json=dict(payload), headers=headers)
-
     try:
-        # In a thread of its own, so this test's loop keeps running while the app's loop serves the
-        # request: `TestClient` is synchronous and would otherwise block the loop it was called from.
-        return await asyncio.to_thread(_request)
+        # Awaited on this loop rather than driven from a thread: the app, the client it reaches and
+        # the close below then all belong to the one loop the driver binds to.
+        transport = ASGITransport(app=APP)
+        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+            return await http.post(path, json=dict(payload), headers=headers)
     finally:
         for dependency in (get_db_client, get_database, get_germany_now):
             APP.dependency_overrides.pop(dependency, None)
-        app_db_client.close()
+        await app_db_client.close()
 
 
 class TestAnAcceptanceEntersTheSchool:
@@ -320,7 +320,7 @@ class TestAnAcceptanceEntersTheSchool:
     def test_a_new_school_gets_a_club_that_the_application_then_names(self, mongo_replica_set_url: str):
         """Catches an acceptance that enters the school without writing the created id back: nothing would join the two."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await accept(database, client, NEW_SCHOOL_BEWERBUNG)
             created = await database[Collection.TEAMS].find_one({"shorthand": NEW_SCHOOL_SHORTHAND})
 
@@ -345,7 +345,7 @@ class TestAnAcceptanceEntersTheSchool:
     def test_an_application_naming_an_existing_club_creates_none(self, mongo_replica_set_url: str):
         """Catches a branch that creates a club whatever the application said, which would duplicate every returning school."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await database[Collection.TEAMS].count_documents({})
             response = await accept(database, client, PICKED_BEWERBUNG)
 
@@ -362,7 +362,7 @@ class TestAnAcceptanceEntersTheSchool:
     def test_the_three_people_reach_the_junction_row_as_the_application_held_them(self, mongo_replica_set_url: str):
         """They arrive WITH the season's row rather than being typed in after it, which is what `/admin/kontakte` then reads."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await accept(database, client, PICKED_BEWERBUNG)
             submitted = await stored_bewerbung(database, PICKED_BEWERBUNG)
             rows = await junction_rows(database)
@@ -377,7 +377,7 @@ class TestAnAcceptanceEntersTheSchool:
     def test_the_assigned_kit_colour_is_the_administrators_and_not_the_wish(self, mongo_replica_set_url: str):
         """A wish is not an assignment: two schools may wish for one colour, and the junction records what was given."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await accept(database, client, PICKED_BEWERBUNG, trikot_farbe="gruen")
             rows = await junction_rows(database)
 
@@ -402,7 +402,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
         `test_the_full_group_is_reported_before_the_club_is_written` pins that.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as conflict:
                 await accept(database, client, NEW_SCHOOL_BEWERBUNG)
 
@@ -421,7 +421,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
     def test_the_group_beside_the_full_one_still_takes_the_school(self, mongo_replica_set_url: str):
         """The floor under the refusal above: without it a blanket failure would read as the capacity rule working."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await accept(database, client, NEW_SCHOOL_BEWERBUNG, gruppe="B")
 
             return response.gruppe, len(await junction_rows(database, gruppe="B"))
@@ -431,7 +431,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
     def test_a_retired_club_is_refused_and_nothing_is_entered(self, mongo_replica_set_url: str):
         """`REQ-ENTER-005`: a club that left the league is reactivated first, and the season's row is not the route to it."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as conflict:
                 await accept(database, client, RETIRED_BEWERBUNG)
 
@@ -451,7 +451,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
     def test_the_clubs_standing_is_reported_before_the_group_it_asked_for(self, mongo_replica_set_url: str, gruppe: str, occupied: int):
         """A group fault refuses too, and naming it sends an administrator to fix the wrong thing: no group repairs a retirement."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as conflict:
                 await accept(database, client, RETIRED_BEWERBUNG, gruppe=gruppe)
 
@@ -466,7 +466,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
         count answers `DB-COMMON-002` rather than the rule to act on.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as conflict:
                 await accept(database, client, CLASHING_BEWERBUNG)
 
@@ -478,7 +478,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
     def test_a_season_that_is_not_future_is_refused(self, mongo_replica_set_url: str, saison_status: str):
         """`REQ-ENTER-001`, read in-session: `activate_saison` moves `status` in a transaction of its own."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as conflict:
                 await accept(database, client, NEW_SCHOOL_BEWERBUNG)
 
@@ -514,7 +514,7 @@ class TestAnApplicationResolvingToNoOneClub:
     ):
         """A row carrying both would otherwise enter one club while a school nobody created stood in the other field."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(bewerbung_document(bewerbung_id, team_id=team_id, schule=schule))
 
             with pytest.raises(DocumentConflictException) as conflict:
@@ -533,7 +533,7 @@ class TestAnApplicationResolvingToNoOneClub:
         assert (clubs, rows, status) == (SEEDED_CLUBS, [], "eingereicht")
 
 
-async def seed_the_unusable_school(database: AsyncIOMotorDatabase) -> Mapping[str, Any]:
+async def seed_the_unusable_school(database: AsyncDatabase) -> Mapping[str, Any]:
     """One application whose school makes no club, stored through the SHIPPED validator.
 
     Read back, because `docs/backend/spec.md :: I16` keeps the format off the validator: the value
@@ -555,7 +555,7 @@ class TestASchoolNoClubCanBeCreatedFrom:
     """
 
     def test_an_unusable_url_is_refused_before_anything_is_written(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             seeded = await seed_the_unusable_school(database)
 
             with pytest.raises(DocumentConflictException) as conflict:
@@ -578,7 +578,7 @@ class TestASchoolNoClubCanBeCreatedFrom:
     def test_the_school_is_judged_before_the_group_it_asked_for(self, mongo_replica_set_url: str):
         """Where the picked club's standing is judged, and for that reason: no other group makes these details a club."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_the_unusable_school(database)
 
             with pytest.raises(DocumentConflictException) as conflict:
@@ -598,7 +598,7 @@ class TestAPartialAcceptanceCommitsNothing:
         Catches running the three outside one transaction, and dropping the session from either write.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # Narrow enough to refuse the patch's `$set`, wide enough to admit the seeded application
             # this same body reads back afterwards.
             await database.command(
@@ -633,7 +633,7 @@ class TestADuplicateShorthandIsAConflictAndNotHalfAClub:
     def test_the_second_club_to_claim_the_two_letters_is_refused_whole(self, mongo_replica_set_url: str):
         """Through a served request, because the code asserted on is the exception handler's rather than any refusal's."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await through_the_app(mongo_replica_set_url, CLASHING_BEWERBUNG, "annehmen", {"gruppe": "A", "trikot_farbe": "rot"})
 
             return (
@@ -660,7 +660,7 @@ class TestWhoTheDecisionNames:
     def test_the_stored_decision_carries_the_administrators_own_address(self, mongo_replica_set_url: str):
         """Catches `get_actor_email` resolving BEFORE the router-level binder, which would file every decision under SYSTEM."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "annehmen", {"gruppe": "A", "trikot_farbe": "rot"})
             stored = await stored_bewerbung(database, PICKED_BEWERBUNG)
 
@@ -677,7 +677,7 @@ class TestWhoTheDecisionNames:
     def test_the_log_row_for_that_write_names_the_same_person(self, mongo_replica_set_url: str):
         """The pairing the field exists for: two sources for one name is two names waiting to disagree."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "annehmen", {"gruppe": "A", "trikot_farbe": "rot"})
             rows = await database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)}).to_list(length=None)
 
@@ -695,7 +695,7 @@ class TestWhoTheDecisionNames:
         different objects rather than one shape.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "ablehnen", {"grund": GRUND})
 
             return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["entscheidung"]
@@ -728,7 +728,7 @@ class TestADeclineTouchesNothingElse:
     def test_the_submission_is_byte_identical_afterwards(self, mongo_replica_set_url: str):
         """Catches a decline that rewrites the document rather than `$set`ting the two fields it owns."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await stored_bewerbung(database, PICKED_BEWERBUNG)
             response = await decline(database, PICKED_BEWERBUNG)
 
@@ -742,7 +742,7 @@ class TestADeclineTouchesNothingElse:
     def test_it_moves_the_status_and_the_decision_and_writes_no_season_row(self, mongo_replica_set_url: str):
         """The floor under the comparison above: a decline that did nothing at all would pass it."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await decline(database, PICKED_BEWERBUNG)
             stored = await stored_bewerbung(database, PICKED_BEWERBUNG)
 
@@ -772,7 +772,7 @@ class TestADeclineTouchesNothingElse:
         hands the endpoint a model that was never encoded.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "ablehnen", {"grund": grund})
 
             return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["entscheidung"]["grund"]
@@ -793,7 +793,7 @@ class TestADeclineTouchesNothingElse:
         reaches the three people as a rejection giving none.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "ablehnen", {"grund": grund})
 
             return response.status_code, await stored_bewerbung(database, PICKED_BEWERBUNG)
@@ -810,7 +810,7 @@ class TestADeclineTouchesNothingElse:
         which client the administrator declined it from.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "ablehnen", {"grund": f"  {GRUND}\n"})
 
             return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["entscheidung"]["grund"]
@@ -821,7 +821,7 @@ class TestADeclineTouchesNothingElse:
         assert stored_grund == GRUND
 
 
-async def take_decision(kind: str, database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, bewerbung_id: ObjectId) -> Any:
+async def take_decision(kind: str, database: AsyncDatabase, client: AsyncMongoClient, bewerbung_id: ObjectId) -> Any:
     """Either endpoint by name, so the pairs below read as the sequence an administrator would press."""
 
     if kind == "accept":
@@ -847,7 +847,7 @@ class TestADecisionIsNotTakenTwice:
     def test_the_second_decision_is_refused_and_the_first_still_stands(
         self, mongo_replica_set_url: str, first: str, second: str, expected_status: str, expected_rows: int
     ):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await take_decision(first, database, client, PICKED_BEWERBUNG)
             after_first = await stored_bewerbung(database, PICKED_BEWERBUNG)
 
@@ -886,10 +886,10 @@ class StaleFirstRead:
         return getattr(self._collection, name)
 
 
-def as_the_loser_read_it(collection: AsyncIOMotorCollection, stale: Mapping[str, Any]) -> AsyncIOMotorCollection:
+def as_the_loser_read_it(collection: AsyncCollection, stale: Mapping[str, Any]) -> AsyncCollection:
     """The collection the second request holds, `cast` for `tests/api/test_saison_cache.py :: as_collection`'s reason."""
 
-    return cast(AsyncIOMotorCollection, StaleFirstRead(collection, stale))
+    return cast(AsyncCollection, StaleFirstRead(collection, stale))
 
 
 # The second administrator: a different address and a different reason, so a decline that overwrote
@@ -908,7 +908,7 @@ class TestTwoDeclinesAtOnce:
     def test_the_second_decline_writes_nothing_and_is_refused(self, mongo_replica_set_url: str):
         """Catches the status left out of the write's own filter, which a read taken a moment earlier cannot cover."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await decline(database, PICKED_BEWERBUNG)
             after_first = await stored_bewerbung(database, PICKED_BEWERBUNG)
 
@@ -932,7 +932,7 @@ class TestTwoDeclinesAtOnce:
     def test_an_application_no_document_names_is_still_a_404(self, mongo_replica_set_url: str):
         """The filter matches nothing either way, and the two must not read alike: only one of them is a decision that stands."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].delete_one({"_id": PICKED_BEWERBUNG})
 
             with pytest.raises(DocumentNotFoundException) as missing:
@@ -960,7 +960,7 @@ class TestTheQueueTheTriageIsWorkedDown:
     def test_applications_from_one_day_come_back_newest_first(self, mongo_replica_set_url: str):
         """Catches an ascending tie-break, which reads a day's applications backwards inside a newest-first list."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await get_bewerbungen(
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 filters=FLBewerbungenFilterParams(),
@@ -1016,14 +1016,14 @@ class TestTheAcceptanceJudgesWhatItReadsInsideTheTransaction:
 
         spy = _ReadSpy()
 
-        async def body(database: AsyncIOMotorDatabase, _client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
             # A client of this test's own, so the spy sees the endpoint's commands rather than the
             # seeding `on_a_league` did through the fixture's.
-            watched = AsyncIOMotorClient(mongo_replica_set_url, event_listeners=[spy])
+            watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[spy])
             try:
                 await accept(watched[DATABASE_NAME], watched, PICKED_BEWERBUNG)
             finally:
-                watched.close()
+                await watched.close()
 
             return spy.reads
 
@@ -1062,7 +1062,7 @@ class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
 
         schule = {**schule_block(DIRTY_URL_NAME, DIRTY_URL_SHORTHAND), "website_url": DIRTY_URL}
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             posted = await post_team(
                 team_data=FLPostTeamPayload.model_validate(compose_new_club(schule=schule)),
                 teams_collection=database[Collection.TEAMS],
@@ -1102,7 +1102,7 @@ class TestAnAcceptanceTakenOnAStaleJudgement:
         for stands in the season the letter turned them down for.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await decline(database, PICKED_BEWERBUNG)
             after_decline = await stored_bewerbung(database, PICKED_BEWERBUNG)
 

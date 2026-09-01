@@ -1,11 +1,11 @@
-import asyncio
 from dataclasses import dataclass, field
 from itertools import combinations, product
 from typing import Any, Awaitable, Callable, Mapping
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import generate_spielplan, patch_saison
@@ -37,11 +37,12 @@ from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from app.core.logging import correlation_id_var
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_spielplan_write_test"
+DATABASE_NAME = worker_database("fl_spielplan_write_test")
 
 # Named rather than caught broadly: another failure must not read as the rollback this suite proves.
 DOCUMENT_VALIDATION_FAILED = 121
@@ -203,7 +204,7 @@ class Seed:
     neighbour_entered: list[dict[str, Any]] = field(default_factory=list)
 
 
-Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
+Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False) -> Any:
@@ -219,7 +220,7 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             # Process-global and keyed by season id, so an entry another module left would answer for this one.
             invalidate_saison_cache()
-            # `asyncio.run` copies the context, so nothing set here reaches another test.
+            # `on_the_seed_loop` runs this in a task of its own, which copies the context, so nothing set here reaches another test.
             correlation_id_var.set(CORRELATION_ID)
 
             await database[Collection.SAISONS].insert_one(seeded.saison)
@@ -235,12 +236,12 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def call_draw(
-    database: AsyncIOMotorDatabase,
-    client: AsyncIOMotorClient,
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
     *,
     saison_id: str = SAISON_ID,
     replace: bool = False,
@@ -265,7 +266,7 @@ def a_shape(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: i
     return FLSpielplanShape(number_of_groups=groups, teams_per_group=teams, qualifiers_per_group=qualifiers)
 
 
-async def stored_rules(database: AsyncIOMotorDatabase) -> dict[str, Any]:
+async def stored_rules(database: AsyncDatabase) -> dict[str, Any]:
     """The season's whole `rules` sub-document, read outside any transaction -- what a later request would find."""
 
     stored = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
@@ -274,7 +275,7 @@ async def stored_rules(database: AsyncIOMotorDatabase) -> dict[str, Any]:
     return stored["rules"]
 
 
-async def call_patch_rules(database: AsyncIOMotorDatabase, **overrides: Any) -> FLPatchSaisonResponse:
+async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLPatchSaisonResponse:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it changes.
 
     The seed's own dates, so `REQ-DATE-004` and `REQ-DATE-005` cannot be what a refusal is about.
@@ -301,7 +302,7 @@ async def call_patch_rules(database: AsyncIOMotorDatabase, **overrides: Any) -> 
     )
 
 
-async def counts_now(database: AsyncIOMotorDatabase, *, saison_id: str = SAISON_ID) -> tuple[int, int]:
+async def counts_now(database: AsyncDatabase, *, saison_id: str = SAISON_ID) -> tuple[int, int]:
     """The season's matchdays and fixtures, read outside any transaction -- what a later request would see."""
 
     return (
@@ -310,7 +311,7 @@ async def counts_now(database: AsyncIOMotorDatabase, *, saison_id: str = SAISON_
     )
 
 
-async def watermark_now(database: AsyncIOMotorDatabase) -> Any:
+async def watermark_now(database: AsyncDatabase) -> Any:
     stored = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
 
     return (stored or {}).get("spielplan")
@@ -360,7 +361,7 @@ class DrawnSeason:
 
 
 def a_drawn_season(url: str, *, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> DrawnSeason:
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> DrawnSeason:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> DrawnSeason:
         response = await call_draw(database, client)
 
         saison = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
@@ -670,7 +671,7 @@ class TestEachRefusalIsReachedThroughTheRoute:
         ],
     )
     def test_a_season_that_cannot_be_drawn_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, code: str, seed: Seed):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> RefusedDraw:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> RefusedDraw:
             with pytest.raises(DocumentConflictException) as refused:
                 await call_draw(database, client)
 
@@ -734,7 +735,7 @@ class TestAFailedDrawLeavesNothingBehind:
     def test_neither_collection_keeps_a_document_nor_the_season_a_watermark(
         self, mongo_replica_set_url: str, narrowed: Collection, refused_field: str
     ):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> AbortedDraw:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> AbortedDraw:
             store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
             await database.command("collMod", str(narrowed), validator=NARROWED_VALIDATORS[narrowed], validationLevel="strict")
 
@@ -793,7 +794,7 @@ class TestASecondDrawIsRefusedByTheWatermarkItLeft:
     def test_the_refusal_names_the_day_and_the_counts_rather_than_a_bare_fixture_total(self, mongo_replica_set_url: str):
         """The bare count is the fallback for a draw this endpoint did not write; a season carrying a watermark reads what is there instead."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await call_draw(database, client)
 
             with pytest.raises(DocumentConflictException) as refused:
@@ -816,7 +817,7 @@ class TestTheSeasonCacheIsDroppedOnlyByADrawThatCommitted:
     """One process, one cache, keyed by season id -- so dropping it early unlearns a season nothing has changed yet."""
 
     def test_a_committed_draw_drops_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
             await call_draw(database, client)
 
@@ -827,7 +828,7 @@ class TestTheSeasonCacheIsDroppedOnlyByADrawThatCommitted:
     def test_a_refused_draw_leaves_it_standing(self, mongo_replica_set_url: str):
         """The control: a drop before the refusal would pass the case above while costing every reader a re-read for nothing."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
 
             with pytest.raises(DocumentConflictException):
@@ -880,7 +881,7 @@ RECORDS_CLOSING_THE_WINDOW = (
 WIDER_PER_GROUP = 6
 
 
-async def document_ids(database: AsyncIOMotorDatabase) -> set[Any]:
+async def document_ids(database: AsyncDatabase) -> set[Any]:
     """Every id the season's two drawn collections hold, which is what says a document is GONE rather than replaced by as many."""
 
     found: set[Any] = set()
@@ -904,7 +905,7 @@ class ReplacedSeason:
 
 
 def a_replaced_season(url: str) -> ReplacedSeason:
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> ReplacedSeason:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> ReplacedSeason:
         first = await call_draw(database, client)
         # Read between the two calls: afterwards nothing tells a surviving row from a fresh one
         # carrying the same numbers.
@@ -1016,7 +1017,7 @@ def a_season_replaced_beside_another(url: str) -> NeighbouringSeasons:
         neighbour_entered=entry_rows(saison_id=NEIGHBOUR_SAISON_ID, offset=NEIGHBOUR_OID_OFFSET),
     )
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> NeighbouringSeasons:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> NeighbouringSeasons:
         neighbour_drawn = await call_draw(database, client, saison_id=NEIGHBOUR_SAISON_ID)
 
         # Demoted to `past` after its draw: what an unscoped removal takes from a finished season is
@@ -1077,7 +1078,7 @@ class TestAnAbortedReplaceLeavesTheSeasonStanding:
     def test_both_collections_keep_every_document_the_replace_would_have_removed(self, mongo_replica_set_url: str):
         """Move either delete outside the callback and this fails: the season would be left holding no schedule at all."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> AbortedDraw:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> AbortedDraw:
             await call_draw(database, client)
             standing = await document_ids(database)
 
@@ -1122,7 +1123,7 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
     def test_a_running_season_is_refused_the_replace_and_keeps_its_draw(self, mongo_replica_set_url: str):
         """Wire `replace` past the window and this fails: an active league would lose the schedule it is playing."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "active"}})
             standing = await document_ids(database)
@@ -1142,7 +1143,7 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
     def test_a_single_recorded_fixture_is_refused_the_replace(self, mongo_replica_set_url: str, record: dict[str, Any]):
         """Count these off anything but the stored rows and this fails; drop either booking from the projection and the last two do."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
             await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
             standing = await document_ids(database)
@@ -1169,7 +1170,7 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
     def test_a_drawn_future_season_with_nothing_recorded_is_refused_too(self, mongo_replica_set_url: str):
         """The state a carve-out for repairs would sit in: nothing recorded, nothing played, and the fixtures still standing."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
 
             with pytest.raises(DocumentConflictException) as refused:
@@ -1187,7 +1188,7 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
     def test_one_fixture_carrying_a_record_is_refused_as_well(self, mongo_replica_set_url: str, record: dict[str, Any]):
         """The same answer whatever stands against the season: this rule reads that fixtures exist, never what they hold."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
             await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
 
@@ -1204,7 +1205,7 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
     def test_the_rest_of_the_rules_still_go_through_on_a_drawn_season(self, mongo_replica_set_url: str):
         """The control: a patch refusing every rule of a drawn season passes both cases above while barring a typo's repair."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
 
             return await call_patch_rules(database, win_points=2)
@@ -1240,7 +1241,7 @@ class ReshapedSeason:
 def a_season_drawn_from(url: str, *, seed: Seed, shape: FLSpielplanShape | None, replace: bool = False) -> ReshapedSeason:
     """Draw `seed` from `shape`, twice where `replace` is set -- the first time off the seed's own rules."""
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> ReshapedSeason:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> ReshapedSeason:
         if replace:
             await call_draw(database, client)
 
@@ -1399,7 +1400,7 @@ class TestAShapeTheSeasonCannotBeDrawnFromIsRefused:
     def test_the_season_keeps_both_its_rules_and_its_draw(self, mongo_replica_set_url: str, code: str, shape: FLSpielplanShape, why: str):
         """Store the shape before these refusals and this fails: the season would hold numbers its standing fixtures contradict."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> RefusedReshape:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> RefusedReshape:
             await call_draw(database, client)
             standing = await document_ids(database)
 
@@ -1459,7 +1460,7 @@ class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
     def test_a_shape_implying_more_matchdays_than_the_season_has_days_is_refused(self, mongo_replica_set_url: str):
         """Drop the span call and this fails: six matchdays land in a four-day season, and no two may share a day."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentConflictException) as refused:
                 await call_draw(database, client, shape=the_tight_shape(qualifiers=WIDENED_QUALIFIERS))
 
@@ -1491,7 +1492,7 @@ class TestAnAbortedRedrawLeavesTheOldRulesWithTheOldDraw:
     def test_the_season_keeps_the_shape_its_standing_fixtures_were_drawn_from(self, mongo_replica_set_url: str):
         """Write the shape outside the session, or before `with_transaction`, and this fails: the rules would move and the draw would not."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)
             standing = await document_ids(database)
 
