@@ -570,3 +570,32 @@ def test_one_namespace_keeps_its_declared_order_and_stops_at_its_own_failure():
 
     assert "aktionen second" not in ran, "a namespace carried on past its own failure"
     assert "bewerbungen only" in ran, "an unrelated namespace was cancelled by someone else's failure"
+
+
+def test_the_declared_rank_is_global_and_not_each_lane_counting_from_zero():
+    """Two failures, and the earlier-declared one sits at a NON-ZERO position inside its lane.
+
+    Numbering per lane reports the other one. Every other case puts the failure first in its lane,
+    where the two numberings agree and the wrong one passes.
+    """
+    ran: list[str] = []
+
+    async def succeed(label: str) -> None:
+        ran.append(label)
+
+    async def fail(label: str) -> None:
+        ran.append(label)
+        raise RuntimeError(label)
+
+    declared: list[tuple[str, Any]] = [
+        ("aktionen", partial(succeed, "aktionen queue")),
+        ("aktionen", partial(fail, "declared second, lane position 1")),
+        ("bewerbungen", partial(fail, "declared third, lane position 0")),
+    ]
+
+    with pytest.raises(RuntimeError) as raised:
+        asyncio.run(_apply_concurrently(declared))
+
+    # The premise, not a detail: with the failure first in its own lane the case proves nothing.
+    assert ran.index("aktionen queue") < ran.index("declared second, lane position 1")
+    assert str(raised.value) == "declared second, lane position 1"
