@@ -65,7 +65,7 @@ export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBew
 export async function getOffenesBewerbungFenster(): Promise<FLBewerbungFensterResponse | null> {
   return runWithIncomingCorrelationId(() =>
     // `base`, spelled out beside the admin reads above: this endpoint is the public tier's, and an
-    // over-declared tier succeeds silently (`OPS-87`).
+    // over-declared tier succeeds silently.
     apiClient<FLBewerbungFensterResponse>("/bewerbungen/fenster", FLBewerbungFensterResponseSchema, { authType: "base" }).catch(
       (error: unknown) => {
         // 404 is "no season is taking applications", which is a state and not a failure.
