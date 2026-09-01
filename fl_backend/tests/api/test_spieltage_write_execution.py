@@ -13,10 +13,11 @@ from app.api.spieltage.schemas import FLPatchSpieltagPayload
 from app.api.spieltage.services import SPIELTAG_BEGINN_OUT_OF_ORDER, SPIELTAG_SPAN_BELOW_FIXTURES
 from app.core.exceptions import DocumentConflictException
 from tests.database import a_clean_database
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_spieltage_write_test"
+DATABASE_NAME = worker_database("fl_spieltage_write_test")
 
 SAISON_ID = "2026"
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607300001")

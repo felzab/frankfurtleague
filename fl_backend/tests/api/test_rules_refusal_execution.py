@@ -12,10 +12,11 @@ from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DR
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from tests.database import a_clean_database
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_rules_refusal_test"
+DATABASE_NAME = worker_database("fl_rules_refusal_test")
 
 SAISON_ID = "2026"
 PRIOR_SAISON_ID = "2025"

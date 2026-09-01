@@ -11,10 +11,11 @@ from app.api.teams.services import ENTRY_GRUPPE_FULL, ENTRY_GRUPPE_LOCKED, ENTRY
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.database import a_clean_database
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_saison_team_write_test"
+DATABASE_NAME = worker_database("fl_saison_team_write_test")
 
 SAISON_ID = "2026"
 
@@ -93,7 +94,7 @@ Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
 
 
 def on_a_season(
-    container: Any,
+    url: str,
     body: Body,
     *,
     saison_status: str = "future",
@@ -109,7 +110,7 @@ def on_a_season(
 
     async def _run() -> Any:
         # `spiele` by hand: the group move reads it, and nothing here seeds it in every case.
-        async with a_clean_database(container.get_connection_url(), DATABASE_NAME, collections=(Collection.SPIELE,)) as (_, database):
+        async with a_clean_database(url, DATABASE_NAME, collections=(Collection.SPIELE,)) as (_, database):
             await database[Collection.SAISONS].insert_one({"_id": SAISON_ID, "status": saison_status, "rules": dict(RULES)})
             await database[Collection.TEAMS].insert_many([club_document(team_id) for team_id in CLUB_NAMES])
             await database[Collection.SAISON_TEAMS].insert_many(
@@ -158,28 +159,28 @@ async def stored_row(database: AsyncIOMotorDatabase, team_id: ObjectId = ADLER) 
 class TestRecordingAnExitFromTheSeason:
     """An austritt is the only way out of a season -- there is no delete -- and it writes the record without moving anyone."""
 
-    def test_the_record_is_stored_and_echoed(self, mongo_container: Any):
+    def test_the_record_is_stored_and_echoed(self, mongo_url: str):
         def go(database: AsyncIOMotorDatabase) -> Awaitable[Any]:
             return _both(database, austritt=dict(EXIT))
 
-        response, row = on_a_season(mongo_container, go)
+        response, row = on_a_season(mongo_url, go)
 
         assert row["austritt"] == EXIT
         assert response.austritt is not None
         assert (response.austritt.type, response.austritt.datum) == ("rueckzug", "2026-04-01")
 
-    def test_the_group_is_left_where_it_was(self, mongo_container: Any):
+    def test_the_group_is_left_where_it_was(self, mongo_url: str):
         """The two writable fields travel together in one `$set`, so recording an exit must not reshuffle the groups."""
 
-        _, row = on_a_season(mongo_container, lambda database: _both(database, austritt=dict(EXIT)))
+        _, row = on_a_season(mongo_url, lambda database: _both(database, austritt=dict(EXIT)))
 
         assert row["gruppe"] == "A"
 
-    def test_a_started_season_with_fixtures_drawn_still_takes_one(self, mongo_container: Any):
+    def test_a_started_season_with_fixtures_drawn_still_takes_one(self, mongo_url: str):
         """The asymmetry the endpoint turns on: only a CHANGE of group is gated, and a club withdraws mid-season by definition."""
 
         _, row = on_a_season(
-            mongo_container,
+            mongo_url,
             lambda database: _both(database, austritt=dict(EXIT)),
             saison_status="active",
             spiele=[fixture_document(ADLER)],
@@ -187,18 +188,18 @@ class TestRecordingAnExitFromTheSeason:
 
         assert row["austritt"] == EXIT
 
-    def test_a_padded_reason_reaches_the_row_stripped(self, mongo_container: Any):
+    def test_a_padded_reason_reaches_the_row_stripped(self, mongo_url: str):
         """The reason is FREE TEXT and PUBLIC, and `min_length` counts CHARACTERS: spaces alone would stand on the team's page as a blank."""
 
         padded = f"  {EXIT['grund']}  "
 
-        response, row = on_a_season(mongo_container, lambda database: _both(database, austritt={**EXIT, "grund": padded}))
+        response, row = on_a_season(mongo_url, lambda database: _both(database, austritt={**EXIT, "grund": padded}))
 
         assert row["austritt"]["grund"] == EXIT["grund"]
         assert response.austritt is not None
         assert response.austritt.grund == EXIT["grund"]
 
-    def test_clearing_it_reinstates_the_club(self, mongo_container: Any):
+    def test_clearing_it_reinstates_the_club(self, mongo_url: str):
         """`austritt` has no default, so a payload omitting it is a 422; sending null is how the record is deliberately withdrawn."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
@@ -207,16 +208,16 @@ class TestRecordingAnExitFromTheSeason:
 
             return await stored_row(database)
 
-        assert on_a_season(mongo_container, body)["austritt"] is None
+        assert on_a_season(mongo_url, body)["austritt"] is None
 
 
 class TestMovingAClubBetweenGroups:
-    def test_the_move_lands_on_the_row(self, mongo_container: Any):
-        _, row = on_a_season(mongo_container, lambda database: _both(database, gruppe="B"))
+    def test_the_move_lands_on_the_row(self, mongo_url: str):
+        _, row = on_a_season(mongo_url, lambda database: _both(database, gruppe="B"))
 
         assert row["gruppe"] == "B"
 
-    def test_a_started_season_with_a_fixture_drawn_refuses_it_and_writes_nothing(self, mongo_container: Any):
+    def test_a_started_season_with_a_fixture_drawn_refuses_it_and_writes_nothing(self, mongo_url: str):
         """`REQ-ENTER`'s move lock through the route: the group phase is a round robin, so a move after the draw strands every fixture."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
@@ -225,12 +226,12 @@ class TestMovingAClubBetweenGroups:
 
             return conflict.value.error_code, await stored_row(database)
 
-        code, row = on_a_season(mongo_container, body, saison_status="active", spiele=[fixture_document(ADLER)])
+        code, row = on_a_season(mongo_url, body, saison_status="active", spiele=[fixture_document(ADLER)])
 
         assert code == ENTRY_GRUPPE_LOCKED
         assert row["gruppe"] == "A"
 
-    def test_a_full_destination_refuses_it(self, mongo_container: Any):
+    def test_a_full_destination_refuses_it(self, mongo_url: str):
         """The entry gate reached through the move: a group at its cap cannot take one more however the club arrives."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
@@ -239,21 +240,21 @@ class TestMovingAClubBetweenGroups:
 
             return conflict.value.error_code, await stored_row(database)
 
-        code, row = on_a_season(mongo_container, body, junctions=[junction_document(CRONBERG, "B")])
+        code, row = on_a_season(mongo_url, body, junctions=[junction_document(CRONBERG, "B")])
 
         assert code == ENTRY_GRUPPE_FULL
         assert row["gruppe"] == "A"
 
-    def test_a_group_the_season_does_not_run_refuses_it(self, mongo_container: Any):
+    def test_a_group_the_season_does_not_run_refuses_it(self, mongo_url: str):
         async def body(database: AsyncIOMotorDatabase) -> Any:
             with pytest.raises(DocumentConflictException) as conflict:
                 await call_patch(database, gruppe=UNOFFERED_GRUPPE)
 
             return conflict.value.error_code
 
-        assert on_a_season(mongo_container, body) == ENTRY_GRUPPE_NOT_OFFERED
+        assert on_a_season(mongo_url, body) == ENTRY_GRUPPE_NOT_OFFERED
 
-    def test_a_row_no_document_names_is_a_404(self, mongo_container: Any):
+    def test_a_row_no_document_names_is_a_404(self, mongo_url: str):
         """Read before anything is judged, so an unknown club is a missing row rather than a refusal about a group."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
@@ -262,7 +263,7 @@ class TestMovingAClubBetweenGroups:
 
             return await database[Collection.SAISON_TEAMS].count_documents({})
 
-        assert on_a_season(mongo_container, body) == 2
+        assert on_a_season(mongo_url, body) == 2
 
 
 class TestTheEchoCarriesTheSeasonsOwnIdentity:
@@ -272,19 +273,19 @@ class TestTheEchoCarriesTheSeasonsOwnIdentity:
         ("gruppe", "austritt"),
         [pytest.param("B", None, id="a group move"), pytest.param("A", EXIT, id="an austritt")],
     )
-    def test_both_operations_answer_with_the_stored_name(self, mongo_container: Any, gruppe: str, austritt: dict[str, Any] | None):
+    def test_both_operations_answer_with_the_stored_name(self, mongo_url: str, gruppe: str, austritt: dict[str, Any] | None):
         """Both, because the group change takes a branch the austritt skips and either could answer from the wrong place."""
 
         response, _ = on_a_season(
-            mongo_container, lambda database: _both(database, gruppe=gruppe, austritt=None if austritt is None else dict(austritt))
+            mongo_url, lambda database: _both(database, gruppe=gruppe, austritt=None if austritt is None else dict(austritt))
         )
 
         assert (response.name, response.shorthand) == PLAYED_AS[ADLER]
 
-    def test_the_answer_is_not_the_clubs_current_name(self, mongo_container: Any):
+    def test_the_answer_is_not_the_clubs_current_name(self, mongo_url: str):
         """The floor under the case above: `teams` holds a different name, so an echo reading the club would show it here."""
 
-        response, _ = on_a_season(mongo_container, lambda database: _both(database, gruppe="B"))
+        response, _ = on_a_season(mongo_url, lambda database: _both(database, gruppe="B"))
 
         assert (response.name, response.shorthand) != CLUB_NAMES[ADLER]
 
@@ -319,13 +320,13 @@ KONTAKTE = {
 class TestTheSeasonsKit:
     """Written by this PATCH alone, and stored on the junction rather than on the club."""
 
-    def test_it_lands_on_the_row_and_comes_back_on_the_echo(self, mongo_container: Any):
-        response, row = on_a_season(mongo_container, lambda database: _both(database, trikot_farbe="bordeaux"))
+    def test_it_lands_on_the_row_and_comes_back_on_the_echo(self, mongo_url: str):
+        response, row = on_a_season(mongo_url, lambda database: _both(database, trikot_farbe="bordeaux"))
 
         assert row["trikot_farbe"] == "bordeaux"
         assert response.trikot_farbe == "bordeaux"
 
-    def test_a_second_write_sending_null_clears_it(self, mongo_container: Any):
+    def test_a_second_write_sending_null_clears_it(self, mongo_url: str):
         """The wholesale replace, from the direction that removes data: unassigning a colour is one PATCH."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
@@ -334,32 +335,32 @@ class TestTheSeasonsKit:
 
             return await stored_row(database)
 
-        assert on_a_season(mongo_container, body)["trikot_farbe"] is None
+        assert on_a_season(mongo_url, body)["trikot_farbe"] is None
 
 
 class TestTheContactBlockThisPatchDoesNotOwn:
     """`PATCH .../kontakte` writes it. The `$set` here names no `kontakte` key, so the stored block stands."""
 
-    def test_a_stored_block_survives_a_group_move(self, mongo_container: Any):
-        _, row = on_a_season(mongo_container, lambda database: _both(database, gruppe="B"), seeded_kontakte=dict(KONTAKTE))
+    def test_a_stored_block_survives_a_group_move(self, mongo_url: str):
+        _, row = on_a_season(mongo_url, lambda database: _both(database, gruppe="B"), seeded_kontakte=dict(KONTAKTE))
 
         assert row["gruppe"] == "B"
         assert row["kontakte"] == KONTAKTE
 
-    def test_a_stored_block_survives_an_austritt(self, mongo_container: Any):
-        _, row = on_a_season(mongo_container, lambda database: _both(database, austritt=dict(EXIT)), seeded_kontakte=dict(KONTAKTE))
+    def test_a_stored_block_survives_an_austritt(self, mongo_url: str):
+        _, row = on_a_season(mongo_url, lambda database: _both(database, austritt=dict(EXIT)), seeded_kontakte=dict(KONTAKTE))
 
         assert row["kontakte"] == KONTAKTE
 
-    def test_the_echo_reports_the_stored_block_rather_than_a_null(self, mongo_container: Any):
+    def test_the_echo_reports_the_stored_block_rather_than_a_null(self, mongo_url: str):
         """The AFTER image, so a client is told what the row holds instead of reading silence as an empty block."""
 
-        response, _ = on_a_season(mongo_container, lambda database: _both(database, gruppe="B"), seeded_kontakte=dict(KONTAKTE))
+        response, _ = on_a_season(mongo_url, lambda database: _both(database, gruppe="B"), seeded_kontakte=dict(KONTAKTE))
 
         assert response.kontakte is not None
         assert response.kontakte.trainer is not None and response.kontakte.trainer.email == KONTAKTPERSON["email"]
 
-    def test_a_row_stored_with_no_block_at_all_still_echoes(self, mongo_container: Any):
+    def test_a_row_stored_with_no_block_at_all_still_echoes(self, mongo_url: str):
         """A row entered before the key existed: the validator does not require it, so `.get` is what keeps the echo alive."""
 
         async def body(database: AsyncIOMotorDatabase) -> Any:
@@ -367,12 +368,12 @@ class TestTheContactBlockThisPatchDoesNotOwn:
 
             return await call_patch(database, gruppe="B"), await stored_row(database)
 
-        response, row = on_a_season(mongo_container, body)
+        response, row = on_a_season(mongo_url, body)
 
         assert "kontakte" not in row
         assert response.kontakte is None
 
-    def test_a_contact_value_the_write_side_refuses_does_not_block_the_row(self, mongo_container: Any):
+    def test_a_contact_value_the_write_side_refuses_does_not_block_the_row(self, mongo_url: str):
         """Why no `kontakte` here: a contact is shapeless on read, bounded on write (`docs/backend/spec.md :: I36`).
 
         A round-tripped block would 422 every save this page can make, on `kontakte.*` paths it
@@ -381,7 +382,7 @@ class TestTheContactBlockThisPatchDoesNotOwn:
 
         unwritable = {**KONTAKTE, "trainer": {**KONTAKTPERSON, "telefon": "nicht bekannt"}}
 
-        _, row = on_a_season(mongo_container, lambda database: _both(database, gruppe="B"), seeded_kontakte=unwritable)
+        _, row = on_a_season(mongo_url, lambda database: _both(database, gruppe="B"), seeded_kontakte=unwritable)
 
         assert row["gruppe"] == "B"
         assert row["kontakte"]["trainer"]["telefon"] == "nicht bekannt"

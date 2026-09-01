@@ -1,6 +1,11 @@
 from pydantic import SecretStr
 
 from app.core.config import BackendConfig
+from tests.worker import worker_database
+
+# The base name of the corpus the pymongo-seeded suites share. What they seed and what the app under
+# test reads are both `db_base_name` below, so the scoping applied once here reaches both.
+CORPUS_DATABASE = "frankfurtleague_test"
 
 
 def build_test_config() -> BackendConfig:
@@ -13,7 +18,7 @@ def build_test_config() -> BackendConfig:
         api_trusted_hosts="testserver,localhost",
         api_cors_allowed_origins="http://localhost:3000",
         mongodb_uri=SecretStr("mongodb://localhost:27017/frankfurtleague_test"),
-        db_base_name="frankfurtleague_test",
+        db_base_name=worker_database(CORPUS_DATABASE),
         # Distinct on purpose: `verify_api_key` compares with `compare_digest`, so equal values would
         # let a test asserting that the admin router rejects the base key pass vacuously.
         internal_api_key_base=SecretStr("test-key-base"),

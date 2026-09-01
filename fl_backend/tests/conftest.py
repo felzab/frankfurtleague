@@ -3,12 +3,15 @@ import logging
 import re
 import time
 from collections.abc import Callable, Iterator
+from contextlib import ExitStack, contextmanager
 from typing import Any
 
 import pytest
 from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
 from pymongo.database import Database
+
+from tests.worker import worker_database
 
 # testcontainers' reaper teardown logs after pytest closes its capture stream, printing a traceback on
 # a passing run. Not `raiseExceptions = False`: that would hide real handler failures too.
@@ -287,36 +290,38 @@ def saison() -> PayloadFactory:
     )
 
 
-@pytest.fixture(scope="session")
-def mongo_container() -> Iterator[Any]:
-    """
-    Imported inside the function, so the default tier never pays for `testcontainers`.
+# What `pytest_configure_node` hands each worker, so one pair of containers serves the whole run.
+STANDALONE_KEY = "fl_standalone_mongodb_url"
+REPLICA_SET_KEY = "fl_replica_set_mongodb_url"
 
-    Yields the container rather than a client: pymongo and Motor each build their own.
-    """
+REPLICA_SET_ELECTION_TIMEOUT_S = 60
+
+# The controller's own, never a worker's: a worker process holds neither, and both are empty on a
+# serial run, where the fixtures below start containers of their own.
+_SHARED_SERVERS: dict[str, str] = {}
+_SHARED_STACK = ExitStack()
+
+# `fl_backend/pyproject.toml :: addopts`, the one run wanting no server. A cost heuristic: it names
+# the marker deselecting every test that would ask for one, so a stale spelling costs two idle
+# containers and nothing else.
+_DEFAULT_TIER_MARKEXPR = "not db"
+
+
+@contextmanager
+def _standalone_mongod() -> Iterator[str]:
+    """Imported inside the function, so the default tier never pays for `testcontainers`."""
+
     # The `community` path is the current one; the bare `testcontainers.mongodb` still resolves, on
     # a DeprecationWarning.
     from testcontainers.community.mongodb import MongoDbContainer
 
     with MongoDbContainer("mongo:8") as container:
-        yield container
+        yield str(container.get_connection_url())
 
 
-@pytest.fixture(scope="session")
-def mongo_database(mongo_container: Any) -> Iterator[Database]:
-    client = mongo_container.get_connection_client()
-    try:
-        yield client["fl_test"]
-    finally:
-        client.close()
-
-
-REPLICA_SET_ELECTION_TIMEOUT_S = 60
-
-
-@pytest.fixture(scope="session")
-def mongo_replica_set_url() -> Iterator[str]:
-    """A standalone `mongod` answers any transaction with `IllegalOperation`, so `mongo_container` cannot serve the transactional endpoints."""
+@contextmanager
+def _replica_set_mongod() -> Iterator[str]:
+    """`_standalone_mongod`'s server answers any transaction with `IllegalOperation`, so the transactional endpoints need this second one."""
 
     from testcontainers.core.container import DockerContainer
     from testcontainers.core.wait_strategies import LogMessageWaitStrategy
@@ -348,3 +353,69 @@ def mongo_replica_set_url() -> Iterator[str]:
             client.close()
 
         yield url
+
+
+def pytest_configure_node(node: Any) -> None:
+    """xdist's controller hook, unreached without `-n`.
+
+    A worker is a session of its own and would start both servers. The controller also KEEPS them:
+    testcontainers' reaper reclaims a container when its starter disconnects.
+    """
+
+    if node.config.option.markexpr.strip() == _DEFAULT_TIER_MARKEXPR:
+        return
+
+    if not _SHARED_SERVERS:
+        _SHARED_SERVERS[STANDALONE_KEY] = _SHARED_STACK.enter_context(_standalone_mongod())
+        _SHARED_SERVERS[REPLICA_SET_KEY] = _SHARED_STACK.enter_context(_replica_set_mongod())
+
+    node.workerinput.update(_SHARED_SERVERS)
+
+
+def pytest_unconfigure(config: pytest.Config) -> None:
+    """Runs in the controller and in every worker; only the controller ever filled the stack."""
+
+    if _SHARED_SERVERS:
+        _SHARED_SERVERS.clear()
+        _SHARED_STACK.close()
+
+
+def _shared(request: pytest.FixtureRequest, key: str) -> str | None:
+    """The controller's url for this server, or `None` on a serial run, where this process starts its own."""
+
+    return getattr(request.config, "workerinput", {}).get(key)
+
+
+@pytest.fixture(scope="session")
+def mongo_url(request: pytest.FixtureRequest) -> Iterator[str]:
+    """A url rather than a container: a connection string is all the suites take, and under `-n` the process holding it runs no test."""
+
+    shared = _shared(request, STANDALONE_KEY)
+    if shared is not None:
+        yield shared
+        return
+
+    with _standalone_mongod() as url:
+        yield url
+
+
+@pytest.fixture(scope="session")
+def mongo_replica_set_url(request: pytest.FixtureRequest) -> Iterator[str]:
+    """The transactional server; see `_replica_set_mongod` for why it is a second one."""
+
+    shared = _shared(request, REPLICA_SET_KEY)
+    if shared is not None:
+        yield shared
+        return
+
+    with _replica_set_mongod() as url:
+        yield url
+
+
+@pytest.fixture(scope="session")
+def mongo_database(mongo_url: str) -> Iterator[Database]:
+    client = MongoClient(mongo_url)
+    try:
+        yield client[worker_database("fl_test")]
+    finally:
+        client.close()

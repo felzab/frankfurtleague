@@ -31,12 +31,13 @@ from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from tests.config import build_test_config
 from tests.database import a_clean_database, a_clean_database_sync
+from tests.worker import worker_database
 
 # Module level, as `tests/api/test_bewerbung_triage_execution.py` marks its suite: every test below
 # reaches a real mongod.
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_bewerbung_submission_test"
+DATABASE_NAME = worker_database("fl_bewerbung_submission_test")
 
 SAISON_ID = "2026"
 TODAY = "2026-04-01"

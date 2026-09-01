@@ -22,8 +22,9 @@ from app.core.security import verify_access_admin, verify_access_base, verify_ac
 from app.main import create_app
 from tests.config import build_test_config
 from tests.database import a_clean_database
+from tests.worker import worker_database
 
-DATABASE_NAME = "fl_saison_contents_admin_read_test"
+DATABASE_NAME = worker_database("fl_saison_contents_admin_read_test")
 
 ARCHIVED = "2024"
 RUNNING = "2025"

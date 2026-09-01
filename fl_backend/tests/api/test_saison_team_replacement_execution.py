@@ -18,10 +18,11 @@ from app.api.teams.services import (
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.database import a_clean_database
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_replacement_test"
+DATABASE_NAME = worker_database("fl_replacement_test")
 
 SAISON_ID = "2026"
 PRIOR_SAISON_ID = "2025"

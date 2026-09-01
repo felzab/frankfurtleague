@@ -10,10 +10,11 @@ from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
 from app.core.recording import Operation, build_redaction_filter, build_redaction_update
 from tests.database import a_clean_database
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_aktionen_validator_test"
+DATABASE_NAME = worker_database("fl_aktionen_validator_test")
 
 # Asserted on rather than caught broadly, so an unrelated failure cannot pass as a rejection.
 DOCUMENT_VALIDATION_FAILED = 121
@@ -73,11 +74,11 @@ def recorded_row(**overrides: Any) -> dict[str, Any]:
 Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
 
 
-def on_a_database(container: Any, body: Body) -> Any:
+def on_a_database(url: str, body: Body) -> Any:
     """One client and event loop per call: Motor binds to the loop it first runs on."""
 
     async def _run() -> Any:
-        async with a_clean_database(container.get_connection_url(), DATABASE_NAME, constraints=True) as (_, database):
+        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
             return await body(database)
 
     return asyncio.run(_run())
@@ -99,7 +100,7 @@ def on_a_replica_set(url: str, body: ClientBody) -> Any:
     return asyncio.run(_run())
 
 
-def insert_outcome(container: Any, row: dict[str, Any]) -> str:
+def insert_outcome(url: str, row: dict[str, Any]) -> str:
     async def body(database: AsyncIOMotorDatabase) -> str:
         try:
             await database[Collection.AKTIONEN].insert_one(row)
@@ -108,7 +109,7 @@ def insert_outcome(container: Any, row: dict[str, Any]) -> str:
             return "rejected"
         return "accepted"
 
-    return on_a_database(container, body)
+    return on_a_database(url, body)
 
 
 def test_the_rows_every_real_write_builds_are_all_accepted(mongo_replica_set_url: str):
@@ -203,9 +204,9 @@ def test_a_removals_row_is_selected_by_an_erasure_shaped_redaction(mongo_replica
     assert [image["shorthand"] for image in rows[1]["before"]] == ["CS"] and rows[1]["redacted_at"] is None
 
 
-def test_the_base_row_every_rejection_below_deviates_from_is_accepted(mongo_container: Any):
+def test_the_base_row_every_rejection_below_deviates_from_is_accepted(mongo_url: str):
     """A validator refusing everything enforces its rule perfectly and makes the log unwritable."""
-    assert insert_outcome(mongo_container, recorded_row()) == "accepted"
+    assert insert_outcome(mongo_url, recorded_row()) == "accepted"
 
 
 @pytest.mark.parametrize(
@@ -226,8 +227,8 @@ def test_the_base_row_every_rejection_below_deviates_from_is_accepted(mongo_cont
     ],
     ids=lambda value: value if isinstance(value, str) else "",
 )
-def test_a_malformed_row_is_rejected(mongo_container: Any, row: dict[str, Any], why: str):
-    assert insert_outcome(mongo_container, row) == "rejected", f"the validator let through {why}"
+def test_a_malformed_row_is_rejected(mongo_url: str, row: dict[str, Any], why: str):
+    assert insert_outcome(mongo_url, row) == "rejected", f"the validator let through {why}"
 
 
 @pytest.mark.parametrize(
@@ -263,6 +264,6 @@ def test_a_malformed_row_is_rejected(mongo_container: Any, row: dict[str, Any], 
     ],
     ids=lambda value: value if isinstance(value, str) else "",
 )
-def test_every_shape_a_recorded_row_legitimately_takes_is_accepted(mongo_container: Any, row: dict[str, Any], why: str):
+def test_every_shape_a_recorded_row_legitimately_takes_is_accepted(mongo_url: str, row: dict[str, Any], why: str):
     """One validator covers every logged collection and every operation, so a shape it refuses is a write the application cannot record."""
-    assert insert_outcome(mongo_container, row) == "accepted", f"the validator refused {why}"
+    assert insert_outcome(mongo_url, row) == "accepted", f"the validator refused {why}"

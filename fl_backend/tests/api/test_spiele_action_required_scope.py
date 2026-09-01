@@ -78,18 +78,16 @@ def spiel_document(
 
 
 @pytest.fixture
-def seeded_url(mongo_container: Any) -> Iterator[str]:
+def seeded_url(mongo_url: str) -> Iterator[str]:
     """Two seasons, in the database `build_test_config` names.
 
     The other season carries BOTH halves: a fixture needing attention, and a stored double entry,
     so a scope reaching only one half still fails a case here.
     """
 
-    url = str(mongo_container.get_connection_url())
-
-    client = MongoClient(url)
+    client = MongoClient(mongo_url)
     try:
-        database = a_clean_database_sync(client, url, build_test_config().db_base_name)
+        database = a_clean_database_sync(client, mongo_url, build_test_config().db_base_name)
         database[Collection.SPIELE].insert_many(
             [
                 spiel_document(WANTED, saison_id=SAISON, spiel_nr=1, spieltag_id=SPIELTAG),
@@ -98,7 +96,7 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
             ]
         )
 
-        yield url
+        yield mongo_url
     finally:
         client.close()
 

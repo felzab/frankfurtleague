@@ -15,10 +15,11 @@ from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from tests.database import a_clean_database
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_activation_isolation_test"
+DATABASE_NAME = worker_database("fl_activation_isolation_test")
 
 OUTGOING = "2025"
 TARGET = "2026"

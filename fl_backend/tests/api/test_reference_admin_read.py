@@ -158,19 +158,18 @@ def created(uri: str, payload: Mapping[str, Any], *, selection_timeout_ms: int) 
 
 
 @pytest.fixture
-def seeded_url(mongo_container: Any) -> Iterator[str]:
+def seeded_url(mongo_url: str) -> Iterator[str]:
     """The venue and both referees, in the database `build_test_config` names -- the one the app resolves its collections from."""
 
-    url = str(mongo_container.get_connection_url())
     database_name = build_test_config().db_base_name
 
-    client = MongoClient(url)
+    client = MongoClient(mongo_url)
     try:
-        database = a_clean_database_sync(client, url, database_name)
+        database = a_clean_database_sync(client, mongo_url, database_name)
         database[Collection.SPIELORTE].insert_one(spielort_document())
         database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_documents())
 
-        yield url
+        yield mongo_url
     finally:
         client.close()
 

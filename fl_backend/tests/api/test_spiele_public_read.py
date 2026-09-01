@@ -188,20 +188,19 @@ def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
 
 
 @pytest.fixture
-def seeded_url(mongo_container: Any) -> Iterator[str]:
+def seeded_url(mongo_url: str) -> Iterator[str]:
     """The fixture and its junction row, in the database `build_test_config` names -- the one the app resolves its collections from."""
 
-    url = str(mongo_container.get_connection_url())
     database_name = build_test_config().db_base_name
 
-    client = MongoClient(url)
+    client = MongoClient(mongo_url)
     try:
-        database = a_clean_database_sync(client, url, database_name)
+        database = a_clean_database_sync(client, mongo_url, database_name)
         invalidate_saison_cache()
         database[Collection.SPIELE].insert_one(stored_document())
         database[Collection.SAISON_TEAMS].insert_one(junction_row())
 
-        yield url
+        yield mongo_url
     finally:
         client.close()
 

@@ -10,12 +10,13 @@ from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from tests.database import a_clean_database
+from tests.worker import worker_database
 
 # Every test here writes through a real mongod: the point of the endpoint is which KEYS a `$set`
 # leaves alone, and nothing short of a stored document can show that.
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_saison_team_kontakte_test"
+DATABASE_NAME = worker_database("fl_saison_team_kontakte_test")
 
 SAISON_ID = "2026"
 # A second season the SAME club holds a row in, seeded first so it is what a filter missing
