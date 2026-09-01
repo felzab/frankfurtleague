@@ -1,4 +1,4 @@
-"""SCRIPTS · the documentation gate, one module per seam the checks divide along.
+"""SCRIPTS · the documentation gate: the kernel's readers, the corpus checks, the branch checks, and the copy rules.
 
 The kernel is imported here so its floor guard runs before a sibling is compiled, a SyntaxError
 raised while compiling one exiting 1 -- a finding's code. This file's own syntax is the one thing

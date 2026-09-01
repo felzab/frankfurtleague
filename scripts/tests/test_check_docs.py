@@ -1382,7 +1382,7 @@ def test_a_word_changed_inside_an_older_block_is_not_this_branch_s() -> None:
     Driven apart from the case above: silence proves nothing while a second block is speaking.
     """
     _reset()
-    cap = _module("docs_gate.structure").COMMENT_CHAR_CAP
+    cap = _module("docs_gate.branch").COMMENT_CHAR_CAP
     legacy = " ".join((LEGACY_OPENING, LEGACY_MIDDLE, LEGACY_CLOSING))
     # The premise, asserted: a corpus block INSIDE the bound would let this case pass on nothing.
     assert len(legacy) > cap, "the corpus block is inside the bound, so nothing here is exempted"
@@ -1470,7 +1470,7 @@ def test_the_comment_bounds_read_a_file_by_its_format_not_its_suffix() -> None:
     # A first line that opens no comment: a leading run of hashes is the module header, which INC-2
     # bounds instead and which `comment_runs` therefore steps over.
     raw = _page("FROM scratch", *block)
-    bounds = _module("docs_gate.structure").check_comment_length
+    bounds = _module("docs_gate.branch").check_comment_length
     found = bounds(_gate().root / DOCKERFILE, raw, set(range(1, len(block) + 2)))
     assert [finding.check for finding in found] == ["comment-length"], "the block was read by the wrong format's reader"
 

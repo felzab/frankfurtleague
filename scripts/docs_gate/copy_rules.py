@@ -408,8 +408,8 @@ def _renders_date(source: str) -> bool:
     return LITERAL_DATE_RE.search(source) is not None or any(f"{name}(" in source for name in DATE_FORMATTERS)
 
 
-def _neighbour(span: Copy, at: int, *, ahead: bool) -> str:
-    """The character a dash renders against, or `""` at the span's edge.
+def _beside(span: Copy, at: int, *, ahead: bool) -> tuple[str, int]:
+    """The character a dash renders against and its offset, or `("", -1)` at the span's edge.
 
     A span built from separate elements is judged on what it shows, not on the markup between the
     parts (§1.12), so this crosses the whitespace JSX discards.
@@ -418,18 +418,15 @@ def _neighbour(span: Copy, at: int, *, ahead: bool) -> str:
     index = at + 1 if ahead else at - 1
     while 0 <= index < len(text) and text[index].isspace():
         index += 1 if ahead else -1
-    return text[index] if 0 <= index < len(text) else ""
+    return (text[index], index) if 0 <= index < len(text) else ("", -1)
 
 
 def _flank(span: Copy, at: int, *, ahead: bool) -> str | None:
     """The source of the value rendering beside a dash, or None where a character renders there."""
-    text = span.text
-    index = at + 1 if ahead else at - 1
-    while 0 <= index < len(text) and text[index].isspace():
-        index += 1 if ahead else -1
-    if not (0 <= index < len(text)) or text[index] != HOLE:
+    char, index = _beside(span, at, ahead=ahead)
+    if char != HOLE:
         return None
-    ordinal = text.count(HOLE, 0, index)
+    ordinal = span.text.count(HOLE, 0, index)
     return span.holes[ordinal] if ordinal < len(span.holes) else None
 
 
@@ -456,7 +453,7 @@ def _is_punctuation(span: Copy, at: int) -> bool:
         return behind.isspace() or ahead.isspace() or (behind == HOLE and ahead == HOLE)
     if not behind or not ahead or not all(char.isspace() or char == HOLE for char in (behind, ahead)):
         return False
-    return (_neighbour(span, at, ahead=True) != HOLE or _neighbour(span, at, ahead=False) != HOLE) and is_german(span)
+    return (_beside(span, at, ahead=True)[0] != HOLE or _beside(span, at, ahead=False)[0] != HOLE) and is_german(span)
 
 
 def _dash_findings(rel: str, span: Copy) -> list[Finding]:

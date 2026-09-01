@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cache, partial
 from pathlib import Path
@@ -16,11 +17,80 @@ from .kernel import (
     _read_text,
     _scan_body,
     _skipped,
+    comment_runs,
+    comment_style,
     git,
+    roadmap_ids,
     untracked_files,
 )
-from .perkind import roadmap_ids
-from .structure import INCODE_SCOPES, check_comment_length
+
+# The subtrees chapter 2 binds, which is where its comment rules are checked.
+INCODE_SCOPES: Final[tuple[str, ...]] = ("fl_frontend/src/", "fl_backend/app/", "fl_backend/tests/", "scripts/", ".claude/hooks/")
+
+# INC-9's one bound, the same for every shape: inline comment, symbol doc and test docstring alike.
+COMMENT_CHAR_CAP: Final = 250
+
+
+def _block_text(block: list[str]) -> str:
+    """The one line INC-9's character bound is measured over."""
+    return " ".join(line for line in block if line).strip()
+
+
+def _over_bound(block: list[str]) -> bool:
+    """Whether a comment block breaks INC-9's character bound."""
+    return len(_block_text(block)) > COMMENT_CHAR_CAP
+
+
+def _openings_over_bound(text: str, style: str) -> frozenset[str]:
+    """The opening line of every comment block in some text that breaks the bound.
+
+    The opening is what identifies a block across an edit deeper inside it, where a line number
+    moves with every insertion above.
+    """
+    return frozenset(_opening(block) for _, block in comment_runs(text, style) if _over_bound(block))
+
+
+def _opening(block: list[str]) -> str:
+    """A block's first line with anything to say, which is how one block is told from another."""
+    return next((line for line in block if line), "")
+
+
+def check_comment_length(path: Path, raw: str, added: set[int], fork_text: Callable[[], str | None] | None = None) -> list[Finding]:
+    """A comment block this branch touched, unless it was over the bound before the branch was.
+
+    Requiring the WHOLE block to be added missed every one a branch lengthened; failing a word
+    changed inside an older block is `/docs:audit-pr`'s slice (CUR-6).
+    """
+    rel = path.relative_to(REPO_ROOT).as_posix()
+    # Derived here so no caller can pass a suffix a Dockerfile does not have: read for `//` it
+    # would yield no block, and the check would run, report nothing, and look wired.
+    style = comment_style(path)
+
+    found: list[Finding] = []
+    older: frozenset[str] | None = None
+    for first_line, block in comment_runs(raw, style):
+        numbers = range(first_line, first_line + len(block))
+        if added.isdisjoint(numbers) or not _over_bound(block):
+            continue
+        if older is None:
+            # Read here rather than per call: the fork costs a git spawn per file, and a file whose
+            # touched blocks all keep the bound never needs one.
+            before = fork_text() if fork_text is not None else None
+            older = frozenset() if before is None else _openings_over_bound(before, style)
+        if _opening(block) in older:
+            continue
+        text = _block_text(block)
+        found.append(
+            Finding(
+                "fail",
+                "comment-length",
+                rel,
+                f"the comment block at line {first_line} runs {len(text)} characters"
+                f" -- INC-9 caps a block at {COMMENT_CHAR_CAP}, every shape alike",
+            )
+        )
+    return found
+
 
 # COR-3's banned shapes. Reported, never failed: "the former ... the latter" is ordinary English, so
 # every hit has to be read by a person.
@@ -54,37 +124,11 @@ REVIEW_REF_RE: Final = re.compile(
 
 # COR-4's enumerations. Reported, never failed: "the four admin tables" and "four bytes" are the
 # same word. `one` and `first` name no count, and a count past twenty is written in digits.
-COUNT_WORDS: Final[tuple[str, ...]] = (
-    "two",
-    "three",
-    "four",
-    "five",
-    "six",
-    "seven",
-    "eight",
-    "nine",
-    "ten",
-    "eleven",
-    "twelve",
-    "thirteen",
-    "fourteen",
-    "fifteen",
-    "sixteen",
-    "seventeen",
-    "eighteen",
-    "nineteen",
-    "twenty",
+COUNT_WORDS: Final[tuple[str, ...]] = tuple(
     # `both` is absent deliberately: COR-4 catches a count that rots SILENTLY, and this one cannot.
     # It closes a set of exactly two, so a third member makes it read as broken rather than as stale.
-    "second",
-    "third",
-    "fourth",
-    "fifth",
-    "sixth",
-    "seventh",
-    "eighth",
-    "ninth",
-    "tenth",
+    "two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen"
+    " seventeen eighteen nineteen twenty second third fourth fifth sixth seventh eighth ninth tenth".split()
 )
 COUNT_RE: Final = re.compile(rf"\b(?:{'|'.join(COUNT_WORDS)})\b", re.IGNORECASE)
 

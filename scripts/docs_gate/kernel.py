@@ -145,7 +145,7 @@ class Finding:
     """One problem, already resolved to whether it fails the run.
 
     Not `checker_kernel.py :: Finding`, which validates against nothing;
-    `scripts/docs_gate/branch.py` holds both in one namespace, so the collision is live.
+    `scripts/docs_gate/checks.py` holds both in one namespace, so the collision is live.
     """
 
     severity: Severity
@@ -445,6 +445,152 @@ def comment_style(path: Path) -> str:
     return path.suffix if path.suffix in SOURCE_SUFFIXES or path.suffix == ".json" else ".sh"
 
 
+# A directive stays above the header (INC-7), so the header scan steps over it.
+DIRECTIVE_RE: Final = re.compile(r"^\s*([\"'])use (client|server|strict)\1;?\s*$")
+PY_DOCSTRING_OPEN_RE: Final = re.compile(r"^[rRuU]?(\"\"\"|''')")
+
+
+def _module_header(raw: str, suffix: str) -> list[str] | None:
+    """The module header's lines, delimiters included, or None where there is none.
+
+    A shebang is a directive, so counting it would spend a capped line. An unterminated delimiter
+    runs to the file's end, which the line cap then fails.
+    """
+    lines = raw.split("\n")
+    i = 0
+    if suffix == ".sh":
+        while i < len(lines) and (not lines[i].strip() or lines[i].startswith("#!")):
+            i += 1
+        start = i
+        while i < len(lines) and lines[i].lstrip().startswith("#"):
+            i += 1
+        return lines[start:i] or None
+    if suffix == ".py":
+        while i < len(lines) and (not lines[i].strip() or lines[i].lstrip().startswith("#")):
+            i += 1
+        if i == len(lines):
+            return None
+        opened = PY_DOCSTRING_OPEN_RE.match(lines[i].lstrip())
+        if opened is None:
+            return None
+        quote = opened.group(1)
+        if quote in lines[i].lstrip()[opened.end() :]:  # a one-line docstring closes on its own line
+            return lines[i : i + 1]
+        start = i
+        i += 1
+        while i < len(lines) and quote not in lines[i]:
+            i += 1
+        return lines[start : i + 1]
+
+    while i < len(lines) and (not lines[i].strip() or DIRECTIVE_RE.match(lines[i])):
+        i += 1
+    if i == len(lines) or not lines[i].lstrip().startswith("/*"):
+        return None
+    start = i
+    while i < len(lines) and "*/" not in lines[i]:
+        i += 1
+    return lines[start : i + 1]
+
+
+def _header_line(line: str, suffix: str) -> str:
+    """One header line with its comment decoration removed -- the text INC-2's shapes apply to."""
+    text = line.strip()
+    if suffix == ".sh":
+        return text.lstrip("#").strip()
+    if suffix == ".py":
+        text = PY_DOCSTRING_OPEN_RE.sub("", text)
+        return text.removesuffix('"""').removesuffix("'''").strip()
+    text = text.removesuffix("*/").strip()
+    for opener in ("/**", "/*", "*"):
+        if text.startswith(opener):
+            return text[len(opener) :].strip()
+    return text
+
+
+def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
+    """Each run of consecutive comment lines below the module header, as (first line, text lines).
+
+    Markers come off, being what the bound does not measure. The header is skipped -- INC-2 caps
+    it. A symbol doc is a run like any other (INC-9).
+    """
+    lines = raw.split("\n")
+    start_at = 0
+    if (header := _module_header(raw, suffix)) is not None:
+        for index in range(len(lines)):
+            if lines[index : index + len(header)] == header:
+                start_at = index + len(header)
+                break
+
+    runs: list[tuple[int, list[str]]] = []
+    current: list[str] = []
+    first_line = 0
+    closing: str | None = None
+    hash_only = suffix in (".py", ".sh")
+
+    def flush() -> None:
+        nonlocal current, first_line
+        if current and any(current):
+            runs.append((first_line, current))
+        current = []
+
+    for number, line in enumerate(lines[start_at:], start=start_at + 1):
+        text = line.strip()
+        if closing is not None:  # inside a block comment or a docstring
+            current.append(_header_line(text.removesuffix(closing), suffix))
+            if closing in text:
+                closing = None
+                flush()
+            continue
+
+        opened = PY_DOCSTRING_OPEN_RE.match(text) if hash_only else None
+        if opened is not None:
+            flush()
+            first_line = number
+            body = text[opened.end() :]
+            quote = opened.group(1)
+            current.append(body.removesuffix(quote).strip())
+            if quote in body:
+                flush()
+            else:
+                closing = quote
+            continue
+
+        # `{/* … */}` opens with a brace, so it matches neither arm below and every JSX comment
+        # would go unbounded. Tested before the plain `/*` arm, which the brace hides it from.
+        if not hash_only and text.startswith("{/*"):
+            flush()
+            first_line = number
+            body = text.lstrip("{/*").strip()
+            current.append(body.removesuffix("*/}").strip())
+            if "*/}" in text[3:]:
+                flush()
+            else:
+                closing = "*/}"
+            continue
+
+        if not hash_only and text.startswith("/*"):
+            flush()
+            first_line = number
+            body = text.lstrip("/*").strip()
+            current.append(body.removesuffix("*/").strip())
+            if "*/" in text[2:]:
+                flush()
+            else:
+                closing = "*/"
+            continue
+
+        marker = "#" if hash_only else "//"
+        if text.startswith(marker):
+            if not current:
+                first_line = number
+            current.append(text.lstrip("#").strip() if hash_only else text[2:].strip())
+            continue
+        flush()
+
+    flush()
+    return runs
+
+
 def _of_kind(candidates: Iterable[Path]) -> tuple[Path, ...]:
     """The corpus files in a listing: a scanned kind, on disk, outside the skipped directories.
 
@@ -521,6 +667,24 @@ def tracked_page(rel: str) -> Path | None:
     Reading one off disk would pass a page written and never added.
     """
     return next((path for spelling, path in _tracked_index() if spelling.as_posix() == rel), None)
+
+
+# The id is captured loose, so a malformed one is caught against the vocabulary, not skipped.
+ROADMAP_ID_DEF_RE: Final = re.compile(r"^[ \t]*\|\s*(?:\d+\s*\|\s*)?\*{0,2}([A-Z]{1,4}-\d{1,3})\*{0,2}\s*\|", re.MULTILINE)
+
+
+@cache
+def roadmap_ids() -> frozenset[str]:
+    """Every hyphenated id the roadmap tables define.
+
+    Read rather than guessed: the prefixes are open-ended, so a pattern would catch `UTF-8`. An
+    unhyphenated id is left out, that shape occurring in code for unrelated reasons.
+    """
+    ids: set[str] = set()
+    for page in tracked_glob(ROADMAP_GLOB):
+        if (text := _read_text(page)[0]) is not None:
+            ids.update(ROADMAP_ID_DEF_RE.findall(text))
+    return frozenset(ids)
 
 
 def atx_heading(line: str, level: int | None = None) -> str | None:
