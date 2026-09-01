@@ -27,7 +27,7 @@ from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
 from tests.config import build_test_config
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 # Module level, as `tests/api/test_spieler_erasure_execution.py` marks its suite: every test below
 # reaches a real mongod, and a marker per test would be one a new test could be written without.
@@ -177,8 +177,7 @@ Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
 def on_a_league(url: str, body: Body, *, saison_status: str = "future", occupied: int = 0, mutates_schema: bool = False) -> Any:
     """The SHIPPED validators and indexes, so a document production would refuse fails here too.
 
-    One client and event loop per call: Motor binds to the loop it first ran on. `occupied` fills
-    group `A`, the only route to `REQ-ENTER-003`.
+    `occupied` fills group `A`, the only route to `REQ-ENTER-003`.
     """
 
     async def _run() -> Any:
@@ -208,7 +207,7 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "future", occupied
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def accept(

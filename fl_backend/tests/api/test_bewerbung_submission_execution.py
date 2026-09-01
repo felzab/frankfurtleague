@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Awaitable, Callable, Mapping
@@ -30,7 +29,7 @@ from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from tests.config import build_test_config
-from tests.database import a_clean_database, a_clean_database_sync
+from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 
 # Module level, as `tests/api/test_bewerbung_triage_execution.py` marks its suite: every test below
 # reaches a real mongod.
@@ -146,10 +145,7 @@ Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW) -> Any:
-    """The SHIPPED validators and indexes, so a document production would refuse fails here too.
-
-    One client and event loop per call: Motor binds to the loop it first ran on.
-    """
+    """The SHIPPED validators and indexes, so a document production would refuse fails here too."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
@@ -182,7 +178,7 @@ def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW) -> Any:
 
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def submit(database: AsyncIOMotorDatabase, **overrides: Any) -> Any:

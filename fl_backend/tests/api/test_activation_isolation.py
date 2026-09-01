@@ -1,4 +1,3 @@
-import asyncio
 from itertools import product
 from typing import Any, Awaitable, Callable, Sequence
 
@@ -14,7 +13,7 @@ from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 pytestmark = pytest.mark.db
 
@@ -132,7 +131,7 @@ def on_a_league(
     drawn: Sequence[str] = (),
     finished: Sequence[str] = (),
 ) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on. A transaction cannot create a collection."""
+    """A transaction cannot create a collection, so every one a body writes in is built by the seed."""
 
     async def _run() -> Any:
         # The SHIPPED validators and unique indexes, and every collection -- including the one the
@@ -155,7 +154,7 @@ def on_a_league(
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def call_draw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, saison_id: str) -> Any:

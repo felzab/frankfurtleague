@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
@@ -9,7 +8,7 @@ from app.api.teams.admin_router import patch_saison_team_kontakte
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 # Every test here writes through a real mongod: the point of the endpoint is which KEYS a `$set`
 # leaves alone, and nothing short of a stored document can show that.
@@ -89,11 +88,7 @@ Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, seeded: dict[str, Any] | None = SEEDED_KONTAKTE) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on.
-
-    `constraints=True`, so what this endpoint stores is judged by the database's own validator
-    rather than by Pydantic alone.
-    """
+    """`constraints=True`, so what this endpoint stores is judged by the database's own validator rather than by Pydantic alone."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
@@ -104,7 +99,7 @@ def on_a_league(url: str, body: Body, *, seeded: dict[str, Any] | None = SEEDED_
 
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def write_kontakte(

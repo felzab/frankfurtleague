@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import dataclass, field
 from itertools import combinations, product
 from typing import Any, Awaitable, Callable, Mapping
@@ -37,7 +36,7 @@ from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from app.core.logging import correlation_id_var
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 pytestmark = pytest.mark.db
 
@@ -219,7 +218,7 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             # Process-global and keyed by season id, so an entry another module left would answer for this one.
             invalidate_saison_cache()
-            # `asyncio.run` copies the context, so nothing set here reaches another test.
+            # `on_the_seed_loop` runs this in a task of its own, which copies the context, so nothing set here reaches another test.
             correlation_id_var.set(CORRELATION_ID)
 
             await database[Collection.SAISONS].insert_one(seeded.saison)
@@ -235,7 +234,7 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def call_draw(

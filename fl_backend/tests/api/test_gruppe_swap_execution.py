@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
@@ -19,7 +18,7 @@ from app.api.teams.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 pytestmark = pytest.mark.db
 
@@ -143,7 +142,7 @@ def on_a_seeded_season(
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def call_swap(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, team1_id: ObjectId, team2_id: ObjectId) -> Any:

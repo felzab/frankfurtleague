@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, Awaitable, Callable, get_type_hints
 
 import pytest
@@ -16,7 +15,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
 from tests.config import build_test_config
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 DATABASE_NAME = "fl_teams_public_read_test"
 
@@ -127,8 +126,6 @@ def junction_row(key: str, shorthand: str) -> dict[str, Any]:
 
 
 def on_a_league(container: Any, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on."""
-
     async def _run() -> Any:
         async with a_clean_database(container.get_connection_url(), DATABASE_NAME) as (_, database):
             # Process-global and keyed by season id, so an entry another module left would answer here.
@@ -145,7 +142,7 @@ def on_a_league(container: Any, body: Body) -> Any:
 
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 def base_filters(**overrides: Any) -> BaseModel:

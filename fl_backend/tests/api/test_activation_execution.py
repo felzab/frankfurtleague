@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
@@ -11,7 +10,7 @@ from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, ACTIVATE_TARGET_PAST
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 pytestmark = pytest.mark.db
 
@@ -107,7 +106,7 @@ def on_a_league(
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def call_activate(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, saison_id: str) -> Any:

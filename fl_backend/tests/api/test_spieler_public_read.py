@@ -1,4 +1,3 @@
-import asyncio
 import json
 from typing import Any, Awaitable, Callable, Mapping, Sequence, get_args
 
@@ -24,7 +23,7 @@ from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.main import create_app
 from tests.config import build_test_config
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 DATABASE_NAME = "fl_spieler_public_read_test"
 
@@ -424,8 +423,6 @@ class TestTheBaseTierReadExecuted:
 
 
 def on_a_database(container: Any, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first runs on."""
-
     async def _run() -> Any:
         async with a_clean_database(container.get_connection_url(), DATABASE_NAME) as (_, database):
             # This corpus stores no season, so the read's gate finds none to withhold -- but the cache
@@ -457,4 +454,4 @@ def on_a_database(container: Any, body: Body) -> Any:
 
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())

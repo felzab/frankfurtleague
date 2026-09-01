@@ -1,4 +1,3 @@
-import asyncio
 from itertools import product
 from typing import Any, Awaitable, Callable
 
@@ -20,7 +19,7 @@ from app.api.saisons.services import RULES_SHAPE_AFTER_DRAW
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 pytestmark = pytest.mark.db
 
@@ -118,7 +117,7 @@ Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
 
 
 def on_a_seeded_saison(url: str, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on. A transaction cannot create a collection."""
+    """A transaction cannot create a collection, so every one a body writes in is built by the seed."""
 
     async def _run() -> Any:
         # The SHIPPED validators and unique indexes, and every collection -- including the one the
@@ -132,7 +131,7 @@ def on_a_seeded_saison(url: str, body: Body) -> Any:
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def call_draw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> FLGenerateSpielplanResponse:

@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
@@ -20,7 +19,7 @@ from app.api.teams.router import get_team, get_teams
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamSingleFilterParams
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 DATABASE_NAME = "fl_saison_contents_visibility_test"
 
@@ -183,8 +182,6 @@ Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on."""
-
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
             # Process-global and keyed by season id, so an entry another module left would answer here.
@@ -204,7 +201,7 @@ def on_a_league(url: str, body: Body) -> Any:
 
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 def raised_by(url: str, body: Body) -> DocumentNotFoundException:
