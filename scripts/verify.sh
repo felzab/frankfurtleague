@@ -32,7 +32,9 @@ for arg in "$@"; do
     --verbose)  VERBOSE=1 ;;
     --serial)   SERIAL=1 ;;
     --help|-h)  usage ;;
-    *)          die "Unknown option: ${arg}. Try --help." ;;
+    # `refuse`, not `die`: an argument this script cannot read is "the input could not be judged",
+    # which the exit contract spells 2 (`docs/ops/spec.md` §1.7). 1 is spoken for by findings.
+    *)          refuse "Unknown option: ${arg}. Try --help." ;;
   esac
 done
 
@@ -71,9 +73,8 @@ gate_exit() {
   # From the trap, not the end of the body: `die`, `refuse` and `on_error` exit where they stand,
   # so a body-final call misses exactly the rows whose verdict matters most.
   if worker; then end_section; emit_section_ledger > "${FL_GATE_LEDGER:?}"; fi
-  # Every reclaim below is best-effort: under `set -e` one failing `rm` ends the trap where it
-  # stands, skipping the reclaims after it and answering 1 over a body that exited 0 -- with no
-  # ERR trap to say so, `_lib.sh` setting `set -e` without `set -E`.
+  # Every reclaim below is best-effort: unguarded, one failing `rm` ends the trap where it stands,
+  # skipping the reclaims after it and reporting the trap's own failure over a body that exited 0.
   cleanup || true
   if (( ${#POOL_DIRS[@]} )); then
     for dir in "${POOL_DIRS[@]}"; do rm -rf "$dir" || true; done
@@ -113,6 +114,15 @@ if (( RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_DB )); then
   # The failure is the caller's, for the reason `scripts/_lib.sh :: venv_python` records.
   PY="$(venv_python)" \
     || die "No fl_backend virtualenv found. Create it with:  cd fl_backend && uv sync --dev"
+  # Existing is not current: a virtualenv holding what the lockfile dropped, or missing what it
+  # added, fails the tools below in their own vocabulary rather than the environment's.
+  if ! worker && ! step_worker && [[ -z "${CI:-}" ]] && command -v uv >/dev/null 2>&1; then
+    # Never in CI, where `uv sync --dev` has just run, and once per run rather than once per unit.
+    quietly uv sync --project fl_backend --dev --check \
+      || refuse "fl_backend/.venv does not match fl_backend/uv.lock, so nothing this run reported
+would be about the change rather than about this machine. Sync it with:
+  uv sync --project fl_backend --dev"
+  fi
 fi
 
 # --- what a unit runs --------------------------------------------------------------------------------
@@ -287,6 +297,10 @@ pool_wait() { # $1 merge each unit's two streams? · $2 the spinner's label
   esac
   unset UNIT_STATUS UNIT_MS
   declare -gA UNIT_STATUS=() UNIT_MS=()
+  # Named here rather than left to the redirect below, whose own failure is a bare shell complaint
+  # about a path, with the completeness check underneath it never reached.
+  [[ -r "${POOL_DIR}/manifest.tsv" ]] \
+    || on_error 3 "${BASH_LINENO[0]}" "scripts/gate_pool.py left no manifest, so what its units did cannot be read (${POOL_DIR}/manifest.tsv)"
   while IFS=$'\t' read -r name status began ended; do
     UNIT_STATUS["$name"]="$status"
     UNIT_MS["$name"]=$(( ended - began ))
@@ -383,10 +397,22 @@ their longest. \`cd fl_backend && uv sync --dev\` creates an interpreter that me
     if [[ -z "$SCOPE_PY" ]]; then
       skip "no python found — this run was not checked against the diff"
     else
-      # Not through `quietly`: the advisory findings are the useful half, and a green run prints them.
-      "$SCOPE_PY" scripts/check_scope.py --ran "$SCOPES_RAN" || SCOPE_RC=$?
+      # Printed rather than swallowed, the advisories being the useful half of a green answer.
+      # Captured all the same, so the verdict below can count them: `check_scope.py :: check`
+      # reports one line per scope the diff asks for and this run did not name.
+      SCOPE_OUT="$("$SCOPE_PY" scripts/check_scope.py --ran "$SCOPES_RAN")" || SCOPE_RC=$?
+      if [[ -n "$SCOPE_OUT" ]]; then printf '%s\n' "$SCOPE_OUT"; fi
       case "$SCOPE_RC" in
-        0) ok "the scopes named cover the change" ;;
+        # Exit 0 is "nothing here refuses this run", which is not "this run covers the change":
+        # every unproven surface above passes through it. `scripts/checker_kernel.py ::
+        # report_findings` writes each as a `report` line, so the count is what it printed.
+        0) SCOPE_UNPROVEN="$(printf '%s\n' "$SCOPE_OUT" | grep -c '^ *report  ' || true)"
+           if (( SCOPE_UNPROVEN > 0 )); then
+             ok "no file this branch changed refuses this run, and the ${SCOPE_UNPROVEN} report line(s) above
+name a surface the run leaves unproven"
+           else
+             ok "the scopes named cover the change"
+           fi ;;
         1) refuse "This run is not wide enough to merge on. The finding above names the file and the flag." ;;
         2) refuse "The scope check could not judge its input, so this run was not checked against the
 diff. Its own reason is above." ;;
@@ -453,8 +479,13 @@ if (( PARALLEL )); then
   # speak; a crash's rank-5 row would read as findings.
   adopt_finished() { # $1 scope
     local scope="$1" status="${UNIT_STATUS[$1]:-}"
-    case "$status" in 0|1|2) ;; *) return 0 ;; esac
-    adopt_rows "$scope"
+    case "$status" in
+      0|1|2) adopt_rows "$scope" ;;
+      # Killed, never started, or crashed: its rows reach no verdict on the scope. Rank 0 rather
+      # than no row at all, which drops the scope out of the table and reports one section fewer
+      # than the run had.
+      *)     adopt_section "$scope" 0 "${UNIT_MS[$scope]:-0}" 0 0 ;;
+    esac
   }
 
   REPLAY_STATUS=0
@@ -775,6 +806,16 @@ the service and the key, and the declared deltas are the checker's own list." \
     nginx:1.31-alpine nginx -t \
     || die "nginx refuses prod.conf — its own explanation is above."
   ok "nginx accepts prod.conf"
+
+  # A parse cannot see a log line, so nothing else here asserts what the access line CONTAINS
+  # (`docs/logging/spec.md` L11). Below `nginx -t`, whose pull this reuses rather than paying twice.
+  step "ops · the edge's access log carries no credential"
+  # `nginx/local.conf` alone: prod.conf terminates TLS and could not serve a request without a
+  # certificate, and its copy of the maps and the `log_format` is held in step by hand.
+  run_checker stop "nginx/redaction_test.sh" "A credential reached an access line. Each failing case above is what nginx WROTE,
+and nginx/local.conf's map blocks are what decide it." \
+    bash nginx/redaction_test.sh
+  ok "every spelling in the table logged with its token and address gone"
 fi
 
 # --- db --------------------------------------------------------------------------------------------

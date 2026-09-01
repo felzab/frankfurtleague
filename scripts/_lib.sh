@@ -2,7 +2,10 @@
 # SCRIPTS · shared helpers — sourced, never run directly.
 # Sourcing applies strict mode and installs the ERR and INT traps.
 
-set -euo pipefail
+# `-E`: without errtrace the ERR trap is not inherited by a function, so a command failing inside
+# one never reaches `on_error`. It exits with its own status — 1, which the exit contract spells
+# "findings" — rather than the crash floor of 3.
+set -Eeuo pipefail
 IFS=$'\n\t'
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -142,9 +145,13 @@ spinner_start() {
     wait "$_SPIN_PID" 2>/dev/null || true
     _SPIN_PID=""
   fi
-  # No trap in here: Ctrl-C reaches the whole process group, and a spinner that ignored it would
+  # No INT trap in here: Ctrl-C reaches the whole process group, and a spinner that ignored it would
   # keep drawing over the interrupt message.
   (
+    # Detached because `set -E` hands this child the run's ERR trap: a failed frame would run
+    # `on_error` here and print the run's closing table from a process that is not the run.
+    # Nothing reads this loop's status, so it may die quietly instead.
+    trap - ERR
     # The backslash frame in ANSI-C quotes: inside single quotes shellcheck reads a trailing
     # backslash as an escape.
     _f=('|' '/' '-' $'\\'); _i=0
@@ -451,6 +458,13 @@ finish() {
   # its input ends the same either way.
   if (( _RUN_FINDINGS > 0 || worst >= 5 )); then _closing findings; exit 1; fi
   if (( worst == 4 )); then _closing refused; exit 2; fi
+  # No row reached `pass`, so nothing judged anything and green would read as a run that did.
+  # Below the endings owning rank 0 and rank 4; `count` because a script speaking the verbs
+  # plainly opens no section at all.
+  if (( count > 0 && worst < 2 )); then
+    refuse "every section in this run was skipped, so nothing here judged the change and there is
+no verdict to report. Each skip above names what was not run and why."
+  fi
   _closing green "$*"
   exit 0
 }
@@ -505,13 +519,16 @@ adopt_section() {
   # A worker reports these through a file, so they are input, not literals: an unchecked one indexes
   # past the label table and takes the closing summary down with it.
   for value in "$rank" "$ms" "$findings" "$advisories"; do
+    # Every fault in this function crashes rather than naming a finding: a mangled row is the
+    # gate's own handoff, and nothing in the tree could be fixed to answer for one.
     [[ "$value" =~ ^[0-9]+$ ]] \
-      || die "adopt_section: '${value}' is not a count. Arguments: name rank ms findings [advisories]."
+      || on_error 3 "${BASH_LINENO[0]}" "adopt_section: '${value}' is not a count. Arguments: name rank ms findings [advisories]."
   done
-  (( rank <= 5 )) || die "adopt_section: rank ${rank} is outside 0-5."
+  (( rank <= 5 )) || on_error 3 "${BASH_LINENO[0]}" "adopt_section: rank ${rank} is outside 0-5."
   # A row appended under an open section sorts before the section still running, and the fixed
   # order is the point of adopting rather than printing.
-  (( _SECTION_OPEN < 0 )) || die "adopt_section: a section is still open. Call end_section first."
+  (( _SECTION_OPEN < 0 )) \
+    || on_error 3 "${BASH_LINENO[0]}" "adopt_section: a section is still open. Call end_section first."
   _CHROME=1
   _SECTION_NAMES+=("$name"); _SECTION_RANKS+=("$rank"); _SECTION_MS+=("$ms")
   _SECTION_FINDINGS+=("$findings"); _SECTION_ADVISORIES+=("$advisories")
@@ -530,7 +547,10 @@ adopt_section() {
 # returns, the rows being the whole story there.
 adopt_ending() { # $1 the worker's exit status, $2 what to call that worker in a refusal
   local rc="$1" who="${2:-a worker}"
-  [[ "$rc" =~ ^[0-9]+$ ]] || die "adopt_ending: '${rc}' is not an exit status."
+  # Crashes for `adopt_section`'s reason: a status the handoff mangled is not something the change
+  # could be fixed to answer for.
+  [[ "$rc" =~ ^[0-9]+$ ]] \
+    || on_error 3 "${BASH_LINENO[0]}" "adopt_ending: '${rc}' is not an exit status."
   if (( rc == 130 )); then _closing interrupted; exit 130; fi
 
   # The status a kill leaves is not a number `exit` can return: on Windows `kill -9` reports 2304,
@@ -613,10 +633,14 @@ trap on_interrupt INT TERM
 
 # --- Guards ----------------------------------------------------------------------------------------
 
+# Each ends through `refuse`, never `die`: a missing daemon, a wrong platform or an absent file is
+# never something the change could be fixed to answer for. Explicit `||`, never the trap, so a
+# guard speaks inside a caller that captures a status too.
+
 # Docker's own error ("npipe:////./pipe/...") explains nothing to anyone who has not seen it.
 require_docker() {
   docker version --format '{{.Server.Version}}' >/dev/null 2>&1 \
-    || die "Docker is not responding.
+    || refuse "Docker is not responding.
 Start Docker Desktop (Windows) or 'sudo systemctl start docker' (Linux),
 wait until it reports running, then try again."
 }
@@ -629,7 +653,7 @@ require_platform() {
     Darwin)               have=macos   ;;
     *)                    have=unknown ;;
   esac
-  [[ "$have" == "$want" ]] || die "This script targets ${want}; this machine looks like ${have}.
+  [[ "$have" == "$want" ]] || refuse "This script targets ${want}; this machine looks like ${have}.
 See scripts/README.md for which script belongs to which environment."
 }
 
@@ -658,9 +682,9 @@ any_python() {
   fi
 }
 
-require_file() { [[ -f "$1" ]] || die "Missing required file: $1${2:+
+require_file() { [[ -f "$1" ]] || refuse "Missing required file: $1${2:+
 $2}"; }
-require_dir()  { [[ -d "$1" ]] || die "Missing required directory: $1${2:+
+require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
 # --- Git -------------------------------------------------------------------------------------------
