@@ -608,6 +608,36 @@ stops before building when the variable is set and the credential is missing** �
 too, but only after every layer has been built, naming a missing token rather than the missing
 step. Locally the variable is unset and the build runs against the daemon's own cache.
 
+**The aggregate `verify` job writes an advisory wall-clock report** into its run summary on every
+push to main: per-job medians over the completed main runs already on record — never the run doing
+the reporting — against [`.github/gate-wall-clock.tsv`](../../.github/gate-wall-clock.tsv), which
+holds one reference figure and one floor per job. Each median is measured from a job's first step to
+its last, so a wait for a runner counts as nothing, and the median is what absorbs the images job's
+swing between a warm layer cache and a cold one. Main pushes are the only comparable population —
+they alone run every scope, where a pull request's jobs are path-filtered. The job takes
+`actions: read` for the runs API and `contents: read` for a sparse checkout of that one file, a
+job-level grant replacing the workflow-level one whole.
+
+**The reference is carried forward, never recomputed from the recent past.** A report comparing a
+window against the window before it ratchets: each window silently becomes the next one's normal, so
+the accumulated growth is several times anything a single report can display, and a slowdown large
+enough to matter is reported as a fraction of itself. The table is a fixed reference updated by hand,
+so growth against it accumulates in the number rather than in the baseline.
+
+**A row appears only where that job's median has moved past that job's own floor**, and a report with
+nothing past a floor says so in one line. The floors are per job because one figure is wrong for most
+of them: measured by resampling whole runs, a 12-run median moves 8% on `frontend` at p95 and 22% on
+`backend-db`, so a single global figure dismisses a real move on the quiet jobs and cries wolf on the
+noisy ones. Each floor in the table is that job's own p95, so a delta under it is a reshuffle.
+
+**It decides nothing**: no threshold refuses anything, the step runs under `continue-on-error`, and
+pull requests skip it, so the seconds it costs land where no merge is waiting. What it cannot see is
+named in the report itself rather than left to be assumed — the count of job runs in the
+window that did not succeed, a scope slow enough to fail or to reach its `timeout-minutes` being
+outside the sample entirely, and any job running with no row in the table. The `verify` and `changes`
+jobs are both left out under one rule: neither is the gate's work, `verify` being this report and
+`changes` a checkout plus a path mapping.
+
 **The documentation gate** (`scripts/check_docs.py`) reads `/docs`, the source comments beside the
 code and the configuration files scanned with them, and its byte-level checks read every tracked
 text file — so a finding this scope raises need not be about a document at all. Its checks are
