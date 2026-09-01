@@ -64,7 +64,6 @@ from .kernel import (
     atx_heading,
     comment_runs,
     comment_style,
-    heading_anchors,
     is_gitignored,
     is_placeholder,
     line_of,
@@ -947,6 +946,8 @@ CITATION_RE: Final = re.compile(r"`([^`\n]+? :: [^`\n]+?)`")
 
 # One line break inside a paragraph, which a renderer joins to a space. The blank line is excluded
 # and that is the whole bound: it ends the paragraph, so a join across one would swallow the next.
+# Cached: one compile per marker set, not one per file.
+@cache
 def _wrap_re(markers: tuple[str, ...]) -> re.Pattern[str]:
     """The wrap, together with whatever the continuation line opens with.
 
@@ -1109,7 +1110,9 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
             continue
         found.append(Finding("fail", "line-citation", rel, f"line-number citation `{citation}` -- anchor it to a symbol (COR-6)"))
 
-    anchors = heading_anchors(body) if is_markdown else set()
+    # `anchors_of` rather than a second `heading_anchors`: this page's own anchors are cached
+    # there already, every link pointing AT it having resolved through the same call.
+    anchors = (anchors_of(path) or frozenset()) if is_markdown else frozenset()
     for raw_target, fragment in sorted(set(LINK_RE.findall(body))):
         anchor = fragment[1:]
         if raw_target.startswith(("http://", "https://", "mailto:")) or is_placeholder(raw_target + fragment):

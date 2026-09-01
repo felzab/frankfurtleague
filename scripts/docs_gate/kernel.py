@@ -136,8 +136,8 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
 }
 
 
-# GitHub's workflow-command escaping. The message takes the first three; a property value takes the
-# separators as well, an unescaped comma there starting a property nobody wrote. `%` goes first, or
+# GitHub's workflow-command escaping. A message needs the group below alone; a property value
+# needs the separators as well, an unescaped comma there starting a property nobody wrote. `%` goes first, or
 # it would escape the codes the others just wrote.
 COMMAND_ESCAPES: Final[tuple[tuple[str, str], ...]] = (("%", "%25"), ("\r", "%0D"), ("\n", "%0A"))
 PROPERTY_ESCAPES: Final[tuple[tuple[str, str], ...]] = ((":", "%3A"), (",", "%2C"))
@@ -669,7 +669,9 @@ def scanned_files() -> tuple[Path, ...]:
     The gate runs before the commit, so the index alone hands a branch that adds files a green
     answer CI will not repeat.
     """
-    return _of_kind((*tracked_files(), *untracked_files()))
+    # Merged rather than filtered again: both halves are already `_of_kind`'s answer, and a second
+    # pass stats every path to learn what it just learnt.
+    return tuple(sorted({*tracked_files(), *untracked_files()}))
 
 
 @cache

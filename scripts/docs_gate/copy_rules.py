@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, Literal
 
-from .kernel import REPO_ROOT, Finding, tracked_glob
+from .kernel import REPO_ROOT, Finding, _read_text, tracked_glob
 
 # Where a reader's German lives. The backend holds none: its refusals are mapped to German on this
 # side, so widening the root would add files and no strings.
@@ -70,10 +70,6 @@ GERMAN_RE: Final = re.compile(
     r"|aber|wenn|dann|damit|dass|mit|ohne|von|vom|zum|zur|aus|bei|nach|unter|durch|gegen|hier"
     r"|bitte|diese|dieser|dieses|alle|allen|jede|jeder|jedes|sowie|mehr|steht|gibt|keiner)\b)"
 )
-
-# Named rather than spelled inline, for `kernel.py :: UNTOKENIZABLE`'s reason: the formatter folds
-# a tuple into PEP 758's `except A, B:`, newer than `checker_kernel.py :: PARSE_FLOOR`.
-UNREADABLE: Final = (OSError, UnicodeDecodeError)
 
 Kind = Literal["string", "jsx"]
 
@@ -390,12 +386,13 @@ def _scan(text: str, *, jsx: bool) -> tuple[list[Copy], bool]:
 
 
 def copy_spans(path: Path) -> tuple[list[Copy], bool]:
-    """One file's rendered spans, and whether the scan balanced."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except UNREADABLE:
-        return [], False
-    return _scan(text, jsx=path.suffix == ".tsx")
+    """One file's rendered spans, and whether the scan balanced.
+
+    Through the corpus reader, which holds every one of these files already: a second read spends
+    the open again and answers the same characters.
+    """
+    text = _read_text(path)[0]
+    return ([], False) if text is None else _scan(text, jsx=path.suffix == ".tsx")
 
 
 def is_german(span: Copy) -> bool:
