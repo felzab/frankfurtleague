@@ -4,8 +4,6 @@ Every dispatched agent gets every section below. Push back and the report contra
 pay for the whole template: they are what turned seven wrong briefs into seven corrections rather
 than seven defects. Fill the angle-bracketed placeholders and delete nothing.
 
-Incidents cited here are from this repository, recorded 2026-09-01.
-
 ```
 1  OWNERSHIP.   The exact files you may write, listed in full:
                   <path>
@@ -21,20 +19,25 @@ Incidents cited here are from this repository, recorded 2026-09-01.
                 is a symbol, a path or a rule id and never a line number; and its own acceptance
                 test, named before you start.
 
-4  PUSH BACK.   This brief may be wrong. Seven briefs in the last session were, and the agents
-                caught all seven. If a premise here does not survive contact with the tree, stop
-                and report it instead of building on it. Naming a wrong premise is worth more to
-                me than finishing the task. Where you are asked to build on a claim you have
-                reason to doubt, ask for the evidence behind it before you build.
+4  PUSH BACK.   This brief may be wrong. Seven briefs in one session were, and the agents caught
+                all seven. If a premise here does not survive contact with the tree, stop and
+                report it instead of building on it. Naming a wrong premise is worth more to me
+                than finishing the task. Where you are asked to build on a claim you have reason
+                to doubt, ask for the evidence behind it before you build.
 
 5  GIT.         You run NO git command that writes -- no add, commit, checkout, stash, reset.
-                Concurrent staging in one tree corrupts the index. Write your proposed commit
-                message to <scratch path>; I assemble every commit.
+                A `git stash push` by one agent emptied the shared tree under nine editors, and
+                concurrent staging corrupts the index. Write your proposed commit message to
+                <scratch path>; I assemble every commit.
 
 6  SUB-AGENTS.  <N, normally zero>. Do not exceed it. Unbounded fan-out has twice consumed the
                 whole concurrency budget and blocked the work queued behind it.
 
-7  TRAPS.       Never read an exit code through a pipe -- piping a command into another and then
+7  WRITE AS     Write your report to <scratch path> incrementally, first finding first, never
+   YOU GO.      held until complete. A quota stop killed six agents at once; the one whose work
+                was lost was the audit that had written nothing to disk.
+
+8  TRAPS.       Never read an exit code through a pipe -- piping a command into another and then
                 reading the status gives the second command's status, not the first's.
                 Bash masks a child exit code to a byte, so 2304 reads as 0.
                 A Windows text-mode stream turns every newline into CRLF invisibly, in a scratch
@@ -43,11 +46,11 @@ Incidents cited here are from this repository, recorded 2026-09-01.
                 with the exit code recorded at each step.
                 <plus the traps specific to this work>
 
-8  DOCS.        Do not edit a shared document that another agent owns. Write your documentation
+9  DOCS.        Do not edit a shared document that another agent owns. Write your documentation
                 hunk to <scratch path>, naming the file, the section anchor and the exact
                 replacement text. I apply it in the same commit as the change it documents.
 
-9  REPORT.      Exactly, in this order:
+10 REPORT.      Exactly, in this order:
                 (a) the files you wrote;
                 (b) per checklist item, the acceptance evidence, with real exit codes;
                 (c) what you could NOT verify, and why;
@@ -61,7 +64,8 @@ finding from becoming an unowned edit inside another agent's file.
 
 ## The auditor variant
 
-Replace sections 1, 3 and 8 with:
+Dispatch it as a read-only agent type where one exists (`SKILL.md` §3), and replace sections 1, 3
+and 9 with:
 
 ```
 1  OWNERSHIP.   You write nothing in the repository. Your output is a report at <scratch path>.
@@ -71,7 +75,7 @@ Replace sections 1, 3 and 8 with:
                 DRIVE it: plant a violation, observe the failure and its exit code, restore,
                 observe the pass. Reading it cannot tell you whether it can fail.
 
-8  BLAST RADIUS. Say what each change could break outside the files it touches, and test that,
+9  BLAST RADIUS. Say what each change could break outside the files it touches, and test that,
                 not only the change itself.
 ```
 

@@ -1,10 +1,8 @@
 # Handoff template
 
-Incidents cited here are from this repository, recorded 2026-09-01.
-
 A handoff answers what a transcript cannot: **what the previous session believed, and how much of it
-was verified.** Write it before the session's context is exhausted, then have it audited by an agent
-that has seen none of the work, and act on what that audit finds.
+was verified.** Write it incrementally as the session runs, have it audited by an agent that has
+seen none of the work, and fix what that audit finds before the session ends.
 
 ## Required sections
 
@@ -15,7 +13,9 @@ that has seen none of the work, and act on what that audit finds.
 <Each file, and the one question it answers. Point at files; do not restate them.>
 
 ## What this session settled, so you do not re-open it
-<Decisions with the argument's location, not the argument.>
+<Decisions with the argument's location, not the argument. Every owner ruling taken this session,
+dated, in the owner's words -- and copied into the owner's standing-instructions file in the
+same edit, so the two never diverge.>
 
 ## The single most important thing in this handoff
 <One item. If everything is important, nothing is.>
@@ -30,7 +30,7 @@ would re-open it. Each entry cost someone a measurement.>
 
 ## Open, and owed to the owner
 <Every unanswered question, each with what is blocked behind it. The first item is whatever must
-be raised before the next session starts work.>
+be raised before the next session starts work. Nothing the owner has already ruled.>
 
 ## Writing your own handoff
 <The standard, restated only where this session learned something about it.>
@@ -54,7 +54,8 @@ this session could not run, say so instead of guessing.>
 - **The conventions that actually bit**, each with the incident that taught it.
 - **What you measured, and what you could not measure and why.** The most useful reports in this
   programme said "not measurable here" rather than quoting a number nobody could trust.
-- **Point at files; do not restate them.**
+- **Point at files; do not restate them.** A handoff that restated the rules file, the plan and this
+  skill for a third of its length buried the four incidents only it knew.
 
 ## What to leave out
 
@@ -63,17 +64,30 @@ this session could not run, say so instead of guessing.>
   through four values during a single audit.
 - **A commit SHA on a live branch.** Cite subjects and let the next session re-derive.
 - **A figure quoted as a baseline** that nobody re-measured in the state the next session inherits.
+- **A filename a pending fix round will rename.** Hand over only what has reached the end of its
+  cycle; a handoff written mid-cycle sent the next session to a file about to be split.
+- **A question the owner has ruled.** One handoff re-asked the ruling that changed the per-slice
+  discipline, against its own "do not re-ask" line, because the ruling was in one copy of the
+  owner's file and not the other.
 
 ## The starter prompt
 
 The planning session produces two artefacts: the programme plan, and the **starter prompt** for
 session one. Every later session's starter prompt is its predecessor's handoff plus the lines below,
-which is what makes the chain self-sustaining:
+which is what makes the chain self-sustaining. The owner sends `/orchestration` as its own message
+before pasting the starter ([USAGE.md](USAGE.md)); the first line is the fallback for the day that
+is forgotten.
 
 ```
-- Read <handoff path> first, in the order it names, before doing anything else.
+- Invoke the `orchestration` skill first if it is not already in context.
+- Read <owner's standing-instructions path>, then <handoff path>, in that order, before doing
+  anything else. Where the two disagree, the owner's file wins.
 - Your scope is <session scope>. Its exit condition is <exit condition>. One pull request.
 - Raise every open question the moment it arises, in one batch where you can, never in a wrap-up.
 - You end by writing the handoff for the next session and having an agent that has not seen your
-  work audit it.
+  work audit it, then fixing what it finds.
 ```
+
+Both live in the durable plan directory beside the plan, with every document they cite in the same
+directory. A session scratchpad dies with its session; a plan written there is unreachable by the
+next one.
