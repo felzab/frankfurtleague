@@ -457,6 +457,18 @@ if (( RUN_DOCS )); then
   section docs
   DOCS_OK=1
 
+  # First in the scope and given no file list, so it reads the whole tracked tree rather than a
+  # branch's diff: an unresolved conflict reaching main is what makes every finding below it
+  # unreliable, and reading the tree costs under a second.
+  step "docs · no tracked file carries a conflict marker"
+  if run_checker collect "scripts/check_conflict_markers.py" "A tracked file still holds a merge conflict marker. Each finding above names the
+file and the line it stands on. Resolve the conflict and commit the resolution." \
+    "$PY" scripts/check_conflict_markers.py; then
+    ok "no tracked file carries a conflict marker"
+  else
+    DOCS_OK=0
+  fi
+
   # They collect rather than stop: stopping at the first leaves the commit messages unexamined
   # while the exit code reads as though they were checked.
   step "docs · citations, links and shapes"
