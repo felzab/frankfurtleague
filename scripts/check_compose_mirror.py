@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
-from checker_kernel import EXIT_CRASH, EXIT_REFUSED, REPO_ROOT, Finding, report_findings, run
+from checker_kernel import EXIT_REFUSED, REPO_ROOT, Finding, report_findings, run
 
 PROD: Final = "docker-compose.yml"
 LOCAL: Final = "docker-compose.local.yml"
@@ -335,6 +335,22 @@ def declaring(difference: Difference) -> Delta | None:
     return None
 
 
+def uncovered(judged: list[tuple[Difference, Delta | None]]) -> list[Finding]:
+    """Every declared delta that matched no difference -- the allowlist rotting the other way."""
+    # Identity, not equality: each row is its own object, so two rows spelling the same path cannot
+    # mark one another matched.
+    matched = {id(delta) for _, delta in judged if delta is not None}
+    return [
+        Finding(
+            "fail",
+            f"the declared delta {delta.path} ({delta.why}) covered nothing\n"
+            f"{CONTINUATION}the files agree there, or the difference is no longer the one it pins",
+        )
+        for delta in DECLARED_DELTAS
+        if id(delta) not in matched
+    ]
+
+
 def shown(value: Any) -> str:
     """A value as one line of a finding."""
     if isinstance(value, Marker):
@@ -409,10 +425,12 @@ def main() -> int:
     except OSError as error:
         print(f"      {error}", file=sys.stderr)
         print("      Nothing was compared: both compose files have to be readable for the mirror to mean anything.", file=sys.stderr)
-        return EXIT_CRASH
+        # A file the checker cannot open is input it cannot judge, which the kernel's contract calls
+        # EXIT_REFUSED. EXIT_CRASH would claim the environment is broken, sending a reader to the
+        # wrong repair.
+        return EXIT_REFUSED
 
     judged = [(difference, declaring(difference)) for difference in diff(prod, local)]
-    matched = {id(delta) for _, delta in judged if delta is not None}
 
     if args.verbose:
         for difference, delta in judged:
@@ -433,15 +451,7 @@ def main() -> int:
     ]
     # A delta covering nothing is the same rot pointed the other way, and only a check that fails
     # on it gets the claim removed.
-    findings += [
-        Finding(
-            "fail",
-            f"the declared delta {delta.path} ({delta.why}) covered nothing\n"
-            f"{CONTINUATION}the files agree there, or the difference is no longer the one it pins",
-        )
-        for delta in DECLARED_DELTAS
-        if id(delta) not in matched
-    ]
+    findings += uncovered(judged)
 
     code = report_findings(findings)
     if escaped:
