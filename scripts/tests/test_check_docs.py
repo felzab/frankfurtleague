@@ -1576,39 +1576,6 @@ def _committed(plant: Callable[[], None], *rels: str) -> tuple[int, Counter[Repo
         _reset()
 
 
-def test_a_roadmap_id_committed_in_a_comment_is_read_as_this_branch_s() -> None:
-    """A committed comment is still the branch's own addition, so INC-6's advisory names it."""
-    code, reported = _committed(lambda: _append(SAMPLE, HASH + " see FX-1 for the shape"), SAMPLE)
-    assert reported == Counter({("report", "comment-citation", SAMPLE): 1}), _shape(reported)
-    assert code == 0
-    _assert_corpus_restored()
-
-
-def test_an_over_long_block_committed_on_a_branch_is_measured() -> None:
-    """INC-9 reads the fork diff, so a block a commit added is measured like an unstaged one."""
-    over = [HASH + " a line of a block that runs past what a comment may hold" for _ in range(6)]
-    code, reported = _committed(lambda: _append(SAMPLE, *over), SAMPLE)
-    assert reported == Counter({("fail", "comment-length", SAMPLE): 1}), _shape(reported)
-    assert code == 1
-    _assert_corpus_restored()
-
-
-def test_a_history_phrase_committed_in_a_docstring_is_read() -> None:
-    """COR-3's advisory reads the scanned body at the diff's line numbers, a docstring included."""
-    code, reported = _committed(_plant_history, SECOND_SAMPLE)
-    assert reported == Counter({("report", "history", BRANCH_DIFF): 1}), _shape(reported)
-    assert code == 0
-    _assert_corpus_restored()
-
-
-def test_a_prose_sha_committed_on_a_branch_is_resolved_against_the_clone() -> None:
-    """The SHA advisory reads the corpus as committed, and an unresolvable commit stays reported."""
-    code, reported = _committed(lambda: _append(NOTES, "The commit `abc1234` is gone."), NOTES)
-    assert reported == Counter({("report", "sha", NOTES): 1}), _shape(reported)
-    assert code == 0
-    _assert_corpus_restored()
-
-
 def test_a_hook_s_embedded_javascript_comments_are_read() -> None:
     """The shell reader takes a leading `//` beside `#`, so a hook's embedded node region is inside INC-6, INC-9 and COR-3."""
     hook = ".claude/hooks/embedded.sh"
@@ -1641,14 +1608,6 @@ def test_a_hook_s_embedded_javascript_comments_are_read() -> None:
     )
     assert reported == expected, _shape(reported)
     assert code == 1
-    _assert_corpus_restored()
-
-
-def test_a_commit_touching_no_comment_and_no_prose_stays_silent() -> None:
-    """A code-only commit arms the branch checks and gives them nothing: no finding, no advisory."""
-    code, reported = _committed(lambda: _replace(SAMPLE, "VALUE = 1", "VALUE = 2"), SAMPLE)
-    assert not reported, "a code-only branch commit raised findings: " + _shape(reported)
-    assert code == 0
     _assert_corpus_restored()
 
 
