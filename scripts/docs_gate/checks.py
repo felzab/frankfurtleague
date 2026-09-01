@@ -21,6 +21,7 @@ from typing import Final
 
 import check_pr_body
 import checker_kernel
+from checker_kernel import git
 
 from .branch import (
     Branch,
@@ -63,7 +64,6 @@ from .kernel import (
     atx_heading,
     comment_runs,
     comment_style,
-    git,
     heading_anchors,
     is_gitignored,
     is_placeholder,
@@ -71,7 +71,6 @@ from .kernel import (
     repo_path,
     roadmap_ids,
     scanned_files,
-    tolerate_console_encoding,
     tracked_glob,
     tracked_page,
 )
@@ -1241,7 +1240,6 @@ def _print_human(failures: list[Finding], advisories: list[Finding], *, everythi
 
 
 def main() -> int:
-    tolerate_console_encoding()
     parser = argparse.ArgumentParser(description="Documentation gate; the registry of its checks is scripts/docs_gate/kernel.py :: CHECKS.")
     parser.add_argument("--all", action="store_true", help="list every advisory finding, not just the first ten")
     parser.add_argument(

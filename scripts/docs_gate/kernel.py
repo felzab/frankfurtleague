@@ -11,8 +11,6 @@ from __future__ import annotations
 import io
 import os
 import re
-import subprocess
-import sys
 import tokenize
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -20,11 +18,9 @@ from functools import cache
 from pathlib import Path, PurePosixPath
 from typing import Final, Literal
 
-# From the shared kernel rather than a second copy: a checker taking git from its own drifts
-# into its own behaviour, the principle `checker_kernel.py`'s own docstring states.
-from checker_kernel import git
-
-REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
+# From the shared kernel rather than a second copy: a checker taking git, the repository root or
+# the reading errors from its own drifts into its own behaviour, the principle that file states.
+from checker_kernel import REPO_ROOT, UNREADABLE, git, git_status
 
 # docs/audit is a running programme's gitignored working documents, absent from any clone;
 # node_modules and .venv are vendored and not ours to hold to this standard.
@@ -225,18 +221,6 @@ def line_of(body: str, offset: int) -> int:
     return body.count("\n", 0, offset) + 1
 
 
-def git_status(*args: str) -> int | None:
-    """Run git for its exit code alone, or None where it could not be launched. Never raises.
-
-    None answers neither yes nor no, and each caller resolves it in the direction that keeps a
-    finding rather than dropping one.
-    """
-    try:
-        return subprocess.run(("git", *args), cwd=REPO_ROOT, capture_output=True, check=False).returncode
-    except OSError:
-        return None
-
-
 @cache
 def _read_text(path: Path) -> tuple[str | None, str]:
     """One file's text, read once per run, with the message where it could not be read.
@@ -245,7 +229,7 @@ def _read_text(path: Path) -> tuple[str | None, str]:
     """
     try:
         return path.read_text(encoding="utf-8"), ""
-    except (OSError, UnicodeDecodeError) as exc:
+    except UNREADABLE as exc:
         return None, str(exc)
 
 
@@ -829,14 +813,3 @@ def _scan_body(path: Path) -> str:
     if raw is None:
         return ""
     return strip_fences(raw) if path.suffix == ".md" else comments_only(raw, comment_style(path))
-
-
-def tolerate_console_encoding() -> None:
-    """A console codepage must never decide whether a finding is printed.
-
-    A dash meets a Windows codepage that cannot encode it, which raises inside `print` and takes
-    the run down with every finding unreported.
-    """
-    for stream in (sys.stdout, sys.stderr):
-        if isinstance(stream, io.TextIOWrapper):
-            stream.reconfigure(errors="replace")

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import re
-import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cache, partial
 from pathlib import Path
 from typing import Final, Iterable
+
+from checker_kernel import git, git_input
 
 from .kernel import (
     OPS_FILENAMES,
@@ -19,7 +20,6 @@ from .kernel import (
     _skipped,
     comment_runs,
     comment_style,
-    git,
     roadmap_ids,
     untracked_files,
 )
@@ -203,22 +203,10 @@ def _unresolved_commits(shas: Iterable[str]) -> set[str] | None:
     wanted = sorted(set(shas))
     if not wanted:
         return set()
-    try:
-        done = subprocess.run(
-            ("git", "cat-file", "--batch-check"),
-            cwd=REPO_ROOT,
-            input="\n".join(wanted),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            check=False,
-        )
-    except OSError:
+    answer = git_input("cat-file", "--batch-check", stdin="\n".join(wanted))
+    if answer is None:
         return None
-    if done.returncode != 0:
-        return None
-    resolved = {parts[0] for line in done.stdout.split("\n") if len(parts := line.split()) >= 2 and parts[1] == "commit"}
+    resolved = {parts[0] for line in answer.split("\n") if len(parts := line.split()) >= 2 and parts[1] == "commit"}
     return {sha for sha in wanted if sha not in resolved and not any(full.startswith(sha) for full in resolved)}
 
 
