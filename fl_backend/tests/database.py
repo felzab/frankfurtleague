@@ -63,8 +63,7 @@ def on_the_seed_loop(seed: Coroutine[Any, Any, Any]) -> Any:
 def shared_client(url: str) -> AsyncMongoClient:
     """One client per url for the whole tier: a topology handshake costs a client to open, not a seed to run.
 
-    Public for the read-only suites: a module reading a corpus `a_clean_database` seeded once needs
-    the same client without the clearing that helper does on the way in.
+    Public because a module reading a seeded corpus needs that client without `a_clean_database`'s clearing.
     """
 
     client = _CLIENTS.get(url)
