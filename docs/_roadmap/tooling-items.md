@@ -1956,11 +1956,12 @@ a stack trace.
 
 **The trade to weigh** is that resolving the SRV record is the only option that would have helped, and
 it makes deployment fail for reasons unrelated to the deployment. Given the failure is already
-contained — nginx serves nothing rather than serving something broken — the honest question is whether
-a faster diagnosis is worth a new way for `deploy.sh` to refuse.
+contained — the edge answers 502 rather than serving something broken, and `deploy.sh :: roll_back`
+puts the previous build back on its own — the honest question is whether a faster diagnosis is worth a
+new way for `deploy.sh` to refuse.
 
 **Trigger to revisit:** the second time a restore breaks this way, or any move to a setup where the site
-cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
+cannot tolerate the seconds between a bad deploy and its automatic rollback. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
 ### 37 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other

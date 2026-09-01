@@ -16,9 +16,20 @@ the machine is outside the repository. What it does tell you:
 - `deploy.sh` refuses to run anywhere but Linux, and runs from a **checkout of this repository on the
   server** — so putting a merge live is `git pull && ./scripts/deploy.sh`, the pull being what brings the
   compose file and `nginx/prod.conf` up to date before the containers are recreated.
-- `./certs/` and `./nginx/prod.conf` must exist beside the compose file.
-- After the health wait, `deploy.sh` **confirms the security headers as they are actually served** — the one
-  check that reads the running stack rather than a config file.
+- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod.conf` and `./certs/` must all exist beside the
+  compose file — preflight checks each before anything is pulled.
+- **Only the application containers are recreated**, and nginx is reloaded once they are healthy
+  (`scripts/deploy.sh :: serve_through_nginx`). The edge keeps running across the swap, so a deploy costs
+  seconds of 502 rather than a refused connection. The reload is also the only thing in the run that applies
+  an `nginx/prod.conf` the pull changed: nothing recreates nginx for a mounted file's contents.
+- **A build that fails the health wait is put back automatically** — to the images the application services
+  were running when the deploy began, by image id rather than by tag (`scripts/deploy.sh :: roll_back`) —
+  and the script names the build now serving. Where preflight recorded no rollback target, because nothing
+  was running, because only half the pair was, or because compose could not be asked, it says so and leaves
+  the failed build in place.
+- After the health wait, what `deploy.sh` checks is the **running stack rather than a config file**: that
+  nginx is running and reloaded, the security headers as they are actually served, and the liveness probe
+  through the edge.
 
 ## 2. Before deploying a change to the database's constraints
 
