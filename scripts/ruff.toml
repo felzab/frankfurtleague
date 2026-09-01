@@ -3,5 +3,12 @@
 # `extend` rather than a copy, and here rather than at the repository root: `docs/ops/spec.md` §1.6
 # argues both. It must keep adding and overriding nothing — the moment it carries its own `select`,
 # this configuration and the backend's can disagree.
+#
+# No `target-version` for that same reason, and because the inherited one is right: `extend` carries
+# the backend's `requires-python` across, so ruff reads this folder at the version its python RUNS
+# on. `checker_kernel.py :: PARSE_FLOOR` is a SYNTAX floor over a subset of it, and ruff offers no
+# syntax-only knob — pinning py39 here would also move isort's standard-library list, which then
+# reports `tomllib` as third-party. `scripts/tests/test_parse_floor.py` holds that floor instead,
+# through `ast.parse(feature_version=...)`, which measures syntax and nothing else.
 
 extend = "../fl_backend/pyproject.toml"
