@@ -441,7 +441,14 @@ and cannot suffer same-basename collisions.
   reads.
 - **A `db` test reading a seeded corpus is served by a fixture that seeds once instead** —
   `fl_backend/tests/api/conftest.py :: league` and its siblings, each dropping the collections it
-  owns and seeding them for the session, the modules taking one reading rather than writing.
+  owns and seeding them for the session, the modules taking one reading rather than writing. A
+  module whose every case reads takes a corpus of its own the same way, at module scope.
+- **A module-scoped corpus is held to being read rather than trusted to be.**
+  `fl_backend/tests/api/conftest.py :: unwritten` wraps one, compares its documents at the module's
+  end against what the seed wrote, and names the collections a write moved. The drift check above
+  cannot: its subject is the schema, which a write never touches. A module holding one case that
+  WRITES hands that case a database of its own, `:: config_for`, rather than dropping the shared
+  corpus back to a seed per test.
 - **The `db` corpus is documented where it is seeded**, in `fl_backend/tests/api/conftest.py`: a
   comment at each seeded club and each fixture names the one thing it is there to make observable,
   and the tests reading it derive their expected figures in their own docstrings.

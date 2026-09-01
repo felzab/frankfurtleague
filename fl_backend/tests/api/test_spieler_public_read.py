@@ -1,5 +1,5 @@
 import json
-from typing import Any, Awaitable, Callable, Mapping, Sequence, get_args
+from typing import Any, Awaitable, Callable, Iterator, Mapping, Sequence, get_args
 
 import pytest
 from bson import ObjectId
@@ -23,7 +23,9 @@ from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.main import create_app
 from tests.config import build_test_config
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database, on_the_seed_loop, shared_client
+
+from .conftest import unwritten
 
 DATABASE_NAME = "fl_spieler_public_read_test"
 
@@ -283,7 +285,7 @@ class TestTheInitial:
 class TestTheBaseTierReadExecuted:
     """The whole chain against a real mongod: what is STORED, what the pipeline yields, and what the endpoint serialises."""
 
-    def _read(self, container: Any, filters: FLSpielerFilterParams | None = None) -> dict[str, Any]:
+    def _read(self, url: str, filters: FLSpielerFilterParams | None = None) -> dict[str, Any]:
         """The endpoint's own answer, dumped as the wire carries it -- the only shape that can show nothing leaked."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -295,20 +297,20 @@ class TestTheBaseTierReadExecuted:
 
             return response.model_dump(mode="json", by_alias=True)
 
-        return on_a_database(container, body)
+        return on_a_database(url, body)
 
-    def _by_vorname(self, container: Any, filters: FLSpielerFilterParams | None = None) -> dict[str, dict[str, Any]]:
-        return {row["vorname"]: row for row in self._read(container, filters)["spieler"]}
+    def _by_vorname(self, url: str, filters: FLSpielerFilterParams | None = None) -> dict[str, dict[str, Any]]:
+        return {row["vorname"]: row for row in self._read(url, filters)["spieler"]}
 
-    def _rows(self, container: Any, filters: FLSpielerFilterParams | None = None) -> list[Mapping[str, Any]]:
+    def _rows(self, url: str, filters: FLSpielerFilterParams | None = None) -> list[Mapping[str, Any]]:
         """What mongod yields for the pipeline, one step BEFORE `FLSpielerPublic`, which declares five fields and drops the rest either way."""
 
         async def body(database: AsyncDatabase) -> Any:
             return await aggregate_many_from_db(collection=database.spieler, pipeline=build_spieler_pipeline(filters or _filters()))
 
-        return on_a_database(container, body)
+        return on_a_database(url, body)
 
-    def test_the_corpus_really_holds_what_the_response_must_not(self, mongo_container: Any):
+    def test_the_corpus_really_holds_what_the_response_must_not(self, seeded_url: str):
         """First, because every assertion below would pass just as well against a seed that stored neither."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -317,13 +319,13 @@ class TestTheBaseTierReadExecuted:
 
             return person, row
 
-        person, row = on_a_database(mongo_container, body)
+        person, row = on_a_database(seeded_url, body)
 
         assert person["nachname"] == "Müller"
         assert person["einwilligung"]["umfang"] == "kader_oeffentlich"
         assert (row["stufe"], row["rolle"]) == ("Q3", "kapitaen")
 
-    def test_the_corpus_really_holds_a_retired_person_beside_a_retired_row(self, mongo_container: Any):
+    def test_the_corpus_really_holds_a_retired_person_beside_a_retired_row(self, seeded_url: str):
         """The same guard for `READ-SQUAD-001`: both cases below pass against a corpus where nobody retired at all."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -333,88 +335,88 @@ class TestTheBaseTierReadExecuted:
 
             return person, live_row, retired_row
 
-        person, live_row, retired_row = on_a_database(mongo_container, body)
+        person, live_row, retired_row = on_a_database(seeded_url, body)
 
         assert (person["inactive_since"], live_row["inactive_since"]) == ("2026-05-01", None)
         assert retired_row["inactive_since"] == "2026-03-01"
 
-    def test_a_retired_person_keeps_the_squad_rows_they_played(self, mongo_container: Any):
+    def test_a_retired_person_keeps_the_squad_rows_they_played(self, seeded_url: str):
         """`READ-SQUAD-001`, which the admin sidemenu already promises: Stilllegen empties the pickers and leaves the Kadereintrag standing."""
-        assert "Jonas" in self._by_vorname(mongo_container)
+        assert "Jonas" in self._by_vorname(seeded_url)
 
-    def test_a_retired_squad_row_stays_out(self, mongo_container: Any):
+    def test_a_retired_squad_row_stays_out(self, seeded_url: str):
         """The retirement this read does filter on, so dropping the person's match cannot be mistaken for dropping both."""
-        assert "Nils" not in self._by_vorname(mongo_container)
+        assert "Nils" not in self._by_vorname(seeded_url)
 
-    def test_a_person_whose_every_squad_row_is_retired_still_reads(self, mongo_container: Any):
+    def test_a_person_whose_every_squad_row_is_retired_still_reads(self, seeded_url: str):
         """Neither id narrows, so the join is loose: Nils survives the unwind with no `saison_data`, and `$project` leaves both keys off."""
-        served = self._by_vorname(mongo_container, FLSpielerFilterParams())
+        served = self._by_vorname(seeded_url, FLSpielerFilterParams())
 
         assert (served["Nils"]["nummer"], served["Nils"]["position"]) == (None, None)
 
-    def test_a_stored_surname_is_served_as_an_initial(self, mongo_container: Any):
-        assert self._by_vorname(mongo_container)["Maxim"]["nachname"] == "M."
+    def test_a_stored_surname_is_served_as_an_initial(self, seeded_url: str):
+        assert self._by_vorname(seeded_url)["Maxim"]["nachname"] == "M."
 
     @pytest.mark.parametrize("surname", STORED_SURNAMES)
-    def test_no_stored_surname_appears_anywhere_in_the_response(self, mongo_container: Any, surname: str):
+    def test_no_stored_surname_appears_anywhere_in_the_response(self, seeded_url: str, surname: str):
         """Against the SERIALISED body rather than one field: what the page ships is the whole payload, not the part it renders."""
-        assert surname not in json.dumps(self._read(mongo_container), ensure_ascii=False)
+        assert surname not in json.dumps(self._read(seeded_url), ensure_ascii=False)
 
-    def test_a_surname_starting_with_a_multibyte_letter_is_not_halved(self, mongo_container: Any):
+    def test_a_surname_starting_with_a_multibyte_letter_is_not_halved(self, seeded_url: str):
         """`$substrBytes` would cut an `Ö` in two, and only a real mongod tells the two operators apart."""
-        assert self._by_vorname(mongo_container)["Timo"]["nachname"] == "Ö."
+        assert self._by_vorname(seeded_url)["Timo"]["nachname"] == "Ö."
 
-    def test_a_player_with_no_surname_reads_back_with_none(self, mongo_container: Any):
+    def test_a_player_with_no_surname_reads_back_with_none(self, seeded_url: str):
         """Absent is not withheld: an initial invented here would read as a name nobody holds."""
-        assert self._by_vorname(mongo_container)["Lena"]["nachname"] is None
+        assert self._by_vorname(seeded_url)["Lena"]["nachname"] is None
 
     @pytest.mark.parametrize("field", WITHHELD_FIELDS)
-    def test_a_withheld_field_reaches_no_row_the_pipeline_yields(self, mongo_container: Any, field: str):
+    def test_a_withheld_field_reaches_no_row_the_pipeline_yields(self, seeded_url: str, field: str):
         """The allow-list `$project` builds, as mongod resolves it. A key added there is a leak the response shape hides."""
-        rows = self._rows(mongo_container)
+        rows = self._rows(seeded_url)
 
         # `all` over an empty list passes, and a join that stopped matching would empty it.
         assert len(rows) == 5
         assert all(field not in row for row in rows)
 
-    def test_the_squad_facts_the_table_renders_survive(self, mongo_container: Any):
+    def test_the_squad_facts_the_table_renders_survive(self, seeded_url: str):
         """The allow-list is not a blanket refusal: a shirt and a position are columns on the page."""
-        served = self._by_vorname(mongo_container)["Maxim"]
+        served = self._by_vorname(seeded_url)["Maxim"]
 
         assert (served["nummer"], served["position"]) == ("7", "Angriff")
 
-    def test_a_row_written_before_the_squad_flags_existed_still_reads(self, mongo_container: Any):
+    def test_a_row_written_before_the_squad_flags_existed_still_reads(self, seeded_url: str):
         """The allow-list names neither flag, so a row missing both is not a shape the read can trip over."""
-        assert self._by_vorname(mongo_container)["Timo"]["nummer"] == "5"
+        assert self._by_vorname(seeded_url)["Timo"]["nummer"] == "5"
 
-    def test_the_rendered_name_is_the_forename_and_an_initial(self, mongo_container: Any):
+    def test_the_rendered_name_is_the_forename_and_an_initial(self, seeded_url: str):
         """The frontend's join and its avatar letter, spelled out: emitting the dot here is what keeps both unchanged."""
-        served = self._by_vorname(mongo_container)["Maxim"]
+        served = self._by_vorname(seeded_url)["Maxim"]
 
         assert " ".join(part for part in (served["vorname"], served["nachname"]) if part) == "Maxim M."
         assert served["nachname"][0] == "M"
 
-    def test_the_order_is_by_position_then_forename(self, mongo_container: Any):
+    def test_the_order_is_by_position_then_forename(self, seeded_url: str):
         """The default sort, unchanged by the redaction -- and MongoDB puts the null position first."""
-        served = self._read(mongo_container)["spieler"]
+        served = self._read(seeded_url)["spieler"]
 
         assert [row["position"] for row in served] == [None, "Abwehr", "Angriff", "Mittelfeld", "Tor"]
 
-    def _read_one(self, container: Any, key: str) -> dict[str, Any]:
+    def _read_one(self, url: str, key: str) -> dict[str, Any]:
         async def body(database: AsyncDatabase) -> Any:
             response = await get_spieler_by_id(spieler_id=SPIELER_OIDS[key], spieler_collection=database.spieler)
 
             return response.model_dump(mode="json", by_alias=True)
 
-        return on_a_database(container, body)
+        return on_a_database(url, body)
 
-    def test_the_one_player_read_serves_the_same_initial(self, mongo_container: Any):
+    def test_the_one_player_read_serves_the_same_initial(self, seeded_url: str):
         """The second base-tier path, redacted by `public_initial` where the list is redacted by the pipeline."""
-        assert self._read_one(mongo_container, "Mueller")["nachname"] == "M."
+        assert self._read_one(seeded_url, "Mueller")["nachname"] == "M."
 
-    def test_the_one_player_read_carries_no_leaving_date(self, mongo_container: Any):
+    def test_the_one_player_read_carries_no_leaving_date(self, seeded_url: str):
         """Against the RETIRED person, so a date really is stored and its absence from the wire is the redaction."""
-        assert self._read_one(mongo_container, "Weber") == {
+        assert self._read_one(seeded_url, "Weber") == {
             "acknowledged": 1,
             "spieler_id": str(SPIELER_OIDS["Weber"]),
             "vorname": "Jonas",
@@ -422,13 +424,20 @@ class TestTheBaseTierReadExecuted:
         }
 
 
-def on_a_database(container: Any, body: Body) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(container.get_connection_url(), DATABASE_NAME) as (_, database):
-            # This corpus stores no season, so the read's gate finds none to withhold -- but the cache
-            # behind it is process-global, and another module's entry under this id would answer here.
-            invalidate_saison_cache()
+# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# from being left as a claim.
+@pytest.fixture(scope="module")
+def seeded_url(mongo_container: Any) -> Iterator[str]:
+    """Six people and their squad rows.
 
+    A retired person beside a live row, a retired row, a surname whose initial is two bytes, and a
+    person carrying no surname at all.
+    """
+
+    url = str(mongo_container.get_connection_url())
+
+    async def _seed() -> None:
+        async with a_clean_database(url, DATABASE_NAME) as (_, database):
             await database.spieler.insert_many(
                 [
                     # Distinct forenames, none of them holding a surname as a substring: the rows
@@ -452,6 +461,18 @@ def on_a_database(container: Any, body: Body) -> Any:
                 ]
             )
 
-            return await body(database)
+    on_the_seed_loop(_seed())
+
+    with unwritten(url, DATABASE_NAME):
+        yield url
+
+
+def on_a_database(url: str, body: Body) -> Any:
+    async def _run() -> Any:
+        # This corpus stores no season, so the read's gate finds none to withhold -- but the cache
+        # behind it is process-global, and another test's entry under this id would answer here.
+        invalidate_saison_cache()
+
+        return await body(shared_client(url)[DATABASE_NAME])
 
     return on_the_seed_loop(_run())

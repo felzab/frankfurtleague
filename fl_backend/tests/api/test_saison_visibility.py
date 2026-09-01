@@ -1,4 +1,4 @@
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Iterator
 
 import pytest
 from pymongo.asynchronous.database import AsyncDatabase
@@ -10,7 +10,9 @@ from app.api.saisons.schemas import FLSaisonsFilterParams
 from app.api.saisons.services import base_tier_status_term
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database, on_the_seed_loop, shared_client
+
+from .conftest import unwritten
 
 DATABASE_NAME = "fl_saison_visibility_test"
 
@@ -63,45 +65,58 @@ class TestTheTermItselfWithholdsThePlannedSeason:
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME) as (_, database):
-            # Process-global and keyed by season id, so an entry another module left would answer for this one.
-            invalidate_saison_cache()
+# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# from being left as a claim.
+@pytest.fixture(scope="module")
+def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
+    """The finished, the running and the planned season."""
 
+    async def _seed() -> None:
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_many([dict(document) for document in SEEDED])
 
-            return await body(database)
+    on_the_seed_loop(_seed())
+
+    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+        yield mongo_replica_set_url
+
+
+def on_a_league(url: str, body: Body) -> Any:
+    async def _run() -> Any:
+        # Process-global and keyed by season id, so an entry another test left would answer for this one.
+        invalidate_saison_cache()
+
+        return await body(shared_client(url)[DATABASE_NAME])
 
     return on_the_seed_loop(_run())
 
 
 @pytest.mark.db
 class TestAPlannedSeasonIsWithheldFromTheBaseTier:
-    def test_the_list_serves_the_finished_and_the_running_season_only(self, mongo_replica_set_url: str):
+    def test_the_list_serves_the_finished_and_the_running_season_only(self, seeded_league: str):
         async def body(database: AsyncDatabase) -> Any:
             return await get_saisons(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams())
 
-        response = on_a_league(mongo_replica_set_url, body)
+        response = on_a_league(seeded_league, body)
 
         assert [saison.id for saison in response.saisons] == [ARCHIVED, RUNNING]
 
-    def test_asking_for_the_planned_status_answers_an_empty_list(self, mongo_replica_set_url: str):
+    def test_asking_for_the_planned_status_answers_an_empty_list(self, seeded_league: str):
         """The compound term is what makes this empty rather than the whole season list."""
 
         async def body(database: AsyncDatabase) -> Any:
             return await get_saisons(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams(status="future"))
 
-        assert on_a_league(mongo_replica_set_url, body).saisons == []
+        assert on_a_league(seeded_league, body).saisons == []
 
     @pytest.mark.parametrize("saison_id", [ARCHIVED, RUNNING])
-    def test_a_readable_season_is_still_served_by_id(self, saison_id: str, mongo_replica_set_url: str):
+    def test_a_readable_season_is_still_served_by_id(self, saison_id: str, seeded_league: str):
         async def body(database: AsyncDatabase) -> Any:
             return await get_saison(saison_id=saison_id, saisons_collection=database[Collection.SAISONS])
 
-        assert on_a_league(mongo_replica_set_url, body).saison.id == saison_id
+        assert on_a_league(seeded_league, body).saison.id == saison_id
 
-    def test_the_planned_season_is_a_404_and_never_a_403(self, mongo_replica_set_url: str):
+    def test_the_planned_season_is_a_404_and_never_a_403(self, seeded_league: str):
         """404 because the FILTER excludes it: a 403 would confirm that next season's draw exists."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -110,23 +125,23 @@ class TestAPlannedSeasonIsWithheldFromTheBaseTier:
 
             return refusal.value
 
-        assert on_a_league(mongo_replica_set_url, body).status_code == 404
+        assert on_a_league(seeded_league, body).status_code == 404
 
 
 @pytest.mark.db
 class TestTheAdminTierReadsEverySeason:
-    def test_the_planned_season_is_listed_beside_the_others(self, mongo_replica_set_url: str):
+    def test_the_planned_season_is_listed_beside_the_others(self, seeded_league: str):
         """An admin who cannot select a planned season cannot enter a club into one, which is the only window there is."""
 
         async def body(database: AsyncDatabase) -> Any:
             return await get_saisons_for_admin(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams())
 
-        response = on_a_league(mongo_replica_set_url, body)
+        response = on_a_league(seeded_league, body)
 
         assert [saison.id for saison in response.saisons] == [ARCHIVED, RUNNING, PLANNED]
 
-    def test_it_still_honours_a_status_filter(self, mongo_replica_set_url: str):
+    def test_it_still_honours_a_status_filter(self, seeded_league: str):
         async def body(database: AsyncDatabase) -> Any:
             return await get_saisons_for_admin(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams(status="future"))
 
-        assert [saison.id for saison in on_a_league(mongo_replica_set_url, body).saisons] == [PLANNED]
+        assert [saison.id for saison in on_a_league(seeded_league, body).saisons] == [PLANNED]

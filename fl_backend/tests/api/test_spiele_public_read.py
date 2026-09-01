@@ -29,6 +29,8 @@ from app.main import create_app
 from tests.config import TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
 
+from .conftest import unwritten
+
 ADMIN_AUTH = {"Authorization": "Bearer test-key-admin"}
 BASE_AUTH = {"Authorization": "Bearer test-key-base"}
 
@@ -192,7 +194,16 @@ def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
     return asyncio.run(_answered())
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
+def _uncached_saisons() -> None:
+    """Process-global and keyed by season id alone, so an entry another test -- or another module -- left would answer here."""
+
+    invalidate_saison_cache()
+
+
+# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# from being left as a claim.
+@pytest.fixture(scope="module")
 def seeded_url(mongo_container: Any) -> Iterator[str]:
     """The fixture and its junction row, in the database `build_test_config` names -- the one the app resolves its collections from."""
 
@@ -202,11 +213,11 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
     client = MongoClient(url)
     try:
         database = a_clean_database_sync(client, url, database_name)
-        invalidate_saison_cache()
         database[Collection.SPIELE].insert_one(stored_document())
         database[Collection.SAISON_TEAMS].insert_one(junction_row())
 
-        yield url
+        with unwritten(url, database_name):
+            yield url
     finally:
         client.close()
 

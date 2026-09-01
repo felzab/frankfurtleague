@@ -20,7 +20,9 @@ from app.core.exceptions import DocumentNotFoundException
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
 from app.main import create_app
 from tests.config import build_test_config
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database, on_the_seed_loop, shared_client
+
+from .conftest import unwritten
 
 DATABASE_NAME = "fl_saison_contents_admin_read_test"
 
@@ -141,19 +143,32 @@ def spieltag_document(saison_id: str) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME) as (_, database):
-            # Process-global and keyed by season id, so an entry another module left would answer here.
-            invalidate_saison_cache()
+# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# from being left as a claim.
+@pytest.fixture(scope="module")
+def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
+    """Three seasons, one club entered in each under a group of its own, and a fixture and a matchday per season."""
 
+    async def _seed() -> None:
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_many([saison_document(saison_id) for saison_id in STATUS_OF])
             await database[Collection.TEAMS].insert_one(team_document())
             await database[Collection.SAISON_TEAMS].insert_many([junction_row(saison_id) for saison_id in STATUS_OF])
             await database[Collection.SPIELE].insert_many([spiel_document(saison_id) for saison_id in STATUS_OF])
             await database[Collection.SPIELTAGE].insert_many([spieltag_document(saison_id) for saison_id in STATUS_OF])
 
-            return await body(database)
+    on_the_seed_loop(_seed())
+
+    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+        yield mongo_replica_set_url
+
+
+def on_a_league(url: str, body: Body) -> Any:
+    async def _run() -> Any:
+        # Process-global and keyed by season id, so an entry another test left would answer here.
+        invalidate_saison_cache()
+
+        return await body(shared_client(url)[DATABASE_NAME])
 
     return on_the_seed_loop(_run())
 
@@ -255,35 +270,35 @@ PAIRED_IDS = [label for label, _, _ in PAIRED_TIERS]
 
 @pytest.mark.db
 @pytest.mark.parametrize("label,read,served", ADMIN_READS_OF_A_SEASON, ids=ADMIN_READ_IDS)
-def test_the_admin_tier_reads_a_planned_seasons_contents_in_full(label: str, read: Read, served: Served, mongo_replica_set_url: str):
+def test_the_admin_tier_reads_a_planned_seasons_contents_in_full(label: str, read: Read, served: Served, seeded_league: str):
     """What these endpoints exist for: a season is drawn and staffed while it is still `future`."""
 
-    assert served(on_a_league(mongo_replica_set_url, lambda database: read(database, PLANNED))) == [PLANNED]
+    assert served(on_a_league(seeded_league, lambda database: read(database, PLANNED))) == [PLANNED]
 
 
 @pytest.mark.db
 @pytest.mark.parametrize("saison_id", [ARCHIVED, RUNNING])
 @pytest.mark.parametrize("label,read,served", ADMIN_READS_OF_A_SEASON, ids=ADMIN_READ_IDS)
 def test_the_admin_tier_reads_a_readable_season_as_the_season_it_named(
-    label: str, read: Read, served: Served, saison_id: str, mongo_replica_set_url: str
+    label: str, read: Read, served: Served, saison_id: str, seeded_league: str
 ):
     """Non-vacuity: without it a read hardwired to one season would pass the case above."""
 
-    assert served(on_a_league(mongo_replica_set_url, lambda database: read(database, saison_id))) == [saison_id]
+    assert served(on_a_league(seeded_league, lambda database: read(database, saison_id))) == [saison_id]
 
 
 @pytest.mark.db
 @pytest.mark.parametrize("saison_id", [ARCHIVED, RUNNING])
 @pytest.mark.parametrize("label,admin_read,base_read", PAIRED_TIERS, ids=PAIRED_IDS)
 def test_the_admin_read_answers_exactly_what_the_base_read_answers(
-    label: str, admin_read: Read, base_read: Read, saison_id: str, mongo_replica_set_url: str
+    label: str, admin_read: Read, base_read: Read, saison_id: str, seeded_league: str
 ):
     """The gate is meant to be the ONLY difference, so on a season the base tier may read the two agree field for field."""
 
     async def body(database: AsyncDatabase) -> tuple[Any, Any]:
         return (await admin_read(database, saison_id)).model_dump(), (await base_read(database, saison_id)).model_dump()
 
-    admin_answer, base_answer = on_a_league(mongo_replica_set_url, body)
+    admin_answer, base_answer = on_a_league(seeded_league, body)
 
     assert admin_answer == base_answer
 
@@ -292,16 +307,16 @@ def test_the_admin_read_answers_exactly_what_the_base_read_answers(
 class TestTheBaseTierStillSeesNoneOfThePlannedSeason:
     """The contrast these admin reads exist to make possible: adding them must not have reopened the gate."""
 
-    def test_its_squads_are_still_refused(self, mongo_replica_set_url: str):
-        assert raised_by(mongo_replica_set_url, lambda database: base_teams(database, PLANNED)).status_code == 404
+    def test_its_squads_are_still_refused(self, seeded_league: str):
+        assert raised_by(seeded_league, lambda database: base_teams(database, PLANNED)).status_code == 404
 
-    def test_its_matchdays_are_still_refused(self, mongo_replica_set_url: str):
-        assert raised_by(mongo_replica_set_url, lambda database: base_spieltage(database, PLANNED)).status_code == 404
+    def test_its_matchdays_are_still_refused(self, seeded_league: str):
+        assert raised_by(seeded_league, lambda database: base_spieltage(database, PLANNED)).status_code == 404
 
-    def test_its_fixtures_still_list_as_nothing(self, mongo_replica_set_url: str):
+    def test_its_fixtures_still_list_as_nothing(self, seeded_league: str):
         """Empty rather than a refusal: an id naming no season already lists nothing there."""
 
-        assert on_a_league(mongo_replica_set_url, lambda database: base_spiele(database, PLANNED)).spiele == []
+        assert on_a_league(seeded_league, lambda database: base_spiele(database, PLANNED)).spiele == []
 
 
 APP = create_app(build_test_config())

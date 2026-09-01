@@ -1,4 +1,4 @@
-from typing import Any, Awaitable, Callable, get_type_hints
+from typing import Any, Awaitable, Callable, Iterator, get_type_hints
 
 import pytest
 from bson import ObjectId
@@ -15,7 +15,9 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
 from tests.config import build_test_config
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database, on_the_seed_loop, shared_client
+
+from .conftest import unwritten
 
 DATABASE_NAME = "fl_teams_public_read_test"
 
@@ -125,12 +127,16 @@ def junction_row(key: str, shorthand: str) -> dict[str, Any]:
     }
 
 
-def on_a_league(container: Any, body: Body) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(container.get_connection_url(), DATABASE_NAME) as (_, database):
-            # Process-global and keyed by season id, so an entry another module left would answer here.
-            invalidate_saison_cache()
+# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# from being left as a claim.
+@pytest.fixture(scope="module")
+def seeded_url(mongo_container: Any) -> Iterator[str]:
+    """One season, a live club and a retired one, and a junction row per club carrying three people's contact records."""
 
+    url = str(mongo_container.get_connection_url())
+
+    async def _seed() -> None:
+        async with a_clean_database(url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(saison_document())
             await database[Collection.TEAMS].insert_many(
                 [
@@ -140,7 +146,18 @@ def on_a_league(container: Any, body: Body) -> Any:
             )
             await database[Collection.SAISON_TEAMS].insert_many([junction_row("Helmholtz", "HG"), junction_row("Lessing", "LE")])
 
-            return await body(database)
+    on_the_seed_loop(_seed())
+
+    with unwritten(url, DATABASE_NAME):
+        yield url
+
+
+def on_a_league(url: str, body: Body) -> Any:
+    async def _run() -> Any:
+        # Process-global and keyed by season id, so an entry another test left would answer here.
+        invalidate_saison_cache()
+
+        return await body(shared_client(url)[DATABASE_NAME])
 
     return on_the_seed_loop(_run())
 
@@ -215,7 +232,7 @@ class TestTheBaseTierFilterSurface:
 class TestARetiredClubStaysOutOfTheBaseTierReads:
     """The whole chain against a real mongod: what is stored, and what the two shapes of `GET /teams` answer over it."""
 
-    def test_the_corpus_really_holds_a_retired_club_in_this_seasons_group(self, mongo_container: Any):
+    def test_the_corpus_really_holds_a_retired_club_in_this_seasons_group(self, seeded_url: str):
         """First, because every case below would pass just as well against a corpus where nobody had left the league."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -224,26 +241,26 @@ class TestARetiredClubStaysOutOfTheBaseTierReads:
 
             return club, row
 
-        club, row = on_a_league(mongo_container, body)
+        club, row = on_a_league(seeded_url, body)
 
         assert club["inactive_since"] == RETIRED_ON
         assert row["gruppe"] == "A"
 
-    def test_the_standings_leave_it_out(self, mongo_container: Any):
-        response = on_a_league(mongo_container, lambda database: read_teams(database, base_filters(in_gruppen=True)))
+    def test_the_standings_leave_it_out(self, seeded_url: str):
+        response = on_a_league(seeded_url, lambda database: read_teams(database, base_filters(in_gruppen=True)))
 
         assert standing_names(response) == ["Helmholtz"]
 
-    def test_the_flat_list_leaves_it_out_as_well(self, mongo_container: Any):
+    def test_the_flat_list_leaves_it_out_as_well(self, seeded_url: str):
         """The switch left the ENDPOINT rather than one of its two shapes: the flat list is the same base-tier surface."""
-        response = on_a_league(mongo_container, lambda database: read_teams(database, base_filters()))
+        response = on_a_league(seeded_url, lambda database: read_teams(database, base_filters()))
 
         assert [team.name for team in response.teams] == ["Helmholtz"]
 
-    def test_the_admin_read_still_un_hides_it(self, mongo_container: Any):
+    def test_the_admin_read_still_un_hides_it(self, seeded_url: str):
         """Non-vacuity as well as the rule: the same corpus, one tier along, answers with the club every case above refused."""
         filters = FLTeamsFilterParams(saison_id=SAISON, in_gruppen=True, include_inactive=True)
-        response = on_a_league(mongo_container, lambda database: read_teams_for_admin(database, filters))
+        response = on_a_league(seeded_url, lambda database: read_teams_for_admin(database, filters))
 
         assert sorted(standing_names(response)) == ["Helmholtz", "Lessing"]
 
@@ -252,18 +269,18 @@ class TestARetiredClubStaysOutOfTheBaseTierReads:
 class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
     """Three people's email, phone number and date of birth sit on the junction row, and both base-tier team reads join it."""
 
-    def test_the_corpus_really_stores_them(self, mongo_container: Any):
+    def test_the_corpus_really_stores_them(self, seeded_url: str):
         """First, because every case below would pass just as well against a season whose rows carried no contacts at all."""
 
         async def body(database: AsyncDatabase) -> Any:
             return await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OIDS["Helmholtz"]})
 
-        row = on_a_league(mongo_container, body)
+        row = on_a_league(seeded_url, body)
 
         assert row["kontakte"]["trainer"]["email"] == KONTAKT_EMAIL
         assert row["kontakte"]["stellvertretung"]["geburtsdatum"] == KONTAKT_GEBURTSDATUM
 
-    def test_the_aggregation_carries_none_of_it_back(self, mongo_container: Any):
+    def test_the_aggregation_carries_none_of_it_back(self, seeded_url: str):
         """The RAW documents, before any model sees them: what the driver returned is what a leak would have to travel in."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -273,20 +290,20 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
 
             return await (await database[Collection.TEAMS].aggregate(pipeline)).to_list(length=None)
 
-        rows = on_a_league(mongo_container, body)
+        rows = on_a_league(seeded_url, body)
 
         assert rows, "the pipeline matched nothing, so withholding is not what this proves"
         for row in rows:
             assert "kontakte" not in row
             assert KONTAKT_TELEFON not in repr(row)
 
-    def test_the_list_endpoint_serves_none_of_it(self, mongo_container: Any):
-        response = on_a_league(mongo_container, lambda database: read_teams(database, base_filters()))
+    def test_the_list_endpoint_serves_none_of_it(self, seeded_url: str):
+        response = on_a_league(seeded_url, lambda database: read_teams(database, base_filters()))
 
         assert response.teams
         assert KONTAKT_EMAIL not in response.model_dump_json()
 
-    def test_the_single_team_endpoint_serves_none_of_it_either(self, mongo_container: Any):
+    def test_the_single_team_endpoint_serves_none_of_it_either(self, seeded_url: str):
         """The other public caller of the same pipeline, and the one an anonymous visitor reaches with an id in hand."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -297,7 +314,7 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
                 filters=FLTeamSingleFilterParams(saison_id=SAISON),
             )
 
-        response = on_a_league(mongo_container, body)
+        response = on_a_league(seeded_url, body)
 
         assert response.team.name == "Helmholtz"
         assert KONTAKT_EMAIL not in response.model_dump_json()
