@@ -209,7 +209,7 @@ per scope in the form `scope:after,after`, `scripts/gate_pool.py :: parse_unit` 
 `--width`, so the pool opens one slot per unit and every unconstrained scope starts at once. `ops` is
 the exception and the run's tail: it follows three scopes, and in the run tabulated below it starts at
 91 seconds of 94 to do 2.4 seconds of work. The constraint and what it protects are
-`scripts/verify.sh :: scope_shares` and [`docs/ops/spec.md`](../ops/spec.md) §1.6.
+`scripts/verify.sh` and [`docs/ops/spec.md`](../ops/spec.md) §1.6.
 
 **Two scopes writing one `__pycache__` is not a coupling, and a second chain must not be added on
 that reasoning.** `docs` and `scripts` have shared two of those directories unconstrained since the
@@ -368,11 +368,11 @@ claim resolves rather than whether anyone is asked to re-read it.
 **Status:** Open\
 **Surfaces:** Ops, Docs\
 **Effort:** M\
-**Path:** Independent. It lands in `scripts/docs_gate/references.py` beside **OPS-71** and
+**Path:** Independent. It lands in `scripts/docs_gate/checks.py` beside **OPS-71** and
 **OPS-95**, the other entries about what a citation resolves to, and the corpus sweep one of
 the two repairs below needs belongs to `/docs:audit` rather than to any branch (CUR-6).
 
-**`scripts/docs_gate/references.py :: CITATION_RE` requires at least one character before the `::`,
+**`scripts/docs_gate/checks.py :: CITATION_RE` requires at least one character before the `::`,
 so the continuation form — a table cell naming a file once and then citing several of its symbols in
 a row, each written as the separator and the symbol alone — matches nothing.** The `citation`
 check never resolves it. **The gate therefore proves the full citation standing beside it and
@@ -387,7 +387,7 @@ same checks. Each is a claim about code that no check can resolve.
 **It has already certified a claim that was false.** `docs/backend/spec.md` I7 continued its citation
 of `fl_backend/tests/api/test_admin_guard.py` with a symbol that has since been renamed, the test now
 being `fl_backend/tests/api/test_admin_guard.py :: test_the_pinned_reads_are_admin_guarded`. Running
-`scripts/docs_gate/references.py :: _check_citation` over every citation the page carried before that
+`scripts/docs_gate/checks.py :: _check_citation` over every citation the page carried before that
 rename, against a tree holding the renamed test, returns **zero findings** — the sheet's own
 `Enforced by` named a test that was not there, and the gate had nothing to say. Written in full, the
 same citation fails the run.
@@ -424,7 +424,7 @@ Exercised on 2026-08-30 through `ruff format -` on two inputs differing only in 
 sat: between two comment paragraphs inside a call it is stripped and the paragraphs become
 contiguous; between the same two paragraphs in a function body it survives. **So a comment written as
 several paragraphs inside a call reaches the checker as one block**, and
-`scripts/docs_gate/structure.py :: comment_runs` reads it as one — which is what INC-9's bound
+`scripts/docs_gate/kernel.py :: comment_runs` reads it as one — which is what INC-9's bound
 is then applied to.
 
 **The obvious way round it does not work either.** A bare `#` between paragraphs survives the
@@ -435,7 +435,7 @@ the formatter's behaviour fail in the same direction**, and nothing tells them s
 **The live instance is invisible, and by a decision that is right.** The comment at
 `fl_backend/app/api/teams/admin_router.py :: patch_saison_team`'s replacement write measures 443
 characters against the 250-character cap, read through the gate's own functions on 2026-08-30.
-`scripts/docs_gate/structure.py :: check_comment_length` measures a block only where every one of its
+`scripts/docs_gate/branch.py :: check_comment_length` measures a block only where every one of its
 lines is in the branch's added set, and its docstring records why — failing a branch for a word
 changed inside an older block is what gets a check suppressed, and a partly rewritten block is
 `/docs:audit-pr`'s under CUR-6. That reasoning holds; the consequence here is that the one place the
@@ -676,7 +676,7 @@ able to prove behaviour over impossible data** — which is the one thing that t
 **Path:** Independent of DOC-2 and DOC-3, which are about what the standard claims and what a discovery
 pattern reaches; this is about what resolution proves.
 
-**`scripts/docs_gate/references.py :: _check_citation` ends by testing whether the anchor appears
+**`scripts/docs_gate/checks.py :: _check_citation` ends by testing whether the anchor appears
 anywhere in the cited file.** That proves the anchor's characters are somewhere in the file it names,
 and nothing more. For a `<file> :: <symbol>` citation over source that is usually enough, because a
 symbol name is long and distinctive. **For an invariant it is not**: an invariant id resolves against a
@@ -691,14 +691,14 @@ resolves cleanly against a definition it does not hold.
 substring of a longer one, so a citation to an invariant a sheet does not define passes as long as one
 starting with the same digits does. The second is collision: a new invariant given a number the sheet
 already uses resolves perfectly, from both directions, while the sheet now defines one number twice.
-**Nothing detects the duplicate either.** `scripts/docs_gate/perkind.py :: invariant_ids` walks
+**Nothing detects the duplicate either.** `scripts/docs_gate/checks.py :: invariant_ids` walks
 `:: INVARIANT_ROW_RE` over every sheet and appends a sheet to an id's home list only where the sheet is
 not already in it, so a sheet defining one id in two rows is indistinguishable from a sheet defining it
 once.
 
-**The machinery to close both already exists and is already passed in.** `scripts/docs_gate/run.py`
+**The machinery to close both already exists and is already passed in.** `scripts/check_docs.py`
 computes the invariant homes and hands them to the per-file check, which uses them for
-`scripts/docs_gate/references.py :: check_invariant_citations` — the comments-only check for an id two
+`scripts/docs_gate/checks.py :: check_invariant_citations` — the comments-only check for an id two
 sheets define. **What is missing is the same resolution for the citation form**: where a citation's
 anchor is exactly an invariant id, require the cited sheet to be among that id's homes rather than
 testing for a substring, and report a duplicate row within one sheet as a finding of its own. Both are
@@ -706,7 +706,7 @@ small changes in files that already hold the data.
 
 **One thing to get right.** The general substring test has to stay for symbols, because a source file
 has no index the gate could resolve a function name against. So this narrows the check for one anchor
-shape rather than replacing it, and `scripts/docs_gate/references.py :: INVARIANT_CITE_RE` is the
+shape rather than replacing it, and `scripts/docs_gate/checks.py :: INVARIANT_CITE_RE` is the
 pattern that already recognises that shape.
 
 ### 11 · OPS-95 — A citation naming a real file in an unaccepted spelling is reported as a file that does not exist
@@ -714,10 +714,10 @@ pattern that already recognises that shape.
 **Status:** Open\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
-**Path:** Independent. It lands in `scripts/docs_gate/references.py` beside **OPS-91** and **OPS-71**,
+**Path:** Independent. It lands in `scripts/docs_gate/checks.py` beside **OPS-91** and **OPS-71**,
 the other entries about what a citation resolves to. Neither blocks the other.
 
-**`scripts/docs_gate/references.py :: _resolve` refuses a slashed token that is neither
+**`scripts/docs_gate/checks.py :: _resolve` refuses a slashed token that is neither
 repository-relative nor package-root-relative, and never reaches the name index behind it.** The
 function tries the repository path, then `scripts/docs_gate/kernel.py :: repo_path`, then a bare-name
 lookup — but the bare-name route is guarded by a test for a `/` in the token, so a token holding one
@@ -1106,7 +1106,7 @@ what falls short of its rule. None waits on another and each fix is in a differe
 ever read a stylesheet.** Two filters stand in the way and neither admits one:
 `scripts/docs_gate/kernel.py :: tracked_files` builds the corpus from markdown plus
 `:: SCANNED_SUFFIXES`, so a stylesheet is never a file
-`scripts/docs_gate/references.py :: check_file` is handed; and
+`scripts/docs_gate/checks.py :: check_file` is handed; and
 `scripts/docs_gate/branch.py :: check_comment_bounds` tests the same tuple again before it measures
 a block. INC-9's bounds, INC-6's comment citations, COR-3's history phrases and COR-4's counts
 all sit downstream of one filter or the other.
@@ -1126,7 +1126,7 @@ three would fail the gate even with the filter widened**, because `check_comment
 only a block the branch in hand wrote, which leaves a standing breach to `/docs:audit` (CUR-6).
 
 **The rule this hole covers has already been broken here, and a person caught it rather than the
-check.** `scripts/docs_gate/perkind.py :: check_owner_voice` raises `owner-voice` on
+check.** `scripts/docs_gate/checks.py :: check_owner_voice` raises `owner-voice` on
 `fl_frontend/src/app/globals.css` at `acee5209` and raises nothing on the same file at `d4eb0f44`,
 measured 2026-08-27 by handing the checker both revisions with `.css` read as a C-style source.
 Neither verdict is one the gate can reach, that file never being in the corpus. **That is this
@@ -1141,14 +1141,14 @@ body — OPS-29's silence reproduced in a new place. The alternative is to say i
 scope line where its checks stop, which is the cheaper change and leaves every block in the two stylesheets carrying this
 application's styling reasoning under no bound at all. A third question rides on whichever is taken:
 both files open on a block INC-2 admits in no stylesheet, and
-`scripts/docs_gate/structure.py :: HEADER_SCOPES` would not bind either on a suffix addition, so a
+`scripts/docs_gate/checks.py :: HEADER_SCOPES` would not bind either on a suffix addition, so a
 widening has to settle that deliberately rather than inherit it — both blocks sit inside INC-9's
 bound today, so nothing is through that half. **The outcome to avoid is neither**, the enforcement
 claim and the silence both left standing, which is how the next over-long block gets written into
 the file most read for how this application is styled.
 
 **The byte checks are not in the gap, and no other file type is.**
-`scripts/docs_gate/perkind.py :: check_line_endings` and `:: check_binary_bytes` iterate the index
+`scripts/docs_gate/checks.py :: check_line_endings` and `:: check_binary_bytes` iterate the index
 rather than the corpus, so CRLF and a stray CR are caught in a stylesheet as anywhere else.
 Sweeping the five roots the In-code scope names for every other suffix the tuple omits, on the same date:
 markdown is in the corpus by its own glob and read in full, the icons are assets carrying no
@@ -1356,7 +1356,7 @@ learn what a code an admin surface just received means.
 
 **Nothing resolves the two spellings.** No file under `scripts/` opens the page. The gate's identifier
 check reaches the documentation standard's own rule ids and stops:
-`scripts/docs_gate/references.py :: RULE_ID_RE` is a closed alternation of the standard's prefixes,
+`scripts/docs_gate/checks.py :: RULE_ID_RE` is a closed alternation of the standard's prefixes,
 and DOC-3 records that it is closed **on purpose**, so that a backend error code — which carries an
 extra segment — can never be read as a rule id. A code added, renamed or retired in the backend and
 missed in the table is therefore a silent divergence, and a row for a code nothing raises is the same
@@ -1368,7 +1368,7 @@ backend. What that costs to leave undone is a class rather than a defect — and
 frequent, because a branch adding a refusal adds a row by hand and nothing reads the pair.
 
 **What the repair looks like, and the precedent for it.**
-`scripts/docs_gate/perkind.py :: roadmap_ids` already derives a set of ids from the tables defining
+`scripts/docs_gate/kernel.py :: roadmap_ids` already derives a set of ids from the tables defining
 them rather than matching a shape, and the roadmap check compares that set against the pages using it.
 The same shape here is a set comparison in both directions between the codes the table's rows carry
 and the codes the backend spells. **The published document is not the second source:** measured on
@@ -1605,7 +1605,7 @@ exclusion written down rather than assumed.
 **Path:** Independent. **DOC-10** watches the same check from the other side — a block that was over
 a bound before the branch reached it — and neither entry blocks the other.
 
-**`scripts/docs_gate/structure.py :: check_comment_length` reads a block only where the branch
+**`scripts/docs_gate/branch.py :: check_comment_length` reads a block only where the branch
 touched a line inside it, and a rename puts no line of a carried block in the branch's added set.**
 `scripts/docs_gate/branch.py :: _added_by_file` derives that set from `git diff -U0` against the fork
 point, deliberately without a pathspec so git has something to detect a rename against — its own
@@ -1784,7 +1784,7 @@ against it.
 **Effort:** S\
 **Path:** Independent — what the classifier answers does not change, only what the answer costs.
 
-**`scripts/check_scope.py :: is_comment_only` spawns per file, and the gate runs it over the whole
+**`scripts/check_scope.py :: same_but_for_comments` spawns per file, and the gate runs it over the whole
 diff.** Each changed file costs a `git show` for its earlier version, and each changed TypeScript
 file then costs a fresh node process, because `scripts/check_scope.py :: typescript_same` hands one
 pair at a time to `scripts/ts_normalize.mjs`. The cost therefore scales with how many files a branch
@@ -1903,7 +1903,7 @@ currently holds. Each is also narrower than the rule it serves, and where it fal
 answers with silence rather than a finding.
 
 **The rule families are spelt into the patterns.** `scripts/check_docs.py :: RULE_ID_RE` carries
-the standard's prefixes as a closed alternation, and `scripts/docs_gate/perkind.py ::
+the standard's prefixes as a closed alternation, and `scripts/docs_gate/checks.py ::
 RULE_HEAD_RE` and `:: RULE_INDEX_LINE_RE` repeat the same list. A rule family added under a
 prefix none of them carries falls outside all of them at once: citations of its rules resolve
 to nothing and dangle unreported, and its rules are not held to PRE-4's anatomy. Widening the alternation by hand is not the answer, because the list is closed so that the
@@ -1932,7 +1932,7 @@ carry, or the first page that needs a metadata block indented.
 **Path:** Independent — one comparison in one function. **DOC-14** reaches the same check from the
 side where no line of the block was touched at all, and neither blocks the other.
 
-**`scripts/docs_gate/structure.py :: check_comment_length` measures a block this branch touched and
+**`scripts/docs_gate/branch.py :: check_comment_length` measures a block this branch touched and
 excuses one whose OPENING LINE already broke a bound at the fork.** The opening is what identifies a
 block across an edit deeper inside it, where a line number moves with every insertion above. So a
 branch rewriting the prose inside a long block is not charged for its length, and a branch rewriting
