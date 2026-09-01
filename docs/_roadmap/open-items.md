@@ -205,9 +205,14 @@ rests on a judgement nobody qualified has reviewed:
   `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`. D60's asymmetry is forced by the data
   — `spiele` holds no player reference of any kind, while it embeds a referee's name and id on every
   fixture — but whether the asymmetry is the right answer is not a data question.
-- **"Under 16 needs a guardian" cannot be enforced by any server rule.** No birthdate is stored and
-  `stufe` is only a proxy, so it lives at the form as a warning on `E1` and `E2`. D64 **declines
-  storing `geburtsdatum`**, on the reasoning that it answers a privacy problem by storing a strictly
+- **"Under 16 needs a guardian" is carried by nothing.** No birthdate is stored and `stufe` is only
+  a proxy, so no server rule can refuse a registration on age — and no surface states the rule
+  either: `fl_frontend/src/features/spieler/components/forms/AdminCreateSpielerForm.tsx` and
+  `fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormKaderSection.tsx` each
+  render a bare Stufe picker, and the only guardian copy in the product belongs to an application's
+  contact person, an adult and a different subject. **Whether a warning should stand at the form is
+  an open product question and not a gap being reported here.** D64 **declines storing
+  `geburtsdatum`**, on the reasoning that it answers a privacy problem by storing a strictly
   more identifying fact about a minor than the one being protected. That decline is overturned by
   **BE-48** — an optional `geburtsdatum`, collected at registration going forward, no backfill —
   the assistant's call under a standing instruction and open to reversal, so what remains for the
@@ -239,7 +244,7 @@ registered since through `POST /spieler` carries `erziehungsberechtigt` instead.
 **Surfaces:** FE, BE, DB\
 **Effort:** M\
 **Path:** Independent. **BE-23** holds the consent-writer question this field informs — "under 16
-needs a guardian" is judged from `stufe` alone until a birthdate exists — and neither blocks the
+needs a guardian" is judged by nothing at all until a birthdate exists — and neither blocks the
 other. **FB-17**'s self-registration page is the second surface that would collect the field, and
 landing this first is what keeps that form from being built and then reopened.
 
@@ -251,10 +256,11 @@ mature-judgment instruction, and stands open to my reversal. Its parts:
 - **Collected going forward only.** No channel exists to reach existing pupils or their guardians
   for a date after the fact, so there is no backfill and none is planned: every pupil registered
   before the field stays `null` for good.
-- **The age rule splits on presence.** Where a birthdate is stored, the under-16 check runs on the
-  fact; where it is `null`, the check stays what it is today — advisory, judged from `stufe`, a
-  proxy that says which grade a pupil attends and not how old they are. A null is an honest "not
-  known", never a refusal.
+- **The age rule splits on presence.** Where a birthdate is stored, an under-16 check can run on
+  the fact; where it is `null` there is no fact to run on, and `stufe` is the only signal left — a
+  proxy that says which grade a pupil attends and not how old they are. **Nothing judges the
+  under-16 case today on either side of that split** (**BE-23**), so what this decision supplies is
+  the fact rather than a rule over it. A null is an honest "not known", never a refusal.
 
 **What it supersedes.** D64 declines storing `geburtsdatum`, reasoning that it answers a privacy
 problem by storing a strictly more identifying fact about a minor than the one being protected —
