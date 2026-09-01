@@ -649,10 +649,13 @@ fi
 if (( RUN_DB )); then
   section db
 
-  # `loadfile` keeps a file's tests on one worker, which is what lets a module corpus and a
-  # `DATABASE_NAME` stay that worker's own. Both mongods are shared
-  # (`fl_backend/tests/conftest.py :: pytest_configure_node`), so width costs processes.
-  step "db · pytest -m db, distributed over a shared mongod"
+  # `loadfile` is a cost choice, not a correctness one: a module corpus is built once rather than
+  # per worker. What isolates it and a `DATABASE_NAME` is
+  # `fl_backend/tests/worker.py :: worker_database`, so `--dist load` holds too.
+
+  # Both mongods are shared (`fl_backend/tests/conftest.py :: pytest_configure_node`), so width
+  # costs processes.
+  step "db · pytest -m db, distributed over the two shared mongods"
   ( cd fl_backend && quietly "$PY" -m pytest -m db -n auto --dist loadfile ) || die "fl_backend db-tier tests failed.
 testcontainers starts and removes mongo:8 itself; a failure here is the code, not the daemon.
 Re-run without \`-n auto --dist loadfile\` to see whether distribution is what broke it."
