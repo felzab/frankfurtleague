@@ -1535,11 +1535,15 @@ UNENFORCED: tuple[Unenforced, ...] = (
         surfaced_by="/admin/action_required",
     ),
     Unenforced(
-        subject="a retired row's eventual purge",
+        subject="a retired row kept indefinitely",
         reason=(
-            "`inactive_since` is a date so a purge can select on it; no RETENTION sweep is built (roadmap BE-12). A pupil's "
-            "erasure removes one named person on request and is not that sweep -- it selects a subject, never an age, and "
-            "`REQ-PURGE-001` makes retirement its precondition rather than its trigger."
+            "Decided 2026-08, Datenschutzexperte consulted: a retired row is never purged on its age, so there is no "
+            "RETENTION sweep to build and none may be added. The one removal is a pupil's own erasure request, which "
+            "selects a subject, never an age, and `REQ-PURGE-001` makes retirement its precondition rather than its "
+            "trigger. `inactive_since` stays a date (`docs/backend/spec.md :: I12`): it records WHEN a row retired, "
+            "not when a sweep may take it. What the proof reaches is a removal through `app/core/crud.py`'s two "
+            "helpers: refused where its literal filter names the field at any depth, failed outright where the "
+            "filter is a variable. A sweep inside that module, or outside `app/`, is unscanned."
         ),
         near=("REQ-RETIRE-001",),
         proven_by="tests/core/test_unenforced.py::TestNoPurgeReachesARetiredRow",

@@ -105,6 +105,7 @@ export function FormSchuleSection({
   // Ids rather than a bare `<p>`: a sentence a control is not described BY is one a reader never meets.
   const listeHinweisId = useId();
   const kuerzelHinweisId = useId();
+  const adressHinweisId = useId();
   const listeHinweis = !isSchulenLesbar ? LISTE_UNLESBAR : schulen.length === 0 ? LISTE_LEER : null;
 
   return (
@@ -330,10 +331,19 @@ export function FormSchuleSection({
 
             <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
               <h3 className={FORM_SECTION_HEADING}>Adresse der Schule</h3>
+              {/* Not copy to trim: decided 2026-08, Datenschutzexperte consulted — the address stays
+                  public, and the form says so where it is asked for. The rule stands where the read
+                  serves it (`fl_backend/app/api/teams/schemas.py :: _TeamWritable`). */}
+              <p
+                id={adressHinweisId}
+                className="fluid-xxs text-foreground-muted leading-relaxed font-medium text-pretty">
+                Die Adresse, die Du hier einträgst, steht nach der Aufnahme in die Liga öffentlich auf der Teamseite Deiner Schule.
+              </p>
               {/* Neither `errors` nor `renderLabel`: the `<Form validationErrors>` above distributes by
                   field name, and this page holds no draft markers for a label to carry. */}
               <AddressFields
                 isStadtteilRequired
+                describedById={adressHinweisId}
                 value={schule.address}
                 namePrefix="schule.address"
                 onChange={(address) => setSchuleFeld({ address })}
