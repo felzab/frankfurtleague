@@ -475,6 +475,17 @@ stops before building when the variable is set and the credential is missing** �
 too, but only after every layer has been built, naming a missing token rather than the missing
 step. Locally the variable is unset and the build runs against the daemon's own cache.
 
+**The aggregate `verify` job writes an advisory wall-clock glance** into its run summary on every
+push to main: per-job medians over the successful main runs already on record — never the run doing
+the reporting — against the window before them, the window's size the step's own `window`, each
+figure measured from a job's first step to its last so a wait for a runner counts as nothing. Main pushes are the only comparable population — they alone
+run every scope, where a pull request's jobs are path-filtered — and the median is what absorbs the
+images job's swing between a warm layer cache and a cold one. The job takes `actions: read` for the
+runs API and nothing else. It decides nothing: no threshold exists, the step runs under
+`continue-on-error`, and pull requests skip it, so the seconds it costs land where no merge is
+waiting. What it is read for is a direction holding across several reports, never one delta — a
+reshuffle of the same runs moves a job's median by around a tenth on its own.
+
 **The documentation gate** (`scripts/check_docs.py`) reads `/docs`, the source comments beside the
 code and the configuration files scanned with them, and its byte-level checks read every tracked
 text file — so a finding this scope raises need not be about a document at all. Its checks are

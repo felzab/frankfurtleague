@@ -301,6 +301,10 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # The runs API carries the timing history the wall-clock step reads, and the workflow-level
+    # grant is contents only. This job checks nothing out, so read on Actions is the whole of it.
+    permissions:
+      actions: read
     steps:
       # First, so it prints whether or not the verdict below refuses. A green `verify` says nothing
       # about which scopes ran, and a mapping that turned every scope off looks identical to a
@@ -314,6 +318,72 @@ jobs:
           RESULTS: ${{ toJSON(needs) }}
         run: |
           printf '%s' "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+      - name: Report the gate's wall clock
+        # The re-bloat glance for time: per-job medians over the last window of main runs against the
+        # window before them, in the run summary. Advisory by construction — no threshold, no
+        # verdict, and continue-on-error keeps it away from the verdict this job is.
+        continue-on-error: true
+        # Main pushes only, because they alone run every scope: a pull request's jobs are
+        # path-filtered, so no two windows cut from them compare like for like.
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          window=12
+          runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?branch=main&event=push&status=success&per_page=$((window * 2))" --jq '.workflow_runs[].id')"
+          count="$(printf '%s\n' "$runs" | awk 'NF' | wc -l)"
+          if [ "$count" -lt "$((window * 2))" ]; then
+            echo "Gate wall clock: $count successful main runs on record, $((window * 2)) needed for two comparable windows." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "### Gate wall clock, per job"
+            echo
+            echo "| Job | median, last $window main runs | previous $window | delta |"
+            echo "| --- | ---: | ---: | ---: |"
+            half=a
+            i=0
+            for id in $runs; do
+              i=$((i + 1))
+              if [ "$i" -gt "$window" ]; then half=b; fi
+              # First step's start to last step's end, rather than the job's own timestamps, which
+              # carry the wait for a runner — pool queueing is noise about GitHub, not about the
+              # gate. This job is left out: its seconds are this report, not the gate's work.
+              gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" --jq '
+                .jobs[] | select(.conclusion == "success" and .name != "verify")
+                | [.name,
+                   (([.steps[] | select(.completed_at != null) | .completed_at | fromdateiso8601] | max)
+                    - ([.steps[] | select(.started_at != null) | .started_at | fromdateiso8601] | min))]
+                | @tsv' | awk -v h="$half" '{ print h "\t" $0 }'
+            done | awk -F'\t' '
+              # Median, not mean: the images job swings more than tenfold between a warm layer cache
+              # and a cold one, and one cold run would carry a mean nobody could read past.
+              function med(k,   c) {
+                c = n[k]
+                if (c == 0) return -1
+                if (c % 2) return int(v[k, (c + 1) / 2] + 0.5)
+                return int((v[k, c / 2] + v[k, c / 2 + 1]) / 2 + 0.5)
+              }
+              { if (!($2 in seen)) { seen[$2] = 1; names[++nn] = $2 }
+                k = $2 SUBSEP $1
+                c = ++n[k]
+                # Insertion into the group in order, so the median needs no external sort at all.
+                while (c > 1 && v[k, c - 1] > $3) { v[k, c] = v[k, c - 1]; c-- }
+                v[k, c] = $3 }
+              END {
+                for (i = 1; i <= nn; i++) {
+                  j = names[i]; r = med(j SUBSEP "a"); o = med(j SUBSEP "b")
+                  if (r < 0) { printf "0\t| %s | — | %ds | — |\n", j, o; continue }
+                  if (o < 0) { printf "%d\t| %s | %ds | — | — |\n", r, j, r; continue }
+                  tr += r; to += o
+                  printf "%d\t| %s | %ds | %ds | %+ds (%+d%%) |\n", r, j, r, o, r - o, (r - o) * 100 / o
+                }
+                if (to > 0) printf "-1\t| **sum of the rows above** | **%ds** | **%ds** | **%+ds (%+d%%)** |\n", tr, to, tr - to, (tr - to) * 100 / to
+              }' | sort -k1,1rn | cut -f2-
+            echo
+            echo "Each figure is a job's own first-step-to-last-step span, so queue time is out. The population is the successful main runs already on record, this one not among them, and the sum covers only jobs a window on each side recorded. A reshuffle of these same $((window * 2)) runs moves a job's median by around a tenth on its own, and further on the noisiest, so one delta is not a finding — a direction holding across several reports is."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Fail if any scope job failed or was cancelled
         # A skipped job is a pass here: path filtering skipped it on purpose. Pure expressions, no
         # shell parsing of the needs context.
