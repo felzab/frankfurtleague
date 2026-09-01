@@ -349,6 +349,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+      - name: Create the backend virtualenv
+        # The two builds start together only through `scripts/gate_pool.py`, which needs a python at
+        # the checkers' floor -- above this image's own. Without this venv the scope costs their sum
+        # rather than the longer of the two, against the timeout above.
+        working-directory: fl_backend
+        run: uv sync --dev
       # buildx talks to the Actions cache service itself, so there is no actions/cache
       # step and no cache directory to carry. This action exists because the runner injects the
       # service credentials into JavaScript actions alone.
