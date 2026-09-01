@@ -232,9 +232,6 @@ class _TeamWritable(BaseModel):
     address: FLAddress
 
 
-# `FLGruppenTeam`'s narrowing does not reach here: `address` is rendered by
-# `fl_frontend/src/features/teams/components/ui/TeamIdentityCard.tsx`, and no `READ-*` rule covers
-# a club's. Serving it anonymously is a ruling, not an oversight.
 class FLTeam(_TeamWritable):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 

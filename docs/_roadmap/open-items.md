@@ -282,7 +282,7 @@ registered since through `POST /spieler` carries `erziehungsberechtigt` instead.
 **Surfaces:** FE, BE, Docs\
 **Effort:** S\
 **Path:** Independent. Whether the public club model should carry an address at all is settled — it
-does, recorded at `fl_backend/app/api/teams/schemas.py :: FLTeam` — and this entry asks how the
+does, recorded as `READ-ADDRESS-002` in `docs/backend/spec.md` — and this entry asks how the
 address arrives instead. Nothing else waits on it.
 
 **`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung` builds a club out of the
@@ -291,14 +291,13 @@ school's own block and inserts it into `teams`, the address included.**
 into the club document through `_CLUB_FIELDS_FROM_SCHULE`, beside `full_name`, `shorthand`,
 `schulform` and `website_url`, and the acceptance writes that document inside its transaction.
 
-**The field changes tier at that write, and no rule names the crossing.** On the application it is
-admin-tier: `fl_backend/app/api/bewerbungen/router.py` is guarded whole under `READ-CONTACT-001`,
-an application carrying its contact people's records. In `teams` it is public:
-`fl_backend/app/api/teams/schemas.py :: FLTeam` serves it on both team reads, and says at the model
-that it means to. `docs/backend/spec.md`'s read
-rules cover a venue's address (`READ-ADDRESS-001`) and an application's contact records
-(`READ-CONTACT-001`); neither says what a school's correspondence address becomes once acceptance has
-made a club of it.
+**The field changes tier at that write, and the crossing itself is what no rule reaches.** On the
+application it is admin-tier: `fl_backend/app/api/bewerbungen/router.py` is guarded whole under
+`READ-CONTACT-001`, an application carrying its contact people's records. In `teams` it is public
+under `READ-ADDRESS-002`, which `fl_backend/app/api/teams/schemas.py :: FLTeam` carries on both team
+reads. Each rule governs one read, and the acceptance sits between them: a read rule cannot say
+whether a school's correspondence address is the league's to copy into a club, because that is a
+question about the write.
 
 **Nothing on either side of the write says so either.** The school's block is asked for as the club it
 proposes (`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungSchule`), and the acceptance
@@ -307,9 +306,10 @@ form, or an administrator pressing accept, learns from neither that the address 
 stand on the public team page.
 
 **Three answers, and which one is right is the decision.** Narrow the public model — closed off,
-that a club's address stays public being settled at `fl_backend/app/api/teams/schemas.py :: FLTeam`,
-and listed because reopening it would reopen this entry too. Keep the address public and say so where it is asked
-for, which puts a sentence on the application form and a rule beside `READ-ADDRESS-001`. Or hold that
+that a club's address stays public being settled by `READ-ADDRESS-002`, and listed because reopening
+it would reopen this entry too. Keep the address public and say so where it is asked
+for, which puts a sentence on the application form, `READ-ADDRESS-002` standing beside
+`READ-ADDRESS-001` for the registry half. Or hold that
 a school's address is not the league's to publish and stop copying the field at acceptance, leaving
 `FLTeam.address` to clubs an administrator entered directly.
 
