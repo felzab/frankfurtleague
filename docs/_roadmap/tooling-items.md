@@ -1838,6 +1838,14 @@ worktree and once per CI job. **Every warm threaded run in the table emitted
 disabled, and no `auto` run of either temperature was without it. So the step is cached and serial,
 and the cold arm is what that costs.
 
+**How often the warm column is the one you get is bounded by where the digest lives.** It is one
+value in `settings`, reached by every linted file, so invalidation is all-or-nothing: a stylesheet
+edit, a lockfile move, or a file added to or renamed under the route directories drops all 622
+entries and the next run is a cold one. Editing a route file's own contents does not, names being
+all that is hashed of them. That is a cost rather than a defect — a per-rule cache key is not
+something eslint offers — and it is why the cold column matters more than a warm-run count would
+suggest.
+
 1. **Does a cache survive usefully between local runs?** Yes — decisively for eslint and modestly for
    prettier, and together they remove **about twenty-eight seconds of scope-time from a warm local
    run** (2026-08-12) — scope-time rather than wall clock, because the two halves fall in different
