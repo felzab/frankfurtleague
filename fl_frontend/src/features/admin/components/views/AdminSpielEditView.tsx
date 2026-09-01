@@ -16,7 +16,7 @@ import type { ActionRequiredCategory } from "@/features/spiele/types";
  * fixture, so that rule has a single copy.
  */
 export function AdminSpielEditView({ spielData, today }: { spielData: FLSpielAdmin; today: string }) {
-  const { teams, spielorte, schiedsrichter, saisonSpiele } = useAdmin();
+  const { teams, spielorte, schiedsrichter, saisonSpiele, numberOfGroups } = useAdmin();
 
   /**
    * A function and not a set, because the answer moves with the draft: toggling Absage empties "Offene
@@ -40,6 +40,7 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpielAdm
         spielorte={spielorte}
         schiedsrichter={schiedsrichter}
         saisonSpiele={saisonSpiele}
+        numberOfGroups={numberOfGroups}
         today={today}
         categorize={categorize}
         pageHeader={{

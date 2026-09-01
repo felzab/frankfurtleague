@@ -51,40 +51,61 @@ if (( RUN_OPS || RUN_DB || RUN_IMAGES )); then
   require_docker
 fi
 
-# The scripts scope's checks run beside each other and are collected one step at a time. Declared
-# up here because the EXIT trap below reaps them, and `set -u` refuses an array that does not exist.
-BG_DIR=""
-declare -A BG_PID=()
+# One capture directory per pool run, holding its units file, their output and its manifest.
+# Declared up here because the EXIT trap below reclaims them, and `set -u` refuses an array that
+# does not exist.
+POOL_DIRS=()
+
+# A step worker is one check body, run as its own process. It creates none of the resources below
+# and inherits every one, so its trap must reclaim nothing: they are the parent's, still running.
+STEP_UNIT="${FL_GATE_STEP:-}"
+step_worker() { [[ -n "$STEP_UNIT" ]]; }
 
 # One EXIT trap for every scope's cleanup: `die` exits directly, so an inline cleanup line after a
 # failed check never runs. Never add INT or TERM — `_lib.sh` owns them, and re-trapping either
 # loses the interrupted closing statement.
 cleanup() { :; }
 gate_exit() {
+  local dir
+  if step_worker; then return 0; fi
   # From the trap, not the end of the body: `die`, `refuse` and `on_error` exit where they stand,
   # so a body-final call misses exactly the rows whose verdict matters most.
   if worker; then end_section; emit_section_ledger > "${FL_GATE_LEDGER:?}"; fi
-  cleanup
-  if [[ -n "${POOL_DIR:-}" ]]; then rm -rf "$POOL_DIR"; fi
-  # Only the job shells are signalled: a started tool tears its own fixtures down, and bash cannot
-  # portably reach a grandchild. The `rm` is best-effort for the same reason -- Windows will not
-  # unlink a file a surviving tool holds open.
-  if (( ${#BG_PID[@]} )); then kill "${BG_PID[@]}" 2>/dev/null || true; fi
-  if [[ -n "$BG_DIR" ]]; then rm -rf "$BG_DIR" 2>/dev/null || true; fi
-  if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then rm -f "$FL_SELFCHECK_LEDGER"; fi
+  # Every reclaim below is best-effort: under `set -e` one failing `rm` ends the trap where it
+  # stands, skipping the reclaims after it and answering 1 over a body that exited 0 -- with no
+  # ERR trap to say so, `_lib.sh` setting `set -e` without `set -E`.
+  cleanup || true
+  if (( ${#POOL_DIRS[@]} )); then
+    for dir in "${POOL_DIRS[@]}"; do rm -rf "$dir" || true; done
+  fi
+  if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then rm -f "$FL_SELFCHECK_LEDGER" || true; fi
 }
 trap gate_exit EXIT
 
 if (( RUN_OPS || RUN_IMAGES )); then
-  STANDIN_BE=0; STANDIN_FE=0
-  # The tag carries this run's pid, so the forced removal below reaches only what this run built.
-  # Under a fixed tag a concurrent run would delete them, and `-f` asks no questions.
-  VERIFY_TAG="frankfurtleague-verify-$$"
+  OPS_SCRATCH=""
+  # The tag carries the pid of the process that opened the run, so the image one unit builds is the
+  # one another runs and removes. Never the caller's own value: `cleanup` force-deletes whatever it
+  # names, and a shared tag names a concurrent run's images.
+  if worker || step_worker; then
+    # No apostrophe in the message: a single quote inside `${var:?word}` opens a quoted run that
+    # swallows the rest of the file, and `bash -n` then blames a line far below this one.
+    : "${VERIFY_TAG:?the parent hands a unit the run tag, which no unit may invent}"
+  else
+    VERIFY_TAG="frankfurtleague-verify-$$"
+    export VERIFY_TAG
+  fi
   cleanup() {
-    rm -rf "${REPO_ROOT}/.tmp-nginx-check"
-    if (( STANDIN_BE )); then rm -f fl_backend/.env; fi
-    if (( STANDIN_FE )); then rm -f fl_frontend/.env; fi
-    docker image rm -f "${VERIFY_TAG}:frontend" "${VERIFY_TAG}:backend" >/dev/null 2>&1 || true
+    # Guarded by the scope that created it: these two run as separate processes, so unguarded,
+    # whichever finished first reaches the other's certificate or its image. `|| true` for the
+    # reason `gate_exit` records.
+    if (( RUN_OPS )); then
+      rm -rf "${REPO_ROOT}/.tmp-nginx-check" || true
+      if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH" || true; fi
+    fi
+    if (( RUN_IMAGES )); then
+      docker image rm -f "${VERIFY_TAG}:frontend" "${VERIFY_TAG}:backend" >/dev/null 2>&1 || true
+    fi
   }
 fi
 PY=""
@@ -92,6 +113,53 @@ if (( RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_DB )); then
   # The failure is the caller's, for the reason `scripts/_lib.sh :: venv_python` records.
   PY="$(venv_python)" \
     || die "No fl_backend virtualenv found. Create it with:  cd fl_backend && uv sync --dev"
+fi
+
+# --- what a unit runs --------------------------------------------------------------------------------
+
+# Every check that runs beside its neighbours is a `do_<check>` function, called by name: the pool
+# runs one as a process and `--serial` calls the same body in place, so the serial run is an oracle.
+
+do_selfcheck() { bash scripts/selfcheck.sh; }
+# Only a failing invocation speaks. Both share one capture, so a passing banner would print
+# directly above the other's finding and read as a verdict on it.
+do_ruff() {
+  local lint
+  lint="$("$PY" -m ruff check scripts 2>&1)" || { printf '%s\n' "$lint"; return 1; }
+  "$PY" -m ruff format --check scripts
+}
+# Run from inside scripts/, where pyright finds its config. `$PY` is absolute, so the `cd` does
+# not disturb it.
+do_pyright() { ( cd "${REPO_ROOT}/scripts" && "$PY" -m pyright ); }
+do_pytest()  { "$PY" -m pytest scripts/tests; }
+
+build_image() {
+  local name="$1" dockerfile="$2" context="$3"
+  if [[ "${VERIFY_IMAGES_CACHE:-}" == "gha" ]]; then
+    # `scope` keeps the images' caches apart, buildx overwriting rather than merging a key. It stays
+    # the bare image name: a run id would miss earlier runs' layers. `version` stays unpinned,
+    # buildx picking the live cache service.
+    docker buildx build --load \
+      --cache-from "type=gha,scope=${name}" \
+      --cache-to "type=gha,scope=${name},mode=max" \
+      -f "$dockerfile" -t "${VERIFY_TAG}:${name}" "$context"
+  else
+    docker build -f "$dockerfile" -t "${VERIFY_TAG}:${name}" "$context"
+  fi
+}
+do_build_frontend() { build_image frontend fl_frontend/Dockerfile fl_frontend; }
+do_build_backend()  { build_image backend fl_backend/Dockerfile fl_backend; }
+
+# A step worker answers with the one body it was named, and reaches this before any section opens:
+# its capture then holds the check's own output and none of the gate's chrome.
+if step_worker; then
+  declare -F "do_${STEP_UNIT}" >/dev/null \
+    || on_error 3 "${LINENO}" "FL_GATE_STEP names '${STEP_UNIT}', which is no check in ${SELF##*/}"
+  STEP_RC=0
+  # The `||` suppresses errexit for the whole body, so a check's own non-zero status is recorded
+  # rather than ending the process before it can answer with it.
+  "do_${STEP_UNIT}" || STEP_RC=$?
+  exit "$STEP_RC"
 fi
 
 # Settled before anything runs and read back by the closing table: an exit code alone cannot say
@@ -109,31 +177,6 @@ add_scope images   "$RUN_IMAGES"
 
 # A worker is given one scope, so its own answer would be every other scope in the gate.
 if ! worker; then set_not_run "$NOT_RUN"; fi
-
-# Absence means independent of every other scope, which is what lets the pool start it at once.
-scope_shares() { # $1 scope · prints the scopes it must follow
-  case "$1" in
-    # Its stand-in .env files appear and vanish in both trees, which the backend's tests and
-    # `next build` read while they run.
-    ops) printf 'backend db frontend' ;;
-  esac
-  return 0
-}
-
-# Named only where this run covers them: the pool refuses a constraint naming a scope it was not
-# given, so a typo above is an error rather than a guarantee quietly dropped.
-UNITS=()
-build_units() {
-  local IFS=' ' name other after
-  for name in "${SCOPE_ORDER[@]}"; do
-    after=""
-    for other in $(scope_shares "$name"); do
-      case " ${SCOPES_RAN} " in *" ${other} "*) after+="${other}," ;; esac
-    done
-    UNITS+=("${name}${after:+:${after%,}}")
-  done
-}
-build_units
 
 wrap_up() {
   # In a worker the ending belongs to the parent, which alone knows what the run left unproven.
@@ -166,6 +209,152 @@ change. Its own reason is above." ;;
   esac
 }
 
+# --- units, run concurrently -------------------------------------------------------------------------
+
+# One mechanism for everything this gate runs beside itself. A unit is a process `gate_pool.py`
+# starts and this file replays: a scope, or one `do_<check>` body. `docs/ops/spec.md` §1.6.
+
+# Steps may start together and be collected one at a time, each the function `do_<check>` above.
+# Never while watched: `--verbose` exists to stream each tool's output, and `--serial` is the
+# oracle the concurrent form has to match.
+STEP_JOBS=1
+if (( SERIAL || VERBOSE )); then STEP_JOBS=0; fi
+
+# Each scope runs in its own process, replayed in written order so a parallel run reads as the
+# serial one it must match. Serial where concurrency cannot pay or be watched: CI runs a scope
+# per job, streaming cannot be replayed, serial is the oracle.
+PARALLEL=1
+if (( SERIAL || VERBOSE )) || worker || [[ -n "${CI:-}" ]] || (( ${#SCOPE_ORDER[@]} < 2 )); then PARALLEL=0; fi
+
+POOL_PY=""; POOL_BASH=""; POOL_FALLBACK=0
+if (( PARALLEL || STEP_JOBS )); then
+  # The floor is asked of the kernel rather than restated here, so one file owns it: a python too
+  # old to import the kernel is too old to run the pool. With none, both forms fall back to the
+  # serial path, which runs the same bodies in the same order.
+  POOL_PY="$(any_python || true)"
+  if [[ -z "$POOL_PY" ]] \
+    || ! "$POOL_PY" -c "import sys; sys.path.insert(0, 'scripts'); import checker_kernel" >/dev/null 2>&1; then
+    # Reported below rather than taken quietly: the fallback proves the same thing at the cost of
+    # the sum rather than the longest, and a run nothing tells apart is one whose wall clock
+    # nobody can account for.
+    PARALLEL=0; STEP_JOBS=0; POOL_FALLBACK=1
+  else
+    # The parent's own shell, spelled the way a Windows python can launch it. `cygpath` does not
+    # exist on Linux, where `$BASH` is already an absolute path python can use.
+    POOL_BASH="$(cygpath -w "$BASH" 2>/dev/null || printf '%s' "$BASH")"
+  fi
+fi
+
+POOL_DIR=""
+declare -A UNIT_STATUS=()
+declare -A UNIT_MS=()
+
+pool_open() {
+  POOL_DIR="$(mktemp -d)"
+  POOL_DIRS+=("$POOL_DIR")
+  : > "${POOL_DIR}/units.tsv"
+}
+
+# `env`'s own convention: the leading `KEY=VALUE` words are the child's environment and the rest is
+# the command. A scope owes its parent a ledger of rows; a step owes only its exit status.
+pool_add_scope() { # $1 scope
+  printf '%s\tFL_GATE_WORKER=1\tFL_GATE_LEDGER=%s\t%s\t%s\t--%s\n' \
+    "$1" "${POOL_DIR}/${1}.ledger" "$POOL_BASH" "scripts/verify.sh" "$1" >> "${POOL_DIR}/units.tsv"
+}
+pool_add_step() { # $1 check · $2 the scope flag the run carrying its body is given
+  printf '%s\tFL_GATE_STEP=%s\t%s\t%s\t%s\n' \
+    "$1" "$1" "$POOL_BASH" "scripts/verify.sh" "$2" >> "${POOL_DIR}/units.tsv"
+}
+
+pool_wait() { # $1 merge each unit's two streams? · $2 the spinner's label
+  local rc=0 name status began ended missing=""
+  local -a want=()
+  local -a pool_cmd=("$POOL_PY" scripts/gate_pool.py --dir "$POOL_DIR" --units "${POOL_DIR}/units.tsv")
+  if (( $1 )); then pool_cmd+=(--merge); fi
+  # The name is the row's first field, which is what the manifest answers under.
+  while IFS= read -r name; do want+=("${name%%$'\t'*}"); done < "${POOL_DIR}/units.tsv"
+  # The parent spins for the whole pool: a unit's own spinner is dead, its stdout being a file,
+  # and this is the one stretch of a run where nothing prints for a minute.
+  spinner_start "$2"
+  "${pool_cmd[@]}" || rc=$?
+  spinner_stop
+  # The pool answers on the checkers' scale, never its units': a failure here is that program
+  # failing, which is a crash whatever the units did.
+  case "$rc" in
+    0)   ;;
+    130) on_interrupt ;;
+    *)   on_error "$rc" "${BASH_LINENO[0]}" "scripts/gate_pool.py" ;;
+  esac
+  unset UNIT_STATUS UNIT_MS
+  declare -gA UNIT_STATUS=() UNIT_MS=()
+  while IFS=$'\t' read -r name status began ended; do
+    UNIT_STATUS["$name"]="$status"
+    UNIT_MS["$name"]=$(( ended - began ))
+  done < "${POOL_DIR}/manifest.tsv"
+  # The names, before any one unit's status is read: a row under the wrong name counts, so a count
+  # alone leaves that unit's status unset -- which surfaces only as whichever unit happens to be
+  # replayed, and not at all for one nothing replays.
+  for name in "${want[@]}"; do
+    if [[ -z "${UNIT_STATUS[$name]+set}" ]]; then missing+=" ${name}"; fi
+  done
+  if [[ -n "$missing" ]] || (( ${#UNIT_STATUS[@]} != ${#want[@]} )); then
+    on_error 3 "${BASH_LINENO[0]}" "scripts/gate_pool.py answered for ${#UNIT_STATUS[@]} of ${#want[@]} unit(s)${missing:+, and for none of:${missing}}"
+  fi
+}
+
+start_steps() { # $1 the scope flag their bodies' run is given · $2.. the checks
+  local flag="$1" unit
+  shift
+  if (( ! STEP_JOBS )); then return 0; fi
+  pool_open
+  for unit in "$@"; do pool_add_step "$unit" "$flag"; done
+  pool_wait 1 "$# check(s) running concurrently"
+}
+
+# One reading of silence, for a scope and a step alike: `gate_pool.py :: NOT_STARTED` is the
+# manifest's word for a unit that never ran, and no exit code may spell it. A unit that left no
+# status reached no verdict, so it gets 3, the crash path.
+unit_replay() { # $1 unit — its own output and exit status, wherever it ran
+  # With no pool this IS the check: one call site for both forms, so `--verbose` and `--serial`
+  # take the path the gate has always taken rather than a second one nobody reads.
+  if (( ! STEP_JOBS )); then "do_$1"; return; fi
+  local status="${UNIT_STATUS[$1]:-}"
+  if [[ -s "${POOL_DIR}/${1}.out" ]]; then cat "${POOL_DIR}/${1}.out"; fi
+  if [[ ! "$status" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "the ${1} check left no exit status behind (${status:-no row}), so it did not run to completion"
+    return 3
+  fi
+  # `return` masks its argument to a byte, and a kill leaves a status no byte holds -- 2304 on
+  # Windows, which masks to 0 and would read as a pass. Classified before the mask, as
+  # `scripts/_lib.sh :: adopt_ending` classifies a scope's.
+  if (( status > 255 )); then
+    printf '%s\n' "the ${1} check ended on status ${status}, which is a kill rather than a verdict"
+    return 3
+  fi
+  return "$status"
+}
+
+unit_join() { # $1 unit — re-date the step to the work's own length, which is not the wait for it
+  if (( ! STEP_JOBS )); then return 0; fi
+  local ms="${UNIT_MS[$1]:-}"
+  if [[ "$ms" =~ ^[0-9]+$ ]]; then step_took_ms "$ms"; fi
+}
+
+# A remedy is owed only where the check reached a verdict. A unit that left no status reached
+# none, so 3 takes the crash path instead of announcing findings the check never made.
+unit_verdict() { # $1 unit · $2 the line to blame a crash on · $3 the remedy for a failure
+  local rc=0
+  quietly unit_replay "$1" || rc=$?
+  case "$rc" in
+    0)   ;;
+    1)   die "$3" ;;
+    130) on_interrupt ;;
+    # The step's own label, not the unit name: two scopes share this helper now, and `selfcheck`
+    # alone names neither, while every `step` line here already opens with its scope.
+    *)   on_error "$rc" "$2" "${_STEP_LABEL:-$1}" ;;
+  esac
+}
+
 # --- scope -------------------------------------------------------------------------------------------
 
 # Before any scope runs: the same refusal after a `next build` has cost the minutes it exists to
@@ -174,6 +363,14 @@ change. Its own reason is above." ;;
 if ! worker; then
   section scope
   info "this run covers: ${SCOPES_RAN% }"
+
+  # Named where the run is described, not where the pool would have started: by then the scopes are
+  # already running, and this is a fact about the whole run.
+  if (( POOL_FALLBACK )); then
+    info "no python at the checkers' floor (\`scripts/checker_kernel.py :: PYTHON_FLOOR\`), so every
+scope and every check runs one at a time — the same proof, at the cost of their sum rather than
+their longest. \`cd fl_backend && uv sync --dev\` creates an interpreter that meets it."
+  fi
 
   # Skipped in CI, where the scopes are separate jobs and the mapping comes from paths rather than
   # being typed: one job would fail for a scope another job is running.
@@ -204,74 +401,70 @@ fi
 
 # --- the scopes, concurrently ------------------------------------------------------------------------
 
-# Each scope runs in its own process, replayed in written order so a parallel run reads as the
-# serial one it must match. Serial where concurrency cannot pay or be watched: CI runs a scope
-# per job, streaming cannot be replayed, serial is the oracle.
-PARALLEL=1
-if (( SERIAL || VERBOSE )) || worker || [[ -n "${CI:-}" ]] || (( ${#UNITS[@]} < 2 )); then PARALLEL=0; fi
-
-POOL_PY=""
-if (( PARALLEL )); then
-  # The floor is asked of the kernel rather than restated here, so one file owns it: a python too
-  # old to import the kernel is too old to run the pool.
-  POOL_PY="$(any_python || true)"
-  if [[ -z "$POOL_PY" ]] \
-    || ! "$POOL_PY" -c "import sys; sys.path.insert(0, 'scripts'); import checker_kernel" >/dev/null 2>&1; then
-    PARALLEL=0
-  fi
-fi
-
 if (( PARALLEL )); then
   # Closed before the pool starts, not at the first replayed row: left open across the pool, the
   # scope section's row would report the whole run's wall clock as its duration.
   end_section
-  POOL_DIR="$(mktemp -d)"
-  # The parent's own shell, spelled the way a Windows python can launch it. `cygpath` does not
-  # exist on Linux, where `$BASH` is already an absolute path python can use.
-  POOL_BASH="$(cygpath -w "$BASH" 2>/dev/null || printf '%s' "$BASH")"
 
   # Never `FORCE_COLOR` or `NO_COLOR`: prettier, pnpm and eslint each read those as instructions.
+  # Only here: a scope is replayed to the parent's terminal, where a step's capture is read back
+  # by the same `quietly` the serial run uses.
   if [[ -n "$C_RED" ]]; then export FL_GATE_COLOR=1; else export FL_GATE_COLOR=0; fi
 
-  # The parent spins for the whole pool: a worker's own spinner is dead, its stdout being a file,
-  # and this is the one stretch of a run where nothing prints for a minute.
-  spinner_start "${#UNITS[@]} scopes running concurrently"
-  POOL_RC=0
-  "$POOL_PY" scripts/gate_pool.py --dir "$POOL_DIR" --bash "$POOL_BASH" --verify scripts/verify.sh \
-    "${UNITS[@]}" || POOL_RC=$?
-  spinner_stop
-  # The pool answers on the checkers' scale, never the workers': a failure here is this program
-  # failing, which is a crash whatever the scopes did.
-  if (( POOL_RC )); then on_error "$POOL_RC" "${LINENO}" "scripts/gate_pool.py"; fi
+  pool_open
+  for u_scope in "${SCOPE_ORDER[@]}"; do pool_add_scope "$u_scope"; done
+  pool_wait 0 "${#SCOPE_ORDER[@]} scopes running concurrently"
 
-  declare -A UNIT_STATUS=()
-  while IFS=$'\t' read -r u_scope u_status _ _; do UNIT_STATUS["$u_scope"]="$u_status"; done \
-    < "${POOL_DIR}/manifest.tsv"
-
-  replay_scope() { # $1 scope
-    local scope="$1" status="${UNIT_STATUS[$1]:-}" rank ms findings advisories name
-    if [[ -s "${POOL_DIR}/${scope}.out" ]]; then cat "${POOL_DIR}/${scope}.out"; fi
-    if [[ -s "${POOL_DIR}/${scope}.err" ]]; then cat "${POOL_DIR}/${scope}.err" >&2; fi
-    if [[ -s "${POOL_DIR}/${scope}.ledger" ]]; then
-      while IFS=$'\t' read -r rank ms findings advisories name; do
-        adopt_section "$name" "$rank" "$ms" "$findings" "$advisories"
-      done < "${POOL_DIR}/${scope}.ledger"
-    else
+  # One reader for both callers: a scope with no ledger must not be unproven in the one and
+  # absent from the table in the other. What a scope's exit status is held to is the rows it sends
+  # home, which `scripts/_lib.sh :: adopt_ending` reads back.
+  adopt_rows() { # $1 scope
+    local scope="$1" rank ms findings advisories name
+    if [[ ! -s "${POOL_DIR}/${scope}.ledger" ]]; then
       # A worker that died before it could write one. Rank 0 is what `finish` refuses to call
       # green, so the scope surfaces as unproven rather than as one that passed.
       adopt_section "$scope" 0 0 0 0
+      return 0
     fi
+    while IFS=$'\t' read -r rank ms findings advisories name; do
+      adopt_section "$name" "$rank" "$ms" "$findings" "$advisories"
+    done < "${POOL_DIR}/${scope}.ledger"
+  }
+
+  replay_scope() { # $1 scope
+    local scope="$1" status="${UNIT_STATUS[$1]:-}"
+    if [[ -s "${POOL_DIR}/${scope}.out" ]]; then cat "${POOL_DIR}/${scope}.out"; fi
+    if [[ -s "${POOL_DIR}/${scope}.err" ]]; then cat "${POOL_DIR}/${scope}.err" >&2; fi
+    adopt_rows "$scope"
     # The manifest's own word for a unit that never ran, which no exit code may spell: a number
     # here is always one a real process returned.
     if [[ ! "$status" =~ ^[0-9]+$ ]]; then
       on_error 3 "${LINENO}" "scripts/gate_pool.py did not run the ${scope} scope (${status:-no row})"
     fi
     # Crashed and interrupted end the run here, having no row that could say so. Findings and a
-    # refusal are already in the rows, which `finish` reads back.
-    adopt_ending "$status"
-    if (( status )); then finish; fi
+    # refusal are already in the rows, which `finish` reads back, and a status those rows cannot
+    # account for is refused there rather than passing.
+    adopt_ending "$status" "the ${scope} scope"
+    REPLAY_STATUS="$status"
   }
-  for u_scope in "${SCOPE_ORDER[@]}"; do replay_scope "$u_scope"; done
+
+  # Past the first failure: rows alone, never captured output -- the table tells a passing scope
+  # from one that never ran while the ending stays the failure's. Only a finished verdict may
+  # speak; a crash's rank-5 row would read as findings.
+  adopt_finished() { # $1 scope
+    local scope="$1" status="${UNIT_STATUS[$1]:-}"
+    case "$status" in 0|1|2) ;; *) return 0 ;; esac
+    adopt_rows "$scope"
+  }
+
+  REPLAY_STATUS=0
+  ENDING=0
+  for u_scope in "${SCOPE_ORDER[@]}"; do
+    if (( ! ENDING )); then replay_scope "$u_scope"; ENDING="$REPLAY_STATUS"; else adopt_finished "$u_scope"; fi
+  done
+  # After every finished scope's rows are in: `finish` reads the worst rank back, so a refusal
+  # ahead of a later scope's findings still answers 1, the definite verdict (`_RANK_LABELS`).
+  if (( ENDING )); then finish; fi
   wrap_up
 fi
 
@@ -307,89 +500,15 @@ if (( RUN_SCRIPTS )); then
       || on_error 3 "${LINENO}" "scripts/selfcheck.sh left ${records} ledger record(s) under a closing count of '${declared:-none}'"
   }
 
-  # Safe to start together: each writes only its own cache or a throwaway tree. A job records a
+  # Safe to start together: each writes only its own cache or a throwaway tree. A unit records a
   # status and never speaks, so every verdict is still reached below, in written order, and the
   # run still ends at the first failure. `docs/ops/spec.md` §1.6.
-  do_selfcheck() { bash scripts/selfcheck.sh; }
-  # Only a failing invocation speaks. Both share one capture file, so a passing banner would
-  # print directly above the other's finding and read as a verdict on it.
-  do_ruff() {
-    local lint
-    lint="$("$PY" -m ruff check scripts 2>&1)" || { printf '%s\n' "$lint"; return 1; }
-    "$PY" -m ruff format --check scripts
-  }
-  # Run from inside scripts/, where pyright finds its config. `$PY` is absolute, so the `cd` does
-  # not disturb it.
-  do_pyright()   { ( cd "${REPO_ROOT}/scripts" && "$PY" -m pyright ); }
-  do_pytest()    { "$PY" -m pytest scripts/tests; }
-
-  # Never while a run is being watched: `--verbose` exists to stream each tool's own output, and a
-  # stream held in a file until its step arrives is no longer one. `--serial` is the oracle the
-  # concurrent form has to match, so it takes the same path.
-  STEP_JOBS=1
-  if (( SERIAL || VERBOSE )); then STEP_JOBS=0; fi
-  if (( STEP_JOBS )); then BG_DIR="$(mktemp -d)"; fi
-
-  bg_start() { # $1 the check, whose command is the function `do_<check>`
-    if (( ! STEP_JOBS )); then return 0; fi
-    # `set +e` inside, so a check's own non-zero status is recorded rather than ending the job
-    # before it can be written. The duration lands first: with the status present, it is there too.
-    (
-      set +e
-      _t0="$(_now_ms)"
-      "do_$1" > "${BG_DIR}/${1}.out" 2>&1
-      _rc=$?
-      printf '%s' "$(( $(_now_ms) - _t0 ))" > "${BG_DIR}/${1}.ms"
-      printf '%s' "$_rc" > "${BG_DIR}/${1}.rc"
-    ) &
-    BG_PID["$1"]=$!
-  }
-
-  bg_join() { # $1 the check — wait for it, and re-date the step to the work's own length
-    if (( ! STEP_JOBS )); then return 0; fi
-    local ms
-    spinner_start "scripts · $1"
-    wait "${BG_PID[$1]}" 2>/dev/null || true
-    spinner_stop
-    ms="$(cat "${BG_DIR}/${1}.ms" 2>/dev/null || true)"
-    if [[ "$ms" =~ ^[0-9]+$ ]]; then step_took_ms "$ms"; fi
-  }
-
-  bg_replay() { # $1 the check — its own output and exit status, wherever it ran
-    # With no job started this IS the check: one call site for both forms, so `--verbose` and
-    # `--serial` take the path the gate has always taken rather than a second one nobody reads.
-    if (( ! STEP_JOBS )); then "do_$1"; return; fi
-    local rc
-    if [[ -s "${BG_DIR}/${1}.out" ]]; then cat "${BG_DIR}/${1}.out"; fi
-    rc="$(cat "${BG_DIR}/${1}.rc" 2>/dev/null || true)"
-    # Never 1, 2 or 130: each is a verdict a check earns by finishing, and a job that left no
-    # status earned none. `bg_verdict` and pytest's own case route it to the crash path.
-    if [[ ! "$rc" =~ ^[0-9]+$ ]]; then
-      printf '%s\n' "the ${1} check left no exit status behind, so it did not run to completion"
-      return 3
-    fi
-    return "$rc"
-  }
-
-  # A remedy is owed only where the check reached a verdict. A job that left no status reached
-  # none, so 3 takes the crash path instead of announcing findings the check never made.
-  bg_verdict() { # $1 the check · $2 the line to blame a crash on · $3 the remedy for a failure
-    local rc=0
-    quietly bg_replay "$1" || rc=$?
-    case "$rc" in
-      0)   ;;
-      1)   die "$3" ;;
-      130) on_interrupt ;;
-      *)   on_error "$rc" "$2" "scripts · $1" ;;
-    esac
-  }
-
-  bg_start selfcheck; bg_start ruff; bg_start pyright; bg_start pytest
+  start_steps --scripts selfcheck ruff pyright pytest
 
   step "scripts · selfcheck"
-  bg_join selfcheck
+  unit_join selfcheck
   run_checker stop "scripts/selfcheck.sh" "scripts/selfcheck.sh failed — its findings are above." \
-    bg_replay selfcheck
+    unit_replay selfcheck
   replay_selfcheck
   # A scope proved in part may not close on the sentence that describes proving all of it.
   if (( SELFCHECK_SKIPS )); then
@@ -399,14 +518,14 @@ if (( RUN_SCRIPTS )); then
   fi
 
   step "scripts · ruff  (lint, and format in check mode)"
-  bg_join ruff
-  bg_verdict ruff "${LINENO}" \
+  unit_join ruff
+  unit_verdict ruff "${LINENO}" \
     "ruff failed in scripts/. Fix with:  fl_backend/.venv/Scripts/python -m ruff format scripts"
   ok "the gate's own python is clean"
 
   step "scripts · pyright"
-  bg_join pyright
-  bg_verdict pyright "${LINENO}" "pyright found type errors in scripts/.
+  unit_join pyright
+  unit_verdict pyright "${LINENO}" "pyright found type errors in scripts/.
 These are the same errors Pylance shows in the editor."
   ok "the gate's own types are clean"
 
@@ -414,9 +533,9 @@ These are the same errors Pylance shows in the editor."
   # pytest answers its own codes, not the kernel's: 2 is a collection error, which `run_checker`
   # would announce as a considered refusal.
   step "scripts · pytest  (the documentation gate's fixture net, and the kernel's floors)"
-  bg_join pytest
+  unit_join pytest
   PYTEST_RC=0
-  quietly bg_replay pytest || PYTEST_RC=$?
+  quietly unit_replay pytest || PYTEST_RC=$?
   case "$PYTEST_RC" in
     0) ;;
     1) die "pytest over scripts/tests failed: a documentation check stopped reporting
@@ -435,6 +554,18 @@ fi
 if (( RUN_DOCS )); then
   section docs
   DOCS_OK=1
+
+  # First in the scope and given no file list, so it reads the whole tracked tree rather than a
+  # branch's diff: an unresolved conflict reaching main is what makes every finding below it
+  # unreliable, and reading the tree costs under a second.
+  step "docs · no tracked file carries a conflict marker"
+  if run_checker collect "scripts/check_conflict_markers.py" "A tracked file still holds a merge conflict marker. Each finding above names the
+file and the line it stands on. Resolve the conflict and commit the resolution." \
+    "$PY" scripts/check_conflict_markers.py; then
+    ok "no tracked file carries a conflict marker"
+  else
+    DOCS_OK=0
+  fi
 
   # They collect rather than stop: stopping at the first leaves the commit messages unexamined
   # while the exit code reads as though they were checked.
@@ -584,13 +715,17 @@ if (( RUN_OPS )); then
   section ops
 
   step "ops · compose files parse"
-  # Compose refuses to parse a file whose env_file is missing, and a CI checkout has neither .env.
-  # A stand-in is created only where the file is absent, and the EXIT trap removes it.
-  if [[ ! -f fl_backend/.env ]]; then : > fl_backend/.env; STANDIN_BE=1; fi
-  if [[ ! -f fl_frontend/.env ]]; then : > fl_frontend/.env; STANDIN_FE=1; fi
-  quietly docker compose -f docker-compose.yml config --quiet \
+  # Compose refuses to parse a file whose env_file is missing, so each file is parsed from a
+  # scratch copy beside stand-in .envs -- never the real trees, which the backend, db and
+  # frontend scopes read while they run. The EXIT trap removes the scratch.
+  OPS_SCRATCH="$(mktemp -d)"
+  mkdir -p "${OPS_SCRATCH}/fl_backend" "${OPS_SCRATCH}/fl_frontend"
+  cp docker-compose.yml docker-compose.local.yml "${OPS_SCRATCH}/"
+  : > "${OPS_SCRATCH}/fl_backend/.env"
+  : > "${OPS_SCRATCH}/fl_frontend/.env"
+  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" config --quiet \
     || die "docker-compose.yml does not parse."
-  quietly docker compose -f docker-compose.local.yml config --quiet \
+  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.local.yml" config --quiet \
     || die "docker-compose.local.yml does not parse."
   ok "both compose files parse"
 
@@ -664,8 +799,9 @@ fi
 
 # --- images ----------------------------------------------------------------------------------------
 
-# The EXIT trap reclaims this run's tags on every exit path it can see. A run killed outright
-# leaves them behind, under a tag carrying a pid nothing else builds against.
+# The EXIT trap reclaims this run's tags where it can. A kill leaves one behind, because the signal
+# reaches the unit's shell rather than the `docker build` under it. Its tag carries a pid nothing
+# else builds against.
 if (( RUN_IMAGES )); then
   section images
 
@@ -679,29 +815,20 @@ The credential comes from .github/actions/actions-runtime-env, which must run be
 this step in the job."
   fi
 
-  build_image() {
-    local name="$1" dockerfile="$2" context="$3"
-    if [[ "${VERIFY_IMAGES_CACHE:-}" == "gha" ]]; then
-      # `scope` keeps the images' caches apart, buildx overwriting rather than merging a key. It stays
-      # the bare image name: a run id would miss earlier runs' layers. `version` stays unpinned,
-      # buildx picking the live cache service.
-      quietly docker buildx build --load \
-        --cache-from "type=gha,scope=${name}" \
-        --cache-to "type=gha,scope=${name},mode=max" \
-        -f "$dockerfile" -t "${VERIFY_TAG}:${name}" "$context"
-    else
-      quietly docker build -f "$dockerfile" -t "${VERIFY_TAG}:${name}" "$context"
-    fi
-  }
+  # Started together: the builds share no state -- separate tags, separate cache scopes -- so the
+  # scope costs its slower build rather than the sum. Each verdict is still collected at its own
+  # step, in written order. `docs/ops/spec.md` §1.6.
+  start_steps --images build_frontend build_backend
 
   step "images · docker build frontend  (the check the frontend scope cannot do)"
-  build_image frontend fl_frontend/Dockerfile fl_frontend \
-    || die "The frontend image failed to build. This is the failure the frontend scope cannot see."
+  unit_join build_frontend
+  unit_verdict build_frontend "${LINENO}" \
+    "The frontend image failed to build. This is the failure the frontend scope cannot see."
   ok "frontend image builds"
 
   step "images · docker build backend"
-  build_image backend fl_backend/Dockerfile fl_backend \
-    || die "The backend image failed to build."
+  unit_join build_backend
+  unit_verdict build_backend "${LINENO}" "The backend image failed to build."
   ok "backend image builds"
 
   step "images · instrumentation.js is actually in the frontend image"

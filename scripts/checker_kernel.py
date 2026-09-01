@@ -1,8 +1,9 @@
 """SCRIPTS · what every checker in this folder is built on.
 
-git, the branch's base and the finding-to-exit-code tail, once each: a checker taking any from its
-own copy drifts into its own behaviour. The exit contract is 0 pass · 1 findings · 2 could not
-judge the input · 3 or more the environment is broken, spelled as a literal by no checker.
+git, the repository root, the branch's base and the finding-to-exit-code tail, once each: a checker
+taking any from its own copy drifts into its own behaviour. The exit contract is 0 pass · 1 findings
+· 2 could not judge the input · 3 or more the environment is broken, spelled as a literal by no
+checker.
 """
 
 from __future__ import annotations
@@ -34,6 +35,16 @@ PARSE_FLOOR: Final = (3, 9)
 
 DEFAULT_BASE: Final = "main"
 
+# What reading a file in this repository can raise. Named rather than spelled inline, for
+# `scripts/docs_gate/kernel.py :: UNTOKENIZABLE`'s reason: the formatter folds a tuple into PEP
+# 758's `except A, B:`, newer than `PARSE_FLOOR`.
+UNREADABLE: Final = (OSError, UnicodeDecodeError)
+
+# What launching git can raise. `ValueError` is the NUL: a token carrying one is exactly what
+# `binary-byte` exists to report, and reaching the child raises before any check can say so.
+# Named for `UNREADABLE`'s reason.
+UNLAUNCHABLE: Final = (OSError, ValueError)
+
 # At import rather than inside `run`: a checker importing this is already compiled, so this is the
 # first line of any of them an old interpreter reaches.
 
@@ -64,26 +75,52 @@ class Finding:
     detail: str
 
 
-def git(*args: str) -> str | None:
-    """Run git and return its stdout stripped, or None where the command failed. Never raises.
+def _git_run(args: tuple[str, ...], stdin: str | None) -> subprocess.CompletedProcess[str] | None:
+    """The one place a checker launches git. None where the process could not start at all.
 
     UTF-8 is forced: `git show` returns file CONTENT, which on a Windows codepage raises on the
-    first em dash.
+    first em dash. `input=None` leaves the child's own stdin inherited.
     """
     try:
-        done = subprocess.run(
+        return subprocess.run(
             ("git", *args),
             cwd=REPO_ROOT,
+            input=stdin,
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace",
             check=False,
         )
-    except OSError:
+    except UNLAUNCHABLE:
         return None
+
+
+def git(*args: str) -> str | None:
+    """Run git and return its stdout stripped, or None where the command failed. Never raises."""
+    done = _git_run(args, None)
     # `strip` would eat a leading space, which in a `ls-files -z` listing is data, not layout.
-    return done.stdout.rstrip() if done.returncode == 0 else None
+    return done.stdout.rstrip() if done is not None and done.returncode == 0 else None
+
+
+def git_status(*args: str) -> int | None:
+    """Run git for its exit code alone, or None where it could not be launched. Never raises.
+
+    None answers neither yes nor no, and each caller resolves it in the direction that keeps a
+    finding rather than dropping one.
+    """
+    done = _git_run(args, None)
+    return None if done is None else done.returncode
+
+
+def git_input(*args: str, stdin: str) -> str | None:
+    """Run git over a batch written to its standard input, and answer its stdout. Never raises.
+
+    A launch per token is what gets a check dropped for costing too much, and a batch needs a
+    writer that `git` cannot be.
+    """
+    done = _git_run(args, stdin)
+    return done.stdout.rstrip() if done is not None and done.returncode == 0 else None
 
 
 def base_ref(base: str = DEFAULT_BASE) -> str | None:

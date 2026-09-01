@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, Literal
 
-from .kernel import REPO_ROOT, Finding, tracked_glob
+from .kernel import REPO_ROOT, Finding, _read_text, tracked_glob
 
 # Where a reader's German lives. The backend holds none: its refusals are mapped to German on this
 # side, so widening the root would add files and no strings.
@@ -50,9 +50,14 @@ SENTENCE_OPENER_RE: Final = re.compile(rf"(?:\A|[.!?:;•·|]|[„“\"'(»–�
 # token -- `text-dir`, `dir-rtl`.
 INFORMAL_RE: Final = re.compile(r"(?<![\w\-/.])(?:du|dein(?:e|em|en|er|es)?|dir|dich)(?![\w\-/])")
 
-# One German word per concept (§1.12): a club is a `Team` whatever grammar the sentence prefers.
-BANNED_TERMS: Final[dict[str, str]] = {"Mannschaft": "Team"}
-BANNED_TERM_RE: Final = re.compile(rf"\b(?:{'|'.join(BANNED_TERMS)})(?:en|s)?\b")
+# One German word per concept (§1.12): a club is a `Team` and a done thing is `schon`, whatever
+# grammar the sentence prefers.
+BANNED_TERMS: Final[dict[str, str]] = {"Mannschaft": "Team", "bereits": "schon"}
+
+# A lower-case entry is no noun, so German capitalises it at a sentence's start and `(?i:)` is what
+# reads that position. A capitalised entry stays exact: folded, it would match the lower-case
+# spelling that means a key rather than copy.
+BANNED_TERM_RE: Final = re.compile(rf"\b(?:{'|'.join(term if term[:1].isupper() else f'(?i:{term})' for term in BANNED_TERMS)})(?:en|s)?\b")
 
 # What separates a reader's sentence from a developer's log line or a list of classes: umlauts,
 # plus German function words that no Tailwind class, import specifier or field name spells.
@@ -65,10 +70,6 @@ GERMAN_RE: Final = re.compile(
     r"|aber|wenn|dann|damit|dass|mit|ohne|von|vom|zum|zur|aus|bei|nach|unter|durch|gegen|hier"
     r"|bitte|diese|dieser|dieses|alle|allen|jede|jeder|jedes|sowie|mehr|steht|gibt|keiner)\b)"
 )
-
-# Named rather than spelled inline, for `kernel.py :: UNTOKENIZABLE`'s reason: the formatter folds
-# a tuple into PEP 758's `except A, B:`, newer than `checker_kernel.py :: PARSE_FLOOR`.
-UNREADABLE: Final = (OSError, UnicodeDecodeError)
 
 Kind = Literal["string", "jsx"]
 
@@ -385,12 +386,13 @@ def _scan(text: str, *, jsx: bool) -> tuple[list[Copy], bool]:
 
 
 def copy_spans(path: Path) -> tuple[list[Copy], bool]:
-    """One file's rendered spans, and whether the scan balanced."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except UNREADABLE:
-        return [], False
-    return _scan(text, jsx=path.suffix == ".tsx")
+    """One file's rendered spans, and whether the scan balanced.
+
+    Through the corpus reader, which holds every one of these files already: a second read spends
+    the open again and answers the same characters.
+    """
+    text = _read_text(path)[0]
+    return ([], False) if text is None else _scan(text, jsx=path.suffix == ".tsx")
 
 
 def is_german(span: Copy) -> bool:
@@ -408,8 +410,8 @@ def _renders_date(source: str) -> bool:
     return LITERAL_DATE_RE.search(source) is not None or any(f"{name}(" in source for name in DATE_FORMATTERS)
 
 
-def _neighbour(span: Copy, at: int, *, ahead: bool) -> str:
-    """The character a dash renders against, or `""` at the span's edge.
+def _beside(span: Copy, at: int, *, ahead: bool) -> tuple[str, int]:
+    """The character a dash renders against and its offset, or `("", -1)` at the span's edge.
 
     A span built from separate elements is judged on what it shows, not on the markup between the
     parts (§1.12), so this crosses the whitespace JSX discards.
@@ -418,18 +420,15 @@ def _neighbour(span: Copy, at: int, *, ahead: bool) -> str:
     index = at + 1 if ahead else at - 1
     while 0 <= index < len(text) and text[index].isspace():
         index += 1 if ahead else -1
-    return text[index] if 0 <= index < len(text) else ""
+    return (text[index], index) if 0 <= index < len(text) else ("", -1)
 
 
 def _flank(span: Copy, at: int, *, ahead: bool) -> str | None:
     """The source of the value rendering beside a dash, or None where a character renders there."""
-    text = span.text
-    index = at + 1 if ahead else at - 1
-    while 0 <= index < len(text) and text[index].isspace():
-        index += 1 if ahead else -1
-    if not (0 <= index < len(text)) or text[index] != HOLE:
+    char, index = _beside(span, at, ahead=ahead)
+    if char != HOLE:
         return None
-    ordinal = text.count(HOLE, 0, index)
+    ordinal = span.text.count(HOLE, 0, index)
     return span.holes[ordinal] if ordinal < len(span.holes) else None
 
 
@@ -456,7 +455,7 @@ def _is_punctuation(span: Copy, at: int) -> bool:
         return behind.isspace() or ahead.isspace() or (behind == HOLE and ahead == HOLE)
     if not behind or not ahead or not all(char.isspace() or char == HOLE for char in (behind, ahead)):
         return False
-    return (_neighbour(span, at, ahead=True) != HOLE or _neighbour(span, at, ahead=False) != HOLE) and is_german(span)
+    return (_beside(span, at, ahead=True)[0] != HOLE or _beside(span, at, ahead=False)[0] != HOLE) and is_german(span)
 
 
 def _dash_findings(rel: str, span: Copy) -> list[Finding]:
@@ -512,7 +511,8 @@ def _term_findings(rel: str, span: Copy) -> list[Finding]:
     """A concept spelled with a word §1.12 retired."""
     found: list[Finding] = []
     for match in BANNED_TERM_RE.finditer(span.text):
-        wanted = next(preferred for banned, preferred in BANNED_TERMS.items() if match.group(0).startswith(banned))
+        hit = match.group(0).lower()
+        wanted = next(preferred for banned, preferred in BANNED_TERMS.items() if hit.startswith(banned.lower()))
         found.append(Finding("fail", "copy-term", rel, f"`{match.group(0)}` in `{span.excerpt(match.start())}` -- say `{wanted}` (§1.12)"))
     return found
 

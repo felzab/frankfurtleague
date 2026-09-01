@@ -966,6 +966,14 @@ class TestAConfirmedReplaceRedrawsTheWholeSeason:
 
         assert replaced.watermark == {"generiert_am": REDRAWN_TODAY, "spieltage": len(replaced.spieltage), "spiele": len(replaced.spiele)}
 
+    def test_the_response_reports_what_the_replace_removed(self, mongo_replica_set_url: str):
+        """Discard either `DeleteResult` and this fails: the response would restate the request's flag rather than count what is gone."""
+
+        replaced = a_replaced_season(mongo_replica_set_url)
+
+        assert (replaced.first.removed_spieltage, replaced.first.removed_spiele) == (0, 0)
+        assert (replaced.second.removed_spieltage, replaced.second.removed_spiele) == (replaced.first.spieltage, replaced.first.spiele)
+
     def test_the_log_records_each_removal_with_every_pre_image(self, mongo_replica_set_url: str):
         """Use `delete_many` rather than `delete_many_from_db` and the schedule goes unrecorded (`docs/backend/spec.md :: I48`)."""
 

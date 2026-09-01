@@ -106,6 +106,15 @@ class CommitFinding(Finding):
         return f"      {self.sha}  {self.detail}\n                 subject: {self.subject[:80]}"
 
 
+def unknown_scope(subject: str) -> bool:
+    """Whether the subject's scope names an area the vocabulary does not hold.
+
+    A combined scope is one correct scope spelled as several -- `SUBJECT_SHAPE` admits the `+` for
+    exactly that -- so each component is resolved on its own.
+    """
+    return any(part.strip() not in KNOWN_SCOPES for part in subject.split(":", 1)[0].split("+"))
+
+
 def git_is_composing() -> bool:
     """Whether git wrote the message the hook is about to check, rather than a person.
 
@@ -174,7 +183,7 @@ def check_message(message: str, short: str, *, is_bot: bool = False) -> list[Com
     if not generated:
         if not SUBJECT_SHAPE.match(subject):
             fail("subject is not `Scope: what changed`")
-        elif subject.split(":", 1)[0] not in KNOWN_SCOPES:
+        elif unknown_scope(subject):
             report(f"scope `{subject.split(':', 1)[0]}` is not in the recorded vocabulary")
 
         if len(subject) > LINE_MAX:

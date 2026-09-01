@@ -9,8 +9,9 @@
 #   • ONLY nginx publishes ports. The application containers are reachable solely from inside
 #     `frankfurtleague-net`, so anything nginx does not route simply does not exist for the
 #     internet. A `ports:` entry on frontend or backend removes that silently.
-#   • nginx waits on both upstreams being HEALTHY, not merely started, so an unhealthy deploy is
-#     never served to anyone.
+#   • nginx waits on both upstreams being HEALTHY, not merely started, before it STARTS -- so a stack
+#     coming up from nothing never serves a half-ready app. It is not what a deploy rests on:
+#     `scripts/deploy.sh` recreates the application pair alone and leaves nginx up.
 #   • The moving `:latest` tag of each package is what `deploy.sh` pulls with no argument. Rollback
 #     pins the immutable `:sha-<commit>` tag instead. One package per service.
 #   • Keep this file and docker-compose.local.yml in step. A difference here is a difference the
@@ -54,9 +55,9 @@ services:
       # fail and the container is marked unhealthy on a perfectly good start.
       start_period: 20s
       # The probe cadence DURING start_period. Without it the engine's own start-period default
-      # applies, measured at 5.2 s against this file's 3.2 s (2026-08-11, engine 29.7.2). nginx is
-      # gated on `service_healthy`, so it is not serving at all until both upstreams answer, and
-      # that difference is dead air on every deploy.
+      # applies, measured at 5.2 s against this file's 3.2 s (2026-08-11, engine 29.7.2). A deploy
+      # leaves nginx up, so that difference is time the edge spends answering 502 rather than
+      # proxying, on every deploy.
       # Requires Docker Engine 25 or newer on the host, which is where the healthcheck runs.
       start_interval: 3s
     deploy:
@@ -122,9 +123,9 @@ services:
     networks:
       - frankfurtleague-net
     logging: *default-logging
-    # `service_healthy`, not just `service_started`: nginx must not begin accepting traffic until
-    # both upstreams actually answer. This is what makes an unhealthy deploy invisible to visitors
-    # rather than a page of 502s.
+    # `service_healthy`, not just `service_started`: an nginx starting from nothing must not accept
+    # traffic before both upstreams answer. A deploy does not pass through here, recreating the
+    # application pair alone, so this governs a cold start.
     depends_on:
       frontend:
         condition: service_healthy

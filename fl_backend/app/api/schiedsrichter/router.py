@@ -8,7 +8,7 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSingleResponse,
 )
 from app.core.config import API_VERSION
-from app.core.crud import build_query, build_sort, pull_many_from_db, pull_one_from_db
+from app.core.crud import GERMAN_COLLATION, build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SchiedsrichterCollection
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
@@ -39,6 +39,7 @@ async def get_schiedsrichter(
         db_filter=build_query(filters, terms={"default_payment"}, include_inactive=filters.include_inactive),
         limit=filters.limit,
         sort_by=build_sort(sort_by=filters.sort_by, order=filters.order),
+        collation=GERMAN_COLLATION,
     )
     schiedsrichter = FLSchiedsrichterListAdapter.validate_python(schiedsrichter_raw)
 

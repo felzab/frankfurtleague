@@ -80,7 +80,7 @@ class _ArchiveCollection:
         # satisfy every assertion about its contents.
         self.requested_filter: Any = None
 
-    def find(self, filter: Any, projection: Any = None, session: Any = None) -> "_ArchiveCollection":
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> "_ArchiveCollection":
         self.requested_filter = filter
         self.documents = [d for d in self.documents if "_id" not in (filter or {}) or d["_id"] < filter["_id"]["$lt"]]
         return self

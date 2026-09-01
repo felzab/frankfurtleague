@@ -5,17 +5,17 @@ import { useId, useState } from "react";
 import { Autocomplete, FieldError, Input, Label, ListBox, SearchField, Select, Separator, TextField, useFilter } from "@heroui/react";
 
 import { dismissControl } from "@/core/dismissControl";
-import {
-  BEWERBUNG_FULL_NAME_MAX_LENGTH,
-  BEWERBUNG_TEAM_NAME_MAX_LENGTH,
-  BEWERBUNG_WEBSITE_URL_MAX_LENGTH,
-  KUERZEL_LAENGE,
-  SCHULE_NICHT_IN_LISTE,
-  SCHULE_NICHT_IN_LISTE_LABEL,
-} from "@/features/bewerbungen/constants";
+import { KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE, SCHULE_NICHT_IN_LISTE_LABEL } from "@/features/bewerbungen/constants";
 import { istNeueSchule } from "@/features/bewerbungen/utils";
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
-import { SCHULFORM_OPTIONS, schulformLabel, WEBSITE_URL_SCHEME } from "@/features/teams/constants";
+import {
+  SCHULFORM_OPTIONS,
+  schulformLabel,
+  TEAM_FULL_NAME_MAX_LENGTH,
+  TEAM_NAME_MAX_LENGTH,
+  TEAM_WEBSITE_URL_MAX_LENGTH,
+  WEBSITE_URL_SCHEME,
+} from "@/features/teams/constants";
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -105,6 +105,7 @@ export function FormSchuleSection({
   // Ids rather than a bare `<p>`: a sentence a control is not described BY is one a reader never meets.
   const listeHinweisId = useId();
   const kuerzelHinweisId = useId();
+  const adressHinweisId = useId();
   const listeHinweis = !isSchulenLesbar ? LISTE_UNLESBAR : schulen.length === 0 ? LISTE_LEER : null;
 
   return (
@@ -226,7 +227,7 @@ export function FormSchuleSection({
                 value={schule.team_name}
                 onChange={(next) => setSchuleFeld({ team_name: next })}
                 onBlur={() => onFieldLeft(["schule.team_name"])}
-                maxLength={BEWERBUNG_TEAM_NAME_MAX_LENGTH}>
+                maxLength={TEAM_NAME_MAX_LENGTH}>
                 <Label className={FIELD_LABEL}>Teamname</Label>
                 <Input
                   placeholder="z.B. Goethe-Gymnasium"
@@ -241,7 +242,7 @@ export function FormSchuleSection({
                 value={schule.full_name}
                 onChange={(next) => setSchuleFeld({ full_name: next })}
                 onBlur={() => onFieldLeft(["schule.full_name"])}
-                maxLength={BEWERBUNG_FULL_NAME_MAX_LENGTH}>
+                maxLength={TEAM_FULL_NAME_MAX_LENGTH}>
                 <Label className={FIELD_LABEL}>Vollständiger Schulname</Label>
                 <Input
                   placeholder="z.B. Johann-Wolfgang-von-Goethe-Gymnasium"
@@ -322,7 +323,7 @@ export function FormSchuleSection({
               name="schule.website_url"
               /* The PAYLOAD's ceiling minus the scheme the group renders: the box holds what is typed,
                  and the submitted value is that plus `https://`. */
-              maxLength={BEWERBUNG_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME.length}
+              maxLength={TEAM_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME.length}
               value={schule.website_url}
               onChange={(website_url) => setSchuleFeld({ website_url })}
               onFieldLeft={() => onFieldLeft(["schule.website_url"])}
@@ -330,10 +331,19 @@ export function FormSchuleSection({
 
             <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
               <h3 className={FORM_SECTION_HEADING}>Adresse der Schule</h3>
+              {/* Not copy to trim: decided 2026-08, Datenschutzexperte consulted — the address stays
+                  public, and the form says so where it is asked for. The rule stands where the read
+                  serves it (`fl_backend/app/api/teams/schemas.py :: _TeamWritable`). */}
+              <p
+                id={adressHinweisId}
+                className="fluid-xxs text-foreground-muted leading-relaxed font-medium text-pretty">
+                Die Adresse, die Du hier einträgst, steht nach der Aufnahme in die Liga öffentlich auf der Teamseite Deiner Schule.
+              </p>
               {/* Neither `errors` nor `renderLabel`: the `<Form validationErrors>` above distributes by
                   field name, and this page holds no draft markers for a label to carry. */}
               <AddressFields
                 isStadtteilRequired
+                describedById={adressHinweisId}
                 value={schule.address}
                 namePrefix="schule.address"
                 onChange={(address) => setSchuleFeld({ address })}

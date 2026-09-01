@@ -25,7 +25,13 @@ from checker_kernel import DEFAULT_BASE, EXIT_OK, EXIT_REFUSED, REPO_ROOT, Findi
 SCOPES: Final[tuple[str, ...]] = ("scripts", "docs", "backend", "format", "frontend", "ops", "db", "images")
 
 # Suffixes a real parser can answer for. Anything absent from here is code.
-PARSEABLE: Final[frozenset[str]] = frozenset({".ts", ".tsx", ".mts", ".cts", ".py", ".toml"})
+TYPESCRIPT: Final[frozenset[str]] = frozenset({".ts", ".tsx", ".mts", ".cts"})
+PARSEABLE: Final[frozenset[str]] = TYPESCRIPT | frozenset({".py", ".toml"})
+
+# Windows refuses a command line past 32,767 bytes, the ceiling `.githooks/pre-commit` batches
+# under for the same reason. Over it the spawn raises instead of answering, and a whole diff's
+# worth of pairs would degrade to code at once.
+ARGV_BUDGET: Final = 24_000
 
 MAX_NAMED_FILES: Final = 8  # a finding names the files; past this it says "and N more"
 
@@ -73,29 +79,71 @@ def toml_same(old: str, new: str) -> bool:
     return tomllib.loads(old) == tomllib.loads(new)
 
 
-def typescript_same(suffix: str, old: str, new: str) -> bool:
-    """Delegated to TypeScript's own parser - see scripts/ts_normalize.mjs for why not a regex."""
-    if shutil.which("node") is None:
-        raise RuntimeError("node is not on PATH")
-    with tempfile.TemporaryDirectory() as tmp:
-        # The real suffix, because ts_normalize.mjs picks its script kind from the extension -- a
-        # .tsx written out as .ts parses its JSX as syntax errors and the answer degrades to "code".
-        old_path, new_path = Path(tmp) / f"old{suffix}", Path(tmp) / f"new{suffix}"
-        # newline="" because a Windows text stream rewrites every \n as \r\n (CLAUDE.md §6), and what
-        # the parser must see is the bytes git handed over -- a line ending is a token to a scanner.
-        old_path.write_text(old, encoding="utf-8", newline="")
-        new_path.write_text(new, encoding="utf-8", newline="")
+def normalizer_batch(paths: list[str]) -> list[bool]:
+    """One `ts_normalize.mjs --batch` process, one verdict per pair of `paths`, in order.
+
+    Every failure is False for the pairs it covers: a crash, or answers this cannot match to its
+    pairs. One unparseable pair degrades alone, through its own `error` line.
+    """
+    pairs = len(paths) // 2
+    try:
         result = subprocess.run(
-            ["node", "scripts/ts_normalize.mjs", str(old_path), str(new_path)],
+            ["node", "scripts/ts_normalize.mjs", "--batch", *paths],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace",
         )
+    except OSError:
+        return [False] * pairs
     if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "ts_normalize.mjs failed")
-    return result.stdout.strip() == "same"
+        return [False] * pairs
+    answers = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if len(answers) != pairs:
+        return [False] * pairs
+    return [answer == "same" for answer in answers]
+
+
+def typescript_same_many(items: list[tuple[str, str, str]]) -> list[bool]:
+    """A verdict per `(suffix, old, new)` pair, over as few node processes as ARGV_BUDGET allows.
+
+    Nothing here raises. With no node every pair is False, the answer that counts as code.
+    """
+    if not items:
+        return []
+    if shutil.which("node") is None:
+        return [False] * len(items)
+    verdicts: list[bool] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        batch: list[str] = []
+        used = 0
+        for index, (suffix, old, new) in enumerate(items):
+            # The real suffix, because ts_normalize.mjs picks its script kind from the extension -- a
+            # .tsx written out as .ts parses its JSX as syntax errors and the answer degrades to "code".
+            old_path = Path(tmp) / f"old{index}{suffix}"
+            new_path = Path(tmp) / f"new{index}{suffix}"
+            # newline="" because a Windows text stream rewrites every \n as \r\n (CLAUDE.md §6), and what
+            # the parser must see is the bytes git handed over -- a line ending is a token to a scanner.
+            old_path.write_text(old, encoding="utf-8", newline="")
+            new_path.write_text(new, encoding="utf-8", newline="")
+            pair = [str(old_path), str(new_path)]
+            cost = sum(len(argument) + 1 for argument in pair)
+            # A pair is never split across two spawns: the verdicts are matched to the pairs by
+            # position, so half a pair in each batch would shift every answer after it.
+            if batch and used + cost > ARGV_BUDGET:
+                verdicts += normalizer_batch(batch)
+                batch, used = [], 0
+            batch += pair
+            used += cost
+        if batch:
+            verdicts += normalizer_batch(batch)
+    return verdicts
+
+
+def typescript_same(suffix: str, old: str, new: str) -> bool:
+    """Delegated to TypeScript's own parser - see scripts/ts_normalize.mjs for why not a regex."""
+    return typescript_same_many([(suffix, old, new)])[0]
 
 
 def same_but_for_comments(suffix: str, old: str, new: str) -> bool:
@@ -114,16 +162,78 @@ def same_but_for_comments(suffix: str, old: str, new: str) -> bool:
         return False
 
 
-def is_comment_only(base: str, path: str) -> bool:
-    old = git("show", f"{base}:{path}")
-    if old is None:  # added on this branch: there is no earlier version to compare against
-        return False
+def old_versions(base: str, paths: list[str]) -> dict[str, str | None]:
+    """Every earlier version in one `git cat-file --batch`, None where a path has none.
+
+    A path git answers `missing` for, an undecodable payload, or a listing git refused: each
+    stays None, and a path with no earlier version counts as code.
+    """
+    versions: dict[str, str | None] = dict.fromkeys(paths)
+    if not paths:
+        return versions
+    request = "".join(f"{base}:{path}\n" for path in paths).encode("utf-8")
     try:
-        new = (REPO_ROOT / path).read_text(encoding="utf-8")
-    # Decoding a binary in the diff must not take the scope step down before any check runs.
-    except UNREADABLE:
-        return False
-    return same_but_for_comments(Path(path).suffix, old, new)
+        result = subprocess.run(("git", "cat-file", "--batch"), cwd=REPO_ROOT, input=request, capture_output=True)
+    except OSError:
+        return versions
+    if result.returncode != 0:
+        return versions
+    out = result.stdout
+    pos = 0
+    for path in paths:
+        newline = out.find(b"\n", pos)
+        if newline < 0:
+            break
+        header = out[pos:newline].split(b" ")
+        pos = newline + 1
+        # `<oid> <type> <size>`, then the payload and one LF. Anything else -- `missing`,
+        # `ambiguous` -- carries no payload, so the cursor is already on the next header.
+        if len(header) != 3 or not header[2].isdigit():
+            continue
+        size = int(header[2])
+        payload = out[pos : pos + size]
+        pos += size + 1
+        if len(payload) != size:
+            break
+        try:
+            versions[path] = payload.decode("utf-8")
+        except UnicodeDecodeError:
+            # A binary in the diff must not take the scope step down before any check runs.
+            pass
+    return versions
+
+
+def material_paths(base: str, files: list[str]) -> list[str]:
+    """Everything not PROVEN comment-only, in the input's order.
+
+    The earlier versions cost one git process for the whole diff, and the TypeScript pairs are
+    answered together; a suffix no parser reads is code without either.
+    """
+    candidates = [path for path in files if Path(path).suffix in PARSEABLE]
+    olds = old_versions(base, candidates)
+    comment_only: set[str] = set()
+    ts_paths: list[str] = []
+    ts_items: list[tuple[str, str, str]] = []
+    for path in candidates:
+        old = olds[path]
+        if old is None:  # added on this branch: there is no earlier version to compare against
+            continue
+        try:
+            new = (REPO_ROOT / path).read_text(encoding="utf-8")
+        except UNREADABLE:
+            continue
+        suffix = Path(path).suffix
+        # The TypeScript pairs alone are held back, so one process can answer them together. Every
+        # other suffix goes through the single dispatch that --compare and selfcheck.sh also drive.
+        if suffix in TYPESCRIPT:
+            ts_paths.append(path)
+            ts_items.append((suffix, old, new))
+        elif same_but_for_comments(suffix, old, new):
+            comment_only.add(path)
+    for path, proven_same in zip(ts_paths, typescript_same_many(ts_items), strict=True):
+        if proven_same:
+            comment_only.add(path)
+    return [path for path in files if path not in comment_only]
 
 
 # --- the mapping ------------------------------------------------------------------------------------
@@ -174,7 +284,7 @@ def check(base: str, ran: set[str]) -> list[Finding] | None:
         print(f"      no changes against {base[:7]} -- nothing to scope")
         return []
 
-    material = [path for path in files if not is_comment_only(base, path)]
+    material = material_paths(base, files)
     proven_code = set(material)
     comment_only = [path for path in files if path not in proven_code]
 

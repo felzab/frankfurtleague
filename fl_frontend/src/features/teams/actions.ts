@@ -52,7 +52,7 @@ function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
     return { fieldErrors: { gruppe: "Diese Gruppe gibt es in der gewählten Saison nicht." } };
   }
   if (error.serverErrorCode === "REQ-ENTER-003") {
-    return { fieldErrors: { gruppe: "Diese Gruppe ist bereits voll." } };
+    return { fieldErrors: { gruppe: "Diese Gruppe ist schon voll." } };
   }
   if (error.serverErrorCode === "REQ-ENTER-004") {
     // Names the route still open rather than stopping at the refusal: the swap control sits under
@@ -93,10 +93,10 @@ function mapReplacementRefusal(error: unknown): string | null {
     return "Diese Saison ist abgeschlossen. Ersetzen lässt sich ein Team nur in einer laufenden oder geplanten Saison.";
   }
   if (error.serverErrorCode === "REQ-REPLACE-002") {
-    // The four shapes that leave a record, and only those: an ausgefallenes or annulliertes Spiel
+    // The five shapes that leave a record, and only those: an ausgefallenes or annulliertes Spiel
     // leaves none, so naming either would send the admin looking at a fixture that is still free.
     // The Austritt is on another page; the sentence says which.
-    return "Mindestens ein Spiel des ausscheidenden Teams trägt ein Ergebnis, Tore, einen Abbruch oder ein Nichtantreten. Trage für dieses Team stattdessen unten auf seiner eigenen Team-Seite einen Austritt ein.";
+    return "Mindestens ein Spiel des ausscheidenden Teams trägt ein Ergebnis, Tore, ein Elfmeterschießen, einen Abbruch oder ein Nichtantreten. Trage für dieses Team stattdessen unten auf seiner eigenen Team-Seite einen Austritt ein.";
   }
   if (error.serverErrorCode === "REQ-REPLACE-003") {
     // One code, two pictures: a club named on both ends lands here too, because the row being
@@ -323,7 +323,7 @@ export async function postSaisonTeamAction(
         return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       }
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
-        return { success: false, error: "Dieses Team ist bereits in dieser Saison. Lade die Seite neu." };
+        return { success: false, error: "Dieses Team ist schon in dieser Saison. Lade die Seite neu." };
       }
       throw error;
     }

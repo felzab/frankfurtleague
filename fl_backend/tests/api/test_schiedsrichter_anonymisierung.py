@@ -10,9 +10,10 @@ from pymongo.errors import OperationFailure
 
 from app.api.schiedsrichter.admin_router import anonymise_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterWriteResponse
-from app.api.schiedsrichter.services import ANONYMISED_KONTAKT
+from app.api.schiedsrichter.services import ANONYMISED_KONTAKT, KONTAKT_RE_ENTERED_MID_ANONYMISATION
 from app.core.collections import Collection
 from app.core.constraints import SUPPORT_INDEXES
+from app.core.exceptions import DocumentConflictException
 from app.core.recording import build_redaction_filter
 from app.shared.schemas.kontakt import FLKontakt
 from tests.database import a_clean_database, on_the_seed_loop
@@ -407,3 +408,89 @@ def test_a_refused_redaction_takes_the_clearing_back(mongo_replica_set_url: str)
     assert referees[SCHIEDSRICHTER_OID]["kontakt"] == KONTAKT[SCHIEDSRICHTER_OID], "the clearing outlived a redaction that failed"
     assert [row for row in rows if row["before"] is not None], "the log lost its image to a transaction that never committed"
     assert all(row["redacted_at"] is None for row in rows)
+
+
+class AktionenRunningAHookBeforeTheRedaction:
+    """An `aktionen` stand-in running one hook just before the log redaction, so the interleaving is a fact rather than a race.
+
+    The one point where the referee row is written and nothing has committed. Not a subclass: Motor
+    builds a collection off a handle.
+    """
+
+    def __init__(self, inner: Any, hook: Callable[[], Awaitable[Any]]) -> None:
+        self._inner = inner
+        self._hook: Callable[[], Awaitable[Any]] | None = hook
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
+        # ONE-SHOT: a retry has to judge what landed rather than run the interference again.
+        if self._hook is not None:
+            hook, self._hook = self._hook, None
+            await hook()
+
+        return await self._inner.update_many(*args, **kwargs)
+
+
+async def anonymise_under(database: AsyncDatabase, client: AsyncMongoClient, hook: Callable[[], Awaitable[Any]] | None) -> Any:
+    """The endpoint with `hook` landing between the referee write and the redaction. Only a refusal is caught."""
+
+    aktionen: Any = database[Collection.AKTIONEN]
+    if hook is not None:
+        aktionen = AktionenRunningAHookBeforeTheRedaction(aktionen, hook)
+
+    return await anonymise_schiedsrichter(
+        schiedsrichter_id=SCHIEDSRICHTER_OID,
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        aktionen_collection=aktionen,
+        db=client,
+        germany_now=NOW,
+    )
+
+
+class TestAReEntryLandingMidAnonymisationIsRefused:
+    """The referee is CLEARED already, so the second run's `$set` rewrites nothing.
+
+    A rewrite of nothing joins no write set, so a `PATCH` re-entering the details raises no conflict
+    and no retry judges it. Only the read outside the session refuses this.
+    """
+
+    @pytest.mark.db
+    def test_details_re_entered_under_the_erasure_are_refused_rather_than_left_standing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            # The first run is what leaves the row cleared, which is the state this case is about.
+            await anonymise_under(database, client, None)
+
+            async def re_enter_the_details() -> None:
+                await a_referee_with_a_history(database, client, SCHIEDSRICHTER_OID)
+
+            try:
+                await anonymise_under(database, client, re_enter_the_details)
+                outcome = "the anonymisation committed"
+            except DocumentConflictException as refusal:
+                outcome = refusal.error_code
+
+            return outcome, (await stored_referees(database))[SCHIEDSRICHTER_OID]["kontakt"]
+
+        outcome, kontakt = on_a_league(mongo_replica_set_url, body)
+
+        # Unrefused, the endpoint answers 200 with a null `kontakt` over a row holding the pair again,
+        # and an administrator is told a person's details are gone while they are not.
+        assert outcome == KONTAKT_RE_ENTERED_MID_ANONYMISATION
+        assert kontakt == KONTAKT[SCHIEDSRICHTER_OID], "the interference never re-entered the details, so the rule had nothing to refuse"
+
+    @pytest.mark.db
+    def test_a_second_run_with_nothing_interfering_still_answers(self, mongo_replica_set_url: str):
+        """The control: without it the guard above could refuse every re-run, which is a working erasure an admin cannot repeat."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await anonymise_under(database, client, None)
+            response = await anonymise_under(database, client, None)
+
+            return response.updated_document.kontakt, (await stored_referees(database))[SCHIEDSRICHTER_OID]["kontakt"]
+
+        echoed, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert (echoed.telefon, echoed.email) == (None, None)
+        assert stored == {"telefon": None, "email": None}

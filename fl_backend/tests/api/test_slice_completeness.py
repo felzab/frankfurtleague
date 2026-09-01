@@ -73,7 +73,7 @@ class TestARefusalNeverPermitsWhatItCannotSee:
 
     def test_the_wiring_refusal_refuses_to_judge(self, season, payload):
         with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            find_wiring_refusal(UNREAD_SPIEL_ID, payload, season)
+            find_wiring_refusal(UNREAD_SPIEL_ID, payload, season, number_of_groups=4)
 
     def test_the_booking_refusal_refuses_to_judge(self, season, payload):
         """It compares the payload's references against the STORED ones, so a slice without them judges a move it cannot see."""
@@ -103,7 +103,7 @@ class _SeasonCollection:
     def __init__(self, documents: list[dict[str, Any]]) -> None:
         self.documents = documents
 
-    def find(self, filter: Any, projection: Any = None, session: Any = None) -> "_SeasonCollection":
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> "_SeasonCollection":
         return self
 
     def limit(self, count: int) -> "_SeasonCollection":
@@ -159,12 +159,12 @@ class _ArchiveCollections:
         # test here is the wiring above that pipeline rather than the pipeline itself.
         self.spiele = spiele or []
 
-    # `async`, as the driver's is: it hands its cursor back through a coroutine, and a plain method
-    # here would pass while the real read awaited an object that is not one.
-    async def aggregate(self, pipeline: Any, session: Any = None) -> "_ArchiveCollections":
+    # A coroutine, matching the driver: the read under test awaits `aggregate` and does not await
+    # `find`, so a synchronous double here would pass a cursor where a coroutine is expected.
+    async def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> "_ArchiveCollections":
         return self
 
-    def find(self, filter: Any, projection: Any = None, session: Any = None) -> "_ArchiveCollections":
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> "_ArchiveCollections":
         return self
 
     def limit(self, count: int) -> "_ArchiveCollections":

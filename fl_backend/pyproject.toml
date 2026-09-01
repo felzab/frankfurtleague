@@ -124,6 +124,7 @@ markers = [
 venvPath = "."
 venv = ".venv"
 include = ["app", "tests"]
-# `basic` rather than `strict`. Strict demands an annotation on every symbol including test locals,
-# which is a different project from "the editor and the gate agree".
+# `basic`, below pyright's `standard` default: at `standard`, 21 payload schemas report
+# `reportIncompatibleVariableOverride` for narrowing a base model's field, the shape they exist for.
+# `strict` demands an annotation on every symbol, test locals too.
 typeCheckingMode = "basic"

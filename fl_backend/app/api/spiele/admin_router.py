@@ -245,7 +245,7 @@ async def patch_spiel_data(
         # judgement is about, so a contradiction inside it should not be reported as a bracket fault.
         refuse(find_state_refusal(spiel_data))
 
-        refuse(find_wiring_refusal(spiel_id, spiel_data, season))
+        refuse(find_wiring_refusal(spiel_id, spiel_data, season, number_of_groups=saison_rules.number_of_groups))
 
         # Read through the session, so an austritt committed by this transaction is visible.
         membership = await pull_saison_membership(saison_teams_collection=saison_teams_collection, saison_id=saison_id, session=session)

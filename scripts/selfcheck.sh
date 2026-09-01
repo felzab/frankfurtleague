@@ -147,8 +147,14 @@ par_run() { # $1 unit function, called as `$1 <index> <item> <label>` once per q
 # annotated at the line instead, so a new unused-looking assignment justifies itself where written.
 
 # New releases add checks, so a difference nobody names is the drift this pin exists to remove.
-# Nothing bumps it: dependabot reads `uses:` references, and this is a shell string.
+# Nothing bumps either line here: dependabot reads `uses:` references, not shell strings. A version
+# bumped by hand replaces the digest below.
 SHELLCHECK_VERSION="0.11.0"
+
+# GitHub's own digest for that release's `linux.x86_64.tar.xz`: CI unpacks it as root onto PATH, so
+# an asset replaced under a tag that never moved is caught rather than trusted.
+# shellcheck disable=SC2034  # .github/workflows/verify.yml reads it
+SHELLCHECK_LINUX_X86_64_SHA256="8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
 
 # Availability is decided here, not encoded in a status: shellcheck's own 2 means "a file could
 # not be read", so a numeric sentinel would report a real failure as an absent tool.
@@ -262,7 +268,7 @@ while IFS= read -r fn; do DEFINED["$fn"]=1; done \
 for f in "${RUNNABLE[@]}"; do
   [[ -f "scripts/$f" ]] || continue
   # Anything that looks like one of our helpers: our naming is consistent enough to enumerate.
-  called="$(grep -oE '\b(require_[a-z_]+|wait_healthy|image_[a-z_]+|git_[a-z_]+|any_python|venv_python|end_section|section|finish|refuse|add_findings|spinner_start|spinner_stop|fmt_duration|fmt_ms|excerpt|verbose|step_took_ms|step|ok|info|skip|warn|fail|die|detail|quietly|usage|on_error|on_interrupt|emit_section_ledger|adopt_section|adopt_ending|end_worker|worker)\b' "scripts/$f" | sort -u || true)"
+  called="$(grep -oE '\b(require_[a-z_]+|wait_healthy|redact_uri_credentials|image_[a-z_]+|git_[a-z_]+|any_python|venv_python|end_section|section|finish|refuse|add_findings|spinner_start|spinner_stop|fmt_duration|fmt_ms|excerpt|verbose|step_took_ms|step|ok|info|skip|warn|fail|die|detail|quietly|usage|on_error|on_interrupt|emit_section_ledger|adopt_section|adopt_ending|end_worker|worker)\b' "scripts/$f" | sort -u || true)"
   missing=""
   while IFS= read -r fn; do
     [[ -z "$fn" ]] && continue
@@ -679,6 +685,14 @@ else
     probe "$hb" denied  cmd 'sed -i s/a/b/ fl_frontend/src/app/globals.css && cat docs/audit/r.md' 'bash guard: the substring hazard'
     probe "$hb" denied  cmd 'cp docs/audit/r.md fl_frontend/src/app/globals.css' 'bash guard: writes tracked, names ignored'
     probe "$hb" denied  cmd 'tee fl_frontend/src/app/globals.css < docs/audit/r.md' 'bash guard: through tee and an input redirect'
+    # `-o` names a destination with no `>` and no `--output ` in sight, so the shape scan missed
+    # every one of these; it is read only behind a program that writes with it, which leaves the
+    # far commoner `grep -o` a read.
+    probe "$hb" denied  cmd 'docker compose config -o rendered.yml'            'bash guard: a compose rendering saved with -o'
+    probe "$hb" denied  cmd 'docker compose config --lock-image-digests'       'bash guard: a compose override file'
+    probe "$hb" denied  cmd 'sort -o notes.md notes.md'                        'bash guard: sort writing through -o'
+    probe "$hb" denied  cmd 'curl -o notes.md https://example.invalid/x'       'bash guard: curl writing through -o'
+    probe "$hb" allowed cmd 'grep -o docker notes.md'                          'bash guard: -o as a match selector'
     probe "$hb" denied  cmd 'cp docs/audit/r.md docs/audit/credentials.json'   'bash guard: credential shape in an ignored dir'
     probe "$hb" denied  cmd 'touch docs/audit/server.pem'                      'bash guard: a pem in an ignored dir'
     probe "$hb" denied  cmd 'touch docs/audit/id_rsa_backup'                   'bash guard: an id_rsa in an ignored dir'
@@ -782,8 +796,8 @@ else
 
     # --- One write, spelled many ways ------------------------------------------------------------
 
-    # The write-shape test is a substring scan of the raw command, so it falls one respelling at a
-    # time; a family is as close to the mechanism as a payload suite reaches.
+    # The write-shape test is a substring scan of a normalised command, so it falls one respelling
+    # at a time; a family is as close to the mechanism as a payload suite reaches.
 
     # No case outside the platform block at the end of this table may carry a literal backslash: the
     # token classifier answers differently under POSIX path grammar, so CI would disagree.
@@ -838,6 +852,35 @@ else
     # An accepted cost, not a defect: honouring it needs real shell tokenisation.
     probe "$hb" denied  cmd 'cp docs/audit/a.md "docs/audit/b c.md"'           'bash guard: a quoted name holding a space'
 
+    # --- Word boundaries the shell honours where a space is absent -------------------------------
+
+    # A separator binds a verb to whatever stands beside it, so each line here carries a write shape
+    # no pattern spelled with spaces reaches. None of them carries a redirect, which would raise the
+    # write flag on its own account and hide what is being tested.
+    probe "$hb" denied cmd 'echo x;rm -rf fl_frontend/src'      'bash guard: a semicolon in front of rm'
+    probe "$hb" denied cmd 'echo x&&rm -rf fl_frontend/src'     'bash guard: && in front of rm'
+    probe "$hb" denied cmd 'echo x||mv notes.md b.md'           'bash guard: || in front of mv'
+    probe "$hb" denied cmd 'echo x;sed -i s/a/b/ scripts/verify.sh' 'bash guard: a semicolon in front of sed -i'
+    probe "$hb" denied cmd 'echo x;git commit -am wip'          'bash guard: a semicolon in front of git'
+    probe "$hb" denied cmd 'git status&&git reset --hard'       'bash guard: && in front of a git write'
+    probe "$hb" denied cmd '(git commit -am wip)'               'bash guard: a git write inside a subshell'
+    probe "$hb" denied cmd 'ls docs/audit | xargs rm'           'bash guard: a verb ending the command'
+    # A quote is stripped by the token stage, so the scan has to strip one too — otherwise the verb
+    # that stage would judge never reaches the flag that sends it there.
+    probe "$hb" denied cmd '"sed" -i s/a/b/ scripts/verify.sh'  'bash guard: a quoted program name'
+    probe "$hb" denied cmd "'rm' -rf fl_frontend/src"           'bash guard: a quoted rm'
+
+    # The token stage alone answers these: the shape scan fires on the redirect, and the ignored
+    # target is the only placed path, so the chained command rides out on that one's exemption.
+    probe "$hb" denied cmd 'printf x > docs/audit/log.txt & git commit -am wip' 'bash guard: a commit backgrounded behind an ignored write'
+    probe "$hb" denied cmd 'printf x > docs/audit/log.txt & pnpm format'        'bash guard: a formatter backgrounded behind an ignored write'
+    # The shell expands this and the guard cannot, so the path judged and the path written differ —
+    # the hazard guard-branch-powershell.sh refuses a variable for.
+    # shellcheck disable=SC2016
+    probe "$hb" denied cmd 'printf x > docs/audit/${AUDIT}note.md'              'bash guard: a brace expansion inside an ignored path'
+    # shellcheck disable=SC2016
+    probe "$hb" denied cmd 'printf x > docs/audit/$AUDIT/note.md'               'bash guard: a bare variable inside an ignored path'
+
     # --- In-place editing, one spelling at a time ------------------------------------------------
 
     # The flag is read by shape, so each line here is a spelling the one above it does not reach.
@@ -874,8 +917,8 @@ else
     probe "$hb" denied  cmd 'grep -rn foo fl_frontend/src > docs/audit/hits.txt' 'bash guard: reads tracked, writes ignored'
     probe "$hb" denied  cmd 'cp docs/audit/note.md .'                          'bash guard: the repository root itself'
     probe "$hb" denied  cmd "$(printf 'cat > /tmp/x.sh <<EOF\nhello\nEOF')"    'bash guard: multi-line scratch heredoc'
-    probe "$hb" allowed cmd 'sort -o Makefile docs/audit/a.md'                 'bash guard: a writer with no write shape'
-    probe "$hb" denied  cmd 'sort -o Makefile docs/audit/a.md > docs/audit/x'  'bash guard: the same writer, write shape present'
+    probe "$hb" denied  cmd 'sort -o Makefile docs/audit/a.md'                 'bash guard: sort writing to a bare root file through -o'
+    probe "$hb" denied  cmd 'sort -o Makefile docs/audit/a.md > docs/audit/x'  'bash guard: the same writer, redirect present too'
     probe "$hb" denied  cmd 'ls --color=auto docs/audit > docs/audit/x'        'bash guard: a flag value under a path program'
     probe "$hb" denied  cmd 'sed -i s/a/b/ "fl_frontend/src/app/globals.css" docs/audit/note.md' 'bash guard: a quoted tracked path'
     probe "$hb" denied  cmd 'sed -i s/a/b/ fl_"frontend"/src/app/globals.css docs/audit/note.md' 'bash guard: a quote-split tracked path'
@@ -945,6 +988,9 @@ else
     probe "$hs" asked   cmd 'printf x >&docs/standard.md'                      'standard bash guard: >& redirect'
     probe "$hs" asked   cmd 'printf x ->docs/standard.md'                      'standard bash guard: -> redirect'
     probe "$hs" asked   cmd 'sed -e s/a/b/ -i docs/standard.md'                'standard bash guard: sed -i behind another flag'
+    probe "$hs" asked   cmd 'echo x;sed -i s/a/b/ docs/standard.md'            'standard bash guard: a semicolon in front of sed -i'
+    # The shared block moves in lockstep, so the `-o` shape has to reach this copy as well.
+    probe "$hs" asked   cmd 'sort -o docs/standard.md docs/standard.md'        'standard bash guard: sort writing through -o'
     probe "$hs" asked   cmd 'git checkout -- docs/standard.md'                 'standard bash guard: git checkout --'
     probe "$hs" asked   cmd "$(printf 'echo start\ngit checkout -- docs/standard.md')" 'standard bash guard: a discard on a second line'
     probe "$hs" asked   cmd 'git status && git checkout -- docs/standard.md'   'standard bash guard: a discard behind a git read'
@@ -999,7 +1045,104 @@ else
     probe "$hc" allowed cmd 'docker compose --file=docker-compose.local.yml up' 'compose guard: the long flag spelling'
     probe "$hc" allowed cmd 'docker ps'                                        'compose guard: not compose at all'
     probe "$hc" allowed cmd 'grep -rn "docker compose" docs'                   'compose guard: a mention is not an invocation'
-    probe "$hc" allowed cmd "$(printf 'cat <<EOF\nDrive local Docker only through ./scripts/local.sh, never bare docker compose\nEOF')" 'compose guard: a heredoc stating the rule'
+    # A heredoc body is data the shell never runs — which is a fact about `cat`, not about the
+    # heredoc. `sh` runs what arrives, so the two halves are pinned apart.
+    probe "$hc" allowed cmd "$(printf 'cat <<EOF\nDrive local Docker only through ./scripts/local.sh, never bare docker compose\nEOF')" 'compose guard: a heredoc into a program that runs neither an argument nor its input'
+    probe "$hc" denied  cmd "$(printf 'sh <<EOF\ndocker compose config\nEOF')" 'compose guard: a heredoc into an interpreter'
+    probe "$hc" denied  cmd "$(printf "bash <<'X'\ndocker compose up -d\nX")" 'compose guard: a quoted heredoc into an interpreter'
+
+    # `config` resolves every env_file into the rendered environment block, so it PRINTS
+    # ./fl_backend/.env, and -o saves it anywhere. It refuses whichever file is named: consent to a
+    # local stack was never consent to disclosure.
+    probe "$hc" denied  cmd 'docker compose config'                            'compose guard: config renders the production env_file'
+    probe "$hc" denied  cmd 'docker compose -f docker-compose.yml config'      'compose guard: config, production file named'
+    probe "$hc" denied  cmd 'docker compose -f docker-compose.local.yml config' 'compose guard: config on the local file discloses the same .env'
+    probe "$hc" denied  cmd 'docker compose config -o rendered.yml'            'compose guard: config writes its rendering with -o'
+    probe "$hc" denied  cmd 'docker compose config --lock-image-digests'       'compose guard: config writes an override file'
+    probe "$hc" allowed cmd 'docker compose ps'                                'compose guard: a container listing'
+    probe "$hc" allowed cmd 'docker compose logs -f backend'                   'compose guard: following logs'
+    probe "$hc" allowed cmd 'docker compose --help'                            'compose guard: an invocation naming no subcommand'
+    # Each reaches a container the read list cannot, and each is a spelling the line above misses.
+    probe "$hc" denied  cmd 'docker compose exec db mongosh'                   'compose guard: a shell inside a production container'
+    probe "$hc" denied  cmd 'docker compose run --rm backend sh'               'compose guard: a one-off command'
+    probe "$hc" denied  cmd 'docker compose build'                             'compose guard: a build'
+    # --down-project drops the project, so the name is the only read-only thing about it.
+    probe "$hc" denied  cmd 'docker compose wait'                              'compose guard: wait is not a read'
+    # The read list is closed, so a verb a later compose release adds refuses until someone reads
+    # its flags — the direction that costs a question rather than the production database.
+    probe "$hc" denied  cmd 'docker compose frobnicate'                        'compose guard: an unrecognised subcommand'
+    # A global option and its value stand between the program and the subcommand, so each has to be
+    # stepped over rather than read as one.
+    probe "$hc" denied  cmd 'docker compose -p x up'                           'compose guard: a global option before the subcommand'
+    probe "$hc" denied  cmd 'docker compose --env-file .env.local up'          'compose guard: a global option carrying a value'
+    probe "$hc" denied  cmd 'env docker compose up -d'                         'compose guard: behind an env prefix'
+    probe "$hc" denied  cmd '{ docker compose up -d; }'                        'compose guard: inside a brace group'
+    probe "$hc" denied  cmd 'docker compose exec db sh -f docker-compose.local.yml' 'compose guard: the local file named behind the subcommand'
+    # The local file is the developer's own stack, whatever is run against it.
+    probe "$hc" allowed cmd 'docker compose -f docker-compose.local.yml down -v' 'compose guard: a teardown of the local stack'
+    # A separator inside quotes separates nothing, so nothing behind it is a command position.
+    probe "$hc" allowed cmd 'grep -rn "docker compose\|docker-compose" docs'   'compose guard: an alternation inside a quoted pattern'
+
+    # The shell reads a quote and an unquoted backslash as punctuation, so the program word has to
+    # be judged with both taken off — testing the payload as typed reads docker as something else.
+    probe "$hc" denied  cmd 'doc"ker" compose up -d'                          'compose guard: a quote inside the program name'
+    probe "$hc" denied  cmd 'd"o"cker compose up -d'                          'compose guard: a quote splitting the program name'
+    probe "$hc" denied  cmd '\docker compose up -d'                           'compose guard: a leading backslash'
+    probe "$hc" denied  cmd 'doc\ker compose up -d'                           'compose guard: a backslash inside the program name'
+    # An unrecognised leading word means "cannot tell", never "not docker": an interpreter runs the
+    # rest of the segment, and a path holding a space splits into a program word that is not one.
+    probe "$hc" denied  cmd 'bash -c "docker compose up -d"'                  'compose guard: behind an interpreter'
+    probe "$hc" denied  cmd "sh -c 'docker compose up -d'"                    'compose guard: behind sh -c'
+    probe "$hc" denied  cmd 'eval "docker compose up -d"'                     'compose guard: behind eval'
+    probe "$hc" denied  cmd 'xargs docker compose up -d'                      'compose guard: behind xargs'
+    probe "$hc" denied  cmd 'echo up -d | xargs docker compose'               'compose guard: the subcommand arriving on stdin'
+    probe "$hc" denied  cmd '/c/Program Files/Docker/docker compose up -d'    'compose guard: a program path holding a space'
+    # Each of these hands a segment its input, so the invocation is in what arrives rather than
+    # in this payload, and the receiving segment's own words prove nothing about it.
+    probe "$hc" denied  cmd "echo 'docker compose config' | sh"               'compose guard: the command arriving down a pipe'
+    probe "$hc" denied  cmd "printf 'docker compose up -d' |& bash"           'compose guard: a pipe carrying stderr with it'
+    probe "$hc" denied  cmd "sh < <(printf 'docker compose config')"          'compose guard: a process substitution'
+    probe "$hc" denied  cmd "sh <<<'docker compose config'"                   'compose guard: a here-string'
+    probe "$hc" allowed cmd 'docker compose logs -f backend | grep error'     'compose guard: a read piped into a program that cannot run it'
+    probe "$hc" allowed cmd 'docker compose ps || echo none'                  'compose guard: an or-list separates rather than feeds'
+    # Dev is Windows, where a program word and its extension resolve case-insensitively: the
+    # uppercase spellings run there, and a byte comparison released every shape below.
+    probe "$hc" denied  cmd 'DOCKER compose config'                           'compose guard: the uppercase program spelling'
+    probe "$hc" denied  cmd 'docker.EXE compose config'                       'compose guard: an uppercase executable extension'
+    probe "$hc" denied  cmd 'Docker Compose up -d'                            'compose guard: a mixed-case spelling the hook cannot place'
+    probe "$hc" allowed cmd 'docker.Exe compose ps'                           'compose guard: a case-folded read is still a read'
+    # A substitution spells any program and any file name, so it is answered rather than parsed.
+    # The literals are the point here — expanding one would probe a different command.
+    # shellcheck disable=SC2016
+    {
+      probe "$hc" denied cmd '$(echo docker) compose up -d'                   'compose guard: a command substitution as the program'
+      probe "$hc" denied cmd '`echo docker` compose up -d'                    'compose guard: the backtick substitution form'
+      probe "$hc" denied cmd 'DOCKER=docker; $DOCKER compose up -d'           'compose guard: a variable as the program'
+    }
+    # A prefix keeps its own flags and operands, so the program is the next docker word rather than
+    # the next word — and any of these left behind released the whole segment.
+    probe "$hc" denied  cmd 'sudo -u root docker compose up -d'               'compose guard: sudo carrying a flag'
+    probe "$hc" denied  cmd 'env -i docker compose up -d'                     'compose guard: env carrying a flag'
+    probe "$hc" denied  cmd 'nice -n 5 docker compose up -d'                  'compose guard: nice carrying a flag'
+    probe "$hc" denied  cmd 'timeout 5 docker compose up -d'                  'compose guard: timeout carrying a duration'
+    probe "$hc" denied  cmd 'stdbuf -oL docker compose up -d'                 'compose guard: stdbuf carrying a flag'
+    probe "$hc" denied  cmd 'nohup docker compose up -d'                      'compose guard: behind nohup'
+    probe "$hc" denied  cmd 'command docker compose up -d'                    'compose guard: behind command'
+    probe "$hc" denied  cmd 'time docker compose up -d'                       'compose guard: behind time'
+    probe "$hc" denied  cmd 'setsid docker compose up -d'                     'compose guard: behind setsid'
+    probe "$hc" denied  cmd 'exec docker compose up -d'                       'compose guard: behind exec'
+    # Consent to the local stack is consent to that file ALONE: compose merges what a second -f
+    # names, and a basename match would make any file so named consent wherever it was written.
+    probe "$hc" denied  cmd 'docker compose -f docker-compose.local.yml -f docker-compose.yml up -d' 'compose guard: the production file merged in behind the local one'
+    probe "$hc" denied  cmd 'docker compose -f /tmp/anywhere/docker-compose.local.yml up -d' 'compose guard: the local basename somewhere else'
+    # A global option missing its value eats the verb, which is not an invocation naming none.
+    probe "$hc" denied  cmd 'docker compose --ansi up -d'                     'compose guard: a global flag swallowing the subcommand'
+    probe "$hc" denied  cmd 'docker compose --profile up -d'                  'compose guard: --profile swallowing the subcommand'
+    # This guard stands in front of the production database, so a payload it could not read is a
+    # question nobody answered. An empty command is a real answer: there is nothing to guard.
+    probe "$hc" denied  raw  'not json'                                       'compose guard: an unparseable payload'
+    probe "$hc" denied  raw  '{"tool_input":{}}'                              'compose guard: a payload naming no command'
+    probe "$hc" allowed raw  '{"tool_input":{"command":""}}'                  'compose guard: an empty command'
 
     # Absolute paths only here: elsewhere a backslash is an ordinary character and a `/c/…` name is
     # a directory outside the tree.
@@ -1024,6 +1167,18 @@ else
         ;;
     esac
     par_run unit_probe
+
+    # git MISSING is not an answer: with no git the guard cannot know which branch it stands on,
+    # so it refuses. Outside the probe table, which runs every hook in the runner's own
+    # environment. bash by absolute path, the stripped PATH being what hides git.
+    nogit="${HOOKFX}/nogit"
+    mkdir -p "$nogit"
+    blind="$( cd "$HOOK_REPO" && cmd_payload 'printf x > scripts/verify.sh' |
+      PATH="$nogit" "$BASH" "${HOOKS_DIR}/${hb}" 2>/dev/null )" || true
+    case "$blind" in
+      *'"permissionDecision":"deny"'*) info 'bash guard: git absent from PATH — denied' ;;
+      *) note_fail "bash guard: git absent from PATH: expected denied, got '${blind:-allowed}'" ;;
+    esac
 
     # Off main: a detached HEAD allows too, a rebase or a bisect not losing every write.
     ( cd "$HOOK_REPO" && git checkout -q topic )
@@ -1079,6 +1234,82 @@ if [[ -n "$stray" ]]; then
 else
   info "every deliberate non-run here is written to the ledger verify.sh replays"
 fi
+
+step "15. The container-log redaction"
+# Wrong in either direction and silent in both: a credential reaching the operator's terminal, or
+# the host redacted out of the log a failing deploy is read from. Each case below is a real
+# error-message shape, the bound being a regex nobody re-derives.
+REDACTED_OK=0
+redact_case() { # $1 the line as a container printed it - $2 what must reach the screen
+  local got
+  got="$(printf '%s\n' "$1" | redact_uri_credentials)"
+  if [[ "$got" == "$2" ]]; then
+    REDACTED_OK=$(( REDACTED_OK + 1 ))
+  else
+    note_fail "redaction: '${1}' became '${got}', expected '${2}'"
+  fi
+}
+
+# Replaced: the userinfo, and nothing past it.
+redact_case 'Invalid connection string "mongodb://u:pw@host.example.net/db"' \
+            'Invalid connection string "mongodb://<redacted>@host.example.net/db"'
+redact_case 'mongodb+srv://u:pw@cluster.example.net/db' \
+            'mongodb+srv://<redacted>@cluster.example.net/db'
+redact_case 'MONGODB://u:pw@host.example.net/db' \
+            'MONGODB://<redacted>@host.example.net/db'
+# An encoded `@` inside the password, which is the only way a MongoDB URI may carry one.
+redact_case 'mongodb://u:pw%40x@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+# A comma is a sub-delimiter userinfo may hold unencoded, so the bound may not stop at one.
+redact_case 'mongodb://u:pw,x@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+# A seed list, where the same comma separates hosts instead.
+redact_case 'mongodb://u:pw@h1.example.net,h2.example.net/db?replicaSet=rs' \
+            'mongodb://<redacted>@h1.example.net,h2.example.net/db?replicaSet=rs'
+
+# Fails OPEN where the bound is a character class: a delimiter in the password leaves no `@` inside
+# the class, so nothing matches — and ill-formed is the very string a driver could not parse.
+redact_case 'mongodb://admin:S3cr3t/Pw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+redact_case 'mongodb://admin:S3cr3t?Pw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+redact_case 'mongodb://admin:S3cr3t"Pw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+redact_case 'mongodb://admin:S3cr3t Pw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+redact_case $'mongodb://admin:S3cr3t\tPw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+
+# Bounded: an `@` further along the line is not the userinfo's, and reaching it costs the host.
+redact_case 'mongodb://u:pw@host.example.net/db?authSource=admin&appName=x@y' \
+            'mongodb://<redacted>@host.example.net/db?authSource=admin&appName=x@y'
+redact_case 'mongodb://u:pw@host.example.net?appName=x@y' \
+            'mongodb://<redacted>@host.example.net?appName=x@y'
+# A bare `@` past a comma: any class wide enough for a password holding one admits it too, so only
+# stopping at the FIRST `@` keeps the host, which is what a failing deploy is read from.
+redact_case 'uri=mongodb://u1:p1@h1.example.net:27017,ops@example.com' \
+            'uri=mongodb://<redacted>@h1.example.net:27017,ops@example.com'
+redact_case 'MONGODB_URI=mongodb://u:p@rs0.example.net:27017,AUTH_USER=admin@example.com' \
+            'MONGODB_URI=mongodb://<redacted>@rs0.example.net:27017,AUTH_USER=admin@example.com'
+# Two URIs in one JSON object, which is the shape a log line carries them in: nothing between them.
+redact_case 'a:"mongodb://u:pw@h1.example.net/","mongodb://v:qw@h2.example.net/"' \
+            'a:"mongodb://<redacted>@h1.example.net/","mongodb://<redacted>@h2.example.net/"'
+redact_case 'mongodb://u:pw@h1.example.net/ mongodb://v:qw@h2.example.net/' \
+            'mongodb://<redacted>@h1.example.net/ mongodb://<redacted>@h2.example.net/'
+
+# Untouched: no userinfo to replace, and lines the filter must leave alone.
+redact_case 'mongodb://localhost:27017' 'mongodb://localhost:27017'
+redact_case 'mongodb+srv://cluster.example.net/db' 'mongodb+srv://cluster.example.net/db'
+redact_case 'write to nobody@example.net about it' 'write to nobody@example.net about it'
+# The gap docs/logging/spec.md section 4 records: no URI around it, so nothing matches.
+redact_case 'MONGO_PASSWORD=pw' 'MONGO_PASSWORD=pw'
+
+# The second gap that page records: no userinfo, so the first `@` after the scheme belongs to
+# somebody else and the host goes with it. Nothing on this line was ever secret.
+redact_case 'mongodb://localhost:27017 and mail nobody@example.net' \
+            'mongodb://<redacted>@example.net'
+
+info "${REDACTED_OK} redaction fixture(s) came back exactly as specified"
 
 # The only thing that tells a run with nothing to report from one that stopped reporting.
 if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then

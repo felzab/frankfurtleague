@@ -32,6 +32,7 @@ from app.api.spieler.services import (
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
+    GERMAN_COLLATION,
     aggregate_many_from_db,
     erase_many_from_db,
     insert_live,
@@ -158,7 +159,9 @@ async def get_spieler_memberships(spieler_collection: SpielerCollection) -> FLSp
     without one a player with no live row has `nummer` and `position` null.
     """
 
-    spieler_raw = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_spieler_memberships_pipeline())
+    spieler_raw = await aggregate_many_from_db(
+        collection=spieler_collection, pipeline=build_spieler_memberships_pipeline(), collation=GERMAN_COLLATION
+    )
 
     return FLSpielerMembershipsResponse(spieler=[FLSpielerWithMemberships.model_validate(spieler) for spieler in spieler_raw])
 

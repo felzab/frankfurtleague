@@ -23,7 +23,7 @@ import subprocess
 import sys
 import tempfile
 from collections import Counter
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -41,6 +41,9 @@ NEWLINE: Final = chr(10)
 # NUL, so the byte this case plants cannot be written here even escaped past the gate's own reader.
 NUL_BYTE: Final = chr(0)
 CR_BYTE: Final = chr(13)
+# Built like the markers above: spelled out, this line would open a fence in every reader that
+# scans this file, and the corpus below would be read as one block of prose.
+FENCE: Final = "`" * 3
 
 NOTES: Final = "docs/notes.md"
 # A second page of the same basename, so a bare-name citation can be made to resolve twice; and a
@@ -196,6 +199,13 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             _heading(2, "Setup"),
             "",
             "A link to [the repeated heading](#setup-1) resolves.",
+            "",
+            # A fenced example, so every reader that blanks a fence has one to blank. What stands
+            # inside resolves to nothing, so a reader that stopped blanking reports it as the
+            # page's own claim rather than as the sample it is.
+            FENCE + "markdown",
+            "A `docs/gone-inside-a-fence.md` path, and `OUT-99` beside it.",
+            FENCE,
         ),
         TWIN_NOTES: _page(
             _heading(1, "Frontend notes"),
@@ -495,7 +505,7 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
     }
 
 
-# --- the fixture repository ---------------------------------------------------------------------
+# --- the fixture repository ----------------------------------------------------------------------
 
 
 def _git(root: Path, *args: str) -> str:
@@ -613,6 +623,18 @@ ADVISORY: Final = "advisory finding"
 # counting the triples separates a check with two producers from one that has lost one.
 Reported = tuple[str, str, str]
 
+# What a printed finding names before its detail: a file, or a file and the line the check looked
+# at, which `scripts/docs_gate/kernel.py :: Finding` renders. The line is read out here rather than
+# folded into the file, so a case can turn on either.
+SUBJECT_RE: Final = re.compile(r"^(.*?)(?::(\d+))?$")
+
+
+def _subject(text: str) -> tuple[str, int | None]:
+    """A printed finding's file, and the line it named or None."""
+    match = SUBJECT_RE.match(text.partition(": ")[0])
+    assert match is not None, "a finding named nothing: " + text
+    return match.group(1), None if match.group(2) is None else int(match.group(2))
+
 
 def _reported(output: str) -> Counter[Reported]:
     """Every finding the run printed, counted.
@@ -634,7 +656,7 @@ def _reported(output: str) -> Counter[Reported]:
         # A finding under no severity heading means the run's shape moved. Left silent it would read
         # as a check that stopped firing, which is the one answer this file must not invent.
         elif severity:
-            seen[(severity, match.group(1), text.partition(": ")[0])] += 1
+            seen[(severity, match.group(1), _subject(text)[0])] += 1
         else:
             stray.append(text)
     if stray:
@@ -1044,9 +1066,14 @@ def _plant_copy_informal() -> None:
 
 
 def _plant_copy_term() -> None:
-    """The retired word for a club, in both the forms the sweep reads."""
+    """Both retired words: a club in both forms the sweep reads, and an adverb opening a sentence.
+
+    `bereits` is no noun, so the capital a sentence's start gives it is a spelling the pattern
+    reads only by folding case there.
+    """
     _append(COPY_SAMPLE, 'export const WER = "Die Mannschaft steht in dieser Gruppe.";')
     _append(COPY_SAMPLE, 'export const ALLE = "Alle Mannschaften stehen in der Tabelle.";')
+    _append(COPY_SAMPLE, 'export const OFFEN = "Bereits eingetragene Spiele behalten diesen Ort.";')
 
 
 def _plant_copy_corpus() -> None:
@@ -1131,7 +1158,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case("copy-dash", _fails("copy-dash", *[COPY_SAMPLE] * 3), _plant_copy_dash),
     Case("copy-formal", _fails("copy-formal", COPY_SAMPLE), _plant_copy_formal),
     Case("copy-informal", _fails("copy-informal", COPY_SAMPLE), _plant_copy_informal),
-    Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
+    Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
     Case("counts", _reports("counts", NOTES, SAMPLE), _plant_counts),
     Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD), _plant_enforced_by),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
@@ -1243,6 +1270,25 @@ def test_a_check_naming_one_page_reads_the_tracked_one() -> None:
     finally:
         _reset()
     assert reported[("fail", "glossary-entry", GLOSSARY)] == 1, "an untracked glossary was read as the corpus': " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_the_standard_leaving_the_index_empties_its_readers_rather_than_raising() -> None:
+    """A page out of the index reaches its readers as None, and one that hands it on raises.
+
+    `enforced-by` and `rule-shape` each guard for it. Without either guard the run ends on a
+    traceback at `EXIT_CRASH`, rather than on every citation of a rule failing.
+    """
+    _reset()
+    _git(_gate().root, "rm", "--cached", "-q", "--", STANDARD)
+    try:
+        code, reported = _run()
+    finally:
+        _reset()
+    # Counted by name rather than by number: what is pinned is which checks spoke, the citation
+    # count being the corpus' own and free to move.
+    assert set(reported) == {("fail", "rule-id", STANDARD), ("report", "counts", STANDARD)}, _shape(reported)
+    assert code == 1
     _assert_corpus_restored()
 
 
@@ -1382,7 +1428,7 @@ def test_a_word_changed_inside_an_older_block_is_not_this_branch_s() -> None:
     Driven apart from the case above: silence proves nothing while a second block is speaking.
     """
     _reset()
-    cap = _module("docs_gate.structure").COMMENT_CHAR_CAP
+    cap = _module("docs_gate.branch").COMMENT_CHAR_CAP
     legacy = " ".join((LEGACY_OPENING, LEGACY_MIDDLE, LEGACY_CLOSING))
     # The premise, asserted: a corpus block INSIDE the bound would let this case pass on nothing.
     assert len(legacy) > cap, "the corpus block is inside the bound, so nothing here is exempted"
@@ -1470,9 +1516,311 @@ def test_the_comment_bounds_read_a_file_by_its_format_not_its_suffix() -> None:
     # A first line that opens no comment: a leading run of hashes is the module header, which INC-2
     # bounds instead and which `comment_runs` therefore steps over.
     raw = _page("FROM scratch", *block)
-    bounds = _module("docs_gate.structure").check_comment_length
+    bounds = _module("docs_gate.branch").check_comment_length
     found = bounds(_gate().root / DOCKERFILE, raw, set(range(1, len(block) + 2)))
     assert [finding.check for finding in found] == ["comment-length"], "the block was read by the wrong format's reader"
+
+
+def test_a_check_that_knows_where_it_looked_prints_the_line_beside_the_file() -> None:
+    """A location belongs in the finding, not in its prose: `<file>:<line>` is what an editor opens.
+
+    The block opens on the third line, so a bound reported against the file alone would leave a
+    reader searching a module for the run that broke it.
+    """
+    block = [HASH + " a line of a block that runs past what a comment may hold" for _ in range(6)]
+    raw = _page("FROM scratch", "", *block)
+    bounds = _module("docs_gate.branch").check_comment_length
+    found = bounds(_gate().root / DOCKERFILE, raw, set(range(1, len(block) + 3)))
+    assert [finding.line for finding in found] == [3], "the block's opening line did not reach the finding"
+    assert _subject(found[0].human().strip()) == (DOCKERFILE, 3), found[0].human()
+
+
+@contextlib.contextmanager
+def _swapped(module: ModuleType, name: str, value: object) -> Iterator[None]:
+    """One module attribute replaced for a case, and put back whatever the body raises.
+
+    Through `setattr`: a module imported by name is a `ModuleType`, whose attributes a type
+    checker cannot know.
+    """
+    kept = getattr(module, name)
+    setattr(module, name, value)
+    try:
+        yield
+    finally:
+        setattr(module, name, kept)
+
+
+def test_an_eol_listing_this_gate_cannot_parse_fails_rather_than_reading_as_a_clean_tree() -> None:
+    """Both byte readers skip a record they cannot parse, so a shape git stops writing empties them.
+
+    Nothing else holds the tree to `.gitattributes`, and nothing else hunts a NUL or a stray CR, so
+    two loops over nothing would retire both with the run green.
+    """
+    checks = _module("docs_gate.checks")
+    rows, records = checks._eol_rows, checks._eol_records
+    try:
+        with _swapped(checks, "LS_FILES_EOL_RE", re.compile("a record shape git does not write")):
+            rows.cache_clear()
+            found = checks.check_line_endings() + checks.check_binary_bytes()
+    finally:
+        rows.cache_clear()
+        records.cache_clear()
+    assert sorted(finding.check for finding in found) == ["binary-byte", "line-endings"], [f.detail for f in found]
+
+
+def test_an_empty_fragment_list_fails_rather_than_confirming_a_form_it_never_read() -> None:
+    """The list the body gate quotes is what this check confirms, so an empty one confirms nothing.
+
+    Emptied, the loop runs zero times and the check passes -- while the body gate it stands behind
+    accepts every unfilled pull request.
+    """
+    checks = _module("docs_gate.checks")
+    with _swapped(_module("check_pr_body"), "TEMPLATE_FRAGMENTS", ()):
+        found = checks.check_template_fragments()
+    assert [finding.check for finding in found] == ["template-fragment"], [f.detail for f in found]
+
+
+# --- committed branches --------------------------------------------------------------------------
+
+SCENARIO_BRANCH: Final = "scenario"
+
+
+def _committed(plant: Callable[[], None], *rels: str) -> tuple[int, Counter[Reported]]:
+    """The gate's answer over a branch whose change is committed rather than sitting in the tree.
+
+    The cases above leave HEAD at the fork; a pushed branch is a commit past it, and the
+    added-line checks must read that diff the same way.
+    """
+    _reset()
+    root = _gate().root
+    _git(root, "checkout", "-q", "-b", SCENARIO_BRANCH)
+    try:
+        plant()
+        _git(root, "add", "--", *rels)
+        _git(root, "commit", "-q", "-m", "Scenario: a branch commit the gate reads")
+        return _run()
+    finally:
+        _git(root, "checkout", "-q", "main")
+        _git(root, "branch", "-q", "-D", SCENARIO_BRANCH)
+        _reset()
+
+
+def test_a_hook_s_embedded_javascript_comments_are_read() -> None:
+    """The shell reader takes a leading `//` beside `#`, so a hook's embedded node region is inside INC-6, INC-9 and COR-3."""
+    hook = ".claude/hooks/embedded.sh"
+    over = ["// a line of a block that runs past what a comment may hold" for _ in range(6)]
+
+    def plant() -> None:
+        _write(
+            _gate().root,
+            hook,
+            _page(
+                "#!/usr/bin/env bash",
+                HASH + " HOOKS · a guard whose logic is an embedded node one-liner.",
+                'node -e "',
+                "// resolves nowhere: docs/gone-under-a-slash.md",
+                "",
+                *over,
+                "",
+                "// previously this one-liner guarded nothing",
+                '"',
+            ),
+        )
+
+    code, reported = _committed(plant, hook)
+    expected = Counter(
+        {
+            ("fail", "bare-path", hook): 1,
+            ("fail", "comment-length", hook): 1,
+            ("report", "history", BRANCH_DIFF): 1,
+        }
+    )
+    assert reported == expected, _shape(reported)
+    assert code == 1
+    _assert_corpus_restored()
+
+
+# --- the refusals, and the output the run is read through ----------------------------------------
+
+
+def _main(*argv: str) -> tuple[int, str]:
+    """The entry point under one set of arguments, with everything it printed.
+
+    `_run` reads the human report and drops the rest; a refusal and the workflow-command format
+    are what the run PRINTS rather than what it found, so both are read here.
+    """
+    fixture = _gate()
+    _clear_caches(fixture.root / SCRIPTS_COPY)
+    buffer = io.StringIO()
+    kept = sys.argv
+    sys.argv = ["check_docs.py", *argv]
+    try:
+        with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+            code = int(fixture.gate.main())
+    finally:
+        sys.argv = kept
+    return code, buffer.getvalue()
+
+
+def test_a_corpus_with_no_file_in_it_refuses_rather_than_passing() -> None:
+    """The run's one refusal: nothing was read, so nothing was proved and 0 would be a lie.
+
+    Driven by emptying the listing rather than the tree: a corpus this gate cannot read is a git
+    that answered nothing, which no plant in a repository can produce.
+    """
+    _reset()
+    checks = _module("docs_gate.checks")
+    with _swapped(checks, "scanned_files", tuple):
+        code, output = _main()
+    assert code == _module("checker_kernel").EXIT_REFUSED, output
+    assert "nothing was read" in output, output
+
+
+def test_the_workflow_command_format_is_what_the_github_output_prints() -> None:
+    """`--output-format github` is a mode CI reads and no human ever sees, so only a run proves it.
+
+    Both severities, because the annotation's level is the verdict the gate reached: a diff
+    annotated `warning` throughout reads as a run that passed.
+    """
+    _reset()
+    _plant_history()
+    _plant_bare_paths()
+    try:
+        code, output = _main("--output-format", "github")
+    finally:
+        _reset()
+    lines = [line for line in output.split("\n") if line.startswith("::")]
+    assert code == 1, output
+    assert any(line.startswith("::error ") and "title=bare-path" in line for line in lines), output
+    assert any(line.startswith("::warning ") and "title=history" in line for line in lines), output
+    assert "FAIL " not in output and "report  " not in output, output
+    _assert_corpus_restored()
+
+
+# --- what the copy sweep says when it read nothing -----------------------------------------------
+
+
+def test_a_copy_root_that_is_not_there_refuses_rather_than_sweeping_nothing() -> None:
+    """The tree the sweep is held over moves, and a loop over nothing has no violation to find."""
+    _reset()
+    copy_rules = _module("docs_gate.copy_rules")
+    with _swapped(copy_rules, "COPY_ROOT", "fl_frontend/no-such-tree"):
+        found = copy_rules.check_copy_rules()
+    assert [finding.check for finding in found] == ["copy-corpus"], [f.detail for f in found]
+    assert "absent" in found[0].detail, found[0].detail
+
+
+def test_a_copy_root_holding_no_copy_bearing_file_refuses_too() -> None:
+    """The tree is there and the glob reaches nothing in it: the same silence one step on.
+
+    The glob is moved rather than the tree: an empty `fl_frontend/src` would take `inputs` and
+    every path citation down with it, none of which this arm answers for.
+    """
+    _reset()
+    copy_rules = _module("docs_gate.copy_rules")
+    with _swapped(copy_rules, "COPY_GLOB", copy_rules.COPY_ROOT + "/**/*.no-such-suffix"):
+        found = copy_rules.check_copy_rules()
+    assert [finding.check for finding in found] == ["copy-corpus", "copy-corpus"], [f.detail for f in found]
+    assert "holds no copy-bearing file" in found[0].detail, found[0].detail
+
+
+def test_a_copy_file_the_scanner_cannot_read_is_reported_rather_than_passed_over() -> None:
+    """A file the reader cannot decode yields no span, and no span reads as copy with nothing wrong.
+
+    The one arm no plant inside the corpus reaches: a file this unreadable fails `unreadable`
+    too, and that finding would hide which of the two spoke.
+    """
+    _reset()
+    root = _gate().root
+    unreadable = root / COPY_ROOT / "undecodable.ts"
+    unreadable.write_bytes(b"\xff\xfe export const A = 1;\n")
+    copy_rules = _module("docs_gate.copy_rules")
+    try:
+        assert copy_rules.copy_spans(unreadable) == ([], False), "an unreadable file answered as a scan that balanced"
+        with _swapped(copy_rules, "corpus_files", lambda: (unreadable,)):
+            found = copy_rules.check_copy_rules()
+    finally:
+        unreadable.unlink()
+        _reset()
+    # Three: the file's own refusal, then the two the sweep raises once nothing German is left in it.
+    assert [finding.check for finding in found] == ["copy-corpus"] * 3, [f.detail for f in found]
+    assert "could not be read as TypeScript" in found[0].detail, found[0].detail
+    _assert_corpus_restored()
+
+
+# --- what a finding is made of -------------------------------------------------------------------
+
+
+def test_a_finding_carries_the_line_the_token_it_read_sits_on() -> None:
+    """A check reading by offset must number the line the FILE holds, not the one its reader saw.
+
+    The body is scrubbed of its backticked spans first, so a reader dropping a line rather than
+    blanking it would number every finding below the drop too low.
+    """
+    _reset()
+    checks = _module("docs_gate.checks")
+    body = _page(
+        HASH + " a first line naming `docs/notes.md`, backticked and so scrubbed out",
+        "",
+        HASH + " resolves nowhere: docs/gone-on-a-known-line.md",
+    )
+    found = checks.check_bare_paths(SAMPLE, body)
+    assert [(finding.check, finding.line) for finding in found] == [("bare-path", 3)], [f.human() for f in found]
+
+
+def test_an_annotation_carries_the_verdict_the_exit_code_carries() -> None:
+    """A diff annotated `warning` throughout reads as a run that passed, whatever the exit code said."""
+    _reset()
+    finding = _module("docs_gate.kernel").Finding
+    assert finding("fail", "path", NOTES, "a detail", 7).github().startswith("::error file=" + NOTES + ",line=7,title=path::")
+    assert finding("report", "history", NOTES, "a detail").github().startswith("::warning file=" + NOTES + ",title=history::")
+
+
+def test_a_workflow_command_escapes_what_would_otherwise_end_it() -> None:
+    """An unescaped separator inside a detail ends the command early, and the annotation loses the rest.
+
+    A property value takes the separators as well as the message's own set: a comma there opens a
+    property nobody wrote.
+    """
+    _reset()
+    escaped = _module("docs_gate.kernel")._escaped
+    assert escaped("50% off\nand on\r", in_property=False) == "50%25 off%0Aand on%0D"
+    assert escaped("a:b,c", in_property=True) == "a%3Ab%2Cc"
+    assert escaped("a:b,c", in_property=False) == "a:b,c"
+
+
+def test_a_finding_naming_a_check_no_registry_holds_is_refused_where_it_is_built() -> None:
+    """The registry is what `enforced-by` resolves a rule's claim against, so a check outside it is invisible."""
+    _reset()
+    finding = _module("docs_gate.kernel").Finding
+    for check, severity in (("no-such-check", "fail"), ("history", "fail")):
+        try:
+            finding(severity, check, NOTES, "a detail")
+        except ValueError:
+            continue
+        raise AssertionError("a finding was built for " + severity + " " + check)
+
+
+def test_a_nul_at_the_first_byte_is_reported_and_one_inside_a_token_never_ends_the_run() -> None:
+    """The byte `binary-byte` exists to report, in the two places the check could not reach it.
+
+    Offset zero, which a comparison against greater-than-zero passes. And a backticked token
+    handed to git, where a NUL raises at the launch and ends the run.
+    """
+    _reset()
+    root = _gate().root
+    named = "docs/go" + NUL_BYTE + "ne.md"
+    _write_bytes(root, NOTES, NUL_BYTE + NEWLINE + _read(NOTES) + NEWLINE + "A path `" + named + "` is named here." + NEWLINE)
+    checks = _module("docs_gate.checks")
+    try:
+        code, reported = _run()
+        bytes_found = [finding for finding in checks.check_binary_bytes() if finding.file == NOTES]
+    finally:
+        _reset()
+    assert code == 1, "the run did not reach a finding"
+    assert reported[("fail", "binary-byte", NOTES)] == 1, _shape(reported)
+    assert "offset 0" in bytes_found[0].detail, bytes_found[0].detail
+    _assert_corpus_restored()
 
 
 def _select(names: list[str]) -> int:

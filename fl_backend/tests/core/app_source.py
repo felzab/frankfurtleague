@@ -209,14 +209,14 @@ def removals() -> list[Removal]:
 # application is opened this way, and the writes sit in the callback rather than under it.
 TRANSACTION_RUNNER = "with_transaction"
 
-# What a callback's docstring says when everything it decides on is read through the session. The
-# promise a reader is given, so it is the promise a sweep has to be able to reach.
+# What a callback's docstring says of the reads its judgement rests on. The promise a reader is
+# given, so it is the promise a sweep has to be able to reach.
 IN_SESSION_PROMISE = "in-session"
 
 
 @dataclass(frozen=True)
 class TransactionalCallback:
-    """One `with_transaction` callback, and the reads and writes it makes ITSELF, each with whether it carries the session."""
+    """One `with_transaction` callback, and the reads and writes made anywhere inside it, each with whether it carries the session."""
 
     where: str
     writes: tuple[tuple[str, bool], ...]
@@ -232,8 +232,8 @@ class TransactionalCallback:
 def transactional_callbacks(session_taking: frozenset[str]) -> list[TransactionalCallback]:
     """Every callback the application runs inside a transaction.
 
-    Its OWN body: a read or a write a helper it calls makes answers under that helper, and following
-    those would take a call graph rather than a sweep.
+    Its own LEXICAL body: a helper declared inside it answers here, while one it calls at module
+    level answers under that helper -- following those would take a call graph, not a sweep.
     """
 
     found: list[TransactionalCallback] = []
@@ -255,9 +255,10 @@ def transactional_callbacks(session_taking: frozenset[str]) -> list[Transactiona
             )
             callback = found_names[0]
 
-            # A comprehension's body is attributed to the function around it rather than to a scope
-            # of its own, so the reads a `[... async for row in ...]` makes are the callback's here.
-            own = [inner for scope, inner in calls_in(callback, handed) if scope == handed]
+            # Every depth, not the top scope alone: a read moved into a helper declared inside the
+            # callback still runs in the transaction, and attributing it there takes it out of this
+            # sweep's view.
+            own = [inner for _, inner in calls_in(callback, handed)]
 
             found.append(
                 TransactionalCallback(

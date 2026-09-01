@@ -203,6 +203,7 @@ ruleset targeting the default branch, enforcement **Active**.
 | Require linear history                | **off**                                                                | Rules → Rulesets             |
 | Bypass list                           | **empty**                                                              | Rules → Rulesets             |
 | Actions permissions                   | GitHub-authored, plus `pnpm/action-setup@*` and `astral-sh/setup-uv@*` | Actions → General            |
+| Require actions pinned to a SHA       | **off** — read 2026-09-01; recommended on, see below                   | Actions → General            |
 | Fork pull request workflows           | require approval for all outside collaborators                         | Actions → General            |
 | Default workflow permissions          | read-only; Actions may not create or approve pull requests             | Actions → General            |
 | Secret scanning, push protection      | on                                                                     | Security → Advanced Security |
@@ -233,13 +234,23 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
   job makes expensive.
 - **An action living in this repository needs no allowlist entry** — every action under
   `.github/actions/` is read from the checkout.
+- **"Require actions to be pinned to a full-length commit SHA" is worth turning on, and is not.**
+  Read as `sha_pinning_required: false` through
+  `gh api repos/<owner>/<repo>/actions/permissions`, which is also the only route that reads it
+  back. It costs nothing today — every `uses:` naming a repository already carries a full SHA, so
+  enabling it changes no run — and it is what makes the next one that does not fail at the platform
+  rather than at review. It is separate from the allowlist above, which decides _which_ actions may
+  run rather than how they are referenced, so both still apply. Turning it on is a panel action, and
+  it is mine.
 - **Every action is pinned to a full commit SHA**, with the version in a trailing comment — the form
   Dependabot rewrites, so a routine upstream patch still arrives as a pull request that moves the
   pin and the comment together. An exact version tag is not enough: a tag is a mutable ref, so a
   compromised upstream can repoint the tag every caller already trusts and nothing in this
   repository changes. **The pin also costs the alert route**: Dependabot raises no advisory alert
   for an action pinned to a SHA, so the scheduled version-update run in `.github/dependabot.yml` is
-  this repository's whole coverage for a vulnerable action, and a published advisory waits for it. A
+  this repository's whole coverage for a vulnerable action, and a published advisory waits for that
+  run — which is why `.github/dependabot.yml` schedules this one ecosystem weekly and every other
+  monthly, the trade being written out at the ecosystem itself. A
   local `./` action needs no pin, and the pins **inside** one are watched only because
   `.github/dependabot.yml` names the composite-action directory separately (COR-2).
 - **Every workflow triggers on `pull_request`, never `pull_request_target`**, so a fork's run
@@ -249,7 +260,7 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
   `INTERNAL_API_KEY_*` nor `AUTH_SECRET`. What protects those is `.env*` being gitignored and
   excluded from both Docker build contexts.
 - **The Dependabot toggles are separate from `.github/dependabot.yml`**, which governs only routine
-  monthly version updates; without them a published advisory produces no notification at all. Version
+  scheduled version updates; without them a published advisory produces no notification at all. Version
   updates need no toggle of their own — that file's presence on the default branch enables them.
 - **Do not use code scanning's "Set up" button**: it writes a second, competing default configuration
   through the web editor.
@@ -295,8 +306,8 @@ is what makes that true.
 
 ## 4. Known-open
 
-| Item                                                   | State                                                                                                                  |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| Deployment is manual, and merging does not trigger it  | Deliberate. The gap between merged and live is worth more than the automation on a site I own and operate alone        |
-| Repository settings are unversioned                    | GitHub offers no export. §1.6 is the only record, and it is checked by re-reading, never by a gate                     |
-| The `--ops` scope alone omits the commit-message check | CI closes the gap by running the check in the always-on `changes` job, since a commit message has no path to filter on |
+| Item                                                   | State                                                                                                           |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| Deployment is manual, and merging does not trigger it  | Deliberate. The gap between merged and live is worth more than the automation on a site I own and operate alone |
+| Repository settings are unversioned                    | GitHub offers no export. §1.6 is the only record, and it is checked by re-reading, never by a gate              |
+| The `--ops` scope alone omits the commit-message check | CI closes the gap with a `commits` job nothing filters by path, since a commit message has no path to filter on |

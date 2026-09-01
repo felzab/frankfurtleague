@@ -312,6 +312,26 @@ class TestTheKnockoutIsWhatFreezesTheTiebreak:
         # The played one alone: every other bracket fixture counted in would show here as well as in the verdict.
         assert str(PLAYED_KNOCKOUT_FIXTURES) in refusal.error_detail["message"]
 
+    def test_a_knockout_fixture_holding_only_a_shoot_out_freezes_it_too(self, mongo_replica_set_url: str):
+        """Through the route, so the endpoint's projection is proven to carry `elfmeterschiessen` to the predicate."""
+
+        decided = [{**knockout_spiele()[0], "elfmeterschiessen": {"team1": 5, "team2": 4}}, *knockout_spiele()[1:]]
+
+        async def body(database: AsyncDatabase) -> DocumentConflictException:
+            with pytest.raises(DocumentConflictException) as refusal:
+                await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
+
+            return refusal.value
+
+        refusal = on_a_database(
+            mongo_replica_set_url,
+            body,
+            spiele=[*drawn_spiele(), *decided],
+            spieltage=[knockout_spieltag_document()],
+        )
+
+        assert refusal.error_code == RULES_TIEBREAK_AFTER_KNOCKOUT
+
     def test_a_drawn_but_unplayed_bracket_leaves_the_order_open(self, mongo_replica_set_url: str):
         """The boundary: the fixtures exist and are wired, and re-seeding them costs nobody a round they already played."""
 

@@ -341,6 +341,45 @@ class TestARivalRolloverLandingMidRolloverIsJudgedAgain:
         assert unplayed > 0, "the rival was seeded played out, and demoting it would then have broken no rule"
 
 
+class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
+    """The target is the SOLE incumbent, so the rollover re-activates it and the promotion rewrites nothing.
+
+    A document nothing rewrites joins no write set, so the rival's demotion raises no conflict. Only
+    the read outside the session refuses this.
+    """
+
+    def test_a_reactivated_target_demoted_under_the_rollover_is_refused_as_past(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def promote_the_rival() -> None:
+                # Permitted: the one incumbent is played out, so this rollover has nothing of its own
+                # to refuse -- and it demotes the target.
+                await call_activate(database, client, RIVAL)
+
+            outcome, season_reads = await rollover_under(database, client, promote_the_rival)
+
+            return outcome, season_reads, await statuses_now(database)
+
+        outcome, season_reads, statuses = on_a_league(
+            mongo_replica_set_url,
+            body,
+            # ONE incumbent, and it is the target: nothing else holds `active`, so the demotion matches
+            # nothing and the promotion is the no-op this case exists for.
+            saisons=[saison_document(TARGET, "active"), saison_document(RIVAL, "future")],
+            entered=(TARGET, RIVAL),
+            drawn=(TARGET, RIVAL),
+            finished=(TARGET,),
+        )
+
+        # Unrefused, the endpoint answers 200 echoing `active` over a database reading `past` -- and
+        # `REQ-ACTIVATE-002` never promotes a `past` season back, so the admin acts on a state nobody
+        # can restore.
+        assert (outcome, statuses) == (ACTIVATE_TARGET_PAST, {TARGET: "past", RIVAL: "active"})
+
+        # The judgement, the promotion's echo, and the re-judgement: one entry into the callback, so
+        # what refused is the read outside the session rather than a retry.
+        assert season_reads == 3, "the rollover was re-judged by a retry, which is not what this case proves"
+
+
 class TestTheRolloverStillCommitsWithNothingInterfering:
     """The control: without it every case above would pass on an endpoint that refused every rollover."""
 
@@ -361,4 +400,25 @@ class TestTheRolloverStillCommitsWithNothingInterfering:
 
         assert statuses == {OUTGOING: "past", TARGET: "active"}
         assert response.deactivated == 1
+        assert (response.updated_document.id, response.updated_document.status) == (TARGET, "active")
+
+    def test_the_sole_incumbent_is_re_activated_rather_than_refused(self, mongo_replica_set_url: str):
+        """The second control, and the one the re-judgement above could break: re-activation is deliberately permitted."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            response = await call_activate(database, client, TARGET)
+
+            return response, await statuses_now(database)
+
+        response, statuses = on_a_league(
+            mongo_replica_set_url,
+            body,
+            saisons=[saison_document(TARGET, "active")],
+            entered=(TARGET,),
+            drawn=(TARGET,),
+        )
+
+        assert statuses == {TARGET: "active"}
+        # Nothing but the target held `active`, so the rollover demoted nobody.
+        assert response.deactivated == 0
         assert (response.updated_document.id, response.updated_document.status) == (TARGET, "active")

@@ -8,3 +8,7 @@
 # under --noEmit, and next rewrites next-env.d.ts on every build.
 *.tsbuildinfo
 next-env.d.ts
+
+# eslint's lint-result cache. Untracked by design: the gate reads and writes it on every
+# --frontend run, and its key is `eslint.config.mjs :: crossFileDigest` plus eslint's own.
+/.eslintcache

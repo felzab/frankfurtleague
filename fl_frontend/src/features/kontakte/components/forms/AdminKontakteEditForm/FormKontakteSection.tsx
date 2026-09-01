@@ -9,7 +9,13 @@ import { Calendar, DateField, DatePicker, FieldError, Input, Switch, TextField, 
 
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
-import { EINWILLIGUNG_HERKUNFT_OPTIONS, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
+import {
+  EINWILLIGUNG_HERKUNFT_OPTIONS,
+  KONTAKT_NAME_MAX_LENGTH,
+  KONTAKT_ROLLEN,
+  TRAINER_ZUGLEICH_FRAGE,
+  TRAINER_ZUGLEICH_OPTIONS,
+} from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {
@@ -388,7 +394,8 @@ function KontaktpersonInputs({
           name={`kontakte.${rolle}.vorname`}
           value={person.vorname}
           onChange={(next) => onChange({ ...person, vorname: next })}
-          onBlur={() => onFieldLeft([`kontakte.${rolle}.vorname`])}>
+          onBlur={() => onFieldLeft([`kontakte.${rolle}.vorname`])}
+          maxLength={KONTAKT_NAME_MAX_LENGTH}>
           <FieldLabel path={`kontakte.${rolle}`}>Vorname</FieldLabel>
           <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR} />
@@ -400,7 +407,8 @@ function KontaktpersonInputs({
           name={`kontakte.${rolle}.nachname`}
           value={person.nachname}
           onChange={(next) => onChange({ ...person, nachname: next })}
-          onBlur={() => onFieldLeft([`kontakte.${rolle}.nachname`])}>
+          onBlur={() => onFieldLeft([`kontakte.${rolle}.nachname`])}
+          maxLength={KONTAKT_NAME_MAX_LENGTH}>
           <FieldLabel path={`kontakte.${rolle}`}>Nachname</FieldLabel>
           <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR} />
