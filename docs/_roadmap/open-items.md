@@ -85,12 +85,11 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 31  | BE-26 | Two rule summaries name a fixture state the code excludes            | BE              | S      | Open     | —          |
 | 32  | BE-39 | A refusal composes a repair the product refuses to perform           | FE, BE, Docs    | S      | Open     | —          |
 | 33  | BE-37 | Wiring the write path refuses stands unreported in storage           | FE, BE, Docs    | M      | Open     | —          |
-| 34  | BE-43 | A club's name is bounded on the public payload only                  | FE, BE, Docs    | S      | Closed   | —          |
-| 35  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
-| 36  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
-| 37  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
-| 38  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
-| 39  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
+| 34  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
+| 35  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
+| 36  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
+| 37  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
+| 38  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -1841,68 +1840,7 @@ enumeration moves in the same commit.
 signal for most of what the write path calls unholdable — where FE-20 removes almost none, and its
 own cost is paid only after somebody edits the database.
 
-### 34 · BE-43 — A club's name is bounded where a stranger types it and unbounded where an administrator does
-
-**Status:** Closed\
-**Surfaces:** FE, BE, Docs\
-**Effort:** S\
-**Path:** Independent. **BE-25** and **BE-42** ask which of a club's fields a public READ may serve
-and how one of them arrives; this asks what a WRITE accepts, and none of the three blocks another.
-
-**`fl_backend/app/api/teams/schemas.py :: _TeamPayload` gives `name` and `full_name` a floor and no
-ceiling**, `:: _TeamWritable`'s `website_url` is validated for its scheme and its host and not for its
-length (`fl_backend/app/shared/schemas/custom.py :: validate_external_url`), and
-`:: FLKontaktpersonPayload`'s `vorname` and `nachname` carry a pattern and a floor. So `POST /teams`,
-`PATCH /teams/{team_id}` and the season's `kontakte` patch each accept a value of any length in every
-one of those fields.
-
-**The public payload bounds every one of them.** `fl_backend/app/shared/schemas/bounds.py` names a
-ceiling for the club name a school proposes, for its official name, for its homepage and for one part
-of a contact person's name, and the application's payloads redeclare each field to apply it:
-`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungKontaktpersonPayload` inherits the admin
-payload and redeclares the two names for the ceiling alone. **The same field is therefore refused at
-the ceiling that module names when a stranger types it, and accepted at any length when an
-administrator does.**
-
-**The asymmetry is deliberate as far as it goes, and stops short of a rule.** The precedent sits on
-the same payload: `geburtsdatum` is bounded there and on no other date field in the application, and
-the comment at the field gives the reason — it is the one a stranger types about themselves,
-unreviewed. `docs/backend/spec.md :: I36`
-settles the same write-versus-read split for a person's name PATTERN and settles nothing about length,
-and `fl_backend/app/shared/schemas/bounds.py`'s header says where a shared bound is NAMED rather than
-which side owns one. **So nothing written answers whether the admin payload should take the ceiling
-too**, and the next reader re-derives it.
-
-**What bounds an administrator's request today is the edge.** `nginx/prod.conf`'s `client_max_body_size`
-bounds the request and not the field, and no `$jsonSchema` in `fl_backend/app/core/constraints.py`
-states a `maxLength` for any collection. `name` is copied onto the season's junction row and onto every
-fixture side, so a value entered once is written in several places and rendered in the league table.
-
-**A decision would have to be carried by hand.** The Zod mirror states the same floors and no ceiling
-(`fl_frontend/src/features/teams/schemas.ts`), and `.claude/CLAUDE.md` §7 fixes what the contract test
-compares — presence, required, nullable, type and enum — so a ceiling added on one side is held to the
-other by nothing. That is the cost half: a bound is three sites per field — the input control, the
-Zod schema and the Pydantic payload — which is why the application's numbers are named in
-`fl_backend/app/shared/schemas/bounds.py` rather than spelled at each.
-
-**Two answers.** Move the ceilings onto the shared payloads, so both tiers refuse alike and the
-application's constants become the shared ones wherever the numbers agree. Or hold that a ceiling
-belongs to the surface a stranger writes through, and record why the admin side is trusted with an
-unbounded one — which is what the code implies today and what no line says.
-
-**Closed on the first answer, taken as a ruling rather than derived here.** The four ceilings in
-`fl_backend/app/shared/schemas/bounds.py` are shared names — `TEAM_NAME_MAX_LENGTH`,
-`TEAM_FULL_NAME_MAX_LENGTH`, `TEAM_WEBSITE_URL_MAX_LENGTH` and `KONTAKT_NAME_MAX_LENGTH` — and
-`fl_backend/app/api/teams/schemas.py :: _TeamPayload` and `:: FLKontaktpersonPayload` state them, so
-both tiers refuse at one number. The decision is recorded as a comment at each field rather than as a
-new invariant, which is what `docs/backend/spec.md :: I36` asks for: whether a bound belongs on one
-side or both is decided per field, at the field. `fl_frontend/src/features/teams/constants.ts` holds
-the four numbers for the Zod schemas and the input controls, and
-`:: FLBewerbungKontaktpersonPayload` keeps no name redeclaration, the parent stating the ceiling. The
-read models and every `$jsonSchema` are untouched, so a stored longer value still reads.
-`docs/backend/spec.md` §4's row leaves with the finding.
-
-### 35 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
+### 34 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
 
 **Status:** Open\
 **Surfaces:** FE, Docs\
@@ -1973,7 +1911,7 @@ is what a later edit does to one of them. Above **FE-20**: taking that token out
 where this settles a copy question on two admin surfaces and closes a coupling the helper beside it was
 written to close.
 
-### 36 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
+### 35 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -2042,7 +1980,7 @@ edit's freedom to part them. Above **FE-32**: that entry misleads nobody and its
 beside the id, where this one's is answered only by noticing that a helper's reach stops short of a
 module, which nothing on either side says.
 
-### 37 · BE-7 — `typing` imports instead of `collections.abc`
+### 36 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -2055,7 +1993,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 38 · BE-14 — The certainty walk gives up in a group of six or more
+### 37 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -2155,7 +2093,7 @@ unreachable into the ordinary path and makes the plan above the one an administr
 does not hold. That no caller sends `sort_by` was read off the page and the absence of another consumer
 rather than proven by instrumenting the endpoint.
 
-### 39 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
+### 38 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
 
 **Status:** Standing\
 **Surfaces:** BE\
