@@ -62,7 +62,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 8   | FB-22 | The season's shape is offered wider than it can be saved          | FE, BE, Docs    | M      | Open     | —          |
 | 9   | FB-17 | Season setup is hand-run, and only an admin enters a squad        | FE, BE, DB, Ops | XL     | Open     | —          |
 | 10  | BE-29 | Two irreversible operations judge from a capped read              | BE              | S      | Standing | —          |
-| 11  | BE-35 | An erasure rewriting nothing is never judged against a rival      | BE, FE, Docs    | S      | Open     | —          |
+| 11  | BE-35 | A no-op write takes no conflict, so nothing is re-judged          | BE, FE, Docs    | M      | Closed   | —          |
 | 12  | BE-17 | Every server-ordered name list sorts in byte order                | BE, FE          | M      | Open     | —          |
 | 13  | BE-30 | The move guard does not see a stored shoot-out                    | BE              | S      | Open     | —          |
 | 14  | BE-20 | The certainty walk never hypothesises a called-off fixture        | BE, Docs        | L      | Open     | —          |

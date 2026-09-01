@@ -420,59 +420,52 @@ async def activate_saison(
     async def judge_and_roll_the_league_over(session: AsyncIOMotorClientSession) -> FLActivateSaisonResponse:
         """Judge, then demote every incumbent and promote the target. Everything judged is read in-session."""
 
-        async def the_league_as_it_stands(state_session: AsyncIOMotorClientSession | None) -> tuple[Mapping[str, Any], list[int], int]:
-            """Everything `find_activation_refusal` weighs, read either through the transaction or outside it.
+        async def the_targets_status(status_session: AsyncIOMotorClientSession | None) -> str:
+            """`REQ-ACTIVATE-002`'s input, read either through the transaction or outside it.
 
-            ONE reader for both passes below, so a re-judgement cannot weigh a narrower league than
-            the judgement it is checking.
+            A season id naming nothing raises the 404 here, before any demotion.
             """
 
-            # A season id naming nothing raises the 404 before any demotion, and its `status` is what
-            # `REQ-ACTIVATE-002` weighs.
             target = await pull_one_from_db(
-                collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=state_session
+                collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=status_session
             )
 
-            # `$ne` on the target, so re-activating the current season is not blocked by its own fixtures.
-            outgoing = await pull_many_from_db(
-                collection=saisons_collection,
-                db_filter={"status": "active", "_id": {"$ne": saison_id}},
-                projection={"_id": 1},
-                session=state_session,
-            )
-            outgoing_ids = [row["_id"] for row in outgoing]
-
-            # Empty where nothing BUT the target holds `active` -- a fresh league, or a re-activation.
-            unplayed: list[int] = []
-            if outgoing_ids:
-                unplayed = unplayed_spiel_nrs(
-                    FLSpielListAdapter.validate_python(
-                        await pull_many_from_db(
-                            collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}}, session=state_session
-                        )
-                    )
-                )
-
-            # The target's OWN fixtures, not the outgoing season's: a league going live with nothing
-            # drawn has no repair, activation writing `status` one way only.
-            target_fixtures = await spiele_collection.count_documents({"saison_id": saison_id}, session=state_session)
-
-            return target, unplayed, target_fixtures
-
-        def judge(target: Mapping[str, Any], unplayed: Sequence[int], target_fixtures: int) -> None:
-            # One call, so which of the two refusals an admin is shown stays the service's decision.
-            refuse(
-                find_activation_refusal(
-                    target_status=str(target["status"]),
-                    target_fixtures=target_fixtures,
-                    outgoing_unplayed=unplayed,
-                )
-            )
+            return str(target["status"])
 
         # THROUGH the session, as the draw's reads are: a retry after a write conflict judges the
         # league as it stands then.
-        target, unplayed, target_fixtures = await the_league_as_it_stands(session)
-        judge(target, unplayed, target_fixtures)
+        target_status = await the_targets_status(session)
+
+        # `$ne` on the target, so re-activating the current season is not blocked by its own fixtures.
+        outgoing = await pull_many_from_db(
+            collection=saisons_collection,
+            db_filter={"status": "active", "_id": {"$ne": saison_id}},
+            projection={"_id": 1},
+            session=session,
+        )
+        outgoing_ids = [row["_id"] for row in outgoing]
+
+        # Empty where nothing BUT the target holds `active` -- a fresh league, or a re-activation.
+        unplayed: list[int] = []
+        if outgoing_ids:
+            unplayed = unplayed_spiel_nrs(
+                FLSpielListAdapter.validate_python(
+                    await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}}, session=session)
+                )
+            )
+
+        # One call, so which of the two refusals an admin is shown stays the service's decision.
+        # The target's OWN fixtures, not the outgoing season's: a league going live with nothing drawn
+        # has no repair, activation writing `status` one way only.
+        target_fixtures = await spiele_collection.count_documents({"saison_id": saison_id}, session=session)
+
+        refuse(
+            find_activation_refusal(
+                target_status=target_status,
+                target_fixtures=target_fixtures,
+                outgoing_unplayed=unplayed,
+            )
+        )
 
         # `update_many`: a database holding two active seasons is repaired, not half-preserved.
         demoted = await patch_many_in_db(
@@ -493,8 +486,18 @@ async def activate_saison(
         # A target already `active` is `$set` to that same status, so the promotion rewrites nothing
         # and joins no write set: a rival demoting it raises no conflict to retry on. Re-judged
         # OUTSIDE the session (I53); the window to the commit is the residue.
-        if str(target["status"]) == "active":
-            judge(*await the_league_as_it_stands(None))
+
+        # The STATUS alone, because it is the only input a rival can move here: an undraw and a
+        # replace each need a `future` season, a draw only adds fixtures, and a new incumbent arrives
+        # only from a rollover that demotes this target.
+        if target_status == "active":
+            refuse(
+                find_activation_refusal(
+                    target_status=await the_targets_status(None),
+                    target_fixtures=target_fixtures,
+                    outgoing_unplayed=unplayed,
+                )
+            )
 
         activated = FLSaison.model_validate(with_schedule(activated_raw))
 

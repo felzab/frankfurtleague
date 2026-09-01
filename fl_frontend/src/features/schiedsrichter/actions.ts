@@ -44,6 +44,24 @@ function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: Field
   return null;
 }
 
+/**
+ * The anonymisation refusal, or `null` when the 409 is something else. It lands on no field: the
+ * control is a dialog rather than a form.
+ */
+function mapAnonymiseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  if (error.serverErrorCode === "REQ-ANONYMISE-001") {
+    return {
+      error: buildRefusal({
+        reason: "Die Kontaktdaten waren schon gelöscht und wurden inzwischen neu eingetragen",
+        repair: "Lösche sie erneut, damit auch der neue Stand verschwindet",
+      }),
+    };
+  }
+  return null;
+}
+
 export async function postSchiedsrichterAction(
   // The DRAFT shape: an emptied money field submits `null`, and the schema below is what turns that into a
   // field error rather than a type error.
@@ -214,7 +232,16 @@ export async function anonymiseSchiedsrichterAction(
       };
     }
 
-    const anonymiseOperation = await anonymiseSchiedsrichter(validated.data);
+    // The refusal belongs in the dialog that asked, not on the error page.
+    let anonymiseOperation;
+    try {
+      anonymiseOperation = await anonymiseSchiedsrichter(validated.data);
+    } catch (error) {
+      const refusal = mapAnonymiseRefusal(error);
+      if (refusal) return { success: false, ...refusal };
+      throw error;
+    }
+
     if (!anonymiseOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Die Kontaktdaten wurden nicht gelöscht", repair: "Versuche es erneut" }) };
     }
