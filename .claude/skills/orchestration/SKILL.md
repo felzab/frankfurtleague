@@ -37,13 +37,12 @@ map; the concurrency cap binds only in read-only audit waves.
 
 So the first artefact is a **file-ownership map**, not a task list.
 
-1. List every file each unit of work writes. Build the conflict graph: a file two or more units write
-   is a **hub**; everything else is a **leaf**.
+1. List every file each unit of work writes. A file two or more units write is a **hub**; everything
+   else is a **leaf**, sits on nobody's critical path, and can be dispatched early.
 2. **Cut agents by file, audits by unit of work.** One agent owns one hub file and carries every
    unit's hunk for it as an ordered checklist. Auditors stay per unit and see none of the writing,
    which is what the audit discipline actually protects. Nothing is weakened by this regrouping.
-3. Leaves sit on nobody's critical path and can be dispatched at any time. Send them early.
-4. Watch for couplings that are not file edges — a script that parses another script, a library
+3. Watch for couplings that are not file edges — a script that parses another script, a library
    several files source. Two files coupled that way share a wave and share a re-auditor, because an
    edit to either can turn the other red **after both agents have finished**.
 
@@ -76,6 +75,23 @@ mechanisms that keep it full:
 killing a parent does not kill its children. A measurement or a gate run taken while unlisted agents
 still edit the tree measures a tree nobody controls.
 
+**Stop starting before you run out of room to finish.** A session that spends everything on dispatch
+dies holding unassembled work, and the next session inherits a mess rather than a handoff. This one
+ended with sixteen commits, an unpushed branch and no pull request, which became the first item its
+handoff owed the owner.
+
+**This cannot be applied as a budget reserve.** A coordinator cannot see its remaining context or
+quota, and an owner's pause is not predictable, so a rule phrased as _keep enough in hand_ has no
+moment at which it fires. Bound the **unassembled work** instead, which the register does show:
+
+- **Commit each wave before dispatching the next**, so stopping at any moment costs one wave rather
+  than the session.
+- **Write the handoff incrementally**, into the register as findings land, so ending the session is
+  an edit rather than a task.
+- **Enumerate the ending before dispatching what you believe is the last wave.** Assembly, the gate
+  run, the pull request, the handoff and its independent audit are countable where the budget is
+  not. Once what remains is one wave plus that ending, start nothing new.
+
 ## 3. Briefing an agent
 
 The brief template, and the auditor variant, are in
@@ -88,17 +104,28 @@ The brief template, and the auditor variant, are in
   session were materially wrong and the agents caught all seven. It is the highest-yield sentence in
   any brief, and an agent correcting you is the system working, not a failure of it.
 - **The report contract.** What could **not** be verified and why, and anything found outside scope
-  described rather than fixed. The most useful reports in this programme said "not measurable here"
-  instead of quoting a number nobody could trust.
+  described rather than fixed. The best reports here said "not measurable" over a number nobody trusted.
 
 **Agents run no git command that writes** — no `add`, `commit`, `checkout`, `stash`, `reset`.
 Concurrent `git add` in one tree corrupts the index. Each agent instead writes a **proposed commit
 message** to a scratch file as it works, and you commit in waves. That one convention is what keeps
 the coordinator from becoming the whole bottleneck.
 
+**Make the read-only half structural where it can be.** A sentence in a brief is the weakest
+enforcement there is: one auditor stages a file and the index is corrupted for every concurrent
+agent. A project agent type at `.claude/agents/<name>.md` carries a `tools` allowlist, and an agent
+defined without `Write`, `Edit` or `Bash` cannot write whatever its brief says; leaving `Agent` off
+the list is also what turns §2's sub-agent cap of zero from a request into a fact. The documented
+fields are `tools` and `disallowedTools`.
+
+**That reaches the cold reader, not the driving re-auditor.** An auditor that judges a diff or a
+document needs `Read`, `Grep` and `Glob` and nothing else. One that _drives_ a check must plant a
+violation and restore it, so it needs a shell, and nothing documented grants a shell while
+constraining which commands it may run. For that agent the prose rule is the only control, so it
+stays in every brief regardless.
+
 **Agents work in one working tree, never in separate worktrees.** Cherry-picking between worktrees
-plus the cleanup costs more than the parallelism buys, and each worktree needs its own dependency
-install before anything in it can run.
+plus the cleanup costs more than the parallelism buys, and each needs its own dependency install.
 
 ## 4. The register
 
@@ -109,6 +136,17 @@ landing at a known path, nothing carried between turns in your head. Template:
 
 **The rule that keeps it cheap:** an agent's condensed final message is what you read into context;
 its full report stays on disk and is opened only when a specific fix needs the detail.
+
+**Read the live-agent table before every dispatch, not only when reconciling.** §1's ownership map
+does not catch duplicated work: two agents can investigate one question while writing different
+files, or no files at all. It happened twice in this session — work went to a fresh agent that a
+live one was already covering.
+
+**Prefer resuming the live agent to starting a new one.** The asymmetry is what makes this cheap:
+resuming keeps the context that agent has already paid for, while a fresh agent buys it again and
+then hands you a second independent conclusion on the same question — a disagreement you must drive
+(§6.7) rather than an answer. Where the question really is new, say which live agent came closest
+and why it does not cover it.
 
 ## 5. The cycle, and where it stops
 
@@ -176,9 +214,8 @@ each, closed or open, with the evidence.
    violation, see it red, restore, see it green, recording the exit code at each step. Every false
    green in this repository's record was a status-carrying bug rather than a semantics bug, and
    reading the check cannot see one.
-9. **A checker read taken by hand, in a tree several agents are editing, is a snapshot of a tree that
-   has already moved on** by the time you act on it. Run the gate the way the gate runs it, and take
-   the verdict from that run.
+9. **Only the gate's own invocation counts.** A checker read by hand, in a tree several agents are
+   editing, describes a tree that has already moved on by the time you act on it.
 
 ## 7. Assembly: commits, gate, pull request
 
@@ -192,8 +229,7 @@ each, closed or open, with the evidence.
   workflow arms the full-form gate with images for the rest of the branch, so a per-unit push costs a
   full-form run every time; nine implied runs became four needed ones.
 - **After that arming edit there is no cheap narrow gate run** — a narrow scope is _refused_, not
-  merely advised. Agents iterate with the underlying tools directly, and the gate becomes a
-  wave-boundary instrument.
+  merely advised. Agents iterate with the underlying tools; the gate is a wave-boundary instrument.
 - **Report the real exit code**, taken from the command and never through a pipe, and never the word
   "passing".
 
@@ -219,8 +255,8 @@ be pasted verbatim.
 
 Each of these returned a wrong answer with nothing failing.
 
-- **An exit code read through a pipe is the pipe's.** A command piped into another, followed by a
-  read of the status variable, gives the second command's status. It produced a false zero here.
+- **An exit code read through a pipe is the pipe's** — the status belongs to the last command in the
+  pipeline, not yours. It produced a false zero here.
 - **Bash masks a child exit code to a byte**, so 2304 reads as 0.
 - **A compound command that is the left operand of `||` runs with errexit and the ERR trap
   disabled**, and the suppression propagates into subshells and into any function called from there.
@@ -229,9 +265,8 @@ Each of these returned a wrong answer with nothing failing.
   file made only to measure something. Write bytes, or pass an explicit empty newline argument.
 - **A commit SHA on a live branch is not an identifier.** A sixteen-commit branch was rebuilt twice
   inside six minutes and every SHA changed. Cite commit subjects and re-derive.
-- **A stale virtual environment is an ordinary state, not an edge case.** Sync dependencies before
-  measuring anything: a lockfile change nobody synced gave an internal error at exit 3 on every test
-  run, including the tier that needs no container.
+- **A stale virtual environment is an ordinary state, not an edge case.** A lockfile change nobody
+  synced gave an internal error at exit 3 on every test run. Sync before measuring anything.
 - **Blast radius is where the danger lives.** Making one check stricter turned twelve comment blocks
   red across three files after their authors had finished, and one of the false greens in this
   repository's record was introduced by a fix to the very file being fixed.
