@@ -122,10 +122,10 @@ How each surface keeps its stream to one format:
   envelope with `source: "console"` (`fl_frontend/src/core/consoleShim.ts :: installConsoleShim`).
 - **nginx:** the `fl_json` `log_format` with `escape=json`, set on every serving block. `path` and
   `message` read `$logged_uri` rather than `$request_uri`, and `referer` reads `$logged_referer`
-  rather than `$http_referer`: each is the raw value everywhere but a URL carrying a live sign-in
-  token or the administrator's address, where a literal stands in (L11). The **error
-  log is the one deliberate exception**: its format is not configurable, so it stays plain text at
-  its default level. A parser skips non-`{` lines.
+  rather than `$http_referer`: each is the raw value except on the Auth.js callback path, and on any
+  query naming the sign-in token or the address it was mailed to, where a literal stands in (L11).
+  The **error log is the one deliberate exception**: its format is not configurable, so it stays
+  plain text at its default level. A parser skips non-`{` lines.
 
 **Boot lines are outside the contract, knowingly** — what a process prints before its logging is
 configured cannot be governed by it. uvicorn's pre-import lines fall back to plain stderr and Next's
