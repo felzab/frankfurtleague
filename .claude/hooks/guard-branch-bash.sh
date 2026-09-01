@@ -206,8 +206,10 @@ const decide = (input) => {
   const chained = cmd.replace(/[0-9]*>&[0-9-]/g, "");
   // One simple command only: a second can write a tracked file while naming none of it, and a cd
   // moves the base every path below resolves against. A backgrounding &, a group and a brace each
-  // start one as surely as && does, which is why the single characters are what is listed.
-  const stoppers = ["&", "|", ";", "(", ")", "{", "}", "\n", "\r", "\x60", " cd "];
+  // start one as surely as && does, which is why the single characters are what is listed. A \x24
+  // is here because the shell expands it where this guard cannot: the path judged is not the one
+  // written, and guard-branch-powershell.sh refuses a variable anywhere for that same reason.
+  const stoppers = ["&", "|", ";", "(", ")", "{", "}", "\x24", "\n", "\r", "\x60", " cd "];
   if (stoppers.some((m) => chained.indexOf(m) >= 0)) return "refuse";
 
   // No deletion: the tool route can remove nothing, so granting removal here would make this hook

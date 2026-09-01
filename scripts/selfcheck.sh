@@ -864,6 +864,8 @@ else
     # the hazard guard-branch-powershell.sh refuses a variable for.
     # shellcheck disable=SC2016
     probe "$hb" denied cmd 'printf x > docs/audit/${AUDIT}note.md'              'bash guard: a brace expansion inside an ignored path'
+    # shellcheck disable=SC2016
+    probe "$hb" denied cmd 'printf x > docs/audit/$AUDIT/note.md'               'bash guard: a bare variable inside an ignored path'
 
     # --- In-place editing, one spelling at a time ------------------------------------------------
 
@@ -1028,6 +1030,35 @@ else
     probe "$hc" allowed cmd 'docker ps'                                        'compose guard: not compose at all'
     probe "$hc" allowed cmd 'grep -rn "docker compose" docs'                   'compose guard: a mention is not an invocation'
     probe "$hc" allowed cmd "$(printf 'cat <<EOF\nDrive local Docker only through ./scripts/local.sh, never bare docker compose\nEOF')" 'compose guard: a heredoc stating the rule'
+
+    # What the guard is FOR is a container raised on the production definition, whose env_file is
+    # ./fl_backend/.env. A subcommand that only reads or renders cannot do that, and the mirror
+    # checker needs `config` to run against both files.
+    probe "$hc" allowed cmd 'docker compose config'                            'compose guard: config against the production file'
+    probe "$hc" allowed cmd 'docker compose -f docker-compose.yml config'      'compose guard: config, production file named'
+    probe "$hc" allowed cmd 'docker compose ps'                                'compose guard: a container listing'
+    probe "$hc" allowed cmd 'docker compose logs -f backend'                   'compose guard: following logs'
+    probe "$hc" allowed cmd 'docker compose --help'                            'compose guard: an invocation naming no subcommand'
+    # Each reaches a container the read list cannot, and each is a spelling the line above misses.
+    probe "$hc" denied  cmd 'docker compose exec db mongosh'                   'compose guard: a shell inside a production container'
+    probe "$hc" denied  cmd 'docker compose run --rm backend sh'               'compose guard: a one-off command'
+    probe "$hc" denied  cmd 'docker compose build'                             'compose guard: a build'
+    # --down-project drops the project, so the name is the only read-only thing about it.
+    probe "$hc" denied  cmd 'docker compose wait'                              'compose guard: wait is not a read'
+    # The read list is closed, so a verb a later compose release adds refuses until someone reads
+    # its flags — the direction that costs a question rather than the production database.
+    probe "$hc" denied  cmd 'docker compose frobnicate'                        'compose guard: an unrecognised subcommand'
+    # A global option and its value stand between the program and the subcommand, so each has to be
+    # stepped over rather than read as one.
+    probe "$hc" denied  cmd 'docker compose -p x up'                           'compose guard: a global option before the subcommand'
+    probe "$hc" denied  cmd 'docker compose --env-file .env.local up'          'compose guard: a global option carrying a value'
+    probe "$hc" denied  cmd 'env docker compose up -d'                         'compose guard: behind an env prefix'
+    probe "$hc" denied  cmd '{ docker compose up -d; }'                        'compose guard: inside a brace group'
+    probe "$hc" denied  cmd 'docker compose exec db sh -f docker-compose.local.yml' 'compose guard: the local file named behind the subcommand'
+    # The local file is the developer's own stack, whatever is run against it.
+    probe "$hc" allowed cmd 'docker compose -f docker-compose.local.yml down -v' 'compose guard: a teardown of the local stack'
+    # A separator inside quotes separates nothing, so nothing behind it is a command position.
+    probe "$hc" allowed cmd 'grep -rn "docker compose\|docker-compose" docs'   'compose guard: an alternation inside a quoted pattern'
 
     # Absolute paths only here: elsewhere a backslash is an ordinary character and a `/c/…` name is
     # a directory outside the tree.
