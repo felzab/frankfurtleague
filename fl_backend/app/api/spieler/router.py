@@ -9,7 +9,7 @@ from app.api.spieler.schemas import (
 )
 from app.api.spieler.services import build_spieler_pipeline, public_initial
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, pull_one_from_db
+from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection, SpielerCollection
 from app.core.routing import by_id
 from app.core.security import verify_access_base
@@ -47,7 +47,7 @@ async def get_spieler(
     withheld = [] if filters.saison_id is not None else await withheld_saison_ids(saisons_collection=saisons_collection)
 
     pipeline = build_spieler_pipeline(filters=filters, withheld_saison_ids=withheld)
-    spieler_raw = await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline)
+    spieler_raw = await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline, collation=GERMAN_COLLATION)
 
     spieler = FLSpielerListAdapter.validate_python(spieler_raw)
     return FLSpielerListResponse(spieler=spieler)

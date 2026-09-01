@@ -56,6 +56,10 @@ async def _resolve_one_saison(
         # `GET /teams`' own pipeline, so the bracket ranks the clubs the site's table ranks, and
         # `include_inactive` stays default: a hidden club must not hold a placing the bracket honours.
         # `rules=None` asks it for the ROWS alone.
+
+        # No `GERMAN_COLLATION`, unlike the reads that serve that pipeline to a page: what comes back
+        # here is grouped and ranked by points, so its order reaches nobody and would only cost the
+        # junction join its index.
         teams_raw = await aggregate_many_from_db(
             collection=teams_collection,
             pipeline=build_team_pipeline(filters=FLTeamsFilterParams(saison_id=saison_id), rules=None),

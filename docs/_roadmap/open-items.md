@@ -62,7 +62,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 8   | FB-22 | The season's shape is offered wider than it can be saved          | FE, BE, Docs    | M      | Open     | —          |
 | 9   | FB-17 | Season setup is hand-run, and only an admin enters a squad        | FE, BE, DB, Ops | XL     | Open     | —          |
 | 10  | BE-29 | Two irreversible operations judge from a capped read              | BE              | S      | Standing | —          |
-| 11  | BE-17 | Every server-ordered name list sorts in byte order                | BE, FE          | M      | Open     | —          |
+| 11  | BE-17 | Every server-ordered name list sorts in byte order                | BE, FE          | M      | Closed   | —          |
 | 12  | BE-30 | The move guard does not see a stored shoot-out                    | BE              | S      | Open     | —          |
 | 13  | BE-20 | The certainty walk never hypothesises a called-off fixture        | BE, Docs        | L      | Open     | —          |
 | 14  | FE-17 | A never-clause bounds toast CSS short of the stylesheet           | FE, Docs        | S      | Open     | —          |
@@ -903,6 +903,29 @@ written down as resting on a bound in one file rather than on the read being saf
 **Effort:** M\
 **Path:** Independent — the pipelines and the facet builders both exist, and neither waits on
 anything.
+
+**What concluded it.** The backend arm, which is the one the entry leans to. The mechanism was
+measured first rather than assumed: on `mongo:8`, the four names this now runs on sort
+`Ostermann, Zabel, von-Bülow, Öztürk` under the default binary collation and
+`Ostermann, Öztürk, von-Bülow, Zabel` under `de`. `fl_backend/app/core/crud.py :: GERMAN_COLLATION`
+is that collation, and `:: pull_many_from_db` and `:: aggregate_many_from_db` each take one, because
+a collation belongs to the whole driver call rather than to the `$sort` inside it — so no pipeline
+builder was touched to place it. Six reads pass it: both `GET /teams` shapes and the club
+memberships, the public Spieler list and the squad memberships, and the venue and referee lists,
+which the entry's own enumeration missed and which sort on `name` through `find` rather than a
+pipeline. `fl_backend/app/api/spiele/crud.py` reuses a name-ordered pipeline and deliberately takes
+no collation, saying why at the line: its rows are ranked by points and their order reaches nobody.
+The rule is `docs/backend/spec.md :: I54` and the suite is
+`fl_backend/tests/api/test_name_ordering.py`.
+
+**The frontend arm needed no change, which is the answer to the disagreement the entry names.**
+`fl_frontend/src/features/spieler/facets.ts :: buildSpielerFacets` maps the backend's order straight
+into options, and that order now comes from `GET /teams/memberships` in German — so it agrees with
+`fl_frontend/src/features/spiele/facets.ts`, which sorts its own options with
+`localeCompare(…, "de")` because it builds them from fixtures rather than from a server-ordered
+list. The index re-check the entry asks for is measured and recorded as an accepted gap on
+`docs/backend/spec.md`: exactly one stage loses an index, and the full argument is in the closing
+commit body.
 
 **No `$sort` in the backend attaches a collation**, so every server-ordered list is ordered by
 Mongo's default binary collation: „Ö" sorts after „Z" rather than beside „O", and a lower-case
