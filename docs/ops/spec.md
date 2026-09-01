@@ -638,9 +638,14 @@ noisy ones. Each floor in the table is that job's own p95, so a delta under it i
 pull requests skip it, so the seconds it costs land where no merge is waiting. What it cannot see is
 named in the report itself rather than left to be assumed — the count of job runs in the
 window that did not succeed, a scope slow enough to fail or to reach its `timeout-minutes` being
-outside the sample entirely, and any job running with no row in the table. The `verify` and `changes`
+outside the sample entirely, and any job running with no row in the table. A job the path mapping
+turned off is counted apart from one that failed, because it started at nothing: `format` runs only
+where `frontend` does not, and a push to main turns every scope on, so it is skipped on every run
+this report is cut from and its check's seconds are inside `frontend`'s. The `verify` and `changes`
 jobs are both left out under one rule: neither is the gate's work, `verify` being this report and
-`changes` a checkout plus a path mapping.
+`changes` a checkout plus a path mapping. **The sparse checkout the report reads its reference
+through carries `continue-on-error` as well**: this job is the required check, and no step of it
+that decides nothing may fail one.
 
 **The documentation gate** (`scripts/check_docs.py`) reads `/docs`, the source comments beside the
 code and the configuration files scanned with them, and its byte-level checks read every tracked

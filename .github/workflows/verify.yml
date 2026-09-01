@@ -399,6 +399,9 @@ jobs:
       - name: Read the wall-clock reference
         # One file out of the tree, and only where the step below runs. Sparse rather than a full
         # checkout: this job runs on every event and owes the required check its start time.
+        # `continue-on-error` for the reason the report below carries it: this job IS the required
+        # check, and nothing advisory may fail it. Without the file the report says so and stops.
+        continue-on-error: true
         if: github.event_name == 'push'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -441,7 +444,9 @@ jobs:
             gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" --jq '
               .jobs[]
               | select(.name != "verify" and .name != "changes")
-              | if .conclusion == "success"
+              | if .conclusion == "skipped"
+                then ["skipped", .name, 0]
+                elif .conclusion == "success"
                    and ([.steps[]? | select(.started_at != null)] | length) > 0
                    and ([.steps[]? | select(.completed_at != null)] | length) > 0
                 then ["ok", .name,
@@ -460,6 +465,9 @@ jobs:
               if ($1 != "total") names[++nn] = $1
               next
             }
+            # A job whose scope the mapping turned off, which never started and so failed at
+            # nothing: counted apart, or a job skipped on every main push reads as a run that broke.
+            $1 == "skipped" { skipped++; next }
             $1 == "dropped" { dropped++; next }
             $1 == "ok" {
               k = $2
@@ -530,6 +538,7 @@ jobs:
               }
               printf "\nThe reference is `%s`, a fixed table updated by hand and never recomputed from the recent past, which is what would let a slowdown become the new normal one window at a time. Each floor is the p95 movement of that median when a %d-run window is resampled from the reference population, so a delta under it is a reshuffle and not a change. A figure spans a job from its first step to its last, leaving the wait for a runner out.\n", ref, w
               printf "\n%d job run(s) in this window did not succeed and are outside the sample, so a scope slow enough to fail or to reach its timeout is invisible here.\n", dropped
+              if (skipped) printf "\n%d job run(s) never started, their scope turned off by the path mapping rather than by anything they did.\n", skipped
               if (gone != "") printf "\nNo successful run in this window: %s.\n", gone
               if (unref != "") printf "\nMeasured with no reference to compare against: %s.\n", unref
             }
