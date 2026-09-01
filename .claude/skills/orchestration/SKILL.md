@@ -86,12 +86,13 @@ Run this checklist for every agent, the fifteenth as much as the first.
 3. **Brief from [agent-brief-template.md](agent-brief-template.md)**, every section, with the file
    list in full. The sections that pay for the template: push back, the report contract, no writing
    git command, and write as you go.
-4. **Give an auditor a read-only agent type.** A project agent at `.claude/agents/<name>.md` whose
-   `tools` allowlist omits `Edit` and `Bash` cannot edit whatever its brief says, and omitting `Agent`
-   makes the sub-agent cap of zero a fact. A driving re-auditor needs a shell to plant a violation:
-   give that agent `Bash`, knowing that the `PreToolUse` guards in `.claude/settings.json` run inside
-   subagents too, so the shell it gets is the guarded one, and a `hooks` block in the agent file can
-   validate each command. The prose rule stays in every brief regardless.
+4. **Dispatch an auditor as `cold-auditor`** (`subagent_type: cold-auditor`, defined in
+   `.claude/agents/cold-auditor.md`). Its `tools` allowlist has no `Edit`, `Bash` or `Agent`, so it
+   cannot edit, run a command or spawn whatever its brief says, and `.claude/hooks/guard-auditor-write.sh`
+   refuses any `Write` inside the repository, leaving only its report at the scratch path. A driving
+   re-auditor needs a shell to plant a violation: dispatch it as `general-purpose`, knowing the
+   `PreToolUse` guards in `.claude/settings.json` run inside subagents too, so its shell is the
+   guarded one. The prose rule stays in every brief regardless.
 5. **Record the dispatch in the register before it runs.** One working tree, never worktrees.
 
 Incidents. Work went twice to a fresh agent that a live one was already covering — the ownership map
