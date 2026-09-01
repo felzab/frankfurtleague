@@ -103,16 +103,27 @@ jobs:
         # The runner image ships its own shellcheck, and selfcheck.sh prefers a binary on PATH over
         # the image it pins -- so without this CI lints the branch against a different rule set from
         # a development machine, and says so only as an advisory that leaves the run green. The
-        # version is read from selfcheck.sh rather than repeated here: a second copy is a pair
-        # nothing compares, and that file carries the note about bumping it by hand.
+        # version and the digest are read from selfcheck.sh rather than repeated here: a second copy
+        # is a pair nothing compares, and that file carries the note about bumping both by hand.
+        #
+        # The digest is checked before anything is unpacked: a release asset can be replaced without
+        # its tag moving, and this lands as root in a directory on PATH beside a checkout. Fetched to
+        # a file rather than piped into tar, so a truncated stream is a mismatch rather than a
+        # partial write nothing hashed.
         run: |
           version="$(sed -n 's/^SHELLCHECK_VERSION="\([0-9.]*\)"$/\1/p' scripts/selfcheck.sh)"
-          if [ -z "$version" ]; then
-            echo "::error::no SHELLCHECK_VERSION in scripts/selfcheck.sh -- the pin moved or its spelling changed."
+          digest="$(sed -n 's/^SHELLCHECK_LINUX_X86_64_SHA256="\([0-9a-f]*\)"$/\1/p' scripts/selfcheck.sh)"
+          if [ -z "$version" ] || [ -z "$digest" ]; then
+            echo "::error::no SHELLCHECK_VERSION or SHELLCHECK_LINUX_X86_64_SHA256 in scripts/selfcheck.sh -- a pin moved or its spelling changed."
             exit 1
           fi
-          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.linux.x86_64.tar.xz" |
-            sudo tar -xJ --strip-components=1 -C /usr/local/bin "shellcheck-v${version}/shellcheck"
+          tarball="${RUNNER_TEMP}/shellcheck-v${version}.linux.x86_64.tar.xz"
+          curl -fsSL -o "$tarball" "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.linux.x86_64.tar.xz"
+          if ! printf '%s  %s\n' "$digest" "$tarball" | sha256sum -c -; then
+            echo "::error::the shellcheck tarball does not match the digest in scripts/selfcheck.sh -- nothing was installed."
+            exit 1
+          fi
+          sudo tar -xJf "$tarball" --strip-components=1 -C /usr/local/bin "shellcheck-v${version}/shellcheck"
           shellcheck --version
       # Only typescript is wanted here, and a pnpm install is the only way to get it at the pinned
       # version. Without it the comment classifier's TypeScript half — the delicate one, and why it

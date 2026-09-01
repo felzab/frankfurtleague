@@ -323,7 +323,10 @@ exactly this reason — otherwise the parser half would be exercised on no machi
 **shellcheck and actionlint are pinned, and nothing but a person bumps them** — the versions are
 written in the self-check itself, where no dependency ecosystem can read them, the deliberate
 manual half of a pinning policy Dependabot otherwise maintains
-([`docs/_git/spec.md`](../_git/spec.md) §1.6). A `shellcheck` on PATH is used and warned about off
+([`docs/_git/spec.md`](../_git/spec.md) §1.6). The shellcheck pin carries the release tarball's
+sha256 beside it (`scripts/selfcheck.sh :: SHELLCHECK_LINUX_X86_64_SHA256`), because CI is what
+downloads that tarball and unpacks it as root onto `PATH`, and a release asset can be replaced
+without its tag moving. A `shellcheck` on PATH is used and warned about off
 the pin; with no binary and no daemon each step skips rather than fails outside CI, so the shell
 and the workflows go unlinted while the rest of the scope passes — in CI the same shortfall is a
 finding. `require_docker` runs for the ops, database and image scopes alone, so nothing announces
