@@ -290,6 +290,8 @@ export function AdminSaisonEditForm({
           : tiebreakMoved
             ? "Punktgleiche Teams stehen ab sofort in einer anderen Reihenfolge, auch in längst gespielten Gruppen."
             : undefined,
+        // Passed on the quiet branch too, where it all but restates the title: `offerUndo`'s
+        // `fallback` carries why the register asks for a sentence there anyway.
         fallback: "Die Saisondaten wurden aktualisiert.",
         warn: pointsMoved || tiebreakMoved,
         router,

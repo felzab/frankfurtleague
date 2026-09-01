@@ -10,8 +10,9 @@ type UndoOffer<TPayload> = {
   /** The save's own sentence, where it produced one. */
   message?: string;
   /**
-   * Every offer carries one: the saved toast shares its title, so a site describing nothing cannot
-   * be told from the others (`docs/frontend/spec.md :: I42`).
+   * Required, never optional: the register identifies `Änderung gespeichert` by its description
+   * (`docs/frontend/spec.md :: I42`), so a site sparing the Rückgängig control a row would raise
+   * the shared title with nothing telling it apart.
    */
   fallback: string;
   /** A warning rather than a success: the save cost something the admin may not have intended. */
