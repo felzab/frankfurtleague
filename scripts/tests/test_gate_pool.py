@@ -27,14 +27,21 @@ KERNEL: Final = SCRIPTS / "checker_kernel.py"
 # lone closing quote at the margin as a docstring opening, and measures the code under it as prose.
 DRIVER: Final[tuple[str, ...]] = (
     "import os",
+    "import signal",
     "import subprocess",
     "import sys",
     "import threading",
     "from pathlib import Path",
     "sys.path.insert(0, SCRIPTS_DIR)",
     "import gate_pool",
+    # `start_new_session` makes a child's pid its own group id, and `terminate` signals that group BY
+    # the pid. A child left in this driver's group leads none, so the killpg answers ESRCH into the
+    # suppression there and reads as a stop that worked.
     "def sleeper():",
-    "    return subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], stdin=subprocess.DEVNULL)",
+    "    return subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], stdin=subprocess.DEVNULL, start_new_session=True)",
+    # What a stop leaves behind, so a child that ended for any other reason cannot be read as one
+    # this run stopped: the group's SIGTERM on POSIX, TerminateProcess's own status on Windows.
+    "STOPPED_BY = -signal.SIGTERM if gate_pool.POSIX else 1",
     "def pool():",
     "    return gate_pool.Pool(directory=Path(DIRECTORY), merge=False, slots=threading.Semaphore(1))",
 )
@@ -45,6 +52,7 @@ TERMINATE: Final[tuple[str, ...]] = (
     "running.live['unit'] = child",
     "gate_pool.terminate(running)",
     "child.wait(timeout=30)",
+    "assert child.returncode == STOPPED_BY, (child.returncode, STOPPED_BY)",
     "assert running.stopping, 'the run was ended and would still have started the units behind it'",
 )
 
@@ -56,6 +64,7 @@ WATCH_CALLER: Final[tuple[str, ...]] = (
     # -1 is no process, so the caller this watcher is given is gone from its very first look.
     "threading.Thread(target=gate_pool.watch_caller, args=(running, -1, stop), daemon=True).start()",
     "child.wait(timeout=30)",
+    "assert child.returncode == STOPPED_BY, (child.returncode, STOPPED_BY)",
     "stop.set()",
 )
 
@@ -123,6 +132,18 @@ OWN_SESSION: Final[tuple[str, ...]] = (
     "unit = gate_pool.Unit(name='probe', environment={}, command=(sys.executable, '-c', 'raise SystemExit(3)'))",
     "assert gate_pool.spawn(pool(), unit) == 3",
     "assert asked.get('start_new_session') is True, asked",
+)
+
+# The child reports both numbers rather than the parent reading them: `start_new_session` lands
+# between the fork and the exec, so a parent looking too early sees the group it came from.
+OWN_GROUP: Final[tuple[str, ...]] = (
+    "if not gate_pool.POSIX:",
+    "    raise SystemExit(0)",
+    "body = 'import os, sys; sys.stdout.write(str(os.getpid()) + chr(32) + str(os.getpgid(0)))'",
+    "unit = gate_pool.Unit(name='group', environment={}, command=(sys.executable, '-c', body))",
+    "assert gate_pool.spawn(pool(), unit) == 0",
+    "pid, group = (Path(DIRECTORY) / 'group.out').read_bytes().split()",
+    "assert pid == group, (pid, group)",
 )
 
 GROUP_SIGNALLED: Final[tuple[str, ...]] = (
@@ -336,6 +357,12 @@ def test_neither_is_armed_where_a_signal_would_run_no_handler(tmp_path: Path) ->
 def test_a_unit_is_given_a_session_of_its_own(tmp_path: Path) -> None:
     """Without one a stop reaches the bash and not the build it is waiting on, and the build outlives the scratch it writes into."""
     result = _drive(OWN_SESSION, tmp_path)
+    assert result.returncode == 0, result.stderr
+
+
+def test_a_unit_s_own_pid_is_the_group_id_a_stop_signals(tmp_path: Path) -> None:
+    """`terminate` signals `child.pid` AS a group: a unit leading none takes the stop nowhere, and the suppression there reads that as done."""
+    result = _drive(OWN_GROUP, tmp_path)
     assert result.returncode == 0, result.stderr
 
 
