@@ -1,0 +1,25 @@
+# The reference the verify job reports the gate's wall clock against: job, seconds, floor percent.
+#
+# Updated by hand, never by the workflow. A report that recomputed its reference from its own
+# recent past would let a slowdown become the new normal one window at a time, and the accumulated
+# growth would never appear in any single report.
+#
+# Seconds: the median first-step-to-last-step span over the 24 completed main runs to 2026-09-01.
+# Floor: the p95 movement of a 12-run median resampled from that same population, rounded up --
+# whole runs resampled rather than single jobs, because a slow runner slows every job on it. A job
+# with no row here is reported as unreferenced rather than measured. p95 rather than p90 because
+# a report holding no verdict is worth only what it is worth reading, and a floor speaking on
+# half of the quiet pushes spends exactly that.
+#
+# The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
+# move the total with it, or the next report says the total has drifted.
+#
+# job	seconds	floor
+backend	37	14
+backend-db	67	22
+docs	35	8
+frontend	110	10
+images	97	10
+ops	12	17
+scripts	47	8
+total	405	5

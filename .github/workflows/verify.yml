@@ -301,10 +301,11 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # The runs API carries the timing history the wall-clock step reads, and the workflow-level
-    # grant is contents only. This job checks nothing out, so read on Actions is the whole of it.
+    # A job-level grant replaces the workflow-level one whole, so `contents` is spelled again
+    # here for the sparse checkout below; the runs API the wall-clock step reads needs `actions`.
     permissions:
       actions: read
+      contents: read
     steps:
       # First, so it prints whether or not the verdict below refuses. A green `verify` says nothing
       # about which scopes ran, and a mapping that turned every scope off looks identical to a
@@ -318,71 +319,144 @@ jobs:
           RESULTS: ${{ toJSON(needs) }}
         run: |
           printf '%s' "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+      - name: Read the wall-clock reference
+        # One file out of the tree, and only where the step below runs. Sparse rather than a full
+        # checkout: this job runs on every event and owes the required check its start time.
+        if: github.event_name == 'push'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The token is not needed after checkout, for the reason the changes job gives above.
+          persist-credentials: false
+          sparse-checkout: .github/gate-wall-clock.tsv
+          sparse-checkout-cone-mode: false
+
       - name: Report the gate's wall clock
-        # The re-bloat glance for time: per-job medians over the last window of main runs against the
-        # window before them, in the run summary. Advisory by construction — no threshold, no
-        # verdict, and continue-on-error keeps it away from the verdict this job is.
+        # The re-bloat glance for time: per-job medians over the last window of main runs against a
+        # reference table held in the tree. Advisory by construction — nothing here decides an
+        # outcome, and continue-on-error keeps it away from the verdict this job is.
         continue-on-error: true
         # Main pushes only, because they alone run every scope: a pull request's jobs are
-        # path-filtered, so no two windows cut from them compare like for like.
+        # path-filtered, so no window cut from them compares like for like.
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           window=12
-          runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?branch=main&event=push&status=success&per_page=$((window * 2))" --jq '.workflow_runs[].id')"
-          count="$(printf '%s\n' "$runs" | awk 'NF' | wc -l)"
-          if [ "$count" -lt "$((window * 2))" ]; then
-            echo "Gate wall clock: $count successful main runs on record, $((window * 2)) needed for two comparable windows." >> "$GITHUB_STEP_SUMMARY"
+          reference=.github/gate-wall-clock.tsv
+          if [ ! -s "$reference" ]; then
+            echo "Gate wall clock: $reference is missing, so there is nothing to compare against." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          {
-            echo "### Gate wall clock, per job"
-            echo
-            echo "| Job | median, last $window main runs | previous $window | delta |"
-            echo "| --- | ---: | ---: | ---: |"
-            half=a
-            i=0
-            for id in $runs; do
-              i=$((i + 1))
-              if [ "$i" -gt "$window" ]; then half=b; fi
-              # First step's start to last step's end, rather than the job's own timestamps, which
-              # carry the wait for a runner — pool queueing is noise about GitHub, not about the
-              # gate. This job is left out: its seconds are this report, not the gate's work.
-              gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" --jq '
-                .jobs[] | select(.conclusion == "success" and .name != "verify")
-                | [.name,
-                   (([.steps[] | select(.completed_at != null) | .completed_at | fromdateiso8601] | max)
-                    - ([.steps[] | select(.started_at != null) | .started_at | fromdateiso8601] | min))]
-                | @tsv' | awk -v h="$half" '{ print h "\t" $0 }'
-            done | awk -F'\t' '
-              # Median, not mean: the images job swings more than tenfold between a warm layer cache
-              # and a cold one, and one cold run would carry a mean nobody could read past.
-              function med(k,   c) {
-                c = n[k]
-                if (c == 0) return -1
-                if (c % 2) return int(v[k, (c + 1) / 2] + 0.5)
-                return int((v[k, c / 2] + v[k, c / 2 + 1]) / 2 + 0.5)
+          # `completed`, not `success`: a run that failed still carries jobs that succeeded, and
+          # discarding the whole run throws their timings away. It excludes the run doing the
+          # reporting, which is still in flight.
+          runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?branch=main&event=push&status=completed&per_page=${window}" --jq '.workflow_runs[].id')"
+          count="$(printf '%s\n' "$runs" | awk 'NF' | wc -l)"
+          if [ "$count" -lt "$window" ]; then
+            echo "Gate wall clock: $count completed main runs on record, $window needed for a window." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          for id in $runs; do
+            # First step's start to last step's end, rather than the job's own timestamps, which
+            # carry the wait for a runner — pool queueing is noise about GitHub, not about the gate.
+            # `verify` is this report and `changes` is a checkout plus a path mapping: neither is
+            # the gate's work, and one rule has to cover both.
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" --jq '
+              .jobs[]
+              | select(.name != "verify" and .name != "changes")
+              | if .conclusion == "success"
+                   and ([.steps[]? | select(.started_at != null)] | length) > 0
+                   and ([.steps[]? | select(.completed_at != null)] | length) > 0
+                then ["ok", .name,
+                      (([.steps[] | select(.completed_at != null) | .completed_at | fromdateiso8601] | max)
+                       - ([.steps[] | select(.started_at != null) | .started_at | fromdateiso8601] | min))]
+                else ["dropped", .name, 0]
+                end
+              | @tsv'
+          done | awk -F'\t' -v w="$window" -v ref="$reference" '
+            BEGIN { whole = 1 }
+            # The reference table first, one row per job: name, seconds, floor percent.
+            FNR == NR {
+              if ($0 ~ /^#/ || NF < 3) next
+              base[$1] = $2 + 0
+              limit[$1] = $3 + 0
+              if ($1 != "total") names[++nn] = $1
+              next
+            }
+            $1 == "dropped" { dropped++; next }
+            $1 == "ok" {
+              k = $2
+              # Reported rather than measured: a job added to the gate with no row here would
+              # otherwise be counted into nothing and vanish from the report silently.
+              if (!(k in base)) {
+                if (!(k in extra)) { extra[k] = 1; unref = unref (unref == "" ? "" : ", ") k }
+                next
               }
-              { if (!($2 in seen)) { seen[$2] = 1; names[++nn] = $2 }
-                k = $2 SUBSEP $1
-                c = ++n[k]
-                # Insertion into the group in order, so the median needs no external sort at all.
-                while (c > 1 && v[k, c - 1] > $3) { v[k, c] = v[k, c - 1]; c-- }
-                v[k, c] = $3 }
-              END {
-                for (i = 1; i <= nn; i++) {
-                  j = names[i]; r = med(j SUBSEP "a"); o = med(j SUBSEP "b")
-                  if (r < 0) { printf "0\t| %s | — | %ds | — |\n", j, o; continue }
-                  if (o < 0) { printf "%d\t| %s | %ds | — | — |\n", r, j, r; continue }
-                  tr += r; to += o
-                  printf "%d\t| %s | %ds | %ds | %+ds (%+d%%) |\n", r, j, r, o, r - o, (r - o) * 100 / o
+              c = ++n[k]
+              # Insertion into the group in order, so the median needs no external sort at all.
+              while (c > 1 && v[k, c - 1] > $3) { v[k, c] = v[k, c - 1]; c-- }
+              v[k, c] = $3
+            }
+            # Median, not mean: the images job swings more than tenfold between a warm layer cache
+            # and a cold one, and one cold run would carry a mean nobody could read past.
+            function med(k,   c) {
+              c = n[k]
+              if (c == 0) return -1
+              if (c % 2) return int(v[k, (c + 1) / 2] + 0.5)
+              return int((v[k, c / 2] + v[k, c / 2 + 1]) / 2 + 0.5)
+            }
+            END {
+              for (i = 1; i <= nn; i++) {
+                j = names[i]
+                m = med(j)
+                if (m < 0) { gone = gone (gone == "" ? "" : ", ") j; whole = 0; continue }
+                total += m
+                # A reference of zero has no percentage to give, and dividing by it would take the
+                # whole redirect group down under set -e, leaving a header and no rows. Named in
+                # the trailer rather than dropped, a zero here being a hand edit somebody left half
+                # done.
+                if (base[j] <= 0) {
+                  unref = unref (unref == "" ? "" : ", ") j
+                  continue
                 }
-                if (to > 0) printf "-1\t| **sum of the rows above** | **%ds** | **%ds** | **%+ds (%+d%%)** |\n", tr, to, tr - to, (tr - to) * 100 / to
-              }' | sort -k1,1rn | cut -f2-
-            echo
-            echo "Each figure is a job's own first-step-to-last-step span, so queue time is out. The population is the successful main runs already on record, this one not among them, and the sum covers only jobs a window on each side recorded. A reshuffle of these same $((window * 2)) runs moves a job's median by around a tenth on its own, and further on the noisiest, so one delta is not a finding — a direction holding across several reports is."
-          } >> "$GITHUB_STEP_SUMMARY"
+                d = (m - base[j]) * 100 / base[j]
+                a = (d < 0) ? -d : d
+                # The quiet state: under its own floor a job says nothing at all, so a row in this
+                # table is always a figure somebody has to account for.
+                if (a <= limit[j]) continue
+                line = sprintf("| `%s` | %ds | %ds | %+ds (%+.1f%%) | %d%% |", j, m, base[j], m - base[j], d, limit[j])
+                k = ++loud
+                while (k > 1 && rank[k - 1] < m) { rank[k] = rank[k - 1]; row[k] = row[k - 1]; k-- }
+                rank[k] = m
+                row[k] = line
+              }
+              # Only where every referenced job was observed: a window missing one leaves a sum
+              # that is short rather than one that is faster.
+              if (whole && ("total" in base) && base["total"] > 0) {
+                d = (total - base["total"]) * 100 / base["total"]
+                a = (d < 0) ? -d : d
+                if (a > limit["total"]) {
+                  loud++
+                  row[loud] = sprintf("| **the whole gate** | **%ds** | **%ds** | **%+ds (%+.1f%%)** | **%d%%** |", total, base["total"], total - base["total"], d, limit["total"])
+                }
+              }
+              if (loud == 0) {
+                printf "**Gate wall clock:** every job median over the last %d main runs sits inside its own floor.\n", w
+              } else {
+                print "### Gate wall clock"
+                print ""
+                printf "Medians over the last %d main runs that have moved past their own floor:\n", w
+                print ""
+                print "| Job | median | reference | delta | floor |"
+                print "| --- | ---: | ---: | ---: | ---: |"
+                for (i = 1; i <= loud; i++) print row[i]
+              }
+              printf "\nThe reference is `%s`, a fixed table updated by hand and never recomputed from the recent past, which is what would let a slowdown become the new normal one window at a time. Each floor is the p95 movement of that median when a %d-run window is resampled from the reference population, so a delta under it is a reshuffle and not a change. A figure spans a job from its first step to its last, leaving the wait for a runner out.\n", ref, w
+              printf "\n%d job run(s) in this window did not succeed and are outside the sample, so a scope slow enough to fail or to reach its timeout is invisible here.\n", dropped
+              if (gone != "") printf "\nNo successful run in this window: %s.\n", gone
+              if (unref != "") printf "\nMeasured with no reference to compare against: %s.\n", unref
+            }
+          ' "$reference" - >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail if any scope job failed or was cancelled
         # A skipped job is a pass here: path filtering skipped it on purpose. Pure expressions, no
