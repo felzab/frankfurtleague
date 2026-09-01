@@ -62,7 +62,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 8   | FB-22 | The season's shape is offered wider than it can be saved          | FE, BE, Docs    | M      | Open     | —          |
 | 9   | FB-17 | Season setup is hand-run, and only an admin enters a squad        | FE, BE, DB, Ops | XL     | Open     | —          |
 | 10  | BE-29 | Two irreversible operations judge from a capped read              | BE              | S      | Standing | —          |
-| 11  | BE-35 | A no-op write takes no conflict, so nothing is re-judged          | BE, Docs        | M      | Open     | —          |
+| 11  | BE-35 | An erasure rewriting nothing is never judged against a rival      | BE, FE, Docs    | S      | Open     | —          |
 | 12  | BE-17 | Every server-ordered name list sorts in byte order                | BE, FE          | M      | Open     | —          |
 | 13  | BE-30 | The move guard does not see a stored shoot-out                    | BE              | S      | Open     | —          |
 | 14  | BE-20 | The certainty walk never hypothesises a called-off fixture        | BE, Docs        | L      | Open     | —          |
@@ -897,60 +897,55 @@ iterate them.
 at all until a season arrives from outside the draw. What the entry buys today is that the guarantee is
 written down as resting on a bound in one file rather than on the read being safe.
 
-### 11 · BE-35 — A transaction protects a judgement only while it writes, and a request asking for the state already stored writes nothing
+### 11 · BE-35 — An erasure clearing fields already null writes nothing, so a rival re-entering them is never judged
 
 **Status:** Open\
-**Surfaces:** BE, Docs\
-**Effort:** M\
-**Path:** Independent. `.claude/CLAUDE.md` §7 forbids writing `status` outside the activate endpoint
-and forbids dropping the rollover guard, so the answer may not change what that endpoint writes —
-which is what makes this an entry rather than a fix. The principle below is recorded at
-`docs/backend/spec.md :: I53`, landed by the season patch's half -- the callback whose write set is
-narrower than its read set rather than empty; this entry cites it rather than restating it.
+**Surfaces:** BE, FE, Docs\
+**Effort:** S\
+**Path:** Independent, and blocked on nothing technical. What it waits on is the product question
+in the last paragraph but one, and answering that is most of the work.
 
-**`fl_backend/app/api/saisons/admin_router.py :: activate_saison` judges and writes in one
-transaction, and its promotion of an already-active season writes nothing.** The `$set` sets `status`
-to the value the snapshot already holds; an update producing an identical document is treated as no
-write, so no version is created, no conflict is raised, `with_transaction` never retries and nothing is
-re-judged. A rival rollover demoting that season mid-flight is invisible, and the endpoint answers 200
-with an `updated_document` reading `active` over a database that now says `past`. **The comment at the
-write already records this**, which is what makes it a question about the shape rather than a discovery
-about the endpoint.
-
-**Nothing is corrupted, and the entry should lead with that.** The only writes surviving such a
-callback are its log rows, so the failure is a false answer rather than lost data — an administrator
-told the rollover succeeded when a colleague's won. What makes it worth ranking is that this endpoint
-is the single writer of `status` (`docs/backend/spec.md :: I18`), so its answer is the only thing
-anyone has to go on.
-
-**The shape is general, which is the half worth writing down.** The protection `with_transaction`
-gives a judgement is exactly the set of documents the callback writes, so **any callback whose domain
-write can be a no-op is judging without a guard**. Two of them assert something a caller would act on:
-`:: activate_saison`, which asserts a league-wide state, and
-`fl_backend/app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`, whose second run
-`$set`s contact fields already null and redacts rows already redacted, and would report personal data
-cleared while a rival `PATCH` re-entered it. The rest — `:: patch_saison`, `:: undraw_spielplan`,
+**`fl_backend/app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`, run against a
+referee whose contact fields are already null, writes nothing to that referee.** The `$set` of
+`fl_backend/app/api/schiedsrichter/services.py :: ANONYMISED_KONTAKT` produces an identical document,
+so the row joins no write set, and the transaction's other writes land in `aktionen`, which a rival
+never rewrites — a `PATCH` appends its own row there rather than touching one. A `PATCH` re-entering
+a telephone number or an email address between this callback's snapshot and its commit therefore
+raises no write conflict, `with_transaction` never retries, nothing is re-judged, and the endpoint
+answers 200 with an `updated_document` reading null over a row holding the details again.
+`docs/backend/spec.md :: I53` is the shape, and this is the endpoint left standing under it:
+`fl_backend/app/api/saisons/admin_router.py :: activate_saison` guards its own no-op promotion by
+re-judging outside its session, and the remaining callbacks whose domain write can be a no-op —
+`:: patch_saison`, `:: undraw_spielplan`,
 `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data` — echo a no-op back to the caller who
-asked for it, which is the whole of what this entry says about them: what `:: patch_saison` judges
-beyond the season document is re-judged outside its session (`docs/backend/spec.md :: I53`). The fan-outs, the replace, the erasure, the draw and the swap each write a value their
-refusals guarantee differs, or delete, or insert. **The log row is not the guard it looks like**:
-`fl_backend/app/core/recording.py :: record_write` inserts into `aktionen` on every path, so the
-transaction always commits something, and a write to `aktionen` conflicts with nothing a rival touches
-in `saisons` or `schiedsrichter`.
+asked for it.
 
-**Candidate answers, none of them free.** Re-read and compare the judged state inside the callback
-immediately before returning, and raise rather than answer; or make the write non-trivially different,
-which §7 forbids for `activate_saison`; or refuse a re-activation outright, which is a product decision
-— today it is deliberately permitted, the outgoing read excluding the target so a re-activation is not
-blocked by its own fixtures. **The durable half is a recorded rule rather than a patch**: an invariant
-saying that a transactional endpoint's answer is trustworthy only where its callback writes, so the
-next transactional endpoint is designed against it.
+**Nothing is corrupted, and the entry should lead with that.** The row and the log agree: what the
+re-entering `PATCH` recorded is a pre-image of nulls, so no contact detail is left in a place the
+redaction should have reached and did not. The failure is a false report — an administrator told
+personal data was cleared while the row still holds it — and what ranks it is that this report is
+what a deletion request is answered from.
 
-**What is not verified, and it is the whole foundation** (COR-9). That MongoDB raises no write conflict
-for a no-op update inside a transaction is what the comment at the line asserts and what the reasoning
-above rests on; it was not reproduced against a replica set. **Reproduce it before any work starts** —
-`fl_backend/tests/api/test_activation_isolation.py` already drives a real replica set and is where such
-a case belongs.
+**Two answers, and choosing between them is a product decision rather than an engineering one.**
+Re-reading the row outside the session immediately before answering is the cheap half and is settled
+by I53; what to do with what that read finds is not.
+
+- **Refuse.** The endpoint carries no precondition today, so refusing needs a code it does not have,
+  and a new code cascades: a row in `docs/logging/error-codes.md`, and a German mapping in
+  `fl_frontend/src/features/schiedsrichter/actions.ts`, whose `:: anonymiseSchiedsrichterAction` maps
+  no refusal at all — without one an administrator is shown the generic fallback while every gate
+  stays green.
+- **Clear it again**, running the erasure over what the rival wrote. It needs no code and no German,
+  and it decides that an erasure beats the last writer — defensible for personal data, and still a
+  decision about whose write survives.
+
+**What is verified, and what is not** (COR-9). That a no-op `$set` inside a transaction takes no
+write conflict is reproduced against a real replica set by
+`fl_backend/tests/api/test_activation_isolation.py :: TestARivalRolloverLandingMidReactivationIsJudgedAgain`,
+so the mechanism the paragraphs above rest on is demonstrated rather than assumed. This endpoint's
+interleaving is not: `fl_backend/tests/api/test_schiedsrichter_anonymisierung.py` drives a real
+replica set and plants no rival between the snapshot and the commit, having no hook to plant one
+with. Building that case is part of the work.
 
 ### 12 · BE-17 — Every server-ordered name list sorts in byte order, so a German name lands in the wrong place
 
