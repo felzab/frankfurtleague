@@ -51,6 +51,10 @@ BRANCH_DIFF: Final = "(branch diff)"
 # The id the fixture roadmap defines, so an added comment naming it is resolvable. Spelled only in
 # strings: named in a comment of this file it would be read as this file's own citation.
 ROADMAP_ID: Final = "FX-9"
+# What `LOOSE_ID_RE` matches and the roadmap tables cannot resolve: a refusal code carries the id
+# shape inside it, an encoding name is one whole. Each is what an unresolved hit looks like.
+REFUSAL_CODE: Final = "REQ-DATE-002"
+ENCODING_NAME: Final = "UTF-8"
 DROPPABLE: Final = "A droppable line the deletion scenario removes."
 LONG_TEXT: Final = "a line of a block that runs past what a comment may hold"
 LEGACY_OPEN: Final = "an opening line of a committed comment block that already runs far past what a comment may hold"
@@ -62,8 +66,12 @@ LEGACY_END: Final = "a closing line that keeps the committed block over the boun
 # behaviour a consolidation must preserve.
 DIFF_READERS: Final = "history, counts, added comment citations and comment length"
 
+# The driver composes the branch checks in the gate's own order, read from whichever module wires
+# the run rather than listed here: a check dropped from that wiring has to fail this net, and a
+# check added to it has to be given a scenario.
 DRIVER: Final = """
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -79,17 +87,30 @@ fork = checker_kernel.resolve_base() if sys.argv[2] == "-" else sys.argv[2]
 state = branch.Branch(checker_kernel.DEFAULT_BASE, fork)
 diffed = branch._added_by_file(fork) if fork is not None else None
 additions = branch.branch_additions(state)
-findings = [
-    [f.severity, f.check, f.file, f.detail]
-    for f in (
-        *branch.check_branch_diff(state),
-        *branch.check_history_phrases(additions),
-        *branch.check_counts(additions),
-        *branch.check_added_citations(additions),
-        *branch.check_comment_bounds(state),
-        *branch.check_prose_shas(scanned_files()),
-    )
-]
+
+calls = {
+    "check_branch_diff": lambda: branch.check_branch_diff(state),
+    "check_history_phrases": lambda: branch.check_history_phrases(additions),
+    "check_counts": lambda: branch.check_counts(additions),
+    "check_added_citations": lambda: branch.check_added_citations(additions),
+    "check_comment_bounds": lambda: branch.check_comment_bounds(state),
+    "check_prose_shas": lambda: branch.check_prose_shas(scanned_files()),
+}
+
+home = Path(branch.__file__ or "").resolve()
+owned = {n for n in dir(branch) if n.startswith("check_") and getattr(branch, n).__module__ == branch.__name__}
+wired = []
+for source in sorted(home.parent.glob("*.py")):
+    if source.resolve() == home:
+        continue
+    for name in re.findall("(check_[a-z_]+)[(]", source.read_text(encoding="utf-8")):
+        if name in owned and name not in wired:
+            wired.append(name)
+
+assert sorted(wired) == sorted(owned), "the gate wires " + repr(sorted(wired)) + " where branch.py owns " + repr(sorted(owned))
+assert sorted(calls) == sorted(owned), "this driver calls " + repr(sorted(calls)) + " where branch.py owns " + repr(sorted(owned))
+
+findings = [[f.severity, f.check, f.file, f.detail] for name in wired for f in calls[name]()]
 print(json.dumps({
     "fork": fork,
     "diffed": None if diffed is None else sorted(diffed),
@@ -284,6 +305,23 @@ def test_an_added_comment_citation_reports_the_review_reference_and_the_roadmap_
     ]
 
 
+def test_an_id_shaped_token_the_roadmap_cannot_resolve_stays_silent() -> None:
+    """Resolving a hit against the roadmap tables is what separates a citation from a refusal code.
+
+    The review reference beside the tokens is the evidence the check read the file: with no
+    resolution every backend comment naming a refusal code would report.
+    """
+    _reset()
+    _append(MOD, HASH + " " + REFUSAL_CODE + " decoded as " + ENCODING_NAME + " is a shape, not an id")
+    _append(MOD, HASH + " drawn up in the last session")
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert MOD in data["additions"]
+    assert _findings(data) == [("report", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)")]
+
+
 def test_an_added_block_over_the_bound_fails_and_a_short_one_stays_silent() -> None:
     _reset()
     _append(MOD, *LONG_BLOCK)
@@ -348,6 +386,34 @@ def test_a_prose_sha_reports_only_an_unresolvable_mixed_hex_run() -> None:
     ]
 
 
+def test_a_prose_sha_the_branch_never_touched_still_reports() -> None:
+    """The sha check reads the whole corpus, which the diff-reading checks beside it do not.
+
+    The sha sits in a page the fork already holds while the branch edits a different page, so
+    scoping this check to the branch's own files would leave it silent.
+    """
+    tick = "`"
+    _reset()
+    root = _root()
+    base = _git(root, "rev-parse", "HEAD")
+    _append(SPARE, "The commit " + tick + "abc1234" + tick + " is named here.")
+    _git(root, "add", "--", SPARE)
+    _git(root, "commit", "-q", "-m", "Corpus: a page carrying an unresolvable sha")
+    _append(NOTES, "An unrelated line, so what the branch adds names no sha at all.")
+    try:
+        data = _run()
+    finally:
+        # Soft, so the corpus commit comes back as the fork with the working tree untouched; the
+        # reset that follows puts the page itself back.
+        _git(root, "reset", "-q", "--soft", base)
+        _reset()
+    assert data["diffed"] == [NOTES]
+    assert sorted(data["additions"]) == [NOTES]
+    assert _findings(data) == [
+        ("report", "sha", SPARE, "commit abc1234 resolves to nothing in this clone -- was it rewritten out of the history?")
+    ]
+
+
 def test_a_change_to_an_unscanned_suffix_reaches_the_diff_and_no_check() -> None:
     _reset()
     _append(PLAIN, "previously there were four of these")
@@ -366,9 +432,13 @@ def test_a_pure_deletion_arms_nothing() -> None:
     _replace(NOTES, DROPPABLE + "\n", "")
     (_root() / SPARE).unlink()
     try:
+        # Read from the fixture rather than inferred from an empty answer: a clean tree reports the
+        # same empty diff, so the deletion needs its own evidence that git saw one.
+        touched = sorted(_git(_root(), "diff", "--name-only").splitlines())
         data = _run()
     finally:
         _reset()
+    assert touched == [NOTES, SPARE]
     assert data["diffed"] == []
     assert data["additions"] == {}
     assert _findings(data) == []
@@ -466,15 +536,15 @@ def test_an_older_over_bound_block_edited_in_place_stays_exempt() -> None:
     """
     _reset()
     _replace(LEGACY, "amends", "adjusts")
-    data = _run()
-    assert _findings(data, "comment-length") == []
-    _append(LEGACY, *LONG_BLOCK)
-    line = _line_of(LEGACY, LONG_BLOCK[0])
     try:
-        data = _run()
+        edited = _run()
+        _append(LEGACY, *LONG_BLOCK)
+        line = _line_of(LEGACY, LONG_BLOCK[0])
+        added = _run()
     finally:
         _reset()
-    assert _findings(data, "comment-length") == [_bound_fail(LEGACY, line, LONG_CHARS)]
+    assert _findings(edited, "comment-length") == []
+    assert _findings(added, "comment-length") == [_bound_fail(LEGACY, line, LONG_CHARS)]
 
 
 def test_a_committed_addition_reads_the_same_as_a_working_tree_one() -> None:
