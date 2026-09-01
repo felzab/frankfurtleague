@@ -42,6 +42,10 @@ updates:
       - "/.github/actions/*"
     schedule:
       interval: weekly
+    # Explicit because the default of 5 is reachable -- five action repositories plus the group --
+    # and hitting it silently stops version updates, which for this ecosystem are the whole
+    # security route. Weekly reaches a ceiling four times faster.
+    open-pull-requests-limit: 10
     commit-message:
       prefix: "CI"
     groups:
