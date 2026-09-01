@@ -102,7 +102,9 @@ the API or constructing a URL from `AUTH_URL` at module scope fails the image bu
 Deployment is `pull` plus in-place recreation of the application containers, nginx being left running
 across the swap and reloaded after it ([`spec.md`](spec.md) I6 and I9), so a visitor sees seconds of 502
 rather than the refused connection a `down`/`up` cycle — or a torn-down edge — would cause. A build that
-never becomes healthy is put back automatically to what the deploy replaced. Rolling back by hand is pulling
+never becomes healthy is put back automatically to what the deploy replaced, and that path is not seconds:
+the 502 lasts until the restored pair is healthy and nginx has been reloaded again, up to about eleven
+minutes where both health waits run to their timeouts and the rollback's do the same. Rolling back by hand is pulling
 a pinned `:sha-<commit>` tag; every image carries OCI labels recording the commit it was built from, which is
 why `deploy.sh --status` stays truthful even if a tag was moved.
 

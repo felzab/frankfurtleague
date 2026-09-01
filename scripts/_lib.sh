@@ -643,9 +643,10 @@ git_clean()  { [[ -z "$(git status --porcelain)" ]]; }
 # `Invalid connection string "<uri>"` with the credential still in it, and the patterns
 # `wait_healthy` greps for select the failures carrying one.
 redact_uri_credentials() {
-  # Greedy to the last `@` in the token: a password holding one has to be percent-encoded in a
-  # MongoDB URI, so over-redacting a host is the only direction this can be wrong in.
-  sed -E 's#(mongodb(\+srv)?://)[^[:space:]]*@#\1<redacted>@#g'
+  # Bounded at the delimiters userinfo cannot carry unencoded: greedy to the token's last `@` runs
+  # past the host into a second URI on the line, and the host is what the failure is read from.
+  # `I`, for a scheme echoed back in another case.
+  sed -E 's#(mongodb(\+srv)?://)[^[:space:]/?"]*@#\1<redacted>@#gI'
 }
 
 # --- Health ----------------------------------------------------------------------------------------

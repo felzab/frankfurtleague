@@ -19,17 +19,22 @@ the machine is outside the repository. What it does tell you:
 - `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod.conf` and `./certs/` must all exist beside the
   compose file — preflight checks each before anything is pulled.
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
-  (`scripts/deploy.sh :: serve_through_nginx`). The edge keeps running across the swap, so a deploy costs
-  seconds of 502 rather than a refused connection. The reload is also the only thing in the run that applies
-  an `nginx/prod.conf` the pull changed: nothing recreates nginx for a mounted file's contents.
+  (`scripts/deploy.sh :: serve_through_nginx`). The edge keeps running across the swap, so a deploy that
+  succeeds costs seconds of 502 rather than a refused connection. The reload is also the only thing in the
+  run that applies an `nginx/prod.conf` the pull changed: nothing recreates nginx for a mounted file's
+  contents.
 - **A build that fails the health wait is put back automatically** — to the images the application services
   were running when the deploy began, by image id rather than by tag (`scripts/deploy.sh :: roll_back`) —
-  and the script names the build now serving. Where preflight recorded no rollback target, because nothing
-  was running, because only half the pair was, or because compose could not be asked, it says so and leaves
-  the failed build in place.
+  and the script names the build now serving. **That path is not seconds**: the 502 runs until the restored
+  pair is healthy and nginx has been reloaded again, up to about eleven minutes where both health waits run
+  to their timeouts and the rollback's do the same. Nothing is put back where preflight recorded no target,
+  because nothing was running, because only half the pair was, or because compose could not be asked; nor
+  where compose stops answering during the health wait, the run refusing at exit 2 instead, because a
+  rollback undoes a build and nothing there reached a verdict on the new one.
 - After the health wait, what `deploy.sh` checks is the **running stack rather than a config file**: that
   nginx is running and reloaded, the security headers as they are actually served, and the liveness probe
-  through the edge.
+  through the edge. `./scripts/deploy.sh --status` reads that last one too — every other row it prints comes
+  from a container, and a healthy pair is no statement about what the edge in front of it resolves to.
 
 ## 2. Before deploying a change to the database's constraints
 

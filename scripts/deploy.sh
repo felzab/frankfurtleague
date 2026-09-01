@@ -9,13 +9,17 @@
 #
 #   ./scripts/deploy.sh                    deploy the current :latest tag of both packages
 #   ./scripts/deploy.sh sha-1a2b3c4        deploy, or ROLL BACK to, one published build
-#   ./scripts/deploy.sh --status           report what is running right now, change nothing
+#   ./scripts/deploy.sh --status           report what is running and what the edge serves, change nothing
 #   ./scripts/deploy.sh --verbose          stream each command's own output instead of capturing it
 #   ./scripts/deploy.sh --help
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 COMPOSE="docker-compose.yml"
+
+# One spelling for the deploy's check of the edge and `--status`'s alike: `docs/ops/spec.md` §4 lists
+# every site an API version bump has to reach, and a second copy here would be one more.
+PROBE_URL="https://frankfurtleague.de/api/v0/system/is_live"
 
 # An older engine REFUSES the create rather than ignoring `start_interval:`, and `--force-recreate`
 # has stopped what was running by then — so preflight asks, rather than the deploy.
@@ -82,8 +86,8 @@ service_cid() {
   docker compose -f "$COMPOSE" ps -q "$1" 2>/dev/null
 }
 
-# Answers 2 where compose could not be asked at all, which a caller has to be able to tell from a
-# definite "the edge is not serving this build".
+# Answers 2 wherever the edge's state could not be ESTABLISHED -- compose declining to answer, or to
+# act -- which a caller has to be able to tell from a definite "the edge is not serving this build".
 serve_through_nginx() {
   local before after rc=0
   before="$(service_cid nginx)" || rc=$?
@@ -96,9 +100,11 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   # Everything recreating the application pair left alone: an nginx that was not running, a change to
   # its own service definition, and a container belonging to no service this compose file defines.
   if ! quietly docker compose -f "$COMPOSE" up -d --remove-orphans; then
-    warn "compose could not bring the rest of the stack up, so nginx is not confirmed to be serving
-this build. Its own output is above."
-    return 1
+    # A compose that could not act is not a problem the run survives: nothing below it ran, so the
+    # edge is unreloaded and unread, and `warn` would close that green (`docs/ops/spec.md` §1.7).
+    warn "compose could not bring the rest of the stack up, so nothing here says whether nginx is even
+running, let alone serving this build. It was NOT reloaded. Its own output is above."
+    return 2
   fi
   after="$(service_cid nginx)" || after=""
   if [[ -z "$after" ]]; then
@@ -115,13 +121,27 @@ this build. Its own output is above."
   # nginx resolves `frontend` and `backend` once, as it loads its configuration: the proxy_pass names
   # in `nginx/prod.conf` are plain, so a container recreated at a new address is invisible to a proxy
   # that kept running, and only a reload re-resolves them.
-  if ! quietly docker compose -f "$COMPOSE" exec -T nginx nginx -t; then
-    # A reload with an unparseable file leaves the master serving the configuration it already had
-    # and says so in nginx's log alone, so the signal on its own would prove nothing.
-    fail "nginx rejects the configuration it has mounted, so it was NOT reloaded and is still
+  local test_out="" test_rc=0
+  # A reload with an unparseable file leaves the master serving the configuration it already had and
+  # says so in nginx's log alone, so the signal on its own would prove nothing.
+  test_out="$(docker compose -f "$COMPOSE" exec -T nginx nginx -t 2>&1)" || test_rc=$?
+  # Replayed rather than streamed, so `--verbose` still shows what the tool said (`docs/ops/spec.md`
+  # §1.7); the verdict below needs the bytes, which `quietly` discards under exactly that flag.
+  if [[ -n "$test_out" ]] && { (( test_rc )) || verbose; }; then printf '%s\n' "$test_out" | detail; fi
+  if (( test_rc )); then
+    # The verdict is nginx's own sentence, never the status: `exec` answers 1 for a config nginx
+    # rejected and for an exec that never reached it alike.
+    if [[ "$test_out" == *"test failed"* ]]; then
+      fail "nginx rejects the configuration it has mounted, so it was NOT reloaded and is still
 proxying to the addresses of the containers this deploy replaced. Its own output is above."
-    detail "Fix nginx/prod.conf, then:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
-    return 1
+      detail "Fix nginx/prod.conf, then:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
+      return 1
+    fi
+    warn "nginx could not be asked to test its configuration (exit ${test_rc}), and nothing above is
+nginx's own verdict on it, so this says nothing about nginx/prod.conf. It was NOT reloaded either
+way, so it may still be proxying to the addresses of the containers this deploy replaced."
+    detail "Ask it yourself:  docker compose -f ${COMPOSE} exec -T nginx nginx -t"
+    return 2
   fi
   if ! quietly docker compose -f "$COMPOSE" exec -T nginx nginx -s reload; then
     fail "nginx could not be reloaded, so it is still proxying to the addresses of the containers this
@@ -136,7 +156,7 @@ deploy replaced and every request through it answers 502."
 # Called only with both previous image ids held: a rollback restoring one service and not the other
 # leaves the mismatched pair `--status` refuses to call live.
 roll_back() { # $1 how the build being restored is named on screen
-  local name="$1" tag_rc=0 up_rc=0 healthy=1
+  local name="$1" tag_rc=0 up_rc=0 healthy=1 edge_rc=0
   step "Rolling back to ${name}"
   quietly docker tag "$PREV_FE_IMG" "$IMAGE_FRONTEND" || tag_rc=1
   quietly docker tag "$PREV_BE_IMG" "$IMAGE_BACKEND"  || tag_rc=1
@@ -160,7 +180,10 @@ so the site is down. Compose's own output is above."
     detail "Both services' logs:  docker compose -f ${COMPOSE} logs frontend backend"
     return 1
   fi
-  serve_through_nginx || return 1
+  # Passed up rather than folded into 1: 2 is "the edge's state could not be established", and a
+  # caller told the restored build is not being served has been told something nothing here knows.
+  serve_through_nginx || edge_rc=$?
+  if (( edge_rc )); then return "$edge_rc"; fi
   # Not "the site is back", which neither read above establishes: the edge is answered by --status.
   ok "rolled back — ${name} is healthy again and nginx is proxying to it"
   return 0
@@ -223,6 +246,23 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   if [[ -n "$RUNNING_FE" && -n "$RUNNING_BE" && "$RUNNING_FE" != "$RUNNING_BE" ]]; then
     fail "the two services are running different builds: frontend ${RUNNING_FE}, backend ${RUNNING_BE}.
 Deploy the build both packages have:  ./scripts/deploy.sh ${RUNNING_BE}"
+  fi
+
+  step "The site, as the internet reaches it"
+  # Every row above is read from a container, and nginx resolves its upstreams once as it loads: a
+  # healthy pair says nothing about whether the edge is still pointed at it. This asks the edge.
+  status_code="$(curl -s -o /dev/null -w '%{http_code}' --max-redirs 0 --max-time 10 "$PROBE_URL" 2>/dev/null || true)"
+  if [[ "$status_code" == "200" ]]; then
+    ok "the edge answers the liveness probe"
+  elif [[ -z "$status_code" ]]; then
+    # An advisory, not the refusal below, which speaks for the container rows: those are complete
+    # and are what a registry is pruned from, whether or not this host can reach its own front door.
+    warn "curl reached no HTTP status at all, which is not the same as the site being down: this
+host's own DNS, egress or TLS trust sits between the two. Ask from somewhere else before acting."
+  else
+    fail "the edge answered ${PROBE_URL} with ${status_code}, not 200, so whatever is running above is
+not what a visitor is being served."
+    detail "Reload the edge:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
   fi
 
   step "Published builds available to roll back to"
@@ -449,9 +489,13 @@ if (( ! HEALTHY && ! UP_RC )); then
   service_cid backend  >/dev/null || ASK_RC=$?
   service_cid frontend >/dev/null || ASK_RC=$?
   if (( ASK_RC )); then
+    # Nothing is rolled back from here even where preflight held a target: putting a build back acts
+    # on a verdict about the new one, and this run reached none.
     refuse "compose cannot be asked about this stack (exit ${ASK_RC}), so nothing here says whether
 the new version is healthy — and the containers WERE recreated, so the site's state is unknown too.
-Ask it directly:  docker compose -f ${COMPOSE} ps"
+No rollback runs on that: it would be undoing a build nothing here has judged.
+Ask it directly:  docker compose -f ${COMPOSE} ps
+Then, if the new build turns out to be the problem:  ./scripts/deploy.sh ${PREV_PIN:-<a published tag>}"
   fi
 fi
 
@@ -461,14 +505,16 @@ if (( HEALTHY )); then
   section "checks"
   SITE_VERIFIED=1
 
-  # First, because both checks below read the site THROUGH it: nginx was left running across the swap
-  # and is still holding the addresses of the containers this deploy replaced until it reloads.
+  # First, and the two checks below are what prove it landed: `nginx -s reload` returns 0 when the
+  # signal is sent, not when the master has applied anything. Both of those read the site through
+  # this edge.
   step "nginx"
   EDGE_RC=0
   serve_through_nginx || EDGE_RC=$?
   if (( EDGE_RC == 2 )); then
-    refuse "compose cannot be asked about nginx, so nothing here establishes that the site serves this
-build — and the application containers WERE recreated.
+    refuse "the edge's state could not be established — the line above says what compose declined to
+answer or to do — so nothing here says that the site serves this build, and the application
+containers WERE recreated.
 Ask it directly:  docker compose -f ${COMPOSE} ps"
   elif (( EDGE_RC )); then
     SITE_VERIFIED=0
@@ -488,8 +534,7 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   # monitor 404 or 400 (docs/ops/spec.md I13). The version is spelled here -- §4 names the sites a
   # version left behind breaks.
   step "The liveness probe, through the edge"
-  probe_url="https://frankfurtleague.de/api/v0/system/is_live"
-  probe_code="$(curl -s -o /dev/null -w '%{http_code}' --max-redirs 0 --max-time 10 "$probe_url" 2>/dev/null || true)"
+  probe_code="$(curl -s -o /dev/null -w '%{http_code}' --max-redirs 0 --max-time 10 "$PROBE_URL" 2>/dev/null || true)"
   if [[ "$probe_code" == "200" ]]; then
     ok "the edge answers it"
   else
@@ -512,9 +557,13 @@ else
          "If a log above says 'Invalid environment variables: <NAMES>', that is the startup gate" \
          "doing its job: fix those names in the .env file and run this script again."
   if (( ROLLBACK_READY )); then
-    # `|| true`, because the rollback's own failures are already findings and this path has more to
-    # say after them.
-    roll_back "${PREV_PIN:-the build that was running before this deploy}" || true
+    # Read rather than discarded: the rollback's own failures are already findings, but its 2 says
+    # the restored build's edge could not be established, which no finding above it states.
+    RB_RC=0
+    roll_back "${PREV_PIN:-the build that was running before this deploy}" || RB_RC=$?
+    if (( RB_RC == 2 )); then
+      detail "" "The restored pair is healthy, but nothing here establishes that the edge is serving it."
+    fi
     detail "" "What is live:  ./scripts/deploy.sh --status"
   else
     detail "" "This deploy recorded no rollback target, so nothing here can put a previous build back." \
