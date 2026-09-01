@@ -84,11 +84,17 @@ trap gate_exit EXIT
 
 if (( RUN_OPS || RUN_IMAGES )); then
   OPS_SCRATCH=""
-  # The tag carries the pid of whichever process opened the run and travels down to its units, so
-  # the image one builds is the image another runs and removes. Under a fixed tag a concurrent run
-  # would delete them, and `-f` asks no questions.
-  VERIFY_TAG="${VERIFY_TAG:-frankfurtleague-verify-$$}"
-  export VERIFY_TAG
+  # The tag carries the pid of the process that opened the run, so the image one unit builds is the
+  # one another runs and removes. Never the caller's own value: `cleanup` force-deletes whatever it
+  # names, and a shared tag names a concurrent run's images.
+  if worker || step_worker; then
+    # No apostrophe in the message: a single quote inside `${var:?word}` opens a quoted run that
+    # swallows the rest of the file, and `bash -n` then blames a line far below this one.
+    : "${VERIFY_TAG:?the parent hands a unit the run tag, which no unit may invent}"
+  else
+    VERIFY_TAG="frankfurtleague-verify-$$"
+    export VERIFY_TAG
+  fi
   cleanup() {
     # Guarded by the scope that created it: these two run as separate processes, so unguarded,
     # whichever finished first reaches the other's certificate or its image. `|| true` for the
@@ -220,7 +226,7 @@ if (( SERIAL || VERBOSE )); then STEP_JOBS=0; fi
 PARALLEL=1
 if (( SERIAL || VERBOSE )) || worker || [[ -n "${CI:-}" ]] || (( ${#SCOPE_ORDER[@]} < 2 )); then PARALLEL=0; fi
 
-POOL_PY=""; POOL_BASH=""
+POOL_PY=""; POOL_BASH=""; POOL_FALLBACK=0
 if (( PARALLEL || STEP_JOBS )); then
   # The floor is asked of the kernel rather than restated here, so one file owns it: a python too
   # old to import the kernel is too old to run the pool. With none, both forms fall back to the
@@ -228,7 +234,10 @@ if (( PARALLEL || STEP_JOBS )); then
   POOL_PY="$(any_python || true)"
   if [[ -z "$POOL_PY" ]] \
     || ! "$POOL_PY" -c "import sys; sys.path.insert(0, 'scripts'); import checker_kernel" >/dev/null 2>&1; then
-    PARALLEL=0; STEP_JOBS=0
+    # Reported below rather than taken quietly: the fallback proves the same thing at the cost of
+    # the sum rather than the longest, and a run nothing tells apart is one whose wall clock
+    # nobody can account for.
+    PARALLEL=0; STEP_JOBS=0; POOL_FALLBACK=1
   else
     # The parent's own shell, spelled the way a Windows python can launch it. `cygpath` does not
     # exist on Linux, where `$BASH` is already an absolute path python can use.
@@ -258,10 +267,12 @@ pool_add_step() { # $1 check · $2 the scope flag the run carrying its body is g
 }
 
 pool_wait() { # $1 merge each unit's two streams? · $2 the spinner's label
-  local rc=0 name status began ended want=0 seen=0
+  local rc=0 name status began ended missing=""
+  local -a want=()
   local -a pool_cmd=("$POOL_PY" scripts/gate_pool.py --dir "$POOL_DIR" --units "${POOL_DIR}/units.tsv")
   if (( $1 )); then pool_cmd+=(--merge); fi
-  while IFS= read -r name; do want=$(( want + 1 )); done < "${POOL_DIR}/units.tsv"
+  # The name is the row's first field, which is what the manifest answers under.
+  while IFS= read -r name; do want+=("${name%%$'\t'*}"); done < "${POOL_DIR}/units.tsv"
   # The parent spins for the whole pool: a unit's own spinner is dead, its stdout being a file,
   # and this is the one stretch of a run where nothing prints for a minute.
   spinner_start "$2"
@@ -279,12 +290,16 @@ pool_wait() { # $1 merge each unit's two streams? · $2 the spinner's label
   while IFS=$'\t' read -r name status began ended; do
     UNIT_STATUS["$name"]="$status"
     UNIT_MS["$name"]=$(( ended - began ))
-    seen=$(( seen + 1 ))
   done < "${POOL_DIR}/manifest.tsv"
-  # The set, before any one unit's status is read: a manifest short a row would otherwise surface
-  # only as whichever unit happens to be replayed, and not at all for one nothing replays.
-  (( seen == want )) \
-    || on_error 3 "${BASH_LINENO[0]}" "scripts/gate_pool.py returned ${seen} result(s) for ${want} unit(s)"
+  # The names, before any one unit's status is read: a row under the wrong name counts, so a count
+  # alone leaves that unit's status unset -- which surfaces only as whichever unit happens to be
+  # replayed, and not at all for one nothing replays.
+  for name in "${want[@]}"; do
+    if [[ -z "${UNIT_STATUS[$name]+set}" ]]; then missing+=" ${name}"; fi
+  done
+  if [[ -n "$missing" ]] || (( ${#UNIT_STATUS[@]} != ${#want[@]} )); then
+    on_error 3 "${BASH_LINENO[0]}" "scripts/gate_pool.py answered for ${#UNIT_STATUS[@]} of ${#want[@]} unit(s)${missing:+, and for none of:${missing}}"
+  fi
 }
 
 start_steps() { # $1 the scope flag their bodies' run is given · $2.. the checks
@@ -348,6 +363,14 @@ unit_verdict() { # $1 unit · $2 the line to blame a crash on · $3 the remedy f
 if ! worker; then
   section scope
   info "this run covers: ${SCOPES_RAN% }"
+
+  # Named where the run is described, not where the pool would have started: by then the scopes are
+  # already running, and this is a fact about the whole run.
+  if (( POOL_FALLBACK )); then
+    info "no python at the checkers' floor (\`scripts/checker_kernel.py :: PYTHON_FLOOR\`), so every
+scope and every check runs one at a time — the same proof, at the cost of their sum rather than
+their longest. \`cd fl_backend && uv sync --dev\` creates an interpreter that meets it."
+  fi
 
   # Skipped in CI, where the scopes are separate jobs and the mapping comes from paths rather than
   # being typed: one job would fail for a scope another job is running.

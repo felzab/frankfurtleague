@@ -12,14 +12,17 @@ none says the same thing whichever it was.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import re
+import signal
 import subprocess
 import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import FrameType
 from typing import IO, Final
 
 from checker_kernel import EXIT_INTERRUPTED, EXIT_OK, run
@@ -29,6 +32,10 @@ from checker_kernel import EXIT_INTERRUPTED, EXIT_OK, run
 NOT_STARTED: Final = "not-started"
 
 MANIFEST: Final = "manifest.tsv"
+
+# How often the caller is looked for. A unit runs for seconds or minutes, so a second's grace costs
+# nothing beside a build that would otherwise run to its end for a reader who has gone.
+CALLER_POLL_S: Final = 1.0
 
 # `env`'s own convention, so one units file carries a command and the environment it needs without
 # a second column shape to read.
@@ -47,6 +54,14 @@ TYPICAL_MS: Final[dict[str, int]] = {
     "images": 8_000,
     "ops": 2_400,
 }
+
+
+class Terminated(BaseException):
+    """The run was asked to stop, by a signal or by its caller leaving.
+
+    Not an `Exception`: `checker_kernel.py :: run` answers one with a traceback and the crash
+    status, and a run told to stop has crashed nothing.
+    """
 
 
 @dataclass(frozen=True)
@@ -80,6 +95,13 @@ class Pool:
     slots: threading.Semaphore
     results: dict[str, Result] = field(default_factory=dict)
     futures: dict[str, Future[None]] = field(default_factory=dict)
+    # What is running right now, so the run can be ended rather than only waited out. Locked
+    # because a thread registers its own child while another is being asked to stop.
+    live: dict[str, subprocess.Popen[bytes]] = field(default_factory=dict)
+    live_lock: threading.Lock = field(default_factory=threading.Lock)
+    # Set once the run is being ended: under a `--width` below the unit count a queued unit would
+    # otherwise take a freed slot and start a build for a caller that has gone.
+    stopping: bool = False
     started: float = 0.0
 
     def elapsed_ms(self) -> int:
@@ -144,7 +166,13 @@ def spawn(pool: Pool, unit: Unit) -> int:
                 stderr=err,
                 env=environment,
             )
-            return child.wait()
+            with pool.live_lock:
+                pool.live[unit.name] = child
+            try:
+                return child.wait()
+            finally:
+                with pool.live_lock:
+                    pool.live.pop(unit.name, None)
         finally:
             if err is not out:
                 err.close()
@@ -153,12 +181,52 @@ def spawn(pool: Pool, unit: Unit) -> int:
 def run_unit(pool: Pool, unit: Unit) -> None:
     """Take a slot, run the unit, record what it returned and when."""
     with pool.slots:
+        # `NOT_STARTED` is then the truth about this unit, and the caller reads it as one that
+        # reached no verdict -- which is what a run cut short before its turn did.
+        if pool.stopping:
+            return
         result = pool.results[unit.name]
         result.started_ms = pool.elapsed_ms()
         try:
             result.status = str(spawn(pool, unit))
         finally:
             result.ended_ms = pool.elapsed_ms()
+
+
+def terminate(pool: Pool) -> None:
+    """End the run: no unit outlives the pool, and none behind it starts.
+
+    Signalled rather than killed: a unit is a `verify.sh` run whose own trap reclaims the scratch it
+    made, and a killed one strands a certificate or a built image.
+    """
+    with pool.live_lock:
+        pool.stopping = True
+        children = list(pool.live.values())
+    for child in children:
+        # Gone between the snapshot and here is the ordinary case, not a fault.
+        with contextlib.suppress(OSError):
+            child.terminate()
+
+
+def watch_caller(pool: Pool, caller: int, stop: threading.Event) -> None:
+    """End the run once the process that asked for it is gone.
+
+    Nothing else would: the caller runs this pool as a FOREGROUND child, so bash holds a signal's
+    trap until that child returns -- which is the whole build the trap existed to cut short.
+    """
+    while not stop.wait(CALLER_POLL_S):
+        if os.getppid() != caller:
+            terminate(pool)
+            return
+
+
+def stop_on_signal(number: int, frame: FrameType | None) -> None:
+    """Turn a SIGTERM into an unwind in the main thread, which is where the units are stopped.
+
+    Nothing is touched here: a handler runs on whichever line the main thread had reached, and the
+    lock the units are registered under may be held on it.
+    """
+    raise Terminated
 
 
 def write_manifest(pool: Pool, units: list[Unit]) -> None:
@@ -194,18 +262,34 @@ def main() -> int:
         started=time.monotonic(),
     )
 
+    # Both only where a handler can run: on Windows a terminate is `TerminateProcess`, which no
+    # handler sees, and `getppid` names a creator whose pid outlives it and can be reused.
+    watched = threading.Event()
+    if os.name == "posix":
+        signal.signal(signal.SIGTERM, stop_on_signal)
+        threading.Thread(target=watch_caller, args=(pool, os.getppid(), watched), daemon=True).start()
+
     try:
         with ThreadPoolExecutor(max_workers=len(units)) as threads:
-            for unit in submission:
-                pool.futures[unit.name] = threads.submit(run_unit, pool, unit)
-            for unit in submission:
-                pool.futures[unit.name].result()
+            try:
+                for unit in submission:
+                    pool.futures[unit.name] = threads.submit(run_unit, pool, unit)
+                for unit in submission:
+                    pool.futures[unit.name].result()
+            except Terminated:
+                # Before the executor is joined rather than after: that join waits on every thread,
+                # and a thread waiting on a build would hold the stop until the build finished.
+                terminate(pool)
+                raise
     except KeyboardInterrupt:
         # Ctrl-C already reached every unit through the process group, and each is winding down
         # through its own trap: returning first strands a half-built image, or the throwaway
         # certificate the nginx check writes under the repo root.
         return EXIT_INTERRUPTED
+    except Terminated:
+        return EXIT_INTERRUPTED
     finally:
+        watched.set()
         # Written even when a unit's thread raised: without the manifest a crash here reads as a
         # gate that proved nothing, rather than one that proved what it got through.
         write_manifest(pool, units)
