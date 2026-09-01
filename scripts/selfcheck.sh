@@ -1039,7 +1039,11 @@ else
     probe "$hc" allowed cmd 'docker compose --file=docker-compose.local.yml up' 'compose guard: the long flag spelling'
     probe "$hc" allowed cmd 'docker ps'                                        'compose guard: not compose at all'
     probe "$hc" allowed cmd 'grep -rn "docker compose" docs'                   'compose guard: a mention is not an invocation'
-    probe "$hc" allowed cmd "$(printf 'cat <<EOF\nDrive local Docker only through ./scripts/local.sh, never bare docker compose\nEOF')" 'compose guard: a heredoc stating the rule'
+    # A heredoc body is data the shell never runs — which is a fact about `cat`, not about the
+    # heredoc. `sh` runs what arrives, so the two halves are pinned apart.
+    probe "$hc" allowed cmd "$(printf 'cat <<EOF\nDrive local Docker only through ./scripts/local.sh, never bare docker compose\nEOF')" 'compose guard: a heredoc into a program that runs neither an argument nor its input'
+    probe "$hc" denied  cmd "$(printf 'sh <<EOF\ndocker compose config\nEOF')" 'compose guard: a heredoc into an interpreter'
+    probe "$hc" denied  cmd "$(printf "bash <<'X'\ndocker compose up -d\nX")" 'compose guard: a quoted heredoc into an interpreter'
 
     # `config` resolves every env_file into the rendered environment block, so it PRINTS
     # ./fl_backend/.env, and -o saves it anywhere. It refuses whichever file is named: consent to a
@@ -1087,6 +1091,20 @@ else
     probe "$hc" denied  cmd 'xargs docker compose up -d'                      'compose guard: behind xargs'
     probe "$hc" denied  cmd 'echo up -d | xargs docker compose'               'compose guard: the subcommand arriving on stdin'
     probe "$hc" denied  cmd '/c/Program Files/Docker/docker compose up -d'    'compose guard: a program path holding a space'
+    # Each of these hands a segment its input, so the invocation is in what arrives rather than
+    # in this payload, and the receiving segment's own words prove nothing about it.
+    probe "$hc" denied  cmd "echo 'docker compose config' | sh"               'compose guard: the command arriving down a pipe'
+    probe "$hc" denied  cmd "printf 'docker compose up -d' |& bash"           'compose guard: a pipe carrying stderr with it'
+    probe "$hc" denied  cmd "sh < <(printf 'docker compose config')"          'compose guard: a process substitution'
+    probe "$hc" denied  cmd "sh <<<'docker compose config'"                   'compose guard: a here-string'
+    probe "$hc" allowed cmd 'docker compose logs -f backend | grep error'     'compose guard: a read piped into a program that cannot run it'
+    probe "$hc" allowed cmd 'docker compose ps || echo none'                  'compose guard: an or-list separates rather than feeds'
+    # Dev is Windows, where the program word and its extension are both case-insensitive: each
+    # of these runs there, and a byte comparison released every one.
+    probe "$hc" denied  cmd 'DOCKER compose config'                           'compose guard: the uppercase program spelling'
+    probe "$hc" denied  cmd 'docker.EXE compose config'                       'compose guard: an uppercase executable extension'
+    probe "$hc" denied  cmd 'Docker Compose up -d'                            'compose guard: a mixed-case invocation'
+    probe "$hc" allowed cmd 'docker.Exe compose ps'                           'compose guard: a case-folded read is still a read'
     # A substitution spells any program and any file name, so it is answered rather than parsed.
     # The literals are the point here — expanding one would probe a different command.
     # shellcheck disable=SC2016

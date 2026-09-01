@@ -12,12 +12,14 @@
 # A subcommand that only reads is released against either file. An unrecognised subcommand refuses:
 # the list below is closed, and a compose release adding a verb must not open a hole by doing so. A
 # segment naming docker whose PROGRAM this hook cannot place refuses on the same ground — an
-# unrecognised leading word means "cannot tell", never "not docker".
+# unrecognised leading word means "cannot tell", never "not docker". A segment FED by a pipe, a
+# heredoc or a redirection refuses on it too unless its program can run neither an argument nor its
+# input: the invocation then arrives in text this payload never carries.
 
 deny() {
   # The backticks are Markdown in the refusal copy, not substitution.
   # shellcheck disable=SC2016
-  printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: this compose subcommand creates, starts, stops or enters a container, and with no -f naming docker-compose.local.yml it reads docker-compose.yml — the PRODUCTION definition, whose env_file is ./fl_backend/.env. The stack would come up wired to the production database. Local work goes through ./scripts/local.sh — `--down` to stop, `--fresh` to drop volumes, `--logs` to follow; to drive compose directly pass -f docker-compose.local.yml, spelled bare or as ./docker-compose.local.yml, and name no other file beside it. Reading is already allowed against either file: ps, logs, images, ls, port, top, stats, events, volumes and version all run unrefused. This hook refuses rather than guessing whenever it cannot read the command — an unrecognised subcommand, a program name it cannot place, a substitution, or a payload it could not parse."}}'
+  printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: this compose subcommand creates, starts, stops or enters a container, and with no -f naming docker-compose.local.yml it reads docker-compose.yml — the PRODUCTION definition, whose env_file is ./fl_backend/.env. The stack would come up wired to the production database. Local work goes through ./scripts/local.sh — `--down` to stop, `--fresh` to drop volumes, `--logs` to follow; to drive compose directly pass -f docker-compose.local.yml, spelled bare or as ./docker-compose.local.yml, and name no other file beside it. Reading is already allowed against either file: ps, logs, images, ls, port, top, stats, events, volumes and version all run unrefused. This hook refuses rather than guessing whenever it cannot read the command — an unrecognised subcommand, a program name it cannot place, a program handed its input by a pipe, a heredoc or a redirection, a substitution, or a payload it could not parse."}}'
   exit 0
 }
 
@@ -50,10 +52,12 @@ read_status=$?
 [ -n "$cmd" ] || exit 0
 
 # Release-only early out, read off a string the shell's own escaping has come off: `doc"ker"` and
-# `\docker` both run docker, and testing the raw payload reads neither as the word.
+# `\docker` both run docker, and testing the raw payload reads neither as the word. Case-folded
+# with it: the dev machine is Windows, where `DOCKER compose` runs.
 bare="${cmd//\"/}"
 bare="${bare//\'/}"
 bare="${bare//\\/}"
+bare="${bare,,}"
 case "$bare" in
   *docker*) ;;
   *) exit 0 ;;
@@ -111,7 +115,17 @@ while [ "$index" -lt "${#scan}" ]; do
       # A `#` opens a comment only where a word opens, which is what keeps `a#b` a word.
       '#') case "$prev" in "" | " " | $'\t' | $'\n') comment=1; char="" ;; esac ;;
       \\) char="" ;;
-      ';' | '|' | '&' | '(' | ')' | '{' | '}' | '`') char=$'\n' ;;
+      # A pipe hands the NEXT segment its input, so \001 opens that segment: `|&` pipes
+      # as well, while `||` separates like the rest and marks nothing.
+      '|')
+        if [ "${scan:index+1:1}" = '|' ] || [ "$prev" = '|' ]; then
+          char=$'\n'
+        else
+          char=$'\n\001 '
+        fi
+        ;;
+      '&') if [ "$prev" = '|' ]; then char=""; else char=$'\n'; fi ;;
+      ';' | '(' | ')' | '{' | '}' | '`') char=$'\n' ;;
     esac
   fi
   segments="${segments}${char}"
@@ -123,9 +137,9 @@ done
 # it, so the program is the next docker word rather than the next word: `sudo -u root docker`,
 # `nice -n 5 docker` and `timeout 5 docker` all run docker.
 PREFIXES=" command env exec ionice nice nohup setsid stdbuf sudo time timeout "
-# Programs that cannot run an argument, so a docker word among theirs is text rather than a command.
-# Closed and short: anything able to execute one — an interpreter, xargs, find, git, sed, awk — is
-# outside it and lands on the refusal below instead.
+# Programs that run neither an argument nor their input, so a docker word reaching one — written or
+# piped — is text rather than a command. Closed and short: anything able to execute either — an
+# interpreter, xargs, find, git, sed, awk — is outside it and lands on the refusal below instead.
 INERT=" cat echo egrep fgrep grep head ls printf rg tail wc "
 # Subcommands that read and mutate nothing. Closed by design: a verb a later release adds refuses
 # until someone reads its flags. `wait` is out because --down-project drops the project; `config`
@@ -133,6 +147,13 @@ INERT=" cat echo egrep fgrep grep head ls printf rg tail wc "
 READS=" events images logs ls port ps stats top version volumes "
 
 while IFS= read -r seg; do
+  # Fed by a pipe (\001), or by a heredoc, a here-string, a process substitution or a file — each
+  # of which spells `<`. What such a segment runs is not in this payload.
+  receives=0
+  case "$seg" in
+    *$'\001'* | *'<'*) receives=1 ;;
+  esac
+  seg="${seg//$'\001'/ }"
   read -ra words <<<"$seg"
   count="${#words[@]}"
   [ "$count" -gt 0 ] || continue
@@ -145,7 +166,9 @@ while IFS= read -r seg; do
       *'$'*) deny ;;
       [A-Za-z_]*=*) i=$((i + 1)) ;;
       *)
+        # Case-folded before the extension comes off, because Windows runs `DOCKER.EXE`.
         base="${words[$i]##*/}"
+        base="${base,,}"
         base="${base%.exe}"
         case "$PREFIXES" in
           *" $base "*)
@@ -160,17 +183,22 @@ while IFS= read -r seg; do
   [ "$i" -lt "$count" ] || continue
 
   prog="${words[$i]##*/}"
+  prog="${prog,,}"
   prog="${prog%.exe}"
   case "$INERT" in
     *" $prog "*) continue ;;
   esac
 
   if [ "$prog" != "docker" ] && [ "$prog" != "docker-compose" ]; then
+    # Handed its input, this program runs text the payload does not carry, so no docker word among
+    # its arguments proves anything. The inert list above is what places one, and it is past.
+    [ "$receives" = "0" ] || deny
     # Past a prefix the program is the next docker word; with no prefix, an unplaceable program
     # sharing a segment with one means "cannot tell", and guessing released every such spelling.
     j="$i"
     while [ "$j" -lt "$count" ]; do
       base="${words[$j]##*/}"
+      base="${base,,}"
       base="${base%.exe}"
       case "$base" in
         docker | docker-compose)
@@ -183,12 +211,15 @@ while IFS= read -r seg; do
     [ "$j" -lt "$count" ] || continue
     i="$j"
     prog="${words[$i]##*/}"
+    prog="${prog,,}"
     prog="${prog%.exe}"
   fi
 
   if [ "$prog" = "docker" ]; then
-    # `docker ps` and `docker run` are the plain CLI, which this hook does not speak for.
-    [ "${words[$((i + 1))]:-}" = "compose" ] || continue
+    # `docker ps` and `docker run` are the plain CLI, which this hook does not speak for. The word
+    # is folded like the program: a spelling this hook cannot place is not one it releases.
+    verb="${words[$((i + 1))]:-}"
+    [ "${verb,,}" = "compose" ] || continue
     i=$((i + 2))
   else
     i=$((i + 1))
