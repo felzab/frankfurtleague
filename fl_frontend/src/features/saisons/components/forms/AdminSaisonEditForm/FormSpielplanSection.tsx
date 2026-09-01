@@ -406,7 +406,7 @@ export function FormSpielplanSection({
                 ? "Die Spieltage und Spiele oben werden dabei gelöscht. Es gibt in der Verwaltung keinen Weg zurück."
                 : saisonStatus === "future"
                   ? "Zurücknehmen lässt sich der Spielplan danach wieder hier, solange die Saison geplant ist und zu keinem ihrer Spiele etwas eingetragen wurde."
-                  : "Zurücknehmen lässt sich ein Spielplan nur in einer geplanten Saison, und diese läuft bereits. Es gibt in der Verwaltung keinen Weg zurück."}
+                  : "Zurücknehmen lässt sich ein Spielplan nur in einer geplanten Saison, und diese läuft schon. Es gibt in der Verwaltung keinen Weg zurück."}
             </p>
           </ConfirmReveal>
         )}
