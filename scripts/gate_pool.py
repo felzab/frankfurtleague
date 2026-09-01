@@ -17,6 +17,7 @@ import os
 import re
 import signal
 import subprocess
+import sys
 import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -32,6 +33,11 @@ from checker_kernel import EXIT_INTERRUPTED, EXIT_OK, run
 NOT_STARTED: Final = "not-started"
 
 MANIFEST: Final = "manifest.tsv"
+
+# Neither way of ending a run means anything off POSIX: a terminate there runs no handler, and
+# `getppid` names a creator whose pid is reused. `terminate` spells it as `sys.platform`, the
+# only form pyright narrows on.
+POSIX: Final = sys.platform != "win32"
 
 # How often the caller is looked for. A unit runs for seconds or minutes, so a second's grace costs
 # nothing beside a build that would otherwise run to its end for a reader who has gone.
@@ -165,6 +171,10 @@ def spawn(pool: Pool, unit: Unit) -> int:
                 stdout=out,
                 stderr=err,
                 env=environment,
+                # A session of its own, so `terminate` reaches the build and not just the bash
+                # holding it: the trap runs the moment bash is signalled, and its foreground child
+                # neither hears that signal nor is waited for. Windows ignores the argument.
+                start_new_session=True,
             )
             with pool.live_lock:
                 pool.live[unit.name] = child
@@ -196,8 +206,8 @@ def run_unit(pool: Pool, unit: Unit) -> None:
 def terminate(pool: Pool) -> None:
     """End the run: no unit outlives the pool, and none behind it starts.
 
-    Signalled rather than killed: a unit is a `verify.sh` run whose own trap reclaims the scratch it
-    made, and a killed one strands a certificate or a built image.
+    Signalled by GROUP, not killed: a unit is a bash whose trap reclaims its scratch and fires at
+    once, while the build it waited on runs on orphaned into scratch already reclaimed.
     """
     with pool.live_lock:
         pool.stopping = True
@@ -205,7 +215,10 @@ def terminate(pool: Pool) -> None:
     for child in children:
         # Gone between the snapshot and here is the ordinary case, not a fault.
         with contextlib.suppress(OSError):
-            child.terminate()
+            if sys.platform == "win32":
+                child.terminate()
+            else:
+                os.killpg(child.pid, signal.SIGTERM)
 
 
 def watch_caller(pool: Pool, caller: int, stop: threading.Event) -> None:
@@ -227,6 +240,47 @@ def stop_on_signal(number: int, frame: FrameType | None) -> None:
     lock the units are registered under may be held on it.
     """
     raise Terminated
+
+
+def arm(pool: Pool, stop: threading.Event) -> None:
+    """Install both ways a run can be ended before its units are done.
+
+    Off POSIX neither can be, so neither is installed and the run is only ever waited out --
+    the reason is on `POSIX`.
+    """
+    if not POSIX:
+        return
+    signal.signal(signal.SIGTERM, stop_on_signal)
+    threading.Thread(target=watch_caller, args=(pool, os.getppid(), stop), daemon=True).start()
+
+
+def drive(pool: Pool, submission: list[Unit]) -> int:
+    """Run every unit, and end them all rather than wait them out once told to stop.
+
+    A unit has a session of its own, so a Ctrl-C reaches this process and none of them: the
+    interrupt is answered here beside the signal, or every unit runs on unheard.
+    """
+    try:
+        with ThreadPoolExecutor(max_workers=len(submission)) as threads:
+            try:
+                for unit in submission:
+                    pool.futures[unit.name] = threads.submit(run_unit, pool, unit)
+                for unit in submission:
+                    pool.futures[unit.name].result()
+            except KeyboardInterrupt:
+                # A unit has a session of its own, so a Ctrl-C reaches this process and none of
+                # them. Its own clause because `checker_kernel.py :: PARSE_FLOOR` predates the
+                # unparenthesised pair, and ruff's formatter takes the parentheses off.
+                terminate(pool)
+                raise Terminated from None
+            except Terminated:
+                # Before the executor is joined rather than after: that join waits on every thread,
+                # and a thread waiting on a build would hold the stop until the build finished.
+                terminate(pool)
+                raise
+    except Terminated:
+        return EXIT_INTERRUPTED
+    return EXIT_OK
 
 
 def write_manifest(pool: Pool, units: list[Unit]) -> None:
@@ -262,38 +316,15 @@ def main() -> int:
         started=time.monotonic(),
     )
 
-    # Both only where a handler can run: on Windows a terminate is `TerminateProcess`, which no
-    # handler sees, and `getppid` names a creator whose pid outlives it and can be reused.
     watched = threading.Event()
-    if os.name == "posix":
-        signal.signal(signal.SIGTERM, stop_on_signal)
-        threading.Thread(target=watch_caller, args=(pool, os.getppid(), watched), daemon=True).start()
-
+    arm(pool, watched)
     try:
-        with ThreadPoolExecutor(max_workers=len(units)) as threads:
-            try:
-                for unit in submission:
-                    pool.futures[unit.name] = threads.submit(run_unit, pool, unit)
-                for unit in submission:
-                    pool.futures[unit.name].result()
-            except Terminated:
-                # Before the executor is joined rather than after: that join waits on every thread,
-                # and a thread waiting on a build would hold the stop until the build finished.
-                terminate(pool)
-                raise
-    except KeyboardInterrupt:
-        # Ctrl-C already reached every unit through the process group, and each is winding down
-        # through its own trap: returning first strands a half-built image, or the throwaway
-        # certificate the nginx check writes under the repo root.
-        return EXIT_INTERRUPTED
-    except Terminated:
-        return EXIT_INTERRUPTED
+        return drive(pool, submission)
     finally:
         watched.set()
         # Written even when a unit's thread raised: without the manifest a crash here reads as a
         # gate that proved nothing, rather than one that proved what it got through.
         write_manifest(pool, units)
-    return EXIT_OK
 
 
 if __name__ == "__main__":

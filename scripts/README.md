@@ -5,27 +5,27 @@ Frankfurt-League, plus the checkers the verification gate runs.
 
 ## Folder overview
 
-| Path                              | Run on        | Purpose                                                                                                                                  |
-| --------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `scripts/verify.sh`               | any           | The pre-merge gate — whole, or scoped to the surfaces touched                                                                            |
-| `scripts/local.sh`                | dev — Windows | Run the production image locally, behind nginx and a database of its own                                                                 |
-| `scripts/publish.sh`              | dev — Windows | Build both images, tag with the commit, push to ghcr.io                                                                                  |
-| `scripts/deploy.sh`               | prod — Linux  | Pull and restart in place, verify health, roll back                                                                                      |
-| `scripts/selfcheck.sh`            | any           | Test the scripts themselves                                                                                                              |
-| `scripts/ci_scopes.sh`            | any           | Map changed paths to gate scopes; the one copy CI reads                                                                                  |
-| `scripts/gate_pool.py`            | any           | The gate's units as concurrent processes, for `verify.sh` to replay                                                                      |
-| `scripts/_lib.sh`                 | —             | Shared helpers; sourced, never run directly                                                                                              |
-| `scripts/checker_kernel.py`       | —             | What every checker is built on; imported, never run directly                                                                             |
-| `scripts/check_docs.py`           | any           | The documentation gate                                                                                                                   |
-| `scripts/docs_gate/`              | —             | The documentation gate's checks, one module per seam                                                                                     |
-| `scripts/check_commits.py`        | any           | The branch's commit messages                                                                                                             |
-| `scripts/check_scope.py`          | any           | The scopes a run named, against the diff it was given                                                                                    |
-| `scripts/check_compose_mirror.py` | any           | The local stack against production, minus the differences it declares                                                                    |
-| `scripts/check_pr_body.py`        | CI only       | A pull request body, which is not in the repository                                                                                      |
-| `scripts/ts_normalize.mjs`        | any           | Whether two TypeScript files differ by anything but comments                                                                             |
-| `scripts/tests/`                  | any           | pytest over the checkers: the documentation gate, the kernel's floors, the compose mirror's port guard and the unit pool's exit statuses |
-| `scripts/ruff.toml`               | —             | ruff's configuration for the python in this folder                                                                                       |
-| `scripts/pyrightconfig.json`      | —             | pyright's configuration for the python in this folder                                                                                    |
+| Path                              | Run on        | Purpose                                                                                                                                                               |
+| --------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/verify.sh`               | any           | The pre-merge gate — whole, or scoped to the surfaces touched                                                                                                         |
+| `scripts/local.sh`                | dev — Windows | Run the production image locally, behind nginx and a database of its own                                                                                              |
+| `scripts/publish.sh`              | dev — Windows | Build both images, tag with the commit, push to ghcr.io                                                                                                               |
+| `scripts/deploy.sh`               | prod — Linux  | Pull and restart in place, verify health, roll back                                                                                                                   |
+| `scripts/selfcheck.sh`            | any           | Test the scripts themselves                                                                                                                                           |
+| `scripts/ci_scopes.sh`            | any           | Map changed paths to gate scopes; the one copy CI reads                                                                                                               |
+| `scripts/gate_pool.py`            | any           | The gate's units as concurrent processes, for `verify.sh` to replay                                                                                                   |
+| `scripts/_lib.sh`                 | —             | Shared helpers; sourced, never run directly                                                                                                                           |
+| `scripts/checker_kernel.py`       | —             | What every checker is built on; imported, never run directly                                                                                                          |
+| `scripts/check_docs.py`           | any           | The documentation gate                                                                                                                                                |
+| `scripts/docs_gate/`              | —             | The documentation gate's checks, one module per seam                                                                                                                  |
+| `scripts/check_commits.py`        | any           | The branch's commit messages                                                                                                                                          |
+| `scripts/check_scope.py`          | any           | The scopes a run named, against the diff it was given                                                                                                                 |
+| `scripts/check_compose_mirror.py` | any           | The local stack against production, minus the differences it declares                                                                                                 |
+| `scripts/check_pr_body.py`        | CI only       | A pull request body, which is not in the repository                                                                                                                   |
+| `scripts/ts_normalize.mjs`        | any           | Whether two TypeScript files differ by anything but comments                                                                                                          |
+| `scripts/tests/`                  | any           | pytest over the checkers: the documentation gate, the kernel's floors, the compose mirror's port guard, and the unit pool's exit statuses and the wiring that ends it |
+| `scripts/ruff.toml`               | —             | ruff's configuration for the python in this folder                                                                                                                    |
+| `scripts/pyrightconfig.json`      | —             | pyright's configuration for the python in this folder                                                                                                                 |
 
 **The scope table, the reasoning behind each scope, and the conventions every script shares are in
 [`../docs/ops/spec.md`](../docs/ops/spec.md)**, which also says why the tool configurations sit here

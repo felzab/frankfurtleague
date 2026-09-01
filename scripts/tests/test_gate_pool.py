@@ -1,9 +1,10 @@
-"""SCRIPTS · the pool's net: what a unit's exit status has to survive on its way back to the gate.
+"""SCRIPTS · the pool's net: a unit's exit status on its way back to the gate, and how a run ends.
 
 `scripts/gate_pool.py` is the only channel a unit's status travels, so a loss, a rename or a
-reordering here is a gate that closes green over a check that failed. Every case drives the module
-as a subprocess: `test_check_docs.py` imports a COPY of scripts/ under these same module names, and
-an import here would decide which of the two that file measures.
+reordering here is a gate that closes green over a check that failed. The wiring that ends a run
+early is held here too, because none of it runs on the machine this suite runs on. Every case
+drives the module as a subprocess: `test_check_docs.py` imports a COPY of scripts/ under these same
+module names, and an import here would decide which of the two that file measures.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ KERNEL: Final = SCRIPTS / "checker_kernel.py"
 # Lines rather than a triple-quoted block: `scripts/docs_gate/structure.py :: comment_runs` reads a
 # lone closing quote at the margin as a docstring opening, and measures the code under it as prose.
 DRIVER: Final[tuple[str, ...]] = (
+    "import os",
     "import subprocess",
     "import sys",
     "import threading",
@@ -76,6 +78,106 @@ SIGNALLED: Final[tuple[str, ...]] = (
 )
 
 
+ARMED: Final[tuple[str, ...]] = (
+    "gate_pool.POSIX = True",
+    "signals = []",
+    "started = []",
+    "gate_pool.signal.signal = lambda number, handler: signals.append((number, handler))",
+    "class FakeThread:",
+    "    def __init__(self, target=None, args=(), daemon=None):",
+    "        self.spec = (target, args, daemon)",
+    "    def start(self):",
+    "        started.append(self.spec)",
+    "gate_pool.threading.Thread = FakeThread",
+    "running = pool()",
+    "stop = threading.Event()",
+    "gate_pool.arm(running, stop)",
+    "assert signals == [(gate_pool.signal.SIGTERM, gate_pool.stop_on_signal)], signals",
+    "assert len(started) == 1, started",
+    # The caller's own pid: a watcher given any other one compares two numbers that never meet.
+    "assert started[0] == (gate_pool.watch_caller, (running, os.getppid(), stop), True), started[0]",
+)
+
+UNARMED: Final[tuple[str, ...]] = (
+    "gate_pool.POSIX = False",
+    "signals = []",
+    "started = []",
+    "gate_pool.signal.signal = lambda number, handler: signals.append((number, handler))",
+    "class FakeThread:",
+    "    def __init__(self, target=None, args=(), daemon=None):",
+    "        self.spec = (target, args, daemon)",
+    "    def start(self):",
+    "        started.append(self.spec)",
+    "gate_pool.threading.Thread = FakeThread",
+    "gate_pool.arm(pool(), threading.Event())",
+    "assert (signals, started) == ([], []), (signals, started)",
+)
+
+OWN_SESSION: Final[tuple[str, ...]] = (
+    "asked = {}",
+    "real = subprocess.Popen",
+    "def recording(command, **rest):",
+    "    asked.update(rest)",
+    "    return real(command, **rest)",
+    "gate_pool.subprocess.Popen = recording",
+    "unit = gate_pool.Unit(name='probe', environment={}, command=(sys.executable, '-c', 'raise SystemExit(3)'))",
+    "assert gate_pool.spawn(pool(), unit) == 3",
+    "assert asked.get('start_new_session') is True, asked",
+)
+
+GROUP_SIGNALLED: Final[tuple[str, ...]] = (
+    "killed = []",
+    "gate_pool.os.killpg = lambda group, number: killed.append((group, number))",
+    # The platform the module reads per call, spelt as a machine where a signal means something.
+    "gate_pool.sys.platform = 'linux'",
+    "running = pool()",
+    "child = sleeper()",
+    "running.live['unit'] = child",
+    "gate_pool.terminate(running)",
+    "assert killed == [(child.pid, gate_pool.signal.SIGTERM)], killed",
+    "child.kill()",
+    "child.wait(timeout=30)",
+)
+
+STOPPED: Final[tuple[str, ...]] = (
+    "import time",
+    "running = pool()",
+    "running.slots = threading.Semaphore(2)",
+    "raiser = gate_pool.Unit(name='raiser', environment={}, command=('never run',))",
+    "held = gate_pool.Unit(name='held', environment={}, command=(sys.executable, '-c', 'import time; time.sleep(300)'))",
+    "running.results['raiser'] = gate_pool.Result()",
+    "running.results['held'] = gate_pool.Result()",
+    "real_run_unit = gate_pool.run_unit",
+    "def interrupting(running_pool, unit):",
+    "    if unit.name != 'raiser':",
+    "        real_run_unit(running_pool, unit)",
+    "        return",
+    "    while 'held' not in running_pool.live:",
+    "        time.sleep(0.05)",
+    "    raise KeyboardInterrupt",
+    "gate_pool.run_unit = interrupting",
+    "assert gate_pool.drive(running, [raiser, held]) == gate_pool.EXIT_INTERRUPTED",
+    "assert running.results['held'].status not in ('0', gate_pool.NOT_STARTED), running.results['held'].status",
+)
+
+SCHEDULE: Final[tuple[str, ...]] = (
+    "seen = []",
+    "gate_pool.drive = lambda running, submission: seen.append((running, [unit.name for unit in submission])) or 0",
+    "units_file = Path(DIRECTORY) / 'schedule.tsv'",
+    "rows = ''.join(name + chr(9) + sys.executable + chr(10) for name in ('ops', 'db', 'frontend'))",
+    "units_file.write_bytes(rows.encode('utf-8'))",
+    "def once(*extra):",
+    "    sys.argv = ['gate_pool.py', '--dir', DIRECTORY, '--units', str(units_file), *extra]",
+    "    assert gate_pool.main() == 0",
+    "    return seen.pop()",
+    "running, order = once('--width', '2')",
+    "assert order == ['db', 'frontend', 'ops'], order",
+    "assert [running.slots.acquire(blocking=False) for _ in range(3)] == [True, True, False]",
+    "running, order = once()",
+    "assert [running.slots.acquire(blocking=False) for _ in range(4)] == [True, True, True, False]",
+)
+
+
 def _constant(path: Path, name: str) -> str:
     """A constant as its own source declares it, read rather than imported.
 
@@ -114,11 +216,15 @@ def _rows(directory: Path) -> list[list[str]]:
     return [line.split("\t") for line in raw.decode("utf-8").splitlines()]
 
 
-def _drive(snippet: tuple[str, ...], directory: Path) -> subprocess.CompletedProcess[str]:
-    """Run one case against the real module, in an interpreter of its own."""
+def _drive(snippet: tuple[str, ...], directory: Path, *, timeout: float | None = None) -> subprocess.CompletedProcess[str]:
+    """Run one case against the real module, in an interpreter of its own.
+
+    `timeout` is for a case whose failure is a run that never returns, where waiting is the wrong
+    answer rather than a slow one.
+    """
     lines = "\n".join(DRIVER + snippet)
     source = lines.replace("SCRIPTS_DIR", repr(str(SCRIPTS))).replace("DIRECTORY", repr(str(directory)))
-    return subprocess.run([sys.executable, "-c", source], capture_output=True, text=True, check=False)
+    return subprocess.run([sys.executable, "-c", source], capture_output=True, text=True, check=False, timeout=timeout)
 
 
 def test_every_unit_s_own_exit_status_reaches_the_manifest_under_its_own_name(tmp_path: Path) -> None:
@@ -212,4 +318,43 @@ def test_a_unit_still_queued_when_the_run_ends_never_starts(tmp_path: Path) -> N
 def test_a_sigterm_unwinds_the_run_rather_than_being_absorbed(tmp_path: Path) -> None:
     """The handler is what turns the signal into the unwind that stops the units; ignoring it leaves them running."""
     result = _drive(SIGNALLED, tmp_path)
+    assert result.returncode == 0, result.stderr
+
+
+def test_both_ways_the_run_can_be_ended_are_armed_where_a_signal_means_something(tmp_path: Path) -> None:
+    """Neither is reachable from a test that calls the helper itself, and neither is armed on the machine this runs on."""
+    result = _drive(ARMED, tmp_path)
+    assert result.returncode == 0, result.stderr
+
+
+def test_neither_is_armed_where_a_signal_would_run_no_handler(tmp_path: Path) -> None:
+    """A handler Windows never runs and a parent pid it reuses are worse than no arming: both read as a stop that works."""
+    result = _drive(UNARMED, tmp_path)
+    assert result.returncode == 0, result.stderr
+
+
+def test_a_unit_is_given_a_session_of_its_own(tmp_path: Path) -> None:
+    """Without one a stop reaches the bash and not the build it is waiting on, and the build outlives the scratch it writes into."""
+    result = _drive(OWN_SESSION, tmp_path)
+    assert result.returncode == 0, result.stderr
+
+
+def test_ending_a_unit_signals_its_group_rather_than_its_leader(tmp_path: Path) -> None:
+    """The leader is a `verify.sh` whose trap exits at once; its foreground child is the one holding the image and the scratch."""
+    result = _drive(GROUP_SIGNALLED, tmp_path)
+    assert result.returncode == 0, result.stderr
+
+
+def test_an_interrupt_ends_the_units_before_the_run_waits_on_them(tmp_path: Path) -> None:
+    """A unit runs in a session of its own, so Ctrl-C reaches this process alone -- and terminating after the join waits out the build."""
+    try:
+        result = _drive(STOPPED, tmp_path, timeout=90)
+    except subprocess.TimeoutExpired:
+        raise AssertionError("the run waited on the unit it had been told to stop") from None
+    assert result.returncode == 0, result.stderr
+
+
+def test_the_expected_longest_unit_is_submitted_first_and_width_bounds_the_slots(tmp_path: Path) -> None:
+    """Both are `main`'s wiring rather than a helper's: the schedule and the semaphore are built there and passed on."""
+    result = _drive(SCHEDULE, tmp_path)
     assert result.returncode == 0, result.stderr

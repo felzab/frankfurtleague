@@ -403,10 +403,17 @@ absorbs the whole stretch and every step after it reads as free.
 so a scope whose first check fails still costs its longest unit before saying so; what that buys is
 one mechanism for both levels, the alternative being a second per-unit join living beside the pool.
 A green run, which is the common one, costs the same either way. **The pool ends its units rather
-than outliving them** (`scripts/gate_pool.py :: terminate`): a `SIGTERM`, or the caller going away,
-stops every unit still running and lets each wind down through its own trap. The caller cannot do
-this itself — bash holds a trap until its foreground child returns, and that child is the pool — and
-neither guard is armed on Windows, where a terminate runs no handler and a dead parent's pid stands.
+than outliving them** (`scripts/gate_pool.py :: terminate`): a `SIGTERM`, an interrupt, or the
+caller going away stops every unit still running and lets each wind down through its own trap. The
+caller cannot do this itself — bash holds a trap until its foreground child returns, and that child
+is the pool — and neither of the two guards `scripts/gate_pool.py :: arm` installs is armed on
+Windows, where a terminate runs no handler and a dead parent's pid stands. **What is signalled is a
+unit's process GROUP, and each unit is given a session of its own to make one**: a unit is a bash
+run, whose trap fires the moment bash is signalled while the build it was waiting on runs to its
+end — orphaned, still writing into the scratch the caller reclaims on its way out. The session that
+buys this is also what takes the units out of the terminal's own group, so a `Ctrl-C` reaches the
+pool alone and the pool passes it on (`scripts/gate_pool.py :: drive`) rather than trusting the
+signal to have arrived.
 
 **A unit carries its own command, which is what lets one runner serve both levels.** A scope unit
 is a `verify.sh` run of that scope, given `FL_GATE_WORKER` and the ledger path its rows travel in;
