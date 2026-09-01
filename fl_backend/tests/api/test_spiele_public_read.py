@@ -213,6 +213,32 @@ PUBLIC_EMBEDDED_FIELDS = [
     pytest.param(FLSpielSchiedsrichterFieldPublic, frozenset({"schiedsrichter_id", "name"}), id="the referee"),
 ]
 
+# The base-tier FIXTURE's whole membership. Its aggregation projects no allow-list, so the model is
+# the one this read has (`docs/backend/spec.md :: I32`) and a field added to `FLSpielCommon` reaches
+# an anonymous caller unnamed.
+BASE_TIER_FIXTURE_FIELDS = frozenset(
+    {
+        "id",
+        "team1",
+        "team2",
+        "team1_quelle",
+        "team2_quelle",
+        "datum",
+        "uhrzeit",
+        "ort",
+        "schiedsrichter",
+        "ergebnis",
+        "elfmeterschiessen",
+        "spieltag_id",
+        "spiel_nr",
+        "sonderereignis",
+        "saison_phase",
+        "saison_id",
+        # Published by decision, and past what an erasure rewrites (`READ-FREETEXT-001`).
+        "notiz",
+    }
+)
+
 # (the base-tier shape, the money-bearing shape it is narrowed from, the figure separating the two).
 EMBEDDED_PAIRS = [
     pytest.param(FLSpielOrtFieldPublic, FLSpielOrtField, MIETPREIS_KEY, id="the venue"),
@@ -279,7 +305,7 @@ class TestTheJoinedSideShapes:
 
 
 class TestTheFixtureShapes:
-    """What survives validation of ONE raw document through each fixture model -- the step that drops the figures."""
+    """What each fixture model declares, and what survives validation of ONE raw document through it -- the step that drops the figures."""
 
     def test_the_raw_document_carries_both_figures(self):
         """The control for this whole class: without it, every absence below would pass on a document that never held them."""
@@ -308,6 +334,14 @@ class TestTheFixtureShapes:
 
         assert parsed.ort is not None and parsed.ort.mietpreis == MIETPREIS
         assert parsed.schiedsrichter is not None and parsed.schiedsrichter.payment == PAYMENT
+
+    def test_the_base_tier_fixture_declares_exactly_these_fields(self):
+        """The tier's whole membership, since neither the admin nor the internal shape narrows it.
+
+        A subset relation against either would survive a field added here, both inheriting this one.
+        """
+
+        assert set(FLSpielJoined.model_fields) == BASE_TIER_FIXTURE_FIELDS
 
     def test_the_raw_document_carries_the_whole_withdrawal(self):
         """The control for the cases below: without it, every absence would pass on a document that never held a reason."""

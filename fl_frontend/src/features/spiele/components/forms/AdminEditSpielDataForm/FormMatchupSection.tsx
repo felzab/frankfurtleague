@@ -22,6 +22,7 @@ export function FormMatchupSection({
   spielData,
   saisonSpiele,
   teams,
+  numberOfGroups,
   knockoutTeamIds,
   spieltagOccupancy,
   team1Payload,
@@ -39,6 +40,8 @@ export function FormMatchupSection({
   spielData: FLSpiel;
   saisonSpiele: FLSpiel[];
   teams: FLTeam[];
+  /** The season's `rules.number_of_groups`, bounding each picker's group offer; `null` offers all. */
+  numberOfGroups: number | null;
   knockoutTeamIds: ReadonlySet<string>;
   /**
    * Lifted rather than derived here because the form reads it too: two derivations of "who is
@@ -102,6 +105,7 @@ export function FormMatchupSection({
           label="Team 1"
           fieldName="team1"
           teams={teams}
+          numberOfGroups={numberOfGroups}
           teamPayload={team1Payload}
           onTeamChange={onTeam1Change}
           quelle={team1Quelle}
@@ -126,6 +130,7 @@ export function FormMatchupSection({
           label="Team 2"
           fieldName="team2"
           teams={teams}
+          numberOfGroups={numberOfGroups}
           teamPayload={team2Payload}
           onTeamChange={onTeam2Change}
           quelle={team2Quelle}

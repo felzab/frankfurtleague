@@ -34,6 +34,10 @@ export function hasTakenPlace(spiel: FLSpiel): boolean {
   const leftARecord =
     spiel.sonderereignis === "abgebrochen" || spiel.sonderereignis === "nichtantreten_team1" || spiel.sonderereignis === "nichtantreten_team2";
 
+  // A save keeps a shoot-out only beside a result, so one standing alone is the same hand-written
+  // record of a decided tie as the lone goal count below, and a rewrite would destroy it.
+  if (spiel.elfmeterschiessen !== null) return true;
+
   // The goal counts are the clause a reader would not predict: a fixture with two clubs and one count
   // entered is stored holding goals and no `ergebnis`. `?? null` keeps an absent side out of that.
   return spiel.ergebnis !== null || leftARecord || (spiel.team1?.tore ?? null) !== null || (spiel.team2?.tore ?? null) !== null;

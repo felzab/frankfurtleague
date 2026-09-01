@@ -140,12 +140,12 @@ const readForm = (file: string) => readFileSync(path.join(FORM_DIR, file), "utf8
  * it binds no input anywhere, and binding it here alone would split the public form from the editors.
  */
 const CAPPED_CONTROLS: Record<string, { file: string; boxes: number }> = {
-  BEWERBUNG_TEAM_NAME_MAX_LENGTH: { file: "FormSchuleSection.tsx", boxes: 1 },
-  BEWERBUNG_FULL_NAME_MAX_LENGTH: { file: "FormSchuleSection.tsx", boxes: 1 },
+  TEAM_NAME_MAX_LENGTH: { file: "FormSchuleSection.tsx", boxes: 1 },
+  TEAM_FULL_NAME_MAX_LENGTH: { file: "FormSchuleSection.tsx", boxes: 1 },
   // Two boxes each: both name fields, and both counts. A presence check is satisfied by either alone.
-  BEWERBUNG_KONTAKT_NAME_MAX_LENGTH: { file: "FormKontaktpersonenSection.tsx", boxes: 2 },
+  KONTAKT_NAME_MAX_LENGTH: { file: "FormKontaktpersonenSection.tsx", boxes: 2 },
   // Its box holds the URL WITHOUT the scheme, so the cap is composed rather than the constant alone.
-  BEWERBUNG_WEBSITE_URL_MAX_LENGTH: { file: "FormSchuleSection.tsx", boxes: 1 },
+  TEAM_WEBSITE_URL_MAX_LENGTH: { file: "FormSchuleSection.tsx", boxes: 1 },
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH: { file: "FormTeamSection.tsx", boxes: 1 },
   BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH: { file: "FormTeamSection.tsx", boxes: 1 },
   // One box: the strong-player box takes its ceiling from `strongPlayerCeiling`, which the cases
@@ -172,7 +172,7 @@ describe("where a ceiling reaches the box the applicant types in", () => {
   it("subtracts the scheme from the one cap whose box does not hold it", () => {
     assert.match(
       readForm("FormSchuleSection.tsx"),
-      /maxLength=\{BEWERBUNG_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME\.length\}/,
+      /maxLength=\{TEAM_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME\.length\}/,
       "the website box is capped at the whole payload's ceiling, scheme included",
     );
   });

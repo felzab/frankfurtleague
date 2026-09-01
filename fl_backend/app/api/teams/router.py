@@ -18,7 +18,7 @@ from app.api.teams.schemas import (
 )
 from app.api.teams.services import build_gruppen, build_team_pipeline
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, pull_many_from_db
+from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db
 from app.core.dependencies import SaisonsCollection, SpieleCollection, TeamsCollection
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
@@ -58,6 +58,7 @@ async def get_teams(
     teams_raw = await aggregate_many_from_db(
         collection=teams_collection,
         pipeline=pipeline,
+        collation=GERMAN_COLLATION,
     )
 
     teams = FLTeamListAdapter.validate_python(teams_raw)
@@ -110,6 +111,7 @@ async def get_team(
     teams_raw = await aggregate_many_from_db(
         collection=teams_collection,
         pipeline=build_team_pipeline(filters=pipeline_filters, rules=saison_rules, team_id=team_id),
+        collation=GERMAN_COLLATION,
     )
     if not teams_raw:
         raise DocumentNotFoundException(filter={"_id": team_id}, error_code=DOCUMENT_NOT_FOUND)

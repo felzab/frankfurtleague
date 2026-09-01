@@ -173,8 +173,8 @@ describe("the four base-tier public reads", () => {
     }
   });
 
-  /* `OPS-87`: over-declaring the tier succeeds silently, and a public page is exactly where that
-     mistake is available — the admin key would answer every one of these and nothing would say so. */
+  /* Over-declaring the tier succeeds silently, and a public page is exactly where that mistake is
+     available — the admin key would answer every one of these and nothing would say so. */
   it("asks for each of them under the base key, which is the tier the endpoints are guarded at", () => {
     for (const endpoint of ["/bewerbungen/fenster", "/bewerbungen/fenster/2627", "/bewerbungen/schulen", "/bewerbungen/kuerzel/GG"]) {
       assert.equal(callTo(endpoint).options.authType, "base", `${endpoint} is asked for under another tier`);

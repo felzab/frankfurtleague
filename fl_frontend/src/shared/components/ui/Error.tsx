@@ -55,7 +55,7 @@ export function Error({ error, reset }: { error: Error & { digest?: string }; re
           <span className="text-brand">Systemfehler</span>
         </>
       }
-      message="Der Schiedsrichter hat die Partie vorübergehend gestoppt, da ein unerwarteter Fehler aufgetreten ist. Die Platzwarte sind bereits informiert."
+      message="Der Schiedsrichter hat die Partie vorübergehend gestoppt, da ein unerwarteter Fehler aufgetreten ist. Die Platzwarte sind schon informiert."
       digest={error.digest}
       watermark={
         /* `motion-safe:` rather than the global shortening: a glyph this large pulsing behind text

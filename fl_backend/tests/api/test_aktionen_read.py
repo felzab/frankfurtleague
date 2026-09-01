@@ -148,7 +148,7 @@ class _LogCollection:
         self.requested_limit: int | None = None
         self.requested_filter: Any = None
 
-    def find(self, filter: Any, projection: Any = None, session: Any = None) -> "_LogCollection":
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> "_LogCollection":
         self.requested_filter = filter
         return self
 

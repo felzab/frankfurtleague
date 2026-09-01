@@ -262,16 +262,23 @@ class FLGenerateSpielplanPayload(BaseModel):
 
 
 class FLGenerateSpielplanResponse(BaseAPIResponse):
-    """What the draw wrote, flat rather than nested.
+    """What the draw wrote, and what a confirmed replace deleted first, flat rather than nested.
 
-    An admin reads the two counts without a second request, and they are the same numbers the
+    An admin reads the written counts without a second request, and they are the same numbers the
     season's own watermark keeps, so the two can be compared by eye.
     """
 
+    # No `extra="forbid"` here: `docs/backend/spec.md :: I49` reaches request bodies alone, and this
+    # is a response model.
     saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
     spieltage: int = Field(ge=0)
     spiele: int = Field(ge=0)
     generiert_am: CustomDateString
+
+    # Off the replace's own `DeleteResult`s, so a confirmation is answered with what it destroyed
+    # rather than with what was asked for. Zero on a first draw, which deletes nothing.
+    removed_spieltage: int = Field(default=0, ge=0)
+    removed_spiele: int = Field(default=0, ge=0)
 
 
 class FLUndrawSpielplanResponse(BaseAPIResponse):

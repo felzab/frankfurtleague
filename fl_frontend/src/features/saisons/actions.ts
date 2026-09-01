@@ -540,10 +540,12 @@ export async function generateSpielplanAction(rawPayload: FLGenerateSpielplanPay
     // `stehen` and not `hat`, so the shared phrase can stay nominative for the panel's readout too.
     const umfang = describeSpielplanUmfang(generateOperation.spieltage, generateOperation.spiele);
 
-    // Said first where a replace ran: reporting only what was written would leave the admin unsure
-    // that the rows they confirmed the deletion of are actually gone.
+    // Said first where a replace removed rows, and off the response's counts rather than the
+    // request's flag: the flag restates what was asked for, the counts say what is actually gone.
     const geloescht =
-      validated.data.replace === true ? `Die bisherigen Spieltage und Spiele von Saison ${validated.data.id} sind gelöscht. ` : "";
+      generateOperation.removed_spieltage > 0 || generateOperation.removed_spiele > 0
+        ? `Gelöscht wurden zuerst ${describeSpielplanUmfang(generateOperation.removed_spieltage, generateOperation.removed_spiele)} des bisherigen Spielplans. `
+        : "";
 
     return {
       success: true,

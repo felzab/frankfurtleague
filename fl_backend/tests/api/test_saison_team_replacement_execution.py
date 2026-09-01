@@ -681,6 +681,16 @@ class TestAClubThatHasPlayedIsNotReplaced:
         assert code == REPLACE_OUTGOING_HAS_A_RECORD
         assert row is not None
 
+    def test_a_stored_shoot_out_refuses_it(self, mongo_replica_set_url: str):
+        """Through the route, so the endpoint's projection is proven to carry `elfmeterschiessen` to the predicate."""
+
+        decided = {**gruppen_fixture(1, WITHDRAWN, RIVAL), "elfmeterschiessen": {"team1": 5, "team2": 4}}
+
+        code, row, _ = on_a_seeded_season(mongo_replica_set_url, _refused, spiele=[decided])
+
+        assert code == REPLACE_OUTGOING_HAS_A_RECORD
+        assert row is not None
+
 
 class TestTheSeasonGateOnTheRoute:
     def test_a_finished_season_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):

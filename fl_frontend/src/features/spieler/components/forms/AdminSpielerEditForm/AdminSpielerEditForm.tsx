@@ -20,7 +20,8 @@ import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
-import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
+import { appToast } from "@/shared/utils/appToast";
+import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSpielerBanners } from "./banners";
 import { FormAustragenSection } from "./FormAustragenSection";
@@ -46,27 +47,6 @@ type SpielerUndoPayloads = {
   person?: FLPatchSpielerPayload;
   saison?: FLPatchSaisonSpielerPayload;
 };
-
-/**
- * A `fetch`, not a server action: by the time the offer is pressed this component is unmounted and
- * the browser elsewhere, and an action dispatched from there trips Next's E592 invariant.
- * **Revert once E592 is fixed upstream.**
- */
-async function postSpielerUndo(payloads: SpielerUndoPayloads): Promise<{ success: boolean; message?: string; error?: string }> {
-  const response = await fetch("/api/admin/spieler/undo", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payloads),
-  });
-
-  // The route answers 200 with the outcome in the body for every reportable case, so a non-2xx is a
-  // genuine transport failure.
-  if (!response.ok) {
-    throw new Error(`HTTP ${String(response.status)}`);
-  }
-
-  return response.json() as Promise<{ success: boolean; message?: string; error?: string }>;
-}
 
 /**
  * **One save bar over TWO endpoints**, run in order for whichever halves are dirty. A partial
@@ -347,60 +327,19 @@ export function AdminSpielerEditForm({
             }
           : {}),
       };
-      offerUndo(undoPayloads, consequenceNotes.join(" ") || undefined);
+      // A success rather than a warning: this save destroys nothing without another copy.
+      offerUndo({
+        endpoint: "/api/admin/spieler/undo",
+        body: undoPayloads,
+        message: consequenceNotes.join(" ") || undefined,
+        fallback: "Die Spielerdaten wurden aktualisiert.",
+        router,
+      });
 
       // AFTER the undo payloads are built: leaving with typed values still in state is what let a
       // save-then-undo reopen on values the player no longer holds.
       resetDraftToStored();
       leavePage();
-    });
-  };
-
-  /** A success rather than a warning: this save destroys nothing without another copy. */
-  const offerUndo = (payloads: SpielerUndoPayloads, message?: string) => {
-    appToast.success("Änderung gespeichert", {
-      description: message ?? "Die Spielerdaten wurden aktualisiert.",
-      timeout: UNDO_TIMEOUT_MS,
-      actionProps: {
-        children: "Rückgängig",
-        onPress: () => {
-          appToast.clear();
-          // Closed by its own key below: a toast with no explicit timeout inherits a four-second
-          // default that would retire it mid-flight.
-          const pendingKey = appToast.pending("Änderung wird zurückgenommen...");
-
-          // A detached closure — the toast outlives this component. TWO-ARGUMENT `then`, so a failure
-          // downstream of a committed restore is never blamed on the transport.
-          void postSpielerUndo(payloads).then(
-            (result) => {
-              appToast.close(pendingKey);
-              if (!result.success) {
-                appToast.danger("Rücknahme fehlgeschlagen", { description: result.error ?? "Die Änderung steht weiterhin." });
-                return;
-              }
-
-              // Reported BEFORE the refresh: the restore is committed and nothing below changes that.
-              appToast.success("Änderung zurückgenommen", { description: result.message });
-
-              // Best-effort: a refresh that cannot run costs a stale screen, not the restore.
-              try {
-                router.refresh();
-              } catch (refreshError) {
-                console.warn("Undo committed, refresh failed", refreshError);
-              }
-            },
-            (dispatchError) => {
-              appToast.close(pendingKey);
-              console.warn("Undo dispatch failed", dispatchError);
-              appToast.danger("Rücknahme konnte nicht gesendet werden", {
-                // The connection alone: the request never reached a judgement, so naming
-                // the Spieler would send the admin to inspect values nothing here read.
-                description: "Die Änderung steht weiterhin. Prüfe die Verbindung.",
-              });
-            },
-          );
-        },
-      },
     });
   };
 

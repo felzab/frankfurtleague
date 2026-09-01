@@ -132,7 +132,7 @@ const ABSAGE = {
   teamName: "Ernst-Reuter-Schule",
   saisonId: "2627",
   rollenText: "Stellvertretung",
-  grund: "Die Saison ist voll: 16 Teams stehen bereits fest.",
+  grund: "Die Saison ist voll: 16 Teams stehen schon fest.",
 } satisfies BewerbungAbsageData;
 /* The season and the reader's own seat. The receipt goes out unprompted to an address nobody has
    confirmed, so nothing submitted ABOUT ANYBODY ELSE rides along — which is why this fixture holds

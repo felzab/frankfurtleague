@@ -294,6 +294,9 @@ export const FLGenerateSpielplanResponseSchema = BaseAPIResponseSchema.extend({
   spieltage: z.int().nonnegative(),
   spiele: z.int().nonnegative(),
   generiert_am: CustomDateStringSchema,
+  // Measured off the confirmed replace's deletes, zero where none ran.
+  removed_spieltage: z.int().nonnegative(),
+  removed_spiele: z.int().nonnegative(),
 });
 export type FLGenerateSpielplanResponse = z.infer<typeof FLGenerateSpielplanResponseSchema>;
 

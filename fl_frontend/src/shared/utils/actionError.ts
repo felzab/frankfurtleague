@@ -19,7 +19,7 @@ const OCCUPANT_REFUSALS: Record<string, string> = {
   "REQ-STATE-002": "Ein Spiel mit diesem Sonderereignis wird nicht gewertet. Entferne zuerst die Tore.",
   "REQ-STATE-003": "Ein Nichtantreten braucht beide Teams. Besetze zuerst den offenen Platz.",
   // The repair is on the OTHER fixture, so it rides the same rail rather than this field.
-  "REQ-SPIELTAG-001": "Dieses Team spielt am selben Spieltag bereits in einem anderen Spiel.",
+  "REQ-SPIELTAG-001": "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel.",
 };
 
 /**
@@ -41,6 +41,17 @@ export function toActionErrorResult(error: unknown): NonNullable<FormState> {
           reason:
             "Eine Seite dieses Spiels hat als Herkunft einen Platz in einer Gruppe, und das ist nur in der ersten KO-Runde der Saison möglich",
           repair: "Wähle für diese Seite stattdessen ein früheres Spiel als Herkunft, oder setze das Team manuell",
+        }),
+      };
+    }
+    if (error.statusCode === 409 && error.serverErrorCode === "REQ-WIRING-003") {
+      // The picker offers only the season's own groups, so this arriving means the season was
+      // redrawn narrower under the open form: the offer itself is stale, and a reload renews it.
+      return {
+        success: false,
+        error: buildRefusal({
+          reason: "Als Herkunft ist ein Platz in einer Gruppe gewählt, die es in dieser Saison nicht gibt",
+          repair: "Lade die Seite neu und wähle dann eine Gruppe dieser Saison",
         }),
       };
     }

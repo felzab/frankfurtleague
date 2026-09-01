@@ -19,8 +19,9 @@ import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
-import { appToast, UNDO_TIMEOUT_MS } from "@/shared/utils/appToast";
+import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSchiedsrichterBanners } from "./banners";
 import { FormAnonymisierenSection } from "./FormAnonymisierenSection";
@@ -33,27 +34,6 @@ import type { FLSchiedsrichterDraftFields } from "@/features/schiedsrichter/schi
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FLKontakt } from "@/shared/schemas";
-
-/**
- * A `fetch` and not a server action: by the time the offer is pressed this component is unmounted,
- * and a server action dispatched from there trips Next's E592 invariant. Revert to a server action
- * once E592 is fixed upstream.
- */
-async function postSchiedsrichterUndo(payload: FLPatchSchiedsrichterPayload): Promise<{ success: boolean; message?: string; error?: string }> {
-  const response = await fetch("/api/admin/schiedsrichter/undo", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    // The route answers 200 with the outcome in the body for every reportable case, so a non-2xx is a
-    // genuine transport failure.
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${String(response.status)}`);
-  }
-
-  return response.json() as Promise<{ success: boolean; message?: string; error?: string }>;
-}
 
 /**
  * One save bar over one endpoint, unlike the squad editor's two: a referee is a single document with
@@ -232,65 +212,18 @@ export function AdminSchiedsrichterEditForm({
       setSubmitFieldErrors({}, {});
       setHasSaved(true);
 
-      offerUndo(undoPayload, renameTouched ? "Der neue Name steht ab sofort auch an jedem Spiel." : undefined);
+      offerUndo({
+        endpoint: "/api/admin/schiedsrichter/undo",
+        body: undoPayload,
+        message: renameTouched ? "Der neue Name steht ab sofort auch an jedem Spiel." : undefined,
+        fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
+        router,
+      });
 
       // After the undo payload is built: leaving with typed values still in state let a save-then-undo
       // reopen on values the referee no longer holds.
       resetDraftToStored();
       leavePage();
-    });
-  };
-
-  /**
-   * The toast outlives this component, so the press runs in a detached closure — `router` is a stable
-   * singleton and legal to call from one, and its `refresh` is what re-renders a screen the action's
-   * own revalidation can no longer reach.
-   */
-  const offerUndo = (payload: FLPatchSchiedsrichterPayload, message?: string) => {
-    appToast.success("Änderung gespeichert", {
-      description: message ?? "Die Schiedsrichterdaten wurden aktualisiert.",
-      timeout: UNDO_TIMEOUT_MS,
-      actionProps: {
-        children: "Rückgängig",
-        onPress: () => {
-          appToast.clear();
-          // Closed by its own key: a toast with no explicit timeout inherits a default that would
-          // retire it mid-flight.
-          const pendingKey = appToast.pending("Änderung wird zurückgenommen...");
-
-          // The two-argument `then`, so a failure downstream of a committed restore is never blamed
-          // on the transport.
-          void postSchiedsrichterUndo(payload).then(
-            (result) => {
-              appToast.close(pendingKey);
-              if (!result.success) {
-                appToast.danger("Rücknahme fehlgeschlagen", { description: result.error ?? "Die Änderung steht weiterhin." });
-                return;
-              }
-
-              // Reported BEFORE the refresh: the restore is committed and nothing below changes that.
-              appToast.success("Änderung zurückgenommen", { description: result.message });
-
-              // Best-effort: a failed refresh costs a stale screen until the next navigation, not the
-              // restore.
-              try {
-                router.refresh();
-              } catch (refreshError) {
-                console.warn("Undo committed, refresh failed", refreshError);
-              }
-            },
-            (dispatchError) => {
-              appToast.close(pendingKey);
-              console.warn("Undo dispatch failed", dispatchError);
-              appToast.danger("Rücknahme konnte nicht gesendet werden", {
-                // The connection alone: the request never reached a judgement, so naming
-                // the Schiedsrichter would send the admin to inspect values nothing here read.
-                description: "Die Änderung steht weiterhin. Prüfe die Verbindung.",
-              });
-            },
-          );
-        },
-      },
     });
   };
 

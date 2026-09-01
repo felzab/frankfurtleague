@@ -219,14 +219,6 @@ CustomExternalUrl = Annotated[str, AfterValidator(validate_external_url)]
 # link to the current page rather than no link at all.
 CustomOptionalExternalUrl = Annotated[CustomExternalUrl | None, BeforeValidator(parse_empty_string_to_none)]
 
-# The WRITE-side spelling, as `CustomStrippedNonEmptyString` is: a URL neither begins nor ends in
-# whitespace, and `validate_external_url` leaves it on -- so a leading space reaches storage and a
-# trailing one is refused for the wrong reason.
-CustomStrippedOptionalExternalUrl = Annotated[
-    Annotated[str, StringConstraints(strip_whitespace=True), AfterValidator(validate_external_url)] | None,
-    BeforeValidator(parse_empty_string_to_none),
-]
-
 CustomSpielNr = Annotated[int, Field(gt=0)]
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's

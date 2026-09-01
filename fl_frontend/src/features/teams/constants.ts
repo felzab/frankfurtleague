@@ -58,6 +58,14 @@ export function austrittKuerzel(type: FLAustrittType): string {
  */
 export const DESCRIPTION_MAX_LENGTH = 4096;
 
+// The club-field ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py` and shared with
+// the public application: both tiers refuse alike, so each number lives here once.
+export const TEAM_NAME_MAX_LENGTH = 60;
+export const TEAM_FULL_NAME_MAX_LENGTH = 120;
+export const TEAM_WEBSITE_URL_MAX_LENGTH = 300;
+// One part of one contact person's name, on the junction patch and the application both.
+export const KONTAKT_NAME_MAX_LENGTH = 80;
+
 type SchulformOption = {
   readonly value: FLSchulform;
   readonly label: string;

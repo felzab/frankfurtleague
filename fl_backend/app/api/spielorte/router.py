@@ -8,7 +8,7 @@ from app.api.spielorte.schemas import (
     FLSpielortListAdapter,
 )
 from app.core.config import API_VERSION
-from app.core.crud import build_query, build_sort, pull_many_from_db, pull_one_from_db
+from app.core.crud import GERMAN_COLLATION, build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SpielorteCollection
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
@@ -43,6 +43,7 @@ async def get_spielorte(
         db_filter=db_filter,
         limit=filters.limit,
         sort_by=db_sort,
+        collation=GERMAN_COLLATION,
     )
     spielorte = FLSpielortListAdapter.validate_python(spielorte_raw)
 

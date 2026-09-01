@@ -57,13 +57,9 @@ export const KUERZEL_LAENGE = 2;
  * The submission's own ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here too because
  * the public endpoint refuses a length with a bare `REQ-VAL-001` and no field detail, so nothing marks the box.
  */
-export const BEWERBUNG_TEAM_NAME_MAX_LENGTH = 60;
-export const BEWERBUNG_FULL_NAME_MAX_LENGTH = 120;
-export const BEWERBUNG_WEBSITE_URL_MAX_LENGTH = 300;
-export const BEWERBUNG_KONTAKT_NAME_MAX_LENGTH = 80;
 export const BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH = 500;
 export const BEWERBUNG_KADER_GROESSE_MAX = 200;
-// `BEWERBUNG_FULL_NAME_MAX_LENGTH`'s width rather than the team name's: nothing holds an applicant to
+// `TEAM_FULL_NAME_MAX_LENGTH`'s width rather than the team name's: nothing holds an applicant to
 // the league's short name, so what they type is a school's own name.
 export const BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH = 120;
 

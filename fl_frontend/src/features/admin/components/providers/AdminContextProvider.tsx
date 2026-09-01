@@ -24,17 +24,22 @@ export function AdminProvider({
   schiedsrichter,
   teams,
   saisonSpiele,
+  numberOfGroups,
   children,
 }: {
   spielorte: FLSpielort[];
   schiedsrichter: FLSchiedsrichter[];
   teams: FLTeam[];
   saisonSpiele: FLSpiel[];
+  numberOfGroups: number | null;
   children: ReactNode;
 }) {
   // Memoised by hand: the React Compiler is deliberately off, so a fresh literal would re-render
   // every `useAdmin()` consumer whenever only `children` changed.
-  const value = useMemo(() => ({ spielorte, schiedsrichter, teams, saisonSpiele }), [spielorte, schiedsrichter, teams, saisonSpiele]);
+  const value = useMemo(
+    () => ({ spielorte, schiedsrichter, teams, saisonSpiele, numberOfGroups }),
+    [spielorte, schiedsrichter, teams, saisonSpiele, numberOfGroups],
+  );
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
 }

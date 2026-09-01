@@ -976,6 +976,11 @@ def has_taken_place(spiel: Mapping[str, Any]) -> bool:
     if spiel.get("ergebnis") is not None or spiel.get("sonderereignis") in SONDEREREIGNIS_PRODUCING_A_RECORD:
         return True
 
+    # A save keeps a shoot-out only beside a result, so one standing alone is the same hand-written
+    # record of a decided tie as the lone goal count below, and a rewrite would destroy it.
+    if spiel.get("elfmeterschiessen") is not None:
+        return True
+
     # A fixture can hold `team1.tore` with no `ergebnis` at all, and nothing refuses that shape.
     return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
 

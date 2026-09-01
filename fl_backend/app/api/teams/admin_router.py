@@ -41,6 +41,7 @@ from app.api.teams.services import (
 )
 from app.core.config import API_VERSION
 from app.core.crud import (
+    GERMAN_COLLATION,
     aggregate_many_from_db,
     insert_live,
     patch_many_in_db,
@@ -114,7 +115,9 @@ async def get_team_memberships(teams_collection: TeamsCollection) -> FLTeamsMemb
     `GET /teams` cannot answer it: that read is season-scoped with a strict junction join.
     """
 
-    teams_raw = await aggregate_many_from_db(collection=teams_collection, pipeline=build_team_memberships_pipeline())
+    teams_raw = await aggregate_many_from_db(
+        collection=teams_collection, pipeline=build_team_memberships_pipeline(), collation=GERMAN_COLLATION
+    )
 
     return FLTeamsMembershipsResponse(teams=FLTeamWithMembershipsListAdapter.validate_python(teams_raw))
 
@@ -143,6 +146,7 @@ async def get_teams_for_admin(
         await aggregate_many_from_db(
             collection=teams_collection,
             pipeline=build_team_pipeline(filters=filters, rules=saison_rules),
+            collation=GERMAN_COLLATION,
         )
     )
     if not filters.in_gruppen:
@@ -550,7 +554,7 @@ async def replace_saison_team(
         spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
-            projection=["team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "sonderereignis"],
+            projection=["team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "elfmeterschiessen", "sonderereignis"],
             session=session,
         )
 

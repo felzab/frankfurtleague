@@ -14,6 +14,9 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 
+/** The id the durability sentence publishes, carried by the note's own field in `aria-describedby`. */
+const NOTIZ_HINT_ID = "notiz-dauerhaft-hinweis";
+
 /**
  * **Its own panel, outside Ergebnis**, whose fields arm behind a deliberate unlock flip: a note is
  * prose rather than a score, and locking it would guard against nothing. The text is public — it
@@ -57,6 +60,7 @@ export function FormNotizSection({
       <div className={styles.body()}>
         <TextField
           name="notiz"
+          aria-describedby={NOTIZ_HINT_ID}
           value={notiz ?? ""}
           // "" is held as null at once, so the draft compares equal to a fixture without a note.
           onChange={(next) => onNotizChange(next === "" ? null : next)}
@@ -75,6 +79,14 @@ export function FormNotizSection({
             className="border-border bg-surface text-foreground fluid-sm min-h-24 rounded-lg border px-3 py-2 transition-colors outline-none"
           />
           <FieldError className={FIELD_ERROR}>{status?.error}</FieldError>
+
+          {/* Under the field rather than in the panel's hint, which opens on a press: the reader this
+              sentence has to reach is the admin already typing a name into the box. */}
+          <Hint
+            mode="inline"
+            describes={NOTIZ_HINT_ID}
+            text="Ein Name hier bleibt öffentlich stehen, auch wenn die Person später vergessen werden möchte."
+          />
 
           {/* The row is reserved whether the button is in it or not: a control arriving on the first
               character typed would push the panels below down the page — the same shift

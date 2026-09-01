@@ -532,6 +532,34 @@ class TestTheRefusalsReadTheRealDocuments:
 
         assert code == SWAP_KNOCKOUT_STARTED
 
+    def test_a_knockout_fixture_holding_only_a_shoot_out_closes_the_window_too(self, mongo_replica_set_url: str):
+        """Through the route, so the knockout read's projection is proven to carry `elfmeterschiessen` to the predicate."""
+
+        decided_knockout = {**knockout_fixture(ergebnis=None), "spiel_nr": 9, "elfmeterschiessen": {"team1": 5, "team2": 4}}
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            with pytest.raises(DocumentConflictException) as refusal:
+                await call_swap(database, client, ALPHA, BETA)
+            return refusal.value.error_code
+
+        code = on_a_seeded_season(mongo_replica_set_url, body, spiele=[*DRAWN_ROUND_ROBIN, decided_knockout])
+
+        assert code == SWAP_KNOCKOUT_STARTED
+
+    def test_a_group_fixture_holding_only_a_shoot_out_closes_the_window_too(self, mongo_replica_set_url: str):
+        """The group read is a second projection, so the bracket case above cannot answer for it."""
+
+        decided = {**gruppen_fixture(1, ALPHA, ALPHA_RIVAL), "elfmeterschiessen": {"team1": 5, "team2": 4}}
+
+        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+            with pytest.raises(DocumentConflictException) as refusal:
+                await call_swap(database, client, ALPHA, BETA)
+            return refusal.value.error_code
+
+        code = on_a_seeded_season(mongo_replica_set_url, body, spiele=[decided, gruppen_fixture(2, BETA_RIVAL, BETA)])
+
+        assert code == SWAP_GRUPPENPHASE_PLAYED
+
     def test_a_swap_that_would_field_a_club_twice_on_one_matchday_is_refused(self, mongo_replica_set_url: str):
         """`REQ-SWAP-005`: the rewrite moves group sides only, so Alpha takes Beta's fixture and stands twice — what a swap could bypass."""
 
