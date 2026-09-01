@@ -1,7 +1,8 @@
 import argparse
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from functools import partial
+from typing import Any, Awaitable, Callable, Mapping, Sequence
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo import ASCENDING, DESCENDING
@@ -761,26 +762,78 @@ async def _apply_validator(db: AsyncIOMotorDatabase, collection_name: str, valid
         raise RuntimeError(f"Could not apply the validator for '{collection_name}': {failure}") from failure
 
 
+async def _apply_unique_index(db: AsyncIOMotorDatabase, index: UniqueIndex) -> None:
+    try:
+        await db[index.collection].create_index([(key, ASCENDING) for key in index.keys], name=index.name, unique=True)
+    except OperationFailure as failure:
+        raise RuntimeError(f"Could not build unique index '{index.collection}.{index.name}' ({index.rule}): {failure}") from failure
+
+
+async def _apply_support_index(db: AsyncIOMotorDatabase, support: SupportIndex) -> None:
+    try:
+        await db[support.collection].create_index(list(support.keys), name=support.name)
+    except OperationFailure as failure:
+        raise RuntimeError(f"Could not build support index '{support.collection}.{support.name}' ({support.rule}): {failure}") from failure
+
+
+# One declared operation, not yet started: a coroutine built for a lane that stops early would be
+# left un-awaited, which is a warning rather than an error and so goes unseen.
+_Runner = Callable[[], Awaitable[None]]
+
+
+async def _run_lane(lane: Sequence[tuple[int, _Runner]]) -> tuple[int, Exception] | None:
+    """Run one namespace's operations in order, stopping at the first that fails.
+
+    The failure is RETURNED, not raised: raising it would hand the caller whichever lane lost the
+    race, and the caller owes a promise about which failure that is.
+    """
+    for position, run in lane:
+        try:
+            await run()
+        except Exception as failure:
+            return position, failure
+
+    return None
+
+
+async def _apply_concurrently(declared: Sequence[tuple[str, _Runner]]) -> None:
+    """Apply `declared` concurrently and raise the failure DECLARED first, not the one that arrived first.
+
+    One lane per namespace: MongoDB documents `create` as locking the collection it names, and
+    documents nothing about two index builds racing on one.
+    """
+    lanes: dict[str, list[tuple[int, _Runner]]] = {}
+    for position, (namespace, run) in enumerate(declared):
+        lanes.setdefault(namespace, []).append((position, run))
+
+    outcomes = await asyncio.gather(*(_run_lane(lane) for lane in lanes.values()))
+    failures = [outcome for outcome in outcomes if outcome is not None]
+
+    if failures:
+        raise min(failures, key=lambda failure: failure[0])[1]
+
+
 async def apply_constraints(db: AsyncIOMotorDatabase) -> ConstraintSummary:
-    """Apply every validator, unique index and support index to `db`.
+    """Apply every validator, then every index, to `db`.
 
     A validator is REPLACED, an index only ever ADDED: `create_index` cannot change the keys under a
-    name in use, so a renamed one stays until dropped by hand. Raises on the FIRST failure.
+    name in use, so a renamed one stays until dropped by hand. Raises the first DECLARED failure.
     """
-    for collection_name, validator in COLLECTION_VALIDATORS.items():
-        await _apply_validator(db, collection_name, validator)
+    # Two phases rather than one: building an index CREATES its collection implicitly and without a
+    # validator, so an overlap would leave a collection nothing ever validates.
+    await _apply_concurrently(
+        [
+            (collection_name, partial(_apply_validator, db, collection_name, validator))
+            for collection_name, validator in COLLECTION_VALIDATORS.items()
+        ]
+    )
 
-    for index in UNIQUE_INDEXES:
-        try:
-            await db[index.collection].create_index([(key, ASCENDING) for key in index.keys], name=index.name, unique=True)
-        except OperationFailure as failure:
-            raise RuntimeError(f"Could not build unique index '{index.collection}.{index.name}' ({index.rule}): {failure}") from failure
-
-    for support in SUPPORT_INDEXES:
-        try:
-            await db[support.collection].create_index(list(support.keys), name=support.name)
-        except OperationFailure as failure:
-            raise RuntimeError(f"Could not build support index '{support.collection}.{support.name}' ({support.rule}): {failure}") from failure
+    await _apply_concurrently(
+        [
+            *((index.collection, partial(_apply_unique_index, db, index)) for index in UNIQUE_INDEXES),
+            *((support.collection, partial(_apply_support_index, db, support)) for support in SUPPORT_INDEXES),
+        ]
+    )
 
     return ConstraintSummary(validators=len(COLLECTION_VALIDATORS), unique_indexes=len(UNIQUE_INDEXES), support_indexes=len(SUPPORT_INDEXES))
 
