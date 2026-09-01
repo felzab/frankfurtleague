@@ -178,3 +178,68 @@ def test_the_helper_check_reads_its_subjects_out_of_the_scripts(tmp_path: Path) 
     )
     assert done.returncode == 0, done.stderr
     assert "call\tset_not_run" in done.stdout, "verify.sh's set_not_run call is invisible to the reader"
+
+
+# Three characters the fixtures below cannot spell in a line literal without an escape a reader of
+# this file would have to count: a backslash, the quote awk is told about, and a dollar beside one.
+BS: Final = chr(92)
+SQ: Final = chr(39)
+DOLLAR: Final = chr(36)
+
+
+def _reader(tmp_path: Path) -> Path:
+    """The call-site reader, lifted out of selfcheck.sh's `CMD_WORDS` and written where awk can read it."""
+    held = SELFCHECK.read_text(encoding="utf-8").split("CMD_WORDS='", 1)
+    assert len(held) == 2, "selfcheck.sh no longer holds the call-site reader"
+    reader = tmp_path / "reader.awk"
+    reader.write_text(held[1].split("\n'\n", 1)[0], encoding="utf-8", newline="\n")
+    return reader
+
+
+# One fixture per construct the reader was driven against: its lines, the helper that must still
+# read as a call (the control a fix may not cost), the name that must not, and the name that may
+# appear in no record at all.
+MIS_LEX: Final[tuple[tuple[str, tuple[str, ...], str, str, str], ...]] = (
+    ("continuation", ("some_cmd foo " + BS, "  my_plain_argument", "real_one x"), "real_one", "my_plain_argument", ""),
+    ("array literal", ("arr=( arr_helper second_word )", "real_two x"), "real_two", "arr_helper", ""),
+    (
+        "nested case",
+        ("case $a in", " one_p)", "  case $b in", "   in_p) real_three x ;;", "  esac", "  ;;", " two_p) real_four x ;;", "esac"),
+        "real_four",
+        "two_p",
+        "",
+    ),
+    ("command from a variable", ("$my_runner --flag", "real_five x"), "real_five", "", "my_runner"),
+    ("assignment substitution", ("x=$(real_six arg)",), "real_six", "", ""),
+    ("double-quoted assignment prefix", ('FOO="bar" real_seven x',), "real_seven", "", ""),
+    ("ansi-c assignment prefix", ("IFS=" + DOLLAR + SQ + BS + "t" + SQ + " real_ten x",), "real_ten", "", ""),
+    ("punctuated heredoc, quoted", ("cat <<" + SQ + "EOF-1" + SQ, "body", "EOF-1", "real_eight x"), "real_eight", "", ""),
+    ("punctuated heredoc, bare", ("cat <<END-OF", "body", "END-OF", "real_eleven x"), "real_eleven", "", ""),
+    ("here-string", ('done <<< "$heads"', "real_nine x"), "real_nine", "", ""),
+)
+
+
+def test_the_reader_lexes_seven_constructs_it_used_to_get_wrong(tmp_path: Path) -> None:
+    """Four of these reddened the gate on correct code and three lost a call in silence.
+
+    Each row carries a control helper that must still read as a call, so a class closed by seeing
+    fewer call sites fails here rather than passing quietly.
+    """
+    reader = _reader(tmp_path)
+    wrong: list[str] = []
+    for label, lines, must_call, must_not_call, absent in MIS_LEX:
+        fixture = tmp_path / "fixture.sh"
+        with open(fixture, "w", newline="", encoding="utf-8") as handle:
+            handle.write("\n".join((*lines, "")))
+        done = subprocess.run(["awk", "-f", reader.as_posix(), fixture.as_posix()], capture_output=True, encoding="utf-8")
+        assert done.returncode == 0, f"{label}: {done.stderr}"
+        calls = {line.split("\t", 1)[1] for line in done.stdout.splitlines() if line.startswith("call\t")}
+        if must_call not in calls:
+            wrong.append(f"{label}: {must_call} is no longer read as a call -- {done.stdout!r}")
+        if must_not_call and must_not_call in calls:
+            wrong.append(f"{label}: {must_not_call} is read as a call -- {done.stdout!r}")
+        if absent and absent in done.stdout:
+            wrong.append(f"{label}: {absent} was read as a word of some kind -- {done.stdout!r}")
+        if "unterminated" in done.stdout:
+            wrong.append(f"{label}: the reader stopped -- {done.stdout!r}")
+    assert not wrong, "\n".join(wrong)

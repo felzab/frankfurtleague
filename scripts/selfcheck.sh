@@ -325,60 +325,96 @@ step "4. Every helper called is defined"
 CMD_WORDS='
 # Q is built here rather than passed with -v: MSYS re-parses a Windows command line and eats the
 # quote out of an argument that is one.
-BEGIN { Q = sprintf("%c", 39); q = 0; cmd = 1; heredoc = ""; incase = 0; pat = 0; skipnext = 0; arith = 0; sd = 0 }
+BEGIN { Q = sprintf("%c", 39); q = 0; cmd = 1; heredoc = ""; incase = 0; pat = 0; skipnext = 0
+        arith = 0; sd = 0; cont = 0; assign = 0; arr = 0 }
 {
   line = $0
   if (heredoc != "") {
     t = line; sub(/^[ \t]+/, "", t)
     if (t == heredoc) heredoc = ""
+    cont = 0
     next
   }
-  if (q == 0 && sd == 0) { cmd = 1; pat = incase }
+  # `cont`: a backslash carries the command position onto the next record. Resetting there read the
+  # first word of a continued argument list as a command of its own.
+  if (q == 0 && sd == 0 && !cont) { cmd = 1; pat = (incase > 0); assign = 0 }
   n = length(line); word = ""
   for (i = 1; i <= n; i++) {
     c = substr(line, i, 1)
-    # A command substitution opens a command position of its own, quoted or not.
+    # A command substitution opens a command position of its own, quoted or not. The pending word
+    # is flushed first, or `x=$(helper)` swallows the helper into the assignment and loses it.
     if (c == "$" && substr(line, i+1, 1) == "(" && substr(line, i+2, 1) != "(") {
+      if (word != "") { emit(word, "$"); word = "" }
       sd++; sq[sd] = q; q = 0; cmd = 1; pat = 0; i++; continue
     }
     if (q == 1) { if (c == Q) q = 0; continue }
     if (q == 2) { if (c == "\\") { i++; continue }; if (c == "\"") q = 0; continue }
     if (arith) { if (c == ")" && substr(line, i+1, 1) == ")") { i++; arith = 0; cmd = 0 }; continue }
     if (c == "\\") { i++; continue }
+    # A parameter reference, consumed whole: `$name` runs the value, so the NAME is not a command,
+    # and the `#` in `$#` opens no comment.
+    if (c == "$") {
+      if (word != "") { emit(word, "$"); word = "" }
+      j = i + 1
+      if (substr(line, j, 1) == "{") { while (j <= n && substr(line, j, 1) != "}") j++ }
+      else { while (j <= n && substr(line, j, 1) ~ /[A-Za-z0-9_#?@*!-]/) j++; j-- }
+      i = j; if (!assign) cmd = 0
+      continue
+    }
     if (c ~ /[A-Za-z0-9_.\/:=,-]/) { word = word c; continue }
     if (word != "") { emit(word, c); word = "" }
-    if (c == Q)    { q = 1; cmd = 0; continue }
-    if (c == "\"") { q = 2; cmd = 0; continue }
-    # `#` opens a comment only where a word does: after `$` it is the parameter count, and after
-    # `${` the length prefix. Reading either as a comment threw the rest of the line away.
+    # An assignment prefix keeps the next word in command position, however it is quoted.
+    if (c == Q)    { q = 1; if (!assign) cmd = 0; continue }
+    if (c == "\"") { q = 2; if (!assign) cmd = 0; continue }
     if (c == "#" && (i == 1 || substr(line, i-1, 1) ~ /[ \t;&|(]/)) break
-    if (c == "<" && substr(line, i+1, 1) == "<" && substr(line, i+2, 1) != "<") {
+    # `i-1`: the third character of a here-string is a `<` with a `<` behind it, and reading that as
+    # a heredoc opener took the rest of the line as a delimiter.
+    if (c == "<" && substr(line, i+1, 1) == "<" && substr(line, i+2, 1) != "<" && \
+        (i == 1 || substr(line, i-1, 1) != "<")) {
       rest = substr(line, i+2); sub(/^-/, "", rest); sub(/^[ \t]+/, "", rest)
       fc = substr(rest, 1, 1)
-      if (fc == Q || fc == "\"") rest = substr(rest, 2)
-      if (match(rest, /^[A-Za-z_][A-Za-z0-9_]*/)) heredoc = substr(rest, RSTART, RLENGTH)
+      # The delimiter is the whole word, punctuation included: an identifier class took `E` out of
+      # a quoted delimiter carrying a hyphen, and every remaining line of the file was then
+      if (fc == Q || fc == "\"") {
+        rest = substr(rest, 2); k = index(rest, fc)
+        if (k > 1) heredoc = substr(rest, 1, k - 1)
+      } else if (match(rest, /^[^ \t;&|<>()]+/)) heredoc = substr(rest, RSTART, RLENGTH)
       i++; cmd = 0; continue
     }
+    # `x=( … )` holds data, not a command.
+    if (c == "(" && assign) { arr = 1; cmd = 0; continue }
     if (c == "(" && substr(line, i+1, 1) == "(") { i++; arith = 1; continue }
     if (c == "[") { cmd = 0; continue }
-    if (c == ")") { if (sd > 0) { q = sq[sd]; sd--; cmd = 0 } else { cmd = 1; pat = 0 }; continue }
-    if (c ~ /[;|&({!`]/) { cmd = 1; pat = incase; continue }
+    if (c == ")") {
+      if (arr) { arr = 0; cmd = 0 }
+      else if (sd > 0) { q = sq[sd]; sd--; cmd = 0 }
+      else { cmd = 1; pat = 0 }
+      continue
+    }
+    if (c ~ /[;|&({!`]/) { cmd = 1; pat = (incase > 0); assign = 0; continue }
     if (c == "}") { cmd = 1; continue }
   }
   if (word != "") emit(word, " ")
+  cont = (q == 0 && substr(line, n, 1) == "\\")
 }
+# A heredoc the reader never closed means it stopped reading somewhere above, so the remaining
+# call sites were skipped in silence, which is the one failure a per-file count cannot describe.
+END { if (heredoc != "") print "unterminated\t" heredoc }
 function emit(w, nextc, atcmd) {
-  if (w == "case") { incase = 1; cmd = 1; pat = 1; return }
-  if (w == "esac") { incase = 0; cmd = 0; return }
+  # A counter, not a flag: an inner `esac` cleared it and the outer arm patterns then read as
+  # command positions.
+  if (w == "case") { incase++; cmd = 1; pat = 1; return }
+  if (w == "esac") { if (incase > 0) incase--; cmd = 0; pat = (incase > 0); return }
   if (w ~ /^(if|then|else|elif|do|while|until|time|in|done|fi|coproc)$/) { cmd = 1; return }
   if (w == "for" || w == "select" || w == "function") { cmd = 1; skipnext = 1; return }
   atcmd = (cmd && !pat)
   cmd = 0
   if (skipnext) { skipnext = 0; return }
-  if (w ~ /=/) { if (atcmd) cmd = 1; return }
+  if (w ~ /=/) { if (atcmd) { cmd = 1; assign = 1 }; return }
+  assign = 0
   if (w !~ /^[a-z_][a-z0-9_]*$/ || w !~ /_/) return
   # `word`: a bare occurrence that is neither a call nor a definition — the shape a helper takes
-  # when it is handed to a wrapper rather than run, which step 7 below asks about.
+  # when it is handed to a wrapper rather than run, which step 7 asks about.
   if (!atcmd) { if (!pat) print "word\t" w; return }
   if (nextc == "[" || nextc == "+") return
   if (nextc == "(") { print "def\t" w } else { print "call\t" w }
@@ -400,8 +436,12 @@ for f in "${RUNNABLE[@]}"; do
   fi
   # A definition may sit below its first call, so the whole file is read for definitions first.
   declare -A LOCAL_DEF=()
+  defs=0; stalled=""
   while IFS=$'\t' read -r kind name || [[ -n "$kind" ]]; do
-    [[ "$kind" == def ]] && LOCAL_DEF["$name"]=1
+    case "$kind" in
+      def)          LOCAL_DEF["$name"]=1; defs=$(( defs + 1 )) ;;
+      unterminated) stalled="$name" ;;
+    esac
   done < "$sites"
   missing=""; seen=0
   while IFS=$'\t' read -r kind name || [[ -n "$kind" ]]; do
@@ -411,8 +451,14 @@ for f in "${RUNNABLE[@]}"; do
     [[ "$missing" == *" ${name}"* ]] || missing+=" $name"
   done < "$sites"
   CALL_SITES=$(( CALL_SITES + seen ))
-  if [[ -n "$missing" ]]; then
+  if [[ -n "$stalled" ]]; then
+    note_fail "$f: a heredoc opened with '${stalled}' was never closed, so the reader stopped there and every call site below it went unread"
+  elif [[ -n "$missing" ]]; then
     note_fail "$f calls undefined helper(s):$missing"
+  # One file collapsing is invisible to the run-wide floor below, and a file holding a definition
+  # while calling nothing is the reader having stopped rather than a file with nothing to check.
+  elif (( defs > 0 && seen == 0 )); then
+    note_fail "$f defines ${defs} helper(s) and calls none, so the reader stopped somewhere inside it"
   else
     # The count is part of the verdict: a reader with nothing to read also has nothing to report.
     info "$f — ${seen} helper call site(s), all resolve"
