@@ -1099,11 +1099,11 @@ else
     probe "$hc" denied  cmd "sh <<<'docker compose config'"                   'compose guard: a here-string'
     probe "$hc" allowed cmd 'docker compose logs -f backend | grep error'     'compose guard: a read piped into a program that cannot run it'
     probe "$hc" allowed cmd 'docker compose ps || echo none'                  'compose guard: an or-list separates rather than feeds'
-    # Dev is Windows, where the program word and its extension are both case-insensitive: each
-    # of these runs there, and a byte comparison released every one.
+    # Dev is Windows, where a program word and its extension resolve case-insensitively: the
+    # uppercase spellings run there, and a byte comparison released every shape below.
     probe "$hc" denied  cmd 'DOCKER compose config'                           'compose guard: the uppercase program spelling'
     probe "$hc" denied  cmd 'docker.EXE compose config'                       'compose guard: an uppercase executable extension'
-    probe "$hc" denied  cmd 'Docker Compose up -d'                            'compose guard: a mixed-case invocation'
+    probe "$hc" denied  cmd 'Docker Compose up -d'                            'compose guard: a mixed-case spelling the hook cannot place'
     probe "$hc" allowed cmd 'docker.Exe compose ps'                           'compose guard: a case-folded read is still a read'
     # A substitution spells any program and any file name, so it is answered rather than parsed.
     # The literals are the point here — expanding one would probe a different command.

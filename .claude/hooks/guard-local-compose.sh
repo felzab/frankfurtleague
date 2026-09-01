@@ -53,7 +53,7 @@ read_status=$?
 
 # Release-only early out, read off a string the shell's own escaping has come off: `doc"ker"` and
 # `\docker` both run docker, and testing the raw payload reads neither as the word. Case-folded
-# with it: the dev machine is Windows, where `DOCKER compose` runs.
+# too: dev is Windows, where `DOCKER compose` runs.
 bare="${cmd//\"/}"
 bare="${bare//\'/}"
 bare="${bare//\\/}"
@@ -137,9 +137,9 @@ done
 # it, so the program is the next docker word rather than the next word: `sudo -u root docker`,
 # `nice -n 5 docker` and `timeout 5 docker` all run docker.
 PREFIXES=" command env exec ionice nice nohup setsid stdbuf sudo time timeout "
-# Programs that run neither an argument nor their input, so a docker word reaching one — written or
-# piped — is text rather than a command. Closed and short: anything able to execute either — an
-# interpreter, xargs, find, git, sed, awk — is outside it and lands on the refusal below instead.
+# Programs that run neither an argument nor their input, so a docker word reaching one — written
+# or piped — is text. Closed and short: anything able to execute either — an interpreter, xargs,
+# find, git, sed, awk — lands on the refusal below instead.
 INERT=" cat echo egrep fgrep grep head ls printf rg tail wc "
 # Subcommands that read and mutate nothing. Closed by design: a verb a later release adds refuses
 # until someone reads its flags. `wait` is out because --down-project drops the project; `config`
