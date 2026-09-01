@@ -50,24 +50,25 @@ BEWERBUNG_KONTAKT_MAX_AGE_YEARS: Final = 120
 # because a colour, a count and a size need nothing like a page.
 BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH: Final = 500
 
-# The club a new school proposes, bounded on the PUBLIC payload alone. `team_name` becomes
-# `teams.name` at acceptance, reaching the junction row, every fixture side and the league table.
-BEWERBUNG_TEAM_NAME_MAX_LENGTH: Final = 60
+# A club's short name, on the public application and the admin payloads alike: both tiers refuse at
+# one ceiling. `name` reaches the junction row, every fixture side and the league table.
+TEAM_NAME_MAX_LENGTH: Final = 60
 # The school's official name, which stands on its own page rather than in a table cell, so it takes
 # the place suffix a short name drops -- "… Kooperative Gesamtschule der Stadt Frankfurt am Main".
-BEWERBUNG_FULL_NAME_MAX_LENGTH: Final = 120
+TEAM_FULL_NAME_MAX_LENGTH: Final = 120
 
 # A school's homepage. `validate_external_url` reads the scheme and the host and leaves the PATH and
 # QUERY unchecked, so this bounds them. Far under what browsers accept: this is a front page.
-BEWERBUNG_WEBSITE_URL_MAX_LENGTH: Final = 300
+TEAM_WEBSITE_URL_MAX_LENGTH: Final = 300
 
 # The opponent a school would like on the first Spieltag, typed freely rather than picked. It takes
-# `BEWERBUNG_FULL_NAME_MAX_LENGTH`'s width: nothing holds an applicant to a league short name.
+# `TEAM_FULL_NAME_MAX_LENGTH`'s width: nothing holds an applicant to a league short name.
 BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH: Final = 120
 
-# One part of one contact person's name. `PERSON_NAME_PATTERN` bounds the ALPHABET and not the
-# length. Generous against a hyphenated double name and a multi-part surname both.
-BEWERBUNG_KONTAKT_NAME_MAX_LENGTH: Final = 80
+# One part of one contact person's name, on the public application and the junction patch alike.
+# `PERSON_NAME_PATTERN` bounds the ALPHABET and not the length. Generous against a hyphenated
+# double name and a multi-part surname both.
+KONTAKT_NAME_MAX_LENGTH: Final = 80
 
 # The school's estimate of its squad, and the strong players inside it. A ceiling that is a SQUAD
 # SIZE, not `int32`: past this the number is a typo. Not the season's `max_kadergroesse`, which an

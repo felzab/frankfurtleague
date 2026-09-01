@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 
+import { getAdminSaisons } from "@/features/saisons/queries";
 import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
 import { getAdminSpiele } from "@/features/spiele/queries";
 import { getSpielorte } from "@/features/spielorte/queries";
@@ -14,22 +15,28 @@ import { AdminProvider } from "./AdminContextProvider";
  */
 export async function AdminContextWrapper({ children, saison_id }: { children: React.ReactNode; saison_id?: string }) {
   await connection();
-  const [schiedsrichterRes, spielorteRes, teamsRes, spieleRes] = await Promise.all([
+  // The admin list rather than `GET /saisons/{saison_id}`: the editor's commonest season is a
+  // `future` one, which the base tier withholds by filter.
+  const [schiedsrichterRes, spielorteRes, teamsRes, spieleRes, saisonsRes] = await Promise.all([
     getSchiedsrichter(),
     getSpielorte(),
     getAdminTeams({ saison_id: saison_id }),
     getAdminSpiele({ saison_id: saison_id }),
+    getAdminSaisons(),
   ]);
   if (teamsRes.format !== "list") {
     throw new Error("Expected a list, got something else");
   }
+
+  const saison = saison_id === undefined ? undefined : saisonsRes.saisons.find((row) => row.id === saison_id);
 
   return (
     <AdminProvider
       schiedsrichter={schiedsrichterRes.schiedsrichter}
       spielorte={spielorteRes.spielorte}
       teams={teamsRes.teams}
-      saisonSpiele={spieleRes.spiele}>
+      saisonSpiele={spieleRes.spiele}
+      numberOfGroups={saison?.rules.number_of_groups ?? null}>
       {children}
     </AdminProvider>
   );

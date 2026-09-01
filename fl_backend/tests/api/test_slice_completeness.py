@@ -72,7 +72,7 @@ class TestARefusalNeverPermitsWhatItCannotSee:
 
     def test_the_wiring_refusal_refuses_to_judge(self, season, payload):
         with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            find_wiring_refusal(UNREAD_SPIEL_ID, payload, season)
+            find_wiring_refusal(UNREAD_SPIEL_ID, payload, season, number_of_groups=4)
 
     def test_the_booking_refusal_refuses_to_judge(self, season, payload):
         """It compares the payload's references against the STORED ones, so a slice without them judges a move it cannot see."""

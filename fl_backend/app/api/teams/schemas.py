@@ -1,16 +1,20 @@
 from typing import Annotated, Any, Literal, Mapping, Union
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, RootModel, StringConstraints, TypeAdapter
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, RootModel, StringConstraints, TypeAdapter
 
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
     KONTAKT_EMAIL_MAX_LENGTH,
+    KONTAKT_NAME_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
     TEAM_DESCRIPTION_MAX_LENGTH,
+    TEAM_FULL_NAME_MAX_LENGTH,
+    TEAM_NAME_MAX_LENGTH,
     TEAM_SHORTHAND_LENGTH,
+    TEAM_WEBSITE_URL_MAX_LENGTH,
 )
 from app.shared.schemas.custom import (
     PERSON_NAME_PATTERN,
@@ -20,8 +24,8 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
     CustomOptionalExternalUrl,
-    CustomStrippedNonEmptyString,
-    CustomStrippedOptionalExternalUrl,
+    parse_empty_string_to_none,
+    validate_external_url,
 )
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -158,9 +162,14 @@ class FLKontaktpersonPayload(FLKontaktperson):
     model_config = ConfigDict(extra="forbid")
 
     # Tightened on the WRITE side alone, as a referee's name is (`docs/backend/spec.md :: I36`), and
-    # stripped there for the same reason.
-    vorname: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=PERSON_NAME_PATTERN)]
-    nachname: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=PERSON_NAME_PATTERN)]
+    # stripped there for the same reason. The ceiling is the application's, so both tiers refuse
+    # alike; the pattern bounds the alphabet and not the length.
+    vorname: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN)
+    ]
+    nachname: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN)
+    ]
     # On the write side, not the read: `GET /teams/memberships` is the ONLY route to repairing a bad
     # row, so a value it refused would lock itself in. The ceiling is stated rather than left to
     # email-validator, whose refusal names no field.
@@ -328,17 +337,26 @@ class _TeamPayload(_TeamWritable):
     model_config = ConfigDict(extra="forbid")
 
     address: FLAddressPayload
-    # Stripped on the WRITE side alone, the read models taking a stored value as it stands: `name` is
-    # copied onto the season's junction row and onto every fixture side, so spaces alone would reach
-    # a league table row.
-    name: CustomStrippedNonEmptyString
-    full_name: CustomStrippedNonEmptyString
+    # Stripped and CEILINGED on the WRITE side alone, a stored value still reading as it stands
+    # (`docs/backend/spec.md :: I36`). `name` reaches a league table row, so a space would show
+    # there. The ceilings are the application's: both tiers refuse alike.
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_NAME_MAX_LENGTH)]
+    full_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_FULL_NAME_MAX_LENGTH)]
     # Redeclared for that reason too: the width is a floor as well as a ceiling, and what it holds
     # is the whole of what a league table row names the club by.
     shorthand: Annotated[str, StringConstraints(strip_whitespace=True, min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)]
-    # Stripped on the WRITE side alone, as the three above are: `validate_external_url` leaves
-    # surrounding whitespace on the value, so a pasted URL would be stored with it.
-    website_url: CustomStrippedOptionalExternalUrl
+    # Stripped on the WRITE side too: `validate_external_url` leaves surrounding whitespace on the
+    # value, so a pasted URL would be stored with it. Composed from `str` as the application's twin
+    # is, so the ceiling is judged BEFORE the host regex runs.
+    website_url: Annotated[
+        Annotated[
+            str,
+            StringConstraints(strip_whitespace=True, max_length=TEAM_WEBSITE_URL_MAX_LENGTH),
+            AfterValidator(validate_external_url),
+        ]
+        | None,
+        BeforeValidator(parse_empty_string_to_none),
+    ]
 
 
 # Two names for one shape rather than an alias: the create and the edit are free to diverge, and an

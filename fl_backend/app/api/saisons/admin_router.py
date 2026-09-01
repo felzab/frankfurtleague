@@ -721,9 +721,18 @@ async def generate_spielplan(
         # Both collections together (`docs/backend/spec.md :: I46`), fixtures first: the reverse of
         # the write order below, so neither the log's rows nor a restore replaying them holds a
         # fixture whose matchday is gone.
+        removed_spieltage = 0
+        removed_spiele = 0
+
+        # The counts go to the response: they are what the admin confirmed deleting, and the flag
+        # alone cannot say whether anything was there to delete.
         if spielplan_data.replace:
-            await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
-            await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
+            removed_spiele = (
+                await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
+            ).deleted_count
+            removed_spieltage = (
+                await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
+            ).deleted_count
 
         # Matchdays first: every fixture already carries the `spieltag_id` of a row in this list, the
         # draw having generated both ids together rather than reading one back.
@@ -756,6 +765,8 @@ async def generate_spielplan(
             spieltage=watermark.spieltage,
             spiele=watermark.spiele,
             generiert_am=watermark.generiert_am,
+            removed_spieltage=removed_spieltage,
+            removed_spiele=removed_spiele,
         )
 
     # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges

@@ -90,6 +90,18 @@ describe("toActionErrorResult", () => {
     assert.equal(result.errorCode, undefined);
   });
 
+  it("sends the unrun-group refusal to reload, and names the group as the fault", () => {
+    // Unlike the seeding refusal above: the picker offers only the season's groups, so this code
+    // arriving means the season was redrawn narrower under the open form, and a reload renews it.
+    const result = toActionErrorResult(new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode: "REQ-WIRING-003" }));
+
+    assert.equal(result.success, false);
+    assert.match(result.error ?? "", /Gruppe/);
+    assert.match(result.error ?? "", /Lade die Seite neu/);
+    // No side rides back: the failure body names none, so a form placing this on one would guess.
+    assert.equal(result.errorCode, undefined);
+  });
+
   it("maps a 404 onto the vanished-record message", () => {
     const result = toActionErrorResult(new APIBadStatusError({ ...base, message: "bad", statusCode: 404 }));
 

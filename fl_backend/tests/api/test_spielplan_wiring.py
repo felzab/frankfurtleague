@@ -126,14 +126,19 @@ class TestTheDrawnWiringIsWiringTheWritePathAccepts:
 
     @pytest.mark.parametrize("shape", SHAPES, ids=SHAPE_IDS)
     def test_no_emitted_fixture_carries_a_wiring_its_own_endpoint_would_refuse(self, shape: Shape):
-        """Wiring the write path refuses is wiring an admin who cleared the slot could never point back at."""
+        """Wiring the write path refuses is wiring an admin who cleared the slot could never point back at.
 
+        The shape's own group count rides along, so a draw seeding outside it would land here too.
+        """
+
+        groups, _, _ = shape
         season = season_of(shape)
 
         refused = [
             (raw["spiel_nr"], refusal.message)
             for raw in drawn(shape).spiele
-            if (refusal := find_wiring_refusal(raw["_id"], payload_of(raw), with_the_slot_cleared(season, raw["_id"]))) is not None
+            if (refusal := find_wiring_refusal(raw["_id"], payload_of(raw), with_the_slot_cleared(season, raw["_id"]), number_of_groups=groups))
+            is not None
         ]
 
         assert refused == []

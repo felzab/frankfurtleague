@@ -12,7 +12,14 @@ import {
   PHONE_REGEX,
 } from "@/shared/schemas";
 
-import { DESCRIPTION_MAX_LENGTH, EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH } from "./constants";
+import {
+  DESCRIPTION_MAX_LENGTH,
+  EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
+  KONTAKT_NAME_MAX_LENGTH,
+  TEAM_FULL_NAME_MAX_LENGTH,
+  TEAM_NAME_MAX_LENGTH,
+  TEAM_WEBSITE_URL_MAX_LENGTH,
+} from "./constants";
 
 /**
  * A club's website, or none. **`null` is the one spelling of absence and `""` is not admitted** —
@@ -137,10 +144,13 @@ export const FLKontaktpersonSchema = z.object({
 });
 export type FLKontaktperson = z.infer<typeof FLKontaktpersonSchema>;
 
+/** One sentence for both name ceilings: the two boxes sit side by side and share the constant. */
+const KONTAKT_NAME_ZU_LANG = `Der Name darf höchstens ${String(KONTAKT_NAME_MAX_LENGTH)} Zeichen lang sein.`;
+
 /** Mirrors `FLKontaktpersonPayload`. German throughout: the team editor binds it to its inputs. */
 export const FLKontaktpersonPayloadSchema = z.object({
-  vorname: PersonNameSchema,
-  nachname: PersonNameSchema,
+  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   // The ceiling is stated here rather than left to the address validator, whose refusal carries no
   // field detail, so nothing would mark the box.
   email: z
@@ -294,14 +304,25 @@ export type FLTeamsSingleResponse = z.infer<typeof FLTeamsSingleResponseSchema>;
 
 /** Shared by create and patch: the patch replaces them wholesale, so both carry the same field set. */
 const teamPayloadFields = {
-  name: z.string().nonempty({ error: "Bitte gib einen Namen ein." }),
+  // The ceilings are the application's, so both tiers refuse alike.
+  name: z
+    .string()
+    .nonempty({ error: "Bitte gib einen Namen ein." })
+    .max(TEAM_NAME_MAX_LENGTH, { error: `Der Name darf höchstens ${String(TEAM_NAME_MAX_LENGTH)} Zeichen lang sein.` }),
   // Exactly two characters, held unique across every club — retired ones included.
   shorthand: z.string().length(2, { error: "Das Kürzel besteht aus genau 2 Zeichen." }),
   description: z
     .string()
     .max(DESCRIPTION_MAX_LENGTH, { error: `Die Beschreibung darf höchstens ${String(DESCRIPTION_MAX_LENGTH)} Zeichen lang sein.` }),
-  full_name: z.string().nonempty({ error: "Bitte gib den vollständigen Namen ein." }),
-  website_url: OptionalExternalUrlSchema,
+  full_name: z
+    .string()
+    .nonempty({ error: "Bitte gib den vollständigen Namen ein." })
+    .max(TEAM_FULL_NAME_MAX_LENGTH, {
+      error: `Der vollständige Name darf höchstens ${String(TEAM_FULL_NAME_MAX_LENGTH)} Zeichen lang sein.`,
+    }),
+  website_url: ExternalUrlSchema.max(TEAM_WEBSITE_URL_MAX_LENGTH, {
+    error: `Die Adresse darf höchstens ${String(TEAM_WEBSITE_URL_MAX_LENGTH)} Zeichen lang sein.`,
+  }).nullable(),
   address: FLAddressPayloadSchema,
   // Required with no default, as the model states it: `PATCH` replaces the club wholesale, so an
   // omitted key would clear a stored school form and fan that out as an edit nobody asked for.

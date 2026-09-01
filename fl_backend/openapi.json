@@ -6287,6 +6287,18 @@
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Generiert Am"
+          },
+          "removed_spieltage": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Removed Spieltage",
+            "default": 0
+          },
+          "removed_spiele": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Removed Spiele",
+            "default": 0
           }
         },
         "type": "object",
@@ -6297,7 +6309,7 @@
           "generiert_am"
         ],
         "title": "FLGenerateSpielplanResponse",
-        "description": "What the draw wrote, flat rather than nested.\n\nAn admin reads the two counts without a second request, and they are the same numbers the\nseason's own watermark keeps, so the two can be compared by eye."
+        "description": "What the draw wrote, and what a confirmed replace deleted first, flat rather than nested.\n\nAn admin reads the written counts without a second request, and they are the same numbers the\nseason's own watermark keeps, so the two can be compared by eye."
       },
       "FLGruppen": {
         "additionalProperties": {
@@ -6582,12 +6594,14 @@
         "properties": {
           "vorname": {
             "type": "string",
+            "maxLength": 80,
             "minLength": 1,
             "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
             "title": "Vorname"
           },
           "nachname": {
             "type": "string",
+            "maxLength": 80,
             "minLength": 1,
             "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
             "title": "Nachname"
@@ -7299,6 +7313,7 @@
         "properties": {
           "name": {
             "type": "string",
+            "maxLength": 60,
             "minLength": 1,
             "title": "Name"
           },
@@ -7315,6 +7330,7 @@
           },
           "full_name": {
             "type": "string",
+            "maxLength": 120,
             "minLength": 1,
             "title": "Full Name"
           },
@@ -7340,7 +7356,8 @@
           "website_url": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 300
               },
               {
                 "type": "null"
@@ -7822,6 +7839,7 @@
         "properties": {
           "name": {
             "type": "string",
+            "maxLength": 60,
             "minLength": 1,
             "title": "Name"
           },
@@ -7838,6 +7856,7 @@
           },
           "full_name": {
             "type": "string",
+            "maxLength": 120,
             "minLength": 1,
             "title": "Full Name"
           },
@@ -7863,7 +7882,8 @@
           "website_url": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 300
               },
               {
                 "type": "null"

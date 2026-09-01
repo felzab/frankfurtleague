@@ -4,7 +4,7 @@ import pytest
 from bson import ObjectId
 
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpielListAdapter
-from app.api.spiele.services import WIRING_SEED_PAST_THE_OPENING_ROUND, WIRING_UNSUPPORTED, find_wiring_refusal
+from app.api.spiele.services import WIRING_GRUPPE_NOT_RUN, WIRING_SEED_PAST_THE_OPENING_ROUND, WIRING_UNSUPPORTED, find_wiring_refusal
 from app.core.exceptions import WriteRefusal
 from tests.payloads import spiel_patch_body
 
@@ -55,14 +55,16 @@ def season(fixture_at: FixtureFactory) -> list[dict[str, Any]]:
     ]
 
 
-def refusal_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> WriteRefusal | None:
+def refusal_for(season_docs: list[dict[str, Any]], nr: int, number_of_groups: int = 4, **overrides: Any) -> WriteRefusal | None:
     """Everything as stored plus `overrides`, so a case overriding nothing asserts that an unchanged save is legal."""
 
     stored = next(doc for doc in season_docs if doc["spiel_nr"] == nr)
     payload = FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, **overrides))
 
     # A real `ObjectId`, as the route convertor hands one: bson's never equals its string spelling.
-    return find_wiring_refusal(ObjectId(stored["_id"]), payload, FLSpielListAdapter.validate_python(season_docs))
+    return find_wiring_refusal(
+        ObjectId(stored["_id"]), payload, FLSpielListAdapter.validate_python(season_docs), number_of_groups=number_of_groups
+    )
 
 
 def message_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> str:
@@ -98,6 +100,10 @@ class TestLegalEdits:
         """Re-wiring a side does not count as hand-setting its team while the payload carries the stored occupant."""
         occupied = [doc if doc["spiel_nr"] != 29 else {**doc, "team1": spiel_team_field()} for doc in season]
         assert refusal_for(occupied, 29, team1=spiel_team_field(), team1_quelle=verlierer(26)) is None
+
+    def test_a_group_inside_the_seasons_count_is_legal(self, season):
+        """The bound is the season's own count, never the closed letter set: on a two-group season B stays wireable."""
+        assert refusal_for(season, 25, number_of_groups=2, team1_quelle=gruppenplatz("B", 3)) is None
 
 
 class TestPhaseRules:
@@ -326,3 +332,13 @@ class TestEveryRefusalCarriesItsCode:
         # Not implied by the equality above: one constant spelled as the other passes that and
         # rejoins the two rules on the wire.
         assert refusal.error_code != WIRING_UNSUPPORTED
+
+    def test_a_group_the_season_does_not_run_carries_a_third_code(self, season):
+        """Fixture 25 is the opening round, so only the group's existence separates this from the seeding refusal."""
+
+        refusal = refusal_for(season, 25, number_of_groups=2, team1_quelle=gruppenplatz("C", 1))
+
+        assert refusal is not None
+        assert refusal.error_code == WIRING_GRUPPE_NOT_RUN
+        assert refusal.error_code != WIRING_UNSUPPORTED
+        assert refusal.error_code != WIRING_SEED_PAST_THE_OPENING_ROUND

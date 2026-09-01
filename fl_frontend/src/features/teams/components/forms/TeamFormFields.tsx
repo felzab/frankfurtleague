@@ -3,7 +3,13 @@
 import { FieldError, Input, Label, TextArea, TextField } from "@heroui/react";
 
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
-import { DESCRIPTION_MAX_LENGTH } from "@/features/teams/constants";
+import {
+  DESCRIPTION_MAX_LENGTH,
+  TEAM_FULL_NAME_MAX_LENGTH,
+  TEAM_NAME_MAX_LENGTH,
+  TEAM_WEBSITE_URL_MAX_LENGTH,
+  WEBSITE_URL_SCHEME,
+} from "@/features/teams/constants";
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 
@@ -32,6 +38,7 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
           name="name"
           value={draft.name}
           onChange={(next) => onChange({ ...draft, name: next })}
+          maxLength={TEAM_NAME_MAX_LENGTH}
           // See `SchiedsrichterFormFields` for why the value lives on the field, not the input.
           isInvalid={errors?.["name"] ? true : undefined}>
           <Label className={FIELD_LABEL}>Name</Label>
@@ -62,6 +69,7 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         name="full_name"
         value={draft.full_name}
         onChange={(next) => onChange({ ...draft, full_name: next })}
+        maxLength={TEAM_FULL_NAME_MAX_LENGTH}
         isInvalid={errors?.["full_name"] ? true : undefined}>
         <Label className={FIELD_LABEL}>Vollständiger Name</Label>
         <Input
@@ -75,6 +83,9 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         value={draft.website_url}
         onChange={(nextUrl) => onChange({ ...draft, website_url: nextUrl })}
         error={errors?.["website_url"]}
+        // The box holds the URL without the scheme, which the group renders as furniture, so the
+        // payload's ceiling is composed rather than passed whole.
+        maxLength={TEAM_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME.length}
       />
 
       <TextField
