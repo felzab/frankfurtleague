@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, Awaitable, Callable, get_args
 
 import pytest
@@ -11,7 +10,7 @@ from pymongo.errors import OperationFailure
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
 from app.core.recording import Operation, build_redaction_filter, build_redaction_update
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 pytestmark = pytest.mark.db
 
@@ -76,13 +75,11 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_database(container: Any, body: Body) -> Any:
-    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first runs on."""
-
     async def _run() -> Any:
         async with a_clean_database(container.get_connection_url(), DATABASE_NAME, constraints=True) as (_, database):
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 ClientBody = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -98,7 +95,7 @@ def on_a_replica_set(url: str, body: ClientBody) -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 def insert_outcome(container: Any, row: dict[str, Any]) -> str:

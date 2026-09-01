@@ -1,4 +1,3 @@
-import asyncio
 import copy
 from typing import Any, Awaitable, Callable, Sequence
 
@@ -18,11 +17,15 @@ from app.api.teams.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = "fl_replacement_test"
+
+# Its own name rather than a second schema under `DATABASE_NAME`: the constrained and unconstrained
+# cases enforce different things, and a shared name rebuilds whichever the last call did not ask for.
+UNCONSTRAINED_DATABASE_NAME = "fl_replacement_unconstrained_test"
 
 SAISON_ID = "2026"
 PRIOR_SAISON_ID = "2025"
@@ -271,17 +274,17 @@ def on_a_seeded_season(
     junctions: Sequence[dict[str, Any]] | None = None,
     constrained: bool = True,
 ) -> Any:
-    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first ran on.
+    """`active` by default: a mid-season withdrawal is what this endpoint is for.
 
-    `active` by default: this endpoint is for a mid-season withdrawal. The SHIPPED validators too,
-    `constrained=False` being the case whose subject they forbid.
+    The SHIPPED validators too, `constrained=False` being the case whose subject is a row they forbid.
     """
 
     # `spiele` by hand where no validator is installed: a transaction cannot create a collection.
     collections = () if constrained else (Collection.SPIELE,)
+    database_name = DATABASE_NAME if constrained else UNCONSTRAINED_DATABASE_NAME
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=constrained, collections=collections) as (client, database):
+        async with a_clean_database(url, database_name, constraints=constrained, collections=collections) as (client, database):
             # Each season spans its own calendar year, so the two seeded spans do not overlap.
             await database[Collection.SAISONS].insert_many(
                 [
@@ -299,7 +302,7 @@ def on_a_seeded_season(
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def call_replace(

@@ -1,4 +1,3 @@
-import asyncio
 import secrets
 from typing import Any, Awaitable, Callable, Mapping
 
@@ -23,7 +22,7 @@ from app.core.constraints import (
     report_relations,
     report_violations,
 )
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 pytestmark = pytest.mark.db
 
@@ -222,7 +221,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_database(container: Any, body: Body, *, constrained: bool = True) -> Any:
-    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first runs on.
+    """A client of this call's own, this suite alone creating and dropping the users a client authenticates as.
 
     `constrained=False` is the production ordering.
     """
@@ -240,7 +239,7 @@ def on_a_database(container: Any, body: Body, *, constrained: bool = True) -> An
         finally:
             await client.close()
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 def on_the_shipped_schema(container: Any, body: Body) -> Any:
@@ -254,7 +253,7 @@ def on_the_shipped_schema(container: Any, body: Body) -> Any:
         async with a_clean_database(container.get_connection_url(), SHIPPED_DATABASE_NAME, constraints=True) as (_, database):
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 def insert_outcome(container: Any, collection: str, document: dict[str, Any]) -> str:

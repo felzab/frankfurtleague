@@ -13,6 +13,7 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungKontaktePayload,
     FLBewerbungKontaktpersonPayload,
     FLBewerbungSchule,
+    FLBewerbungSchuleOption,
     FLBewerbungSchulePayload,
     FLBewerbungTrikot,
     FLPostBewerbungPayload,
@@ -1336,6 +1337,18 @@ class _RecordingCollection:
         self.db_filter = filter
 
         return _RecordingCursor(self._documents)
+
+
+class TestTheClubOptionIsAnAllowList:
+    """`READ-BEWERBUNG-001` at the model, the layer above the projection.
+
+    An anonymous visitor picks from this list, so every field the shape declares is serialised into a public page.
+    """
+
+    def test_the_shape_declares_exactly_these_fields(self):
+        """An allow-list is one only while its whole membership is pinned; a subset relation would not do it."""
+
+        assert set(FLBewerbungSchuleOption.model_fields) == {"id", "name"}
 
 
 class TestTheClubListAsksTheDatabaseForTwoFields:

@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
@@ -21,7 +20,7 @@ from app.api.spieler.schemas import (
 )
 from app.api.spieler.services import SQUAD_FULL, SQUAD_ROLLE_TAKEN, SQUAD_TEAM_NOT_IN_SAISON
 from app.core.exceptions import DocumentConflictException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 pytestmark = pytest.mark.db
 
@@ -83,8 +82,6 @@ def legacy_squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since:
 
 
 def on_a_database(container: Any, body: Body) -> Any:
-    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first runs on."""
-
     async def _run() -> Any:
         async with a_clean_database(container.get_connection_url(), DATABASE_NAME) as (_, database):
             await database.saisons.insert_one(
@@ -105,7 +102,7 @@ def on_a_database(container: Any, body: Body) -> Any:
             )
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def fill(database: AsyncDatabase, team_id: ObjectId, count: int) -> None:
@@ -177,16 +174,6 @@ class TestTheConsentRecordIsComposedAndNeverAccepted:
             "datum": TODAY,
             "bestaetigt_am": TODAY,
         }
-
-    def test_the_create_payload_carries_no_consent_field(self):
-        """An admin able to state one could publish a pupil on a claim nobody made. Pure: an absence needs no database."""
-
-        assert "einwilligung" not in FLPostSpielerPayload.model_fields
-
-    def test_the_patch_payload_carries_no_consent_field(self):
-        """The load-bearing half, because `patch_spieler` `$set`s this model's whole dump."""
-
-        assert "einwilligung" not in FLPatchSpielerPayload.model_fields
 
     def test_correcting_a_name_leaves_the_consent_record_standing(self, mongo_container: Any):
         """`$set` names only the payload's keys, so the sub-document is left alone rather than replaced -- against a real update."""

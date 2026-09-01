@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime
 from typing import Any, Awaitable, Callable, Mapping
 from zoneinfo import ZoneInfo
@@ -15,7 +14,7 @@ from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.teams.schemas import FLSaisonTeamKontakte
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 DATABASE_NAME = "fl_kontakt_erasure_test"
 
@@ -258,7 +257,7 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def call_erasure(database: AsyncDatabase, client: AsyncMongoClient, email: str = ERASED_EMAIL) -> FLKontaktErasureResponse:
@@ -374,7 +373,7 @@ def after_erasing_a_swapped_out_person(url: str, runs: int = 1) -> Snapshot:
 
             return response, await stored_rows(database), log
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 def after_erasing_the_case_table(url: str) -> tuple[FLKontaktErasureResponse, dict[Any, Mapping[str, Any]]]:

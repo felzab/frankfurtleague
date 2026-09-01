@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
@@ -20,7 +19,7 @@ from app.api.teams.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
@@ -129,8 +128,6 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, saison_status: str = "future") -> Any:
-    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first ran on."""
-
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, collections=(Collection.SAISON_TEAMS,)) as (_, database):
             await database[Collection.SAISONS].insert_one(
@@ -141,7 +138,7 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "future") -> Any:
 
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def enter(database: AsyncDatabase, team_id: ObjectId, gruppe: str = "A") -> Any:

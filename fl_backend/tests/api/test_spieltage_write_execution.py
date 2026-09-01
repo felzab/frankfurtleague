@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
@@ -12,7 +11,7 @@ from app.api.spieltage.admin_router import patch_spieltag
 from app.api.spieltage.schemas import FLPatchSpieltagPayload
 from app.api.spieltage.services import SPIELTAG_BEGINN_OUT_OF_ORDER, SPIELTAG_SPAN_BELOW_FIXTURES
 from app.core.exceptions import DocumentConflictException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 pytestmark = pytest.mark.db
 
@@ -109,15 +108,13 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_database(url: str, body: Body) -> Any:
-    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first runs on."""
-
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
             await database.saisons.insert_one(saison_document())
             await database.spieltage.insert_one(spieltag_document())
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def move_the_seasons_end(database: AsyncDatabase, end_date: str) -> Any:

@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
@@ -29,7 +28,7 @@ from app.api.spiele.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
 
 pytestmark = pytest.mark.db
@@ -417,7 +416,7 @@ def on_a_seeded_season(url: str, body: Body, *, spiele: list[dict[str, Any]], mu
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def call_patch(

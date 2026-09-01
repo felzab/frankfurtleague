@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, Awaitable, Callable, Iterable, Mapping
 
 import pytest
@@ -14,7 +13,7 @@ from app.api.spielorte.schemas import FLPatchSpielortPayload, FLPatchSpielortRes
 from app.api.teams.admin_router import patch_team
 from app.api.teams.schemas import FLPatchTeamPayload, FLPatchTeamResponse
 from app.core.collections import Collection
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 pytestmark = pytest.mark.db
 
@@ -250,7 +249,7 @@ def on_a_database(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
             await database[Collection.SPIELE].insert_many([fixture_document(spiel_nr) for spiel_nr in FIXTURES])
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def rename_the_venue(

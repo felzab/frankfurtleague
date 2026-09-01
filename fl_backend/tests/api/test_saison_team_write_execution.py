@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, Awaitable, Callable, Sequence
 
 import pytest
@@ -10,7 +9,7 @@ from app.api.teams.schemas import FLPatchSaisonTeamPayload
 from app.api.teams.services import ENTRY_GRUPPE_FULL, ENTRY_GRUPPE_LOCKED, ENTRY_GRUPPE_NOT_OFFERED
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 pytestmark = pytest.mark.db
 
@@ -101,10 +100,9 @@ def on_a_season(
     spiele: Sequence[dict[str, Any]] = (),
     seeded_kontakte: dict[str, Any] | None = None,
 ) -> Any:
-    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first ran on.
+    """`future` by default, the one status a group move is open in.
 
-    `future` by default, the one status a group move is open in -- so a refusal a test reaches is the
-    gate it names rather than the season's standing.
+    So a refusal a test reaches is the gate it names rather than the season's standing.
     """
 
     async def _run() -> Any:
@@ -120,7 +118,7 @@ def on_a_season(
 
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def call_patch(

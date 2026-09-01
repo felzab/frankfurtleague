@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, Awaitable, Callable
 
 import pytest
@@ -11,7 +10,7 @@ from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
 from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW, RULES_TIEBREAK_AFTER_KNOCKOUT
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 pytestmark = pytest.mark.db
 
@@ -186,8 +185,6 @@ def on_a_database(
     spiele: list[dict[str, Any]] | None = None,
     spieltage: list[dict[str, Any]] | None = None,
 ) -> Any:
-    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first runs on."""
-
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
             # Process-global and keyed by season id, so an entry another module left would answer for this one.
@@ -201,7 +198,7 @@ def on_a_database(
 
             return await body(database)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def patch_the_rules(database: AsyncDatabase, **overrides: Any) -> Any:

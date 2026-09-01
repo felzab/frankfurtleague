@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime
 from typing import Any, Awaitable, Callable, Mapping
 from zoneinfo import ZoneInfo
@@ -16,7 +15,7 @@ from app.core.collections import Collection
 from app.core.constraints import SUPPORT_INDEXES
 from app.core.recording import build_redaction_filter
 from app.shared.schemas.kontakt import FLKontakt
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 DATABASE_NAME = "fl_schiedsrichter_anonymisierung_test"
 
@@ -134,7 +133,7 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def call_anonymisation(database: AsyncDatabase, client: AsyncMongoClient) -> FLSchiedsrichterWriteResponse:

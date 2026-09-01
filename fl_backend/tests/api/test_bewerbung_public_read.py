@@ -8,7 +8,6 @@ from bson import ObjectId
 from httpx import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient, MongoClient
 
-from app.api.bewerbungen.schemas import FLBewerbungSchuleOption
 from app.api.saisons.cache import invalidate_saison_cache
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -295,11 +294,6 @@ class TestTheWindowReads:
 
 class TestTheClubList:
     """`READ-BEWERBUNG-001`: an anonymous visitor picks from this, so every field is serialised into a public page."""
-
-    def test_the_shape_declares_exactly_these_fields(self):
-        """An allow-list is one only while its whole membership is pinned; a subset relation would not do it."""
-
-        assert set(FLBewerbungSchuleOption.model_fields) == {"id", "name"}
 
     def test_only_a_club_id_and_a_name_are_served(self, seeded_url: str):
         response = answered(seeded_url, f"{PREFIX}/schulen")

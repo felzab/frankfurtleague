@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime
 from typing import Any, Awaitable, Callable
 from zoneinfo import ZoneInfo
@@ -27,7 +26,7 @@ from app.api.spieler.schemas import (
 from app.api.spieler.services import ERASURE_NOT_RETIRED
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
-from tests.database import a_clean_database
+from tests.database import a_clean_database, on_the_seed_loop
 
 pytestmark = pytest.mark.db
 
@@ -104,7 +103,7 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
 
             return await body(database, client)
 
-    return asyncio.run(_run())
+    return on_the_seed_loop(_run())
 
 
 async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_id: ObjectId, retired: bool) -> ObjectId:
