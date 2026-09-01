@@ -370,9 +370,11 @@ one that never ran, and a session fixing the failure knows what it need not pay 
 run's exit is then the worst adopted rank, findings outranking a refusal as everywhere else
 (`scripts/_lib.sh :: finish`); byte-identity with the serial run is a green run's property, a
 failing serial run having stopped where the parallel one did not. **A scope whose exit status its
-own rows cannot account for is refused as a crash** — a 1 carrying no finding, a 2 carrying no
-refusal — because the rows are all `finish` reads, so a status nothing in them explains is exactly
-what would otherwise close the run green over a scope that failed. `--serial` runs them one at a
+own rows cannot account for ends the run at 3** (`scripts/_lib.sh :: adopt_ending`) — a 1 carrying
+no finding, a 2 carrying no refusal — because the rows are all `finish` reads, so a status nothing
+in them explains is exactly what would otherwise close the run green over a scope that failed. The
+grade is the environment's and never 2, the code that asks for the input the check was given to be
+fixed: no input made a worker and its parent disagree, the fault being the handoff's. `--serial` runs them one at a
 time and is what a byte-identity comparison is measured against; `--verbose`, a run covering one
 scope, CI (already one scope per job) and a machine with no interpreter at the checkers' floor are
 serial too. **No scope waits on another** — the compose parse reads its stand-in `.env` files from
