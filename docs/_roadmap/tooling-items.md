@@ -1782,10 +1782,10 @@ added for OUT-7 lands with the field that claims it.
 **Status:** Open\
 **Surfaces:** FE, Ops\
 **Effort:** S\
-**Path:** Independent — two package scripts, a gitignore line, and the consequence note in
-`docs/ops/spec.md` §1.6. The prettier half lands in `format` and the eslint half in `frontend`
-(`docs/ops/spec.md` §1.6's scope table), so what either buys on wall clock is decided by which pool
-member is binding at the scope being run.
+**Path:** Independent — two package scripts, an ignore line in each of two files, and the
+consequence note in `docs/ops/spec.md` §1.6. The prettier half lands in `format` and the eslint
+half in `frontend` (`docs/ops/spec.md` §1.6's scope table), so what either buys on wall clock is
+decided by which pool member is binding at the scope being run.
 
 **`fl_frontend/package.json`'s `format:check` script points prettier at the whole repository and
 gives it no cache**, so prettier re-reads every file it is pointed at whether or not anything about
@@ -1818,21 +1818,25 @@ machine — sixteen cores, repository clean — against the invocations the gate
 | `eslint .`, `--cache --cache-strategy content`, cold | 20.5 s     |
 | `eslint .`, `--cache --cache-strategy content`, warm | 4.5 s      |
 
-**What the shipped pair costs, measured 2026-09-01 on the same machine while a dozen agents ran
-beside it.** Absolute figures are worthless under that load and the ratios are not; each pair was
-run alternating, back to back, and every run is reported.
+**What the cache costs against the threading it replaced, measured 2026-09-01 on the same machine
+while a dozen agents ran beside it.** Absolute figures are worthless under that load and the ratios
+are not; the three arms were alternated back to back, three rounds, and every run is reported. Each
+arm carries `--cache --cache-strategy content`, and a cold run is the one after the cache file was
+deleted.
 
-| Run, 2026-09-01, relative under load                        | Runs                 | Median |
-| ----------------------------------------------------------- | -------------------- | ------ |
-| `eslint . --concurrency=2`, no cache — the step as it stood | 23.8 / 24.2 / 23.0 s | 23.8 s |
-| `eslint . --concurrency=2 --cache --cache-strategy content` | 26.1 / 22.0 / 34.9 s | 26.1 s |
-| `eslint . --concurrency=off`, no cache                      | 28.1 / 31.3 / 32.3 s | 31.3 s |
-| `eslint . --concurrency=off --cache …`, warm — what shipped | 28.6 / 5.5 / 5.1 s   | 5.5 s  |
+| Run, 2026-09-01, relative under load | Cold                 | Warm              |
+| ------------------------------------ | -------------------- | ----------------- |
+| no concurrency flag — what ships     | 28.5 / 28.0 / 28.0 s | 5.2 / 4.4 / 4.9 s |
+| `--concurrency=2`                    | 23.1 / 21.7 / 21.7 s | 9.0 / 9.0 / 7.9 s |
+| `--concurrency=auto`                 | 17.1 / 15.8 / 16.6 s | 9.6 / 9.4 / 9.8 s |
 
-The second row is the finding: a cache under `--concurrency=2` buys nothing, and the fourth row's
-first run is the cold fill. Against the step as it stood the shipped form is roughly **a quarter of
-its time warm and about a fifth slower cold**, so a fresh worktree and a CI runner each pay once for
-what every later run recovers.
+**Threading buys the cold fill and costs the warm run.** On medians against the shipped arm, two
+workers run at 0.78 cold and 1.84 warm, and `auto` — eight workers on this machine — at 0.59 cold
+and 1.96 warm. A development machine mostly pays the warm run; a cold one is paid once per fresh
+worktree and once per CI job. **Every warm threaded run in the table emitted
+`ESLintPoorConcurrencyWarning`**, eslint measuring the same trade and advising that concurrency be
+disabled, and no `auto` run of either temperature was without it. So the step is cached and serial,
+and the cold arm is what that costs.
 
 1. **Does a cache survive usefully between local runs?** Yes — decisively for eslint and modestly for
    prettier, and together they remove **about twenty-eight seconds of scope-time from a warm local
@@ -1840,7 +1844,7 @@ what every later run recovers.
    pool members. Prettier's floor of 25.6 s with a fully warm cache and nothing changed says most of
    its time is startup, discovery and ignore-matching rather than formatting, which bounds what any
    cache can ever buy on that step. **The eslint rows carry no concurrency setting**, which the
-   2026-09-01 table above supplies and which turns out to decide the step.
+   2026-09-01 table above supplies.
 2. **Does `--cache` change what the check proves?** Not once the key is chosen rather than defaulted.
    A cached clean verdict is exactly as good as its key, and `scripts/verify.sh` passes
    `--no-optimistic-repeat-install` to pnpm precisely because that tool's fast path keys on
@@ -1864,20 +1868,35 @@ what every later run recovers.
    the entry point alone, so `admin.css` and any stylesheet added later are covered without anyone
    remembering to add them, and `fl_frontend/pnpm-lock.yaml` besides, because `stringify` drops rule
    implementations as functions and a plugin bump would otherwise change what the rules say without
-   changing the key. **The standing obligation is narrowed rather than removed**: a rule gaining a
-   cross-file input that is neither a stylesheet nor a package is still a silent miss, and the
-   comment at that constant carries the instruction.
+   changing the key.
 
-3. **Can CI persist one?** **Out of scope, decided 2026-08-12: the local win only.** It needs no CI
-   change to collect, so `.github/workflows/verify.yml` is left alone and the image build cache —
-   buildx's `type=gha`, with no `actions/cache` step — needs no
-   revisiting, nor does `.claude/CLAUDE.md` §7's line for it. This is a boundary on the work rather
-   than a question still open inside it, and reopening it is its own decision.
+   **The set was one input short, which is what the obligation costs when nobody is watching.**
+   `@next/next/no-html-link-for-pages` is enabled at error severity and reads the route directories
+   off disk with `existsSync` and `readdirSync`, turning the file names it finds into the URLs an
+   `<a href>` may not point at — route-set state, which is neither a stylesheet nor a package.
+   Demonstrated on identical trees, 2026-09-01: an anchor naming a route that does not exist yet
+   passes cold; it still passes warm after the page file creating that route is added; and the same
+   tree with the cache file deleted exits 1 naming the anchor. Those names are hashed in as well
+   now — as names rather than contents, names being all that rule reads — and the warm middle step
+   exits 1. **The standing obligation is narrowed rather than removed**: a rule gaining a cross-file
+   input that is none of the three is still a silent miss, the comment at that constant carries the
+   instruction, and item 3 below is what bounds the next one.
+
+3. **Can CI persist one?** **Decided against on 2026-09-01, on what the key is rather than on what
+   it would cost to add.** Restoring `fl_frontend/.eslintcache` between runs would take the step to
+   its warm figure inside the job that sets a pull request's critical path, which is the largest
+   number in this entry. It is refused anyway. The digest covers the cross-file inputs someone has
+   enumerated, and growing it is a standing obligation that item 2 has already shown can fall one
+   input short; a cold CI run is what makes that survivable, because it re-decides every file and a
+   stale verdict then costs a false green on a development machine rather than a merged one.
+   Spending the one run that does not trust the cache is the wrong purchase. It needs no change to
+   `.github/workflows/verify.yml`, and the image build cache — buildx's `type=gha`, with no
+   `actions/cache` step — is a separate question this does not reach.
 
 **Done when:** `fl_frontend/package.json`'s `format:check` passes `--cache`, or is settled against.
 **The eslint half is met** — `lint` carries `--cache --cache-strategy content` over the widened key,
-`fl_frontend/.gitignore` carries the `.eslintcache` line, and `docs/ops/spec.md` §1.6 carries both
-the non-composition and the untracked-write note.
+`fl_frontend/.gitignore` and `fl_frontend/.dockerignore` each carry the `.eslintcache` line, and
+`docs/ops/spec.md` §1.6 carries the choice between the two levers and the untracked-write note.
 
 **What prettier still needs, and why it did not land beside eslint.** Its cache has the same shape of
 hazard and no place to put the answer: `.prettierrc.json` loads `prettier-plugin-tailwindcss`, which
@@ -1888,16 +1907,17 @@ carrying a computed hash is the remaining candidate and needs a script rather th
 Prettier lands in the `format` scope, which is not what binds the gate's wall clock, so the entry
 stays open at the cheaper half rather than shipping a key that cannot be shown honest.
 
-**The concurrency lever is dropped, because the two never combined.** eslint reads its cache on the
-single-thread path alone. In the installed package, `lintFilesWithMultithreading` passes every file
-path to `runWorkers` and reaches the cache only afterwards, to write results, while
-`lintFilesWithoutMultithreading` passes it into `lintFile`, where `needsReprocessing` is what skips a
-file; `calculateAutoWorkerCount` consults the cache only to size the worker pool, and not at all
-under `content`. **So a run carrying both flags lints all 622 files and pays to write a cache
-it never reads** — measured alternating on the development machine under load, three pairs, cached
-and uncached medians within a second of each other at roughly 24 s. The block below records what
-`--concurrency=2` was worth while it stood; it is kept because the number was never wrong, only
-superseded by a lever that could not run beside it.
+**The concurrency lever is not taken, and what rules it out is the clock rather than the source.**
+The two compose. In the installed package the worker entry point each thread runs builds its own
+lint-result cache with `createLintResultCache` and passes it into `lintFile`, which returns early
+from `getCachedLintResults`, so a worker skips a cached file exactly as the single-threaded path
+does. Measured 2026-09-01 over a warm cache: under eslint's own debug output, `--concurrency=2` logs
+the "Skipping file since it hasn't changed" line 622 times, the same count as the serial run and the
+whole tree. `needsReprocessing` is not that skip — it is `calculateAutoWorkerCount`'s helper for
+sizing the worker pool, and under `--cache-strategy content` the pool counts every matched file
+without consulting the cache at all. What decides against the lever is the table above and the
+warning beside it. The block below records what `--concurrency=2` is worth, and why no larger number
+is available.
 
 **What decides the number is `LOW_NET_LINTING_RATIO`, the 0.7 floor the installed package sets.** Under
 it eslint emits `ESLintPoorConcurrencyWarning`, a Node process warning stating that the setting is poor
@@ -1906,7 +1926,10 @@ its advice moves — so a number quiets it only by genuinely clearing the floor.
 development machine across roughly twenty runs: `auto`, which is eight workers there, holds a ratio of
 0.556 to 0.571 and warns, and that is not a near miss — about 44% of each worker's life is bootstrap
 and file reading rather than linting. Two workers hold 0.720 to 0.743 and warned in none of the runs
-taken. **No value is both faster than `auto` and quiet**: 4 and 6 are marginally faster and still warn,
+taken — none of which carried a cache, and over a warm one two workers warn as reliably as eight,
+because a thread that only takes cache hits has almost no linting in its life at all (the
+2026-09-01 table above). **No value is both faster than `auto` and quiet**: 4 and 6 are marginally
+faster and still warn,
 so `auto`'s speed was purchasable only by suppressing a correct diagnostic. Node offers the precise
 mechanism for that — `--disable-warning=ESLintPoorConcurrencyWarning`, which `fl_frontend/package.json`'s
 own `test` script already uses for an unrelated warning — and it is deliberately unused here.
@@ -1915,16 +1938,16 @@ own `test` script already uses for an unrelated warning — and it is deliberate
 28.2 s against about 21.0 s serial, 34% _slower_; disabling the compile cache makes `auto` faster
 again, which places the cause on eight workers writing one compile-cache directory at once. That is a
 one-off per fresh cache rather than a recurring cost, and it arrives as a regression when it arrives.
-`--concurrency=2` is about 16.5 s warm against about 20.0 s serial, and neutral to slightly better
-cold. **Output equivalence was re-proved at both settings**: 48 files planted across nine rule
-families, under `stylish` and `json`, byte-identical to the serial run including ordering.
+`--concurrency=2` is about 16.5 s on a warm compile cache against about 20.0 s serial, and neutral
+to slightly better cold. **Output equivalence was re-proved at both settings**: 48 files planted
+across nine rule families, under `stylish` and `json`, byte-identical to the serial run including
+ordering.
 
-**What CI does with it is arithmetic, and one condition this entry set is still unmet.** The installed
-eslint's `calculateWorkerCount` takes `auto` to `availableParallelism() >> 1`, so a four-core runner
-resolves it to two over a file set this size — a numeric 2 makes that explicit rather than moving it.
-**The three CI runs beating the recorded baseline are not among the measurements above**, and cannot be
-taken from a development machine: the flag ships on local evidence, and that condition stands open
-against it.
+**What CI would do with a number is arithmetic.** The installed eslint's `calculateWorkerCount` takes
+`auto` to `availableParallelism() >> 1`, so a four-core runner resolves it to two over a file set this
+size, and the `auto` row above — eight workers on this machine — is not the row a runner would ever
+see. **Nothing in this entry was measured on a runner**, so the cold figures bound what the serial
+choice costs there rather than stating it.
 
 ### 35 · OPS-10 — Deciding whether a change is comments only costs a process per file
 
