@@ -478,7 +478,9 @@ step. Locally the variable is unset and the build runs against the daemon's own 
 **The documentation gate** (`scripts/check_docs.py`) reads `/docs`, the source comments beside the
 code and the configuration files scanned with them, and its byte-level checks read every tracked
 text file — so a finding this scope raises need not be about a document at all. Its checks are
-registered in `scripts/docs_gate/kernel.py :: CHECKS` and nowhere else.
+registered in `scripts/docs_gate/kernel.py :: CHECKS` and nowhere else. It prints the gate's own
+columns by default and GitHub's workflow commands under `--output-format github`, which puts each
+finding on the diff line it names rather than in a log a reader has to scroll.
 
 **The backend steps** exist because the frontend's toolchain runs nothing against `fl_backend`
 ([`docs/backend/spec.md`](../backend/spec.md) §1.6); `pyright` is separate from `ruff` because ruff

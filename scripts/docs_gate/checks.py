@@ -565,7 +565,7 @@ def check_line_endings() -> list[Finding]:
         detail = "git could not report the tree's line endings, so nothing was held to `.gitattributes`"
         return [Finding("fail", "line-endings", GITATTRIBUTES, detail)]
 
-    found = _eol_unread("line-endings", "that part of the tree was held to `.gitattributes` by nothing")
+    found = _eol_unread("line-endings", "nothing was held to `.gitattributes`")
     for worktree, attributes, rel in rows:
         if worktree not in NON_LF_WORKTREE or CRLF_MANDATED in attributes:
             continue
@@ -599,7 +599,7 @@ def check_binary_bytes() -> list[Finding]:
         detail = "git could not list the tree, so no tracked file was read for a NUL or a CR byte"
         return [Finding("fail", "binary-byte", GITATTRIBUTES, detail)]
 
-    found = _eol_unread("binary-byte", "that part of the tree went unread for a NUL and a CR byte")
+    found = _eol_unread("binary-byte", "no tracked file was read for a NUL or a CR byte")
     for worktree, attributes, rel in rows:
         # An exact token, never a substring: the exemption must not widen to an attribute that
         # merely ends in the word, which is how a rule like this grows to cover a source file.
@@ -616,28 +616,28 @@ def check_binary_bytes() -> list[Finding]:
             found.append(Finding("fail", "binary-byte", rel, f"could not be opened, so nothing proved it holds no NUL and no CR: {error}"))
             continue
         if (offset := data.find(b"\x00")) >= 0:
-            at, site = _byte_site(data, offset)
+            at_line, site = _byte_site(data, offset)
             detail = (
                 f"a NUL byte at {site}. git then reads this file as binary, so `.gitattributes`' LF "
                 "mandate stops applying to it and its diff becomes unreadable -- and no formatter, linter, type checker or "
                 "test sees the byte, a NUL being legal inside a string literal. Repair: put the character that belongs "
                 "there in its place, and save the file as UTF-8 with LF."
             )
-            found.append(Finding("fail", "binary-byte", rel, detail, at))
+            found.append(Finding("fail", "binary-byte", rel, detail, at_line))
         # CRLF where LF is mandated is `check_line_endings`' finding. Reporting it here as well would
         # give one file two repairs; what is left is the CR that check cannot see, git having given
         # up on the file rather than classified its endings.
         if worktree in NON_LF_WORKTREE or CRLF_MANDATED in attributes:
             continue
         if (offset := data.find(b"\r")) >= 0:
-            at, site = _byte_site(data, offset)
+            at_line, site = _byte_site(data, offset)
             detail = (
                 f"a CR byte at {site}. Every line here ends with LF alone, and a CR git cannot read as "
                 "part of a CRLF pair leaves it unable to classify this file's endings, so `.gitattributes`' LF mandate "
                 "lapses and CRLF commits through unwarned, while the diff still reads. Repair: delete the byte, and save "
                 "the file as UTF-8 with LF."
             )
-            found.append(Finding("fail", "binary-byte", rel, detail, at))
+            found.append(Finding("fail", "binary-byte", rel, detail, at_line))
     return found
 
 
@@ -1154,15 +1154,15 @@ def check_bare_paths(rel: str, body: str) -> list[Finding]:
     # Backticked spans out first, or one dead path yields a `path` finding and a `bare-path` one. A
     # span holds no newline, so removing one moves an offset along its line and never off it.
     scrubbed = BACKTICK_SPAN_RE.sub("", body)
-    at: dict[str, int] = {}
+    first_seen: dict[str, int] = {}
     for match in BARE_PATH_RE.finditer(scrubbed):
-        at.setdefault(match.group(0), match.start())
-    for token in sorted(at):
+        first_seen.setdefault(match.group(0), match.start())
+    for token in sorted(first_seen):
         # `is_gitignored` shells out, so it stays behind the tests that answer without one.
         if is_placeholder(token) or any((base / token).exists() for base in bases) or is_gitignored(token):
             continue
         detail = f"path named but not present: {token} -- and unbackticked, so `path` never saw it"
-        found.append(Finding("fail", "bare-path", rel, detail, line_of(scrubbed, at[token])))
+        found.append(Finding("fail", "bare-path", rel, detail, line_of(scrubbed, first_seen[token])))
     return found
 
 
