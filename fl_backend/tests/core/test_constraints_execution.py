@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable, Mapping
 
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient
+from pymongo import ASCENDING, AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
@@ -50,6 +50,17 @@ BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607200009")
 # fails here instead of quietly changing what the report is understood to mean.
 SPIELTAG_OCCUPANCY_RULE = "a team is fielded at most once per Spieltag (spiele)"
 JUNCTION_CLUB_RULE = "every junction row names a club that exists (saison_teams)"
+
+# One declared support index, planted under different keys so its build is the one that fails.
+CONFLICTING_SUPPORT_INDEX = "saisons_status"
+
+# Enough junction rows that the unique build over them outlasts the two-document build beside it.
+SLOW_BUILD_DOCUMENTS = 4000
+
+# The pair the ordering rule has to separate: the earlier-declared one is the SLOWER build, so a
+# report picked by arrival names the other.
+EARLIER_DECLARED_INDEX = "uniq_saison_id_team_id"
+LATER_DECLARED_INDEX = "uniq_shorthand"
 
 ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
 
@@ -468,6 +479,72 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_conta
         return "carried on"
 
     assert on_a_database(mongo_container, body, constrained=False) == "raised"
+
+
+def test_the_startup_apply_fails_rather_than_skipping_a_broken_validator(mongo_container: Any):
+    """The other half of the same refusal: an unattached validator leaves a collection every write path believes is guarded."""
+
+    async def body(database: AsyncDatabase) -> str:
+        # A view takes no validator, so `collMod` refuses with something other than
+        # `NamespaceNotFound` and the fall-through that would create the collection cannot fire.
+        await database.command("create", "teams", viewOn="spielorte", pipeline=[])
+        try:
+            await apply_constraints(database)
+        except RuntimeError as failure:
+            return "raised" if "the validator for 'teams'" in str(failure) else f"raised the wrong thing: {failure}"
+        return "carried on"
+
+    assert on_a_database(mongo_container, body, constrained=False) == "raised"
+
+
+def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mongo_container: Any):
+    """A support index costs speed rather than correctness, which is exactly why a boot might be tempted to shrug one off."""
+
+    async def body(database: AsyncDatabase) -> str:
+        # The same name over different keys: `create_index` refuses rather than replacing, which is
+        # the one way a declared support index fails on a database holding no documents.
+        await database.saisons.create_index([("start_date", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
+        try:
+            await apply_constraints(database)
+        except RuntimeError as failure:
+            return "raised" if CONFLICTING_SUPPORT_INDEX in str(failure) else f"raised the wrong thing: {failure}"
+        return "carried on"
+
+    assert on_a_database(mongo_container, body, constrained=False) == "raised"
+
+
+def test_the_apply_reports_the_index_declared_first_when_two_of_them_fail(mongo_container: Any):
+    """The same rule on the shipped path, where arrival must not pick the failure.
+
+    The later-declared build breaks over two documents and the earlier over thousands, so arrival
+    would name the wrong one. Both failing is asserted: one failure orders nothing.
+    """
+
+    async def body(database: AsyncDatabase) -> str:
+        await database.teams.insert_many([valid_documents()["teams"], valid_document("teams", _id=SPIELER_OID, name="Lessing II")])
+        # Distinct pairs but for the last two, so the build has to scan the lot before it can fail.
+        rows = [valid_document("saison_teams", team_id=ObjectId()) for _ in range(SLOW_BUILD_DOCUMENTS)]
+        await database.saison_teams.insert_many([*rows, valid_document("saison_teams", team_id=rows[-1]["team_id"])])
+        try:
+            await apply_constraints(database)
+        except RuntimeError as failure:
+            reported = str(failure)
+        else:
+            return "carried on"
+
+        # Re-attempted alone: a refused build left nothing behind, so a SECOND refusal is what says
+        # the seeding really did break this one too.
+        later = next(index for index in UNIQUE_INDEXES if index.name == LATER_DECLARED_INDEX)
+        try:
+            await database[later.collection].create_index([(key, ASCENDING) for key in later.keys], name=later.name, unique=True)
+        except OperationFailure:
+            pass
+        else:
+            return f"only one build failed -- '{LATER_DECLARED_INDEX}' was buildable, so nothing was ordered"
+
+        return EARLIER_DECLARED_INDEX if EARLIER_DECLARED_INDEX in reported else f"reported instead: {reported}"
+
+    assert on_a_database(mongo_container, body, constrained=False) == EARLIER_DECLARED_INDEX
 
 
 @pytest.mark.parametrize("constrained", [False, True], ids=["target absent", "target present"])
