@@ -300,7 +300,7 @@ async def patch_saison(
         # avoids for the same rule (`REQ-SWAP-002`).
         async for spiel in spiele_collection.find(
             {"saison_id": saison_id},
-            {"spieltag_id": 1, "saison_phase": 1, "ergebnis": 1, "sonderereignis": 1, "team1.tore": 1, "team2.tore": 1},
+            {"spieltag_id": 1, "saison_phase": 1, "ergebnis": 1, "elfmeterschiessen": 1, "sonderereignis": 1, "team1.tore": 1, "team2.tore": 1},
             session=session,
         ):
             per_spieltag[spiel["spieltag_id"]] = per_spieltag.get(spiel["spieltag_id"], 0) + 1
@@ -527,7 +527,17 @@ async def swap_gruppen(
                 "saison_phase": "gruppenphase",
                 "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
             },
-            projection=["spieltag_id", "datum", "team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "sonderereignis"],
+            projection=[
+                "spieltag_id",
+                "datum",
+                "team1.team_id",
+                "team1.tore",
+                "team2.team_id",
+                "team2.tore",
+                "ergebnis",
+                "elfmeterschiessen",
+                "sonderereignis",
+            ],
             session=session,
         )
 
@@ -536,7 +546,16 @@ async def swap_gruppen(
         knockout_spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}},
-            projection=["spieltag_id", "team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "sonderereignis"],
+            projection=[
+                "spieltag_id",
+                "team1.team_id",
+                "team1.tore",
+                "team2.team_id",
+                "team2.tore",
+                "ergebnis",
+                "elfmeterschiessen",
+                "sonderereignis",
+            ],
             session=session,
         )
 

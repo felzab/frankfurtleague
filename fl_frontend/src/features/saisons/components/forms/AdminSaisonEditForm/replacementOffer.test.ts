@@ -62,6 +62,15 @@ describe("buildReplacementContext", () => {
     assert.equal(contextOf({ teams: [clubRow(ALT, "SV Alt")], playoffSpiele: [played] }).rows[0]?.gespielteSpiele, 1);
   });
 
+  /* Mirrors the shoot-out clause of `has_taken_place`: stored beside no result it is a hand-written
+     record of a decided tie, and the row it stands on must read "hat schon gespielt" — the endpoint
+     409s the handover with `REQ-REPLACE-002`. */
+  it("counts a fixture holding only a shoot-out as played", () => {
+    const decided = spiel({ team1: seite(ALT, "SV Alt"), elfmeterschiessen: { team1: 5, team2: 4 } });
+
+    assert.equal(contextOf({ teams: [clubRow(ALT, "SV Alt")], playoffSpiele: [decided] }).rows[0]?.gespielteSpiele, 1);
+  });
+
   /* Two figures over one list, and the panel says both: how many fixtures move, and whether any of
      them closes the offer. Derive one from the other and a season mid-play reads as untouched. */
   it("separates the fixtures a row holds from the ones it has played", () => {

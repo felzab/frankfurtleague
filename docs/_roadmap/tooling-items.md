@@ -1510,8 +1510,9 @@ to tolerate is a glob in prose: `fl_backend/app/core/domain.py` writes `REQ-STAT
 **Effort:** M\
 **Path:** Independent. **DOC-13** is its neighbour and covers the SPELLINGS rather than the meanings;
 a check written for that one enumerates the codes this one would need, so the two are cheaper in that
-order — an ordering preference, not a block. **BE-26** on [`open-items.md`](open-items.md) is the
-instance already ranked.
+order — an ordering preference, not a block. The one instance ranked beside this was **BE-26** in
+[`closed-items.md`](closed-items.md), and it is closed, so neither ranked page is holding an example
+of the class.
 
 **One refusal code carries its meaning in three written statements, and no check reads any of them.**
 `fl_backend/app/core/domain.py :: RULES` gives each rule a `summary`;
@@ -1532,7 +1533,8 @@ on.** So a sentence describing a neighbouring fact passes every test, ships, and
 the refusal is for. **How close those facts sit is recorded in the code itself**: the comment above
 `fl_frontend/src/features/bewerbungen/utils.ts :: mapBewerbungSubmitRefusal`'s arm for a club already
 in the season warns that a second application and a club already playing read alike and only one of
-them is what the backend refused, and **BE-26** is the same confusion caught in a rule summary.
+them is what the backend refused, and **BE-26** in [`closed-items.md`](closed-items.md) was the same
+confusion caught in a rule summary.
 
 **Why it files beside DOC-13 rather than widening it.** DOC-13's repair is a set comparison between
 two enumerations: complete, mechanical, and an afternoon. This one has no such form — nothing decides

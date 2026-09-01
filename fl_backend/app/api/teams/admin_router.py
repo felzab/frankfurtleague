@@ -550,7 +550,7 @@ async def replace_saison_team(
         spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
-            projection=["team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "sonderereignis"],
+            projection=["team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "elfmeterschiessen", "sonderereignis"],
             session=session,
         )
 
