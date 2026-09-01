@@ -71,18 +71,20 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 23  | DOC-13  | The refusal-code table is held to the backend by nothing           | BE, Ops, Docs     | S      | Open     | —          |
 | 24  | DOC-15  | A refusal's meaning is written three times, unresolved             | FE, BE, Ops, Docs | M      | Open     | —          |
 | 25  | OPS-63  | A comment claims two files hold one pattern, unchecked             | FE, BE, Ops       | S      | Open     | —          |
-| 26  | OPS-69  | A declared-permitted state's reason is checked by nothing          | BE, Ops           | S      | Open     | —          |
-| 27  | OPS-66  | The CSP's style directive is wider than it needs to be             | Ops, Docs         | S      | Open     | —          |
-| 28  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
-| 29  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
-| 30  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
-| 31  | OPS-10  | Naming the image build's culprits costs a process per file         | Ops               | S      | Open     | —          |
-| 32  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
-| 33  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
-| 34  | DOC-3   | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
-| 35  | DOC-10  | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
-| 36  | OPS-81  | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
-| 37  | OPS-101 | The backend, db and frontend jobs have stepped up in wall clock    | FE, BE, Ops       | M      | Open     | —          |
+| 26  | OPS-103 | Four helpers every script calls are checked by nothing             | Ops, Docs         | S      | Open     | —          |
+| 27  | OPS-69  | A declared-permitted state's reason is checked by nothing          | BE, Ops           | S      | Open     | —          |
+| 28  | OPS-66  | The CSP's style directive is wider than it needs to be             | Ops, Docs         | S      | Open     | —          |
+| 29  | OPS-104 | A moved vocabulary table is reported on the wrong branch           | Ops, Docs         | S      | Open     | —          |
+| 30  | OPS-12  | Nothing checks a generated file against its generator              | FE, Ops           | S      | Open     | —          |
+| 31  | DOC-14  | A renamed file's comment blocks are never measured                 | Ops, Docs         | S      | Open     | —          |
+| 32  | DOC-2   | An enforcement claim is resolved in one direction only             | Docs              | M      | Open     | —          |
+| 33  | OPS-10  | Naming the image build's culprits costs a process per file         | Ops               | S      | Open     | —          |
+| 34  | OPS-2   | Nothing validates the contents of a restored `.env`                | Ops               | —      | Standing | —          |
+| 35  | OPS-3   | Crawler policy split between robots.txt and Cloudflare             | Ops               | —      | Standing | —          |
+| 36  | DOC-3   | A rule pattern reaches less than the rule it enforces              | Docs              | —      | Standing | —          |
+| 37  | DOC-10  | A block already over a bound is excused by its opening line        | Ops, Docs         | S      | Standing | —          |
+| 38  | OPS-81  | One commit imports a module the commit after it adds               | FE, Ops           | —      | Standing | —          |
+| 39  | OPS-101 | The backend, db and frontend jobs have stepped up in wall clock    | FE, BE, Ops       | M      | Open     | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -1493,7 +1495,50 @@ a reader following that comment never arrives at them.
 - **Generate one end from the other.** Refused for the mirror as a whole, and refusing it
   for one constant is the same argument at a smaller scale.
 
-### 26 · OPS-69 — A declared-permitted state carries its reason in prose, and no checker reads it
+### 26 · OPS-103 — Four helpers every script calls are single words no table names, so nothing holds them to `_lib.sh`
+
+**Status:** Open\
+**Surfaces:** Ops, Docs\
+**Effort:** S\
+**Path:** Independent — it blocks nothing and nothing blocks it. It is one of the two open ends of
+`scripts/selfcheck.sh` step 4, and **OPS-104** is the other: this one is a name the step never reads,
+that one a table it reads on the wrong branch. Its remedy edits `scripts/selfcheck.sh`, so the branch
+runs the full form ([`docs/ops/spec.md`](../ops/spec.md) §1.6).
+
+**Step 4 proves a helper by two routes, and each has a bound it states.** The call-site reader walks
+every runnable script and reports every UNDERSCORED name in command position that neither
+`scripts/_lib.sh` nor the script itself defines; it stops at underscored names because a single word
+collides with a program name, and telling a helper from a program needs `PATH`, which would make the
+verdict depend on which tools a machine has. The vocabulary route recovers the single-word verbs from
+a different source: the output-standard table in [`docs/ops/spec.md`](../ops/spec.md) §1.7, each of
+whose verbs is looked up in `_lib.sh`'s definitions. **`quietly`, `usage`, `verbose` and `worker`
+fall through both.** Each is a single word, and the table names none of them — the sheet describes
+`usage` and `quietly` in prose, which the step's reader never opens, and the two predicates nowhere.
+Every runnable script calls at least one of the four.
+
+**What a lost definition costs differs by helper, and the two predicates are the quiet ones.**
+`quietly` gone makes every `|| die` arm behind it fire with a message about the tool it wrapped —
+"the stack could not be stopped", for a helper that was never there. `usage` gone fails step 5's
+`--help` probe. But `verbose` and `worker` are read in conditions — `if verbose`, `if ! worker` —
+and a condition is where `set -e` and the ERR trap look away by design: a missing definition is one
+line on stderr and a false answer, and the run goes on. `--verbose` stops streaming, and a pool
+worker that reads itself as the parent never reaches `scripts/_lib.sh :: end_worker` and ends as a
+parent would, over scopes it never ran.
+
+**The cheap route is only half honest, and the entry does not take it.** Adding the four to the
+output-standard table would make step 4 find them tomorrow: `DEFINED` is built from every `name()`
+line in `_lib.sh`, and all four are defined in that shape. But that table is one output vocabulary,
+one verb per meaning, and two of the four print nothing — a reader would learn that `worker` is a way
+of saying something. The remedy is a second table on the same sheet, under its own bold lead-in, for
+the helpers a script leans on that are not output verbs, and step 4's reader arms on both lead-ins.
+Resolving every single-word command word against `PATH` instead is the route the reader's bound
+exists to avoid, and the entry does not reopen it.
+
+**Done when:** the four are named in a table step 4 reads, step 4 counts them among the documented
+helpers, and a `_lib.sh` with one of them renamed fails step 4 on the branch that renamed it rather
+than a later step, a pool worker, or a deploy.
+
+### 27 · OPS-69 — A declared-permitted state carries its reason in prose, and no checker reads it
 
 **Status:** Open\
 **Surfaces:** BE, Ops\
@@ -1519,7 +1564,7 @@ confidently from something no longer true, and the states it covers are the ones
 The cheapest check is the one the file already invites — resolve every anchor and every index name
 a `reason=` mentions, the way the three neighbouring fields are resolved.
 
-### 27 · OPS-66 — The style directive concedes more than the reason recorded for it needs
+### 28 · OPS-66 — The style directive concedes more than the reason recorded for it needs
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -1560,7 +1605,49 @@ attribute half is the whole of the value. That the prerendered HTML carries no i
 is the spec sheet's claim rather than this entry's measurement, and it is worth re-checking beside
 the one above it.
 
-### 28 · OPS-12 — Nothing checks a generated file against the generator that owns it
+### 29 · OPS-104 — A moved vocabulary table is a skip on the next `scripts` branch, and nothing on the branch that moved it
+
+**Status:** Open\
+**Surfaces:** Ops, Docs\
+**Effort:** S\
+**Path:** Independent — it blocks nothing and nothing blocks it. It is the other open end of
+`scripts/selfcheck.sh` step 4, beside **OPS-103**. Its remedy is a check in
+`scripts/docs_gate/checks.py` and a case in `scripts/tests/test_check_docs.py`, so the branch runs
+`--scripts --docs`.
+
+**Step 4 reads the output vocabulary out of [`docs/ops/spec.md`](../ops/spec.md) by shape.** Its
+reader arms on the line opening `**The output standard.**`, takes the first table below it, and keeps
+each row whose first cell is a backticked lowercase name. Reword the lead-in, put a paragraph between
+it and the table, or drop the backticks from that column, and the reader yields nothing.
+
+**Yielding nothing is a ledgered skip, and that grade is right.** `scripts/ci_scopes.sh` maps
+`docs/ops/spec.md` to `docs` and `format` and never to `scripts`, and
+`.github/workflows/verify.yml` runs its `scripts` job only on that output. A finding there would
+therefore redden a job the editing branch cannot run, on the next unrelated branch that selects
+`scripts`. So the step skips, and the ledger carries the skip to the screen (§1.7).
+
+**What the right grade leaves is a report on the wrong branch.** The branch that moved the table
+passes `--docs --format` with nothing said. The next branch selecting `scripts` carries a skip it did
+not cause and cannot clear without editing a page outside its change. And the vocabulary arm is not a
+check until somebody with a reason to open a documentation branch restores the shape — during which
+a verb the sheet documents and `_lib.sh` has dropped is found by nothing.
+
+**The report belongs to `--docs`, which the page's own edit selects.** `scripts/docs_gate/checks.py`
+gains a check, registered in `scripts/docs_gate/kernel.py :: CHECKS`, that reads the same shape — the
+lead-in, the first table, the backticked first cell — and fails when the sheet lacks it or it yields
+no verb. The definition half stays in step 4: a `scripts/_lib.sh` edit selects the full form, so that
+half already reports on its own branch, and `scripts/docs_gate/kernel.py :: defined_symbols` reads
+python alone, so the documentation gate could take it only with a bash reader it has no other use
+for. **Two readers of one shape is the doubt this leaves**, and what holds the awk and the python to
+one another is the closing session's decision; the cheap form is the check owning the lead-in as a
+constant and a `scripts/tests/` case asserting the step's reader carries the same literal.
+
+**Done when:** rewording the lead-in or un-backticking the first column of that table in
+`docs/ops/spec.md` fails `python scripts/check_docs.py` on the branch that did it,
+`scripts/tests/test_check_docs.py` plants both, and step 4's skip arm is reached only by a sheet the
+documentation gate has already refused.
+
+### 30 · OPS-12 — Nothing checks a generated file against the generator that owns it
 
 **Status:** Open\
 **Surfaces:** FE, Ops\
@@ -1596,7 +1683,7 @@ the formatter has run over each side so the comparison is about content rather t
 and fails where it differs from the committed one, and the images are left to review with that
 exclusion written down rather than assumed.
 
-### 29 · DOC-14 — A file that arrives as a rename brings its comment blocks in as context, so INC-9 measures none of them
+### 31 · DOC-14 — A file that arrives as a rename brings its comment blocks in as context, so INC-9 measures none of them
 
 **Status:** Open\
 **Surfaces:** Ops, Docs\
@@ -1627,7 +1714,7 @@ inside it as the branch's own prose. **The narrower question is the decision:** 
 `check_comment_length` alone should treat a rename's destination as added while the set the other
 branch-scoped checks read stays as it is.
 
-### 30 · DOC-2 — An enforcement claim is resolved in one direction only
+### 32 · DOC-2 — An enforcement claim is resolved in one direction only
 
 **Status:** Open\
 **Surfaces:** Docs\
@@ -1659,7 +1746,7 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 31 · OPS-10 — Naming the files that required the image build costs a process per file
+### 33 · OPS-10 — Naming the files that required the image build costs a process per file
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -1692,7 +1779,7 @@ about.
 **Not measured:** what the spawn actually costs, and how much of a failing gate run is attributable
 to it. The mechanism above is read from the code; the magnitude is not.
 
-### 32 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 34 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -1741,7 +1828,7 @@ site cannot tolerate a restore that produces an unusable value on a host with no
 fall back to. Ops audit pass O1 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers
 script failure modes and owns this.
 
-### 33 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 35 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -1786,7 +1873,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately.
 
-### 34 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 36 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -1819,7 +1906,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a rule family added to the standard under a prefix the patterns do not
 carry, or the first page that needs a metadata block indented.
 
-### 35 · DOC-10 — A block already over a bound is excused by its opening line alone
+### 37 · DOC-10 — A block already over a bound is excused by its opening line alone
 
 **Status:** Standing\
 **Surfaces:** Ops, Docs\
@@ -1847,7 +1934,7 @@ rests on.
 **Trigger to revisit:** a branch charged for a block whose length it did not create, or any change to
 how `check_comment_length` decides whose block a block is.
 
-### 36 · OPS-81 — One commit imports a frontend module the commit after it adds
+### 38 · OPS-81 — One commit imports a frontend module the commit after it adds
 
 **Status:** Standing\
 **Surfaces:** FE, Ops\
@@ -1907,7 +1994,7 @@ it has stopped.
 **Trigger to revisit:** a second commit reaching `main` in this shape. One is a skip; a pattern is
 the argument for a per-commit resolution check, and the sweep above is what it would be built from.
 
-### 37 · OPS-101 — The backend, database and frontend jobs have taken a step up in wall clock that no report named
+### 39 · OPS-101 — The backend, database and frontend jobs have taken a step up in wall clock that no report named
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
