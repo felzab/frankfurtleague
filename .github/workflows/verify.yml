@@ -255,6 +255,15 @@ jobs:
           persist-credentials: false
       # The scope builds the application, so the installed tree is the job.
       - uses: ./.github/actions/frontend-toolchain
+      # The source trees are in the key, not the lockfile alone: a key coarser than what the cache
+      # depends on hits exactly every run, and actions/cache does not write on an exact hit. The
+      # prefix restore is safe because the Next cache is content-addressed.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fl_frontend/.next/cache
+          key: nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**', 'fl_frontend/next.config.ts') }}
+          restore-keys: |
+            nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
       - name: Run the frontend scope
         run: ./scripts/verify.sh --frontend
       - name: Fail if the build rewrote tsconfig.json
