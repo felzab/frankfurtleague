@@ -72,7 +72,7 @@ esac
 
 # A heredoc body is data the shell never runs, and it comes off before the scan because its lines
 # would otherwise read as commands — a document quoting this very rule would refuse itself.
-heredoc_start='(^|[^<])<<-?[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)'
+heredoc_start='(^|[^<])<<-?[[:space:]]*([^[:space:]<>;&|()]+)'
 scan=""
 delimiter=""
 in_body=0
@@ -88,10 +88,15 @@ while IFS= read -r line; do
   probe="${probe//\'/}"
   probe="${probe//\\/}"
   if [[ "$probe" =~ $heredoc_start ]]; then
+    # The whole word the shell reads, punctuation included: `END-OF` read as `END` leaves a
+    # terminator that never arrives, and the body then swallows every command behind it.
     delimiter="${BASH_REMATCH[2]}"
     in_body=1
   fi
 done <<<"$cmd"
+# A body still open at the end is a delimiter this hook read differently from the shell, and every
+# line it swallowed is a command nobody scanned. It refuses rather than releasing them.
+[ "$in_body" = "0" ] || deny
 [ -n "$scan" ] || scan="$cmd"
 
 # Decided by word position, as guard-branch-bash.sh decides: a mention in a grep or a comment buys
