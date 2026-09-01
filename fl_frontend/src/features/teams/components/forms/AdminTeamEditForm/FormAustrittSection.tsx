@@ -27,6 +27,9 @@ import type { TeamBanner } from "./banners";
 /** Names the exit-type chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
 const ART_LABEL_ID = "austritt-art";
 
+/** The id the durability sentence publishes, carried by the reason's own field in `aria-describedby`. */
+const GRUND_HINT_ID = "austritt-grund-hinweis";
+
 /**
  * **No hover or press variant**: HeroUI's own fills are `@layer components` and these utilities are
  * declared last, so each state's resting background suppresses them. `StufenPicker`'s chip, widened
@@ -147,12 +150,20 @@ export function FormAustrittSection({
               <TextField
                 isRequired
                 name="austritt.grund"
+                aria-describedby={GRUND_HINT_ID}
                 value={grund}
                 onChange={onGrundChange}
                 onBlur={() => onValidateFields(["austritt.grund"])}>
                 <FieldLabel path="austritt">Grund</FieldLabel>
                 <Input className={FIELD_INPUT} />
                 <FieldError className={FIELD_ERROR} />
+                {/* Under the field rather than in the panel's hint, which opens on a press, or the
+                    banner, which only a changed reason raises: this rule stands whatever is typed. */}
+                <Hint
+                  mode="inline"
+                  describes={GRUND_HINT_ID}
+                  text="Ein Name hier bleibt öffentlich stehen, auch wenn die Person später vergessen werden möchte."
+                />
               </TextField>
 
               {/* ARIA only: react-aria marks no control inside a date picker, so the browser cannot
