@@ -329,7 +329,7 @@ fields without a default are required at boot and the process refuses to start w
 | `DB_MAX_CONNECTIONS`          | int                                             | `100`      |
 | `INTERNAL_API_KEY_*`          | `BASE` / `SYSTEM` / `ADMIN`, each a `SecretStr` | — required |
 | `LOG_LEVEL_APP`               | `DEBUG`…`CRITICAL`, case-normalised             | `INFO`     |
-| `LOG_LEVEL_DB`                | same vocabulary, for motor/pymongo              | `WARNING`  |
+| `LOG_LEVEL_DB`                | same vocabulary, for pymongo                    | `WARNING`  |
 | `LOG_FORMAT`                  | `json` \| `console`, case-normalised            | **`json`** |
 
 `LOG_FORMAT` defaults to the **production** format on purpose: a `.env` that omits it must not

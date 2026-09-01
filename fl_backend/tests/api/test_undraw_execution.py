@@ -5,7 +5,8 @@ from typing import Any, Awaitable, Callable
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import generate_spielplan, patch_saison, undraw_spielplan
@@ -174,7 +175,7 @@ class Seed:
     neighbour_entered: list[dict[str, Any]] = field(default_factory=list)
 
 
-Body = Callable[[AsyncIOMotorDatabase, AsyncIOMotorClient], Awaitable[Any]]
+Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False) -> Any:
@@ -206,7 +207,7 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
     return asyncio.run(_run())
 
 
-async def call_draw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, *, saison_id: str = SAISON_ID) -> FLGenerateSpielplanResponse:
+async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = SAISON_ID) -> FLGenerateSpielplanResponse:
     return await generate_spielplan(
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
@@ -219,7 +220,7 @@ async def call_draw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, 
     )
 
 
-async def call_undraw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, *, saison_id: str = SAISON_ID) -> FLUndrawSpielplanResponse:
+async def call_undraw(database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = SAISON_ID) -> FLUndrawSpielplanResponse:
     return await undraw_spielplan(
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
@@ -229,7 +230,7 @@ async def call_undraw(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient
     )
 
 
-async def call_patch_rules(database: AsyncIOMotorDatabase, **overrides: Any) -> FLPatchSaisonResponse:
+async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLPatchSaisonResponse:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it moves."""
 
     seeded = saison_document()
@@ -253,7 +254,7 @@ async def call_patch_rules(database: AsyncIOMotorDatabase, **overrides: Any) -> 
     )
 
 
-async def call_entry(database: AsyncIOMotorDatabase, *, gruppe: FLGruppenNames = "A") -> FLSaisonTeamResponse:
+async def call_entry(database: AsyncDatabase, *, gruppe: FLGruppenNames = "A") -> FLSaisonTeamResponse:
     return await post_saison_team(
         team_id=NEWCOMER_OID,
         saison_team_data=FLPostSaisonTeamPayload(saison_id=SAISON_ID, gruppe=gruppe),
@@ -263,7 +264,7 @@ async def call_entry(database: AsyncIOMotorDatabase, *, gruppe: FLGruppenNames =
     )
 
 
-async def counts_now(database: AsyncIOMotorDatabase, *, saison_id: str = SAISON_ID) -> tuple[int, int]:
+async def counts_now(database: AsyncDatabase, *, saison_id: str = SAISON_ID) -> tuple[int, int]:
     """One season's matchdays and fixtures, read outside any transaction -- what a later request would see.
 
     Two numbers rather than one pair to compare: a neighbour half removed passes a single
@@ -276,13 +277,13 @@ async def counts_now(database: AsyncIOMotorDatabase, *, saison_id: str = SAISON_
     )
 
 
-async def watermark_now(database: AsyncIOMotorDatabase) -> Any:
+async def watermark_now(database: AsyncDatabase) -> Any:
     stored = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
 
     return (stored or {}).get("spielplan")
 
 
-async def stored_rules(database: AsyncIOMotorDatabase) -> dict[str, Any]:
+async def stored_rules(database: AsyncDatabase) -> dict[str, Any]:
     stored = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
     assert stored is not None, f"the seed holds no season {SAISON_ID}"
 
@@ -312,7 +313,7 @@ class UndrawnSeason:
 def an_undrawn_season(url: str, *, dated: bool = False) -> UndrawnSeason:
     """Draw the season, optionally date one fixture by hand, then undraw it."""
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> UndrawnSeason:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> UndrawnSeason:
         drawn = await call_draw(database, client)
         if dated:
             await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": {"datum": A_DATE, "uhrzeit": A_KICKOFF}})
@@ -423,7 +424,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
     def test_the_season_keeps_its_fixtures_its_matchdays_and_its_watermark(self, mongo_replica_set_url: str):
         """Move the watermark clear outside the callback and this fails: the season is left holding no schedule while claiming one."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> AbortedUndraw:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> AbortedUndraw:
             drawn = await call_draw(database, client)
             # Stored AFTER the draw, which drops the cache on its own commit.
             store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
@@ -466,7 +467,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
         log row is refused, so an unbound clear would already have committed, past the abort's reach.
         """
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> AbortedUndraw:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> AbortedUndraw:
             drawn = await call_draw(database, client)
 
             # AFTER the draw, which writes a `saisons` row of its own: attached earlier, the draw is
@@ -522,7 +523,7 @@ def a_season_undrawn_beside_another(url: str) -> NeighbouringSeasons:
         neighbour_entered=entry_rows(saison_id=NEIGHBOUR_SAISON_ID, offset=NEIGHBOUR_OID_OFFSET),
     )
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> NeighbouringSeasons:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> NeighbouringSeasons:
         neighbour_drawn = await call_draw(database, client, saison_id=NEIGHBOUR_SAISON_ID)
 
         # Demoted to `past` after its draw: what an unscoped removal takes from a finished season is
@@ -601,7 +602,7 @@ class RefusedUndraw:
 def an_undraw_refused_on(url: str, *, status: str | None = None, record: dict[str, Any] | None = None) -> RefusedUndraw:
     """Draw the season, then close its window one way, then ask for the undraw."""
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> RefusedUndraw:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> RefusedUndraw:
         drawn = await call_draw(database, client)
         if status is not None:
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": status}})
@@ -657,9 +658,7 @@ class TestTheWindowIsReachedThroughTheRoute:
         assert (undrawn.spieltage, undrawn.spiele) == (0, 0)
 
 
-async def call_patch_spiel(
-    database: AsyncIOMotorDatabase, client: AsyncIOMotorClient, *, spiel_id: Any, payload: FLPatchSpielDataPayload
-) -> Any:
+async def call_patch_spiel(database: AsyncDatabase, client: AsyncMongoClient, *, spiel_id: Any, payload: FLPatchSpielDataPayload) -> Any:
     return await patch_spiel_data(
         spiel_id=spiel_id,
         spiel_data=payload,
@@ -715,7 +714,7 @@ class SeededBracket:
 def a_bracket_slot_seeded_by_hand(url: str) -> SeededBracket:
     """Draw the season, seed its first knockout slot through the fixture patch, then ask for the undraw."""
 
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> SeededBracket:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> SeededBracket:
         drawn = await call_draw(database, client)
 
         slot = await database[Collection.SPIELE].find_one(
@@ -790,7 +789,7 @@ class UndrawOfNothing:
 
 
 def an_undraw_of(url: str, *, seed: Seed) -> UndrawOfNothing:
-    async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> UndrawOfNothing:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> UndrawOfNothing:
         return UndrawOfNothing(response=await call_undraw(database, client), watermark=await watermark_now(database))
 
     return on_a_seeded_saison(url, body, seed=seed)
@@ -822,7 +821,7 @@ class TestTheSeasonCacheIsDroppedOnlyByAnUndrawThatCommitted:
     """One process, one cache, keyed by season id -- so dropping it early unlearns a season nothing has changed yet."""
 
     def test_a_committed_undraw_drops_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
             store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
             await call_undraw(database, client)
@@ -834,7 +833,7 @@ class TestTheSeasonCacheIsDroppedOnlyByAnUndrawThatCommitted:
     def test_a_refused_undraw_leaves_it_standing(self, mongo_replica_set_url: str):
         """The control: a drop before the refusal would pass the case above while costing every reader a re-read for nothing."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> Any:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
             store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "active"}})
@@ -868,7 +867,7 @@ class TestWhatAnUndrawReopens:
     def test_a_widening_patch_and_an_entry_both_go_through_once_the_draw_is_gone(self, mongo_replica_set_url: str):
         """Leave the watermark, or either list, standing and this fails at the widening: the season would still read as drawn."""
 
-        async def body(database: AsyncIOMotorDatabase, client: AsyncIOMotorClient) -> ReopenedSeason:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> ReopenedSeason:
             await call_draw(database, client)
 
             with pytest.raises(DocumentConflictException) as refused_patch:

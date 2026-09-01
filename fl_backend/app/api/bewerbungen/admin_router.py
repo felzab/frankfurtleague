@@ -1,7 +1,7 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
-from motor.motor_asyncio import AsyncIOMotorClientSession
+from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import (
     FLAblehnenBewerbungPayload,
@@ -69,7 +69,7 @@ async def annehmen_bewerbung(
     `austritt`, which is a public record carrying a stated reason.
     """
 
-    async def accept_and_enter_the_school(session: AsyncIOMotorClientSession) -> FLAnnehmenBewerbungResponse:
+    async def accept_and_enter_the_school(session: AsyncClientSession) -> FLAnnehmenBewerbungResponse:
         """Judge everything, then write. Everything judged is read in-session, so a retry re-judges it.
 
         One transaction over every write: a club created without its junction row is a school in no
@@ -192,7 +192,7 @@ async def annehmen_bewerbung(
 
     # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
     # so a retry after a write conflict judges the season as it stands then rather than as it stood.
-    async with await db.start_session() as session:
+    async with db.start_session() as session:
         return await session.with_transaction(accept_and_enter_the_school)
 
 

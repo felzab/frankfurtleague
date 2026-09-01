@@ -4,7 +4,7 @@ from typing import Any, Awaitable, Callable, Iterator
 import pytest
 from bson import ObjectId
 from fastapi.routing import APIRoute
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spiele.admin_router import get_spiel_for_admin, get_spiele_for_admin
@@ -139,11 +139,11 @@ def spieltag_document(saison_id: str) -> dict[str, Any]:
     }
 
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on."""
+    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first ran on."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
@@ -164,7 +164,7 @@ def on_a_league(url: str, body: Body) -> Any:
 def raised_by(url: str, body: Body) -> DocumentNotFoundException:
     """The refusal a read answered with, so a test asserts on its status rather than only that it refused."""
 
-    async def _catching(database: AsyncIOMotorDatabase) -> DocumentNotFoundException:
+    async def _catching(database: AsyncDatabase) -> DocumentNotFoundException:
         with pytest.raises(DocumentNotFoundException) as refusal:
             await body(database)
 
@@ -173,7 +173,7 @@ def raised_by(url: str, body: Body) -> DocumentNotFoundException:
     return on_a_league(url, _catching)
 
 
-async def admin_teams(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
+async def admin_teams(database: AsyncDatabase, saison_id: str) -> Any:
     return await get_teams_for_admin(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -182,7 +182,7 @@ async def admin_teams(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
     )
 
 
-async def admin_spiele(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
+async def admin_spiele(database: AsyncDatabase, saison_id: str) -> Any:
     return await get_spiele_for_admin(
         spiele_collection=database[Collection.SPIELE],
         saisons_collection=database[Collection.SAISONS],
@@ -191,7 +191,7 @@ async def admin_spiele(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
     )
 
 
-async def admin_spieltage(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
+async def admin_spieltage(database: AsyncDatabase, saison_id: str) -> Any:
     return await get_spieltage_for_admin(
         spieltage_collection=database[Collection.SPIELTAGE],
         saisons_collection=database[Collection.SAISONS],
@@ -199,7 +199,7 @@ async def admin_spieltage(database: AsyncIOMotorDatabase, saison_id: str) -> Any
     )
 
 
-async def admin_spieltag(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
+async def admin_spieltag(database: AsyncDatabase, saison_id: str) -> Any:
     return await get_spieltag_for_admin(
         spieltag_id=an_id("3", saison_id),
         spieltage_collection=database[Collection.SPIELTAGE],
@@ -207,7 +207,7 @@ async def admin_spieltag(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
     )
 
 
-async def base_teams(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
+async def base_teams(database: AsyncDatabase, saison_id: str) -> Any:
     return await get_teams(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -216,7 +216,7 @@ async def base_teams(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
     )
 
 
-async def base_spiele(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
+async def base_spiele(database: AsyncDatabase, saison_id: str) -> Any:
     return await get_spiele(
         spiele_collection=database[Collection.SPIELE],
         saisons_collection=database[Collection.SAISONS],
@@ -225,7 +225,7 @@ async def base_spiele(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
     )
 
 
-async def base_spieltage(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
+async def base_spieltage(database: AsyncDatabase, saison_id: str) -> Any:
     return await get_spieltage(
         spieltage_collection=database[Collection.SPIELTAGE],
         saisons_collection=database[Collection.SAISONS],
@@ -233,7 +233,7 @@ async def base_spieltage(database: AsyncIOMotorDatabase, saison_id: str) -> Any:
     )
 
 
-Read = Callable[[AsyncIOMotorDatabase, str], Awaitable[Any]]
+Read = Callable[[AsyncDatabase, str], Awaitable[Any]]
 Served = Callable[[Any], list[str]]
 
 # Each read paired with the season ids its answer proves it resolved. Parametrised rather than rolled
@@ -283,7 +283,7 @@ def test_the_admin_read_answers_exactly_what_the_base_read_answers(
 ):
     """The gate is meant to be the ONLY difference, so on a season the base tier may read the two agree field for field."""
 
-    async def body(database: AsyncIOMotorDatabase) -> tuple[Any, Any]:
+    async def body(database: AsyncDatabase) -> tuple[Any, Any]:
         return (await admin_read(database, saison_id)).model_dump(), (await base_read(database, saison_id)).model_dump()
 
     admin_answer, base_answer = on_a_league(mongo_replica_set_url, body)

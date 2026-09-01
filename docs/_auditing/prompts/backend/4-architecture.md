@@ -35,7 +35,7 @@ THE CHECKS, in priority order:
    | ------------- | -------------------------------------------------------------------------------------------- |
    | `duplicated`  | The same model, pipeline stage, filter or helper defined in two or more modules              |
    | `one-caller`  | An abstraction — wrapper, dependency, adapter, helper — with a single call site              |
-   | `hand-rolled` | A reimplementation of what FastAPI, Pydantic, Motor or the standard library already provides |
+   | `hand-rolled` | A reimplementation of what FastAPI, Pydantic, PyMongo or the standard library already provides |
    | `simpler`     | A plainly simpler construction reaching the same result                                      |
    | `dead-export` | A schema, adapter, helper or `__init__.py` export nothing imports                            |
    | `dead-config` | A settings key, ruff ignore, pytest marker or dependency nothing reads                       |

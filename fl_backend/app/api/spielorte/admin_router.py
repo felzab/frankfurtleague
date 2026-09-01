@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
-from motor.motor_asyncio import AsyncIOMotorClientSession
+from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.api.spielorte.schemas import (
@@ -70,7 +70,7 @@ async def patch_spielort(
 
     maps_link = _maps_link(spielort_data.name, spielort_data.address)
 
-    async def rename_and_fan_out(session: AsyncIOMotorClientSession) -> FLPatchSpielortResponse:
+    async def rename_and_fan_out(session: AsyncClientSession) -> FLPatchSpielortResponse:
         updated_document_raw = await patch_one_in_db(
             collection=spielorte_collection,
             db_filter={"_id": spielort_id},
@@ -91,7 +91,7 @@ async def patch_spielort(
     # One transaction: a rename landing on the venue and not on its fixtures is the stale copy the
     # fan-out exists to prevent. `with_transaction` over a bare `start_transaction` -- the callback
     # derives both writes from the payload, so a retry is safe.
-    async with await db.start_session() as session:
+    async with db.start_session() as session:
         return await session.with_transaction(rename_and_fan_out)
 
 

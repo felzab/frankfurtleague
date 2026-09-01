@@ -3,11 +3,9 @@ from typing import Annotated
 from zoneinfo import ZoneInfo
 
 from fastapi import Depends
-from motor.motor_asyncio import (
-    AsyncIOMotorClient,
-    AsyncIOMotorCollection,
-    AsyncIOMotorDatabase,
-)
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.db import (
     get_aktionen_collection,
@@ -25,31 +23,31 @@ from app.core.db import (
     get_teams_collection,
 )
 
-DBClient = Annotated[AsyncIOMotorClient, Depends(get_db_client)]
+DBClient = Annotated[AsyncMongoClient, Depends(get_db_client)]
 
-DB = Annotated[AsyncIOMotorDatabase, Depends(get_database)]
+DB = Annotated[AsyncDatabase, Depends(get_database)]
 
-SpieleCollection = Annotated[AsyncIOMotorCollection, Depends(get_spiele_collection)]
+SpieleCollection = Annotated[AsyncCollection, Depends(get_spiele_collection)]
 
-SpielerCollection = Annotated[AsyncIOMotorCollection, Depends(get_spieler_collection)]
+SpielerCollection = Annotated[AsyncCollection, Depends(get_spieler_collection)]
 
-SpieltageCollection = Annotated[AsyncIOMotorCollection, Depends(get_spieltage_collection)]
+SpieltageCollection = Annotated[AsyncCollection, Depends(get_spieltage_collection)]
 
-TeamsCollection = Annotated[AsyncIOMotorCollection, Depends(get_teams_collection)]
+TeamsCollection = Annotated[AsyncCollection, Depends(get_teams_collection)]
 
-SaisonsCollection = Annotated[AsyncIOMotorCollection, Depends(get_saisons_collection)]
+SaisonsCollection = Annotated[AsyncCollection, Depends(get_saisons_collection)]
 
-SpielorteCollection = Annotated[AsyncIOMotorCollection, Depends(get_spielorte_collection)]
+SpielorteCollection = Annotated[AsyncCollection, Depends(get_spielorte_collection)]
 
-SchiedsrichterCollection = Annotated[AsyncIOMotorCollection, Depends(get_schiedsrichter_collection)]
+SchiedsrichterCollection = Annotated[AsyncCollection, Depends(get_schiedsrichter_collection)]
 
-SaisonTeamsCollection = Annotated[AsyncIOMotorCollection, Depends(get_saison_teams_collection)]
+SaisonTeamsCollection = Annotated[AsyncCollection, Depends(get_saison_teams_collection)]
 
-SaisonSpielerCollection = Annotated[AsyncIOMotorCollection, Depends(get_saison_spieler_collection)]
+SaisonSpielerCollection = Annotated[AsyncCollection, Depends(get_saison_spieler_collection)]
 
-AktionenCollection = Annotated[AsyncIOMotorCollection, Depends(get_aktionen_collection)]
+AktionenCollection = Annotated[AsyncCollection, Depends(get_aktionen_collection)]
 
-BewerbungenCollection = Annotated[AsyncIOMotorCollection, Depends(get_bewerbungen_collection)]
+BewerbungenCollection = Annotated[AsyncCollection, Depends(get_bewerbungen_collection)]
 
 
 # Injected rather than read at the call site, which is what keeps "today" substitutable in tests.

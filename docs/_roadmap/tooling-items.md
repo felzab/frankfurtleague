@@ -325,7 +325,7 @@ names pytest, ruff, fastapi-cli, httpx, pyright and testcontainers, and no distr
 installing it is not the work. **Two things land first.** `fl_backend/tests/database.py :: _BUILT`
 holds the built-schema registry in a module global whose comment states the assumption under it, that
 the whole tier runs in one process; each suite names its database in a module-level `DATABASE_NAME`,
-and the pymongo-seeded suites share `fl_backend/tests/config.py :: build_test_config`'s `db_base_name`.
+and the suites seeding through pymongo's synchronous client share `fl_backend/tests/config.py :: build_test_config`'s `db_base_name`.
 Two workers would therefore hold one name, and `:: a_clean_database` drops or empties the database it
 is handed — so each would clear the other's seeds mid-test, against a registry describing a database
 the other has since rebuilt. Per-worker naming comes first. Second,
@@ -915,7 +915,7 @@ announces nothing.
 database — `fl_backend/tests/core/test_constraints_execution.py :: DATABASE_NAME` is
 `fl_constraints_test`, and nearly every sibling suite carries a distinct one — so the suites do not
 collide with one another. **The exception is worth eliminating first**: the suites seeding through
-pymongo rather than Motor take their name from `fl_backend/tests/config.py :: build_test_config`'s
+pymongo's synchronous client rather than its async one take their name from `fl_backend/tests/config.py :: build_test_config`'s
 `db_base_name`, so they share one database within a run and would share it across two. `fl_test`,
 which `fl_backend/tests/conftest.py :: mongo_database` hands out, is a second such name, and the
 partition its sharers keep to is recorded at `fl_backend/tests/api/conftest.py :: league`.
@@ -941,6 +941,23 @@ tier**, which one occurrence in 25 does not support; the controls point away fro
 having been green six times and the full gate seven under heavier contention. It sits here because a
 failed connect to a mapped port is a data point against two of the candidates listed above, and
 because an unrepeated symptom is worth having written down when the mechanism is finally chased.
+
+**A second occurrence, on 2026-09-01, whose mechanism WAS measured — and it is not the one above.** With
+roughly a dozen agents driving db-tier suites on one Windows machine, `AutoReconnect` surfaced with
+`WinError 10048` under it while 12,000 to 15,900 sockets machine-wide stood in `TIME_WAIT`: the host ran
+out of ephemeral ports, and a run started once `TIME_WAIT` had drained below 7,000 was green. **That is a
+property of the host under a dozen concurrent agents, not of the harness or the driver**, and the driver
+half was measured rather than assumed: three hundred `fl_backend/tests/database.py :: a_clean_database`
+client lifecycles against the single-node replica set, polled through `serverStatus`, held
+`connections.current` flat at 3 while `totalCreated` climbed linearly to 903, with live sockets on the
+client side flat at 4 — so no pool the driver holds accumulates connections to reconnect over. Three
+further db-tier runs, one of them deliberately concurrent with another, were green, and the
+`connection pool paused` symptom did not reproduce.
+
+**The two occurrences stay separate, and the port exhaustion does not account for the earlier one.** The
+2026-08-26 round's controls point away from load and nothing recorded about it names a port or a socket
+count, so what the corpus holds is one occurrence with a measured mechanism and one still unattributed.
+Joining them needs evidence neither currently carries.
 
 **Not measured:** whether the collision can reach CI at all. `.github/workflows/verify.yml` runs one
 `verify.sh` scope per job and each job takes its own runner, so two db-tier runs would have to land on

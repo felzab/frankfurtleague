@@ -132,7 +132,6 @@ def setup_custom_logger(config: BackendConfig):
                 # No handler of its own: the root console handler prints each record exactly once.
                 "propagate": True,
             },
-            "motor": {"level": config.log_level_db, "propagate": True},
             "pymongo": {"level": config.log_level_db, "propagate": True},
             "uvicorn": {"level": "INFO", "propagate": True},
             "uvicorn.error": {"level": "INFO", "propagate": True},  # Startup/Shutdown

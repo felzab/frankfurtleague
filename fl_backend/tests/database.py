@@ -1,8 +1,9 @@
 import asyncio
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Iterable, Mapping
+from typing import Any, AsyncIterator, Iterable, Mapping, Sequence
 
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.database import Database
 from pymongo.mongo_client import MongoClient
 
@@ -58,10 +59,16 @@ def _enforcement(info: Mapping[str, Any], specs: Iterable[Mapping[str, Any]]) ->
     }
 
 
-async def _schema(database: AsyncIOMotorDatabase) -> Schema:
+async def _index_specs(database: AsyncDatabase, name: str) -> Sequence[Mapping[str, Any]]:
+    """`list_indexes` hands its cursor back through a coroutine, so a gather over it needs a call of its own to await twice."""
+
+    return await (await database[name].list_indexes()).to_list(length=None)
+
+
+async def _schema(database: AsyncDatabase) -> Schema:
     infos = _data(await (await database.list_collections()).to_list(length=None))
     # Concurrently: one `listIndexes` per collection is the whole added cost of naming the culprit.
-    specs = await asyncio.gather(*(database[info["name"]].list_indexes().to_list(length=None) for info in infos))
+    specs = await asyncio.gather(*(_index_specs(database, info["name"]) for info in infos))
 
     return {info["name"]: _enforcement(info, found) for info, found in zip(infos, specs, strict=True)}
 
@@ -109,7 +116,7 @@ def _reusable(key: tuple[str, str], constraints: bool, collections: Iterable[str
     return built[1]
 
 
-async def _build(client: AsyncIOMotorClient, database: AsyncIOMotorDatabase, constraints: bool, collections: Iterable[str]) -> Schema:
+async def _build(client: AsyncMongoClient, database: AsyncDatabase, constraints: bool, collections: Iterable[str]) -> Schema:
     await client.drop_database(database.name)
     if constraints:
         await apply_constraints(database)
@@ -119,7 +126,7 @@ async def _build(client: AsyncIOMotorClient, database: AsyncIOMotorDatabase, con
     return await _schema(database)
 
 
-async def _clear(database: AsyncIOMotorDatabase, baseline: Schema) -> None:
+async def _clear(database: AsyncDatabase, baseline: Schema) -> None:
     """Isolation without rebuilding a schema no test changed: every collection the last call left is emptied."""
 
     # Concurrently: ten sequential round trips is most of what building the schema once saves.
@@ -137,15 +144,15 @@ async def a_clean_database(
     constraints: bool = False,
     collections: Iterable[str] = (),
     mutates_schema: bool = False,
-) -> AsyncIterator[tuple[AsyncIOMotorClient, AsyncIOMotorDatabase]]:
+) -> AsyncIterator[tuple[AsyncMongoClient, AsyncDatabase]]:
     """A client of this call's own, and a database emptied for this test on a schema built once.
 
     `mutates_schema=True` is the opt-out for a body that narrows a validator or moves an index: what
     it leaves is recorded nowhere, so the next caller rebuilds.
     """
 
-    # One per call: Motor binds to the loop it first ran on, and every caller opens its own.
-    client = AsyncIOMotorClient(url)
+    # One per call: `AsyncMongoClient` binds to the loop it first ran on, and every caller opens its own.
+    client = AsyncMongoClient(url)
     try:
         key = (str(url), name)
         database = client[name]
@@ -169,7 +176,7 @@ async def a_clean_database(
             _guard(_DRIFT, name, baseline, present)
             _BUILT[key] = (constraints, present)
     finally:
-        client.close()
+        await client.close()
 
 
 def a_clean_database_sync(client: MongoClient, url: str, name: str) -> Database:

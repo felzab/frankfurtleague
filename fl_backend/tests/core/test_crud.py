@@ -3,9 +3,9 @@ from typing import Any, Mapping, cast
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorCollection
 from pydantic import BaseModel
 from pymongo import ReturnDocument
+from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.helpers_shared import _index_document
 
 from app.core.collections import Collection
@@ -149,8 +149,8 @@ class _OneDocumentCollection:
         return self.document
 
 
-def as_collection(stub: _OneDocumentCollection) -> AsyncIOMotorCollection:
-    return cast(AsyncIOMotorCollection, stub)
+def as_collection(stub: _OneDocumentCollection) -> AsyncCollection:
+    return cast(AsyncCollection, stub)
 
 
 class TestPatchOneInDb:

@@ -5,8 +5,8 @@ import pytest
 from bson import ObjectId
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
-from motor.motor_asyncio import AsyncIOMotorCollection
 from pydantic import ValidationError
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.router import get_bewerbungen
 from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
@@ -107,7 +107,7 @@ def run_list(collection: _ArchiveCollection, **filters: Any) -> Any:
 
     return asyncio.run(
         get_bewerbungen(
-            bewerbungen_collection=cast(AsyncIOMotorCollection, collection),
+            bewerbungen_collection=cast(AsyncCollection, collection),
             filters=FLBewerbungenFilterParams.model_validate(filters),
         )
     )

@@ -3,8 +3,8 @@ from typing import Any, Awaitable, Callable, get_type_hints
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
@@ -49,7 +49,7 @@ _PUBLISHED_PATHS = create_app(build_test_config()).openapi()["paths"]
 BASE_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams"]["get"]["parameters"]}
 ADMIN_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams/list/admin"]["get"]["parameters"]}
 
-Body = Callable[[AsyncIOMotorDatabase], Awaitable[Any]]
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def saison_document() -> dict[str, Any]:
@@ -127,7 +127,7 @@ def junction_row(key: str, shorthand: str) -> dict[str, Any]:
 
 
 def on_a_league(container: Any, body: Body) -> Any:
-    """One client and event loop per call: Motor binds to the loop it first ran on."""
+    """One client and event loop per call: `AsyncMongoClient` binds to the loop it first ran on."""
 
     async def _run() -> Any:
         async with a_clean_database(container.get_connection_url(), DATABASE_NAME) as (_, database):
@@ -154,7 +154,7 @@ def base_filters(**overrides: Any) -> BaseModel:
     return BASE_FILTERS.model_validate({"saison_id": SAISON, **overrides})
 
 
-async def read_teams(database: AsyncIOMotorDatabase, filters: Any) -> Any:
+async def read_teams(database: AsyncDatabase, filters: Any) -> Any:
     return await get_teams(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -163,7 +163,7 @@ async def read_teams(database: AsyncIOMotorDatabase, filters: Any) -> Any:
     )
 
 
-async def read_teams_for_admin(database: AsyncIOMotorDatabase, filters: FLTeamsFilterParams) -> Any:
+async def read_teams_for_admin(database: AsyncDatabase, filters: FLTeamsFilterParams) -> Any:
     return await get_teams_for_admin(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -221,7 +221,7 @@ class TestARetiredClubStaysOutOfTheBaseTierReads:
     def test_the_corpus_really_holds_a_retired_club_in_this_seasons_group(self, mongo_container: Any):
         """First, because every case below would pass just as well against a corpus where nobody had left the league."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             club = await database[Collection.TEAMS].find_one({"_id": TEAM_OIDS["Lessing"]})
             row = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OIDS["Lessing"]})
 
@@ -258,7 +258,7 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
     def test_the_corpus_really_stores_them(self, mongo_container: Any):
         """First, because every case below would pass just as well against a season whose rows carried no contacts at all."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OIDS["Helmholtz"]})
 
         row = on_a_league(mongo_container, body)
@@ -269,12 +269,12 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
     def test_the_aggregation_carries_none_of_it_back(self, mongo_container: Any):
         """The RAW documents, before any model sees them: what the driver returned is what a leak would have to travel in."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             filters = FLTeamsFilterParams(saison_id=SAISON)
             rules = FLSaisonRules.model_validate(saison_document()["rules"])
             pipeline = build_team_pipeline(filters=filters, rules=rules)
 
-            return await database[Collection.TEAMS].aggregate(pipeline).to_list(length=None)
+            return await (await database[Collection.TEAMS].aggregate(pipeline)).to_list(length=None)
 
         rows = on_a_league(mongo_container, body)
 
@@ -292,7 +292,7 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
     def test_the_single_team_endpoint_serves_none_of_it_either(self, mongo_container: Any):
         """The other public caller of the same pipeline, and the one an anonymous visitor reaches with an id in hand."""
 
-        async def body(database: AsyncIOMotorDatabase) -> Any:
+        async def body(database: AsyncDatabase) -> Any:
             return await get_team(
                 team_id=TEAM_OIDS["Helmholtz"],
                 teams_collection=database[Collection.TEAMS],

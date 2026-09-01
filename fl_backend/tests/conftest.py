@@ -292,7 +292,7 @@ def mongo_container() -> Iterator[Any]:
     """
     Imported inside the function, so the default tier never pays for `testcontainers`.
 
-    Yields the container rather than a client: pymongo and Motor each build their own.
+    Yields the container rather than a client: the synchronous and asynchronous clients each build their own.
     """
     # The `community` path is the current one; the bare `testcontainers.mongodb` still resolves, on
     # a DeprecationWarning.

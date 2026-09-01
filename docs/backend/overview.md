@@ -67,7 +67,7 @@ could name, so the actor is set here rather than sent ([`spec.md`](spec.md) §1.
 
 ## Data access
 
-Motor, async throughout, with the client created once in the FastAPI `lifespan` and attached to `app.state`.
+PyMongo's async driver, `AsyncMongoClient`, with the client created once in the FastAPI `lifespan` and attached to `app.state`.
 Collections are injected as typed dependencies rather than reached for directly.
 
 **The application refuses to start unless MongoDB answers and the database's own constraints apply.**
@@ -87,7 +87,7 @@ call: a refusal turned into the 409 it means, a retirement written as a date on 
 stamped live, and one action-log row appended per write, the log's own collection excepted — the module's
 own header holds why that makes the log complete by construction; what a single-document write records,
 what one touching a whole set records instead, and what a removal records, are [`spec.md`](spec.md) I39,
-I40 and I48. A handler reaches for Motor directly only to iterate a cursor, to sort a single-document read,
+I40 and I48. A handler reaches for the driver directly only to iterate a cursor, to sort a single-document read,
 to count without reading the documents, or where absence is a meaningful answer rather than a 404; the
 miss contract every helper keeps is [`spec.md`](spec.md) I2.
 

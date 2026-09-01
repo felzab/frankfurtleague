@@ -14,9 +14,10 @@ directly -- and a write shaped like one of those would escape the log.
 
 from typing import AbstractSet, Any, Mapping, Sequence
 
-from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 from pydantic import BaseModel
 from pymongo import ReturnDocument
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import BulkWriteError
 from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, UpdateResult
 
@@ -30,10 +31,10 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 async def pull_one_from_db(
     *,
-    collection: AsyncIOMotorCollection,
+    collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     projection: Mapping[str, Any] | list[str] | None = None,
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncClientSession | None = None,
 ) -> Mapping[str, Any]:
     """`session` is what makes a read inside a transaction see that transaction's own writes."""
 
@@ -46,12 +47,12 @@ async def pull_one_from_db(
 
 async def pull_many_from_db(
     *,
-    collection: AsyncIOMotorCollection,
+    collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     limit: int = LIST_LIMIT_DEFAULT,
     sort_by: Sequence[tuple[str, int]] | None = None,
     projection: Mapping[str, Any] | list[str] | None = None,
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncClientSession | None = None,
 ) -> list[Mapping[str, Any]]:
     """`limit` is a real ceiling here -- `cursor.limit()` -- unlike `aggregate_many_from_db`'s, which caps iteration alone."""
 
@@ -65,10 +66,10 @@ async def pull_many_from_db(
 
 async def patch_one_in_db(
     *,
-    collection: AsyncIOMotorCollection,
+    collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     update: Mapping[str, Any],
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncClientSession | None = None,
     return_document: bool = ReturnDocument.AFTER,
 ) -> Mapping[str, Any]:
     """`AFTER` by default: a caller echoing the pre-image would answer with the state the write just replaced.
@@ -103,10 +104,10 @@ async def patch_one_in_db(
 
 async def patch_many_in_db(
     *,
-    collection: AsyncIOMotorCollection,
+    collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     update: Mapping[str, Any],
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncClientSession | None = None,
 ) -> UpdateResult:
     """The driver's result, unwrapped: `modified_count` is reported on the wire, so nothing here may swallow it.
 
@@ -128,9 +129,9 @@ async def patch_many_in_db(
 
 async def post_one_to_db(
     *,
-    collection: AsyncIOMotorCollection,
+    collection: AsyncCollection,
     document: Mapping[str, Any],
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncClientSession | None = None,
 ) -> InsertOneResult:
     """The driver's result, unwrapped: every create answers with `inserted_id` and `acknowledged`."""
 
@@ -145,9 +146,9 @@ async def post_one_to_db(
 
 async def post_many_to_db(
     *,
-    collection: AsyncIOMotorCollection,
+    collection: AsyncCollection,
     documents: Sequence[Mapping[str, Any]],
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncClientSession | None = None,
 ) -> InsertManyResult:
     """The driver's result, unwrapped: `inserted_ids` is in input order, so a caller can pair an id back to what it sent.
 
@@ -175,9 +176,9 @@ async def post_many_to_db(
 
 async def delete_many_from_db(
     *,
-    collection: AsyncIOMotorCollection,
+    collection: AsyncCollection,
     db_filter: Mapping[str, Any],
-    session: AsyncIOMotorClientSession,
+    session: AsyncClientSession,
 ) -> DeleteResult:
     """Remove a set and keep every image, in one log row (`docs/backend/spec.md :: I48`).
 
@@ -214,9 +215,9 @@ async def delete_many_from_db(
 
 async def erase_many_from_db(
     *,
-    collection: AsyncIOMotorCollection,
+    collection: AsyncCollection,
     db_filter: Mapping[str, Any],
-    session: AsyncIOMotorClientSession,
+    session: AsyncClientSession,
 ) -> DeleteResult:
     """Remove a set and keep NO image, the values themselves being what an erasure destroys.
 
@@ -241,9 +242,9 @@ async def erase_many_from_db(
 
 async def aggregate_many_from_db(
     *,
-    collection: AsyncIOMotorCollection,
+    collection: AsyncCollection,
     pipeline: Sequence[Mapping[str, Any]],
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncClientSession | None = None,
     limit: int | None = None,
 ) -> list[Mapping[str, Any]]:
     """`limit` caps cursor iteration only; sorting and limiting belong in the pipeline.
@@ -252,7 +253,7 @@ async def aggregate_many_from_db(
     `$limit` of their own are those whose answer needs the whole collection.
     """
 
-    cursor = collection.aggregate(pipeline, session=session)
+    cursor = await collection.aggregate(pipeline, session=session)
 
     return await cursor.to_list(length=limit)
 
@@ -314,10 +315,10 @@ def refuse(refusal: WriteRefusal | None) -> None:
 
 async def set_inactive_since(
     *,
-    collection: AsyncIOMotorCollection,
+    collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     when: str | None,
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncClientSession | None = None,
 ) -> Mapping[str, Any]:
     """Retire and revive in one helper: `inactive_since` is one nullable date, so they are one write in two directions.
 
@@ -330,9 +331,9 @@ async def set_inactive_since(
 
 async def insert_live(
     *,
-    collection: AsyncIOMotorCollection,
+    collection: AsyncCollection,
     document: Mapping[str, Any],
-    session: AsyncIOMotorClientSession | None = None,
+    session: AsyncClientSession | None = None,
 ) -> InsertOneResult:
     """`inactive_since` is on no create payload, so a create states it here rather than in each router."""
 

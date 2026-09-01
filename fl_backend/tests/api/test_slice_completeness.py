@@ -3,7 +3,8 @@ from typing import Any, Callable, cast
 
 import pytest
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners, find_bracket_faults
@@ -123,11 +124,11 @@ def run_advance(collection: _SeasonCollection) -> tuple[list[FLSpielAdvancement]
 
     return asyncio.run(
         advance_bracket_winners(
-            spiele_collection=cast(AsyncIOMotorCollection, collection),
-            teams_collection=cast(AsyncIOMotorCollection, collection),
+            spiele_collection=cast(AsyncCollection, collection),
+            teams_collection=cast(AsyncCollection, collection),
             saison_id=SAISON_ID,
             rules=RULES,
-            session=cast(AsyncIOMotorClientSession, object()),
+            session=cast(AsyncClientSession, object()),
         )
     )
 
@@ -158,7 +159,9 @@ class _ArchiveCollections:
         # test here is the wiring above that pipeline rather than the pipeline itself.
         self.spiele = spiele or []
 
-    def aggregate(self, pipeline: Any, session: Any = None) -> "_ArchiveCollections":
+    # `async`, as the driver's is: it hands its cursor back through a coroutine, and a plain method
+    # here would pass while the real read awaited an object that is not one.
+    async def aggregate(self, pipeline: Any, session: Any = None) -> "_ArchiveCollections":
         return self
 
     def find(self, filter: Any, projection: Any = None, session: Any = None) -> "_ArchiveCollections":
@@ -183,9 +186,9 @@ class TestTheFaultSweepRefusesATruncatedArchive:
         with pytest.raises(ValueError, match=str(LIST_LIMIT_DEFAULT)):
             asyncio.run(
                 find_bracket_faults(
-                    spiele_collection=cast(AsyncIOMotorCollection, collections),
-                    teams_collection=cast(AsyncIOMotorCollection, collections),
-                    saisons_collection=cast(AsyncIOMotorCollection, collections),
+                    spiele_collection=cast(AsyncCollection, collections),
+                    teams_collection=cast(AsyncCollection, collections),
+                    saisons_collection=cast(AsyncCollection, collections),
                 )
             )
 
@@ -196,9 +199,9 @@ class TestTheFaultSweepRefusesATruncatedArchive:
 
         faults, faulted = asyncio.run(
             find_bracket_faults(
-                spiele_collection=cast(AsyncIOMotorCollection, _ArchiveCollections(seasons)),
-                teams_collection=cast(AsyncIOMotorCollection, _ArchiveCollections(seasons)),
-                saisons_collection=cast(AsyncIOMotorCollection, _ArchiveCollections(seasons)),
+                spiele_collection=cast(AsyncCollection, _ArchiveCollections(seasons)),
+                teams_collection=cast(AsyncCollection, _ArchiveCollections(seasons)),
+                saisons_collection=cast(AsyncCollection, _ArchiveCollections(seasons)),
             )
         )
 
@@ -269,9 +272,9 @@ def sweep(spiel: PayloadFactory) -> tuple[list[FLBracketFault], list[Any]]:
 
     return asyncio.run(
         find_bracket_faults(
-            spiele_collection=cast(AsyncIOMotorCollection, _ArchiveCollections(seasons, spiele)),
-            teams_collection=cast(AsyncIOMotorCollection, _ArchiveCollections(seasons, spiele)),
-            saisons_collection=cast(AsyncIOMotorCollection, _ArchiveCollections(seasons, spiele)),
+            spiele_collection=cast(AsyncCollection, _ArchiveCollections(seasons, spiele)),
+            teams_collection=cast(AsyncCollection, _ArchiveCollections(seasons, spiele)),
+            saisons_collection=cast(AsyncCollection, _ArchiveCollections(seasons, spiele)),
         )
     )
 

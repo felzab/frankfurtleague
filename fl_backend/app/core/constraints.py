@@ -3,8 +3,8 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from pymongo import ASCENDING, DESCENDING
+from pymongo import ASCENDING, DESCENDING, AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
@@ -743,7 +743,7 @@ class ConstraintSummary:
     support_indexes: int
 
 
-async def _apply_validator(db: AsyncIOMotorDatabase, collection_name: str, validator: Mapping[str, Any]) -> None:
+async def _apply_validator(db: AsyncDatabase, collection_name: str, validator: Mapping[str, Any]) -> None:
     command = {
         "collMod": collection_name,
         "validator": validator,
@@ -761,7 +761,7 @@ async def _apply_validator(db: AsyncIOMotorDatabase, collection_name: str, valid
         raise RuntimeError(f"Could not apply the validator for '{collection_name}': {failure}") from failure
 
 
-async def apply_constraints(db: AsyncIOMotorDatabase) -> ConstraintSummary:
+async def apply_constraints(db: AsyncDatabase) -> ConstraintSummary:
     """Apply every validator, unique index and support index to `db`.
 
     A validator is REPLACED, an index only ever ADDED: `create_index` cannot change the keys under a
@@ -807,7 +807,7 @@ class RelationReport:
     examples: list[Any]
 
 
-async def report_violations(db: AsyncIOMotorDatabase) -> list[ViolationReport]:
+async def report_violations(db: AsyncDatabase) -> list[ViolationReport]:
     """Count the documents each validator would reject, writing nothing.
 
     `$jsonSchema` is a query operator as well as a validator, so `$nor` over it is the rule read
@@ -831,7 +831,7 @@ async def report_violations(db: AsyncIOMotorDatabase) -> list[ViolationReport]:
     return reports
 
 
-async def report_duplicates(db: AsyncIOMotorDatabase) -> list[DuplicateReport]:
+async def report_duplicates(db: AsyncDatabase) -> list[DuplicateReport]:
     reports: list[DuplicateReport] = []
 
     for index in UNIQUE_INDEXES:
@@ -839,8 +839,8 @@ async def report_duplicates(db: AsyncIOMotorDatabase) -> list[DuplicateReport]:
             {"$group": {"_id": {key: f"${key}" for key in index.keys}, "n": {"$sum": 1}}},
             {"$match": {"n": {"$gt": 1}}},
         ]
-        counted = await db[index.collection].aggregate([*offenders, {"$count": "groups"}]).to_list(length=1)
-        examples = await db[index.collection].aggregate([*offenders, {"$limit": 5}]).to_list(length=5)
+        counted = await (await db[index.collection].aggregate([*offenders, {"$count": "groups"}])).to_list(length=1)
+        examples = await (await db[index.collection].aggregate([*offenders, {"$limit": 5}])).to_list(length=5)
 
         reports.append(
             DuplicateReport(
@@ -853,7 +853,7 @@ async def report_duplicates(db: AsyncIOMotorDatabase) -> list[DuplicateReport]:
     return reports
 
 
-async def report_relations(db: AsyncIOMotorDatabase) -> list[RelationReport]:
+async def report_relations(db: AsyncDatabase) -> list[RelationReport]:
     """Count the stored groups each cross-document rule is broken by, writing nothing.
 
     Enforced by the write path and by nothing in the database, so nothing else names one.
@@ -872,8 +872,8 @@ async def report_relations(db: AsyncIOMotorDatabase) -> list[RelationReport]:
         {"$match": {"n": {"$gt": 1}}},
     ]
 
-    counted = await db[Collection.SPIELE].aggregate([*spieltag_occupancy, {"$count": "groups"}]).to_list(length=1)
-    examples = await db[Collection.SPIELE].aggregate([*spieltag_occupancy, {"$limit": 5}]).to_list(length=5)
+    counted = await (await db[Collection.SPIELE].aggregate([*spieltag_occupancy, {"$count": "groups"}])).to_list(length=1)
+    examples = await (await db[Collection.SPIELE].aggregate([*spieltag_occupancy, {"$limit": 5}])).to_list(length=5)
 
     # Reported rather than swept once: nothing in the API can create a phantom or remove one, so
     # this report is the only thing that would ever surface it.
@@ -884,8 +884,8 @@ async def report_relations(db: AsyncIOMotorDatabase) -> list[RelationReport]:
         {"$group": {"_id": {"team_id": "$team_id"}, "saisons": {"$addToSet": "$saison_id"}}},
     ]
 
-    orphans_counted = await db[Collection.SAISON_TEAMS].aggregate([*phantom_junctions, {"$count": "groups"}]).to_list(length=1)
-    orphans = await db[Collection.SAISON_TEAMS].aggregate([*phantom_junctions, {"$limit": 5}]).to_list(length=5)
+    orphans_counted = await (await db[Collection.SAISON_TEAMS].aggregate([*phantom_junctions, {"$count": "groups"}])).to_list(length=1)
+    orphans = await (await db[Collection.SAISON_TEAMS].aggregate([*phantom_junctions, {"$limit": 5}])).to_list(length=5)
 
     return [
         RelationReport(
@@ -901,7 +901,7 @@ async def report_relations(db: AsyncIOMotorDatabase) -> list[RelationReport]:
     ]
 
 
-async def probe_collmod_privilege(db: AsyncIOMotorDatabase) -> str:
+async def probe_collmod_privilege(db: AsyncDatabase) -> str:
     """Answer whether this connection may run `collMod`, writing nothing.
 
     Aimed at a REAL collection `apply_constraints` will touch: privileges are granted per namespace,
@@ -927,7 +927,7 @@ async def probe_collmod_privilege(db: AsyncIOMotorDatabase) -> str:
     raise RuntimeError(f"'{target}' unexpectedly has an index named '{ABSENT_INDEX_NAME}'; the collMod probe must not modify anything.")
 
 
-async def report_identity(db: AsyncIOMotorDatabase) -> tuple[str, list[str]]:
+async def report_identity(db: AsyncDatabase) -> tuple[str, list[str]]:
     """Who the SERVER thinks this connection is, and which roles it carries.
 
     A correct role on the wrong user looks exactly like a broken one; nothing else separates them.
@@ -940,7 +940,7 @@ async def report_identity(db: AsyncIOMotorDatabase) -> tuple[str, list[str]]:
     return users or "(not authenticated)", roles
 
 
-async def probe_read_privilege(db: AsyncIOMotorDatabase) -> str:
+async def probe_read_privilege(db: AsyncDatabase) -> str:
     try:
         await db[next(iter(COLLECTION_VALIDATORS), ABSENT_COLLECTION_NAME)].count_documents({})
     except OperationFailure as failure:
@@ -951,7 +951,7 @@ async def probe_read_privilege(db: AsyncIOMotorDatabase) -> str:
     return "granted"
 
 
-async def probe_privileges(db: AsyncIOMotorDatabase) -> list[tuple[str, str]]:
+async def probe_privileges(db: AsyncDatabase) -> list[tuple[str, str]]:
     """Every privilege this module needs, each asked INDEPENDENTLY, so one report names all the gaps.
 
     A check aborting on the first refusal hides the next until that one is fixed.
@@ -1027,7 +1027,7 @@ async def _run(check: bool) -> int:
     # environment, and the tests import this module with none.
     from app.core.config import get_config
 
-    client = AsyncIOMotorClient(
+    client = AsyncMongoClient(
         host=get_config().mongodb_uri.get_secret_value(),
         serverSelectionTimeoutMS=get_config().db_server_selection_timeout,
     )
@@ -1096,7 +1096,7 @@ async def _run(check: bool) -> int:
         return 2
 
     finally:
-        client.close()
+        await client.close()
 
 
 def _main() -> int:
