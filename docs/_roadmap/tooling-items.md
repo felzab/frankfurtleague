@@ -271,25 +271,29 @@ same way, which no reader has a rule to catch it by.
 **Surfaces:** Ops\
 **Effort:** M\
 **Path:** Independent — it blocks nothing and nothing blocks it. The profile below names which
-section binds the run, so removing work from inside any other scope moves nothing here while `db`
-is the tail. It
-shares a prerequisite with **OPS-70**, whose candidate repair — a database name carrying the run's own
-identity — is exactly what the first lever needs; taking the two together is an ordering note, not a
-dependency. Its own branch: it reaches the pool manifest, which carries the exit contract.
+section binds the run, so removing work from inside any other scope moves nothing here while `db` is
+the tail. It shares a prerequisite with **OPS-70**, whose candidate repair — a database name carrying
+the run's own identity — is exactly what the first lever needs; taking the two together is an
+ordering note, not a dependency. Its own branch: it reaches the pool manifest, which carries the exit
+contract.
 
-**The gate's floor is its longest section, and the schedule is a pure max.** Nothing passes
-`--width`, so the pool opens one slot per scope, every scope starts at once, and the
-expected-longest are submitted first (`scripts/gate_pool.py :: TYPICAL_MS`,
-[`docs/ops/spec.md`](../ops/spec.md) §1.6). No scope waits on another: the compose parse reads its
-stand-in `.env` files from a scratch copy rather than the real trees, so what remains of the wall
-clock is the longest section itself — the database tier below.
+**The gate's floor is its longest section, and the schedule is a pure max.** No scope waits on
+another — the compose parse reads its stand-in `.env` files from a scratch copy rather than the real
+trees — and nothing passes `--width`, so the pool opens one slot per scope and every scope starts at
+once. What remains of the wall clock is therefore the longest section itself, the database tier
+below. The expected-longest are submitted first (`scripts/gate_pool.py :: TYPICAL_MS`,
+[`docs/ops/spec.md`](../ops/spec.md) §1.6), which decides nothing while every scope holds a slot:
+that order is what a bounded width would admit in, so a lever here that introduces one inherits it
+rather than having to build it.
 
-**Two scopes writing one `__pycache__` is not a coupling, and a chain must not be added on
-that reasoning.** `docs` and `scripts` have shared two of those directories unconstrained since the
-pool was written: CPython writes a bytecode file to a temporary name and renames it, nothing in this
-repository reads pytest's `nodeids`, and `lastfailed` is written only when its value changes and
-steers only `--lf`, which the gate never passes. The argument in full is `d828ee1c`'s, and it is worth
-reading before any scope here is made to wait on another.
+**Three scopes writing one `__pycache__` is not a coupling, and a chain must not be added on that
+reasoning.** `docs` and `scripts` have shared two of those directories unconstrained since the pool
+was written, and `ops` is a third writer of `scripts/__pycache__`, reaching
+`scripts/checker_kernel.py` through both its interpreter probe and `scripts/check_compose_mirror.py`.
+CPython writes a bytecode file to a temporary name and renames it, nothing in this repository reads
+pytest's `nodeids`, and `lastfailed` is written only when its value changes and steers only `--lf`,
+which the gate never passes. The argument in full is `d828ee1c`'s, and it is worth reading before any
+scope here is made to wait on another.
 
 **How a start is read off a run, rather than inferred.** Sample `ps` while a full-form run is going
 and record when each worker's process first appears: every scope should appear within seconds of

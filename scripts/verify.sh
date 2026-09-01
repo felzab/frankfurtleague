@@ -64,14 +64,17 @@ gate_exit() {
   # From the trap, not the end of the body: `die`, `refuse` and `on_error` exit where they stand,
   # so a body-final call misses exactly the rows whose verdict matters most.
   if worker; then end_section; emit_section_ledger > "${FL_GATE_LEDGER:?}"; fi
-  cleanup
-  if [[ -n "${POOL_DIR:-}" ]]; then rm -rf "$POOL_DIR"; fi
+  # Every reclaim below is best-effort: under `set -e` one failing `rm` ends the trap where it
+  # stands, skipping the reclaims after it and answering 1 over a body that exited 0 -- with no
+  # ERR trap to say so, `_lib.sh` setting `set -e` without `set -E`.
+  cleanup || true
+  if [[ -n "${POOL_DIR:-}" ]]; then rm -rf "$POOL_DIR" || true; fi
   # Only the job shells are signalled: a started tool tears its own fixtures down, and bash cannot
   # portably reach a grandchild. The `rm` is best-effort for the same reason -- Windows will not
   # unlink a file a surviving tool holds open.
   if (( ${#BG_PID[@]} )); then kill "${BG_PID[@]}" 2>/dev/null || true; fi
   if [[ -n "$BG_DIR" ]]; then rm -rf "$BG_DIR" 2>/dev/null || true; fi
-  if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then rm -f "$FL_SELFCHECK_LEDGER"; fi
+  if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then rm -f "$FL_SELFCHECK_LEDGER" || true; fi
 }
 trap gate_exit EXIT
 
@@ -81,8 +84,10 @@ if (( RUN_OPS || RUN_IMAGES )); then
   # Under a fixed tag a concurrent run would delete them, and `-f` asks no questions.
   VERIFY_TAG="frankfurtleague-verify-$$"
   cleanup() {
-    rm -rf "${REPO_ROOT}/.tmp-nginx-check"
-    if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH"; fi
+    # The working tree first, and each `|| true` for the reason `gate_exit` records: a throwaway
+    # key pair left under the repo root is the costliest of these to strand.
+    rm -rf "${REPO_ROOT}/.tmp-nginx-check" || true
+    if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH" || true; fi
     docker image rm -f "${VERIFY_TAG}:frontend" "${VERIFY_TAG}:backend" >/dev/null 2>&1 || true
   }
 fi
@@ -199,7 +204,9 @@ bg_verdict() { # $1 the check · $2 the line to blame a crash on · $3 the remed
     0)   ;;
     1)   die "$3" ;;
     130) on_interrupt ;;
-    *)   on_error "$rc" "$2" "$1" ;;
+    # The step's own label, not the check name: two scopes share this helper now, and `selfcheck`
+    # alone names neither, while every `step` line here already opens with its scope.
+    *)   on_error "$rc" "$2" "${_STEP_LABEL:-$1}" ;;
   esac
 }
 
@@ -285,19 +292,31 @@ if (( PARALLEL )); then
   while IFS=$'\t' read -r u_scope u_status _ _; do UNIT_STATUS["$u_scope"]="$u_status"; done \
     < "${POOL_DIR}/manifest.tsv"
 
-  replay_scope() { # $1 scope
-    local scope="$1" status="${UNIT_STATUS[$1]:-}" rank ms findings advisories name
-    if [[ -s "${POOL_DIR}/${scope}.out" ]]; then cat "${POOL_DIR}/${scope}.out"; fi
-    if [[ -s "${POOL_DIR}/${scope}.err" ]]; then cat "${POOL_DIR}/${scope}.err" >&2; fi
-    if [[ -s "${POOL_DIR}/${scope}.ledger" ]]; then
-      while IFS=$'\t' read -r rank ms findings advisories name; do
-        adopt_section "$name" "$rank" "$ms" "$findings" "$advisories"
-      done < "${POOL_DIR}/${scope}.ledger"
-    else
+  # One reader for both callers: a scope with no ledger must not be unproven in the one and
+  # absent from the table in the other. The two totals are what the scope's own rows say, which
+  # is what its exit status is then held to.
+  ROWS_FINDINGS=0; ROWS_WORST=0
+  adopt_rows() { # $1 scope
+    local scope="$1" rank ms findings advisories name
+    ROWS_FINDINGS=0; ROWS_WORST=0
+    if [[ ! -s "${POOL_DIR}/${scope}.ledger" ]]; then
       # A worker that died before it could write one. Rank 0 is what `finish` refuses to call
       # green, so the scope surfaces as unproven rather than as one that passed.
       adopt_section "$scope" 0 0 0 0
+      return 0
     fi
+    while IFS=$'\t' read -r rank ms findings advisories name; do
+      adopt_section "$name" "$rank" "$ms" "$findings" "$advisories"
+      ROWS_FINDINGS=$(( ROWS_FINDINGS + findings ))
+      if (( rank > ROWS_WORST )); then ROWS_WORST="$rank"; fi
+    done < "${POOL_DIR}/${scope}.ledger"
+  }
+
+  replay_scope() { # $1 scope
+    local scope="$1" status="${UNIT_STATUS[$1]:-}"
+    if [[ -s "${POOL_DIR}/${scope}.out" ]]; then cat "${POOL_DIR}/${scope}.out"; fi
+    if [[ -s "${POOL_DIR}/${scope}.err" ]]; then cat "${POOL_DIR}/${scope}.err" >&2; fi
+    adopt_rows "$scope"
     # The manifest's own word for a unit that never ran, which no exit code may spell: a number
     # here is always one a real process returned.
     if [[ ! "$status" =~ ^[0-9]+$ ]]; then
@@ -306,6 +325,15 @@ if (( PARALLEL )); then
     # Crashed and interrupted end the run here, having no row that could say so. Findings and a
     # refusal are already in the rows, which `finish` reads back.
     adopt_ending "$status"
+    # Only 0, 1 and 2 reach this line, and `finish` derives the ending from the rows alone -- so a
+    # status the rows cannot account for closes the run green over a scope that failed. Refused as
+    # a class, whatever left the status unexplained.
+    case "$status" in
+      1) (( ROWS_FINDINGS > 0 )) \
+           || on_error 3 "${LINENO}" "the ${scope} scope exited 1 and its rows carry no finding to explain it" ;;
+      2) (( ROWS_WORST >= 4 )) \
+           || on_error 3 "${LINENO}" "the ${scope} scope exited 2 and its rows carry no refusal to explain it" ;;
+    esac
     REPLAY_STATUS="$status"
   }
 
@@ -313,13 +341,9 @@ if (( PARALLEL )); then
   # from one that never ran while the ending stays the failure's. Only a finished verdict may
   # speak; a crash's rank-5 row would read as findings.
   adopt_finished() { # $1 scope
-    local scope="$1" status="${UNIT_STATUS[$1]:-}" rank ms findings advisories name
+    local scope="$1" status="${UNIT_STATUS[$1]:-}"
     case "$status" in 0|1|2) ;; *) return 0 ;; esac
-    if [[ -s "${POOL_DIR}/${scope}.ledger" ]]; then
-      while IFS=$'\t' read -r rank ms findings advisories name; do
-        adopt_section "$name" "$rank" "$ms" "$findings" "$advisories"
-      done < "${POOL_DIR}/${scope}.ledger"
-    fi
+    adopt_rows "$scope"
   }
 
   REPLAY_STATUS=0
@@ -658,8 +682,9 @@ fi
 
 # --- images ----------------------------------------------------------------------------------------
 
-# The EXIT trap reclaims this run's tags on every exit path it can see. A run killed outright
-# leaves them behind, under a tag carrying a pid nothing else builds against.
+# The EXIT trap reclaims this run's tags where it can. A kill leaves one behind, and so does a
+# build failing while its sibling runs -- the trap reaches the job shell, never the `docker build`
+# under it. Its tag carries a pid nothing else builds against.
 if (( RUN_IMAGES )); then
   section images
 

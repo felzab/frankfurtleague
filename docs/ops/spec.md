@@ -369,25 +369,30 @@ adopted — rows alone, never the captured output — so the closing table tells
 one that never ran, and a session fixing the failure knows what it need not pay for again. The
 run's exit is then the worst adopted rank, findings outranking a refusal as everywhere else
 (`scripts/_lib.sh :: finish`); byte-identity with the serial run is a green run's property, a
-failing serial run having stopped where the parallel one did not. `--serial` runs them one at a
-time and is
-what a byte-identity comparison is measured
-against; `--verbose`, a run covering one scope, CI (already one scope per job) and a machine with
-no interpreter at the checkers' floor are serial too. No scope waits on another — the compose
-parse reads its stand-in `.env` files from a scratch copy, never the real trees — and the pool
-submits the expected-longest scopes first (`scripts/gate_pool.py :: TYPICAL_MS`), so the run's
-floor is its longest scope. **The `--frontend` implication above is the
-parent's, never a worker's** — a worker runs the one scope it is given. `scripts/gate_pool.py` owns
-the spawning and nothing else; the sections and closing statements stay in `scripts/_lib.sh`.
+failing serial run having stopped where the parallel one did not. **A scope whose exit status its
+own rows cannot account for is refused as a crash** — a 1 carrying no finding, a 2 carrying no
+refusal — because the rows are all `finish` reads, so a status nothing in them explains is exactly
+what would otherwise close the run green over a scope that failed. `--serial` runs them one at a
+time and is what a byte-identity comparison is measured against; `--verbose`, a run covering one
+scope, CI (already one scope per job) and a machine with no interpreter at the checkers' floor are
+serial too. **No scope waits on another** — the compose parse reads its stand-in `.env` files from
+a scratch copy, never the real trees — so every scope starts at once and the run's floor is its
+longest. The pool submits the expected-longest first (`scripts/gate_pool.py :: TYPICAL_MS`), which
+decides nothing while every scope holds a slot of its own: it is the admission order a `--width`
+below the scope count would take, and nothing passes one. **The `--frontend` implication above is
+the parent's, never a worker's** — a worker runs the one scope it is given. `scripts/gate_pool.py`
+owns the spawning and nothing else; the sections and closing statements stay in `scripts/_lib.sh`.
 
 **The scripts and images scopes carry that shape one level down**: the scripts checks start
-together, as do the two image builds, and each is collected at its own step, so the scope costs
-its slowest check rather than the sum. Every verdict
-is still reached in written order, a job records an exit status and never speaks, and a job that
-left no status is read as a crash rather than as a pass; the serial exceptions above are this
-level's too. A step joined after its work ran beside its neighbours is re-dated to that work's own
-length (`scripts/_lib.sh :: step_took_ms`), without which the first step joined absorbs the whole
-stretch and every step after it reads as free.
+together, as do the two image builds, and each is collected at its own step, so the scope costs its
+slowest check rather than the sum. Every verdict is still reached in written order, a job records
+an exit status and never speaks, and a job that left no status is read as a crash rather than as a
+pass. **Only `--serial` and `--verbose` reach this level** (`scripts/verify.sh :: STEP_JOBS`); the
+pool's other serial exceptions are the pool's alone, so a one-scope run and CI both still start
+their checks together — CI's `images` job runs its two `docker buildx build` invocations side by
+side, each exporting its own `type=gha` cache. A step joined after its work ran beside its
+neighbours is re-dated to that work's own length (`scripts/_lib.sh :: step_took_ms`), without which
+the first step joined absorbs the whole stretch and every step after it reads as free.
 
 **The eslint step passes `--concurrency=2`, a value answering a diagnostic rather than the clock**:
 `auto` warns through `ESLintPoorConcurrencyWarning` and every larger measured setting warns too, so

@@ -25,9 +25,9 @@ NOT_STARTED: Final = "not-started"
 
 MANIFEST: Final = "manifest.tsv"
 
-# The tail is submitted first: threads spawn in this order and a --width below the scope count
-# admits in it, so the run's floor stays its longest scope. Full-form profile, 2026-08-26; a
-# scope absent here sorts last, in the order given.
+# The tail is submitted first, but every scope gets a slot: insurance for a --width run, not a
+# saving, an unbounded run's floor being its longest scope because nothing waits. Profile
+# 2026-08-26; a scope absent here sorts last, in the given order.
 TYPICAL_MS: Final[dict[str, int]] = {
     "db": 86_000,
     "frontend": 61_000,
@@ -156,7 +156,8 @@ def main() -> int:
                 pool.futures[scope].result()
     except KeyboardInterrupt:
         # Ctrl-C already reached every worker through the process group, and each is winding down
-        # through its own trap: returning first strands a half-built image or a stand-in .env.
+        # through its own trap: returning first strands a half-built image, or the throwaway
+        # certificate the nginx check writes under the repo root.
         return EXIT_INTERRUPTED
     finally:
         # Written even when a unit's thread raised: without the manifest a crash here reads as a
