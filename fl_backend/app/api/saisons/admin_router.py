@@ -261,7 +261,7 @@ async def patch_saison(
     """
 
     async def judge_and_write_the_rules(session: AsyncIOMotorClientSession) -> FLPatchSaisonResponse:
-        """Judge, then write the season's dates and rules. Everything judged is read in-session."""
+        """Judge, then write the season's dates and rules. Every figure is read in-session, and the movable ones again outside it (I53)."""
 
         # THROUGH the session, as the draw's reads are: a retry after a write conflict has to judge
         # the season as it stands then. A season id naming nothing raises the 404 here.
@@ -320,7 +320,7 @@ async def patch_saison(
                 attached_by_phase[phase] = max(attached_by_phase.get(phase, 0), attached)
 
         async def movable_figures(figures_session: AsyncIOMotorClientSession | None) -> tuple[int, list[tuple[str, str]]]:
-            """The judged figures a rival can move without conflicting on `saisons`: the largest live squad and the dated matchday spans.
+            """Two judged figures a rival can move without conflicting on `saisons`: the largest live squad and the dated matchday spans.
 
             Occupancy stays out on `app/api/teams/admin_router.py :: post_saison_team`'s concession
             -- a planning bound the draw reports.
@@ -418,7 +418,7 @@ async def activate_saison(
     """
 
     async def judge_and_roll_the_league_over(session: AsyncIOMotorClientSession) -> FLActivateSaisonResponse:
-        """Judge, then demote every incumbent and promote the target. Everything judged is read in-session."""
+        """Judge, then demote every incumbent and promote the target. Every figure is read in-session, and the status again outside it (I53)."""
 
         async def the_targets_status(status_session: AsyncIOMotorClientSession | None) -> str:
             """`REQ-ACTIVATE-002`'s input, read either through the transaction or outside it.

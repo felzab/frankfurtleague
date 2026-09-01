@@ -211,8 +211,8 @@ export async function reactivateSchiedsrichterAction(
 
 /**
  * Clears the telephone number and email address on the row, and every log row's whole saved
- * pre-image. **Permanent, with no undo.** It refuses nothing, and the row survives so every fixture
- * naming the referee resolves.
+ * pre-image. **Permanent, with no undo.** It refuses `REQ-ANONYMISE-001` alone, and the row survives
+ * so every fixture naming the referee resolves.
  */
 export async function anonymiseSchiedsrichterAction(
   rawPayload: FLAnonymiseSchiedsrichterPayload,
