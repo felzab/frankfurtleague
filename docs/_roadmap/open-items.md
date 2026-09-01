@@ -90,10 +90,9 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 36  | FE-34 | Three entry refusals are rendered twice and compared by nothing      | FE, Docs        | M      | Open     | —          |
 | 37  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach    | FE              | S      | Open     | —          |
 | 38  | BE-42 | Acceptance publishes a school's street address as the club's         | Docs            | S      | Decided  | —          |
-| 39  | BE-25 | A club's street address is served to an anonymous caller             | Docs            | S      | Decided  | —          |
-| 40  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
-| 41  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
-| 42  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
+| 39  | BE-7  | `typing` imports instead of `collections.abc`                        | BE              | —      | Decided  | —          |
+| 40  | BE-14 | The certainty walk gives up in a group of six or more                | BE              | —      | Standing | —          |
+| 41  | BE-45 | A tie-break that cannot fire blocks the index it was written for     | BE              | S      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -1867,9 +1866,8 @@ own cost is paid only after somebody edits the database.
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
 **Effort:** S\
-**Path:** Independent. **BE-25** and **BE-42** hold the decided read-tier question for one of these
-fields — the address stays public; this asks what a WRITE accepts, and none of the three blocks
-another.
+**Path:** Independent. **BE-42** holds the decided read-tier question for one of these fields — the
+address stays public; this asks what a WRITE accepts, and neither entry blocks the other.
 
 **`fl_backend/app/api/teams/schemas.py :: _TeamPayload` gives `name` and `full_name` a floor and no
 ceiling**, `:: _TeamWritable`'s `website_url` is validated for its scheme and its host and not for its
@@ -2057,9 +2055,8 @@ module, which nothing on either side says.
 **Status:** Decided\
 **Surfaces:** Docs\
 **Effort:** S\
-**Path:** Independent. **BE-25** put the same question to the read that serves the address, and the
-decision below settles both; the registry work remaining is stated here in full and cited from
-there (COR-2).
+**Path:** Independent. The decision below settles the read tier as well as the copy, so what this
+entry still carries is the registry row named at its foot and nothing else waits on it.
 
 **`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung` builds a club out of the
 school's own block and inserts it into `teams`, the address included.**
@@ -2082,28 +2079,7 @@ names a school's correspondence address once acceptance has made a club of it. W
 into that table beside `READ-ADDRESS-001` is the work this entry still carries, so the registry
 answers for a club's address the way it already answers for a venue's.
 
-### 39 · BE-25 — A club's street address is served to an anonymous caller
-
-**Status:** Decided\
-**Surfaces:** Docs\
-**Effort:** S\
-**Path:** Independent — one response model, and the decision recorded at it is what any change has
-to be argued against. **BE-42** states the remaining registry work in full; the two entries share
-it and conclude with it.
-
-**`GET /teams` and `GET /teams/{team_id}` serve `FLTeam` on the base tier, and it carries `address`,
-`full_name` and `website_url`.** `fl_backend/app/api/teams/schemas.py :: FLTeam` composes from
-`_TeamWritable` and inherits all three, so a club's postal address reaches an unauthenticated caller
-on both reads.
-
-**The decision this entry owes is taken: the address stays served.** Decided 2026-08,
-Datenschutzexperte consulted, and recorded at the read
-(`fl_backend/app/api/teams/schemas.py :: _TeamWritable`): a club's address is public, `format=list`
-included, and the public application form says so where the address is collected. The allow-list
-argument that narrowed the standings row to `FLGruppenTeam` is thereby written down as stopping
-short of `FLTeam`, whose detail page renders the field through `TeamIdentityCard`.
-
-### 40 · BE-7 — `typing` imports instead of `collections.abc`
+### 39 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -2116,7 +2092,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 41 · BE-14 — The certainty walk gives up in a group of six or more
+### 40 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -2216,7 +2192,7 @@ unreachable into the ordinary path and makes the plan above the one an administr
 does not hold. That no caller sends `sort_by` was read off the page and the absence of another consumer
 rather than proven by instrumenting the endpoint.
 
-### 42 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
+### 41 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
 
 **Status:** Standing\
 **Surfaces:** BE\
