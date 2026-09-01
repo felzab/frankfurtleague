@@ -354,7 +354,9 @@ nothing on the machine this suite runs on otherwise exercises;
 and `:: unit_verdict` make of a unit that reached no verdict;
 `scripts/tests/test_selfcheck_guards.py` lifts `scripts/selfcheck.sh`'s own arms out by name and
 drives each against a shaped input, reaching the four that grade a crashed probe, an unterminated
-verdict, a retry escaping its subshell and the words a call is read by; and
+verdict, a retry escaping its subshell and the words a call is read by;
+`scripts/tests/test_unreached_scopes.py` for a scope the run selected and never reached, which the
+closing table names as `unreached` rather than dropping, at every exit the run can end on; and
 `scripts/tests/test_crash_status.py` asserts every shell arm degrading on a crash spells
 `scripts/checker_kernel.py :: EXIT_CRASH` as its own literal — a copy left behind being invisible to
 the run it silently reprieves.
