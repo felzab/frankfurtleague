@@ -18,7 +18,7 @@
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next dev --turbo",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --concurrency=2",
+    "lint": "eslint . --cache --cache-strategy content",
     "format": "prettier --write .. --ignore-path ../.prettierignore",
     "format:check": "prettier --check .. --ignore-path ../.prettierignore --cache --cache-strategy content",
     "typecheck": "tsc --noEmit",

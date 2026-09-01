@@ -397,19 +397,22 @@ side, each exporting its own `type=gha` cache. A step joined after its work ran 
 neighbours is re-dated to that work's own length (`scripts/_lib.sh :: step_took_ms`), without which
 the first step joined absorbs the whole stretch and every step after it reads as free.
 
-**The eslint step passes `--concurrency=2`, a value answering a diagnostic rather than the clock**:
-`auto` warns through `ESLintPoorConcurrencyWarning` and every larger measured setting warns too, so
-raising the number buys its time by suppressing a correct diagnostic. Measured 2026-08-26 across
-roughly twenty runs: `auto` — eight workers on the development machine — holds a net-linting ratio
-of 0.556 to 0.571 against the installed floor of 0.7 and warns; 2 holds 0.720 to 0.743 and does
-not; 4 and 6 warn too, so no value is both faster than `auto` and quiet. **The step carries no
-`--cache`, deliberately**: eslint's key covers the config and the linted file alone, and
-`fl_frontend/eslint.config.mjs` points `better-tailwindcss` at `src/app/globals.css`, a file the
-key never sees — measured 2026-08-26, a warm `--cache --cache-strategy content` answers exit 0
-over a stylesheet rename the uncached run reports four findings for. A key widened by hashing that
-stylesheet into the config was tried and works, but every cross-file input the plugin gains
-re-opens it, and a miss fails silently in the passing direction — the one direction a check may
-never fail in.
+**The eslint step is cached and deliberately not threaded.** The two levers compose — each worker
+thread builds its own lint-result cache through `createLintResultCache`, and `lintFile` returns a
+cached verdict from `getCachedLintResults` before it reads the file — so the choice is the clock's
+and not the source's. Threading buys the cold fill and costs the warm run, which eslint measures
+itself: a warm threaded run emits `ESLintPoorConcurrencyWarning`, whose advice is to disable
+concurrency. A development machine mostly pays the warm run, so the step takes it and gives up the
+cold arm, which a fresh worktree and a CI job each pay once. **What makes the cached verdict honest
+is `fl_frontend/eslint.config.mjs :: crossFileDigest`** — eslint keys a cached verdict on the
+linted file and the resolved config alone, so the inputs deciding a verdict from outside both are
+hashed into `settings`, which lands inside that key: the stylesheets `better-tailwindcss` resolves
+class names against, the route files `@next/next/no-html-link-for-pages` turns into URLs, and
+`fl_frontend/pnpm-lock.yaml` standing in for the rule implementations. **Nothing restores that
+cache in CI**, which is the bound on the digest rather than an omission — a fresh checkout carries
+no `.eslintcache`, so the run that gates a pull request re-decides every file, and a cross-file
+input the digest has not grown to cover costs a false green on a development machine rather than a
+merged one. The measurements behind the trade are `de1240d2`'s body.
 
 **No formatter the gate runs writes a tracked file** — prettier runs in check mode everywhere, so a
 run cannot hand back a tree different from the one its later steps measured. Formatting happens at
@@ -429,6 +432,15 @@ produces what this scope checks and the hook usually finds nothing left to do. I
 the hook does: a developer without the extension is held by this scope and CI alone. `.editorconfig`
 carries the same conventions to the files prettier never opens — the python, shell, TOML and nginx
 ones — and stays clear of every setting `.prettierrc.json` decides.
+
+**Every untracked file a run writes is gitignored where it lands, and three of them are
+caches**: `tsc` writes `fl_frontend/tsconfig.tsbuildinfo` under `incremental`, the eslint step
+writes `fl_frontend/.eslintcache`, and prettier writes the cache the formatter paragraph above
+locates, each of which the next run reads. `next build` writes
+`fl_frontend/.next/`, which is output rather than state, and the stand-in `.env` files and
+`.tmp-nginx-check/` the ops scope needs are this run's own fixtures, removed on exit. None of it is
+a formatter's output and none of it is tracked, so the rule above is untouched — and a cache the
+gate reads is only as good as its key, which is why the eslint one carries the digest above.
 
 **One tracked file a gate run writes is not a formatter's doing**: `next build` rewrites
 `fl_frontend/tsconfig.json` whenever a `compilerOptions` key it checks for is absent, so the
