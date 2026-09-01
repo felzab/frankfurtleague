@@ -26,6 +26,7 @@ export function AddressFields({
   onFieldLeft,
   renderLabel,
   isStadtteilRequired = false,
+  describedById,
 }: {
   value: FLAddress;
   onChange: (newValue: FLAddress) => void;
@@ -45,6 +46,11 @@ export function AddressFields({
    * there, rather than a schema message answering where every sibling field answers natively.
    */
   isStadtteilRequired?: boolean;
+  /**
+   * A sentence standing above the block that qualifies the whole address rather than one field. It reaches every input
+   * here, `FormKontaktpersonenSection`'s shape: a group hint a control is not described BY is one a reader never meets.
+   */
+  describedById?: string;
 }) {
   const updateField = (field: keyof FLAddress, newValue: string) => {
     onChange({ ...value, [field]: newValue });
@@ -59,6 +65,7 @@ export function AddressFields({
         <TextField
           isRequired
           name={`${namePrefix}.strasse`}
+          aria-describedby={describedById}
           value={value.strasse}
           onChange={(next) => updateField("strasse", next)}
           onBlur={() => onFieldLeft?.([`${namePrefix}.strasse`])}
@@ -72,6 +79,7 @@ export function AddressFields({
         <TextField
           isRequired
           name={`${namePrefix}.hausnummer`}
+          aria-describedby={describedById}
           value={value.hausnummer}
           onChange={(next) => updateField("hausnummer", next)}
           onBlur={() => onFieldLeft?.([`${namePrefix}.hausnummer`])}
@@ -88,6 +96,7 @@ export function AddressFields({
         <TextField
           isRequired
           name={`${namePrefix}.plz`}
+          aria-describedby={describedById}
           value={value.plz}
           onChange={(next) => updateField("plz", next)}
           onBlur={() => onFieldLeft?.([`${namePrefix}.plz`])}
@@ -100,6 +109,7 @@ export function AddressFields({
         <TextField
           isRequired
           name={`${namePrefix}.stadt`}
+          aria-describedby={describedById}
           value={value.stadt}
           onChange={(next) => updateField("stadt", next)}
           onBlur={() => onFieldLeft?.([`${namePrefix}.stadt`])}
@@ -115,6 +125,7 @@ export function AddressFields({
       <TextField
         isRequired={isStadtteilRequired}
         name={`${namePrefix}.stadtteil`}
+        aria-describedby={describedById}
         value={value.stadtteil}
         onChange={(next) => updateField("stadtteil", next)}
         onBlur={() => onFieldLeft?.([`${namePrefix}.stadtteil`])}
