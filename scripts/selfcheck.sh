@@ -782,8 +782,8 @@ else
 
     # --- One write, spelled many ways ------------------------------------------------------------
 
-    # The write-shape test is a substring scan of the raw command, so it falls one respelling at a
-    # time; a family is as close to the mechanism as a payload suite reaches.
+    # The write-shape test is a substring scan of a normalised command, so it falls one respelling
+    # at a time; a family is as close to the mechanism as a payload suite reaches.
 
     # No case outside the platform block at the end of this table may carry a literal backslash: the
     # token classifier answers differently under POSIX path grammar, so CI would disagree.
@@ -837,6 +837,33 @@ else
     probe "$hb" allowed cmd 'printf x > docs/audit/übersicht.md'               'bash guard: a non-ASCII name in the ignored tree'
     # An accepted cost, not a defect: honouring it needs real shell tokenisation.
     probe "$hb" denied  cmd 'cp docs/audit/a.md "docs/audit/b c.md"'           'bash guard: a quoted name holding a space'
+
+    # --- Word boundaries the shell honours where a space is absent -------------------------------
+
+    # A separator binds a verb to whatever stands beside it, so each line here carries a write shape
+    # no pattern spelled with spaces reaches. None of them carries a redirect, which would raise the
+    # write flag on its own account and hide what is being tested.
+    probe "$hb" denied cmd 'echo x;rm -rf fl_frontend/src'      'bash guard: a semicolon in front of rm'
+    probe "$hb" denied cmd 'echo x&&rm -rf fl_frontend/src'     'bash guard: && in front of rm'
+    probe "$hb" denied cmd 'echo x||mv notes.md b.md'           'bash guard: || in front of mv'
+    probe "$hb" denied cmd 'echo x;sed -i s/a/b/ scripts/verify.sh' 'bash guard: a semicolon in front of sed -i'
+    probe "$hb" denied cmd 'echo x;git commit -am wip'          'bash guard: a semicolon in front of git'
+    probe "$hb" denied cmd 'git status&&git reset --hard'       'bash guard: && in front of a git write'
+    probe "$hb" denied cmd '(git commit -am wip)'               'bash guard: a git write inside a subshell'
+    probe "$hb" denied cmd 'ls docs/audit | xargs rm'           'bash guard: a verb ending the command'
+    # A quote is stripped by the token stage, so the scan has to strip one too — otherwise the verb
+    # that stage would judge never reaches the flag that sends it there.
+    probe "$hb" denied cmd '"sed" -i s/a/b/ scripts/verify.sh'  'bash guard: a quoted program name'
+    probe "$hb" denied cmd "'rm' -rf fl_frontend/src"           'bash guard: a quoted rm'
+
+    # The token stage alone answers these: the shape scan fires on the redirect, and the ignored
+    # target is the only placed path, so the chained command rides out on that one's exemption.
+    probe "$hb" denied cmd 'printf x > docs/audit/log.txt & git commit -am wip' 'bash guard: a commit backgrounded behind an ignored write'
+    probe "$hb" denied cmd 'printf x > docs/audit/log.txt & pnpm format'        'bash guard: a formatter backgrounded behind an ignored write'
+    # The shell expands this and the guard cannot, so the path judged and the path written differ —
+    # the hazard guard-branch-powershell.sh refuses a variable for.
+    # shellcheck disable=SC2016
+    probe "$hb" denied cmd 'printf x > docs/audit/${AUDIT}note.md'              'bash guard: a brace expansion inside an ignored path'
 
     # --- In-place editing, one spelling at a time ------------------------------------------------
 
@@ -945,6 +972,7 @@ else
     probe "$hs" asked   cmd 'printf x >&docs/standard.md'                      'standard bash guard: >& redirect'
     probe "$hs" asked   cmd 'printf x ->docs/standard.md'                      'standard bash guard: -> redirect'
     probe "$hs" asked   cmd 'sed -e s/a/b/ -i docs/standard.md'                'standard bash guard: sed -i behind another flag'
+    probe "$hs" asked   cmd 'echo x;sed -i s/a/b/ docs/standard.md'            'standard bash guard: a semicolon in front of sed -i'
     probe "$hs" asked   cmd 'git checkout -- docs/standard.md'                 'standard bash guard: git checkout --'
     probe "$hs" asked   cmd "$(printf 'echo start\ngit checkout -- docs/standard.md')" 'standard bash guard: a discard on a second line'
     probe "$hs" asked   cmd 'git status && git checkout -- docs/standard.md'   'standard bash guard: a discard behind a git read'
@@ -1024,6 +1052,18 @@ else
         ;;
     esac
     par_run unit_probe
+
+    # git MISSING is not an answer: with no git the guard cannot know which branch it stands on,
+    # so it refuses. Outside the probe table, which runs every hook in the runner's own
+    # environment. bash by absolute path, the stripped PATH being what hides git.
+    nogit="${HOOKFX}/nogit"
+    mkdir -p "$nogit"
+    blind="$( cd "$HOOK_REPO" && cmd_payload 'printf x > scripts/verify.sh' |
+      PATH="$nogit" "$BASH" "${HOOKS_DIR}/${hb}" 2>/dev/null )" || true
+    case "$blind" in
+      *'"permissionDecision":"deny"'*) info 'bash guard: git absent from PATH — denied' ;;
+      *) note_fail "bash guard: git absent from PATH: expected denied, got '${blind:-allowed}'" ;;
+    esac
 
     # Off main: a detached HEAD allows too, a rebase or a bisect not losing every write.
     ( cd "$HOOK_REPO" && git checkout -q topic )

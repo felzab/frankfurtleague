@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreToolUse hook on Bash — refuses a compose INVOCATION unless a `-f` value names
+# PreToolUse hook on Bash and PowerShell — refuses a compose INVOCATION unless a `-f` value names
 # `docker-compose.local.yml`. With no `-f` compose reads `docker-compose.yml`, the PRODUCTION
 # definition, and the two share a project name — so the bare command appears to work while
 # operating a different stack.

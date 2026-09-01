@@ -39,12 +39,22 @@ scan="$(printf '%s' "$cmd" | sed -E 's#[0-9&]*>[>&]?[[:space:]]*/dev/null##g')"
 squeezed="$(printf '%s' "$scan" | tr -s ' \t' ' ')"
 [ -n "$squeezed" ] || squeezed="$scan"
 
-# Space-prefixed so a verb at the very start is caught: the `rm` pattern has to be " rm " to avoid
-# matching inside a word, and `rm docs/x` carries no leading space of its own.
+# Space-prefixed so a token at the very start is bounded the way one mid-string is. The source scan
+# below reads this, and so does the arrows test, which needs `2>&1` whole.
 padded=" $squeezed"
+
+# What every word-bounded pattern reads instead: a separator bounds a word too, so `x;rm -rf src`
+# carries a verb no " rm " reaches, and a quote hides one — both come off here, as node's own
+# pass takes quotes off.
+stripped="$(printf '%s' "$squeezed" |
+  sed -E $'s/\\\\?[\x22\x27\x60]//g' | tr ';&|(){}\n\r' '         ' | tr -s ' ')"
+# A pipeline that failed must not read as a command with no verb left in it.
+[ -n "$stripped" ] || stripped="$squeezed"
+# Padded at BOTH ends: a verb ending the string is bounded by nothing else.
+verbs=" $stripped "
 writes=0
-case "$padded" in
-  *" tee "* | *"|tee "*)           writes=1 ;;
+case "$verbs" in
+  *" tee "*)                       writes=1 ;;
   *"--output "* | *"--output="*)   writes=1 ;;
   *" mv "* | *" cp "* | *" ln "* | *" rm "* | *" rmdir "* | *" mkdir "* | *" touch "*) writes=1 ;;
 esac
@@ -61,20 +71,20 @@ esac
 
 # The program is gated because `-i` is case-insensitive to grep and interactive to cp, and the flag
 # is matched by SHAPE: `-pi`, `-i.bak` and `-nli.orig` edit in place as surely as `-i` does.
-if [[ "$padded" =~ [[:space:]/](sed|perl|ruby|awk|gawk|yq)[0-9.]*(\.exe)?[[:space:]] ]]; then
+if [[ "$verbs" =~ [[:space:]/](sed|perl|ruby|awk|gawk|yq)[0-9.]*(\.exe)?[[:space:]] ]]; then
   # A lowercase cluster only, so `-MList::Util` stays a module and `-Ilib` an include path.
-  if [[ "$padded" =~ [[:space:]]-[[:lower:][:digit:]]*i ]]; then writes=1; fi
+  if [[ "$verbs" =~ [[:space:]]-[[:lower:][:digit:]]*i ]]; then writes=1; fi
   # The spellings carrying no letter cluster: gawk names an extension, yq drops the hyphen.
-  case "$padded" in
+  case "$verbs" in
     *" --in-place"* | *"inplace"*) writes=1 ;;
   esac
 fi
 
 # Global options sit between program and subcommand, so the stepper skips them. Every `git` is
-# walked — a leading read otherwise shadows a chained write — and the class reaches the newline
-# and CR `tr` leaves alone. extglob is on for that one expansion.
-shopt -s extglob
-gitscan="$padded"
+# walked, over the separator-normalised string: a leading read otherwise shadows a chained write,
+# and `;git commit` fronts a git as plainly as a space does.
+shopt -s extglob # for the ?(.exe) alternative the strip below carries
+gitscan="$verbs"
 while :; do
   rest="${gitscan#*[[:space:]/]git?(.exe) }"
   [ "$rest" = "$gitscan" ] && break
@@ -93,13 +103,13 @@ while :; do
       *) break ;;
     esac
   done
-  # The subcommand word ends at any whitespace: a newline straight after it must not glue the next
-  # line's first word onto it.
+  # The subcommand word ends at any whitespace, so nothing standing behind it can glue onto it and
+  # hide the name.
   case "${rest%%[[:space:]]*}" in
     am | apply | cherry-pick | clean | commit | merge | rebase | reset | restore | revert | stash | switch) writes=1 ;;
     # `git checkout -b` is how a session leaves `main` and must never be refused; the pathspec form
     # writes a tracked file and is the spelling that has to be.
-    checkout) case "$padded" in *" -- "*) writes=1 ;; esac ;;
+    checkout) case "$verbs" in *" -- "*) writes=1 ;; esac ;;
   esac
 done
 shopt -u extglob
