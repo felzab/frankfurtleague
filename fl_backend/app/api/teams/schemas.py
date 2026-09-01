@@ -82,6 +82,7 @@ class FLAustritt(BaseModel):
     """
 
     type: FLAustrittType
+    # A name written here outlives an erasure, which rewrites structured fields (`READ-FREETEXT-002`).
     grund: CustomNonEmptyString
     # The day the exit took effect, not the day somebody typed it in.
     datum: CustomDateString
