@@ -28,8 +28,12 @@ pnpm-lock.yaml
 .claude/worktrees/
 .tmp-*/
 
-# Machine-local files, and credential shapes a formatter has no business opening at all.
-.vscode
+# Machine-local files, and credential shapes a formatter has no business opening at all. The two
+# tracked workspace files are the exception -- a tracked file the format gate skips is one nothing
+# holds to the repository's own style.
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 .claude/settings.local.json
 .env*
 *.pem

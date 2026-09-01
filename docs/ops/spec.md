@@ -390,6 +390,13 @@ commit time instead: `.githooks/pre-commit` formats what is staged and re-stages
 file staged in part. The hook is convenience and never the enforcement — a clone that has not
 pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what bind.
 
+**An editor formats earlier still.** `.vscode/settings.json` maps every file type prettier governs
+to it, and names the module, the configuration and the ignore file the gate itself reads, so a save
+produces what this scope checks and the hook usually finds nothing left to do. It binds no more than
+the hook does: a developer without the extension is held by this scope and CI alone. `.editorconfig`
+carries the same conventions to the files prettier never opens — the python, shell, TOML and nginx
+ones — and stays clear of every setting `.prettierrc.json` decides.
+
 **One tracked file a gate run writes is not a formatter's doing**: `next build` rewrites
 `fl_frontend/tsconfig.json` whenever a `compilerOptions` key it checks for is absent, so the
 frontend scope stays green having read a different config from the `tsc` step before it; the
