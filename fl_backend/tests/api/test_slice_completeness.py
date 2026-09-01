@@ -102,7 +102,7 @@ class _SeasonCollection:
     def __init__(self, documents: list[dict[str, Any]]) -> None:
         self.documents = documents
 
-    def find(self, filter: Any, projection: Any = None, session: Any = None) -> "_SeasonCollection":
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> "_SeasonCollection":
         return self
 
     def limit(self, count: int) -> "_SeasonCollection":
@@ -158,10 +158,10 @@ class _ArchiveCollections:
         # test here is the wiring above that pipeline rather than the pipeline itself.
         self.spiele = spiele or []
 
-    def aggregate(self, pipeline: Any, session: Any = None) -> "_ArchiveCollections":
+    def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> "_ArchiveCollections":
         return self
 
-    def find(self, filter: Any, projection: Any = None, session: Any = None) -> "_ArchiveCollections":
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> "_ArchiveCollections":
         return self
 
     def limit(self, count: int) -> "_ArchiveCollections":

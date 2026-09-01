@@ -3937,7 +3937,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren": {
       "post": {
         "summary": "Clear a Schiedsrichter's contact details",
-        "description": "Null the referee's telephone number and email address, in the row and in the log.\n\nThe row and its `name` stay: every Spiel embeds both, so a removal would strand copies.\nNo precondition -- details may go while they still officiate.",
+        "description": "Null the referee's telephone number and email address, in the row and in the log.\n\nThe row and its `name` stay: every Spiel embeds both, so a removal would strand copies. A\nre-entry under it is refused (`REQ-ANONYMISE-001`).",
         "operationId": "anonymise_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__anonymisieren_post",
         "security": [
           {

@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Mapping, Sequence
+from typing import Annotated, Any, Mapping, NamedTuple, Sequence
 
 from fastapi import APIRouter, Body, Depends
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
@@ -242,6 +242,14 @@ async def post_saison(
     )
 
 
+class MovableFigures(NamedTuple):
+    """What `patch_saison` judges on and does not write, read once through its transaction and once outside it (I53)."""
+
+    largest_squad: int
+    spieltag_spans: Sequence[tuple[str, str]]
+    played_knockout: int
+
+
 @router.patch("/{saison_id}", response_model=FLPatchSaisonResponse, summary="Update a Saison's dates and rules")
 async def patch_saison(
     saison_id: str,
@@ -261,7 +269,7 @@ async def patch_saison(
     """
 
     async def judge_and_write_the_rules(session: AsyncIOMotorClientSession) -> FLPatchSaisonResponse:
-        """Judge, then write the season's dates and rules. Everything judged is read in-session."""
+        """Judge, then write the season's dates and rules. Every figure is read in-session, and the movable ones again outside it (I53)."""
 
         # THROUGH the session, as the draw's reads are: a retry after a write conflict has to judge
         # the season as it stands then. A season id naming nothing raises the 404 here.
@@ -274,7 +282,9 @@ async def patch_saison(
             if gruppe is not None:
                 occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
 
-        # Both sides, because a `quelle` sits on either; 0 where no slot is group-seeded.
+        # Both sides, because a `quelle` sits on either; 0 where no slot is group-seeded. Judged on
+        # the snapshot and never re-read below: `REQ-RULES-004`, the only refusal that reads it,
+        # cannot be reached at all (`docs/backend/spec.md` section 4).
         highest_platz = 0
         async for spiel in spiele_collection.find(
             {"saison_id": saison_id, "$or": [{"team1_quelle.type": "gruppe"}, {"team2_quelle.type": "gruppe"}]},
@@ -287,30 +297,20 @@ async def patch_saison(
                     highest_platz = max(highest_platz, int(quelle.get("platz", 0)))
 
         # The fullest matchday of a phase, not the total, and keyed on the MATCHDAY's phase, which the
-        # fixture's can disagree with.
+        # fixture's can disagree with. Judged on the snapshot for `highest_platz`'s reason, the
+        # unreachable refusal here being `REQ-RULES-006`.
         attached_by_phase: dict[Any, int] = {}
         phase_of_spieltag: dict[Any, Any] = {}
         async for spieltag in spieltage_collection.find({"saison_id": saison_id}, {"saison_phase": 1}, session=session):
             phase_of_spieltag[spieltag["_id"]] = spieltag["saison_phase"]
 
         per_spieltag: dict[Any, int] = {}
-        played_knockout = 0
-        # ONE pass for both counts, and `has_taken_place` over the documents rather than a `$match`
-        # of its own: a predicate here and an equivalent filter there would drift, as the group swap
-        # avoids for the same rule (`REQ-SWAP-002`).
-        async for spiel in spiele_collection.find(
-            {"saison_id": saison_id},
-            {"spieltag_id": 1, "saison_phase": 1, "ergebnis": 1, "elfmeterschiessen": 1, "sonderereignis": 1, "team1.tore": 1, "team2.tore": 1},
-            session=session,
-        ):
+        async for spiel in spiele_collection.find({"saison_id": saison_id}, {"spieltag_id": 1}, session=session):
             per_spieltag[spiel["spieltag_id"]] = per_spieltag.get(spiel["spieltag_id"], 0) + 1
-            # The FIXTURE's own phase, never its matchday's: the bracket was seeded from the placings
-            # `REQ-RULES-012` protects, and what was played is what the fixture records.
-            if spiel.get("saison_phase") in KNOCKOUT_PHASES and has_taken_place(spiel):
-                played_knockout += 1
 
-        # Every fixture of the season, whichever matchday it hangs on: what `REQ-RULES-011` freezes is the
-        # draw, and a fixture pointing at another season's matchday came out of this season's rules too.
+        # Every fixture, whichever matchday it hangs on: what `REQ-RULES-011` freezes is the draw, and
+        # one on another season's matchday came out of this season's rules too. Only a draw or an
+        # undraw moves the count, and both write `saisons`, so both conflict.
         drawn_fixtures = sum(per_spieltag.values())
 
         for spieltag_id, attached in per_spieltag.items():
@@ -319,50 +319,80 @@ async def patch_saison(
             if phase is not None:
                 attached_by_phase[phase] = max(attached_by_phase.get(phase, 0), attached)
 
-        largest_squad_rows = await saison_spieler_collection.aggregate(
-            [
-                {"$match": {"saison_id": saison_id, "inactive_since": None}},
-                {"$group": {"_id": "$team_id", "held": {"$sum": 1}}},
-                {"$sort": {"held": -1}},
-                {"$limit": 1},
-            ],
-            session=session,
-        ).to_list(length=1)
-        largest_squad = int(largest_squad_rows[0]["held"]) if largest_squad_rows else 0
+        async def movable_figures(figures_session: AsyncIOMotorClientSession | None) -> MovableFigures:
+            """The three judged figures a rival can move without conflicting on `saisons`, read through the session or outside it.
 
-        refuse(
-            find_rules_refusal(
-                saison_status=str(stored_raw["status"]),
-                # Validated, not read raw: a season missing a rules key fails here rather than comparing
-                # against a default nobody chose.
-                stored=FLSaisonRules.model_validate(stored_raw["rules"]),
-                proposed=saison_data.rules,
-                occupancy_by_gruppe=occupancy,
-                highest_wired_platz=highest_platz,
-                largest_squad=largest_squad,
-                attached_by_phase=attached_by_phase,
-                drawn_fixtures=drawn_fixtures,
-                played_knockout_fixtures=played_knockout,
-            )
-        )
+            Occupancy stays out on `app/api/teams/admin_router.py :: post_saison_team`'s concession
+            -- a planning bound the draw reports.
+            """
 
-        # Dated rows only, filtered in the QUERY rather than after `str()`: a generated matchday carries
-        # no span until somebody sets one, and a null stringified to "None" sorts above every date and
-        # would be reported as falling outside the season.
-        spieltag_spans = [
-            (str(row["beginn"]), str(row["ende"]))
-            async for row in spieltage_collection.find(
-                {"saison_id": saison_id, "beginn": {"$ne": None}, "ende": {"$ne": None}}, {"beginn": 1, "ende": 1}, session=session
-            )
-        ]
-        refuse(
-            find_saison_span_refusal(
-                start_date=saison_data.start_date,
-                end_date=saison_data.end_date,
-                rules=saison_data.rules,
+            largest_squad_rows = await saison_spieler_collection.aggregate(
+                [
+                    {"$match": {"saison_id": saison_id, "inactive_since": None}},
+                    {"$group": {"_id": "$team_id", "held": {"$sum": 1}}},
+                    {"$sort": {"held": -1}},
+                    {"$limit": 1},
+                ],
+                session=figures_session,
+            ).to_list(length=1)
+
+            # Dated rows only, filtered in the QUERY rather than after `str()`: a generated matchday carries
+            # no span until somebody sets one, and a null stringified to "None" sorts above every date and
+            # would be reported as falling outside the season.
+            spieltag_spans = [
+                (str(row["beginn"]), str(row["ende"]))
+                async for row in spieltage_collection.find(
+                    {"saison_id": saison_id, "beginn": {"$ne": None}, "ende": {"$ne": None}}, {"beginn": 1, "ende": 1}, session=figures_session
+                )
+            ]
+
+            # The FIXTURE's own phase, never its matchday's: the bracket was seeded from the
+            # placings `REQ-RULES-012` protects. The phase narrows the query and `has_taken_place`
+            # reads whole documents, so nothing here restates the predicate and drifts from it.
+            played_knockout = 0
+            async for spiel in spiele_collection.find(
+                {"saison_id": saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}},
+                # Every key the predicate reads is fetched: one left out reads `None` on every
+                # fixture, so the branch deciding this count is the one nobody sees fail
+                # (`docs/backend/spec.md` section 4).
+                {"ergebnis": 1, "elfmeterschiessen": 1, "sonderereignis": 1, "team1.tore": 1, "team2.tore": 1},
+                session=figures_session,
+            ):
+                if has_taken_place(spiel):
+                    played_knockout += 1
+
+            return MovableFigures(
+                largest_squad=int(largest_squad_rows[0]["held"]) if largest_squad_rows else 0,
                 spieltag_spans=spieltag_spans,
+                played_knockout=played_knockout,
             )
-        )
+
+        def judge(figures: MovableFigures) -> None:
+            refuse(
+                find_rules_refusal(
+                    saison_status=str(stored_raw["status"]),
+                    # Validated, not read raw: a season missing a rules key fails here rather than comparing
+                    # against a default nobody chose.
+                    stored=FLSaisonRules.model_validate(stored_raw["rules"]),
+                    proposed=saison_data.rules,
+                    occupancy_by_gruppe=occupancy,
+                    highest_wired_platz=highest_platz,
+                    largest_squad=figures.largest_squad,
+                    attached_by_phase=attached_by_phase,
+                    drawn_fixtures=drawn_fixtures,
+                    played_knockout_fixtures=figures.played_knockout,
+                )
+            )
+            refuse(
+                find_saison_span_refusal(
+                    start_date=saison_data.start_date,
+                    end_date=saison_data.end_date,
+                    rules=saison_data.rules,
+                    spieltag_spans=figures.spieltag_spans,
+                )
+            )
+
+        judge(await movable_figures(session))
 
         updated_document_raw = await patch_one_in_db(
             collection=saisons_collection,
@@ -372,11 +402,16 @@ async def patch_saison(
             return_document=ReturnDocument.AFTER,
         )
 
+        # Re-judged OUTSIDE the session before answering: the write set is `saisons` alone, so a
+        # squad write, a matchday re-date and a knockout result raise no conflict and no retry
+        # (I53). One landing after this read still slips through.
+        judge(await movable_figures(None))
+
         return FLPatchSaisonResponse(updated_document=FLSaison.model_validate(with_schedule(updated_document_raw)))
 
-    # `with_transaction`, not a bare `start_transaction`: a draw landing between this request's
-    # judgement and its write would leave the season's rules contradicting its own fixtures, and the
-    # retry re-judges against it.
+    # `with_transaction`, not a bare `start_transaction`: a draw and an undraw write `saisons` too,
+    # so one landing under a `$set` that changes something conflicts, and the retry judges the
+    # season as that rival left it (I53).
     async with await db.start_session() as session:
         patched = await session.with_transaction(judge_and_write_the_rules)
 
@@ -402,12 +437,23 @@ async def activate_saison(
     """
 
     async def judge_and_roll_the_league_over(session: AsyncIOMotorClientSession) -> FLActivateSaisonResponse:
-        """Judge, then demote every incumbent and promote the target. Everything judged is read in-session."""
+        """Judge, then demote every incumbent and promote the target. Every figure is read in-session, and the status again outside it (I53)."""
+
+        async def the_targets_status(status_session: AsyncIOMotorClientSession | None) -> str:
+            """`REQ-ACTIVATE-002`'s input, read either through the transaction or outside it.
+
+            A season id naming nothing raises the 404 here, before any demotion.
+            """
+
+            target = await pull_one_from_db(
+                collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=status_session
+            )
+
+            return str(target["status"])
 
         # THROUGH the session, as the draw's reads are: a retry after a write conflict judges the
-        # league as it stands then. A season id naming nothing raises the 404 before any demotion,
-        # and its `status` is what `REQ-ACTIVATE-002` weighs.
-        target = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=session)
+        # league as it stands then.
+        target_status = await the_targets_status(session)
 
         # `$ne` on the target, so re-activating the current season is not blocked by its own fixtures.
         outgoing = await pull_many_from_db(
@@ -434,7 +480,7 @@ async def activate_saison(
 
         refuse(
             find_activation_refusal(
-                target_status=str(target["status"]),
+                target_status=target_status,
                 target_fixtures=target_fixtures,
                 outgoing_unplayed=unplayed,
             )
@@ -448,9 +494,6 @@ async def activate_saison(
             session=session,
         )
 
-        # `$set` of the status already in this snapshot rewrites nothing, so re-activating the sole
-        # incumbent takes no write conflict: a rival rollover demoting it mid-flight goes unjudged,
-        # and the answer echoes a season now `past`.
         activated_raw = await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
@@ -458,6 +501,22 @@ async def activate_saison(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
+
+        # A target already `active` is `$set` to that same status, so the promotion rewrites nothing
+        # and joins no write set: a rival demoting it raises no conflict to retry on. Re-judged
+        # OUTSIDE the session (I53); the window to the commit is the residue.
+
+        # The STATUS alone, because it is the only input a rival can move here: an undraw and a
+        # replace each need a `future` season, a draw only adds fixtures, and a new incumbent arrives
+        # only from a rollover that demotes this target.
+        if target_status == "active":
+            refuse(
+                find_activation_refusal(
+                    target_status=await the_targets_status(None),
+                    target_fixtures=target_fixtures,
+                    outgoing_unplayed=unplayed,
+                )
+            )
 
         activated = FLSaison.model_validate(with_schedule(activated_raw))
 

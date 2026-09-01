@@ -27,6 +27,11 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 # Section 1, the driver. Keyword-only throughout, so no call site can bind `db_filter` to `update`
 # by position, and `db_filter` is the one name a filter has here and at every caller.
 
+# What orders a NAME: „Ö“ sits beside „O“ and a lower-case initial beside its capital, where Mongo's
+# binary default puts each after „Z“. Per read rather than a default: a collated operation cannot
+# use a simple-collation index on a string bound.
+GERMAN_COLLATION: Mapping[str, Any] = {"locale": "de"}
+
 
 async def pull_one_from_db(
     *,
@@ -51,11 +56,15 @@ async def pull_many_from_db(
     limit: int = LIST_LIMIT_DEFAULT,
     sort_by: Sequence[tuple[str, int]] | None = None,
     projection: Mapping[str, Any] | list[str] | None = None,
+    collation: Mapping[str, Any] | None = None,
     session: AsyncIOMotorClientSession | None = None,
 ) -> list[Mapping[str, Any]]:
-    """`limit` is a real ceiling here -- `cursor.limit()` -- unlike `aggregate_many_from_db`'s, which caps iteration alone."""
+    """`limit` is a real ceiling here -- `cursor.limit()` -- unlike `aggregate_many_from_db`'s, which caps iteration alone.
 
-    cursor = collection.find(filter=db_filter, projection=projection or {}, session=session)
+    `collation` governs the whole read, `sort_by` included: `GERMAN_COLLATION` is what a name list passes.
+    """
+
+    cursor = collection.find(filter=db_filter, projection=projection or {}, collation=collation, session=session)
 
     if sort_by is not None:
         cursor = cursor.sort(sort_by)
@@ -243,6 +252,7 @@ async def aggregate_many_from_db(
     *,
     collection: AsyncIOMotorCollection,
     pipeline: Sequence[Mapping[str, Any]],
+    collation: Mapping[str, Any] | None = None,
     session: AsyncIOMotorClientSession | None = None,
     limit: int | None = None,
 ) -> list[Mapping[str, Any]]:
@@ -252,7 +262,7 @@ async def aggregate_many_from_db(
     `$limit` of their own are those whose answer needs the whole collection.
     """
 
-    cursor = collection.aggregate(pipeline, session=session)
+    cursor = collection.aggregate(pipeline, collation=collation, session=session)
 
     return await cursor.to_list(length=limit)
 

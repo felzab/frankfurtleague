@@ -1371,6 +1371,15 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-ANONYMISE-001",
+        operation="POST /schiedsrichter/{schiedsrichter_id}/anonymisieren",
+        aggregate="Schiedsrichter",
+        summary="contact details entered again while an anonymisation runs are refused, never left standing",
+        implemented_by="app.api.schiedsrichter.services.find_anonymisation_refusal",
+        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestAReEntryLandingMidAnonymisationIsRefused",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-SQUAD-001",
         operation=(
             "POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id} · "

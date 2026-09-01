@@ -1331,7 +1331,7 @@ class _RecordingCollection:
         self.projection: Any = "the read never ran"
         self.db_filter: Any = "the read never ran"
 
-    def find(self, *, filter: Any = None, projection: Any = None, session: Any = None) -> _RecordingCursor:
+    def find(self, *, filter: Any = None, projection: Any = None, collation: Any = None, session: Any = None) -> _RecordingCursor:
         self.projection = projection
         self.db_filter = filter
 
