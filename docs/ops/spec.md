@@ -301,10 +301,15 @@ repository, so `.github/workflows/pr-body.yml` is the only place it is addressab
 javascript helper is `scripts/ts_normalize.mjs`, whose header argues the exception.
 
 **`scripts/tests/` is the pytest suite that proves the gate's own coverage** (PRE-4): it plants one
-violation per check `scripts/check_docs.py` registers and asserts the check finds it, holds the
-python in `scripts/` to parsing at `scripts/checker_kernel.py :: PARSE_FLOOR`, and asserts every
-shell arm degrading on a crash spells `scripts/checker_kernel.py :: EXIT_CRASH` as its own literal
-— a copy left behind being invisible to the run it silently reprieves.
+violation per check `scripts/check_docs.py` registers and asserts the check finds it, reaches each
+of `scripts/_lib.sh`'s endings in a throwaway script and asserts the status a caller branches on,
+drives `scripts/check_commits.py` and `scripts/check_pr_body.py` from a table holding every
+reporting site in either to a case that reaches it, drives `scripts/check_scope.py`'s comment-only
+classifier over a pair of versions per language it carves out, holds the python in `scripts/` to
+parsing at
+`scripts/checker_kernel.py :: PARSE_FLOOR`, and asserts every shell arm degrading on a crash spells
+`scripts/checker_kernel.py :: EXIT_CRASH` as its own literal — a copy left behind being invisible to
+the run it silently reprieves.
 
 **`scripts/selfcheck.sh` tests the scripts themselves**, and it is the scripts scope's first step —
 reach for it directly after editing anything in `scripts/`, `.claude/hooks/` or `.githooks/`. Its
@@ -398,6 +403,14 @@ decides nothing while every unit holds a slot of its own: it is the admission or
 below the unit count would take, and nothing passes one. **The `--frontend` implication above is
 the parent's, never a worker's** — a worker runs the one scope it is given. `scripts/gate_pool.py`
 owns the spawning and nothing else; the sections and closing statements stay in `scripts/_lib.sh`.
+
+**A worker's exit status and the rows it sent home are two accounts of one run, and the parent holds
+them to each other.** A status of 1 or 2 over rows that all read as a plain pass is refused at exit 2
+rather than adopted (`scripts/_lib.sh :: adopt_ending`): those rows are the only place a finding or a
+refusal could be named, so a run contradicting itself has judged nothing, and the alternative reading
+— trusting the rows — is a green run over a scope that said it found something. Rank 0, the stand-in
+for a scope that sent no ledger at all, is already a state §1.7's closing table will not call green,
+so a status of 1 beside it is corroborated rather than contradicted.
 
 **The scripts and images scopes carry that shape one level down, through the same pool**: the
 scripts checks start together, as do the two image builds, and each is collected at its own step,

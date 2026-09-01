@@ -416,12 +416,10 @@ if (( PARALLEL )); then
   pool_wait 0 "${#SCOPE_ORDER[@]} scopes running concurrently"
 
   # One reader for both callers: a scope with no ledger must not be unproven in the one and
-  # absent from the table in the other. The two totals are what the scope's own rows say, which
-  # is what its exit status is then held to.
-  ROWS_FINDINGS=0; ROWS_WORST=0
+  # absent from the table in the other. What a scope's exit status is held to is the rows it sends
+  # home, which `scripts/_lib.sh :: adopt_ending` reads back.
   adopt_rows() { # $1 scope
     local scope="$1" rank ms findings advisories name
-    ROWS_FINDINGS=0; ROWS_WORST=0
     if [[ ! -s "${POOL_DIR}/${scope}.ledger" ]]; then
       # A worker that died before it could write one. Rank 0 is what `finish` refuses to call
       # green, so the scope surfaces as unproven rather than as one that passed.
@@ -430,8 +428,6 @@ if (( PARALLEL )); then
     fi
     while IFS=$'\t' read -r rank ms findings advisories name; do
       adopt_section "$name" "$rank" "$ms" "$findings" "$advisories"
-      ROWS_FINDINGS=$(( ROWS_FINDINGS + findings ))
-      if (( rank > ROWS_WORST )); then ROWS_WORST="$rank"; fi
     done < "${POOL_DIR}/${scope}.ledger"
   }
 
@@ -446,17 +442,9 @@ if (( PARALLEL )); then
       on_error 3 "${LINENO}" "scripts/gate_pool.py did not run the ${scope} scope (${status:-no row})"
     fi
     # Crashed and interrupted end the run here, having no row that could say so. Findings and a
-    # refusal are already in the rows, which `finish` reads back.
-    adopt_ending "$status"
-    # Only 0, 1 and 2 reach this line, and `finish` derives the ending from the rows alone -- so a
-    # status the rows cannot account for closes the run green over a scope that failed. Refused as
-    # a class, whatever left the status unexplained.
-    case "$status" in
-      1) (( ROWS_FINDINGS > 0 )) \
-           || on_error 3 "${LINENO}" "the ${scope} scope exited 1 and its rows carry no finding to explain it" ;;
-      2) (( ROWS_WORST >= 4 )) \
-           || on_error 3 "${LINENO}" "the ${scope} scope exited 2 and its rows carry no refusal to explain it" ;;
-    esac
+    # refusal are already in the rows, which `finish` reads back, and a status those rows cannot
+    # account for is refused there rather than passing.
+    adopt_ending "$status" "the ${scope} scope"
     REPLAY_STATUS="$status"
   }
 
