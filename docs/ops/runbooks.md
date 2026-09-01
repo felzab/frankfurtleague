@@ -16,9 +16,31 @@ the machine is outside the repository. What it does tell you:
 - `deploy.sh` refuses to run anywhere but Linux, and runs from a **checkout of this repository on the
   server** — so putting a merge live is `git pull && ./scripts/deploy.sh`, the pull being what brings the
   compose file and `nginx/prod.conf` up to date before the containers are recreated.
-- `./certs/` and `./nginx/prod.conf` must exist beside the compose file.
-- After the health wait, `deploy.sh` **confirms the security headers as they are actually served** — the one
-  check that reads the running stack rather than a config file.
+- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod.conf` and `./certs/` must all exist beside the
+  compose file — preflight checks each before anything is pulled.
+- **Only the application containers are recreated**, and nginx is reloaded once they are healthy
+  (`scripts/deploy.sh :: serve_through_nginx`). The edge keeps running across the swap, so a deploy that
+  succeeds costs seconds of 502 rather than a refused connection. The reload is also the only thing in the
+  run that applies an `nginx/prod.conf` the pull changed: nothing recreates nginx for a mounted file's
+  contents.
+- **A build that fails the health wait is put back automatically** — to the images the application services
+  were running when the deploy began, by image id rather than by tag (`scripts/deploy.sh :: roll_back`) —
+  and the script names the build now serving. **That path is not seconds**: the 502 runs until the restored
+  pair is healthy and nginx has been reloaded again, up to about eleven minutes where both health waits run
+  to their timeouts and the rollback's do the same. Nothing is put back where preflight recorded no target,
+  because nothing was running, because only half the pair was, or because compose could not be asked; nor
+  where compose stops answering during the health wait, the run refusing at exit 2 instead, because a
+  rollback undoes a build and nothing there reached a verdict on the new one.
+- **A rollback is local to the server, and the registry still names the build that failed.** Nothing in
+  the deploy path pushes or re-tags anything at ghcr, so `git pull && ./scripts/deploy.sh` afterwards
+  pulls the failed build straight back. **After a rollback, deploy by tag** — `./scripts/deploy.sh <tag>`,
+  the tag the rollback names — until a good build is published. Nothing is put back where the pull left
+  `:latest` naming the images that were already running: restoring them would restore the build that
+  just failed, and the script says so instead ([`spec.md`](spec.md) §4).
+- After the health wait, what `deploy.sh` checks is the **running stack rather than a config file**: that
+  nginx is running and reloaded, the security headers as they are actually served, and the liveness probe
+  through the edge. `./scripts/deploy.sh --status` reads that last one too — every other row it prints comes
+  from a container, and a healthy pair is no statement about what the edge in front of it resolves to.
 
 ## 2. Before deploying a change to the database's constraints
 

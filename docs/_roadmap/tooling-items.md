@@ -1609,8 +1609,10 @@ a `reason=` mentions, the way the three neighbouring fields are resolved.
 **Effort:** S\
 **Path:** Independent. An nginx change, so the gate is the full form with the images built
 ([`docs/ops/spec.md`](../ops/spec.md) §1.6) and the deploy is watched: the config is mounted
-read-only and nginx waits on both upstreams being healthy, so a bad block takes the site down rather
-than turning something red.
+read-only, and `scripts/deploy.sh :: serve_through_nginx` runs `nginx -t` before its reload, so a
+block nginx cannot parse is a finding and the edge keeps serving what it had. A directive that
+parses and is wrong is applied, and only the headers the deploy reads back afterwards show it — a
+CSP is exactly that kind of change.
 
 **`nginx/prod.conf` sends `style-src 'self' 'unsafe-inline'`, and the narrower pair that serves the
 same purpose is `style-src 'self'` with `style-src-attr 'unsafe-inline'`.**
@@ -1807,11 +1809,13 @@ a stack trace.
 
 **The trade to weigh** is that resolving the SRV record is the only option that would have helped, and
 it makes deployment fail for reasons unrelated to the deployment. Given the failure is already
-contained — nginx serves nothing rather than serving something broken — the honest question is whether
-a faster diagnosis is worth a new way for `deploy.sh` to refuse.
+contained — the edge answers 502 rather than serving something broken, and `deploy.sh :: roll_back`
+puts the previous build back on its own — the honest question is whether a faster diagnosis is worth a
+new way for `deploy.sh` to refuse.
 
 **Trigger to revisit:** the second time a restore breaks this way, or any move to a setup where the site
-cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
+cannot tolerate the minutes between a bad deploy and the end of its automatic rollback — up to about
+eleven of them, both health waits running to their timeouts and then the restored pair's doing the same. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
 ### 35 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other

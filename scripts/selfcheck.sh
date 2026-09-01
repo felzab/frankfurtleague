@@ -268,7 +268,7 @@ while IFS= read -r fn; do DEFINED["$fn"]=1; done \
 for f in "${RUNNABLE[@]}"; do
   [[ -f "scripts/$f" ]] || continue
   # Anything that looks like one of our helpers: our naming is consistent enough to enumerate.
-  called="$(grep -oE '\b(require_[a-z_]+|wait_healthy|image_[a-z_]+|git_[a-z_]+|any_python|venv_python|end_section|section|finish|refuse|add_findings|spinner_start|spinner_stop|fmt_duration|fmt_ms|excerpt|verbose|step_took_ms|step|ok|info|skip|warn|fail|die|detail|quietly|usage|on_error|on_interrupt|emit_section_ledger|adopt_section|adopt_ending|end_worker|worker)\b' "scripts/$f" | sort -u || true)"
+  called="$(grep -oE '\b(require_[a-z_]+|wait_healthy|redact_uri_credentials|image_[a-z_]+|git_[a-z_]+|any_python|venv_python|end_section|section|finish|refuse|add_findings|spinner_start|spinner_stop|fmt_duration|fmt_ms|excerpt|verbose|step_took_ms|step|ok|info|skip|warn|fail|die|detail|quietly|usage|on_error|on_interrupt|emit_section_ledger|adopt_section|adopt_ending|end_worker|worker)\b' "scripts/$f" | sort -u || true)"
   missing=""
   while IFS= read -r fn; do
     [[ -z "$fn" ]] && continue
@@ -1085,6 +1085,82 @@ if [[ -n "$stray" ]]; then
 else
   info "every deliberate non-run here is written to the ledger verify.sh replays"
 fi
+
+step "15. The container-log redaction"
+# Wrong in either direction and silent in both: a credential reaching the operator's terminal, or
+# the host redacted out of the log a failing deploy is read from. Each case below is a real
+# error-message shape, the bound being a regex nobody re-derives.
+REDACTED_OK=0
+redact_case() { # $1 the line as a container printed it - $2 what must reach the screen
+  local got
+  got="$(printf '%s\n' "$1" | redact_uri_credentials)"
+  if [[ "$got" == "$2" ]]; then
+    REDACTED_OK=$(( REDACTED_OK + 1 ))
+  else
+    note_fail "redaction: '${1}' became '${got}', expected '${2}'"
+  fi
+}
+
+# Replaced: the userinfo, and nothing past it.
+redact_case 'Invalid connection string "mongodb://u:pw@host.example.net/db"' \
+            'Invalid connection string "mongodb://<redacted>@host.example.net/db"'
+redact_case 'mongodb+srv://u:pw@cluster.example.net/db' \
+            'mongodb+srv://<redacted>@cluster.example.net/db'
+redact_case 'MONGODB://u:pw@host.example.net/db' \
+            'MONGODB://<redacted>@host.example.net/db'
+# An encoded `@` inside the password, which is the only way a MongoDB URI may carry one.
+redact_case 'mongodb://u:pw%40x@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+# A comma is a sub-delimiter userinfo may hold unencoded, so the bound may not stop at one.
+redact_case 'mongodb://u:pw,x@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+# A seed list, where the same comma separates hosts instead.
+redact_case 'mongodb://u:pw@h1.example.net,h2.example.net/db?replicaSet=rs' \
+            'mongodb://<redacted>@h1.example.net,h2.example.net/db?replicaSet=rs'
+
+# Fails OPEN where the bound is a character class: a delimiter in the password leaves no `@` inside
+# the class, so nothing matches — and ill-formed is the very string a driver could not parse.
+redact_case 'mongodb://admin:S3cr3t/Pw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+redact_case 'mongodb://admin:S3cr3t?Pw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+redact_case 'mongodb://admin:S3cr3t"Pw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+redact_case 'mongodb://admin:S3cr3t Pw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+redact_case $'mongodb://admin:S3cr3t\tPw@host.example.net/db' \
+            'mongodb://<redacted>@host.example.net/db'
+
+# Bounded: an `@` further along the line is not the userinfo's, and reaching it costs the host.
+redact_case 'mongodb://u:pw@host.example.net/db?authSource=admin&appName=x@y' \
+            'mongodb://<redacted>@host.example.net/db?authSource=admin&appName=x@y'
+redact_case 'mongodb://u:pw@host.example.net?appName=x@y' \
+            'mongodb://<redacted>@host.example.net?appName=x@y'
+# A bare `@` past a comma: any class wide enough for a password holding one admits it too, so only
+# stopping at the FIRST `@` keeps the host, which is what a failing deploy is read from.
+redact_case 'uri=mongodb://u1:p1@h1.example.net:27017,ops@example.com' \
+            'uri=mongodb://<redacted>@h1.example.net:27017,ops@example.com'
+redact_case 'MONGODB_URI=mongodb://u:p@rs0.example.net:27017,AUTH_USER=admin@example.com' \
+            'MONGODB_URI=mongodb://<redacted>@rs0.example.net:27017,AUTH_USER=admin@example.com'
+# Two URIs in one JSON object, which is the shape a log line carries them in: nothing between them.
+redact_case 'a:"mongodb://u:pw@h1.example.net/","mongodb://v:qw@h2.example.net/"' \
+            'a:"mongodb://<redacted>@h1.example.net/","mongodb://<redacted>@h2.example.net/"'
+redact_case 'mongodb://u:pw@h1.example.net/ mongodb://v:qw@h2.example.net/' \
+            'mongodb://<redacted>@h1.example.net/ mongodb://<redacted>@h2.example.net/'
+
+# Untouched: no userinfo to replace, and lines the filter must leave alone.
+redact_case 'mongodb://localhost:27017' 'mongodb://localhost:27017'
+redact_case 'mongodb+srv://cluster.example.net/db' 'mongodb+srv://cluster.example.net/db'
+redact_case 'write to nobody@example.net about it' 'write to nobody@example.net about it'
+# The gap docs/logging/spec.md section 4 records: no URI around it, so nothing matches.
+redact_case 'MONGO_PASSWORD=pw' 'MONGO_PASSWORD=pw'
+
+# The second gap that page records: no userinfo, so the first `@` after the scheme belongs to
+# somebody else and the host goes with it. Nothing on this line was ever secret.
+redact_case 'mongodb://localhost:27017 and mail nobody@example.net' \
+            'mongodb://<redacted>@example.net'
+
+info "${REDACTED_OK} redaction fixture(s) came back exactly as specified"
 
 # The only thing that tells a run with nothing to report from one that stopped reporting.
 if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then

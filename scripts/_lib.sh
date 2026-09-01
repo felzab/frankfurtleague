@@ -637,12 +637,29 @@ git_sha()    { git rev-parse --short=7 HEAD; }
 git_branch() { git rev-parse --abbrev-ref HEAD; }
 git_clean()  { [[ -z "$(git status --porcelain)" ]]; }
 
+# --- Redaction -------------------------------------------------------------------------------------
+
+# A filter for anything a CONTAINER's log is printed through. `mongodb-connection-string-url` throws
+# `Invalid connection string "<uri>"` with the credential still in it, and the patterns
+# `wait_healthy` greps for select the failures carrying one.
+redact_uri_credentials() {
+  # Stopped at the FIRST `@` after the scheme: no password character defeats that, where a
+  # delimiter class leaves an ill-formed password unmatched and a greedy run costs the host.
+  # `I`, for a scheme echoed back in another case.
+  sed -E 's#(mongodb(\+srv)?://)[^@]*@#\1<redacted>@#gI'
+}
+
 # --- Health ----------------------------------------------------------------------------------------
+
+# Which arm answered, for a caller that has to tell a verdict on the service from a question nobody
+# answered: every failing arm returns 1, and only `unhealthy` and `timeout` are about the service.
+WAIT_HEALTHY_REASON=""
 
 # A started container and a working app are different statements: on a bad environment variable
 # the frontend stays up and 500s on every route.
 wait_healthy() {
   local compose_file="$1" service="$2" timeout="${3:-150}" waited=0 state cid rc log_tail matched
+  WAIT_HEALTHY_REASON=""
   info "waiting for '${service}' to become healthy (up to ${timeout}s)"
   while (( waited < timeout )); do
     rc=0
@@ -650,13 +667,15 @@ wait_healthy() {
     # An unasked question and an answered one both leave `cid` empty, and "no running container"
     # about a daemon that never replied sends an operator to the container, not the engine.
     if (( rc )); then
+      WAIT_HEALTHY_REASON="unasked"
       warn "could not ask compose about '${service}' — 'docker compose ps' exited ${rc}.
 This says nothing about the container; the daemon or the compose file is what did not answer."
       return 1
     fi
     if [[ -z "$cid" ]]; then
+      WAIT_HEALTHY_REASON="no-container"
       warn "'${service}' has no running container"
-      docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | detail
+      docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
       return 1
     fi
     # A service with no healthcheck reports "" — treat "running" as good enough for those.
@@ -664,10 +683,11 @@ This says nothing about the container; the daemon or the compose file is what di
     case "$state" in
       healthy|running) ok "'${service}' is ${state}"; return 0 ;;
       unhealthy)
+        WAIT_HEALTHY_REASON="unhealthy"
         warn "'${service}' reports UNHEALTHY. Its own explanation, if it gave one:"
         # Filtered in memory: `grep | head` fails the pipeline on SIGPIPE under `pipefail`, which
         # prints the arm below underneath the lines it just found.
-        log_tail="$(docker compose -f "$compose_file" logs --tail=60 "$service" 2>&1 || true)"
+        log_tail="$(docker compose -f "$compose_file" logs --tail=60 "$service" 2>&1 | redact_uri_credentials || true)"
         matched="$(printf '%s\n' "$log_tail" | grep -iE "invalid environment|failed to prepare|error|refused" || true)"
         if [[ -n "$matched" ]]; then
           printf '%s\n' "$matched" | excerpt 12
@@ -682,8 +702,10 @@ This says nothing about the container; the daemon or the compose file is what di
     esac
     sleep 3; waited=$(( waited + 3 ))
   done
+  # shellcheck disable=SC2034  # read by the scripts that source this file
+  WAIT_HEALTHY_REASON="timeout"
   warn "'${service}' did not become healthy within ${timeout}s. Last 30 log lines:"
-  docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | detail
+  docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
   return 1
 }
 
