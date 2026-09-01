@@ -7,9 +7,13 @@ type UndoOffer<TPayload> = {
   endpoint: `/api/admin/${string}/undo`;
   /** The pre-save values the press replays, built from the render's props before the save moved them. */
   body: TPayload;
-  /** The save's own sentence; `fallback` stands in where the save produced none. */
+  /** The save's own sentence, where it produced one. */
   message?: string;
-  fallback?: string;
+  /**
+   * Every offer carries one: the saved toast shares its title, so a site describing nothing cannot
+   * be told from the others (`docs/frontend/spec.md :: I42`).
+   */
+  fallback: string;
   /** A warning rather than a success: the save cost something the admin may not have intended. */
   warn?: boolean;
   /** A refusal judged before the press, where the caller already knows the replay is no legal write. */
@@ -58,7 +62,9 @@ export function offerUndo<TPayload>({
 }: UndoOffer<TPayload>): void {
   const raise = warn ? appToast.warning : appToast.success;
 
-  raise("Änderung gespeichert", {
+  // The title moves with the grade: one outcome per title, or the colour carries a meaning the same
+  // words deny (`docs/frontend/spec.md :: I42`).
+  raise(warn ? "Mit Folgen gespeichert" : "Änderung gespeichert", {
     description: message ?? fallback,
     timeout: UNDO_TIMEOUT_MS,
     actionProps: {

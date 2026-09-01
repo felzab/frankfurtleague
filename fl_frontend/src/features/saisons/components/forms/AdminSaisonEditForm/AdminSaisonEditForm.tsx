@@ -284,13 +284,13 @@ export function AdminSaisonEditForm({
         endpoint: "/api/admin/saisons/undo",
         body: undoPayload,
         // The points first where both moved: a rescore subsumes a re-sort, and one toast holds one
-        // sentence. `undefined` on the quiet branch: the title already says the change is saved, and
-        // repeating it would only push the Rückgängig control down.
+        // sentence.
         message: pointsMoved
           ? "Die Punkte gelten ab sofort für jedes Spiel dieser Saison, auch für die längst gespielten."
           : tiebreakMoved
             ? "Punktgleiche Teams stehen ab sofort in einer anderen Reihenfolge, auch in längst gespielten Gruppen."
             : undefined,
+        fallback: "Die Saisondaten wurden aktualisiert.",
         warn: pointsMoved || tiebreakMoved,
         router,
       });

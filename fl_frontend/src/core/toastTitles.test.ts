@@ -37,6 +37,14 @@ function argumentText(text: string, from: number): string {
       else if (character === quote) quote = null;
       continue;
     }
+    // A comment is skipped rather than scanned: the comma in a German sentence would end the
+    // argument holding it, and the half that survives resolves to nothing.
+    if (character === "/" && (text[index + 1] === "/" || text[index + 1] === "*")) {
+      const ends = text[index + 1] === "/" ? text.indexOf("\n", index) : text.indexOf("*/", index + 2);
+      if (ends === -1) return "";
+      index = text[index + 1] === "/" ? ends : ends + 1;
+      continue;
+    }
     if (character === '"' || character === "'" || character === "`") quote = character;
     else if (character === "(" || character === "[" || character === "{") depth++;
     else if (character === ")" || character === "]" || character === "}") {
@@ -59,6 +67,21 @@ function argumentList(text: string, from: number): string[] {
     if (text[at - 1] !== ",") break;
   }
   return found;
+}
+
+/** The comment carrying a key's reason stands above it, inside the object. */
+const LEADING_COMMENTS = /^(?:\s*(?:\/\/[^\n]*|\/\*[\s\S]*?\*\/))*\s*/;
+
+/**
+ * The keys a raising's own options object states, `from` at the end of its title argument. Depth-aware
+ * rather than a scan of the text after it: a `description` inside an `actionProps` press handler is
+ * another toast's sentence.
+ */
+function optionKeys(text: string, from: number): string[] {
+  const opening = /^\s*,\s*\{/.exec(text.slice(from));
+  if (opening === null) return [];
+
+  return argumentList(text, from + opening[0].length).map((entry) => /^(\w+)/.exec(entry.replace(LEADING_COMMENTS, ""))?.[1] ?? "");
 }
 
 const LITERAL = /^"([^"]*)"$/;
@@ -220,23 +243,75 @@ interface ToastSite {
   readonly hasDescription: boolean;
 }
 
+const VARIANTS = String.raw`success|warning|danger|info|pending`;
+const DIRECT_CALL = new RegExp(String.raw`appToast\.(` + VARIANTS + String.raw`)\(`, "g");
+
+/**
+ * A raising whose CALLEE is a local alias — `const raise = flag ? appToast.warning : appToast.success`
+ * — which no `appToast.…(` spells and which a sweep of calls alone therefore never counts.
+ */
+const ALIAS_DECLARATION = new RegExp(
+  String.raw`const (\w+) = (\w+) \? appToast\.(` + VARIANTS + String.raw`) : appToast\.(` + VARIANTS + String.raw`);`,
+  "g",
+);
+
 /** Every raising in the tree, found by the call rather than by a list somebody keeps. */
 const sites: ToastSite[] = [];
-for (const [file, text] of production) {
-  for (const call of text.matchAll(/appToast\.(success|warning|danger|info|pending)\(/g)) {
-    const start = call.index + call[0].length;
-    const argument = argumentText(text, start);
-    const after = text.slice(start + argument.length, start + argument.length + 400);
 
+/** An `appToast` reference that is neither a call nor an alias above, so nothing below judges it. */
+const unread: string[] = [];
+
+for (const [file, text] of production) {
+  const record = (variant: ToastVariant, argument: string, keys: string[]) => {
     for (const hole of argument.matchAll(/\$\{(\w+)\}/g)) if (hole[1] !== undefined) holes.push({ file, identifier: hole[1] });
 
     sites.push({
       file,
-      variant: call[1] as ToastVariant,
+      variant,
       expression: argument.trim().replace(/\s+/g, " "),
       titles: resolveTitles(argument, file),
-      hasDescription: /^\s*,\s*\{[\s\S]{0,400}?description:/.test(after),
+      hasDescription: keys.includes("description"),
     });
+  };
+
+  for (const call of text.matchAll(DIRECT_CALL)) {
+    const start = call.index + call[0].length;
+    const argument = argumentText(text, start);
+    record(call[1] as ToastVariant, argument, optionKeys(text, start + argument.length));
+  }
+
+  for (const alias of text.matchAll(ALIAS_DECLARATION)) {
+    const [, name, condition, whenTrue, whenFalse] = alias;
+    if (name === undefined || condition === undefined || whenTrue === undefined || whenFalse === undefined) continue;
+
+    for (const call of text.matchAll(new RegExp(String.raw`\b` + name + String.raw`\(`, "g"))) {
+      const start = call.index + call[0].length;
+      const argument = argumentText(text, start);
+      const keys = optionKeys(text, start + argument.length);
+
+      // A title branching on the alias's OWN condition is read branch beside branch: the pair is one
+      // outcome each, and crossing them would report every such title at two variants.
+      const branches = new RegExp(String.raw`^` + condition + String.raw`\s*\?`).test(argument.trim())
+        ? ternaryBranches(argument.trim())
+        : null;
+      if (branches === null) {
+        record(whenTrue as ToastVariant, argument, keys);
+        record(whenFalse as ToastVariant, argument, keys);
+        continue;
+      }
+      record(whenTrue as ToastVariant, branches.whenTrue, keys);
+      record(whenFalse as ToastVariant, branches.whenFalse, keys);
+    }
+  }
+
+  // The declarations come out first, their own `appToast.…` being read above rather than escaping.
+  const readable = text.replace(ALIAS_DECLARATION, "");
+  for (const stray of readable.matchAll(new RegExp(String.raw`appToast\.(` + VARIANTS + String.raw`)`, "g"))) {
+    const rest = readable.slice(stray.index + stray[0].length);
+    // A call is read above, and a backticked mention is a citation in prose (COR-6), which raises
+    // nothing. What is left is a reference handed somewhere this cannot follow.
+    if (rest.startsWith("(") || (rest.startsWith("`") && readable[stray.index - 1] === "`")) continue;
+    unread.push(`${file}: ${stray[0]}`);
   }
 }
 
@@ -280,6 +355,7 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   Gespeichert: { variant: "success", identifies: "its description" },
   "Gruppen getauscht": { variant: "success", identifies: "its description" },
   "Kadereintrag reaktiviert. Nummer, Position und Stufe sind wiederhergestellt.": { variant: "success", identifies: "one site" },
+  "Kein Spielplan vorhanden": { variant: "info", identifies: "one site" },
   "Kontaktdaten gelöscht": { variant: "success", identifies: "one site" },
   "Kontaktdaten kopiert": { variant: "success", identifies: "the press" },
   "Kontaktdaten nicht gelöscht": { variant: "danger", identifies: "one site" },
@@ -289,6 +365,7 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Kontaktperson nicht gelöscht": { variant: "danger", identifies: "its description" },
   "Kopieren nicht möglich": { variant: "danger", identifies: "its description" },
   "Kürzel noch nicht geprüft": { variant: "warning", identifies: "one site" },
+  "Mit Folgen gespeichert": { variant: "warning", identifies: "one site" },
   "Nichts gefunden": { variant: "warning", identifies: "its description" },
   "Noch nicht abgeschickt": { variant: "danger", identifies: "one site" },
   "Nur teilweise gespeichert": { variant: "danger", identifies: "its description" },
@@ -316,6 +393,7 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Spielplan nicht angelegt": { variant: "danger", identifies: "one site" },
   "Spielplan nicht neu angelegt": { variant: "danger", identifies: "one site" },
   "Spielplan nicht zurückgenommen": { variant: "danger", identifies: "one site" },
+  "Spielplan zurückgenommen": { variant: "success", identifies: "one site" },
   "Stilllegen fehlgeschlagen": { variant: "danger", identifies: "one site" },
   "Tausch fehlgeschlagen": { variant: "danger", identifies: "its description" },
   "Team angelegt": { variant: "success", identifies: "one site" },
@@ -327,7 +405,7 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Vorgangsnummer kopiert": { variant: "success", identifies: "one site" },
   "Wechsel fehlgeschlagen": { variant: "danger", identifies: "one site" },
   "Zusage fehlgeschlagen": { variant: "danger", identifies: "one site" },
-  "Änderung gespeichert": { variant: "success", identifies: "one site" },
+  "Änderung gespeichert": { variant: "success", identifies: "its description" },
   "Änderung wird zurückgenommen...": { variant: "pending", identifies: "one site" },
   "Änderung zurückgenommen": { variant: "success", identifies: "one site" },
 };
@@ -340,6 +418,12 @@ describe("every toast title the product raises", () => {
     // Floors on the call sweep, so a renamed helper cannot leave every case below vacuously true.
     assert.ok(sites.length >= 80, `expected at least 80 toast call sites, found ${String(sites.length)}`);
     assert.ok(raised.size >= 50, `expected at least 50 distinct titles, found ${String(raised.size)}`);
+  });
+
+  it("reads every `appToast` reference, called or aliased", () => {
+    // The failure this closes: a raising through an alias is invisible to a sweep of calls, and the
+    // register then binds nothing at that site while every case below stays green.
+    assert.deepEqual(unread, [], "an `appToast` raising reaches the tree through a reference this sweep cannot read");
   });
 
   it("resolves to a literal at every call site", () => {
