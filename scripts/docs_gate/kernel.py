@@ -152,15 +152,23 @@ class Finding:
     check: str
     file: str
     detail: str
+    # A place to open rather than to search for. None wherever the check judges a whole file, a
+    # listing or the branch's diff, none of which sit on one line.
+    line: int | None = None
 
     def __post_init__(self) -> None:
         # An unregistered name is how the registry falls behind the code it claims to describe.
         if self.severity not in CHECKS.get(self.check, frozenset()):
             raise ValueError(f"check `{self.check}` is not registered in CHECKS at severity `{self.severity}`")
 
-    def line(self) -> str:
+    @property
+    def where(self) -> str:
+        """The subject, carrying the line where the check knows one: what an editor jumps to."""
+        return self.file if self.line is None else f"{self.file}:{self.line}"
+
+    def human(self) -> str:
         # Six spaces: the message column of the scripts' shared output standard (scripts/_lib.sh).
-        return f"      {self.file}: {self.detail}  [{self.check}]"
+        return f"      {self.where}: {self.detail}  [{self.check}]"
 
 
 def is_placeholder(text: str) -> bool:
@@ -179,6 +187,15 @@ def strip_fences(text: str) -> str:
             continue
         out.append("" if in_fence else raw)
     return "\n".join(out)
+
+
+def line_of(body: str, offset: int) -> int:
+    """The 1-based line an offset sits on.
+
+    Every reader here keeps a file's line count -- `strip_fences` and `comments_only` blank a line
+    rather than dropping it -- so an offset into a scanned body numbers the line the file holds.
+    """
+    return body.count("\n", 0, offset) + 1
 
 
 def git_status(*args: str) -> int | None:

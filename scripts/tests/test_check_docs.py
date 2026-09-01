@@ -613,6 +613,18 @@ ADVISORY: Final = "advisory finding"
 # counting the triples separates a check with two producers from one that has lost one.
 Reported = tuple[str, str, str]
 
+# What a printed finding names before its detail: a file, or a file and the line the check looked
+# at, which `scripts/docs_gate/kernel.py :: Finding` renders. The line is read out here rather than
+# folded into the file, so a case can turn on either.
+SUBJECT_RE: Final = re.compile(r"^(.*?)(?::(\d+))?$")
+
+
+def _subject(text: str) -> tuple[str, int | None]:
+    """A printed finding's file, and the line it named or None."""
+    match = SUBJECT_RE.match(text.partition(": ")[0])
+    assert match is not None, "a finding named nothing: " + text
+    return match.group(1), None if match.group(2) is None else int(match.group(2))
+
 
 def _reported(output: str) -> Counter[Reported]:
     """Every finding the run printed, counted.
@@ -634,7 +646,7 @@ def _reported(output: str) -> Counter[Reported]:
         # A finding under no severity heading means the run's shape moved. Left silent it would read
         # as a check that stopped firing, which is the one answer this file must not invent.
         elif severity:
-            seen[(severity, match.group(1), text.partition(": ")[0])] += 1
+            seen[(severity, match.group(1), _subject(text)[0])] += 1
         else:
             stray.append(text)
     if stray:
@@ -1478,6 +1490,20 @@ def test_the_comment_bounds_read_a_file_by_its_format_not_its_suffix() -> None:
     bounds = _module("docs_gate.branch").check_comment_length
     found = bounds(_gate().root / DOCKERFILE, raw, set(range(1, len(block) + 2)))
     assert [finding.check for finding in found] == ["comment-length"], "the block was read by the wrong format's reader"
+
+
+def test_a_check_that_knows_where_it_looked_prints_the_line_beside_the_file() -> None:
+    """A location belongs in the finding, not in its prose: `<file>:<line>` is what an editor opens.
+
+    The block opens on the third line, so a bound reported against the file alone would leave a
+    reader searching a module for the run that broke it.
+    """
+    block = [HASH + " a line of a block that runs past what a comment may hold" for _ in range(6)]
+    raw = _page("FROM scratch", "", *block)
+    bounds = _module("docs_gate.branch").check_comment_length
+    found = bounds(_gate().root / DOCKERFILE, raw, set(range(1, len(block) + 3)))
+    assert [finding.line for finding in found] == [3], "the block's opening line did not reach the finding"
+    assert _subject(found[0].human().strip()) == (DOCKERFILE, 3), found[0].human()
 
 
 # --- committed branches --------------------------------------------------------------------------

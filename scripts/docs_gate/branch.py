@@ -85,8 +85,8 @@ def check_comment_length(path: Path, raw: str, added: set[int], fork_text: Calla
                 "fail",
                 "comment-length",
                 rel,
-                f"the comment block at line {first_line} runs {len(text)} characters"
-                f" -- INC-9 caps a block at {COMMENT_CHAR_CAP}, every shape alike",
+                f"the comment block runs {len(text)} characters -- INC-9 caps a block at {COMMENT_CHAR_CAP}, every shape alike",
+                first_line,
             )
         )
     return found

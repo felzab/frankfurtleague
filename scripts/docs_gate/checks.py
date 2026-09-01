@@ -67,6 +67,7 @@ from .kernel import (
     heading_anchors,
     is_gitignored,
     is_placeholder,
+    line_of,
     repo_path,
     roadmap_ids,
     scanned_files,
@@ -263,10 +264,10 @@ def check_metadata_breaks(rel: str, body: str) -> list[Finding]:
                 if opening and (joined := METADATA_JOIN_RE.search(scrubbed, opening.end())):
                     written = "the characters \\n" if joined.group(1) else "nothing at all"
                     detail = (
-                        f"the {match.group(1)} line at line {index + 1} runs into {joined.group(2)} on one physical line"
+                        f"the {match.group(1)} line runs into {joined.group(2)} on one physical line"
                         f" -- COR-8's break is a line ending, written here as {written}"
                     )
-                    found.append(Finding("fail", "metadata-break", rel, detail))
+                    found.append(Finding("fail", "metadata-break", rel, detail, index + 1))
             elif names:
                 ends[-1] = index
             index += 1
@@ -275,7 +276,7 @@ def check_metadata_breaks(rel: str, body: str) -> list[Finding]:
             wanted = position < len(names) - 1
             if lines[end].rstrip().endswith("\\") is not wanted:
                 verb = "needs" if wanted else "must not carry"
-                found.append(Finding("fail", "metadata-break", rel, f"the {name} line at line {end + 1} {verb} COR-8's trailing hard break"))
+                found.append(Finding("fail", "metadata-break", rel, f"the {name} line {verb} COR-8's trailing hard break", end + 1))
     return found
 
 
@@ -548,12 +549,16 @@ def check_line_endings() -> list[Finding]:
     return found
 
 
-def _byte_site(data: bytes, offset: int) -> str:
-    """One byte's place, spelled for both tools a reader reaches for: an editor and a hex dump."""
+def _byte_site(data: bytes, offset: int) -> tuple[int, str]:
+    """One byte's line, and its place spelled for the other tool a reader reaches for: a hex dump.
+
+    A dump counts from the file's first byte and an editor from the line's, so neither number
+    answers for the other.
+    """
     line = data.count(b"\n", 0, offset) + 1
     # `rfind` answers -1 where no newline precedes the byte, which makes the subtraction offset + 1.
     column = offset - data.rfind(b"\n", 0, offset)
-    return f"offset {offset} (line {line}, column {column})"
+    return line, f"offset {offset} (column {column})"
 
 
 def check_binary_bytes() -> list[Finding]:
@@ -586,26 +591,28 @@ def check_binary_bytes() -> list[Finding]:
             found.append(Finding("fail", "binary-byte", rel, f"could not be opened, so nothing proved it holds no NUL and no CR: {error}"))
             continue
         if (offset := data.find(b"\x00")) >= 0:
+            at, site = _byte_site(data, offset)
             detail = (
-                f"a NUL byte at {_byte_site(data, offset)}. git then reads this file as binary, so `.gitattributes`' LF "
+                f"a NUL byte at {site}. git then reads this file as binary, so `.gitattributes`' LF "
                 "mandate stops applying to it and its diff becomes unreadable -- and no formatter, linter, type checker or "
                 "test sees the byte, a NUL being legal inside a string literal. Repair: put the character that belongs "
                 "there in its place, and save the file as UTF-8 with LF."
             )
-            found.append(Finding("fail", "binary-byte", rel, detail))
+            found.append(Finding("fail", "binary-byte", rel, detail, at))
         # CRLF where LF is mandated is `check_line_endings`' finding. Reporting it here as well would
         # give one file two repairs; what is left is the CR that check cannot see, git having given
         # up on the file rather than classified its endings.
         if worktree in NON_LF_WORKTREE or CRLF_MANDATED in attributes:
             continue
         if (offset := data.find(b"\r")) >= 0:
+            at, site = _byte_site(data, offset)
             detail = (
-                f"a CR byte at {_byte_site(data, offset)}. Every line here ends with LF alone, and a CR git cannot read as "
+                f"a CR byte at {site}. Every line here ends with LF alone, and a CR git cannot read as "
                 "part of a CRLF pair leaves it unable to classify this file's endings, so `.gitattributes`' LF mandate "
                 "lapses and CRLF commits through unwarned, while the diff still reads. Repair: delete the byte, and save "
                 "the file as UTF-8 with LF."
             )
-            found.append(Finding("fail", "binary-byte", rel, detail))
+            found.append(Finding("fail", "binary-byte", rel, detail, at))
     return found
 
 
@@ -841,7 +848,8 @@ def check_module_header(rel: str, raw: str, suffix: str) -> list[Finding]:
                 "fail",
                 "module-header",
                 rel,
-                f"the module header sits at line {first_line}, below the first statement -- INC-7 places it above the imports",
+                "the module header sits below the first statement -- INC-7 places it above the imports",
+                first_line,
             )
         )
     if len(header) > HEADER_CAP:
@@ -1110,12 +1118,18 @@ def check_bare_paths(rel: str, body: str) -> list[Finding]:
     """
     found: list[Finding] = []
     bases = [REPO_ROOT, *(REPO_ROOT / parent for parent in Path(rel).parents if parent.as_posix() != ".")]
-    # Backticked spans out first, or one dead path yields a `path` finding and a `bare-path` one.
-    for token in sorted({match.group(0) for match in BARE_PATH_RE.finditer(BACKTICK_SPAN_RE.sub("", body))}):
+    # Backticked spans out first, or one dead path yields a `path` finding and a `bare-path` one. A
+    # span holds no newline, so removing one moves an offset along its line and never off it.
+    scrubbed = BACKTICK_SPAN_RE.sub("", body)
+    at: dict[str, int] = {}
+    for match in BARE_PATH_RE.finditer(scrubbed):
+        at.setdefault(match.group(0), match.start())
+    for token in sorted(at):
         # `is_gitignored` shells out, so it stays behind the tests that answer without one.
         if is_placeholder(token) or any((base / token).exists() for base in bases) or is_gitignored(token):
             continue
-        found.append(Finding("fail", "bare-path", rel, f"path named but not present: {token} -- and unbackticked, so `path` never saw it"))
+        detail = f"path named but not present: {token} -- and unbackticked, so `path` never saw it"
+        found.append(Finding("fail", "bare-path", rel, detail, line_of(scrubbed, at[token])))
     return found
 
 
@@ -1125,14 +1139,10 @@ def check_comment_citations(rel: str, body: str) -> list[Finding]:
     Failing, because neither survives its programme: both name a document `/audit:finish` deletes.
     """
     found: list[Finding] = []
-    for match in AUDIT_ID_RE.finditer(body):
-        found.append(
-            Finding("fail", "comment-citation", rel, f"audit id `{match.group(0).strip()}` in a comment (INC-6) -- cite a path or a symbol")
-        )
-    for match in LEDGER_ROW_RE.finditer(body):
-        found.append(
-            Finding("fail", "comment-citation", rel, f"ledger row `{match.group(0).strip()}` in a comment (INC-6) -- cite a path or a symbol")
-        )
+    for kind, pattern in (("audit id", AUDIT_ID_RE), ("ledger row", LEDGER_ROW_RE)):
+        for match in pattern.finditer(body):
+            detail = f"{kind} `{match.group(0).strip()}` in a comment (INC-6) -- cite a path or a symbol"
+            found.append(Finding("fail", "comment-citation", rel, detail, line_of(body, match.start())))
     return found
 
 
@@ -1171,7 +1181,8 @@ def check_invariant_citations(rel: str, body: str, invariants: dict[str, list[st
             continue
         if SURFACE_WORDS.search(_enclosing_block(body, match.start())):
             continue
-        found.append(Finding("fail", "rule-id", rel, f"bare `{match.group(1)}`, which {' and '.join(homes)} both define -- name the sheet"))
+        detail = f"bare `{match.group(1)}`, which {' and '.join(homes)} both define -- name the sheet"
+        found.append(Finding("fail", "rule-id", rel, detail, line_of(body, match.start())))
     return found
 
 
@@ -1226,12 +1237,12 @@ def main() -> int:
     if failures:
         print(f"\n      {len(failures)} failing finding(s):")
         for finding in failures:
-            print(finding.line())
+            print(finding.human())
 
     if reports:
         print(f"\n      {len(reports)} advisory finding(s):")
         for finding in reports if args.all else reports[:10]:
-            print(finding.line())
+            print(finding.human())
         if not args.all and len(reports) > 10:
             print(f"      ... and {len(reports) - 10} more -- scripts/check_docs.py --all lists every one")
 
