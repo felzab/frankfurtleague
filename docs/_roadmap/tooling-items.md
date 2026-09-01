@@ -47,7 +47,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | #   | ID      | Item                                                               | Surfaces          | Effort | Status   | Depends on |
 | --- | ------- | ------------------------------------------------------------------ | ----------------- | ------ | -------- | ---------- |
 | 1   | OPS-93  | The origin trusts every source inside Cloudflare's ranges          | Ops, Docs         | S      | Open     | —          |
-| 2   | OPS-94  | A sweep that enumerates its subjects cannot falsify its own claim  | FE, Ops, Docs     | M      | Open     | —          |
+| 2   | OPS-94  | A sweep that enumerates its subjects cannot falsify its own claim  | FE, Ops, Docs     | M      | Closed   | —          |
 | 3   | OPS-60  | The gate saturates the machine, then idles through its tail        | Ops               | M      | Open     | —          |
 | 4   | OPS-100 | A changed citation target puts no page in front of the session     | Ops, Docs         | S      | Open     | —          |
 | 5   | OPS-91  | A continuation citation is resolved and checked by nothing         | Ops, Docs         | M      | Open     | —          |
@@ -194,7 +194,7 @@ defeated with no signal that it was.
 
 ### 2 · OPS-94 — A sweep enumerates its own subjects, so an "every X does Y" claim is only as true as that listing
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE, Ops, Docs\
 **Effort:** M\
 **Path:** Independent. **DOC-2** is its neighbour rather than its overlap: that entry asks whether a rule names the check that enforces it,
@@ -202,6 +202,20 @@ where this asks whether the named check can reach every subject the rule claims.
 right check and that check can still enumerate a set which cannot falsify it. **OPS-97** is the
 adjacent limit — there no check can reach the property at all, where here a check reaches a set it
 chose.
+
+**What concluded it.** The convention this entry exists for was ratified into PRE-4 by the
+2026-08-31 decision session that made `docs/standard.md` one file: a sweep's population is derived
+independently of the property it asserts — two listings reached by different routes, required to
+agree, floored on something other than the roster counted against itself. That is the entry's third
+repair taken at the level it argued for, its first folded in as the floor, so the next sweep has a
+rule a reader can catch it by; restating the constraint beside OUT-4's enforcement column would be
+the duplicate COR-2 deletes, so PRE-4 stays its one home. The comments naming this entry as the
+class — in `fl_frontend/src/shared/hooks/useDraftFieldErrors.test.ts` and
+`fl_frontend/src/shared/utils/saisonHref.test.ts` — now cite PRE-4, the citation INC-6 permits
+where a roadmap id is none. The instances stand as recorded below: the repaired sweep enumerates by
+structure, the `focusFirstRefusal` gap is HeroUI's guard to keep, and `check_segment_map`'s roster
+is already independent of the partition it asserts — its index-not-tree bound is a narrow subject
+set, not a self-confirming one.
 
 **A check that discovers its own subjects decides, by that discovery, which counter-examples can ever
 be found — and a listing that filters on the property being asserted cannot fail to confirm it.**
