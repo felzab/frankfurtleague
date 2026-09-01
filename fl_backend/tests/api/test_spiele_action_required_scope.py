@@ -81,19 +81,18 @@ def spiel_document(
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_container: Any) -> Iterator[str]:
+def seeded_url(mongo_url: str) -> Iterator[str]:
     """Two seasons, in the database `build_test_config` names.
 
     The other season carries BOTH halves: a fixture needing attention, and a stored double entry,
     so a scope reaching only one half still fails a case here.
     """
 
-    url = str(mongo_container.get_connection_url())
     database_name = build_test_config().db_base_name
 
-    client = MongoClient(url)
+    client = MongoClient(mongo_url)
     try:
-        database = a_clean_database_sync(client, url, database_name)
+        database = a_clean_database_sync(client, mongo_url, database_name)
         database[Collection.SPIELE].insert_many(
             [
                 spiel_document(WANTED, saison_id=SAISON, spiel_nr=1, spieltag_id=SPIELTAG),
@@ -102,8 +101,8 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
             ]
         )
 
-        with unwritten(url, database_name):
-            yield url
+        with unwritten(mongo_url, database_name):
+            yield mongo_url
     finally:
         client.close()
 

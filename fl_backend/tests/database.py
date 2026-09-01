@@ -15,7 +15,7 @@ Enforcement = dict[str, Any]
 Schema = dict[str, Enforcement]
 
 # A module global rather than a fixture: what reads it is the plain `on_a_*` helper each suite
-# defines, and the whole db tier runs in one process.
+# defines, and the tier -- one worker of it, under `-n` -- runs in one process.
 _BUILT: dict[tuple[str, str], tuple[bool, Schema]] = {}
 
 # Module globals for the same reason `_BUILT` is one, and torn down by `_release` at interpreter exit

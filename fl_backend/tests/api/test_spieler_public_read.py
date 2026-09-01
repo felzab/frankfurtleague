@@ -24,10 +24,11 @@ from app.core.crud import aggregate_many_from_db
 from app.main import create_app
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.worker import worker_database
 
 from .conftest import unwritten
 
-DATABASE_NAME = "fl_spieler_public_read_test"
+DATABASE_NAME = worker_database("fl_spieler_public_read_test")
 
 SAISON = "2026"
 # A second season, named by no document this corpus stores: these cases assert on the pipeline's shape alone.
@@ -427,17 +428,15 @@ class TestTheBaseTierReadExecuted:
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_container: Any) -> Iterator[str]:
+def seeded_url(mongo_url: str) -> Iterator[str]:
     """Six people and their squad rows.
 
     A retired person beside a live row, a retired row, a surname whose initial is two bytes, and a
     person carrying no surname at all.
     """
 
-    url = str(mongo_container.get_connection_url())
-
     async def _seed() -> None:
-        async with a_clean_database(url, DATABASE_NAME) as (_, database):
+        async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
             await database.spieler.insert_many(
                 [
                     # Distinct forenames, none of them holding a surname as a substring: the rows
@@ -463,8 +462,8 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
 
     on_the_seed_loop(_seed())
 
-    with unwritten(url, DATABASE_NAME):
-        yield url
+    with unwritten(mongo_url, DATABASE_NAME):
+        yield mongo_url
 
 
 def on_a_database(url: str, body: Body) -> Any:

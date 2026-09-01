@@ -14,10 +14,11 @@ from app.api.teams.admin_router import patch_team
 from app.api.teams.schemas import FLPatchTeamPayload, FLPatchTeamResponse
 from app.core.collections import Collection
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_reference_fanout_test"
+DATABASE_NAME = worker_database("fl_reference_fanout_test")
 
 # Named rather than caught broadly: another failure must not read as the rollback this suite proves.
 DOCUMENT_VALIDATION_FAILED = 121

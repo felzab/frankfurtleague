@@ -15,6 +15,7 @@ from app.core.dependencies import get_germany_now
 from app.main import create_app
 from tests.config import TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
+from tests.worker import worker_database
 
 from .conftest import config_for, unwritten
 
@@ -31,7 +32,7 @@ CORPUS_DATABASE = build_test_config().db_base_name
 
 # `seeded_with`'s own, because it clears where it seeds: given the database above, the first case
 # building a season list of its own would leave every later one reading a corpus nobody seeded.
-WINDOW_DATABASE = "fl_bewerbung_window_test"
+WINDOW_DATABASE = worker_database("fl_bewerbung_window_test")
 
 PREFIX = f"/api/v{API_VERSION}/bewerbungen"
 
@@ -147,14 +148,12 @@ def _uncached_saisons() -> None:
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_container: Any) -> Iterator[str]:
+def seeded_url(mongo_url: str) -> Iterator[str]:
     """Six seasons spanning every way a window can stand, four clubs, and the colours one season has assigned, in `CORPUS_DATABASE`."""
 
-    url = str(mongo_container.get_connection_url())
-
-    client = MongoClient(url)
+    client = MongoClient(mongo_url)
     try:
-        database = a_clean_database_sync(client, url, CORPUS_DATABASE)
+        database = a_clean_database_sync(client, mongo_url, CORPUS_DATABASE)
 
         database[Collection.SAISONS].insert_many(
             [
@@ -196,27 +195,25 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
             ]
         )
 
-        with unwritten(url, CORPUS_DATABASE):
-            yield url
+        with unwritten(mongo_url, CORPUS_DATABASE):
+            yield mongo_url
     finally:
         client.close()
 
 
-def seeded_with(mongo_container: Any, saisons: list[dict[str, Any]]) -> str:
+def seeded_with(mongo_url: str, saisons: list[dict[str, Any]]) -> str:
     """A corpus of exactly the seasons handed in, in `WINDOW_DATABASE`, for a case that decides which one `/fenster` picks.
 
     `seeded_url` cannot serve those: a boundary season would sort behind its fixed answer and never
     be the one returned.
     """
 
-    url = str(mongo_container.get_connection_url())
-
-    client = MongoClient(url)
+    client = MongoClient(mongo_url)
     try:
-        database = a_clean_database_sync(client, url, WINDOW_DATABASE)
+        database = a_clean_database_sync(client, mongo_url, WINDOW_DATABASE)
         database[Collection.SAISONS].insert_many(saisons)
 
-        return url
+        return mongo_url
     finally:
         client.close()
 
@@ -407,10 +404,10 @@ class TestTheAssignedColoursRead:
 
         assert answered(seeded_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}").status_code == 200
 
-    def test_a_season_taking_applications_with_nothing_assigned_answers_the_empty_set(self, mongo_container: Any):
+    def test_a_season_taking_applications_with_nothing_assigned_answers_the_empty_set(self, mongo_url: str):
         """Its own corpus, `seeded_url` holding no season that both takes applications and has assigned nothing."""
 
-        url = seeded_with(mongo_container, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW))])
+        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW))])
 
         response = answered(url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=WINDOW_DATABASE)
 
@@ -435,10 +432,10 @@ class TestTheAssignedColoursRead:
         assert answered(seeded_url, f"{PREFIX}/trikotfarben/{saison_id}").status_code == 404
 
     @pytest.mark.parametrize("status", [pytest.param("active", id="the running season"), pytest.param("past", id="a finished season")])
-    def test_a_season_this_tier_may_read_is_refused_all_the_same(self, mongo_container: Any, status: str):
+    def test_a_season_this_tier_may_read_is_refused_all_the_same(self, mongo_url: str, status: str):
         """The gate judges the WINDOW and never the status, so a season `docs/backend/spec.md :: I47` does not withhold is refused too."""
 
-        url = seeded_with(mongo_container, [_saison(OPEN_SAISON, bewerbung=None, status=status)])
+        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=None, status=status)])
 
         assert answered(url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=WINDOW_DATABASE).status_code == 404
 
@@ -506,10 +503,10 @@ class TestTheOpenWindowQueryIsInclusiveAtBothEnds:
     """
 
     @pytest.mark.parametrize("bewerbung", BOUNDARY_WINDOWS)
-    def test_a_window_touching_today_is_found(self, mongo_container: Any, bewerbung: dict[str, Any]):
+    def test_a_window_touching_today_is_found(self, mongo_url: str, bewerbung: dict[str, Any]):
         """Narrow either comparison to `$lt` or `$gt` and one of these three answers 404."""
 
-        url = seeded_with(mongo_container, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
+        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
 
         response = answered(url, f"{PREFIX}/fenster", database_name=WINDOW_DATABASE)
 
@@ -518,21 +515,21 @@ class TestTheOpenWindowQueryIsInclusiveAtBothEnds:
         assert response.json()["laeuft"] is True
 
     @pytest.mark.parametrize("bewerbung", OUTSIDE_WINDOWS)
-    def test_a_window_a_day_outside_is_not(self, mongo_container: Any, bewerbung: dict[str, Any]):
+    def test_a_window_a_day_outside_is_not(self, mongo_url: str, bewerbung: dict[str, Any]):
         """The control: without it every case above would pass on a query that matched everything."""
 
-        url = seeded_with(mongo_container, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
+        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
 
         assert answered(url, f"{PREFIX}/fenster", database_name=WINDOW_DATABASE).status_code == 404
 
     @pytest.mark.parametrize("bewerbung", BOUNDARY_WINDOWS)
-    def test_the_query_and_the_served_judgement_agree_on_the_edge(self, mongo_container: Any, bewerbung: dict[str, Any]):
+    def test_the_query_and_the_served_judgement_agree_on_the_edge(self, mongo_url: str, bewerbung: dict[str, Any]):
         """The two are separate expressions of one rule, so a boundary case has to hold for both.
 
         `/fenster` narrows in MQL and `/fenster/{saison_id}` computes `laeuft` in Python; a school on
         the last day must not see one say open and the other shut.
         """
 
-        url = seeded_with(mongo_container, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
+        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
 
         assert answered(url, f"{PREFIX}/fenster/{OPEN_SAISON}", database_name=WINDOW_DATABASE).json()["laeuft"] is True

@@ -54,6 +54,10 @@ dev = [
     # Starts a real mongod for the `db`-marked tests. Only those tests import it, and
     # they are deselected by default, so a normal `pytest` run never loads it or touches Docker.
     "testcontainers[mongodb]>=4.15.0",
+    # Distributes the `db` tier over worker processes, which `scripts/verify.sh`'s db scope asks for
+    # with `-n auto --dist loadfile`. No module imports it and a bare `pytest` never engages it: the
+    # plugin is inert without `-n`, so the default tier runs exactly as it did.
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.ruff]

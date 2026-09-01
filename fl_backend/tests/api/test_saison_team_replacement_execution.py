@@ -18,14 +18,15 @@ from app.api.teams.services import (
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_replacement_test"
+DATABASE_NAME = worker_database("fl_replacement_test")
 
 # Its own name rather than a second schema under `DATABASE_NAME`: the constrained and unconstrained
 # cases enforce different things, and a shared name rebuilds whichever the last call did not ask for.
-UNCONSTRAINED_DATABASE_NAME = "fl_replacement_unconstrained_test"
+UNCONSTRAINED_DATABASE_NAME = worker_database("fl_replacement_unconstrained_test")
 
 SAISON_ID = "2026"
 PRIOR_SAISON_ID = "2025"

@@ -15,8 +15,9 @@ from app.api.teams.schemas import FLSaisonTeamKontakte
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
-DATABASE_NAME = "fl_kontakt_erasure_test"
+DATABASE_NAME = worker_database("fl_kontakt_erasure_test")
 
 # Asserted on rather than caught broadly, so an unrelated failure cannot pass as a rejection.
 DOCUMENT_VALIDATION_FAILED = 121

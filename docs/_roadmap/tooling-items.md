@@ -275,9 +275,10 @@ same way, which no reader has a rule to catch it by.
 **Path:** Independent — it blocks nothing and nothing blocks it. It answers what **OPS-19** and
 **OPS-10** defer to: each proposes removing work from inside one scope, and the profile below names
 which section binds the run, so neither moves the gate's wall clock here while `db` is the tail. It
-shares a prerequisite with **OPS-70**, whose candidate repair — a database name carrying the run's own
-identity — is exactly what the first lever needs; taking the two together is an ordering note, not a
-dependency. Its own branch: it reaches the pool manifest, which carries the exit contract.
+shares no prerequisite with **OPS-70**: the first lever shipped over database names carrying the
+_worker_ that chose them, which separates two workers of one run and leaves that entry's two
+concurrent runs — every worker of which draws the same suffix — exactly where they were. Its own
+branch: it reaches the pool manifest, which carries the exit contract.
 
 **The gate's floor is its longest section plus whatever waits behind it.** `scripts/verify.sh` writes one unit
 per scope in the form `scope:after,after`, `scripts/gate_pool.py :: parse_unit` reads it, and
@@ -318,21 +319,21 @@ precisely what concurrency inside the tier would consume.
 
 **The levers, and what stands in front of each.**
 
-**1 · Distribute the database tier — the only one of the three that moves this run's wall clock.** It
-is aimed at the tail the trace shows, and latency-bound work overlaps rather than divides: two workers
-waiting on two commits wait once. `pytest-xdist` is absent — `fl_backend/pyproject.toml`'s dev group
-names pytest, ruff, fastapi-cli, httpx, pyright and testcontainers, and no distribution plugin — and
-installing it is not the work. **Two things land first.** `fl_backend/tests/database.py :: _BUILT`
-holds the built-schema registry in a module global whose comment states the assumption under it, that
-the whole tier runs in one process; each suite names its database in a module-level `DATABASE_NAME`,
-and the suites seeding through pymongo's synchronous client share `fl_backend/tests/config.py :: build_test_config`'s `db_base_name`.
-Two workers would therefore hold one name, and `:: a_clean_database` drops or empties the database it
-is handed — so each would clear the other's seeds mid-test, against a registry describing a database
-the other has since rebuilt. Per-worker naming comes first. Second,
-`fl_backend/tests/conftest.py :: mongo_container` and `:: mongo_replica_set_url` are session-scoped and
-a worker is its own session, so distributing the tier multiplies both containers and the replica-set
-election by the worker count. **Whether the overlap pays for that is a measurement rather than an
-assumption**, and it is why this is a work package and not a flag.
+**1 · Distribute the database tier — built, and owed the measurement that says what it was worth.**
+It is aimed at the tail the trace shows, and latency-bound work overlaps rather than divides: two
+workers waiting on two commits wait once. The scope runs
+`pytest -m db -n auto --dist loadfile`, over databases each worker names for itself and two mongods
+the xdist controller starts and shares out, so the width costs processes rather than containers
+([`docs/backend/spec.md`](../backend/spec.md) §1.6). **What is not established is whether it pays.**
+No timing here is trustworthy: the machine was contended throughout the work, and this entry's own
+rule is that a db-tier figure counts only as a pair of runs within a fifth of a second of each other
+on an idle machine (**OPS-70**). Two questions are open with it — what `auto` should be, sixteen
+workers sharing one `mongod` being a guess rather than a finding, and whether the shared server
+becomes the new tail once the workers stop waiting on their own. Sixteen workers driving one
+single-node replica set produced no transaction contention across the runs taken while it was built,
+but none of those runs stressed it and the machine carried other work throughout — `WriteConflict` at
+a wider width is plausible and unproven, and it belongs inside the width question rather than beside
+it.
 
 **2 · Distribute the fixture net — a lever on one scope, not yet on the gate.**
 `scripts/tests/test_check_docs.py :: _load` copies `scripts/` into a throwaway repository, commits a
@@ -914,15 +915,17 @@ announces nothing.
 **What is established about the harness, and what is not.** Almost every db-marked suite names its own
 database — `fl_backend/tests/core/test_constraints_execution.py :: DATABASE_NAME` is
 `fl_constraints_test`, and nearly every sibling suite carries a distinct one — so the suites do not
-collide with one another. **The exception is worth eliminating first**: the suites seeding through
-pymongo's synchronous client rather than its async one take their name from `fl_backend/tests/config.py :: build_test_config`'s
-`db_base_name`, so they share one database within a run and would share it across two. `fl_test`,
-which `fl_backend/tests/conftest.py :: mongo_database` hands out, is a second such name, and the
-partition its sharers keep to is recorded at `fl_backend/tests/api/conftest.py :: league`.
-`fl_backend/tests/conftest.py :: mongo_container` and `:: mongo_replica_set_url` are
-session-scoped and each starts its own `mongo:8` through testcontainers, with no reuse flag set
-anywhere in the tree, so two runs are not obviously sharing a database either. **The mechanism is
-therefore unestablished, and finding it is the first half of this entry**, ahead of choosing a repair.
+collide with one another. Two names are shared between suites — the one the suites seeding through
+pymongo's synchronous client take from `fl_backend/tests/config.py :: CORPUS_DATABASE`, and the
+`fl_test` that `fl_backend/tests/conftest.py :: mongo_database` hands out, whose sharers keep to the
+partition recorded at `fl_backend/tests/api/conftest.py :: league`. Both now carry the worker that
+chose them (`fl_backend/tests/worker.py :: worker_database`), which separates two workers of ONE run
+and does nothing for two runs, every worker of which draws the same suffix.
+A run starts its `mongo:8` containers through testcontainers with no reuse flag set anywhere in the
+tree — `fl_backend/tests/conftest.py :: pytest_configure_node` where it is distributed and
+`:: mongo_url` and `:: mongo_replica_set_url` where it is not — so two runs are not obviously sharing
+a server either. **The mechanism is therefore unestablished, and finding it is the first half of this
+entry**, ahead of choosing a repair.
 What to eliminate, in order: testcontainers' Ryuk reaper, which is one container per Docker host and
 removes on a reconnection timeout; contention on the Docker daemon while two runs each pull an image,
 start a container and elect a single-node replica set; and any fixture reaching a fixed address rather

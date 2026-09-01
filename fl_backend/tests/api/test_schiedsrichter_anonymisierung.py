@@ -16,8 +16,9 @@ from app.core.constraints import SUPPORT_INDEXES
 from app.core.recording import build_redaction_filter
 from app.shared.schemas.kontakt import FLKontakt
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
-DATABASE_NAME = "fl_schiedsrichter_anonymisierung_test"
+DATABASE_NAME = worker_database("fl_schiedsrichter_anonymisierung_test")
 
 # Asserted on rather than caught broadly, so an unrelated failure cannot pass as a rejection.
 DOCUMENT_VALIDATION_FAILED = 121

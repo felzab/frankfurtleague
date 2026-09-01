@@ -38,10 +38,11 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from app.core.logging import correlation_id_var
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_spielplan_write_test"
+DATABASE_NAME = worker_database("fl_spielplan_write_test")
 
 # Named rather than caught broadly: another failure must not read as the rollback this suite proves.
 DOCUMENT_VALIDATION_FAILED = 121

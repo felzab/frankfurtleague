@@ -27,10 +27,11 @@ from app.api.spieler.services import ERASURE_NOT_RETIRED
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_spieler_erasure_test"
+DATABASE_NAME = worker_database("fl_spieler_erasure_test")
 
 # Named rather than caught broadly: another failure must not read as the rollback this suite proves.
 DOCUMENT_VALIDATION_FAILED = 121

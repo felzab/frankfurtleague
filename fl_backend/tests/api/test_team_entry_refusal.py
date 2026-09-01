@@ -20,6 +20,7 @@ from app.api.teams.services import (
 from app.core.collections import Collection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
@@ -96,7 +97,7 @@ class TestWhetherTheClubIsStillInTheLeague:
         assert "2026-03-01" in refusal.message
 
 
-DATABASE_NAME = "fl_team_entry_test"
+DATABASE_NAME = worker_database("fl_team_entry_test")
 SAISON_ID = "2026"
 
 # Fixed rather than generated, so a failure names the same club every run.

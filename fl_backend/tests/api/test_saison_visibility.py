@@ -11,10 +11,11 @@ from app.api.saisons.services import base_tier_status_term
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.worker import worker_database
 
 from .conftest import unwritten
 
-DATABASE_NAME = "fl_saison_visibility_test"
+DATABASE_NAME = worker_database("fl_saison_visibility_test")
 
 ARCHIVED = "2024"
 RUNNING = "2025"

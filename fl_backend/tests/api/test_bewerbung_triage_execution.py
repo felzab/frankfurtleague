@@ -28,12 +28,13 @@ from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
 from tests.config import TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 # Module level, as `tests/api/test_spieler_erasure_execution.py` marks its suite: every test below
 # reaches a real mongod, and a marker per test would be one a new test could be written without.
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = "fl_bewerbung_triage_test"
+DATABASE_NAME = worker_database("fl_bewerbung_triage_test")
 
 # Asserted on rather than caught broadly, so an unrelated failure cannot pass as the rollback.
 DOCUMENT_VALIDATION_FAILED = 121

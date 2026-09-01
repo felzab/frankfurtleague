@@ -16,10 +16,11 @@ from app.core.config import API_VERSION
 from app.main import create_app
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.worker import worker_database
 
 from .conftest import unwritten
 
-DATABASE_NAME = "fl_teams_public_read_test"
+DATABASE_NAME = worker_database("fl_teams_public_read_test")
 
 SAISON = "2026"
 
@@ -130,13 +131,11 @@ def junction_row(key: str, shorthand: str) -> dict[str, Any]:
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_container: Any) -> Iterator[str]:
+def seeded_url(mongo_url: str) -> Iterator[str]:
     """One season, a live club and a retired one, and a junction row per club carrying three people's contact records."""
 
-    url = str(mongo_container.get_connection_url())
-
     async def _seed() -> None:
-        async with a_clean_database(url, DATABASE_NAME) as (_, database):
+        async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(saison_document())
             await database[Collection.TEAMS].insert_many(
                 [
@@ -148,8 +147,8 @@ def seeded_url(mongo_container: Any) -> Iterator[str]:
 
     on_the_seed_loop(_seed())
 
-    with unwritten(url, DATABASE_NAME):
-        yield url
+    with unwritten(mongo_url, DATABASE_NAME):
+        yield mongo_url
 
 
 def on_a_league(url: str, body: Body) -> Any:

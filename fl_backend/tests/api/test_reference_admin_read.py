@@ -13,6 +13,7 @@ from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from tests.config import TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database_sync
+from tests.worker import worker_database
 
 from .conftest import config_for, unwritten
 
@@ -41,7 +42,7 @@ CORPUS_DATABASE = build_test_config().db_base_name
 
 # The one case that POSTs takes a database of its own: a venue created into the corpus above would
 # stand in the venue list every other case reads.
-CREATED_VENUE_DATABASE = "fl_reference_admin_write_test"
+CREATED_VENUE_DATABASE = worker_database("fl_reference_admin_write_test")
 
 # Fixed rather than generated, so a failure names the same fixture every run.
 SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607240001")
@@ -179,34 +180,30 @@ def created(uri: str, payload: Mapping[str, Any], *, selection_timeout_ms: int, 
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_container: Any) -> Iterator[str]:
+def seeded_url(mongo_url: str) -> Iterator[str]:
     """The venue and both referees, in `CORPUS_DATABASE`."""
 
-    url = str(mongo_container.get_connection_url())
-
-    client = MongoClient(url)
+    client = MongoClient(mongo_url)
     try:
-        database = a_clean_database_sync(client, url, CORPUS_DATABASE)
+        database = a_clean_database_sync(client, mongo_url, CORPUS_DATABASE)
         database[Collection.SPIELORTE].insert_one(spielort_document())
         database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_documents())
 
-        with unwritten(url, CORPUS_DATABASE):
-            yield url
+        with unwritten(mongo_url, CORPUS_DATABASE):
+            yield mongo_url
     finally:
         client.close()
 
 
 @pytest.fixture
-def empty_url(mongo_container: Any) -> str:
+def empty_url(mongo_url: str) -> str:
     """`CREATED_VENUE_DATABASE`, holding nothing: the case that POSTs composes the venue it reads back."""
 
-    url = str(mongo_container.get_connection_url())
-
-    client = MongoClient(url)
+    client = MongoClient(mongo_url)
     try:
-        a_clean_database_sync(client, url, CREATED_VENUE_DATABASE)
+        a_clean_database_sync(client, mongo_url, CREATED_VENUE_DATABASE)
 
-        return url
+        return mongo_url
     finally:
         client.close()
 
