@@ -109,6 +109,24 @@ def test_a_diff3_base_marker_is_caught():
     assert kinds(joined(f"{BASE} base", "the common ancestor")) == ["a diff3 base marker"]
 
 
+def test_a_diff3_base_marker_behind_decoration_is_caught():
+    """The base marker meets the same formatter the other three do, and column zero is not where it lands.
+
+    Its own case because no other rule's fixture reaches this one: a marker character that is also
+    a table wall needs its own.
+    """
+    text = joined("- item", f"  {OPENER} HEAD", f"  {BASE} base", "  ancestor", f"  {SEPARATOR}", "  theirs")
+
+    assert kinds(text) == ["a conflict opener", "a diff3 base marker", "a conflict separator"]
+
+
+def test_a_diff3_base_marker_inside_a_table_cell_is_caught():
+    """The incident's own shape, for the marker whose own character is what a table row starts with."""
+    text = joined("| a | b |", "| --- | --- |", f"| {OPENER} HEAD | x |", f"| {BASE} base | x |")
+
+    assert kinds(text) == ["a conflict opener", "a diff3 base marker"]
+
+
 def test_a_marker_away_from_line_start_is_not_a_finding():
     """Prose quoting a marker mid-sentence is not a defect, which is what each `^` is there for."""
     assert markers.markers_in(joined(f"The opener is {OPENER} followed by a name.")) == []
@@ -245,6 +263,34 @@ def test_main_grades_a_marker_as_a_finding(tmp_path: Path):
     source = written(tmp_path / "note.md", f"{OPENER} HEAD")
 
     assert run_main(str(source))[0] == 1
+
+
+def test_main_names_every_marker_in_one_file(tmp_path: Path):
+    """A conflict is three or four lines, and a reader resolving it needs all of them.
+
+    `main` is where the rules' answer becomes findings, and one per file would report the opener
+    and go quiet about the rest.
+    """
+    text = joined(f"{OPENER} HEAD", "ours", SEPARATOR, "theirs", f"{CLOSER} other")
+    source = written(tmp_path / "note.md", text)
+    seen: list[str] = []
+    grade = markers.report_findings
+
+    def recording(findings, **rest):
+        collected = list(findings)
+        seen.extend(finding.detail for finding in collected)
+        return grade(collected, **rest)
+
+    with patch.object(markers, "report_findings", recording):
+        code, _, _ = run_main(str(source))
+
+    assert code == 1
+    assert [detail.rsplit(" is ", 1)[1] for detail in seen] == [
+        "a conflict opener",
+        "a conflict separator",
+        "a conflict closer",
+    ]
+    assert [detail.rsplit(" is ", 1)[0].rsplit(":", 1)[1] for detail in seen] == ["1", "3", "5"]
 
 
 def test_main_passes_a_clean_file(tmp_path: Path):
