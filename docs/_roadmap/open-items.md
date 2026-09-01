@@ -92,6 +92,103 @@ own `Path` line.
 
 ## The items in rank order
 
+### 1 · BE-44 — Deciding an application does not drain the queue, and duplicates are marked only across the rows one read served
+
+**Status:** Open\
+**Surfaces:** FE, BE, Docs\
+**Effort:** M\
+**Path:** Independent. **BE-42** stands on the same acceptance and holds the decided question of
+what that write publishes rather than what the queue can show, and neither blocks the other. **FB-17** would add the second
+surface a stranger writes rows through, so whatever answers this is what that flow inherits.
+`.claude/CLAUDE.md` §7 fixes one edge a repair sits inside: a triage option is not withdrawn on a zero
+count, and the offer's order comes from the label table —
+`fl_frontend/src/features/bewerbungen/constants.ts :: BEWERBUNG_STATUS_OPTIONS`, which holds the
+states in the order the triage works them down.
+
+**What is built is a read that says when its answer is short.**
+`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen` asks one row past the limit and serves
+at most `fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`, so
+`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenListResponse` answers **`vollstaendig`**
+without counting the filtered set — the unbounded work the read exists to avoid, and the shape
+`docs/backend/spec.md :: I45` fixes for every read bounded by the list cap. A caller's own `limit`
+is capped rather than obeyed; every `fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` row over
+this collection ends in `eingereicht_am` then `_id`, and `fl_backend/app/api/bewerbungen/services.py
+:: build_bewerbungen_sort` breaks that tie in the request's own direction, so the pair is the
+index's key or its exact inverse and neither the default read nor the reversed one sorts in memory;
+`fl_frontend/src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx` raises a
+standing warning where the answer was cut; and `?order=` turns the read around, so the oldest
+applications at the far end can be reached. `docs/ops/runbooks.md` §5 is the operator's half of the
+same state. **All of it reports on the queue and none of it repairs it**, which is what is left.
+
+**The marking spans the rows one read served, and it is what a ruling rests on.**
+`fl_frontend/src/features/bewerbungen/duplicates.ts :: findBewerbungDubletten` walks the list the page
+was handed, groups the `eingereicht` rows on season plus club or season plus Kürzel, and marks every
+member of a group of two or more. A colliding pair split across the endpoint's cut falls into no group,
+so neither half is marked and nothing names the pair — the notice can say that a pair is unmarked and
+cannot say which. **That is not cosmetic, because the marking is what the write's silence buys.**
+Uniqueness on an unauthenticated form is itself a denial of service, so the write refuses no duplicate
+and the queue shows them instead; a queue that shows them across part of its set honours that ruling
+across part of its set.
+
+**A decision leaves the row, so the working set never shrinks.**
+`fl_backend/app/api/bewerbungen/admin_router.py :: ablehnen_bewerbung` sets `status` to `abgelehnt` and
+stamps who decided and why; the row stays, deliberately, the submission being the record the decision
+was taken against. The triage page sends no `status` (`fl_frontend/src/app/admin/bewerbungen/page.tsx`),
+so a decided application of any season keeps its place among the rows served. **An administrator who
+declines every one of them sees the list unchanged and the notice unchanged**, and no endpoint removes
+an application, so nothing reachable from the product clears the state. That is what makes a flood a
+standing condition rather than an episode: the hours it costs to build buy a queue whose marking cannot
+be trusted for that season and every one after it.
+
+**The obvious repair collides with the facet, and that collision is most of the effort.** Decided rows
+leaving the default view means a `status` term on the server read. The panel then counts each option
+against the rows it was handed — `fl_frontend/src/shared/utils/facets.ts :: countFacetOptions` over the
+loaded list — and `fl_frontend/src/shared/components/ui/FilterPanel.tsx` disables an option standing at
+zero unless it is already picked. Narrow the server read to `eingereicht` and both other statuses stand
+at zero, so both go dead and the archive is unreachable from the control that hid it. §7 forbids
+withdrawing an option on a zero count, and disabling one arrives in the same place by another route.
+**So the counts have to come from the server in the same change**, or the narrowing has to be stated
+somewhere the facet does not read.
+
+**There is no bulk action**, so clearing a flood is one press per row, each with its own confirmation
+and its own round trip. That is what makes the paragraph above bite in practice rather than in
+principle, and it is the cheapest of these gaps to close once the read has somewhere to put a
+narrowing.
+
+**Two answers are closed, and each looks right from the code alone.**
+
+- **Per-school uniqueness on the write is refused by my ruling.** An index over unauthenticated input
+  hands whoever fills the field first the power to own it, so a real school meets a refusal holding its
+  own name and the rule meant to protect it locks it out. The marking is what the league has **instead**
+  of that index, and the argument is recorded at the function it constrains
+  (`fl_frontend/src/features/bewerbungen/duplicates.ts :: findBewerbungDubletten`) and stated again in
+  `docs/frontend/spec.md`.
+- **Pagination is refused because a cursor splits the set the marking runs over.** Paging would remove
+  the mechanism the ruling above rests on, and remove it silently, with no surface saying that a pair
+  split across a page boundary goes unmarked — `FLBewerbungenListResponse`'s own declaration records
+  that the list is served whole for exactly this reason. It also lands in the facet the way the
+  server-side filter does: a page holding one season's open applications leaves every other status and
+  every other season at zero, so the archive and the cross-season view both go dead.
+
+Neither is a candidate to weigh again. **What is open is a third shape** — a narrowing the facet is told
+about rather than one it has to infer from what arrived, with the marking's set decided by the server
+rather than by what a single read happened to serve.
+
+**Why it ranks here, and the honest reading of what it costs.** Reaching the state takes a deliberate
+flood: the ceiling is `nginx/prod.conf`'s `bewerbung48` zone, whose own comment puts filling the list
+from a single allocation at roughly three hours of sustained work, and closing the season's application
+window stops new rows at once.
+So it costs less than a defect an administrator meets on an ordinary press; it carries neither the leverage **FB-16** and
+**FB-22** hold for the entries that lean on them, nor the dated clock **BE-18** and **FB-19**
+each carry. What lifts it over **FB-17** is the last test alone — the same M repairing a live surface's
+own purpose, against a programme.
+
+**What is read and what is not** (COR-9). Every gap above is read off a branch rather than measured:
+`findBewerbungDubletten`'s loop, `ablehnen_bewerbung`'s `$set`, and the list `countFacetOptions` is
+handed. **Nothing here was driven against a truncated queue**, and the sort's plan rests on the
+measurement recorded beside `SUPPORT_INDEXES`'s application rows rather than on anything the gate
+executes.
+
 ### 2 · BE-15 — The recording exists; the restore over it does not
 
 **Status:** Open\
@@ -515,103 +612,6 @@ is a design question at sixteen groups rather than a breakage.
 read it — so every claim about a control is read off source and class strings. The legal-set
 arithmetic is derived from the rule functions rather than executed. The bracket's own seeding table
 (`fl_backend/app/api/saisons/spielplan.py :: BRACKET_SEEDING`) was not re-measured here.
-
-### 1 · BE-44 — Deciding an application does not drain the queue, and duplicates are marked only across the rows one read served
-
-**Status:** Open\
-**Surfaces:** FE, BE, Docs\
-**Effort:** M\
-**Path:** Independent. **BE-42** stands on the same acceptance and holds the decided question of
-what that write publishes rather than what the queue can show, and neither blocks the other. **FB-17** would add the second
-surface a stranger writes rows through, so whatever answers this is what that flow inherits.
-`.claude/CLAUDE.md` §7 fixes one edge a repair sits inside: a triage option is not withdrawn on a zero
-count, and the offer's order comes from the label table —
-`fl_frontend/src/features/bewerbungen/constants.ts :: BEWERBUNG_STATUS_OPTIONS`, which holds the
-states in the order the triage works them down.
-
-**What is built is a read that says when its answer is short.**
-`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen` asks one row past the limit and serves
-at most `fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`, so
-`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenListResponse` answers **`vollstaendig`**
-without counting the filtered set — the unbounded work the read exists to avoid, and the shape
-`docs/backend/spec.md :: I45` fixes for every read bounded by the list cap. A caller's own `limit`
-is capped rather than obeyed; every `fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` row over
-this collection ends in `eingereicht_am` then `_id`, and `fl_backend/app/api/bewerbungen/services.py
-:: build_bewerbungen_sort` breaks that tie in the request's own direction, so the pair is the
-index's key or its exact inverse and neither the default read nor the reversed one sorts in memory;
-`fl_frontend/src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx` raises a
-standing warning where the answer was cut; and `?order=` turns the read around, so the oldest
-applications at the far end can be reached. `docs/ops/runbooks.md` §5 is the operator's half of the
-same state. **All of it reports on the queue and none of it repairs it**, which is what is left.
-
-**The marking spans the rows one read served, and it is what a ruling rests on.**
-`fl_frontend/src/features/bewerbungen/duplicates.ts :: findBewerbungDubletten` walks the list the page
-was handed, groups the `eingereicht` rows on season plus club or season plus Kürzel, and marks every
-member of a group of two or more. A colliding pair split across the endpoint's cut falls into no group,
-so neither half is marked and nothing names the pair — the notice can say that a pair is unmarked and
-cannot say which. **That is not cosmetic, because the marking is what the write's silence buys.**
-Uniqueness on an unauthenticated form is itself a denial of service, so the write refuses no duplicate
-and the queue shows them instead; a queue that shows them across part of its set honours that ruling
-across part of its set.
-
-**A decision leaves the row, so the working set never shrinks.**
-`fl_backend/app/api/bewerbungen/admin_router.py :: ablehnen_bewerbung` sets `status` to `abgelehnt` and
-stamps who decided and why; the row stays, deliberately, the submission being the record the decision
-was taken against. The triage page sends no `status` (`fl_frontend/src/app/admin/bewerbungen/page.tsx`),
-so a decided application of any season keeps its place among the rows served. **An administrator who
-declines every one of them sees the list unchanged and the notice unchanged**, and no endpoint removes
-an application, so nothing reachable from the product clears the state. That is what makes a flood a
-standing condition rather than an episode: the hours it costs to build buy a queue whose marking cannot
-be trusted for that season and every one after it.
-
-**The obvious repair collides with the facet, and that collision is most of the effort.** Decided rows
-leaving the default view means a `status` term on the server read. The panel then counts each option
-against the rows it was handed — `fl_frontend/src/shared/utils/facets.ts :: countFacetOptions` over the
-loaded list — and `fl_frontend/src/shared/components/ui/FilterPanel.tsx` disables an option standing at
-zero unless it is already picked. Narrow the server read to `eingereicht` and both other statuses stand
-at zero, so both go dead and the archive is unreachable from the control that hid it. §7 forbids
-withdrawing an option on a zero count, and disabling one arrives in the same place by another route.
-**So the counts have to come from the server in the same change**, or the narrowing has to be stated
-somewhere the facet does not read.
-
-**There is no bulk action**, so clearing a flood is one press per row, each with its own confirmation
-and its own round trip. That is what makes the paragraph above bite in practice rather than in
-principle, and it is the cheapest of these gaps to close once the read has somewhere to put a
-narrowing.
-
-**Two answers are closed, and each looks right from the code alone.**
-
-- **Per-school uniqueness on the write is refused by my ruling.** An index over unauthenticated input
-  hands whoever fills the field first the power to own it, so a real school meets a refusal holding its
-  own name and the rule meant to protect it locks it out. The marking is what the league has **instead**
-  of that index, and the argument is recorded at the function it constrains
-  (`fl_frontend/src/features/bewerbungen/duplicates.ts :: findBewerbungDubletten`) and stated again in
-  `docs/frontend/spec.md`.
-- **Pagination is refused because a cursor splits the set the marking runs over.** Paging would remove
-  the mechanism the ruling above rests on, and remove it silently, with no surface saying that a pair
-  split across a page boundary goes unmarked — `FLBewerbungenListResponse`'s own declaration records
-  that the list is served whole for exactly this reason. It also lands in the facet the way the
-  server-side filter does: a page holding one season's open applications leaves every other status and
-  every other season at zero, so the archive and the cross-season view both go dead.
-
-Neither is a candidate to weigh again. **What is open is a third shape** — a narrowing the facet is told
-about rather than one it has to infer from what arrived, with the marking's set decided by the server
-rather than by what a single read happened to serve.
-
-**Why it ranks here, and the honest reading of what it costs.** Reaching the state takes a deliberate
-flood: the ceiling is `nginx/prod.conf`'s `bewerbung48` zone, whose own comment puts filling the list
-from a single allocation at roughly three hours of sustained work, and closing the season's application
-window stops new rows at once.
-So it costs less than a defect an administrator meets on an ordinary press (**FE-25**); it carries neither the leverage **FB-16** and
-**FB-22** hold for the entries that lean on them, nor the dated clock **BE-18** and **FB-19**
-each carry. What lifts it over **FB-17** is the last test alone — the same M repairing a live surface's
-own purpose, against a programme.
-
-**What is read and what is not** (COR-9). Every gap above is read off a branch rather than measured:
-`findBewerbungDubletten`'s loop, `ablehnen_bewerbung`'s `$set`, and the list `countFacetOptions` is
-handed. **Nothing here was driven against a truncated queue**, and the sort's plan rests on the
-measurement recorded beside `SUPPORT_INDEXES`'s application rows rather than on anything the gate
-executes.
 
 ### 9 · FB-17 — Setting up a season is a hand-run sequence, and only an admin can enter a squad
 
@@ -1348,6 +1348,47 @@ markers are absent rather than misleading, and every other editor already says w
 its required fields and the rail's Hinweise. Its cost is the per-entity ruling, and that cost does
 not grow while it waits.
 
+### 23 · BE-47 — A sort option nothing sends scans the archive it sorts
+
+**Status:** Standing\
+**Surfaces:** BE\
+**Effort:** S\
+**Path:** Independent — no pass covers it, and only the trigger below reopens it. **BE-45** is the same
+mechanism where a bound rather than an absent caller is what makes it harmless, and **BE-44** owns
+everything else about this collection's growth. Neither blocks this.
+
+**Not a defect today, and what makes it harmless is that nothing reaches it.**
+`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenSortOptions` offers `saison_id` beside
+`eingereicht_am`, and every read that names it plans a blocking sort: no index over `bewerbungen` leads
+with `saison_id` as a sort key, the three in
+`fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` all ending in `eingereicht_am` then `_id`
+(measured 2026-08-30 at 60,000 rows, across every combination of the season and status filters with
+each order; the reads narrowing on neither filter scan the collection whole). **No caller sends it.**
+`fl_frontend/src/app/admin/bewerbungen/page.tsx` sends `order` alone, and no other surface reads this
+endpoint, so the option is reachable only by composing the request by hand against an admin-guarded
+API.
+
+**Both exits are wrong, which is what makes this a decision rather than a repair.** Two more indexes
+would buy a sort nobody performs and would be carried, applied at every boot and re-read by every
+future reader of `SUPPORT_INDEXES`, for no caller. Narrowing `FLBewerbungenSortOptions` to the one
+option that is used is a wire change: it moves `fl_backend/openapi.json` and the hand-written Zod
+mirror, and it takes an offered capability away rather than adding one. Which is right depends on
+whether sorting the archive by season is a thing this product means to offer, and that has not been
+asked.
+
+**The discriminator this entry adds to BE-45's.** That entry records that a blocking sort is judged on
+whether anything bounds the collection, not on whether it blocks. Here the bound is absent —
+`bewerbungen` grows with every submission and no path removes a row, which is **BE-44**'s subject — and
+the read is harmless anyway, because **nothing reaches it**. So a blocking sort is judged on two
+questions before its plan matters: what bounds the collection, and what reaches the read.
+
+**Trigger to revisit:** any surface gaining a season sort over this list, which turns the option from
+unreachable into the ordinary path and makes the plan above the one an administrator waits on.
+
+**What was measured and what was not** (COR-9). The plans were measured, at a row count the collection
+does not hold. That no caller sends `sort_by` was read off the page and the absence of another consumer
+rather than proven by instrumenting the endpoint.
+
 ### 24 · BE-39 — A refusal composes a repair the product refuses to perform
 
 **Status:** Open\
@@ -1438,9 +1479,9 @@ published property in `fl_backend/openapi.json`, and a German sentence in each o
 Both switches are exhaustive, so the compiler names them; nothing names the German. I28's own
 enumeration moves in the same commit.
 
-**What ranks it above FE-20.** It removes real doubt — an operator repairing wiring by hand gets no
-signal for most of what the write path calls unholdable — where FE-20 removes almost none, and its
-own cost is paid only after somebody edits the database.
+**What ranks it here.** It removes real doubt — an operator repairing wiring by hand gets no
+signal for most of what the write path calls unholdable — and its own cost is paid only after
+somebody edits the database. The pair it makes with **FE-34** is argued from that entry's side.
 
 ### 26 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
 
@@ -1506,8 +1547,8 @@ branch, as a comment, why its wording is its own, and leave the pairing to a rea
 
 **What ranks it here.** Below **BE-37**: that entry leaves an operator repairing wiring by hand with no
 signal at all, where every one of these six sentences reaches its reader true today and what is at stake
-is what a later edit does to one of them. Above **FE-20**: taking that token out removes almost no doubt,
-where this settles a copy question on two admin surfaces and closes a coupling the helper beside it was
+is what a later edit does to one of them. What holds it above the entries under it is the other half of
+that: it settles a copy question on two admin surfaces and closes a coupling the helper beside it was
 written to close.
 
 ### 27 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
@@ -1573,11 +1614,10 @@ literal being invisible to a match written for quoted sentences. **Either route 
 „Reaktiviere" rule's widening**, and neither may skip it: a battery pointed at this banner unchanged
 fails on a sentence that is right.
 
-**What ranks it here.** Below **BE-38**: settling that entry's question costs a search of the whole
-backend for a caller, where the four sentences here say the same thing today and the cost is a later
-edit's freedom to part them. Above **FE-32**: that entry misleads nobody and its doubt is answered by reading the sentence
-beside the id, where this one's is answered only by noticing that a helper's reach stops short of a
-module, which nothing on either side says.
+**What ranks it here.** The four sentences say the same thing today, so what is at stake is a later
+edit's freedom to part them rather than anything a reader meets now — which is what keeps it below
+the entries above it. What keeps it this high is that the gap is answered only by noticing that a
+helper's reach stops short of a module, which nothing on either side says.
 
 ### 28 · BE-42 — Acceptance copies a school's postal address into the club, where an anonymous read serves it
 
@@ -1687,47 +1727,6 @@ deduplicated, but inside a transaction, whose lifetime is bounded.
 
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
-
-### 23 · BE-47 — A sort option nothing sends scans the archive it sorts
-
-**Status:** Standing\
-**Surfaces:** BE\
-**Effort:** S\
-**Path:** Independent — no pass covers it, and only the trigger below reopens it. **BE-45** is the same
-mechanism where a bound rather than an absent caller is what makes it harmless, and **BE-44** owns
-everything else about this collection's growth. Neither blocks this.
-
-**Not a defect today, and what makes it harmless is that nothing reaches it.**
-`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenSortOptions` offers `saison_id` beside
-`eingereicht_am`, and every read that names it plans a blocking sort: no index over `bewerbungen` leads
-with `saison_id` as a sort key, the three in
-`fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` all ending in `eingereicht_am` then `_id`
-(measured 2026-08-30 at 60,000 rows, across every combination of the season and status filters with
-each order; the reads narrowing on neither filter scan the collection whole). **No caller sends it.**
-`fl_frontend/src/app/admin/bewerbungen/page.tsx` sends `order` alone, and no other surface reads this
-endpoint, so the option is reachable only by composing the request by hand against an admin-guarded
-API.
-
-**Both exits are wrong, which is what makes this a decision rather than a repair.** Two more indexes
-would buy a sort nobody performs and would be carried, applied at every boot and re-read by every
-future reader of `SUPPORT_INDEXES`, for no caller. Narrowing `FLBewerbungenSortOptions` to the one
-option that is used is a wire change: it moves `fl_backend/openapi.json` and the hand-written Zod
-mirror, and it takes an offered capability away rather than adding one. Which is right depends on
-whether sorting the archive by season is a thing this product means to offer, and that has not been
-asked.
-
-**The discriminator this entry adds to BE-45's.** That entry records that a blocking sort is judged on
-whether anything bounds the collection, not on whether it blocks. Here the bound is absent —
-`bewerbungen` grows with every submission and no path removes a row, which is **BE-44**'s subject — and
-the read is harmless anyway, because **nothing reaches it**. So a blocking sort is judged on two
-questions before its plan matters: what bounds the collection, and what reaches the read.
-
-**Trigger to revisit:** any surface gaining a season sort over this list, which turns the option from
-unreachable into the ordinary path and makes the plan above the one an administrator waits on.
-
-**What was measured and what was not** (COR-9). The plans were measured, at a row count the collection
-does not hold. That no caller sends `sort_by` was read off the page and the absence of another consumer
-rather than proven by instrumenting the endpoint.
 
 ### 31 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
 
