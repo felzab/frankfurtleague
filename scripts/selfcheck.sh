@@ -98,6 +98,10 @@ fi
 
 # One at a time under `--verbose`, which is also the oracle: a disagreement between the widths is
 # the parallel machinery being wrong, and there has to be a way to see it.
+
+# A unit is a process spawn, not a core's worth of work, so wider buys nothing. MEASURED 2026-09-02
+# on one 16-core machine, this section: 57-62s at 16, 54-60s at 24, 64-66s at 8, 95s at 4 — from
+# 12 up the ranges overlap.
 PAR_WIDTH=16
 if verbose; then PAR_WIDTH=1; fi
 
@@ -179,13 +183,12 @@ par_run() { # $1 unit function, called as `$1 <index> <item> <label>` once per q
 # SC1091 is excluded throughout: shellcheck cannot follow the sourced `scripts/_lib.sh`. SC2034 is
 # annotated at the line instead, so a new unused-looking assignment justifies itself where written.
 
-# New releases add checks, so a difference nobody names is the drift this pin exists to remove.
-# Nothing bumps either line here: dependabot reads `uses:` references, not shell strings. A version
-# bumped by hand replaces the digest below.
+# Pinned so new checks arrive by a named bump, never as drift. By hand (`.github/dependabot.yml`'s
+# invariant on shell strings); a bump replaces the digest below.
 SHELLCHECK_VERSION="0.11.0"
 
-# GitHub's own digest for that release's `linux.x86_64.tar.xz`: CI unpacks it as root onto PATH, so
-# an asset replaced under a tag that never moved is caught rather than trusted.
+# GitHub's digest for the release's `linux.x86_64.tar.xz`: CI unpacks it as root onto PATH, so an
+# asset replaced under an unmoved tag is caught rather than trusted.
 # shellcheck disable=SC2034  # .github/workflows/verify.yml reads it
 SHELLCHECK_LINUX_X86_64_SHA256="8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
 
@@ -1501,7 +1504,7 @@ else
         probe "$hs" asked   cmd  '\sed -i s/a/b/ docs/standard.md'             'standard bash guard: a backslash in front of sed'
         ;;
       # Every CI job is ubuntu-latest, so this group is proven on a developer's machine and nowhere
-      # else. Left silent it is the shortfall step 15 exists to force into the open.
+      # else. Left silent it is the shortfall step 16 exists to force into the open.
       *)
         note_skip "the Windows-only path spellings were not probed — backslash, drive-letter, MSYS /c/ and case-varied paths exist only there, and this is $(uname -s)"
         ;;
@@ -1576,7 +1579,93 @@ else
   rm -f "$(node -e 'process.stdout.write(require("os").tmpdir())')"/claude-docs-standard-"${sid}"* 2>/dev/null || true
 fi
 
-step "15. Every deliberate non-run reaches the gate"
+step "15. The pre-push hook prints the CI scopes and blocks nothing"
+# The two properties `.githooks/pre-push`'s header states: exit 0 always, and a report line.
+PRE_PUSH="${REPO_ROOT}/.githooks/pre-push"
+prepush_out="${SELFCHECK_TMP}/pre-push.out"
+if [[ ! -f "$PRE_PUSH" ]]; then
+  note_fail "${PRE_PUSH#"${REPO_ROOT}/"} is not there, so the pre-push hook was not driven"
+else
+  # As git drives it: one ref line on stdin, remote and URL as arguments; the zero sha is a branch
+  # the remote lacks.
+  prepush_in="${SELFCHECK_TMP}/pre-push.in"
+  prepush_head="$(git rev-parse HEAD)"
+  prepush_refline() { # $1 the ref being pushed to — writes the line git feeds a hook
+    printf 'refs/heads/topic %s %s 0000000000000000000000000000000000000000\n' \
+      "$prepush_head" "$1" > "$prepush_in"
+  }
+  # Fed from a file, not a pipe: under pipefail a hook exiting before it reads would be graded by
+  # the writer's SIGPIPE rather than by its own status.
+  prepush_drive() { # $1 the ref · $2… the hook's own arguments — leaves the status in prepush_rc
+    prepush_refline "$1"; shift
+    prepush_rc=0
+    bash "$PRE_PUSH" "$@" <"$prepush_in" >"$prepush_out" 2>&1 || prepush_rc=$?
+  }
+
+  # The prefix, never the sentence: the wording is free to improve, and what it says is asserted
+  # below, where the answer is fixed.
+  prepush_drive refs/heads/topic origin https://example.invalid/repo.git
+  if (( prepush_rc != 0 )); then
+    note_fail "pre-push exited ${prepush_rc} on a plain push; it is advisory and must exit 0"
+  elif ! grep -q 'pre-push hook:' "$prepush_out"; then
+    note_fail "pre-push reported nothing on a plain push:"; excerpt 10 < "$prepush_out"
+  else
+    info "a plain push: exit 0 and a report line"
+  fi
+
+  # `--all` on the default branch: the one arm whose expected answer does not move with the tree.
+  prepush_default="$(git symbolic-ref -q refs/remotes/origin/HEAD 2>/dev/null || true)"
+  prepush_default="${prepush_default#refs/remotes/origin/}"
+  prepush_drive "refs/heads/${prepush_default:-main}" origin https://example.invalid/repo.git
+  prepush_all="${SELFCHECK_TMP}/pre-push-scopes.txt"
+  prepush_all_rc=0
+  ./scripts/ci_scopes.sh --all > "${prepush_all}.raw" 2>&1 || prepush_all_rc=$?
+  awk -F= '/^[a-z]+=true$/ { print $1 }' "${prepush_all}.raw" > "$prepush_all" || true
+  # Every scope name, asked of ci_scopes.sh: `scripts` alone also matches a path in the failure
+  # line.
+  prepush_missing=""
+  while IFS= read -r prepush_scope || [[ -n "$prepush_scope" ]]; do
+    grep -qw -- "$prepush_scope" "$prepush_out" || prepush_missing+=" $prepush_scope"
+  done < "$prepush_all"
+  if (( prepush_all_rc != 0 )) || [[ ! -s "$prepush_all" ]]; then
+    note_fail "ci_scopes.sh --all named no scope (exit ${prepush_all_rc}), so the hook's answer for a push to ${prepush_default:-main} was not checked"
+  elif (( prepush_rc != 0 )); then
+    note_fail "pre-push exited ${prepush_rc} on a push to ${prepush_default:-main}; it is advisory and must exit 0"
+  elif [[ -n "$prepush_missing" ]]; then
+    note_fail "pre-push left scope(s) out of its answer for a push to ${prepush_default:-main} —${prepush_missing} — where --all names every one:"
+    excerpt 10 < "$prepush_out"
+  else
+    info "a push to ${prepush_default:-main}: exit 0, and every scope --all names"
+  fi
+
+  # No git on PATH: says so, exit 0. `$BASH` by absolute path, since the emptied PATH that hides git
+  # would hide a bare `bash` first.
+  prepush_rc=0
+  PATH=/nonexistent "$BASH" "$PRE_PUSH" origin x >"$prepush_out" 2>&1 </dev/null || prepush_rc=$?
+  if (( prepush_rc != 0 )) || ! grep -q 'no git on PATH' "$prepush_out"; then
+    note_fail "pre-push without git must say so and exit 0; got exit ${prepush_rc}:"; excerpt 10 < "$prepush_out"
+  else
+    info "no git on PATH: says so, exit 0"
+  fi
+
+  # Stderr closed, the arm the hook's trap exists for. No redirect to a file here, which would make
+  # stderr writable and hide it.
+  prepush_refline refs/heads/topic
+
+  # Both argument shapes, because only one of them writes ci_scopes.sh's answer.
+  for prepush_args in "origin https://example.invalid/repo.git" "nosuchremote x"; do
+    prepush_rc=0
+    # shellcheck disable=SC2086  # two arguments held in one string, split on purpose
+    bash "$PRE_PUSH" $prepush_args <"$prepush_in" 2>&- || prepush_rc=$?
+    if (( prepush_rc != 0 )); then
+      note_fail "pre-push exited ${prepush_rc} with stderr closed (${prepush_args%% *}); git aborts a push on that, and this hook may never"
+    else
+      info "stderr closed (${prepush_args%% *}): exit 0"
+    fi
+  done
+fi
+
+step "16. Every deliberate non-run reaches the gate"
 # Any message shape, not a quoted one alone, so `skip bareword` is caught too.
 
 # The sweep's own status is kept and the exclusions are one pattern: `grep … || true` reports a file
@@ -1609,7 +1698,7 @@ else
   info "every deliberate non-run here is written to the ledger verify.sh replays (${sweep_lines} line(s) swept)"
 fi
 
-step "16. The container-log redaction"
+step "17. The container-log redaction"
 # Wrong in either direction and silent in both: a credential reaching the operator's terminal, or
 # the host redacted out of the log a failing deploy is read from. Each case below is a real
 # error-message shape, the bound being a regex nobody re-derives.

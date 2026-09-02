@@ -9,13 +9,12 @@
 
 set -euo pipefail
 
-# Every line below goes to stderr, which a wrapper may have closed. The trap answers 0 whatever
-# happens, a failed write under `set -e` included; ignoring SIGPIPE brings a dead reader to that
-# trap rather than killing the shell at the write.
+# stderr may be closed: the trap answers 0 whatever happens, and ignoring SIGPIPE brings a dead
+# reader to that trap rather than killing the shell at the write.
 trap 'exit 0' EXIT
 trap '' PIPE
 
-# Non-fatal by construction, so one unwritable line does not cost the rest of the report.
+# So one unwritable line does not cost the rest of the report.
 say() { echo "  pre-push hook: $*" >&2 || true; }
 
 if ! command -v git >/dev/null 2>&1; then
@@ -23,21 +22,20 @@ if ! command -v git >/dev/null 2>&1; then
   exit 0
 fi
 
-# Git runs a hook from the top of the working tree; anything else driving it need not, and the
-# mapping script below is reached by a relative path.
+# Git runs a hook from the tree's top; nothing else driving it need, and `./scripts/ci_scopes.sh`
+# below is a relative path.
 cd "$(git rev-parse --show-toplevel 2>/dev/null || printf '.')" || true
 
 remote="${1:-origin}"
-# `verify.yml` runs on a pull request, diffed against whatever branch it targets, and on a push to
-# main. No request exists yet, so the default branch stands in: the remote's recorded HEAD, or
-# `main` where the clone recorded none.
+# No pull request exists yet, so the default branch stands in for the one `verify.yml` would diff
+# against: the remote's recorded HEAD, else `main`.
 default="$(git symbolic-ref -q "refs/remotes/${remote}/HEAD" 2>/dev/null || true)"
 default="${default#refs/remotes/"${remote}"/}"
 default="${default:-main}"
 head="$(git rev-parse HEAD 2>/dev/null || true)"
 
-# `|| [[ -n … ]]`: a final line with no newline leaves `read` non-zero with the fields set, and
-# dropping it would report nothing for the one ref being pushed. Git terminates its lines.
+# `|| [[ -n … ]]`: an unterminated last line leaves `read` non-zero with the fields set
+# (`scripts/selfcheck.sh :: par_run`).
 while read -r _ local_sha remote_ref _ || [[ -n "${local_sha:-}" ]]; do
   [[ "$local_sha" != 0000000000000000000000000000000000000000 ]] || continue
   if [[ "$remote_ref" != refs/heads/* ]]; then

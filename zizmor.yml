@@ -1,0 +1,19 @@
+# zizmor's rules for this repository's GitHub Actions surface: the workflows, the composite actions
+# under `.github/actions/` and `.github/dependabot.yml`. zizmor discovers this file from the
+# repository root. The persona and `--offline` are the call site's to spell, never this file's.
+#
+# At the root, not `.github/`: `scripts/ci_scopes.sh` maps `.github/` to the docs scope alone, where
+# a root file reaches the conservative arm and every scope with it.
+#
+# Invariants:
+# - A rule is disabled here only with its reason and the condition that would re-open it. A
+#   suppression nobody can re-decide is worse than a finding nobody fixed.
+# - Nothing here relaxes `unpinned-uses`. Its default policy refuses a tag-pinned action for every
+#   owner this repository depends on, which is what `docs/_git/spec.md` I8 asks of a `uses:`.
+
+rules:
+  self-repository:
+    # actionlint refuses `$/` as a `uses:` format (1.7.12, its latest on 2026-09-02), so taking
+    # zizmor's fix reddens `scripts/selfcheck.sh :: run_actionlint`. Re-open when actionlint
+    # accepts it.
+    disable: true
