@@ -1,6 +1,7 @@
 ---
 paths:
   - "fl_backend/**/*"
+  - "fl_backend/**/.*"
 ---
 
 # Ratified decisions — the backend surface

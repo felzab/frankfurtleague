@@ -1,9 +1,7 @@
 ---
 paths:
-  - "fl_frontend/src/**/*"
-  - "fl_frontend/*.ts"
-  - "fl_frontend/*.mjs"
-  - "fl_frontend/*.json"
+  - "fl_frontend/**/*"
+  - "fl_frontend/**/.*"
 ---
 
 # Ratified decisions — the frontend surface

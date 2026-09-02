@@ -1,11 +1,13 @@
 ---
 paths:
   - "fl_backend/**/*"
-  - "fl_frontend/src/**/*"
-  - "fl_frontend/*.ts"
-  - "fl_frontend/*.mjs"
+  - "fl_backend/**/.*"
+  - "fl_frontend/**/*"
+  - "fl_frontend/**/.*"
   - "nginx/**/*"
+  - "nginx/**/.*"
   - "scripts/**/*"
+  - "scripts/**/.*"
 ---
 
 # Ratified decisions — the seams between surfaces
@@ -36,19 +38,13 @@ together, so a session on either side can break it and the paths above reach bot
 - **swap** — Split the group swap into two writes; relax the move lock to serve it
 - **swap** — Reach the swap's disqualification refusal backwards; refuse a club standing on its own fixture
 
-**Why this file reaches both packages whole rather than the slices its keys name.** Each key was
-tested by searching for the clause's own identifier and German term, and each one is spread far past
-its key: `quelle` is written in `fl_backend/app/api/spiele/`, `app/api/saisons/spielplan.py` and
-`app/core/domain.py`; the draw that writes a Spieltag and assigns its position is
-`app/api/saisons/spielplan.py`; `stufe` and `E2` reach `app/api/saisons/`, `app/api/teams/` and
-`app/core/constraints.py` and, on the frontend, `src/app/admin/spieler/`, `features/bewerbungen/`
-and `features/saisons/`; `sonderereignis` reaches eight backend packages and four frontend slices;
-`mietpreis` reaches `schiedsrichter` and `spielorte` on both sides; the swap's form is under
-`features/saisons/` because the frontend clause holds the club editor away from being its home; and
-the league table's default scope is spelled a second time, deliberately, in
-`src/app/dashboard/saisontabelle/page.tsx`. A per-slice reach for any of them named a directory the
-clause's code does not live in, and a glob matching nothing puts a ratified decision in front of
-nobody.
+**Why this file reaches both packages whole rather than the slices its keys name.** The argument is
+`.claude/CLAUDE.md` §7's, and it is written there alone. A census of the directories each key's code
+occupies is the tempting way to justify a reach, and it is the wrong one twice over: it goes stale
+the moment the code moves, and a term search that counts a substring inside a longer German word
+attributes a clause to a package that has never held it. Search for the clause's own identifier and
+German term when you need the union, take the enclosing word rather than the substring, and widen a
+reach rather than narrowing one.
 
 ## Traps
 

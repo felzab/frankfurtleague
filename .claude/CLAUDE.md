@@ -220,12 +220,19 @@ arrives with the read of a file one of them matches. Discovery happens at sessio
 file written during a session is invisible until the next one starts, and a rules file carrying no
 `paths:` key loads unconditionally. A glob that matches nothing fails silently, which is why each
 file's reach is the union of every surface its clauses can be broken from rather than the surface
-they read as belonging to. **Derive that union by searching for the clause's code — its identifier,
-its concept and its German term — never by reading its bold key as a directory name.** A key names
-the concern, and several concerns are addressed elsewhere: the `swap` key's form lives under
-`saisons`, put there by the clause holding the club editor away from being the swap's home, and
-`quelle` is written in the fixtures package while `stufe` reaches three backend packages and
-`app/core/`. That search is why the reaches below are whole surfaces.
+they read as belonging to, and why every directory reach is spelled twice, `dir/**/*` beside
+`dir/**/.*`: whether a `*` matches a leading dot is a matcher's option, and a reach resting on which
+way it was set is one nobody can watch fail.
+
+**Derive that union by searching for the clause's code — its identifier, its concept and its German
+term — never by reading its bold key as a directory name, and classify every hit by the whole word
+around it.** German compounds a term into a longer word meaning something else, and a substring
+count is how a clause is attributed to a package that has never held it: `stufe` sits inside
+`oberstufengymnasium`, the Schulform `app/api/teams/` declares. A key names the concern, and several
+concerns are addressed elsewhere: the `swap` key's form lives under `saisons`, put there by the
+clause holding the club editor away from being the swap's home, and `quelle` is written in the
+fixtures package while `stufe` is defined in `app/api/spieler/` and reaches `app/api/saisons/` and
+`app/core/` besides. That search is why the reaches below are whole surfaces.
 
 | File                                         | Reach                                                                             | Carries                                          |
 | -------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------ |

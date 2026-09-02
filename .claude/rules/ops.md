@@ -1,9 +1,13 @@
 ---
 paths:
   - ".github/**/*"
+  - ".github/**/.*"
   - "nginx/**/*"
+  - "nginx/**/.*"
   - "scripts/**/*"
+  - "scripts/**/.*"
   - "**/Dockerfile"
+  - "**/.dockerignore"
   - "docker-compose.yml"
   - "docker-compose.local.yml"
   - "fl_frontend/next.config.ts"
