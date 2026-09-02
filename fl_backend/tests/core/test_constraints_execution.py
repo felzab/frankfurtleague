@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable, Mapping
 
 import pytest
 from bson import ObjectId
-from pymongo import ASCENDING, AsyncMongoClient
+from pymongo import ASCENDING
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
@@ -16,9 +16,7 @@ from app.core.constraints import (
     UNIQUE_INDEXES,
     apply_constraints,
     probe_collmod_privilege,
-    probe_privileges,
     report_duplicates,
-    report_identity,
     report_relations,
     report_violations,
 )
@@ -30,9 +28,14 @@ pytestmark = pytest.mark.db
 # Asserted on rather than caught broadly, so an unrelated failure cannot pass as a rejection.
 DOCUMENT_VALIDATION_FAILED = 121
 
+# The throwaway: every body under it breaks the schema it applies, so nothing is recorded of it and
+# every call gets a dropped database. The limited-user bodies are `test_constraints_execution_users.py`'s.
 DATABASE_NAME = worker_database("fl_constraints_test")
-# A second database, so the throwaway above stays the one this suite is free to manipulate.
+# A second database, so the throwaway above stays the one this suite is free to break.
 SHIPPED_DATABASE_NAME = worker_database("fl_constraints_shipped_test")
+# Its own name rather than a schema under either: the unconstrained reads enforce nothing, and a
+# name shared with a constrained caller rebuilds whichever the last call did not ask for.
+UNCONSTRAINED_DATABASE_NAME = worker_database("fl_constraints_unconstrained_test")
 
 SAISON_ID = "2026"
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607200001")
@@ -232,24 +235,25 @@ def valid_document(collection: str, **overrides: Any) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_database(url: str, body: Body, *, constrained: bool = True) -> Any:
-    """A client of this call's own, this suite alone creating and dropping the users a client authenticates as.
+def on_a_database(url: str, body: Body) -> Any:
+    """A database dropped for this call, for a body that seeds what makes `apply_constraints` fail and then calls it.
 
-    `constrained=False` is the production ordering.
+    `mutates_schema=True` records nothing of what a refusal leaves, so every call rebuilds.
     """
 
     async def _run() -> Any:
-        client = AsyncMongoClient(url)
-        try:
-            # Dropped on the way IN, never out: this suite alone changes the schema it runs on, so
-            # what isolates it is the drop the next call makes, and a second one buys nothing.
-            await client.drop_database(DATABASE_NAME)
-            database = client[DATABASE_NAME]
-            if constrained:
-                await apply_constraints(database)
+        async with a_clean_database(url, DATABASE_NAME, constraints=False, mutates_schema=True) as (_, database):
             return await body(database)
-        finally:
-            await client.close()
+
+    return on_the_seed_loop(_run())
+
+
+def on_an_unconstrained_database(url: str, body: Body) -> Any:
+    """A database with no validator and no index, emptied for this test: for a body inserting what the shipped schema would refuse."""
+
+    async def _run() -> Any:
+        async with a_clean_database(url, UNCONSTRAINED_DATABASE_NAME, constraints=False) as (_, database):
+            return await body(database)
 
     return on_the_seed_loop(_run())
 
@@ -257,8 +261,8 @@ def on_a_database(url: str, body: Body, *, constrained: bool = True) -> Any:
 def on_the_shipped_schema(url: str, body: Body) -> Any:
     """A database the shipped constraints were built on ONCE, emptied for this test.
 
-    For a body that only inserts and reads. A validator, an index or a user changed takes
-    `on_a_database`'s throwaway, this suite being the one that manipulates all three.
+    For a body that only inserts and reads; one that breaks a validator or an index takes
+    `on_a_database`'s throwaway.
     """
 
     async def _run() -> Any:
@@ -465,7 +469,9 @@ def test_applying_twice_changes_nothing(mongo_url: str):
             built += 1
         return second.validators, built
 
-    assert on_a_database(mongo_url, body) == (len(COLLECTION_VALIDATORS), len(UNIQUE_INDEXES))
+    # The shipped schema rather than a fresh apply: the guard behind it then also holds the second
+    # apply to leaving every collection's enforcement exactly as the first left it.
+    assert on_the_shipped_schema(mongo_url, body) == (len(COLLECTION_VALIDATORS), len(UNIQUE_INDEXES))
 
 
 def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_url: str):
@@ -479,7 +485,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_url: 
             return "raised" if "uniq_shorthand" in str(failure) else f"raised the wrong thing: {failure}"
         return "carried on"
 
-    assert on_a_database(mongo_url, body, constrained=False) == "raised"
+    assert on_a_database(mongo_url, body) == "raised"
 
 
 def test_the_startup_apply_fails_rather_than_skipping_a_broken_validator(mongo_url: str):
@@ -495,7 +501,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_validator(mongo_u
             return "raised" if "the validator for 'teams'" in str(failure) else f"raised the wrong thing: {failure}"
         return "carried on"
 
-    assert on_a_database(mongo_url, body, constrained=False) == "raised"
+    assert on_a_database(mongo_url, body) == "raised"
 
 
 def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mongo_url: str):
@@ -511,7 +517,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mon
             return "raised" if CONFLICTING_SUPPORT_INDEX in str(failure) else f"raised the wrong thing: {failure}"
         return "carried on"
 
-    assert on_a_database(mongo_url, body, constrained=False) == "raised"
+    assert on_a_database(mongo_url, body) == "raised"
 
 
 def test_the_apply_reports_the_index_declared_first_when_two_of_them_fail(mongo_url: str):
@@ -545,7 +551,7 @@ def test_the_apply_reports_the_index_declared_first_when_two_of_them_fail(mongo_
 
         return EARLIER_DECLARED_INDEX if EARLIER_DECLARED_INDEX in reported else f"reported instead: {reported}"
 
-    assert on_a_database(mongo_url, body, constrained=False) == EARLIER_DECLARED_INDEX
+    assert on_a_database(mongo_url, body) == EARLIER_DECLARED_INDEX
 
 
 @pytest.mark.parametrize("constrained", [False, True], ids=["target absent", "target present"])
@@ -558,48 +564,13 @@ def test_the_privilege_probe_answers_granted_and_writes_nothing(mongo_url: str, 
         hidden = [index["name"] async for index in await database[target].list_indexes() if index.get("hidden")]
         return answer, await database.list_collection_names(), hidden
 
-    answer, collections, hidden = on_a_database(mongo_url, body, constrained=constrained)
+    # Either cached database: both guard the "writes nothing" half after the body, so a trace the
+    # assertions below do not look for fails here too.
+    run = on_the_shipped_schema if constrained else on_an_unconstrained_database
+    answer, collections, hidden = run(mongo_url, body)
     assert answer == "granted"
     assert ABSENT_COLLECTION_NAME not in collections
     assert hidden == []
-
-
-def test_every_needed_privilege_is_reported_independently(mongo_url: str):
-    """A `readWrite` user holds `find` and lacks `collMod`: the mixed verdict an all-or-nothing answer would hide."""
-    username = f"limited_{secrets.token_hex(4)}"
-    password = secrets.token_hex(16)
-
-    async def body(database: AsyncDatabase) -> list[tuple[str, str]]:
-        await database.command("createUser", username, pwd=password, roles=[{"role": "readWrite", "db": DATABASE_NAME}])
-        # Keywords over the url's own root credentials, which is what pymongo does with both given.
-        limited = AsyncMongoClient(mongo_url, username=username, password=password, authSource=DATABASE_NAME)
-        try:
-            return await probe_privileges(limited[DATABASE_NAME])
-        finally:
-            await limited.close()
-            await database.command("dropUser", username)
-
-    verdicts = dict(on_a_database(mongo_url, body, constrained=False))
-    assert verdicts["find"] == "granted"
-    assert verdicts["collMod"].startswith("DENIED")
-
-
-def test_the_privilege_probe_says_denied_for_a_readwrite_user(mongo_url: str):
-    """`readWrite` grants `createIndex` but not `collMod`: such a user builds every index, attaches no validator, and the app will not start."""
-    username = f"limited_{secrets.token_hex(4)}"
-    password = secrets.token_hex(16)
-
-    async def body(database: AsyncDatabase) -> str:
-        await database.command("createUser", username, pwd=password, roles=[{"role": "readWrite", "db": DATABASE_NAME}])
-        # Keywords over the url's own root credentials, which is what pymongo does with both given.
-        limited = AsyncMongoClient(mongo_url, username=username, password=password, authSource=DATABASE_NAME)
-        try:
-            return await probe_collmod_privilege(limited[DATABASE_NAME])
-        finally:
-            await limited.close()
-            await database.command("dropUser", username)
-
-    assert on_a_database(mongo_url, body, constrained=False).startswith("DENIED")
 
 
 def test_the_check_mode_finds_what_the_validators_would_reject(mongo_url: str):
@@ -624,7 +595,7 @@ def test_the_check_mode_finds_what_the_validators_would_reject(mongo_url: str):
             duplicates["uniq_saison_id_team_id"].groups,
         )
 
-    failing, examples, duplicate_groups = on_a_database(mongo_url, body, constrained=False)
+    failing, examples, duplicate_groups = on_an_unconstrained_database(mongo_url, body)
     assert failing == 1
     assert len(examples) == 1
     assert duplicate_groups == 1
@@ -640,7 +611,7 @@ def test_the_cross_document_rules_report_a_clean_database_as_clean(mongo_url: st
 
         return {report.rule: report.groups for report in await report_relations(database)}
 
-    groups = on_a_database(mongo_url, body, constrained=False)
+    groups = on_an_unconstrained_database(mongo_url, body)
     assert groups == {SPIELTAG_OCCUPANCY_RULE: 0, JUNCTION_CLUB_RULE: 0}
 
 
@@ -684,7 +655,7 @@ def test_the_cross_document_rules_find_what_no_validator_and_no_index_can(mongo_
             {rule: report.examples for rule, report in reports.items()},
         )
 
-    groups, examples = on_a_database(mongo_url, body, constrained=False)
+    groups, examples = on_an_unconstrained_database(mongo_url, body)
 
     assert groups == {SPIELTAG_OCCUPANCY_RULE: 1, JUNCTION_CLUB_RULE: 1}
 
@@ -710,29 +681,9 @@ def test_a_club_on_both_sides_of_one_fixture_is_one_group_not_two(mongo_url: str
 
         return report.groups, report.examples
 
-    groups, examples = on_a_database(mongo_url, body, constrained=False)
+    groups, examples = on_an_unconstrained_database(mongo_url, body)
     assert groups == 1
     assert examples[0]["spiele"] == [1]
-
-
-def test_the_identity_report_names_the_user_and_its_roles(mongo_url: str):
-    """A correct role on the wrong credential refuses exactly like a broken role, which no privilege probe can see."""
-    username = f"named_{secrets.token_hex(4)}"
-    password = secrets.token_hex(16)
-
-    async def body(database: AsyncDatabase) -> tuple[str, list[str]]:
-        await database.command("createUser", username, pwd=password, roles=[{"role": "readWrite", "db": DATABASE_NAME}])
-        # Keywords over the url's own root credentials, which is what pymongo does with both given.
-        named = AsyncMongoClient(mongo_url, username=username, password=password, authSource=DATABASE_NAME)
-        try:
-            return await report_identity(named[DATABASE_NAME])
-        finally:
-            await named.close()
-            await database.command("dropUser", username)
-
-    identity, roles = on_a_database(mongo_url, body, constrained=False)
-    assert identity == username
-    assert f"readWrite@{DATABASE_NAME}" in roles
 
 
 # Section 6, the support indexes. Dropping one costs speed rather than correctness, which is why
@@ -777,7 +728,7 @@ def test_every_declared_support_index_is_built(mongo_url: str):
             assert index.name in names, f"{index.name} missing from {index.collection}: {names}"
         return len(SUPPORT_INDEXES)
 
-    assert on_a_database(mongo_url, body) == len(SUPPORT_INDEXES)
+    assert on_the_shipped_schema(mongo_url, body) == len(SUPPORT_INDEXES)
 
 
 @pytest.mark.parametrize("order", ["asc", "desc"])
@@ -810,7 +761,7 @@ def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str
         )
         return winning_stages(explained)
 
-    stages = on_a_database(mongo_url, body)
+    stages = on_the_shipped_schema(mongo_url, body)
 
     assert "IXSCAN" in stages, f"{order} on {db_filter or 'no filter'} reached no index: {stages}"
     assert "SORT" not in stages, f"{order} on {db_filter or 'no filter'} blocks on an in-memory sort: {stages}"
@@ -843,7 +794,7 @@ def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str, 
         explained = await database["aktionen"].find(db_filter).sort(build_aktionen_sort(order=order)).limit(50).explain()
         return winning_stages(explained)
 
-    stages = on_a_database(mongo_url, body)
+    stages = on_the_shipped_schema(mongo_url, body)
 
     assert "IXSCAN" in stages, f"{order} on {db_filter or 'no filter'} reached no index: {stages}"
     assert "SORT" not in stages, f"{order} on {db_filter or 'no filter'} blocks on an in-memory sort: {stages}"
