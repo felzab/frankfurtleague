@@ -83,14 +83,16 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 35  | OPS-110 | One advisory check fills the report every other check shares                  | Ops, Docs         | S      | Open     | —          |
 | 36  | DOC-14  | A renamed file's comment blocks are never measured                            | Ops, Docs         | S      | Open     | —          |
 | 37  | DOC-2   | An enforcement claim is resolved in one direction only                        | Docs              | M      | Open     | —          |
-| 38  | OPS-10  | Naming the image build's culprits costs a process per file                    | Ops               | S      | Open     | —          |
-| 39  | OPS-109 | Twelve test modules close the runner's one-process mode                       | FE, Ops, Docs     | M      | Open     | —          |
-| 40  | OPS-2   | Nothing validates the contents of a restored `.env`                           | Ops               | —      | Standing | —          |
-| 41  | OPS-3   | Crawler policy split between robots.txt and Cloudflare                        | Ops               | —      | Standing | —          |
-| 42  | DOC-3   | A rule pattern reaches less than the rule it enforces                         | Docs              | —      | Standing | —          |
-| 43  | DOC-10  | A block already over a bound is excused by its opening line                   | Ops, Docs         | S      | Standing | —          |
-| 44  | OPS-81  | One commit imports a module the commit after it adds                          | FE, Ops           | —      | Standing | —          |
-| 45  | OPS-101 | The backend, db and frontend jobs have stepped up in wall clock               | FE, BE, Ops       | M      | Open     | —          |
+| 38  | OPS-112 | An allowlist row naming an absent file is passed over, not reported           | Ops, Docs         | M      | Open     | —          |
+| 39  | OPS-10  | Naming the image build's culprits costs a process per file                    | Ops               | S      | Open     | —          |
+| 40  | OPS-109 | Process-wide test hooks close the runner's one-process mode                   | FE, Ops, Docs     | M      | Open     | —          |
+| 41  | OPS-2   | Nothing validates the contents of a restored `.env`                           | Ops               | —      | Standing | —          |
+| 42  | OPS-3   | Crawler policy split between robots.txt and Cloudflare                        | Ops               | —      | Standing | —          |
+| 43  | DOC-3   | A rule pattern reaches less than the rule it enforces                         | Docs              | —      | Standing | —          |
+| 44  | DOC-10  | A block already over a bound is excused by its opening line                   | Ops, Docs         | S      | Standing | —          |
+| 45  | OPS-81  | One commit imports a module the commit after it adds                          | FE, Ops           | —      | Standing | —          |
+| 46  | OPS-101 | The backend, db and frontend jobs have stepped up in wall clock               | FE, BE, Ops       | M      | Open     | —          |
+| 47  | OPS-111 | A width share floored at one worker sits below both measured widths           | Ops, Docs         | S      | Open     | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -652,25 +654,17 @@ this repository — and that part is right and asserted at the call.
 
 **What is hand-written is which names the walk skips, and the five lists have already diverged.** Four
 name `__pycache__`, `tests`, `.ruff_cache`, `.pytest_cache` and `.mypy_cache`; the one in
-`scripts/tests/test_scope_decisions.py` names four of those five, omitting `.mypy_cache`. Nothing in
-this toolchain writes that directory — pyright is the type checker — so the difference costs nothing
-today. **It is the demonstration rather than the defect:** five copies of one list do not stay in
-step, and the next name added reaches four fixtures and not the fifth, which is a difference between
-what four suites test and what the fifth does with nothing to say so.
+`scripts/tests/test_scope_decisions.py` omits `.mypy_cache`. Nothing in this toolchain writes that
+directory — pyright is the type checker — so the difference costs nothing today, and the next name
+added reaches four fixtures and not the fifth.
 
 **The list is load-bearing because the directory is live while it is walked.** The scripts scope starts
 `selfcheck.sh`, `ruff`, `pyright` and the pytest suite together, and that suite distributes over
 `-n auto --dist loadfile`, so several copies walk `scripts/` at once while two other tools read it.
 `shutil.copytree` raises on a path that disappears between the directory listing and the copy, so the
-denylist is correct only while it enumerates every directory anything else writes under `scripts/` —
-and `scripts/tests/test_check_docs.py :: _load`'s own comment records that a cache being rewritten
-under the walk is what the list exists to prevent.
-
-**What it costs is a failing scope that names a path no corpus change explains.** A denylist answers
-the question "is this one of the names we thought of", where the question the fixture is asking is
-"is this file part of the gate". The two agree until something writes a name nobody listed, and the
-run that finds out reports a `shutil` error against a temporary file, in a scope whose findings are
-otherwise about the corpus.
+denylist is correct only while it enumerates every directory anything else writes under `scripts/`,
+and the run that meets a name nobody listed reports a `shutil` error against a temporary file, in a
+scope whose findings are otherwise about the corpus.
 
 **The repair asks git the question the list is approximating.** The predicate the five lists
 hand-approximate is "not ignored", and the gate already has it:
@@ -697,28 +691,24 @@ test.** Starlette's test client module imports `httpx2` under its own name, fall
 2026-09-02 from a `pytest --collect-only` over `fl_backend/`, against the starlette
 `fl_backend/uv.lock` resolves.
 
-**The fallback is what the dev group rests on, and the comment beside it names the failure.**
-`fl_backend/pyproject.toml`'s dev group declares `httpx`, and the comment there records that
-`fastapi.testclient.TestClient` imports it eagerly so the tests fail at collection without it. That
-sentence stays true when the fallback is removed; only the package it names changes.
+**The fallback is what the dev group rests on.** `fl_backend/pyproject.toml`'s dev group declares
+`httpx`, and the comment there records that `fastapi.testclient.TestClient` imports it eagerly so the
+tests fail at collection without it.
 
 **Four modules import that client** — `fl_backend/tests/api/test_actor_binding.py`,
 `fl_backend/tests/api/test_admin_guard.py`, `fl_backend/tests/api/test_bewerbungen_read.py` and
 `fl_backend/tests/api/test_error_responses.py` — so what a removal costs is four collection errors in
-the default tier, not a failing assertion anyone can read as a product defect. **The rest of the tier
-still collects**, which is what makes the failure look like four broken modules rather than one moved
-dependency.
+the default tier, not a failing assertion anyone can read as a product defect.
 
-**The clock is a scheduled bump nobody watches.** `fl_backend/pyproject.toml` declares
-`starlette>=1.3.1`, and `.github/dependabot.yml` puts the `uv` ecosystem on `/fl_backend` monthly with
-minor and patch grouped — so the version moves on its own, and the release that drops the fallback
-arrives as a bot pull request whose whole diff is a version bump.
+**The clock is a scheduled bump nobody watches.** `fl_backend/pyproject.toml` declares starlette by a
+floor rather than a pin, and `.github/dependabot.yml` puts the `uv` ecosystem on `/fl_backend` monthly
+with minor and patch grouped — so the version moves on its own, and the release that drops the
+fallback arrives as a bot pull request whose whole diff is a version bump.
 
 **The remedy is the one starlette's own message names**: the dev group takes `httpx2` in place of
 `httpx`. **Not verified:** whether `httpx2` is a drop-in for what those four modules ask of
 `TestClient`, and whether pyright needs it installed to keep starlette's own `TYPE_CHECKING` import of
-it resolving. Both are answered by making the swap and running the backend scope, which is why this is
-an afternoon.
+it resolving.
 
 ### 11 · OPS-106 — One uv version is pinned at two sites, a bot moves one of them on a schedule, and nothing compares the pair
 
@@ -730,24 +720,20 @@ nothing — and neither remedy is in the other's file.
 
 **`fl_backend/pyproject.toml :: required-version` pins uv exactly, and `fl_backend/Dockerfile`'s first
 stage pins the same version again in its `FROM ghcr.io/astral-sh/uv` line.** The comment at the key
-says the pair moves together and that nothing compares it, which is the whole of the guard: one
-sentence asking the next author to remember.
+says the pair moves together and that nothing compares it, which is the whole of the guard.
 
 **One of the two sites is on a schedule and the other is not.** `.github/dependabot.yml` puts the
 `docker` ecosystem on `/fl_backend` monthly, and a `FROM` line is exactly what that ecosystem
-rewrites — its own comment names that stage as a second image in the same file for that reason. The
-`uv` ecosystem beside it reads `fl_backend/uv.lock` and reaches no `[tool.uv]` key at all. **So the
-site that moves on its own is the one the other half is never told about**, and no scheduled run can
-move the pair together.
+rewrites. The `uv` ecosystem beside it reads `fl_backend/uv.lock` and reaches no `[tool.uv]` key at
+all, so no scheduled run can move the pair together.
 
 **What a mismatch does is refuse rather than resolve.** The builder stage copies the image's uv and
 runs `uv sync --frozen` against the `pyproject.toml` it has just copied, so a bumped image meets a
-`required-version` it does not satisfy and exits 2 at start-up with
-`Required uv version ==0.12.3 does not match the running version <installed>`. **The image build is
-where that lands**, on a bot pull request whose author has no reason to look in a manifest. The same
-refusal reaches a development machine from the other direction: `scripts/verify.sh`'s `--backend` scope runs
-`uv lock --check`, and a machine whose uv is not the pinned one is refused before the lockfile is
-read — observed on this branch on 2026-09-02 against uv 0.11.23.
+`required-version` it does not satisfy and exits 2 at start-up, naming the required version and the
+running one. **The image build is where that lands**, on a bot pull request whose author has no reason
+to look in a manifest. The same refusal reaches a development machine from the other direction:
+`scripts/verify.sh`'s `--backend` scope runs `uv lock --check`, and a machine whose uv is not the
+pinned one is refused before the lockfile is read — observed on a development machine on 2026-09-02.
 
 **Dropping one site is not the cheap way out.** Every `astral-sh/setup-uv` step in
 `.github/workflows/verify.yml` and `.github/workflows/pr-body.yml` passes
@@ -827,11 +813,8 @@ body that creates one is neither refused nor asked for `mutates_schema=True`.
 **One body creates a view today and is safe by its own choice rather than by the guard.**
 `fl_backend/tests/core/test_constraints_execution.py` proves that the startup apply fails on an
 unattached validator by creating `teams` as a view, and it runs through
-`:: on_a_database`, which passes `mutates_schema=True` and therefore rebuilds on every call. **The
-hole is latent**, and that is why this is a guard rather than a repair.
-
-**What it costs is the failure the guard's own message says it exists to prevent.** The same body
-written against `:: on_the_shipped_schema` or `:: on_an_unconstrained_database` — the two helpers
+`:: on_a_database`, which passes `mutates_schema=True` and therefore rebuilds on every call. The same
+body written against `:: on_the_shipped_schema` or `:: on_an_unconstrained_database` — the two helpers
 whose databases are built once and reused — leaves a view the clear never empties and the comparison
 never reports. Where the view takes the name of a collection the baseline holds, the next caller's
 `delete_many` is run against a view and fails, so **the test that fails is the one after the one that
@@ -1874,8 +1857,7 @@ exclusion written down rather than assumed.
 of the suffixless ops names, and reads each added line out of the scanned body — so for a source file
 it is the comments rather than the code, and for a Dockerfile or a git hook the same. **COR-4 governs
 all of that**, comments being documentation under INC-6, which is why the narrowing that suggests
-itself — Markdown under `docs/` alone — would drop real coverage rather than noise. **That is the
-first thing to establish before anyone acts here**, because the proposal reads as obvious and is not.
+itself — Markdown under `docs/` alone — would drop real coverage rather than noise.
 
 **The measured cost is that one check fills the report.** On one branch not about documentation,
 `counts` produced 15 of the run's 46 findings across 15 files (measured 2026-09-02, one branch rather
@@ -1887,7 +1869,7 @@ discards are the ones a reader would have acted on, and the run says only how ma
 **The report is read on a passing run, which is what puts the crowding in front of anyone.**
 `scripts/verify.sh :: run_checker` carries an `annotate` mode that prints a passing checker's capture,
 so the advisory tier reaches a developer on the runs that make up most of a day rather than only on a
-failing one. **A tier nobody reads can carry a check nobody can use; a tier that prints cannot.**
+failing one.
 
 **The decision, and it is a decision rather than a defect.** Either `counts` keeps every added prose
 line and earns its share of a report that has room for it — a larger cap, a per-check cap, or one
@@ -1958,7 +1940,59 @@ can decide carry one, and the direction the gate does not resolve is either mech
 down as deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check
 added for OUT-7 lands with the field that claims it.
 
-### 38 · OPS-10 — Naming the files that required the image build costs a process per file
+### 38 · OPS-112 — An allowlist row naming a file outside the population the check read is passed over, so an excuse stands with nothing to excuse
+
+**Status:** Open\
+**Surfaces:** Ops, Docs\
+**Effort:** M\
+**Path:** Independent. **OPS-105** rewrites the same fixture builders the constraint below runs
+through, and it moves that constraint rather than lifting it: a copy taken from git's answer carries
+`scripts/tests/` into the fixture, which changes what absence from disk reaches there and leaves what
+git lists exactly as it is. Neither remedy is in the other's file.
+
+**`scripts/docs_gate/platform.py :: PLATFORM_ALLOW` excuses a named site from the platform clauses,
+and it is held to the tree in one direction only.** Each row is keyed `<file> :: <anchor>` and
+carries the reason that branch is deliberate, so writing one is a diff a reviewer reads rather than
+an `if` nobody re-opens. `scripts/docs_gate/platform.py :: _resolve` reports a row whose anchor its
+file does not spell, and a row that shields no site — but a row whose FILE is absent from the
+population the check just read is passed over by `if rel not in present: continue`. A row naming a
+deleted or renamed file therefore sits inert for as long as the allowlist lives, and nothing says so.
+
+**What that costs is an excuse nobody can see is dead.** [`docs/ops/spec.md`](../ops/spec.md) §1.6
+states without qualification that a row the tree does not bear out is itself a finding, so the corpus
+reads as though the guard holds in both directions. And an inert row is worse than wasted: a file
+written again at that path — a hook restored, a rename walked back — arrives already excused, with no
+diff for anyone to read, which is the one thing the allowlist exists to produce.
+
+**The rule cannot be written at this layer, and the reason is standing rather than incidental.** The
+gate's own fixture suites import a copy of `scripts/` built by
+`scripts/tests/conftest.py :: copy_scripts`, whose `:: IGNORED` list strips `tests` out of the copy,
+and each fixture plants a small corpus of its own instead of this repository's tree. Those fixtures'
+drivers merge the real `PLATFORM_ALLOW` into every run, so its rows for
+`scripts/tests/test_gate_pool.py` and `.githooks/pre-commit` name files the fixture trees do not
+hold. Any criterion that turns such a row into a finding therefore fires inside the fixtures rather
+than in this repository — absence from disk, absence from the scanned population and absence from
+git's index alike, and the last two reach every row, because each fixture's copied gate sits at a
+path that fixture's own `.gitignore` names.
+
+**The repair is one layer up, and it gives up an assertion that is deliberate today.** Running the
+registry with an empty platform allowlist inside `scripts/tests/test_check_docs.py` and
+`scripts/tests/test_check_docs_cases.py` keeps a fixture's missing files from reaching a row at all.
+`scripts/tests/test_platform_checks.py` is the harder half: its own driver merges the real allowlist
+too, `:: test_an_allow_row_is_held_to_the_tree_it_excuses` asserts that a row naming an absent file is
+green, and the comment at `:: GIT_HOOK` records that its corpus holds `.githooks/commit-msg` rather
+than a `pre-commit` precisely so the real row for the latter meets no file of that path. What that
+choice exercises has to be replaced rather than dropped.
+
+**Done when** a row naming a file outside the population is reported the way a row with an
+unresolvable anchor is; `scripts/tests/test_check_docs.py`,
+`scripts/tests/test_check_docs_cases.py` and `scripts/tests/test_platform_checks.py` each run the
+platform check over an allowlist their own fixture can answer for;
+`scripts/tests/test_platform_checks.py :: test_an_allow_row_is_held_to_the_tree_it_excuses` asserts
+the new verdict; and a drive plants a row naming a file its corpus does not hold and reads the
+finding back.
+
+### 39 · OPS-10 — Naming the files that required the image build costs a process per file
 
 **Status:** Open\
 **Surfaces:** Ops\
@@ -1991,7 +2025,7 @@ about.
 **Not measured:** what the spawn actually costs, and how much of a failing gate run is attributable
 to it. The mechanism above is read from the code; the magnitude is not.
 
-### 39 · OPS-109 — Twelve frontend test modules reshape their whole process, so the runner's one-process mode is closed and nothing says so
+### 40 · OPS-109 — Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so
 
 **Status:** Open\
 **Surfaces:** FE, Ops, Docs\
@@ -2001,30 +2035,24 @@ component can be LOADED by this runner, where this one is about how many process
 the modules it already loads. Landing either leaves the other where it is.
 
 **`fl_frontend/package.json`'s `test` script runs Node's own test runner, which gives every test file
-its own process**, and the suite counted 116 modules on 2026-09-02. The installed Node 26.3.0 offers
+its own process**, and the suite counted 116 modules on 2026-09-02. The installed Node offers
 `--test-isolation=none`, which runs the whole suite in one process instead — the one lever on this
 scope that removes work rather than moving it.
 
-**The modules that stand a double in for another module make that mode unsafe, twelve of them on that
-date, and they do it deliberately.** Each calls `registerHooks` from
-`node:module` to answer a `resolve` or a `load` for the whole process, standing a double in for a
-module the code under test imports — `fl_frontend/src/core/mail.test.ts` is the clearest, replacing
-`fl_frontend/src/core/config.ts` and `fl_frontend/src/core/logging.ts` because the real config
-validates the whole environment at import. That module also replaces `globalThis.fetch` outright.
-**A hook registered for the process is registered for every file in it**, so under one process those
-doubles reach modules that never asked
-for them, and the replaced `fetch` is every other test's `fetch` too.
-
-**The per-test-file globals are NOT the obstacle, which is worth saying because they look like it.**
-The recorder arrays each carry a name of their own — `__flAdminSaisonReads`,
-`__flBewerbungReadCalls`, `__flReferenceReadCalls` and their siblings — so no two collide. The hooks
-and the one replaced global are the whole of it.
+**The modules that stand a double in for another module make that mode unsafe, and they do it
+deliberately.** Each calls `registerHooks` from `node:module` to answer a `resolve` or a `load` for the
+whole process, standing a double in for a module the code under test imports —
+`fl_frontend/src/core/mail.test.ts` is the clearest, replacing `fl_frontend/src/core/config.ts` and
+`fl_frontend/src/core/logging.ts` because the real config validates the whole environment at import.
+That module also replaces `globalThis.fetch` outright. **A hook registered for the process is
+registered for every file in it**, so under one process those doubles reach modules that never asked
+for them, and the replaced `fetch` is every other test's `fetch` too. The per-test-file recorder
+globals are not the obstacle: each carries a name of its own, so no two collide.
 
 **What it costs is unmeasured, and measuring it is half the work.** Each module pays a process start,
 the alias hook's registration and its own TypeScript load; all but one of those would go, against the
-job `.github/gate-wall-clock.tsv` gives the largest reference of any in the workflow.
-**No figure here is worth quoting until one is taken**, and the
-measurement is cheap: the suite already runs, and the flag is one word.
+job `.github/gate-wall-clock.tsv` gives the largest reference of any in the workflow. The measurement
+is cheap: the suite already runs, and the flag is one word.
 
 **The decision is which of two things this repository wants.** Either those modules are reshaped so
 that a double is installed and removed around the module that needs it — which is a different testing style,
@@ -2033,7 +2061,7 @@ reading `--test-isolation` in Node's help does not spend an afternoon discoverin
 second is a real answer**, and it is the cheaper one; what is wrong today is that neither has been
 chosen and nothing records the constraint.
 
-### 40 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 41 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -2082,7 +2110,7 @@ site cannot tolerate a restore that produces an unusable value on a host with no
 fall back to. Ops audit pass O1 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers
 script failure modes and owns this.
 
-### 41 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 42 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -2127,7 +2155,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately.
 
-### 42 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 43 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -2160,7 +2188,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a rule family added to the standard under a prefix the patterns do not
 carry, or the first page that needs a metadata block indented.
 
-### 43 · DOC-10 — A block already over a bound is excused by its opening line alone
+### 44 · DOC-10 — A block already over a bound is excused by its opening line alone
 
 **Status:** Standing\
 **Surfaces:** Ops, Docs\
@@ -2188,7 +2216,7 @@ rests on.
 **Trigger to revisit:** a branch charged for a block whose length it did not create, or any change to
 how `check_comment_length` decides whose block a block is.
 
-### 44 · OPS-81 — One commit imports a frontend module the commit after it adds
+### 45 · OPS-81 — One commit imports a frontend module the commit after it adds
 
 **Status:** Standing\
 **Surfaces:** FE, Ops\
@@ -2204,7 +2232,7 @@ the module.** The module is in the tree at
 it. TypeScript answers that specifier with `TS2307: Cannot find module
 '../../core/refusalRegister.ts'`, reproduced 2026-08-26 under the resolution options
 `fl_frontend/tsconfig.json` sets and the compiler `fl_frontend/package.json` declares. Both frontend
-commands reach it: `typecheck` is `tsc --noEmit`, and `test` runs `node --test`, which discovers
+commands reach it: `typecheck` is `pnpm typegen && tsc --noEmit`, and `test` runs `node --test`, which discovers
 `*.test.ts`. **Not verified by checkout** — the tree at that commit was read rather than built, so
 that both commands fail there is taken from the absent module and the diagnostic, neither having
 been run at it.
@@ -2248,7 +2276,7 @@ it has stopped.
 **Trigger to revisit:** a second commit reaching `main` in this shape. One is a skip; a pattern is
 the argument for a per-commit resolution check, and the sweep above is what it would be built from.
 
-### 45 · OPS-101 — The backend, database and frontend jobs have taken a step up in wall clock that no report named
+### 46 · OPS-101 — The backend, database and frontend jobs have taken a step up in wall clock that no report named
 
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
@@ -2290,3 +2318,66 @@ question is whether one cause or three are involved — the backend pair points 
 collection time, `frontend` at the build. The window that identifies the cause is on record now; the
 runs API prunes, and the candidate commits stop being few. **Closing it re-measures and rewrites
 `.github/gate-wall-clock.tsv`**, whose figures are the ones this entry says are too high.
+
+### 47 · OPS-111 — A consumer's share of the gate's concurrency is floored at one worker, so a machine smaller than the gate's demand is handed widths already measured to be slower
+
+**Status:** Open\
+**Surfaces:** Ops, Docs\
+**Effort:** S\
+**Path:** Independent — it blocks nothing and nothing blocks it. **OPS-60**'s first lever owes the
+database tier a measurement it has never had, and **OPS-70** fixes what such a figure has to be to
+count at all; the readings this entry needs are that same measurement, which makes them cheaper taken
+together and is an ordering note rather than a dependency.
+
+**`scripts/verify.sh :: gate_width` divides one concurrency budget between the gate's parallel
+consumers, and a consumer's share cannot fall below one worker.** Each width-taking tool declares the
+width its own work was measured at — `scripts/verify.sh :: GATE_WIDTH_SCRIPTS_PYTEST` at 8 for the
+scripts suite and `scripts/verify.sh :: GATE_WIDTH_DB_PYTEST` at 6 for the database tier — the parent
+sums the ones this run enables into a demand, and the budget it is divided against is the machine's
+core count. The share is `want * budget / demand` in integer arithmetic, floored at 1, and
+short-circuited to the declared width whenever the budget covers the demand or either quantity is
+absent.
+
+**On the development machine the short-circuit fires on every call.** Demand is 14 — those two
+consumers and nothing else — against 16 cores, so each consumer is handed exactly what it asked for,
+and no module under `scripts/tests/` names the function at all (searched 2026-09-02). Below 14 cores
+the division starts answering, and its first answers are already under both declared widths: at 8
+cores a full-form run gives the scripts suite `8 * 8 / 14` = 4 and the database tier `6 * 8 / 14` = 3;
+at 4 cores, 2 and 1. **Those are arithmetic rather than readings** — no run has been taken on such a
+machine.
+
+**The readings, measured 2026-09-02 on a shared machine.** Each set is an ordering, never a number to
+quote: the scripts pair were taken interleaved, and the database row is a single reading per width
+that does not meet OPS-70's rule for a database-tier figure.
+
+| Consumer      | 4 workers   | 6 workers | 8 workers   | 16 workers |
+| ------------- | ----------- | --------- | ----------- | ---------- |
+| Database tier | 33.3s       | 32.6s     | 37.0s       | 64.2s      |
+| Scripts suite | 40.0s 39.0s | —         | 27.6s 27.2s | —          |
+
+**What the two orderings agree on is the direction the share moves in.** The database tier is flat
+between 4 and 6 and worse either side of that pair; the scripts suite is worse at 4 than at 8 by a
+third of its own duration. So a machine at 8 cores is handed 4 and 3 — one width on the wrong side of
+the readings and the other below every width anybody has timed.
+
+**The defect is the floor rather than the division.** A floor of 1 encodes "any width is better than
+none", which holds for a budget and fails for a test runner: below its measured minimum a run gets
+slower rather than merely narrower, because a worker pays its own process start and its own
+interpreter before it collects anything, and in the scripts suite its own fixture repository —
+`scripts/verify.sh :: do_pytest` distributes over `--dist loadfile` to keep that build to one per
+module for exactly that reason. **The number belonging at the bottom of a share is that consumer's own
+measured minimum**, and what a consumer does when the budget cannot reach even that is the decision
+this entry is for: take the minimum anyway and let the two sections overlap into it, or leave the pool
+and run in sequence at a width that works.
+
+**Nothing in CI reaches any of this.** `.github/workflows/verify.yml` runs one scope per job, so the
+two consumers never share a pool there and the demand a job sums is its own scope's alone — against
+which a proportional share is the whole budget, which is what `-n auto` would have resolved to anyway.
+The population is a local full-form run on a development machine smaller than the one this was written
+on.
+
+**Done when** each width-taking tool declares a floor beside its optimum, `gate_width` uses that floor
+in place of 1, the behaviour below it is decided rather than defaulted, and the per-width readings the
+choice rests on have been re-taken on an idle machine under OPS-70's rule — a pair of runs within a
+fifth of a second of each other. **A fixture over `gate_width` at several budgets is the only thing
+that can show the change works**, the machine it is written on never reaching the division.

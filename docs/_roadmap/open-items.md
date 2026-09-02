@@ -76,13 +76,14 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 22  | FB-18 | Only the match editor marks a field somebody waits on             | FE, BE          | L      | Open     | —          |
 | 23  | BE-47 | A sort option nothing sends scans the archive it sorts            | BE              | S      | Standing | —          |
 | 24  | BE-39 | A refusal composes a repair the product refuses to perform        | FE, BE, Docs    | S      | Open     | —          |
-| 25  | BE-37 | Wiring the write path refuses stands unreported in storage        | FE, BE, Docs    | M      | Open     | —          |
-| 26  | FE-34 | Three entry refusals are rendered twice and compared by nothing   | FE, Docs        | M      | Open     | —          |
-| 27  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach | FE              | S      | Open     | —          |
-| 28  | BE-42 | Acceptance publishes a school's street address as the club's      | Docs            | S      | Decided  | —          |
-| 29  | BE-7  | `typing` imports instead of `collections.abc`                     | BE              | —      | Decided  | —          |
-| 30  | BE-14 | The certainty walk gives up in a group of six or more             | BE              | —      | Standing | —          |
-| 31  | BE-45 | A tie-break that cannot fire blocks the index it was written for  | BE              | S      | Standing | —          |
+| 25  | BE-50 | A list-wrapped window passes the open-window query, then 500s     | BE              | S      | Open     | —          |
+| 26  | BE-37 | Wiring the write path refuses stands unreported in storage        | FE, BE, Docs    | M      | Open     | —          |
+| 27  | FE-34 | Three entry refusals are rendered twice and compared by nothing   | FE, Docs        | M      | Open     | —          |
+| 28  | FE-35 | A fourth rendering of one refusal sits outside the helper's reach | FE              | S      | Open     | —          |
+| 29  | BE-42 | Acceptance publishes a school's street address as the club's      | Docs            | S      | Decided  | —          |
+| 30  | BE-7  | `typing` imports instead of `collections.abc`                     | BE              | —      | Decided  | —          |
+| 31  | BE-14 | The certainty walk gives up in a group of six or more             | BE              | —      | Standing | —          |
+| 32  | BE-45 | A tie-break that cannot fire blocks the index it was written for  | BE              | S      | Standing | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -1436,7 +1437,74 @@ backend leaves an admin reading the old instruction.
 **What ranks it here.** Above **BE-37**: that costs an operator who has already reached for the
 database, where this misleads an admin on a path the product offers them.
 
-### 25 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
+### 25 · BE-50 — The open-window read filters into arrays and subscripts whatever comes back
+
+**Status:** Open\
+**Surfaces:** BE\
+**Effort:** S\
+**Path:** Independent — nothing on this page blocks it and it blocks nothing. The guard it needs
+already stands on the sibling route, so the work is one call and one test row. **BE-37** files
+against the same class of document and is argued from this entry's side below.
+
+**`fl_backend/app/api/bewerbungen/public_router.py :: get_offenes_fenster` selects the season with a
+dotted query — `bewerbung.offen`, `bewerbung.von`, `bewerbung.bis` — and hands
+`open_seasons[0]["bewerbung"]` straight to `:: _fenster`, which subscripts all three by name.** A
+dotted path in a MongoDB filter matches into an array of embedded documents, so a season storing
+`bewerbung: [{offen, von, bis}]` — the window wrapped in a list — satisfies every term of the query
+and reaches `_fenster` as a list. `bewerbung["offen"]` on a list raises `TypeError`, and
+`GET /bewerbungen/fenster` answers **500 on the public tier**. It is the one malformed shape the
+query lets through: a string or a number has no `bewerbung.offen` to match, and an object short of a
+field fails the term that names it, so neither reaches the subscript on this route.
+
+**The sibling route is guarded and this one is not.** `:: _pull_window`, behind
+`GET /bewerbungen/fenster/{saison_id}` and the colour read, passes the stored value through
+`fl_backend/app/api/bewerbungen/services.py :: recorded_window` and answers 404 where it is not a
+mapping carrying all three fields; the comment at that call says why — `_fenster` subscripts, so a
+shape check alone would 500. `get_offenes_fenster` takes the shape from a query that already asserts
+the three fields exist, and array matching is exactly what breaks that inference.
+`:: window_is_running` inside `_fenster` carries the same guard, and `_fenster` subscripts before it
+gets there.
+
+**Why nothing produces it today.** `fl_backend/app/core/constraints.py :: _SAISON_BEWERBUNG` types
+the field as a nullable object with the three keys required, and the collection runs under
+`validationLevel: strict` with `validationAction: error`, so no write through the driver stores a
+list there. The field and its validator landed in one commit
+([`df661b94`](https://github.com/felzab/frankfurtleague/commit/df661b94), 2026-08-28), so no season
+carried the key before the rule existed. What remains is a write past the validator — a
+`bypassDocumentValidation` write, a dump restored from elsewhere, the validator dropped and
+re-applied — the class of document **BE-37** files against, and the one
+`fl_backend/tests/api/test_bewerbung_public_read.py :: MALFORMED_WINDOWS` already names for the
+per-season reads, its list-wrapped case included.
+
+**What it costs when one does arrive.** The read is made by
+`fl_frontend/src/features/bewerbungen/components/ui/BewerbungOffenBand.tsx` on the public start page
+and the contact page, and
+`fl_frontend/src/features/bewerbungen/queries.ts :: getOffenesBewerbungFenster` turns a 404 into "no
+window" and rethrows everything else — so the 500 is thrown inside a server component rather than
+rendered as the band's absence.
+
+**Done is the guard on this path and the case that pins it.** `get_offenes_fenster` passes
+`open_seasons[0]["bewerbung"]` through `recorded_window` and answers the 404 an empty result already
+answers: a season whose stored window cannot be read is one taking no applications, which is what
+the route's docstring promises for "none". And
+`fl_backend/tests/api/test_bewerbung_public_read.py :: TestAStoredWindowThatIsNotAnObject` drives
+the list-wrapped case against `GET /bewerbungen/fenster` beside the two per-season paths in
+`:: WINDOW_READS`. On this route that case is the only non-vacuous member of `MALFORMED_WINDOWS`,
+the other two never passing the query, and the test's own comment already claims the class it
+belongs to.
+
+**What ranks it here.** Tests 1 to 3 separate nothing: no leverage, no clock, nothing redone later.
+On test 4 it sits below **BE-39**, whose path is one the product offers an admin today, and above
+**BE-37**, which files against the same class of document at M where this costs S, and whose
+symptom is a triage page that shows nothing where this one is a 500 on a public endpoint. A public
+500 reachable only through a document nothing writes is the whole of the rank.
+
+**Established by reading, not driven** (COR-9). The array matching, the `TypeError` and the band's
+rethrow were read off the query, `_fenster`, the filter semantics and the two frontend files; no
+list-wrapped season was seeded and no request was made against `/fenster`, and what the start page
+renders on that throw was not exercised. The commit dating the validator was read from `git log -S`.
+
+### 26 · BE-37 — Wiring the write path refuses stands unreported once it is in storage
 
 **Status:** Open\
 **Surfaces:** FE, BE, Docs\
@@ -1484,7 +1552,7 @@ enumeration moves in the same commit.
 signal for most of what the write path calls unholdable — and its own cost is paid only after
 somebody edits the database. The pair it makes with **FE-34** is argued from that entry's side.
 
-### 26 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
+### 27 · FE-34 — Three entry refusals are rendered twice, and nothing holds either half to the other
 
 **Status:** Open\
 **Surfaces:** FE, Docs\
@@ -1552,7 +1620,7 @@ is what a later edit does to one of them. What holds it above the entries under 
 that: it settles a copy question on two admin surfaces and closes a coupling the helper beside it was
 written to close.
 
-### 27 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
+### 28 · FE-35 — A fourth rendering of the retired-club refusal sits outside the helper that grades the other three
 
 **Status:** Open\
 **Surfaces:** FE\
@@ -1620,7 +1688,7 @@ edit's freedom to part them rather than anything a reader meets now — which is
 the entries above it. What keeps it this high is that the gap is answered only by noticing that a
 helper's reach stops short of a module, which nothing on either side says.
 
-### 28 · BE-42 — Acceptance copies a school's postal address into the club, where an anonymous read serves it
+### 29 · BE-42 — Acceptance copies a school's postal address into the club, where an anonymous read serves it
 
 **Status:** Decided\
 **Surfaces:** Docs\
@@ -1657,7 +1725,7 @@ landing side is ruled. This entry stays `Decided` for the sentence the registry 
 write rule saying the acceptance may copy the field. That is the whole of its `Docs` surface, and
 nothing in it reopens the decision.
 
-### 29 · BE-7 — `typing` imports instead of `collections.abc`
+### 30 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Decided\
 **Surfaces:** BE\
@@ -1670,7 +1738,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 to enable ruff's `UP` rules and migrate in one pass, which is why `fl_backend/pyproject.toml`'s ruff
 selection leaves that family out.
 
-### 30 · BE-14 — The certainty walk gives up in a group of six or more
+### 31 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -1729,7 +1797,7 @@ deduplicated, but inside a transaction, whose lifetime is bounded.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 31 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
+### 32 · BE-45 — A tie-break that provably cannot fire is what stops the index being walked
 
 **Status:** Standing\
 **Surfaces:** BE\
