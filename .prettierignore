@@ -8,6 +8,7 @@ certs
 fl_backend/.venv
 __pycache__
 .pytest_cache
+.ruff_cache
 
 # Installed and built trees: walking node_modules alone is the difference between seconds and
 # minutes, and nothing under any of these is written by hand.
