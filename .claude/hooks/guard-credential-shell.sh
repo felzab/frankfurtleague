@@ -25,10 +25,9 @@ deny_ignored() { # $1 the path git reported
 # A hook running at the harness timeout is killed, and a killed hook prints nothing, which reads as
 # PERMISSION. The decision runs in a child on a smaller budget, and anything but its answer refuses.
 if [ "${1:-}" != "--decide" ] && command -v timeout >/dev/null 2>&1; then
-  # Roughly twice the decision's own cost: the child reached 6.3s at full core occupancy on
-  # 2026-09-02 (n=60, median 1.9s), and a budget near that denies legitimate commands. It must stay
-  # under this hook's 30s in `.claude/settings.json`, which the parent's own startup also draws on:
-  # the harness killing the hook prints nothing, and printing nothing reads as PERMISSION.
+  # Twice the decision's measured worst case, 6.3s at full core occupancy on 2026-09-02. Stays
+  # under this hook's 30s in `.claude/settings.json`: the harness killing the hook prints nothing,
+  # and printing nothing reads as PERMISSION.
 
   # stdin is untouched, so the child reads the payload this invocation has not.
   answer="$(timeout -s KILL 12 bash "$0" --decide)"
