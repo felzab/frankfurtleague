@@ -21,9 +21,6 @@ from .conftest import config_for, unwritten
 
 BASE_AUTH = {"Authorization": "Bearer test-key-base"}
 
-# The code a request carrying no bearer token at all answers (`app/core/security.py :: get_token`).
-MISSING_BEARER_TOKEN = "REQ-AUTH-001"
-
 CONTAINER_SELECTION_MS = 30_000
 
 # The database `build_test_config` names -- the one an app built from that config resolves its
@@ -73,10 +70,6 @@ ADDRESS: Mapping[str, Any] = {
     "stadtteil": "Ostend",
     "stadt": "Frankfurt am Main",
 }
-
-# What `READ-BEWERBUNG-001` keeps off the club list, spelled as a DOCUMENT spells them: the
-# assertions below search decoded bodies by key, where a model's field name would not match.
-WITHHELD_KEYS = frozenset({"shorthand", "address", "website_url", "full_name", "schulform", "description", "inactive_since", "statistik"})
 
 # The colours `OPEN_SAISON` has assigned, in the palette's order rather than the junction's, and the
 # one another season holds -- which the answer for `OPEN_SAISON` may not carry.
@@ -145,11 +138,11 @@ def _uncached_saisons() -> None:
     invalidate_saison_cache()
 
 
-# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
-# from being left as a claim.
-@pytest.fixture(scope="module")
-def seeded_url(mongo_url: str) -> Iterator[str]:
-    """Six seasons spanning every way a window can stand, four clubs, and the colours one season has assigned, in `CORPUS_DATABASE`."""
+def seed_the_public_corpus(mongo_url: str) -> Iterator[str]:
+    """Six seasons spanning every way a window can stand, four clubs, and the colours one season has assigned, in `CORPUS_DATABASE`.
+
+    A generator, not the fixture: `test_bewerbung_public_picker.py` seeds this corpus too.
+    """
 
     client = MongoClient(mongo_url)
     try:
@@ -199,6 +192,13 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
             yield mongo_url
     finally:
         client.close()
+
+
+# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# from being left as a claim.
+@pytest.fixture(scope="module")
+def seeded_url(mongo_url: str) -> Iterator[str]:
+    yield from seed_the_public_corpus(mongo_url)
 
 
 def seeded_with(mongo_url: str, saisons: list[dict[str, Any]]) -> str:
@@ -306,70 +306,12 @@ class TestTheWindowReads:
         assert set(body) == {"acknowledged", "saison_id", "offen", "von", "bis", "laeuft"}
 
 
-class TestTheClubList:
-    """`READ-BEWERBUNG-001`: an anonymous visitor picks from this, so every field is serialised into a public page."""
-
-    def test_only_a_club_id_and_a_name_are_served(self, seeded_url: str):
-        response = answered(seeded_url, f"{PREFIX}/schulen")
-
-        assert response.status_code == 200
-        # Non-vacuous: every live club IS in the body, so what is asserted below is what they carry.
-        assert len(response.json()["schulen"]) == len(CLUBS)
-        assert all(set(row) == {"id", "name"} for row in response.json()["schulen"])
-
-    @pytest.mark.parametrize("key", sorted(WITHHELD_KEYS))
-    def test_no_withheld_key_reaches_the_body(self, seeded_url: str, key: str):
-        assert key not in answered(seeded_url, f"{PREFIX}/schulen").json()["schulen"][0]
-
-    def test_no_withheld_value_reaches_the_body_under_any_key(self, seeded_url: str):
-        """Searched as VALUES over the undecoded body: a key RENAMED on the way out satisfies the check above and publishes both."""
-
-        rendered = answered(seeded_url, f"{PREFIX}/schulen").text
-
-        for withheld in ("Hanauer", "60314", "zetteltal.example.de", "gymnasium_g9", "lange Tradition"):
-            assert withheld not in rendered
-
-    def test_a_retired_club_is_not_offered(self, seeded_url: str):
-        """The picker offers what a school may apply AS, and `find_picked_club_refusal` refuses the same set at the write."""
-
-        assert "Verlassen" not in answered(seeded_url, f"{PREFIX}/schulen").text
-
-    def test_the_list_is_sorted_by_name(self, seeded_url: str):
-        """Seeded out of order, so this proves the sort rather than the insertion order."""
-
-        names = [row["name"] for row in answered(seeded_url, f"{PREFIX}/schulen").json()["schulen"]]
-
-        assert names == sorted(names)
-
-
-class TestTheKuerzelCheck:
-    """ONE neutral answer: it names no club, and does not tell an active one from a retired one."""
-
-    @pytest.mark.parametrize(
-        ("shorthand", "vergeben"),
-        [
-            pytest.param("ZE", True, id="a live club's"),
-            pytest.param("VE", True, id="a RETIRED club's, which `uniq_shorthand` still holds"),
-            pytest.param("QQ", False, id="one nobody holds"),
-        ],
-    )
-    def test_a_taken_kuerzel_answers_taken(self, seeded_url: str, shorthand: str, vergeben: bool):
-        response = answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}")
-
-        assert response.status_code == 200
-        assert response.json()["vergeben"] is vergeben
-
-    def test_the_answer_names_no_club(self, seeded_url: str):
-        """A shape distinguishing a retired holder from a live one would publish which schools have left."""
-
-        body = answered(seeded_url, f"{PREFIX}/kuerzel/VE").json()
-
-        assert set(body) == {"acknowledged", "shorthand", "vergeben"}
-        assert "Verlassen" not in answered(seeded_url, f"{PREFIX}/kuerzel/VE").text
-
-
 class TestTheAssignedColoursRead:
-    """What the Wunschfarbe picker excludes. The ASSIGNMENTS on `saison_teams`, never another applicant's wish."""
+    """What the Wunschfarbe picker excludes. The ASSIGNMENTS on `saison_teams`, never another applicant's wish.
+
+    Beside the window reads rather than the picker: `docs/backend/spec.md :: I47` puts it inside
+    their carve-out.
+    """
 
     def test_one_season_answers_the_colours_it_has_assigned(self, seeded_url: str):
         response = answered(seeded_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}")
@@ -438,46 +380,6 @@ class TestTheAssignedColoursRead:
         url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=None, status=status)])
 
         assert answered(url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=WINDOW_DATABASE).status_code == 404
-
-
-class TestTheTierTheseReadsAreServedAt:
-    """Base-tier at a prefix whose other two routers are admin, which is exactly the mix `test_admin_guard.py` exists to catch."""
-
-    @pytest.mark.parametrize(
-        "path",
-        [
-            f"{PREFIX}/fenster",
-            f"{PREFIX}/fenster/{OPEN_SAISON}",
-            f"{PREFIX}/schulen",
-            f"{PREFIX}/kuerzel/ZE",
-            f"{PREFIX}/trikotfarben/{OPEN_SAISON}",
-        ],
-    )
-    def test_the_base_key_reaches_every_one(self, seeded_url: str, path: str):
-        assert answered(seeded_url, path).status_code == 200
-
-    @pytest.mark.parametrize(
-        "path",
-        [
-            f"{PREFIX}/fenster",
-            f"{PREFIX}/fenster/{OPEN_SAISON}",
-            f"{PREFIX}/schulen",
-            f"{PREFIX}/kuerzel/ZE",
-            f"{PREFIX}/trikotfarben/{OPEN_SAISON}",
-        ],
-    )
-    def test_no_key_reaches_none_of_them(self, seeded_url: str, path: str):
-        """Public here means no SESSION, never no key: the edge reaches this application through the frontend, which holds one."""
-
-        response = answered(seeded_url, path, headers={})
-
-        assert response.status_code == 401
-        assert response.json()["error_code"] == MISSING_BEARER_TOKEN
-
-    def test_the_admin_list_at_this_prefix_still_refuses_the_base_key(self, seeded_url: str):
-        """The control: a base-tier router joining an admin prefix must not have widened the two routers already there."""
-
-        assert answered(seeded_url, PREFIX).status_code == 401
 
 
 # Each window TOUCHES today on one end or both, so the query's `$lte` and `$gte` are what admit it.
