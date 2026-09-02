@@ -1,14 +1,11 @@
 /**
- * The wording every contact person agrees to, and the version stamped on a record made under it.
- *
- * **The two live in one object because the version NAMES the text.** A stored record cites the
- * version alone, so a rewording without a bump would leave every earlier record claiming agreement to
- * a text nobody was shown. Reword and bump in one edit.
- *
- * In `core` rather than in either feature: the public application form gathers this consent and the
- * admin editor transcribes the same one, so a copy per surface is two texts that can drift.
+ * The wording every contact person agrees to, and the version stamped on a record made under it. In
+ * `core` because the public form gathers this consent and the admin editor transcribes it: a copy per
+ * surface is two texts that can drift.
  */
 export const LIGA_EINWILLIGUNG = {
+  // NAMES the text: a stored record cites the version alone, so a rewording without a bump leaves
+  // every earlier record claiming agreement to a text nobody was shown. Reword and bump in one edit.
   textVersion: "2026-08",
   text:
     "Ich bin damit einverstanden, dass die Frankfurt-League meinen Namen, meine E-Mail-Adresse, meine " +

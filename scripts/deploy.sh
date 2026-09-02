@@ -36,24 +36,26 @@ for arg in "$@"; do
     --status)  STATUS_ONLY=1 ;;
     --verbose) VERBOSE=1 ;;
     --help|-h) usage ;;
-    --*)       die "Unknown option: ${arg}. Try --help." ;;
+    # 2 throughout this block, never `die`'s 1: an argument this script cannot read is "the input
+    # could not be judged", and 1 is spoken for by findings. Every prerequisite below answers alike.
+    --*)       refuse "Unknown option: ${arg}. Try --help." ;;
     *)
       # A second tag would silently win over the first, and which one deploys becomes a matter of
       # argument order. Stop instead.
-      [[ -z "$PIN" ]] || die "Two tags given: '${PIN}' and '${arg}'. Deploy pins exactly one build."
+      [[ -z "$PIN" ]] || refuse "Two tags given: '${PIN}' and '${arg}'. Deploy pins exactly one build."
       PIN="$arg" ;;
   esac
 done
 
 if (( STATUS_ONLY )) && [[ -n "$PIN" ]]; then
-  die "--status reports what is running and changes nothing; it does not take a tag.
+  refuse "--status reports what is running and changes nothing; it does not take a tag.
 To deploy ${PIN}, drop --status."
 fi
 
 # Validated with the other argument handling: without it the registry answers "manifest unknown"
 # after a platform and Docker check, instead of a sentence naming the problem.
 if [[ -n "$PIN" && ! "$PIN" =~ $PIN_RE ]]; then
-  die "'${PIN}' does not look like a published tag.
+  refuse "'${PIN}' does not look like a published tag.
 Expected sha-<commit>, for example sha-1a2b3c4.
 See what is available:  ./scripts/deploy.sh --status"
 fi
@@ -240,7 +242,11 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
       continue
     fi
     if [[ -z "$cid" ]]; then
-      warn "${svc}: not running"
+      # A finding, not an advisory: a mismatched pair below is `fail` and a 404 edge is `fail`, and
+      # nothing running is worse than either. The edge can answer 200 from a worker that outlived
+      # this, so the probe below is no second opinion on it.
+      fail "${svc}: not running, so nothing on this host is serving it.
+Bring the published pair back up:  ./scripts/deploy.sh"
       continue
     fi
     # The container can be removed between `ps` and `inspect`, and an unguarded read takes the error
@@ -302,12 +308,24 @@ not what a visitor is being served."
   step "Published builds available to roll back to"
   # Two calls: `docker image ls` accepts at most one repository argument. Matched on the tag, not a
   # `-sha-` substring — the tag carries no service prefix, so that would report "none" forever.
-  local_tags="$( { docker image ls "$REPO_FRONTEND" --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; \
-                   docker image ls "$REPO_BACKEND"  --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; } | sort)"
+
+  # Read on its own, not in one brace group whose status is its LAST command's: `docs/ops/spec.md`
+  # §1.5 prunes the registry from this list under "never delete what is live", and a short list with
+  # no marker makes an operator delete a live build.
+  LS_RC=0
+  # `2>&1` so a failure's complaint reaches `detail` below instead of leaking raw.
+  listed_fe="$(docker image ls "$REPO_FRONTEND" --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}' 2>&1)" || LS_RC=$?
+  listed_be="$(docker image ls "$REPO_BACKEND"  --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}' 2>&1)" || LS_RC=$?
+  local_tags="$(printf '%s\n%s\n' "$listed_fe" "$listed_be" | sort)"
   # Never `grep -q` in a pipeline: it closes the pipe on its first match, so under `pipefail` the
   # writer's SIGPIPE fails the pipeline exactly when there WAS a match.
   pinned="$(printf '%s\n' "$local_tags" | grep -E ':sha-' || true)"
-  if [[ -n "$pinned" ]]; then
+  if (( LS_RC )); then
+    warn "this host's images could not be listed (exit ${LS_RC}), so whatever stands below is not
+the whole rollback list. Ask directly:  docker image ls '${REPO_FRONTEND}'"
+    printf '%s\n%s\n' "$listed_fe" "$listed_be" | detail
+    UNANSWERED=1
+  elif [[ -n "$pinned" ]]; then
     printf '%s\n' "$pinned" | detail
     ok "$(printf '%s\n' "$pinned" | wc -l | tr -d ' ') pinned build(s) on this host"
   else
@@ -328,7 +346,7 @@ section "preflight"
 
 # Everything the stack mounts or reads, before the pull rather than after: each failure below is
 # instant to detect, and a half-deployed stack is not.
-step "Files and directories the stack mounts"
+step "Files and directories the stack mounts, before anything is stopped or pulled"
 require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
 require_file "fl_backend/.env"  "The backend cannot start without it."
 require_file "nginx/prod.conf"  "nginx mounts this read-only; if it is missing, Docker creates a DIRECTORY at that path and nginx fails with 'not a directory'."
@@ -336,10 +354,27 @@ require_dir  "certs"            "nginx mounts this read-only for the TLS certifi
 ok "all present"
 
 step "Docker Engine version"
-ENGINE="$(docker version --format '{{.Server.Version}}' 2>/dev/null || true)"
+# The status is read, never dropped with `|| true`: a daemon that stopped answering since the guard
+# above left ENGINE empty, which parsed as "not a number" and printed "Upgrade the engine" — a
+# definite verdict about a question nobody answered.
+ENGINE_RC=0
+# `2>&1` so docker's own complaint is what the refusal quotes.
+ENGINE="$(docker version --format '{{.Server.Version}}' 2>&1)" || ENGINE_RC=$?
+if (( ENGINE_RC )); then
+  refuse "the Docker daemon stopped answering between the check above and this one (exit
+${ENGINE_RC}), so this host's engine version is unknown and nothing was compared against
+${ENGINE_MIN}. NOTHING has been stopped or pulled. Docker's own answer:
+${ENGINE}"
+fi
 ENGINE_MAJOR="${ENGINE%%.*}"
-if [[ ! "$ENGINE_MAJOR" =~ ^[0-9]+$ ]] || (( ENGINE_MAJOR < ENGINE_MIN )); then
-  die "This host reports Docker Engine '${ENGINE:-none}', and ${COMPOSE} needs ${ENGINE_MIN} or newer.
+if [[ ! "$ENGINE_MAJOR" =~ ^[0-9]+$ ]]; then
+  refuse "this host reports its Docker Engine version as '${ENGINE}', which does not begin with a
+number, so nothing here compared it against ${ENGINE_MIN}. NOTHING has been stopped or pulled."
+fi
+if (( ENGINE_MAJOR < ENGINE_MIN )); then
+  # A prerequisite this host does not meet, so 2 rather than 1: there is nothing in the change to
+  # correct, and the deploy was never attempted.
+  refuse "This host reports Docker Engine '${ENGINE}', and ${COMPOSE} needs ${ENGINE_MIN} or newer.
 An older engine refuses a healthcheck start_interval outright, and the refusal arrives at
 container-create time — which is after the running containers would have been stopped.
 NOTHING has been stopped or pulled: the site is still serving what it was serving.
@@ -439,10 +474,15 @@ section "pull"
 if [[ -n "$PIN" ]]; then
   step "Pinning to ${PIN}"
   info "pulling ${REPO_FRONTEND}:${PIN} and ${REPO_BACKEND}:${PIN}"
-  docker pull "${REPO_FRONTEND}:${PIN}" || die "No such published tag: ${REPO_FRONTEND}:${PIN}
+  # Refusals, not findings: the tag is the operator's input and the registry is not this repository,
+  # so neither names a change to fix. A tag that does not exist and an unreachable registry both
+  # land here; docker's line above tells them apart.
+  docker pull "${REPO_FRONTEND}:${PIN}" || refuse "could not pull ${REPO_FRONTEND}:${PIN} — docker's
+own reason is above. NOTHING has been recreated, and the site is untouched.
 List what exists locally: docker image ls '${REPO_FRONTEND}'
 Published builds are at https://github.com/felzab?tab=packages"
-  docker pull "${REPO_BACKEND}:${PIN}"  || die "No such published tag: ${REPO_BACKEND}:${PIN}"
+  docker pull "${REPO_BACKEND}:${PIN}"  || refuse "could not pull ${REPO_BACKEND}:${PIN} — docker's
+own reason is above. The frontend's :latest has NOT moved yet, so this host is untouched."
   # Only now, with both pulls behind us, do the moving tags compose reads by name move.
   quietly docker tag "${REPO_FRONTEND}:${PIN}" "$IMAGE_FRONTEND" || die "could not point ${IMAGE_FRONTEND} at ${PIN}."
   quietly docker tag "${REPO_BACKEND}:${PIN}"  "$IMAGE_BACKEND"  || die "could not point ${IMAGE_BACKEND} at ${PIN}.

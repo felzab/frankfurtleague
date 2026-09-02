@@ -37,20 +37,23 @@ for arg in "$@"; do
     --refresh-db) SEED=1; REFRESH_DB=1 ;;
     --verbose) VERBOSE=1 ;;
     --help|-h) usage ;;
-    *)       die "Unknown option: ${arg}. Try --help." ;;
+    # `refuse`, not `die`: an invocation nobody can carry out leaves this run with no verdict on the
+    # stack, which the exit contract spells 2 (`docs/ops/spec.md` §1.7). 1 would say the stack is
+    # what needs fixing.
+    *)       refuse "Unknown option: ${arg}. Try --help." ;;
   esac
 done
 
 # Stopped rather than ignored: a flag that does nothing reads as a flag that did something.
 if (( DOWN )) && (( FOLLOW )); then
-  die "--down stops the stack, so there is no log left to follow.
+  refuse "--down stops the stack, so there is no log left to follow.
 Run one or the other."
 fi
 
 # Stopped for --down --logs' reason: the restore would run against a database this same invocation
 # is taking down.
 if (( DOWN )) && (( SEED )); then
-  die "--down stops the stack, so there is no database left to fill.
+  refuse "--down stops the stack, so there is no database left to fill.
 Run --seed on a start instead."
 fi
 
@@ -67,9 +70,6 @@ DUMP_MARK="${REPO_ROOT}/.local-db/complete"
 # and `restore_dump` is handed no credential at all. A discipline, not a boundary -- the image
 # carries both tools.
 take_dump() {
-  rm -f "$DUMP_MARK"
-  rm -rf "${DUMP_DIR:?}"
-  mkdir -p "$DUMP_DIR"
   # Into a gitignored file, never a terminal and never partly filtered: a failed mongodump quotes
   # the connection string back in shapes no pattern could be trusted to cover. --env-file keeps it
   # out of the process list too.
@@ -89,11 +89,13 @@ base=$(clean "$DB_BASE_NAME")
 # tier's rate cap.
 mongodump --uri="$uri" --db="$base" --numParallelCollections=1 --out=/dump
 CONTAINER
-  local status=$?
-  (( status )) && return "$status"
+}
 
-  # Only now: the marker is the whole of what the reuse test trusts.
-  : >"$DUMP_MARK"
+# Chained, because `||` runs this with errexit off: a clear failing unchecked lets mongodump write
+# over the old copy's remains, and the marker then calls the two vintages one copy. The marker
+# first, so a half-cleared directory is never trusted.
+clear_dump() {
+  rm -f "$DUMP_MARK" && rm -rf "${DUMP_DIR:?}" && mkdir -p "$DUMP_DIR"
 }
 
 restore_dump() {
@@ -112,27 +114,49 @@ dump_collections_seen() {
     sh -c 'find /dump -name "*.bson" | wc -l'
 }
 
-# The whole fill. Called before the application services exist, so nothing can read the database
-# between its coming up and its holding something.
-seed_database() {
+# Before the database container exists, not merely before the application ones: `clear_dump`
+# deletes and recreates the directory `docker-compose.local.yml :: mongo` bind-mounts, which is
+# only safe while no container holds the mount.
+fetch_copy() {
   step "A copy to restore from"
   mkdir -p "$(dirname "$DUMP_LOG")"
   # The marker and not the directory: an interrupted copy leaves a directory behind.
   if (( REFRESH_DB )) || [[ ! -f "$DUMP_MARK" ]]; then
     info "copying from production, one collection at a time — the Flex tier throttles past 500 ops/s"
+    clear_dump || refuse ".local-db could not be cleared for a new copy — the line above names the entry
+that refused — so nothing was copied: a copy written over the remains of the old one would be two
+vintages under one marker."
     quietly take_dump || die "the copy from production failed, and nothing was written to the
 local database. mongodump's own account is in .local-db/copy.log, which is not printed here and
 not committable: it names the cluster this machine connects to."
+    # Only now: the marker is the whole of what the reuse test trusts.
+    : >"$DUMP_MARK"
     ok "copied"
   else
     info "reusing the copy in .local-db — --refresh-db takes a new one"
     ok "found"
   fi
+}
 
+# Called before the application services exist, so nothing can read the database between its
+# coming up and its holding something.
+restore_copy() {
   step "Restoring it into the local database"
-  local seen=""
-  seen="$(dump_collections_seen 2>/dev/null | tr -d '[:space:]')" || seen=""
-  if [[ ! "$seen" =~ ^[0-9]+$ ]] || (( seen == 0 )); then
+  # Asked and answered are two questions: an exec that could not run and a container that saw an
+  # empty directory both leave `seen` empty, and only the second says anything about the copy.
+  local seen="" ask_rc=0
+  seen="$(dump_collections_seen | tr -d '[:space:]')" || ask_rc=$?
+  if (( ask_rc )); then
+    refuse "the database container could not be asked what is under /dump (exit ${ask_rc}), so
+whether a restore would write anything is not what this run established. compose's own
+explanation is above."
+  fi
+  if [[ ! "$seen" =~ ^[0-9]+$ ]]; then
+    refuse "the database container answered '${seen}' when asked how many collections are under
+/dump, which is not a count, so whether a restore would write anything is not what this run
+established."
+  fi
+  if (( seen == 0 )); then
     die "the database container sees no collection under /dump, so a restore would write nothing.
 Take a fresh copy with:  ./scripts/local.sh --refresh-db"
   fi
@@ -199,10 +223,10 @@ docker compose -f "$COMPOSE" build || die "The image build failed — its own ou
 ok "images built"
 
 # Before `start`, not inside it: a page rendered against an empty database caches that read for
-# days, and `take_dump` clears a bind-mounted directory, which is only safe while no container
-# holds the mount.
+# days. The copy comes before the database container as well, for the reason at `fetch_copy`.
 if (( SEED )); then
   section "database"
+  fetch_copy
 
   step "The database, before anything reads it"
   quietly docker compose -f "$COMPOSE" up -d --force-recreate --remove-orphans mongo \
@@ -211,7 +235,7 @@ if (( SEED )); then
     || die "the database did not elect itself primary, so there is nothing to restore into."
   ok "database up"
 
-  seed_database
+  restore_copy
 fi
 
 section "start"
@@ -274,7 +298,15 @@ fi
 # the log reaches the library's interrupt handler rather than this script.
 if (( FOLLOW )); then
   info "following the frontend log — Ctrl-C stops the log, not the stack"
-  docker compose -f "$COMPOSE" logs -f frontend
+  # Guarded, not bare: the stack is up, and a follow ending by itself — the container removed from
+  # under it — would take the ERR trap and grade a running stack as a crash. 130 is Ctrl-C, whose
+  # ending the library's INT trap owns.
+  LOG_RC=0
+  docker compose -f "$COMPOSE" logs -f frontend || LOG_RC=$?
+  if (( LOG_RC && LOG_RC != 130 )); then
+    warn "the log follow ended on its own (exit ${LOG_RC}); the stack is still up.
+Follow it again with:  docker compose -f ${COMPOSE} logs -f frontend"
+  fi
 fi
 
 finish "The local stack is up at http://localhost:3000."

@@ -423,8 +423,22 @@ jobs:
         run: |
           window=12
           reference=.github/gate-wall-clock.tsv
+          state="${RUNNER_TEMP}/wall-clock-state"
+          # An annotation as well as a summary block. This step cannot fail — it sits inside the
+          # required check and decides nothing — so to anyone reading the checks list rather than
+          # the summary, a run that could compare nothing looks exactly like a clean one. That is
+          # not a rare state: a window is short until twelve main runs are on record, and runs age
+          # out of the API on their own.
+          no_comparison() {
+            echo "::warning title=Gate wall clock::${1}"
+            {
+              printf '### Gate wall clock — no comparison\n\n'
+              printf '%s\n\n' "$1"
+              printf 'Nothing in this run says whether the gate has got slower.\n'
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
           if [ ! -s "$reference" ]; then
-            echo "Gate wall clock: $reference is missing, so there is nothing to compare against." >> "$GITHUB_STEP_SUMMARY"
+            no_comparison "The reference table $reference was not read, so there is nothing to compare against."
             exit 0
           fi
           # `completed`, not `success`: a run that failed still carries jobs that succeeded, and
@@ -433,7 +447,7 @@ jobs:
           runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?branch=main&event=push&status=completed&per_page=${window}" --jq '.workflow_runs[].id')"
           count="$(printf '%s\n' "$runs" | awk 'NF' | wc -l)"
           if [ "$count" -lt "$window" ]; then
-            echo "Gate wall clock: $count completed main runs on record, $window needed for a window." >> "$GITHUB_STEP_SUMMARY"
+            no_comparison "$count completed main runs are on record and $window are needed for a window, so no median was computed and no floor was tested."
             exit 0
           fi
           for id in $runs; do
@@ -455,7 +469,7 @@ jobs:
                 else ["dropped", .name, 0]
                 end
               | @tsv'
-          done | awk -F'\t' -v w="$window" -v ref="$reference" '
+          done | awk -F'\t' -v w="$window" -v ref="$reference" -v state="$state" '
             BEGIN { whole = 1 }
             # The reference table first, one row per job: name, seconds, floor percent.
             FNR == NR {
@@ -525,8 +539,12 @@ jobs:
                   row[loud] = sprintf("| **the whole gate** | **%ds** | **%ds** | **%+ds (%+.1f%%)** | **%d%%** |", total, base["total"], total - base["total"], d, limit["total"])
                 }
               }
-              if (loud == 0) {
+              if (loud == 0 && whole) {
                 printf "**Gate wall clock:** every job median over the last %d main runs sits inside its own floor.\n", w
+              } else if (loud == 0) {
+                # Not the clean sentence: a job with no run in this window was compared against
+                # nothing, and "every job median sits inside its own floor" would cover it over.
+                printf "**Gate wall clock:** nothing that could be measured has moved past its own floor, and a job named below was not measured at all, so this is not a clean comparison.\n"
               } else {
                 print "### Gate wall clock"
                 print ""
@@ -541,8 +559,20 @@ jobs:
               if (skipped) printf "\n%d job run(s) never started, their scope turned off by the path mapping rather than by anything they did.\n", skipped
               if (gone != "") printf "\nNo successful run in this window: %s.\n", gone
               if (unref != "") printf "\nMeasured with no reference to compare against: %s.\n", unref
+              # Which of the three states this report reached, for the annotation below: the
+              # summary is where they are told apart in full, and a file is how that verdict
+              # leaves an awk whose stdout is the summary itself.
+              verdict = loud ? "regressed" : (whole ? "clean" : "partial")
+              print verdict > state
             }
           ' "$reference" - >> "$GITHUB_STEP_SUMMARY"
+          # Outside the summary for `no_comparison`'s reason, and with its polarity: a clean report
+          # is the only one of the three that annotates nothing, so silence on the checks list
+          # means the comparison ran and found nothing rather than that it never ran.
+          case "$(cat "$state" 2>/dev/null || true)" in
+            regressed) echo "::warning title=Gate wall clock::A job median has moved past its own floor. The run summary holds the table." ;;
+            partial)   echo "::warning title=Gate wall clock::A job in the reference has no successful run in this window, so this is not a clean comparison. The run summary names it." ;;
+          esac
 
       - name: Fail if any scope job failed or was cancelled
         # A skipped job is a pass here: path filtering skipped it on purpose. Pure expressions, no

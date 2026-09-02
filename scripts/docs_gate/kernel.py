@@ -8,6 +8,7 @@ what a caller does with the answer picks between them: a file a check READS come
 
 from __future__ import annotations
 
+import ast
 import io
 import os
 import re
@@ -31,8 +32,8 @@ SOURCE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs",
 # JSON is NOT here: it is scanned rather than read a line at a time, for `_jsonc_comments`' reason.
 CSTYLE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs")
 
-# COR-6 binds these comments as it binds a spec sheet's prose, although chapter 2's Applies-to
-# does not reach them.
+# COR-6 binds these comments as it binds a spec sheet's prose, although the In-code section's
+# Scope names subtrees rather than these kinds.
 OPS_SUFFIXES: Final[tuple[str, ...]] = (".conf", ".yml", ".yaml", ".toml", ".json")
 # Spelled in full: neither a Dockerfile nor a git hook carries a suffix to match on, and INC-6
 # binds a shell file whatever it is named. `p.name` decides; the glob is a prefilter.
@@ -83,6 +84,7 @@ GLOSSARY_PAGE: Final = f"{DOCS_DIR}/glossary.md"
 STANDARD_PAGE: Final = f"{DOCS_DIR}/standard.md"
 ROADMAP_PAGE: Final = f"{ROADMAP_DIR}/open-items.md"
 ROADMAP_TOOLING_PAGE: Final = f"{ROADMAP_DIR}/tooling-items.md"
+ROADMAP_CLOSED_PAGE: Final = f"{ROADMAP_DIR}/closed-items.md"
 TEMPLATES_PAGE: Final = f"{DOCS_DIR}/_git/templates.md"
 SWEEP_PAGE: Final = ".claude/commands/docs/audit.md"
 
@@ -372,6 +374,32 @@ def _place(buffer: list[str], start: tuple[int, int], text: str) -> None:
 # Named rather than spelled inline: the formatter would fold the tuple into PEP 758's
 # `except A, B:`, newer than `checker_kernel.py :: PARSE_FLOOR`.
 UNTOKENIZABLE: Final = (tokenize.TokenError, SyntaxError, ValueError)
+# The same fold, over what `ast.parse` alone can raise.
+UNPARSEABLE: Final = (SyntaxError, ValueError)
+
+
+def _docstring_starts(tokens: list[tokenize.TokenInfo]) -> set[tuple[int, int]]:
+    """Where each STRING standing alone as a statement begins -- a docstring, never a value.
+
+    A comment and a blank line sit anywhere without ending a statement, so both come out before a
+    string's neighbours are read.
+    """
+    structural = [token for token in tokens if token.type not in (tokenize.COMMENT, tokenize.NL)]
+    found: set[tuple[int, int]] = set()
+    for index, token in enumerate(structural):
+        opens = index == 0 or structural[index - 1].type in (tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT)
+        closes = index + 1 < len(structural) and structural[index + 1].type == tokenize.NEWLINE
+        if token.type == tokenize.STRING and opens and closes:
+            found.add(token.start)
+    return found
+
+
+def _python_tokens(text: str) -> list[tokenize.TokenInfo] | None:
+    """One module's tokens, or None where it will not tokenize -- work in progress, or a plant."""
+    try:
+        return list(tokenize.generate_tokens(io.StringIO(text).readline))
+    except UNTOKENIZABLE:
+        return None
 
 
 def _python_comments(text: str) -> str:
@@ -381,26 +409,40 @@ def _python_comments(text: str) -> str:
     must stand alone as a statement, so an unusual spelling goes unscanned.
     """
     lines = text.split("\n")
-    try:
-        tokens = list(tokenize.generate_tokens(io.StringIO(text).readline))
-    except UNTOKENIZABLE:
+    tokens = _python_tokens(text)
+    if tokens is None:
         return _marker_lines(text)
 
-    # A comment and a blank line sit anywhere without ending a statement, so both come out before
-    # a string's neighbours are read.
-    structural = [token for token in tokens if token.type not in (tokenize.COMMENT, tokenize.NL)]
-    docstrings: set[tuple[int, int]] = set()
-    for index, token in enumerate(structural):
-        opens = index == 0 or structural[index - 1].type in (tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT)
-        closes = index + 1 < len(structural) and structural[index + 1].type == tokenize.NEWLINE
-        if token.type == tokenize.STRING and opens and closes:
-            docstrings.add(token.start)
-
+    docstrings = _docstring_starts(tokens)
     keep = [""] * len(lines)
     for token in tokens:
         if token.type == tokenize.COMMENT or (token.type == tokenize.STRING and token.start in docstrings):
             _place(keep, token.start, token.string)
     return "\n".join(keep)
+
+
+def _python_prose(text: str) -> tuple[dict[int, int], set[int]] | None:
+    """Which lines a Python module gives to prose: a docstring by span, a comment by row.
+
+    A docstring is ONE block whatever its paragraphs, so a blank inside it never ends the run, and
+    a comment after code opens none. None where it will not tokenize.
+    """
+    tokens = _python_tokens(text)
+    if tokens is None:
+        return None
+    lines = text.split("\n")
+    docstrings = _docstring_starts(tokens)
+    spans: dict[int, int] = {}
+    comments: set[int] = set()
+    for token in tokens:
+        row, column = token.start
+        if token.type == tokenize.COMMENT:
+            if not lines[row - 1][:column].strip():
+                comments.add(row)
+        elif token.type == tokenize.STRING and token.start in docstrings:
+            for line in range(row, token.end[0] + 1):
+                spans[line] = row
+    return spans, comments
 
 
 def _jsonc_comments(text: str) -> str:
@@ -478,13 +520,19 @@ def comment_style(path: Path) -> str:
 DIRECTIVE_RE: Final = re.compile(r"^\s*([\"'])use (client|server|strict)\1;?\s*$")
 PY_DOCSTRING_OPEN_RE: Final = re.compile(r"^[rRuU]?(\"\"\"|''')")
 
+# The only two kinds INC-2 lets a module header survive in. Anywhere else an opening block is an
+# ordinary comment block, so `comment_runs` yields it and INC-9's bound measures it.
+HEADER_SUFFIXES: Final[tuple[str, ...]] = (".py", ".sh")
+
 
 def _module_header(raw: str, suffix: str) -> list[str] | None:
-    """The module header's lines, delimiters included, or None where there is none.
+    """The module header's lines, delimiters included, or None where the kind carries none.
 
     A shebang is a directive, so counting it would spend a capped line. An unterminated delimiter
     runs to the file's end, which the line cap then fails.
     """
+    if suffix not in HEADER_SUFFIXES:
+        return None
     lines = raw.split("\n")
     i = 0
     if suffix == ".sh":
@@ -511,14 +559,7 @@ def _module_header(raw: str, suffix: str) -> list[str] | None:
             i += 1
         return lines[start : i + 1]
 
-    while i < len(lines) and (not lines[i].strip() or DIRECTIVE_RE.match(lines[i])):
-        i += 1
-    if i == len(lines) or not lines[i].lstrip().startswith("/*"):
-        return None
-    start = i
-    while i < len(lines) and "*/" not in lines[i]:
-        i += 1
-    return lines[start : i + 1]
+    return None
 
 
 def _header_line(line: str, suffix: str) -> str:
@@ -536,6 +577,53 @@ def _header_line(line: str, suffix: str) -> str:
     return text
 
 
+def _python_runs(raw: str, start_at: int) -> list[tuple[int, list[str]]]:
+    """Each run of consecutive comment lines in a Python module, read through its own tokenizer.
+
+    A line scan cannot tell a docstring's opening quote from an ordinary string's closing one at
+    the margin, and measured the code beneath a literal as prose.
+    """
+    lines = raw.split("\n")
+    read = _python_prose(raw)
+    # A module that will not tokenize keeps the wide marker scan, where every kept line is prose
+    # and no docstring spans: reading none would look like a file with no comments at all.
+    if read is None:
+        kept = _marker_lines(raw).split("\n")
+        spans: dict[int, int] = {}
+        comments = {number for number, line in enumerate(kept, start=1) if line.strip()}
+    else:
+        spans, comments = read
+
+    runs: list[tuple[int, list[str]]] = []
+    current: list[str] = []
+    first_line = 0
+    opened_on = 0
+
+    def flush() -> None:
+        nonlocal current, first_line
+        if current and any(current):
+            runs.append((first_line, current))
+        current = []
+
+    for number in range(start_at + 1, len(lines) + 1):
+        text = lines[number - 1].strip()
+        span = spans.get(number, 0)
+        if not span and number not in comments:
+            flush()
+            opened_on = 0
+            continue
+        # The row a docstring opens on, or 0 for a comment: a change of either end closes the run,
+        # so a docstring is one block and the comment against its closing quote is another.
+        if span != opened_on:
+            flush()
+            opened_on = span
+        if not current:
+            first_line = number
+        current.append(text.lstrip("#").strip() if text.startswith("#") else _header_line(text, ".py"))
+    flush()
+    return runs
+
+
 def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
     """Each run of consecutive comment lines below the module header, as (first line, text lines).
 
@@ -549,12 +637,16 @@ def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
             if lines[index : index + len(header)] == header:
                 start_at = index + len(header)
                 break
+    # Python alone has a grammar here a line scan gets wrong; every other kind's comment opens on
+    # a marker no literal of its own can carry at the margin.
+    if suffix == ".py":
+        return _python_runs(raw, start_at)
 
     runs: list[tuple[int, list[str]]] = []
     current: list[str] = []
     first_line = 0
     closing: str | None = None
-    hash_only = suffix in (".py", ".sh")
+    hash_only = suffix == ".sh"
 
     def flush() -> None:
         nonlocal current, first_line
@@ -569,19 +661,6 @@ def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
             if closing in text:
                 closing = None
                 flush()
-            continue
-
-        opened = PY_DOCSTRING_OPEN_RE.match(text) if hash_only else None
-        if opened is not None:
-            flush()
-            first_line = number
-            body = text[opened.end() :]
-            quote = opened.group(1)
-            current.append(body.removesuffix(quote).strip())
-            if quote in body:
-                flush()
-            else:
-                closing = quote
             continue
 
         # `{/* … */}` opens with a brace, so it matches neither arm below and every JSX comment
@@ -610,7 +689,7 @@ def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
 
         # `.sh` takes `//` beside `#`: a hook's embedded node one-liner comments there, and INC-9's
         # bound has to measure those blocks the way `_shell_comments` reads them (INC-6).
-        markers = ("#", "//") if suffix == ".sh" else ("#",) if hash_only else ("//",)
+        markers = ("#", "//") if hash_only else ("//",)
         if text.startswith(markers):
             if not current:
                 first_line = number
@@ -796,6 +875,47 @@ def repo_path(token: str) -> str | None:
     if "/" not in token:
         return None
     return next((f"{root}{token}" for root in PACKAGE_ROOTS if (REPO_ROOT / root / token).exists()), None)
+
+
+# --- what a cited anchor has to be, in a file whose definitions can be listed exactly ------------
+
+
+def _python_names(text: str) -> frozenset[str] | None:
+    """Every name a Python module binds, or None where it does not parse.
+
+    A string constant counts: a table of index names, refusal codes or check names is cited by the
+    row's own spelling, and the row is where that name is defined.
+    """
+    try:
+        tree = ast.parse(text)
+    except UNPARSEABLE:
+        return None
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(node.name)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            names.add(node.id)
+        elif isinstance(node, ast.alias):
+            # A re-export binds the name here, which is what a shim exists to make resolvable.
+            names.add((node.asname or node.name).split(".")[0])
+        elif isinstance(node, (ast.Global, ast.Nonlocal)):
+            names.update(node.names)
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value.isidentifier():
+            names.add(node.value)
+    return frozenset(names)
+
+
+@cache
+def defined_symbols(path: Path) -> frozenset[str] | None:
+    """Every name one Python module binds, or None where a caller falls back to presence.
+
+    Python alone, and by `ast`: a hand-written grammar answers a FAILING finding when it misses,
+    and a stale citation costs less than a red gate on a correct one.
+    """
+    if path.suffix != ".py" or (text := _read_text(path)[0]) is None:
+        return None
+    return _python_names(text)
 
 
 @cache

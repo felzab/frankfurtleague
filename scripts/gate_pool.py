@@ -1,8 +1,8 @@
 """SCRIPTS · the gate's units, run as concurrent processes for verify.sh to replay.
 
-One unit per PROCESS, so a worker is an ordinary `verify.sh` run: a subshell loses the error trap
-unless `set -E` is on, and a job backgrounded with `&` loses the interrupt trap outright, bash
-giving a backgrounded child `SIG_IGN` for `SIGINT` and then refusing to re-trap it.
+One unit per PROCESS, so a worker is an ordinary `verify.sh` run. A subshell would keep the error
+trap, `scripts/_lib.sh` setting `set -E`, but a job backgrounded with `&` loses the interrupt trap
+outright, bash giving a backgrounded child `SIG_IGN` for `SIGINT` and then refusing to re-trap it.
 
 A unit carries its own command, so one runner serves both shapes the gate runs beside themselves: a
 scope, and one check of a scope. Both leave an exit status in the manifest, and a unit that left
@@ -47,9 +47,9 @@ CALLER_POLL_S: Final = 1.0
 # a second column shape to read.
 ASSIGNMENT: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
-# The tail is submitted first, but every unit gets a slot: insurance for a --width run, not a
-# saving, an unbounded run's floor being its longest unit because nothing waits. Profile
-# 2026-08-26; a unit absent here sorts last, in the given order.
+# The tail is submitted first, and every unit gets a slot: no caller passes --width, so nothing
+# waits and this order is one no run can observe. It is insurance for a bounded run, never a
+# saving. Profile 2026-08-26; a unit absent here sorts last.
 TYPICAL_MS: Final[dict[str, int]] = {
     "db": 86_000,
     "frontend": 61_000,

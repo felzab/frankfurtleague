@@ -4498,7 +4498,7 @@
     "/": {
       "get": {
         "summary": "Root",
-        "description": "Confirm the service is answering. The versioned API lives under `/api/v{API_VERSION}`; use `/system/is_live` for a probe.",
+        "description": "Confirm the service is answering. The versioned API is under `/api/v0`; `/system/is_live` is the probe.",
         "operationId": "root__get",
         "responses": {
           "200": {
