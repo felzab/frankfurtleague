@@ -4,9 +4,10 @@
 this, wait, paste that — is the owner's to perform; a coordinator reads this page only for the
 mechanics `SKILL.md` cites it for, and can execute none of it.
 
-How the skill reaches a session, established from the Claude Code documentation on 2026-09-02
-(`code.claude.com/docs/en/skills`, `sub-agents`, `sessions`, `desktop`), and the exact message
-sequences for the three ways a session begins.
+How the skill reaches a session, read from the Claude Code documentation on 2026-09-02
+(`code.claude.com/docs/en/skills`, `sub-agents`, `sessions`, `desktop`) and not driven — no session
+here has measured a token budget or watched a compaction — and the exact message sequences for the
+three ways a session begins.
 
 ## How it loads
 
@@ -21,12 +22,9 @@ sequences for the three ways a session begins.
 - **The files beside `SKILL.md` do not load with it.** The coordinator reads one when a section
   points at it. The brief, register and handoff templates therefore cost nothing until used.
 - **Compaction keeps the first 5,000 tokens of each invoked skill**, within a shared budget of
-  25,000 for all of them, most recently invoked first. That makes `SKILL.md` a fixed budget rather
-  than a growing one: an addition that displaces nothing is paid for out of the end of the file,
-  where the traps are. Whether the page is inside the figure is **not established**, because nothing
-  in this repository measures tokens, so the rule enforcing it is stated in `SKILL.md` itself where
-  its editor stands rather than here where only the owner reads.
-  After a long session a repeated `/orchestration` costs nothing and removes the doubt.
+  25,000 for all of them, most recently invoked first; the rule that follows for `SKILL.md` is
+  stated at its top. After a long session a repeated `/orchestration` costs nothing and removes the
+  doubt.
 - **Text after `/orchestration` on the same line is passed as arguments**, appended to the skill
   content as `ARGUMENTS: <text>`. Whether a pasted multi-line message is passed whole is not
   documented, so the sequences below never depend on it: the skill and the prompt go as two
@@ -55,7 +53,7 @@ message 1 is forgotten.
 2. **Message 1:** `/orchestration` — after a long session compaction may have truncated the copy in
    context, and a repeat costs nothing.
 3. **Message 2:** the block in [resume-prompt.md](resume-prompt.md), verbatim, prefixed by one line
-   naming the resume-state document if one was written before the pause.
+   naming the register's path.
 4. Send no work instruction until the reply to the six-step protocol has come back and names the
    single next action.
 

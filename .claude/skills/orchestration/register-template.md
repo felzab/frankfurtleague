@@ -8,8 +8,9 @@ stated at the top so a session resuming into it knows what it is trusting. How t
 # Agent register -- <programme / session name>
 
 Purpose. With a large fleet running, my memory of what each agent is doing is the weakest link.
-This file is the source of truth instead. Every dispatch is recorded here BEFORE it runs, and
-nothing is carried in my head between turns.
+This file is the source of truth instead, kept in the durable plan directory beside the plan.
+Every dispatch is recorded here BEFORE it runs, nothing is carried in my head between turns, and
+a quota stop costs exactly what this file does not hold.
 
 The rule that makes it sound: every agent's condensed verdict is copied into this file as it
 lands, and its status is closed in the same edit. Its own report file at the scratch path
@@ -17,9 +18,20 @@ outlives it; my memory of what it said does not.
 
 Repository state at the start of this fleet: <branch, tip subject, tree clean or not, what is
 being written to the repository while the fleet runs>.
-Concurrency budget: <cap>, helpers included. Sub-agent cap per agent: <normally zero>.
+Concurrency budget: <cap>, helpers included. Sub-agent cap per agent: zero, always -- a fresh
+agent is a second dispatch of mine.
 Scratch path: <one directory, outside the repository, a subdirectory per agent, named in every
 brief>.
+Starter prompt: <path>. Previous handoff: <path, or none>. Owner's standing instructions: <path>.
+These three are what a resume re-reads (`resume-prompt.md` steps 1 and 4), and a compacted
+transcript may name none of them.
+
+## Resume point -- rewritten in the same edit as whatever it names
+
+Next action, and why it is next:
+Reports landed and not yet judged:
+Commit about to land (from the commit table):
+Last gate run: <scope, real exit code, when>
 
 ## File ownership -- the map every dispatch is checked against
 
@@ -29,7 +41,16 @@ brief>.
 Hubs (written by more than one unit, so one owner each, in sequence):
 Leaves (single owner, dispatchable at any time):
 Couplings that are not file edges, shared contracts included:
-Commit-ordering constraints this map imposes:
+
+## Commits -- the ownership map's other half, drawn with it
+
+| Commit subject | Files | Message drafted by | Lands after | Audit dispatched to | Landed |
+| -------------- | ----- | ------------------ | ----------- | ------------------- | ------ |
+
+A leaf's commit lands in the turn its agent's report is judged, a hub's in the turn its owner's
+is. "Lands after" holds the ordering constraints (`SKILL.md` §5) -- a citation's target, a
+workflow's manifest -- never prose elsewhere. "Audit dispatched to" is filled in the same edit as
+"Landed", and a landed row with it empty is committed work nobody is auditing.
 
 ## The cycle, per slice -- decided here, before any finding exists
 
@@ -45,8 +66,7 @@ The agent name is the name it was dispatched under, and it is one value doing th
 scratch subdirectory is named for it, its brief calls it `<your agent name>`, and it is the address
 a resume is sent to. Record it at dispatch; a resume has nothing to aim at otherwise.
 
-Cycle is one of: implement, audit, fix, re-audit, fix, done. An empty audit cell is work that
-cannot be committed.
+Cycle is one of: implement, audit, fix, re-audit, fix, done.
 
 ## Plant-and-restore windows currently open
 
@@ -99,13 +119,10 @@ here as it lands, never reconstructed at the end.>
   looked stalled for 45 minutes because only its notes file was being watched.
 - **Open a plant-and-restore row before the agent plants and close it when the restore is
   confirmed.** While one is open, red reported by any other agent is attributed there before it is
-  believed; while none is open, a production file modified by no owner is a stranded plant and is
-  raised with its agent rather than restored (`SKILL.md` §5).
+  believed.
 - **Write the standing action's whole brief when you queue it**, not a note to write one, and tick
   it only against evidence that it went out. A queued brief recovered from memory later is a
   different brief; one recorded correctly here was never dispatched, and only the end-of-session
   handoff caught it.
-- **Route a cross-agent handoff yourself.** When agent A's output belongs in a file agent B owns, A
-  writes it to the scratch path and you apply it — never A editing B's file, and never A's conclusion
-  reaching B as a premise. Name the path in both briefs: a hand-over named in one is written and
-  never collected, or waited for and never written.
+- **Name a cross-agent hand-over's path in both briefs.** One named in one brief is written and
+  never collected, or waited for twenty minutes and never written.

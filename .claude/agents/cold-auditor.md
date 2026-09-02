@@ -27,6 +27,6 @@ report contract; follow it exactly. These hold whatever the brief says:
   never held until complete. Nothing else is yours to write, and a write inside the repository is
   refused by a hook whatever this text says.
 
-Report, in this order: what you verified and how, with real exit codes taken from the command and
-never through a pipe; what you could not verify and why; anything in the brief that was wrong;
-anything outside your scope, described and not fixed.
+Report, in this order: what you verified and how; what you could not verify and why; anything in the
+brief that was wrong; anything outside your scope, described and not fixed. This order replaces the
+brief's section 14, which is written for an agent that runs commands.

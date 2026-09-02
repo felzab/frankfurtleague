@@ -30,8 +30,9 @@ did the reasonable thing in their absence.
 4  PUSH BACK.   This brief may be wrong. More than half of them are, and the agents caught every
                 one. If a premise here does not survive contact with the tree, stop and report it
                 instead of building on it. Naming a wrong premise is worth more to me than
-                finishing the task. Where you are asked to build on a claim you have reason to
-                doubt, ask for the evidence behind it before you build.
+                finishing the task. A premise that names its source -- "an audit reported X" --
+                is a claim: verify it in one command before you build on it, and ask for the
+                evidence behind one that names no source at all.
 
 5  GIT.         You run NO git command that writes and NO command that reaches the remote: no
                 add, commit, checkout, stash, reset, no push, and no `gh` at all -- not
@@ -47,16 +48,18 @@ did the reasonable thing in their absence.
                 whose draft pull request is open. That definition is addressed to me, not to you:
                 YOU are finished when your report lands.
 
-6  SUB-AGENTS.  <N, normally zero>. Do not exceed it. Unbounded fan-out has twice consumed the
-                whole concurrency budget and blocked the work queued behind it.
+6  SUB-AGENTS.  ZERO, whatever this task looks like it needs: the owner's standing instructions
+                allow no agent to spawn one. Where a question needs a fresh agent, say so and
+                stop -- I dispatch it myself at the top level. Unbounded fan-out has twice
+                consumed the whole concurrency budget and blocked the work queued behind it.
 
 7  SCRATCH.     <scratch path>/<your agent name>/ -- your own subdirectory, outside the
                 repository, for everything you write that is not a file you own; your report is
                 <report file> inside it. Agents sharing one directory overwrite each other in it.
-                Keep scratch out of the repository: a shell guard refuses a command naming a
-                path `.gitignore` matches, exempting only `node_modules`, `.venv`, `.next`,
-                `.claude/worktrees`, `docs/audit/` and `.vscode/`, so a scratch file anywhere
-                else under the repository is one you cannot read back.
+                Keep scratch out of the repository: `.claude/hooks/guard-credential-shell.sh`
+                refuses a shell command naming a path `.gitignore` matches, outside the
+                exemptions it lists, so a scratch file under the repository is one you cannot
+                read back.
 
 8  PLANT AND    Proving a check can fail means planting a violation and restoring it, and the
    RESTORE.     tree you are planting in is shared.
@@ -84,24 +87,25 @@ did the reasonable thing in their absence.
                   not one. Dump the bytes, or force binary matching.
                 - `git archive` of a subdirectory emits CRLF when the attributes file governing
                   line endings sits above the archived subtree.
-                - A budget nested inside another inverts a denial into permission the moment the
-                  inner one is the larger. A guard's own watchdog was raised to fifteen seconds
-                  inside a hook the harness kills at ten; a killed hook prints nothing, and
-                  printing nothing reads as permission, so every decision costing over ten
-                  seconds flipped silently from deny to allow. Wherever you put one budget inside
-                  another, state both, state which must be the smaller, and add the check that
-                  holds them in that order -- an invariant living in two files is enforced by
-                  neither.
+                - A budget nested inside a larger one inverts denial into permission: a hook the
+                  harness kills at ten seconds ran its own watchdog at fifteen, and a killed
+                  hook's silence reads as permission. State both budgets, which must be the
+                  smaller, and add the check holding them in order -- two files enforce nothing.
                 - One purpose per shell command. A compound line gives a text-matching guard more
                   to object to, and its refusal then names something none of the commands touched.
                 - Once any agent has saved an edit to `scripts/*.sh`, a workflow or one of the
                   build manifests, the gate hard-refuses any scope without `--images`, because
                   the scope check reads the working tree rather than your diff. Satisfying that
-                  is mine at the wave boundary: never widen the argument to get past it, and
-                  never set an environment variable to skip it.
+                  is mine at the wave boundary: never widen the argument to get past it.
                 - Everything in `.claude/CLAUDE.md` binds you too -- it is in your context without
                   your reading it -- and the pipe rule and the text-mode write rule are there.
-                  Section 5 above names the one part of it that is mine rather than yours.
+                  Three parts of it are mine rather than yours, and each would otherwise send you
+                  into a file you do not own: §2's branch, push and pull-request clauses, which
+                  are section 5 above; §3's "a finding outside the task becomes a roadmap entry at
+                  once", which is section 14(f) for you and mine to route, since every agent's
+                  out-of-scope findings land on the same two roadmap pages; and §8's "update every
+                  claim a change invalidates in the same commit", which is section 11 for you --
+                  write the hunk, and I apply it in that commit.
                 - <plus the traps specific to this work>
 
 10 TELL ME.     Two things stop your work and come to me. Both are cheap for you to raise and
@@ -109,9 +113,8 @@ did the reasonable thing in their absence.
                 - BEFORE you change a shared manifest, a guard or a hook registration, tell me
                   and WAIT. Such a change alters what every other agent may DO, not only what it
                   measures, so it needs an exclusive window -- and only you know it is coming, so
-                  reporting it afterwards is reporting damage rather than asking for a window.
-                  One agent's added version pin made every other agent's gate invocation refuse,
-                  and four of them reported it separately as a finding of their own.
+                  reporting it afterwards is reporting damage. One added version pin made every
+                  other agent's gate invocation refuse, and four reported it as their own finding.
                 - A guard refusal is a rule arriving: comply with it and tell me. Reaching the
                   same end through a different tool is a violation however good the reason, and
                   so is rewording until it passes. An arm you honestly report as undriven costs
@@ -153,21 +156,17 @@ here" rather than quoting a number nobody could trust, and (f) is what stops a f
 finding from becoming an unowned edit inside another agent's file. Its own heading is what stops it
 being lost in a report of several thousand words.
 
-**Section 11 is only half a hand-over.** Name the same path in the producing agent's brief and in
-the consuming agent's, or it goes one way only: one agent polled twenty minutes for a line the
-other had never been told to write.
-
 ## The auditor variant
 
-Two forms, and the agent type decides which (`SKILL.md` §3). Sending the wrong one is not a
-cosmetic error: the cold form's agent has no shell, so a brief that asks it for an exit code buys a
-dispatch that returns "unsettled", or worse, a working-tree read substituted for the committed
-state section 2 asked for.
+Two forms, and the agent type decides which (`SKILL.md` §3.5).
 
 ### The cold form — a `cold-auditor`, and the default for every judging audit
 
 Its tools are `Read`, `Grep`, `Glob` and `Write`: no shell, no `Edit`, no sub-agents. **Replace
-sections 1, 2, 3 and 11, and drop section 8** — it governs planting, and this agent cannot plant.
+sections 1, 2, 3, 11 and 14, and drop section 8** — it governs planting, and this agent cannot
+plant. Section 14 goes because (a) to (c) ask for files written, files restored and exit codes,
+none of which this agent can produce; the replacement is the order its agent definition already
+gives, so the two contracts are one.
 
 ```
 1  OWNERSHIP.   You write nothing in the repository -- a hook refuses it -- so your report goes
@@ -178,17 +177,23 @@ sections 1, 2, 3 and 11, and drop section 8** — it governs planting, and this 
                 judge that another agent owns>. Where answering something needs a command, report
                 it not established under section 13 and name the command. Never substitute a
                 working-tree read for it: the tree holds other agents' half-finished edits and
-                answers a different question, which is the whole reason this rule exists.
+                answers a different question.
 
 3  THE SUBJECT. You are given the intent and the diff -- never the implementer's report, which
                 would tell you what to believe. Reading a check cannot tell you whether it can
-                fail, and you cannot drive one, so every drive-shaped question comes back to me
-                as "not established" under section 13, with the command that would settle it. I
-                drive it, or a driving re-auditor does. Naming one costs you nothing and is worth
-                more to me than a verdict reached by reading.
+                fail, and you cannot drive one: every drive-shaped question comes back under
+                section 13 for me or a driving re-auditor, and naming one is worth more to me
+                than a verdict reached by reading.
 
 11 BLAST RADIUS. Say what each change could break outside the files it touches, and name the
                 command that would test that.
+
+14 REPORT.      Write your report into <report file> as you go, first finding first, never held
+                until the end -- an agent killed mid-run returns nothing, and that file is then
+                the only place its findings exist. Then give me the same report as your FINAL
+                MESSAGE. Exactly, in this order: what you verified and how; what you could NOT
+                verify, and why; anything in this brief that was wrong; anything outside your
+                scope, described and not fixed.
 ```
 
 ### The driving form — a `general-purpose` re-auditor that must plant
