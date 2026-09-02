@@ -14,6 +14,10 @@ version: 2
 #   commit SHA, and every `uses:` naming a repository is pinned that way, so for actions the
 #   scheduled run below IS the coverage: a fix arrives on that schedule rather than on the day it is
 #   disclosed. Why that trade is worth taking belongs to `docs/_git/spec.md`, Repository settings.
+# - Every ecosystem sets a seven-day cooldown, so a release compromised at publication has a week in
+#   which to be yanked before a pull request proposes it. A cooldown delays no security update,
+#   which is exempt from it — except under `github-actions`, where that exemption is empty for the
+#   reason above.
 # - Each ecosystem sets a commit prefix, so messages keep docs/_git/templates.md's shape.
 # - No ecosystem below can read a version written inside a shell script or a Python string, so the
 #   shellcheck and actionlint images in `scripts/selfcheck.sh` and the mongo image in
@@ -27,11 +31,10 @@ updates:
 
   # Weekly, alone among the ecosystems here, because for actions this run is the only security route
   # rather than merely the routine one (the invariant above), and it is the one ecosystem whose
-  # extra pull requests cost little to read. Dependabot has also held every version update behind a
-  # three-day package cooldown by default since 2026-07-14, and the security-update path that
-  # cooldown exempts does not exist for a SHA-pinned action. The wait from a disclosure to an open
-  # pull request is therefore bounded by one whole interval plus that cooldown: about thirty-four
-  # days on the monthly schedule, about ten on this one.
+  # extra pull requests cost little to read. The security-update path a cooldown exempts does not
+  # exist for a SHA-pinned action, so here the wait from a disclosure to an open pull request is
+  # bounded by one whole interval plus the cooldown: about fourteen days on this schedule, about
+  # thirty-eight on the monthly one.
 
   # `/` is not the repository for this ecosystem: it means the root `action.yml` plus
   # `.github/workflows/`, and reaches no composite action. The glob over `.github/actions` is what
@@ -42,6 +45,8 @@ updates:
       - "/.github/actions/*"
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     # Explicit because the default of 5 is reachable -- five action repositories plus the group --
     # and hitting it silently stops version updates, which for this ecosystem are the whole
     # security route. Weekly reaches a ceiling four times faster.
@@ -62,6 +67,8 @@ updates:
     directory: /fl_frontend
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "Frontend deps"
@@ -79,6 +86,8 @@ updates:
     directory: /fl_backend
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "Backend deps"
@@ -102,6 +111,8 @@ updates:
     directory: /fl_frontend
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "Frontend image"
     groups:
@@ -113,6 +124,8 @@ updates:
     directory: /fl_backend
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "Backend image"
     groups:
@@ -132,6 +145,8 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "Ops"
     groups:
