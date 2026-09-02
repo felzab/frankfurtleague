@@ -77,7 +77,7 @@ ADDR="$(docker port "$CONTAINER" 80/tcp | head -n 1)" \
 BASE="http://${ADDR%$'\r'}"
 
 # nginx accepts a connection before the worker serves, so retrying on connect is what separates
-# "not up yet" from "refuses this request". This probe is line 1 of the stream the cases index into.
+# "not up yet" from "refuses this request". It carries no marker, so the grading below ignores it.
 _up=0
 for _ in $(seq 1 50); do
   if curl -fs -o /dev/null --max-time 2 -H "Host: localhost" "${BASE}/healthprobe" 2>/dev/null; then
@@ -153,38 +153,76 @@ CASES=(
   "KEEP|${BASE}/api/bewerbung/kuerzel?q=ABC|q=ABC"
   "KEEP|${BASE}/teams?saison_id=abc&shorthand=FCB|shorthand=FCB"
   "KEEP|${BASE}/admin/spiele?saison_id=abc|saison_id=abc"
+
+  # A control over the CLIENT rather than the edge. Without --path-as-is curl squashes a `.`
+  # segment before sending, and the spellings above would then be graded on a path nginx never
+  # received. This case fails when that flag stops taking effect.
+  "KEEP|${BASE}/teams/./x?saison_id=abc|/teams/./x"
 )
 
-# The image symlinks the access log to stdout, so the container's log IS the stream. Read back BY
-# INDEX: grepping it whole would let a later case's redaction stand in for an earlier case's leak.
-readback() {
-  # `|| true` on the grep alone. An empty stream is graded a finding at the call site.
-  docker logs "$CONTAINER" 2>/dev/null | { grep '^{' || true; } | sed -n "${1}p"
-}
+# What binds a case to its own access line: `user_agent` is the one field the log format carries
+# unredacted (`nginx/local.conf :: log_format fl_json`) and no map reads, so no case is graded on
+# a neighbour's line.
+MARKER="fl-redaction"
 
-FAILURES=0
-LINE=1  # the health probe above
-
+# One curl sends the table, one `docker logs` reads it back: on Windows a process costs ~0.1s and
+# a `docker logs` ~0.3s (2026-09-02). `--next` gives each transfer its own options (curl 8
+# `--help all`), so --path-as-is and a Referer bind per request.
+REQUESTS=()
+_n=0
 for case_line in "${CASES[@]}"; do
   # Split on a bar, never on whitespace: `_lib.sh` sets IFS to newline and tab, and several
-  # subjects carry a comma or a space of their own.
+  # subjects carry a comma or a space. Expansion rather than a helper: an MSYS fork costs more
+  # than the request it would parse.
+  verb="${case_line%%|*}"
+  rest="${case_line#*|}"
+  subject="${rest%%|*}"
+
+  _n=$(( _n + 1 ))
+  if (( _n > 1 )); then REQUESTS+=( --next ); fi
+  REQUESTS+=( -s -o /dev/null --path-as-is --max-time 5 -H "Host: localhost" -A "${MARKER}/${_n}" )
+  case "$verb" in
+    LEAK|KEEP)  REQUESTS+=( "$subject" ) ;;
+    LEAK-REF)   REQUESTS+=( -H "Referer: ${subject}" "${BASE}/teams" ) ;;
+    *)          die "nginx/redaction_test.sh: unknown verb '${verb}' in its own table." ;;
+  esac
+done
+
+CURL_RC=0
+curl "${REQUESTS[@]}" || CURL_RC=$?
+
+# The image symlinks the access log to stdout, so the container's log IS the stream, and one read
+# of it holds every case. `|| true` on the grep alone: an empty stream is a finding below.
+LOGGED_LINES=()
+mapfile -t LOGGED_LINES < <(docker logs "$CONTAINER" 2>/dev/null | { grep '^{' || true; })
+
+declare -A LINE_OF=()
+MARKED=0
+for logged_line in "${LOGGED_LINES[@]}"; do
+  _ua="${logged_line##*\"user_agent\":\"}"
+  _ua="${_ua%%\"*}"
+  case "$_ua" in "${MARKER}/"*) ;; *) continue ;; esac
+  LINE_OF["$_ua"]="$logged_line"
+  MARKED=$(( MARKED + 1 ))
+done
+
+# Before any grading, because a stream holding fewer marked lines than the table has cases is one
+# no per-case verdict can be trusted against.
+if (( MARKED != ${#CASES[@]} )); then
+  die "the edge logged ${MARKED} marked access lines for ${#CASES[@]} cases, curl having
+exited ${CURL_RC}, so the stream this grades on is not the table. No case above was judged."
+fi
+
+FAILURES=0
+_n=0
+
+for case_line in "${CASES[@]}"; do
+  _n=$(( _n + 1 ))
   verb="${case_line%%|*}"
   rest="${case_line#*|}"
   subject="${rest%%|*}"
   expected="${rest#*|}"
-
-  case "$verb" in
-    LEAK|KEEP)
-      curl -s -o /dev/null --path-as-is --max-time 5 -H "Host: localhost" "$subject" || true ;;
-    LEAK-REF)
-      curl -s -o /dev/null --path-as-is --max-time 5 -H "Host: localhost" \
-        -H "Referer: ${subject}" "${BASE}/teams" || true ;;
-    *)
-      die "nginx/redaction_test.sh: unknown verb '${verb}' in its own table." ;;
-  esac
-
-  LINE=$(( LINE + 1 ))
-  logged="$(readback "$LINE")"
+  logged="${LINE_OF["${MARKER}/${_n}"]:-}"
 
   if [[ -z "$logged" ]]; then
     fail "${verb} ${subject}"
