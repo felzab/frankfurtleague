@@ -439,7 +439,7 @@ if (( PARALLEL || STEP_JOBS )); then
   # serial path, which runs the same bodies in the same order.
   POOL_PY="$(any_python || true)"
   if [[ -z "$POOL_PY" ]] \
-    || ! "$POOL_PY" -c "import sys; sys.path.insert(0, 'scripts'); import checker_kernel" >/dev/null 2>&1; then
+    || ! "$POOL_PY" -c "import sys; sys.path.insert(0, 'scripts/lib'); import checker_kernel" >/dev/null 2>&1; then
     # Reported below rather than taken quietly: the fallback proves the same thing at the cost of
     # the sum rather than the longest, and a run nothing tells apart is one whose wall clock
     # nobody can account for.
@@ -1037,7 +1037,7 @@ written at the rule, never suppressed at this call site." \
   if [[ -n "$OPS_PY" ]]; then
     # Only the kernel's own crash counts as too old; any other probe failure leaves the checker to
     # answer for itself.
-    quietly "$OPS_PY" -c "import sys; sys.path.insert(0, 'scripts'); import checker_kernel" || OPS_FLOOR=$?
+    quietly "$OPS_PY" -c "import sys; sys.path.insert(0, 'scripts/lib'); import checker_kernel" || OPS_FLOOR=$?
   fi
   if [[ -z "$OPS_PY" ]]; then
     skip "no python found, so the compose files were not compared"

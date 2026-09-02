@@ -708,7 +708,7 @@ CLASSIFIER_FLOOR=0
 if [[ -n "$CLASSIFIER" ]]; then
   # `any_python` answers whether an interpreter exists; the question is whether it can host the
   # checkers. Asked of the kernel, so one file owns the floor.
-  quietly "$CLASSIFIER" -c "import sys; sys.path.insert(0, 'scripts'); import checker_kernel" \
+  quietly "$CLASSIFIER" -c "import sys; sys.path.insert(0, 'scripts/lib'); import checker_kernel" \
     || CLASSIFIER_FLOOR=$?
 fi
 FIXTURES=".tmp-scope-fixtures/${RUN_ID}"
