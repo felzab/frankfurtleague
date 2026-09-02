@@ -63,12 +63,22 @@ this session could not run, say so instead of guessing.>
   one paragraph named twelve modules where there were fourteen, and a collected test count moved
   through four values during a single audit.
 - **A commit SHA on a live branch.** Cite subjects and let the next session re-derive.
-- **A figure quoted as a baseline** that nobody re-measured in the state the next session inherits.
+- **A figure quoted as a baseline** that nobody re-measured in the state the next session inherits,
+  and any figure taken while the fleet was running: it measured a contended machine, and three
+  agents timing one quantity got three answers.
 - **A filename a pending fix round will rename.** Hand over only what has reached the end of its
   cycle; a handoff written mid-cycle sent the next session to a file about to be split.
 - **A question the owner has ruled.** One handoff re-asked the ruling that changed the per-slice
   discipline, against its own "do not re-ask" line, because the ruling was in one copy of the
   owner's file and not the other.
+
+## Planning a programme
+
+- **Plan in a separate session.** It produces the programme plan and the starter prompt for session
+  one; the plan lays out the whole path — each session's scope, dependencies and exit condition — so
+  no later session re-derives the shape under pressure.
+- **One pull request per session.** Size a session to be worth its own branch and not exhaust its
+  context. A phase whose verification verdict must stand alone gets its own session.
 
 ## The starter prompt
 
@@ -89,5 +99,5 @@ is forgotten.
 ```
 
 Both live in the durable plan directory beside the plan, with every document they cite in the same
-directory. A session scratchpad dies with its session; a plan written there is unreachable by the
-next one.
+directory and one copy of each governing file — a second copy diverges. Never a session scratchpad,
+which dies with its session, and never an artifact, which the next session does not read.

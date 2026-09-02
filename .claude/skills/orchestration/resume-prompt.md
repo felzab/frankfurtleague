@@ -4,8 +4,9 @@ For a session paused for quota, killed, or continued after any gap. **A resume p
 can prove, not a state you remember** — the last commit, the register, and a real exit code. Nothing
 an agent reported and nothing you recall counts until it has been re-established against the tree.
 
-Send `/orchestration` as its own message first, then paste the block below verbatim as the next
-message. The mechanics behind that order are in [USAGE.md](USAGE.md).
+**The owner** sends `/orchestration` as its own message first, then pastes the block below verbatim
+as the next message; the mechanics behind that order are in [USAGE.md](USAGE.md). **A coordinator
+reading this file starts at the block** — the two sentences above are not yours to execute.
 
 ```
 Resume this session. Do not continue any work until you have finished this protocol.
@@ -19,16 +20,19 @@ Resume this session. Do not continue any work until you have finished this proto
    dead -- killing a parent does not kill its children. For each agent the register records:
      - finished, with its report on disk        -> read the condensed verdict, mark it done;
      - running                                  -> leave it, note what it owns;
-     - paused, killed, or unaccounted for       -> try to RESUME it by its agent id first, since
-       a resumed agent keeps its whole context and re-reads nothing. Treat the resume as a new
+     - paused, killed, or unaccounted for       -> try to RESUME it first, addressed by the agent
+       name the register records, since a resumed agent keeps its whole context and re-reads
+       nothing. Treat the resume as a new
        dispatch: check that its files are still free before it continues, and treat nothing it
        claims as done until the acceptance evidence is on disk. Where the resume fails, re-brief
        it from its last provable state: the files it owns as they stand committed, plus the
        checklist items whose acceptance evidence exists. An item with no evidence is not done.
 
-3. PARTIAL WORK. For every uncommitted change in the tree, name the agent that owns the file. A
-   changed file no agent owns is the first thing to investigate -- it is either a lost agent or a
-   conflict incident. Do not commit anything you cannot attribute.
+3. PARTIAL WORK. For every uncommitted change in the tree, name the agent that owns the file. Use
+   `git status --porcelain`, not `git diff --name-only`: a file an agent created and never staged
+   is invisible to the second, and a test module left untracked that way passed its suite by being
+   absent from it. A changed or untracked file no agent owns is the first thing to investigate --
+   it is either a lost agent or a conflict incident. Do not commit anything you cannot attribute.
 
 4. INSTRUCTIONS. Re-read every standing instruction and confirm each is still being followed --
    the repository's own rules file, the ratified decisions, the owner's standing-instructions file,
@@ -54,10 +58,12 @@ evidence is on disk and still valid. Re-run what you cannot prove; read what you
 
 - **Step 1** — a branch can be rebuilt while a session is away. A sixteen-commit branch here was
   rebuilt twice inside six minutes, every SHA different and every subject intact.
-- **Step 2** — the documentation says subagent transcripts persist with their session and can be
-  resumed after a restart by resuming that session; whether an agent killed by a quota stop comes
-  back here has not been recorded, and the attempt costs one message where a re-brief costs the
-  whole context. What a resumed agent cannot supply is evidence: an agent that "was nearly done"
+- **Step 2** — the register carries each agent's name so that a resume has an address at all: the
+  harness's agent-to-agent send tool is addressed by the name an agent was dispatched under, and a
+  send resumes it from its transcript. That is **read from the tool's own definition and not
+  driven**, so attempt it and see; whether an agent killed by a quota stop comes back has not been
+  recorded either way, and the attempt costs one message where a re-brief costs the whole context.
+  What a resumed agent cannot supply is evidence: an agent that "was nearly done"
   has, by definition, none for the part that was nearly done. And a resumed agent re-enters its
   partition — two agents were live in one directory because a resume was not treated as a dispatch.
   One nested helper never returned at all, which is why the fleet is listed rather than assumed.
