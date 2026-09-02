@@ -55,8 +55,9 @@ dev = [
     # they are deselected by default, so a normal `pytest` run never loads it or touches Docker.
     "testcontainers[mongodb]>=4.15.0",
     # Distributes the `db` tier over worker processes, which `scripts/verify.sh`'s db scope asks for
-    # with `-n auto --dist loadfile`. No module imports it and a bare `pytest` never engages it: the
-    # plugin is inert without `-n`, so the default tier runs exactly as it did.
+    # with `-n auto --dist loadfile`. No module imports it, and the one place its hookspec is named
+    # -- `tests/conftest.py :: pytest_configure_node` -- carries `optionalhook`, which is what lets a
+    # run whose environment lacks the plugin collect at all rather than end at 3.
     "pytest-xdist>=3.8.0",
 ]
 

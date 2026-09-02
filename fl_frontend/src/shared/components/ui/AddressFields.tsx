@@ -42,8 +42,9 @@ export function AddressFields({
   /** Replaces each plain `<Label>`, for a page editor whose labels carry draft markers and anchors. */
   renderLabel?: (path: string, text: string) => ReactNode;
   /**
-   * On only where the payload requires a district — the application form's. It lets the browser refuse an empty one
-   * there, rather than a schema message answering where every sibling field answers natively.
+   * On only where the payload requires a district — the application form's. `validationBehavior="aria"`
+   * drops the native attribute (`requiredMarking.test.ts`), so this marks and describes the field and
+   * the payload schema is what refuses an empty one.
    */
   isStadtteilRequired?: boolean;
   /**

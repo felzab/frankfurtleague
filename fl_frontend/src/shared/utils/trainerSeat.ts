@@ -1,9 +1,7 @@
 /**
- * The Trainer seat, filled from the seat that declared itself the coach.
- *
- * **Composed, never written into a draft.** The seat that made the claim is where the person is
- * edited, so the Trainer's own entry survives the claim being lifted. A mirror written into state
- * overwrites one of two real people on the first keystroke, with no undo and nothing said.
+ * Filled from the seat that declared itself the coach, and composed, not written into a draft: the
+ * claiming seat is where the person is edited, so lifting the claim keeps the Trainer's entry, where a
+ * mirror in state overwrites a real person silently.
  */
 export function mirrorTrainerSeat<Seat extends string, Person, Block extends Record<Seat, Person> & { trainer: Person }>(
   block: Block & { trainer_ist_zugleich: Seat | null },

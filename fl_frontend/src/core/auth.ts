@@ -49,8 +49,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
   },
-  // Without `signIn`, Auth.js keeps its own form live at /api/auth/signin: a second, unthrottled
-  // entry point to the same email-send surface.
+  // Auth.js's built-in sign-in FORM, which this replaces. It does not move the POST that mails
+  // the link -- `pages` is read on the GET branch alone -- so `nginx/prod.conf ::
+  // location /api/auth/signin` is what meters that.
   pages: { signIn: "/signin", error: "/signin" },
 
   // Long enough to span a weekend of matchdays without a sign-in mid-round. `role` is re-derived on

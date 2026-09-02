@@ -84,8 +84,14 @@ ENDINGS: Final[tuple[Ending, ...]] = (
         1,
         "1 finding(s) in this run",
     ),
-    Ending("an adopted rank outside the label table", ("adopt_section scope 6 10 0 0",), 1, "is outside 0-5"),
-    Ending("an adopted count that is not a number", ("adopt_section scope 4 ten 0 0",), 1, "is not a count"),
+    # A mangled row is the gate's own handoff, so all three of `adopt_section`'s validations crash:
+    # nothing in the tree under test could be edited to answer for one, which is what a 1 would say.
+    Ending("an adopted rank outside the label table", ("adopt_section scope 6 10 0 0",), 3, "is outside 0-5"),
+    Ending("an adopted count that is not a number", ("adopt_section scope 4 ten 0 0",), 3, "is not a count"),
+    Ending("an adopted row while a section is still open", ("section demo", "adopt_section scope 2 10 0 0"), 3, "a section is still open"),
+    # Rank 1 is the one verdict below `pass` that no ending owns: a run of nothing but skips has
+    # judged no change, and green there reads as a run that did.
+    Ending("a run of nothing but skips", ("section demo", 'skip "nothing"', "finish"), 2, "every section in this run was skipped"),
     Ending("a worker that found something", ("section demo", 'fail "one thing"', "end_worker"), 1, None, (("FL_GATE_WORKER", "1"),)),
     Ending("a worker that found nothing", ("section demo", 'ok "checked"', "end_worker"), 0, None, (("FL_GATE_WORKER", "1"),)),
 )

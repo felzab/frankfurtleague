@@ -24,7 +24,7 @@ from .kernel import (
     untracked_files,
 )
 
-# The subtrees chapter 2 binds, which is where its comment rules are checked.
+# The subtrees the In-code section binds, which is where its comment rules are checked.
 INCODE_SCOPES: Final[tuple[str, ...]] = ("fl_frontend/src/", "fl_backend/app/", "fl_backend/tests/", "scripts/", ".claude/hooks/")
 
 # INC-9's one bound, the same for every shape: inline comment, symbol doc and test docstring alike.

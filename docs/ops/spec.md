@@ -60,6 +60,7 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | Location                   | Upstream        | Notes                                                                                                                                                                                                |
 | -------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/api/auth`                | `frontend:3000` | Auth.js's catch-all route handler                                                                                                                                                                    |
+| `/api/auth/signin`         | `frontend:3000` | Auth.js's own sign-in POST, metered on `signin`/`signin48` — a PREFIX, so no trailing-slash twin, and @auth/core reaches `actions.signIn` on the POST branch where `pages.signIn` is never read      |
 | `= /api/client-error`      | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/spec.md`](../logging/spec.md))                                                     |
 | `= /api/bewerbung`         | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
 | `= /api/bewerbung/kuerzel` | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
@@ -135,12 +136,24 @@ Percent-encoded, double-slash and dot-segment forms need no twin: nginx decodes,
 resolves each before matching, all three measured reaching their zone (measured 2026-08-30).
 
 **Each pair is one narrow zone and one wide one, the wide at ten times the rate and the burst** —
-the narrow zone decides an ordinary visitor's request, the wide one caps the walk. The pairs are
-held apart per endpoint rather than pooled, one shared ceiling letting cheap traffic spend what
-guards the expensive. **The application form's submission carries the lowest rate here**, its
+the narrow zone decides an ordinary visitor's request, the wide one caps the walk. **The pairs are
+held apart per unit of WORK rather than pooled**: a Kürzel keystroke and an outbound email cost
+differently, and one shared ceiling would let the cheap traffic spend what guards the expensive.
+**Two paths reaching the same work share one pair for that same reason** — `location = /signin` and
+`location /api/auth/signin` both end in one Resend message and one verification-token write, so
+separate budgets would hand a caller twice the allowance for alternating between them. **The
+application form's submission carries the lowest rate here**, its
 handler mailing an address the REQUEST supplied — every allowed request is a message to a chosen
 stranger — and lowering the reachable ceiling again is the wide multiplier's job rather than the
 narrow rate's.
+
+**`bewerbung48` is the one deliberate exception to the multiplier, and it is on the RATE alone**:
+its 6r/m against `bewerbung`'s 2r/m is three times rather than ten, the burst staying at the ten
+the rule sets. What decides it is a count rather than a ratio — the number of applications a season
+takes before the admin triage read answers 500 — and the narrower wide rate puts that flood hours
+out of one allocation rather than under an hour. What it risks, and what the multiplier exists to
+protect, is a school behind one `/48` signing up as a class. The argument is at the zone, in
+`nginx/prod.conf`'s own comment, which is where a reader changing the number stands.
 
 **`location /` takes a connection ceiling rather than a rate zone** — a `limit_req` there would
 meter `/_next/static` too and stall an ordinary page load, so `limit_conn conn 50` on the narrow
@@ -298,16 +311,53 @@ floor (`scripts/checker_kernel.py :: PYTHON_FLOOR`), below which it exits at imp
 the earliest line an old interpreter reaches, a checker's own body being free to use syntax it
 cannot parse. **`check_pr_body.py` runs only in CI** — a pull request body is not in the
 repository, so `.github/workflows/pr-body.yml` is the only place it is addressable. The one
-javascript helper is `scripts/ts_normalize.mjs`, whose header argues the exception.
+javascript helper is `scripts/ts_normalize.mjs`, whose comment at
+`scripts/ts_normalize.mjs :: printer` argues the exception.
 
-**`scripts/tests/` is the pytest suite that proves the gate's own coverage** (PRE-4): it plants one
-violation per check `scripts/check_docs.py` registers and asserts the check finds it, reaches each
-of `scripts/_lib.sh`'s endings in a throwaway script and asserts the status a caller branches on,
-drives `scripts/check_commits.py` and `scripts/check_pr_body.py` from a table holding every
-reporting site in either to a case that reaches it, drives `scripts/check_scope.py`'s comment-only
-classifier over a pair of versions per language it carves out, holds the python in `scripts/` to
-parsing at
-`scripts/checker_kernel.py :: PARSE_FLOOR`, and asserts every shell arm degrading on a crash spells
+**`scripts/tests/` is the pytest suite that proves the gate's own coverage** (PRE-4), and it divides
+three ways. **Every module is named below**, so a red one says what broke without opening it; no
+count is stamped, a total being the thing that goes stale first.
+
+**What each checker reports, planted and driven.** Each of these plants a violation, asserts the
+check finds it, and asserts the same check says nothing about a corpus with none:
+`scripts/tests/test_check_docs.py` over every check `scripts/docs_gate/kernel.py :: CHECKS`
+registers; `scripts/tests/test_branch_checks.py` over the branch-scoped half, which a run on a clean
+tree arms almost none of, by shaping one synthetic branch state per scenario in a throwaway
+repository; `scripts/tests/test_check_conflict_markers.py` over the forms a marker reaches a tree in,
+every one BUILT from a repeated character so the file is not a finding of the checker it drives;
+`scripts/tests/test_check_compose_mirror.py` over the comparison behind I1, the declared delta
+covering nothing included; `scripts/tests/test_message_gates.py`, which holds every reporting site in
+`scripts/check_commits.py` and `scripts/check_pr_body.py` to a case that reaches it rather than
+counting cases; `scripts/tests/test_check_scope.py`, one pair of versions per language the
+comment-only carve-out reaches; and `scripts/tests/test_scope_decisions.py`, which holds everything
+after that classifier — which scopes a diff asks for, which of those fail and which only report —
+against a real branch in a throwaway repository, so a `check` a mutant has emptied fails here.
+
+**What stops a sweep going quiet.** A checker that has stopped reading the tree reports success over
+an empty collection, so three floors are pinned against this repository rather than against a
+fixture: `scripts/tests/test_copy_corpus.py` for the population the copy sweep reaches,
+`scripts/tests/test_parse_floor.py` for the python in `scripts/` parsing at
+`scripts/checker_kernel.py :: PARSE_FLOOR` and for the module count behind that walk, and
+`scripts/tests/test_scope_agreement.py` for `scripts/docs_gate/branch.py :: INCODE_SCOPES` against
+the rule text it enforces — a subtree dropped from that tuple otherwise stops being checked in
+silence.
+
+**What a run exits with, executed rather than read.** A comparison of two literals cannot see an arm
+reordered inside a shell function, so each of these runs the thing:
+`scripts/tests/test_exit_contract.py` reaches each of `scripts/_lib.sh`'s endings in a throwaway
+script and asserts the status a caller branches on; `scripts/tests/test_worker_handoff.py` runs a
+real worker, reads the ledger it wrote and hands both to a parent shaped like
+`scripts/verify.sh :: replay_scope`; `scripts/tests/test_gate_pool.py` drives `scripts/gate_pool.py`
+as a subprocess for a unit's status on its way back and for the wiring that ends a run early, which
+nothing on the machine this suite runs on otherwise exercises;
+`scripts/tests/test_unit_replay.py` takes the step-level twin, what `scripts/verify.sh :: unit_replay`
+and `:: unit_verdict` make of a unit that reached no verdict;
+`scripts/tests/test_selfcheck_guards.py` lifts `scripts/selfcheck.sh`'s own arms out by name and
+drives each against a shaped input, reaching the four that grade a crashed probe, an unterminated
+verdict, a retry escaping its subshell and the words a call is read by;
+`scripts/tests/test_unreached_scopes.py` for a scope the run selected and never reached, which the
+closing table names as `unreached` rather than dropping, at every exit the run can end on; and
+`scripts/tests/test_crash_status.py` asserts every shell arm degrading on a crash spells
 `scripts/checker_kernel.py :: EXIT_CRASH` as its own literal — a copy left behind being invisible to
 the run it silently reprieves.
 
@@ -359,13 +409,28 @@ When pruning, keep roughly the last five `sha-` tags per package and never delet
 created alongside a tag still in use** — BuildKit provenance attestations the tagged image
 references by digest, so deleting one corrupts the tag it belongs to.
 
-**`--status` has two endings of its own, and pruning is decided from what it prints**: it refuses
-at exit 2 where any service could not be asked — an unasked service reads exactly like a stopped
-one — and fails at exit 1 where the two running services are different builds, naming both and the
-tag that puts them back on one build (§3), or where the edge answers the liveness probe with an HTTP
-status other than 200. That last read is the only line in the report not taken from a container:
-nginx resolves its upstreams once as it loads, so a healthy pair says nothing about whether the edge
-is still pointed at it (I9).
+**`--status` reads and changes nothing, and it ends one of three ways** — pruning is decided from
+what it prints, so which ending it reached is the first thing to read.
+
+**Green, exit 0.** Both services are running, they name the same build, and the edge answers the
+liveness probe with 200. This is the only ending that says what is live, and the only one a registry
+may be pruned from.
+
+**Findings, exit 1.** Something definite is wrong with what is running: a service is not running at
+all, the two services are running different builds — the row naming both and the tag that puts them
+back on one (§3) — or the edge answered the liveness probe with an HTTP status other than 200. **A
+stopped service is graded here rather than as an advisory**, because the edge can still answer 200
+from a worker that outlived it: a green probe over a stopped pair is exactly what a stale nginx or a
+stray container looks like, and it is the state that most resembles a healthy one from outside. That
+probe is the only line in the report not taken from a container, nginx resolving its upstreams once
+as it loads, so a healthy pair says nothing about whether the edge is still pointed at it (I9).
+
+**Refused, exit 2.** A question the report is built from went unanswered: compose declined to say
+whether a service is running, a container was removed between `ps` and `inspect`, a build label
+could not be read, or this host's images could not be listed. An unasked service reads exactly like a
+stopped one, so the report withholds its verdict rather than grading around the gap. **Prune nothing
+after this ending** — the rollback list it printed may be short by whatever went unread, and "never
+delete what is live" cannot be applied to a list that is not the whole one.
 
 **`curl` writes `000` where no HTTP response arrived at all** — a DNS failure, a refused connection,
 a TLS failure and a timeout all print it, and the empty string means only that `curl` itself did not
@@ -391,11 +456,7 @@ one that never ran, and a session fixing the failure knows what it need not pay 
 run's exit is then the worst adopted rank, findings outranking a refusal as everywhere else
 (`scripts/_lib.sh :: finish`); byte-identity with the serial run is a green run's property, a
 failing serial run having stopped where the parallel one did not. **A scope whose exit status its
-own rows cannot account for ends the run at 3** (`scripts/_lib.sh :: adopt_ending`) — a 1 carrying
-no finding, a 2 carrying no refusal — because the rows are all `finish` reads, so a status nothing
-in them explains is exactly what would otherwise close the run green over a scope that failed. The
-grade is the environment's and never 2, the code that asks for the input the check was given to be
-fixed: no input made a worker and its parent disagree, the fault being the handoff's. `--serial` runs them one at a
+own rows cannot account for ends the run at 3** (`scripts/_lib.sh :: adopt_ending`). `--serial` runs them one at a
 time and is what a byte-identity comparison is measured against; `--verbose`, a run covering one
 scope, CI (already one scope per job) and a machine with no interpreter at the checkers' floor are
 serial too. **No scope waits on another** — the compose parse reads its stand-in `.env` files from
@@ -537,7 +598,7 @@ runs, which already covers it.
 | `--backend`  | `uv lock --check`, then `ruff` + `pyright` + `pytest`, default tier                                                                                                                                                                                                                             | the backend venv, and `uv` for the lockfile check                                     |
 | `--format`   | prettier in check mode over the whole repository                                                                                                                                                                                                                                                | pnpm install                                                                          |
 | `--frontend` | the frozen lockfile check, then tsc, eslint, `next build`, unit tests, audit                                                                                                                                                                                                                    | pnpm install                                                                          |
-| `--ops`      | both compose files parse; the local stack mirrors production; nginx accepts `prod.conf`                                                                                                                                                                                                         | Docker, and an interpreter at the checkers' floor for the mirror                      |
+| `--ops`      | both compose files parse; the local stack mirrors production; nginx accepts `prod.conf`, and its access line carries no credential                                                                                                                                                              | Docker, and an interpreter at the checkers' floor for the mirror                      |
 | `--db`       | `pytest -m db -n auto --dist loadfile`, against the two real `mongod`s the xdist controller starts and every worker shares (`docs/backend/spec.md` §1.6)                                                                                                                                        | venv + Docker                                                                         |
 | `--images`   | both `docker build`s + the `instrumentation.js` presence check                                                                                                                                                                                                                                  | Docker                                                                                |
 
@@ -561,9 +622,15 @@ the lockfile.
 **Before any of them runs, `check_scope.py` compares the scopes named against what the branch
 actually changed.** It refuses a run whose diff reaches the image build with a change that is more
 than comments, and merely reports every other surface the run leaves unproven. What counts as "more
-than comments" is decided by a parser and never by a `#` rule: TypeScript through its own parser,
-Python through `ast` with docstrings stripped, TOML through `tomllib`, and everything else is code,
-the safe answer where no parser is available. The check is skipped in CI, which maps its own scopes
+than comments" is decided by a parser: TypeScript through its own parser, Python through `ast`,
+TOML through `tomllib`, and everything else is code, the safe answer where no parser is available.
+**Two shapes a parser calls a comment are excluded by name, because a tool downstream reads them** —
+a line matching `scripts/check_scope.py :: TOOLCHAIN_DIRECTIVE`, which pyright, ruff, prettier and
+the OS loader each read, and a docstring under `scripts/check_scope.py :: DOCSTRINGS_ARE_PUBLISHED`,
+which FastAPI publishes as the OpenAPI `description` so that rewriting one leaves
+`fl_backend/openapi.json` stale. Docstrings are stripped everywhere else. **Those two exclusions are
+pattern matches on comment text**, which the rest of this decision deliberately is not: each is
+named because the parser's answer is right about the language and wrong about what reads the file. The check is skipped in CI, which maps its own scopes
 from the paths.
 
 **The scripts scope lints and type-checks its own python**, through configs that sit in `scripts/`
@@ -598,8 +665,10 @@ regeneration would otherwise let drown the headline — with the generated bucke
 net. It puts a number in front of a reader and decides nothing: no threshold exists to tune, and
 the step runs under `continue-on-error`, so it can fail no job and shrink no scope.
 
-The **ops** scope exists because the compose files and the nginx config have no compiler and no
-test suite — without it, a typo in either surfaces on the server, at deploy time. `nginx -t` runs
+The **ops** scope exists because the compose files have no compiler and no test suite, and the
+nginx config has no compiler — without it, a typo in either surfaces on the server, at deploy
+time. What the nginx half does have is `nginx/redaction_test.sh`, which drives a real request
+through a real edge and reads the access line back (`docs/logging/spec.md` L11). `nginx -t` runs
 against throwaway self-signed certificates and loopback upstream hosts, because a config test loads
 both.
 
@@ -642,9 +711,9 @@ so growth against it accumulates in the number rather than in the baseline.
 
 **A row appears only where that job's median has moved past that job's own floor**, and a report with
 nothing past a floor says so in one line. The floors are per job because one figure is wrong for most
-of them: measured by resampling whole runs, a 12-run median moves 8% on `frontend` at p95 and 22% on
-`backend-db`, so a single global figure dismisses a real move on the quiet jobs and cries wolf on the
-noisy ones. Each floor in the table is that job's own p95, so a delta under it is a reshuffle.
+of them: measured by resampling whole runs, a 12-run median moves 8% on `docs` at p95, 10% on
+`frontend` and 22% on `backend-db`, so a single global figure dismisses a real move on the quiet
+jobs and cries wolf on the noisy ones. Each floor in the table is that job's own p95, so a delta under it is a reshuffle.
 
 **It decides nothing**: no threshold refuses anything, the step runs under `continue-on-error`, and
 pull requests skip it, so the seconds it costs land where no merge is waiting. What it cannot see is
@@ -680,7 +749,9 @@ form regardless of what it touched, unless it changed documentation only.
 
 ### 1.7 Script conventions
 
-All scripts source `scripts/_lib.sh`: strict mode (`set -euo pipefail`, hardened `IFS`), an error trap
+All scripts source `scripts/_lib.sh`: strict mode (`set -Eeuo pipefail`, hardened `IFS`) — the `-E` is
+what makes the trap below reach inside a function, errtrace being off by default, so a command failing
+there exits with its own status rather than the crash floor and a crashed scope prints as a pass — an error trap
 naming the script, line and command that failed, an interrupt trap that exits through each script's
 own cleanup rather than around it, guards (`require_platform`, `require_docker`, `require_file`,
 `require_dir`), `wait_healthy` for Compose services, and `usage`, which prints the calling script's own
@@ -728,7 +799,14 @@ checker.
 `section`, `step`, `detail` and `excerpt` own their own line shapes, and `scripts/check_docs.py`
 prints to the same columns, so the whole gate reads as one voice. A run closes with one row per
 section and then the statement for whichever ending it reached, and a section that closed with no
-verdict at all is recorded as a finding rather than passed over. Colour is decided centrally:
+verdict at all is recorded as a finding rather than passed over. **A scope the run announced and
+then never opened takes a row of its own, reading `unreached` over two dashes**
+(`scripts/_lib.sh :: _find_unreached`, fed by `scripts/verify.sh :: set_selected`). It is neither a
+scope nobody selected, which the not-run line names, nor one that reached a verdict, which a rank
+would say — and an ending reached partway through a run would otherwise leave it named nowhere at
+all, having been announced as covered. The row is reporting alone: the finding, refusal or crash
+that stopped the run short of the scope is what the exit code still answers for. Colour is decided
+centrally:
 `FL_GATE_COLOR` is read ahead of everything else — the gate's own variable, how a parent hands a
 worker its answer without exporting one every tool would take as an instruction — then `NO_COLOR` /
 `FORCE_COLOR`, a terminal, and GitHub Actions, whose log renders ANSI. A spinner draws only where
@@ -778,7 +856,7 @@ its human-readable line on stderr, where it cannot reach the outputs.
 | I10 | Scripts use LF line endings and carry the git executable bit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `selfcheck.sh` (its LF and executable-bit checks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | I11 | The three API keys are 64 characters and match on both sides                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `fl_frontend/src/core/config.ts` alone (`length(64)`); the backend requires presence only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | I12 | Publishing stops on a commit no remote holds — any remote branch clears the bar, not only an ancestor of `main`                                                                                                                                                                                                                                                                                                                                                                                                                                 | `publish.sh`, whose preflight asks the remotes for their branches (`git ls-remote --heads`) and requires HEAD to be an ancestor of a tip this clone holds, `--dry-run` included; a remote that could not be asked refuses at exit 2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| I13 | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set with `Host $proxy_host` among it (§1.3). Every other `/api/...` path reaches Next, some through a block naming it and the rest through `location /` (§1.3). A URI nginx normalises onto the liveness path is proxied as written and collects FastAPI's 404 rather than Next's, which routes to nothing and fingerprints the stack (§1.3)                                      | unenforced — the ops scope's `nginx -t` parses `prod.conf` without reading which locations it declares (§1.6), `nginx/local.conf` is parsed by nothing (§4, OPS-78), and no test issues a request to a backend path through the edge. The normalisation half WAS observed 2026-08-30: `//api/v0/system/is_live` collects FastAPI's `{"detail":"Not Found"}` under this location's own `Cache-Control: no-store`, so nginx merged the slash for matching and proxied the URI as written                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| I13 | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set with `Host $proxy_host` among it (§1.3). Every other `/api/...` path reaches Next, some through a block naming it and the rest through `location /` (§1.3). A URI nginx normalises onto the liveness path is proxied as written and collects FastAPI's 404 rather than Next's, which routes to nothing and fingerprints the stack (§1.3)                                      | unenforced — the ops scope's `nginx -t` parses `prod.conf` without reading which locations it declares (§1.6), `nginx/local.conf` is loaded by `nginx/redaction_test.sh` but compared against production's by nothing (§4, OPS-78), and no test issues a request to a backend path through the edge. The normalisation half WAS observed 2026-08-30: `//api/v0/system/is_live` collects FastAPI's `{"detail":"Not Found"}` under this location's own `Cache-Control: no-store`, so nginx merged the slash for matching and proxied the URI as written                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | I14 | **Every `limit_req` zone is PAIRED and keys on the visitor's own networks — the /64 and the /48 for IPv6, the whole address for IPv4 — never on the Cloudflare edge, and neither prefix split across two keys in the verification §1.3 records**. The three failures it stands between are shared keying, where one point of presence buckets every visitor behind it; a walkable key, where the /64s one subscriber is allocated outlast any rate the narrow zone can set; and a SPLIT key, where one prefix written two ways is allowed twice | `nginx/prod.conf :: map $remote_addr $client_net` with `nginx/prod.conf :: map $remote_addr $client_net48` for the network half, each enumerating every render shape rather than matching a prefix, on the one-off measurement §1.3 records rather than on anything re-run; `nginx/prod.conf :: set_real_ip_from` with `nginx/prod.conf :: real_ip_header` and `nginx/prod.conf :: real_ip_recursive` for the visitor half, the last of which is what makes a chained value take its final element. Unenforced by the GATE, as I13 is — `nginx -t` parses the file without reading what it keys on, and no test issues a request through the edge. That is no longer true of the EVIDENCE: §1.3 records both maps driven through a running nginx and a zone observed refusing correctly. A measurement taken once is not a check that runs again, and nothing re-runs either. What the halves fail back to is §4 and OPS-93 — a header-route fallback marking its access line with `realip_fallback` while a stale-range one stays silent (§1.3) |
 
 ## 3. Violation → remedy
@@ -822,7 +900,7 @@ its human-readable line on stderr, where it cannot reach the outputs.
 | Certificate renewal is outside this repository                        | Accepted — they are mounted from `./certs`, and nothing here issues or rotates them                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | The local database runs unauthenticated, holding real contact records | Accepted — it holds a copy rather than the source, and I1 is what keeps it off every interface but this host's. `--replSet` with authentication also wants a bind-mounted keyfile whose permissions `mongod` checks, which a Windows host does not reliably give it (`fl_backend/tests/conftest.py :: mongo_replica_set_url` declines it for the same reason). What the copy contains is people, so `--fresh` is what a machine that no longer needs one should be left in: it removes the volume and the copy under `.local-db/` together                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | INC-9 measures none of a renamed file's comment blocks                | Open — `scripts/docs_gate/branch.py :: check_comment_length` reads a block only where every one of its lines sits in the branch's added set, and a detected rename leaves a carried block's lines as context, so no length is measured under the new path.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| No gate scope parses or compares `nginx/local.conf`                   | Open — its header claims production's routing, rate limits and security headers, and nothing reads the claim: `nginx -t` runs against `prod.conf` alone and `scripts/check_compose_mirror.py` compares the compose pair (§1.6). It parses cleanly in the pinned image when run by hand, which is not the same as the gate running it; and §1.3 records one directive the two files spell identically and HTTP/2 makes behave differently.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| No gate scope COMPARES `nginx/local.conf` against production's        | Open — its header claims production's routing, rate limits and security headers, and nothing reads that claim: `nginx -t` runs against `prod.conf` alone and `scripts/check_compose_mirror.py` compares the compose pair (§1.6). **The parse half is closed**: `nginx/redaction_test.sh` serves `local.conf` itself in the pinned image inside the ops scope, and a config nginx cannot load never answers the readiness probe that file's cases index into, so the step fails. What stays open is the comparison, which is **OPS-78**'s, and §1.3 records one directive the two files spell identically and HTTP/2 makes behave differently.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | A guard the database tier stays green without                         | Open — the `session=` argument that keeps a transactional read in `fl_backend/app/api/saisons/admin_router.py` inside its own snapshot is stated by a comment beside it, and dropping it reportedly leaves `--db` (§1.6) green, so the scope this page runs as the backend's regression net is not what holds it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | The linter behind §1.4's compensating control is past end of life     | Open — `fl_frontend/package.json` holds eslint at a 9.x line that will take no further fix of any kind, and both the `react/no-danger` rule §1.4 names as the CSP's compensating control and the lint step of `--frontend` (§1.6) run on it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | A call site's key tier is held to its route by nothing                | Open — `fl_frontend/src/core/api.ts :: apiClient` takes the tier as an option, and omitting it is loud, an admin router refusing the base key with `REQ-AUTH-004`; declaring `authType: "admin"` where a public route would have answered succeeds identically, sending an admin key and an actor header for nothing. `fl_backend/openapi.json` flattens every tier to one `HTTPBearer` scheme, so neither side publishes what a check would compare.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |

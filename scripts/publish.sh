@@ -22,7 +22,9 @@ for arg in "$@"; do
     --dry-run)     DRY_RUN=1 ;;
     --verbose)     VERBOSE=1 ;;
     --help|-h) usage ;;
-    *)             die "Unknown option: ${arg}. Try --help." ;;
+    # 2, not `die`'s 1: an argument this script cannot read is "the input could not be judged",
+    # never "there is a change to fix". Every prerequisite below answers the same way.
+    *)             refuse "Unknown option: ${arg}. Try --help." ;;
   esac
 done
 
@@ -31,7 +33,7 @@ require_docker
 
 section "preflight"
 
-step "The tree this build comes from"
+step "The tree this build comes from, before anything is built"
 require_file "fl_frontend/Dockerfile"
 require_file "fl_backend/Dockerfile"
 
@@ -39,7 +41,18 @@ SHA="$(git_sha)"
 BRANCH="$(git_branch)"
 BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-if git_clean; then
+# Not `git_clean`: a `git status` that FAILED prints nothing, so a tree it could not read reads
+# there as a clean one — and the publish would then take the `sha-` qualifier, whose contract is
+# reproducibility, over a tree that may be dirty.
+PORCELAIN_RC=0
+PORCELAIN="$(git status --porcelain 2>&1)" || PORCELAIN_RC=$?
+if (( PORCELAIN_RC )); then
+  refuse "git could not say whether this tree is clean (exit ${PORCELAIN_RC}), so nothing
+establishes which qualifier this build may take. NOTHING has been built or pushed. git's own answer:
+${PORCELAIN}"
+fi
+
+if [[ -z "$PORCELAIN" ]]; then
   QUALIFIER="sha-${SHA}"
   ok "clean at ${SHA} on ${BRANCH}"
 else
@@ -48,7 +61,17 @@ A tag naming a commit must be reproducible FROM that commit, and this one would 
 Commit your work, or pass --allow-dirty for a deliberate hotfix."
   # A fingerprint of the tree, not just the commit: two hotfix builds from one commit are two
   # images, and one shared tag would put a moving tag inside the class that exists to be immutable.
-  DIRTY_ID="$( { git diff HEAD; git ls-files --others --exclude-standard -z | xargs -0 -r cat 2>/dev/null || true; } \
+
+  # `git diff HEAD` is read on its own, never inside the brace group below: a failure there reaches
+  # the ERR trap and ends the run at git's own status, with no sentence at all.
+  DIFF_RC=0
+  tracked_diff="$(git diff HEAD)" || DIFF_RC=$?
+  if (( DIFF_RC )); then
+    refuse "git could not read this tree's diff against HEAD (exit ${DIFF_RC}), so the -dirty-
+fingerprint would not tell this hotfix build apart from another one of ${SHA}.
+NOTHING has been built or pushed."
+  fi
+  DIRTY_ID="$( { printf '%s\n' "$tracked_diff"; git ls-files --others --exclude-standard -z | xargs -0 -r cat 2>/dev/null || true; } \
     | sha1sum | cut -c1-7 )"
   QUALIFIER="sha-${SHA}-dirty-${DIRTY_ID}"
   warn "Publishing an uncommitted tree as ${QUALIFIER} — this image cannot be rebuilt from git.
@@ -65,6 +88,22 @@ step "The commit this build names"
 # cache: a branch deleted upstream answers `--contains` until something prunes it.
 ON_REMOTE=0
 UNASKED=()
+# Read on its own, never as `done <<< "$(git remote)"`: a here-string discards its substitution's
+# status, so a failing `git remote` gave an empty list and fell through to the `die` below,
+# telling the operator to push a branch that is already pushed.
+REMOTES_RC=0
+remotes="$(git remote 2>&1)" || REMOTES_RC=$?
+if (( REMOTES_RC )); then
+  refuse "git could not list this clone's remotes (exit ${REMOTES_RC}), so nothing establishes that
+${SHA} is fetchable and ${QUALIFIER} would name it. NOTHING has been built or pushed. git's own
+answer:
+${remotes}"
+fi
+if [[ -z "$remotes" ]]; then
+  refuse "this clone has no remote at all, so nothing can establish that ${SHA} is fetchable and
+${QUALIFIER} would name a commit nobody else can resolve. NOTHING has been built or pushed.
+Add one:  git remote add origin <url>"
+fi
 while IFS= read -r remote; do
   [[ -n "$remote" ]] || continue
   # A remote wanting credentials would otherwise hang the publish on a prompt nobody is watching.
@@ -75,7 +114,7 @@ while IFS= read -r remote; do
     # fetch is skipped rather than believed.
     if git merge-base --is-ancestor HEAD "$tip" 2>/dev/null; then ON_REMOTE=1; break 2; fi
   done <<< "$heads"
-done <<< "$(git remote)"
+done <<< "$remotes"
 
 if (( ! ON_REMOTE )); then
   # A remote that could not answer leaves the bar unproven rather than failed.

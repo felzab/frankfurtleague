@@ -22,7 +22,7 @@ from app.api.spieltage.router import router as spieltage_router
 from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.router import router as teams_router
-from app.core.config import BackendConfig, get_config
+from app.core.config import API_VERSION, BackendConfig, get_config
 from app.core.db import lifespan
 from app.core.exception_handlers import register_exception_handlers
 from app.core.logging import setup_custom_logger
@@ -89,9 +89,14 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     for router in (*READ_ROUTERS, *WRITE_ROUTERS, *PUBLIC_ROUTERS):
         app.include_router(router)
 
-    @app.get("/")
+    # The published prose is the decorator's rather than the docstring's: a docstring cannot
+    # interpolate, so the version would reach `openapi.json` as the literal `{API_VERSION}`.
+    @app.get(
+        "/",
+        description=f"Confirm the service is answering. The versioned API is under `/api/v{API_VERSION}`; `/system/is_live` is the probe.",
+    )
     def root():
-        """Confirm the service is answering. The versioned API lives under `/api/v{API_VERSION}`; use `/system/is_live` for a probe."""
+        """Confirm the service is answering."""
         return "Hello World"
 
     # Only when a caller supplied settings: installing this unconditionally would leave a test
