@@ -7,6 +7,8 @@ name: verify
 #
 # Invariants:
 # - A push to main runs every scope unconditionally, which also backstops the path mapping.
+# - Every job is held to the wall-clock budget its row in .github/gate-wall-clock.tsv gives it, by
+#   the aggregate job and on every event; nothing about the budget is advisory.
 
 on:
   pull_request:
@@ -153,6 +155,13 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: fl_backend/.venv/bin/python scripts/check_commits.py --base "origin/${BASE_REF}"
+      - name: Hold a moved gate budget to its measurement
+        # A budget or a reference raised in .github/gate-wall-clock.tsv carries a new measurement
+        # stamp, or the pull request is refused here. This job, because it already has the venv
+        # and the full history the base comparison reads, and nothing waits on it.
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: fl_backend/.venv/bin/python scripts/check_gate_budget.py --base "origin/${BASE_REF}"
 
   scripts:
     needs: changes
@@ -501,8 +510,9 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # A job-level grant replaces the workflow-level one whole, so `contents` is spelled again
-    # here for the sparse checkout below; the runs API the wall-clock step reads needs `actions`.
+    # A job-level grant replaces the workflow-level one whole, so `contents` is spelled again here
+    # for the sparse checkout below; the runs API the wall-clock report and the budget check read
+    # needs `actions`.
     permissions:
       actions: read
       contents: read
@@ -519,18 +529,20 @@ jobs:
           RESULTS: ${{ toJSON(needs) }}
         run: |
           printf '%s' "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-      - name: Read the wall-clock reference
-        # One file out of the tree, and only where the step below runs. Sparse rather than a full
-        # checkout: this job runs on every event and owes the required check its start time.
-        # `continue-on-error` for the reason the report below carries it: this job IS the required
-        # check, and nothing advisory may fail it. Without the file the report says so and stops.
-        continue-on-error: true
-        if: github.event_name == 'push'
+      - name: Read the wall-clock reference and the budget check
+        # Three files out of the tree, sparse rather than a full checkout: this job runs on every
+        # event and owes the required check its start time. Without `continue-on-error`, because
+        # the budget step at the end of this job decides: a checkout it cannot read from is that
+        # step refusing, never a verdict skipped. The report still answers a missing reference by
+        # saying so and stopping.
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The token is not needed after checkout, for the reason the changes job gives above.
           persist-credentials: false
-          sparse-checkout: .github/gate-wall-clock.tsv
+          sparse-checkout: |
+            .github/gate-wall-clock.tsv
+            scripts/check_gate_budget.py
+            scripts/checker_kernel.py
           sparse-checkout-cone-mode: false
 
       - name: Report the gate's wall clock
@@ -597,6 +609,9 @@ jobs:
             # The reference table first, one row per job: name, seconds, floor percent.
             FNR == NR {
               if ($0 ~ /^#/ || NF < 3) next
+              # A `-` in the seconds column is a job budgeted and never referenced -- one that runs
+              # on pull requests alone, so no main window holds it -- not a reference of zero.
+              if ($2 !~ /^[0-9]+$/) next
               base[$1] = $2 + 0
               limit[$1] = $3 + 0
               if ($1 != "total") names[++nn] = $1
@@ -704,3 +719,24 @@ jobs:
         run: |
           echo "::error::A scope job failed -- its own log has the findings."
           exit 1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        # The checkers' floor is 3.14 (`scripts/checker_kernel.py :: PYTHON_FLOOR`) and the runner's
+        # default python is not; the toolcache holds 3.14, so this is a lookup rather than a
+        # download. Not a `uv sync`: the check imports the standard library alone, and an install
+        # would sit on the required check's critical path for nothing.
+        with:
+          python-version: "3.14"
+      - name: Hold every job to its wall-clock budget
+        # THE BUDGET. Not advisory: a job over its row in .github/gate-wall-clock.tsv fails the
+        # required check, naming the job and both figures, and so does a job that ran with no row.
+        # After the scope verdict and under its `success()`, so a failed gate is reported as the
+        # failure it is and a job's length is judged only where the job passed. This run's own
+        # jobs come from the API the report reads past runs from, so the two describe one
+        # population. `gh api` is released from `-e` so that a payload it could not fetch reaches
+        # the checker, whose refusal is the exit code, rather than ending the step on gh's own.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" > "${RUNNER_TEMP}/jobs.json" || true
+          python scripts/check_gate_budget.py --jobs "${RUNNER_TEMP}/jobs.json"

@@ -1,4 +1,9 @@
-# The reference the verify job reports the gate's wall clock against: job, seconds, floor percent.
+# The gate's wall clock, one row per CI job: what each job costs, and the most it may cost.
+#
+# Five tab-separated columns. `seconds` and `floor` are the reference the verify job's advisory
+# report compares a median of main runs against; `budget` is the ceiling a single run of the job is
+# held to, and the run that breaks it is red; `measured` is the runs both were taken over, as
+# `<runs>@<date of the newest>`. `-` is a column that does not apply to the row, never a zero.
 #
 # Updated by hand, never by the workflow. A report that recomputed its reference from its own
 # recent past would let a slowdown become the new normal one window at a time, and the accumulated
@@ -11,25 +16,39 @@
 # a report holding no verdict is worth only what it is worth reading, and a floor speaking on
 # half of the quiet pushes spends exactly that.
 #
+# Budget: the highest single-run span in the stamped population, plus a quarter of it or ten
+# seconds, whichever is more, rounded up to the next five. A single run swings far wider than a
+# median does -- `backend-db` reached 1.6 times its median inside 24 runs, `ops` 2.3 times -- so a
+# ceiling that never cries wolf on a quiet runner sits well above the reference, and a run over it
+# is a re-run or a regression, in that order. Raising one costs the runs that justify it: a budget
+# or a reference that rises against main carries a new stamp, refused otherwise by
+# scripts/check_gate_budget.py in the pull request's `commits` job. Lowering one is free.
+#
+# `images` is measured and not budgeted: its span is the layer cache's before it is the tree's, a
+# cold cache costing five times the median, and the Dockerfile change most worth catching is the
+# one that empties that cache. Its guard is the median report alone.
+#
+# `commits` and `format` run on pull requests alone -- `format` only where `frontend` does not, and
+# a push to main turns every scope on -- so their population is pull-request runs, and their
+# reference columns are `-`: the report is cut from main runs, where neither ever appears.
+#
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it, or the next report says the total has drifted.
 #
-# The `format` job has no row and needs none: a push to main turns every scope on, and that job runs
-# only where `frontend` does not, so it is skipped on every run this report is cut from. The check
-# it carries runs inside `frontend` on those pushes, which is where its seconds already are.
-#
-# `ops` is the one row below that is a projection rather than a measurement: the 12 s that scope
-# took in CI before `nginx/redaction_test.sh` joined it, plus the 14 s the new check costs,
-# measured locally rather than on a runner. Replace it with a real median once twelve main
+# `ops` is the one seconds figure below that is a projection rather than a measurement: the 12 s
+# that scope took in CI before `nginx/redaction_test.sh` joined it, plus the 14 s the new check
+# costs, measured locally rather than on a runner. Replace it with a real median once twelve main
 # pushes carrying that check are on record -- until then a report naming `ops` is a statement
-# about this estimate rather than about the gate.
+# about this estimate rather than about the gate. Its budget is a measurement: the 24 runs stamped.
 #
-# job	seconds	floor
-backend	37	14
-backend-db	67	22
-docs	35	8
-frontend	110	10
-images	97	10
-ops	26	17
-scripts	47	8
-total	419	5
+# job	seconds	floor	budget	measured
+backend	37	14	60	24@2026-09-02
+backend-db	67	22	135	24@2026-09-02
+commits	-	-	25	7@2026-09-02
+docs	35	8	60	24@2026-09-02
+format	-	-	50	3@2026-08-31
+frontend	110	10	170	24@2026-09-02
+images	97	10	-	24@2026-09-02
+ops	26	17	40	24@2026-09-02
+scripts	47	8	80	24@2026-09-02
+total	419	5	-	-
