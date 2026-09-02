@@ -1774,6 +1774,20 @@ redact_case 'mongodb://localhost:27017 and mail nobody@example.net' \
 
 info "${REDACTED_OK} redaction fixture(s) came back exactly as specified"
 
+step "18. The uv version is one number in two files"
+# A bot moves one and not the other, and `uv sync` then refuses outright, so the backend image
+# stops building on every branch at once — including branches that touched neither file.
+UV_PIN="$(sed -n 's/^required-version = "==\([0-9][^"]*\)"/\1/p' fl_backend/pyproject.toml)"
+UV_TAG="$(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ ]*\) .*|\1|p' fl_backend/Dockerfile)"
+if [[ -z "$UV_PIN" || -z "$UV_TAG" ]]; then
+  # Not a skip: a spelling this cannot read is the same silence the step exists to remove.
+  note_fail "could not read the uv version from both files — pin '${UV_PIN:-none}', image tag '${UV_TAG:-none}'"
+elif [[ "$UV_PIN" != "$UV_TAG" ]]; then
+  note_fail "fl_backend/pyproject.toml pins uv ${UV_PIN} and fl_backend/Dockerfile copies in ${UV_TAG}; uv sync refuses the pair, so the backend image cannot build"
+else
+  info "uv ${UV_PIN} in the manifest and the image"
+fi
+
 # The only thing that tells a run with nothing to report from one that stopped reporting.
 if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then
   printf 'end\t%s\n' "$LEDGERED" >> "$FL_SELFCHECK_LEDGER"
