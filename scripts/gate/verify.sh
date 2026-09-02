@@ -79,7 +79,12 @@ gate_exit() {
   if (( ${#POOL_DIRS[@]} )); then
     for dir in "${POOL_DIRS[@]}"; do rm -rf "$dir" || true; done
   fi
-  if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then rm -f "$FL_SELFCHECK_LEDGER" || true; fi
+  # Only the opener, for the arrays' reason above: `set -E` hands this trap to every subshell, and
+  # one reclaiming the ledger deletes it mid-write. The next `>>` recreates it holding what came
+  # after, which reads as records lost, not a file removed.
+  if [[ -n "${FL_SELFCHECK_LEDGER:-}" && "${FL_SELFCHECK_LEDGER_OWNER:-}" == "$BASHPID" ]]; then
+    rm -f "$FL_SELFCHECK_LEDGER" || true
+  fi
 }
 trap gate_exit EXIT
 
@@ -702,6 +707,9 @@ if (( RUN_SCRIPTS )); then
 
   # For `scripts/gate/selfcheck.sh :: _ledger`'s reason.
   FL_SELFCHECK_LEDGER="$(mktemp)"; export FL_SELFCHECK_LEDGER
+  # Which process may delete it, for `gate_exit`'s reason. `BASHPID` rather than `$$`: a subshell
+  # keeps its parent's `$$`, so the pair would match in exactly the subshells that must not reclaim.
+  FL_SELFCHECK_LEDGER_OWNER="$BASHPID"; export FL_SELFCHECK_LEDGER_OWNER
   SELFCHECK_SKIPS=0
 
   # A broken ledger is this gate's own plumbing, never the change under test, so each fault below
@@ -719,8 +727,13 @@ if (( RUN_SCRIPTS )); then
       esac
       records=$(( records + 1 ))
     done < "$FL_SELFCHECK_LEDGER"
-    [[ "$declared" == "$records" ]] \
-      || on_error 3 "${LINENO}" "scripts/gate/selfcheck.sh left ${records} ledger record(s) under a closing count of '${declared:-none}'"
+    # The ledger itself, on the way out: a count against a count says the plumbing broke and not
+    # which half, and a record written then lost reads exactly like one never written.
+    if [[ "$declared" != "$records" ]]; then
+      printf 'the ledger held:\n' >&2
+      detail < "$FL_SELFCHECK_LEDGER" >&2 || true
+      on_error 3 "${LINENO}" "scripts/gate/selfcheck.sh left ${records} ledger record(s) under a closing count of '${declared:-none}'"
+    fi
   }
 
   # Safe together: each writes only its own cache or a throwaway tree.
