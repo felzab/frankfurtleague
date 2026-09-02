@@ -382,6 +382,38 @@ class TestTheAssignedColoursRead:
         assert answered(url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=WINDOW_DATABASE).status_code == 404
 
 
+# Present and not an object: what `app/core/constraints.py :: _SAISON_BEWERBUNG` refuses, and what
+# a season stored before that validator can still carry.
+MALFORMED_WINDOWS = [
+    pytest.param("2026-03-01/2026-04-30", id="a window flattened to a string"),
+    pytest.param(2026, id="a window stored as a number"),
+    pytest.param([dict(RUNNING_WINDOW)], id="a window wrapped in a list"),
+]
+
+# Both reads take their window through `app/api/bewerbungen/public_router.py :: _pull_window`.
+WINDOW_READS = [
+    pytest.param(f"{PREFIX}/fenster/{OPEN_SAISON}", id="the window read"),
+    pytest.param(f"{PREFIX}/trikotfarben/{OPEN_SAISON}", id="the colour read"),
+]
+
+
+class TestAStoredWindowThatIsNotAnObject:
+    """The window read is what pins the SHAPE half of that guard.
+
+    `_fenster` subscripts what it is handed, so narrowing the guard to a null check answers 500
+    there; the colour read has `window_is_running`'s own shape check behind it and 404s either way.
+    """
+
+    @pytest.mark.parametrize("path", WINDOW_READS)
+    @pytest.mark.parametrize("bewerbung", MALFORMED_WINDOWS)
+    def test_it_answers_as_a_season_carrying_no_window_does(self, mongo_url: str, bewerbung: Any, path: str):
+        """Non-vacuous: the season EXISTS, so a 404 here is the stored shape being refused rather than the id."""
+
+        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
+
+        assert answered(url, path, database_name=WINDOW_DATABASE).status_code == 404
+
+
 # Each window TOUCHES today on one end or both, so the query's `$lte` and `$gte` are what admit it.
 # `seeded_url`'s own corpus sits a month clear of either edge and cannot pin them.
 BOUNDARY_WINDOWS = [

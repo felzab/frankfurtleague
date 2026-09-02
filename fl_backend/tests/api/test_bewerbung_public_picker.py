@@ -106,35 +106,28 @@ class TestTheKuerzelCheck:
         assert "Verlassen" not in answered(seeded_url, f"{PREFIX}/kuerzel/VE").text
 
 
+# Every path the public router serves, bound once: a route added to one list alone would go on
+# being tested for reachability while it quietly stopped being tested for the unauthorised answer.
+PUBLIC_PATHS = [
+    f"{PREFIX}/fenster",
+    f"{PREFIX}/fenster/{OPEN_SAISON}",
+    f"{PREFIX}/schulen",
+    f"{PREFIX}/kuerzel/ZE",
+    f"{PREFIX}/trikotfarben/{OPEN_SAISON}",
+]
+
+
 class TestTheTierTheseReadsAreServedAt:
     """Base-tier at a prefix whose other two routers are admin, which is exactly the mix `test_admin_guard.py` exists to catch.
 
     It walks the window paths too, being one router's tier rather than one endpoint's.
     """
 
-    @pytest.mark.parametrize(
-        "path",
-        [
-            f"{PREFIX}/fenster",
-            f"{PREFIX}/fenster/{OPEN_SAISON}",
-            f"{PREFIX}/schulen",
-            f"{PREFIX}/kuerzel/ZE",
-            f"{PREFIX}/trikotfarben/{OPEN_SAISON}",
-        ],
-    )
+    @pytest.mark.parametrize("path", PUBLIC_PATHS)
     def test_the_base_key_reaches_every_one(self, seeded_url: str, path: str):
         assert answered(seeded_url, path).status_code == 200
 
-    @pytest.mark.parametrize(
-        "path",
-        [
-            f"{PREFIX}/fenster",
-            f"{PREFIX}/fenster/{OPEN_SAISON}",
-            f"{PREFIX}/schulen",
-            f"{PREFIX}/kuerzel/ZE",
-            f"{PREFIX}/trikotfarben/{OPEN_SAISON}",
-        ],
-    )
+    @pytest.mark.parametrize("path", PUBLIC_PATHS)
     def test_no_key_reaches_none_of_them(self, seeded_url: str, path: str):
         """Public here means no SESSION, never no key: the edge reaches this application through the frontend, which holds one."""
 
