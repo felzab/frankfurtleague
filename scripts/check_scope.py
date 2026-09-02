@@ -19,6 +19,7 @@ import sys
 import tempfile
 import tomllib
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -352,8 +353,22 @@ def ci_scopes(files: list[str]) -> dict[str, bool] | None:
 
 
 def images_culprits(files: list[str]) -> list[str]:
-    """Which of these files is the reason the images scope is required. The failure path only."""
-    return [path for path in files if (ci_scopes([path]) or {}).get("images")]
+    """Which of these files is the reason the images scope is required. The failure path only.
+
+    Concurrently: it costs one `bash` launch per file, and serially that outran the whole gate.
+    `map` answers in the input's order.
+    """
+    if not files:
+        return []
+    # Safe to overlap: `--stdin` mode reads its input and writes nothing. The pool's own default
+    # width, `min(32, cpus + 4)`, is already the one for waiting on a process.
+    pool = ThreadPoolExecutor()
+    try:
+        asked = list(pool.map(lambda path: (ci_scopes([path]) or {}).get("images"), files))
+    finally:
+        # `cancel_futures`, or Ctrl-C waits out every launch already queued rather than the running ones.
+        pool.shutdown(wait=True, cancel_futures=True)
+    return [path for path, images in zip(files, asked, strict=True) if images]
 
 
 # --- the check --------------------------------------------------------------------------------------
