@@ -123,6 +123,12 @@ BEWERBUNG_KONTAKT_MIN_AGE_YEARS`). Ruled 2026-09-01 and 2026-09-02.
   person in a league this size. Today the anonymisation clears the contact block only
   (`fl_backend/app/api/schiedsrichter/services.py :: ANONYMISED_KONTAKT`) and the name stays on
   every past fixture. Ruled 2026-09-01, wording 2026-09-02.
+- **A serving referee is published as a forename and a surname initial, like a squad pupil.**
+  Today the fixture read serves the referee's full name to anonymous visitors while a squad pupil
+  is reduced, so the consent architecture covers the less-exposing publication and not the more-
+  exposing one, and the same pupil can appear under both rules. The reduction is a response-model
+  change rather than a data migration: `fl_backend/app/api/spieler/services.py :: public_initial`
+  is the function the squad read already uses. Ruled 2026-09-02.
 - **The free-text fields on public pages stay public** — a fixture's note and a withdrawal's
   reason — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`). Ruled
   2026-09-01.
@@ -163,8 +169,15 @@ BEWERBUNG_KONTAKT_MIN_AGE_YEARS`). Ruled 2026-09-01 and 2026-09-02.
 - **The action log keeps a row for twelve months after it is written, then the row is deleted.**
   The mechanism is a TTL index on the row's timestamp, which the database applies without a
   sweep. This reverses the earlier "kept indefinitely" that `BE-15` records and that
-  `docs/backend/spec.md :: I42` and `:: I45` state as the log's shape; what the log stores per row
-  is otherwise unchanged by this ruling. Ruled 2026-09-01, the mechanism 2026-09-02.
+  `docs/backend/spec.md :: I42` and `:: I45` state as the log's shape. Ruled 2026-09-01, the
+  mechanism 2026-09-02.
+- **The log keeps storing the full prior document on every write, person-bearing rows included.**
+  That copy is what a restore over the log replays, which is the log's purpose, and the
+  twelve-month bound above is what answers the accumulation. Dropping the copies would remove the
+  log's value exactly where writes matter most. A person who asks for erasure still has their log
+  rows emptied and stamped inside the transaction that removes them
+  (`docs/backend/spec.md :: I42`); what the bound answers is the copies of everyone who never
+  asked. Ruled 2026-09-02.
 - **A declined application is kept for one month after the decision, its three people's contact
   details included, then deleted. An accepted application is kept for the season it was accepted
   for and the season after it, then deleted.** The application's own privacy text states both
@@ -173,14 +186,14 @@ BEWERBUNG_KONTAKT_MIN_AGE_YEARS`). Ruled 2026-09-01 and 2026-09-02.
   cleared when the season after the one they were collected for ends. The consent text scopes
   itself to one season, and the clearing mechanism the erasure uses already exists. Ruled
   2026-09-01, the period set 2026-09-02.
-- **Access logs are not shipped off the host — chosen on a reading that is wrong, so the choice
-  is recorded and its basis is owed a second look.** The edge log carries the visitor's address,
-  user agent and referer. I chose to leave it where it is on the reading that the logs die on
-  every deploy; the logging spec says otherwise — nginx's log survives a deploy, and the bound is
-  the container runtime's size rotation, as the retention section of `docs/logging/spec.md`
-  records. The choice not to
-  add a collector stands as given; whether the rotation bound is the retention I want is section
-  12's. Ruled 2026-09-01.
+- **Access logs stay on the host and are bounded by age as well as by size: seven days.** The
+  edge log carries the visitor's address, user agent and referer, and nginx's log survives a
+  deploy, so the only bound today is the container runtime's size rotation, as the retention
+  section of `docs/logging/spec.md` records. A size bound is a period set by traffic volume
+  rather than chosen, so a quiet month keeps addresses far longer than a busy one. Seven days
+  matches the backup window an erased person is told about, which lets one number answer both
+  questions. Nothing is shipped to a collector: that would lengthen retention and add a processor
+  receiving visitors' addresses. Ruled 2026-09-01, the period set 2026-09-02.
 
 ## 7. Processors and third parties
 
@@ -262,11 +275,6 @@ every destination.
 
 ## 12. Open, and owed a decision
 
-- **A serving referee's full name on every fixture.** The review found that a referee is a pupil
-  published by full name while a squad pupil is reduced to a forename and an initial. Section 4
-  settles the erased case only; whether a serving referee's published name is reduced the same
-  way was not decided.
-- **The access-log retention itself.** Section 6 records the choice not to ship logs; the bound it
-  stands on is the rotation, not the deploy, and whether that bound is acceptable is undecided.
-- **Whether the log keeps storing full prior copies of person-bearing rows** under the twelve-month
-  bound. The review had rejected dropping them once; the bound was set without revisiting it.
+Every question this round raised is answered above. What is open is the qualified review: no
+Datenschutzexperte has seen the rulings taken on 2026-09-01 and 2026-09-02, and the privacy notice
+they feed is still a draft. The two together are the gate on everything in section 8.
