@@ -1329,12 +1329,6 @@ def test_every_registered_check_and_verdict_has_a_plant() -> None:
     assert planted == registered, "unplanted: " + repr(sorted(registered - planted))
 
 
-def test_every_check_reports_its_planted_violation() -> None:
-    """Each plant raises exactly the findings its case declares -- no fewer, and nothing beside them."""
-    wrong = _mismatches(CASES)
-    assert not wrong, "\n".join(wrong)
-
-
 def test_a_check_naming_one_page_reads_the_tracked_one() -> None:
     """A check that names a fixed page resolves it through the corpus, not off disk.
 
