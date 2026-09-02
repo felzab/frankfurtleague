@@ -35,7 +35,8 @@ Read in this order — the shortest path back to changing things confidently.
    Its aggregate boundaries are where the expensive mistakes are.
 3. **The three surface overviews** — [frontend](frontend/overview.md), [backend](backend/overview.md),
    [ops](ops/overview.md).
-4. **[`.claude/CLAUDE.md`](../.claude/CLAUDE.md) §7** — one line per ratified decision, and the reason you
+4. **[`.claude/CLAUDE.md`](../.claude/CLAUDE.md) §7 and the files it indexes under
+   [`.claude/rules/`](../.claude/rules/)** — one line per ratified decision, and the reason you
    will not re-litigate a settled question.
 5. **[`_git/`](_git/)** — how to actually ship a change.
 

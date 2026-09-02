@@ -184,12 +184,9 @@ Dev is Windows 11; production is Linux. Label every terminal command with its ta
 ## 6. Repo-specific traps
 
 Each fails silently — the gate stays green and the defect ships. The one below binds every session,
-because the file it damages can be a scratch path outside every governed tree. The rest are scoped
-to the surface that can hit them and load from `.claude/rules/` on the terms §7 sets out:
-`backend.md` carries the pytest marker, the Pydantic default and the `constraints.py` copy;
-`frontend.md` the HeroUI stylesheet, the render props, the cache tag and the admin-scoped
-`"use cache"`; `cross-surface.md` the refusal code and its German. Every other convention is in
-`docs/`; match the surrounding code.
+because the file it damages can be a scratch path outside every governed tree; the rest load from
+`.claude/rules/` with the surface that can hit them, on the terms §7 sets out. Every other
+convention is in `docs/`; match the surrounding code.
 
 - **Never let a Windows text-mode stream write a file** — it turns every `\n` into `\r\n`, and
   `Path.write_text()`, `open(path, "w")` and a redirect of a program's stdout are all one stream, a
@@ -241,12 +238,9 @@ fixtures package while `stufe` is defined in `app/api/spieler/` and reaches `app
 | [`ops.md`](rules/ops.md)                     | `.github/`, `nginx/`, `scripts/`, the images, the compose files, `next.config.ts` | a clause about deployment, CI or caching headers |
 | [`cross-surface.md`](rules/cross-surface.md) | both packages whole, plus `nginx/` and `scripts/`                                 | every clause a session on either side can break  |
 
-**Four reaches, each a whole surface, and that is the point.** A file scoped to a slice inside a
-surface can miss the violator; a file scoped to the surface cannot. Placing a clause is then one
-question — can only a backend session break this, or only a frontend one? — and a clause that
-survives any doubt goes to `cross-surface.md`. Open the file for a surface you are about to touch
-even when no read has pulled it in yet: the clause you are about to break is the one whose file you
-have not opened.
+A clause that survives any doubt about which surface alone can break it goes to `cross-surface.md`.
+**Open the file for a surface you are about to touch even when no read has pulled it in yet**: the
+clause you are about to break is the one whose file you have not opened.
 
 ### Never scoped — no glob reaches the session that would break one
 
@@ -255,12 +249,8 @@ have not opened.
 - **structure** — Add a barrel file, an unrequired default export, a second nesting level
 - **images** — Merge the two images into one package; make either package private
 
-The first two refuse a caching or sorting idea, which arrives in whichever file the session happens
-to have open, so no glob narrows the violator down. The third, and §4's deprecation table, refuse a
-file being written for the first time: a rules file arrives with the read of a file its globs match,
-and the file whose creation is the violation is read by nobody. The fourth is here for the reason
-the pull request clause below is: a package's visibility is set in the registry, so that half of it
-is broken with no file open at all, and a semicolon joins clauses that stand or fall together.
+An idea arrives in whichever file is open, a file written for the first time is read by nobody
+before it exists, and a registry setting is changed with no file open at all; no glob reaches any.
 
 ### The gate and the workflow
 
@@ -309,6 +299,4 @@ trigger is the task, and it refuses a command it cannot parse rather than guessi
 text merely mentions what it watches for included — so **a multi-line file goes through the `Write`
 tool, never a heredoc.**
 
-The guards cite §1 and §2 by number; `.gitignore` and the roadmap cite §4 and §5; the commands, the
-audit prompts and the corpus cite §6 and §7, and a clause those two sections hand to
-`.claude/rules/` is cited by its file. Every section keeps its number.
+Every section keeps its number; a clause §6 or §7 hands to `.claude/rules/` is cited by its file.

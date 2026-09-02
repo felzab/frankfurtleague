@@ -70,7 +70,8 @@ me as ONE batch, each carrying a recommendation, then record the answer inline a
 ## 1.3 — Architectural decisions to ratify
 
 \<The findings the passes flagged that are in fact deliberate. Ratify each as a never-clause in
-`.claude/CLAUDE.md` §7 and as an invariant on the governing spec sheet, so no future audit or session
+`.claude/CLAUDE.md` §7, or in the `.claude/rules/` file whose paths reach the session that could
+break it, and as an invariant on the governing spec sheet, so no future audit or session
 re-litigates it.\>
 
 ## 1.4 — Work items on other surfaces created by the answers

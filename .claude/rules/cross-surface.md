@@ -38,13 +38,9 @@ together, so a session on either side can break it and the paths above reach bot
 - **swap** — Split the group swap into two writes; relax the move lock to serve it
 - **swap** — Reach the swap's disqualification refusal backwards; refuse a club standing on its own fixture
 
-**Why this file reaches both packages whole rather than the slices its keys name.** The argument is
-`.claude/CLAUDE.md` §7's, and it is written there alone. A census of the directories each key's code
-occupies is the tempting way to justify a reach, and it is the wrong one twice over: it goes stale
-the moment the code moves, and a term search that counts a substring inside a longer German word
-attributes a clause to a package that has never held it. Search for the clause's own identifier and
-German term when you need the union, take the enclosing word rather than the substring, and widen a
-reach rather than narrowing one.
+Why this file reaches both packages whole rather than the slices its keys name is
+`.claude/CLAUDE.md` §7's argument. To derive a reach, search for the clause's own identifier and
+German term, take the enclosing word rather than the substring, and widen rather than narrow.
 
 ## Traps
 

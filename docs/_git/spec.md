@@ -89,8 +89,8 @@ AI-generated, which overrides any tool default appending a `Co-Authored-By` line
 **None of that rests on memory.** `scripts/check_commits.py` refuses a malformed message as a
 `commit-msg` hook when you write it, in the `--docs` gate scope before you push, and in CI on every
 pull request. It reads the branch's own commits, never history, which predates the convention.
-`git config core.hooksPath .githooks` installs the hook, and **a fresh clone has none until that is
-run** — until then the gate and CI are the only checks.
+`git config core.hooksPath .githooks` installs every hook in that folder, this one among them, and
+**a fresh clone has none until that is run** — until then the gate and CI are the only checks.
 
 [`templates.md`](templates.md) holds the form and what the checker refuses outright.
 Beyond that list:
@@ -161,6 +161,11 @@ The scope table, what each scope runs and what it needs, the `--serial` oracle t
 measured against, the diff check that refuses an undersized scope and the CI job mapping are all in
 [`../ops/spec.md`](../ops/spec.md) §1.6, which owns `scripts/`.
 
+`.githooks/pre-push` prints, at the moment of a push, the scopes CI would run for it —
+`scripts/ci_scopes.sh`'s answer against the remote's default branch, a **stand-in** for the target
+the pull request will name, so a branch chained onto another topic branch is over-reported. It is
+advisory and exits 0 on every path, its own failure included; §1.3's `core.hooksPath` line installs it.
+
 > **`pnpm format` covers the whole repository.** It runs prettier over the repository root under the
 > root `.prettierrc.json`, and what stays out is decided by one ignore file, `.prettierignore` beside
 > it. There is no path list to keep in step, so moving, renaming or adding a file cannot make the
@@ -189,26 +194,26 @@ measured against, the diff check that refuses an undersized scope and the CI job
 repository destroys them. Read from the live repository on 2026-08-09. The ruleset is a single branch
 ruleset targeting the default branch, enforcement **Active**.
 
-| Setting                               | Value                                                                  | Panel                        |
-| ------------------------------------- | ---------------------------------------------------------------------- | ---------------------------- |
-| Allow merge commits                   | on                                                                     | General → Pull Requests      |
-| Allow squash merging                  | **off**                                                                | General → Pull Requests      |
-| Allow rebase merging                  | **off**                                                                | General → Pull Requests      |
-| Automatically delete head branches    | on                                                                     | General → Pull Requests      |
-| Restrict deletions                    | on                                                                     | Rules → Rulesets             |
-| Block force pushes                    | on                                                                     | Rules → Rulesets             |
-| Require a pull request before merging | on, required approvals **`0`**                                         | Rules → Rulesets             |
-| Require status checks to pass         | on — **`verify`**, **`backend-db`**, **`pr-body`**                     | Rules → Rulesets             |
-| Require branches up to date to merge  | **off** — read 2026-08-11                                              | Rules → Rulesets             |
-| Require linear history                | **off**                                                                | Rules → Rulesets             |
-| Bypass list                           | **empty**                                                              | Rules → Rulesets             |
-| Actions permissions                   | GitHub-authored, plus `pnpm/action-setup@*` and `astral-sh/setup-uv@*` | Actions → General            |
-| Require actions pinned to a SHA       | **off** — read 2026-09-01; recommended on, see below                   | Actions → General            |
-| Fork pull request workflows           | require approval for all outside collaborators                         | Actions → General            |
-| Default workflow permissions          | read-only; Actions may not create or approve pull requests             | Actions → General            |
-| Secret scanning, push protection      | on                                                                     | Security → Advanced Security |
-| Dependabot alerts, security updates   | on                                                                     | Security → Advanced Security |
-| Code scanning                         | advanced setup; `.github/workflows/codeql.yml` is what enables it      | Security → Advanced Security |
+| Setting                               | Value                                                                                  | Panel                        |
+| ------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------- |
+| Allow merge commits                   | on                                                                                     | General → Pull Requests      |
+| Allow squash merging                  | **off**                                                                                | General → Pull Requests      |
+| Allow rebase merging                  | **off**                                                                                | General → Pull Requests      |
+| Automatically delete head branches    | on                                                                                     | General → Pull Requests      |
+| Restrict deletions                    | on                                                                                     | Rules → Rulesets             |
+| Block force pushes                    | on                                                                                     | Rules → Rulesets             |
+| Require a pull request before merging | on, required approvals **`0`**                                                         | Rules → Rulesets             |
+| Require status checks to pass         | on — **`verify`**, **`backend-db`**, **`pr-body`**                                     | Rules → Rulesets             |
+| Require branches up to date to merge  | **off** — read 2026-08-11                                                              | Rules → Rulesets             |
+| Require linear history                | **off**                                                                                | Rules → Rulesets             |
+| Bypass list                           | **empty**                                                                              | Rules → Rulesets             |
+| Actions permissions                   | GitHub-authored, plus `pnpm/action-setup@*`, `pnpm/setup@*` and `astral-sh/setup-uv@*` | Actions → General            |
+| Require actions pinned to a SHA       | **off** — read 2026-09-01; recommended on, see below                                   | Actions → General            |
+| Fork pull request workflows           | require approval for all outside collaborators                                         | Actions → General            |
+| Default workflow permissions          | read-only; Actions may not create or approve pull requests                             | Actions → General            |
+| Secret scanning, push protection      | on                                                                                     | Security → Advanced Security |
+| Dependabot alerts, security updates   | on                                                                                     | Security → Advanced Security |
+| Code scanning                         | advanced setup; `.github/workflows/codeql.yml` is what enables it                      | Security → Advanced Security |
 
 Locally, `git branch -d short-kebab-name` after the pull. The traps attached to those values:
 
@@ -234,6 +239,9 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
   job makes expensive.
 - **An action living in this repository needs no allowlist entry** — every action under
   `.github/actions/` is read from the checkout.
+- **The allowlist names every third-party action a `uses:` line reaches**, a line inside a local
+  composite action included, which is how `pnpm/setup@*` gets there; the panel entry is added first
+  and the workflow second, and nothing in the repository compares the two lists.
 - **"Require actions to be pinned to a full-length commit SHA" is worth turning on, and is not.**
   Read as `sha_pinning_required: false` through
   `gh api repos/<owner>/<repo>/actions/permissions`, which is also the only route that reads it
@@ -292,6 +300,7 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 | A pull request check named `pr-body` fails               | The body indexes commits instead of summarising                                                                             | Rewrite the body; `gh pr edit --body-file` updates it in place                                         |
 | A merge button is greyed out with every check green      | The pull request is still a draft                                                                                           | Marking it ready is the review, and it is mine                                                         |
 | CI fails instantly on an action reference                | The pin resolves to nothing — a version that never existed, or an annotated tag's own object instead of the commit under it | Resolve the tag to its commit and read `action.yml` at that SHA before writing the pin (§1.5)          |
+| A job dies at a `uses:` line before any of its steps run | That action is not on the Actions allowlist                                                                                 | Add it in Actions → General and re-run; §1.6 records the list                                          |
 
 **Recovering commits already made on local `main`:**
 

@@ -31,9 +31,10 @@ Run these before check 1, in order.
 5. **Read this programme's earlier reports** — only the sections you need, never a whole file. Cite
    them by section instead of re-reporting, and respect their "already correct" lists. Where an
    earlier pass has not run, say so in the header and run anyway.
-6. **Read `.claude/CLAUDE.md` §7, and §6 for the traps that fail silently.** A finding that
-   contradicts a §7 row or a spec sheet's invariant is not a finding; it is at most a
-   clearly-labelled "decision to revisit" naming the row or the invariant id.
+6. **Read `.claude/CLAUDE.md` §7 and §6, and every file §7 indexes under `.claude/rules/` whose
+   paths reach this pass's surface.** A finding that contradicts a ratified clause or a spec
+   sheet's invariant is not a finding; it is at most a clearly-labelled "decision to revisit"
+   naming the clause or the invariant id.
 7. **Write the coverage-ledger skeleton** to the report file — every check number, empty result
    columns — before starting check 1.
 
@@ -122,7 +123,8 @@ it | size removed, in lines and exported names | verdict.
 - **Every `hand-rolled` row cites the API that replaces it**, verified at the installed version.
 - **Measure before proposing.** State the lines and exported names each row removes; a row with no
   number is filed INFO.
-- **Check `.claude/CLAUDE.md` §7 first.** Several constructs that read as excess are ratified.
+- **Check `.claude/CLAUDE.md` §7 and the `.claude/rules/` file for this surface first.** Several
+  constructs that read as excess are ratified.
 
 ## Method
 

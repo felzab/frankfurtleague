@@ -55,7 +55,7 @@ from a configuration file in this repository.
   2026-08-01, which makes them a property to re-verify rather than assume.
 - **Cloudflare compresses only what arrives uncompressed**, and its own compression measured _worse_ than the
   origin's on the same file (2026-08-01), so the origin keeps compressing and brotli is never precompressed
-  at build time ([`../../.claude/CLAUDE.md`](../../.claude/CLAUDE.md) §7).
+  at build time ([`../../.claude/rules/ops.md`](../../.claude/rules/ops.md)).
 
 **Edge settings deliberately off**, each looking like free performance: **Rocket Loader** reorders script
 execution, which React hydration and Next's streaming depend on; **Cloudflare Fonts** removes third-party font

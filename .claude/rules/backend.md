@@ -7,8 +7,7 @@ paths:
 # Ratified decisions — the backend surface
 
 `.claude/CLAUDE.md` §7's never-clauses whose only violator is a session inside `fl_backend/`, on
-§7's terms. Both the collection names and the `db` marker are `fl_backend/`'s alone: the marker is
-registered in `fl_backend/pyproject.toml`, which is what makes it real under `--strict-markers`.
+§7's terms.
 
 - **models** — Give `saison_id` a Pydantic field default
 - **db** — Swallow a failed validator or index; widen one past types and enums

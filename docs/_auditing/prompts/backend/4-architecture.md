@@ -41,7 +41,7 @@ THE CHECKS, in priority order:
    | `dead-config` | A settings key, ruff ignore, pytest marker or dependency nothing reads                         |
    - **A duplicated model is worse than a dead one**, because editing the wrong copy is silently
      ineffective. Sweep specifically for same-named and near-identical classes.
-   - `.claude/CLAUDE.md` §7 bears directly on this check: the `$jsonSchema` validators duplicate the
+   - `.claude/rules/backend.md` bears directly on this check: the `$jsonSchema` validators duplicate the
      Pydantic models by hand on purpose, and `app/core/domain.py` is a declaration nothing may import
      from `app/`.
 

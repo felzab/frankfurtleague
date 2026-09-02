@@ -46,8 +46,9 @@ THE CHECKS:
    - The shared recipes and shells (`card`, `formButton`, `ModalShell`, `EntityForm`, `EmptyState`,
      the formatters) are the enforcement layer, so the `duplicated` shape to hunt hardest is
      **bypass**: hand-written strings or components duplicating a recipe that already exists.
-   - `.claude/CLAUDE.md` §7 bears directly on this check: the `SpielCard` variants are kept separate
-     on purpose, and the barrel file that would make several dead exports look reachable is forbidden.
+   - `.claude/rules/frontend.md` bears directly on this check: the `SpielCard` variants are kept
+     separate on purpose, and `.claude/CLAUDE.md` §7 forbids the barrel file that would make several
+     dead exports look reachable.
 
 4. **Naming and organisation consistency.** Export and file name mismatches, handler-naming drift
    from `handleX`, folder-depth violations, and English/German drift: the domain vocabulary appears

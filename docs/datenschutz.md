@@ -1,20 +1,14 @@
 # Datenschutz — the rulings, held here until each reaches its home
 
 **Purpose:** every data-protection decision I have taken for the league site, recorded once, so
-none is lost between the moment it was taken and the moment the code, a spec sheet or a runbook
-carries it. **This file is a temporary holding place, not the rulings' permanent home.** Where
-each ruling finally lives is a separate decision, taken once the shape of the whole set is known;
-until then a ruling leaves this file only when its text has reached its destination — a read
-rule, a spec-sheet invariant, a comment at the line it constrains, a runbook section or a roadmap
-entry — and the text moves rather than copies, so this file only ever shrinks. It is neither a
-spec sheet nor an overview: `docs/standard.md` OUT-1 names it among the exceptions to the two
-layers, and it goes when it is empty.
+none is lost before the code, a spec sheet or a runbook carries it. Where each ruling finally
+lives is decided once the shape of the whole set is known; until then a ruling leaves only when
+its text has reached its destination, and it moves rather than copies (`docs/standard.md` OUT-1).
 
 Nothing here is a legal conclusion. The rulings marked 2026-08 were taken after consulting a
 Datenschutzexperte; every other ruling is mine, taken on 2026-09-01 in a review of every open
-question and refined on 2026-09-02, and each stands open to a qualified reviewer's correction. A
-ruling is a decision about how the system is to behave; where today's behaviour differs, the
-entry says so, because a ruling written in the present tense reads as a description.
+question and refined on 2026-09-02, and each stands open to a qualified reviewer's correction.
+Where today's behaviour differs from a ruling, the entry says so.
 
 | Section                                                                                                    | Answers                                                      |
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
@@ -50,8 +44,7 @@ entry says so, because a ruling written in the present tense reads as a descript
 
 ## 2. Consent comes from the person, from 16
 
-Every ruling below assumes the sign-up flow settled for the next season, which does not exist
-yet. The rulings are recorded against it deliberately: they are decisions, not implementations.
+Every ruling below assumes the sign-up flow settled for the next season, which does not exist yet.
 
 - **Everyone signs up for themselves through the website and gives their own consent there** —
   players, referees, contact persons, organisers and administrators alike. An administrator can
@@ -184,8 +177,8 @@ yet. The rulings are recorded against it deliberately: they are decisions, not i
   itself to one season, and the clearing mechanism the erasure uses already exists.
 - **Access logs stay on the host and are bounded by age as well as by size: seven days.** The
   edge log carries the visitor's address, user agent and referer, and nginx's log survives a
-  deploy, so the only bound today is the container runtime's size rotation, as the retention
-  section of `docs/logging/spec.md` records. A size bound is a period set by traffic volume
+  deploy, so the only bound today is the container runtime's size rotation
+  (`docs/logging/spec.md :: Retention is Docker's`). A size bound is a period set by traffic volume
   rather than chosen, so a quiet month keeps addresses far longer than a busy one. Seven days
   matches the backup window an erased person is told about, which lets one number answer both
   questions. Nothing is shipped to a collector: that would lengthen retention and add a processor
@@ -194,10 +187,7 @@ yet. The rulings are recorded against it deliberately: they are decisions, not i
 
 ## 7. Processors and third parties
 
-The review's premise was that no processor agreement was signed. Read from each provider's own
-legal pages on 2026-09-02, that premise is wrong for three of them: the agreement is part of the
-terms accepted at sign-up. The table below is what a reviewer asks for first; I saw it and the
-gaps it names in the follow-up of 2026-09-02.
+Read from each provider's legal pages on 2026-09-02.
 
 | Processor                      | What reaches them                                                              | Agreement                                                                                          | Where the data is                                                                                                       |
 | ------------------------------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -211,8 +201,7 @@ gaps it names in the follow-up of 2026-09-02.
 What follows from the table, ruled 2026-09-02: for Resend, Cloudflare and MongoDB Atlas nothing is
 left to sign — the task is to keep the dated agreement pages and Resend's executed copy with the
 account's acceptance date, and to record Resend's United States storage as a transfer. The gaps
-are the personal Proton plan, the forwarding to personal Gmail, and the consumer WhatsApp number;
-each is accepted for now and named here so the notice can tell the truth about it.
+in bold are each accepted for now, and named so the notice can tell the truth about them.
 
 ## 8. Two procedures still to be written
 
@@ -229,8 +218,8 @@ each is accepted for now and named here so the notice can tell the truth about i
 - **A local copy of production refuses to be reused after seven days.** `./scripts/local.sh --seed`
   fills the local stack from a production dump (`scripts/local.sh :: take_dump`), and the copy is
   whole. The disk is encrypted and one person holds the connection string; the bound is what
-  stops cleanup depending on memory. Today the seeding section of `docs/ops/spec.md` accepts
-  reuse of the copy at any age; this ruling narrows that.
+  stops cleanup depending on memory. Today the copy is reused at any age
+  (`docs/ops/spec.md :: however old it is`); this ruling narrows that.
 
 ## 10. Adjacent decisions were accepted as recommended
 
@@ -250,6 +239,5 @@ records agreement with what was done; for the rest the ranked pages decide what 
 
 ## 11. Open, and owed a decision
 
-Every question this round raised is answered above. What is open is the qualified review: no
-Datenschutzexperte has seen the rulings taken on 2026-09-01 and 2026-09-02, and the privacy notice
-they feed is still a draft. The two together are the gate on everything in section 8.
+No Datenschutzexperte has seen the rulings taken on 2026-09-01 and 2026-09-02, and the privacy
+notice they feed is still a draft. The two together are the gate on everything in section 8.
