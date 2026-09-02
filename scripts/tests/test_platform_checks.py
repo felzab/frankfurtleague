@@ -10,26 +10,23 @@ in a shape the checker reads, each being built inside the case that needs it.
 
 from __future__ import annotations
 
-import atexit
 import contextlib
 import json
-import os
-import shutil
-import stat
 import subprocess
 import sys
-import tempfile
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
+from conftest import configure, copy_scripts, git, new_root, write
 
 # The copied gate, named so the fixture's own `scripts/` folder is read as corpus rather than skipped.
 GATE_COPY: Final = "gate"
 DRIVER: Final = "drive.py"
 NL: Final = chr(10)
+# The label separator the corpus writes, spelled as a codepoint the way NL is, so this file stays ASCII.
+DASH: Final = chr(0x2014)
 # The checks by the names the registry gives them.
 PLATFORM: Final = "platform-branch"
 CRLF: Final = "crlf-write"
@@ -125,48 +122,15 @@ class Fixture:
     root: Path
 
 
-def _git(root: Path, *args: str) -> None:
-    done = subprocess.run(("git", *args), cwd=root, capture_output=True, text=True, encoding="utf-8", check=False)
-    if done.returncode != 0:
-        raise RuntimeError("git " + " ".join(args) + " failed: " + (done.stderr.strip() or done.stdout.strip()))
-
-
-def _write(root: Path, rel: str, text: str) -> None:
-    path = root / rel
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # Bytes: a text handle would hand the checker a CRLF corpus, and its own clause is what this file proves.
-    path.write_bytes(text.encode("utf-8"))
-
-
-def _discard(root: Path) -> None:
-    """Remove the fixture, the read-only objects git wrote included -- Windows will not unlink those bare."""
-
-    def _clear_readonly(remove: Callable[..., object], path: str, _exc: BaseException) -> None:
-        os.chmod(path, stat.S_IWRITE)
-        remove(path)
-
-    with contextlib.suppress(OSError):
-        shutil.rmtree(root, onexc=_clear_readonly)
-
-
 def _load() -> Fixture:
-    root = Path(tempfile.mkdtemp(prefix="platform-checks-fixture-")).resolve()
-    atexit.register(_discard, root)
-    ignored = shutil.ignore_patterns("__pycache__", "tests", ".ruff_cache", ".pytest_cache", ".mypy_cache")
-    shutil.copytree(REPO_ROOT / "scripts", root / GATE_COPY, ignore=ignored)
+    root = new_root("platform-checks-fixture-")
+    copy_scripts(root / GATE_COPY)
     for rel, text in _corpus().items():
-        _write(root, rel, text)
+        write(root, rel, text)
     (root / "nohooks").mkdir()
-    _git(root, "init", "-b", "main")
-    for name, value in (
-        ("user.name", "fixture"),
-        ("user.email", "fixture@example.invalid"),
-        ("commit.gpgsign", "false"),
-        ("core.hooksPath", "nohooks"),
-    ):
-        _git(root, "config", name, value)
-    _git(root, "add", "--", ".")
-    _git(root, "commit", "-q", "-m", "Fixture corpus")
+    configure(root, "nohooks")
+    git(root, "add", "--", ".")
+    git(root, "commit", "-q", "-m", "Fixture corpus")
     return Fixture(root)
 
 
@@ -204,7 +168,7 @@ def _planted(rel: str, text: str) -> Iterator[None]:
     root = _gate().root
     path = root / rel
     before = path.read_bytes() if path.exists() else None
-    _write(root, rel, text)
+    write(root, rel, text)
     try:
         yield
     finally:
@@ -322,7 +286,7 @@ def test_a_constant_or_predicate_bound_to_one_value_alone_is_plat_3() -> None:
 
 
 def test_a_shell_token_in_code_is_plat_4_wherever_the_shell_is_read() -> None:
-    """Every shell surface the clause reads, and each anchor a row may name: function, assigned name, step label, fragment."""
+    """Every shell surface the clause reads, and each anchor a row may name: function, assigned name, step or message label, whole line."""
     with _appended(RUN_SH, "host() {", '  case "$(uname -s)" in', "    Linux) printf linux ;;", "  esac", "}"):
         code, found = _run()
         assert code == RED
@@ -339,7 +303,19 @@ def test_a_shell_token_in_code_is_plat_4_wherever_the_shell_is_read() -> None:
         code, found = _run()
         assert code == RED
         _only(found, PLATFORM, GIT_HOOK, "PLAT-4", "${OSTYPE")
-        code, found = _run(rows={GIT_HOOK + " :: == msys ]] && exit 0": "a fragment of the line, where nothing encloses it"})
+        code, found = _run(rows={GIT_HOOK + ' :: [[ "${OSTYPE}" == msys ]] && exit 0': "the whole line, where nothing encloses it"})
+        assert (code, found) == (GREEN, []), found
+        # The last resort is the line WHOLE: a row quoting part of it excuses nothing, so a reword
+        # breaks the row loudly rather than silently re-pointing it at some other line.
+        code, found = _run(rows={GIT_HOOK + " :: == msys ]] && exit 0": "a fragment of the line"})
+        assert code == RED, found
+    # A message's label is an anchor wherever a line spells one: the corpus reports a platform arm
+    # it did not run this way, and nothing named encloses the report.
+    with _appended(RUN_SH, 'printf "a platform arm stood down ' + DASH + ' this is $(uname -s)"'):
+        code, found = _run()
+        assert code == RED
+        _only(found, PLATFORM, RUN_SH, "PLAT-4", "uname")
+        code, found = _run(rows={RUN_SH + " :: a platform arm stood down": "the label a message spells, ahead of its detail"})
         assert (code, found) == (GREEN, []), found
     with _appended(RUN_SH, 'step "probe · a container mount"', "MSYS_NO_PATHCONV=1 run_container /mnt"):
         code, found = _run()
@@ -353,7 +329,7 @@ def test_a_shell_token_in_code_is_plat_4_wherever_the_shell_is_read() -> None:
 
 
 def test_a_row_naming_a_function_does_not_excuse_the_lines_calling_it() -> None:
-    """An enclosing anchor is matched before a fragment, so `mount_source`'s row never reaches `run_shellcheck`."""
+    """An anchor is matched whole, so `mount_source`'s row never reaches the line inside `run_shellcheck` that calls it."""
     body = (
         "mount_source() {",
         '  cygpath -w "$REPO_ROOT"',

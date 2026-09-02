@@ -11,21 +11,15 @@ declared.
 
 from __future__ import annotations
 
-import atexit
-import contextlib
 import itertools
 import json
 import os
-import shutil
-import stat
 import subprocess
 import sys
-import tempfile
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Final
 
-REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
+from conftest import configure, copy_scripts, git, new_root, write
 
 SCRIPTS_COPY: Final = "scripts"
 HOOKS_STUB: Final = "nohooks"
@@ -119,52 +113,21 @@ def _page(*lines: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _git(root: Path, *args: str) -> str:
-    done = subprocess.run(("git", *args), cwd=root, capture_output=True, text=True, encoding="utf-8", check=False)
-    if done.returncode != 0:
-        raise RuntimeError("git " + " ".join(args) + " failed: " + (done.stderr.strip() or done.stdout.strip()))
-    return done.stdout.strip()
-
-
-def _write(root: Path, rel: str, text: str) -> None:
-    path = root / rel
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # Bytes, never write_text: that emits CRLF on Windows, and the hook would read as a line-ending
-    # finding rather than the one its comment plants.
-    path.write_bytes(text.encode("utf-8"))
-
-
-def _discard(root: Path) -> None:
-    """Remove the fixture tree, the read-only files git wrote inside it included."""
-
-    def _clear_readonly(remove: Callable[..., object], path: str, _exc: BaseException) -> None:
-        os.chmod(path, stat.S_IWRITE)
-        remove(path)
-
-    with contextlib.suppress(OSError):
-        shutil.rmtree(root, onexc=_clear_readonly)
-
-
 def _build() -> tuple[Path, Path]:
     """One fixture repository beside the drivers that read it, built once per session."""
-    parent = Path(tempfile.mkdtemp(prefix="kernel-seams-fixture-")).resolve()
-    atexit.register(_discard, parent)
+    parent = new_root("kernel-seams-fixture-")
     root = parent / "repo"
-    ignored = shutil.ignore_patterns("__pycache__", "tests", ".ruff_cache", ".pytest_cache", ".mypy_cache")
-    shutil.copytree(REPO_ROOT / SCRIPTS_COPY, root / SCRIPTS_COPY, ignore=ignored)
+    copy_scripts(root / SCRIPTS_COPY)
     (parent / IGNORE_DRIVER).write_bytes(IGNORE_SCRIPT.encode("utf-8"))
     (parent / SCAN_DRIVER).write_bytes(SCAN_SCRIPT.encode("utf-8"))
     (parent / BOUNDS_DRIVER).write_bytes(BOUNDS_SCRIPT.encode("utf-8"))
     # The scripts copy is ignored on top, or the scan reads the gate's own modules as the corpus.
-    _write(root, GITIGNORE, _page("/" + SCRIPTS_COPY + "/", IGNORED_FOLDER + "/", IGNORED_FILE))
-    _write(root, HOOK, _page(*HOOK_LINES))
+    write(root, GITIGNORE, _page("/" + SCRIPTS_COPY + "/", IGNORED_FOLDER + "/", IGNORED_FILE))
+    write(root, HOOK, _page(*HOOK_LINES))
     (root / HOOKS_STUB).mkdir()
-    _git(root, "init", "-b", "main")
-    for name, value in (("user.name", "fixture"), ("user.email", "fixture@example.invalid"), ("commit.gpgsign", "false")):
-        _git(root, "config", name, value)
-    _git(root, "config", "core.hooksPath", str(root / HOOKS_STUB))
-    _git(root, "add", "--", GITIGNORE, HOOK)
-    _git(root, "commit", "-m", "Corpus: one hook and three rules")
+    configure(root, str(root / HOOKS_STUB))
+    git(root, "add", "--", GITIGNORE, HOOK)
+    git(root, "commit", "-m", "Corpus: one hook and three rules")
     return parent, root
 
 
@@ -254,14 +217,14 @@ def test_a_batch_answers_the_tokens_asked_alone_afterwards() -> None:
 def test_a_comment_block_over_the_bound_in_a_hook_is_reported() -> None:
     """A hook has no suffix and no source-suffix scope, so the population reaches it by name or not at all."""
     parent, root = _fixture()
-    fork = _git(root, "rev-parse", "HEAD")
-    _write(root, HOOK, _page(*HOOK_LINES, *OVER_BOUND_BLOCK))
+    fork = git(root, "rev-parse", "HEAD")
+    write(root, HOOK, _page(*HOOK_LINES, *OVER_BOUND_BLOCK))
     try:
         answer, _ = _run(BOUNDS_DRIVER, fork)
     finally:
         # Restored here rather than by git, which no case in this module may run for a write: the
         # scan case below measures the same hook and would read the plant as its own subject.
-        _write(root, HOOK, _page(*HOOK_LINES))
+        write(root, HOOK, _page(*HOOK_LINES))
     reported = [(check, file) for check, file, _, _ in answer["findings"]]
     assert reported == [("comment-length", HOOK)], answer["findings"]
     assert "INC-9 caps a block at 250" in answer["findings"][0][3]
@@ -270,17 +233,17 @@ def test_a_comment_block_over_the_bound_in_a_hook_is_reported() -> None:
 def test_a_hook_block_that_was_already_over_the_bound_is_left_alone() -> None:
     """The grandfather clause is what keeps a widened population from failing comments nobody touched."""
     parent, root = _fixture()
-    _write(root, HOOK, _page(*HOOK_LINES, *OVER_BOUND_BLOCK))
-    _git(root, "add", "--", HOOK)
-    _git(root, "commit", "-m", "Corpus: the hook carries the block before the branch does")
-    fork = _git(root, "rev-parse", "HEAD")
-    _write(root, HOOK, _page(*HOOK_LINES, *OVER_BOUND_BLOCK, "exit 0"))
+    write(root, HOOK, _page(*HOOK_LINES, *OVER_BOUND_BLOCK))
+    git(root, "add", "--", HOOK)
+    git(root, "commit", "-m", "Corpus: the hook carries the block before the branch does")
+    fork = git(root, "rev-parse", "HEAD")
+    write(root, HOOK, _page(*HOOK_LINES, *OVER_BOUND_BLOCK, "exit 0"))
     try:
         answer, _ = _run(BOUNDS_DRIVER, fork)
     finally:
-        _write(root, HOOK, _page(*HOOK_LINES))
-        _git(root, "add", "--", HOOK)
-        _git(root, "commit", "-m", "Corpus: the hook goes back to its committed shape")
+        write(root, HOOK, _page(*HOOK_LINES))
+        git(root, "add", "--", HOOK)
+        git(root, "commit", "-m", "Corpus: the hook goes back to its committed shape")
     assert answer["findings"] == [], "a block over the bound at the fork is the branch's to leave"
 
 

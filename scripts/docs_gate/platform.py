@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import ast
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
@@ -55,6 +55,9 @@ SHELL_FUNCTION_RE: Final = re.compile(r"^([A-Za-z_]\w*)\s*\(\)\s*\{(.*)$")
 SHELL_CLOSE_RE: Final = re.compile(r"^\}")
 SHELL_ASSIGN_RE: Final = re.compile(r"^\s*(?:local\s+|export\s+|readonly\s+|declare\s+-\S+\s+)?([A-Za-z_]\w*)=")
 SHELL_STEP_RE: Final = re.compile(r'^\s*step\s+"([^"]+)"')
+# The repository's own `<label> - <detail>` message shape, its em dash escaped so this file stays
+# ASCII. The half in front is what a row anchors on, a whole message being nobody's key.
+LABEL_SPLIT: Final = " \u2014 "
 
 # Where an opener's mode sits: the receiver decides for `open`, a `Path` taking it first and the
 # modules below taking a path first. `tempfile` defaults to binary, so only a spelled mode counts.
@@ -63,9 +66,9 @@ TEMPFILE_OPENERS: Final[dict[str, int]] = {"NamedTemporaryFile": 0, "TemporaryFi
 WRITING_MODE_RE: Final = re.compile(r"^[rwaxt+]*[wax+][rwaxt+]*$")
 WRITE_REMEDY: Final = 'pass newline="" or write bytes'
 
-# Keyed by a COR-6 anchor -- an enclosing function, an assigned name, the nearest `step` label or
-# a fragment of the line -- never a line number. A row is held to the tree: naming a symbol the
-# file no longer spells, or shielding no branch, is a finding.
+# Keyed by an anchor the file spells WHOLE -- an enclosing function, an assigned name, a `step`
+# or message label, or the line itself -- never a fragment. Naming a symbol the file no longer
+# spells, or shielding nothing, is a finding against the row.
 PLATFORM_ALLOW: Final[dict[str, str]] = {
     "scripts/gate_pool.py :: terminate": "reads `sys.platform` per call rather than `POSIX`: the one spelling pyright narrows `os.killpg` on",
     "scripts/tests/test_gate_pool.py :: OWN_GROUP": "a unit's group is compared to its pid on POSIX alone, so the case stands down elsewhere",
@@ -95,11 +98,8 @@ class _Site:
     rel: str
     line: int
     detail: str
-    # The anchors a row may name for this site, and the code text a fragment row is matched against.
-    candidates: tuple[str, ...]
-    text: str
-    # Every anchor the file defines: a row spelling one is an anchor row, and never matches as a fragment.
-    known: frozenset[str] = frozenset()
+    # Every anchor a row may name for this site. Empty leaves the site unshieldable by design.
+    candidates: tuple[str, ...] = ()
 
 
 @dataclass
@@ -121,17 +121,27 @@ def _line(node: ast.AST) -> int:
     return int(getattr(node, "lineno", 0))
 
 
+@cache
 def _python_files() -> tuple[Path, ...]:
     """The Python corpus, listed by kind and prefix and never by what it contains (PRE-4)."""
     return tuple(p for p in scanned_files() if p.suffix == ".py" and _rel(p).startswith(PYTHON_SCOPES))
 
 
+@cache
 def _test_files() -> tuple[Path, ...]:
     return tuple(p for p in _python_files() if _rel(p).startswith(TEST_SCOPES))
 
 
+@cache
 def _shell_files() -> tuple[Path, ...]:
     return tuple(p for p in scanned_files() if (p.suffix == ".sh" and _rel(p).startswith(SHELL_SCOPES)) or _rel(p).startswith(GIT_HOOKS_DIR))
+
+
+@cache
+def _source_lines(path: Path) -> tuple[str, ...] | None:
+    """One file's lines, split once for every clause reading them. None where it cannot be read."""
+    text = _read_text(path)[0]
+    return None if text is None else tuple(text.split("\n"))
 
 
 @cache
@@ -218,21 +228,47 @@ def _mentions_text(text: str, names: frozenset[str]) -> bool:
     return bool(PREDICATE_TEXT_RE.search(text)) or any(re.search(r"\b" + re.escape(name) + r"\b", text) for name in names)
 
 
-def _python_anchors(tree: ast.Module) -> frozenset[str]:
-    """Every name a row may anchor on in a module: each def or class, and each module-level assignment."""
-    names = {node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
-    names.update(name for node in tree.body if (name := _assigned_name(node)) is not None)
-    return frozenset(names)
+def _quoted(code: str) -> list[str]:
+    """Every complete quoted run on one line, read left to right so the two quote kinds cannot cross."""
+    found: list[str] = []
+    index = 0
+    while index < len(code):
+        quote = code[index]
+        if quote in "\"'":
+            close = code.find(quote, index + 1)
+            if close == -1:
+                break
+            found.append(code[index + 1 : close])
+            index = close + 1
+        else:
+            index += 1
+    return found
 
 
-def _site(rel: str, line: int, symbol: str, detail: str, source: list[str], known: frozenset[str]) -> _Site:
-    text = source[line - 1] if 0 < line <= len(source) else ""
-    return _Site(rel, line, detail, (symbol,) if symbol else (), text, known)
+def _anchors(enclosing: Iterable[str], code: str) -> tuple[str, ...]:
+    """Every anchor a row may name for a site, each spelled whole by the line or by its scope.
+
+    A quoted argument is the label `step` anchors on, read wherever it sits; the line itself is
+    the last resort, for a branch nothing named encloses.
+    """
+    found = list(enclosing)
+    for quoted in _quoted(code):
+        found.append(quoted)
+        label, separator, _ = quoted.partition(LABEL_SPLIT)
+        if separator:
+            found.append(label)
+    found.append(code.strip())
+    # A platform token anchors nothing: a row spelling one would excuse its every use in the file.
+    return tuple(dict.fromkeys(name for name in found if name and not SHELL_TOKEN_RE.fullmatch(name)))
 
 
-def _scan_module(rel: str, tree: ast.Module, source: list[str], scan: _Scan, allow: Mapping[str, str]) -> None:
+def _site(rel: str, line: int, symbol: str, detail: str, source: Sequence[str]) -> _Site:
+    code = source[line - 1] if 0 < line <= len(source) else ""
+    return _Site(rel, line, detail, _anchors((symbol,), code))
+
+
+def _scan_module(rel: str, tree: ast.Module, source: Sequence[str], scan: _Scan, allow: Mapping[str, str]) -> None:
     """PLAT-1 over one module: a predicate read outside the admitted shapes is a site."""
-    known = _python_anchors(tree)
 
     def visit(node: ast.AST, scope: str) -> None:
         for child in ast.iter_child_nodes(node):
@@ -250,7 +286,7 @@ def _scan_module(rel: str, tree: ast.Module, source: list[str], scan: _Scan, all
             # PLAT-3 asks for rather than a branch.
             if predicate is not None and not (isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Store)):
                 detail = f"PLAT-1: `{predicate}` read in `{symbol or rel}` -- bind the platform once as an UPPER_CASE Final, or allowlist it"
-                scan.sites.append(_site(rel, _line(child), symbol, detail, source, known))
+                scan.sites.append(_site(rel, _line(child), symbol, detail, source))
                 if f"{rel} :: {symbol}" in allow:
                     scan.predicates.append((rel, predicate.removesuffix("()"), _line(child)))
             visit(child, symbol)
@@ -258,10 +294,9 @@ def _scan_module(rel: str, tree: ast.Module, source: list[str], scan: _Scan, all
     visit(tree, "")
 
 
-def _scan_tests(rel: str, tree: ast.Module, source: list[str], names: frozenset[str]) -> list[_Site]:
+def _scan_tests(rel: str, tree: ast.Module, source: Sequence[str], names: frozenset[str]) -> list[_Site]:
     """PLAT-2 over one test module: a skip, an early return or a raise guarded by the platform."""
     found: list[_Site] = []
-    known = _python_anchors(tree)
 
     def visit(node: ast.AST, scope: str) -> None:
         for child in ast.iter_child_nodes(node):
@@ -272,16 +307,16 @@ def _scan_tests(rel: str, tree: ast.Module, source: list[str], names: frozenset[
                     spelled = ast.unparse(decorator)
                     if SKIP_MARK_RE.search(spelled) and _mentions(decorator, names):
                         detail = f"PLAT-2: `{symbol}` is skipped on the platform ({spelled}) -- {BOTH_ARMS}"
-                        found.append(_site(rel, decorator.lineno, symbol, detail, source, known))
+                        found.append(_site(rel, decorator.lineno, symbol, detail, source))
             elif not scope and (name := _assigned_name(child)) is not None:
                 symbol = name
                 lines = _snippet_lines(child)
                 if lines is not None and _snippet_stands_down(lines, names):
                     detail = f"PLAT-2: the driver snippet `{symbol}` stands down on the platform -- {BOTH_ARMS}"
-                    found.append(_site(rel, _line(child), symbol, detail, source, known))
+                    found.append(_site(rel, _line(child), symbol, detail, source))
             if isinstance(child, ast.If) and _mentions(child.test, names) and _stands_down(child.body):
                 detail = f"PLAT-2: `{symbol or rel}` returns or exits when the platform says so -- {BOTH_ARMS}"
-                found.append(_site(rel, child.lineno, symbol, detail, source, known))
+                found.append(_site(rel, child.lineno, symbol, detail, source))
             visit(child, symbol)
 
     visit(tree, "")
@@ -311,10 +346,32 @@ def _snippet_stands_down(lines: list[str], names: frozenset[str]) -> bool:
     return False
 
 
-def _bindings(module: str, name: str, corpus: Iterable[str]) -> set[str]:
-    """Every value the test corpus binds `<module>.<name>` to, as text: a statement or a snippet line alike."""
-    pattern = re.compile(r"\b" + re.escape(module) + r"\." + re.escape(name) + r"\s*=\s*(True|False|['\"]\w+['\"])")
-    return {match.strip("'\"") for text in corpus for match in pattern.findall(text)}
+# Every `<dotted target> = <literal>` a driver writes, captured loose so one pass answers for all.
+BINDING_RE: Final = re.compile(r"\b([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)\s*=\s*(True|False|['\"]\w+['\"])")
+
+
+@cache
+def _test_bindings() -> dict[str, frozenset[str]]:
+    """Every dotted target the test corpus assigns a literal to, and the values it is given.
+
+    One pass rather than one per name, the allowlist being what grows. Each suffix of a chain is
+    registered too, matching what a word-boundary search reached.
+    """
+    values: dict[str, set[str]] = {}
+    for path in _test_files():
+        text = _read_text(path)[0]
+        if text is None:
+            continue
+        for chain, literal in BINDING_RE.findall(text):
+            parts = chain.split(".")
+            for start in range(len(parts) - 1):
+                values.setdefault(".".join(parts[start:]), set()).add(literal.strip("'\""))
+    return {target: frozenset(found) for target, found in values.items()}
+
+
+def _bindings(module: str, name: str) -> frozenset[str]:
+    """Every value the test corpus binds `<module>.<name>` to, as text."""
+    return _test_bindings().get(f"{module}.{name}", frozenset())
 
 
 def _both_values(scan: _Scan) -> list[_Site]:
@@ -322,27 +379,26 @@ def _both_values(scan: _Scan) -> list[_Site]:
 
     No row shields one of these: the remedy is a case binding the missing value.
     """
-    corpus = [text for path in _test_files() if (text := _read_text(path)[0]) is not None]
     found: list[_Site] = []
     for rel, name, line in scan.constants:
         module = Path(rel).stem
-        bound = _bindings(module, name, corpus)
+        bound = _bindings(module, name)
         for value in ("True", "False"):
             if value not in bound:
                 detail = f"PLAT-3: no test binds `{module}.{name} = {value}`, so the arm it selects runs on one platform alone"
-                found.append(_Site(rel, line, detail, (), ""))
+                found.append(_Site(rel, line, detail, ()))
     for rel, predicate, line in scan.predicates:
         if predicate not in WINDOWS_VALUE:
             continue
         module = Path(rel).stem
-        bound = _bindings(module, predicate, corpus)
+        bound = _bindings(module, predicate)
         windows = WINDOWS_VALUE[predicate]
         if windows not in bound:
             detail = f"PLAT-3: no test binds `{module}.{predicate} = '{windows}'`, so the Windows arm is executed on Windows alone"
-            found.append(_Site(rel, line, detail, (), ""))
+            found.append(_Site(rel, line, detail, ()))
         if not (bound - {windows}):
             detail = f"PLAT-3: no test binds `{module}.{predicate}` to a value other than '{windows}', so the other arm runs off Windows alone"
-            found.append(_Site(rel, line, detail, (), ""))
+            found.append(_Site(rel, line, detail, ()))
     return found
 
 
@@ -354,17 +410,8 @@ def _shell_code(line: str) -> str:
     return line if marker == -1 else line[:marker]
 
 
-def _scan_shell(rel: str, text: str) -> list[_Site]:
+def _scan_shell(rel: str, lines: Sequence[str]) -> list[_Site]:
     """PLAT-4 over one shell file: a platform token in code, anchored to what encloses it."""
-    lines = text.split("\n")
-    known: set[str] = set()
-    for raw in lines:
-        if (defined := SHELL_FUNCTION_RE.match(raw)) is not None:
-            known.add(defined.group(1))
-        if (labelled := SHELL_STEP_RE.match(raw)) is not None:
-            known.add(labelled.group(1))
-        if (assigned := SHELL_ASSIGN_RE.match(_shell_code(raw))) is not None:
-            known.add(assigned.group(1))
     found: list[_Site] = []
     function = ""
     step = ""
@@ -380,30 +427,22 @@ def _scan_shell(rel: str, text: str) -> list[_Site]:
         tokens = sorted(set(SHELL_TOKEN_RE.findall(code)))
         if not tokens:
             continue
-        candidates = [function, step]
-        if (assigned := SHELL_ASSIGN_RE.match(code)) is not None and not SHELL_TOKEN_RE.fullmatch(assigned.group(1)):
-            candidates.insert(0, assigned.group(1))
-        anchors = tuple(candidate for candidate in candidates if candidate)
+        enclosing = [function, step]
+        if (assigned := SHELL_ASSIGN_RE.match(code)) is not None:
+            enclosing.insert(0, assigned.group(1))
         detail = f"PLAT-4: {', '.join(tokens)} in code outside the allowlist -- a shell platform branch is a `PLATFORM_ALLOW` row"
-        found.append(_Site(rel, number, detail, anchors, code, frozenset(known)))
+        found.append(_Site(rel, number, detail, _anchors(enclosing, code)))
     return found
 
 
 def _row_for(site: _Site, allow: Mapping[str, str]) -> str | None:
-    """The row excusing a site: an enclosing anchor's, else one quoting a fragment of the line.
+    """The row excusing a site: the first whose anchor this site spells whole.
 
-    A row spelling an anchor the file defines is an anchor row: `mount_source`'s must not excuse a
-    line that merely calls it.
+    Equality, never containment: `mount_source`'s row must not excuse a line that merely calls it,
+    and a reworded line has to break its row loudly rather than re-point it.
     """
     prefix = site.rel + " :: "
-    rows = {key[len(prefix) :]: key for key in allow if key.startswith(prefix)}
-    for symbol, key in rows.items():
-        if symbol in site.candidates:
-            return key
-    for symbol, key in rows.items():
-        if symbol not in site.known and symbol in site.text and not SHELL_TOKEN_RE.fullmatch(symbol):
-            return key
-    return None
+    return next((key for key in allow if key.startswith(prefix) and key[len(prefix) :] in site.candidates), None)
 
 
 def _resolve(check: str, sites: list[_Site], allow: Mapping[str, str], present: frozenset[str]) -> list[Finding]:
@@ -439,29 +478,27 @@ def check_platform_branches(allow: Mapping[str, str] = PLATFORM_ALLOW) -> list[F
     a platform (PRE-4).
     """
     scan = _Scan()
-    source_of: dict[str, list[str]] = {}
+    present: set[str] = set()
     for path in _python_files():
         tree = _tree(path)
-        text = _read_text(path)[0]
-        if tree is None or text is None:
+        if tree is None:
             continue
         rel = _rel(path)
-        source_of[rel] = text.split("\n")
-        _scan_module(rel, tree, source_of[rel], scan, allow)
+        present.add(rel)
+        _scan_module(rel, tree, _source_lines(path) or (), scan, allow)
     names = frozenset(name for _, name, _ in scan.constants)
     sites = list(scan.sites)
     for path in _test_files():
         tree = _tree(path)
-        if tree is not None and (rel := _rel(path)) in source_of:
-            sites.extend(_scan_tests(rel, tree, source_of[rel], names))
+        if tree is not None and (rel := _rel(path)) in present:
+            sites.extend(_scan_tests(rel, tree, _source_lines(path) or (), names))
     sites.extend(_both_values(scan))
     shell = _shell_files()
     for path in shell:
-        text = _read_text(path)[0]
-        if text is not None:
-            sites.extend(_scan_shell(_rel(path), text))
-    present = frozenset(source_of) | frozenset(_rel(path) for path in shell)
-    return _resolve(PLATFORM_CHECK, sites, allow, present)
+        if (lines := _source_lines(path)) is not None:
+            sites.extend(_scan_shell(_rel(path), lines))
+    present.update(_rel(path) for path in shell)
+    return _resolve(PLATFORM_CHECK, sites, allow, frozenset(present))
 
 
 def _mode_position(func: ast.expr) -> tuple[str, int] | None:
@@ -515,10 +552,9 @@ def _newline_passed(call: ast.Call) -> bool | None:
     return False
 
 
-def _scan_writes(rel: str, tree: ast.Module, source: list[str]) -> list[_Site]:
+def _scan_writes(rel: str, tree: ast.Module, source: Sequence[str]) -> list[_Site]:
     """The write clause over one module: every text-mode opener, judged on the call alone."""
     found: list[_Site] = []
-    known = _python_anchors(tree)
 
     def visit(node: ast.AST, scope: str) -> None:
         for child in ast.iter_child_nodes(node):
@@ -528,13 +564,13 @@ def _scan_writes(rel: str, tree: ast.Module, source: list[str]) -> list[_Site]:
                 passed = _newline_passed(child)
                 if not readable:
                     detail = f"`{callee}` opens with a mode the clause cannot read -- spell the mode as a literal, or allowlist the anchor"
-                    found.append(_site(rel, child.lineno, symbol, detail, source, known))
+                    found.append(_site(rel, child.lineno, symbol, detail, source))
                 elif passed is None:
                     detail = f'text-mode write `{callee}` without newline="" -- on Windows the stream turns every LF into CRLF; {WRITE_REMEDY}'
-                    found.append(_site(rel, child.lineno, symbol, detail, source, known))
+                    found.append(_site(rel, child.lineno, symbol, detail, source))
                 elif not passed:
                     detail = f'`{callee}` passes a newline other than "" or "\\n", so the stream still translates -- {WRITE_REMEDY}'
-                    found.append(_site(rel, child.lineno, symbol, detail, source, known))
+                    found.append(_site(rel, child.lineno, symbol, detail, source))
             visit(child, symbol)
 
     visit(tree, "")
@@ -551,10 +587,9 @@ def check_text_writes(allow: Mapping[str, str] = TEXT_WRITE_ALLOW) -> list[Findi
     present: set[str] = set()
     for path in _python_files():
         tree = _tree(path)
-        text = _read_text(path)[0]
-        if tree is None or text is None:
+        if tree is None:
             continue
         rel = _rel(path)
         present.add(rel)
-        sites.extend(_scan_writes(rel, tree, text.split("\n")))
+        sites.extend(_scan_writes(rel, tree, _source_lines(path) or ()))
     return _resolve(CRLF_CHECK, sites, allow, frozenset(present))
