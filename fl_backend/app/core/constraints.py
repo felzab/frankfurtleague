@@ -812,6 +812,9 @@ async def _apply_concurrently(declared: Sequence[tuple[str, _Runner]]) -> None:
     for position, (namespace, run) in enumerate(declared):
         lanes.setdefault(namespace, []).append((position, run))
 
+    # Nothing short-circuits: `_run_lane` returns its failure rather than raising, so every other
+    # lane runs on to completion and a failed apply leaves MORE applied than a sequential one
+    # would. Safe because each operation here is idempotent.
     outcomes = await asyncio.gather(*(_run_lane(lane) for lane in lanes.values()))
     failures = [outcome for outcome in outcomes if outcome is not None]
 
@@ -1015,9 +1018,9 @@ async def probe_privileges(db: AsyncDatabase) -> list[tuple[str, str]]:
 
     A check aborting on the first refusal hides the next until that one is fixed.
     """
-    # Three go unprobed -- `create`, `createIndex`, and the `listCollections` `create_collection`
-    # sends ahead of each. Only a FRESH database reaches them, and asking for the first two means
-    # exercising them, which this probe cannot.
+    # Three go unprobed. Only a FRESH database reaches `create` and the `listCollections`
+    # `create_collection` sends ahead of it; `apply_constraints` issues `createIndex` on every boot.
+    # Asking for any of the three is exercising it, and this may not write.
     return [("find", await probe_read_privilege(db)), ("collMod", await probe_collmod_privilege(db))]
 
 

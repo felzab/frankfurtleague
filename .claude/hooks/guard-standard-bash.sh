@@ -43,20 +43,34 @@ squeezed="$(printf '%s' "$scan" | tr -s ' \t' ' ')"
 # below reads this, and so does the arrows test, which needs `2>&1` whole.
 padded=" $squeezed"
 
-# What every word-bounded pattern reads instead: a separator bounds a word too, so `x;rm -rf src`
-# carries a verb no " rm " reaches, and a quote hides one — both come off here, as node's own
-# pass takes quotes off.
+# What every word-bounded pattern reads instead: a separator bounds a word, so `x;rm -rf src`
+# carries a verb no " rm " reaches; a quote hides one, and the dollar of ANSI-C `$'rm'` with it.
 stripped="$(printf '%s' "$squeezed" |
-  sed -E $'s/\\\\?[\x22\x27\x60]//g' | tr ';&|(){}\n\r' '         ' | tr -s ' ')"
+  sed -E $'s/[$]?\\\\?[\x22\x27\x60]//g' | tr ';&|(){}\n\r' '         ' | tr -s ' ')"
 # A pipeline that failed must not read as a command with no verb left in it.
 [ -n "$stripped" ] || stripped="$squeezed"
-# Padded at BOTH ends: a verb ending the string is bounded by nothing else.
-verbs=" $stripped "
+
+# A backslash escapes — `\rm` and `r\m` both run rm — and separates a Windows path, and no one
+# reading answers both, so the scan carries the string twice. Octal below: a lone backslash draws
+# a warning from tr and from shellcheck alike.
+unescaped="$(printf '%s' "$stripped" | tr -d '\134')"
+[ -n "$unescaped" ] || unescaped="$stripped"
+separated="$(printf '%s' "$stripped" | tr '\134' '/')"
+[ -n "$separated" ] || separated="$stripped"
+# Padded at BOTH ends and joined by a space, so a verb at either end of either reading is bounded.
+verbs=" $unescaped $separated "
 writes=0
+# Bounded by a path separator as well as by a space, because `/bin/rm` and `C:\bin\rm.exe` name the
+# program a bare `rm` names — the bound the in-place and `-o` arms below already carry.
+if [[ "$verbs" =~ [[:space:]/](tee|mv|cp|ln|rm|rmdir|mkdir|touch)(\.exe)?[[:space:]] ]]; then writes=1; fi
 case "$verbs" in
-  *" tee "*)                       writes=1 ;;
   *"--output "* | *"--output="*)   writes=1 ;;
-  *" mv "* | *" cp "* | *" ln "* | *" rm "* | *" rmdir "* | *" mkdir "* | *" touch "*) writes=1 ;;
+esac
+
+# ANSI-C quoting spells a verb in escapes nothing here decodes — `$'\x72\x6d'` is rm — so a command
+# carrying that shape is one this scan could not read, never one it cleared.
+case "$padded" in
+  *\$\'*\\*) writes=1 ;;
 esac
 
 # An inline interpreter names its target in source, where no verb and no redirect shows it. `open(`
@@ -88,43 +102,58 @@ if [[ "$verbs" =~ [[:space:]/](docker[[:space:]]compose|docker-compose|sort|curl
   esac
 fi
 
-# Global options sit between program and subcommand, so the stepper skips them. Every `git` is
-# walked, over the separator-normalised string: a leading read otherwise shadows a chained write,
-# and `;git commit` fronts a git as plainly as a space does.
-shopt -s extglob # for the ?(.exe) alternative the strip below carries
-gitscan="$verbs"
-while :; do
-  rest="${gitscan#*[[:space:]/]git?(.exe) }"
-  [ "$rest" = "$gitscan" ] && break
-  gitscan="$rest"
-  while :; do
-    case "$rest" in
-      *" "*) ;;
-      *) break ;;
-    esac
-    case "$rest" in
-      "-c "* | "-C "* | "--git-dir "* | "--work-tree "* | "--exec-path "* | "--namespace "*)
-        rest="${rest#* }"
-        rest="${rest#* }"
-        ;;
-      -*) rest="${rest#* }" ;;
+# Global options sit between program and subcommand, so the stepper skips them, and every `git` is
+# walked because a leading read otherwise shadows a chained write. `;git commit` fronts a git as
+# plainly as a space does.
+read -ra gitwords <<<"$verbs"
+# Word by word: `${v#*git }` rescans from every position, and a command of a few kilobytes then
+# costs longer than the harness gives a hook — where not answering is read as permission.
+total="${#gitwords[@]}"
+step=0
+while [ "$step" -lt "$total" ]; do
+  # A directory in front and a Windows tail behind leave the program the same program.
+  word="${gitwords[$step]##*[/\\]}"
+  word="${word%.exe}"
+  step=$((step + 1))
+  [ "$word" = "git" ] || continue
+  while [ "$step" -lt "$total" ]; do
+    case "${gitwords[$step]}" in
+      # Each of these carries its value in the NEXT word, so the pair comes off together.
+      -c | -C | --git-dir | --work-tree | --exec-path | --namespace) step=$((step + 2)) ;;
+      -*) step=$((step + 1)) ;;
       *) break ;;
     esac
   done
-  # The subcommand word ends at any whitespace, so nothing standing behind it can glue onto it and
-  # hide the name.
-  case "${rest%%[[:space:]]*}" in
+  [ "$step" -lt "$total" ] || break
+  case "${gitwords[$step]}" in
     am | apply | cherry-pick | clean | commit | merge | rebase | reset | restore | revert | stash | switch) writes=1 ;;
     # `git checkout -b` is how a session leaves `main` and must never be refused; the pathspec form
     # writes a tracked file and is the spelling that has to be.
     checkout) case "$verbs" in *" -- "*) writes=1 ;; esac ;;
   esac
 done
-shopt -u extglob
+
+# A quoted `>` redirects nothing, and refusing on one refuses `grep 'a -> b'`. These are the
+# programs whose arguments are operands, never an interpreter running what it is handed.
+OPERANDS=" basename cat cp cut date diff dirname echo git grep head ls mkdir mv nl printf rg sed seq sort tail tee touch tr uniq wc "
+lead="${stripped# }"
+lead="${lead%% *}"
+lead="${lead##*[/\\]}"
+lead="${lead%.exe}"
+oneline="${padded//$'\n'/;}"
+oneline="${oneline//$'\r'/;}"
+# The spans come off only where nothing can hide in them: one simple command, no separator and no
+# substitution. ONE left-to-right pass, so a quote of one kind opened inside the other cannot pair
+# across a real redirect and carry it away.
+quotes=""
+case "$oneline" in
+  *";"* | *"|"* | *"&"* | *"("* | *")"* | *"{"* | *"}"* | *'$'* | *'`'*) ;;
+  *) case "$OPERANDS" in *" $lead "*) quotes=$'s/[\x22][^\x22]*[\x22]|[\x27][^\x27]*[\x27]//g;' ;; esac ;;
+esac
 
 # Every redirect spelling, once a descriptor duplication is out of the way: `>&1`, `>&2` and `>&-`
 # name no file, while `>&f`, `->f` and `=>f` all redirect INTO f because `>` ends the word before it.
-arrows="$(printf '%s' "$padded" | sed -E 's/[0-9]*>&[0-9-]//g')"
+arrows="$(printf '%s' "$padded" | sed -E "$quotes"'s/[0-9]*>&[0-9-]//g')"
 [ -n "$arrows" ] || arrows="$padded"
 case "$arrows" in
   *">"*) writes=1 ;;
@@ -135,10 +164,11 @@ esac
 # An interpreter writes wherever its program says, which no command string shows: `python x.py` names
 # nothing here. Asking is cheap where refusing is not, so it counts as a write here and not there.
 interpreter=0
-# One pattern, not a list: every name carries the same optional Windows tail. python.exe, node.exe
-# and pnpm.cmd all resolve here and name what the bare spelling names, as on the in-place arm above.
+# One pattern, not a list: every name carries the same optional Windows tail. Read off the string
+# the verb arms read, and bounded as they are, because `\node` and `/usr/bin/node` start what a
+# bare `node` starts.
 interp_names='python3?|node|bash|sh|perl|ruby|deno|bun|uvx?|npx|pnpm|npm|yarn|make|xargs|env'
-if [[ "$padded" =~ [[:space:]]($interp_names)(\.exe|\.cmd|\.bat)?[[:space:]] ]]; then interpreter=1; fi
+if [[ "$verbs" =~ [[:space:]/]($interp_names)(\.exe|\.cmd|\.bat)?[[:space:]] ]]; then interpreter=1; fi
 
 # PowerShell's write cmdlets, on the interpreter flag for its reason: the matcher reaches this hook
 # on both shells, none of these is POSIX, and asking is cheap. Matched case-blind, which is how

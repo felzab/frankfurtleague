@@ -1,15 +1,3 @@
-/**
- * SCRIPTS · do two versions of a TypeScript file differ by anything but comments?
- *
- * `scripts/check_scope.py` needs the answer for the packaging paths `scripts/ci_scopes.sh` names,
- * and a regex cannot give it (`docs/ops/spec.md` §1.5). Both versions are reprinted through
- * TypeScript's own printer with `removeComments` on, which emits from the syntax tree, so a
- * type-only edit still reads as a change. Prints `same` or `different` and exits 0; exits 1 with a
- * reason on stderr when it cannot answer, and the caller then treats the change as code. With
- * `--batch`, pairs of paths follow and each answers on its own line -- `same`, `different`, or
- * `error: <reason>` for the pair alone -- so one process serves a whole diff.
- */
-
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -26,6 +14,9 @@ try {
   process.exit(1);
 }
 
+// Why javascript: no regex can say whether two versions differ by more than comments
+// (`docs/ops/spec.md` §1.5), and TypeScript's own printer is reachable only from node. It emits
+// from the syntax tree, so a type-only edit still reads as a change.
 const printer = ts.createPrinter({ removeComments: true });
 
 function normalize(path) {
@@ -50,8 +41,8 @@ function normalize(path) {
 const args = process.argv.slice(2);
 
 // One process for many pairs: node and the typescript package load once rather than once per
-// changed file. One answer line per pair, and a pair that cannot be answered degrades alone --
-// its `error` line is the caller's "code".
+// changed file. `check_scope.py :: normalizer_batch` reads one line per pair in order and matches
+// `same` literally, so the words and the count are contract.
 if (args[0] === "--batch") {
   const paths = args.slice(1);
   if (paths.length === 0 || paths.length % 2 !== 0) {
@@ -65,6 +56,8 @@ if (args[0] === "--batch") {
       console.log(`error: ${String(error.message).replace(/\s+/g, " ")}`);
     }
   }
+  // Exit 0 even where a pair failed: a non-zero status degrades the WHOLE batch to "code" in
+  // `normalizer_batch`, where an `error` line degrades only its own pair.
   process.exit(0);
 }
 
@@ -74,6 +67,8 @@ if (!oldPath || !newPath) {
   process.exit(1);
 }
 
+// The exit contract: `same` or `different` at 0, and 1 with a reason on stderr where the question
+// could not be answered — the caller then treats the change as code, the one safe direction.
 try {
   console.log(normalize(oldPath) === normalize(newPath) ? "same" : "different");
 } catch (error) {

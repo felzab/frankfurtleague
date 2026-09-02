@@ -411,10 +411,10 @@ def test_a_refused_redaction_takes_the_clearing_back(mongo_replica_set_url: str)
 
 
 class AktionenRunningAHookBeforeTheRedaction:
-    """An `aktionen` stand-in running one hook just before the log redaction, so the interleaving is a fact rather than a race.
+    """A stand-in whose hook runs before the redaction, so the interleaving is a fact rather than a race.
 
-    The one point where the referee row is written and nothing has committed. Not a subclass: Motor
-    builds a collection off a handle.
+    The one point where the referee row is written and nothing has committed. Not a subclass:
+    `database[name]` builds the collection.
     """
 
     def __init__(self, inner: Any, hook: Callable[[], Awaitable[Any]]) -> None:

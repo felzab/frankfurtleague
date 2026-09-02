@@ -37,7 +37,8 @@ LITERAL_DATE_RE: Final = re.compile(r"\d{2}\.\d{2}\.\d{4}")
 DASH_RE: Final = re.compile(r"[—–-]")
 LONG_DASHES: Final = "—–"
 # `Ticket- und Cateringverkäufe`: the hyphen holds a compound open until the conjunction completes
-# it, so it joins words across the space rather than parting a clause (§1.12).
+# it, joining words rather than parting a clause. Reached where the dash renders alone -- elsewhere
+# the word behind it already settles it (§1.12).
 SUSPENDED_RE: Final = re.compile(r"(?<=\w)-\s+(?:und|oder|bzw\.|sowie|bis|beziehungsweise)\b")
 
 # Capitalised and mid-sentence, the only position carrying the formal address: German capitalises
@@ -237,10 +238,10 @@ def _close_hole(frames: list[_Frame], text: str, index: int) -> None:
 
 
 def _scan(text: str, *, jsx: bool) -> tuple[list[Copy], bool]:
-    """Every rendered span in one file, and whether the scan closed every frame it opened.
+    """Every rendered span in one file, and whether the scan ended where it started.
 
-    An unbalanced scan proves nothing about the file that produced it, so the caller reports the
-    file rather than trusting the spans.
+    Balanced is one code frame left, at depth zero: `{` in code moves that frame's depth rather
+    than pushing one, so counting frames alone calls an unclosed block balanced.
     """
     found: list[Copy] = []
     frames = [_Frame("code")]
@@ -382,7 +383,7 @@ def _scan(text: str, *, jsx: bool) -> tuple[list[Copy], bool]:
         lead.push(">")
         index += 1
 
-    return found, len(frames) == 1 and frames[0].kind == "code"
+    return found, len(frames) == 1 and frames[0].kind == "code" and frames[0].depth == 0
 
 
 def copy_spans(path: Path) -> tuple[list[Copy], bool]:
@@ -480,8 +481,8 @@ def _dash_findings(rel: str, span: Copy) -> list[Finding]:
 def _formal_findings(rel: str, span: Copy) -> list[Finding]:
     """`Sie` or `Ihr` standing where only the formal address puts it.
 
-    The opener test is what makes this fail rather than report: all twelve in the tree open a
-    sentence, third person each. Its cost is a formal `Sie` doing the same.
+    Failing rather than reporting: the position test above leaves nothing ambiguous to guess at,
+    so the whole cost is a silent miss, never the false alarm that gets a check switched off.
     """
     if not is_german(span):
         return []

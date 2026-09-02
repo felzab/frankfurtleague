@@ -46,6 +46,8 @@ from .kernel import (
     OVERVIEW_GLOB,
     REPO_PREFIXES,
     REPO_ROOT,
+    ROADMAP_CLOSED_PAGE,
+    ROADMAP_ID_DEF_RE,
     ROADMAP_RANKED_PAGES,
     SCANNED_SUFFIXES,
     SPEC_GLOB,
@@ -64,11 +66,11 @@ from .kernel import (
     atx_heading,
     comment_runs,
     comment_style,
+    defined_symbols,
     is_gitignored,
     is_placeholder,
     line_of,
     repo_path,
-    roadmap_ids,
     scanned_files,
     tracked_glob,
     tracked_page,
@@ -124,6 +126,7 @@ PR_BODY_CHECKER: Final = "scripts/check_pr_body.py"
 REQUIRED_INPUTS: Final[tuple[str, ...]] = (
     STANDARD_PAGE,
     *ROADMAP_RANKED_PAGES,
+    ROADMAP_CLOSED_PAGE,
     TEMPLATES_PAGE,
     GLOSSARY_PAGE,
     SWEEP_PAGE,
@@ -301,6 +304,9 @@ def check_roadmap() -> list[Finding]:
     Ranks run from 1 per page, not across the folder: product and tooling work are not comparable.
     """
     found: list[Finding] = []
+    # Which page ranks each id, carried out of the loop: the log is resolved against all of them at
+    # once, and a finding has to name the page the entry has to leave.
+    ranked: dict[str, str] = {}
     for rel in ROADMAP_RANKED_PAGES:
         page = tracked_page(rel)
         if page is None:
@@ -325,9 +331,7 @@ def check_roadmap() -> list[Finding]:
                 detail = f"{entry_id} ranks {entries[entry_id]} in its heading and {rows[entry_id]} in the index"
                 found.append(Finding("fail", "roadmap-shape", rel, detail))
 
-        known = roadmap_ids()
-        for entry_id in sorted(set(entries) - known):
-            found.append(Finding("fail", "roadmap-shape", rel, f"entry id {entry_id} is defined by no tracked roadmap table"))
+        ranked.update(dict.fromkeys(entries, rel))
 
         # Contiguous from 1 on each side: a gap makes "the next one" unanswerable and a duplicate
         # makes the working order ambiguous.
@@ -346,6 +350,28 @@ def check_roadmap() -> list[Finding]:
                 detail = f"index row {match.group(2)} states {ROADMAP_TRANSIENT_STATUS} -- {transient} deletes the entry"
                 found.append(Finding("fail", "roadmap-shape", rel, detail))
 
+    return found + _ranked_against_the_log(ranked)
+
+
+def _ranked_against_the_log(ranked: dict[str, str]) -> list[Finding]:
+    """No id is ranked open on one page and logged closed on another.
+
+    Two listings by different routes, required to agree (PRE-4): a page's entry headings, and the
+    log's rows. The removal commit is where an entry leaves one file for the other.
+    """
+    log = tracked_page(ROADMAP_CLOSED_PAGE)
+    if log is None:
+        detail = "untracked, so no ranked page was resolved against the closed log"
+        return [Finding("fail", "roadmap-shape", ROADMAP_CLOSED_PAGE, detail)] if (REPO_ROOT / ROADMAP_CLOSED_PAGE).exists() else []
+    if (body := _readable(log)) is None:
+        detail = "unreadable, so no ranked page was resolved against the closed log"
+        return [Finding("fail", "roadmap-shape", ROADMAP_CLOSED_PAGE, detail)]
+
+    closed = set(ROADMAP_ID_DEF_RE.findall(body))
+    found: list[Finding] = []
+    for entry_id in sorted(closed & set(ranked)):
+        detail = f"{entry_id} is ranked here and closed in {ROADMAP_CLOSED_PAGE} -- an entry leaves one page for the other, never both"
+        found.append(Finding("fail", "roadmap-shape", ranked[entry_id], detail))
     return found
 
 
@@ -942,6 +968,10 @@ LINK_RE: Final = re.compile(r"""(?<!!)\[[^\]]*\]\(([^)\s#]*)(#[^)\s]*)?(?:[ \t]+
 # A citation is a single backticked run containing exactly one " :: " (COR-6). Read it through
 # `unwrapped`, never off the raw body: a code span may wrap, and this stops at the newline.
 CITATION_RE: Final = re.compile(r"`([^`\n]+? :: [^`\n]+?)`")
+# The continuation form: a page names a file once, then cites its symbols with the separator and
+# the anchor alone. `CITATION_RE` needs a left half, so without this the form matches nothing and
+# every claim it makes goes unresolved (INC-6).
+CONTINUATION_RE: Final = re.compile(r"`:: ([^`\n]+?)`")
 
 
 # One line break inside a paragraph, which a renderer joins to a space. The blank line is excluded
@@ -1027,6 +1057,16 @@ def names_a_file(file_part: str) -> bool:
     return file_part.endswith(CITABLE_SUFFIXES) or file_part.rsplit("/", 1)[-1] in OPS_FILENAMES
 
 
+def _anchor_names(anchor: str) -> tuple[str, ...] | None:
+    """The names a definition listing can be asked about, or None where the anchor spells none.
+
+    Which half of a chain its own file defines varies, and proving the whole of one needs a type,
+    so any name in it resolving is enough.
+    """
+    parts = tuple(anchor.split("."))
+    return parts if all(part.isidentifier() for part in parts) else None
+
+
 def _check_citation(citation: str, rel: str) -> list[Finding]:
     """A <file> :: <anchor> citation: the file must exist and the anchor must appear inside it."""
     file_part, _, anchor = citation.partition(" :: ")
@@ -1051,10 +1091,61 @@ def _check_citation(citation: str, rel: str) -> list[Finding]:
     if content is None:
         return [Finding("fail", "citation", rel, f"cannot read {file_part}: {error}")]
 
+    where = target.relative_to(REPO_ROOT).as_posix()
+    # Presence is not resolution: `parse_unit` reads as alive inside `parse_units`, so a deleted
+    # symbol surviving in a longer name certifies silently. Python's definitions list exactly; every
+    # other kind resolves by presence.
+    names = _anchor_names(anchor)
+    if names is not None and (defined := defined_symbols(target)) is not None:
+        if defined.isdisjoint(names):
+            return [Finding("fail", "citation", rel, f"anchor '{anchor}' is not defined in {where}")]
+        return []
     if anchor not in content:
-        where = target.relative_to(REPO_ROOT).as_posix()
         return [Finding("fail", "citation", rel, f"anchor '{anchor}' no longer appears in {where}")]
     return []
+
+
+def _files_named(joined: str) -> list[tuple[int, str]]:
+    """Every offset at which this text names a file, and the spelling it names it by.
+
+    A full citation and a backticked repository path. Deliberately not a markdown LINK: over this
+    corpus one displaces the file the sentence is about.
+    """
+    named: list[tuple[int, str]] = [(match.start(), match.group(1).partition(" :: ")[0].strip()) for match in CITATION_RE.finditer(joined)]
+    for match in BACKTICK_RE.finditer(joined):
+        token = match.group(1)
+        if " :: " not in token and (resolved := repo_path(token)) is not None:
+            named.append((match.start(), resolved))
+    return sorted(named)
+
+
+def _continuations(joined: str, rel: str) -> list[Finding]:
+    """Every `:: <anchor>` continuation, resolved against the last file named above it.
+
+    An anchor that is itself a filename names a SIBLING of that file rather than a symbol in it,
+    which is how a table cell lists two modules of one folder.
+    """
+    carried = [(match.start(), match.group(1).strip()) for match in CONTINUATION_RE.finditer(joined) if not is_placeholder(match.group(1))]
+    if not carried:
+        return []
+    named = _files_named(joined)
+    found: list[Finding] = []
+    pairs: set[tuple[str, str]] = set()
+    for at, anchor in carried:
+        antecedent = next((spelling for offset, spelling in reversed(named) if offset < at), None)
+        if antecedent is None:
+            detail = f"`:: {anchor}` continues a citation, and no file is named above it"
+            found.append(Finding("fail", "citation", rel, detail, line_of(joined, at)))
+            continue
+        pairs.add((antecedent, anchor))
+    for antecedent, anchor in sorted(pairs):
+        if anchor.endswith(CITABLE_SUFFIXES):
+            folder = PurePosixPath(antecedent).parent
+            if not (REPO_ROOT / folder / anchor).is_file():
+                found.append(Finding("fail", "citation", rel, f"`:: {anchor}` names no file beside {antecedent}"))
+            continue
+        found.extend(_check_citation(f"{antecedent} :: {anchor}", rel))
+    return found
 
 
 def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, list[str]]) -> list[Finding]:
@@ -1101,6 +1192,7 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     for citation in sorted(set(CITATION_RE.findall(joined))):
         if not is_placeholder(citation):
             found.extend(_check_citation(citation, rel))
+    found.extend(_continuations(joined, rel))
 
     # Nothing else can detect one: it stays syntactically valid and merely stops pointing at what it
     # names, so it has to be caught at the form.

@@ -15,7 +15,8 @@
 set -euo pipefail
 
 # Windows refuses a command line past 32,767 bytes, and this repository's formattable tree already
-# costs 30,492 of them. Batches flush well under it; Linux has no practical limit here.
+# costs 41,552 of them in the `../` spelling below. A batch flushes before it crosses this budget,
+# so the longest runs about 24 KB against that ceiling; Linux has no practical limit here.
 ARGV_BUDGET=24000
 
 # Prettier's parser set, from `--support-info`, minus the editor and interchange aliases. Missing
@@ -35,29 +36,43 @@ formattable() {
   return 1
 }
 
-repo_root="$(git rev-parse --show-toplevel)"
+if ! repo_root="$(git rev-parse --show-toplevel)"; then
+  echo "  pre-commit hook: could not find the repository root — the commit is refused." >&2
+  exit 1
+fi
 cd "$repo_root"
 
-# `diff.relative` would relativise these to the invoking directory; every line below joins them onto
-# the repository root. `--no-renames` turns a rename into the add `A` names, and `D` is left out
-# because a staged deletion has no file to format.
-staged=()
-while IFS= read -r -d '' path; do
-  if formattable "$path"; then staged+=("$path"); fi
-done < <(git --literal-pathspecs -c diff.relative=false diff --cached --name-only -z --no-renames --diff-filter=ACM)
-
-# Nothing prettier reads, so a backend or shell commit pays no node startup. A git that failed above
-# lands here too and commits unformatted, which the gate catches — the reason the queries below are
-# instead read from files whose status is checked.
-if [ ${#staged[@]} -eq 0 ]; then
-  exit 0
+# Ahead of the first query, because every one of them is read from a file in here.
+if ! work="$(mktemp -d)"; then
+  echo "  pre-commit hook: could not make a scratch directory — the commit is refused." >&2
+  exit 1
 fi
-
-work="$(mktemp -d)"
 # `git hash-object` cannot open mktemp's MSYS alias (/tmp/…) from a worktree, where no conversion
 # layer rewrites the argument — the resolution `scripts/selfcheck.sh :: mount_source` also applies.
 work="$(cygpath -w "$work" 2>/dev/null || printf '%s' "$work")"
 trap 'rm -rf "$work"' EXIT
+
+# `diff.relative` would relativise these to the invoking directory; every line below joins them onto
+# the repository root. `--no-renames` turns a rename into the add `A` names, and `D` is left out
+# because a staged deletion has no file to format.
+if ! git --literal-pathspecs -c diff.relative=false diff --cached --name-only -z --no-renames \
+     --diff-filter=ACM > "$work/staged"; then
+  # Through a file, never a process substitution: nothing observes one's status, `set -e` does not
+  # fire on it, and a query that failed there reads as an empty stage — an unformatted commit with
+  # nothing printed.
+  echo "  pre-commit hook: could not read the staged files — the commit is refused." >&2
+  exit 1
+fi
+
+staged=()
+while IFS= read -r -d '' path; do
+  if formattable "$path"; then staged+=("$path"); fi
+done < "$work/staged"
+
+# Nothing prettier reads, so a backend or shell commit pays no node startup.
+if [ ${#staged[@]} -eq 0 ]; then
+  exit 0
+fi
 
 declare -A candidate
 for path in "${staged[@]}"; do candidate["$path"]=1; done
@@ -191,11 +206,17 @@ if [ ${#changed[@]} -gt 0 ]; then
       restage_failed=$((restage_failed + 1))
       continue
     fi
-    git cat-file blob "${index_oid["$path"]}" > "$work/blob"
+    if ! git cat-file blob "${index_oid["$path"]}" > "$work/blob"; then
+      echo "  pre-commit hook: could not read the staged copy of $path — the commit is refused." >&2
+      exit 1
+    fi
     if ( cd fl_frontend && node "$prettier_entry" --stdin-filepath "../$path" --log-level warn \
            --ignore-unknown --ignore-path ../.prettierignore \
            < "$work/blob" > "$work/formatted" ); then
-      oid="$(git hash-object -w --path="$path" -- "$work/formatted")"
+      if ! oid="$(git hash-object -w --path="$path" -- "$work/formatted")"; then
+        echo "  pre-commit hook: could not store the formatted $path — the commit is refused." >&2
+        exit 1
+      fi
       printf '%s %s\t%s\0' "${index_mode["$path"]}" "$oid" "$path" >> "$work/stage"
       if ! cmp -s "$work/formatted" "$path"; then raced+=("$path"); fi
     else

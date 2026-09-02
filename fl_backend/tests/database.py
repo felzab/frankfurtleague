@@ -3,6 +3,7 @@ import atexit
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Coroutine, Iterable, Mapping, Sequence
 
+import pymongo
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.database import Database
@@ -23,6 +24,11 @@ _BUILT: dict[tuple[str, str], tuple[bool, Schema]] = {}
 _LOOP: asyncio.AbstractEventLoop | None = None
 _CLIENTS: dict[str, AsyncMongoClient] = {}
 
+# Bounds each close in `_release`. A serial `pytest -m db` has stopped the containers by the time
+# that runs, so an unbounded close waits pymongo's 30 s selection default per client, after the
+# reporter has already printed.
+_CLOSE_TIMEOUT_S = 2.0
+
 
 def _release() -> None:
     """At interpreter exit, nothing else outliving the tier to close what its seeds share."""
@@ -30,10 +36,14 @@ def _release() -> None:
     if _LOOP is None:
         return
 
-    # Run on the tier's loop while it is still open: `AsyncMongoClient.close` is a coroutine, so a
-    # bare call would close nothing and leave a warning where the connections should have gone.
     for client in _CLIENTS.values():
-        _LOOP.run_until_complete(client.close())
+        # `close` selects a server to end the client's sessions, so a deadline is the only thing
+        # bounding it. The error one raises is swallowed inside `close`: an `endSessions` failure
+        # is one a driver must ignore.
+        with pymongo.timeout(_CLOSE_TIMEOUT_S):
+            # Run on the tier's loop while it is still open: `close` is a coroutine, so a bare call
+            # would close nothing and leave a warning where the connections should have gone.
+            _LOOP.run_until_complete(client.close())
     _CLIENTS.clear()
 
     # What a per-call `asyncio.run` does at its own end: an async generator left open is finalised

@@ -494,9 +494,9 @@ describe("what a website box reports upward", () => {
     assert.equal(toWebsiteUrl("HTTP://www.beispielschule.de"), "https://www.beispielschule.de");
   });
 
-  /* The whole point of the function: ONE spelling of "no website" is ever written, so no reader
-     downstream has to test for two. `OptionalExternalUrlSchema` admits `""` on the way in, which is
-     what would let a second spelling through if this reported one. */
+  /* ONE spelling of "no website" is ever written, so no reader downstream tests for two.
+     `OptionalExternalUrlSchema` refuses `""` outright (`schemas.test.ts`), so an empty box
+     reported as one would be refused rather than stored. */
   it("reports no website as null, never as the empty string", () => {
     assert.equal(toWebsiteUrl(""), null);
     assert.equal(toWebsiteUrl("   "), null);

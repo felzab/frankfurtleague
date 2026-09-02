@@ -23,8 +23,8 @@ KERNEL: Final = SCRIPTS / "checker_kernel.py"
 # snippet importing it inside its own interpreter. `SCRIPTS_DIR` and `DIRECTORY` are the snippet's
 # only holes, filled by `_drive`.
 
-# Lines rather than a triple-quoted block: `scripts/docs_gate/kernel.py :: comment_runs` reads a
-# lone closing quote at the margin as a docstring opening, and measures the code under it as prose.
+# Lines rather than a block, because each case is `DRIVER` concatenated with a tuple of its own:
+# a driver written as one string would have to be re-joined at every call site.
 DRIVER: Final[tuple[str, ...]] = (
     "import os",
     "import signal",
@@ -156,6 +156,25 @@ GROUP_SIGNALLED: Final[tuple[str, ...]] = (
     "running.live['unit'] = child",
     "gate_pool.terminate(running)",
     "assert killed == [(child.pid, gate_pool.signal.SIGTERM)], killed",
+    "child.kill()",
+    "child.wait(timeout=30)",
+)
+
+# `terminate`'s other arm, spelt the same way: the platform is a VALUE, so both arms run on every
+# machine. `os.killpg` does not exist on Windows at all, so what proves the arm was taken is that
+# the group path recorded nothing.
+WINDOWS_TERMINATED: Final[tuple[str, ...]] = (
+    "killed = []",
+    "gate_pool.os.killpg = lambda group, number: killed.append((group, number))",
+    "gate_pool.sys.platform = 'win32'",
+    "stopped = []",
+    "running = pool()",
+    "child = sleeper()",
+    "child.terminate = lambda: stopped.append(child.pid)",
+    "running.live['unit'] = child",
+    "gate_pool.terminate(running)",
+    "assert stopped == [child.pid], stopped",
+    "assert killed == [], killed",
     "child.kill()",
     "child.wait(timeout=30)",
 )
@@ -369,6 +388,12 @@ def test_a_unit_s_own_pid_is_the_group_id_a_stop_signals(tmp_path: Path) -> None
 def test_ending_a_unit_signals_its_group_rather_than_its_leader(tmp_path: Path) -> None:
     """The leader is a `verify.sh` whose trap exits at once; its foreground child is the one holding the image and the scratch."""
     result = _drive(GROUP_SIGNALLED, tmp_path)
+    assert result.returncode == 0, result.stderr
+
+
+def test_a_stop_on_windows_terminates_the_child_rather_than_signalling_a_group(tmp_path: Path) -> None:
+    """Its twin above binds the platform to make the group arm run everywhere; unbound, this one runs nowhere."""
+    result = _drive(WINDOWS_TERMINATED, tmp_path)
     assert result.returncode == 0, result.stderr
 
 

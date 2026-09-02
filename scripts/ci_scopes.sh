@@ -15,19 +15,22 @@ source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 MODE=""; FIRST_ARG=""
 # Guarded in every mode arm, not the base-ref one alone: otherwise `ci_scopes.sh origin/main --all`
-# silently discards the ref while the same two arguments the other way round die.
-one_mode() { [[ -z "$MODE" ]] || die "Give one base ref, --all or --stdin — not more than one ('${FIRST_ARG}' and then '${1}')."; FIRST_ARG="$1"; }
+# silently discards the ref while the same two arguments the other way round are refused.
+
+# `refuse`, not `die`, here and below: a mapping this could not produce is an input nobody can act
+# on as a finding, and `scripts/checker_kernel.py`'s contract spells that 2 rather than 1.
+one_mode() { [[ -z "$MODE" ]] || refuse "Give one base ref, --all or --stdin — not more than one ('${FIRST_ARG}' and then '${1}')."; FIRST_ARG="$1"; }
 
 for arg in "$@"; do
   case "$arg" in
     --all)     one_mode "$arg"; MODE="all" ;;
     --stdin)   one_mode "$arg"; MODE="stdin" ;;
     --help|-h) usage ;;
-    --*)       die "Unknown option: ${arg}. Try --help." ;;
+    --*)       refuse "Unknown option: ${arg}. Try --help." ;;
     *)         one_mode "$arg"; MODE="base"; BASE_REF="$arg" ;;
   esac
 done
-[[ -n "$MODE" ]] || die "Name a base ref (origin/main), or pass --all or --stdin. See --help."
+[[ -n "$MODE" ]] || refuse "Name a base ref (origin/main), or pass --all or --stdin. See --help."
 
 scripts=false; docs=false; backend=false; format=false; frontend=false; ops=false; db=false; images=false
 all() { scripts=true; docs=true; backend=true; format=true; frontend=true; ops=true; db=true; images=true; }
@@ -38,17 +41,23 @@ else
   if [[ "$MODE" == "stdin" ]]; then
     files="$(cat)"
   else
-    base="$(git merge-base "$BASE_REF" HEAD)" || die "No merge base between '${BASE_REF}' and HEAD."
+    base="$(git merge-base "$BASE_REF" HEAD)" || refuse "No merge base between '${BASE_REF}' and HEAD."
     # `core.quotepath=false` because git otherwise quotes and octal-escapes a non-ASCII path, and the
     # quoted spelling matches no arm below — every scope turns on for a file only prettier reads.
-    files="$(git -c core.quotepath=false diff --name-only "$base" HEAD)"
+
+    # `--no-renames` because a detected rename is one filepair printing the DESTINATION alone:
+    # renaming fl_frontend/Dockerfile away would then ask for no image build.
+    files="$(git -c core.quotepath=false diff --no-renames --name-only "$base" HEAD)"
   fi
   while IFS= read -r f; do
     [[ -n "$f" ]] || continue
 
     # The throwaway directories verify.sh and selfcheck.sh build and reclaim. A leftover from an
     # interrupted run is litter, not a change, and the fallback below would refuse the next run.
-    case "$f" in .tmp-*) continue ;; esac
+
+    # `/` required, matching `.gitignore`'s own `.tmp-*/`: without it a real FILE named `.tmp-*`
+    # is skipped too, and a path skipped here selects no scope at all.
+    case "$f" in .tmp-*/*) continue ;; esac
 
     # An extension question, not a directory one, so it is answered once here: prettier has no parser
     # for python, shell, TOML, a Dockerfile or an nginx config, and a job booted for those proves
@@ -85,7 +94,15 @@ else
         frontend=true; images=true; docs=true ;;
       # `db` is emitted wherever `backend` is: the db tier is that same suite behind a marker. A line
       # of its own, so CI and `check_scope.py` read this vocabulary rather than translating it.
-      fl_backend/pyproject.toml|fl_backend/uv.lock) backend=true; db=true; images=true; docs=true ;;
+
+      # `scripts` rides along because `scripts/ruff.toml` EXTENDS this pyproject and the gate's own
+      # ruff and pyright come out of the virtualenv this lockfile pins: both govern that scope
+      # without living in it.
+      fl_backend/pyproject.toml|fl_backend/uv.lock) scripts=true; backend=true; db=true; images=true; docs=true ;;
+      # Not in .dockerignore, so `COPY . .` carries it into the builder stage, where `uv sync
+      # --frozen` reads it to pick the interpreter — a pin below `requires-python` fails the build
+      # there, and no host-side check runs it.
+      fl_backend/.python-version) backend=true; db=true; images=true; docs=true ;;
       # The published API surface. It selects the frontend scope too, or a change confined to
       # fl_backend/ would never run the check comparing a Pydantic model against its Zod mirror.
       fl_backend/openapi.json) backend=true; db=true; frontend=true; docs=true ;;
@@ -100,10 +117,18 @@ else
       nginx/*) ops=true; docs=true ;;
       # .gitattributes decides line endings at checkout, which is exactly what the scripts' CRLF
       # self-check exists to catch on a fresh clone.
-      .gitattributes) scripts=true ;;
+
+      # `docs` too: `scripts/docs_gate/checks.py` reads this file for its `line-endings` check and
+      # for the exemption it defines as the `binary` macro's expansion, so editing it moves what
+      # that scope proves.
+      .gitattributes) scripts=true; docs=true ;;
+      # `.gitignore` decides which paths the documentation gate scans and which citations it
+      # excuses (`scripts/docs_gate/kernel.py :: is_gitignored`), so widening it narrows what
+      # --docs proves while nothing else reads the widening.
+      .gitignore) docs=true ;;
       # No automated check exists for these. A deliberate, named list — anything NOT named here
       # falls through to the conservative default below.
-      certs/*|.gitignore|LICENSE|NOTICE) ;;
+      certs/*|LICENSE|NOTICE) ;;
       docs/*) docs=true ;;
       # selfcheck.sh lints and probes these, so a hook edit selects the scripts scope — matched before
       # the .claude/* arm, which would leave the hook probes unrun on the change that needs them.

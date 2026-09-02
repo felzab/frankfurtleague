@@ -71,9 +71,9 @@ docker run --rm --network <compose-network> -v "$PWD/fl_backend/app:/app/app:ro"
   <backend-image> python -m app.core.constraints --check
 ```
 
-**Seven variables are required and two carry real values.** `BackendConfig` declares six fields with no
-default, so `-e MONGODB_URI=` alone exits 1 on a validation error naming the internal keys rather than
-anything about the database. `--check` reads the database and nothing else, so the hosts, the origins and
+**Seven variables are required and two carry real values.** `BackendConfig` declares seven fields with no
+default, one per variable above, so `-e MONGODB_URI=` alone exits 1 on a validation error naming the
+internal keys rather than anything about the database. `--check` reads the database and nothing else, so the hosts, the origins and
 the three keys may be any non-empty string — **do not go looking for the production ones.**
 
 Two caveats, untested against the server itself: the image runs as `uid=100 fl_api_user`, so the mounted
@@ -221,7 +221,7 @@ and the edge carries exactly one backend path (`= /api/v0/system/is_live`, [`spe
 would have to be made on the server against the backend container. Nothing in this repository wraps that.
 
 **Declining does not shrink the working set.** A decided application stays listed, the record being what the
-decision was taken against (`:: get_bewerbungen`), so an operator who declines down the queue and sees the
+decision was taken against (`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen`), so an operator who declines down the queue and sees the
 notice unchanged has not found a fault. Removal is not an alternative either: the collection's whole write
 surface is the two decisions (`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung` and
 `:: ablehnen_bewerbung`) plus the public submission, so a flooded row stays.

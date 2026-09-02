@@ -1,20 +1,25 @@
 """SCRIPTS · does this gate run cover what the branch actually changed?
 
 A comment-only edit is a documentation change whatever file holds it, but the carve-out stops at
-what a parser can prove, never a `#` rule: anything unproven counts as code, and only a missed
-images scope fails. The path mapping is `scripts/ci_scopes.sh`, whose scope names are verify.sh's
-flags, so nothing here translates between them.
+what a parser can prove: anything unproven counts as code, and only a missed images scope fails.
+Two shapes a parser calls a comment are excluded by name, because a tool downstream reads them --
+`TOOLCHAIN_DIRECTIVE`, and a docstring under `DOCSTRINGS_ARE_PUBLISHED`. The path mapping is
+`scripts/ci_scopes.sh`, whose scope names are verify.sh's flags, so nothing here translates between
+them.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import tomllib
+from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
@@ -35,23 +40,68 @@ ARGV_BUDGET: Final = 24_000
 
 MAX_NAMED_FILES: Final = 8  # a finding names the files; past this it says "and N more"
 
+# A comment a tool READS, so adding, deleting or moving one changes what runs while the syntax tree
+# a parser compares stays identical. Every match here is code, whatever the parser then answers.
+TOOLCHAIN_DIRECTIVE: Final = re.compile(
+    r"^#!"  # a shebang picks the interpreter, and nothing downstream re-reads the file to notice
+    r"|#\s*(?:type|ruff|fmt|isort|pyright|pragma):"
+    r"|#\s*noqa"  # written bare, carrying no codes, it suppresses every rule on its line
+    r"|(?://|/\*)\s*(?:@ts-|eslint\b|prettier-ignore|global\b)"
+)
+
+# FastAPI publishes an endpoint's docstring as the OpenAPI `description` (INC-4), so under here a
+# docstring is response text rather than a comment and `fl_backend/openapi.json` goes stale with it.
+DOCSTRINGS_ARE_PUBLISHED: Final = "fl_backend/app/"
+
 # Named rather than spelled in the `except` line, so this module PARSES below the floor: the
 # kernel's message cannot print from a file that will not compile, and a SyntaxError exits 1.
 CANNOT_PROVE: Final = (SyntaxError, ValueError, RuntimeError, OSError)
 UNREADABLE: Final = (OSError, UnicodeDecodeError)
 
 
-def changed_files(base: str) -> list[str] | None:
+@dataclass(frozen=True)
+class Changes:
+    """What the branch changed, and which of those paths exist in two versions at once."""
+
+    paths: list[str]
+    two_versions: frozenset[str]
+
+
+def _listed(answer: str) -> set[str]:
+    return {line.strip() for line in answer.split("\n") if line.strip()}
+
+
+def changed_files(base: str) -> Changes | None:
     """Everything the branch changed against `base`, or None where git refused.
 
     `git diff <base>` compares against the WORKING TREE, the gate running before the commit. A
     refused listing is not an empty one: it leaves every complaint below unread.
     """
-    tracked = git("diff", "--name-only", base)
-    untracked = git("ls-files", "--others", "--exclude-standard")
-    if tracked is None or untracked is None:
+    # `core.quotepath=false` for `scripts/ci_scopes.sh`'s reason: an escaped non-ASCII path matches
+    # no arm there and turns every scope on, naming a spelling nobody can re-run against.
+    quoting = ("-c", "core.quotepath=false")
+
+    # `--no-renames` because a detected rename prints its DESTINATION alone, and every scope the
+    # source path selected vanishes with it -- fl_frontend/Dockerfile renamed away asks for none.
+    listing = (*quoting, "diff", "--no-renames", "--name-only")
+    tracked = git(*listing, base)
+    # `git commit` commits the INDEX, which `git diff <base>` never reads: a hunk staged and then
+    # reverted in the working tree reaches the commit and neither listing beside this one.
+    staged = git(*listing, "--cached", base)
+    # Index against working tree. Alone this is every unstaged edit, so it decides nothing until
+    # it is intersected with `staged` below.
+    unstaged = git(*listing)
+    untracked = git(*quoting, "ls-files", "--others", "--exclude-standard")
+    if tracked is None or staged is None or unstaged is None or untracked is None:
         return None
-    return sorted({line.strip() for line in f"{tracked}\n{untracked}".split("\n") if line.strip()})
+    in_index, differing = _listed(staged), _listed(unstaged)
+    return Changes(
+        paths=sorted(_listed(tracked) | in_index | _listed(untracked)),
+        # In both listings means the index carries one version of the change and the working tree
+        # another. `git commit` takes the first and `git commit -a` the second, so proving either
+        # comment-only proves nothing about the one that lands.
+        two_versions=frozenset(in_index & differing),
+    )
 
 
 # --- the classifier ---------------------------------------------------------------------------------
@@ -69,14 +119,43 @@ def strip_docstrings(tree: ast.AST) -> ast.AST:
     return tree
 
 
-def python_same(old: str, new: str) -> bool:
+def python_same(old: str, new: str, *, keep_docstrings: bool = False) -> bool:
     # include_attributes defaults to False, so line numbers are not part of the comparison - moving
     # a statement down by a comment's worth of lines is not a change.
-    return ast.dump(strip_docstrings(ast.parse(old))) == ast.dump(strip_docstrings(ast.parse(new)))
+    before, after = ast.parse(old), ast.parse(new)
+    if not keep_docstrings:
+        before, after = strip_docstrings(before), strip_docstrings(after)
+    return ast.dump(before) == ast.dump(after)
+
+
+def toml_values_same(old: object, new: object) -> bool:
+    """Equality that will not read a retyped value as unchanged.
+
+    `tomllib` answers python objects, and python grades `True == 1` and `30 == 30.0` as equal --
+    so the document's own types have to be compared beside its values.
+    """
+    if type(old) is not type(new):
+        return False
+    if isinstance(old, dict) and isinstance(new, dict):
+        return old.keys() == new.keys() and all(toml_values_same(old[key], new[key]) for key in old)
+    if isinstance(old, list) and isinstance(new, list):
+        return len(old) == len(new) and all(toml_values_same(a, b) for a, b in zip(old, new, strict=True))
+    return old == new
 
 
 def toml_same(old: str, new: str) -> bool:
-    return tomllib.loads(old) == tomllib.loads(new)
+    return toml_values_same(tomllib.loads(old), tomllib.loads(new))
+
+
+def directives_differ(old: str, new: str) -> bool:
+    """Whether the two versions disagree over any line carrying a `TOOLCHAIN_DIRECTIVE`.
+
+    Counted rather than set-compared: a file holding the same `# noqa` twice loses one, and a set
+    would call the remaining copy proof that nothing moved.
+    """
+    before = Counter(line.strip() for line in old.splitlines())
+    after = Counter(line.strip() for line in new.splitlines())
+    return any(TOOLCHAIN_DIRECTIVE.search(line) for line in (before - after) + (after - before))
 
 
 def normalizer_batch(paths: list[str]) -> list[bool]:
@@ -146,13 +225,19 @@ def typescript_same(suffix: str, old: str, new: str) -> bool:
     return typescript_same_many([(suffix, old, new)])[0]
 
 
-def same_but_for_comments(suffix: str, old: str, new: str) -> bool:
-    """True only when a parser proves it. Every other answer, including every error, is False."""
+def same_but_for_comments(suffix: str, old: str, new: str, *, keep_docstrings: bool = False) -> bool:
+    """True only when a parser proves it. Every other answer, including every error, is False.
+
+    `keep_docstrings` defaults off, so `--compare` answers for the language; a path decides it
+    only in `material_paths`.
+    """
     if suffix not in PARSEABLE:
+        return False
+    if directives_differ(old, new):
         return False
     try:
         if suffix == ".py":
-            return python_same(old, new)
+            return python_same(old, new, keep_docstrings=keep_docstrings)
         if suffix == ".toml":
             return toml_same(old, new)
         return typescript_same(suffix, old, new)
@@ -203,13 +288,13 @@ def old_versions(base: str, paths: list[str]) -> dict[str, str | None]:
     return versions
 
 
-def material_paths(base: str, files: list[str]) -> list[str]:
+def material_paths(base: str, files: list[str], two_versions: frozenset[str] = frozenset()) -> list[str]:
     """Everything not PROVEN comment-only, in the input's order.
 
-    The earlier versions cost one git process for the whole diff, and the TypeScript pairs are
-    answered together; a suffix no parser reads is code without either.
+    One git process fetches every earlier version and the TypeScript pairs answer together. A
+    suffix no parser reads is code without either, and so is a path in `two_versions`.
     """
-    candidates = [path for path in files if Path(path).suffix in PARSEABLE]
+    candidates = [path for path in files if Path(path).suffix in PARSEABLE and path not in two_versions]
     olds = old_versions(base, candidates)
     comment_only: set[str] = set()
     ts_paths: list[str] = []
@@ -226,9 +311,13 @@ def material_paths(base: str, files: list[str]) -> list[str]:
         # The TypeScript pairs alone are held back, so one process can answer them together. Every
         # other suffix goes through the single dispatch that --compare and selfcheck.sh also drive.
         if suffix in TYPESCRIPT:
+            # Restated here because the batch below reaches the parser without passing through
+            # `same_but_for_comments`, which is where the same refusal sits for every other suffix.
+            if directives_differ(old, new):
+                continue
             ts_paths.append(path)
             ts_items.append((suffix, old, new))
-        elif same_but_for_comments(suffix, old, new):
+        elif same_but_for_comments(suffix, old, new, keep_docstrings=path.startswith(DOCSTRINGS_ARE_PUBLISHED)):
             comment_only.add(path)
     for path, proven_same in zip(ts_paths, typescript_same_many(ts_items), strict=True):
         if proven_same:
@@ -277,14 +366,15 @@ def named_list(paths: list[str]) -> str:
 
 def check(base: str, ran: set[str]) -> list[Finding] | None:
     """Every scope the diff asks for and this run did not prove, or None where nothing was read."""
-    files = changed_files(base)
-    if files is None:
+    changes = changed_files(base)
+    if changes is None:
         return None
+    files = changes.paths
     if not files:
         print(f"      no changes against {base[:7]} -- nothing to scope")
         return []
 
-    material = material_paths(base, files)
+    material = material_paths(base, files, changes.two_versions)
     proven_code = set(material)
     comment_only = [path for path in files if path not in proven_code]
 

@@ -20,7 +20,9 @@ FL_LOGGER_NAME = "frankfurtleague"
 # A sentinel rather than an absent field, so a parser can rely on the key existing on every line.
 NO_REQUEST_SENTINEL = "SYSTEM"
 
-# Set by `fl_backend/app/core/middlewares.py :: CorrelationIdMiddleware`, read by every formatter below.
+# Set by `fl_backend/app/core/middlewares.py :: CorrelationIdMiddleware`, and copied onto the
+# record by `CorrelationIdFilter` below -- which is what a formatter reads. Drop the filter and
+# the json one defaults every line to the sentinel.
 correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default=NO_REQUEST_SENTINEL)
 
 # Listed once, so both formatters and the frontend logger agree on what travels as a field rather

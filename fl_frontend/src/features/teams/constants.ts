@@ -165,10 +165,9 @@ export function einwilligungHerkunftLabel(herkunft: FLKontaktEinwilligung["ertei
 }
 
 /**
- * The three seats a season holds per club, in both surfaces' order.
- *
- * TWO wordings, as `AUSTRITT_OPTIONS` carries three: the admin takes the short form, the public one
- * the long form. Neither surface writes its own German.
+ * The scheme every stored website URL carries, rendered as the field's uneditable prefix rather than
+ * typed (`WebsiteUrlField`). So every box's `maxLength` is the payload ceiling minus this length: the
+ * admin cannot spend on a prefix the form supplies.
  */
 export const WEBSITE_URL_SCHEME = "https://";
 
