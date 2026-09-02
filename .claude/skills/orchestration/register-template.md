@@ -43,8 +43,8 @@ Couplings that are not file edges:
 
 ## The ending -- enumerated before the last wave goes out
 
-<Assembly of the last wave; the gate at <scope>; the draft pull request; the handoff and its
-independent audit; the starter prompt. Once one wave plus this list is what remains, dispatch
+<Assembly of the last wave; the gate at <scope>; the draft pull request; the `verify` run's
+conclusion; the handoff and its independent audit; the starter prompt. Once one wave plus this list is what remains, dispatch
 nothing new.>
 
 ## Decisions taken by the owner, and where each was routed

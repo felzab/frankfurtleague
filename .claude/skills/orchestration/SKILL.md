@@ -196,7 +196,8 @@ remains is one wave plus the ending below, start nothing new.
 The ending, in order:
 
 1. Assemble the last wave (§5), run the gate at the branch's scope, open the draft pull request, and
-   print its link.
+   print its link. The branch's `verify` run concludes while step 2 is written; its conclusion is
+   named in the response before the session ends, never assumed from the local gate (CLAUDE.md §2).
 2. **Write the handoff ([handoff-template.md](handoff-template.md)) and have it audited by an agent
    that has seen none of the work**, then fix what the audit finds — the cycle applies to the handoff
    and ends on the fix. Write it incrementally into the register as findings land, so ending the

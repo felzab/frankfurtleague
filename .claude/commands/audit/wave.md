@@ -30,8 +30,8 @@ session, on its own branch.
    `docs/_auditing/programme.md` §3 gives. The ledger carries a row's status; this carries what the
    session was doing when it stopped, which is what a successor cannot infer.
 
-The session ends with the branch pushed and the draft pull request open, per CLAUDE.md §2 and
-`docs/_git/spec.md`.
+The session ends with the branch pushed, the draft pull request open and its `verify` run's
+conclusion named, per CLAUDE.md §2 and `docs/_git/spec.md`.
 
 ## The wave prompt
 

@@ -66,9 +66,14 @@ git checkout main && git pull --ff-only origin main && git checkout -b short-keb
 
 Commit shape, the merge method and the pull request form are in
 [`docs/_git/spec.md`](../docs/_git/spec.md) and [`templates.md`](../docs/_git/templates.md); read
-them rather than recalling them. **A task is finished when the branch is pushed and the draft pull
-request's link is in the response** — not when it compiles. Reviewing, marking ready and merging
-are the owner's, and so is the `git checkout main && git pull` after.
+them rather than recalling them. **A task is finished when the branch is pushed, the draft pull
+request's link is in the response, and the branch's `verify` workflow run has concluded with its
+conclusion named in the same response** — not when it compiles, and not when the local gate is
+green. The gate you ran proved the branch on Windows; production and CI are Linux, and that run is
+the only evidence about the operating system this deploys to. `gh pr checks <n> --watch` waits for
+it, and `gh pr checks <n>` or `gh run view` reads it without waiting; a run that has not concluded
+is reported as pending, with its link, never as green. Reviewing, marking ready and merging are the
+owner's, and so is the `git checkout main && git pull` after.
 
 ### The gate
 

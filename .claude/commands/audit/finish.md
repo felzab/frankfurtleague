@@ -50,4 +50,5 @@ documents.
    run by hand. Confirm the folder is gone before step 7. Anything else
    under `docs/audit/` belongs to no programme's lifecycle and stays.
 7. Run the gate at the scope CLAUDE.md's gate section names for what changed, commit the final
-   report and any doc updates, push, open the draft pull request and print its link.
+   report and any doc updates, push, open the draft pull request, print its link, and name the
+   conclusion of the branch's `verify` run.

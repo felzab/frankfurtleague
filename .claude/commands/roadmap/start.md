@@ -59,7 +59,8 @@ the change (CLAUDE.md §2).
    between, a standing question to raise.
 
 4. **Do the work**, closing per CLAUDE.md §2 and `docs/_git/spec.md`: the gate at the scope the
-   change earns, its actual exit code reported, and the draft pull request's link handed over. Read
+   change earns, its actual exit code reported, the draft pull request's link handed over, and the
+   branch's `verify` run read to its conclusion. Read
    `docs/_auditing/lessons.md` before verifying anything at runtime and before closing out against
    the gate.
 
