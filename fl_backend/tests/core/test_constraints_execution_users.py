@@ -11,9 +11,8 @@ from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-# The constraints suite's limited-user bodies, beside `test_constraints_execution.py`: each creates
-# the user its verdict is asserted against, which is what needs a database dropped and a client
-# opened per call.
+# Each body creates the user it asserts on, so each call needs a dropped database and a client of
+# its own.
 DATABASE_NAME = worker_database("fl_constraints_users_test")
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -65,7 +64,6 @@ def test_the_privilege_probe_says_denied_for_a_readwrite_user(mongo_url: str):
 
     async def body(database: AsyncDatabase) -> str:
         await database.command("createUser", username, pwd=password, roles=[{"role": "readWrite", "db": DATABASE_NAME}])
-        # Keywords over the url's own root credentials, which is what pymongo does with both given.
         limited = AsyncMongoClient(mongo_url, username=username, password=password, authSource=DATABASE_NAME)
         try:
             return await probe_collmod_privilege(limited[DATABASE_NAME])
@@ -83,7 +81,6 @@ def test_the_identity_report_names_the_user_and_its_roles(mongo_url: str):
 
     async def body(database: AsyncDatabase) -> tuple[str, list[str]]:
         await database.command("createUser", username, pwd=password, roles=[{"role": "readWrite", "db": DATABASE_NAME}])
-        # Keywords over the url's own root credentials, which is what pymongo does with both given.
         named = AsyncMongoClient(mongo_url, username=username, password=password, authSource=DATABASE_NAME)
         try:
             return await report_identity(named[DATABASE_NAME])

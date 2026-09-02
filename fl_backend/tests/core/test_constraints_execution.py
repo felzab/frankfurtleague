@@ -28,13 +28,13 @@ pytestmark = pytest.mark.db
 # Asserted on rather than caught broadly, so an unrelated failure cannot pass as a rejection.
 DOCUMENT_VALIDATION_FAILED = 121
 
-# The throwaway: every body under it breaks the schema it applies, so nothing is recorded of it and
-# every call gets a dropped database. The limited-user bodies are `test_constraints_execution_users.py`'s.
+# The throwaway: every body under it breaks the schema it applies, so `on_a_database` rebuilds it per
+# call.
 DATABASE_NAME = worker_database("fl_constraints_test")
 # A second database, so the throwaway above stays the one this suite is free to break.
 SHIPPED_DATABASE_NAME = worker_database("fl_constraints_shipped_test")
-# Its own name rather than a schema under either: the unconstrained reads enforce nothing, and a
-# name shared with a constrained caller rebuilds whichever the last call did not ask for.
+# Its own name: `a_clean_database` records one schema per name, and alternating constrained and
+# unconstrained callers on one would rebuild at every switch.
 UNCONSTRAINED_DATABASE_NAME = worker_database("fl_constraints_unconstrained_test")
 
 SAISON_ID = "2026"
@@ -469,8 +469,8 @@ def test_applying_twice_changes_nothing(mongo_url: str):
             built += 1
         return second.validators, built
 
-    # The shipped schema rather than a fresh apply: the guard behind it then also holds the second
-    # apply to leaving every collection's enforcement exactly as the first left it.
+    # The shipped schema, so its drift guard also holds the second apply to leaving every
+    # collection as the first did.
     assert on_the_shipped_schema(mongo_url, body) == (len(COLLECTION_VALIDATORS), len(UNIQUE_INDEXES))
 
 

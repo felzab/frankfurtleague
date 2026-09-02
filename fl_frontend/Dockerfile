@@ -26,16 +26,16 @@ ENV CI=true
 FROM toolchain AS deps
 WORKDIR /app
 
-# The lockfile and the workspace settings alone, which is all `pnpm fetch` reads (pnpm.io/cli/fetch).
-# With package.json in this layer's key, renaming a script re-downloads every package.
+# Only what `pnpm fetch` reads (pnpm.io/cli/fetch): with package.json in this layer's key, renaming
+# a script re-downloads every package.
 COPY pnpm-lock.yaml pnpm-workspace.yaml* ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 COPY package.json ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --offline
 
 # Stage 4: Builder -> Compile app
-# FROM deps, never a copy of its node_modules: a cross-stage copy of that tree costs the cold build
-# a second transfer of it and puts a second copy into what `mode=max` exports.
+# FROM deps, never `COPY --from=deps` of node_modules: a second transfer on a cold build, and a
+# second copy in what `mode=max` exports.
 FROM deps AS builder
 
 # This stage has no .env, so the startup gate would reject every variable and the build would die on

@@ -26,10 +26,9 @@
 # Build output. The builder writes its own; the host's copy could only shadow it.
 .next/
 
-# tsc's incremental cache (~700 KB). In the context it makes the builder's `COPY . .` layer key
-# depend on whether anyone ran `pnpm typecheck`. Reaching as far as `.gitignore`'s rule does, which
-# here takes a `**/`: tsc names the file after the config it was pointed at, so a nested config
-# writes a nested cache.
+# tsc's cache (~700 KB) would put `pnpm typecheck` into `COPY . .`'s layer key. `**/`, as
+# `.gitignore` spells it: tsc names the file after its config, so a nested config writes a nested
+# cache.
 **/*.tsbuildinfo
 
 # eslint's cache (~320 KB), and the same layer-key dependence on whether anyone ran `pnpm lint`.

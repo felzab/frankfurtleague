@@ -306,14 +306,12 @@ REPLICA_SET_OPLOG_MB = 128
 # What `pytest_configure_node` hands each worker, so one pair of containers serves the whole run.
 STANDALONE_KEY = "fl_standalone_mongodb_url"
 REPLICA_SET_KEY = "fl_replica_set_mongodb_url"
-# Why the pair is absent, when it is. Handed to the workers in its place, so one asking for a server
-# refuses naming the cause rather than the controller taking the run down before a test is collected.
+# Handed to the workers in the pair's place, so a test asking for a server fails naming the cause.
 UNSTARTED_KEY = "fl_mongodb_unstarted"
 
 REPLICA_SET_ELECTION_TIMEOUT_S = 60
 
-# The controller's own, never a worker's: a worker process holds neither, and both are empty on a
-# serial run, where the fixtures below start containers of their own.
+# The controller's alone; empty on a serial run, where the fixtures below start their own.
 _SHARED_SERVERS: dict[str, str] = {}
 _UNSTARTED: dict[str, str] = {}
 _SHARED_STACK = ExitStack()
@@ -367,9 +365,8 @@ def _replica_set_mongod() -> Iterator[str]:
             deadline = time.monotonic() + REPLICA_SET_ELECTION_TIMEOUT_S
             while not client.admin.command("hello").get("isWritablePrimary"):
                 if time.monotonic() > deadline:
-                    # Never `pytest.fail`: `Failed` subclasses BaseException, so `pytest_configure_node`'s
-                    # `except Exception` misses it -- an INTERNALERROR with no summary, and no reason
-                    # reaching the workers. The controller has no test to fail anyway.
+                    # Never `pytest.fail`: `Failed` is a `BaseException`, which `pytest_configure_node`'s
+                    # `except Exception` misses.
                     raise TimeoutError(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
                 time.sleep(0.25)
         finally:
@@ -387,10 +384,10 @@ def _entered(factory: Callable[[], AbstractContextManager[str]]) -> tuple[Abstra
 
 
 def _warm_the_reaper() -> None:
-    """`Reaper.get_instance` tests and assigns with no lock, so two starts at once make two reapers.
+    """`Reaper.get_instance` tests and assigns unlocked, so two starts at once make two reapers.
 
-    Also memoises `ryuk_disabled`, plus `ryuk_docker_socket` and `ryuk_privileged` inside: the same
-    unlocked caching, so it is not dead where ryuk is off.
+    `ryuk_disabled` -- and `ryuk_docker_socket` and `ryuk_privileged` inside -- memoise the same way,
+    so this is live with ryuk off.
     """
 
     from testcontainers.core.config import testcontainers_config
@@ -416,8 +413,8 @@ def _start_shared_servers() -> None:
 
     failure: BaseException | None = None
     for key, future in futures.items():
-        # `exception()` rather than a `try` around `result()`: every server that DID start has to
-        # reach the stack before anything is raised, or the caller's `close()` cannot reclaim it.
+        # `exception()`, not `try`/`result()`: every server that started must reach the stack before
+        # the raise, or the caller's `close()` cannot reclaim it.
         error = future.exception()
         if error is not None:
             failure = failure or error
@@ -448,8 +445,6 @@ def _default_tier_markexpr(config: pytest.Config) -> str | None:
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Runs in the controller and in every worker, before either collects."""
-
     guard_every_database()
 
 
@@ -464,8 +459,8 @@ def pytest_configure_node(node: Any) -> None:
     testcontainers' reaper reclaims a container when its starter disconnects.
     """
 
-    # A cost heuristic and nothing more: the default tier's own expression is the one run known to
-    # want no server, and every other spelling of it pays a start rather than deciding anything.
+    # A cost heuristic, never a decision: the default tier's own `-m` is the one run known to want
+    # no server, and any other spelling pays a start.
     if node.config.option.markexpr.strip() == _default_tier_markexpr(node.config):
         return
 
@@ -483,8 +478,6 @@ def pytest_configure_node(node: Any) -> None:
 
 
 def pytest_unconfigure(config: pytest.Config) -> None:
-    """Runs in the controller and in every worker; only the controller ever filled the stack."""
-
     release_every_database()
     _UNSTARTED.clear()
 

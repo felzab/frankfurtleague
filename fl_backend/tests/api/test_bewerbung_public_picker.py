@@ -1,14 +1,12 @@
 """BACKEND · the two reads an applying school picks a club from, and the tier the whole public router is served at
 
 `tests/api/test_bewerbung_public_read.py` holds the other half of that router -- the application
-window, and the colour read `docs/backend/spec.md :: I47` puts inside its carve-out -- and declares
-the corpus, the request helper and the season vocabulary both halves read. The db tier hands a
-module whole to one worker and the two halves together were that tier's longest module by three
-times, so they are timed beside each other rather than one behind the other only while each is a
-file of its own.
+window, and the colour read `docs/backend/spec.md :: I47` puts inside its carve-out. A file of its
+own because the db tier hands a module whole to one worker, so the two halves are timed beside
+each other rather than one behind the other.
 
-The corpus stays in that module, seeded here through `seed_the_public_corpus`: one league, so a
-club this half offers cannot be a club the other half never seeded.
+One corpus, seeded here through that module's `seed_the_public_corpus`: one league, so a club this
+half offers cannot be a club the other half never seeded.
 """
 
 from collections.abc import Iterator
@@ -19,8 +17,8 @@ from app.api.saisons.cache import invalidate_saison_cache
 
 from .test_bewerbung_public_read import CLUBS, OPEN_SAISON, PREFIX, answered, seed_the_public_corpus
 
-# What `READ-BEWERBUNG-001` keeps off the club list, spelled as a DOCUMENT spells them: the
-# assertions below search decoded bodies by key, where a model's field name would not match.
+# What `READ-BEWERBUNG-001` withholds, spelled as a DOCUMENT spells them: the assertions search
+# decoded bodies by key.
 WITHHELD_KEYS = frozenset({"shorthand", "address", "website_url", "full_name", "schulform", "description", "inactive_since", "statistik"})
 
 # The code a request carrying no bearer token at all answers (`app/core/security.py :: get_token`).
@@ -34,8 +32,7 @@ def _uncached_saisons() -> None:
     invalidate_saison_cache()
 
 
-# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
-# from being left as a claim.
+# Module-scoped for the read module's `seeded_url`'s reason.
 @pytest.fixture(scope="module")
 def seeded_url(mongo_url: str) -> Iterator[str]:
     yield from seed_the_public_corpus(mongo_url)
@@ -106,8 +103,8 @@ class TestTheKuerzelCheck:
         assert "Verlassen" not in answered(seeded_url, f"{PREFIX}/kuerzel/VE").text
 
 
-# Every path the public router serves, bound once: a route added to one list alone would go on
-# being tested for reachability while it quietly stopped being tested for the unauthorised answer.
+# Every public route, bound once: a route added to one list alone would keep its reachability test
+# and silently lose its unauthorised-answer test.
 PUBLIC_PATHS = [
     f"{PREFIX}/fenster",
     f"{PREFIX}/fenster/{OPEN_SAISON}",

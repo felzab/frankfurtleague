@@ -27,8 +27,7 @@ CONTAINER_SELECTION_MS = 30_000
 # collections from, and the home of the corpus every case sharing `seeded_url` reads.
 CORPUS_DATABASE = build_test_config().db_base_name
 
-# `seeded_with`'s own, because it clears where it seeds: given the database above, the first case
-# building a season list of its own would leave every later one reading a corpus nobody seeded.
+# `seeded_with`'s own, for `tests/api/conftest.py :: config_for`'s reason: it clears where it seeds.
 WINDOW_DATABASE = worker_database("fl_bewerbung_window_test")
 
 PREFIX = f"/api/v{API_VERSION}/bewerbungen"
@@ -139,9 +138,9 @@ def _uncached_saisons() -> None:
 
 
 def seed_the_public_corpus(mongo_url: str) -> Iterator[str]:
-    """Six seasons spanning every way a window can stand, four clubs, and the colours one season has assigned, in `CORPUS_DATABASE`.
+    """Every way a window can stand, the clubs, and one season's assigned colours, in `CORPUS_DATABASE`.
 
-    A generator, not the fixture: `test_bewerbung_public_picker.py` seeds this corpus too.
+    A generator, not a fixture: `test_bewerbung_public_picker.py` seeds it too.
     """
 
     client = MongoClient(mongo_url)
@@ -390,9 +389,9 @@ MALFORMED_WINDOWS = [
     pytest.param([dict(RUNNING_WINDOW)], id="a window wrapped in a list"),
 ]
 
-# An object, short of a key the answer is built from: `app/core/constraints.py ::
-# _SAISON_BEWERBUNG` requires all three, and a season stored before it can carry fewer. Then one
-# omission each, so a guard checking a subset fails on the one it left out.
+# An object short of a key: `app/core/constraints.py :: _SAISON_BEWERBUNG` requires every one, and a
+# season stored before it can carry fewer. One omission each, so a subset guard fails on the one it
+# left out.
 INCOMPLETE_WINDOWS = [
     pytest.param({}, id="a window recorded as an empty object"),
     pytest.param({"von": "2026-03-01", "bis": "2026-04-30"}, id="a window missing its flag"),
@@ -425,10 +424,9 @@ class TestAStoredWindowThatIsNotAnObject:
 
 
 class TestAStoredWindowShortOfAFieldTheReadNeeds:
-    """The window read is what pins the FIELDS half of that guard.
+    """The window read pins the FIELDS half of that guard.
 
-    `_fenster` subscripts all three by name, so a guard testing shape alone answers 500 here; the
-    colour read has `window_is_running`'s own field check behind it and 404s either way.
+    A shape-only guard 500s in `_fenster`'s subscript; the colour read 404s either way, as above.
     """
 
     @pytest.mark.parametrize("path", WINDOW_READS)

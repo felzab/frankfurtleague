@@ -65,8 +65,8 @@ async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -
     db_filter = {"_id": saison_id}
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter=db_filter, projection=WINDOW_PROJECTION)
 
-    # `recorded_window`, never a shape check alone: `_fenster` subscripts all three by name, so an
-    # object short of one would 500 the read this promises a miss for.
+    # `recorded_window`, not a shape check: `_fenster` subscripts every window key, so a short object
+    # would 500 where this promises a miss.
     bewerbung = recorded_window(bewerbung=saison_raw.get("bewerbung"))
     if bewerbung is None:
         raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
