@@ -94,6 +94,7 @@ where each value's meaning is fixed. A closure re-derives every entry's, not onl
 | 46  | OPS-81  | One commit imports a module the commit after it adds                          | FE, Ops           | —      | Standing | —          |
 | 47  | OPS-101 | The backend, db and frontend jobs have stepped up in wall clock               | FE, BE, Ops       | M      | Open     | —          |
 | 48  | OPS-111 | A width share floored at one worker sits below both measured widths           | Ops, Docs         | S      | Open     | —          |
+| 49  | OPS-114 | No check enters the gate's serial or streaming run form                       | Ops, Docs         | S      | Open     | —          |
 
 **No entry on this page blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -2441,3 +2442,54 @@ in place of 1, the behaviour below it is decided rather than defaulted, and the 
 choice rests on have been re-taken on an idle machine under OPS-70's rule — a pair of runs within a
 fifth of a second of each other. **A fixture over `gate_width` at several budgets is the only thing
 that can show the change works**, the machine it is written on never reaching the division.
+
+### 49 · OPS-114 — The run forms a failing gate is read through are entered by no check, so either can stop reaching a verdict while the page stays green
+
+**Status:** Open\
+**Surfaces:** Ops, Docs\
+**Effort:** S\
+**Path:** Independent — it blocks nothing and nothing blocks it.
+
+**`scripts/gate/verify.sh` documents `--serial` and `--verbose` in its own help block, and each drops
+the run to the level where a check runs in place rather than as a pooled process**
+(`scripts/gate/verify.sh :: STEP_JOBS`). [`docs/ops/spec.md`](../ops/spec.md) §1.6 gives that level its
+meaning: the serial form is what a pooled run's output is measured against, and §1.7 makes the
+streaming form how a tool's own output is seen as it arrives rather than replayed out of a capture
+afterwards.
+
+**The level itself is exercised, and by something other than these flags.**
+`scripts/tests/test_unit_replay.py` lifts `scripts/gate/verify.sh :: unit_replay` out of the file and
+drives its no-pool arm, where the replay is the check rather than a reader of a manifest;
+`scripts/tests/test_image_assertions.py` runs `scripts/gate/verify.sh` through the images scope with
+`--serial` against a stubbed docker; and a machine with no interpreter at the checkers' floor reaches
+the same level through `scripts/gate/verify.sh :: POOL_FALLBACK`. **So what nothing enters is a flag's
+route into serial execution, never serial execution itself** — the distinction that stops a session
+reading a fault here as a reason to rewrite the model underneath it.
+
+**`--verbose` is entered by nothing at all.** Every fixture under `scripts/tests/` that runs a script
+strips `VERBOSE` out of the environment it hands it — `scripts/tests/conftest.py` does it for the
+shared fixture and each module building its own environment repeats it, so what the assertions read
+is a captured run — and nothing sets it. The streaming arm of `scripts/lib/_lib.sh :: quietly` is
+therefore never taken under test, and neither is the run shape `--verbose` gives
+`scripts/gate/verify.sh`.
+
+**The identity the spec attributes to a green run is asserted rather than measured.**
+[`docs/ops/spec.md`](../ops/spec.md) §1.6 makes byte-identity between the serial and the pooled output
+a property a green run has, and nothing under `scripts/tests/` compares the output of the forms at
+all. An oracle nobody consults is an oracle only for as long as it happens to be right.
+
+**The gate's own self-check reads that help block for scope flags and for nothing else.**
+`scripts/gate/selfcheck.sh` compares what `scripts/gate/verify.sh :: add_scope` declares against the
+flags `.github/workflows/verify.yml` hands the script in a `run:` line, so a declared scope no CI job
+runs is a finding — while a documented form that is not a scope is read by no check anywhere. That is
+the route by which a form named in the help text stops working with every check on the page green.
+
+**Why it matters is when a person reaches for these forms.** They are what a section's failure sends
+someone to when the captured report is hard to read, so a break in either is met at the moment the
+run is least affordable to repeat, and the advice that would otherwise apply — run it again and watch
+it — is the thing that is broken.
+
+**Done when** each form runs the gate to a verdict under a check that fails when it does not, and the
+identity §1.6 claims between the forms is measured rather than asserted.
+`scripts/tests/test_image_assertions.py` shows what makes that affordable: a scope whose tools are
+stubbed, driven through the forms, rather than a fixture paying for a real gate run.
