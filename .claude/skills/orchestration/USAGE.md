@@ -26,9 +26,13 @@ three ways a session begins.
   stated at its top. After a long session a repeated `/orchestration` costs nothing and removes the
   doubt.
 - **Text after `/orchestration` on the same line is passed as arguments**, appended to the skill
-  content as `ARGUMENTS: <text>`. Whether a pasted multi-line message is passed whole is not
-  documented, so the sequences below never depend on it: the skill and the prompt go as two
-  messages.
+  content as a final `ARGUMENTS: <text>` line. That much is **driven**: an agent in this repository
+  invoked the skill through the harness's skill tool with the argument `resume` and read
+  `ARGUMENTS: resume` back at the end of the body. What is **not established** is that the slash
+  form the owner types takes the same route; the owner typing `/orchestration resume` once, and the
+  coordinator saying whether that line arrived, settles it. Nothing waits on the answer, because
+  `SKILL.md` §1 recognises a resume without the word. Whether a pasted multi-line message is passed
+  whole is not documented at all, which is why a starter still goes as its own message.
 - **A subagent does not inherit it.** A project agent file can preload a skill through its `skills`
   field, but an implementer or an auditor needs its brief, not this page.
 - **In the desktop app** the `/` menu in the prompt box lists project skills, and clicking a session
@@ -50,12 +54,18 @@ message 1 is forgotten.
 1. Resume the same session — the sidebar in the desktop app, or `claude --continue` /
    `claude --resume <name>` in a terminal. Pass any launch flags again; a resume restores none of
    them. Offered a summary or the full session, take the full session.
-2. **Message 1:** `/orchestration` — after a long session compaction may have truncated the copy in
-   context, and a repeat costs nothing.
-3. **Message 2:** the block in [resume-prompt.md](resume-prompt.md), verbatim, prefixed by one line
-   naming the register's path.
-4. Send no work instruction until the reply to the six-step protocol has come back and names the
+2. **One message: `/orchestration resume`**, and nothing else in it. The skill loads — after a long
+   session compaction may have truncated the copy in context, and a repeat costs nothing — and the
+   argument puts the coordinator into [resume-prompt.md](resume-prompt.md)'s protocol, whose first
+   step finds the register on its own. You pass no path.
+3. Send no work instruction until the reply to the seven-step protocol has come back and names the
    single next action.
+
+**The fallback**, for a session that still holds the skill and an owner who would rather paste:
+`/orchestration` as one message, then the block in [resume-prompt.md](resume-prompt.md) verbatim as
+the next. Neither message carries a register path. A coordinator that gets `/orchestration` with no
+instruction, in a transcript already carrying this session's work, treats it as a resume anyway
+(`SKILL.md` §1), so the single-message form failing is a slower resume and never a wrong one.
 
 ## The planning session
 

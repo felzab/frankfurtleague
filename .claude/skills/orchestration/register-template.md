@@ -4,6 +4,11 @@ One file, written before any agent runs, updated as the only record of fleet sta
 stated at the top so a session resuming into it knows what it is trusting. How the fleet is run is
 `SKILL.md` §3 to §5; this file is only what the register records and what makes a row trustworthy.
 
+**Name it `REGISTER-<session>.md`, in the session's own plan directory beside the plan.** A resume
+searches for exactly that shape and takes the newest match ([resume-prompt.md](resume-prompt.md)
+step 1), so a register named anything else is one the owner has to hand over a path for, in the
+message where they are least able to.
+
 ```
 # Agent register -- <programme / session name>
 
@@ -23,10 +28,10 @@ agent is a second dispatch of mine.
 Scratch path: <one directory, outside the repository, a subdirectory per agent, named in every
 brief>.
 Starter prompt: <path>. Previous handoff: <path, or none>. Owner's standing instructions: <path>.
-These three are what a resume re-reads (`resume-prompt.md` steps 1 and 4), and a compacted
+These three are what a resume re-reads (`resume-prompt.md` steps 2 and 5), and a compacted
 transcript may name none of them.
 
-## Resume point -- rewritten in the same edit as whatever it names
+## Resume point -- rewritten in the same edit as whatever it names, never at a wave boundary
 
 Next action, and why it is next:
 Reports landed and not yet judged:
