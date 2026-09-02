@@ -390,6 +390,16 @@ MALFORMED_WINDOWS = [
     pytest.param([dict(RUNNING_WINDOW)], id="a window wrapped in a list"),
 ]
 
+# An object, short of a key the answer is built from: `app/core/constraints.py ::
+# _SAISON_BEWERBUNG` requires all three, and a season stored before it can carry fewer. Then one
+# omission each, so a guard checking a subset fails on the one it left out.
+INCOMPLETE_WINDOWS = [
+    pytest.param({}, id="a window recorded as an empty object"),
+    pytest.param({"von": "2026-03-01", "bis": "2026-04-30"}, id="a window missing its flag"),
+    pytest.param({"offen": True, "bis": "2026-04-30"}, id="a window missing its opening date"),
+    pytest.param({"offen": True, "von": "2026-03-01"}, id="a window missing its closing date"),
+]
+
 # Both reads take their window through `app/api/bewerbungen/public_router.py :: _pull_window`.
 WINDOW_READS = [
     pytest.param(f"{PREFIX}/fenster/{OPEN_SAISON}", id="the window read"),
@@ -408,6 +418,23 @@ class TestAStoredWindowThatIsNotAnObject:
     @pytest.mark.parametrize("bewerbung", MALFORMED_WINDOWS)
     def test_it_answers_as_a_season_carrying_no_window_does(self, mongo_url: str, bewerbung: Any, path: str):
         """Non-vacuous: the season EXISTS, so a 404 here is the stored shape being refused rather than the id."""
+
+        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
+
+        assert answered(url, path, database_name=WINDOW_DATABASE).status_code == 404
+
+
+class TestAStoredWindowShortOfAFieldTheReadNeeds:
+    """The window read is what pins the FIELDS half of that guard.
+
+    `_fenster` subscripts all three by name, so a guard testing shape alone answers 500 here; the
+    colour read has `window_is_running`'s own field check behind it and 404s either way.
+    """
+
+    @pytest.mark.parametrize("path", WINDOW_READS)
+    @pytest.mark.parametrize("bewerbung", INCOMPLETE_WINDOWS)
+    def test_it_answers_as_a_season_carrying_no_window_does(self, mongo_url: str, bewerbung: Any, path: str):
+        """Non-vacuous: the season exists and its window IS an object, so the 404 is the missing key rather than the id or the shape."""
 
         url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
 
