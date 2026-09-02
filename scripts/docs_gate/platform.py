@@ -4,9 +4,8 @@ A branch on the platform is made visible statically here; a platform-conditional
 syscall that no-ops, a filesystem that resolves case-blind -- carries no predicate in the source,
 and only the Linux run in CI proves it. Every deliberate branch is a row of `PLATFORM_ALLOW`, keyed
 by a COR-6 anchor and carrying its reason, so writing one is a visible diff in a table rather than
-an `if` nobody re-reads. The write clause reads the call and never the file it produces: a text
-handle opened without `newline=""` writes CRLF on Windows, and git's normalisation hides that until
-a Linux shell reads the file (`.claude/CLAUDE.md` §6).
+an `if` nobody re-reads. The write clause reads the call, never the file it produces
+(`.claude/CLAUDE.md` §6).
 """
 
 from __future__ import annotations
@@ -24,51 +23,47 @@ from .kernel import REPO_ROOT, UNPARSEABLE, Finding, _read_text, scanned_files
 PLATFORM_CHECK: Final = "platform-branch"
 CRLF_CHECK: Final = "crlf-write"
 
-# The Python PLAT-1 and the write clause read. The backend is in: the trap the write clause holds
-# is not scoped to the gate's own tooling, and a test there writes fixtures a shell may read.
+# The backend is in: the write clause's trap is not the gate's alone, and a test there writes
+# fixtures a shell reads.
 PYTHON_SCOPES: Final[tuple[str, ...]] = ("scripts/", "fl_backend/app/", "fl_backend/tests/")
-# The test corpus PLAT-2 reads for skips and PLAT-3 counts bindings in.
 TEST_SCOPES: Final[tuple[str, ...]] = ("scripts/tests/", "fl_backend/tests/")
-# PLAT-4's shell: every `.sh` under these, and the git hooks by folder, which carry no suffix.
+# `.githooks/` by folder: a hook carries no suffix.
 SHELL_SCOPES: Final[tuple[str, ...]] = ("scripts/", ".claude/hooks/")
 GIT_HOOKS_DIR: Final = ".githooks/"
 
-# The attribute chain's TAIL is what is matched, so `gate_pool.sys.platform` in a driver is read
-# as the predicate it rebinds, and its Store context is what tells the rebinding from a read.
+# Matched on the chain's TAIL, so a driver's `gate_pool.sys.platform` is read as the predicate it
+# rebinds.
 ATTRIBUTE_PREDICATES: Final[frozenset[tuple[str, str]]] = frozenset({("sys", "platform"), ("os", "name")})
 CALL_PREDICATES: Final[frozenset[tuple[str, str]]] = frozenset({("platform", "system"), ("platform", "machine")})
-# The value naming Windows, per predicate PLAT-3 can hold: a call has no value to rebind, so an
-# allowlisted `platform.system()` is admitted without a PLAT-3 half, a limit stated rather than hidden.
+# Per predicate PLAT-3 can hold: a call has no value to rebind, so an allowlisted
+# `platform.system()` owes no PLAT-3 half.
 WINDOWS_VALUE: Final[dict[str, str]] = {"sys.platform": "win32", "os.name": "nt"}
 
 PREDICATE_TEXT_RE: Final = re.compile(r"\bsys\.platform\b|\bos\.name\b|\bplatform\.(?:system|machine)\(")
 IF_LINE_RE: Final = re.compile(r"^\s*(?:if|elif)\b(.*?):\s*(.*)$")
 STAND_DOWN_RE: Final = re.compile(r"^\s*(?:return\b|raise\s+SystemExit\b|sys\.exit\(|pytest\.skip\()")
 SKIP_MARK_RE: Final = re.compile(r"\bmark\.(?:skipif|skip|xfail)\b")
-# The remedy every PLAT-2 finding ends on.
 BOTH_ARMS: Final = "bind the platform as a value so both arms run everywhere"
 
-# PLAT-4's vocabulary. Matched on code, never on a comment: a comment naming `cygpath` explains a
-# branch and is not one.
+# Code only: a comment naming `cygpath` explains a branch rather than being one.
 SHELL_TOKEN_RE: Final = re.compile(r"(?<![\w-])(?:uname|cygpath)\b|\$\{?(?:OSTYPE|MSYSTEM)\b|\bMSYS_NO_PATHCONV\b")
 SHELL_FUNCTION_RE: Final = re.compile(r"^([A-Za-z_]\w*)\s*\(\)\s*\{(.*)$")
 SHELL_CLOSE_RE: Final = re.compile(r"^\}")
 SHELL_ASSIGN_RE: Final = re.compile(r"^\s*(?:local\s+|export\s+|readonly\s+|declare\s+-\S+\s+)?([A-Za-z_]\w*)=")
 SHELL_STEP_RE: Final = re.compile(r'^\s*step\s+"([^"]+)"')
-# The repository's own `<label> - <detail>` message shape, its em dash escaped so this file stays
-# ASCII. The half in front is what a row anchors on, a whole message being nobody's key.
+# The repository's `<label> - <detail>` shape, the dash escaped to keep this file ASCII; the label
+# in front is what a row anchors on.
 LABEL_SPLIT: Final = " \u2014 "
 
-# Where an opener's mode sits: the receiver decides for `open`, a `Path` taking it first and the
-# modules below taking a path first. `tempfile` defaults to binary, so only a spelled mode counts.
+# `Path.open` takes the mode first, the modules listed take a path first. `tempfile` defaults to
+# binary, so only a spelled mode counts.
 MODE_SECOND: Final[frozenset[str]] = frozenset({"io", "builtins", "codecs", "gzip", "bz2", "lzma"})
 TEMPFILE_OPENERS: Final[dict[str, int]] = {"NamedTemporaryFile": 0, "TemporaryFile": 0, "SpooledTemporaryFile": 1}
 WRITING_MODE_RE: Final = re.compile(r"^[rwaxt+]*[wax+][rwaxt+]*$")
 WRITE_REMEDY: Final = 'pass newline="" or write bytes'
 
-# Keyed by an anchor the file spells WHOLE -- an enclosing function, an assigned name, a `step`
-# or message label, or the line itself -- never a fragment. Naming a symbol the file no longer
-# spells, or shielding nothing, is a finding against the row.
+# Keyed by an anchor the file spells WHOLE -- an enclosing function, an assigned name, a `step` or
+# message label, or the line itself -- never a fragment.
 PLATFORM_ALLOW: Final[dict[str, str]] = {
     "scripts/gate_pool.py :: terminate": "reads `sys.platform` per call rather than `POSIX`: the one spelling pyright narrows `os.killpg` on",
     "scripts/tests/test_gate_pool.py :: OWN_GROUP": "a unit's group is compared to its pid on POSIX alone, so the case stands down elsewhere",
@@ -87,29 +82,25 @@ PLATFORM_ALLOW: Final[dict[str, str]] = {
     ".githooks/pre-commit :: work": "`cygpath -w` for mktemp's MSYS alias, which `git hash-object` cannot open from a worktree",
 }
 
-# A deliberate text-mode write, keyed like `PLATFORM_ALLOW`, with the reason the stream may translate.
+# Keyed like `PLATFORM_ALLOW`; the value is why the stream may translate.
 TEXT_WRITE_ALLOW: Final[dict[str, str]] = {}
 
 
 @dataclass(frozen=True)
 class _Site:
-    """One place a clause fired, before the allowlist is asked about it."""
-
     rel: str
     line: int
     detail: str
-    # Every anchor a row may name for this site. Empty leaves the site unshieldable by design.
+    # Empty leaves the site unshieldable by design.
     candidates: tuple[str, ...] = ()
 
 
 @dataclass
 class _Scan:
-    """What one pass over the Python corpus yields: PLAT-1's sites, and what PLAT-3 reads."""
+    """PLAT-1's sites, and what PLAT-3 reads."""
 
     sites: list[_Site] = field(default_factory=list)
-    # Each admitted constant: its file, its name and its line, so PLAT-3 can name the definition.
     constants: list[tuple[str, str, int]] = field(default_factory=list)
-    # Each allowlisted predicate read: file, dotted predicate, line.
     predicates: list[tuple[str, str, int]] = field(default_factory=list)
 
 
@@ -139,14 +130,13 @@ def _shell_files() -> tuple[Path, ...]:
 
 @cache
 def _source_lines(path: Path) -> tuple[str, ...] | None:
-    """One file's lines, split once for every clause reading them. None where it cannot be read."""
     text = _read_text(path)[0]
     return None if text is None else tuple(text.split("\n"))
 
 
 @cache
 def _tree(path: Path) -> ast.Module | None:
-    """One module parsed once for both checks. None where it will not parse, which ruff reports."""
+    """None where it will not parse, which ruff reports."""
     text = _read_text(path)[0]
     if text is None:
         return None
@@ -157,7 +147,6 @@ def _tree(path: Path) -> ast.Module | None:
 
 
 def _tail_name(node: ast.AST) -> str:
-    """The last name of an expression: `sys` of `gate_pool.sys`, `Path` of `Path("x")`."""
     if isinstance(node, ast.Name):
         return node.id
     if isinstance(node, ast.Attribute):
@@ -168,7 +157,6 @@ def _tail_name(node: ast.AST) -> str:
 
 
 def _predicate(node: ast.AST) -> str | None:
-    """The platform predicate a node reads, dotted, or None."""
     if isinstance(node, ast.Attribute) and (_tail_name(node.value), node.attr) in ATTRIBUTE_PREDICATES:
         return f"{_tail_name(node.value)}.{node.attr}"
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
@@ -183,7 +171,7 @@ def _predicate(node: ast.AST) -> str | None:
 
 
 def _is_final_constant(node: ast.AST) -> str | None:
-    """The UPPER_CASE name a module-level `Final` assignment binds, or None: PLAT-1's admitted shape."""
+    """PLAT-1's admitted shape."""
     if not isinstance(node, ast.AnnAssign) or node.value is None or not isinstance(node.target, ast.Name):
         return None
     annotation = node.annotation
@@ -194,7 +182,6 @@ def _is_final_constant(node: ast.AST) -> str | None:
 
 
 def _assigned_name(node: ast.AST) -> str | None:
-    """The one name a module-level assignment binds, or None."""
     if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
         return node.target.id
     if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
@@ -203,7 +190,6 @@ def _assigned_name(node: ast.AST) -> str | None:
 
 
 def _snippet_lines(node: ast.AST) -> list[str] | None:
-    """The lines of a tuple or list of string literals, or None: the driver-snippet convention."""
     value = getattr(node, "value", None)
     if not isinstance(value, (ast.Tuple, ast.List)) or not value.elts:
         return None
@@ -213,7 +199,6 @@ def _snippet_lines(node: ast.AST) -> list[str] | None:
 
 
 def _mentions(node: ast.AST, names: frozenset[str]) -> bool:
-    """True where an expression reads a platform predicate or one of the admitted constants."""
     for sub in ast.walk(node):
         if _predicate(sub) is not None:
             return True
@@ -229,7 +214,7 @@ def _mentions_text(text: str, names: frozenset[str]) -> bool:
 
 
 def _quoted(code: str) -> list[str]:
-    """Every complete quoted run on one line, read left to right so the two quote kinds cannot cross."""
+    """Left to right, so the two quote kinds cannot cross."""
     found: list[str] = []
     index = 0
     while index < len(code):
@@ -282,8 +267,8 @@ def _scan_module(rel: str, tree: ast.Module, source: Sequence[str], scan: _Scan,
             elif not scope and (name := _assigned_name(child)) is not None:
                 symbol = name
             predicate = _predicate(child)
-            # A Store context is a driver rebinding the predicate as a value, which is the shape
-            # PLAT-3 asks for rather than a branch.
+            # A Store context is a driver rebinding the predicate, which is PLAT-3's shape and not
+            # a branch.
             if predicate is not None and not (isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Store)):
                 detail = f"PLAT-1: `{predicate}` read in `{symbol or rel}` -- bind the platform once as an UPPER_CASE Final, or allowlist it"
                 scan.sites.append(_site(rel, _line(child), symbol, detail, source))
@@ -346,7 +331,7 @@ def _snippet_stands_down(lines: list[str], names: frozenset[str]) -> bool:
     return False
 
 
-# Every `<dotted target> = <literal>` a driver writes, captured loose so one pass answers for all.
+# Captured loose, so one pass answers for every name.
 BINDING_RE: Final = re.compile(r"\b([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)\s*=\s*(True|False|['\"]\w+['\"])")
 
 
@@ -354,8 +339,8 @@ BINDING_RE: Final = re.compile(r"\b([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)\s*=\s*(True
 def _test_bindings() -> dict[str, frozenset[str]]:
     """Every dotted target the test corpus assigns a literal to, and the values it is given.
 
-    One pass rather than one per name, the allowlist being what grows. Each suffix of a chain is
-    registered too, matching what a word-boundary search reached.
+    One pass, the allowlist being what grows; each suffix of a chain is registered, matching what a
+    word-boundary search reaches.
     """
     values: dict[str, set[str]] = {}
     for path in _test_files():
@@ -370,7 +355,6 @@ def _test_bindings() -> dict[str, frozenset[str]]:
 
 
 def _bindings(module: str, name: str) -> frozenset[str]:
-    """Every value the test corpus binds `<module>.<name>` to, as text."""
     return _test_bindings().get(f"{module}.{name}", frozenset())
 
 
@@ -457,6 +441,8 @@ def _resolve(check: str, sites: list[_Site], allow: Mapping[str, str], present: 
             used.add(row)
     for key in allow:
         rel, _, symbol = key.partition(" :: ")
+        # Judged only inside the population this check read: a row naming a file the gate's own
+        # fixture trees do not hold would read as stale inside each of them.
         if rel not in present:
             continue
         text = _read_text(REPO_ROOT / rel)[0] or ""
@@ -502,7 +488,6 @@ def check_platform_branches(allow: Mapping[str, str] = PLATFORM_ALLOW) -> list[F
 
 
 def _mode_position(func: ast.expr) -> tuple[str, int] | None:
-    """The callee's spelling and where its mode argument sits, or None where the call opens nothing."""
     if isinstance(func, ast.Name):
         if func.id == "open":
             return "open", 1
@@ -521,7 +506,6 @@ def _mode_position(func: ast.expr) -> tuple[str, int] | None:
 
 
 def _text_write(call: ast.Call) -> tuple[str, bool] | None:
-    """The callee and whether its mode was readable, for a call that may write text; None for one that cannot."""
     if isinstance(call.func, ast.Attribute) and call.func.attr == "write_text":
         return f"{_tail_name(call.func.value)}.write_text", True
     placed = _mode_position(call.func)
@@ -539,7 +523,6 @@ def _text_write(call: ast.Call) -> tuple[str, bool] | None:
 
 
 def _newline_passed(call: ast.Call) -> bool | None:
-    """True for `newline=""` or `newline="\\n"` (or `chr(10)`), False for another value, None where absent."""
     keyword = next((keyword for keyword in call.keywords if keyword.arg == "newline"), None)
     if keyword is None:
         return None

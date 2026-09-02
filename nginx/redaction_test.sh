@@ -59,21 +59,21 @@ server {
 }
 STUB
 
-# The tag both compose files pin, so the nginx proven here is the one that serves it. The leading
-# slash on each -v subject is the MSYS exclusion `scripts/verify.sh` uses for the same reason.
+# The pinned tag, for `scripts/verify.sh`'s nginx step's reason; the leading slash on each `-v`
+# subject is the same MSYS exclusion that step uses.
 MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -p 127.0.0.1:0:80 \
   --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
   -v "/${REPO_ROOT}/nginx/local.conf:/etc/nginx/conf.d/default.conf:ro" \
   -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
   nginx:1.31-alpine >/dev/null \
-  || die "could not start the pinned nginx for the redaction test."
+  || refuse "could not start the pinned nginx for the redaction test."
 
 # `docker port`, never a fixed number: a developer's own stack shares this host, and a collision
 # would read as a redaction failure rather than as a port already taken.
 ADDR="$(docker port "$CONTAINER" 80/tcp | head -n 1)" \
-  || die "the redaction test's nginx published no port."
-[[ -n "$ADDR" ]] || die "the redaction test's nginx published no port."
+  || refuse "the redaction test's nginx published no port."
+[[ -n "$ADDR" ]] || refuse "the redaction test's nginx published no port."
 BASE="http://${ADDR%$'\r'}"
 
 # nginx accepts a connection before the worker serves, so retrying on connect is what separates
@@ -85,7 +85,7 @@ for _ in $(seq 1 50); do
   fi
   sleep 0.2
 done
-(( _up )) || die "the redaction test's nginx never answered on ${BASE}."
+(( _up )) || refuse "the redaction test's nginx never answered on ${BASE}."
 
 # --- the table ---------------------------------------------------------------------------------
 
@@ -154,26 +154,23 @@ CASES=(
   "KEEP|${BASE}/teams?saison_id=abc&shorthand=FCB|shorthand=FCB"
   "KEEP|${BASE}/admin/spiele?saison_id=abc|saison_id=abc"
 
-  # A control over the CLIENT rather than the edge. Without --path-as-is curl squashes a `.`
-  # segment before sending, and the spellings above would then be graded on a path nginx never
-  # received. This case fails when that flag stops taking effect.
+  # A control over the CLIENT: it fails when `--path-as-is` stops taking effect, and every
+  # spelling above is then graded on a path nginx never received.
   "KEEP|${BASE}/teams/./x?saison_id=abc|/teams/./x"
 )
 
-# What binds a case to its own access line: `user_agent` is the one field the log format carries
-# unredacted (`nginx/local.conf :: log_format fl_json`) and no map reads, so no case is graded on
-# a neighbour's line.
+# `user_agent`: the one field `nginx/local.conf :: log_format fl_json` carries unredacted and no
+# map reads, so no case is graded on a neighbour's line.
 MARKER="fl-redaction"
 
-# One curl sends the table, one `docker logs` reads it back: on Windows a process costs ~0.1s and
-# a `docker logs` ~0.3s (2026-09-02). `--next` gives each transfer its own options (curl 8
-# `--help all`), so --path-as-is and a Referer bind per request.
+# One curl, one `docker logs`: on Windows a spawn costs ~0.1s and a `docker logs` ~0.3s
+# (2026-09-02). `--next` gives each transfer its own options, so --path-as-is and a Referer bind
+# per request.
 REQUESTS=()
 _n=0
 for case_line in "${CASES[@]}"; do
-  # Split on a bar, never on whitespace: `_lib.sh` sets IFS to newline and tab, and several
-  # subjects carry a comma or a space. Expansion rather than a helper: an MSYS fork costs more
-  # than the request it would parse.
+  # Split on a bar, never whitespace: `_lib.sh` sets IFS to newline and tab, and several subjects
+  # carry a comma or a space. Expansion, not a helper: an MSYS fork costs more than the request.
   verb="${case_line%%|*}"
   rest="${case_line#*|}"
   subject="${rest%%|*}"
@@ -191,8 +188,8 @@ done
 CURL_RC=0
 curl "${REQUESTS[@]}" || CURL_RC=$?
 
-# The image symlinks the access log to stdout, so the container's log IS the stream, and one read
-# of it holds every case. `|| true` on the grep alone: an empty stream is a finding below.
+# The image symlinks the access log to stdout, so one read holds every case. `|| true` on the grep
+# alone: an empty stream is a finding below.
 LOGGED_LINES=()
 mapfile -t LOGGED_LINES < <(docker logs "$CONTAINER" 2>/dev/null | { grep '^{' || true; })
 
@@ -206,10 +203,9 @@ for logged_line in "${LOGGED_LINES[@]}"; do
   MARKED=$(( MARKED + 1 ))
 done
 
-# Before any grading, because a stream holding fewer marked lines than the table has cases is one
-# no per-case verdict can be trusted against.
+# `refuse`, not `die`: nothing was judged, and a 1 here would read as a leak nobody observed.
 if (( MARKED != ${#CASES[@]} )); then
-  die "the edge logged ${MARKED} marked access lines for ${#CASES[@]} cases, curl having
+  refuse "the edge logged ${MARKED} marked access lines for ${#CASES[@]} cases, curl having
 exited ${CURL_RC}, so the stream this grades on is not the table. No case above was judged."
 fi
 
