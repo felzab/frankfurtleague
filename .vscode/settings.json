@@ -13,6 +13,8 @@
   "prettier.prettierPath": "fl_frontend/node_modules/prettier",
   "prettier.configPath": ".prettierrc.json",
   "prettier.ignorePath": ".prettierignore",
+  // Relative, and never with a leading slash: `.vscode/markdown.css`'s own header carries why.
+  "markdown.styles": [".vscode/markdown.css"],
   "[typescript]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[typescriptreact]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[javascript]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
