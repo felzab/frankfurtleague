@@ -20,8 +20,8 @@ for candidate in "${repo_root}/fl_backend/.venv/Scripts/python.exe" \
                  python3 python; do
   if command -v "$candidate" >/dev/null 2>&1; then
     # `scripts/checker_kernel.py :: run`'s contract: 0 passed, 1 findings, higher means the check
-    # never ran — a crash, or an interpreter under the kernel's floor. Only a finding is this hook's
-    # to refuse, which is why the checker is run rather than `exec`ed.
+    # never ran. Only a finding is this hook's to refuse, which is why the checker is run
+    # rather than `exec`ed.
     status=0
     "$candidate" "${repo_root}/scripts/check_commits.py" --message-file "$1" || status=$?
     if [ "$status" -le 1 ]; then

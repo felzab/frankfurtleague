@@ -175,7 +175,7 @@ was repaired by moving the content or by widening the shape is review judgment.
 
 ## In-code
 
-Scope: `fl_frontend/src`, `fl_backend/app`, `fl_backend/tests`, `scripts/` and `.claude/hooks/`.
+Scope: `fl_frontend/src`, `fl_backend/app`, `fl_backend/tests`, `scripts/`, `.claude/hooks/` and `.githooks/`.
 The hooks are exempt from INC-2's shape alone — their uniform label rows keep the folder
 scannable side by side — and every other rule here binds them.
 

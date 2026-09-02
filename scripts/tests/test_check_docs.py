@@ -94,6 +94,9 @@ YAML_CONFIG: Final = "fl_frontend/pnpm-workspace.yaml"
 JSON_CONFIG: Final = "fl_frontend/tsconfig.json"
 CONF_FILE: Final = "nginx/nginx.conf"
 SHELL_FILE: Final = "nginx/entrypoint.sh"
+# A hook the platform clause reads and the corpus does not hold: under `.claude/hooks/`, which its
+# shell scope names, and outside `PRESERVED`, so `_reset`'s clean takes it away again.
+HOOK_SAMPLE: Final = ".claude/hooks/probe.sh"
 DOCKERFILE: Final = "fl_backend/Dockerfile"
 # The one-file standard, carrying both of the shapes a rule may take (PRE-4).
 STANDARD: Final = "docs/standard.md"
@@ -714,6 +717,10 @@ def _clear_caches(scripts_dir: Path) -> None:
         if origin is None or scripts_dir not in Path(origin).resolve().parents:
             continue
         for value in vars(module).values():
+            # A class with a `cache_clear` method is a shape, not a cache: only its instances hold
+            # answers, and calling the function off the class passes no instance at all.
+            if isinstance(value, type):
+                continue
             clear = getattr(value, "cache_clear", None)
             if callable(clear):
                 clear()
@@ -1164,6 +1171,24 @@ def _plant_comment_citations() -> None:
     _append(SECOND_SAMPLE, HASH + " the ledger 3 entry is not a citation either")
 
 
+def _plant_text_write() -> None:
+    """A text handle opened with no `newline`, built rather than written.
+
+    Spelled as a concatenation for this file's own sake: the clause reads a CALL, so a literal one
+    here would be a site in the gate's own corpus rather than in the fixture's.
+    """
+    _append(SAMPLE, "Path(" + QUOTE + "x" + QUOTE + ")." + "write_text(" + QUOTE + "a" + QUOTE + ")")
+
+
+def _plant_platform_branch() -> None:
+    """A shell platform token in code, in a hook the corpus does not carry.
+
+    Under `.claude/hooks/`, one of the two folders the shell clause reads. A plant inside the
+    fixture's own `scripts/` would never be read: that copy is gitignored there.
+    """
+    _write(_gate().root, HOOK_SAMPLE, _page("#!/usr/bin/env bash", "uname -s"))
+
+
 def _fails(check: str, *files: str) -> tuple[Reported, ...]:
     """One failing finding per file named -- a file twice is a check that must speak twice about it."""
     return tuple(("fail", check, rel) for rel in files)
@@ -1211,6 +1236,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case("copy-informal", _fails("copy-informal", COPY_SAMPLE), _plant_copy_informal),
     Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
     Case("counts", _reports("counts", NOTES, SAMPLE), _plant_counts),
+    Case("crlf-write", _fails("crlf-write", SAMPLE), _plant_text_write),
     Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD), _plant_enforced_by),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
     Case("header-see", _fails("header-see", *[SAMPLE] * 4), _plant_header_see),
@@ -1230,6 +1256,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case("overview-spine", _fails("overview-spine", OVERVIEW, FRONTEND_OVERVIEW), _plant_overviews),
     Case("owner-voice", _fails("owner-voice", NOTES), lambda: _append(NOTES, "The owner reads it.")),
     Case("path", _fails("path", NOTES), lambda: _append(NOTES, "`docs/gone.md` is named here.")),
+    Case("platform-branch", _fails("platform-branch", HOOK_SAMPLE), _plant_platform_branch),
     Case("readme-cap", _fails("readme-cap", ROOT_README), lambda: _append(ROOT_README, *["A line." for _ in range(130)])),
     Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 7, *[TOOLING_ROADMAP] * 4), _plant_roadmap),
     # The standard names its own duplicated id, which is what reports the collision: every citer of
@@ -1554,6 +1581,38 @@ def test_a_quoted_error_is_not_a_citation_and_a_broken_wrapped_one_still_is() ->
         _reset()
     assert reported[("fail", "citation", NOTES)] == 0, "a quoted error was read as a citation: " + _shape(reported)
     assert reported[("fail", "citation", SAMPLE)] == 1, "a wrapped citation naming a dead anchor went unread: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_continuation_that_wraps_across_a_comment_line_is_still_resolved() -> None:
+    """Split at the wrap, the separator ends a line with nothing to its right.
+
+    A reader admitting a file on the spaced form alone would skip it; the bare `::` is what has to
+    admit it.
+    """
+    _reset()
+    _append(SAMPLE, HASH + " `fl_backend/app/second.py :: OTHER` continues onto `::", HASH + " MISSING`.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", SAMPLE)] == 1, "a continuation that wraps went unresolved: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_line_citation_that_wraps_across_a_line_is_still_found() -> None:
+    """Wrapped after the slash, neither raw line is a citation and the joined text is.
+
+    Both patterns read it there -- the backticked span, and the bare tail the join leaves after the
+    space -- so the count is two spellings of one defect.
+    """
+    _reset()
+    _append(NOTES, "See `docs/", "glossary.md:7` for the shape.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "line-citation", NOTES)] == 2, "a line citation that wraps went unread: " + _shape(reported)
     _assert_corpus_restored()
 
 
@@ -1909,6 +1968,41 @@ def test_a_closed_log_that_cannot_be_decoded_leaves_the_ranked_pages_resolved_ag
     finally:
         _reset()
     assert reported[("fail", "roadmap-shape", CLOSED_ROADMAP)] == 1, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_an_id_ranked_on_both_pages_fails_on_the_page_read_second() -> None:
+    """Each page agrees with itself, so only the insert into the cross-page map can see the repeat.
+
+    Folded in silently, the second page replaces the first, and the log comparison then blames one
+    page for an entry the other ranks too.
+    """
+    _reset()
+    product_row = "| 1 | FX-1 | Give the gate a fixture net |"
+    _replace(ROADMAP, product_row, product_row + "\n| 2 | TL-1 | " + TOOLING_ITEM + " |")
+    _append(ROADMAP, _heading(3, "2 · TL-1 — " + TOOLING_ITEM), "", "**Status:** Open")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "roadmap-shape", TOOLING_ROADMAP)] == 1, "an id ranked on both pages passed: " + _shape(reported)
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "the first page to rank it is the one it stays on: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_ranked_heading_no_table_defines_is_the_row_test_s_finding() -> None:
+    """An id in no roadmap table has no row on its own page either, so the row test holds the vocabulary.
+
+    FX-9 stands in no table anywhere in the corpus and is reported exactly once, by that test.
+    """
+    _reset()
+    _append(ROADMAP, _heading(3, "2 · FX-9 — An entry no table defines"), "", "**Status:** Open")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a heading no table defines went unreported: " + _shape(reported)
+    assert reported[("fail", "roadmap-shape", TOOLING_ROADMAP)] == 0, _shape(reported)
     _assert_corpus_restored()
 
 

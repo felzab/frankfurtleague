@@ -25,7 +25,14 @@ from .kernel import (
 )
 
 # The subtrees the In-code section binds, which is where its comment rules are checked.
-INCODE_SCOPES: Final[tuple[str, ...]] = ("fl_frontend/src/", "fl_backend/app/", "fl_backend/tests/", "scripts/", ".claude/hooks/")
+INCODE_SCOPES: Final[tuple[str, ...]] = (
+    "fl_frontend/src/",
+    "fl_backend/app/",
+    "fl_backend/tests/",
+    "scripts/",
+    ".claude/hooks/",
+    ".githooks/",
+)
 
 # INC-9's one bound, the same for every shape: inline comment, symbol doc and test docstring alike.
 COMMENT_CHAR_CAP: Final = 250
@@ -329,6 +336,17 @@ def check_branch_diff(branch: Branch) -> list[Finding]:
     return [_branch_scope_skipped(DIFF_READERS, "read this branch's diff")]
 
 
+def _bounded(rel: str) -> bool:
+    """Whether INC-9's bound reaches this file at all.
+
+    A git hook is code and its comments carry the same cap, but it has no suffix to match on, so
+    it is reached by the roster the scan already reads it under rather than a second spelling.
+    """
+    if not rel.startswith(INCODE_SCOPES):
+        return False
+    return rel.endswith(SOURCE_SUFFIXES) or rel.rsplit("/", 1)[-1] in OPS_FILENAMES
+
+
 def check_comment_bounds(branch: Branch) -> list[Finding]:
     """INC-9's bound, over the comment blocks this branch wrote."""
     # Silent rather than advisory: `check_branch_diff` already names this check among those reading
@@ -343,7 +361,7 @@ def check_comment_bounds(branch: Branch) -> list[Finding]:
     found: list[Finding] = []
     for rel in sorted(added):
         path = REPO_ROOT / rel
-        if not rel.startswith(INCODE_SCOPES) or not rel.endswith(SOURCE_SUFFIXES) or not path.is_file() or _skipped(path):
+        if not _bounded(rel) or not path.is_file() or _skipped(path):
             continue
         raw = _read_text(path)[0]
         if raw is None:

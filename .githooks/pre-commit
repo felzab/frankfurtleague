@@ -14,9 +14,9 @@
 
 set -euo pipefail
 
-# Windows refuses a command line past 32,767 bytes, and this repository's formattable tree already
-# costs 41,552 of them in the `../` spelling below. A batch flushes before it crosses this budget,
-# so the longest runs about 24 KB against that ceiling; Linux has no practical limit here.
+# Windows refuses a command line past 32,767 bytes, and the formattable tree already costs more
+# than that in the `../` spelling below. A batch flushes before crossing this budget; Linux has
+# no practical limit here.
 ARGV_BUDGET=24000
 
 # Prettier's parser set, from `--support-info`, minus the editor and interchange aliases. Missing

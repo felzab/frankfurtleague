@@ -21,7 +21,7 @@ from typing import Final, Literal
 
 # From the shared kernel rather than a second copy: a checker taking git, the repository root or
 # the reading errors from its own drifts into its own behaviour, the principle that file states.
-from checker_kernel import REPO_ROOT, UNREADABLE, git, git_status
+from checker_kernel import REPO_ROOT, UNREADABLE, git, git_input, git_status
 
 # docs/audit is a running programme's gitignored working documents, absent from any clone;
 # node_modules and .venv are vendored and not ours to hold to this standard.
@@ -37,7 +37,7 @@ CSTYLE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs")
 OPS_SUFFIXES: Final[tuple[str, ...]] = (".conf", ".yml", ".yaml", ".toml", ".json")
 # Spelled in full: neither a Dockerfile nor a git hook carries a suffix to match on, and INC-6
 # binds a shell file whatever it is named. `p.name` decides; the glob is a prefilter.
-OPS_FILENAMES: Final[tuple[str, ...]] = ("Dockerfile", "pre-commit", "commit-msg")
+OPS_FILENAMES: Final[tuple[str, ...]] = ("Dockerfile", "pre-commit", "commit-msg", "pre-push")
 SCANNED_SUFFIXES: Final[tuple[str, ...]] = SOURCE_SUFFIXES + OPS_SUFFIXES
 
 # Anything else in backticks is prose: a bare `queries.ts` names a KIND of file, not one file.
@@ -111,6 +111,7 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "copy-informal": frozenset({"fail"}),
     "copy-term": frozenset({"fail"}),
     "counts": frozenset({"report"}),
+    "crlf-write": frozenset({"fail"}),
     "enforced-by": frozenset({"fail"}),
     "glossary-entry": frozenset({"fail"}),
     "header-see": frozenset({"fail"}),
@@ -126,6 +127,7 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "overview-spine": frozenset({"fail"}),
     "owner-voice": frozenset({"fail"}),
     "path": frozenset({"fail"}),
+    "platform-branch": frozenset({"fail"}),
     "readme-cap": frozenset({"fail"}),
     "roadmap-shape": frozenset({"fail"}),
     "rule-id": frozenset({"fail"}),
@@ -290,7 +292,7 @@ def _walked_index() -> dict[str, tuple[Path, ...]]:
     """The same index where git could not answer it.
 
     The control directory goes by name: check-ignore does not call it ignored. Ignorability is
-    asked once, costing two spawns per directory.
+    asked once per listing, one spawn covering every directory in it.
     """
     ignorable = git_status("rev-parse", "--is-inside-work-tree") == 0
     index: dict[str, list[Path]] = {}
@@ -298,7 +300,9 @@ def _walked_index() -> dict[str, tuple[Path, ...]]:
         parent = Path(root)
         kept = [name for name in directories if name != ".git" and not _skipped(parent / name)]
         if ignorable:
-            kept = [name for name in kept if not is_gitignored((parent / name).relative_to(REPO_ROOT).as_posix())]
+            rels = {name: (parent / name).relative_to(REPO_ROOT).as_posix() for name in kept}
+            dropped = gitignored(rels.values())
+            kept = [name for name in kept if rels[name] not in dropped]
         directories[:] = kept
         for name in names:
             index.setdefault(os.path.normcase(name), []).append(parent / name)
@@ -852,14 +856,40 @@ def anchors_of(target: Path) -> frozenset[str] | None:
     return None if body is None else frozenset(heading_anchors(body))
 
 
-@cache
-def is_gitignored(token: str) -> bool:
-    """A gitignored path is named deliberately and absent by design.
+class _Answers(dict[str, bool]):
+    """`check-ignore`'s answers this run, by token: a batch fills many at once, a memo serves the rest."""
 
-    Asked twice: a directory-only pattern matches a bare name only while the directory is there.
-    Only a clean exit says ignored, so a git that cannot answer leaves the finding standing.
+    def cache_clear(self) -> None:
+        # Named as functools names it: the fixture net resets a module's caches through this one
+        # attribute, and a memo it cannot reach hands one case's answers to the next.
+        self.clear()
+
+
+_IGNORED: Final = _Answers()
+
+
+def gitignored(tokens: Iterable[str]) -> frozenset[str]:
+    """The tokens git calls ignored, asked as one batch.
+
+    Two spellings each: a directory-only rule matches a bare name only while the directory exists.
+    Only a clean exit says ignored: a git that cannot answer leaves every finding standing.
     """
-    return git_status("check-ignore", "-q", token) == 0 or git_status("check-ignore", "-q", f"{token}/") == 0
+    asked = set(tokens)
+    wanted = sorted(token for token in asked if token not in _IGNORED)
+    if wanted:
+        # `-z` both ways: input lines are taken as written and matched spellings echo unquoted, so
+        # each maps back onto its token exactly.
+        listing = "\0".join(spelling for token in wanted for spelling in (token, f"{token}/"))
+        answer = git_input("check-ignore", "-z", "--stdin", stdin=listing)
+        matched = set() if answer is None else set(answer.split("\0"))
+        for token in wanted:
+            _IGNORED[token] = token in matched or f"{token}/" in matched
+    return frozenset(token for token in asked if _IGNORED[token])
+
+
+def is_gitignored(token: str) -> bool:
+    """A gitignored path is named deliberately and absent by design. One token of `gitignored`."""
+    return token in gitignored((token,))
 
 
 def repo_path(token: str) -> str | None:
