@@ -836,6 +836,7 @@ else
       printf 'const s = "text-fluid-sm";\n' > fl_frontend/src/stale.tsx
       printf 'const s = "text-fluid-sm";\n' > scripts/outside.ts
       printf '.a { color: red } /* text-fluid-sm */\n' > fl_frontend/src/app/globals.css
+      printf '.x { @apply text-fluid-sm; }\n' > fl_frontend/src/app/stale.css
       git add -A
       git add -f docs/audit/tracked-note.md
       git -c user.email=selfcheck@example.invalid -c user.name=selfcheck commit -q -m seed
@@ -912,7 +913,7 @@ else
 
     hb='guard-branch-bash.sh';   hs='guard-standard-bash.sh';   ht='guard-branch.sh'
     he='guard-standard-edit.sh'; hc='guard-local-compose.sh';   hk='guard-stale-type-class.sh'
-    hp='guard-branch-powershell.sh'
+    hp='guard-branch-powershell.sh'; hq='guard-credential-shell.sh'
 
     # --- guard-branch.sh on main: the tool route -------------------------------------------------
 
@@ -1327,10 +1328,32 @@ else
     probe "$hk" blocked file "${hook_root}/fl_frontend/src/stale.tsx"  'stale-class guard: an in-scope tsx file'
     probe "$hk" blocked resp "${hook_root}/fl_frontend/src/stale.ts"   'stale-class guard: named by the tool response'
     probe "$hk" allowed file "${hook_root}/fl_frontend/src/clean.ts"   'stale-class guard: a clean in-scope file'
-    probe "$hk" allowed file "${hook_root}/fl_frontend/src/app/globals.css" 'stale-class guard: the string in a stylesheet'
+    # A stylesheet is read with its comments removed: the same string is dead in a rule and prose
+    # in a comment, and globals.css carries it as prose on purpose.
+    probe "$hk" allowed file "${hook_root}/fl_frontend/src/app/globals.css" 'stale-class guard: the string in a stylesheet comment'
+    probe "$hk" blocked resp "${hook_root}/fl_frontend/src/app/stale.css"   'stale-class guard: the string in a stylesheet rule'
     # It has to EXIST, or the hook stops at its own file test and never reaches the scope arm.
     probe "$hk" allowed file "${hook_root}/scripts/outside.ts"         'stale-class guard: the string out of scope'
     probe "$hk" allowed file "${hook_root}/fl_frontend/src/gone.ts"    'stale-class guard: a file that is not there'
+
+    # --- guard-credential-shell.sh: the shell route to credential material -----------------------
+    # Decided on the command text, so no fixture file is needed; the gitignore arm asks git from
+    # the throwaway repository, whose ignore file names certs/.
+    probe "$hq" denied  cmd 'cat fl_backend/.env'                       'credential guard: a direct read'
+    # shellcheck disable=SC2016  # the hook has to see the dollar a session would type
+    probe "$hq" denied  cmd 'echo $AUTH_SECRET'                         'credential guard: an expansion'
+    probe "$hq" denied  cmd 'printenv'                                  'credential guard: a whole-environment dump'
+    probe "$hq" denied  cmd 'docker inspect fl_backend'                 'credential guard: a container route'
+    # A bare private key with no directory in front, read by a program outside every list.
+    probe "$hq" denied  cmd 'dd if=server.key'                          'credential guard: a bare private key'
+    probe "$hq" denied  cmd 'ls certs/'                                 'credential guard: a gitignored path'
+    probe "$hq" denied  raw '{"tool_name":"Bash"}'                      'credential guard: a payload naming no command'
+    probe "$hq" denied  raw 'not json'                                  'credential guard: an unparseable payload'
+    probe "$hq" allowed cmd 'grep -rn process.env fl_frontend/src'      'credential guard: a search is text'
+    probe "$hq" allowed cmd 'grep -rn api_key fl_backend/app'           'credential guard: an identifier grep runs'
+    probe "$hq" allowed cmd 'cat fl_frontend/node_modules/x/index.d.ts' 'credential guard: a node_modules read'
+    probe "$hq" allowed cmd 'cat docs/audit/note.md'                    'credential guard: the exempt ignored path'
+    probe "$hq" allowed cmd './scripts/verify.sh --docs --format'       'credential guard: the gate runs'
 
     # --- guard-local-compose.sh: an invocation is a word position, not a phrase ------------------
     probe "$hc" denied  cmd 'docker compose up -d'                             'compose guard: bare docker compose'
