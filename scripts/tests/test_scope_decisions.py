@@ -294,8 +294,7 @@ def test_a_throwaway_directory_is_still_skipped() -> None:
 
 # --- the comments a tool reads ----------------------------------------------------------------------
 
-# A loop rather than pytest's parametrize, for `test_gate_pool.py :: MALFORMED`'s reason: pyright
-# reads scripts/ with no environment declared, so nothing here may import outside the standard library.
+# A loop, not parametrize, for `scripts/tests/conftest.py`'s pytest invariant.
 DIRECTIVE_PAIRS: Final[tuple[tuple[str, str, str], ...]] = (
     ("a suppression deleted", "x = 1  " + DIRECTIVE_TYPE, "x = 1"),
     ("a suppression added", "x = 1", "x = 1  " + DIRECTIVE_NOQA),

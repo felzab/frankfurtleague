@@ -24,7 +24,7 @@ from .kernel import (
     untracked_files,
 )
 
-# The subtrees the In-code section binds, which is where its comment rules are checked.
+# `docs/standard.md` In-code's Scope, held to it by `test_scope_agreement.py`.
 INCODE_SCOPES: Final[tuple[str, ...]] = (
     "fl_frontend/src/",
     "fl_backend/app/",
@@ -339,8 +339,7 @@ def check_branch_diff(branch: Branch) -> list[Finding]:
 def _bounded(rel: str) -> bool:
     """Whether INC-9's bound reaches this file at all.
 
-    A git hook is code and its comments carry the same cap, but it has no suffix to match on, so
-    it is reached by the roster the scan already reads it under rather than a second spelling.
+    A hook has no suffix, so `OPS_FILENAMES` admits it rather than a second spelling.
     """
     if not rel.startswith(INCODE_SCOPES):
         return False

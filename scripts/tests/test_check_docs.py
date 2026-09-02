@@ -5,8 +5,7 @@ violation and say nothing about a corpus with none. The seam is a throwaway repo
 copy of scripts/, whose REPO_ROOT is derived from its own location and so roots there.
 
 A planted violation never shares a line of THIS file with a hash or a triple quote: the gate reads
-a source file's comments and would otherwise find the plant here. Stdlib only, the type checker
-reading scripts/ with no environment declared.
+a source file's comments and would otherwise find the plant here.
 """
 
 from __future__ import annotations
@@ -88,8 +87,7 @@ YAML_CONFIG: Final = "fl_frontend/pnpm-workspace.yaml"
 JSON_CONFIG: Final = "fl_frontend/tsconfig.json"
 CONF_FILE: Final = "nginx/nginx.conf"
 SHELL_FILE: Final = "nginx/entrypoint.sh"
-# A hook the platform clause reads and the corpus does not hold: under `.claude/hooks/`, which its
-# shell scope names, and outside `PRESERVED`, so `_reset`'s clean takes it away again.
+# Under `.claude/hooks/` (the shell scope) and outside `PRESERVED`, so `_reset` removes it.
 HOOK_SAMPLE: Final = ".claude/hooks/probe.sh"
 DOCKERFILE: Final = "fl_backend/Dockerfile"
 # The one-file standard, carrying both of the shapes a rule may take (PRE-4).
@@ -659,8 +657,7 @@ def _clear_caches(scripts_dir: Path) -> None:
         if origin is None or scripts_dir not in Path(origin).resolve().parents:
             continue
         for value in vars(module).values():
-            # A class with a `cache_clear` method is a shape, not a cache: only its instances hold
-            # answers, and calling the function off the class passes no instance at all.
+            # A class's `cache_clear` is unbound: only instances hold answers.
             if isinstance(value, type):
                 continue
             clear = getattr(value, "cache_clear", None)
@@ -1114,19 +1111,15 @@ def _plant_comment_citations() -> None:
 
 
 def _plant_text_write() -> None:
-    """A text handle opened with no `newline`, built rather than written.
-
-    Spelled as a concatenation for this file's own sake: the clause reads a CALL, so a literal one
-    here would be a site in the gate's own corpus rather than in the fixture's.
-    """
+    """A text handle opened with no `newline`, built for `HASH`'s reason: the clause reads a CALL."""
     _append(SAMPLE, "Path(" + QUOTE + "x" + QUOTE + ")." + "write_text(" + QUOTE + "a" + QUOTE + ")")
 
 
 def _plant_platform_branch() -> None:
-    """A shell platform token in code, in a hook the corpus does not carry.
+    """A shell platform token in code.
 
-    Under `.claude/hooks/`, one of the two folders the shell clause reads. A plant inside the
-    fixture's own `scripts/` would never be read: that copy is gitignored there.
+    Under `.claude/hooks/`: the fixture's own `scripts/` copy is gitignored, so a plant there is read
+    nowhere.
     """
     write(_gate().root, HOOK_SAMPLE, _page("#!/usr/bin/env bash", "uname -s"))
 

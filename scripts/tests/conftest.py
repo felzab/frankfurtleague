@@ -25,12 +25,11 @@ from typing import Final
 
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
 
-# One list rather than one per module. The folder is live while it is walked -- the scripts scope
-# runs selfcheck, ruff, pyright and this suite at once -- and the copy raises on a path that vanishes
-# between the listing and the walk.
+# The caches are live while copied -- the scripts scope runs its tools together -- and copytree
+# raises on a path that vanishes mid-walk.
 IGNORED: Final = shutil.ignore_patterns("__pycache__", "tests", ".ruff_cache", ".pytest_cache", ".mypy_cache")
 
-# The identity every fixture repository commits under, so no case depends on the machine's own git.
+# So no case depends on the machine's git config.
 IDENTITY: Final[tuple[tuple[str, str], ...]] = (
     ("user.name", "fixture"),
     ("user.email", "fixture@example.invalid"),
@@ -42,13 +41,11 @@ _OWNED: list[Path] = []
 
 def git(root: Path, *args: str) -> str:
     """One git command inside a fixture repository, answering its stdout."""
-    # `replace` rather than the strict default: a corpus carries paths and messages a fixture chose,
-    # and a byte that is not utf-8 in one of them would end the run in a decode error rather than in
-    # the finding the case is about.
+    # `errors="replace"`: a non-utf-8 byte in a fixture's path or message would end the run in a
+    # decode error rather than in the finding.
     done = subprocess.run(("git", *args), cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
     if done.returncode != 0:
-        # Raised with git's own message: a fixture that fails to build otherwise reports a bare exit
-        # code, and the case that follows then fails for a reason nothing in the output explains.
+        # With git's message, or the next case fails for a reason nothing explains.
         raise RuntimeError("git " + " ".join(args) + " failed: " + (done.stderr.strip() or done.stdout.strip()))
     return done.stdout.strip()
 
@@ -57,21 +54,18 @@ def write(root: Path, rel: str, text: str) -> None:
     """One corpus file under a fixture repository, its parents made as needed."""
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    # Bytes, never write_text: that emits CRLF on Windows, and a line-ending check would then report
-    # the whole corpus rather than the one file a case planted.
+    # Bytes (CLAUDE.md §6).
     path.write_bytes(text.encode("utf-8"))
 
 
 def copy_scripts(destination: Path) -> None:
-    """This repository's scripts/ inside a fixture tree, which is what roots the gate at the corpus."""
     shutil.copytree(REPO_ROOT / "scripts", destination, ignore=IGNORED)
 
 
 def configure(root: Path, hooks: str) -> None:
     """A fresh repository on main, committing as the fixture identity and running no hook.
 
-    The hooks path is the caller's because the fixtures disagree: some create the folder and pass
-    its absolute path, one names a folder that is never there.
+    The hooks path is the caller's: the fixtures disagree on it.
     """
     git(root, "init", "-b", "main")
     for name, value in IDENTITY:
@@ -89,24 +83,34 @@ def withdraw(*names: str) -> None:
         del sys.modules[cached]
 
 
+def base_env() -> dict[str, str]:
+    """The environment a gate-driving fixture must not inherit.
+
+    A parent's own run state would decide the answer: FL_GATE_WORKER silences every summary, and
+    the pool's variables point the fixture at a ledger belonging to another run.
+    """
+    env = {name: value for name, value in os.environ.items() if not name.startswith("FL_GATE_")}
+    env.pop("GITHUB_ACTIONS", None)
+    env.pop("VERBOSE", None)
+    env["FL_GATE_COLOR"] = "0"
+    env["NO_SPINNER"] = "1"
+    return env
+
+
 def new_root(prefix: str) -> Path:
-    """An empty fixture tree this run owns, removed when the run finishes."""
     root = Path(tempfile.mkdtemp(prefix=prefix)).resolve()
     _OWNED.append(root)
     return root
 
 
 def discard(root: Path) -> None:
-    """Remove one fixture tree, the read-only files git wrote inside it included."""
-
     def clear_readonly(remove: Callable[..., object], path: str, _exc: BaseException) -> None:
         # Windows will not unlink a read-only file, and that is how git writes every loose object --
         # so ignoring the error alone leaves every `.git` tree behind.
         os.chmod(path, stat.S_IWRITE)
         remove(path)
 
-    # Suppressed around the retry rather than instead of it: a failure swallowed before the retry is
-    # what let these accumulate.
+    # Around the retry, never instead of it: a failure swallowed first leaves the tree behind.
     with contextlib.suppress(OSError):
         shutil.rmtree(root, onexc=clear_readonly)
 
@@ -114,8 +118,7 @@ def discard(root: Path) -> None:
 def pytest_sessionfinish() -> None:
     """Remove every fixture tree this run built.
 
-    A hook rather than `atexit`, which runs after the runner has finished reporting: here the
-    session is still live, so what the removal does is still the runner's to tell.
+    A hook, not `atexit`, which runs after the runner has reported.
     """
     while _OWNED:
         discard(_OWNED.pop())

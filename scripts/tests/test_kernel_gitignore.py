@@ -3,10 +3,8 @@
 Three answers a case has to be able to make fail: which paths git calls ignored, asked in one
 batch; which suffixless files the scan reaches; and whether INC-9's bound is measured over a git
 hook, which carries no suffix and sits in no scope the other comment checks name. A subprocess
-reads each over a throwaway repository holding a copy of scripts/: the gate roots at its own
-file, and importing a copy in-process would collide with `scripts/tests/test_check_docs.py`'s
-copy over one module name. Stdlib only, the type checker reading scripts/ with no environment
-declared.
+reads each over a throwaway repository holding a copy of scripts/ (the collision
+`scripts/tests/conftest.py :: withdraw` names).
 """
 
 from __future__ import annotations
@@ -24,28 +22,24 @@ from conftest import configure, copy_scripts, git, new_root, write
 SCRIPTS_COPY: Final = "scripts"
 HOOKS_STUB: Final = "nohooks"
 GITIGNORE: Final = ".gitignore"
-# Built rather than written, for the fixture net's reason: a marker on a line of THIS file would be
-# read as this file's own comment.
+# Built, for `test_check_docs.py :: HASH`'s reason.
 HASH: Final = "#"
 TICK: Final = "`"
 
-# Three paths a comment names and the tree does not hold. The folder is ruled with a trailing
-# slash, which matches its bare name only while the folder is there -- the double probe's case.
+# Ruled with a trailing slash, which matches the bare name only while the folder exists: the double
+# probe's case.
 IGNORED_FOLDER: Final = "docs/scratch"
 IGNORED_FILE: Final = "docs/scratch-notes.md"
 UNRULED: Final = "docs/never-written.md"
-# A comment naming all three, and the file it is read as belonging to.
 COMMENT: Final = "planned under " + IGNORED_FOLDER + ", " + IGNORED_FILE + " and " + UNRULED
 COMMENT_HOME: Final = "docs/plan.md"
 
-# The suffixless hook the scan has to reach by name, and the dead path its comment backticks.
 HOOK: Final = ".githooks/pre-push"
 DEAD_PATH: Final = "docs/gone.md"
 HOOK_LINES: Final = (HASH + "!/usr/bin/env bash", HASH, HASH + " A hook whose comment names " + TICK + DEAD_PATH + TICK + ".", "exit 0")
 
-# One comment block past INC-9's bound, split over lines as a hook's own comments are. Blank-line
-# separated from the header above it, or `comment_runs` reads the two as one block and the fork's
-# copy of that block exempts the plant.
+# Blank-line separated from the header, or `comment_runs` reads them as one block and the fork's copy
+# exempts the plant.
 OVER_BOUND_BLOCK: Final[tuple[str, ...]] = (
     "",
     HASH + " A block planted below the header and past the character bound, whose whole purpose is",
@@ -59,8 +53,7 @@ SCAN_DRIVER: Final = "scan_driver.py"
 BOUNDS_DRIVER: Final = "bounds_driver.py"
 BUILT_IN: Final = "built-in: git check-ignore"
 
-# One batch first where asked, then every token alone, then each again, then the check that
-# consumes the answers: the trace counts how many of those reached git.
+# The trace counts how many of these reached git.
 IGNORE_SCRIPT: Final = """
 import json
 import sys
@@ -114,7 +107,6 @@ def _page(*lines: str) -> str:
 
 
 def _build() -> tuple[Path, Path]:
-    """One fixture repository beside the drivers that read it, built once per session."""
     parent = new_root("kernel-seams-fixture-")
     root = parent / "repo"
     copy_scripts(root / SCRIPTS_COPY)
@@ -144,8 +136,7 @@ def _fixture() -> tuple[Path, Path]:
 def _run(driver: str, *args: str, broken: bool = False) -> tuple[dict[str, Any], int]:
     """One driver's answer, and how many times it reached `check-ignore`.
 
-    `GIT_DIR` at a path that is not there is a git that cannot answer: every command it is given
-    dies before reading the tree. The trace file is git's own account of what was launched.
+    `GIT_DIR` at an absent path is a git that cannot answer; `GIT_TRACE` is git's own launch count.
     """
     parent, root = _fixture()
     trace = parent / ("trace-" + str(next(_TRACES)) + ".log")
@@ -167,7 +158,6 @@ def _ignore(mode: str, *tokens: str, broken: bool = False) -> tuple[dict[str, An
 
 
 def _named(findings: list[list[str]]) -> list[str]:
-    """The tokens the bare-path findings name, in the order the check reported them."""
     return [detail.split("path named but not present: ", 1)[1].split(" ", 1)[0] for check, detail in findings if check == "bare-path"]
 
 
@@ -222,8 +212,7 @@ def test_a_comment_block_over_the_bound_in_a_hook_is_reported() -> None:
     try:
         answer, _ = _run(BOUNDS_DRIVER, fork)
     finally:
-        # Restored here rather than by git, which no case in this module may run for a write: the
-        # scan case below measures the same hook and would read the plant as its own subject.
+        # Restored by hand: the scan case reads the same hook.
         write(root, HOOK, _page(*HOOK_LINES))
     reported = [(check, file) for check, file, _, _ in answer["findings"]]
     assert reported == [("comment-length", HOOK)], answer["findings"]

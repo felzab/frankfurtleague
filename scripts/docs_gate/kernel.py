@@ -35,8 +35,7 @@ CSTYLE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs")
 # COR-6 binds these comments as it binds a spec sheet's prose, although the In-code section's
 # Scope names subtrees rather than these kinds.
 OPS_SUFFIXES: Final[tuple[str, ...]] = (".conf", ".yml", ".yaml", ".toml", ".json")
-# Spelled in full: neither a Dockerfile nor a git hook carries a suffix to match on, and INC-6
-# binds a shell file whatever it is named. `p.name` decides; the glob is a prefilter.
+# Suffixless files INC-6 still binds, matched on `p.name`; the glob is a prefilter.
 OPS_FILENAMES: Final[tuple[str, ...]] = ("Dockerfile", "pre-commit", "commit-msg", "pre-push")
 SCANNED_SUFFIXES: Final[tuple[str, ...]] = SOURCE_SUFFIXES + OPS_SUFFIXES
 
@@ -95,8 +94,7 @@ ROADMAP_RANKED_PAGES: Final[tuple[str, ...]] = (ROADMAP_PAGE, ROADMAP_TOOLING_PA
 
 Severity = Literal["fail", "report"]
 
-# The registry of record for the gate's checks: `enforced-by` resolves `docs/standard.md`'s claims
-# against it, and `Finding` refuses a name absent from it, so no check reaches a run unregistered.
+# `enforced-by` resolves the standard's claims against this; `Finding` refuses a name outside it.
 CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "anchor": frozenset({"fail"}),
     "bare-path": frozenset({"fail"}),
@@ -166,18 +164,16 @@ class Finding:
     check: str
     file: str
     detail: str
-    # A place to open rather than to search for. None wherever the check judges a whole file, a
-    # listing or the branch's diff, none of which sit on one line.
+    # None where the check judges a whole file, a listing or the diff.
     line: int | None = None
 
     def __post_init__(self) -> None:
-        # An unregistered name is how the registry falls behind the code it claims to describe.
+        # Or the registry falls behind the code.
         if self.severity not in CHECKS.get(self.check, frozenset()):
             raise ValueError(f"check `{self.check}` is not registered in CHECKS at severity `{self.severity}`")
 
     @property
     def where(self) -> str:
-        """The subject, carrying the line where the check knows one: what an editor jumps to."""
         return self.file if self.line is None else f"{self.file}:{self.line}"
 
     def human(self) -> str:
@@ -251,7 +247,6 @@ def _listed(*args: str) -> tuple[Path, ...] | None:
 
 
 def _by_name(paths: Iterable[Path]) -> dict[str, tuple[Path, ...]]:
-    """Paths indexed by filename, with the skipped directories pruned."""
     index: dict[str, list[Path]] = {}
     for path in paths:
         if not _skipped(path):
@@ -273,8 +268,7 @@ def _tree_index() -> dict[str, tuple[Path, ...]]:
 def _untracked_index() -> dict[str, tuple[Path, ...]]:
     """Every file the working tree holds and the index does not, indexed by name.
 
-    Ignorability is git's answer rather than a walk's, which is what keeps a vendored tree, a
-    build output and a deliberately ignored scratch file out of a bare-name lookup.
+    Git's ignorability, for `untracked_files`' reason.
     """
     return _by_name(_untracked_paths())
 
@@ -282,8 +276,8 @@ def _untracked_index() -> dict[str, tuple[Path, ...]]:
 def _untracked_paths() -> tuple[Path, ...]:
     """What `--others` adds to a listing, or nothing where git could not answer.
 
-    Nothing rather than a walk: both callers hold a tracked listing already, so an unanswerable
-    `--others` narrows the corpus instead of emptying it.
+    Nothing rather than a walk: both callers hold a tracked listing, so a refusal narrows the
+    corpus rather than emptying it.
     """
     return _listed("--others", "--exclude-standard") or ()
 
@@ -310,11 +304,7 @@ def _walked_index() -> dict[str, tuple[Path, ...]]:
 
 
 def _skipped(path: Path) -> bool:
-    """True for anything under a SKIP_DIRS entry at any depth.
-
-    A single segment (`node_modules`) has to match at any depth, `fl_frontend/node_modules/...`
-    being what occurs.
-    """
+    """True for anything under a SKIP_DIRS entry at any depth."""
     rel = path.relative_to(REPO_ROOT).as_posix()
     segments = rel.split("/")
     return any(rel == d or rel.startswith(f"{d}/") or ("/" not in d and d in segments) for d in SKIP_DIRS)
@@ -691,8 +681,7 @@ def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
                 closing = "*/"
             continue
 
-        # `.sh` takes `//` beside `#`: a hook's embedded node one-liner comments there, and INC-9's
-        # bound has to measure those blocks the way `_shell_comments` reads them (INC-6).
+        # `//` beside `#`, as `_shell_comments` reads a hook.
         markers = ("#", "//") if hash_only else ("//",)
         if text.startswith(markers):
             if not current:
@@ -717,8 +706,7 @@ def _of_kind(candidates: Iterable[Path]) -> tuple[Path, ...]:
 @cache
 def _kind_patterns() -> tuple[str, ...]:
     """The `ls-files` patterns that prefilter a listing to the scanned kinds."""
-    # The leading `*` carries a whole-filename pattern past the root, where an unanchored
-    # `Dockerfile` matches the root one alone. It widens to anything ENDING in the name.
+    # `*Dockerfile`, or an unanchored name matches the root file alone; `_of_kind` narrows the widening.
     return ("*.md", *(f"*{suffix}" for suffix in SCANNED_SUFFIXES), *(f"*{name}" for name in OPS_FILENAMES))
 
 
@@ -860,8 +848,8 @@ class _Answers(dict[str, bool]):
     """`check-ignore`'s answers this run, by token: a batch fills many at once, a memo serves the rest."""
 
     def cache_clear(self) -> None:
-        # Named as functools names it: the fixture net resets a module's caches through this one
-        # attribute, and a memo it cannot reach hands one case's answers to the next.
+        # functools' name, which the fixture net's cache reset calls: a memo it misses hands one case's
+        # answers to the next.
         self.clear()
 
 
@@ -877,8 +865,7 @@ def gitignored(tokens: Iterable[str]) -> frozenset[str]:
     asked = set(tokens)
     wanted = sorted(token for token in asked if token not in _IGNORED)
     if wanted:
-        # `-z` both ways: input lines are taken as written and matched spellings echo unquoted, so
-        # each maps back onto its token exactly.
+        # `-z` both ways, for `_listed`'s reason: each spelling maps back onto its token exactly.
         listing = "\0".join(spelling for token in wanted for spelling in (token, f"{token}/"))
         answer = git_input("check-ignore", "-z", "--stdin", stdin=listing)
         matched = set() if answer is None else set(answer.split("\0"))

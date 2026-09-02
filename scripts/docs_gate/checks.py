@@ -305,9 +305,8 @@ def check_roadmap() -> list[Finding]:
     Ranks run from 1 per page, not across the folder: product and tooling work are not comparable.
     """
     found: list[Finding] = []
-    # Which page ranks each id, carried out of the loop: the log is resolved against all of them at
-    # once, and a finding has to name the page the entry has to leave. A second page ranking an id
-    # is a finding on insert, never an overwrite.
+    # Carried out of the loop for the log comparison. Tested on insert: a second page ranking an id
+    # is a finding, never an overwrite.
     ranked: dict[str, str] = {}
     for rel in ROADMAP_RANKED_PAGES:
         page = tracked_page(rel)
@@ -1195,9 +1194,8 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     if not is_markdown:
         found.extend(check_invariant_citations(rel, body, invariants))
 
-    # Two necessary conditions off the raw body, sound because `_wrap_re` puts a SPACE at every join:
-    # no wrap spells a `::` or a `:` + digit the raw text lacks. The bare `::`, never the spaced
-    # form: a citation split at the wrap is the join's purpose.
+    # Prefilters, sound because `_wrap_re` joins with a SPACE: no wrap spells a `::` or `:`digit the
+    # raw text lacks. Bare `::`, never the spaced form: a citation split at the wrap is the join's purpose.
     cites = "::" in body
     cites_lines = LINE_CITATION_HINT_RE.search(body) is not None
     if cites or cites_lines:

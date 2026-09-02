@@ -355,13 +355,12 @@ def ci_scopes(files: list[str]) -> dict[str, bool] | None:
 def images_culprits(files: list[str]) -> list[str]:
     """Which of these files is the reason the images scope is required. The failure path only.
 
-    Concurrently: it costs one `bash` launch per file, and serially that outran the whole gate.
-    `map` answers in the input's order.
+    Concurrent: one `bash` launch per file, and in series that outran the whole gate. `map` keeps
+    input order.
     """
     if not files:
         return []
-    # Safe to overlap: `--stdin` mode reads its input and writes nothing. The pool's own default
-    # width, `min(32, cpus + 4)`, is already the one for waiting on a process.
+    # `--stdin` mode writes nothing. The default width, `min(32, cpus + 4)`, suits waiting on processes.
     pool = ThreadPoolExecutor()
     try:
         asked = list(pool.map(lambda path: (ci_scopes([path]) or {}).get("images"), files))

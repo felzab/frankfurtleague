@@ -13,9 +13,6 @@ cannot be registered against a plant in one of them and unknown to the other.
 
 from __future__ import annotations
 
-# Imported rather than reachable through a helper module: `CASES` is a table of closures over the
-# fixture's own corpus, and another home for either would be another answer to which plant a check
-# is held to.
 from test_check_docs import CASES, _mismatches
 
 
