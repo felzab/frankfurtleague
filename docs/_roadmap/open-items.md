@@ -100,8 +100,8 @@ own `Path` line.
 **Path:** Independent. **BE-42** stands on the same acceptance and holds the decided question of
 what that write publishes rather than what the queue can show, and neither blocks the other. **FB-17** would add the second
 surface a stranger writes rows through, so whatever answers this is what that flow inherits.
-`.claude/CLAUDE.md` §7 fixes one edge a repair sits inside: a triage option is not withdrawn on a zero
-count, and the offer's order comes from the label table —
+`.claude/rules/frontend.md` fixes one edge a repair sits inside: a triage option is not withdrawn on a
+zero count, and the offer's order comes from the label table —
 `fl_frontend/src/features/bewerbungen/constants.ts :: BEWERBUNG_STATUS_OPTIONS`, which holds the
 states in the order the triage works them down.
 
@@ -145,8 +145,8 @@ leaving the default view means a `status` term on the server read. The panel the
 against the rows it was handed — `fl_frontend/src/shared/utils/facets.ts :: countFacetOptions` over the
 loaded list — and `fl_frontend/src/shared/components/ui/FilterPanel.tsx` disables an option standing at
 zero unless it is already picked. Narrow the server read to `eingereicht` and both other statuses stand
-at zero, so both go dead and the archive is unreachable from the control that hid it. §7 forbids
-withdrawing an option on a zero count, and disabling one arrives in the same place by another route.
+at zero, so both go dead and the archive is unreachable from the control that hid it. The **admin**
+clause in `.claude/rules/frontend.md` forbids withdrawing an option on a zero count, and disabling one arrives in the same place by another route.
 **So the counts have to come from the server in the same change**, or the narrowing has to be stated
 somewhere the facet does not read.
 
@@ -423,7 +423,7 @@ because the live data already holds the state and refusing it would make those r
 **Status:** Open\
 **Surfaces:** FE, BE\
 **Effort:** L — the write path's payload contract moves with it, and the published document and its Zod mirror move with that\
-**Path:** Independent. `.claude/CLAUDE.md` §7 fixes two edges a repair may not cross — the undo offer is scoped to the destructive save, and a route-handled undo may not sit outside a page-owned editor — so what moves is the payloads rather than where the undo lives. BE-15's restore over the action log answers the same question in a wider place and blocks nothing here.
+**Path:** Independent. `.claude/rules/frontend.md` fixes two edges a repair may not cross — the undo offer is scoped to the destructive save, and a route-handled undo may not sit outside a page-owned editor — so what moves is the payloads rather than where the undo lives. BE-15's restore over the action log answers the same question in a wider place and blocks nothing here.
 
 **A save on `/admin/spiele/[spiel_id]` can rewrite fixtures nobody opened, and the undo offered for it
 puts each of them back as a whole document.**
@@ -530,8 +530,8 @@ that table states.
 
 **`number_of_groups`, `qualifiers_per_group` and `teams_per_group` are `SaisonRuleNumberField`
 steppers in both the create modal and the Regeln panel, and the combinations they accept are wider
-than the ones a season can be saved in.** CLAUDE.md §7 bars exactly this — _Offer in the form wiring
-the write path refuses_ — and the three shape fields are where the product still does it. The clearest
+than the ones a season can be saved in.** The **saisons** clause in `.claude/rules/cross-surface.md`
+bars exactly this — _Offer in the form wiring the write path refuses_ — and the three shape fields are where the product still does it. The clearest
 instance needs no arithmetic at all:
 `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/spielplanShape.ts ::
 SHAPE_FIELDS` gives `qualifiers_per_group` a `minValue` of 1 and **no maximum**, so the stepper walks
@@ -582,8 +582,8 @@ is an undrawn season, where occupancy is the sole remaining stored constraint.
 one.** The selects eliminate a round trip, never a rule. A stale tab holds an offer derived from rules
 that have since changed; the API is reachable without the form; and a derived offer is a further
 mirror of backend rules that can drift —
-`fl_frontend/src/features/saisons/schemas.ts :: hasPlayableBracket` is already the second, and §7
-holds the Zod mirror to presence, required, nullable, type and enum, so `fl_frontend/src/core/apiContract.test.ts`
+`fl_frontend/src/features/saisons/schemas.ts :: hasPlayableBracket` is already the second, and
+`.claude/rules/cross-surface.md` holds the Zod mirror to presence, required, nullable, type and enum, so `fl_frontend/src/core/apiContract.test.ts`
 compares no numeric bound and would not catch the drift. The offer therefore needs a test of its own
 pinning it against the backend's rule functions;
 `fl_frontend/src/features/saisons/recordedFactMirror.test.ts` is the precedent for parsing the Python
@@ -928,18 +928,18 @@ written down as resting on a bound in one file rather than on the read being saf
 **Status:** Open\
 **Surfaces:** FE, Docs\
 **Effort:** S\
-**Path:** Independent — `.claude/CLAUDE.md` §7 forbids touching one of its lines without an
-instruction naming it, so this entry is the instruction being asked for.
+**Path:** Independent — `.claude/CLAUDE.md` §7 forbids touching one of its clauses, wherever it loads
+from, without an instruction naming it, so this entry is the instruction being asked for.
 
-**`.claude/CLAUDE.md` §7 permits a toast to be styled from CSS at the shell and at the frontmost
+**`.claude/rules/frontend.md` permits a toast to be styled from CSS at the shell and at the frontmost
 close button, and `fl_frontend/src/app/globals.css` styles a surface past both.** The block there
 sets `.toast` and each of its `--<variant>` modifiers, the close button under `[data-frontmost]`, and
 the timer bar — its animation, and the pause the region's hover and focus put on it.
 
 **The same rule is stated in a wider place, and the wider statement is the one that fits the code.**
 [`docs/frontend/spec.md`](../frontend/spec.md) I23 states it as a ban on adding — never a new
-`.toast*` rule in a stylesheet — which names the surface rather than counting it. §7 states it as a
-bound on what may be styled at all, and the bound it names falls short of what the stylesheet holds.
+`.toast*` rule in a stylesheet — which names the surface rather than counting it. The **toast** clause
+states it as a bound on what may be styled at all, and the bound it names falls short of what the stylesheet holds.
 PRE-1's ladder puts the code above the spec sheet and the spec sheet above `.claude/CLAUDE.md`, so
 the clause is the loser of both.
 
@@ -1301,8 +1301,8 @@ every dynamic caller, the uncached page-render reads included. What is left for 
 half no application code can reach.
 
 **What it would reverse.** That the identifier is a single id on a custom header. The reversal is
-recorded where it will be read — a comment at the line it constrains, a `.claude/CLAUDE.md` §7 line,
-or an invariant on `docs/logging/spec.md` — and the argument for it goes in the closing commit's
+recorded where it will be read — a comment at the line it constrains, a `.claude/CLAUDE.md` §7 line or
+a `.claude/rules/` clause, or an invariant on `docs/logging/spec.md` — and the argument for it goes in the closing commit's
 body. What survives untouched is the stream contract, the error-code system and the edge's refusal
 of a client-supplied id — a `traceparent` from an untrusted client carries exactly the same
 log-injection risk and must be validated or replaced the same way.
@@ -1474,7 +1474,7 @@ operator repairing by hand has the least help with.
 **A variant costs more than a `reason` string.** A fault is a member of
 `fl_backend/app/api/spiele/schemas.py :: FLBracketFault`, a case in
 `fl_backend/app/api/spiele/services.py :: _fault_order`, a mirror in
-`fl_frontend/src/features/spiele/schemas.ts` that `.claude/CLAUDE.md` §7 holds to hand-writing, a
+`fl_frontend/src/features/spiele/schemas.ts` that `.claude/rules/cross-surface.md` holds to hand-writing, a
 published property in `fl_backend/openapi.json`, and a German sentence in each of
 `fl_frontend/src/features/spiele/utils.ts :: formatBracketFault` and `:: describeBracketFaultOnCard`.
 Both switches are exhaustive, so the compiler names them; nothing names the German. I28's own
@@ -1736,7 +1736,7 @@ are sized.
 **Effort:** S\
 **Path:** Independent — no pass covers it, and only the trigger below reopens it. **BE-29** rests on
 the same bound this entry does, so whatever removes that bound reopens both. **BE-47** is the shape
-again where a third thing answers it: nothing reaches the read at all. `.claude/CLAUDE.md` §7 keeps
+again where a third thing answers it: nothing reaches the read at all. `.claude/rules/backend.md` keeps
 `fl_backend/app/api/spiele/services.py` free of an `await` and a collection, and the repair needs
 neither.
 
