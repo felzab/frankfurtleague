@@ -23,11 +23,11 @@
 ```mermaid
 graph LR
     b["branch off main"] --> c["commit"]
-    c --> v["./scripts/verify.sh"]
+    c --> v["./scripts/gate/verify.sh"]
     v --> pr["pull request"]
     pr --> m["merge to main"]
-    m --> p["./scripts/publish.sh<br/>(dev machine)"]
-    p --> d["./scripts/deploy.sh<br/>(server)"]
+    m --> p["./scripts/ops/publish.sh<br/>(dev machine)"]
+    p --> d["./scripts/ops/deploy.sh<br/>(server)"]
 ```
 
 Two gaps in that chain are deliberate. **Images are built on the development machine, never on the
@@ -36,7 +36,7 @@ down. **Merging does not deploy**: publishing and deploying are separate manual 
 automation between `main` and production.
 
 **Order a data change against the deployed image, never against `main`.** `main` routinely describes
-a service that is not running, and `./scripts/deploy.sh --status` is what names the live commit.
+a service that is not running, and `./scripts/ops/deploy.sh --status` is what names the live commit.
 
 Everything up to the merge is dev (Windows, Git Bash); publishing is dev and deploying is the server.
 
@@ -82,11 +82,11 @@ Four things a body carries that the diff cannot:
 
 No issue-closing keywords, no emoji, no trailers — except a closing paragraph that is sign-offs and
 nothing else, which is what Dependabot's generator always writes and the only trailer form the
-checker releases, on an exact author identity (`scripts/check_commits.py :: BOT_IDENTITIES`, and
+checker releases, on an exact author identity (`scripts/checks/check_commits.py :: BOT_IDENTITIES`, and
 [`templates.md`](templates.md) for what else that identity releases there). Work is never signed as
 AI-generated, which overrides any tool default appending a `Co-Authored-By` line.
 
-**None of that rests on memory.** `scripts/check_commits.py` refuses a malformed message as a
+**None of that rests on memory.** `scripts/checks/check_commits.py` refuses a malformed message as a
 `commit-msg` hook when you write it, in the `--docs` gate scope before you push, and in CI on every
 pull request. It reads the branch's own commits, never history, which predates the convention.
 `git config core.hooksPath .githooks` installs every hook in that folder, this one among them, and
@@ -97,8 +97,8 @@ Beyond that list:
 
 - A non-blank second line is refused — git otherwise reads the whole message as the subject.
 - A subject longer than GitHub shows in a list view is reported
-  (`scripts/check_commits.py :: SUBJECT_TARGET`); one longer still, past the width at which nothing
-  wrapped it for any view, is refused instead (`scripts/check_commits.py :: LINE_MAX`).
+  (`scripts/checks/check_commits.py :: SUBJECT_TARGET`); one longer still, past the width at which nothing
+  wrapped it for any view, is refused instead (`scripts/checks/check_commits.py :: LINE_MAX`).
 - A scope outside the recorded set is reported, not refused.
 - A body recording no verification is reported, not refused — and not reported at all for a commit
   Dependabot wrote, whose generator records none and has no way to.
@@ -152,7 +152,7 @@ at anything under it from a body.
 ### 1.5 The verification gate
 
 ```bash
-./scripts/verify.sh
+./scripts/gate/verify.sh
 ```
 
 Scopes run concurrently, and `verify.sh` replays their output in cheapest-to-fail order, so a parallel
@@ -162,7 +162,7 @@ measured against, the diff check that refuses an undersized scope and the CI job
 [`../ops/spec.md`](../ops/spec.md) §1.6, which owns `scripts/`.
 
 `.githooks/pre-push` prints, at the moment of a push, the scopes CI would run for it —
-`scripts/ci_scopes.sh`'s answer against the remote's default branch, a **stand-in** for the target
+`scripts/gate/scope_map.sh`'s answer against the remote's default branch, a **stand-in** for the target
 the pull request will name, so a branch chained onto another topic branch is over-reported. It is
 advisory and exits 0 on every path, its own failure included; §1.3's `core.hooksPath` line installs it.
 
@@ -170,7 +170,7 @@ advisory and exits 0 on every path, its own failure included; §1.3's `core.hook
 > root `.prettierrc.json`, and what stays out is decided by one ignore file, `.prettierignore` beside
 > it. There is no path list to keep in step, so moving, renaming or adding a file cannot make the
 > formatter fail on a path that is not there. **Verify with a gate run whose scope includes the
-> formatter — `./scripts/verify.sh --format`, or any run that implies it, such as `--frontend` or
+> formatter — `./scripts/gate/verify.sh --format`, or any run that implies it, such as `--frontend` or
 > `--quick` — never with a hand-written `prettier` command**, which covers the paths you happen to
 > remember. In CI the `format` job runs the check for changes outside `fl_frontend`.
 
@@ -280,9 +280,9 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 | I1  | `main` takes changes only through a pull request              | the ruleset                                           |
 | I2  | Merge commits are the only permitted merge method             | Settings → General, and linear history off            |
 | I3  | Every pull request a person opens is opened as a draft        | convention; a draft cannot be merged                  |
-| I4  | Every commit on a branch carries a body                       | `scripts/check_commits.py`                            |
-| I5  | No commit is signed as AI-generated                           | `scripts/check_commits.py :: BANNED`                  |
-| I6  | The gate's scope is checked against the diff before it runs   | `scripts/check_scope.py`                              |
+| I4  | Every commit on a branch carries a body                       | `scripts/checks/check_commits.py`                     |
+| I5  | No commit is signed as AI-generated                           | `scripts/checks/check_commits.py :: BANNED`           |
+| I6  | The gate's scope is checked against the diff before it runs   | `scripts/checks/check_scope.py`                       |
 | I7  | Required status checks are added by hand in the ruleset panel | the ruleset                                           |
 | I8  | Every action is pinned to a full commit SHA                   | review of `.github/workflows/` and `.github/actions/` |
 | I9  | Every workflow triggers on `pull_request`                     | `.github/workflows/`                                  |

@@ -9,7 +9,7 @@ SCRIPTS: Final = Path(__file__).resolve().parent.parent
 
 # One arm per shell that degrades on the status rather than on the failure. A site added elsewhere
 # is outside what this can see.
-ARMS: Final[tuple[tuple[str, str], ...]] = (("verify.sh", "OPS_FLOOR"), ("selfcheck.sh", "CLASSIFIER_FLOOR"))
+ARMS: Final[tuple[tuple[str, str], ...]] = (("gate/verify.sh", "OPS_FLOOR"), ("gate/selfcheck.sh", "CLASSIFIER_FLOOR"))
 
 
 def _crash_status() -> int:
@@ -18,7 +18,7 @@ def _crash_status() -> int:
     Read out of the source, never imported: the module raises on an interpreter below its own floor,
     which is the case this pairing exists for.
     """
-    source = (SCRIPTS / "checker_kernel.py").read_text(encoding="utf-8")
+    source = (SCRIPTS / "lib" / "checker_kernel.py").read_text(encoding="utf-8")
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.AnnAssign) and node.value is not None and getattr(node.target, "id", "") == "EXIT_CRASH":
             return int(ast.literal_eval(node.value))

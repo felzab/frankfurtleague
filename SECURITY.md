@@ -47,7 +47,7 @@ Particularly welcome:
 ## Please do not
 
 Test against **frankfurtleague.de** — it carries real league data that people rely on during a
-season. Run it locally instead: `./scripts/local.sh` builds and serves the production image on your
+season. Run it locally instead: `./scripts/ops/local.sh` builds and serves the production image on your
 own machine, behind the same nginx configuration, which demonstrates almost anything.
 
 ## Scope of this policy

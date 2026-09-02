@@ -2,8 +2,8 @@
 
 **Purpose:** every rule a written artifact in this repository follows — `docs/` pages, module
 headers, docstrings, comments, prompts, command files, commit messages and pull request bodies.
-The mechanical defence is `scripts/check_docs.py`, run by `./scripts/verify.sh` in its docs scope;
-the registry of its checks is `scripts/docs_gate/kernel.py :: CHECKS`, and the finding a check
+The mechanical defence is `scripts/checks/check_docs.py`, run by `./scripts/gate/verify.sh` in its docs scope;
+the registry of its checks is `scripts/checks/docs_gate/kernel.py :: CHECKS`, and the finding a check
 prints says what its failure means.
 
 | Section                   | Holds                                        |
@@ -197,7 +197,7 @@ scannable side by side — and every other rule here binds them.
 **Rule:** a module header survives in a **shell script**, and in a Python module under
 `fl_backend/app/`, `fl_backend/tests/` or `scripts/` — the tests in both trees included — carrying
 a fact that attaches to no symbol: an exit contract, a one-cache-per-run rule, a carve-out the
-whole module rests on; `scripts/docs_gate/checks.py :: HEADER_SCOPES` is that scope. TypeScript,
+whole module rests on; `scripts/checks/docs_gate/checks.py :: HEADER_SCOPES` is that scope. TypeScript,
 TSX and JavaScript modules carry none: a comment sits at the thing it explains. Where one survives
 it is a plain block — a title line `<TOKEN> · <what this module is>`,
 at most three sentences why-first, a sentence of plain "what" allowed where the file's contents do
@@ -249,7 +249,7 @@ number: the 2026-08-01 repository recreation destroyed every issue that existed.
 outside this repository is pinned to a commit — one naming a branch and a line range drifts
 silently. The gate scans comments in every tracked TypeScript, JavaScript, Python and shell file,
 and every tracked configuration file scanned beside them
-(`scripts/check_docs.py :: SCANNED_SUFFIXES`), Dockerfiles included. Executable code is not
+(`scripts/checks/check_docs.py :: SCANNED_SUFFIXES`), Dockerfiles included. Executable code is not
 scanned: a path-shaped string in a function body is data. An unbackticked path in a comment is
 read too, because an unmarked path is how a dead one survives a green gate.
 

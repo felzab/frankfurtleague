@@ -6,19 +6,19 @@
 # summary on stderr where it cannot leak into the outputs. Arms are matched most-specific-first and
 # a path no arm recognises turns every scope on, so a new kind of file can never skip validation.
 #
-#   ./scripts/ci_scopes.sh origin/main   scopes for the diff against the merge base with that ref
-#   ./scripts/ci_scopes.sh --all         every scope true — a push to main proves everything
-#   ./scripts/ci_scopes.sh --stdin       scopes for a file list on stdin, one path per line
-#   ./scripts/ci_scopes.sh --help
+#   ./scripts/gate/scope_map.sh origin/main   scopes for the diff against the merge base with that ref
+#   ./scripts/gate/scope_map.sh --all         every scope true — a push to main proves everything
+#   ./scripts/gate/scope_map.sh --stdin       scopes for a file list on stdin, one path per line
+#   ./scripts/gate/scope_map.sh --help
 
-source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
 MODE=""; FIRST_ARG=""
-# Guarded in every mode arm, not the base-ref one alone: otherwise `ci_scopes.sh origin/main --all`
+# Guarded in every mode arm, not the base-ref one alone: otherwise `scope_map.sh origin/main --all`
 # silently discards the ref while the same two arguments the other way round are refused.
 
 # `refuse`, not `die`, here and below: a mapping this could not produce is an input nobody can act
-# on as a finding, and `scripts/checker_kernel.py`'s contract spells that 2 rather than 1.
+# on as a finding, and `scripts/lib/checker_kernel.py`'s contract spells that 2 rather than 1.
 one_mode() { [[ -z "$MODE" ]] || refuse "Give one base ref, --all or --stdin — not more than one ('${FIRST_ARG}' and then '${1}')."; FIRST_ARG="$1"; }
 
 for arg in "$@"; do
@@ -118,12 +118,12 @@ else
       # .gitattributes decides line endings at checkout, which is exactly what the scripts' CRLF
       # self-check exists to catch on a fresh clone.
 
-      # `docs` too: `scripts/docs_gate/checks.py` reads this file for its `line-endings` check and
+      # `docs` too: `scripts/checks/docs_gate/checks.py` reads this file for its `line-endings` check and
       # for the exemption it defines as the `binary` macro's expansion, so editing it moves what
       # that scope proves.
       .gitattributes) scripts=true; docs=true ;;
       # `.gitignore` decides which paths the documentation gate scans and which citations it
-      # excuses (`scripts/docs_gate/kernel.py :: is_gitignored`), so widening it narrows what
+      # excuses (`scripts/checks/docs_gate/kernel.py :: is_gitignored`), so widening it narrows what
       # --docs proves while nothing else reads the widening.
       .gitignore) docs=true ;;
       # No automated check exists for these. A deliberate, named list — anything NOT named here

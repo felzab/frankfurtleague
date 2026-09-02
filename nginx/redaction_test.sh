@@ -18,8 +18,8 @@
 # a request at all, while the three map blocks and the `log_format` are identical between the pair.
 
 _here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=scripts/_lib.sh
-source "${_here}/scripts/_lib.sh"
+# shellcheck source=scripts/lib/_lib.sh
+source "${_here}/scripts/lib/_lib.sh"
 
 require_docker
 # curl, not the image's own wget: a client that tidies a path before sending it rewrites //api,
@@ -59,7 +59,7 @@ server {
 }
 STUB
 
-# The pinned tag, for `scripts/verify.sh`'s nginx step's reason; the leading slash on each `-v`
+# The pinned tag, for `scripts/gate/verify.sh`'s nginx step's reason; the leading slash on each `-v`
 # subject is the same MSYS exclusion that step uses.
 MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -p 127.0.0.1:0:80 \

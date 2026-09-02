@@ -41,7 +41,7 @@ did the reasonable thing in their absence.
                 the index. `git checkout -- <path>` is included: it restores from the INDEX, not
                 from the last commit, so in a shared tree it discards a colleague's unstaged work.
                 Write your proposed commit message to the scratch path; I assemble every commit.
-                The gate is mine as well. `./scripts/verify.sh` is a wave-boundary instrument and
+                The gate is mine as well. `./scripts/gate/verify.sh` is a wave-boundary instrument and
                 a run over a tree a dozen agents are writing exits non-zero on somebody else's
                 half-written file, so drive your own checks by calling the underlying tool.
                 `.claude/CLAUDE.md` §2 defines a finished task as one whose branch is pushed and

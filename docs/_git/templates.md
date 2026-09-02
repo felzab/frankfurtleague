@@ -48,18 +48,18 @@ programme in progress leads with its own name (`Wave 6`):
 
 Dependabot writes to the same shape, leading with whichever prefix `.github/dependabot.yml` gives
 the update entry. It shares the dependency scopes above with a person; its base-image prefixes are
-its alone, an image bump made by hand being `Ops`. `scripts/check_commits.py :: KNOWN_SCOPES` is the
+its alone, an image bump made by hand being `Ops`. `scripts/checks/check_commits.py :: KNOWN_SCOPES` is the
 recorded vocabulary, those prefixes and the scopes above together. A subject reaching more than one surface
 combines them — `Backend + Frontend` — and each component is resolved against that vocabulary on its
-own (`scripts/check_commits.py :: unknown_scope`).
+own (`scripts/checks/check_commits.py :: unknown_scope`).
 
-`scripts/check_commits.py` refuses a `Co-authored-by` or a `Signed-off-by` trailer
-(`scripts/check_commits.py :: BANNED`), and a subject or a body line past the hard maximum
-(`scripts/check_commits.py :: LINE_MAX`) — unless that line is one unbroken token or carries a long
-URL, which wrapping would break (`scripts/check_commits.py :: UNWRAPPABLE`).
+`scripts/checks/check_commits.py` refuses a `Co-authored-by` or a `Signed-off-by` trailer
+(`scripts/checks/check_commits.py :: BANNED`), and a subject or a body line past the hard maximum
+(`scripts/checks/check_commits.py :: LINE_MAX`) — unless that line is one unbroken token or carries a long
+URL, which wrapping would break (`scripts/checks/check_commits.py :: UNWRAPPABLE`).
 
 A commit Dependabot wrote — matched on an exact author identity
-(`scripts/check_commits.py :: BOT_IDENTITIES`), never a substring — is released from the sign-off
+(`scripts/checks/check_commits.py :: BOT_IDENTITIES`), never a substring — is released from the sign-off
 refusal and from the wrapped-body rule, which its own generator gives it no way to satisfy, and
 from no other refusal here.
 
@@ -79,7 +79,7 @@ says most of it.>
 **Reviewer's first look.** <Optional: the one thing in the branch that deserves attention before
 the rest.>
 
-**Verified.** <The `./scripts/verify.sh` invocation — its scopes and its exit code — and the parts
+**Verified.** <The `./scripts/gate/verify.sh` invocation — its scopes and its exit code — and the parts
 worth naming, with numbers. Plus any manual check and its result. Say plainly what could not be
 verified, and why. This is the one heading never dropped.>
 
@@ -90,9 +90,9 @@ Divergences resolved during the work belong here too.>
 why. Drop a heading rather than padding it: nothing left undone means no heading.>
 ```
 
-`scripts/check_pr_body.py` refuses a body still carrying this form's placeholder prose, a body with
+`scripts/checks/check_pr_body.py` refuses a body still carrying this form's placeholder prose, a body with
 no Verified section, a summary above the first heading past 500 words, and three or more
 **consecutive** list items each carrying a commit hash. A line of prose breaks that run; a blank
-line does not (`scripts/check_pr_body.py :: longest_commit_run`). A body Dependabot opened is
-skipped whole (`scripts/check_pr_body.py :: BOT_AUTHORS`); this form governs human-authored bodies
+line does not (`scripts/checks/check_pr_body.py :: longest_commit_run`). A body Dependabot opened is
+skipped whole (`scripts/checks/check_pr_body.py :: BOT_AUTHORS`); this form governs human-authored bodies
 alone.

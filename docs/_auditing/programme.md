@@ -172,7 +172,7 @@ Every step below is the session's job, in this order, with none skipped.
 ### 4.1 Run the full gate
 
 ```bash
-./scripts/verify.sh
+./scripts/gate/verify.sh
 ```
 
 **The full gate runs on every wave.** The one exception is a wave that changed **documentation

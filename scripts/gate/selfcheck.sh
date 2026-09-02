@@ -5,11 +5,11 @@
 # `bash -n` checks syntax alone: a script can call a helper that does not exist and pass it. What
 # did not run reaches the gate as well as the screen, through `$FL_SELFCHECK_LEDGER`.
 #
-#   ./scripts/selfcheck.sh
-#   ./scripts/selfcheck.sh --verbose     one check at a time, and every finding in full
-#   ./scripts/selfcheck.sh --help
+#   ./scripts/gate/selfcheck.sh
+#   ./scripts/gate/selfcheck.sh --verbose     one check at a time, and every finding in full
+#   ./scripts/gate/selfcheck.sh --help
 
-source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
 # Arguments are read first, and this script joins RUNNABLE only below: the flag checks run every
 # runnable script, so a suite answering neither would run itself recursively.
@@ -23,7 +23,7 @@ for arg in "$@"; do
   esac
 done
 
-RUNNABLE=(local.sh verify.sh publish.sh deploy.sh ci_scopes.sh selfcheck.sh)
+RUNNABLE=(ops/local.sh gate/verify.sh ops/publish.sh ops/deploy.sh gate/scope_map.sh gate/selfcheck.sh)
 
 # The roots keep the names `.gitignore` documents, and each run owns a subdirectory inside them:
 # concurrent runs share a path, and one run's setup would delete another's tree from under it.
@@ -32,7 +32,7 @@ HOOK_FIXTURES="${REPO_ROOT}/.tmp-hook-fixtures"
 RUN_ID="$$"
 
 # One EXIT trap for the whole run: bash keeps one, so a second `trap … EXIT` below would silently
-# replace it. INT and TERM stay `scripts/_lib.sh`'s, which exits 130 and so fires this.
+# replace it. INT and TERM stay `scripts/lib/_lib.sh`'s, which exits 130 and so fires this.
 SELFCHECK_TMP="$(mktemp -d)"
 cleanup() {
   rm -rf "$SELFCHECK_TMP" "${SCOPE_FIXTURES:?}/${RUN_ID}" "${HOOK_FIXTURES:?}/${RUN_ID}"
@@ -180,7 +180,7 @@ par_run() { # $1 unit function, called as `$1 <index> <item> <label>` once per q
 
 # --- The third-party checkers, started early -----------------------------------------------------
 
-# SC1091 is excluded throughout: shellcheck cannot follow the sourced `scripts/_lib.sh`. SC2034 is
+# SC1091 is excluded throughout: shellcheck cannot follow the sourced `scripts/lib/_lib.sh`. SC2034 is
 # annotated at the line instead, so a new unused-looking assignment justifies itself where written.
 
 # Pinned so new checks arrive by a named bump, never as drift. By hand (`.github/dependabot.yml`'s
@@ -426,7 +426,7 @@ function emit(w, nextc, atcmd) {
 
 declare -A DEFINED=()
 while IFS= read -r fn; do DEFINED["$fn"]=1; done \
-  < <(grep -oE '^[a-z_]+\(\)' scripts/_lib.sh | tr -d '()')
+  < <(grep -oE '^[a-z_]+\(\)' scripts/lib/_lib.sh | tr -d '()')
 CALL_SITES=0
 for f in "${RUNNABLE[@]}"; do
   [[ -f "scripts/$f" ]] || continue
@@ -535,7 +535,7 @@ step "7. Machine-specific scripts declare a target platform"
 # Through the reader above, not a text search: `grep -q require_platform` is satisfied by the name
 # sitting in a comment. Run, or handed to a wrapper, both count; a mention in a comment or a string
 # does not. Wired is all this proves, not that it fires.
-for f in local.sh publish.sh deploy.sh; do
+for f in ops/local.sh ops/publish.sh ops/deploy.sh; do
   guard="${SELFCHECK_TMP}/platform-sites.tsv"
   if ! awk "$CMD_WORDS" "scripts/$f" > "$guard" 2>/dev/null; then
     note_fail "$f: its call sites could not be read, so its platform guard was not checked"
@@ -579,10 +579,10 @@ WORKFLOW=".github/workflows/verify.yml"
 declared="${SELFCHECK_TMP}/scopes-declared.txt"
 ran="${SELFCHECK_TMP}/scopes-in-ci.txt"
 declared_rc=0; ran_rc=0
-grep -oE '^add_scope[[:space:]]+[a-z]+' scripts/verify.sh | awk '{ print $2 }' | sort -u > "$declared" || declared_rc=$?
+grep -oE '^add_scope[[:space:]]+[a-z]+' scripts/gate/verify.sh | awk '{ print $2 }' | sort -u > "$declared" || declared_rc=$?
 # The workflow read stands alone, its status kept: under `pipefail` a later stage's 1 for "nothing
 # came through" would hide this stage's 2 for a file it could not open.
-grep -E '^[[:space:]]+(-[[:space:]]+)?run:[[:space:]]+\./scripts/verify\.sh([[:space:]]|$)' "$WORKFLOW" \
+grep -E '^[[:space:]]+(-[[:space:]]+)?run:[[:space:]]+\./scripts/gate/verify\.sh([[:space:]]|$)' "$WORKFLOW" \
   > "${ran}.lines" 2>/dev/null || ran_rc=$?
 if (( ran_rc <= 1 )); then
   grep -oE -- '--[a-z]+' "${ran}.lines" | sed 's/^--//' | sort -u > "$ran" || true
@@ -734,7 +734,7 @@ else
   printf 'const marker = "a//b";\n'                    > "$FIXTURES/code.old.ts"
   printf 'const marker = "a//c";\n'                    > "$FIXTURES/code.new.ts"
   # JSX, because the script kind follows the extension and this misparses as plain TypeScript: the
-  # branch of `scripts/ts_normalize.mjs :: normalize` that nothing else exercises.
+  # branch of `scripts/checks/ts_normalize.mjs :: normalize` that nothing else exercises.
   printf 'const el = <div className="a">x</div>;\n// first\n'  > "$FIXTURES/comment.old.tsx"
   printf 'const el = <div className="a">x</div>;\n// second\n' > "$FIXTURES/comment.new.tsx"
   printf 'const el = <div className="a">x</div>;\n'            > "$FIXTURES/code.old.tsx"
@@ -757,7 +757,7 @@ else
     local spec="$2" name ext want got
     name="${spec%%:*}"; spec="${spec#*:}"
     ext="${spec%%:*}"; want="${spec#*:}"
-    got="$("$CLASSIFIER" scripts/check_scope.py --compare \
+    got="$("$CLASSIFIER" scripts/checks/check_scope.py --compare \
       "${FIXTURES}/${name}.old.${ext}" "${FIXTURES}/${name}.new.${ext}" 2>&1 || true)"
     if [[ "$got" == "$want" ]]; then
       printf 'info\t%s — %s\n' "$3" "$want"
@@ -771,7 +771,7 @@ else
 
   # A probe that cannot answer is either a missing typescript or a broken normalizer, so locally
   # the safe degradation is asserted instead. CI installs the frontend, so there silence fails.
-  if node scripts/ts_normalize.mjs "$FIXTURES/comment.old.ts" "$FIXTURES/comment.old.ts" >/dev/null 2>&1; then
+  if node scripts/checks/ts_normalize.mjs "$FIXTURES/comment.old.ts" "$FIXTURES/comment.old.ts" >/dev/null 2>&1; then
     expect_verdict comment ts  comment-only
     expect_verdict comment tsx comment-only
   elif [[ -n "${GITHUB_ACTIONS:-}" ]]; then
@@ -825,7 +825,7 @@ else
       # certs/ is here because the real repository ignores it: without that line the credential
       # override never decides a certs path here, and the probes on it cannot fail.
       printf 'docs/audit/\n.vscode/\ncerts/\n' > .gitignore
-      for tracked in notes.md scripts/verify.sh scripts/check_docs.py src/tracked.py \
+      for tracked in notes.md scripts/gate/verify.sh scripts/checks/check_docs.py src/tracked.py \
         fl_frontend/package.json fl_frontend/src/app.ts fl_frontend/src/clean.ts \
         fl_frontend/src/features/keep.ts docs/standard.md \
         docs/audit/tracked-note.md docs/audit/note.md \
@@ -934,7 +934,7 @@ else
     probe "$ht" denied  file "${hook_root}/fl_frontend/src/leaked.ts"          'branch guard: a file that does not exist yet'
     probe "$ht" denied  file "${hook_root}/fl_frontend/src/app/new-page.tsx"   'branch guard: a new route file'
     probe "$ht" denied  file "${hook_root}/fl_frontend/src/features/new/x.ts"  'branch guard: inside a new feature dir'
-    probe "$ht" denied  file "${hook_root}/scripts/verify.sh"                  'branch guard: a tracked script'
+    probe "$ht" denied  file "${hook_root}/scripts/gate/verify.sh"                  'branch guard: a tracked script'
     probe "$ht" denied  file "${hook_root}/Makefile"                           'branch guard: bare extensionless root file'
 
     # The gitignore exemption, still on main: ignored AND untracked is "writes no tracked file",
@@ -963,8 +963,8 @@ else
     probe "$hb" allowed cmd 'git log --oneline -5'                             'bash guard: a read'
     # A payload nobody could read is a question nobody answered. Every guard answers it alike.
     probe "$hb" denied  raw 'not json'                                         'bash guard: unparseable payload'
-    probe "$hb" denied  cmd 'sed -i s/a/b/ scripts/verify.sh'                  'bash guard: sed -i on a tracked file'
-    probe "$hb" denied  cmd 'printf x > scripts/verify.sh'                     'bash guard: redirect into a tracked file'
+    probe "$hb" denied  cmd 'sed -i s/a/b/ scripts/gate/verify.sh'                  'bash guard: sed -i on a tracked file'
+    probe "$hb" denied  cmd 'printf x > scripts/gate/verify.sh'                     'bash guard: redirect into a tracked file'
     probe "$hb" allowed cmd 'printf x > docs/audit/note.md'                    'bash guard: write an ignored path'
     probe "$hb" allowed cmd 'sed -i s/a/b/ docs/audit/note.md'                 'bash guard: sed -i on an ignored path'
     probe "$hb" allowed cmd 'mkdir docs/audit/newdir'                          'bash guard: mkdir under an ignored path'
@@ -1018,8 +1018,8 @@ else
     probe "$hb" denied cmd 'mkdir -p fl_frontend/src/features/newthing docs/audit/tmp' 'bash guard: a new feature dir'
     probe "$hb" denied cmd 'cp --target-directory=fl_frontend/src docs/audit/note.md'  'bash guard: target hidden in a flag'
     probe "$hb" denied cmd 'git apply --directory=fl_frontend/src docs/audit/change.patch' 'bash guard: patch directory flag'
-    probe "$hb" denied cmd 'sed -i s/a/b/ SCRIPTS/VERIFY.SH docs/audit/note.md' 'bash guard: case-varied tracked path'
-    probe "$hb" denied cmd 'sed -i s/a/b/ scripts/Verify.sh docs/audit/note.md' 'bash guard: one flipped letter'
+    probe "$hb" denied cmd 'sed -i s/a/b/ SCRIPTS/GATE/VERIFY.SH docs/audit/note.md' 'bash guard: case-varied tracked path'
+    probe "$hb" denied cmd 'sed -i s/a/b/ scripts/gate/Verify.sh docs/audit/note.md' 'bash guard: one flipped letter'
     probe "$hb" denied cmd "$(printf 'python - <<PYEOF\n# docs/audit/note.md\npathlib.Path("fl_frontend/src/app/globals.css").write_text("")\nPYEOF')" 'bash guard: a path inside program source'
 
     # A program has to be shown argument-transparent before its arguments may speak for it.
@@ -1091,28 +1091,28 @@ else
 
     # No case outside the platform block at the end of this table may carry a literal backslash: the
     # token classifier answers differently under POSIX path grammar, so CI would disagree.
-    probe "$hb" denied  cmd 'printf x >&scripts/verify.sh'                     'bash guard: >& redirect onto a tracked file'
-    probe "$hb" denied  cmd 'printf x >& scripts/verify.sh'                    'bash guard: >& redirect, spaced'
-    probe "$hb" denied  cmd 'printf x ->scripts/verify.sh'                     'bash guard: -> redirect onto a tracked file'
-    probe "$hb" denied  cmd 'printf x =>scripts/verify.sh'                     'bash guard: => redirect onto a tracked file'
-    probe "$hb" denied  cmd 'printf x >=scripts/verify.sh'                     'bash guard: >= redirect'
-    probe "$hb" denied  cmd 'printf x &>scripts/verify.sh'                     'bash guard: &> redirect onto a tracked file'
-    probe "$hb" denied  cmd 'echo x|tee scripts/verify.sh'                     'bash guard: tee, no spaces round the pipe'
-    probe "$hb" denied  cmd 'echo x | tee scripts/verify.sh'                   'bash guard: tee, spaced'
-    probe "$hb" denied  cmd 'sed  -i s/a/b/ scripts/verify.sh'                 'bash guard: sed -i, doubled space'
-    probe "$hb" denied  cmd 'sed -e s/a/b/ -i scripts/verify.sh'               'bash guard: sed with -i behind another flag'
+    probe "$hb" denied  cmd 'printf x >&scripts/gate/verify.sh'                     'bash guard: >& redirect onto a tracked file'
+    probe "$hb" denied  cmd 'printf x >& scripts/gate/verify.sh'                    'bash guard: >& redirect, spaced'
+    probe "$hb" denied  cmd 'printf x ->scripts/gate/verify.sh'                     'bash guard: -> redirect onto a tracked file'
+    probe "$hb" denied  cmd 'printf x =>scripts/gate/verify.sh'                     'bash guard: => redirect onto a tracked file'
+    probe "$hb" denied  cmd 'printf x >=scripts/gate/verify.sh'                     'bash guard: >= redirect'
+    probe "$hb" denied  cmd 'printf x &>scripts/gate/verify.sh'                     'bash guard: &> redirect onto a tracked file'
+    probe "$hb" denied  cmd 'echo x|tee scripts/gate/verify.sh'                     'bash guard: tee, no spaces round the pipe'
+    probe "$hb" denied  cmd 'echo x | tee scripts/gate/verify.sh'                   'bash guard: tee, spaced'
+    probe "$hb" denied  cmd 'sed  -i s/a/b/ scripts/gate/verify.sh'                 'bash guard: sed -i, doubled space'
+    probe "$hb" denied  cmd 'sed -e s/a/b/ -i scripts/gate/verify.sh'               'bash guard: sed with -i behind another flag'
     # A verb is a word to this scan, so every spelling that leaves it a word has to reach it: a
     # directory in front, and ANSI-C quoting the shell takes off before it runs anything.
     probe "$hb" denied  cmd '/bin/rm -rf fl_frontend/src'                      'bash guard: a deletion spelled with a path'
     probe "$hb" denied  cmd "\$'rm' -rf fl_frontend/src"                       'bash guard: a deletion in ANSI-C quotes'
-    probe "$hb" denied  cmd "\$'sed' -i s/a/b/ scripts/verify.sh"              'bash guard: an in-place editor in ANSI-C quotes'
+    probe "$hb" denied  cmd "\$'sed' -i s/a/b/ scripts/gate/verify.sh"              'bash guard: an in-place editor in ANSI-C quotes'
     # A quoted `>` is text, and refusing on one refused an ordinary grep; a quoted one an
     # interpreter is handed is a redirect that shell performs.
     probe "$hb" allowed cmd 'grep -n "a -> b" notes.md'                        'bash guard: an arrow inside quotes is not a redirect'
     probe "$hb" allowed cmd "git log --format='%h > %s'"                       'bash guard: an arrow inside a git format string'
-    probe "$hb" denied  cmd 'bash -c "printf x > scripts/verify.sh"'           'bash guard: a redirect inside an interpreter argument'
-    probe "$hb" denied  cmd "sh -c 'printf x > scripts/verify.sh'"             'bash guard: the single-quoted spelling of the same'
-    probe "$hb" denied  cmd 'awk {print > "scripts/verify.sh"} notes.md'       'bash guard: a redirect inside an awk program'
+    probe "$hb" denied  cmd 'bash -c "printf x > scripts/gate/verify.sh"'           'bash guard: a redirect inside an interpreter argument'
+    probe "$hb" denied  cmd "sh -c 'printf x > scripts/gate/verify.sh'"             'bash guard: the single-quoted spelling of the same'
+    probe "$hb" denied  cmd 'awk {print > "scripts/gate/verify.sh"} notes.md'       'bash guard: a redirect inside an awk program'
     # Each commits, merges or patches on main while naming a git subcommand a raw-string scan
     # does not see.
     probe "$hb" denied  cmd 'git -c user.name=x commit -am wip'                'bash guard: a commit on main behind -c'
@@ -1162,14 +1162,14 @@ else
     probe "$hb" denied cmd 'echo x;rm -rf fl_frontend/src'      'bash guard: a semicolon in front of rm'
     probe "$hb" denied cmd 'echo x&&rm -rf fl_frontend/src'     'bash guard: && in front of rm'
     probe "$hb" denied cmd 'echo x||mv notes.md b.md'           'bash guard: || in front of mv'
-    probe "$hb" denied cmd 'echo x;sed -i s/a/b/ scripts/verify.sh' 'bash guard: a semicolon in front of sed -i'
+    probe "$hb" denied cmd 'echo x;sed -i s/a/b/ scripts/gate/verify.sh' 'bash guard: a semicolon in front of sed -i'
     probe "$hb" denied cmd 'echo x;git commit -am wip'          'bash guard: a semicolon in front of git'
     probe "$hb" denied cmd 'git status&&git reset --hard'       'bash guard: && in front of a git write'
     probe "$hb" denied cmd '(git commit -am wip)'               'bash guard: a git write inside a subshell'
     probe "$hb" denied cmd 'ls docs/audit | xargs rm'           'bash guard: a verb ending the command'
     # A quote is stripped by the token stage, so the scan has to strip one too — otherwise the verb
     # that stage would judge never reaches the flag that sends it there.
-    probe "$hb" denied cmd '"sed" -i s/a/b/ scripts/verify.sh'  'bash guard: a quoted program name'
+    probe "$hb" denied cmd '"sed" -i s/a/b/ scripts/gate/verify.sh'  'bash guard: a quoted program name'
     probe "$hb" denied cmd "'rm' -rf fl_frontend/src"           'bash guard: a quoted rm'
 
     # The token stage alone answers these: the shape scan fires on the redirect, and the ignored
@@ -1186,30 +1186,30 @@ else
     # --- In-place editing, one spelling at a time ------------------------------------------------
 
     # The flag is read by shape, so each line here is a spelling the one above it does not reach.
-    probe "$hb" denied  cmd 'perl -i -pe s/a/b/ scripts/verify.sh'             'bash guard: perl -i'
-    probe "$hb" denied  cmd 'perl -pi -e s/a/b/ scripts/verify.sh'             'bash guard: perl -i bundled behind -p'
-    probe "$hb" denied  cmd 'perl -i.bak -pe s/a/b/ scripts/verify.sh'         'bash guard: perl -i carrying a suffix'
-    probe "$hb" denied  cmd 'perl -nli.orig -e print scripts/verify.sh'        'bash guard: perl -i bundled and suffixed'
-    probe "$hb" denied  cmd 'perl -e s/a/b/ -i scripts/verify.sh'              'bash guard: perl with -i behind another flag'
-    probe "$hb" denied  cmd 'ruby -i -pe s/a/b/ scripts/verify.sh'             'bash guard: ruby -i'
-    probe "$hb" denied  cmd 'ruby -pi.bak -e s/a/b/ scripts/verify.sh'         'bash guard: ruby -i bundled and suffixed'
-    probe "$hb" denied  cmd 'sed --in-place s/a/b/ scripts/verify.sh'          'bash guard: the long in-place spelling'
-    probe "$hb" denied  cmd 'sed -i.bak s/a/b/ scripts/verify.sh'              'bash guard: sed -i carrying a suffix'
-    probe "$hb" denied  cmd 'gawk -i inplace {print} scripts/verify.sh'        'bash guard: gawk -i inplace'
-    probe "$hb" denied  cmd 'awk -i inplace {print} scripts/verify.sh'         'bash guard: awk -i inplace'
-    probe "$hb" denied  cmd 'gawk --include=inplace -f p.awk scripts/verify.sh' 'bash guard: gawk naming the extension'
+    probe "$hb" denied  cmd 'perl -i -pe s/a/b/ scripts/gate/verify.sh'             'bash guard: perl -i'
+    probe "$hb" denied  cmd 'perl -pi -e s/a/b/ scripts/gate/verify.sh'             'bash guard: perl -i bundled behind -p'
+    probe "$hb" denied  cmd 'perl -i.bak -pe s/a/b/ scripts/gate/verify.sh'         'bash guard: perl -i carrying a suffix'
+    probe "$hb" denied  cmd 'perl -nli.orig -e print scripts/gate/verify.sh'        'bash guard: perl -i bundled and suffixed'
+    probe "$hb" denied  cmd 'perl -e s/a/b/ -i scripts/gate/verify.sh'              'bash guard: perl with -i behind another flag'
+    probe "$hb" denied  cmd 'ruby -i -pe s/a/b/ scripts/gate/verify.sh'             'bash guard: ruby -i'
+    probe "$hb" denied  cmd 'ruby -pi.bak -e s/a/b/ scripts/gate/verify.sh'         'bash guard: ruby -i bundled and suffixed'
+    probe "$hb" denied  cmd 'sed --in-place s/a/b/ scripts/gate/verify.sh'          'bash guard: the long in-place spelling'
+    probe "$hb" denied  cmd 'sed -i.bak s/a/b/ scripts/gate/verify.sh'              'bash guard: sed -i carrying a suffix'
+    probe "$hb" denied  cmd 'gawk -i inplace {print} scripts/gate/verify.sh'        'bash guard: gawk -i inplace'
+    probe "$hb" denied  cmd 'awk -i inplace {print} scripts/gate/verify.sh'         'bash guard: awk -i inplace'
+    probe "$hb" denied  cmd 'gawk --include=inplace -f p.awk scripts/gate/verify.sh' 'bash guard: gawk naming the extension'
     probe "$hb" denied  cmd 'yq -i .a=1 fl_frontend/package.json'              'bash guard: yq -i'
-    probe "$hb" denied  cmd '/usr/bin/sed -i s/a/b/ scripts/verify.sh'         'bash guard: an in-place editor spelled with a path'
-    probe "$hb" denied  cmd 'perl5.36 -i -pe s/a/b/ scripts/verify.sh'         'bash guard: an in-place editor spelled with a version'
+    probe "$hb" denied  cmd '/usr/bin/sed -i s/a/b/ scripts/gate/verify.sh'         'bash guard: an in-place editor spelled with a path'
+    probe "$hb" denied  cmd 'perl5.36 -i -pe s/a/b/ scripts/gate/verify.sh'         'bash guard: an in-place editor spelled with a version'
     # perl is not argument-transparent, so the exempt class never reaches it: a refusal, not a hole.
     probe "$hb" denied  cmd 'perl -i -pe s/a/b/ docs/audit/note.md'            'bash guard: perl -i aimed at an ignored path'
 
     # `-i` belongs to programs that only read, so each refuses the day the program gate is dropped.
-    probe "$hb" allowed cmd 'grep -i foo scripts/verify.sh'                    'bash guard: grep -i is not an in-place edit'
-    probe "$hb" allowed cmd 'rg -i foo scripts/verify.sh'                      'bash guard: rg -i is not an in-place edit'
+    probe "$hb" allowed cmd 'grep -i foo scripts/gate/verify.sh'                    'bash guard: grep -i is not an in-place edit'
+    probe "$hb" allowed cmd 'rg -i foo scripts/gate/verify.sh'                      'bash guard: rg -i is not an in-place edit'
     probe "$hb" allowed cmd 'diff -i notes.md docs/audit/a.md'                 'bash guard: diff -i is not an in-place edit'
-    probe "$hb" allowed cmd 'sed -n 5p scripts/verify.sh'                      'bash guard: sed with no in-place flag'
-    probe "$hb" allowed cmd 'awk {print} scripts/verify.sh'                    'bash guard: awk with no in-place flag'
+    probe "$hb" allowed cmd 'sed -n 5p scripts/gate/verify.sh'                      'bash guard: sed with no in-place flag'
+    probe "$hb" allowed cmd 'awk {print} scripts/gate/verify.sh'                    'bash guard: awk with no in-place flag'
     # An uppercase cluster carries a module or an include path, never the flag.
     probe "$hb" allowed cmd 'perl -MList::Util -e print notes.md'              'bash guard: an uppercase cluster is not the flag'
 
@@ -1227,14 +1227,14 @@ else
     probe "$hb" allowed cmd 'printf x >docs/audit/note.md'                     'bash guard: spaceless redirect, ignored target'
     probe "$hb" denied  cmd 'env FOO=1 cp docs/audit/a.md fl_frontend/src/x.ts' 'bash guard: an env prefix is not a program'
     probe "$hb" denied  cmd 'tee docs/audit/x.md < fl_frontend/src/app.ts'     'bash guard: a tracked input redirect'
-    probe "$hb" denied  cmd 'cp docs/audit/note.md fl_frontend/src/../../scripts/verify.sh' 'bash guard: a .. that climbs back in'
+    probe "$hb" denied  cmd 'cp docs/audit/note.md fl_frontend/src/../../scripts/gate/verify.sh' 'bash guard: a .. that climbs back in'
     probe "$hb" allowed cmd 'printf x > docs/audit/note.md 2>&1'               'bash guard: a descriptor dup beside a write'
     probe "$hb" denied  cmd 'node -e writeFileSync > docs/audit/log.txt'       'bash guard: an interpreter with an ignored redirect'
     probe "$hb" denied  cmd 'cp docs/audit/note.md fl_frontend/src/app/globals.CSS' 'bash guard: a case-varied tracked file'
-    probe "$hb" denied  cmd 'cp docs/audit/note.md ./scripts/verify.sh'        'bash guard: ./ segment, tracked'
-    probe "$hb" denied  cmd 'cp docs/audit/note.md fl_frontend/../scripts/verify.sh' 'bash guard: .. re-entry, tracked'
+    probe "$hb" denied  cmd 'cp docs/audit/note.md ./scripts/gate/verify.sh'        'bash guard: ./ segment, tracked'
+    probe "$hb" denied  cmd 'cp docs/audit/note.md fl_frontend/../scripts/gate/verify.sh' 'bash guard: .. re-entry, tracked'
     probe "$hb" denied  cmd 'cp docs/audit/note.md scripts//verify.sh'         'bash guard: doubled separator, tracked'
-    probe "$hb" denied  cmd "cp docs/audit/note.md ${hook_root}/scripts/verify.sh" 'bash guard: absolute spelling, tracked'
+    probe "$hb" denied  cmd "cp docs/audit/note.md ${hook_root}/scripts/gate/verify.sh" 'bash guard: absolute spelling, tracked'
     probe "$hb" allowed cmd "sed -i s/a/b/ ${hook_root}/docs/audit/note.md"    'bash guard: absolute spelling, ignored'
     probe "$hb" allowed cmd "$(printf 'printf x > docs/audit/note.md\n')"      'bash guard: an ignored write, trailing newline'
     probe "$hb" allowed cmd '  printf x > docs/audit/note.md  '                'bash guard: an ignored write, padded with spaces'
@@ -1356,7 +1356,7 @@ else
     probe "$hq" allowed cmd 'grep -rn api_key fl_backend/app'           'credential guard: an identifier grep runs'
     probe "$hq" allowed cmd 'cat fl_frontend/node_modules/x/index.d.ts' 'credential guard: a node_modules read'
     probe "$hq" allowed cmd 'cat docs/audit/note.md'                    'credential guard: the exempt ignored path'
-    probe "$hq" allowed cmd './scripts/verify.sh --docs --format'       'credential guard: the gate runs'
+    probe "$hq" allowed cmd './scripts/gate/verify.sh --docs --format'       'credential guard: the gate runs'
 
     # --- guard-local-compose.sh: an invocation is a word position, not a phrase ------------------
     probe "$hc" denied  cmd 'docker compose up -d'                             'compose guard: bare docker compose'
@@ -1373,7 +1373,7 @@ else
     probe "$hc" allowed cmd 'grep -rn "docker compose" docs'                   'compose guard: a mention is not an invocation'
     # A heredoc body is data the shell never runs — which is a fact about `cat`, not about the
     # heredoc. `sh` runs what arrives, so the two halves are pinned apart.
-    probe "$hc" allowed cmd "$(printf 'cat <<EOF\nDrive local Docker only through ./scripts/local.sh, never bare docker compose\nEOF')" 'compose guard: a heredoc into a program that runs neither an argument nor its input'
+    probe "$hc" allowed cmd "$(printf 'cat <<EOF\nDrive local Docker only through ./scripts/ops/local.sh, never bare docker compose\nEOF')" 'compose guard: a heredoc into a program that runs neither an argument nor its input'
     probe "$hc" denied  cmd "$(printf 'sh <<EOF\ndocker compose config\nEOF')" 'compose guard: a heredoc into an interpreter'
     probe "$hc" denied  cmd "$(printf "bash <<'X'\ndocker compose up -d\nX")" 'compose guard: a quoted heredoc into an interpreter'
     # A delimiter is the whole word, and a body that never closes swallowed the command behind it.
@@ -1479,19 +1479,19 @@ else
     case "$(uname -s)" in
       MINGW*|MSYS*|CYGWIN*)
         probe "$ht" denied  file "//?/${hook_root}/inside.py"                  'branch guard: //?/ device form'
-        probe "$ht" denied  file "${hook_root}/SCRIPTS/VERIFY.SH"              'branch guard: case-varied tracked path'
+        probe "$ht" denied  file "${hook_root}/SCRIPTS/GATE/VERIFY.SH"         'branch guard: case-varied tracked path'
         probe "$hb" allowed cmd  'sed -i s/a/b/ docs\audit\note.md'            'bash guard: backslashes, ignored'
         probe "$hb" allowed cmd  'sed -i s/a/b/ docs\audit/note.md'            'bash guard: mixed separators, ignored'
         probe "$hb" allowed cmd  "sed -i s/a/b/ ${hook_root//\//\\}\\docs\\audit\\note.md" 'bash guard: drive letter and backslashes, ignored'
         probe "$hb" allowed cmd  "sed -i s/a/b/ ${hook_msys}/docs/audit/note.md" 'bash guard: MSYS /c/ spelling, ignored'
-        probe "$hb" denied  cmd  'cp docs/audit/note.md scripts\verify.sh'     'bash guard: backslashes, tracked'
+        probe "$hb" denied  cmd  'cp docs/audit/note.md scripts\gate\verify.sh'  'bash guard: backslashes, tracked'
         # A forward-slash probe separates neither, and on Linux the branch rule refuses these tokens
         # whatever the class holds — so only a Windows run can.
         probe "$hb" denied  cmd  'touch docs\audit\certs\ca.crt'               'bash guard: a certs directory, backslashes'
         probe "$hb" denied  cmd  'touch C:certs\a.md'                          'bash guard: a certs directory, drive-relative'
         probe "$hp" denied  cmd  'Set-Content -Path C:certs\a.md -Value y'     'powershell guard: a certs directory, drive-relative'
-        probe "$hb" denied  cmd  "cp docs/audit/note.md ${hook_root//\//\\}\\scripts\\verify.sh" 'bash guard: drive letter, tracked'
-        probe "$hb" denied  cmd  "cp docs/audit/note.md ${hook_msys}/scripts/verify.sh" 'bash guard: MSYS /c/ spelling, tracked'
+        probe "$hb" denied  cmd  "cp docs/audit/note.md ${hook_root//\//\\}\\scripts\\gate\\verify.sh" 'bash guard: drive letter, tracked'
+        probe "$hb" denied  cmd  "cp docs/audit/note.md ${hook_msys}/scripts/gate/verify.sh" 'bash guard: MSYS /c/ spelling, tracked'
         probe "$hs" asked   cmd  "printf x > ${hook_msys}/docs/standard.md"    'standard bash guard: MSYS /c/ spelling'
         probe "$he" asked   file "${hook_root}/DOCS/STANDARD.MD"               'standard edit guard: a case respelling'
         # A backslash suppresses alias expansion and changes nothing else, so each of these runs the
@@ -1516,7 +1516,7 @@ else
     # environment. bash by absolute path, the stripped PATH being what hides git.
     nogit="${HOOKFX}/nogit"
     mkdir -p "$nogit"
-    blind="$( cd "$HOOK_REPO" && cmd_payload 'printf x > scripts/verify.sh' |
+    blind="$( cd "$HOOK_REPO" && cmd_payload 'printf x > scripts/gate/verify.sh' |
       PATH="$nogit" "$BASH" "${HOOKS_DIR}/${hb}" 2>/dev/null )" || true
     case "$blind" in
       *'"permissionDecision":"deny"'*) info 'bash guard: git absent from PATH — denied' ;;
@@ -1619,16 +1619,16 @@ else
   prepush_drive "refs/heads/${prepush_default:-main}" origin https://example.invalid/repo.git
   prepush_all="${SELFCHECK_TMP}/pre-push-scopes.txt"
   prepush_all_rc=0
-  ./scripts/ci_scopes.sh --all > "${prepush_all}.raw" 2>&1 || prepush_all_rc=$?
+  ./scripts/gate/scope_map.sh --all > "${prepush_all}.raw" 2>&1 || prepush_all_rc=$?
   awk -F= '/^[a-z]+=true$/ { print $1 }' "${prepush_all}.raw" > "$prepush_all" || true
-  # Every scope name, asked of ci_scopes.sh: `scripts` alone also matches a path in the failure
+  # Every scope name, asked of scope_map.sh: `scripts` alone also matches a path in the failure
   # line.
   prepush_missing=""
   while IFS= read -r prepush_scope || [[ -n "$prepush_scope" ]]; do
     grep -qw -- "$prepush_scope" "$prepush_out" || prepush_missing+=" $prepush_scope"
   done < "$prepush_all"
   if (( prepush_all_rc != 0 )) || [[ ! -s "$prepush_all" ]]; then
-    note_fail "ci_scopes.sh --all named no scope (exit ${prepush_all_rc}), so the hook's answer for a push to ${prepush_default:-main} was not checked"
+    note_fail "scope_map.sh --all named no scope (exit ${prepush_all_rc}), so the hook's answer for a push to ${prepush_default:-main} was not checked"
   elif (( prepush_rc != 0 )); then
     note_fail "pre-push exited ${prepush_rc} on a push to ${prepush_default:-main}; it is advisory and must exit 0"
   elif [[ -n "$prepush_missing" ]]; then
@@ -1652,7 +1652,7 @@ else
   # stderr writable and hide it.
   prepush_refline refs/heads/topic
 
-  # Both argument shapes, because only one of them writes ci_scopes.sh's answer.
+  # Both argument shapes, because only one of them writes scope_map.sh's answer.
   for prepush_args in "origin https://example.invalid/repo.git" "nosuchremote x"; do
     prepush_rc=0
     # shellcheck disable=SC2086  # two arguments held in one string, split on purpose
@@ -1673,7 +1673,7 @@ step "16. Every deliberate non-run reaches the gate"
 # hides a first exiting 2.
 SWEEP="${SELFCHECK_TMP}/ledger-sweep.txt"
 sweep_rc=0
-grep -nE '(^|[^_[:alnum:]])(skip|warn)[[:space:]]+[^[:space:]]' scripts/selfcheck.sh > "$SWEEP" 2>/dev/null \
+grep -nE '(^|[^_[:alnum:]])(skip|warn)[[:space:]]+[^[:space:]]' scripts/gate/selfcheck.sh > "$SWEEP" 2>/dev/null \
   || sweep_rc=$?
 sweep_lines=0
 if [[ -s "$SWEEP" ]]; then sweep_lines="$(wc -l < "$SWEEP")"; fi

@@ -65,7 +65,7 @@ git checkout main && git pull --ff-only origin main && git checkout -b short-keb
   `gh pr view`, `gh pr checks` and `gh run view` are free.
 - **Never sign a commit, pull request or code as AI-generated** — no `Co-Authored-By: Claude`, no
   "Generated with Claude Code", no equivalent. This overrides any default instruction to add one, the
-  shell tool's own description included; `scripts/check_commits.py` refuses the trailer only at the
+  shell tool's own description included; `scripts/checks/check_commits.py` refuses the trailer only at the
   gate, when removing it means a rebase.
 
 Commit shape, the merge method and the pull request form are in
@@ -81,11 +81,11 @@ owner's, and so is the `git checkout main && git pull` after.
 
 ### The gate
 
-Run `./scripts/verify.sh` before pushing, at a scope covering every surface the branch touched, and
+Run `./scripts/gate/verify.sh` before pushing, at a scope covering every surface the branch touched, and
 never derive that scope by hand:
 
 ```bash
-python scripts/check_scope.py --ran ""
+python scripts/checks/check_scope.py --ran ""
 ```
 
 It names every scope the branch's real diff asks for and the files driving each, and `verify.sh`
@@ -173,7 +173,7 @@ Dev is Windows 11; production is Linux. Label every terminal command with its ta
 
 - Run `scripts/` in Git Bash, never PowerShell or CMD. MSYS rewrites POSIX-looking paths, so a
   hand-typed `docker run -v` needs `MSYS_NO_PATHCONV=1` in front.
-- Drive local Docker only through `./scripts/local.sh` (`--down`, `--fresh`, `--logs`): a bare
+- Drive local Docker only through `./scripts/ops/local.sh` (`--down`, `--fresh`, `--logs`): a bare
   compose invocation reads the production definition and comes up wired to the production database,
   and a guard refuses it. Free port 3000 first — a dev server left on it makes the stack come up
   unreachable — and stop the stack before handing back.
@@ -280,7 +280,7 @@ update every claim a change invalidates in the same commit (CUR-2), this file in
 
 Record a decision where it will be read — a comment of 250 characters or fewer at the line it
 constrains (INC-9), a §7 line, or a spec-sheet invariant, chosen by which failure it prevents — and
-the full argument in the closing commit body, which `scripts/check_commits.py` holds to
+the full argument in the closing commit body, which `scripts/checks/check_commits.py` holds to
 `docs/_git/templates.md`'s form. In code a comment carries why, never what the line does and never
 a type (INC-1).
 

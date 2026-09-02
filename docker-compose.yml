@@ -11,7 +11,7 @@
 #     internet. A `ports:` entry on frontend or backend removes that silently.
 #   • nginx waits on both upstreams being HEALTHY, not merely started, before it STARTS -- so a stack
 #     coming up from nothing never serves a half-ready app. It is not what a deploy rests on:
-#     `scripts/deploy.sh` recreates the application pair alone and leaves nginx up.
+#     `scripts/ops/deploy.sh` recreates the application pair alone and leaves nginx up.
 #   • The moving `:latest` tag of each package is what `deploy.sh` pulls with no argument. Rollback
 #     pins the immutable `:sha-<commit>` tag instead. One package per service.
 #   • Keep this file and docker-compose.local.yml in step. A difference here is a difference the

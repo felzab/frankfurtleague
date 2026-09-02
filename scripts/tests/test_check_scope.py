@@ -19,11 +19,11 @@ SCRIPTS: Final = Path(__file__).resolve().parents[1]
 
 # Withdrawn again, kernel dropped from the cache with it: `test_check_docs.py` runs the gate from a
 # throwaway copy of scripts/, and a `checker_kernel` cached here would root its checks here too.
-sys.path.insert(0, str(SCRIPTS))
+sys.path.insert(0, str(SCRIPTS / "checks"))
 try:
     scope = importlib.import_module("check_scope")
 finally:
-    sys.path.remove(str(SCRIPTS))
+    sys.path.remove(str(SCRIPTS / "checks"))
     sys.modules.pop("check_scope", None)
     sys.modules.pop("checker_kernel", None)
 

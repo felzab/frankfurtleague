@@ -177,7 +177,7 @@ it produced**, and the `x_forwarded_for` beside it is a header this edge does no
 **Nothing else stands in front of the origin.** `docker-compose.yml` publishes 80 and 443 on the
 nginx service, and no Authenticated Origin Pulls, Cloudflare Tunnel or host firewall is named in
 [`docs/ops/spec.md`](../ops/spec.md), [`docs/ops/overview.md`](../ops/overview.md),
-[`docs/ops/runbooks.md`](../ops/runbooks.md), `docker-compose.yml` or `scripts/deploy.sh` — searched
+[`docs/ops/runbooks.md`](../ops/runbooks.md), `docker-compose.yml` or `scripts/ops/deploy.sh` — searched
 on 2026-08-30.
 
 **Three remedies, and they differ in where the trust is enforced** — two of them the comment at the
@@ -215,7 +215,7 @@ branch: it reaches the pool manifest, which carries the exit contract.
 
 **The gate's floor is its longest section, and the schedule is a pure max.** Nothing passes
 `--width`, so the pool opens one slot per scope, every scope starts at once, and the
-expected-longest are submitted first (`scripts/gate_pool.py :: TYPICAL_MS`,
+expected-longest are submitted first (`scripts/gate/gate_pool.py :: TYPICAL_MS`,
 [`docs/ops/spec.md`](../ops/spec.md) §1.6). No scope waits on another: the compose parse reads its
 stand-in `.env` files from a scratch copy rather than the real trees, so what remains of the wall
 clock is the longest section itself — the database tier below.
@@ -283,7 +283,7 @@ worker pays again per process. It is recorded here so that it is rejected agains
 for as the obvious first move.
 
 **The widths already in the tree are literals, and nothing derives one from the machine.**
-`scripts/selfcheck.sh :: par_run` fans its queued units out over `PAR_WIDTH`, fixed at 16, and the
+`scripts/gate/selfcheck.sh :: par_run` fans its queued units out over `PAR_WIDTH`, fixed at 16, and the
 guard probes are queued through it — so the probe table is already off the serial path, one hook
 process per row and sixteen rows at a time. Those sixteen are asked for inside the exact window the
 trace shows pinned at 100%, beside six other sections and beside the two workers
@@ -292,7 +292,7 @@ sharing sixteen logical processors with the rest of a saturated gate is worth a 
 own, and `--verbose` is the oracle for any answer it gives: it drops `PAR_WIDTH` to 1, and selfcheck's
 output is byte-identical across the two widths by construction.
 
-**What a change to any of this owes.** `scripts/selfcheck.sh` owns the four-code exit contract's
+**What a change to any of this owes.** `scripts/gate/selfcheck.sh` owns the four-code exit contract's
 classifier, so anything reaching that file re-opens the contract's measured rank, finding and exit
 combinations; anything reaching how the probes execute owes a before-baseline, a verdict-set diff and
 a required zero, because a probe that has stopped firing looks exactly like a probe that passes. A
@@ -345,7 +345,7 @@ the result carries its spread and its run count the way the ones above do.
 **Status:** Open\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
-**Path:** Independent. It lands beside the branch-scoped checks in `scripts/docs_gate/branch.py`,
+**Path:** Independent. It lands beside the branch-scoped checks in `scripts/checks/docs_gate/branch.py`,
 reads the material classifier that is already there, and `/docs:audit-pr` consumes the same list
 once it exists.
 
@@ -359,7 +359,7 @@ wrong verdict, not the wrong idea.
 
 **The repair is the arming computation without the stamps.** A report-verdict check: intersect
 each docs page's resolved citations with the branch's materially changed files — the classifier
-`scripts/check_scope.py` already decides material — and print the pages whose subjects moved. A
+`scripts/checks/check_scope.py` already decides material — and print the pages whose subjects moved. A
 list to read, never a failure, in the same tier as `counts` and `history`: no line to falsify, no
 bookkeeping to go stale, nothing to suppress. The gate's output lands in the session transcript,
 which is exactly where the author is; the review reads the same list in the run the pull request
@@ -387,7 +387,7 @@ Exercised on 2026-08-30 through `ruff format -` on two inputs differing only in 
 sat: between two comment paragraphs inside a call it is stripped and the paragraphs become
 contiguous; between the same two paragraphs in a function body it survives. **So a comment written as
 several paragraphs inside a call reaches the checker as one block**, and
-`scripts/docs_gate/kernel.py :: comment_runs` reads it as one — which is what INC-9's bound
+`scripts/checks/docs_gate/kernel.py :: comment_runs` reads it as one — which is what INC-9's bound
 is then applied to.
 
 **The obvious way round it does not work either.** A bare `#` between paragraphs survives the
@@ -398,7 +398,7 @@ the formatter's behaviour fail in the same direction**, and nothing tells them s
 **The live instance is invisible, and by a decision that is right.** The comment at
 `fl_backend/app/api/teams/admin_router.py :: patch_saison_team`'s replacement write measures 443
 characters against the 250-character cap, read through the gate's own functions on 2026-08-30.
-`scripts/docs_gate/branch.py :: check_comment_length` measures a block only where every one of its
+`scripts/checks/docs_gate/branch.py :: check_comment_length` measures a block only where every one of its
 lines is in the branch's added set, and its docstring records why — failing a branch for a word
 changed inside an older block is what gets a check suppressed, and a partly rewritten block is
 `/docs:audit-pr`'s under CUR-6. That reasoning holds; the consequence here is that the one place the
@@ -434,7 +434,7 @@ surface with **OPS-98** and asks a different question of it: that entry is about
 reaches the checker in, this one about what the checker calls a comment at all. Neither fix is in
 the other's file.
 
-**`scripts/docs_gate/kernel.py :: comment_runs` reads python by line rather than by token, and
+**`scripts/checks/docs_gate/kernel.py :: comment_runs` reads python by line rather than by token, and
 `:: PY_DOCSTRING_OPEN_RE` matches `"""` at the start of any stripped line.** A module-level
 triple-quoted CONSTANT opens on a line the pattern cannot match — the quotes sit after `NAME = ` —
 and closes on a line holding the delimiter alone, which the pattern matches exactly. So the CLOSING
@@ -668,7 +668,7 @@ scope whose findings are otherwise about the corpus.
 
 **The repair asks git the question the list is approximating.** The predicate the five lists
 hand-approximate is "not ignored", and the gate already has it:
-`scripts/docs_gate/kernel.py :: gitignored` answers a whole set of tokens in one batch and memoises
+`scripts/checks/docs_gate/kernel.py :: gitignored` answers a whole set of tokens in one batch and memoises
 the run. A fixture built from git's own answer — every path under `scripts/` that git does not ignore,
 which keeps an untracked new module the suite must still test — needs no list at all. **A shared
 builder with one list is the smaller version** and closes the divergence without closing the class.
@@ -732,7 +732,7 @@ runs `uv sync --frozen` against the `pyproject.toml` it has just copied, so a bu
 `required-version` it does not satisfy and exits 2 at start-up, naming the required version and the
 running one. **The image build is where that lands**, on a bot pull request whose author has no reason
 to look in a manifest. The same refusal reaches a development machine from the other direction:
-`scripts/verify.sh`'s `--backend` scope runs `uv lock --check`, and a machine whose uv is not the
+`scripts/gate/verify.sh`'s `--backend` scope runs `uv lock --check`, and a machine whose uv is not the
 pinned one is refused before the lockfile is read — observed on a development machine on 2026-09-02.
 
 **Dropping one site is not the cheap way out.** Every `astral-sh/setup-uv` step in
@@ -742,7 +742,7 @@ repository root alone, where no manifest lives. So the key is what gives CI its 
 what gives the image its uv, and both have to say the same thing.
 
 **Done when** one check reads both sites and fails naming them, in a scope a change to either file
-selects — `scripts/ci_scopes.sh` already turns on `images` for either file, and the manifest turns on
+selects — `scripts/gate/scope_map.sh` already turns on `images` for either file, and the manifest turns on
 `backend` and `scripts` beside it, so the check's home is the decision the work starts from.
 
 ### 12 · OPS-76 — Most of the database tier runs against collections production would not accept
@@ -834,8 +834,8 @@ for coverage.
 **Path:** Independent of DOC-2 and DOC-3, which are about what the standard claims and what a discovery
 pattern reaches; this is about what resolution proves.
 
-**`scripts/docs_gate/checks.py :: _check_citation` proves a symbol is DEFINED where the cited
-file's language can be read for definitions (`scripts/docs_gate/kernel.py :: defined_symbols`), and
+**`scripts/checks/docs_gate/checks.py :: _check_citation` proves a symbol is DEFINED where the cited
+file's language can be read for definitions (`scripts/checks/docs_gate/kernel.py :: defined_symbols`), and
 falls back to whether the anchor appears anywhere in the file where it cannot.** A markdown sheet is
 the case that cannot, so a citation naming a spec sheet and an invariant id is still proved by a
 substring. **That proves the id's characters are somewhere in the sheet, and nothing more**: an
@@ -850,14 +850,14 @@ resolves cleanly against a definition it does not hold.
 substring of a longer one, so a citation to an invariant a sheet does not define passes as long as one
 starting with the same digits does. The second is collision: a new invariant given a number the sheet
 already uses resolves perfectly, from both directions, while the sheet now defines one number twice.
-**Nothing detects the duplicate either.** `scripts/docs_gate/checks.py :: invariant_ids` walks
+**Nothing detects the duplicate either.** `scripts/checks/docs_gate/checks.py :: invariant_ids` walks
 `:: INVARIANT_ROW_RE` over every sheet and appends a sheet to an id's home list only where the sheet is
 not already in it, so a sheet defining one id in two rows is indistinguishable from a sheet defining it
 once.
 
-**The machinery to close both already exists and is already passed in.** `scripts/check_docs.py`
+**The machinery to close both already exists and is already passed in.** `scripts/checks/check_docs.py`
 computes the invariant homes and hands them to the per-file check, which uses them for
-`scripts/docs_gate/checks.py :: check_invariant_citations` — the comments-only check for an id two
+`scripts/checks/docs_gate/checks.py :: check_invariant_citations` — the comments-only check for an id two
 sheets define. **What is missing is the same resolution for the citation form**: where a citation's
 anchor is exactly an invariant id, require the cited sheet to be among that id's homes rather than
 testing for a substring, and report a duplicate row within one sheet as a finding of its own. Both are
@@ -865,7 +865,7 @@ small changes in files that already hold the data.
 
 **One thing to get right.** The substring fallback stays for what no reader can index — a shell
 symbol, a markdown heading, a config key — so this narrows the check for one anchor shape rather than
-replacing the fallback, and `scripts/docs_gate/checks.py :: INVARIANT_CITE_RE` is the pattern that
+replacing the fallback, and `scripts/checks/docs_gate/checks.py :: INVARIANT_CITE_RE` is the pattern that
 already recognises that shape.
 
 ### 15 · OPS-95 — A citation naming a real file in an unaccepted spelling is reported as a file that does not exist
@@ -873,12 +873,12 @@ already recognises that shape.
 **Status:** Open\
 **Surfaces:** Ops, Docs\
 **Effort:** S\
-**Path:** Independent. It lands in `scripts/docs_gate/checks.py` beside **OPS-71**,
+**Path:** Independent. It lands in `scripts/checks/docs_gate/checks.py` beside **OPS-71**,
 the other entries about what a citation resolves to. Neither blocks the other.
 
-**`scripts/docs_gate/checks.py :: _resolve` refuses a slashed token that is neither
+**`scripts/checks/docs_gate/checks.py :: _resolve` refuses a slashed token that is neither
 repository-relative nor package-root-relative, and never reaches the name index behind it.** The
-function tries the repository path, then `scripts/docs_gate/kernel.py :: repo_path`, then a bare-name
+function tries the repository path, then `scripts/checks/docs_gate/kernel.py :: repo_path`, then a bare-name
 lookup — but the bare-name route is guarded by a test for a `/` in the token, so a token holding one
 returns the empty list rather than falling through. Exercised on 2026-08-30 over one real file
 written four ways: the repository path and the package-root-relative spelling both resolve, the bare
@@ -894,7 +894,7 @@ spelling rather than the listing the name is looked up in.
 
 **Whether the spelling should resolve at all is the decision, and it is not obvious.** COR-6 asks for
 an anchored path, and refusing a spelling the standard does not sanction is defensible;
-`scripts/docs_gate/kernel.py :: repo_path`'s own docstring records that existence is what keeps a
+`scripts/checks/docs_gate/kernel.py :: repo_path`'s own docstring records that existence is what keeps a
 token naming a KIND of file out of the check. So the answer may be to keep refusing and say so, in a
 message that names the spelling rather than the file — which costs one line and teaches the rule at
 the point of failure. The alternative is to let the package-root fallback that already serves a
@@ -919,17 +919,17 @@ preference across pages, and a dependency in neither direction.
 
 **`nginx/local.conf` opens by claiming the same routing, rate limits and security headers as
 `nginx/prod.conf`, and its `/api/admin/` block says it must stay identical to production's or the
-local stack cannot catch a routing mistake — and nothing checks either sentence.** `scripts/verify.sh`
+local stack cannot catch a routing mistake — and nothing checks either sentence.** `scripts/gate/verify.sh`
 runs `nginx -t` in its ops scope against `nginx/prod.conf` alone. The local file is no longer
 unparsed — `nginx/redaction_test.sh` serves it in the pinned image in that same scope, and a config
 nginx cannot load never answers, so a typo in it now fails the gate. What stands is the comparison:
-nothing reads either half of the header's claim that the two files agree. `scripts/check_compose_mirror.py` compares `docker-compose.yml` against
+nothing reads either half of the header's claim that the two files agree. `scripts/checks/check_compose_mirror.py` compares `docker-compose.yml` against
 `docker-compose.local.yml` and stops there; the two nginx files appear in it only as the mount paths
 `:: DECLARED_DELTAS` names as an allowed difference. The checker knows both files exist, knows they
 deliberately differ, and reads neither.
 
 **The argument for the check that exists is the argument for the missing one.** The step in
-`scripts/verify.sh` that runs the compose comparison reasons at the line that both files parse
+`scripts/gate/verify.sh` that runs the compose comparison reasons at the line that both files parse
 whatever they say, so nothing else holds the local stack to production's shape and a setting
 production gains and local does not is a difference local can never catch. That sentence is true of
 the nginx pair word for word, and the pair it was written for is the one that got a checker.
@@ -950,7 +950,7 @@ needs and local has no use for.
 
 **Where the answer is not the compose checker's.** A byte comparison is wrong: the deliberate
 differences are real and `nginx/local.conf`'s own header names them — no TLS, no `www` redirect, a
-421 catch-all where production rejects the handshake. What `scripts/check_compose_mirror.py` does
+421 catch-all where production rejects the handshake. What `scripts/checks/check_compose_mirror.py` does
 instead is parse both files, compare at a declared grain and carry the allowed differences as a list
 with a reason on each. nginx has no parser in this toolchain, so the equivalent is a directive-level
 reader for the subset the two files actually use — `location` paths, `limit_req_zone` names and
@@ -964,9 +964,9 @@ half that could ship on its own.
 **Status:** Open\
 **Surfaces:** Ops\
 **Effort:** M — the diagnosis below is the work, and the repair is small once the mechanism is known\
-**Path:** Independent. `fl_backend/tests/conftest.py` holds the fixtures an answer lands in, and `scripts/verify.sh`'s db step is what a refusal would sit in front of.
+**Path:** Independent. `fl_backend/tests/conftest.py` holds the fixtures an answer lands in, and `scripts/gate/verify.sh`'s db step is what a refusal would sit in front of.
 
-**Starting `./scripts/verify.sh --db` while a `pytest -m db` is already running produces a wall of
+**Starting `./scripts/gate/verify.sh --db` while a `pytest -m db` is already running produces a wall of
 unrelated failures, and nothing in the output says why.** Observed on 2026-08-22: one run reported 147
 failed and 71 errors, while two immediately subsequent runs of the identical command, with nothing
 else changed, reported 411 passed. The failures land on validators and unique indexes, which
@@ -1265,12 +1265,12 @@ reader cannot switch to inside a file it already scans, this one is a file the c
 all. **DOC-3** is the third of the family, where a pattern rather than a filter is what falls short
 of its rule. Neither open entry waits on the other and each fix is in a different place.
 
-**`scripts/docs_gate/kernel.py :: SOURCE_SUFFIXES` does not carry `.css`, so no comment check has
+**`scripts/checks/docs_gate/kernel.py :: SOURCE_SUFFIXES` does not carry `.css`, so no comment check has
 ever read a stylesheet.** Two filters stand in the way and neither admits one:
-`scripts/docs_gate/kernel.py :: tracked_files` builds the corpus from markdown plus
+`scripts/checks/docs_gate/kernel.py :: tracked_files` builds the corpus from markdown plus
 `:: SCANNED_SUFFIXES`, so a stylesheet is never a file
-`scripts/docs_gate/checks.py :: check_file` is handed; and
-`scripts/docs_gate/branch.py :: check_comment_bounds` tests the same tuple again before it measures
+`scripts/checks/docs_gate/checks.py :: check_file` is handed; and
+`scripts/checks/docs_gate/branch.py :: check_comment_bounds` tests the same tuple again before it measures
 a block. INC-9's bounds, INC-6's comment citations, COR-3's history phrases and COR-4's counts
 all sit downstream of one filter or the other.
 
@@ -1289,7 +1289,7 @@ three would fail the gate even with the filter widened**, because `check_comment
 only a block the branch in hand wrote, which leaves a standing breach to `/docs:audit` (CUR-6).
 
 **The rule this hole covers has already been broken here, and a person caught it rather than the
-check.** `scripts/docs_gate/checks.py :: check_owner_voice` raises `owner-voice` on
+check.** `scripts/checks/docs_gate/checks.py :: check_owner_voice` raises `owner-voice` on
 `fl_frontend/src/app/globals.css` at `acee5209` and raises nothing on the same file at `d4eb0f44`,
 measured 2026-08-27 by handing the checker both revisions with `.css` read as a C-style source.
 Neither verdict is one the gate can reach, that file never being in the corpus. **That is this
@@ -1298,25 +1298,25 @@ the stylesheet most read for how this application looks only for as long as some
 hand.
 
 **Which way the disagreement should be settled is open, and the measurement is why.** Widening the
-filter is not one line: `.css` has to reach `scripts/docs_gate/kernel.py :: CSTYLE_SUFFIXES` as
+filter is not one line: `.css` has to reach `scripts/checks/docs_gate/kernel.py :: CSTYLE_SUFFIXES` as
 well, or `:: comment_style` hands the file to the `#` reader and every check runs over an empty
 body — the silence closed OPS-29 removed, reproduced in a new place. The alternative is to say in the In-code
 scope line where its checks stop, which is the cheaper change and leaves every block in the two stylesheets carrying this
 application's styling reasoning under no bound at all. A third question rides on whichever is taken:
 both files open on a block INC-2 admits in no stylesheet, and
-`scripts/docs_gate/checks.py :: HEADER_SCOPES` would not bind either on a suffix addition, so a
+`scripts/checks/docs_gate/checks.py :: HEADER_SCOPES` would not bind either on a suffix addition, so a
 widening has to settle that deliberately rather than inherit it — both blocks sit inside INC-9's
 bound today, so nothing is through that half. **The outcome to avoid is neither**, the enforcement
 claim and the silence both left standing, which is how the next over-long block gets written into
 the file most read for how this application is styled.
 
 **The byte checks are not in the gap, and no other file type is.**
-`scripts/docs_gate/checks.py :: check_line_endings` and `:: check_binary_bytes` iterate the index
+`scripts/checks/docs_gate/checks.py :: check_line_endings` and `:: check_binary_bytes` iterate the index
 rather than the corpus, so CRLF and a stray CR are caught in a stylesheet as anywhere else.
 Sweeping the five roots the In-code scope names for every other suffix the tuple omits, on the same date:
 markdown is in the corpus by its own glob and read in full, the icons are assets carrying no
 comment, and `scripts/ruff.toml` and `fl_backend/app/core/uvicorn_logging.json` are reached for
-citations through `scripts/docs_gate/kernel.py :: OPS_SUFFIXES` but not for INC-9, that check
+citations through `scripts/checks/docs_gate/kernel.py :: OPS_SUFFIXES` but not for INC-9, that check
 testing the narrower tuple — a second instance of the same gap, with no comment block below a
 module header in either file, so nothing is through it.
 
@@ -1498,7 +1498,7 @@ it green is a report; the mechanism above is what the code says would allow it.
 **Surfaces:** BE, Ops, Docs\
 **Effort:** S\
 **Path:** Independent. The same shape as **OPS-83**, **OPS-63** and **OPS-69** — a claim written beside
-the code and read by no check — and the host is `scripts/check_docs.py`, which already reads both of
+the code and read by no check — and the host is `scripts/checks/check_docs.py`, which already reads both of
 the trees such a check needs.
 
 **[`docs/logging/error-codes.md`](../logging/error-codes.md) is where a refusal code's meaning and its
@@ -1518,7 +1518,7 @@ learn what a code an admin surface just received means.
 
 **Nothing resolves the two spellings.** No file under `scripts/` opens the page. The gate's identifier
 check reaches the documentation standard's own rule ids and stops:
-`scripts/docs_gate/checks.py :: RULE_ID_RE` is a closed alternation of the standard's prefixes,
+`scripts/checks/docs_gate/checks.py :: RULE_ID_RE` is a closed alternation of the standard's prefixes,
 and DOC-3 records that it is closed **on purpose**, so that a backend error code — which carries an
 extra segment — can never be read as a rule id. A code added, renamed or retired in the backend and
 missed in the table is therefore a silent divergence, and a row for a code nothing raises is the same
@@ -1530,7 +1530,7 @@ backend. What that costs to leave undone is a class rather than a defect — and
 frequent, because a branch adding a refusal adds a row by hand and nothing reads the pair.
 
 **What the repair looks like, and the precedent for it.**
-`scripts/docs_gate/kernel.py :: roadmap_ids` already derives a set of ids from the tables defining
+`scripts/checks/docs_gate/kernel.py :: roadmap_ids` already derives a set of ids from the tables defining
 them rather than matching a shape, and the roadmap check compares that set against the pages using it.
 The same shape here is a set comparison in both directions between the codes the table's rows carry
 and the codes the backend spells. **The published document is not the second source:** measured on
@@ -1662,13 +1662,13 @@ a reader following that comment never arrives at them.
 **Surfaces:** Ops, Docs\
 **Effort:** S\
 **Path:** Independent — it blocks nothing and nothing blocks it. It is one of the two open ends of
-`scripts/selfcheck.sh` step 4, and **OPS-104** is the other: this one is a name the step never reads,
-that one a table it reads on the wrong branch. Its remedy edits `scripts/selfcheck.sh`, so the branch
+`scripts/gate/selfcheck.sh` step 4, and **OPS-104** is the other: this one is a name the step never reads,
+that one a table it reads on the wrong branch. Its remedy edits `scripts/gate/selfcheck.sh`, so the branch
 runs the full form ([`docs/ops/spec.md`](../ops/spec.md) §1.6).
 
 **Step 4 proves a helper by two routes, and each has a bound it states.** The call-site reader walks
 every runnable script and reports every UNDERSCORED name in command position that neither
-`scripts/_lib.sh` nor the script itself defines; it stops at underscored names because a single word
+`scripts/lib/_lib.sh` nor the script itself defines; it stops at underscored names because a single word
 collides with a program name, and telling a helper from a program needs `PATH`, which would make the
 verdict depend on which tools a machine has. The vocabulary route recovers the single-word verbs from
 a different source: the output-standard table in [`docs/ops/spec.md`](../ops/spec.md) §1.7, each of
@@ -1683,7 +1683,7 @@ Every runnable script calls at least one of the four.
 `--help` probe. But `verbose` and `worker` are read in conditions — `if verbose`, `if ! worker` —
 and a condition is where `set -e` and the ERR trap look away by design: a missing definition is one
 line on stderr and a false answer, and the run goes on. `--verbose` stops streaming, and a pool
-worker that reads itself as the parent never reaches `scripts/_lib.sh :: end_worker` and ends as a
+worker that reads itself as the parent never reaches `scripts/lib/_lib.sh :: end_worker` and ends as a
 parent would, over scopes it never ran.
 
 **The cheap route is only half honest, and the entry does not take it.** Adding the four to the
@@ -1712,7 +1712,7 @@ has a host and a precedent.
 purpose**, and each entry argues why in a `reason=` string — often naming an index, a validator or a
 call site as the thing that makes refusing the state expensive or impossible.
 
-**Those arguments are held by review alone.** `scripts/check_docs.py` scans comments and
+**Those arguments are held by review alone.** `scripts/checks/check_docs.py` scans comments and
 docstrings, and a `reason=` is neither — it is a data string inside a tuple.
 `fl_backend/tests/core/test_domain.py` resolves `near`, `surfaced_by` and `proven_by`, and reads
 `reason` only for being non-empty — `:: test_every_declaration_carries_its_reason` asserts
@@ -1772,8 +1772,8 @@ the one above it.
 **Surfaces:** Ops, Docs\
 **Effort:** S\
 **Path:** Independent — it blocks nothing and nothing blocks it. It is the other open end of
-`scripts/selfcheck.sh` step 4, beside **OPS-103**. Its remedy is a check in
-`scripts/docs_gate/checks.py` and a case in `scripts/tests/test_check_docs.py`, so the branch runs
+`scripts/gate/selfcheck.sh` step 4, beside **OPS-103**. Its remedy is a check in
+`scripts/checks/docs_gate/checks.py` and a case in `scripts/tests/test_check_docs.py`, so the branch runs
 `--scripts --docs`.
 
 **Step 4 reads the output vocabulary out of [`docs/ops/spec.md`](../ops/spec.md) by shape.** Its
@@ -1781,7 +1781,7 @@ reader arms on the line opening `**The output standard.**`, takes the first tabl
 each row whose first cell is a backticked lowercase name. Reword the lead-in, put a paragraph between
 it and the table, or drop the backticks from that column, and the reader yields nothing.
 
-**Yielding nothing is a ledgered skip, and that grade is right.** `scripts/ci_scopes.sh` maps
+**Yielding nothing is a ledgered skip, and that grade is right.** `scripts/gate/scope_map.sh` maps
 `docs/ops/spec.md` to `docs` and `format` and never to `scripts`, and
 `.github/workflows/verify.yml` runs its `scripts` job only on that output. A finding there would
 therefore redden a job the editing branch cannot run, on the next unrelated branch that selects
@@ -1793,18 +1793,18 @@ not cause and cannot clear without editing a page outside its change. And the vo
 check until somebody with a reason to open a documentation branch restores the shape — during which
 a verb the sheet documents and `_lib.sh` has dropped is found by nothing.
 
-**The report belongs to `--docs`, which the page's own edit selects.** `scripts/docs_gate/checks.py`
-gains a check, registered in `scripts/docs_gate/kernel.py :: CHECKS`, that reads the same shape — the
+**The report belongs to `--docs`, which the page's own edit selects.** `scripts/checks/docs_gate/checks.py`
+gains a check, registered in `scripts/checks/docs_gate/kernel.py :: CHECKS`, that reads the same shape — the
 lead-in, the first table, the backticked first cell — and fails when the sheet lacks it or it yields
-no verb. The definition half stays in step 4: a `scripts/_lib.sh` edit selects the full form, so that
-half already reports on its own branch, and `scripts/docs_gate/kernel.py :: defined_symbols` reads
+no verb. The definition half stays in step 4: a `scripts/lib/_lib.sh` edit selects the full form, so that
+half already reports on its own branch, and `scripts/checks/docs_gate/kernel.py :: defined_symbols` reads
 python alone, so the documentation gate could take it only with a bash reader it has no other use
 for. **Two readers of one shape is the doubt this leaves**, and what holds the awk and the python to
 one another is the closing session's decision; the cheap form is the check owning the lead-in as a
 constant and a `scripts/tests/` case asserting the step's reader carries the same literal.
 
 **Done when:** rewording the lead-in or un-backticking the first column of that table in
-`docs/ops/spec.md` fails `python scripts/check_docs.py` on the branch that did it,
+`docs/ops/spec.md` fails `python scripts/checks/check_docs.py` on the branch that did it,
 `scripts/tests/test_check_docs.py` plants both, and step 4's skip arm is reached only by a sheet the
 documentation gate has already refused.
 
@@ -1852,7 +1852,7 @@ exclusion written down rather than assumed.
 **Path:** Independent. It decides what one check's population should be, where **DOC-14** and
 **OPS-98** decide what a different check may measure; none of the three is in another's file.
 
-**`scripts/docs_gate/branch.py :: check_counts` reports one finding per file, over every added line
+**`scripts/checks/docs_gate/branch.py :: check_counts` reports one finding per file, over every added line
 `:: branch_additions` keeps.** That keeper takes a file with a scanned suffix, a `.md` suffix, or one
 of the suffixless ops names, and reads each added line out of the scanned body — so for a source file
 it is the comments rather than the code, and for a Dockerfile or a git hook the same. **COR-4 governs
@@ -1862,12 +1862,12 @@ itself — Markdown under `docs/` alone — would drop real coverage rather than
 **The measured cost is that one check fills the report.** On one branch not about documentation,
 `counts` produced 15 of the run's 46 findings across 15 files (measured 2026-09-02, one branch rather
 than a distribution), against the ceiling
-`scripts/docs_gate/checks.py :: ADVISORY_CAP` sets, which that one check passes on its own. **A single
+`scripts/checks/docs_gate/checks.py :: ADVISORY_CAP` sets, which that one check passes on its own. **A single
 check overflowing the cap is a report in which nothing else can be seen**: the advisories the cap
 discards are the ones a reader would have acted on, and the run says only how many more there were.
 
 **The report is read on a passing run, which is what puts the crowding in front of anyone.**
-`scripts/verify.sh :: run_checker` carries an `annotate` mode that prints a passing checker's capture,
+`scripts/gate/verify.sh :: run_checker` carries an `annotate` mode that prints a passing checker's capture,
 so the advisory tier reaches a developer on the runs that make up most of a day rather than only on a
 failing one.
 
@@ -1885,9 +1885,9 @@ the one answer already ruled out**: it is COR-4's only mechanical reader.
 **Path:** Independent. **DOC-10** watches the same check from the other side — a block that was over
 a bound before the branch reached it — and neither entry blocks the other.
 
-**`scripts/docs_gate/branch.py :: check_comment_length` reads a block only where the branch
+**`scripts/checks/docs_gate/branch.py :: check_comment_length` reads a block only where the branch
 touched a line inside it, and a rename puts no line of a carried block in the branch's added set.**
-`scripts/docs_gate/branch.py :: _added_by_file` derives that set from `git diff -U0` against the fork
+`scripts/checks/docs_gate/branch.py :: _added_by_file` derives that set from `git diff -U0` against the fork
 point, deliberately without a pathspec so git has something to detect a rename against — its own
 docstring says so. A detected rename emits hunks for the edited lines alone, so every comment block
 that came across untouched is context, and INC-9 measures nothing in it at any length. Verified on
@@ -1902,7 +1902,7 @@ and no line of a carried block is one the branch declined to touch — every lin
 move.
 
 **Turning rename detection off is not the repair.** `_added_by_file` also feeds
-`scripts/docs_gate/branch.py :: branch_additions`, which `check_history_phrases` and `check_counts`
+`scripts/checks/docs_gate/branch.py :: branch_additions`, which `check_history_phrases` and `check_counts`
 read, so a moved file counted as wholly added would report every history phrase and every count
 inside it as the branch's own prose. **The narrower question is the decision:** whether
 `check_comment_length` alone should treat a rename's destination as added while the set the other
@@ -1915,7 +1915,7 @@ branch-scoped checks read stays as it is.
 **Effort:** M\
 **Path:** Independent — a rule's `Enforced by` field and the check it claims move in one change.
 
-**`scripts/check_docs.py :: check_enforced_by` fails a rule naming a gate check that does not
+**`scripts/checks/check_docs.py :: check_enforced_by` fails a rule naming a gate check that does not
 exist, and nothing resolves the opposite direction.** A rule may omit a check that enforces it, and
 a rule may state something a parser can decide while its field reads that it is unenforced. Either
 shape leaves the field claiming less than the gate delivers, which is the reading nobody verifies —
@@ -1950,10 +1950,10 @@ through, and it moves that constraint rather than lifting it: a copy taken from 
 `scripts/tests/` into the fixture, which changes what absence from disk reaches there and leaves what
 git lists exactly as it is. Neither remedy is in the other's file.
 
-**`scripts/docs_gate/platform.py :: PLATFORM_ALLOW` excuses a named site from the platform clauses,
+**`scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW` excuses a named site from the platform clauses,
 and it is held to the tree in one direction only.** Each row is keyed `<file> :: <anchor>` and
 carries the reason that branch is deliberate, so writing one is a diff a reviewer reads rather than
-an `if` nobody re-opens. `scripts/docs_gate/platform.py :: _resolve` reports a row whose anchor its
+an `if` nobody re-opens. `scripts/checks/docs_gate/platform.py :: _resolve` reports a row whose anchor its
 file does not spell, and a row that shields no site — but a row whose FILE is absent from the
 population the check just read is passed over by `if rel not in present: continue`. A row naming a
 deleted or renamed file therefore sits inert for as long as the allowlist lives, and nothing says so.
@@ -1999,18 +1999,18 @@ finding back.
 **Effort:** S\
 **Path:** Independent — what the check answers does not change, only what the answer costs.
 
-**`scripts/check_scope.py :: images_culprits` runs `scripts/ci_scopes.sh` once for every material
+**`scripts/checks/check_scope.py :: images_culprits` runs `scripts/gate/scope_map.sh` once for every material
 path**, to learn which of them is the reason the images scope is required. The cost scales with how
 many files a branch touched rather than with what is in them.
 
 **It is the last per-file spawn in this checker, and it sits on the failure path alone.** The
 passing path reads every earlier version through one `git cat-file --batch`, and answers every
-TypeScript pair through as few `scripts/ts_normalize.mjs` batch processes as one command line
-holds, both driven from `scripts/check_scope.py :: material_paths`. What is left is therefore
+TypeScript pair through as few `scripts/checks/ts_normalize.mjs` batch processes as one command line
+holds, both driven from `scripts/checks/check_scope.py :: material_paths`. What is left is therefore
 charged only to a run already ending in the images refusal, which is why this sits last of the open
 entries rather than among the work above it.
 
-**What keeps it from being free.** `scripts/ci_scopes.sh` answers for a file list, not for a file,
+**What keeps it from being free.** `scripts/gate/scope_map.sh` answers for a file list, not for a file,
 so nothing it prints says which member of the list turned a scope on — asking it once per path is
 what buys that. The alternatives are a per-file mode in the mapping script, which puts a second
 output shape in the one file every workflow reads, or halving the list until each culprit is
@@ -2097,7 +2097,7 @@ contained — nginx serves nothing rather than serving something broken — the 
 a faster diagnosis is worth a new way for `deploy.sh` to refuse.
 
 **What the deploy already does about an unhealthy build, and why none of it reaches this.**
-`scripts/deploy.sh :: roll_back` restores the previous pair by image id wherever the run recorded a
+`scripts/ops/deploy.sh :: roll_back` restores the previous pair by image id wherever the run recorded a
 target, and the unhealthy ending points the operator at the frontend's startup gate
 (`fl_frontend/src/core/config.ts`) as the first thing to read. **Both stop short of this incident.**
 A re-clone records no rollback target, so there is nothing to put back; and the value that broke is
@@ -2166,20 +2166,20 @@ immediately.
 currently holds. Each is also narrower than the rule it serves, and where it falls short the gate
 answers with silence rather than a finding.
 
-**The rule families are spelt into the patterns.** `scripts/check_docs.py :: RULE_ID_RE` carries
-the standard's prefixes as a closed alternation, and `scripts/docs_gate/checks.py ::
+**The rule families are spelt into the patterns.** `scripts/checks/check_docs.py :: RULE_ID_RE` carries
+the standard's prefixes as a closed alternation, and `scripts/checks/docs_gate/checks.py ::
 RULE_HEAD_RE` and `:: RULE_INDEX_LINE_RE` repeat the same list. A rule family added under a
 prefix none of them carries falls outside all of them at once: citations of its rules resolve
 to nothing and dangle unreported, and its rules are not held to PRE-4's anatomy. Widening the alternation by hand is not the answer, because the list is closed so that the
 backend's error codes — which carry an extra segment — can never be read as rule ids. A pattern
 whose prefixes disagree with the standard is a divergence the gate could resolve on its own, the way
-`scripts/check_docs.py :: roadmap_ids` derives the roadmap's ids from the tables defining them
+`scripts/checks/check_docs.py :: roadmap_ids` derives the roadmap's ids from the tables defining them
 instead of matching a shape.
 
-**The metadata pattern is anchored at column 0.** `scripts/check_docs.py :: METADATA_LINE_RE`
-requires its bold label to open the line, where `scripts/check_docs.py :: RULE_FIELD_RE` reads a
+**The metadata pattern is anchored at column 0.** `scripts/checks/check_docs.py :: METADATA_LINE_RE`
+requires its bold label to open the line, where `scripts/checks/check_docs.py :: RULE_FIELD_RE` reads a
 metadata block of its own and tolerates leading
-whitespace — so `scripts/check_docs.py :: check_metadata_breaks` cannot see a metadata block
+whitespace — so `scripts/checks/check_docs.py :: check_metadata_breaks` cannot see a metadata block
 nested inside a list item or a blockquote, and COR-8's hard break goes unchecked there. Widening it
 is not free: this is a discovery pattern run across every page, an indented bold label is a shape
 ordinary prose also takes, and a check that reports prose is a check that gets ignored. What an
@@ -2196,7 +2196,7 @@ carry, or the first page that needs a metadata block indented.
 **Path:** Independent — one comparison in one function. **DOC-14** reaches the same check from the
 side where no line of the block was touched at all, and neither blocks the other.
 
-**`scripts/docs_gate/branch.py :: check_comment_length` measures a block this branch touched and
+**`scripts/checks/docs_gate/branch.py :: check_comment_length` measures a block this branch touched and
 excuses one whose OPENING LINE already broke a bound at the fork.** The opening is what identifies a
 block across an edit deeper inside it, where a line number moves with every insertion above. So a
 branch rewriting the prose inside a long block is not charged for its length, and a branch rewriting
@@ -2222,7 +2222,7 @@ how `check_comment_length` decides whose block a block is.
 **Surfaces:** FE, Ops\
 **Effort:** —\
 **Path:** Independent — it blocks nothing and nothing blocks it, and no gate scope reaches it:
-`./scripts/verify.sh` proves the working tree it is run over, and CI proves a tip.
+`./scripts/gate/verify.sh` proves the working tree it is run over, and CI proves a tip.
 
 **`fl_frontend/src/features/saisons/actions.test.ts` imports
 `fl_frontend/src/core/refusalRegister.ts`, and the tree at
@@ -2313,7 +2313,7 @@ sample entirely.
 is out of the span by construction; and the direction is consistent across three independent jobs
 rather than one, which a runner-pool artefact would not be.
 
-**What answering it needs.** The three jobs share `scripts/verify.sh` and little else, so the first
+**What answering it needs.** The three jobs share `scripts/gate/verify.sh` and little else, so the first
 question is whether one cause or three are involved — the backend pair points at test count or
 collection time, `frontend` at the build. The window that identifies the cause is on record now; the
 runs API prunes, and the candidate commits stop being few. **Closing it re-measures and rewrites
@@ -2329,10 +2329,10 @@ database tier a measurement it has never had, and **OPS-70** fixes what such a f
 count at all; the readings this entry needs are that same measurement, which makes them cheaper taken
 together and is an ordering note rather than a dependency.
 
-**`scripts/verify.sh :: gate_width` divides one concurrency budget between the gate's parallel
+**`scripts/gate/verify.sh :: gate_width` divides one concurrency budget between the gate's parallel
 consumers, and a consumer's share cannot fall below one worker.** Each width-taking tool declares the
-width its own work was measured at — `scripts/verify.sh :: GATE_WIDTH_SCRIPTS_PYTEST` at 8 for the
-scripts suite and `scripts/verify.sh :: GATE_WIDTH_DB_PYTEST` at 6 for the database tier — the parent
+width its own work was measured at — `scripts/gate/verify.sh :: GATE_WIDTH_SCRIPTS_PYTEST` at 8 for the
+scripts suite and `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` at 6 for the database tier — the parent
 sums the ones this run enables into a demand, and the budget it is divided against is the machine's
 core count. The share is `want * budget / demand` in integer arithmetic, floored at 1, and
 short-circuited to the declared width whenever the budget covers the demand or either quantity is
@@ -2364,7 +2364,7 @@ the readings and the other below every width anybody has timed.
 none", which holds for a budget and fails for a test runner: below its measured minimum a run gets
 slower rather than merely narrower, because a worker pays its own process start and its own
 interpreter before it collects anything, and in the scripts suite its own fixture repository —
-`scripts/verify.sh :: do_pytest` distributes over `--dist loadfile` to keep that build to one per
+`scripts/gate/verify.sh :: do_pytest` distributes over `--dist loadfile` to keep that build to one per
 module for exactly that reason. **The number belonging at the bottom of a share is that consumer's own
 measured minimum**, and what a consumer does when the budget cannot reach even that is the decision
 this entry is for: take the minimum anyway and let the two sections overlap into it, or leave the pool

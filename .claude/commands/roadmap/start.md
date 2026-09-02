@@ -77,7 +77,7 @@ the change (CLAUDE.md §2).
      CLAUDE.md §7 row or the `.claude/rules/` file whose paths reach the session that could break
      it, a domain rule to the spec sheet's `## 2. Invariants`. **The argument goes in
      commit 1's body**, which `git blame` reaches from the constraint, and
-     `scripts/check_commits.py` refuses a commit with none.
+     `scripts/checks/check_commits.py` refuses a commit with none.
    - **`git grep -n "<ID>"` enumerates every reference commit 1 must update**, which CLAUDE.md's
      same-commit rule requires. They live in an audit pass prompt under `docs/_auditing/prompts/`.
      A spec sheet's `## 4. Known-open` table names no roadmap id (OUT-4), and INC-6 keeps one out

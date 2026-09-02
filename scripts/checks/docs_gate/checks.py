@@ -120,7 +120,7 @@ SEGMENT_SAMPLE: Final = 8
 
 # The checker whose quoted fragments `template-fragment` confirms, named so a fault in the list
 # itself points at the file to fix rather than at the form it reads.
-PR_BODY_CHECKER: Final = "scripts/check_pr_body.py"
+PR_BODY_CHECKER: Final = "scripts/checks/check_pr_body.py"
 
 # A page that is not there yields nothing, so an absent input degrades the check reading it to
 # silence with the run green. Named here so the absence itself fails.
@@ -1344,11 +1344,13 @@ def _print_human(failures: list[Finding], advisories: list[Finding], *, everythi
         for finding in advisories if everything else advisories[:ADVISORY_CAP]:
             print(finding.human())
         if not everything and len(advisories) > ADVISORY_CAP:
-            print(f"      ... and {len(advisories) - ADVISORY_CAP} more -- scripts/check_docs.py --all lists every one")
+            print(f"      ... and {len(advisories) - ADVISORY_CAP} more -- scripts/checks/check_docs.py --all lists every one")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Documentation gate; the registry of its checks is scripts/docs_gate/kernel.py :: CHECKS.")
+    parser = argparse.ArgumentParser(
+        description="Documentation gate; the registry of its checks is scripts/checks/docs_gate/kernel.py :: CHECKS."
+    )
     parser.add_argument("--all", action="store_true", help="list every advisory finding, not just the first ten")
     parser.add_argument(
         "--output-format",

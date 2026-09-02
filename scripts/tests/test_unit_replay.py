@@ -1,6 +1,6 @@
 """SCRIPTS · what a pooled run's parent makes of a unit that reached no verdict.
 
-`scripts/verify.sh :: unit_replay`, `:: unit_verdict`, `:: adopt_finished` and `:: pool_wait` all
+`scripts/gate/verify.sh :: unit_replay`, `:: unit_verdict`, `:: adopt_finished` and `:: pool_wait` all
 read a worker's handoff, and a status the pool could not report has to reach a caller as a crash
 rather than as the byte `return` would mask it to or as a scope quietly missing from the table.
 Each is lifted out of verify.sh and evaluated here, sourcing it being a whole gate run. So are two
@@ -20,8 +20,8 @@ from pathlib import Path
 from typing import Final
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
-LIB: Final = SCRIPTS / "_lib.sh"
-VERIFY: Final = SCRIPTS / "verify.sh"
+LIB: Final = SCRIPTS / "lib" / "_lib.sh"
+VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 
 # Not a skip condition, for `test_exit_contract.py`'s reason: a machine with no bash cannot run the
 # gate at all, so a contract silently skipped here is the failure this file exists to stop.
@@ -40,23 +40,23 @@ def _lifted(name: str, indent: str = "") -> str:
     """
     lines = VERIFY.read_text(encoding="utf-8").splitlines()
     start = next((i for i, line in enumerate(lines) if line.startswith(f"{indent}{name}() {{")), -1)
-    assert start >= 0, f"scripts/verify.sh no longer defines {name}"
+    assert start >= 0, f"scripts/gate/verify.sh no longer defines {name}"
     end = next((i for i in range(start + 1, len(lines)) if lines[i] == f"{indent}}}"), -1)
-    assert end > start, f"scripts/verify.sh's {name} has no closing line"
+    assert end > start, f"scripts/gate/verify.sh's {name} has no closing line"
     return "\n".join(line.removeprefix(indent) for line in lines[start : end + 1])
 
 
 def _not_started() -> str:
-    """`scripts/gate_pool.py :: NOT_STARTED`, read out of the source rather than spelled again.
+    """`scripts/gate/gate_pool.py :: NOT_STARTED`, read out of the source rather than spelled again.
 
     The manifest's word for a unit that never ran is the one value no exit code may collide with,
     so the coupling is asserted rather than remembered.
     """
-    source = (SCRIPTS / "gate_pool.py").read_text(encoding="utf-8")
+    source = (SCRIPTS / "gate" / "gate_pool.py").read_text(encoding="utf-8")
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.AnnAssign) and node.value is not None and getattr(node.target, "id", "") == "NOT_STARTED":
             return str(ast.literal_eval(node.value))
-    raise AssertionError("scripts/gate_pool.py no longer declares NOT_STARTED")
+    raise AssertionError("scripts/gate/gate_pool.py no longer declares NOT_STARTED")
 
 
 def _parent(
@@ -281,7 +281,7 @@ def _lifted_block(opening: str, closing: str) -> str:
     """
     lines = VERIFY.read_text(encoding="utf-8").splitlines()
     start = next((i for i, line in enumerate(lines) if line.strip() == opening), -1)
-    assert start >= 0, f"scripts/verify.sh no longer holds a line reading {opening!r}"
+    assert start >= 0, f"scripts/gate/verify.sh no longer holds a line reading {opening!r}"
     end = next((i for i in range(start + 1, len(lines)) if lines[i].strip() == closing), -1)
     assert end > start, f"the block opening at {opening!r} has no {closing!r}"
     indent = lines[start][: len(lines[start]) - len(lines[start].lstrip())]
@@ -296,7 +296,7 @@ def _lifted_call(name: str) -> str:
     """
     lines = VERIFY.read_text(encoding="utf-8").splitlines()
     start = next((i for i, line in enumerate(lines) if line.startswith(f"{name} ")), -1)
-    assert start >= 0, f"scripts/verify.sh no longer calls {name}"
+    assert start >= 0, f"scripts/gate/verify.sh no longer calls {name}"
     end = start
     while end + 1 < len(lines) and lines[end].endswith("\\"):
         end += 1
@@ -368,7 +368,7 @@ def test_a_unit_nothing_replays_is_refused_through_the_call_in_start_steps() -> 
     and the scope green over a check nobody read.
     """
     starter = _lifted("start_steps")
-    assert REPLAYED_CALL in starter, "scripts/verify.sh :: start_steps no longer calls pool_units_replayed"
+    assert REPLAYED_CALL in starter, "scripts/gate/verify.sh :: start_steps no longer calls pool_units_replayed"
     wrong: list[str] = []
     for label, starter_text, ghost, expected in (
         ("the call present", starter, "never_replayed", 3),

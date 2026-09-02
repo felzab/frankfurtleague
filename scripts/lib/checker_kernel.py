@@ -1,4 +1,4 @@
-"""SCRIPTS · what every checker in this folder is built on.
+"""SCRIPTS · what every checker under `scripts/` is built on.
 
 git, the repository root, the branch's base and the finding-to-exit-code tail, once each: a checker
 taking any from its own copy drifts into its own behaviour. The exit contract is 0 pass · 1 findings
@@ -17,7 +17,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal, TextIO, TypeVar
 
-REPO_ROOT: Final = Path(__file__).resolve().parent.parent
+# Three levels: this file sits in `scripts/lib/`, and a fixture copies the whole of `scripts/`
+# into a throwaway repository whose root is what every checker then has to resolve against.
+REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 
 # Three failing states, because they ask for three different actions: fix the change, fix the input
 # the check was given, fix the environment. Only the checker can tell which happened.
@@ -36,7 +38,7 @@ PARSE_FLOOR: Final = (3, 9)
 DEFAULT_BASE: Final = "main"
 
 # What reading a file in this repository can raise. Named rather than spelled inline, for
-# `scripts/docs_gate/kernel.py :: UNTOKENIZABLE`'s reason: the formatter folds a tuple into PEP
+# `scripts/checks/docs_gate/kernel.py :: UNTOKENIZABLE`'s reason: the formatter folds a tuple into PEP
 # 758's `except A, B:`, newer than `PARSE_FLOOR`.
 UNREADABLE: Final = (OSError, UnicodeDecodeError)
 
@@ -166,7 +168,7 @@ def exit_code(findings: Iterable[Finding]) -> int:
 def report_findings(findings: Iterable[Finding], *, indent: int = 6, stream: TextIO = sys.stdout) -> int:
     """Print the failures, then the advisories, into one stream, and answer the run's exit code.
 
-    One stream: `scripts/verify.sh` prints output straight through, so splitting the severities
+    One stream: `scripts/gate/verify.sh` prints output straight through, so splitting the severities
     would interleave them under the wrong heading.
     """
     collected = list(findings)

@@ -1,6 +1,6 @@
 """SCRIPTS · the gate's scope register, held to the rule text it enforces.
 
-`scripts/docs_gate/branch.py :: INCODE_SCOPES` decides which subtrees the comment rules are checked
+`scripts/checks/docs_gate/branch.py :: INCODE_SCOPES` decides which subtrees the comment rules are checked
 in, and a subtree dropped from it stops being checked in silence. The two listings are reached by
 different routes and required to agree (PRE-4), so narrowing either breaks the agreement.
 """
@@ -54,7 +54,7 @@ def _folder(token: str) -> str:
 
 def test_the_comment_scopes_the_gate_checks_are_the_ones_the_standard_names() -> None:
     """A subtree dropped from the register stops being checked, and every case in the corpus still passes."""
-    checked = _declared("docs_gate/branch.py", "INCODE_SCOPES")
+    checked = _declared("checks/docs_gate/branch.py", "INCODE_SCOPES")
     named = _scoped_by_the_standard()
     assert checked, "INCODE_SCOPES is empty, so every comment check iterates nothing and passes"
     assert named, "the standard's scope line names nothing"
@@ -63,5 +63,5 @@ def test_the_comment_scopes_the_gate_checks_are_the_ones_the_standard_names() ->
 
 def test_every_scope_the_gate_checks_is_a_folder_this_repository_holds() -> None:
     """A register naming a folder nobody has reaches no file, which reads exactly like a clean sweep."""
-    missing = [entry for entry in _declared("docs_gate/branch.py", "INCODE_SCOPES") if not (REPO_ROOT / entry).is_dir()]
+    missing = [entry for entry in _declared("checks/docs_gate/branch.py", "INCODE_SCOPES") if not (REPO_ROOT / entry).is_dir()]
     assert not missing, f"no such folder: {missing}"

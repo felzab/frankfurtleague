@@ -1,7 +1,7 @@
 """SCRIPTS · the gate's units, run as concurrent processes for verify.sh to replay.
 
 One unit per PROCESS, so a worker is an ordinary `verify.sh` run. A subshell would keep the error
-trap, `scripts/_lib.sh` setting `set -E`, but a job backgrounded with `&` loses the interrupt trap
+trap, `scripts/lib/_lib.sh` setting `set -E`, but a job backgrounded with `&` loses the interrupt trap
 outright, bash giving a backgrounded child `SIG_IGN` for `SIGINT` and then refusing to re-trap it.
 
 A unit carries its own command, so one runner serves both shapes the gate runs beside themselves: a
@@ -26,7 +26,11 @@ from pathlib import Path
 from types import FrameType
 from typing import IO, Final
 
-from checker_kernel import EXIT_INTERRUPTED, EXIT_OK, run
+# Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
+# sibling of it rather than in it.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+
+from checker_kernel import EXIT_INTERRUPTED, EXIT_OK, run  # noqa: E402 -- the insert above is what resolves it
 
 # A word, not a number: a numeric sentinel would reach verify.sh through the arm meant for a real
 # exit status.

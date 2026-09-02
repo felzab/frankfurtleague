@@ -1,6 +1,6 @@
 """SCRIPTS · the documentation gate's fixture net
 
-Every check `scripts/check_docs.py :: CHECKS` registers is driven twice: it must report a planted
+Every check `scripts/checks/check_docs.py :: CHECKS` registers is driven twice: it must report a planted
 violation and say nothing about a corpus with none. The seam is a throwaway repository holding a
 copy of scripts/, whose REPO_ROOT is derived from its own location and so roots there.
 
@@ -557,12 +557,12 @@ def _load() -> Fixture:
     """The checker, imported from a copy of scripts/ inside a fresh fixture repository."""
     root = new_root("check-docs-fixture-")
     copy_scripts(root / SCRIPTS_COPY)
-    sys.path.insert(0, str(root / SCRIPTS_COPY))
+    sys.path.insert(0, str(root / SCRIPTS_COPY / "checks"))
     withdraw("check_docs", "check_pr_body", "checker_kernel", "docs_gate")
     gate = importlib.import_module("check_docs")
     # The seam itself, stated as an assertion: the checker derives its repository root from its own
     # location, so importing this copy is what points every check at the corpus below instead of here.
-    assert Path(gate.__file__ or "").resolve().parent.parent == root, "the gate under test is not the copy"
+    assert Path(gate.__file__ or "").resolve().parents[2] == root, "the gate under test is not the copy"
     body_gate = importlib.import_module("check_pr_body")
     assert vars(sys.modules["checker_kernel"])["REPO_ROOT"] == root, "the gate under test reads another fixture's tree"
     _build(root, _corpus(body_gate.TEMPLATE_FRAGMENTS))
@@ -603,8 +603,8 @@ ADVISORY: Final = "advisory finding"
 Reported = tuple[str, str, str]
 
 # What a printed finding names before its detail: a file, or a file and the line the check looked
-# at, which `scripts/docs_gate/kernel.py :: Finding` renders. The line is read out here rather than
-# folded into the file, so a case can turn on either.
+# at, which `scripts/checks/docs_gate/kernel.py :: Finding` renders. The line is read out rather
+# than folded into the file, so a case can turn on either.
 SUBJECT_RE: Final = re.compile(r"^(.*?)(?::(\d+))?$")
 
 

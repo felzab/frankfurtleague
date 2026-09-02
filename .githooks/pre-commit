@@ -9,7 +9,7 @@
 #
 # Convenience, never the enforcement, exactly as `commit-msg` is: a clone that has not run
 # `git config core.hooksPath .githooks` has no hook, and one that has not installed the frontend has
-# no prettier, so `./scripts/verify.sh --frontend` and CI's format job are what bind
+# no prettier, so `./scripts/gate/verify.sh --frontend` and CI's format job are what bind
 # (`docs/_git/spec.md :: 1.5 The verification gate`).
 
 set -euo pipefail
@@ -48,7 +48,7 @@ if ! work="$(mktemp -d)"; then
   exit 1
 fi
 # `git hash-object` cannot open mktemp's MSYS alias (/tmp/…) from a worktree, where no conversion
-# layer rewrites the argument — the resolution `scripts/selfcheck.sh :: mount_source` also applies.
+# layer rewrites the argument — the resolution `scripts/gate/selfcheck.sh :: mount_source` also applies.
 work="$(cygpath -w "$work" 2>/dev/null || printf '%s' "$work")"
 trap 'rm -rf "$work"' EXIT
 
@@ -113,7 +113,7 @@ fi
 prettier_entry="node_modules/prettier/bin/prettier.cjs"
 if ! command -v node >/dev/null 2>&1 || [ ! -f "fl_frontend/$prettier_entry" ]; then
   echo "  pre-commit hook: no prettier found — skipping." >&2
-  echo "  ./scripts/verify.sh --frontend and CI still check this." >&2
+  echo "  ./scripts/gate/verify.sh --frontend and CI still check this." >&2
   exit 0
 fi
 

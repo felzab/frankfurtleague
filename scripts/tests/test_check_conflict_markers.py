@@ -6,8 +6,8 @@ this file a finding of the checker it drives, and the suite would fail on its ow
 `main` is exercised as well as the rules, the exit contract being the half a rule test cannot
 reach: a checker answering 0 where it found something is the failure this one exists to prevent.
 
-Stdlib only, and `scripts/` is put on the path here because the module under test imports
-`checker_kernel` as a sibling rather than as a package.
+Stdlib only, and `scripts/checks/` is put on the path here because the module under test is run
+as a script everywhere else, which is what seeds that directory onto the path for it.
 """
 
 from __future__ import annotations
@@ -24,11 +24,11 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 # Withdrawn again, kernel dropped from the cache with it, matching `test_check_compose_mirror.py`:
 # a `checker_kernel` left cached here would answer another suite's imports and root it at the wrong
 # repository.
-sys.path.insert(0, str(SCRIPTS))
+sys.path.insert(0, str(SCRIPTS / "checks"))
 try:
     markers = importlib.import_module("check_conflict_markers")
 finally:
-    sys.path.remove(str(SCRIPTS))
+    sys.path.remove(str(SCRIPTS / "checks"))
     sys.modules.pop("check_conflict_markers", None)
     sys.modules.pop("checker_kernel", None)
 

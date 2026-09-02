@@ -4,16 +4,16 @@
 #
 # Never writes, but `next build` rewrites the tracked `fl_frontend/tsconfig.json` when a
 # `compilerOptions` key is absent; the frontend CI job diffs that path. Name no other tool's flag
-# in this block: `scripts/selfcheck.sh` reads every double-dashed word here as one this takes.
+# in this block: `scripts/gate/selfcheck.sh` reads every double-dashed word here as one this takes.
 #
-#   ./scripts/verify.sh                   every scope — the full gate; the image builds take minutes
-#   ./scripts/verify.sh --scripts --docs --backend --format --frontend --ops --db --images
-#   ./scripts/verify.sh --quick           the scopes needing no Docker: not ops, not db, not images
-#   ./scripts/verify.sh --verbose         stream each tool's own output instead of capturing it
-#   ./scripts/verify.sh --serial          one scope at a time, in the order the output already reads
-#   ./scripts/verify.sh --help
+#   ./scripts/gate/verify.sh                   every scope — the full gate; the image builds take minutes
+#   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend --ops --db --images
+#   ./scripts/gate/verify.sh --quick           the scopes needing no Docker: not ops, not db, not images
+#   ./scripts/gate/verify.sh --verbose         stream each tool's own output instead of capturing it
+#   ./scripts/gate/verify.sh --serial          one scope at a time, in the order the output already reads
+#   ./scripts/gate/verify.sh --help
 
-source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
 RUN_SCRIPTS=0; RUN_DOCS=0; RUN_BACKEND=0; RUN_FORMAT=0; RUN_FRONTEND=0; RUN_OPS=0; RUN_DB=0; RUN_IMAGES=0
 SERIAL=0
@@ -111,7 +111,7 @@ if (( RUN_OPS || RUN_IMAGES )); then
 fi
 PY=""
 if (( RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_DB )); then
-  # The failure is the caller's, for the reason `scripts/_lib.sh :: venv_python` records.
+  # The failure is the caller's, for the reason `scripts/lib/_lib.sh :: venv_python` records.
   PY="$(venv_python)" \
     || die "No fl_backend virtualenv found. Create it with:  cd fl_backend && uv sync --dev"
   # Existing is not current: a virtualenv holding what the lockfile dropped, or missing what it
@@ -155,7 +155,7 @@ gate_width() { # $1 the tool's own measured optimum
 # Every check that runs beside its neighbours is a `do_<check>` function, called by name: the pool
 # runs one as a process and `--serial` calls the same body in place, so the serial run is an oracle.
 
-do_selfcheck() { bash scripts/selfcheck.sh; }
+do_selfcheck() { bash scripts/gate/selfcheck.sh; }
 # Only a failing invocation speaks. Both share one capture, so a passing banner would print
 # directly above the other's finding and read as a verdict on it.
 do_ruff() {
@@ -172,16 +172,16 @@ do_pytest() {
     --maxprocesses "$(gate_width "$GATE_WIDTH_SCRIPTS_PYTEST")"
 }
 
-# Only `check_docs.py` writes `.git/index` (`scripts/docs_gate/branch.py :: _added_by_file`), so
+# Only `check_docs.py` writes `.git/index` (`scripts/checks/docs_gate/branch.py :: _added_by_file`), so
 # the others read a repository nobody locks.
-do_conflict_markers() { "$PY" scripts/check_conflict_markers.py; }
+do_conflict_markers() { "$PY" scripts/checks/check_conflict_markers.py; }
 # The flag only under Actions: `github` mode prints workflow commands INSTEAD of the human report,
 # so an unconditional one destroys the local report and leaves the run green while doing it.
 do_docs_gate() {
-  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then "$PY" scripts/check_docs.py --output-format github
-  else "$PY" scripts/check_docs.py; fi
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then "$PY" scripts/checks/check_docs.py --output-format github
+  else "$PY" scripts/checks/check_docs.py; fi
 }
-do_commit_messages() { "$PY" scripts/check_commits.py; }
+do_commit_messages() { "$PY" scripts/checks/check_commits.py; }
 # `PYTHONPATH` rather than a `cd`, which `run_checker` cannot do: a subshell around it would run
 # `fail` in a child, and the finding it counts would die with that child.
 do_openapi() { env "PYTHONPATH=${REPO_ROOT}/fl_backend" "$PY" -m tests.openapi_document --check; }
@@ -385,7 +385,7 @@ wrap_up() {
   if [[ -n "$NOT_RUN" ]]; then finish; else finish "Safe to merge."; fi
 }
 
-# The checkers' exit contract is `scripts/checker_kernel.py :: run`.
+# The checkers' exit contract is `scripts/lib/checker_kernel.py :: run`.
 
 # `annotate` is `collect` for a checker worth reading when it PASSES.
 run_checker() {
@@ -461,21 +461,21 @@ pool_open() {
   : > "${POOL_DIR}/units.tsv"
 }
 
-# `scripts/gate_pool.py :: parse_units`' row. A scope owes its parent a ledger of rows; a step owes
+# `scripts/gate/gate_pool.py :: parse_units`' row. A scope owes its parent a ledger of rows; a step owes
 # only its exit status.
 pool_add_scope() { # $1 scope
   printf '%s\tFL_GATE_WORKER=1\tFL_GATE_LEDGER=%s\t%s\t%s\t--%s\n' \
-    "$1" "${POOL_DIR}/${1}.ledger" "$POOL_BASH" "scripts/verify.sh" "$1" >> "${POOL_DIR}/units.tsv"
+    "$1" "${POOL_DIR}/${1}.ledger" "$POOL_BASH" "scripts/gate/verify.sh" "$1" >> "${POOL_DIR}/units.tsv"
 }
 pool_add_step() { # $1 check · $2 the scope flag the run carrying its body is given
   printf '%s\tFL_GATE_STEP=%s\t%s\t%s\t%s\n' \
-    "$1" "$1" "$POOL_BASH" "scripts/verify.sh" "$2" >> "${POOL_DIR}/units.tsv"
+    "$1" "$1" "$POOL_BASH" "scripts/gate/verify.sh" "$2" >> "${POOL_DIR}/units.tsv"
 }
 
 pool_wait() { # $1 merge each unit's two streams? · $2 the spinner's label
   local rc=0 name status began ended missing=""
   local -a want=()
-  local -a pool_cmd=("$POOL_PY" scripts/gate_pool.py --dir "$POOL_DIR" --units "${POOL_DIR}/units.tsv")
+  local -a pool_cmd=("$POOL_PY" scripts/gate/gate_pool.py --dir "$POOL_DIR" --units "${POOL_DIR}/units.tsv")
   if (( $1 )); then pool_cmd+=(--merge); fi
   while IFS= read -r name; do want+=("${name%%$'\t'*}"); done < "${POOL_DIR}/units.tsv"
   # A unit's own spinner is dead, its stdout being a file, and this is the one stretch of a run
@@ -483,18 +483,18 @@ pool_wait() { # $1 merge each unit's two streams? · $2 the spinner's label
   spinner_start "$2"
   "${pool_cmd[@]}" || rc=$?
   spinner_stop
-  # The pool's own status, on the checkers' scale (`scripts/gate_pool.py :: main`).
+  # The pool's own status, on the checkers' scale (`scripts/gate/gate_pool.py :: main`).
   case "$rc" in
     0)   ;;
     130) on_interrupt ;;
-    *)   on_error "$rc" "${BASH_LINENO[0]}" "scripts/gate_pool.py" ;;
+    *)   on_error "$rc" "${BASH_LINENO[0]}" "scripts/gate/gate_pool.py" ;;
   esac
   unset UNIT_STATUS UNIT_MS
   declare -gA UNIT_STATUS=() UNIT_MS=()
   # Before the redirect, whose own failure is a bare shell complaint that never reaches the
   # completeness check.
   [[ -r "${POOL_DIR}/manifest.tsv" ]] \
-    || on_error 3 "${BASH_LINENO[0]}" "scripts/gate_pool.py left no manifest, so what its units did cannot be read (${POOL_DIR}/manifest.tsv)"
+    || on_error 3 "${BASH_LINENO[0]}" "scripts/gate/gate_pool.py left no manifest, so what its units did cannot be read (${POOL_DIR}/manifest.tsv)"
   while IFS=$'\t' read -r name status began ended; do
     UNIT_STATUS["$name"]="$status"
     UNIT_MS["$name"]=$(( ended - began ))
@@ -505,7 +505,7 @@ pool_wait() { # $1 merge each unit's two streams? · $2 the spinner's label
     if [[ -z "${UNIT_STATUS[$name]+set}" ]]; then missing+=" ${name}"; fi
   done
   if [[ -n "$missing" ]] || (( ${#UNIT_STATUS[@]} != ${#want[@]} )); then
-    on_error 3 "${BASH_LINENO[0]}" "scripts/gate_pool.py answered for ${#UNIT_STATUS[@]} of ${#want[@]} unit(s)${missing:+, and for none of:${missing}}"
+    on_error 3 "${BASH_LINENO[0]}" "scripts/gate/gate_pool.py answered for ${#UNIT_STATUS[@]} of ${#want[@]} unit(s)${missing:+, and for none of:${missing}}"
   fi
 }
 
@@ -521,7 +521,7 @@ start_steps() { # $1 the scope flag their bodies' run is given · $2.. the check
   pool_wait 1 "$# check(s) running concurrently"
 }
 
-# A unit with no numeric status (`scripts/gate_pool.py :: NOT_STARTED`) reached no verdict: 3, the
+# A unit with no numeric status (`scripts/gate/gate_pool.py :: NOT_STARTED`) reached no verdict: 3, the
 # crash path.
 unit_replay() { # $1 unit — its own output and exit status, wherever it ran
   # With no pool this IS the check, so `--verbose` and `--serial` share the call site rather than a
@@ -534,7 +534,7 @@ unit_replay() { # $1 unit — its own output and exit status, wherever it ran
     return 3
   fi
   # `return` masks to a byte, and a Windows kill's 2304 masks to 0 and would read as a pass.
-  # Classified before the mask, as `scripts/_lib.sh :: adopt_ending` classifies a scope's.
+  # Classified before the mask, as `scripts/lib/_lib.sh :: adopt_ending` classifies a scope's.
   if (( status > 255 )); then
     printf '%s\n' "the ${1} check ended on status ${status}, which is a kill rather than a verdict"
     return 3
@@ -572,7 +572,7 @@ if ! worker; then
 
   # Here, not where the pool would have started: by then the scopes are already running.
   if (( POOL_FALLBACK )); then
-    info "no python at the checkers' floor (\`scripts/checker_kernel.py :: PYTHON_FLOOR\`), so every
+    info "no python at the checkers' floor (\`scripts/lib/checker_kernel.py :: PYTHON_FLOOR\`), so every
 scope and every check runs one at a time — the same proof, at the cost of their sum rather than
 their longest. \`cd fl_backend && uv sync --dev\` creates an interpreter that meets it."
   fi
@@ -588,13 +588,13 @@ their longest. \`cd fl_backend && uv sync --dev\` creates an interpreter that me
     if [[ -z "$SCOPE_PY" ]]; then
       skip "no python found — this run was not checked against the diff"
     else
-      # Captured so the verdict below can count `scripts/check_scope.py :: check`'s report lines,
+      # Captured so the verdict below can count `scripts/checks/check_scope.py :: check`'s report lines,
       # and printed, those being the useful half of a green answer.
-      SCOPE_OUT="$("$SCOPE_PY" scripts/check_scope.py --ran "$SCOPES_RAN")" || SCOPE_RC=$?
+      SCOPE_OUT="$("$SCOPE_PY" scripts/checks/check_scope.py --ran "$SCOPES_RAN")" || SCOPE_RC=$?
       if [[ -n "$SCOPE_OUT" ]]; then printf '%s\n' "$SCOPE_OUT"; fi
       case "$SCOPE_RC" in
         # 0 is "nothing refuses this run", not "the run covers the change": an unproven surface
-        # passes through as a `report` line (`scripts/checker_kernel.py :: report_findings`).
+        # passes through as a `report` line (`scripts/lib/checker_kernel.py :: report_findings`).
         0) SCOPE_UNPROVEN="$(printf '%s\n' "$SCOPE_OUT" | grep -c '^ *report  ' || true)"
            if (( SCOPE_UNPROVEN > 0 )); then
              ok "no file this branch changed refuses this run, and the ${SCOPE_UNPROVEN} report line(s) above
@@ -661,10 +661,10 @@ if (( PARALLEL )); then
     if [[ -s "${POOL_DIR}/${scope}.out" ]]; then cat "${POOL_DIR}/${scope}.out"; fi
     if [[ -s "${POOL_DIR}/${scope}.err" ]]; then cat "${POOL_DIR}/${scope}.err" >&2; fi
     adopt_rows "$scope"
-    # Non-numeric is `scripts/gate_pool.py :: NOT_STARTED` or no row at all; a number here is
+    # Non-numeric is `scripts/gate/gate_pool.py :: NOT_STARTED` or no row at all; a number here is
     # always one a real process returned.
     if [[ ! "$status" =~ ^[0-9]+$ ]]; then
-      on_error 3 "${LINENO}" "scripts/gate_pool.py did not run the ${scope} scope (${status:-no row})"
+      on_error 3 "${LINENO}" "scripts/gate/gate_pool.py did not run the ${scope} scope (${status:-no row})"
     fi
     # Crash and interrupt end the run here, no row saying so; findings and a refusal are already
     # in the rows `finish` reads back.
@@ -700,7 +700,7 @@ fi
 if (( RUN_SCRIPTS )); then
   section scripts
 
-  # For `scripts/selfcheck.sh :: _ledger`'s reason.
+  # For `scripts/gate/selfcheck.sh :: _ledger`'s reason.
   FL_SELFCHECK_LEDGER="$(mktemp)"; export FL_SELFCHECK_LEDGER
   SELFCHECK_SKIPS=0
 
@@ -709,18 +709,18 @@ if (( RUN_SCRIPTS )); then
   replay_selfcheck() {
     local verb message records=0 declared=""
     [[ -r "$FL_SELFCHECK_LEDGER" ]] \
-      || on_error 3 "${LINENO}" "scripts/selfcheck.sh left no ledger, so what it did not run cannot be reported (scripts/selfcheck.sh :: _ledger)"
+      || on_error 3 "${LINENO}" "scripts/gate/selfcheck.sh left no ledger, so what it did not run cannot be reported (scripts/gate/selfcheck.sh :: _ledger)"
     while IFS=$'\t' read -r verb message; do
       case "$verb" in
         skip) skip "$message"; SELFCHECK_SKIPS=$(( SELFCHECK_SKIPS + 1 )) ;;
         warn) warn "$message" ;;
         end)  declared="$message"; continue ;;
-        *)    on_error 3 "${LINENO}" "scripts/selfcheck.sh's ledger holds '${verb}', which is none of its verbs" ;;
+        *)    on_error 3 "${LINENO}" "scripts/gate/selfcheck.sh's ledger holds '${verb}', which is none of its verbs" ;;
       esac
       records=$(( records + 1 ))
     done < "$FL_SELFCHECK_LEDGER"
     [[ "$declared" == "$records" ]] \
-      || on_error 3 "${LINENO}" "scripts/selfcheck.sh left ${records} ledger record(s) under a closing count of '${declared:-none}'"
+      || on_error 3 "${LINENO}" "scripts/gate/selfcheck.sh left ${records} ledger record(s) under a closing count of '${declared:-none}'"
   }
 
   # Safe together: each writes only its own cache or a throwaway tree.
@@ -728,7 +728,7 @@ if (( RUN_SCRIPTS )); then
 
   step "scripts · selfcheck"
   unit_join selfcheck
-  run_checker stop "scripts/selfcheck.sh" "scripts/selfcheck.sh failed — its findings are above." \
+  run_checker stop "scripts/gate/selfcheck.sh" "scripts/gate/selfcheck.sh failed — its findings are above." \
     unit_replay selfcheck
   replay_selfcheck
   if (( SELFCHECK_SKIPS )); then
@@ -749,7 +749,7 @@ if (( RUN_SCRIPTS )); then
 These are the same errors Pylance shows in the editor."
   ok "the gate's own types are clean"
 
-  # Every check `scripts/check_docs.py :: CHECKS` registers runs against a fixture repo (PRE-4).
+  # Every check `scripts/checks/check_docs.py :: CHECKS` registers runs against a fixture repo (PRE-4).
   # pytest's own codes: 2 is a collection error, which `run_checker` would call a refusal.
   step "scripts · pytest  (the documentation gate's fixture net, and the kernel's floors)"
   unit_join pytest
@@ -781,7 +781,7 @@ if (( RUN_DOCS )); then
   # diff: an unresolved conflict reaching main is what makes every finding below it unreliable.
   step "docs · no tracked file carries a conflict marker"
   unit_join conflict_markers
-  if run_checker collect "scripts/check_conflict_markers.py" "A tracked file still holds a merge conflict marker. Each finding above names the
+  if run_checker collect "scripts/checks/check_conflict_markers.py" "A tracked file still holds a merge conflict marker. Each finding above names the
 file and the line it stands on. Resolve the conflict and commit the resolution." \
     unit_replay conflict_markers; then
     ok "no tracked file carries a conflict marker"
@@ -794,8 +794,8 @@ file and the line it stands on. Resolve the conflict and commit the resolution."
   step "docs · citations, links and shapes"
   unit_join docs_gate
   # `annotate`, for `run_checker`'s reason.
-  if run_checker annotate "scripts/check_docs.py" "The documentation gate failed. Each finding above names its file
-and what no longer resolves. Checks: scripts/docs_gate/kernel.py :: CHECKS" \
+  if run_checker annotate "scripts/checks/check_docs.py" "The documentation gate failed. Each finding above names its file
+and what no longer resolves. Checks: scripts/checks/docs_gate/kernel.py :: CHECKS" \
     unit_replay docs_gate; then
     ok "documentation references resolve"
   else
@@ -803,10 +803,10 @@ and what no longer resolves. Checks: scripts/docs_gate/kernel.py :: CHECKS" \
   fi
 
   # Commit messages ride in this scope rather than one of their own; the argument is in
-  # `scripts/check_commits.py`'s own header.
+  # `scripts/checks/check_commits.py`'s own header.
   step "docs · commit messages on this branch"
   unit_join commit_messages
-  if run_checker collect "scripts/check_commits.py" "The commit message gate failed. Each finding above names the
+  if run_checker collect "scripts/checks/check_commits.py" "The commit message gate failed. Each finding above names the
 commit and what is wrong with it. The form is docs/_git/templates.md." \
     unit_replay commit_messages; then
     ok "commit messages follow the convention"
@@ -978,7 +978,7 @@ if (( RUN_OPS )); then
   step "ops · zizmor audits the GitHub Actions surface"
 
   # zizmor's severity scale -- 11 to 14 findings, 1 its own failure -- inverts `run_checker`'s, so
-  # it is translated to `scripts/checker_kernel.py :: run`'s.
+  # it is translated to `scripts/lib/checker_kernel.py :: run`'s.
   run_zizmor() {
     local rc=0
     # The root, not a file list: zizmor's default collection reaches a workflow added anywhere.
@@ -1046,9 +1046,9 @@ written at the rule, never suppressed at this call site." \
   elif (( OPS_FLOOR == 3 )); then
     skip "this python is below the checkers' floor, so the compose files were not compared"
   else
-    run_checker stop "scripts/check_compose_mirror.py" "The compose files have drifted. The findings above name
+    run_checker stop "scripts/checks/check_compose_mirror.py" "The compose files have drifted. The findings above name
 the service and the key, and the declared deltas are the checker's own list." \
-      "$OPS_PY" scripts/check_compose_mirror.py
+      "$OPS_PY" scripts/checks/check_compose_mirror.py
     ok "every delta between the two files is a declared one"
   fi
 
@@ -1150,7 +1150,7 @@ this step in the job."
   # silently disables the startup env gate and onRequestError.
 
   # 1 is the test's answer, higher is docker's and says nothing about the file: refused, as
-  # `scripts/publish.sh` grades the same probe. 130 is neither, here or below.
+  # `scripts/ops/publish.sh` grades the same probe. 130 is neither, here or below.
   PROBE_RC=0
   quietly docker run --rm --entrypoint sh "${VERIFY_TAG}:frontend" -c '[ -f .next/server/instrumentation.js ]' || PROBE_RC=$?
   if (( PROBE_RC == 0 )); then

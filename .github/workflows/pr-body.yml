@@ -59,4 +59,4 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-        run: printf '%s' "$PR_BODY" | fl_backend/.venv/bin/python scripts/check_pr_body.py - --author "$PR_AUTHOR"
+        run: printf '%s' "$PR_BODY" | fl_backend/.venv/bin/python scripts/checks/check_pr_body.py - --author "$PR_AUTHOR"

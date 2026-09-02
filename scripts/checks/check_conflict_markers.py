@@ -20,7 +20,19 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from checker_kernel import EXIT_CRASH, EXIT_REFUSED, REPO_ROOT, Finding, git, report_findings, run
+# Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
+# sibling of it rather than in it.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+
+from checker_kernel import (  # noqa: E402 -- the insert above is what resolves it
+    EXIT_CRASH,
+    EXIT_REFUSED,
+    REPO_ROOT,
+    Finding,
+    git,
+    report_findings,
+    run,
+)
 
 # What a formatter leaves to the LEFT of a marker: indentation, blockquote levels, list bullets, a
 # table cell wall. prettier moves a marker behind these rather than failing, so a column-zero
@@ -181,7 +193,7 @@ def main() -> int:
     if unreadable:
         print("      Those files were not read, so this run proves nothing about them.", file=sys.stderr)
 
-    # A finding outranks a refusal: `scripts/verify.sh :: run_checker` reads exit 2 as nothing here
+    # A finding outranks a refusal: `scripts/gate/verify.sh :: run_checker` reads exit 2 as nothing here
     # standing as a verdict, which would contradict the FAIL lines above it. The unread files are
     # named either way, so the precedence loses nothing.
     if unreadable and not findings:

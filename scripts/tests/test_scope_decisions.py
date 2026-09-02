@@ -82,16 +82,16 @@ class Fixture:
 def _load() -> Fixture:
     root = new_root("check-scope-fixture-")
     copy_scripts(root / SCRIPTS_COPY)
-    sys.path.insert(0, str(root / SCRIPTS_COPY))
+    sys.path.insert(0, str(root / SCRIPTS_COPY / "checks"))
     withdraw("check_scope", "checker_kernel")
     try:
         module = importlib.import_module("check_scope")
     finally:
-        sys.path.remove(str(root / SCRIPTS_COPY))
+        sys.path.remove(str(root / SCRIPTS_COPY / "checks"))
         withdraw("check_scope", "checker_kernel")
     # The seam stated as an assertion: the checker derives its root from its own location, so
     # importing this copy is what points every listing below at the fixture instead of at us.
-    assert Path(module.__file__ or "").resolve().parent.parent == root, "the checker under test is not the copy"
+    assert Path(module.__file__ or "").resolve().parents[2] == root, "the checker under test is not the copy"
     # The kernel's own root, which is what every listing below is read against: importing the copy
     # decides it, and a kernel cached by another fixture would point them all at that tree instead.
     assert module.REPO_ROOT == root, "the checker under test reads another fixture's tree"
@@ -243,7 +243,7 @@ def test_a_comment_alone_asks_for_the_documentation_scopes_and_nothing_else() ->
 def test_a_scope_the_mapping_grows_and_the_check_does_not_is_reported() -> None:
     """A scope emitted into silence is a surface nobody is told about, the one drift a second list can cause."""
     fixture = _reset()
-    mapping = fixture.root / SCRIPTS_COPY / "ci_scopes.sh"
+    mapping = fixture.root / SCRIPTS_COPY / "gate" / "scope_map.sh"
     kept = mapping.read_bytes()
     try:
         mapping.write_bytes(kept + b"\nprintf 'moon=true\\n'\n")
@@ -375,28 +375,28 @@ def test_a_path_selects_every_scope_that_would_check_it() -> None:
     scope = _fixture().scope
     missed: list[str] = []
     for path, wanted in SELECTED:
-        answered = scope.ci_scopes([path])
-        assert answered is not None, "scripts/ci_scopes.sh could not be run"
+        answered = scope.scope_map([path])
+        assert answered is not None, "scripts/gate/scope_map.sh could not be run"
         missed += [path + " selected no " + name for name in wanted if not answered.get(name)]
     assert not missed, "\n".join(missed)
 
 
 def _mapping_for_base(root: Path, base: str) -> dict[str, bool]:
-    """`ci_scopes.sh` in its base-ref mode, the one CI runs and no case above reaches.
+    """`scope_map.sh` in its base-ref mode, the one CI runs and no case above reaches.
 
     Every other case arrives through `--stdin`, where the mapping is handed a file list and never
     diffs anything: the listing this mode builds is checked by nothing else.
     """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     done = subprocess.run(
-        (BASH, str(root / SCRIPTS_COPY / "ci_scopes.sh"), base),
+        (BASH, str(root / SCRIPTS_COPY / "gate" / "scope_map.sh"), base),
         cwd=root,
         capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
     )
-    assert done.returncode == 0, "ci_scopes.sh refused the base ref: " + done.stderr
+    assert done.returncode == 0, "scope_map.sh refused the base ref: " + done.stderr
     return {name: value == "true" for name, _, value in (line.partition("=") for line in done.stdout.splitlines() if "=" in line)}
 
 
@@ -423,6 +423,6 @@ def test_the_base_ref_mode_reads_a_rename_by_both_of_its_paths() -> None:
 def test_the_two_lists_of_scope_names_agree() -> None:
     """A name in the mapping and not in SCOPES is read past in silence; the other way round never fires."""
     scope = _fixture().scope
-    answered = scope.ci_scopes([])
+    answered = scope.scope_map([])
     assert answered is not None
     assert set(answered) == set(scope.SCOPES)

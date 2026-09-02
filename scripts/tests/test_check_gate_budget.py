@@ -5,8 +5,8 @@ parsed tables with the clock injected, and `main` over both so the exit contract
 proven rather than the rules alone. The committed reference is driven too, against a payload cut
 from its own budgets: a table the check cannot read, or cannot fail on, would otherwise ship green.
 
-Stdlib only, and `scripts/` is put on the path here because the module under test imports
-`checker_kernel` as a sibling rather than as a package.
+Stdlib only, and `scripts/checks/` is put on the path here because the module under test is run
+as a script everywhere else, which is what seeds that directory onto the path for it.
 """
 
 from __future__ import annotations
@@ -26,11 +26,11 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 REPO_ROOT = SCRIPTS.parent
 
 # Withdrawn again, kernel dropped from the cache with it, matching `test_check_conflict_markers.py`.
-sys.path.insert(0, str(SCRIPTS))
+sys.path.insert(0, str(SCRIPTS / "checks"))
 try:
     budget = importlib.import_module("check_gate_budget")
 finally:
-    sys.path.remove(str(SCRIPTS))
+    sys.path.remove(str(SCRIPTS / "checks"))
     sys.modules.pop("check_gate_budget", None)
     sys.modules.pop("checker_kernel", None)
 
@@ -433,9 +433,9 @@ def test_the_workflow_runs_both_modes():
     """A check the workflow never calls is a check that never refuses: both call sites, read as text."""
     workflow = (REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
 
-    assert re.search(r"scripts/check_gate_budget\.py --jobs ", workflow), "the verify job does not hold the run to its budgets"
-    assert re.search(r"scripts/check_gate_budget\.py --base ", workflow), "the commits job does not hold the reference against its base"
-    for path in (".github/gate-wall-clock.tsv", "scripts/check_gate_budget.py", "scripts/checker_kernel.py"):
+    assert re.search(r"scripts/checks/check_gate_budget\.py --jobs ", workflow), "the verify job does not hold the run to its budgets"
+    assert re.search(r"scripts/checks/check_gate_budget\.py --base ", workflow), "the commits job does not hold the reference against its base"
+    for path in (".github/gate-wall-clock.tsv", "scripts/checks/check_gate_budget.py", "scripts/lib/checker_kernel.py"):
         assert path in workflow, f"the verify job's sparse checkout does not read {path}"
 
 

@@ -66,7 +66,7 @@ THE CHECKS, in priority order:
 
 8. **FAIL-CLOSED BEHAVIOUR.** Verify the documented chain for a stack coming up from nothing: a
    failing frontend env gate → unhealthy container → nginx (depends_on `service_healthy`) never
-   starts. Then verify the deploy separately, where that chain does not hold — `scripts/deploy.sh`
+   starts. Then verify the deploy separately, where that chain does not hold — `scripts/ops/deploy.sh`
    recreates the application pair alone and leaves the edge running, so the same failing gate is a
    502 and an automatic rollback ([`docs/ops/spec.md`](../../../ops/spec.md) I9). What is the
    equivalent story for the backend and for Mongo? What does the stack serve during each partial

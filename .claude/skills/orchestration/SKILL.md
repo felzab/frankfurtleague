@@ -65,13 +65,13 @@ carried the session. One session was stopped twice, the second time with no warn
    Agents propose messages; you write the commit.
 2. **Check every message against its own diff, never against the proposal it came from** — for
    every path in the diff, does the body account for it? Validate each with
-   `python scripts/check_commits.py --message-file <file>`, and keep the subject within 72 characters.
+   `python scripts/checks/check_commits.py --message-file <file>`, and keep the subject within 72 characters.
 3. **Re-establish every environment fact in the message against the live system as you commit it**,
    never against the agent's report — an installed version, a remote setting or a file's presence
    moves between writing a message and its becoming permanent. Qualify every blanket negative to
    what you checked — "nothing else is shared" missed a process-global two frames down.
 4. **Order commits by what each commit's own checks can see**, never by what reads tidily. A citation
-   resolves only once its file is tracked — `scripts/docs_gate/checks.py` reads the working tree, so
+   resolves only once its file is tracked — `scripts/checks/docs_gate/checks.py` reads the working tree, so
    a document naming an untracked file passes locally and fails the CI checkout — and a workflow's
    version key only once its manifest is committed.
 5. **Stage a file that must execute with its mode, and read it back with `git ls-files -s`.**

@@ -27,7 +27,7 @@ Neither mode runs inside the other's session.
 - **A finding against a generated file names its generator, and the fix goes there.** The emitted
   file is never edited.
 - **A branch-scoped gate check is never a worklist for pre-existing debt.**
-  `scripts/check_docs.py :: check_comment_bounds` reads only the comment blocks this branch added.
+  `scripts/checks/check_docs.py :: check_comment_bounds` reads only the comment blocks this branch added.
   Where the existing population matters — a newly introduced rule above all — measure it directly and
   work that list.
 - **Never restate a rule from `docs/standard.md` — not here, and not in an agent's prompt.** Cite it;
@@ -49,10 +49,10 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 2. **Run the gate first**, and require it green:
 
    ```bash
-   ./scripts/verify.sh --docs
+   ./scripts/gate/verify.sh --docs
    ```
 
-   What it fails on is registered in `scripts/docs_gate/kernel.py :: CHECKS`; read it rather than
+   What it fails on is registered in `scripts/checks/docs_gate/kernel.py :: CHECKS`; read it rather than
    assuming its reach. **A red gate ends the session** — report it and stop. Everything below is the
    layer the gate cannot see.
 
@@ -70,7 +70,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    never names them.
 
 4. **Partition it into segments.** This table is the partition, and **every file that survives step 3
-   belongs to exactly one row of it**. `scripts/check_docs.py :: check_segment_map` reads these globs
+   belongs to exactly one row of it**. `scripts/checks/check_docs.py :: check_segment_map` reads these globs
    and holds them to `git ls-files` on every gate run.
 
    | Segment                     | Globs                                                                                                                                                                                                                                                                                                      |
@@ -94,7 +94,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 
    **The check parses each table where it sits** — indented inside this list — and reads the globs
    from a fixed column of it. Prove any reshaping, re-indenting or move by running
-   `python scripts/check_docs.py` and confirming `segment-map` reports nothing.
+   `python scripts/checks/check_docs.py` and confirming `segment-map` reports nothing.
 
    **Split any segment an agent could not read completely**, and no further: under-filling one costs
    the cross-cutting sight that finds duplication. A split is a dispatch decision and changes no row
@@ -164,7 +164,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    - **Report what you did not read**, and why. The report is allowed to be incomplete and is not
      allowed to hide it.
    - **Do not report what the gate already fails on.** One found anyway is a gap in
-     `scripts/check_docs.py`, and it is a finding against the script.
+     `scripts/checks/check_docs.py`, and it is a finding against the script.
    - **Write findings to disk as you go**, rather than holding the report in memory for one write
      at the end.
 
@@ -195,7 +195,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    The report carries, in this order: the commit it was run at · the coverage ledger, with the count
    of files actually read against the count in the corpus · what was not read · the ranked findings ·
    the questions for the owner · and the gate gaps, meaning findings whose class a check in
-   `scripts/check_docs.py` could have caught mechanically.
+   `scripts/checks/check_docs.py` could have caught mechanically.
 
 8. **Hand over without fixing anything.** Print the counts by verdict, the findings worth reading
    first, and the owner questions as one batch. Then say that `/docs:audit fix` applies them in a
@@ -231,7 +231,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
      (PRE-4). Prove it by silence on the repository too, and narrow a check that fires on something
      correct by design before it lands.
 
-6. **Ship it**, per `docs/_git/spec.md`: branch first, `./scripts/verify.sh --docs --format`, push,
+6. **Ship it**, per `docs/_git/spec.md`: branch first, `./scripts/gate/verify.sh --docs --format`, push,
    open the draft pull request, hand over its link, and name the conclusion of the branch's `verify`
    run. Report the gate's actual exit code, and report
    **net lines, separating relocated from removed** — a reshaping that moves content between files is

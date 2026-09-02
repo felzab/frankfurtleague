@@ -7,4 +7,11 @@ that can stop that guard, so it has to parse at `checker_kernel.py :: PARSE_FLOO
 
 from __future__ import annotations
 
-import checker_kernel as _floor  # noqa: F401 -- imported for the import-time guard alone
+import sys
+from pathlib import Path
+
+# Imported rather than run, so nothing has put `lib/` on the path yet: a driver naming only the
+# copy's root reaches this package before it reaches any entry point beside it.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "lib"))
+
+import checker_kernel as _floor  # noqa: E402, F401 -- imported for the import-time guard alone

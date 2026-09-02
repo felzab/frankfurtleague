@@ -19,7 +19,7 @@ Read this before running any phase. Every lesson is a **rule**, with what ignori
 running system — then merge it into the matching section, in the same commit as the work that found
 it. Never append a per-run dump at the end. Only one session edits this file at a time.
 
-**Cite what can move; restate nothing.** A lesson points at its source — `scripts/verify.sh` and
+**Cite what can move; restate nothing.** A lesson points at its source — `scripts/gate/verify.sh` and
 `docs/ops/spec.md` §1.6 for the gate, `.claude/CLAUDE.md` §7 and the `.claude/rules/` files it
 indexes for ratified decisions, the installed
 package for library behaviour. A named example illustrates the rule and is not a current-state claim;
@@ -282,4 +282,4 @@ the installed version before relying on it.
 - **Git Bash aliases `%TEMP%` to `/tmp`**, so a checkout or a scratch directory under it answers with
   a path a Windows binary resolves elsewhere or cannot open at all — a container binds the wrong
   directory, or a command dies mid-run. `cygpath -w` is the repository's existing answer, and
-  `scripts/verify.sh` already spells its pool's shell that way.
+  `scripts/gate/verify.sh` already spells its pool's shell that way.

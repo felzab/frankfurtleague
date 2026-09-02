@@ -157,7 +157,7 @@ class Finding:
     """One problem, already resolved to whether it fails the run.
 
     Not `checker_kernel.py :: Finding`, which validates against nothing;
-    `scripts/docs_gate/checks.py` holds both in one namespace, so the collision is live.
+    `scripts/checks/docs_gate/checks.py` holds both in one namespace, so the collision is live.
     """
 
     severity: Severity
@@ -177,7 +177,7 @@ class Finding:
         return self.file if self.line is None else f"{self.file}:{self.line}"
 
     def human(self) -> str:
-        # Six spaces: the message column of the scripts' shared output standard (scripts/_lib.sh).
+        # Six spaces: the message column of the scripts' shared output standard (scripts/lib/_lib.sh).
         return f"      {self.where}: {self.detail}  [{self.check}]"
 
     def github(self) -> str:

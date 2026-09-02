@@ -132,7 +132,7 @@ wave — 5a/5b, 8a/8b/8c — rather than letting one pull request become unrevie
 | ID  | §   | Sev | Item | Files | Status |
 | --- | --- | :-: | ---- | ----- | :----: |
 
-**Exit gate:** \<the checks that must pass before this wave merges — the `./scripts/verify.sh` exit
+**Exit gate:** \<the checks that must pass before this wave merges — the `./scripts/gate/verify.sh` exit
 code, plus wave-specific clauses such as a lint rule flipping to `error`, a manual browser check or a
 measurement. A clause needing a human or wall-clock time becomes its own row with a trigger: never
 tick it unverified, and never stall the wave on it.\>

@@ -58,7 +58,8 @@ IGNORE_SCRIPT: Final = """
 import json
 import sys
 
-sys.path.insert(0, sys.argv[1])
+sys.path.insert(0, sys.argv[1] + "/lib")
+sys.path.insert(0, sys.argv[1] + "/checks")
 
 import checker_kernel
 from docs_gate import checks, kernel
@@ -77,7 +78,8 @@ SCAN_SCRIPT: Final = """
 import json
 import sys
 
-sys.path.insert(0, sys.argv[1])
+sys.path.insert(0, sys.argv[1] + "/lib")
+sys.path.insert(0, sys.argv[1] + "/checks")
 
 from docs_gate import checks, kernel
 
@@ -92,7 +94,8 @@ BOUNDS_SCRIPT: Final = """
 import json
 import sys
 
-sys.path.insert(0, sys.argv[1])
+sys.path.insert(0, sys.argv[1] + "/lib")
+sys.path.insert(0, sys.argv[1] + "/checks")
 
 from docs_gate import branch
 

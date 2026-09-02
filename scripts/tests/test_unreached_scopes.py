@@ -1,6 +1,6 @@
 """SCRIPTS · a scope the run announced and then never opened, executed rather than read.
 
-`scripts/verify.sh` names every selected scope before anything runs, and an ending reached partway
+`scripts/gate/verify.sh` names every selected scope before anything runs, and an ending reached partway
 through leaves the rest with no section and no row. Each case below runs the shell, because the
 absence this guards against is one no comparison of literals can see.
 """
@@ -16,8 +16,8 @@ from pathlib import Path
 from typing import Final
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
-LIB: Final = SCRIPTS / "_lib.sh"
-VERIFY: Final = SCRIPTS / "verify.sh"
+LIB: Final = SCRIPTS / "lib" / "_lib.sh"
+VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 
 # Not a skip condition, for `test_exit_contract.py`'s reason: a machine with no bash cannot run the
 # gate at all, and a guard silently skipped is the state this file exists to catch.
@@ -133,5 +133,5 @@ def test_a_scope_after_the_one_that_crashed_the_parallel_replay_is_named() -> No
 def test_verify_hands_the_ending_the_scopes_it_announced() -> None:
     """The row needs the selected list, and only the parent knows it."""
     text = VERIFY.read_text(encoding="utf-8")
-    assert 'set_selected "$SCOPES_RAN"' in text, "scripts/verify.sh no longer hands over its selected scopes"
+    assert 'set_selected "$SCOPES_RAN"' in text, "scripts/gate/verify.sh no longer hands over its selected scopes"
     assert 'info "this run covers: ${SCOPES_RAN% }"' in text, "the announcement and the handover no longer read one list"

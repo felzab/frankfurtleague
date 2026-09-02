@@ -2,18 +2,18 @@
 #
 # SCRIPTS · put a published version live, or report what is live.
 #
-# It only pulls what `scripts/publish.sh` already built: a server that builds is a server that can
+# It only pulls what `scripts/ops/publish.sh` already built: a server that builds is a server that can
 # fail a build with the site down and nothing to fall back to. What is live is read by image ID
 # during preflight, so a failed deploy has a rollback target the pull cannot have moved -- and a
 # build that never becomes healthy is put back to it without waiting for anybody.
 #
-#   ./scripts/deploy.sh                    deploy the current :latest tag of both packages
-#   ./scripts/deploy.sh sha-1a2b3c4        deploy, or ROLL BACK to, one published build
-#   ./scripts/deploy.sh --status           report what is running and what the edge serves, change nothing
-#   ./scripts/deploy.sh --verbose          stream each command's own output instead of capturing it
-#   ./scripts/deploy.sh --help
+#   ./scripts/ops/deploy.sh                    deploy the current :latest tag of both packages
+#   ./scripts/ops/deploy.sh sha-1a2b3c4        deploy, or ROLL BACK to, one published build
+#   ./scripts/ops/deploy.sh --status           report what is running and what the edge serves, change nothing
+#   ./scripts/ops/deploy.sh --verbose          stream each command's own output instead of capturing it
+#   ./scripts/ops/deploy.sh --help
 
-source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
 COMPOSE="docker-compose.yml"
 
@@ -57,7 +57,7 @@ fi
 if [[ -n "$PIN" && ! "$PIN" =~ $PIN_RE ]]; then
   refuse "'${PIN}' does not look like a published tag.
 Expected sha-<commit>, for example sha-1a2b3c4.
-See what is available:  ./scripts/deploy.sh --status"
+See what is available:  ./scripts/ops/deploy.sh --status"
 fi
 
 require_platform linux
@@ -176,7 +176,7 @@ roll_back() { # $1 how the build being restored is named on screen
     fail "the images this deploy replaced could not be re-tagged, so the rollback never started and
 this host is still holding the build that failed. One of the two tags may have moved before the
 other refused, which leaves a mismatched pair."
-    detail "What is published:  ./scripts/deploy.sh --status"
+    detail "What is published:  ./scripts/ops/deploy.sh --status"
     return 1
   fi
   quietly docker compose -f "$COMPOSE" up -d --force-recreate frontend backend || up_rc=$?
@@ -213,11 +213,11 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   if [[ -n "$PREV_PIN" ]]; then
     detail "The registry's :latest still names the build that just failed, so DO NOT re-run this" \
            "script bare. Deploy by tag until a good build is published:" \
-           "  ./scripts/deploy.sh ${PREV_PIN}"
+           "  ./scripts/ops/deploy.sh ${PREV_PIN}"
   else
     detail "The registry's :latest still names the build that just failed, so DO NOT re-run this" \
            "script bare. Publish a good build, or deploy one by tag:" \
-           "  ./scripts/deploy.sh <tag>       (./scripts/deploy.sh --status lists them)"
+           "  ./scripts/ops/deploy.sh <tag>       (./scripts/ops/deploy.sh --status lists them)"
   fi
   return 0
 }
@@ -246,7 +246,7 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
       # nothing running is worse than either. The edge can answer 200 from a worker that outlived
       # this, so the probe below is no second opinion on it.
       fail "${svc}: not running, so nothing on this host is serving it.
-Bring the published pair back up:  ./scripts/deploy.sh"
+Bring the published pair back up:  ./scripts/ops/deploy.sh"
       continue
     fi
     # The container can be removed between `ps` and `inspect`, and an unguarded read takes the error
@@ -282,7 +282,7 @@ Bring the published pair back up:  ./scripts/deploy.sh"
   # each service is healthy against its own half, so these rows are the only place it shows.
   if [[ -n "$RUNNING_FE" && -n "$RUNNING_BE" && "$RUNNING_FE" != "$RUNNING_BE" ]]; then
     fail "the two services are running different builds: frontend ${RUNNING_FE}, backend ${RUNNING_BE}.
-Deploy the build both packages have:  ./scripts/deploy.sh ${RUNNING_BE}"
+Deploy the build both packages have:  ./scripts/ops/deploy.sh ${RUNNING_BE}"
   fi
 
   step "The site, as the internet reaches it"
@@ -503,7 +503,7 @@ first push — check https://github.com/felzab?tab=packages"
     if (( BEFORE_RC )); then
       warn "what ${IMAGE_FRONTEND} named before this run could not be read (exit ${BEFORE_RC}), so the
 frontend tag cannot be put back. This host's pair may be mismatched until a deploy pulls both again:
-  ./scripts/deploy.sh --status"
+  ./scripts/ops/deploy.sh --status"
     elif [[ -n "$before_fe" ]]; then
       if quietly docker tag "$before_fe" "$IMAGE_FRONTEND"; then
         info "the frontend tag was put back to the image it named before this run"
@@ -527,7 +527,7 @@ BE_BUILD="$(published_tag "$IMAGE_BACKEND")"  || BE_RC=1
 if (( FE_RC || BE_RC )); then
   refuse "the pulled images' build labels could not be read, so nothing says whether these two
 packages are the same build. NOTHING has been recreated. Pin the build explicitly instead:
-  ./scripts/deploy.sh <tag>       (./scripts/deploy.sh --status lists them)"
+  ./scripts/ops/deploy.sh <tag>       (./scripts/ops/deploy.sh --status lists them)"
 elif [[ -z "$FE_BUILD" || -z "$BE_BUILD" ]]; then
   warn "one of the pulled images carries no published-tag label, so this deploy is NOT verified as a
 matched pair. An image not built by publish.sh is the usual cause."
@@ -535,7 +535,7 @@ elif [[ "$FE_BUILD" != "$BE_BUILD" ]]; then
   die "The two :latest tags are different builds: frontend ${FE_BUILD}, backend ${BE_BUILD}.
 A publish that moved one and failed on the other leaves exactly this pair, and nothing downstream
 sees it: each service is healthy against its own half. NOTHING has been recreated.
-Deploy the build both packages have:  ./scripts/deploy.sh ${BE_BUILD}"
+Deploy the build both packages have:  ./scripts/ops/deploy.sh ${BE_BUILD}"
 fi
 
 # What `:latest` resolves to now the pull is behind us. A rollback to the images ALREADY running is a
@@ -600,7 +600,7 @@ request through it answers 502 whether the new build is healthy or not.
 No rollback runs on that: it would be undoing a build nothing here has judged.
 Reload the edge first:  docker compose -f ${COMPOSE} exec -T nginx nginx -s reload
 Then ask what is running:  docker compose -f ${COMPOSE} ps
-And if the new build turns out to be the problem:  ./scripts/deploy.sh ${PREV_PIN:-<a published tag>}"
+And if the new build turns out to be the problem:  ./scripts/ops/deploy.sh ${PREV_PIN:-<a published tag>}"
   fi
 fi
 
@@ -669,7 +669,7 @@ above is not what a visitor is being served. An uptime monitor watching it sees 
   fi
 
   end_section
-  detail "What is live:  ./scripts/deploy.sh --status" \
+  detail "What is live:  ./scripts/ops/deploy.sh --status" \
          "Follow logs:   docker compose -f ${COMPOSE} logs -f frontend"
   # The sentence is a claim about the live site, so neither `curl` nor the nginx query above may
   # leave it unqualified.
@@ -684,7 +684,7 @@ else
     detail "" "This deploy pulled the images that were ALREADY running, so there is nothing to put" \
               "back: a rollback would restore the build that just failed and cost a second outage" \
               "to arrive back where this run started. Deploy a different build instead:" \
-              "  ./scripts/deploy.sh <tag>       (./scripts/deploy.sh --status lists them)"
+              "  ./scripts/ops/deploy.sh <tag>       (./scripts/ops/deploy.sh --status lists them)"
   elif (( ROLLBACK_READY )); then
     # Read rather than discarded: the rollback's own failures are already findings, but its 2 says
     # the restored build's edge could not be established, which no finding above it states.
@@ -693,7 +693,7 @@ else
     if (( RB_RC == 2 )); then
       detail "" "The restored pair is healthy, but nothing here establishes that the edge is serving it."
     fi
-    detail "" "What is live:  ./scripts/deploy.sh --status"
+    detail "" "What is live:  ./scripts/ops/deploy.sh --status"
   else
     detail "" "This deploy recorded no rollback target, so nothing here can put a previous build back." \
               "Published builds on this host:  docker image ls '${REPO_FRONTEND}'"

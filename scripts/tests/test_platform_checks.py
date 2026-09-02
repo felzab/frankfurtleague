@@ -1,6 +1,6 @@
 """SCRIPTS · the platform checker's net: each clause driven red against a plant and green without it.
 
-Every case runs `scripts/docs_gate/platform.py` in an interpreter of its own over a throwaway
+Every case runs `scripts/checks/docs_gate/platform.py` in an interpreter of its own over a throwaway
 repository, in `scripts/tests/test_check_docs.py`'s shape: the gate's copy is imported from inside
 the fixture, so its REPO_ROOT is the fixture and the corpus is what git lists there. The copy sits
 under a folder that is NOT `scripts/`, because here `scripts/` is corpus. Stdlib only, the type
@@ -101,7 +101,7 @@ def _corpus() -> dict[str, str]:
             "import sys",
             "from pathlib import Path",
             "",
-            'sys.path.insert(0, str(Path(__file__).resolve().parent / "' + GATE_COPY + '"))',
+            'sys.path.insert(0, str(Path(__file__).resolve().parent / "' + GATE_COPY + '" / "checks"))',
             "from docs_gate import platform",
             "",
             "rows, write_rows = json.loads(sys.argv[1]), json.loads(sys.argv[2])",

@@ -13,6 +13,6 @@ pid="$(netstat -ano 2>/dev/null | tr -d '\r' |
 name="$(tasklist //FI "PID eq $pid" //FO CSV //NH 2>/dev/null | tr -d '\r' | head -1 | cut -d, -f1 | tr -d '"')"
 [ -n "$name" ] || name="pid $pid"
 
-printf '{"systemMessage":"Port 3000 is still held by %s (pid %s). If that is a dev server rather than your own stack, it will make ./scripts/local.sh come up unreachable — stop it, or run ./scripts/local.sh --down."}' "$name" "$pid"
+printf '{"systemMessage":"Port 3000 is still held by %s (pid %s). If that is a dev server rather than your own stack, it will make ./scripts/ops/local.sh come up unreachable — stop it, or run ./scripts/ops/local.sh --down."}' "$name" "$pid"
 
 exit 0

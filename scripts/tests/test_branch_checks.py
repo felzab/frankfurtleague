@@ -1,6 +1,6 @@
 """SCRIPTS · the branch-scoped checks' scenario net
 
-`scripts/docs_gate/branch.py` reads the branch's diff against its base, so a run over a clean
+`scripts/checks/docs_gate/branch.py` reads the branch's diff against its base, so a run over a clean
 tree arms almost none of it. Each scenario here shapes one synthetic branch state in a throwaway
 repository holding a copy of scripts/, and asserts what armed and what fired. A subprocess does
 the reading: the gate derives its repository root from its own file, and importing a copy
@@ -55,7 +55,7 @@ LEGACY_MID: Final = "a middle line a scenario amends in place, to prove the fork
 LEGACY_END: Final = "a closing line that keeps the committed block over the bound before any scenario touches it"
 
 # What every diff-reading check's advisory names, and the advisory's own shape
-# (`scripts/docs_gate/branch.py :: check_branch_diff`). Spelled here as a pin: the wording is
+# (`scripts/checks/docs_gate/branch.py :: check_branch_diff`). Spelled here as a pin: the wording is
 # behaviour a consolidation must preserve.
 DIFF_READERS: Final = "history, counts, added comment citations and comment length"
 
@@ -72,7 +72,8 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, sys.argv[1])
+sys.path.insert(0, sys.argv[1] + "/lib")
+sys.path.insert(0, sys.argv[1] + "/checks")
 
 import checker_kernel
 from docs_gate import branch

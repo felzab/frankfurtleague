@@ -23,7 +23,7 @@ paths:
 - **gate** — Add a check to the gate without recording its measured cost; raise a job's budget without a measurement; make the budget advisory
 
 Two paths above are not the deployment tree. `scripts/` is there for the cache clause and the gate
-clause: the cache's three limbs are configured in `scripts/verify.sh`, its recorded argument the
-comment beside them, and a check joins the gate through that file or a checker beside it, while
-its cost is recorded in `.github/gate-wall-clock.tsv`. `fl_frontend/next.config.ts` is there for
+clause: the cache's three limbs are configured in `scripts/gate/verify.sh`, its recorded argument the
+comment beside them, and a check joins the gate through that file or a checker in `scripts/checks/`,
+while its cost is recorded in `.github/gate-wall-clock.tsv`. `fl_frontend/next.config.ts` is there for
 the `immutable` clause, whose other write site is that file's `headers()` block.

@@ -6,13 +6,13 @@
 # a half-published pair lets production pull a frontend whose backend does not exist yet. Registry
 # retention stays a hand operation — a botched delete destroys the rollback history.
 #
-#   ./scripts/publish.sh                 build and push from a clean tree
-#   ./scripts/publish.sh --allow-dirty   deliberate hotfix; the tag gets a -dirty suffix
-#   ./scripts/publish.sh --dry-run       build and label, but do not push
-#   ./scripts/publish.sh --verbose       stream each command's own output instead of capturing it
-#   ./scripts/publish.sh --help
+#   ./scripts/ops/publish.sh                 build and push from a clean tree
+#   ./scripts/ops/publish.sh --allow-dirty   deliberate hotfix; the tag gets a -dirty suffix
+#   ./scripts/ops/publish.sh --dry-run       build and label, but do not push
+#   ./scripts/ops/publish.sh --verbose       stream each command's own output instead of capturing it
+#   ./scripts/ops/publish.sh --help
 
-source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
 ALLOW_DIRTY=0; DRY_RUN=0
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
@@ -218,14 +218,14 @@ ok "${QUALIFIER} is in the registry for both packages"
 step "Moving the :latest tag of each package"
 push_one "$IMAGE_FRONTEND"
 push_one "$IMAGE_BACKEND" "THE FRONTEND'S :latest HAS ALREADY MOVED to ${QUALIFIER} and the backend's
-has not, so './scripts/deploy.sh' with no tag would ship a mismatched pair. Both pinned tags ARE in
-the registry: deploy ./scripts/deploy.sh ${QUALIFIER}, or re-run this script to move the pair."
+has not, so './scripts/ops/deploy.sh' with no tag would ship a mismatched pair. Both pinned tags ARE in
+the registry: deploy ./scripts/ops/deploy.sh ${QUALIFIER}, or re-run this script to move the pair."
 ok "both moving tags now point at ${QUALIFIER}"
 
 # --- prune superseded LOCAL sha tags ---------------------------------------------------------------
 
 # A superseded build keeps its own sha tag, so it never becomes dangling and `docker image prune`
-# never reclaims it. `scripts/deploy.sh` rolls back from the registry, so this copy is a byproduct.
+# never reclaims it. `scripts/ops/deploy.sh` rolls back from the registry, so this copy is a byproduct.
 
 # After the push loop, so everything removed here is already in the registry. `docker image rm`
 # untags and deletes only when no other tag points at the image, so the moving tags are safe.
@@ -262,7 +262,7 @@ else
 fi
 
 end_section
-detail "On the server, deploy it:   ./scripts/deploy.sh" \
-       "Or pin exactly this build:  ./scripts/deploy.sh ${QUALIFIER}" \
-       "See what is live:           ./scripts/deploy.sh --status"
+detail "On the server, deploy it:   ./scripts/ops/deploy.sh" \
+       "Or pin exactly this build:  ./scripts/ops/deploy.sh ${QUALIFIER}" \
+       "See what is live:           ./scripts/ops/deploy.sh --status"
 finish "Published ${QUALIFIER} from ${BRANCH}."

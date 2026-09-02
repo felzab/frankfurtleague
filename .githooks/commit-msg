@@ -3,7 +3,7 @@
 # GITHOOKS · refuse a commit message that breaks the convention, at the one moment fixing it is free.
 #
 # Convenience, never the enforcement. A clone that has not run `git config core.hooksPath .githooks`
-# has no hook at all (`docs/_git/spec.md :: 1.3 Commits`), so `./scripts/verify.sh --docs` over
+# has no hook at all (`docs/_git/spec.md :: 1.3 Commits`), so `./scripts/gate/verify.sh --docs` over
 # the whole branch is what binds. Anything this catches, the gate catches too — later, and after a
 # rebase costs something.
 #
@@ -19,20 +19,20 @@ for candidate in "${repo_root}/fl_backend/.venv/Scripts/python.exe" \
                  "${repo_root}/fl_backend/.venv/bin/python" \
                  python3 python; do
   if command -v "$candidate" >/dev/null 2>&1; then
-    # `scripts/checker_kernel.py :: run`'s contract: 0 passed, 1 findings, higher means the check
+    # `scripts/lib/checker_kernel.py :: run`'s contract: 0 passed, 1 findings, higher means the check
     # never ran. Only a finding is this hook's to refuse, which is why the checker is run
     # rather than `exec`ed.
     status=0
-    "$candidate" "${repo_root}/scripts/check_commits.py" --message-file "$1" || status=$?
+    "$candidate" "${repo_root}/scripts/checks/check_commits.py" --message-file "$1" || status=$?
     if [ "$status" -le 1 ]; then
       exit "$status"
     fi
     echo "  commit-msg hook: the checker did not run under ${candidate}, exit ${status} — skipping." >&2
-    echo "  ./scripts/verify.sh --docs and CI still check this." >&2
+    echo "  ./scripts/gate/verify.sh --docs and CI still check this." >&2
     exit 0
   fi
 done
 
 echo "  commit-msg hook: no python found — skipping." >&2
-echo "  ./scripts/verify.sh --docs and CI still check this." >&2
+echo "  ./scripts/gate/verify.sh --docs and CI still check this." >&2
 exit 0

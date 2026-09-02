@@ -18,7 +18,11 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Final
 
-from checker_kernel import (
+# Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
+# sibling of it rather than in it.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+
+from checker_kernel import (  # noqa: E402 -- the insert above is what resolves it
     DEFAULT_BASE,
     EXIT_OK,
     EXIT_REFUSED,

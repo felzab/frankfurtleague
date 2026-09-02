@@ -19,7 +19,7 @@ version: 2
 #   `github-actions`, where that exemption is empty for the reason above.
 # - Each ecosystem sets a commit prefix, so messages keep docs/_git/templates.md's shape.
 # - No ecosystem below can read a version written inside a shell script or a Python string, so the
-#   shellcheck and actionlint images in `scripts/selfcheck.sh` and the mongo image in
+#   shellcheck and actionlint images in `scripts/gate/selfcheck.sh` and the mongo image in
 #   `fl_backend/tests/conftest.py` are maintained by hand at the lines that hold them.
 
 updates:
@@ -149,7 +149,7 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
     ignore:
-      # This repository's own published images. `scripts/publish.sh` moves those tags, and a bot
+      # This repository's own published images. `scripts/ops/publish.sh` moves those tags, and a bot
       # proposing to bump either would be proposing a deploy.
 
       # Written WITHOUT the `ghcr.io/` the compose files spell, and that is not a typo: a

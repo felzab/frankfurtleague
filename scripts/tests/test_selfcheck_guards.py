@@ -15,8 +15,8 @@ from pathlib import Path
 from typing import Final
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
-SELFCHECK: Final = SCRIPTS / "selfcheck.sh"
-LIB: Final = SCRIPTS / "_lib.sh"
+SELFCHECK: Final = SCRIPTS / "gate" / "selfcheck.sh"
+LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 
 # Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
@@ -172,7 +172,7 @@ def test_the_helper_check_reads_its_subjects_out_of_the_scripts(tmp_path: Path) 
     reader = tmp_path / "reader.awk"
     reader.write_text(held[1].split("\n'\n", 1)[0], encoding="utf-8", newline="\n")
     done = subprocess.run(
-        ["awk", "-f", reader.as_posix(), (SCRIPTS / "verify.sh").as_posix()],
+        ["awk", "-f", reader.as_posix(), (SCRIPTS / "gate" / "verify.sh").as_posix()],
         capture_output=True,
         encoding="utf-8",
     )

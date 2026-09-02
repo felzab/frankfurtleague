@@ -3,11 +3,11 @@
 A parent replays rows it never watched being produced, so a ledger that misreports a rank or a
 count is replayed as truth and closes the run green over a real finding. Every case below runs a
 real worker, reads the ledger it wrote, and hands both to a parent shaped like
-`scripts/verify.sh :: replay_scope`.
+`scripts/gate/verify.sh :: replay_scope`.
 
 Invariants:
 A worker's exit status and the rows it sent home are two accounts of one run and must agree.
-`scripts/_lib.sh :: emit_section_ledger` is the only producer of those rows.
+`scripts/lib/_lib.sh :: emit_section_ledger` is the only producer of those rows.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Final
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
-LIB: Final = SCRIPTS / "_lib.sh"
+LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 
 # Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
@@ -56,7 +56,7 @@ HANDOFFS: Final[tuple[Handoff, ...]] = (
         1,
         "1 finding(s) in this run",
     ),
-    # The rank below is the one `scripts/_lib.sh :: refuse` produced, which every parent-side
+    # The rank below is the one `scripts/lib/_lib.sh :: refuse` produced, which every parent-side
     # literal assumes instead: collapsed to a pass, the refusal reaches the parent as a green row.
     Handoff(
         "a scope that could not judge its input",
@@ -122,7 +122,7 @@ HANDOFFS: Final[tuple[Handoff, ...]] = (
 
 
 def _worker_script(body: tuple[str, ...]) -> str:
-    """`scripts/verify.sh :: gate_exit` and `:: wrap_up` in miniature.
+    """`scripts/gate/verify.sh :: gate_exit` and `:: wrap_up` in miniature.
 
     The `worker` calls are the point: a fixture writing the ledger unconditionally proves the trap
     rather than the branch that decides whether a run owes one at all.
@@ -141,7 +141,7 @@ def _worker_script(body: tuple[str, ...]) -> str:
     )
 
 
-# `scripts/verify.sh :: replay_scope` and the loop that drives it, minus the captured bytes it
+# `scripts/gate/verify.sh :: replay_scope` and the loop that drives it, minus the captured bytes it
 # replays: rows, then status, then ending, one scope per three arguments. The rank-0 stand-in is
 # what a scope that sent no ledger home gets.
 PARENT_SCRIPT: Final = "\n".join(

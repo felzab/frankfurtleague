@@ -54,7 +54,7 @@ dev = [
     # Starts a real mongod for the `db`-marked tests. Only those tests import it, and
     # they are deselected by default, so a normal `pytest` run never loads it or touches Docker.
     "testcontainers[mongodb]>=4.15.0",
-    # Distributes the `db` tier (`scripts/verify.sh`'s db scope).
+    # Distributes the `db` tier (`scripts/gate/verify.sh`'s db scope).
     # `tests/conftest.py :: pytest_configure_node` carries `optionalhook` so a venv without this
     # plugin still collects.
     "pytest-xdist>=3.8.0",
@@ -125,7 +125,7 @@ markers = [
 [tool.pyright]
 # The type checker the EDITOR already runs, in the gate as well. ruff lints and pytest executes and
 # neither checks a type, so without this section a type error reaches only whoever has the file open
-# in Pylance, while `scripts/verify.sh` goes green past it.
+# in Pylance, while `scripts/gate/verify.sh` goes green past it.
 #
 # venvPath/venv are what make this meaningful: without them pyright resolves no third-party import,
 # reports ~137 phantom errors and is rightly ignored.

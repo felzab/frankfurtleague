@@ -2,7 +2,7 @@
 # under `.github/actions/` and `.github/dependabot.yml`. zizmor discovers this file from the
 # repository root. The persona and `--offline` are the call site's to spell, never this file's.
 #
-# At the root, not `.github/`: `scripts/ci_scopes.sh` maps `.github/` to the docs scope alone, where
+# At the root, not `.github/`: `scripts/gate/scope_map.sh` maps `.github/` to the docs scope alone, where
 # a root file reaches the conservative arm and every scope with it.
 #
 # Invariants:
@@ -14,6 +14,6 @@
 rules:
   self-repository:
     # actionlint refuses `$/` as a `uses:` format (1.7.12, its latest on 2026-09-02), so taking
-    # zizmor's fix reddens `scripts/selfcheck.sh :: run_actionlint`. Re-open when actionlint
+    # zizmor's fix reddens `scripts/gate/selfcheck.sh :: run_actionlint`. Re-open when actionlint
     # accepts it.
     disable: true

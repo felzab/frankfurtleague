@@ -101,7 +101,7 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 - **The organisers named on the public team page each fully agreed to be listed**, and I confirm
   it. Their names are source code in a public repository, so removal is a code change plus a
   deploy, and a name stays in the repository's history regardless. The page's source carries this
-  record once it leaves here. Agreement confirmed 2026-09-02.
+  record once it leaves here. The organisers confirmed their agreement to me on 2026-09-02.
 - **AI crawlers are both asked and blocked, and the block is the source of truth.**
   `fl_frontend/src/app/robots.ts` disallows named crawlers, which is a request; the edge's
   crawler block enforces it, and that setting lives in the hosting dashboard rather than in this
@@ -176,14 +176,17 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   cleared when the season after the one they were collected for ends. The consent text scopes
   itself to one season, and the clearing mechanism the erasure uses already exists.
 - **Access logs stay on the host and are bounded by age as well as by size: seven days.** The
-  edge log carries the visitor's address, user agent and referer, and nginx's log survives a
+  host's own nginx log carries the visitor's address, user agent and referer and survives a
   deploy, so the only bound today is the container runtime's size rotation
-  (`docs/logging/spec.md :: Retention is Docker's`). A size bound is a period set by traffic volume
-  rather than chosen, so a quiet month keeps addresses far longer than a busy one. Seven days
-  matches the backup window an erased person is told about, which lets one number answer both
-  questions. Nothing is shipped to a collector: that would lengthen retention and add a processor
-  receiving visitors' addresses. That the access line carries no credential is a separate
-  guarantee, held by `nginx/redaction_test.sh` in the gate's ops scope.
+  (`docs/logging/spec.md :: Retention is Docker's`). Whether the seven days was ever meant to reach
+  Cloudflare's log at its own edge, whose retention it sets in its dashboard rather than in this
+  repository (`docs/logging/spec.md :: Cloudflare logs the request line`), is an open question. A
+  size bound is a period set by traffic volume rather than chosen, so a quiet month keeps addresses
+  far longer than a busy one. Seven days matches the backup window an erased person is told about,
+  which lets one number answer both questions. Nothing is shipped to a collector: that would
+  lengthen retention and add a processor receiving visitors' addresses. That the access line
+  carries no credential is a separate guarantee, held by `nginx/redaction_test.sh` in the gate's
+  ops scope.
 
 ## 7. Processors and third parties
 
@@ -215,8 +218,8 @@ in bold are each accepted for now, and named so the notice can tell the truth ab
 
 ## 9. A local copy of production expires
 
-- **A local copy of production refuses to be reused after seven days.** `./scripts/local.sh --seed`
-  fills the local stack from a production dump (`scripts/local.sh :: take_dump`), and the copy is
+- **A local copy of production refuses to be reused after seven days.** `./scripts/ops/local.sh --seed`
+  fills the local stack from a production dump (`scripts/ops/local.sh :: take_dump`), and the copy is
   whole. The disk is encrypted and one person holds the connection string; the bound is what
   stops cleanup depending on memory. Today the copy is reused at any age
   (`docs/ops/spec.md :: however old it is`); this ruling narrows that.

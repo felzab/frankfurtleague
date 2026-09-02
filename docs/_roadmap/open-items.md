@@ -500,7 +500,7 @@ though it were this one, and every read of it is a correct read of stale data.
 **A reminder is a scheduled job, not a surface** — nothing renders it, nobody navigates to it, and it
 has to run when no admin is present. This repository runs **no application-level scheduler**: there
 is no queue, no worker, each image's `CMD` starts its one server and nothing else, and nothing
-`scripts/deploy.sh` starts is a scheduler either. What runs on a clock here is
+`scripts/ops/deploy.sh` starts is a scheduler either. What runs on a clock here is
 `.github/workflows/codeql.yml`, which carries a weekly `schedule: cron` and analyses source — so the
 mechanism exists in CI and reaches nothing inside the running application. That, rather than the
 message, is the actual scope.

@@ -22,7 +22,7 @@
 # ceiling that never cries wolf on a quiet runner sits well above the reference, and a run over it
 # is a re-run or a regression, in that order. Raising one costs the runs that justify it: a budget
 # or a reference that rises against main carries a new stamp, refused otherwise by
-# scripts/check_gate_budget.py in the pull request's `commits` job. Lowering one is free.
+# scripts/checks/check_gate_budget.py in the pull request's `commits` job. Lowering one is free.
 #
 # `images` is measured and not budgeted: its span is the layer cache's before it is the tree's, a
 # cold cache costing five times the median, and the Dockerfile change most worth catching is the

@@ -65,20 +65,20 @@ WRITE_REMEDY: Final = 'pass newline="" or write bytes'
 # Keyed by an anchor the file spells WHOLE -- an enclosing function, an assigned name, a `step` or
 # message label, or the line itself -- never a fragment.
 PLATFORM_ALLOW: Final[dict[str, str]] = {
-    "scripts/gate_pool.py :: terminate": "reads `sys.platform` per call rather than `POSIX`: the one spelling pyright narrows `os.killpg` on",
+    "scripts/gate/gate_pool.py :: terminate": "reads `sys.platform` per call, not `POSIX`: the one spelling pyright narrows `os.killpg` on",
     "scripts/tests/test_gate_pool.py :: OWN_GROUP": "a unit's group is compared to its pid on POSIX alone, so the case stands down elsewhere",
-    "scripts/_lib.sh :: require_platform": "the one `uname -s` that classifies the host, which every machine-specific script declares through",
-    "scripts/selfcheck.sh :: mount_source": "`cygpath` for Git Bash's /tmp mount, which a POSIX spelling binds to an unrelated directory",
-    "scripts/selfcheck.sh :: run_shellcheck": "MSYS rewrites the container-side mount path unless told not to",
-    "scripts/selfcheck.sh :: run_actionlint": "the same rewrite, in front of the actionlint image",
-    "scripts/selfcheck.sh :: compose guard: behind an env assignment": "a probe's command TEXT, proving the compose guard sees through it",
-    'scripts/selfcheck.sh :: case "$(uname -s)" in': "the hook probes only a Windows path spelling can separate run on Windows alone",
-    "scripts/selfcheck.sh :: the Windows-only path spellings were not probed": "that case's other arm, naming what a Linux run left unproven",
-    "scripts/verify.sh :: POOL_BASH": "`cygpath -w` so a Windows python can launch the parent's own bash",
-    "scripts/verify.sh :: ops · nginx accepts prod.conf": "MSYS rewrites the container-side path of the nginx config mount",
-    "scripts/local.sh :: take_dump": "MSYS rewrites the container-side `/dump` mount",
-    "scripts/local.sh :: restore_dump": "MSYS rewrites `/dump` on the way into the container",
-    "scripts/local.sh :: dump_collections_seen": "MSYS rewrites `/dump` in the container-side find",
+    "scripts/lib/_lib.sh :: require_platform": "the one `uname -s` classifying the host, which every machine-specific script declares through",
+    "scripts/gate/selfcheck.sh :: mount_source": "`cygpath` for Git Bash's /tmp mount, which a POSIX spelling binds to an unrelated directory",
+    "scripts/gate/selfcheck.sh :: run_shellcheck": "MSYS rewrites the container-side mount path unless told not to",
+    "scripts/gate/selfcheck.sh :: run_actionlint": "the same rewrite, in front of the actionlint image",
+    "scripts/gate/selfcheck.sh :: compose guard: behind an env assignment": "a probe's command TEXT, proving the compose guard sees through it",
+    'scripts/gate/selfcheck.sh :: case "$(uname -s)" in': "the hook probes only a Windows path spelling can separate run on Windows alone",
+    "scripts/gate/selfcheck.sh :: the Windows-only path spellings were not probed": "that case's other arm, what a Linux run left unproven",
+    "scripts/gate/verify.sh :: POOL_BASH": "`cygpath -w` so a Windows python can launch the parent's own bash",
+    "scripts/gate/verify.sh :: ops · nginx accepts prod.conf": "MSYS rewrites the container-side path of the nginx config mount",
+    "scripts/ops/local.sh :: take_dump": "MSYS rewrites the container-side `/dump` mount",
+    "scripts/ops/local.sh :: restore_dump": "MSYS rewrites `/dump` on the way into the container",
+    "scripts/ops/local.sh :: dump_collections_seen": "MSYS rewrites `/dump` in the container-side find",
     ".githooks/pre-commit :: work": "`cygpath -w` for mktemp's MSYS alias, which `git hash-object` cannot open from a worktree",
 }
 
@@ -387,7 +387,7 @@ def _both_values(scan: _Scan) -> list[_Site]:
 
 
 def _shell_code(line: str) -> str:
-    """The code half of a shell line, read the way `scripts/docs_gate/kernel.py :: _shell_comments` reads the other half."""
+    """The code half of a shell line, read the way `scripts/checks/docs_gate/kernel.py :: _shell_comments` reads the other half."""
     if line.lstrip().startswith("#"):
         return ""
     marker = line.find(" #")

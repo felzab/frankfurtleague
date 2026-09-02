@@ -415,7 +415,7 @@ a second one, single-node and transactional, for the reason written at `:: _repl
 #### The tier distributed
 
 **The `db` tier runs over worker processes** — `pytest -m db -n auto --dist loadfile
---maxprocesses`, the cap being `scripts/verify.sh :: GATE_WIDTH_DB_PYTEST`, which is what that
+--maxprocesses`, the cap being `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST`, which is what that
 file's db scope invokes; a bare `pytest -m db` still runs it serially and is the first thing to try
 against a failure that only appears distributed. **`loadfile` is a cost choice and not a correctness
 one.** It sends a whole file to one worker, so a module-scoped corpus is built

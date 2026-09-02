@@ -8,7 +8,9 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Two levels: this file sits in `scripts/lib/`, so one `..` would root every script at
+# `scripts/` and leave every relative path inside them one directory short.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Resolved before the `cd`: `--help` reads a script's own header back off this path. The
 # ${x-default} form (no colon) survives `set -u` on an absent array element.
@@ -82,7 +84,7 @@ _SELECTED=""
 VERBOSE="${VERBOSE:-0}"
 
 # A worker prints no summary: the parent prints the table once, into bytes replayed verbatim.
-# Carried in the environment rather than as a flag, which `scripts/selfcheck.sh` would read out
+# Carried in the environment rather than as a flag, which `scripts/gate/selfcheck.sh` would read out
 # of the header into `--help`.
 _WORKER=0
 if [[ "${FL_GATE_WORKER:-}" == "1" ]]; then _WORKER=1; fi
@@ -369,7 +371,7 @@ section() {
   # the table and `spinner_stop`. A section is where a rewired script first reaches here.
   if [[ "$(trap -p INT)" != *on_interrupt* ]]; then
     warn "this script re-trapped INT, so Ctrl-C no longer reaches ${SELF##*/}'s closing statement.
-Remove it: scripts/_lib.sh traps INT and exits 130, which fires this script's own EXIT trap."
+Remove it: scripts/lib/_lib.sh traps INT and exits 130, which fires this script's own EXIT trap."
   fi
 }
 
@@ -606,12 +608,12 @@ adopt_ending() { # $1 the worker's exit status, $2 what to call that worker in a
   return 0
 }
 
-# Graded 3, never 2: against `scripts/checker_kernel.py`'s contract 2 asks for the input to be
+# Graded 3, never 2: against `scripts/lib/checker_kernel.py`'s contract 2 asks for the input to be
 # fixed, and no input made a worker and its parent disagree. The fault is the handoff's.
 _contradicted() { # $1 what to call the worker, $2 its exit status, $3 what its rows lack
   on_error 3 "${BASH_LINENO[0]}" "${1} exited ${2}, and every section row it sent home ${3}.
 A status and the rows it travelled with are two accounts of one run, and these two disagree, so
-neither stands as a verdict. scripts/_lib.sh :: emit_section_ledger is what fills those rows."
+neither stands as a verdict. scripts/lib/_lib.sh :: emit_section_ledger is what fills those rows."
 }
 
 # Its own ending: the check ran and its result cannot stand as a verdict. Ranked above `pass`, so
@@ -691,7 +693,7 @@ require_platform() {
 See scripts/README.md for which script belongs to which environment."
 }
 
-# The venv layout differs by platform, and `scripts/verify.sh` runs on both. Returns 1 rather than
+# The venv layout differs by platform, and `scripts/gate/verify.sh` runs on both. Returns 1 rather than
 # dying: every caller reads it through `$( )`, where a `die` exits the subshell alone and the ERR
 # trap prints a stack block over the message.
 venv_python() {
@@ -703,7 +705,7 @@ venv_python() {
   fi
 }
 
-# Wider than `venv_python`: the scope check runs on every `scripts/verify.sh` invocation, and
+# Wider than `venv_python`: the scope check runs on every `scripts/gate/verify.sh` invocation, and
 # skipping it for a missing backend virtualenv buys a prerequisite for nothing.
 any_python() {
   local win="${REPO_ROOT}/fl_backend/.venv/Scripts/python.exe"

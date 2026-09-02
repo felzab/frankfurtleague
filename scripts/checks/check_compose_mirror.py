@@ -13,7 +13,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
-from checker_kernel import EXIT_REFUSED, REPO_ROOT, Finding, report_findings, run
+# Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
+# sibling of it rather than in it.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+
+from checker_kernel import EXIT_REFUSED, REPO_ROOT, Finding, report_findings, run  # noqa: E402 -- the insert above is what resolves it
 
 PROD: Final = "docker-compose.yml"
 LOCAL: Final = "docker-compose.local.yml"
@@ -420,7 +424,7 @@ def main() -> int:
     except ComposeSyntax as error:
         print(f"      {error}", file=sys.stderr)
         print("      Nothing was compared, so this is a refusal rather than a verdict on the files.", file=sys.stderr)
-        print("      Teach scripts/check_compose_mirror.py :: parse_block the construct, or revert it.", file=sys.stderr)
+        print("      Teach scripts/checks/check_compose_mirror.py :: parse_block the construct, or revert it.", file=sys.stderr)
         return EXIT_REFUSED
     except OSError as error:
         print(f"      {error}", file=sys.stderr)
@@ -461,7 +465,7 @@ def main() -> int:
     if len(findings) > len(escaped):
         print("\n      A difference outside the declared list is one the local stack cannot catch.")
         print("      Mirror the setting, or change docker-compose.local.yml's invariant list and")
-        print("      scripts/check_compose_mirror.py :: DECLARED_DELTAS together.")
+        print("      scripts/checks/check_compose_mirror.py :: DECLARED_DELTAS together.")
     if findings:
         return code
 

@@ -22,7 +22,7 @@ from conftest import base_env
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 REPO_ROOT: Final = SCRIPTS.parent
-VERIFY: Final = SCRIPTS / "verify.sh"
+VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 
 # Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
@@ -136,7 +136,7 @@ def test_each_answer_the_image_assertions_can_give_ends_the_run_its_own_way() ->
 
 
 def _searched_shapes() -> frozenset[str]:
-    """Every name shape `scripts/verify.sh :: IMAGE_CONTEXT_FIND` looks for.
+    """Every name shape `scripts/gate/verify.sh :: IMAGE_CONTEXT_FIND` looks for.
 
     Quoted names only, which is what leaves the two pruned directories out: they are spelled bare
     in the same expression.
@@ -146,7 +146,7 @@ def _searched_shapes() -> frozenset[str]:
         if line.startswith("IMAGE_CONTEXT_FIND="):
             declaration = line
             break
-    assert declaration, "scripts/verify.sh no longer declares IMAGE_CONTEXT_FIND"
+    assert declaration, "scripts/gate/verify.sh no longer declares IMAGE_CONTEXT_FIND"
     return frozenset(re.findall(r'-name "([^"]+)"', declaration))
 
 

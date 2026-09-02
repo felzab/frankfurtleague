@@ -1,6 +1,6 @@
 """SCRIPTS · the pool's net: a unit's exit status on its way back to the gate, and how a run ends.
 
-`scripts/gate_pool.py` is the only channel a unit's status travels, so a loss, a rename or a
+`scripts/gate/gate_pool.py` is the only channel a unit's status travels, so a loss, a rename or a
 reordering here is a gate that closes green over a check that failed. The wiring that ends a run
 early is held here too, because none of it runs on the machine this suite runs on. Every case
 drives the module as a subprocess, for `scripts/tests/conftest.py :: withdraw`'s reason.
@@ -15,10 +15,10 @@ from pathlib import Path
 from typing import Final
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
-POOL: Final = SCRIPTS / "gate_pool.py"
-KERNEL: Final = SCRIPTS / "checker_kernel.py"
+POOL: Final = SCRIPTS / "gate" / "gate_pool.py"
+KERNEL: Final = SCRIPTS / "lib" / "checker_kernel.py"
 
-# Lines, so each case is `DRIVER` plus its own tuple. `SCRIPTS_DIR` and `DIRECTORY` are the holes
+# Lines, so each case is `DRIVER` plus its own tuple. `POOL_DIR` and `DIRECTORY` are the holes
 # `_drive` fills.
 DRIVER: Final[tuple[str, ...]] = (
     "import os",
@@ -27,7 +27,7 @@ DRIVER: Final[tuple[str, ...]] = (
     "import sys",
     "import threading",
     "from pathlib import Path",
-    "sys.path.insert(0, SCRIPTS_DIR)",
+    "sys.path.insert(0, POOL_DIR)",
     "import gate_pool",
     # Its own session, or `terminate`'s killpg on a child leading no group answers ESRCH into the
     # suppression there and reads as a stop that worked.
@@ -250,7 +250,7 @@ def _drive(snippet: tuple[str, ...], directory: Path, *, timeout: float | None =
     answer rather than a slow one.
     """
     lines = "\n".join(DRIVER + snippet)
-    source = lines.replace("SCRIPTS_DIR", repr(str(SCRIPTS))).replace("DIRECTORY", repr(str(directory)))
+    source = lines.replace("POOL_DIR", repr(str(SCRIPTS / "gate"))).replace("DIRECTORY", repr(str(directory)))
     return subprocess.run([sys.executable, "-c", source], capture_output=True, text=True, check=False, timeout=timeout)
 
 
