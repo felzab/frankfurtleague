@@ -367,7 +367,10 @@ def _replica_set_mongod() -> Iterator[str]:
             deadline = time.monotonic() + REPLICA_SET_ELECTION_TIMEOUT_S
             while not client.admin.command("hello").get("isWritablePrimary"):
                 if time.monotonic() > deadline:
-                    pytest.fail(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
+                    # Never `pytest.fail`: `Failed` subclasses BaseException, so `pytest_configure_node`'s
+                    # `except Exception` misses it -- an INTERNALERROR with no summary, and no reason
+                    # reaching the workers. The controller has no test to fail anyway.
+                    raise TimeoutError(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
                 time.sleep(0.25)
         finally:
             client.close()
@@ -384,7 +387,11 @@ def _entered(factory: Callable[[], AbstractContextManager[str]]) -> tuple[Abstra
 
 
 def _warm_the_reaper() -> None:
-    """`Reaper.get_instance` tests and assigns with no lock, so two starts at once make two reapers."""
+    """`Reaper.get_instance` tests and assigns with no lock, so two starts at once make two reapers.
+
+    Also memoises `ryuk_disabled`, plus `ryuk_docker_socket` and `ryuk_privileged` inside: the same
+    unlocked caching, so it is not dead where ryuk is off.
+    """
 
     from testcontainers.core.config import testcontainers_config
     from testcontainers.core.container import Reaper
