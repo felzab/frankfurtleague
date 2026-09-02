@@ -1,4 +1,4 @@
 # The one artifact only this package produces, at a fixed path: every gate step needing python
-# resolves its interpreter here (scripts/_lib.sh). What the backend generates elsewhere appears
+# resolves its interpreter here (scripts/lib/_lib.sh). What the backend generates elsewhere appears
 # in more than one directory and is ignored from the root file.
 .venv/

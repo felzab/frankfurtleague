@@ -70,7 +70,7 @@ THE CHECKS, in priority order:
    other becomes | verdict. Sweep for enums and literal unions, status and phase vocabularies, date
    and time formats, score formatting, and validation rules. **A divergence here is a wrong answer,
    not a crash**, so nothing surfaces it except comparison. Two constraints on the fix column:
-   `.claude/CLAUDE.md` §7 forbids generating the zod mirror, and every other row names which
+   `.claude/rules/cross-surface.md` forbids generating the zod mirror, and every other row names which
    definition dies rather than proposing a third home for both.
 
 6. **ERROR CONTRACT, END TO END.** Trace one representative failure of each class — validation error,
@@ -93,7 +93,8 @@ THE CHECKS, in priority order:
    one surface's gate could catch belongs to ops 1's coverage map; a row sits here only when no
    single surface can see the regression. The seams have no owner, so every one left unenforced
    will drift again. On a re-run, start from the enforcement
-   decisions in `.claude/CLAUDE.md` §7 and the controls actually present in the gate: a seam already
+   decisions in `.claude/CLAUDE.md` §7 and the `.claude/rules/` files it indexes, and the controls
+   actually present in the gate: a seam already
    enforced needs its control verified, not its contract re-derived.
 
 CROSS-SURFACE QUESTIONS: at a seam, "which side is right" is frequently a product decision rather

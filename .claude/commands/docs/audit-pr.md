@@ -46,7 +46,7 @@ stop.
 7. **Close with the gate**, reporting its actual exit code:
 
    ```bash
-   ./scripts/verify.sh --docs --format
+   ./scripts/gate/verify.sh --docs --format
    ```
 
    **One run, at the end.** `--docs --format` is the slice's floor, the formatter being what holds

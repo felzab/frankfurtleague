@@ -1,8 +1,8 @@
 # Handoff template
 
 A handoff answers what a transcript cannot: **what the previous session believed, and how much of it
-was verified.** Write it incrementally as the session runs, have it audited by an agent that has
-seen none of the work, and fix what that audit finds before the session ends.
+was verified.** It is the next session's document; a pause inside this session is served by the
+register's resume point, never by a handoff. `SKILL.md` §7 says when it is written and audited.
 
 ## Required sections
 
@@ -46,48 +46,44 @@ this session could not run, say so instead of guessing.>
 - What could NOT be established here, and why.
 ```
 
-## What earns its place
-
-- **Verified state with real exit codes**, taken from the command and never through a pipe. Never
-  the word "passing".
-- **Per-item traps** — what will bite the next session specifically, not what bites everyone.
-- **The conventions that actually bit**, each with the incident that taught it.
-- **What you measured, and what you could not measure and why.** The most useful reports in this
-  programme said "not measurable here" rather than quoting a number nobody could trust.
-- **Point at files; do not restate them.** A handoff that restated the rules file, the plan and this
-  skill for a third of its length buried the four incidents only it knew.
-
 ## What to leave out
 
-- **A stamped total.** Name the things instead. Counts in prose go stale while they are being read:
-  one paragraph named twelve modules where there were fourteen, and a collected test count moved
-  through four values during a single audit.
-- **A commit SHA on a live branch.** Cite subjects and let the next session re-derive.
-- **A figure quoted as a baseline** that nobody re-measured in the state the next session inherits.
+- **A figure quoted as a baseline** that nobody re-measured in the state the next session inherits,
+  and any figure taken while the fleet was running: it measured a contended machine, and three
+  agents timing one quantity got three answers.
 - **A filename a pending fix round will rename.** Hand over only what has reached the end of its
   cycle; a handoff written mid-cycle sent the next session to a file about to be split.
 - **A question the owner has ruled.** One handoff re-asked the ruling that changed the per-slice
   discipline, against its own "do not re-ask" line, because the ruling was in one copy of the
   owner's file and not the other.
 
+Incidents. A handoff that restated the rules file, the plan and this skill for a third of its
+length buried the four incidents only it knew. One paragraph named twelve modules where there were
+fourteen, and a collected test count moved through four values during a single audit.
+
+## Planning a programme
+
+The owner's standing instructions hold the shape — a separate planning session, one pull request
+per session; size a session to be worth its own branch and not exhaust its context, and give a
+phase whose verification verdict must stand alone its own session. Where a plan's handoff protocol
+differs from this file, `SKILL.md` §7 decides.
+
 ## The starter prompt
 
-The planning session produces two artefacts: the programme plan, and the **starter prompt** for
-session one. Every later session's starter prompt is its predecessor's handoff plus the lines below,
-which is what makes the chain self-sustaining. The owner sends `/orchestration` as its own message
-before pasting the starter ([USAGE.md](USAGE.md)); the first line is the fallback for the day that
-is forgotten.
+Every later session's starter prompt is a short map, under a page, that points at its predecessor's
+handoff and carries the lines below — never a copy of the handoff, which the reading order already
+delivers. The owner sends `/orchestration` as its own message before pasting it
+([USAGE.md](USAGE.md)).
 
 ```
 - Invoke the `orchestration` skill first if it is not already in context.
 - Read <owner's standing-instructions path>, then <handoff path>, in that order, before doing
-  anything else. Where the two disagree, the owner's file wins.
+  anything else. Where the two disagree, the owner's file wins on process; a ruling in it that
+  names a programme binds that programme, and is history for any other.
 - Your scope is <session scope>. Its exit condition is <exit condition>. One pull request.
 - Raise every open question the moment it arises, in one batch where you can, never in a wrap-up.
 - You end by writing the handoff for the next session and having an agent that has not seen your
   work audit it, then fixing what it finds.
 ```
 
-Both live in the durable plan directory beside the plan, with every document they cite in the same
-directory. A session scratchpad dies with its session; a plan written there is unreachable by the
-next one.
+Both live in the durable plan directory beside the plan and every document they cite.

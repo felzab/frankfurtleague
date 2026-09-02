@@ -83,8 +83,9 @@ THE CHECKS, in priority order:
    `saison_teams` and `saison_spieler` have no Pydantic model to mirror, so verify those against
    live data with `python -m app.core.constraints --check`.
 
-ALREADY DECIDED — report against these, never re-litigate them. Most are `.claude/CLAUDE.md` §7 rows;
-what §7 does not spell out is here because an auditor reliably reads it as a defect:
+ALREADY DECIDED — report against these, never re-litigate them. Most are ratified clauses, in
+`.claude/CLAUDE.md` §7 or `.claude/rules/backend.md`; what those do not spell out is here because an
+auditor reliably reads it as a defect:
 
 - **Statistics are derived from `spiele`**, never stored, and this is built rather than planned. A
   match counts when it has an `ergebnis`; a no-show counts, its goals composed from

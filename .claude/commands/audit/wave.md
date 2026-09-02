@@ -30,8 +30,8 @@ session, on its own branch.
    `docs/_auditing/programme.md` §3 gives. The ledger carries a row's status; this carries what the
    session was doing when it stopped, which is what a successor cannot infer.
 
-The session ends with the branch pushed and the draft pull request open, per CLAUDE.md §2 and
-`docs/_git/spec.md`.
+The session ends with the branch pushed, the draft pull request open and its `verify` run's
+conclusion named, per CLAUDE.md §2 and `docs/_git/spec.md`.
 
 ## The wave prompt
 
@@ -79,8 +79,10 @@ it. The ledger row wins wherever it contradicts the source report, and later
 waves amend earlier rows.
 
 CLAUDE.md section 7 lists the decisions that read as violations and are
-deliberate, and section 6 the traps that fail silently. Do not "fix" one without
-an instruction that names it; if you believe one is wrong, say so and stop.
+deliberate, and section 6 the traps that fail silently; both hand the clauses a
+glob can reach to the files under `.claude/rules/`, which section 7 indexes. Do
+not "fix" one without an instruction that names it; if you believe one is wrong,
+say so and stop.
 
 PHASE 2 — FRONT-LOAD MY DECISIONS. From the verified rows, inventory
 everything that needs a human: contrast and colour choices, anything

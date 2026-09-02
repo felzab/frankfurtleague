@@ -3,7 +3,8 @@ import logging
 import re
 import time
 from collections.abc import Callable, Iterator
-from contextlib import ExitStack, contextmanager
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 from typing import Any
 
 import pytest
@@ -305,14 +306,12 @@ REPLICA_SET_OPLOG_MB = 128
 # What `pytest_configure_node` hands each worker, so one pair of containers serves the whole run.
 STANDALONE_KEY = "fl_standalone_mongodb_url"
 REPLICA_SET_KEY = "fl_replica_set_mongodb_url"
-# Why the pair is absent, when it is. Handed to the workers in its place, so one asking for a server
-# refuses naming the cause rather than the controller taking the run down before a test is collected.
+# Handed to the workers in the pair's place, so a test asking for a server fails naming the cause.
 UNSTARTED_KEY = "fl_mongodb_unstarted"
 
 REPLICA_SET_ELECTION_TIMEOUT_S = 60
 
-# The controller's own, never a worker's: a worker process holds neither, and both are empty on a
-# serial run, where the fixtures below start containers of their own.
+# The controller's alone; empty on a serial run, where the fixtures below start their own.
 _SHARED_SERVERS: dict[str, str] = {}
 _UNSTARTED: dict[str, str] = {}
 _SHARED_STACK = ExitStack()
@@ -366,12 +365,67 @@ def _replica_set_mongod() -> Iterator[str]:
             deadline = time.monotonic() + REPLICA_SET_ELECTION_TIMEOUT_S
             while not client.admin.command("hello").get("isWritablePrimary"):
                 if time.monotonic() > deadline:
-                    pytest.fail(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
+                    # Never `pytest.fail`: `Failed` is a `BaseException`, which `pytest_configure_node`'s
+                    # `except Exception` misses.
+                    raise TimeoutError(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
                 time.sleep(0.25)
         finally:
             client.close()
 
         yield url
+
+
+def _entered(factory: Callable[[], AbstractContextManager[str]]) -> tuple[AbstractContextManager[str], str]:
+    """One server started, handed back unregistered: the stack it belongs on is the calling thread's to touch."""
+
+    server = factory()
+
+    return server, server.__enter__()
+
+
+def _warm_the_reaper() -> None:
+    """`Reaper.get_instance` tests and assigns unlocked, so two starts at once make two reapers.
+
+    `ryuk_disabled` -- and `ryuk_docker_socket` and `ryuk_privileged` inside -- memoise the same way,
+    so this is live with ryuk off.
+    """
+
+    from testcontainers.core.config import testcontainers_config
+    from testcontainers.core.container import Reaper
+
+    if not testcontainers_config.ryuk_disabled:
+        Reaper.get_instance()
+
+
+def _start_shared_servers() -> None:
+    """Both servers at once, so the pair costs the longer start rather than the sum.
+
+    They share no handle a thread could tear: a client is built per instance.
+    """
+
+    _warm_the_reaper()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = {
+            STANDALONE_KEY: pool.submit(_entered, _standalone_mongod),
+            REPLICA_SET_KEY: pool.submit(_entered, _replica_set_mongod),
+        }
+
+    failure: BaseException | None = None
+    for key, future in futures.items():
+        # `exception()`, not `try`/`result()`: every server that started must reach the stack before
+        # the raise, or the caller's `close()` cannot reclaim it.
+        error = future.exception()
+        if error is not None:
+            failure = failure or error
+            continue
+
+        server, url = future.result()
+        _SHARED_STACK.push(server)
+        _SHARED_SERVERS[key] = url
+
+    if failure is not None:
+        raise failure
 
 
 def _default_tier_markexpr(config: pytest.Config) -> str | None:
@@ -391,8 +445,6 @@ def _default_tier_markexpr(config: pytest.Config) -> str | None:
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Runs in the controller and in every worker, before either collects."""
-
     guard_every_database()
 
 
@@ -407,15 +459,14 @@ def pytest_configure_node(node: Any) -> None:
     testcontainers' reaper reclaims a container when its starter disconnects.
     """
 
-    # A cost heuristic and nothing more: the default tier's own expression is the one run known to
-    # want no server, and every other spelling of it pays a start rather than deciding anything.
+    # A cost heuristic, never a decision: the default tier's own `-m` is the one run known to want
+    # no server, and any other spelling pays a start.
     if node.config.option.markexpr.strip() == _default_tier_markexpr(node.config):
         return
 
     if not _SHARED_SERVERS and not _UNSTARTED:
         try:
-            _SHARED_SERVERS[STANDALONE_KEY] = _SHARED_STACK.enter_context(_standalone_mongod())
-            _SHARED_SERVERS[REPLICA_SET_KEY] = _SHARED_STACK.enter_context(_replica_set_mongod())
+            _start_shared_servers()
         except Exception as error:
             # Carried to the fixtures rather than raised: raising in this hook is an INTERNALERROR
             # with no test summary, on a run the heuristic above only guessed selects a db test.
@@ -427,8 +478,6 @@ def pytest_configure_node(node: Any) -> None:
 
 
 def pytest_unconfigure(config: pytest.Config) -> None:
-    """Runs in the controller and in every worker; only the controller ever filled the stack."""
-
     release_every_database()
     _UNSTARTED.clear()
 

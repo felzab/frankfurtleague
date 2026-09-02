@@ -10,10 +10,15 @@ NOT named check_docs: a sibling of that name carrying __init__.py resolves ahead
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
-from checker_kernel import run
-from docs_gate.branch import check_comment_bounds
-from docs_gate.checks import (
+# Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
+# sibling of it rather than in it.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+
+from checker_kernel import run  # noqa: E402 -- the insert above is what resolves it
+from docs_gate.branch import check_comment_bounds  # noqa: E402
+from docs_gate.checks import (  # noqa: E402
     METADATA_LINE_RE,
     RULE_FIELD_RE,
     RULE_ID_RE,
@@ -23,7 +28,7 @@ from docs_gate.checks import (
     check_template_fragments,
     main,
 )
-from docs_gate.kernel import CHECKS, SCANNED_SUFFIXES, roadmap_ids
+from docs_gate.kernel import CHECKS, SCANNED_SUFFIXES, roadmap_ids  # noqa: E402
 
 # Named for export rather than for use here: every one below is cited from a document, a command
 # file or a sibling checker.

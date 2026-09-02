@@ -8,8 +8,8 @@ It drives the comparison too: `diff` finding the disagreements, `declaring` deci
 allowed, and `uncovered` failing a declared delta that covers nothing. Those run against documents
 the test writes, so they pin the mechanism rather than either compose file's current wording.
 
-Stdlib only, and `scripts/` is put on the path here because the module under test imports
-`checker_kernel` as a sibling rather than as a package.
+Stdlib only, and `scripts/checks/` is put on the path here because the module under test is run
+as a script everywhere else, which is what seeds that directory onto the path for it.
 """
 
 from __future__ import annotations
@@ -24,11 +24,11 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 # Withdrawn again, kernel dropped from the cache with it: `test_check_docs.py` runs the gate from
 # a throwaway copy of scripts/, and a `checker_kernel` cached here would answer its imports and
 # root every check at the wrong repository.
-sys.path.insert(0, str(SCRIPTS))
+sys.path.insert(0, str(SCRIPTS / "checks"))
 try:
     mirror = importlib.import_module("check_compose_mirror")
 finally:
-    sys.path.remove(str(SCRIPTS))
+    sys.path.remove(str(SCRIPTS / "checks"))
     sys.modules.pop("check_compose_mirror", None)
     sys.modules.pop("checker_kernel", None)
 

@@ -58,7 +58,8 @@ THE CHECKS, in priority order:
    cross-surface seam — cache-tag wiring is one — is crosscut 1 check 8's row, not this table's.
    Verify CI
    (`verify.yml`) runs the scopes its path mapping claims (scope jobs per touched surface on a pull
-   request, everything on main), that the tree-diff step still guards the write-mode formatter, and
+   request, everything on main), that the tree-diff step still guards `fl_frontend/tsconfig.json`
+   against the rewrite `next typegen` and `next build` each make, and
    that every action reference in `.github/workflows/` and `.github/actions/` is pinned to a full
    commit SHA resolving to a real commit — the rule is `docs/_git/spec.md` §1.6 and the resolution
    procedure §1.5, whose annotated-tag step separates a pin that reads as valid from one no runner

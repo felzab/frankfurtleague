@@ -2,8 +2,8 @@
 
 **Purpose:** every rule a written artifact in this repository follows — `docs/` pages, module
 headers, docstrings, comments, prompts, command files, commit messages and pull request bodies.
-The mechanical defence is `scripts/check_docs.py`, run by `./scripts/verify.sh` in its docs scope;
-the registry of its checks is `scripts/docs_gate/kernel.py :: CHECKS`, and the finding a check
+The mechanical defence is `scripts/checks/check_docs.py`, run by `./scripts/gate/verify.sh` in its docs scope;
+the registry of its checks is `scripts/checks/docs_gate/kernel.py :: CHECKS`, and the finding a check
 prints says what its failure means.
 
 | Section                   | Holds                                        |
@@ -57,9 +57,11 @@ These bind every written artifact. A comment is documentation and carries every 
   fails to resolve, and the reasoning at the claim rather than behind a pointer to a file deleted
   by design. _Enforced by_ `/docs:audit` (the cold read).
 - **COR-6:** a citation is a backticked `<path> :: <symbol>` or `<path> :: <short quoted
-fragment>`, a bare backticked repository path, or a rule id or invariant id — never a line
-  number, in any form: a line number is wrong the moment anything is inserted above it, and
-  nothing can tell a correct one from a stale one.
+fragment>`, a bare backticked repository path, a rule id or invariant id, or — where a passage
+  has already named a file — the continuation `` `:: <anchor>` ``, which resolves against the
+  nearest file named above it and fails where none is. Never a line number, in any form: a line
+  number is wrong the moment anything is inserted above it, and nothing can tell a correct one
+  from a stale one.
   _Enforced by_ gate checks `citation`, `path`, `rule-id` and `line-citation`.
 - **COR-7:** purpose in the first lines; a reference longer than about a hundred lines — consulted
   at a point rather than read through — carries a table of its sections against the question each
@@ -175,7 +177,7 @@ was repaired by moving the content or by widening the shape is review judgment.
 
 ## In-code
 
-Scope: `fl_frontend/src`, `fl_backend/app`, `fl_backend/tests`, `scripts/` and `.claude/hooks/`.
+Scope: `fl_frontend/src`, `fl_backend/app`, `fl_backend/tests`, `scripts/`, `.claude/hooks/` and `.githooks/`.
 The hooks are exempt from INC-2's shape alone — their uniform label rows keep the folder
 scannable side by side — and every other rule here binds them.
 
@@ -195,7 +197,7 @@ scannable side by side — and every other rule here binds them.
 **Rule:** a module header survives in a **shell script**, and in a Python module under
 `fl_backend/app/`, `fl_backend/tests/` or `scripts/` — the tests in both trees included — carrying
 a fact that attaches to no symbol: an exit contract, a one-cache-per-run rule, a carve-out the
-whole module rests on; `scripts/docs_gate/checks.py :: HEADER_SCOPES` is that scope. TypeScript,
+whole module rests on; `scripts/checks/docs_gate/checks.py :: HEADER_SCOPES` is that scope. TypeScript,
 TSX and JavaScript modules carry none: a comment sits at the thing it explains. Where one survives
 it is a plain block — a title line `<TOKEN> · <what this module is>`,
 at most three sentences why-first, a sentence of plain "what" allowed where the file's contents do
@@ -247,7 +249,7 @@ number: the 2026-08-01 repository recreation destroyed every issue that existed.
 outside this repository is pinned to a commit — one naming a branch and a line range drifts
 silently. The gate scans comments in every tracked TypeScript, JavaScript, Python and shell file,
 and every tracked configuration file scanned beside them
-(`scripts/check_docs.py :: SCANNED_SUFFIXES`), Dockerfiles included. Executable code is not
+(`scripts/checks/check_docs.py :: SCANNED_SUFFIXES`), Dockerfiles included. Executable code is not
 scanned: a path-shaped string in a function body is data. An unbackticked path in a comment is
 read too, because an unmarked path is how a dead one survives a green gate.
 
@@ -288,8 +290,9 @@ ceiling, never a target.
 a document nobody maintains in the one place a reader trusts most. One bound for every shape is
 what stops the rule being avoided by moving a paragraph from beside a symbol to above it.
 
-**Enforced by:** gate check `comment-length`, over the blocks a branch writes. A block the branch
-only touched is left to `/docs:audit`, which owns accumulated staleness (CUR-6).
+**Enforced by:** gate check `comment-length`, over every block a branch added a line to. A block
+already over the bound before the branch forked is exempt, and lengthening one past that is
+`/docs:audit-pr`'s slice; what no branch has touched is `/docs:audit`'s (CUR-6).
 
 ## Corpus
 
@@ -320,15 +323,18 @@ edited when a constraint changes; and the surface overviews, which say what a su
 are rewritten only when that changes. The two shapes are called layers, and layer is the only word
 for them anywhere in `docs/`. A new page is one of the two, or a named exception, or it does not
 go in. Why something is built this way sits at the constraint itself — a comment at the line, a
-CLAUDE.md §7 line, or a spec-sheet invariant — with the argument in the commit that made it.
+CLAUDE.md §7 line or a `.claude/rules/` clause, or a spec-sheet invariant — with the argument in
+the commit that made it.
 
 **Why:** each layer's update trigger is attached to work that happens anyway, which is what lets
 the corpus stay true without a scheduled review.
 
 **Exceptions:** the cross-cutting references (OUT-8), this file, the process folders
 (`docs/_auditing/`, `docs/_git/`, `docs/_roadmap/`), `docs/domain.md` — a narrative over tables a
-test walks — and `docs/ops/runbooks.md`: a procedure is followed at a keyboard rather than read
-for a constraint, and belongs beside the surface it operates.
+test walks — `docs/ops/runbooks.md`: a procedure is followed at a keyboard rather than read for a
+constraint, and belongs beside the surface it operates; and `docs/datenschutz.md`, a holding
+record for rulings that have not yet reached the line, row or section that will carry them, which
+shrinks as they do and goes when it is empty.
 
 **Enforced by:** unenforced — review judgment.
 

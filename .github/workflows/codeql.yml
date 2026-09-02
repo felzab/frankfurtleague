@@ -26,12 +26,17 @@ on:
   schedule:
     - cron: "37 4 * * 1"
 
-# Least privilege, same reasoning as `.github/workflows/verify.yml`. `security-events: write` is the one addition, and it
-# is what uploads results to the Security tab; without it the analysis runs and the findings vanish.
+# Least privilege, as in verify.yml. What every job here needs, and what a job added later
+# inherits: `contents: read` for the checkout, and `actions: read`, the starter workflow's,
+# required for a private repository only.
 permissions:
   contents: read
-  security-events: write
   actions: read
+
+# Same shell as verify.yml, for the reason written there, so a `run:` step added later inherits it.
+defaults:
+  run:
+    shell: bash
 
 concurrency:
   group: codeql-${{ github.ref }}
@@ -45,7 +50,15 @@ jobs:
   # analysis already filed under the old name.
   analyze-javascript:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Several times the analysis's longest run; the only failure mode of a margin this size is a re-run.
+    timeout-minutes: 10
+    # `security-events: write` uploads the results to the Security tab; without it the findings
+    # vanish, and only an analysis job uploads. A job block replaces the workflow's rather than
+    # extending it, so both of its lines are restated here.
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -65,7 +78,13 @@ jobs:
 
   analyze-python:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Same margin as the JavaScript job, for the same reason.
+    timeout-minutes: 10
+    # Same grants as the JavaScript job, for the same reasons.
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

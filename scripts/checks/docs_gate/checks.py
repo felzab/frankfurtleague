@@ -75,6 +75,7 @@ from .kernel import (
     tracked_glob,
     tracked_page,
 )
+from .platform import check_platform_branches, check_text_writes
 
 # --- what a page's kind decides ------------------------------------------------------------------
 
@@ -119,7 +120,7 @@ SEGMENT_SAMPLE: Final = 8
 
 # The checker whose quoted fragments `template-fragment` confirms, named so a fault in the list
 # itself points at the file to fix rather than at the form it reads.
-PR_BODY_CHECKER: Final = "scripts/check_pr_body.py"
+PR_BODY_CHECKER: Final = "scripts/checks/check_pr_body.py"
 
 # A page that is not there yields nothing, so an absent input degrades the check reading it to
 # silence with the run green. Named here so the absence itself fails.
@@ -304,8 +305,8 @@ def check_roadmap() -> list[Finding]:
     Ranks run from 1 per page, not across the folder: product and tooling work are not comparable.
     """
     found: list[Finding] = []
-    # Which page ranks each id, carried out of the loop: the log is resolved against all of them at
-    # once, and a finding has to name the page the entry has to leave.
+    # Carried out of the loop for the log comparison. Tested on insert: a second page ranking an id
+    # is a finding, never an overwrite.
     ranked: dict[str, str] = {}
     for rel in ROADMAP_RANKED_PAGES:
         page = tracked_page(rel)
@@ -331,7 +332,10 @@ def check_roadmap() -> list[Finding]:
                 detail = f"{entry_id} ranks {entries[entry_id]} in its heading and {rows[entry_id]} in the index"
                 found.append(Finding("fail", "roadmap-shape", rel, detail))
 
-        ranked.update(dict.fromkeys(entries, rel))
+        for entry_id in sorted(set(entries) & set(ranked)):
+            detail = f"{entry_id} is ranked here and on {ranked[entry_id]} -- an entry has one ranked page"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
+        ranked.update(dict.fromkeys(set(entries) - set(ranked), rel))
 
         # Contiguous from 1 on each side: a gap makes "the next one" unanswerable and a duplicate
         # makes the working order ambiguous.
@@ -1009,6 +1013,8 @@ LINE_CITATION_RE: Final = re.compile(rf"`([^`\n]*(?:{_CITABLE_SUFFIX_RE}):\d+(?:
 # The same citation with no backticks, which is how a comment usually carries one. The directory
 # run sits inside the capture, the guard rejecting a start after `/` or `.` holding a URL out.
 BARE_LINE_CITATION_RE: Final = re.compile(rf"(?<![/`\w.])((?:[\w.-]+/)*[\w.-]*[\w-](?:{_CITABLE_SUFFIX_RE}):\d+(?:-\d+)?)\b")
+# What both line-citation patterns need and most files never spell, so the two only run where it is.
+LINE_CITATION_HINT_RE: Final = re.compile(r":\d")
 
 # An audit id and a ledger row fail: both name a document `/audit:finish` deletes. A roadmap id and
 # a review round are only reported -- the id resolves, and the round may be a sentence.
@@ -1188,19 +1194,26 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     if not is_markdown:
         found.extend(check_invariant_citations(rel, body, invariants))
 
-    joined = unwrapped(body, () if is_markdown else continuation_markers(comment_style(path)))
-    for citation in sorted(set(CITATION_RE.findall(joined))):
-        if not is_placeholder(citation):
-            found.extend(_check_citation(citation, rel))
-    found.extend(_continuations(joined, rel))
+    # Prefilters, sound because `_wrap_re` joins with a SPACE: no wrap spells a `::` or `:`digit the
+    # raw text lacks. Bare `::`, never the spaced form: a citation split at the wrap is the join's purpose.
+    cites = "::" in body
+    cites_lines = LINE_CITATION_HINT_RE.search(body) is not None
+    if cites or cites_lines:
+        joined = unwrapped(body, () if is_markdown else continuation_markers(comment_style(path)))
+        if cites:
+            for citation in sorted(set(CITATION_RE.findall(joined))):
+                if not is_placeholder(citation):
+                    found.extend(_check_citation(citation, rel))
+            found.extend(_continuations(joined, rel))
 
-    # Nothing else can detect one: it stays syntactically valid and merely stops pointing at what it
-    # names, so it has to be caught at the form.
-    cited_lines = set(LINE_CITATION_RE.findall(joined)) | set(BARE_LINE_CITATION_RE.findall(joined))
-    for citation in sorted(cited_lines):
-        if is_placeholder(citation):
-            continue
-        found.append(Finding("fail", "line-citation", rel, f"line-number citation `{citation}` -- anchor it to a symbol (COR-6)"))
+        # Nothing else can detect one: it stays syntactically valid and merely stops pointing at what
+        # it names, so it has to be caught at the form.
+        if cites_lines:
+            cited_lines = set(LINE_CITATION_RE.findall(joined)) | set(BARE_LINE_CITATION_RE.findall(joined))
+            for citation in sorted(cited_lines):
+                if is_placeholder(citation):
+                    continue
+                found.append(Finding("fail", "line-citation", rel, f"line-number citation `{citation}` -- anchor it to a symbol (COR-6)"))
 
     # `anchors_of` rather than a second `heading_anchors`: this page's own anchors are cached
     # there already, every link pointing AT it having resolved through the same call.
@@ -1331,11 +1344,13 @@ def _print_human(failures: list[Finding], advisories: list[Finding], *, everythi
         for finding in advisories if everything else advisories[:ADVISORY_CAP]:
             print(finding.human())
         if not everything and len(advisories) > ADVISORY_CAP:
-            print(f"      ... and {len(advisories) - ADVISORY_CAP} more -- scripts/check_docs.py --all lists every one")
+            print(f"      ... and {len(advisories) - ADVISORY_CAP} more -- scripts/checks/check_docs.py --all lists every one")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Documentation gate; the registry of its checks is scripts/docs_gate/kernel.py :: CHECKS.")
+    parser = argparse.ArgumentParser(
+        description="Documentation gate; the registry of its checks is scripts/checks/docs_gate/kernel.py :: CHECKS."
+    )
     parser.add_argument("--all", action="store_true", help="list every advisory finding, not just the first ten")
     parser.add_argument(
         "--output-format",
@@ -1380,6 +1395,8 @@ def main() -> int:
     findings.extend(check_added_citations(additions))
     findings.extend(check_comment_bounds(branch))
     findings.extend(check_copy_rules())
+    findings.extend(check_platform_branches())
+    findings.extend(check_text_writes())
 
     failures = [f for f in findings if f.severity == "fail"]
     advisories = [f for f in findings if f.severity == "report"]

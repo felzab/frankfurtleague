@@ -849,7 +849,7 @@ speicherst`; emphasis on a verb that carries itself; and reassurance (`trotzdem`
 **The rules held mechanically are the ones the documentation gate's `copy-dash`, `copy-term`,
 `copy-formal` and `copy-informal` checks reach** — the dash rule with its date-range exception,
 the `Mannschaft` and `bereits` bans, which `copy-term` holds together, and the register
-rules. `scripts/docs_gate/copy_rules.py` holds what each admits and what it deliberately lets
+rules. `scripts/checks/docs_gate/copy_rules.py` holds what each admits and what it deliberately lets
 past, over every string literal and JSX element of
 `fl_frontend/src`, comments and tests excluded; it recognises a date by the name of the function
 that formats it, a coupling `copy-corpus` fails when the name stops matching, rather than letting

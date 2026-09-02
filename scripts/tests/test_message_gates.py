@@ -23,12 +23,12 @@ SCRIPTS: Final = Path(__file__).resolve().parents[1]
 
 # Withdrawn again, kernel dropped from the cache with it: `test_check_docs.py` runs the gate from a
 # throwaway copy of scripts/, and a `checker_kernel` cached here would root its checks here too.
-sys.path.insert(0, str(SCRIPTS))
+sys.path.insert(0, str(SCRIPTS / "checks"))
 try:
     commits = importlib.import_module("check_commits")
     body_gate = importlib.import_module("check_pr_body")
 finally:
-    sys.path.remove(str(SCRIPTS))
+    sys.path.remove(str(SCRIPTS / "checks"))
     sys.modules.pop("check_commits", None)
     sys.modules.pop("check_pr_body", None)
     sys.modules.pop("checker_kernel", None)
@@ -161,7 +161,7 @@ MESSAGE_CASES: Final[tuple[Case, ...]] = (
 
 
 CLEAN_PR_BODY: Final = (
-    "The branch proves the gate's own exit contract.\n\n**Verified** `./scripts/verify.sh --scripts --docs --format`, exit 0.\n"
+    "The branch proves the gate's own exit contract.\n\n**Verified** `./scripts/gate/verify.sh --scripts --docs --format`, exit 0.\n"
 )
 
 
@@ -336,8 +336,8 @@ def test_the_guarded_vocabularies_are_not_empty() -> None:
 def test_every_reporting_site_in_either_checker_is_reached_by_a_case() -> None:
     """A site nothing reaches is a rule that can stop matching in silence, which is the whole failure mode."""
     for module, function, callee, severity_arg, outcomes in (
-        ("check_commits.py", "check_message", ("fail", "report"), -1, _message_outcomes()),
-        ("check_pr_body.py", "check_body", ("Finding",), 0, _body_outcomes()),
+        ("checks/check_commits.py", "check_message", ("fail", "report"), -1, _message_outcomes()),
+        ("checks/check_pr_body.py", "check_body", ("Finding",), 0, _body_outcomes()),
     ):
         sites = _sites(module, function, callee, severity_arg)
         assert sites, f"{module} :: {function} records no finding at all"

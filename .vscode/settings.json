@@ -13,6 +13,12 @@
   "prettier.prettierPath": "fl_frontend/node_modules/prettier",
   "prettier.configPath": ".prettierrc.json",
   "prettier.ignorePath": ".prettierignore",
+  // Relative, and never with a leading slash: `.vscode/markdown.css`'s own header carries why.
+  "markdown.styles": [".vscode/markdown.css"],
+  // Pylance reads `pyrightconfig.json` only at the workspace root, so `scripts/`'s never reaches
+  // it. Naming its two `extraPaths` here makes the editor resolve what the gate resolves; a root
+  // config would govern `fl_backend` too.
+  "python.analysis.extraPaths": ["scripts/lib", "scripts/checks"],
   "[typescript]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[typescriptreact]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[javascript]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },

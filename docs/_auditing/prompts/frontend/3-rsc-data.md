@@ -11,7 +11,7 @@ table (A3), and the per-call-site response-validation table (B1). Report each in
 gap rows.
 
 CONTEXT — derive, do not assume: `cacheComponents` is on; data reaches the frontend exclusively
-through `src/core/api.ts` against FastAPI. The caching design is ratified in `.claude/CLAUDE.md` §7 —
+through `src/core/api.ts` against FastAPI. The caching design is ratified in `.claude/rules/frontend.md` —
 two granular tags with unconditional base tags, the season default server-side, `connection()`
 preceding every page fetch, no `generateStaticParams` (`docs/frontend/spec.md :: I28`), the uncached
 admin-authed reads. This pass audits **conformance to those decisions**, not the decisions.
@@ -72,8 +72,8 @@ narrowing, shape-assuming catch blocks. `noUncheckedIndexedAccess` is on — any
 must be a genuine remaining hole, not something the compiler already rejects.
 
 B5. **Env contract.** Every env var consumed in `src` is declared and validated in `core/config.ts`;
-anything declared but never consumed (names only, never values; check `.claude/CLAUDE.md` §7 before
-flagging the system key).
+anything declared but never consumed (names only, never values; check `.claude/rules/cross-surface.md`
+before flagging the system key).
 
 Priority order: A1, B1, A3, A2, B2, A4, B4, B3, A5, B5, A6.
 

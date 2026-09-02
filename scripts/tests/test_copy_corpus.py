@@ -24,7 +24,7 @@ GERMAN_FLOOR: Final = 900
 # same name, so importing the real one here would decide which of the two either file measures.
 MEASURE: Final = """
 import json, sys
-sys.path.insert(0, ".")
+sys.path.insert(0, "checks")
 from docs_gate.copy_rules import copy_spans, corpus_files, is_german
 
 files = corpus_files()

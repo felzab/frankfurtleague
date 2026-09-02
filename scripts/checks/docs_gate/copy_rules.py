@@ -481,8 +481,8 @@ def _dash_findings(rel: str, span: Copy) -> list[Finding]:
 def _formal_findings(rel: str, span: Copy) -> list[Finding]:
     """`Sie` or `Ihr` standing where only the formal address puts it.
 
-    Failing rather than reporting: the position test above leaves nothing ambiguous to guess at,
-    so the whole cost is a silent miss, never the false alarm that gets a check switched off.
+    Failing, not reporting: the position test leaves nothing to guess, so the cost is a silent
+    miss, never a false alarm.
     """
     if not is_german(span):
         return []

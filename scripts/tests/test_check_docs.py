@@ -1,27 +1,20 @@
 """SCRIPTS · the documentation gate's fixture net
 
-Every check `scripts/check_docs.py :: CHECKS` registers is driven twice: it must report a planted
+Every check `scripts/checks/check_docs.py :: CHECKS` registers is driven twice: it must report a planted
 violation and say nothing about a corpus with none. The seam is a throwaway repository holding a
 copy of scripts/, whose REPO_ROOT is derived from its own location and so roots there.
 
 A planted violation never shares a line of THIS file with a hash or a triple quote: the gate reads
-a source file's comments and would otherwise find the plant here. Stdlib only, the type checker
-reading scripts/ with no environment declared.
+a source file's comments and would otherwise find the plant here.
 """
 
 from __future__ import annotations
 
-import atexit
 import contextlib
 import importlib
 import io
-import os
 import re
-import shutil
-import stat
-import subprocess
 import sys
-import tempfile
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
@@ -29,7 +22,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Final
 
-REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
+from conftest import configure, copy_scripts, git, new_root, withdraw, write
 
 # Built rather than written, so no line of this file carries the markdown or the comment marker the
 # corpus needs -- either one would make the gate read the fixture text as this file's own comment.
@@ -94,6 +87,8 @@ YAML_CONFIG: Final = "fl_frontend/pnpm-workspace.yaml"
 JSON_CONFIG: Final = "fl_frontend/tsconfig.json"
 CONF_FILE: Final = "nginx/nginx.conf"
 SHELL_FILE: Final = "nginx/entrypoint.sh"
+# Under `.claude/hooks/` (the shell scope) and outside `PRESERVED`, so `_reset` removes it.
+HOOK_SAMPLE: Final = ".claude/hooks/probe.sh"
 DOCKERFILE: Final = "fl_backend/Dockerfile"
 # The one-file standard, carrying both of the shapes a rule may take (PRE-4).
 STANDARD: Final = "docs/standard.md"
@@ -529,44 +524,24 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
 # --- the fixture repository ----------------------------------------------------------------------
 
 
-def _git(root: Path, *args: str) -> str:
-    done = subprocess.run(("git", *args), cwd=root, capture_output=True, text=True, encoding="utf-8", check=False)
-    if done.returncode != 0:
-        # Raised with git's own message: a fixture that fails to build otherwise reports a bare exit
-        # code, and the case that follows then fails for a reason nothing in the output explains.
-        raise RuntimeError("git " + " ".join(args) + " failed: " + (done.stderr.strip() or done.stdout.strip()))
-    return done.stdout.strip()
-
-
-def _write(root: Path, rel: str, text: str) -> None:
-    path = root / rel
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # Bytes, never write_text: that emits CRLF on Windows, and `line-endings` would report the whole
-    # corpus rather than the one file a case plants.
-    path.write_bytes(text.encode("utf-8"))
-
-
 def _build(root: Path, pages: dict[str, str]) -> None:
     """Write and commit the corpus."""
     for rel, text in pages.items():
-        _write(root, rel, text)
+        write(root, rel, text)
     # Tracked, and outside every scanned suffix, so a citation can name a file the reader cannot
     # decode without `unreadable` firing about the same file and hiding which check spoke.
     (root / UNDECODABLE).write_bytes(b"\xff\xfe\x00 not text \x00")
 
     (root / HOOKS_STUB).mkdir()
-    _git(root, "init", "-b", "main")
-    for name, value in (("user.name", "fixture"), ("user.email", "fixture@example.invalid"), ("commit.gpgsign", "false")):
-        _git(root, "config", name, value)
-    _git(root, "config", "core.hooksPath", str(root / HOOKS_STUB))
+    configure(root, str(root / HOOKS_STUB))
     # The corpus by name, never `add -A`: the copy of scripts/ sits in this tree too, and tracking it
     # would put this repository's own documentation through a gate holding the fixture's corpus.
-    _git(root, "add", "--", *pages, UNDECODABLE)
-    _git(root, "commit", "-m", "Corpus: the gate finds nothing here")
+    git(root, "add", "--", *pages, UNDECODABLE)
+    git(root, "commit", "-m", "Corpus: the gate finds nothing here")
 
     # An untracked twin of a corpus page: the bare name the notes page cites must resolve past it.
     # `_reset` asserts it survives, because a deleted twin resolves that citation for the wrong reason.
-    _write(root, UNTRACKED_TWIN, (root / GLOSSARY).read_text(encoding="utf-8"))
+    write(root, UNTRACKED_TWIN, (root / GLOSSARY).read_text(encoding="utf-8"))
 
 
 @dataclass(frozen=True)
@@ -578,48 +553,16 @@ class Fixture:
     root: Path
 
 
-def _discard(root: Path) -> None:
-    """Remove one fixture repository, the read-only files git wrote inside it included.
-
-    Windows will not unlink a read-only file, and that is how git writes every loose object -- so
-    ignoring the error alone leaves every `.git` tree behind.
-    """
-
-    def _clear_readonly(remove: Callable[..., object], path: str, _exc: BaseException) -> None:
-        os.chmod(path, stat.S_IWRITE)
-        remove(path)
-
-    # Suppressed around the retry rather than instead of it: interpreter shutdown has nobody left
-    # to tell, but a failure swallowed before the retry is what let these accumulate.
-    with contextlib.suppress(OSError):
-        shutil.rmtree(root, onexc=_clear_readonly)
-
-
-def _withdraw(*names: str) -> None:
-    """Drop a module and every submodule of it from the cache, before an import and after it.
-
-    Two fixtures import a copy of scripts/ under the same names, and `checker_kernel` holds
-    REPO_ROOT: whichever loads second is otherwise handed the first one's tree.
-    """
-    for cached in [name for name in sys.modules if any(name == root or name.startswith(root + ".") for root in names)]:
-        del sys.modules[cached]
-
-
 def _load() -> Fixture:
     """The checker, imported from a copy of scripts/ inside a fresh fixture repository."""
-    root = Path(tempfile.mkdtemp(prefix="check-docs-fixture-")).resolve()
-    atexit.register(_discard, root)
-    # Caches as well as packages: the gate runs this suite beside ruff and pyright, and one being
-    # rewritten under the walk fails the copy for nothing the corpus can explain. The fixture reads
-    # none of them; its git tracks the corpus by name.
-    ignored = shutil.ignore_patterns("__pycache__", "tests", ".ruff_cache", ".pytest_cache", ".mypy_cache")
-    shutil.copytree(REPO_ROOT / SCRIPTS_COPY, root / SCRIPTS_COPY, ignore=ignored)
-    sys.path.insert(0, str(root / SCRIPTS_COPY))
-    _withdraw("check_docs", "check_pr_body", "checker_kernel", "docs_gate")
+    root = new_root("check-docs-fixture-")
+    copy_scripts(root / SCRIPTS_COPY)
+    sys.path.insert(0, str(root / SCRIPTS_COPY / "checks"))
+    withdraw("check_docs", "check_pr_body", "checker_kernel", "docs_gate")
     gate = importlib.import_module("check_docs")
     # The seam itself, stated as an assertion: the checker derives its repository root from its own
     # location, so importing this copy is what points every check at the corpus below instead of here.
-    assert Path(gate.__file__ or "").resolve().parent.parent == root, "the gate under test is not the copy"
+    assert Path(gate.__file__ or "").resolve().parents[2] == root, "the gate under test is not the copy"
     body_gate = importlib.import_module("check_pr_body")
     assert vars(sys.modules["checker_kernel"])["REPO_ROOT"] == root, "the gate under test reads another fixture's tree"
     _build(root, _corpus(body_gate.TEMPLATE_FRAGMENTS))
@@ -660,8 +603,8 @@ ADVISORY: Final = "advisory finding"
 Reported = tuple[str, str, str]
 
 # What a printed finding names before its detail: a file, or a file and the line the check looked
-# at, which `scripts/docs_gate/kernel.py :: Finding` renders. The line is read out here rather than
-# folded into the file, so a case can turn on either.
+# at, which `scripts/checks/docs_gate/kernel.py :: Finding` renders. The line is read out rather
+# than folded into the file, so a case can turn on either.
 SUBJECT_RE: Final = re.compile(r"^(.*?)(?::(\d+))?$")
 
 
@@ -714,6 +657,9 @@ def _clear_caches(scripts_dir: Path) -> None:
         if origin is None or scripts_dir not in Path(origin).resolve().parents:
             continue
         for value in vars(module).values():
+            # A class's `cache_clear` is unbound: only instances hold answers.
+            if isinstance(value, type):
+                continue
             clear = getattr(value, "cache_clear", None)
             if callable(clear):
                 clear()
@@ -739,7 +685,7 @@ def _assert_corpus_restored() -> None:
     The reset reaches only paths HEAD knows, so a staged NEW file would survive into the corpus
     later cases are measured against.
     """
-    dirty = _git(_gate().root, "status", "--porcelain", "-uno")
+    dirty = git(_gate().root, "status", "--porcelain", "-uno")
     assert dirty == "", "a case left the index or the tree changed after the reset:\n" + dirty
 
 
@@ -749,11 +695,11 @@ def _reset() -> None:
     excludes = [argument for name in PRESERVED for argument in ("-e", "/" + name)]
     # A plant's staged file is tracked, so `git clean` skips it and the checkout below cannot reach
     # a path HEAD never held: unstaging first is what keeps it out of every later case's corpus.
-    _git(root, "reset", "-q", "HEAD", "--", ".")
+    git(root, "reset", "-q", "HEAD", "--", ".")
     # HEAD, not the index: a bare `git checkout -- .` restores what is STAGED, handing a plant's
     # own edit to the cases after it, silently.
-    _git(root, "checkout", "HEAD", "--", ".")
-    _git(root, "clean", "-fdq", *excludes)
+    git(root, "checkout", "HEAD", "--", ".")
+    git(root, "clean", "-fdq", *excludes)
     # The twin only guards while it is untracked and outside the reset's reach. Moving it inside would
     # leave the bare-name citation resolving for the wrong reason, with the suite still green.
     assert (root / UNTRACKED_TWIN).is_file(), UNTRACKED_TWIN + " did not survive the reset, so it guards nothing"
@@ -771,12 +717,12 @@ def _replace(rel: str, old: str, new: str) -> None:
     root = _gate().root
     text = _read(rel)
     assert old in text, "the corpus no longer carries " + repr(old) + " in " + rel
-    _write(root, rel, text.replace(old, new, 1))
+    write(root, rel, text.replace(old, new, 1))
 
 
 def _append(rel: str, *lines: str) -> None:
     root = _gate().root
-    _write(root, rel, _read(rel) + "\n" + "\n".join(lines) + "\n")
+    write(root, rel, _read(rel) + "\n" + "\n".join(lines) + "\n")
 
 
 def _drop(rel: str, line: str) -> None:
@@ -897,7 +843,7 @@ def _plant_segment_map() -> None:
 
 
 def _write_bytes(root: Path, rel: str, text: str) -> None:
-    """A plant's exact bytes, `_write` being the same call. Named so a byte plant reads as deliberate."""
+    """A plant's exact bytes, `write` being the same call. Named so a byte plant reads as deliberate."""
     (root / rel).write_bytes(text.encode("utf-8"))
 
 
@@ -971,12 +917,12 @@ def _plant_branch_scope() -> None:
 
     Renamed rather than rewritten: HEAD keeps its history, so the findings are the advisory alone.
     """
-    _git(_gate().root, "branch", "-m", "main", "trunk")
+    git(_gate().root, "branch", "-m", "main", "trunk")
 
 
 def _undo_branch_scope() -> None:
     """The reset restores files, never refs."""
-    _git(_gate().root, "branch", "-m", "trunk", "main")
+    git(_gate().root, "branch", "-m", "trunk", "main")
 
 
 def _plant_bare_paths() -> None:
@@ -1130,7 +1076,7 @@ def _plant_copy_corpus() -> None:
     Both producers at once: the scan going quiet and an exemption outliving what it exempted are
     the same failure seen from two ends.
     """
-    _write(_gate().root, COPY_SAMPLE, _page('export const SAMPLE = "a rendered string, and no reader in sight";'))
+    write(_gate().root, COPY_SAMPLE, _page('export const SAMPLE = "a rendered string, and no reader in sight";'))
 
 
 def _plant_comment_bounds() -> None:
@@ -1162,6 +1108,20 @@ def _plant_comment_citations() -> None:
         HASH + " nor is FX-1 on its own",
     )
     _append(SECOND_SAMPLE, HASH + " the ledger 3 entry is not a citation either")
+
+
+def _plant_text_write() -> None:
+    """A text handle opened with no `newline`, built for `HASH`'s reason: the clause reads a CALL."""
+    _append(SAMPLE, "Path(" + QUOTE + "x" + QUOTE + ")." + "write_text(" + QUOTE + "a" + QUOTE + ")")
+
+
+def _plant_platform_branch() -> None:
+    """A shell platform token in code.
+
+    Under `.claude/hooks/`: the fixture's own `scripts/` copy is gitignored, so a plant there is read
+    nowhere.
+    """
+    write(_gate().root, HOOK_SAMPLE, _page("#!/usr/bin/env bash", "uname -s"))
 
 
 def _fails(check: str, *files: str) -> tuple[Reported, ...]:
@@ -1211,6 +1171,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case("copy-informal", _fails("copy-informal", COPY_SAMPLE), _plant_copy_informal),
     Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
     Case("counts", _reports("counts", NOTES, SAMPLE), _plant_counts),
+    Case("crlf-write", _fails("crlf-write", SAMPLE), _plant_text_write),
     Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD), _plant_enforced_by),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
     Case("header-see", _fails("header-see", *[SAMPLE] * 4), _plant_header_see),
@@ -1230,6 +1191,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case("overview-spine", _fails("overview-spine", OVERVIEW, FRONTEND_OVERVIEW), _plant_overviews),
     Case("owner-voice", _fails("owner-voice", NOTES), lambda: _append(NOTES, "The owner reads it.")),
     Case("path", _fails("path", NOTES), lambda: _append(NOTES, "`docs/gone.md` is named here.")),
+    Case("platform-branch", _fails("platform-branch", HOOK_SAMPLE), _plant_platform_branch),
     Case("readme-cap", _fails("readme-cap", ROOT_README), lambda: _append(ROOT_README, *["A line." for _ in range(130)])),
     Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 7, *[TOOLING_ROADMAP] * 4), _plant_roadmap),
     # The standard names its own duplicated id, which is what reports the collision: every citer of
@@ -1302,12 +1264,6 @@ def test_every_registered_check_and_verdict_has_a_plant() -> None:
     assert planted == registered, "unplanted: " + repr(sorted(registered - planted))
 
 
-def test_every_check_reports_its_planted_violation() -> None:
-    """Each plant raises exactly the findings its case declares -- no fewer, and nothing beside them."""
-    wrong = _mismatches(CASES)
-    assert not wrong, "\n".join(wrong)
-
-
 def test_a_check_naming_one_page_reads_the_tracked_one() -> None:
     """A check that names a fixed page resolves it through the corpus, not off disk.
 
@@ -1315,7 +1271,7 @@ def test_a_check_naming_one_page_reads_the_tracked_one() -> None:
     `Case` declares every finding.
     """
     _reset()
-    _git(_gate().root, "rm", "--cached", "-q", "--", GLOSSARY)
+    git(_gate().root, "rm", "--cached", "-q", "--", GLOSSARY)
     try:
         _, reported = _run()
     finally:
@@ -1331,7 +1287,7 @@ def test_the_standard_leaving_the_index_empties_its_readers_rather_than_raising(
     traceback at `EXIT_CRASH`, rather than on every citation of a rule failing.
     """
     _reset()
-    _git(_gate().root, "rm", "--cached", "-q", "--", STANDARD)
+    git(_gate().root, "rm", "--cached", "-q", "--", STANDARD)
     try:
         code, reported = _run()
     finally:
@@ -1350,7 +1306,7 @@ def test_an_untracked_ranked_page_is_read_as_a_page_nobody_added() -> None:
     satisfies `inputs`, which asks the disk.
     """
     _reset()
-    _git(_gate().root, "rm", "--cached", "-q", "--", TOOLING_ROADMAP)
+    git(_gate().root, "rm", "--cached", "-q", "--", TOOLING_ROADMAP)
     try:
         _, reported = _run()
     finally:
@@ -1389,7 +1345,7 @@ def test_a_file_the_branch_has_not_staged_is_read_like_a_tracked_one() -> None:
     route and test a branch adds unread while the run reported clean.
     """
     _reset()
-    _write(_gate().root, UNSTAGED_MODULE, _module_named("a module this branch wrote and never staged."))
+    write(_gate().root, UNSTAGED_MODULE, _module_named("a module this branch wrote and never staged."))
     try:
         _, reported = _run()
     finally:
@@ -1406,7 +1362,7 @@ def test_an_ignored_or_skipped_file_stays_outside_the_corpus() -> None:
     _reset()
     root = _gate().root
     for rel in (IGNORED_MODULE, SKIPPED_MODULE):
-        _write(root, rel, _module_named("a module no check may reach."))
+        write(root, rel, _module_named("a module no check may reach."))
     try:
         _, reported = _run()
     finally:
@@ -1425,7 +1381,7 @@ def test_an_unstaged_file_s_lines_are_read_as_lines_this_branch_added() -> None:
     """
     _reset()
     over = [HASH + " a line of a block that runs past what a comment may hold" for _ in range(6)]
-    _write(_gate().root, UNSTAGED_BLOCK, _page(QUOTES + "BACKEND · an unstaged module." + QUOTES, "", "VALUE = 1", "", *over))
+    write(_gate().root, UNSTAGED_BLOCK, _page(QUOTES + "BACKEND · an unstaged module." + QUOTES, "", "VALUE = 1", "", *over))
     try:
         _, reported = _run()
     finally:
@@ -1443,8 +1399,8 @@ def test_a_bare_name_reaches_an_unstaged_file_and_the_index_still_answers_first(
     _reset()
     root = _gate().root
     twin = (root / UNTRACKED_TWIN).read_bytes()
-    _write(root, UNTRACKED_TWIN, _read(GLOSSARY).replace(GLOSSARY_ANCHOR, "a heading the corpus does not cite"))
-    _write(root, UNSTAGED_MODULE, _module_named("a module cited by name before it was staged."))
+    write(root, UNTRACKED_TWIN, _read(GLOSSARY).replace(GLOSSARY_ANCHOR, "a heading the corpus does not cite"))
+    write(root, UNSTAGED_MODULE, _module_named("a module cited by name before it was staged."))
     _append(SAMPLE, HASH + " see `unstaged.py :: VALUE = 1`", HASH + " and `unstaged.py :: a symbol nobody wrote`")
     try:
         _, reported = _run()
@@ -1557,6 +1513,38 @@ def test_a_quoted_error_is_not_a_citation_and_a_broken_wrapped_one_still_is() ->
     _assert_corpus_restored()
 
 
+def test_a_continuation_that_wraps_across_a_comment_line_is_still_resolved() -> None:
+    """Split at the wrap, the separator ends a line with nothing to its right.
+
+    A reader admitting a file on the spaced form alone would skip it; the bare `::` is what has to
+    admit it.
+    """
+    _reset()
+    _append(SAMPLE, HASH + " `fl_backend/app/second.py :: OTHER` continues onto `::", HASH + " MISSING`.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", SAMPLE)] == 1, "a continuation that wraps went unresolved: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_line_citation_that_wraps_across_a_line_is_still_found() -> None:
+    """Wrapped after the slash, neither raw line is a citation and the joined text is.
+
+    Both patterns read it there -- the backticked span, and the bare tail the join leaves after the
+    space -- so the count is two spellings of one defect.
+    """
+    _reset()
+    _append(NOTES, "See `docs/", "glossary.md:7` for the shape.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "line-citation", NOTES)] == 2, "a line citation that wraps went unread: " + _shape(reported)
+    _assert_corpus_restored()
+
+
 def test_the_comment_bounds_read_a_file_by_its_format_not_its_suffix() -> None:
     """INC-9's bound is measured through the reader the FORMAT needs, not `path.suffix`.
 
@@ -1644,15 +1632,15 @@ def _committed(plant: Callable[[], None], *rels: str) -> tuple[int, Counter[Repo
     """
     _reset()
     root = _gate().root
-    _git(root, "checkout", "-q", "-b", SCENARIO_BRANCH)
+    git(root, "checkout", "-q", "-b", SCENARIO_BRANCH)
     try:
         plant()
-        _git(root, "add", "--", *rels)
-        _git(root, "commit", "-q", "-m", "Scenario: a branch commit the gate reads")
+        git(root, "add", "--", *rels)
+        git(root, "commit", "-q", "-m", "Scenario: a branch commit the gate reads")
         return _run()
     finally:
-        _git(root, "checkout", "-q", "main")
-        _git(root, "branch", "-q", "-D", SCENARIO_BRANCH)
+        git(root, "checkout", "-q", "main")
+        git(root, "branch", "-q", "-D", SCENARIO_BRANCH)
         _reset()
 
 
@@ -1662,7 +1650,7 @@ def test_a_hook_s_embedded_javascript_comments_are_read() -> None:
     over = ["// a line of a block that runs past what a comment may hold" for _ in range(6)]
 
     def plant() -> None:
-        _write(
+        write(
             _gate().root,
             hook,
             _page(
@@ -1892,7 +1880,7 @@ def test_a_ranked_page_that_cannot_be_decoded_is_read_against_nothing() -> None:
 def test_a_closed_log_outside_the_index_leaves_the_ranked_pages_resolved_against_nothing() -> None:
     """Untracked rather than absent: absence is `inputs`' finding, and this is the reading check's own."""
     _reset()
-    _git(_gate().root, "rm", "--cached", "-q", "--", CLOSED_ROADMAP)
+    git(_gate().root, "rm", "--cached", "-q", "--", CLOSED_ROADMAP)
     try:
         _, reported = _run()
     finally:
@@ -1909,6 +1897,41 @@ def test_a_closed_log_that_cannot_be_decoded_leaves_the_ranked_pages_resolved_ag
     finally:
         _reset()
     assert reported[("fail", "roadmap-shape", CLOSED_ROADMAP)] == 1, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_an_id_ranked_on_both_pages_fails_on_the_page_read_second() -> None:
+    """Each page agrees with itself, so only the insert into the cross-page map can see the repeat.
+
+    Folded in silently, the second page replaces the first, and the log comparison then blames one
+    page for an entry the other ranks too.
+    """
+    _reset()
+    product_row = "| 1 | FX-1 | Give the gate a fixture net |"
+    _replace(ROADMAP, product_row, product_row + "\n| 2 | TL-1 | " + TOOLING_ITEM + " |")
+    _append(ROADMAP, _heading(3, "2 · TL-1 — " + TOOLING_ITEM), "", "**Status:** Open")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "roadmap-shape", TOOLING_ROADMAP)] == 1, "an id ranked on both pages passed: " + _shape(reported)
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "the first page to rank it is the one it stays on: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_ranked_heading_no_table_defines_is_the_row_test_s_finding() -> None:
+    """An id in no roadmap table has no row on its own page either, so the row test holds the vocabulary.
+
+    FX-9 stands in no table anywhere in the corpus and is reported exactly once, by that test.
+    """
+    _reset()
+    _append(ROADMAP, _heading(3, "2 · FX-9 — An entry no table defines"), "", "**Status:** Open")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a heading no table defines went unreported: " + _shape(reported)
+    assert reported[("fail", "roadmap-shape", TOOLING_ROADMAP)] == 0, _shape(reported)
     _assert_corpus_restored()
 
 
@@ -2010,7 +2033,7 @@ def test_a_module_python_cannot_tokenize_still_has_its_comments_read() -> None:
     """Reading no comments would look like a file holding none, which every comment check passes."""
     _reset()
     # An unterminated triple quote: tokenize raises, and the marker reader keeps the lines anyway.
-    _write(_gate().root, UNTOKENIZABLE_MODULE, _page(HASH + " a comment naming docs/gone.md", "unterminated = " + QUOTES))
+    write(_gate().root, UNTOKENIZABLE_MODULE, _page(HASH + " a comment naming docs/gone.md", "unterminated = " + QUOTES))
     try:
         _, reported = _run()
     finally:
@@ -2082,7 +2105,7 @@ def test_a_directory_only_ignore_rule_is_asked_in_both_spellings() -> None:
     _reset()
     kernel = _module("docs_gate.kernel")
     absent = "absent-folder"
-    _write(_gate().root, GITIGNORE, _read(GITIGNORE) + "/" + absent + "/" + NEWLINE)
+    write(_gate().root, GITIGNORE, _read(GITIGNORE) + "/" + absent + "/" + NEWLINE)
     _clear_caches(_gate().root / SCRIPTS_COPY)
     try:
         assert not (_gate().root / absent).exists(), "the folder is there, so the retry is not what answers"

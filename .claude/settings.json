@@ -100,8 +100,8 @@
       "Bash(pnpm exec eslint:*)",
       "Bash(pnpm exec prettier --check:*)",
       "Bash(pnpm test:*)",
-      "Bash(./scripts/verify.sh:*)",
-      "Bash(./scripts/selfcheck.sh:*)"
+      "Bash(./scripts/gate/verify.sh:*)",
+      "Bash(./scripts/gate/selfcheck.sh:*)"
     ]
   },
   "hooks": {
@@ -127,12 +127,12 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/guard-credential-shell.sh\"",
-            "timeout": 10
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/guard-branch-bash.sh\"",
-            "timeout": 10
+            "timeout": 30
           },
           {
             "type": "command",

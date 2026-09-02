@@ -486,7 +486,7 @@ class FLPostBewerbungPayload(BaseModel):
     kontakte: FLBewerbungKontaktePayload
     trikot: FLBewerbungTrikotPayload
     kader: FLBewerbungKaderPayload
-    # DEFAULTED where this payload's other nullable keys are required: `scripts/deploy.sh` recreates
+    # DEFAULTED where this payload's other nullable keys are required: `scripts/ops/deploy.sh` recreates
     # both packages at one pinned build, so the only form older than this field is a page already
     # open in a visitor's browser across a recreate.
 

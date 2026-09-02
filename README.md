@@ -81,7 +81,8 @@ docs/            the documentation set
 | [`docs/ops/spec.md`](docs/ops/spec.md) | Every script, every gate scope, and what each one proves                                                                                |
 
 Several things here look like mistakes and are deliberate, each a ratified decision.
-**Check [`.claude/CLAUDE.md`](.claude/CLAUDE.md) §7 before "fixing" something that looks wrong.**
+**Check [`.claude/CLAUDE.md`](.claude/CLAUDE.md) §7 and the files it indexes under
+[`.claude/rules/`](.claude/rules/) before "fixing" something that looks wrong.**
 
 ## Contributing
 
@@ -89,7 +90,7 @@ Short-lived topic branches off `main`, one PR each, merged with a merge commit. 
 real weight here — they explain _why_ and record what was verified, and they are kept rather than
 squashed; [`docs/_git/spec.md`](docs/_git/spec.md) is the convention.
 
-Run `./scripts/verify.sh` before opening a PR, at a scope covering every surface the branch touched —
+Run `./scripts/gate/verify.sh` before opening a PR, at a scope covering every surface the branch touched —
 [`docs/ops/spec.md`](docs/ops/spec.md) tables the scopes. CI runs it too.
 
 ## Status

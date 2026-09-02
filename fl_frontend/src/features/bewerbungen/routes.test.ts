@@ -131,7 +131,7 @@ describe("how the triage renders what the applicant typed", () => {
   });
 
   /* The other half of the same rule, and the one ESLint's `react/no-danger` would catch -- asserted
-     here too because §7 forbids disabling that rule, so a suppression comment is the way past it. */
+     here too because `.claude/rules/cross-surface.md` forbids disabling that rule, so a suppression comment is the way past it. */
   it("hands the panel no raw markup at all", () => {
     assert.doesNotMatch(PANEL, /dangerouslySetInnerHTML/, "the triage panel writes raw markup, which stored applicant text can reach");
   });

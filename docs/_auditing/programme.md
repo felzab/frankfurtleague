@@ -172,18 +172,17 @@ Every step below is the session's job, in this order, with none skipped.
 ### 4.1 Run the full gate
 
 ```bash
-./scripts/verify.sh
+./scripts/gate/verify.sh
 ```
 
 **The full gate runs on every wave.** The one exception is a wave that changed **documentation
-only**, which runs the scope CLAUDE.md's gate table names for it; [`lessons.md`](lessons.md) §5
-holds the classes that pass a partial gate and break the built image.
+only**, which runs the scope [`../ops/spec.md`](../ops/spec.md) §1.6's table names for it;
+[`lessons.md`](lessons.md) §5 holds the classes that pass a partial gate and break the built image.
 
 ### 4.2 Read what the formatter changed
 
-The gate writes nothing; `.githooks/pre-commit` formats the staged files at commit time. **Read those
-hunks** — the formatter can corrupt a conditional class string, and nothing else in the gate sees
-that.
+**Read the hunks `.githooks/pre-commit` wrote at commit** ([`../ops/spec.md`](../ops/spec.md) §1.6)
+— the formatter can corrupt a conditional class string, and nothing else in the gate sees that.
 
 ### 4.3 Confirm the exit gate and the guardrails
 
@@ -215,8 +214,9 @@ Where anything changed after a row or section was written, revise it in place.
 ### 4.7 Push and hand over
 
 Push the branch, then print the pull request title and body in one copy-paste block, to
-[`../_git/spec.md`](../_git/spec.md) §1.4. Open it with `gh pr create --draft` and hand over the
-link; marking a draft ready is the act of saying it passed review, and that is mine.
+[`../_git/spec.md`](../_git/spec.md) §1.4. Open it with `gh pr create --draft`, hand over the link
+and name the `verify` run's conclusion (`.claude/CLAUDE.md` §2); marking a draft ready is the act
+of saying it passed review, and that is mine.
 
 ---
 

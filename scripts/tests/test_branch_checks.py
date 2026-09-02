@@ -1,6 +1,6 @@
 """SCRIPTS · the branch-scoped checks' scenario net
 
-`scripts/docs_gate/branch.py` reads the branch's diff against its base, so a run over a clean
+`scripts/checks/docs_gate/branch.py` reads the branch's diff against its base, so a run over a clean
 tree arms almost none of it. Each scenario here shapes one synthetic branch state in a throwaway
 repository holding a copy of scripts/, and asserts what armed and what fired. A subprocess does
 the reading: the gate derives its repository root from its own file, and importing a copy
@@ -9,20 +9,13 @@ in-process would collide with `scripts/tests/test_check_docs.py`'s copy over one
 
 from __future__ import annotations
 
-import atexit
-import contextlib
 import json
-import os
-import shutil
-import stat
 import subprocess
 import sys
-import tempfile
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Final
 
-REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
+from conftest import configure, copy_scripts, git, new_root, write
 
 # Built rather than written, for `scripts/tests/test_check_docs.py`'s reason: no line of THIS file
 # may carry a marker the gate could read as this file's own comment or heading.
@@ -62,7 +55,7 @@ LEGACY_MID: Final = "a middle line a scenario amends in place, to prove the fork
 LEGACY_END: Final = "a closing line that keeps the committed block over the bound before any scenario touches it"
 
 # What every diff-reading check's advisory names, and the advisory's own shape
-# (`scripts/docs_gate/branch.py :: check_branch_diff`). Spelled here as a pin: the wording is
+# (`scripts/checks/docs_gate/branch.py :: check_branch_diff`). Spelled here as a pin: the wording is
 # behaviour a consolidation must preserve.
 DIFF_READERS: Final = "history, counts, added comment citations and comment length"
 
@@ -79,7 +72,8 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, sys.argv[1])
+sys.path.insert(0, sys.argv[1] + "/lib")
+sys.path.insert(0, sys.argv[1] + "/checks")
 
 import checker_kernel
 from docs_gate import branch
@@ -163,50 +157,20 @@ def _corpus() -> dict[str, str]:
     }
 
 
-def _git(root: Path, *args: str) -> str:
-    done = subprocess.run(("git", *args), cwd=root, capture_output=True, text=True, encoding="utf-8", check=False)
-    if done.returncode != 0:
-        raise RuntimeError("git " + " ".join(args) + " failed: " + (done.stderr.strip() or done.stdout.strip()))
-    return done.stdout.strip()
-
-
-def _write(root: Path, rel: str, text: str) -> None:
-    path = root / rel
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # Bytes, never write_text: that emits CRLF on Windows, and the diff would carry every line.
-    path.write_bytes(text.encode("utf-8"))
-
-
-def _discard(root: Path) -> None:
-    """Remove the fixture tree, the read-only files git wrote inside it included."""
-
-    def _clear_readonly(remove: Callable[..., object], path: str, _exc: BaseException) -> None:
-        os.chmod(path, stat.S_IWRITE)
-        remove(path)
-
-    with contextlib.suppress(OSError):
-        shutil.rmtree(root, onexc=_clear_readonly)
-
-
 def _build() -> tuple[Path, Path]:
     """One fixture repository beside the driver that reads it, built once per session."""
-    parent = Path(tempfile.mkdtemp(prefix="branch-checks-fixture-")).resolve()
-    atexit.register(_discard, parent)
+    parent = new_root("branch-checks-fixture-")
     root = parent / "repo"
-    ignored = shutil.ignore_patterns("__pycache__", "tests", ".ruff_cache", ".pytest_cache", ".mypy_cache")
-    shutil.copytree(REPO_ROOT / SCRIPTS_COPY, root / SCRIPTS_COPY, ignore=ignored)
+    copy_scripts(root / SCRIPTS_COPY)
     (parent / "driver.py").write_bytes(DRIVER.encode("utf-8"))
     pages = _corpus()
     for rel, text in pages.items():
-        _write(root, rel, text)
+        write(root, rel, text)
     (root / HOOKS_STUB).mkdir()
-    _git(root, "init", "-b", "main")
-    for name, value in (("user.name", "fixture"), ("user.email", "fixture@example.invalid"), ("commit.gpgsign", "false")):
-        _git(root, "config", name, value)
-    _git(root, "config", "core.hooksPath", str(root / HOOKS_STUB))
+    configure(root, str(root / HOOKS_STUB))
     # By name, never `add -A`: the scripts copy sits in this tree too, gitignored on top.
-    _git(root, "add", "--", *pages)
-    _git(root, "commit", "-m", "Corpus: the branch scenarios start from here")
+    git(root, "add", "--", *pages)
+    git(root, "commit", "-m", "Corpus: the branch scenarios start from here")
     return parent, root
 
 
@@ -230,9 +194,9 @@ def _reset() -> None:
     scenario edited without touching any ref a scenario moved.
     """
     root = _root()
-    _git(root, "reset", "-q", "HEAD", "--", ".")
-    _git(root, "checkout", "HEAD", "--", ".")
-    _git(root, "clean", "-fdxq", "-e", "/" + SCRIPTS_COPY, "-e", "/" + HOOKS_STUB)
+    git(root, "reset", "-q", "HEAD", "--", ".")
+    git(root, "checkout", "HEAD", "--", ".")
+    git(root, "clean", "-fdxq", "-e", "/" + SCRIPTS_COPY, "-e", "/" + HOOKS_STUB)
 
 
 def _run(fork: str = "-") -> dict[str, Any]:
@@ -268,11 +232,11 @@ def _read(rel: str) -> str:
 def _replace(rel: str, old: str, new: str) -> None:
     text = _read(rel)
     assert old in text, "the corpus no longer carries " + repr(old) + " in " + rel
-    _write(_root(), rel, text.replace(old, new, 1))
+    write(_root(), rel, text.replace(old, new, 1))
 
 
 def _append(rel: str, *lines: str) -> None:
-    _write(_root(), rel, _read(rel) + "\n" + "\n".join(lines) + "\n")
+    write(_root(), rel, _read(rel) + "\n" + "\n".join(lines) + "\n")
 
 
 def _line_of(rel: str, text: str) -> int:
@@ -379,7 +343,7 @@ def test_added_count_words_report_per_file() -> None:
 def test_a_prose_sha_reports_only_an_unresolvable_mixed_hex_run() -> None:
     """The digits-only run, the 9-character run and a resolvable prefix of HEAD all stay silent; one sha named twice is one finding."""
     _reset()
-    head = _git(_root(), "rev-parse", "HEAD")
+    head = git(_root(), "rev-parse", "HEAD")
     resolvable = next((head[:n] for n in (8, 7) if any(c.isdigit() for c in head[:n]) and any(c.isalpha() for c in head[:n])), None)
     tick = "`"
     lines = [
@@ -409,17 +373,17 @@ def test_a_prose_sha_the_branch_never_touched_still_reports() -> None:
     tick = "`"
     _reset()
     root = _root()
-    base = _git(root, "rev-parse", "HEAD")
+    base = git(root, "rev-parse", "HEAD")
     _append(SPARE, "The commit " + tick + "abc1234" + tick + " is named here.")
-    _git(root, "add", "--", SPARE)
-    _git(root, "commit", "-q", "-m", "Corpus: a page carrying an unresolvable sha")
+    git(root, "add", "--", SPARE)
+    git(root, "commit", "-q", "-m", "Corpus: a page carrying an unresolvable sha")
     _append(NOTES, "An unrelated line, so what the branch adds names no sha at all.")
     try:
         data = _run()
     finally:
         # Soft, so the corpus commit comes back as the fork with the working tree untouched; the
         # reset that follows puts the page itself back.
-        _git(root, "reset", "-q", "--soft", base)
+        git(root, "reset", "-q", "--soft", base)
         _reset()
     assert data["diffed"] == [NOTES]
     assert sorted(data["additions"]) == [NOTES]
@@ -448,7 +412,7 @@ def test_a_pure_deletion_arms_nothing() -> None:
     try:
         # Read from the fixture rather than inferred from an empty answer: a clean tree reports the
         # same empty diff, so the deletion needs its own evidence that git saw one.
-        touched = sorted(_git(_root(), "diff", "--name-only").splitlines())
+        touched = sorted(git(_root(), "diff", "--name-only").splitlines())
         data = _run()
     finally:
         _reset()
@@ -466,10 +430,10 @@ def test_an_untracked_corpus_file_is_read_whole_and_a_non_corpus_one_is_not() ->
     """
     _reset()
     root = _root()
-    _write(root, FRESH, _page(QUOTES + "BACKEND · a module this branch wrote and never staged." + QUOTES, "", "VALUE = 1", "", *LONG_BLOCK))
-    _write(root, IGNORED, _page(*LONG_BLOCK))
-    _write(root, SKIPPED, _page(*LONG_BLOCK))
-    _write(root, "notes-extra.txt", _page(*LONG_BLOCK))
+    write(root, FRESH, _page(QUOTES + "BACKEND · a module this branch wrote and never staged." + QUOTES, "", "VALUE = 1", "", *LONG_BLOCK))
+    write(root, IGNORED, _page(*LONG_BLOCK))
+    write(root, SKIPPED, _page(*LONG_BLOCK))
+    write(root, "notes-extra.txt", _page(*LONG_BLOCK))
     line = _line_of(FRESH, LONG_BLOCK[0])
     try:
         data = _run()
@@ -516,11 +480,11 @@ def test_a_missing_base_ref_is_one_advisory_and_the_bounds_stay_silent() -> None
     _reset()
     _append(MOD, *LONG_BLOCK, HASH + " this previously lived elsewhere")
     _append(NOTES, "The commit " + tick + "abc1234" + tick + " is named here.")
-    _git(_root(), "branch", "-m", "main", "trunk")
+    git(_root(), "branch", "-m", "main", "trunk")
     try:
         data = _run()
     finally:
-        _git(_root(), "branch", "-m", "trunk", "main")
+        git(_root(), "branch", "-m", "trunk", "main")
         _reset()
     assert data["fork"] is None
     assert data["diffed"] is None
@@ -567,15 +531,15 @@ def test_a_committed_addition_reads_the_same_as_a_working_tree_one() -> None:
     """The diff runs from the fork to the working tree, so a commit on the branch changes nothing."""
     _reset()
     root = _root()
-    _git(root, "checkout", "-q", "-b", "work")
+    git(root, "checkout", "-q", "-b", "work")
     _append(MOD, HASH + " " + ROADMAP_ID + " says so")
-    _git(root, "add", "--", MOD)
-    _git(root, "commit", "-q", "-m", "Scenario: one committed comment")
+    git(root, "add", "--", MOD)
+    git(root, "commit", "-q", "-m", "Scenario: one committed comment")
     try:
         data = _run()
     finally:
-        _git(root, "checkout", "-q", "-f", "main")
-        _git(root, "branch", "-q", "-D", "work")
+        git(root, "checkout", "-q", "-f", "main")
+        git(root, "branch", "-q", "-D", "work")
         _reset()
     assert data["diffed"] == [MOD]
     assert _findings(data) == [

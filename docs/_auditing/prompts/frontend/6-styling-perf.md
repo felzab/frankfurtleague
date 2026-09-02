@@ -50,8 +50,8 @@ providers shipping data to routes that never read it. **Measure gzipped before f
 structurally real over-fetch is not worth a remediation row when the whole payload compresses to
 a few kilobytes.
 
-D7. **Rendering cost.** Expensive derived values without memoization — but `.claude/CLAUDE.md` §7
-forbids re-enabling the React Compiler, so **never propose it as a fix.** Provider value stability.
+D7. **Rendering cost.** Expensive derived values without memoization — but
+`.claude/rules/frontend.md` forbids re-enabling the React Compiler, so **never propose it as a fix.** Provider value stability.
 And the admin tables' memo-plus-stable-props constraint, where an inline lambda at a call site
 silently defeats the memo — verify the constraint still holds at every call site.
 

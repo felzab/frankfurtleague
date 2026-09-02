@@ -4,7 +4,7 @@ A comment-only edit is a documentation change whatever file holds it, but the ca
 what a parser can prove: anything unproven counts as code, and only a missed images scope fails.
 Two shapes a parser calls a comment are excluded by name, because a tool downstream reads them --
 `TOOLCHAIN_DIRECTIVE`, and a docstring under `DOCSTRINGS_ARE_PUBLISHED`. The path mapping is
-`scripts/ci_scopes.sh`, whose scope names are verify.sh's flags, so nothing here translates between
+`scripts/gate/scope_map.sh`, whose scope names are verify.sh's flags, so nothing here translates between
 them.
 """
 
@@ -19,13 +19,28 @@ import sys
 import tempfile
 import tomllib
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from checker_kernel import DEFAULT_BASE, EXIT_OK, EXIT_REFUSED, REPO_ROOT, Finding, git, report_findings, resolve_base, run
+# Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
+# sibling of it rather than in it.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
-# In the order verify.sh runs them. The set is `scripts/ci_scopes.sh`'s to change: a scope it emits
+from checker_kernel import (  # noqa: E402 -- the insert above is what resolves it
+    DEFAULT_BASE,
+    EXIT_OK,
+    EXIT_REFUSED,
+    REPO_ROOT,
+    Finding,
+    git,
+    report_findings,
+    resolve_base,
+    run,
+)
+
+# In the order verify.sh runs them. The set is `scripts/gate/scope_map.sh`'s to change: a scope it emits
 # and this does not is a surface nobody is told about, the one drift a second list can still cause.
 SCOPES: Final[tuple[str, ...]] = ("scripts", "docs", "backend", "format", "frontend", "ops", "db", "images")
 
@@ -77,7 +92,7 @@ def changed_files(base: str) -> Changes | None:
     `git diff <base>` compares against the WORKING TREE, the gate running before the commit. A
     refused listing is not an empty one: it leaves every complaint below unread.
     """
-    # `core.quotepath=false` for `scripts/ci_scopes.sh`'s reason: an escaped non-ASCII path matches
+    # `core.quotepath=false` for `scripts/gate/scope_map.sh`'s reason: an escaped non-ASCII path matches
     # no arm there and turns every scope on, naming a spelling nobody can re-run against.
     quoting = ("-c", "core.quotepath=false")
 
@@ -167,7 +182,7 @@ def normalizer_batch(paths: list[str]) -> list[bool]:
     pairs = len(paths) // 2
     try:
         result = subprocess.run(
-            ["node", "scripts/ts_normalize.mjs", "--batch", *paths],
+            ["node", "scripts/checks/ts_normalize.mjs", "--batch", *paths],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
@@ -221,7 +236,7 @@ def typescript_same_many(items: list[tuple[str, str, str]]) -> list[bool]:
 
 
 def typescript_same(suffix: str, old: str, new: str) -> bool:
-    """Delegated to TypeScript's own parser - see scripts/ts_normalize.mjs for why not a regex."""
+    """Delegated to TypeScript's own parser - see scripts/checks/ts_normalize.mjs for why not a regex."""
     return typescript_same_many([(suffix, old, new)])[0]
 
 
@@ -328,15 +343,15 @@ def material_paths(base: str, files: list[str], two_versions: frozenset[str] = f
 # --- the mapping ------------------------------------------------------------------------------------
 
 
-def ci_scopes(files: list[str]) -> dict[str, bool] | None:
-    """scripts/ci_scopes.sh over an explicit file list. None when it could not be run at all."""
+def scope_map(files: list[str]) -> dict[str, bool] | None:
+    """scripts/gate/scope_map.sh over an explicit file list. None when it could not be run at all."""
     bash = shutil.which("bash")
     if bash is None:
         return None
     # Bytes on purpose: text mode translates "\n" to os.linesep, so on Windows a CR-suffixed name
     # reaches the shell, matches no case arm, and turns every scope on through the fallback.
     result = subprocess.run(
-        [bash, "scripts/ci_scopes.sh", "--stdin"],
+        [bash, "scripts/gate/scope_map.sh", "--stdin"],
         cwd=REPO_ROOT,
         input="\n".join(files).encode("utf-8"),
         capture_output=True,
@@ -352,8 +367,21 @@ def ci_scopes(files: list[str]) -> dict[str, bool] | None:
 
 
 def images_culprits(files: list[str]) -> list[str]:
-    """Which of these files is the reason the images scope is required. The failure path only."""
-    return [path for path in files if (ci_scopes([path]) or {}).get("images")]
+    """Which of these files is the reason the images scope is required. The failure path only.
+
+    Concurrent: one `bash` launch per file, and in series that outran the whole gate. `map` keeps
+    input order.
+    """
+    if not files:
+        return []
+    # `--stdin` mode writes nothing. The default width, `min(32, cpus + 4)`, suits waiting on processes.
+    pool = ThreadPoolExecutor()
+    try:
+        asked = list(pool.map(lambda path: (scope_map([path]) or {}).get("images"), files))
+    finally:
+        # `cancel_futures`, or Ctrl-C waits out every launch already queued rather than the running ones.
+        pool.shutdown(wait=True, cancel_futures=True)
+    return [path for path, images in zip(files, asked, strict=True) if images]
 
 
 # --- the check --------------------------------------------------------------------------------------
@@ -378,7 +406,7 @@ def check(base: str, ran: set[str]) -> list[Finding] | None:
     proven_code = set(material)
     comment_only = [path for path in files if path not in proven_code]
 
-    required = ci_scopes(material)
+    required = scope_map(material)
     if required is None:
         return None
 
@@ -402,7 +430,7 @@ def check(base: str, ran: set[str]) -> list[Finding] | None:
                     "the image build did not run, and these files ask for it with a change\n"
                     "              that is more than comments:\n"
                     f"                {named_list(images_culprits(material))}\n"
-                    f"              Re-run with:  ./scripts/verify.sh --{scope}",
+                    f"              Re-run with:  ./scripts/gate/verify.sh --{scope}",
                 )
             )
         else:
@@ -410,7 +438,7 @@ def check(base: str, ran: set[str]) -> list[Finding] | None:
 
     # A scope the mapping grows and this list does not would otherwise be read past in silence.
     if unknown := sorted(set(required) - set(SCOPES)):
-        findings.append(Finding("report", f"ci_scopes.sh emits {', '.join(unknown)}, which this check does not know -- add it to SCOPES"))
+        findings.append(Finding("report", f"scope_map.sh emits {', '.join(unknown)}, which this check does not know -- add it to SCOPES"))
 
     return findings
 
@@ -447,7 +475,7 @@ def main() -> int:
     if findings is None:
         # Refused, not green: the mapping is the only thing that knows which scopes this diff asks
         # for.
-        print("      the diff could not be read, or scripts/ci_scopes.sh could not be run --")
+        print("      the diff could not be read, or scripts/gate/scope_map.sh could not be run --")
         print("      this run was not checked against the branch. bash is what runs it;")
         print("      on Windows it ships with Git.")
         return EXIT_REFUSED

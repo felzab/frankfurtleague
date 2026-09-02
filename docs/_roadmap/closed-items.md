@@ -24,7 +24,7 @@ outcome answers 200, because a non-2xx reads as a transport failure and hides th
 caller.
 
 **`DOC-16` was withdrawn the same way, and inside a single pull request.** It was filed against
-`scripts/docs_gate/checks.py :: check_roadmap` reading one ranked page at a time and never opening
+`scripts/checks/docs_gate/checks.py :: check_roadmap` reading one ranked page at a time and never opening
 this log, and `:: _ranked_against_the_log`, which resolves the two against each other, landed in the
 same branch that filed it. No commit ever carried the entry, so it is owed no row here. **The next
 free `DOC` id is 17**: a withdrawn number is spent exactly as a closed one is.

@@ -1,8 +1,8 @@
 """SCRIPTS · the shell half of the four-value exit contract, executed.
 
-`scripts/checker_kernel.py` declares the codes and `scripts/_lib.sh` is what a gate run actually
+`scripts/lib/checker_kernel.py` declares the codes and `scripts/lib/_lib.sh` is what a gate run actually
 exits with, so every ending below is run rather than read: a comparison of two literals cannot see
-an arm reordered inside `scripts/_lib.sh :: finish`.
+an arm reordered inside `scripts/lib/_lib.sh :: finish`.
 """
 
 from __future__ import annotations
@@ -17,10 +17,10 @@ from pathlib import Path
 from typing import Final
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
-LIB: Final = SCRIPTS / "_lib.sh"
+LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 
-# Not a skip condition: every script in this folder is bash, so a machine without one cannot run the
-# gate at all, and a contract silently skipped is what this file exists to stop.
+# Not a skip condition: every script under `scripts/` is bash, so a machine without one cannot run
+# the gate at all, and a contract silently skipped is what this file exists to stop.
 BASH: Final = shutil.which("bash")
 
 
@@ -102,7 +102,7 @@ def _kernel_exit_codes() -> dict[str, int]:
 
     Read out of the source, never imported: the module raises on an interpreter below its own floor.
     """
-    source = (SCRIPTS / "checker_kernel.py").read_text(encoding="utf-8")
+    source = (SCRIPTS / "lib" / "checker_kernel.py").read_text(encoding="utf-8")
     declared: dict[str, int] = {}
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.AnnAssign) and node.value is not None:

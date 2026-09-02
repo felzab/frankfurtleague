@@ -20,8 +20,8 @@ their tables here.
 
 CONTEXT — derive from the configs, not from memory: nginx fronts everything; one exact-match path
 routes to FastAPI and everything else to Next, so no browser reaches a route that reads or writes
-application data. Two protections are deliberate _absences_: `.claude/CLAUDE.md` §7 forbids
-re-adding a reference-data invalidation endpoint, and FastAPI's `/docs` is unreachable from outside
+application data. Two protections are deliberate _absences_: `.claude/rules/cross-surface.md`
+forbids re-adding a reference-data invalidation endpoint, and FastAPI's `/docs` is unreachable from outside
 because nginx carries no route to it. An absence-as-control is invisible in a config review unless it is on a list;
 building that list is this pass's most important output.
 
@@ -66,7 +66,7 @@ THE CHECKS, in priority order:
 
 8. **FAIL-CLOSED BEHAVIOUR.** Verify the documented chain for a stack coming up from nothing: a
    failing frontend env gate → unhealthy container → nginx (depends_on `service_healthy`) never
-   starts. Then verify the deploy separately, where that chain does not hold — `scripts/deploy.sh`
+   starts. Then verify the deploy separately, where that chain does not hold — `scripts/ops/deploy.sh`
    recreates the application pair alone and leaves the edge running, so the same failing gate is a
    502 and an automatic rollback ([`docs/ops/spec.md`](../../../ops/spec.md) I9). What is the
    equivalent story for the backend and for Mongo? What does the stack serve during each partial
@@ -75,7 +75,8 @@ THE CHECKS, in priority order:
 
 SEVERITY HONESTY: rate findings for the attacker position that can actually reach them. A
 compose-network-only exposure is real but is not an internet-facing CRITICAL. Cite the
-`.claude/CLAUDE.md` §7 row or the spec-sheet invariant before flagging any ratified posture.
+ratified clause, in `.claude/CLAUDE.md` §7 or a `.claude/rules/` file, or the spec-sheet invariant
+before flagging any ratified posture.
 
 BOUNDARIES — not this pass: image contents, script correctness, CI mechanics and pipeline excess →
 `ops 1` · application auth logic → the surface programmes · FastAPI-side injection and leakage →

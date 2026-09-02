@@ -19,8 +19,7 @@ Schema = dict[str, Enforcement]
 # defines, and the tier -- one worker of it, under `-n` -- runs in one process.
 _BUILT: dict[tuple[str, str], tuple[bool, Schema]] = {}
 
-# Module globals for the same reason `_BUILT` is one, and torn down by `_release` at interpreter exit
-# rather than by a fixture no plain helper could take.
+# Module globals for `_BUILT`'s reason, torn down by `_release`.
 _LOOP: asyncio.AbstractEventLoop | None = None
 _CLIENTS: dict[str, AsyncMongoClient] = {}
 
@@ -86,9 +85,6 @@ _DRIFT = (
     " an index, must say so where it seeds -- pass `mutates_schema=True` -- or what it changed poisons every test after it."
 )
 
-# The pymongo path's own refusal: it checks where it seeds, so the body that moved the schema has
-# already run and the test it names only inherited it. `mutates_schema` cannot reach back to that
-# body; a database of its own can.
 _DRIFT_SYNC = (
     "'{database}' carries enforcement this session did not build ({moved}). This fixture reads the schema where it seeds, so what"
     " left it ran EARLIER in this database and the test named here only inherited it. A body that narrows a validator, or adds or"

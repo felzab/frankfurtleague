@@ -1,9 +1,12 @@
 """SCRIPTS · what a pooled run's parent makes of a unit that reached no verdict.
 
-`scripts/verify.sh :: unit_replay`, `:: unit_verdict`, `:: adopt_finished` and `:: pool_wait` all
+`scripts/gate/verify.sh :: unit_replay`, `:: unit_verdict`, `:: adopt_finished` and `:: pool_wait` all
 read a worker's handoff, and a status the pool could not report has to reach a caller as a crash
 rather than as the byte `return` would mask it to or as a scope quietly missing from the table.
-Each is lifted out of verify.sh and evaluated here, sourcing it being a whole gate run.
+Each is lifted out of verify.sh and evaluated here, sourcing it being a whole gate run. So are two
+sites on the other side of the handoff: `:: do_backend_ruff`, whose status is all the parent gets
+of ruff, and `:: start_steps`, whose call to `:: pool_units_replayed` is the guard over a unit
+nothing replays.
 """
 
 from __future__ import annotations
@@ -17,8 +20,8 @@ from pathlib import Path
 from typing import Final
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
-LIB: Final = SCRIPTS / "_lib.sh"
-VERIFY: Final = SCRIPTS / "verify.sh"
+LIB: Final = SCRIPTS / "lib" / "_lib.sh"
+VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 
 # Not a skip condition, for `test_exit_contract.py`'s reason: a machine with no bash cannot run the
 # gate at all, so a contract silently skipped here is the failure this file exists to stop.
@@ -37,23 +40,23 @@ def _lifted(name: str, indent: str = "") -> str:
     """
     lines = VERIFY.read_text(encoding="utf-8").splitlines()
     start = next((i for i, line in enumerate(lines) if line.startswith(f"{indent}{name}() {{")), -1)
-    assert start >= 0, f"scripts/verify.sh no longer defines {name}"
+    assert start >= 0, f"scripts/gate/verify.sh no longer defines {name}"
     end = next((i for i in range(start + 1, len(lines)) if lines[i] == f"{indent}}}"), -1)
-    assert end > start, f"scripts/verify.sh's {name} has no closing line"
+    assert end > start, f"scripts/gate/verify.sh's {name} has no closing line"
     return "\n".join(line.removeprefix(indent) for line in lines[start : end + 1])
 
 
 def _not_started() -> str:
-    """`scripts/gate_pool.py :: NOT_STARTED`, read out of the source rather than spelled again.
+    """`scripts/gate/gate_pool.py :: NOT_STARTED`, read out of the source rather than spelled again.
 
     The manifest's word for a unit that never ran is the one value no exit code may collide with,
     so the coupling is asserted rather than remembered.
     """
-    source = (SCRIPTS / "gate_pool.py").read_text(encoding="utf-8")
+    source = (SCRIPTS / "gate" / "gate_pool.py").read_text(encoding="utf-8")
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.AnnAssign) and node.value is not None and getattr(node.target, "id", "") == "NOT_STARTED":
             return str(ast.literal_eval(node.value))
-    raise AssertionError("scripts/gate_pool.py no longer declares NOT_STARTED")
+    raise AssertionError("scripts/gate/gate_pool.py no longer declares NOT_STARTED")
 
 
 def _parent(
@@ -209,3 +212,203 @@ def test_a_pool_that_left_a_manifest_is_read_from_it() -> None:
     code, output = _parent(body, lifted=POOL, units="alpha\tscope\n", manifest="alpha\t0\t100\t250\n")
     assert code == 0, f"a complete manifest was refused: {output}"
     assert "alpha=0" in output, output
+
+
+# --- the frontend scope's two phases, which the pool must never mix ---------------------------------
+
+# `unit_replay` rides along so a writer routed through it by mistake reaches the crash path this
+# file already knows, rather than an undefined-helper error that says nothing about the pool.
+PHASES: Final[tuple[tuple[str, str], ...]] = (
+    ("frontend_phases_disjoint", ""),
+    ("run_writer", ""),
+    ("unit_replay", ""),
+)
+
+
+def test_a_unit_named_in_both_frontend_phases_is_refused_before_anything_runs() -> None:
+    """The phases are data so this can drive them: a comment saying the lists are disjoint enforces nothing."""
+    wrong: list[str] = []
+    for pool, writers, expected in (
+        ("typecheck eslint audit", "typegen next_build", 0),
+        ("typecheck eslint typegen", "typegen next_build", 3),
+    ):
+        body = f"FRONTEND_POOL=({pool})\nFRONTEND_WRITERS=({writers})\nfrontend_phases_disjoint\nprintf 'reached\\n'"
+        code, output = _parent(body, lifted=PHASES)
+        if code != expected:
+            wrong.append(f"pool [{pool}] against writers [{writers}] exited {code}, and the contract gives it {expected}")
+        if expected == 3 and "typegen" not in output:
+            wrong.append("the refusal did not name the unit standing in both lists")
+        if expected == 0 and "reached" not in output:
+            wrong.append("disjoint lists stopped the run")
+    assert not wrong, "\n".join(wrong)
+
+
+def test_a_writer_runs_in_place_while_the_pool_is_open() -> None:
+    """A writer of tsconfig.json never enters the pool, so with STEP_JOBS=1 and no status for it the body itself must run."""
+    body = (
+        'do_typegen() { printf "ran\\n"; return 7; }\n'
+        "FRONTEND_POOL=(typecheck)\nFRONTEND_WRITERS=(typegen)\n"
+        "rc=0; run_writer typegen || rc=$?\n"
+        'printf "rc=%s STEP_JOBS=%s\\n" "$rc" "$STEP_JOBS"'
+    )
+    code, output = _parent(body, lifted=PHASES)
+    # Asserted rather than assumed: on a machine whose probe zeroed the pool, both cases below would
+    # pass through the serial arm without touching the property.
+    assert "STEP_JOBS=1" in output, output
+    assert output.count("ran") == 1, output
+    assert "did not run to completion" not in output, output
+    assert "rc=7" in output, output
+    # Its twin: a unit the writers list does not name is refused, so the list decides and not the call.
+    code, output = _parent(
+        'do_eslint() { printf "ran\\n"; }\nFRONTEND_POOL=(eslint)\nFRONTEND_WRITERS=(typegen)\nrun_writer eslint',
+        lifted=PHASES,
+    )
+    assert code == 3, f"an unlisted writer exited {code}: {output}"
+    assert "ran" not in output, output
+
+
+# --- the two arms a green gate cannot speak for on its own -------------------------------------------
+
+AUDIT: Final[tuple[tuple[str, str], ...]] = (("unit_replay", ""),)
+BODIES: Final[tuple[tuple[str, str], ...]] = (("pool_bodies_declared", ""),)
+
+
+def _lifted_block(opening: str, closing: str) -> str:
+    """One inline statement out of verify.sh, by the stripped text of its first and last lines.
+
+    The audit's grading is written at its call site rather than as a function, and a copy of it
+    here would pass while the gate's own regressed.
+    """
+    lines = VERIFY.read_text(encoding="utf-8").splitlines()
+    start = next((i for i, line in enumerate(lines) if line.strip() == opening), -1)
+    assert start >= 0, f"scripts/gate/verify.sh no longer holds a line reading {opening!r}"
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].strip() == closing), -1)
+    assert end > start, f"the block opening at {opening!r} has no {closing!r}"
+    indent = lines[start][: len(lines[start]) - len(lines[start].lstrip())]
+    return "\n".join(line.removeprefix(indent) for line in lines[start : end + 1])
+
+
+def _lifted_call(name: str) -> str:
+    """The call statement rather than the helper it names, continuation lines included.
+
+    Which lists the guard is handed is the arm under test: a helper lifted alone would pass while
+    the call site named three lists of the five.
+    """
+    lines = VERIFY.read_text(encoding="utf-8").splitlines()
+    start = next((i for i, line in enumerate(lines) if line.startswith(f"{name} ")), -1)
+    assert start >= 0, f"scripts/gate/verify.sh no longer calls {name}"
+    end = start
+    while end + 1 < len(lines) and lines[end].endswith("\\"):
+        end += 1
+    return "\n".join(lines[start : end + 1])
+
+
+def test_the_dependency_audit_grades_every_status_the_pool_can_hand_it() -> None:
+    """Advisory stays green, and a status meaning "no verdict" must not.
+
+    Both are non-zero, so one else-arm covering the pair is what closed this scope green over a
+    check that never ran.
+    """
+    body = "section frontend\n" + _lifted_block("AUDIT_RC=0", "esac") + '\nprintf "advisories=%s\\n" "$_RUN_ADVISORIES"\nfinish'
+    wrong: list[str] = []
+    # A unit with no row is how the pool reports one that reached no verdict: `unit_replay` grades
+    # that 3 before this arm sees it, so the absent status is the input, not a spelled-out 3.
+    grades = (("0", 0, "advisories=0"), ("1", 0, "advisories=1"), ("130", 130, None), ("2", 3, None), ("", 3, None))
+    for status, expected, advisories in grades:
+        code, output = _parent(body, lifted=AUDIT, statuses={"audit": status} if status else {})
+        named = f"status {status}" if status else "no status at all"
+        if code != expected:
+            wrong.append(f"the audit at {named} exited {code}, and the contract gives it {expected}")
+        if advisories is None and "advisories=" in output:
+            wrong.append(f"the audit at {named} carried on past its own grading: {output}")
+        elif advisories is not None and advisories not in output:
+            wrong.append(f"the audit at {named} left the wrong advisory count: {output}")
+    assert not wrong, "\n".join(wrong)
+
+
+def test_a_pool_list_naming_a_body_that_does_not_exist_is_refused_before_anything_runs() -> None:
+    """Every list the gate pools from, the frontend's two included.
+
+    The guard covered three lists of the five, and a frontend name with no body then reached a
+    caller as a crash inside a child process rather than as the mis-spelling it is.
+    """
+    lists = "DOCS_POOL=(present)\nBACKEND_SERIAL=(present)\nBACKEND_POOL=({0})\nFRONTEND_POOL=({1})\nFRONTEND_WRITERS=({2})"
+    call = _lifted_call("pool_bodies_declared")
+    wrong: list[str] = []
+    # The first row is the control a refuse-everything guard would fail; the last is the arm that
+    # already worked, so a red on the two frontend rows is about those lists and nothing else.
+    for backend, pool, writers, ghost in (
+        ("present", "present", "present", ""),
+        ("present", "absent_from_the_pool", "present", "absent_from_the_pool"),
+        ("present", "present", "absent_from_the_writers", "absent_from_the_writers"),
+        ("absent_from_the_backend", "present", "present", "absent_from_the_backend"),
+    ):
+        body = f'do_present() {{ :; }}\n{lists.format(backend, pool, writers)}\n{call}\nprintf "reached\\n"'
+        code, output = _parent(body, lifted=BODIES)
+        expected = 3 if ghost else 0
+        if code != expected:
+            wrong.append(f"lists [{backend}] [{pool}] [{writers}] exited {code}, and the contract gives it {expected}")
+        if ghost and ghost not in output:
+            wrong.append(f"the refusal did not name {ghost}, so nobody is told which list to fix")
+        if ghost and "reached" in output:
+            wrong.append(f"the run carried on past a unit only a crash could answer for: {output}")
+        if not ghost and "reached" not in output:
+            wrong.append("a list naming nothing but defined bodies was refused")
+    assert not wrong, "\n".join(wrong)
+
+
+REPLAYED: Final[tuple[tuple[str, str], ...]] = (("pool_units_replayed", ""),)
+REPLAYED_CALL: Final = 'pool_units_replayed "$@"'
+
+
+def test_a_unit_nothing_replays_is_refused_through_the_call_in_start_steps() -> None:
+    """Intact, `start_steps` ends the run at 3 naming the unit; with the call gone, the same list passes.
+
+    The second arm is the point: a guard defined and never called leaves a unit's status discarded
+    and the scope green over a check nobody read.
+    """
+    starter = _lifted("start_steps")
+    assert REPLAYED_CALL in starter, "scripts/gate/verify.sh :: start_steps no longer calls pool_units_replayed"
+    wrong: list[str] = []
+    for label, starter_text, ghost, expected in (
+        ("the call present", starter, "never_replayed", 3),
+        ("the call present and every unit replayed", starter, "", 0),
+        ("the call removed", starter.replace(REPLAYED_CALL, ":"), "never_replayed", 0),
+    ):
+        units = " ".join(unit for unit in ("backend_ruff", ghost) if unit)
+        body = f'SELF="{VERIFY.as_posix()}"\n_REPLAY_SOURCE=""\n{starter_text}\nstart_steps --backend {units}\nprintf "reached\\n"'
+        code, output = _parent(body, lifted=REPLAYED, jobs=0)
+        if code != expected:
+            wrong.append(f"with {label}, a list naming [{units}] exited {code}, and the contract gives it {expected}")
+        if expected and ghost not in output:
+            wrong.append(f"with {label}, the refusal did not name {ghost}, so nobody is told which unit has no replay")
+        if expected and "reached" in output:
+            wrong.append(f"with {label}, the run carried on past a unit nothing would read: {output}")
+        if not expected and "reached" not in output:
+            wrong.append(f"with {label}, a list the guard should let through was stopped: {output}")
+    assert not wrong, "\n".join(wrong)
+
+
+# --- the bodies the pool runs, whose exit status is all the parent gets --------------------------------
+
+RUFF: Final[tuple[tuple[str, str], ...]] = (("do_backend_ruff", ""),)
+# `format` before the fall-through: the format invocation spells `--check` too.
+RUFF_STUB: Final = 'fake() { case "$*" in *format*) return "$FORMAT" ;; *) return "$CHECK" ;; esac; }'
+
+
+def test_the_ruff_body_hands_on_every_status_the_tool_answers_with() -> None:
+    """A ruff that could not run answers 2, and the body passes it on rather than folding it into the finding code.
+
+    `unit_verdict` turns a 1 into the formatting remedy, so a body answering 1 for a crash sends the
+    reader to reformat code no tool read.
+    """
+    wrong: list[str] = []
+    for check, fmt, expected in (("0", "0", 0), ("1", "0", 1), ("0", "1", 1), ("2", "0", 2), ("0", "2", 2), ("130", "0", 130)):
+        body = (
+            f'mkdir -p "$POOL_DIR/fl_backend" && cd "$POOL_DIR"\n{RUFF_STUB}\nPY=fake CHECK={check} FORMAT={fmt}\n'
+            'rc=0; do_backend_ruff || rc=$?; printf "rc=%s\\n" "$rc"'
+        )
+        code, output = _parent(body, lifted=RUFF)
+        if code != 0 or f"rc={expected}\n" not in output:
+            wrong.append(f"ruff check at {check} and format at {fmt} came back as {output.strip()!r}, and the body owes rc={expected}")
+    assert not wrong, "\n".join(wrong)

@@ -18,8 +18,8 @@
 # a request at all, while the three map blocks and the `log_format` are identical between the pair.
 
 _here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=scripts/_lib.sh
-source "${_here}/scripts/_lib.sh"
+# shellcheck source=scripts/lib/_lib.sh
+source "${_here}/scripts/lib/_lib.sh"
 
 require_docker
 # curl, not the image's own wget: a client that tidies a path before sending it rewrites //api,
@@ -59,25 +59,25 @@ server {
 }
 STUB
 
-# The tag both compose files pin, so the nginx proven here is the one that serves it. The leading
-# slash on each -v subject is the MSYS exclusion `scripts/verify.sh` uses for the same reason.
+# The pinned tag, for `scripts/gate/verify.sh`'s nginx step's reason; the leading slash on each `-v`
+# subject is the same MSYS exclusion that step uses.
 MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -p 127.0.0.1:0:80 \
   --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
   -v "/${REPO_ROOT}/nginx/local.conf:/etc/nginx/conf.d/default.conf:ro" \
   -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
   nginx:1.31-alpine >/dev/null \
-  || die "could not start the pinned nginx for the redaction test."
+  || refuse "could not start the pinned nginx for the redaction test."
 
 # `docker port`, never a fixed number: a developer's own stack shares this host, and a collision
 # would read as a redaction failure rather than as a port already taken.
 ADDR="$(docker port "$CONTAINER" 80/tcp | head -n 1)" \
-  || die "the redaction test's nginx published no port."
-[[ -n "$ADDR" ]] || die "the redaction test's nginx published no port."
+  || refuse "the redaction test's nginx published no port."
+[[ -n "$ADDR" ]] || refuse "the redaction test's nginx published no port."
 BASE="http://${ADDR%$'\r'}"
 
 # nginx accepts a connection before the worker serves, so retrying on connect is what separates
-# "not up yet" from "refuses this request". This probe is line 1 of the stream the cases index into.
+# "not up yet" from "refuses this request". It carries no marker, so the grading below ignores it.
 _up=0
 for _ in $(seq 1 50); do
   if curl -fs -o /dev/null --max-time 2 -H "Host: localhost" "${BASE}/healthprobe" 2>/dev/null; then
@@ -85,7 +85,7 @@ for _ in $(seq 1 50); do
   fi
   sleep 0.2
 done
-(( _up )) || die "the redaction test's nginx never answered on ${BASE}."
+(( _up )) || refuse "the redaction test's nginx never answered on ${BASE}."
 
 # --- the table ---------------------------------------------------------------------------------
 
@@ -153,38 +153,72 @@ CASES=(
   "KEEP|${BASE}/api/bewerbung/kuerzel?q=ABC|q=ABC"
   "KEEP|${BASE}/teams?saison_id=abc&shorthand=FCB|shorthand=FCB"
   "KEEP|${BASE}/admin/spiele?saison_id=abc|saison_id=abc"
+
+  # A control over the CLIENT: it fails when `--path-as-is` stops taking effect, and every
+  # spelling above is then graded on a path nginx never received.
+  "KEEP|${BASE}/teams/./x?saison_id=abc|/teams/./x"
 )
 
-# The image symlinks the access log to stdout, so the container's log IS the stream. Read back BY
-# INDEX: grepping it whole would let a later case's redaction stand in for an earlier case's leak.
-readback() {
-  # `|| true` on the grep alone. An empty stream is graded a finding at the call site.
-  docker logs "$CONTAINER" 2>/dev/null | { grep '^{' || true; } | sed -n "${1}p"
-}
+# `user_agent`: the one field `nginx/local.conf :: log_format fl_json` carries unredacted and no
+# map reads, so no case is graded on a neighbour's line.
+MARKER="fl-redaction"
+
+# One curl, one `docker logs`: on Windows a spawn costs ~0.1s and a `docker logs` ~0.3s
+# (2026-09-02). `--next` gives each transfer its own options, so --path-as-is and a Referer bind
+# per request.
+REQUESTS=()
+_n=0
+for case_line in "${CASES[@]}"; do
+  # Split on a bar, never whitespace: `_lib.sh` sets IFS to newline and tab, and several subjects
+  # carry a comma or a space. Expansion, not a helper: an MSYS fork costs more than the request.
+  verb="${case_line%%|*}"
+  rest="${case_line#*|}"
+  subject="${rest%%|*}"
+
+  _n=$(( _n + 1 ))
+  if (( _n > 1 )); then REQUESTS+=( --next ); fi
+  REQUESTS+=( -s -o /dev/null --path-as-is --max-time 5 -H "Host: localhost" -A "${MARKER}/${_n}" )
+  case "$verb" in
+    LEAK|KEEP)  REQUESTS+=( "$subject" ) ;;
+    LEAK-REF)   REQUESTS+=( -H "Referer: ${subject}" "${BASE}/teams" ) ;;
+    *)          die "nginx/redaction_test.sh: unknown verb '${verb}' in its own table." ;;
+  esac
+done
+
+CURL_RC=0
+curl "${REQUESTS[@]}" || CURL_RC=$?
+
+# The image symlinks the access log to stdout, so one read holds every case. `|| true` on the grep
+# alone: an empty stream is a finding below.
+LOGGED_LINES=()
+mapfile -t LOGGED_LINES < <(docker logs "$CONTAINER" 2>/dev/null | { grep '^{' || true; })
+
+declare -A LINE_OF=()
+MARKED=0
+for logged_line in "${LOGGED_LINES[@]}"; do
+  _ua="${logged_line##*\"user_agent\":\"}"
+  _ua="${_ua%%\"*}"
+  case "$_ua" in "${MARKER}/"*) ;; *) continue ;; esac
+  LINE_OF["$_ua"]="$logged_line"
+  MARKED=$(( MARKED + 1 ))
+done
+
+# `refuse`, not `die`: nothing was judged, and a 1 here would read as a leak nobody observed.
+if (( MARKED != ${#CASES[@]} )); then
+  refuse "the edge logged ${MARKED} marked access lines for ${#CASES[@]} cases, curl having
+exited ${CURL_RC}, so the stream this grades on is not the table. No case above was judged."
+fi
 
 FAILURES=0
-LINE=1  # the health probe above
+_n=0
 
 for case_line in "${CASES[@]}"; do
-  # Split on a bar, never on whitespace: `_lib.sh` sets IFS to newline and tab, and several
-  # subjects carry a comma or a space of their own.
+  _n=$(( _n + 1 ))
   verb="${case_line%%|*}"
   rest="${case_line#*|}"
   subject="${rest%%|*}"
   expected="${rest#*|}"
-
-  case "$verb" in
-    LEAK|KEEP)
-      curl -s -o /dev/null --path-as-is --max-time 5 -H "Host: localhost" "$subject" || true ;;
-    LEAK-REF)
-      curl -s -o /dev/null --path-as-is --max-time 5 -H "Host: localhost" \
-        -H "Referer: ${subject}" "${BASE}/teams" || true ;;
-    *)
-      die "nginx/redaction_test.sh: unknown verb '${verb}' in its own table." ;;
-  esac
-
-  LINE=$(( LINE + 1 ))
-  logged="$(readback "$LINE")"
+  logged="${LINE_OF["${MARKER}/${_n}"]:-}"
 
   if [[ -z "$logged" ]]; then
     fail "${verb} ${subject}"

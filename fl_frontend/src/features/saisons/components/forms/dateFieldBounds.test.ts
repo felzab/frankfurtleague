@@ -145,7 +145,7 @@ describe("where a date control's bounds live", () => {
 
   it("keeps every bound off the control that judges", () => {
     // `aria` shows `builtinValidation` in realtime, and a half-typed year is a COMPLETE date: typing 2, 20
-    // then 200 into a bounded field paints a message on each keystroke, which §7 forbids.
+    // then 200 into a bounded field paints a message on each keystroke, which `.claude/rules/frontend.md` forbids.
     const judging = sites.filter((site) => JUDGING.has(site.tag) && site.bounds.length > 0);
 
     assert.deepEqual(judging.map(idOf), [], `${judging.map((site) => `${idOf(site)} sets ${site.bounds.join(" and ")}`).join("; ")}`);

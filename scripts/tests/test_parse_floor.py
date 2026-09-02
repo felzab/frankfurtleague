@@ -16,7 +16,7 @@ def _floor() -> tuple[int, int]:
 
     Read out of the source, never imported: this asserts about a file it must not first execute.
     """
-    source = (SCRIPTS / "checker_kernel.py").read_text(encoding="utf-8")
+    source = (SCRIPTS / "lib" / "checker_kernel.py").read_text(encoding="utf-8")
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.AnnAssign) and node.value is not None and getattr(node.target, "id", "") == "PARSE_FLOOR":
             major, minor = ast.literal_eval(node.value)

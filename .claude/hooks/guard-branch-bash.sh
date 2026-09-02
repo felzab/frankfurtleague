@@ -23,8 +23,15 @@ branch="$(git branch --show-current 2>/dev/null)"
 # this guard cannot decide in time is a write on main nobody saw. The decision runs in a child on a
 # smaller budget, and anything but its answer denies.
 if [ "${1:-}" != "--decide" ] && command -v timeout >/dev/null 2>&1; then
+  # 15s, under this hook's 30s in `.claude/settings.json`. A budget at or above the harness's lets
+  # the harness kill the hook first, which reads as PERMISSION rather than denial.
+
+  # Never lowered towards the decision's own cost: the child reached 14.9s at full core occupancy on
+  # 2026-09-02 (n=60, median 7.5s), and a budget near that denies a legitimate write — a refusal
+  # nobody can explain is a refusal routed around.
+
   # Reached on main alone, and stdin is untouched, so the child reads the payload this one has not.
-  answer="$(timeout -s KILL 6 bash "$0" --decide)"
+  answer="$(timeout -s KILL 15 bash "$0" --decide)"
   status=$?
   [ "$status" -eq 0 ] || deny
   printf '%s' "$answer"

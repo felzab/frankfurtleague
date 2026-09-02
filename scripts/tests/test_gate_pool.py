@@ -1,10 +1,9 @@
 """SCRIPTS · the pool's net: a unit's exit status on its way back to the gate, and how a run ends.
 
-`scripts/gate_pool.py` is the only channel a unit's status travels, so a loss, a rename or a
+`scripts/gate/gate_pool.py` is the only channel a unit's status travels, so a loss, a rename or a
 reordering here is a gate that closes green over a check that failed. The wiring that ends a run
 early is held here too, because none of it runs on the machine this suite runs on. Every case
-drives the module as a subprocess: `test_check_docs.py` imports a COPY of scripts/ under these same
-module names, and an import here would decide which of the two that file measures.
+drives the module as a subprocess, for `scripts/tests/conftest.py :: withdraw`'s reason.
 """
 
 from __future__ import annotations
@@ -16,15 +15,11 @@ from pathlib import Path
 from typing import Final
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
-POOL: Final = SCRIPTS / "gate_pool.py"
-KERNEL: Final = SCRIPTS / "checker_kernel.py"
+POOL: Final = SCRIPTS / "gate" / "gate_pool.py"
+KERNEL: Final = SCRIPTS / "lib" / "checker_kernel.py"
 
-# Everything below reaches the module through one of these two: a pool run over a units file, or a
-# snippet importing it inside its own interpreter. `SCRIPTS_DIR` and `DIRECTORY` are the snippet's
-# only holes, filled by `_drive`.
-
-# Lines rather than a block, because each case is `DRIVER` concatenated with a tuple of its own:
-# a driver written as one string would have to be re-joined at every call site.
+# Lines, so each case is `DRIVER` plus its own tuple. `POOL_DIR` and `DIRECTORY` are the holes
+# `_drive` fills.
 DRIVER: Final[tuple[str, ...]] = (
     "import os",
     "import signal",
@@ -32,15 +27,14 @@ DRIVER: Final[tuple[str, ...]] = (
     "import sys",
     "import threading",
     "from pathlib import Path",
-    "sys.path.insert(0, SCRIPTS_DIR)",
+    "sys.path.insert(0, POOL_DIR)",
     "import gate_pool",
-    # `start_new_session` makes a child's pid its own group id, and `terminate` signals that group BY
-    # the pid. A child left in this driver's group leads none, so the killpg answers ESRCH into the
+    # Its own session, or `terminate`'s killpg on a child leading no group answers ESRCH into the
     # suppression there and reads as a stop that worked.
     "def sleeper():",
     "    return subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], stdin=subprocess.DEVNULL, start_new_session=True)",
-    # What a stop leaves behind, so a child that ended for any other reason cannot be read as one
-    # this run stopped: the group's SIGTERM on POSIX, TerminateProcess's own status on Windows.
+    # The status a stop leaves -- TerminateProcess's own 1 on Windows -- so a child ending for another
+    # reason is not read as stopped.
     "STOPPED_BY = -signal.SIGTERM if gate_pool.POSIX else 1",
     "def pool():",
     "    return gate_pool.Pool(directory=Path(DIRECTORY), merge=False, slots=threading.Semaphore(1))",
@@ -134,8 +128,8 @@ OWN_SESSION: Final[tuple[str, ...]] = (
     "assert asked.get('start_new_session') is True, asked",
 )
 
-# The child reports both numbers rather than the parent reading them: `start_new_session` lands
-# between the fork and the exec, so a parent looking too early sees the group it came from.
+# From the child: `start_new_session` lands between fork and exec, and a parent looking early sees
+# the old group.
 OWN_GROUP: Final[tuple[str, ...]] = (
     "if not gate_pool.POSIX:",
     "    raise SystemExit(0)",
@@ -149,7 +143,7 @@ OWN_GROUP: Final[tuple[str, ...]] = (
 GROUP_SIGNALLED: Final[tuple[str, ...]] = (
     "killed = []",
     "gate_pool.os.killpg = lambda group, number: killed.append((group, number))",
-    # The platform the module reads per call, spelt as a machine where a signal means something.
+    # Read per call, so rebinding it selects the arm.
     "gate_pool.sys.platform = 'linux'",
     "running = pool()",
     "child = sleeper()",
@@ -160,9 +154,8 @@ GROUP_SIGNALLED: Final[tuple[str, ...]] = (
     "child.wait(timeout=30)",
 )
 
-# `terminate`'s other arm, spelt the same way: the platform is a VALUE, so both arms run on every
-# machine. `os.killpg` does not exist on Windows at all, so what proves the arm was taken is that
-# the group path recorded nothing.
+# The platform is a VALUE, so both arms run on every machine. `os.killpg` is absent on Windows, so
+# the proof is that the group path recorded nothing.
 WINDOWS_TERMINATED: Final[tuple[str, ...]] = (
     "killed = []",
     "gate_pool.os.killpg = lambda group, number: killed.append((group, number))",
@@ -211,7 +204,7 @@ SCHEDULE: Final[tuple[str, ...]] = (
     "    assert gate_pool.main() == 0",
     "    return seen.pop()",
     "running, order = once('--width', '2')",
-    "assert order == ['db', 'frontend', 'ops'], order",
+    "assert order == ['ops', 'frontend', 'db'], order",
     "assert [running.slots.acquire(blocking=False) for _ in range(3)] == [True, True, False]",
     "running, order = once()",
     "assert [running.slots.acquire(blocking=False) for _ in range(4)] == [True, True, True, False]",
@@ -231,16 +224,11 @@ def _constant(path: Path, name: str) -> str:
 
 
 def _exits(status: int) -> tuple[str, ...]:
-    """A command whose whole job is to leave one exit status behind."""
     return (sys.executable, "-c", f"raise SystemExit({status})")
 
 
 def _pool(directory: Path, rows: list[tuple[str, ...]], *, merge: bool = False) -> subprocess.CompletedProcess[str]:
-    """Run the pool over one units file, written the way bash writes it.
-
-    Bytes and LF: the module reads this file as bytes, and a Windows text handle would leave a
-    carriage return on the last word of every command.
-    """
+    """Run the pool over one units file, written as bash writes it: bytes and LF (CLAUDE.md §6)."""
     units = directory / "units.tsv"
     units.write_bytes("".join("\t".join(row) + "\n" for row in rows).encode("utf-8"))
     command = [sys.executable, str(POOL), "--dir", str(directory), "--units", str(units)]
@@ -250,7 +238,6 @@ def _pool(directory: Path, rows: list[tuple[str, ...]], *, merge: bool = False) 
 
 
 def _rows(directory: Path) -> list[list[str]]:
-    """The manifest as the gate reads it back, proved to carry no carriage return on the way."""
     raw = (directory / _constant(POOL, "MANIFEST")).read_bytes()
     assert b"\r" not in raw, "the manifest was written through a text handle, which bash cannot read back"
     return [line.split("\t") for line in raw.decode("utf-8").splitlines()]
@@ -263,7 +250,7 @@ def _drive(snippet: tuple[str, ...], directory: Path, *, timeout: float | None =
     answer rather than a slow one.
     """
     lines = "\n".join(DRIVER + snippet)
-    source = lines.replace("SCRIPTS_DIR", repr(str(SCRIPTS))).replace("DIRECTORY", repr(str(directory)))
+    source = lines.replace("POOL_DIR", repr(str(SCRIPTS / "gate"))).replace("DIRECTORY", repr(str(directory)))
     return subprocess.run([sys.executable, "-c", source], capture_output=True, text=True, check=False, timeout=timeout)
 
 
@@ -275,10 +262,10 @@ def test_every_unit_s_own_exit_status_reaches_the_manifest_under_its_own_name(tm
 
 
 def test_the_manifest_is_written_in_the_caller_s_order_and_not_the_schedule_s(tmp_path: Path) -> None:
-    """`longest_first` submits `db` ahead of `ops`; the caller replays in written order and compares captures across runs."""
-    result = _pool(tmp_path, [("ops", *_exits(0)), ("db", *_exits(0))])
+    """`longest_first` submits `ops` ahead of `db`; the caller replays in written order and compares captures across runs."""
+    result = _pool(tmp_path, [("db", *_exits(0)), ("ops", *_exits(0))])
     assert result.returncode == 0, result.stderr
-    assert [row[0] for row in _rows(tmp_path)] == ["ops", "db"]
+    assert [row[0] for row in _rows(tmp_path)] == ["db", "ops"]
 
 
 def test_a_unit_that_never_started_leaves_a_word_no_exit_status_could_spell(tmp_path: Path) -> None:
@@ -290,8 +277,7 @@ def test_a_unit_that_never_started_leaves_a_word_no_exit_status_could_spell(tmp_
     assert _rows(tmp_path)[0][1] == not_started
 
 
-# One case per way a units file can be wrong. A loop rather than pytest's parametrize: pyright reads
-# scripts/ with no environment declared, so nothing here may import outside the standard library.
+# A loop, not parametrize, for `scripts/tests/conftest.py`'s pytest invariant.
 MALFORMED: Final[tuple[tuple[list[tuple[str, ...]], str], ...]] = (
     ([("", *_exits(0))], "names no unit"),
     ([("solo",)], "carries no command"),

@@ -9,14 +9,14 @@
 #
 # Convenience, never the enforcement, exactly as `commit-msg` is: a clone that has not run
 # `git config core.hooksPath .githooks` has no hook, and one that has not installed the frontend has
-# no prettier, so `./scripts/verify.sh --frontend` and CI's format job are what bind
+# no prettier, so `./scripts/gate/verify.sh --frontend` and CI's format job are what bind
 # (`docs/_git/spec.md :: 1.5 The verification gate`).
 
 set -euo pipefail
 
-# Windows refuses a command line past 32,767 bytes, and this repository's formattable tree already
-# costs 41,552 of them in the `../` spelling below. A batch flushes before it crosses this budget,
-# so the longest runs about 24 KB against that ceiling; Linux has no practical limit here.
+# Windows refuses a command line past 32,767 bytes, and the formattable tree already costs more
+# than that in the `../` spelling below. A batch flushes before crossing this budget; Linux has
+# no practical limit here.
 ARGV_BUDGET=24000
 
 # Prettier's parser set, from `--support-info`, minus the editor and interchange aliases. Missing
@@ -48,7 +48,7 @@ if ! work="$(mktemp -d)"; then
   exit 1
 fi
 # `git hash-object` cannot open mktemp's MSYS alias (/tmp/…) from a worktree, where no conversion
-# layer rewrites the argument — the resolution `scripts/selfcheck.sh :: mount_source` also applies.
+# layer rewrites the argument — the resolution `scripts/gate/selfcheck.sh :: mount_source` also applies.
 work="$(cygpath -w "$work" 2>/dev/null || printf '%s' "$work")"
 trap 'rm -rf "$work"' EXIT
 
@@ -113,7 +113,7 @@ fi
 prettier_entry="node_modules/prettier/bin/prettier.cjs"
 if ! command -v node >/dev/null 2>&1 || [ ! -f "fl_frontend/$prettier_entry" ]; then
   echo "  pre-commit hook: no prettier found — skipping." >&2
-  echo "  ./scripts/verify.sh --frontend and CI still check this." >&2
+  echo "  ./scripts/gate/verify.sh --frontend and CI still check this." >&2
   exit 0
 fi
 

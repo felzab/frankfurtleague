@@ -20,6 +20,7 @@ from app.api.bewerbungen.services import (
     find_shorthand_refusal,
     find_submission_subject_refusal,
     find_window_refusal,
+    recorded_window,
     window_is_running,
 )
 from app.core.config import API_VERSION
@@ -57,15 +58,17 @@ WINDOW_PROJECTION = ["bewerbung"]
 async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -> Mapping[str, Any]:
     """One season's application window, or the 404 an id naming no season answers.
 
-    A season may carry `bewerbung: null` or no key -- every season stored before the field does.
-    Both are "no window recorded", which is a miss rather than an error.
+    A null, no key -- every season stored before the field carries none -- or an object short of a
+    field: none is readable, and all are a miss rather than an error.
     """
 
     db_filter = {"_id": saison_id}
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter=db_filter, projection=WINDOW_PROJECTION)
 
-    bewerbung = saison_raw.get("bewerbung")
-    if not isinstance(bewerbung, Mapping):
+    # `recorded_window`, not a shape check: `_fenster` subscripts every window key, so a short object
+    # would 500 where this promises a miss.
+    bewerbung = recorded_window(bewerbung=saison_raw.get("bewerbung"))
+    if bewerbung is None:
         raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
 
     return bewerbung

@@ -6,20 +6,20 @@
 # environment gate, nginx nor the security headers — and so cannot see `instrumentation.ts` being
 # dropped from the image, nor a module-scope `AUTH_URL` read failing in the builder stage.
 #
-#   ./scripts/local.sh              build changed layers, start, wait for health
-#   ./scripts/local.sh --fresh      ALSO delete the volumes, and with them Next's build cache, the
+#   ./scripts/ops/local.sh              build changed layers, start, wait for health
+#   ./scripts/ops/local.sh --fresh      ALSO delete the volumes, and with them Next's build cache, the
 #                                   local database and the copy of production under .local-db —
 #                                   for when the stack behaves in a way the code does not explain,
 #                                   and for leaving a machine holding no contact records
-#   ./scripts/local.sh --seed       ALSO fill the local database from production, reusing the copy
+#   ./scripts/ops/local.sh --seed       ALSO fill the local database from production, reusing the copy
 #                                   in .local-db where there is one
-#   ./scripts/local.sh --refresh-db as --seed, but take a new copy from production first
-#   ./scripts/local.sh --logs       start, then follow the frontend log
-#   ./scripts/local.sh --down       stop the stack; with --fresh, also delete the volumes
-#   ./scripts/local.sh --verbose    stream each command's own output instead of capturing it
-#   ./scripts/local.sh --help
+#   ./scripts/ops/local.sh --refresh-db as --seed, but take a new copy from production first
+#   ./scripts/ops/local.sh --logs       start, then follow the frontend log
+#   ./scripts/ops/local.sh --down       stop the stack; with --fresh, also delete the volumes
+#   ./scripts/ops/local.sh --verbose    stream each command's own output instead of capturing it
+#   ./scripts/ops/local.sh --help
 
-source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
 COMPOSE="docker-compose.local.yml"
 
@@ -158,7 +158,7 @@ established."
   fi
   if (( seen == 0 )); then
     die "the database container sees no collection under /dump, so a restore would write nothing.
-Take a fresh copy with:  ./scripts/local.sh --refresh-db"
+Take a fresh copy with:  ./scripts/ops/local.sh --refresh-db"
   fi
   quietly restore_dump || die "the restore failed — mongorestore's own output is above."
   ok "restored — ${seen} collection(s), and the local stack is reading its own data"
@@ -281,16 +281,16 @@ if (( HEALTHY )); then
   end_section
   CLOSING=("Open:               http://localhost:3000")
   # Offered only where it was not just done, so the table never names the step this run performed.
-  (( SEED )) || CLOSING+=("Fill the database:  ./scripts/local.sh --seed")
+  (( SEED )) || CLOSING+=("Fill the database:  ./scripts/ops/local.sh --seed")
   CLOSING+=("Security headers:   curl -sI http://localhost:3000 | grep -i content-security-policy" \
             "Logs:               docker compose -f $COMPOSE logs -f frontend" \
-            "Stop:               ./scripts/local.sh --down")
+            "Stop:               ./scripts/ops/local.sh --down")
   detail "${CLOSING[@]}"
 else
   fail "The stack came up unhealthy."
   detail "If you see 'Invalid environment variables', fix those names in the .env files — that is" \
          "the startup gate doing its job." \
-         "Stop what is left:  ./scripts/local.sh --down"
+         "Stop what is left:  ./scripts/ops/local.sh --down"
   finish
 fi
 

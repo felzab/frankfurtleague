@@ -8,6 +8,7 @@
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | [`glossary.md`](glossary.md)                             | The German domain vocabulary, and the pitfall in each term                                  |
 | [`domain.md`](domain.md)                                 | What depends on what, when a field may be edited, and what is refused                       |
+| [`datenschutz.md`](datenschutz.md)                       | The data-protection rulings, held there until each reaches its home                         |
 | [`frontend/overview.md`](frontend/overview.md)           | What the Next.js app is for, and how it is organised                                        |
 | [`frontend/spec.md`](frontend/spec.md)                   | Its contract — routes, caching, invariants                                                  |
 | [`backend/overview.md`](backend/overview.md)             | What the FastAPI app is for, and how it is organised                                        |
@@ -34,7 +35,8 @@ Read in this order — the shortest path back to changing things confidently.
    Its aggregate boundaries are where the expensive mistakes are.
 3. **The three surface overviews** — [frontend](frontend/overview.md), [backend](backend/overview.md),
    [ops](ops/overview.md).
-4. **[`.claude/CLAUDE.md`](../.claude/CLAUDE.md) §7** — one line per ratified decision, and the reason you
+4. **[`.claude/CLAUDE.md`](../.claude/CLAUDE.md) §7 and the files it indexes under
+   [`.claude/rules/`](../.claude/rules/)** — one line per ratified decision, and the reason you
    will not re-litigate a settled question.
 5. **[`_git/`](_git/)** — how to actually ship a change.
 

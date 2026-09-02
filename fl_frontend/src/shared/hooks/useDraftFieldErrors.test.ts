@@ -234,7 +234,7 @@ describe("forgivenVerdicts", () => {
 
   it("leaves a message that is still wrong exactly as it stands", () => {
     // Never an overwrite: replacing one message with another mid-word is a message APPEARING between
-    // keystrokes, which §7 forbids. Only the retraction is allowed here.
+    // keystrokes, which `.claude/rules/frontend.md` forbids. Only the retraction is allowed here.
     assert.equal(forgive({ shorthand: CLIENT_SHORTHAND }, { shorthand: "A", full_name: "FC Beispiel" }), null);
   });
 

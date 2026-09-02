@@ -35,8 +35,9 @@ documents.
      nothing more.
 
    Record any newly ratified decision first, in the place it will be read — a comment at the line it
-   constrains, a CLAUDE.md §7 row, or the spec sheet's `## 2. Invariants` — with the argument in the
-   closing commit's body.
+   constrains, a CLAUDE.md §7 row or the `.claude/rules/` file whose paths reach the session that
+   could break it, or the spec sheet's `## 2. Invariants` — with the argument in the closing
+   commit's body.
 
 5. Merge this programme's new lessons into the existing sections of `docs/_auditing/lessons.md`,
    each verified before it is written, and each stated for a reader who has never seen this
@@ -50,4 +51,5 @@ documents.
    run by hand. Confirm the folder is gone before step 7. Anything else
    under `docs/audit/` belongs to no programme's lifecycle and stays.
 7. Run the gate at the scope CLAUDE.md's gate section names for what changed, commit the final
-   report and any doc updates, push, open the draft pull request and print its link.
+   report and any doc updates, push, open the draft pull request, print its link, and name the
+   conclusion of the branch's `verify` run.

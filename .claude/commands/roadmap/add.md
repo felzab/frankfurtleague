@@ -44,8 +44,9 @@ branch named for the change (CLAUDE.md §2).
    establish and write down:
 
    - **What it touches**, cited as COR-6 requires — `` `<path> :: <symbol>` `` or a repository path.
-   - **What is already decided.** Search CLAUDE.md §7 and the spec sheets' `## 2. Invariants`, and
-     state in prose what each one settles.
+   - **What is already decided.** Search CLAUDE.md §7 with every file it indexes under
+     `.claude/rules/`, and the spec sheets' `## 2. Invariants`, and state in prose what each one
+     settles.
    - **Who consumes it** — the entries, endpoints, components and collections that would change with
      it, and which of those are already in the file.
    - **What makes it non-trivial.** If it is trivial, say so and return to step 2.

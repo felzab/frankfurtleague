@@ -20,6 +20,12 @@ on:
 permissions:
   contents: read
 
+# Same shell as verify.yml, for the reason written there; its `-o pipefail` also makes the pipe
+# below report printf's status, not python's alone.
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: pr-body-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -39,11 +45,12 @@ jobs:
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
+          # The pin's file, for the reason written at verify.yml's `commits` job.
+          version-file: fl_backend/pyproject.toml
       - name: Create the backend virtualenv
-        # Same reason as verify.yml's `changes` job: the checkers run on the interpreter fl_backend
-        # pins, so one Python floor covers CI and a development machine alike.
+        # As verify.yml's `commits` job, for the reasons written there.
         working-directory: fl_backend
-        run: uv sync --dev
+        run: uv sync --locked --only-group dev
 
       - name: Check the pull request body
         # The body is attacker-controlled text on a public repository, so it reaches the script
@@ -52,4 +59,4 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-        run: printf '%s' "$PR_BODY" | fl_backend/.venv/bin/python scripts/check_pr_body.py - --author "$PR_AUTHOR"
+        run: printf '%s' "$PR_BODY" | fl_backend/.venv/bin/python scripts/checks/check_pr_body.py - --author "$PR_AUTHOR"

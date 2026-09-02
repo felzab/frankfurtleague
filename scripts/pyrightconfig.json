@@ -2,18 +2,26 @@
 // `[tool.pyright]` block in `fl_backend/pyproject.toml` does not reach: a type error in a checker
 // here is a gate reporting the wrong scope.
 
-// Why it sits beside that python rather than at the repository root, and why `pythonVersion` is
-// pinned rather than inferred: `docs/ops/spec.md` §1.6.
+// Why it sits at the top of this folder rather than at the repository root, and why `pythonVersion`
+// is pinned rather than inferred: `docs/ops/spec.md` §1.6. It has to stay here whatever moves
+// below it: `include` is read relative to this file, and a copy inside a category would type-check
+// that category alone.
 
-// No venvPath or venv, deliberately: every import here is standard library or a sibling module, and
-// naming the backend's virtualenv would make the gate's own tooling depend on that environment
-// being installed.
+// `extraPaths` names the two directories a run puts on `sys.path` for itself — `lib/` through the
+// insert each entry point carries, `checks/` because python seeds the directory of the script it
+// was handed. pyright emulates neither, so without these every `checker_kernel` and `docs_gate`
+// import reads as unresolved.
+
+// No venvPath or venv, deliberately: every import here is standard library or a module in `lib/`
+// or `checks/`, and naming the backend's virtualenv would make the gate's own tooling depend on
+// that environment being installed.
 
 // `standard` is pyright's own default, and this folder is clean at it. The backend keeps `basic`
 // for the reason its own block records, so the two settings are measured separately rather than
 // one following the other.
 {
   "include": ["."],
+  "extraPaths": ["lib", "checks"],
   "typeCheckingMode": "standard",
   "pythonVersion": "3.14"
 }

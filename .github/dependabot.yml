@@ -14,9 +14,12 @@ version: 2
 #   commit SHA, and every `uses:` naming a repository is pinned that way, so for actions the
 #   scheduled run below IS the coverage: a fix arrives on that schedule rather than on the day it is
 #   disclosed. Why that trade is worth taking belongs to `docs/_git/spec.md`, Repository settings.
+# - Every ecosystem sets the same cooldown, so a release compromised at publication can be yanked
+#   before a pull request proposes it. A security update is exempt from the cooldown — except under
+#   `github-actions`, where that exemption is empty for the reason above.
 # - Each ecosystem sets a commit prefix, so messages keep docs/_git/templates.md's shape.
 # - No ecosystem below can read a version written inside a shell script or a Python string, so the
-#   shellcheck and actionlint images in `scripts/selfcheck.sh` and the mongo image in
+#   shellcheck and actionlint images in `scripts/gate/selfcheck.sh` and the mongo image in
 #   `fl_backend/tests/conftest.py` are maintained by hand at the lines that hold them.
 
 updates:
@@ -25,13 +28,9 @@ updates:
   # The highest-value ecosystem here and the cheapest to review: few dependencies, small diffs, and
   # an outdated action is a supply-chain exposure that nothing else in the repo would surface.
 
-  # Weekly, alone among the ecosystems here, because for actions this run is the only security route
-  # rather than merely the routine one (the invariant above), and it is the one ecosystem whose
-  # extra pull requests cost little to read. Dependabot has also held every version update behind a
-  # three-day package cooldown by default since 2026-07-14, and the security-update path that
-  # cooldown exempts does not exist for a SHA-pinned action. The wait from a disclosure to an open
-  # pull request is therefore bounded by one whole interval plus that cooldown: about thirty-four
-  # days on the monthly schedule, about ten on this one.
+  # Weekly, alone here: for a SHA-pinned action this run is the only security route (invariant
+  # above), and its pull requests are cheap to read. Disclosure to pull request is bounded by one
+  # interval plus the cooldown: ~14 days weekly, ~38 monthly.
 
   # `/` is not the repository for this ecosystem: it means the root `action.yml` plus
   # `.github/workflows/`, and reaches no composite action. The glob over `.github/actions` is what
@@ -42,9 +41,10 @@ updates:
       - "/.github/actions/*"
     schedule:
       interval: weekly
-    # Explicit because the default of 5 is reachable -- five action repositories plus the group --
-    # and hitting it silently stops version updates, which for this ecosystem are the whole
-    # security route. Weekly reaches a ceiling four times faster.
+    cooldown:
+      default-days: 7
+    # Explicit: the default of 5 is reachable here, and hitting it silently stops version updates --
+    # this ecosystem's only security route.
     open-pull-requests-limit: 10
     commit-message:
       prefix: "CI"
@@ -62,6 +62,8 @@ updates:
     directory: /fl_frontend
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "Frontend deps"
@@ -79,6 +81,8 @@ updates:
     directory: /fl_backend
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "Backend deps"
@@ -102,6 +106,8 @@ updates:
     directory: /fl_frontend
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "Frontend image"
     groups:
@@ -113,6 +119,8 @@ updates:
     directory: /fl_backend
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "Backend image"
     groups:
@@ -132,6 +140,8 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "Ops"
     groups:
@@ -139,7 +149,7 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
     ignore:
-      # This repository's own published images. `scripts/publish.sh` moves those tags, and a bot
+      # This repository's own published images. `scripts/ops/publish.sh` moves those tags, and a bot
       # proposing to bump either would be proposing a deploy.
 
       # Written WITHOUT the `ghcr.io/` the compose files spell, and that is not a typo: a

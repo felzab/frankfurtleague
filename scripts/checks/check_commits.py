@@ -13,7 +13,23 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from checker_kernel import DEFAULT_BASE, EXIT_FINDINGS, EXIT_OK, EXIT_REFUSED, Finding, exit_code, failures, git, reports, resolve_base, run
+# Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
+# sibling of it rather than in it.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+
+from checker_kernel import (  # noqa: E402 -- the insert above is what resolves it
+    DEFAULT_BASE,
+    EXIT_FINDINGS,
+    EXIT_OK,
+    EXIT_REFUSED,
+    Finding,
+    exit_code,
+    failures,
+    git,
+    reports,
+    resolve_base,
+    run,
+)
 
 SUBJECT_TARGET: Final = 72  # reported: where GitHub truncates a title in a list view
 LINE_MAX: Final = 100  # failed: past here nothing wrapped the line at all

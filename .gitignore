@@ -33,7 +33,7 @@ secrets/
 # nothing -- a deliberate one needs `git add -f`.
 .npmrc
 
-# Fixture directories scripts/verify.sh and scripts/selfcheck.sh build; their EXIT trap misses
+# Fixture directories scripts/gate/verify.sh and scripts/gate/selfcheck.sh build; their EXIT trap misses
 # Ctrl-C and SIGKILL. Unignored, a leftover is an untracked change the next scoped run refuses
 # over, and one guard-branch-bash.sh denies on main.
 .tmp-*/
@@ -76,6 +76,6 @@ docs/audit/
 !.vscode/settings.json
 !.vscode/extensions.json
 
-# The copy of the production database `./scripts/local.sh --seed` restores the local stack from.
+# The copy of the production database `./scripts/ops/local.sh --seed` restores the local stack from.
 # Real data, and this repository is public.
 .local-db/

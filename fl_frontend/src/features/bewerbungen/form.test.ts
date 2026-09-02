@@ -66,7 +66,7 @@ describe("the public application form", () => {
     assert.match(FORM, /Zu viele Versuche in kurzer Zeit/);
   });
 
-  /* A ratified decision (`.claude/CLAUDE.md` §7): a typed field is judged when it is LEFT. A message
+  /* A ratified decision (`.claude/rules/frontend.md`): a typed field is judged when it is LEFT. A message
      between two keystrokes describes a value nobody finished entering. */
   it("judges a typed field on blur and a picked one on the press", () => {
     assert.match(SEATS, /onBlur=\{\(\) => onFieldLeft\(\[path\("vorname"\)\]\)\}/, "a typed seat field is judged elsewhere");

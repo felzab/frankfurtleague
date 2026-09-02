@@ -11,22 +11,17 @@ finding from every other scope. Stdlib only, the type checker reading scripts/ w
 
 from __future__ import annotations
 
-import atexit
-import contextlib
 import importlib
 import os
 import shutil
-import stat
 import subprocess
 import sys
-import tempfile
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import Final
 
-REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
+from conftest import REPO_ROOT, configure, copy_scripts, git, new_root, withdraw, write
 
 # Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
@@ -76,30 +71,6 @@ CORPUS: Final[dict[str, str]] = {
 }
 
 
-def _git(root: Path, *args: str) -> None:
-    done = subprocess.run(("git", *args), cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace")
-    assert done.returncode == 0, "git " + " ".join(args) + ": " + done.stderr
-
-
-def _write(root: Path, rel: str, text: str) -> None:
-    target = root / rel
-    target.parent.mkdir(parents=True, exist_ok=True)
-    # Bytes, because a Windows text stream rewrites every \n as \r\n and the corpus would then
-    # differ from the blob git stored for it (CLAUDE.md, the repo-specific traps).
-    target.write_bytes(text.encode("utf-8"))
-
-
-def _discard(root: Path) -> None:
-    """Remove one fixture repository, the read-only files git wrote inside it included."""
-
-    def _clear_readonly(remove: Callable[..., object], path: str, _exc: BaseException) -> None:
-        os.chmod(path, stat.S_IWRITE)
-        remove(path)
-
-    with contextlib.suppress(OSError):
-        shutil.rmtree(root, onexc=_clear_readonly)
-
-
 @dataclass(frozen=True)
 class Fixture:
     """The checker as the fixture repository sees it: the copied module, and the root it resolves to."""
@@ -108,31 +79,19 @@ class Fixture:
     root: Path
 
 
-def _withdraw(*names: str) -> None:
-    """Drop a module and every submodule of it from the cache, before an import and after it.
-
-    Two fixtures import a copy of scripts/ under the same names, and `checker_kernel` holds
-    REPO_ROOT: whichever loads second is otherwise handed the first one's tree.
-    """
-    for cached in [name for name in sys.modules if any(name == root or name.startswith(root + ".") for root in names)]:
-        del sys.modules[cached]
-
-
 def _load() -> Fixture:
-    root = Path(tempfile.mkdtemp(prefix="check-scope-fixture-")).resolve()
-    atexit.register(_discard, root)
-    ignored = shutil.ignore_patterns("__pycache__", "tests", ".ruff_cache", ".pytest_cache")
-    shutil.copytree(REPO_ROOT / SCRIPTS_COPY, root / SCRIPTS_COPY, ignore=ignored)
-    sys.path.insert(0, str(root / SCRIPTS_COPY))
-    _withdraw("check_scope", "checker_kernel")
+    root = new_root("check-scope-fixture-")
+    copy_scripts(root / SCRIPTS_COPY)
+    sys.path.insert(0, str(root / SCRIPTS_COPY / "checks"))
+    withdraw("check_scope", "checker_kernel")
     try:
         module = importlib.import_module("check_scope")
     finally:
-        sys.path.remove(str(root / SCRIPTS_COPY))
-        _withdraw("check_scope", "checker_kernel")
+        sys.path.remove(str(root / SCRIPTS_COPY / "checks"))
+        withdraw("check_scope", "checker_kernel")
     # The seam stated as an assertion: the checker derives its root from its own location, so
     # importing this copy is what points every listing below at the fixture instead of at us.
-    assert Path(module.__file__ or "").resolve().parent.parent == root, "the checker under test is not the copy"
+    assert Path(module.__file__ or "").resolve().parents[2] == root, "the checker under test is not the copy"
     # The kernel's own root, which is what every listing below is read against: importing the copy
     # decides it, and a kernel cached by another fixture would point them all at that tree instead.
     assert module.REPO_ROOT == root, "the checker under test reads another fixture's tree"
@@ -150,15 +109,12 @@ def _load() -> Fixture:
     assert verdicts == [True, False], "the TypeScript classifier did not run in this fixture: " + repr(verdicts)
 
     for rel, text in CORPUS.items():
-        _write(root, rel, text)
-    _git(root, "init", "-b", "main")
-    for name, value in (("user.name", "fixture"), ("user.email", "fixture@example.invalid"), ("commit.gpgsign", "false")):
-        _git(root, "config", name, value)
-    _git(root, "config", "core.hooksPath", str(root / ".no-hooks"))
+        write(root, rel, text)
+    configure(root, str(root / ".no-hooks"))
     # `add -A`, the copy of scripts/ included: left untracked it would reach every listing below as
     # a diff of its own, and every case would then read the checker's own source as the change.
-    _git(root, "add", "-A")
-    _git(root, "commit", "--no-verify", "-m", "Corpus: a branch that changed nothing")
+    git(root, "add", "-A")
+    git(root, "commit", "--no-verify", "-m", "Corpus: a branch that changed nothing")
     return Fixture(module, root)
 
 
@@ -178,9 +134,9 @@ def _reset() -> Fixture:
     would otherwise hand its leftovers to whichever case ran next.
     """
     fixture = _fixture()
-    _git(fixture.root, "reset", "-q", "HEAD", "--", ".")
-    _git(fixture.root, "checkout", "-f", "HEAD", "--", ".")
-    _git(fixture.root, "clean", "-fdq")
+    git(fixture.root, "reset", "-q", "HEAD", "--", ".")
+    git(fixture.root, "checkout", "-f", "HEAD", "--", ".")
+    git(fixture.root, "clean", "-fdq")
     return fixture
 
 
@@ -188,7 +144,7 @@ def _edit(rel: str, old: str, new: str) -> None:
     root = _fixture().root
     body = (root / rel).read_text(encoding="utf-8")
     assert old in body, rel + " does not carry " + repr(old)
-    _write(root, rel, body.replace(old, new))
+    write(root, rel, body.replace(old, new))
 
 
 def _run(ran: str) -> tuple[list[str], list[str]]:
@@ -287,7 +243,7 @@ def test_a_comment_alone_asks_for_the_documentation_scopes_and_nothing_else() ->
 def test_a_scope_the_mapping_grows_and_the_check_does_not_is_reported() -> None:
     """A scope emitted into silence is a surface nobody is told about, the one drift a second list can cause."""
     fixture = _reset()
-    mapping = fixture.root / SCRIPTS_COPY / "ci_scopes.sh"
+    mapping = fixture.root / SCRIPTS_COPY / "gate" / "scope_map.sh"
     kept = mapping.read_bytes()
     try:
         mapping.write_bytes(kept + b"\nprintf 'moon=true\\n'\n")
@@ -304,7 +260,7 @@ def test_a_scope_the_mapping_grows_and_the_check_does_not_is_reported() -> None:
 def test_a_rename_keeps_the_scopes_its_source_path_selected() -> None:
     """Rename detection prints the destination alone, and the image build would go with the old name."""
     fixture = _reset()
-    _git(fixture.root, "mv", DOCKERFILE, DOCKERFILE + ".old")
+    git(fixture.root, "mv", DOCKERFILE, DOCKERFILE + ".old")
     failing, _ = _run("frontend docs format")
     assert failing and DOCKERFILE in failing[0], repr(failing)
 
@@ -313,9 +269,9 @@ def test_a_change_held_in_the_index_alone_is_seen() -> None:
     """`git diff <base>` never reads the index, and the index is what `git commit` commits."""
     fixture = _reset()
     _edit(SAMPLE, "TOTAL = 3", "TOTAL = 4")
-    _git(fixture.root, "add", "--", SAMPLE)
+    git(fixture.root, "add", "--", SAMPLE)
     # --worktree alone: `git checkout HEAD -- <path>` would restore the index too and unstage it.
-    _git(fixture.root, "restore", "--source=HEAD", "--worktree", "--", SAMPLE)
+    git(fixture.root, "restore", "--source=HEAD", "--worktree", "--", SAMPLE)
     _, advisory = _run("")
     assert any("--backend" in detail for detail in advisory), repr(advisory)
 
@@ -323,7 +279,7 @@ def test_a_change_held_in_the_index_alone_is_seen() -> None:
 def test_a_file_named_like_a_throwaway_directory_still_selects_a_scope() -> None:
     """`.gitignore` skips `.tmp-*/`; a path the mapping skips selects nothing at all."""
     fixture = _reset()
-    _write(fixture.root, ".tmp-config.py", "SETTING = 1\n")
+    write(fixture.root, ".tmp-config.py", "SETTING = 1\n")
     failing, _ = _run("")
     assert failing, "an untracked .tmp- FILE asked for no scope"
 
@@ -331,15 +287,14 @@ def test_a_file_named_like_a_throwaway_directory_still_selects_a_scope() -> None
 def test_a_throwaway_directory_is_still_skipped() -> None:
     """The other half of that arm: a leftover from an interrupted run is litter, not a change."""
     fixture = _reset()
-    _write(fixture.root, ".tmp-gate/x.py", "X = 1\n")
+    write(fixture.root, ".tmp-gate/x.py", "X = 1\n")
     failing, advisory = _run("")
     assert not failing and not advisory, repr(failing) + repr(advisory)
 
 
 # --- the comments a tool reads ----------------------------------------------------------------------
 
-# A loop rather than pytest's parametrize, for `test_gate_pool.py :: MALFORMED`'s reason: pyright
-# reads scripts/ with no environment declared, so nothing here may import outside the standard library.
+# A loop, not parametrize, for `scripts/tests/conftest.py`'s pytest invariant.
 DIRECTIVE_PAIRS: Final[tuple[tuple[str, str, str], ...]] = (
     ("a suppression deleted", "x = 1  " + DIRECTIVE_TYPE, "x = 1"),
     ("a suppression added", "x = 1", "x = 1  " + DIRECTIVE_NOQA),
@@ -420,28 +375,28 @@ def test_a_path_selects_every_scope_that_would_check_it() -> None:
     scope = _fixture().scope
     missed: list[str] = []
     for path, wanted in SELECTED:
-        answered = scope.ci_scopes([path])
-        assert answered is not None, "scripts/ci_scopes.sh could not be run"
+        answered = scope.scope_map([path])
+        assert answered is not None, "scripts/gate/scope_map.sh could not be run"
         missed += [path + " selected no " + name for name in wanted if not answered.get(name)]
     assert not missed, "\n".join(missed)
 
 
 def _mapping_for_base(root: Path, base: str) -> dict[str, bool]:
-    """`ci_scopes.sh` in its base-ref mode, the one CI runs and no case above reaches.
+    """`scope_map.sh` in its base-ref mode, the one CI runs and no case above reaches.
 
     Every other case arrives through `--stdin`, where the mapping is handed a file list and never
     diffs anything: the listing this mode builds is checked by nothing else.
     """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     done = subprocess.run(
-        (BASH, str(root / SCRIPTS_COPY / "ci_scopes.sh"), base),
+        (BASH, str(root / SCRIPTS_COPY / "gate" / "scope_map.sh"), base),
         cwd=root,
         capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
     )
-    assert done.returncode == 0, "ci_scopes.sh refused the base ref: " + done.stderr
+    assert done.returncode == 0, "scope_map.sh refused the base ref: " + done.stderr
     return {name: value == "true" for name, _, value in (line.partition("=") for line in done.stdout.splitlines() if "=" in line)}
 
 
@@ -453,14 +408,14 @@ def test_the_base_ref_mode_reads_a_rename_by_both_of_its_paths() -> None:
     """
     fixture = _reset()
     moved = "fl_frontend/src/core/settings.ts"
-    _git(fixture.root, "mv", CONFIG_TS, moved)
-    _git(fixture.root, "commit", "--no-verify", "-m", "Frontend: the environment module is renamed")
+    git(fixture.root, "mv", CONFIG_TS, moved)
+    git(fixture.root, "commit", "--no-verify", "-m", "Frontend: the environment module is renamed")
     try:
         answered = _mapping_for_base(fixture.root, "HEAD~1")
     finally:
         # The commit alone comes off; the rename stays in the tree for `_reset` to clear, so no
         # case below is measured against a corpus this one moved.
-        _git(fixture.root, "reset", "--soft", "HEAD~1")
+        git(fixture.root, "reset", "--soft", "HEAD~1")
         _reset()
     assert answered.get("images"), "a renamed image path asked for no image build: " + repr(answered)
 
@@ -468,6 +423,6 @@ def test_the_base_ref_mode_reads_a_rename_by_both_of_its_paths() -> None:
 def test_the_two_lists_of_scope_names_agree() -> None:
     """A name in the mapping and not in SCOPES is read past in silence; the other way round never fires."""
     scope = _fixture().scope
-    answered = scope.ci_scopes([])
+    answered = scope.scope_map([])
     assert answered is not None
     assert set(answered) == set(scope.SCOPES)

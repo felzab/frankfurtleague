@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
-const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+// Two levels: this file sits in `scripts/checks/`, and one would root it at `scripts/`, where
+// no `fl_frontend/package.json` resolves and every pair then degrades to "code".
+const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 // typescript lives in the frontend's node_modules, not next to this script, so resolution starts
 // from that package rather than from import.meta.url.
@@ -46,7 +48,7 @@ const args = process.argv.slice(2);
 if (args[0] === "--batch") {
   const paths = args.slice(1);
   if (paths.length === 0 || paths.length % 2 !== 0) {
-    console.error("usage: node scripts/ts_normalize.mjs --batch <old-file> <new-file> [...]");
+    console.error("usage: node scripts/checks/ts_normalize.mjs --batch <old-file> <new-file> [...]");
     process.exit(1);
   }
   for (let i = 0; i < paths.length; i += 2) {
@@ -63,7 +65,7 @@ if (args[0] === "--batch") {
 
 const [oldPath, newPath] = args;
 if (!oldPath || !newPath) {
-  console.error("usage: node scripts/ts_normalize.mjs <old-file> <new-file>");
+  console.error("usage: node scripts/checks/ts_normalize.mjs <old-file> <new-file>");
   process.exit(1);
 }
 

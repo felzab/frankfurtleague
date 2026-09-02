@@ -376,7 +376,7 @@ describe("how the form asks for a wished opponent", () => {
   });
 
   /* A TYPED field is judged when it is left. Moved onto the change handler, the form would grade a
-     name between two keystrokes -- the pattern §7 forbids. */
+     name between two keystrokes -- the pattern `.claude/rules/frontend.md` forbids. */
   it("judges it on blur rather than between keystrokes", () => {
     assert.match(WUNSCHGEGNER, /onBlur=\{\(\) => onFieldLeft\(\["wunschgegner"\]\)\}/, "the wish is no longer judged when the field is left");
     assert.doesNotMatch(WUNSCHGEGNER, /onInputChange=\{[^}]*onFieldLeft/, "the wish is judged between two keystrokes");

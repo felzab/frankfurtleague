@@ -59,7 +59,8 @@ the change (CLAUDE.md §2).
    between, a standing question to raise.
 
 4. **Do the work**, closing per CLAUDE.md §2 and `docs/_git/spec.md`: the gate at the scope the
-   change earns, its actual exit code reported, and the draft pull request's link handed over. Read
+   change earns, its actual exit code reported, the draft pull request's link handed over, and the
+   branch's `verify` run read to its conclusion. Read
    `docs/_auditing/lessons.md` before verifying anything at runtime and before closing out against
    the gate.
 
@@ -73,9 +74,10 @@ the change (CLAUDE.md §2).
 
    - **A decision's destination is picked by how it fails**: a silent failure to a comment at the
      line it constrains (INC-9 caps it at 250 characters) or to a gate check, a loud one to a
-     CLAUDE.md §7 row, a domain rule to the spec sheet's `## 2. Invariants`. **The argument goes in
+     CLAUDE.md §7 row or the `.claude/rules/` file whose paths reach the session that could break
+     it, a domain rule to the spec sheet's `## 2. Invariants`. **The argument goes in
      commit 1's body**, which `git blame` reaches from the constraint, and
-     `scripts/check_commits.py` refuses a commit with none.
+     `scripts/checks/check_commits.py` refuses a commit with none.
    - **`git grep -n "<ID>"` enumerates every reference commit 1 must update**, which CLAUDE.md's
      same-commit rule requires. They live in an audit pass prompt under `docs/_auditing/prompts/`.
      A spec sheet's `## 4. Known-open` table names no roadmap id (OUT-4), and INC-6 keeps one out

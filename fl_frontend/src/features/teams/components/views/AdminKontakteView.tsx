@@ -27,7 +27,7 @@ const SEARCH_KEYS = [
  */
 export function AdminKontakteView({ kontakte, teams }: { kontakte: AdminKontakteRow[]; teams: readonly { teamId: string; name: string }[] }) {
   /* Built HERE and never handed down: a facet carries a `read` FUNCTION, which a Server Component
-     may not pass to a Client one (`.claude/CLAUDE.md` §6). Neither `tsc` nor the build sees it and
+     may not pass to a Client one (`.claude/rules/frontend.md`). Neither `tsc` nor the build sees it and
      the page throws at render. */
   const facets = useMemo(() => buildKontakteFacets(teams), [teams]);
 

@@ -13,7 +13,11 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from checker_kernel import EXIT_OK, Finding, report_findings, run
+# Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
+# sibling of it rather than in it.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+
+from checker_kernel import EXIT_OK, Finding, report_findings, run  # noqa: E402 -- the insert above is what resolves it
 
 SUMMARY_TARGET: Final = 200  # reported: past a generous reading of "one or two paragraphs"
 SUMMARY_MAX: Final = 500  # failed: past any reading of it
@@ -29,7 +33,7 @@ TEMPLATE_FRAGMENTS: Final[tuple[str, ...]] = (
     "One orientation sentence, for a multi-commit PR only",
     "What the branch achieves as a whole, at a level the individual commits do not",
     "Anything where a person chose between real options, with the reasoning",
-    "The `./scripts/verify.sh` invocation — its scopes and its exit code",
+    "The `./scripts/gate/verify.sh` invocation — its scopes and its exit code",
 )
 
 # Named alternation rather than a general "bolded phrase" pattern: the looser rule reads a

@@ -86,13 +86,13 @@ One row per removal, in [`closed-items.md`](closed-items.md):
 
 A closed set, governing every ranked page:
 
-| Status       | Means                                                                                                                                                                                                                   |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Open**     | Nothing decided, nothing blocking. Pick it up whenever                                                                                                                                                                  |
-| **Decided**  | The argument is settled and recorded where it will be read — a comment at the line it constrains, a CLAUDE.md §7 line, or a spec-sheet invariant. The work is not done: the entry is now an instruction, not a question |
-| **Blocked**  | Waiting on another entry on the same page. The `Depends on` column names which — a dependency marked _soft_ there is an ordering preference, not a block                                                                |
-| **Standing** | No scheduled action — a caution, or a finding with a recorded trigger rather than a plan                                                                                                                                |
-| **Closed**   | Concluded, awaiting removal. **This status exists for exactly one commit**: §2's removal commit deletes the entry, cites the closing one, and adds the row to `closed-items.md`                                         |
+| Status       | Means                                                                                                                                                                                                                                                |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Open**     | Nothing decided, nothing blocking. Pick it up whenever                                                                                                                                                                                               |
+| **Decided**  | The argument is settled and recorded where it will be read — a comment at the line it constrains, a CLAUDE.md §7 line or a `.claude/rules/` clause, or a spec-sheet invariant. The work is not done: the entry is now an instruction, not a question |
+| **Blocked**  | Waiting on another entry on the same page. The `Depends on` column names which — a dependency marked _soft_ there is an ordering preference, not a block                                                                                             |
+| **Standing** | No scheduled action — a caution, or a finding with a recorded trigger rather than a plan                                                                                                                                                             |
+| **Closed**   | Concluded, awaiting removal. **This status exists for exactly one commit**: §2's removal commit deletes the entry, cites the closing one, and adds the row to `closed-items.md`                                                                      |
 
 ### The derivation
 

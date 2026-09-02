@@ -21,7 +21,7 @@ from typing import Final, Literal
 
 # From the shared kernel rather than a second copy: a checker taking git, the repository root or
 # the reading errors from its own drifts into its own behaviour, the principle that file states.
-from checker_kernel import REPO_ROOT, UNREADABLE, git, git_status
+from checker_kernel import REPO_ROOT, UNREADABLE, git, git_input, git_status
 
 # docs/audit is a running programme's gitignored working documents, absent from any clone;
 # node_modules and .venv are vendored and not ours to hold to this standard.
@@ -35,9 +35,8 @@ CSTYLE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs")
 # COR-6 binds these comments as it binds a spec sheet's prose, although the In-code section's
 # Scope names subtrees rather than these kinds.
 OPS_SUFFIXES: Final[tuple[str, ...]] = (".conf", ".yml", ".yaml", ".toml", ".json")
-# Spelled in full: neither a Dockerfile nor a git hook carries a suffix to match on, and INC-6
-# binds a shell file whatever it is named. `p.name` decides; the glob is a prefilter.
-OPS_FILENAMES: Final[tuple[str, ...]] = ("Dockerfile", "pre-commit", "commit-msg")
+# Suffixless files INC-6 still binds, matched on `p.name`; the glob is a prefilter.
+OPS_FILENAMES: Final[tuple[str, ...]] = ("Dockerfile", "pre-commit", "commit-msg", "pre-push")
 SCANNED_SUFFIXES: Final[tuple[str, ...]] = SOURCE_SUFFIXES + OPS_SUFFIXES
 
 # Anything else in backticks is prose: a bare `queries.ts` names a KIND of file, not one file.
@@ -95,8 +94,7 @@ ROADMAP_RANKED_PAGES: Final[tuple[str, ...]] = (ROADMAP_PAGE, ROADMAP_TOOLING_PA
 
 Severity = Literal["fail", "report"]
 
-# The registry of record for the gate's checks: `enforced-by` resolves `docs/standard.md`'s claims
-# against it, and `Finding` refuses a name absent from it, so no check reaches a run unregistered.
+# `enforced-by` resolves the standard's claims against this; `Finding` refuses a name outside it.
 CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "anchor": frozenset({"fail"}),
     "bare-path": frozenset({"fail"}),
@@ -111,6 +109,7 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "copy-informal": frozenset({"fail"}),
     "copy-term": frozenset({"fail"}),
     "counts": frozenset({"report"}),
+    "crlf-write": frozenset({"fail"}),
     "enforced-by": frozenset({"fail"}),
     "glossary-entry": frozenset({"fail"}),
     "header-see": frozenset({"fail"}),
@@ -126,6 +125,7 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "overview-spine": frozenset({"fail"}),
     "owner-voice": frozenset({"fail"}),
     "path": frozenset({"fail"}),
+    "platform-branch": frozenset({"fail"}),
     "readme-cap": frozenset({"fail"}),
     "roadmap-shape": frozenset({"fail"}),
     "rule-id": frozenset({"fail"}),
@@ -157,29 +157,27 @@ class Finding:
     """One problem, already resolved to whether it fails the run.
 
     Not `checker_kernel.py :: Finding`, which validates against nothing;
-    `scripts/docs_gate/checks.py` holds both in one namespace, so the collision is live.
+    `scripts/checks/docs_gate/checks.py` holds both in one namespace, so the collision is live.
     """
 
     severity: Severity
     check: str
     file: str
     detail: str
-    # A place to open rather than to search for. None wherever the check judges a whole file, a
-    # listing or the branch's diff, none of which sit on one line.
+    # None where the check judges a whole file, a listing or the diff.
     line: int | None = None
 
     def __post_init__(self) -> None:
-        # An unregistered name is how the registry falls behind the code it claims to describe.
+        # Or the registry falls behind the code.
         if self.severity not in CHECKS.get(self.check, frozenset()):
             raise ValueError(f"check `{self.check}` is not registered in CHECKS at severity `{self.severity}`")
 
     @property
     def where(self) -> str:
-        """The subject, carrying the line where the check knows one: what an editor jumps to."""
         return self.file if self.line is None else f"{self.file}:{self.line}"
 
     def human(self) -> str:
-        # Six spaces: the message column of the scripts' shared output standard (scripts/_lib.sh).
+        # Six spaces: the message column of the scripts' shared output standard (scripts/lib/_lib.sh).
         return f"      {self.where}: {self.detail}  [{self.check}]"
 
     def github(self) -> str:
@@ -249,7 +247,6 @@ def _listed(*args: str) -> tuple[Path, ...] | None:
 
 
 def _by_name(paths: Iterable[Path]) -> dict[str, tuple[Path, ...]]:
-    """Paths indexed by filename, with the skipped directories pruned."""
     index: dict[str, list[Path]] = {}
     for path in paths:
         if not _skipped(path):
@@ -271,8 +268,7 @@ def _tree_index() -> dict[str, tuple[Path, ...]]:
 def _untracked_index() -> dict[str, tuple[Path, ...]]:
     """Every file the working tree holds and the index does not, indexed by name.
 
-    Ignorability is git's answer rather than a walk's, which is what keeps a vendored tree, a
-    build output and a deliberately ignored scratch file out of a bare-name lookup.
+    Git's ignorability, for `untracked_files`' reason.
     """
     return _by_name(_untracked_paths())
 
@@ -280,8 +276,8 @@ def _untracked_index() -> dict[str, tuple[Path, ...]]:
 def _untracked_paths() -> tuple[Path, ...]:
     """What `--others` adds to a listing, or nothing where git could not answer.
 
-    Nothing rather than a walk: both callers hold a tracked listing already, so an unanswerable
-    `--others` narrows the corpus instead of emptying it.
+    Nothing rather than a walk: both callers hold a tracked listing, so a refusal narrows the
+    corpus rather than emptying it.
     """
     return _listed("--others", "--exclude-standard") or ()
 
@@ -290,7 +286,7 @@ def _walked_index() -> dict[str, tuple[Path, ...]]:
     """The same index where git could not answer it.
 
     The control directory goes by name: check-ignore does not call it ignored. Ignorability is
-    asked once, costing two spawns per directory.
+    asked once per listing, one spawn covering every directory in it.
     """
     ignorable = git_status("rev-parse", "--is-inside-work-tree") == 0
     index: dict[str, list[Path]] = {}
@@ -298,7 +294,9 @@ def _walked_index() -> dict[str, tuple[Path, ...]]:
         parent = Path(root)
         kept = [name for name in directories if name != ".git" and not _skipped(parent / name)]
         if ignorable:
-            kept = [name for name in kept if not is_gitignored((parent / name).relative_to(REPO_ROOT).as_posix())]
+            rels = {name: (parent / name).relative_to(REPO_ROOT).as_posix() for name in kept}
+            dropped = gitignored(rels.values())
+            kept = [name for name in kept if rels[name] not in dropped]
         directories[:] = kept
         for name in names:
             index.setdefault(os.path.normcase(name), []).append(parent / name)
@@ -306,11 +304,7 @@ def _walked_index() -> dict[str, tuple[Path, ...]]:
 
 
 def _skipped(path: Path) -> bool:
-    """True for anything under a SKIP_DIRS entry at any depth.
-
-    A single segment (`node_modules`) has to match at any depth, `fl_frontend/node_modules/...`
-    being what occurs.
-    """
+    """True for anything under a SKIP_DIRS entry at any depth."""
     rel = path.relative_to(REPO_ROOT).as_posix()
     segments = rel.split("/")
     return any(rel == d or rel.startswith(f"{d}/") or ("/" not in d and d in segments) for d in SKIP_DIRS)
@@ -687,8 +681,7 @@ def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
                 closing = "*/"
             continue
 
-        # `.sh` takes `//` beside `#`: a hook's embedded node one-liner comments there, and INC-9's
-        # bound has to measure those blocks the way `_shell_comments` reads them (INC-6).
+        # `//` beside `#`, as `_shell_comments` reads a hook.
         markers = ("#", "//") if hash_only else ("//",)
         if text.startswith(markers):
             if not current:
@@ -713,8 +706,7 @@ def _of_kind(candidates: Iterable[Path]) -> tuple[Path, ...]:
 @cache
 def _kind_patterns() -> tuple[str, ...]:
     """The `ls-files` patterns that prefilter a listing to the scanned kinds."""
-    # The leading `*` carries a whole-filename pattern past the root, where an unanchored
-    # `Dockerfile` matches the root one alone. It widens to anything ENDING in the name.
+    # `*Dockerfile`, or an unanchored name matches the root file alone; `_of_kind` narrows the widening.
     return ("*.md", *(f"*{suffix}" for suffix in SCANNED_SUFFIXES), *(f"*{name}" for name in OPS_FILENAMES))
 
 
@@ -852,14 +844,39 @@ def anchors_of(target: Path) -> frozenset[str] | None:
     return None if body is None else frozenset(heading_anchors(body))
 
 
-@cache
-def is_gitignored(token: str) -> bool:
-    """A gitignored path is named deliberately and absent by design.
+class _Answers(dict[str, bool]):
+    """`check-ignore`'s answers this run, by token: a batch fills many at once, a memo serves the rest."""
 
-    Asked twice: a directory-only pattern matches a bare name only while the directory is there.
-    Only a clean exit says ignored, so a git that cannot answer leaves the finding standing.
+    def cache_clear(self) -> None:
+        # functools' name, which the fixture net's cache reset calls: a memo it misses hands one case's
+        # answers to the next.
+        self.clear()
+
+
+_IGNORED: Final = _Answers()
+
+
+def gitignored(tokens: Iterable[str]) -> frozenset[str]:
+    """The tokens git calls ignored, asked as one batch.
+
+    Two spellings each: a directory-only rule matches a bare name only while the directory exists.
+    Only a clean exit says ignored: a git that cannot answer leaves every finding standing.
     """
-    return git_status("check-ignore", "-q", token) == 0 or git_status("check-ignore", "-q", f"{token}/") == 0
+    asked = set(tokens)
+    wanted = sorted(token for token in asked if token not in _IGNORED)
+    if wanted:
+        # `-z` both ways, for `_listed`'s reason: each spelling maps back onto its token exactly.
+        listing = "\0".join(spelling for token in wanted for spelling in (token, f"{token}/"))
+        answer = git_input("check-ignore", "-z", "--stdin", stdin=listing)
+        matched = set() if answer is None else set(answer.split("\0"))
+        for token in wanted:
+            _IGNORED[token] = token in matched or f"{token}/" in matched
+    return frozenset(token for token in asked if _IGNORED[token])
+
+
+def is_gitignored(token: str) -> bool:
+    """A gitignored path is named deliberately and absent by design. One token of `gitignored`."""
+    return token in gitignored((token,))
 
 
 def repo_path(token: str) -> str | None:

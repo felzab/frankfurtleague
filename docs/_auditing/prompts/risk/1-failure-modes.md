@@ -39,8 +39,9 @@ programme's surface is still registered, and is filed as a roadmap item rather t
 CONTEXT — derive, do not assume. Establish before enumerating anything: what this system is for and
 who uses it (`docs/README.md`, `docs/glossary.md`); what data it holds and which of it is personal;
 what is published to the public internet versus what sits behind authentication; what a wrong answer
-would look like to a reader who trusts the site. A hazard already accepted in `.claude/CLAUDE.md` §7
-or in a spec sheet's invariants is a recorded risk, not a finding.
+would look like to a reader who trusts the site. A hazard already accepted in `.claude/CLAUDE.md` §7,
+in a `.claude/rules/` file it indexes, or in a spec sheet's invariants is a recorded risk, not a
+finding.
 
 THE CHECKS, in priority order:
 

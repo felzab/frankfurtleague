@@ -16,8 +16,8 @@ BEWERBUNG_PICKED_CLUB_UNUSABLE = "REQ-BEWERBUNG-006"
 BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED = "REQ-BEWERBUNG-007"
 BEWERBUNG_SHORTHAND_TAKEN = "REQ-BEWERBUNG-008"
 
-# The three keys a season's window is recorded in. A season may carry `bewerbung: null` or no key at
-# all -- both are the same closed window, and neither is an error (`FLSaison.bewerbung` defaults).
+# `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
+# defaults).
 _WINDOW_FIELDS = ("offen", "von", "bis")
 
 
@@ -127,6 +127,19 @@ def find_new_club_refusal(*, club_document: Mapping[str, Any]) -> WriteRefusal |
 # router asks them in.
 
 
+def recorded_window(*, bewerbung: Any) -> Mapping[str, Any] | None:
+    """The window this stored value IS, or `None` where a reader could not subscript it.
+
+    Short of one it is unreadable, so each caller answers its own miss rather than 500ing on the
+    subscript.
+    """
+
+    if not isinstance(bewerbung, Mapping) or not all(field in bewerbung for field in _WINDOW_FIELDS):
+        return None
+
+    return bewerbung
+
+
 def window_is_running(*, bewerbung: Any, today: str) -> bool:
     """Whether this season takes applications on `today`: `offen`, AND the day inside the span.
 
@@ -134,7 +147,7 @@ def window_is_running(*, bewerbung: Any, today: str) -> bool:
     season PAYLOAD alone, so a stored reversal is reachable.
     """
 
-    if not isinstance(bewerbung, Mapping) or not all(field in bewerbung for field in _WINDOW_FIELDS):
+    if recorded_window(bewerbung=bewerbung) is None:
         return False
 
     return bool(bewerbung["offen"]) and str(bewerbung["von"]) <= today <= str(bewerbung["bis"])

@@ -41,7 +41,7 @@ THE CHECKS, in priority order:
    | `dead-config` | A settings key, ruff ignore, pytest marker or dependency nothing reads                         |
    - **A duplicated model is worse than a dead one**, because editing the wrong copy is silently
      ineffective. Sweep specifically for same-named and near-identical classes.
-   - `.claude/CLAUDE.md` §7 bears directly on this check: the `$jsonSchema` validators duplicate the
+   - `.claude/rules/backend.md` bears directly on this check: the `$jsonSchema` validators duplicate the
      Pydantic models by hand on purpose, and `app/core/domain.py` is a declaration nothing may import
      from `app/`.
 
@@ -70,7 +70,7 @@ THE CHECKS, in priority order:
 7. **TOOLING CONFIG VS REALITY.** `pyproject.toml`: ruff rule selection and ignores (each ignore
    still justified?), dependency floors versus installed versions, dev and runtime dependency
    placement, pytest configuration, Python version pins consistent across `pyproject`, the Dockerfile
-   and CI. Does every configured tool actually run in `scripts/verify.sh` and CI, and does anything
+   and CI. Does every configured tool actually run in `scripts/gate/verify.sh` and CI, and does anything
    run there that is configured nowhere?
 
 BOUNDARIES — not this pass: write→read consistency → b1 · contract divergence → b2 · auth, injection

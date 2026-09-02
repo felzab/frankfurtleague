@@ -414,10 +414,11 @@ a second one, single-node and transactional, for the reason written at `:: _repl
 
 #### The tier distributed
 
-**The `db` tier runs over worker processes** — `pytest -m db -n auto --dist loadfile`, which is what
-`scripts/verify.sh`'s db scope invokes; a bare `pytest -m db` still runs it serially and is the
-first thing to try against a failure that only appears distributed. **`loadfile` is a cost choice
-and not a correctness one.** It sends a whole file to one worker, so a module-scoped corpus is built
+**The `db` tier runs over worker processes** — `pytest -m db -n auto --dist loadfile
+--maxprocesses`, the cap being `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST`, which is what that
+file's db scope invokes; a bare `pytest -m db` still runs it serially and is the first thing to try
+against a failure that only appears distributed. **`loadfile` is a cost choice and not a correctness
+one.** It sends a whole file to one worker, so a module-scoped corpus is built
 once for the module that asks for it rather than once per worker holding a slice of it. What makes
 that corpus and a suite's `DATABASE_NAME` one process's property is the per-worker naming below,
 which is why the design holds under `--dist load`, splitting a file, just as well.
@@ -466,8 +467,8 @@ session — pymongo's synchronous `Database`, which a fixture seeding through `M
 its async twin, which the async seeds and the app under test open — so `:: assert_worker_database`
 sees every `client[name]` the process makes. The hand-rolled seeds are held to it exactly as the
 helpers in `fl_backend/tests/database.py` are: `fl_backend/tests/api/test_standings_execution.py :: seeded` and
-`fl_backend/tests/core/test_constraints_execution.py :: on_a_database` name their own database and
-open it themselves, and neither can reach a server without passing the guard. What it refuses is a
+`fl_backend/tests/core/test_constraints_execution_users.py :: on_a_fresh_client` name their own
+database and open it themselves, and neither can reach a server without passing the guard. What it refuses is a
 name `:: worker_database` never issued, and it refuses it unconditionally — membership in that
 record is a question a serial run can answer, where a suffix empty on that run is not. `admin` is
 exempt, being the driver's handshake and the fixtures' `ping`, `hello` and `replSetInitiate` and
@@ -505,9 +506,12 @@ and cannot suffer same-basename collisions.
   name the caller that inherited the drift, included.
 - **The suite that manipulates a schema takes a database no other test shares**:
   `fl_backend/tests/core/test_constraints_execution.py :: on_a_database` drops its throwaway on
-  every call, the change being the point of the test rather than drift; its sibling
-  `:: on_the_shipped_schema` is the helper's build-once database, for a body that only inserts and
-  reads.
+  every call, a half-applied schema being a state nothing records; its siblings
+  `:: on_the_shipped_schema` and `:: on_an_unconstrained_database` are built once, and each
+  docstring names the body it serves. A body that creates a limited user lives in
+  `fl_backend/tests/core/test_constraints_execution_users.py`, a module of its own so that the
+  per-call client such a body needs is one file's cost, one file being one worker's whole under
+  `--dist loadfile`.
 - **A `db` test reading a seeded corpus is served by a fixture that seeds once instead** —
   `fl_backend/tests/api/conftest.py :: league` and its siblings, each dropping the collections it
   owns and seeding them for the session, the modules taking one reading rather than writing. A

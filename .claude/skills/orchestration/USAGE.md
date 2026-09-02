@@ -1,8 +1,13 @@
 # Using the orchestration skill
 
-How the skill reaches a session, established from the Claude Code documentation on 2026-09-02
-(`code.claude.com/docs/en/skills`, `sub-agents`, `sessions`, `desktop`), and the exact message
-sequences for the three ways a session begins.
+**Addressed to the owner, not to the coordinator.** Every imperative below — open a session, type
+this, wait, paste that — is the owner's to perform; a coordinator reads this page only for the
+mechanics `SKILL.md` cites it for, and can execute none of it.
+
+How the skill reaches a session, read from the Claude Code documentation on 2026-09-02
+(`code.claude.com/docs/en/skills`, `sub-agents`, `sessions`, `desktop`) and not driven — no session
+here has measured a token budget or watched a compaction — and the exact message sequences for the
+three ways a session begins.
 
 ## How it loads
 
@@ -17,13 +22,17 @@ sequences for the three ways a session begins.
 - **The files beside `SKILL.md` do not load with it.** The coordinator reads one when a section
   points at it. The brief, register and handoff templates therefore cost nothing until used.
 - **Compaction keeps the first 5,000 tokens of each invoked skill**, within a shared budget of
-  25,000 for all of them, most recently invoked first. `SKILL.md` is held under that figure so it
-  survives compaction whole; after a long session a repeated `/orchestration` costs nothing and
-  removes the doubt.
+  25,000 for all of them, most recently invoked first; the rule that follows for `SKILL.md` is
+  stated at its top. After a long session a repeated `/orchestration` costs nothing and removes the
+  doubt.
 - **Text after `/orchestration` on the same line is passed as arguments**, appended to the skill
-  content as `ARGUMENTS: <text>`. Whether a pasted multi-line message is passed whole is not
-  documented, so the sequences below never depend on it: the skill and the prompt go as two
-  messages.
+  content as a final `ARGUMENTS: <text>` line. That much is **driven**: an agent in this repository
+  invoked the skill through the harness's skill tool with the argument `resume` and read
+  `ARGUMENTS: resume` back at the end of the body. What is **not established** is that the slash
+  form the owner types takes the same route; the owner typing `/orchestration resume` once, and the
+  coordinator saying whether that line arrived, settles it. Nothing waits on the answer, because
+  `SKILL.md` §1 recognises a resume without the word. Whether a pasted multi-line message is passed
+  whole is not documented at all, which is why a starter still goes as its own message.
 - **A subagent does not inherit it.** A project agent file can preload a skill through its `skills`
   field, but an implementer or an auditor needs its brief, not this page.
 - **In the desktop app** the `/` menu in the prompt box lists project skills, and clicking a session
@@ -45,12 +54,18 @@ message 1 is forgotten.
 1. Resume the same session — the sidebar in the desktop app, or `claude --continue` /
    `claude --resume <name>` in a terminal. Pass any launch flags again; a resume restores none of
    them. Offered a summary or the full session, take the full session.
-2. **Message 1:** `/orchestration` — after a long session compaction may have truncated the copy in
-   context, and a repeat costs nothing.
-3. **Message 2:** the block in [resume-prompt.md](resume-prompt.md), verbatim, prefixed by one line
-   naming the resume-state document if one was written before the pause.
-4. Send no work instruction until the reply to the six-step protocol has come back and names the
+2. **One message: `/orchestration resume`**, and nothing else in it. The skill loads — after a long
+   session compaction may have truncated the copy in context, and a repeat costs nothing — and the
+   argument puts the coordinator into [resume-prompt.md](resume-prompt.md)'s protocol, whose first
+   step finds the register on its own. You pass no path.
+3. Send no work instruction until the reply to the seven-step protocol has come back and names the
    single next action.
+
+**The fallback**, for a session that still holds the skill and an owner who would rather paste:
+`/orchestration` as one message, then the block in [resume-prompt.md](resume-prompt.md) verbatim as
+the next. Neither message carries a register path. A coordinator that gets `/orchestration` with no
+instruction, in a transcript already carrying this session's work, treats it as a resume anyway
+(`SKILL.md` §1), so the single-message form failing is a slower resume and never a wrong one.
 
 ## The planning session
 
