@@ -23,8 +23,11 @@ branch="$(git branch --show-current 2>/dev/null)"
 # this guard cannot decide in time is a write on main nobody saw. The decision runs in a child on a
 # smaller budget, and anything but its answer denies.
 if [ "${1:-}" != "--decide" ] && command -v timeout >/dev/null 2>&1; then
+  # 15s, not 6: the decide child measured up to 6.0s on a loaded machine, so a 6s budget denied
+  # legitimate writes whenever it was busy, and an unexplainable refusal is routed around.
+
   # Reached on main alone, and stdin is untouched, so the child reads the payload this one has not.
-  answer="$(timeout -s KILL 6 bash "$0" --decide)"
+  answer="$(timeout -s KILL 15 bash "$0" --decide)"
   status=$?
   [ "$status" -eq 0 ] || deny
   printf '%s' "$answer"

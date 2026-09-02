@@ -3,7 +3,8 @@ import logging
 import re
 import time
 from collections.abc import Callable, Iterator
-from contextlib import ExitStack, contextmanager
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 from typing import Any
 
 import pytest
@@ -374,6 +375,55 @@ def _replica_set_mongod() -> Iterator[str]:
         yield url
 
 
+def _entered(factory: Callable[[], AbstractContextManager[str]]) -> tuple[AbstractContextManager[str], str]:
+    """One server started, handed back unregistered: the stack it belongs on is the calling thread's to touch."""
+
+    server = factory()
+
+    return server, server.__enter__()
+
+
+def _warm_the_reaper() -> None:
+    """`Reaper.get_instance` tests and assigns with no lock, so two starts at once make two reapers."""
+
+    from testcontainers.core.config import testcontainers_config
+    from testcontainers.core.container import Reaper
+
+    if not testcontainers_config.ryuk_disabled:
+        Reaper.get_instance()
+
+
+def _start_shared_servers() -> None:
+    """Both servers at once, so the pair costs the longer start rather than the sum.
+
+    They share no handle a thread could tear: a client is built per instance.
+    """
+
+    _warm_the_reaper()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = {
+            STANDALONE_KEY: pool.submit(_entered, _standalone_mongod),
+            REPLICA_SET_KEY: pool.submit(_entered, _replica_set_mongod),
+        }
+
+    failure: BaseException | None = None
+    for key, future in futures.items():
+        # `exception()` rather than a `try` around `result()`: every server that DID start has to
+        # reach the stack before anything is raised, or the caller's `close()` cannot reclaim it.
+        error = future.exception()
+        if error is not None:
+            failure = failure or error
+            continue
+
+        server, url = future.result()
+        _SHARED_STACK.push(server)
+        _SHARED_SERVERS[key] = url
+
+    if failure is not None:
+        raise failure
+
+
 def _default_tier_markexpr(config: pytest.Config) -> str | None:
     """The `-m` that `fl_backend/pyproject.toml :: addopts` passes, or `None` where it passes none.
 
@@ -414,8 +464,7 @@ def pytest_configure_node(node: Any) -> None:
 
     if not _SHARED_SERVERS and not _UNSTARTED:
         try:
-            _SHARED_SERVERS[STANDALONE_KEY] = _SHARED_STACK.enter_context(_standalone_mongod())
-            _SHARED_SERVERS[REPLICA_SET_KEY] = _SHARED_STACK.enter_context(_replica_set_mongod())
+            _start_shared_servers()
         except Exception as error:
             # Carried to the fixtures rather than raised: raising in this hook is an INTERNALERROR
             # with no test summary, on a run the heuristic above only guessed selects a db test.
