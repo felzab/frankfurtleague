@@ -84,7 +84,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    | Logging documents           | `docs/logging/**`                                                                                                                                                                                                                                                                           |
    | Ops documents               | `docs/ops/**`                                                                                                                                                                                                                                                                               |
    | Loose documents             | `docs/domain.md` · `docs/glossary.md` · `docs/README.md` · `docs/datenschutz.md`                                                                                                                                                                                                            |
-   | Assistant instructions      | `.claude/CLAUDE.md` · `.claude/commands/**` · `.claude/skills/**` · `.claude/agents/**`                                                                                                                                                                                                     |
+   | Assistant instructions      | `.claude/CLAUDE.md` · `.claude/rules/**` · `.claude/commands/**` · `.claude/skills/**` · `.claude/agents/**`                                                                                                                                                                                |
    | Public root documents       | `README.md` · `SECURITY.md`                                                                                                                                                                                                                                                                 |
    | Frontend source             | `fl_frontend/src/**`                                                                                                                                                                                                                                                                        |
    | Backend source              | `fl_backend/app/**`                                                                                                                                                                                                                                                                         |
@@ -173,9 +173,11 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 
    - **The cross-segment COR-2 check.** The same fact in a spec sheet and an overview, in CLAUDE.md
      and a spec sheet, in a command file and the document it wraps.
-   - **CLAUDE.md §7 against the code and the spec sheets.** A row naming a symbol or behaviour the
-     code does not carry is a defect in CLAUDE.md (PRE-2); a row the code contradicts is a defect in
-     the code rather than in the row.
+   - **CLAUDE.md §7, and every ratified clause under `.claude/rules/`, against the code and the spec
+     sheets.** A row naming a symbol or behaviour the code does not carry is a defect in the
+     rulebook (PRE-2); a row the code contradicts is a defect in the code rather than in the row. A
+     rules file's `paths:` frontmatter is checked the same way: a glob matching nothing puts the
+     clause in front of nobody.
    - **`docs/standard.md` against itself**, held to its own rules.
    - **Every "Enforced by" line against what the gate actually runs**, which is a stale claim
      wherever it overstates. Check the gate's **scope mapping** as well as its scanner: a scope arm

@@ -303,8 +303,8 @@ jobs:
         # the download is attributed in the log rather than hidden in pytest's span -- a slow tier
         # told from a slow registry. The tag is read from the conftest.
 
-        # No image cache beside this: §7's "Pin `type=gha`'s version; share one cache scope; re-add
-        # `actions/cache`" constrains exactly that, so none is added here.
+        # No image cache beside this: the **ci** clause in `.claude/rules/ops.md` constrains exactly
+        # that, so none is added here.
 
         # This job is a required status check and this step decides nothing, so it may not fail one
         # -- testcontainers pulls the image anyway. Same flag, same reason, as the advisory steps

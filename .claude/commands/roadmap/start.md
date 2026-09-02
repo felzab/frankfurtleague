@@ -74,7 +74,8 @@ the change (CLAUDE.md §2).
 
    - **A decision's destination is picked by how it fails**: a silent failure to a comment at the
      line it constrains (INC-9 caps it at 250 characters) or to a gate check, a loud one to a
-     CLAUDE.md §7 row, a domain rule to the spec sheet's `## 2. Invariants`. **The argument goes in
+     CLAUDE.md §7 row or the `.claude/rules/` file whose paths reach the session that could break
+     it, a domain rule to the spec sheet's `## 2. Invariants`. **The argument goes in
      commit 1's body**, which `git blame` reaches from the constraint, and
      `scripts/check_commits.py` refuses a commit with none.
    - **`git grep -n "<ID>"` enumerates every reference commit 1 must update**, which CLAUDE.md's

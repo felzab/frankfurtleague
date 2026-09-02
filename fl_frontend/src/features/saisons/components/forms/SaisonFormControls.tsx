@@ -43,8 +43,8 @@ export function SaisonDateField({
   isRequired?: boolean;
   /**
    * Greys days out in the CALENDAR, never on the field, which judges them: a field bound reaches
-   * `aria`'s realtime validation and marks a half-typed year, which §7 forbids. The schema refuses an
-   * out-of-span date, on the blur and at the submit.
+   * `aria`'s realtime validation and marks a half-typed year (`.claude/rules/frontend.md`). The schema refuses an
+   * out-of-span date, on blur and at submit.
    */
   minValue?: CalendarDate;
   maxValue?: CalendarDate;

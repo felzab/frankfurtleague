@@ -30,11 +30,15 @@ break one: refuse, name the rule, do not partially comply.
 - **Never write a secret value into a comment, an error message, a log line or a commit message.**
   The Edit and Write tools are the one route no guard watches.
 
-Everything else here is mechanical: `.claude/hooks/guard-credential-shell.sh` refuses a shell
-command that reaches credential material or any `.gitignore`-matched path — `node_modules`,
-`.venv`, `.next` and `.claude/worktrees` released — and `.claude/settings.json` denies the file
-tools the same paths. A refusal from either is this section arriving at the moment it applies; it
-names the rule and the route it allows, and is never routed around.
+Everything else here is mechanical, and the two routes deny different things.
+`.claude/hooks/guard-credential-shell.sh` refuses a shell command that reaches credential material
+or any `.gitignore`-matched path — `node_modules`, `.venv`, `.next` and `.claude/worktrees`
+released as dependencies and build output, `docs/audit/` and `.vscode/` exempted by name.
+`.claude/settings.json`'s `permissions.deny` refuses the file tools the credential file patterns it
+lists and nothing else, so the Read tool opens a gitignored file the shell guard refuses on the same
+path. The rules above bind whichever route is open, and a route left open is never the permission
+the closed one withholds. A refusal from either is this section arriving at the moment it applies;
+it names the rule and the route it allows, and is never routed around.
 
 ## 2. Branch before you edit — the first action of any task that writes
 
@@ -97,9 +101,10 @@ scope is the expensive one and the only hard refusal. [`docs/ops/spec.md`](../do
   `check_docs.py --all`, which has reported clean while the gate was red.
 - Write the commit message to `docs/_git/templates.md`'s form the first time. The `commit-msg` hook
   and `--docs` both refuse a malformed one, and a reword after the push is a rebase.
-- The gate writes no tracked file except `next build`'s edit to `fl_frontend/tsconfig.json`.
-  Formatting happens at commit: `.githooks/pre-commit` formats the staged files, re-stages them and
-  prints what it changed.
+- The gate writes no tracked file except `fl_frontend/tsconfig.json`, which `next typegen` and
+  `next build` each rewrite through Next's `writeConfigurationDefaults`. Formatting happens at
+  commit: `.githooks/pre-commit` formats the staged files, re-stages them and prints what it
+  changed.
 
 ## 3. Quality bar
 
@@ -178,7 +183,12 @@ Dev is Windows 11; production is Linux. Label every terminal command with its ta
 
 ## 6. Repo-specific traps
 
-Each fails silently — the gate stays green and the defect ships. Every other convention is in
+Each fails silently — the gate stays green and the defect ships. The one below binds every session,
+because the file it damages can be a scratch path outside every governed tree. The rest are scoped
+to the surface that can hit them and load from `.claude/rules/` on the terms §7 sets out:
+`backend.md` carries the pytest marker, the Pydantic default and the `constraints.py` copy;
+`frontend.md` the HeroUI stylesheet, the render props, the cache tag and the admin-scoped
+`"use cache"`; `cross-surface.md` the refusal code and its German. Every other convention is in
 `docs/`; match the surrounding code.
 
 - **Never let a Windows text-mode stream write a file** — it turns every `\n` into `\r\n`, and
@@ -187,124 +197,69 @@ Each fails silently — the gate stays green and the defect ships. Every other c
   commit, so the damage stays invisible until a shell script fails on the Linux server or
   `prettier --check` rejects the tree, and nothing normalises a scratch file at all. Write bytes, or
   pass `newline=""`.
-- Mark a db-touching test `@pytest.mark.db`. Without it the test runs in the default tier with no
-  container and fails for an unrelated-looking reason; nothing catches an omitted marker.
-- Pass a Pydantic field default by keyword — `Field(default=0, ge=0)`, never `Field(0, ge=0)`.
-  Positional leaves Pyright believing the field is required while ruff and pytest stay green.
-- Import a HeroUI component's CSS per component, into whichever stylesheet can reach it —
-  `fl_frontend/src/app/globals.css` loads on every route, `fl_frontend/src/app/admin/admin.css` only
-  under `/admin`. Named in neither, the component renders unstyled while `tsc`, `next build` and
-  ESLint all pass. Read [the checklist](../docs/frontend/spec.md#111-adding-a-heroui-component)
-  before writing the code.
-- A backend refusal and its German are two sites. `fl_backend/app/core/domain.py` declares the rule
-  and its code; the feature slice's `actions.ts` turns the code into words. A code no slice maps
-  falls through to the 409 fallback in `fl_frontend/src/shared/utils/actionError.ts`, which tells the
-  admin an equivalent entry already exists. A test reading
-  `fl_frontend/src/core/refusalRegister.ts :: declaredCodes` holds most slices to this; `spiele` and
-  `spielorte` have none, so there the wrong message ships green.
-- Change a model and its hand-written copy in `fl_backend/app/core/constraints.py` in the same
-  commit; a default-tier test names the field if you forget. `saison_teams` has no model — verify it
-  with `python -m app.core.constraints --check`.
-- Grep for render props before deleting a `"use client"`. A Server Component may not pass a function
-  to a Client Component, and neither `tsc` nor the build catches it on a dynamic route.
-- Add the matching `updateTag` in the same change as any granular cache tag; a tag nothing
-  invalidates is decoration.
-- Never put `"use cache"` on an admin-scoped API read: the cache keys on arguments, not caller
-  identity, so a cached admin read is a shared slot of authorized data, and the directive
-  type-checks, lints, builds and passes every test.
 
 ## 7. Ratified decisions — never "fix" one
 
-**Every line below is a never-clause, and each is deliberate.** Never flag, refactor or optimize one
-without an instruction naming it; if you believe one is wrong, say so and stop. The argument for a
-line is in the commit that made it — `git log -S` on the constraint it names, or `git blame` from
-the line it governs — and several rest on a measurement paid for once and recorded there. A clause
-this short is easy to think wrong, and the moment a better solution suggests itself is the moment
-the decision has already weighed it.
+**Every line here, and every line under `.claude/rules/`, is a never-clause, and each is
+deliberate.** Never flag, refactor or optimize one without an instruction naming it; if you believe
+one is wrong, say so and stop. The argument for a line is in the commit that made it — `git log -S`
+on the constraint it names, or `git blame` from the line it governs — and several rest on a
+measurement paid for once and recorded there. A clause this short is easy to think wrong, and the
+moment a better solution suggests itself is the moment the decision has already weighed it.
 
-**Read the group for the surface you are touching in full before proposing a change there.** Many
+**Read every rules file that loaded in full before proposing a change on its surface.** Many
 clauses name no greppable identifier, so a search misses them; the bold key opening each line is the
 slice (`spiele`, `spieltage`, `saisons`, `spieler`) or the concern it governs, and is what to scan
 for. The order inside a group carries nothing, and a semicolon joins clauses that stand or fall
 together.
 
-### Backend and domain
+### Where the scoped clauses load from
 
-- **models** — Give `saison_id` a Pydantic field default
-- **db** — Add a second direct `MongoClient`
+A file under `.claude/rules/` carries `paths:` frontmatter — a YAML list of quoted globs — and
+arrives with the read of a file one of them matches. Discovery happens at session launch, so a rules
+file written during a session is invisible until the next one starts, and a rules file carrying no
+`paths:` key loads unconditionally. A glob that matches nothing fails silently, which is why each
+file's reach is the union of every surface its clauses can be broken from rather than the surface
+they read as belonging to. **Derive that union by searching for the clause's code — its identifier,
+its concept and its German term — never by reading its bold key as a directory name.** A key names
+the concern, and several concerns are addressed elsewhere: the `swap` key's form lives under
+`saisons`, put there by the clause holding the club editor away from being the swap's home, and
+`quelle` is written in the fixtures package while `stufe` reaches three backend packages and
+`app/core/`. That search is why the reaches below are whole surfaces.
+
+| File                                         | Reach                                                                             | Carries                                          |
+| -------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------ |
+| [`backend.md`](rules/backend.md)             | `fl_backend/` whole                                                               | a clause only a backend session can break        |
+| [`frontend.md`](rules/frontend.md)           | `fl_frontend/` whole, its config files included                                   | a clause only a frontend session can break       |
+| [`ops.md`](rules/ops.md)                     | `.github/`, `nginx/`, `scripts/`, the images, the compose files, `next.config.ts` | a clause about deployment, CI or caching headers |
+| [`cross-surface.md`](rules/cross-surface.md) | both packages whole, plus `nginx/` and `scripts/`                                 | every clause a session on either side can break  |
+
+**Four reaches, each a whole surface, and that is the point.** A file scoped to a slice inside a
+surface can miss the violator; a file scoped to the surface cannot. Placing a clause is then one
+question — can only a backend session break this, or only a frontend one? — and a clause that
+survives any doubt goes to `cross-surface.md`. Open the file for a surface you are about to touch
+even when no read has pulled it in yet: the clause you are about to break is the one whose file you
+have not opened.
+
+### Never scoped — no glob reaches the session that would break one
+
 - **table** — Store or cache team statistics; hardcode 3/1/0; score or sort on `sonderereignis`
-- **db** — Swallow a failed validator or index; widen one past types and enums
-- **spiele** — Treat `mietpreis` / `payment` as stale copies of the defaults; denormalise season-scoped state into `spiele`
-- **table** — Move the league table's default scope off `gruppenphase`
-- **db** — Generate the `$jsonSchema` validators from the models
-- **saisons** — Make `inactive_since` a boolean; revive a retired row by creating it
-- **routing** — Move a guard onto an endpoint; merge the two routers; delete `GET /{id}`
-- **openapi** — Generate the Zod mirror; compare past presence, required, nullable, type or enum
-- **bracket** — Store the bracket's German label; flag an override beside `quelle`
-- **placings** — Recurse the tiebreak chain; seed a placing the group can still change
-- **spiele** — Put the shoot-out in `ergebnis`; store its winner; let the table read it
-- **spiele** — Refuse a `sonderereignis` that would overwrite a stored result; keep it out of the dry run's report
-- **spiele** — Add a POST or a DELETE to `/spiele`
-- **spiele** — Give `app/api/spiele/services.py` an `await` or a collection
-- **saisons** — Offer in the form wiring the write path refuses
-- **spieltage** — Refuse a manual pick as unqualified; field a team twice in a Spieltag
-- **saisons** — Add an austritt boolean beside the record
-- **spieler** — Widen a squad row's `position` or `stufe` past their `Literal`s; drop `E2`
-- **spieltage** — Derive a `Spieltag`'s position rather than reading it; write one outside the draw; store or serve its German label
-- **draw** — Store `anzahl_spiele`; hardcode the qualifier cap
-- **domain** — Import `app/core/domain.py` from `app/`; generate it; enforce it
-- **db** — Spell a collection name as a literal; enumerate the field names too
 - **saisons** — Cache a season projection; remove its write-path drop or its TTL
-- **routing** — Answer 422 for a malformed path id, or 404 for a query one
-- **swap** — Split the group swap into two writes; relax the move lock to serve it
-- **spiele** — Drop a forfeit from the cancellation count; merge it into the scoring lookup
-- **saisons** — Write `status` outside the activate endpoint; DELETE a season row; drop the rollover guard
-- **swap** — Reach the swap's disqualification refusal backwards; refuse a club standing on its own fixture
-
-### Frontend
-
-- **cache** — Add a granular cache tag with no `updateTag`; make base tags conditional
 - **structure** — Add a barrel file, an unrequired default export, a second nesting level
-- **spiele** — Move the Spiel write path to `admin`; let its form read `useAdmin()`
-- **spiele** — Merge the three `SpielCard` variants
-- **pages** — Remove an `await connection()` before a page fetch
-- **lint** — Scope a cross-feature import lint to anything but `core` and `shared`
-- **cache** — Cache an admin-scoped API read
-- **system** — Remove `checkIsReady`, `getSystemInfo`, or the system key
-- **build** — Enable the React Compiler
-- **cache** — Re-add a reference-data invalidation endpoint; fault sub-24h staleness
-- **forms** — Judge a typed field between keystrokes; return the editor to a dialog
-- **spiele** — Guess a voided result rather than dry-running it; scope the undo offer to the destructive save
-- **admin** — Hide a triage tab on a zero count; order sections off anything but the label table
-- **finalrunden** — Write from `/admin/finalrunden`; render its wiring as cards
-- **admin** — Give a shell page a second `h1`; make a sidemenu `hint` optional
-- **undo** — Route-handle an undo outside a page-owned editor; revert before E592
-- **saisons** — Fetch the season list when `?saison_id=` is absent; drop `resolveSaisonId`'s redirect or `SaisonSelector`'s fallback
-- **spiele** — Make `ausstehend` a partition, or `computeSpielStatus` a filter
-- **auth** — Add a `callbackUrl` to the sign-in redirect without the allowlist first
-- **forms** — Confirm a clean save; raise the dialog on `info`; drop the undo when the dialog appears
-- **swap** — Make the club editor the swap's home; grade a swap pair separately in each component
-- **spieltage** — Add a reorder endpoint for `spieltage`; move the rollover off its page; re-sort its list
-- **bracket** — Store a bracket fault; report a merely undecided placing; wrap a card without moving its role
-
-### Styling and motion
-
-- **heroui** — Import HeroUI's CSS as one entry point, or out of HeroUI's order
-- **css** — Pick `admin.css` membership by folder name, not the import graph
-- **toast** — Style a toast from CSS past the shell and the frontmost close button; call `toast` at a call site rather than `appToast`
-- **css** — Leave a vendored overlay's zoom in place; write the app's scale override inside a `@layer`
-- **motion** — Stop a loading indicator under reduced motion; freeze an ornament that rests visible
-
-### Ops, CI and packaging
-
-- **csp** — Disable `react/no-danger`; add a second CSP
 - **images** — Merge the two images into one package; make either package private
-- **nginx** — Disable origin compression; precompress brotli at build time
-- **nginx** — Send `immutable` for a URL with no content hash
-- **ci** — Pin `type=gha`'s version; share one cache scope; re-add `actions/cache`
-- **logging** — Let nginx pass a client's correlation id; log outside the envelope
+
+The first two refuse a caching or sorting idea, which arrives in whichever file the session happens
+to have open, so no glob narrows the violator down. The third, and §4's deprecation table, refuse a
+file being written for the first time: a rules file arrives with the read of a file its globs match,
+and the file whose creation is the violation is read by nobody. The fourth is here for the reason
+the pull request clause below is: a package's visibility is set in the registry, so that half of it
+is broken with no file open at all, and a semicolon joins clauses that stand or fall together.
 
 ### The gate and the workflow
+
+Every clause here binds every session whichever surface it touches, and two bind a session that
+opens no governed file at all — a pull request body is typed rather than read from a path, and an
+exit code belongs to a command rather than to a file.
 
 - **tests** — Move db-marked tests out of the gate
 - **pull requests** — Index a branch's commits in a pull request body
@@ -338,13 +293,15 @@ Commands live in `.claude/commands/` and are slash-only — never launch one fro
 for the audit programme, `/roadmap:start` and `/roadmap:add` for the ranked pages, `/docs:audit`
 and `/docs:audit-pr` for the documentation sweep.
 
-`.claude/settings.json` registers the hooks in `.claude/hooks/`, which refuse, ask or inform before
-or after a tool call. **A refusal from one is a rule in this file arriving mechanically: read it,
-comply with it, never route around it.** Its text names the rule and the route it allows, and
-nothing about the guards is restated here. A guard cannot fire before a read, which is why §2's
+`.claude/settings.json` registers the hooks in `.claude/hooks/` for every session, and an agent
+definition under `.claude/agents/` registers one for its own agent alone; they refuse, ask or
+inform before or after a tool call. **A refusal from one is a rule in this file arriving
+mechanically: read it, comply with it, never route around it.** Its text names the rule and the
+route it allows, and nothing about the guards is restated here. A guard cannot fire before a read, which is why §2's
 trigger is the task, and it refuses a command it cannot parse rather than guessing — a heredoc whose
 text merely mentions what it watches for included — so **a multi-line file goes through the `Write`
 tool, never a heredoc.**
 
 The guards cite §1 and §2 by number; `.gitignore` and the roadmap cite §4 and §5; the commands, the
-audit prompts and the corpus cite §6 and §7. Every section keeps its number.
+audit prompts and the corpus cite §6 and §7, and a clause those two sections hand to
+`.claude/rules/` is cited by its file. Every section keeps its number.

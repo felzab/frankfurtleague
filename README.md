@@ -81,7 +81,8 @@ docs/            the documentation set
 | [`docs/ops/spec.md`](docs/ops/spec.md) | Every script, every gate scope, and what each one proves                                                                                |
 
 Several things here look like mistakes and are deliberate, each a ratified decision.
-**Check [`.claude/CLAUDE.md`](.claude/CLAUDE.md) §7 before "fixing" something that looks wrong.**
+**Check [`.claude/CLAUDE.md`](.claude/CLAUDE.md) §7 and the files it indexes under
+[`.claude/rules/`](.claude/rules/) before "fixing" something that looks wrong.**
 
 ## Contributing
 

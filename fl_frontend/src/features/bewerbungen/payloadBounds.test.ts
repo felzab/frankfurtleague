@@ -208,7 +208,7 @@ describe("the rule a count is judged against as well as its ceiling", () => {
   });
 
   it("offers no count the subset rule would refuse", () => {
-    // §7: never offer in the form what the write path refuses. Parsed rather than read back as text —
+    // `.claude/rules/cross-surface.md`: never offer in the form what the write path refuses. Parsed rather than read back as text —
     // an assertion that greps the JSX for the squad passes `Math.max` exactly as it passes `Math.min`.
     for (const squad of [1, 2, 10, BEWERBUNG_KADER_GROESSE_MAX]) {
       const ceiling = strongPlayerCeiling(squad);

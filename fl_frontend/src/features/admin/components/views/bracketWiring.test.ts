@@ -181,7 +181,7 @@ describe("the bracket wiring review", () => {
   });
 
   /* Decided 2026-08-07: the fact under review is the edge, and a match card drops the provenance the
-     moment a winner arrives. CLAUDE.md §7 carries it as "render its wiring as cards". */
+     moment a winner arrives. `.claude/rules/frontend.md` carries it as "render its wiring as cards". */
   it("draws the fixtures as table rows, and nothing here as a card", () => {
     assert.ok(namedImportsFrom("@heroui/react").has("Table"), `${VIEW}: HeroUI's Table is no longer imported`);
     assert.ok(tags.has("Table.Row"), `${VIEW}: a fixture is no longer a table row`);

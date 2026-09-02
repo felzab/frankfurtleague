@@ -35,8 +35,9 @@ documents.
      nothing more.
 
    Record any newly ratified decision first, in the place it will be read — a comment at the line it
-   constrains, a CLAUDE.md §7 row, or the spec sheet's `## 2. Invariants` — with the argument in the
-   closing commit's body.
+   constrains, a CLAUDE.md §7 row or the `.claude/rules/` file whose paths reach the session that
+   could break it, or the spec sheet's `## 2. Invariants` — with the argument in the closing
+   commit's body.
 
 5. Merge this programme's new lessons into the existing sections of `docs/_auditing/lessons.md`,
    each verified before it is written, and each stated for a reader who has never seen this

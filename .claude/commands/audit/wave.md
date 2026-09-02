@@ -79,8 +79,10 @@ it. The ledger row wins wherever it contradicts the source report, and later
 waves amend earlier rows.
 
 CLAUDE.md section 7 lists the decisions that read as violations and are
-deliberate, and section 6 the traps that fail silently. Do not "fix" one without
-an instruction that names it; if you believe one is wrong, say so and stop.
+deliberate, and section 6 the traps that fail silently; both hand the clauses a
+glob can reach to the files under `.claude/rules/`, which section 7 indexes. Do
+not "fix" one without an instruction that names it; if you believe one is wrong,
+say so and stop.
 
 PHASE 2 — FRONT-LOAD MY DECISIONS. From the verified rows, inventory
 everything that needs a human: contrast and colour choices, anything

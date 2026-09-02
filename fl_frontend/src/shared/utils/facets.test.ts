@@ -361,7 +361,7 @@ function isClientModule(source: string): boolean {
 
 describe("who may hold a facet", () => {
   /* A facet carries a `read` FUNCTION, which a Server Component may not pass to a Client one
-     (`.claude/CLAUDE.md` §6). Neither `tsc` nor `next build` sees it; the page throws at render with
+     (`.claude/rules/frontend.md`). Neither `tsc` nor `next build` sees it; the page throws at render with
      a digest alone. */
   it("keeps every facets module out of the server half of the app", () => {
     const leaks = sourcesUnder(APP_DIR)

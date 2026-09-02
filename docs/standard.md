@@ -57,9 +57,11 @@ These bind every written artifact. A comment is documentation and carries every 
   fails to resolve, and the reasoning at the claim rather than behind a pointer to a file deleted
   by design. _Enforced by_ `/docs:audit` (the cold read).
 - **COR-6:** a citation is a backticked `<path> :: <symbol>` or `<path> :: <short quoted
-fragment>`, a bare backticked repository path, or a rule id or invariant id — never a line
-  number, in any form: a line number is wrong the moment anything is inserted above it, and
-  nothing can tell a correct one from a stale one.
+fragment>`, a bare backticked repository path, a rule id or invariant id, or — where a passage
+  has already named a file — the continuation `` `:: <anchor>` ``, which resolves against the
+  nearest file named above it and fails where none is. Never a line number, in any form: a line
+  number is wrong the moment anything is inserted above it, and nothing can tell a correct one
+  from a stale one.
   _Enforced by_ gate checks `citation`, `path`, `rule-id` and `line-citation`.
 - **COR-7:** purpose in the first lines; a reference longer than about a hundred lines — consulted
   at a point rather than read through — carries a table of its sections against the question each
@@ -288,8 +290,9 @@ ceiling, never a target.
 a document nobody maintains in the one place a reader trusts most. One bound for every shape is
 what stops the rule being avoided by moving a paragraph from beside a symbol to above it.
 
-**Enforced by:** gate check `comment-length`, over the blocks a branch writes. A block the branch
-only touched is left to `/docs:audit`, which owns accumulated staleness (CUR-6).
+**Enforced by:** gate check `comment-length`, over every block a branch added a line to. A block
+already over the bound before the branch forked is exempt, and lengthening one past that is
+`/docs:audit-pr`'s slice; what no branch has touched is `/docs:audit`'s (CUR-6).
 
 ## Corpus
 
@@ -320,7 +323,8 @@ edited when a constraint changes; and the surface overviews, which say what a su
 are rewritten only when that changes. The two shapes are called layers, and layer is the only word
 for them anywhere in `docs/`. A new page is one of the two, or a named exception, or it does not
 go in. Why something is built this way sits at the constraint itself — a comment at the line, a
-CLAUDE.md §7 line, or a spec-sheet invariant — with the argument in the commit that made it.
+CLAUDE.md §7 line or a `.claude/rules/` clause, or a spec-sheet invariant — with the argument in
+the commit that made it.
 
 **Why:** each layer's update trigger is attached to work that happens anyway, which is what lets
 the corpus stay true without a scheduled review.
