@@ -83,7 +83,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    | Frontend documents          | `docs/frontend/**`                                                                                                                                                                                                                                                                          |
    | Logging documents           | `docs/logging/**`                                                                                                                                                                                                                                                                           |
    | Ops documents               | `docs/ops/**`                                                                                                                                                                                                                                                                               |
-   | Loose documents             | `docs/domain.md` · `docs/glossary.md` · `docs/README.md`                                                                                                                                                                                                                                    |
+   | Loose documents             | `docs/domain.md` · `docs/glossary.md` · `docs/README.md` · `docs/datenschutz.md`                                                                                                                                                                                                            |
    | Assistant instructions      | `.claude/CLAUDE.md` · `.claude/commands/**` · `.claude/skills/**` · `.claude/agents/**`                                                                                                                                                                                                     |
    | Public root documents       | `README.md` · `SECURITY.md`                                                                                                                                                                                                                                                                 |
    | Frontend source             | `fl_frontend/src/**`                                                                                                                                                                                                                                                                        |
@@ -230,7 +230,8 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
      correct by design before it lands.
 
 6. **Ship it**, per `docs/_git/spec.md`: branch first, `./scripts/verify.sh --docs --format`, push,
-   open the draft pull request and hand over its link. Report the gate's actual exit code, and report
+   open the draft pull request, hand over its link, and name the conclusion of the branch's `verify`
+   run. Report the gate's actual exit code, and report
    **net lines, separating relocated from removed** — a reshaping that moves content between files is
    not a reduction, and a diffstat that excludes new untracked files overstates one.
 

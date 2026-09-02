@@ -327,8 +327,10 @@ the corpus stay true without a scheduled review.
 
 **Exceptions:** the cross-cutting references (OUT-8), this file, the process folders
 (`docs/_auditing/`, `docs/_git/`, `docs/_roadmap/`), `docs/domain.md` — a narrative over tables a
-test walks — and `docs/ops/runbooks.md`: a procedure is followed at a keyboard rather than read
-for a constraint, and belongs beside the surface it operates.
+test walks — `docs/ops/runbooks.md`: a procedure is followed at a keyboard rather than read for a
+constraint, and belongs beside the surface it operates; and `docs/datenschutz.md`, a holding
+record for rulings that have not yet reached the line, row or section that will carry them, which
+shrinks as they do and goes when it is empty.
 
 **Enforced by:** unenforced — review judgment.
 

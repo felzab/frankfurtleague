@@ -8,6 +8,7 @@
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | [`glossary.md`](glossary.md)                             | The German domain vocabulary, and the pitfall in each term                                  |
 | [`domain.md`](domain.md)                                 | What depends on what, when a field may be edited, and what is refused                       |
+| [`datenschutz.md`](datenschutz.md)                       | The data-protection rulings, held there until each reaches its home                         |
 | [`frontend/overview.md`](frontend/overview.md)           | What the Next.js app is for, and how it is organised                                        |
 | [`frontend/spec.md`](frontend/spec.md)                   | Its contract — routes, caching, invariants                                                  |
 | [`backend/overview.md`](backend/overview.md)             | What the FastAPI app is for, and how it is organised                                        |
