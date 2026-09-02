@@ -2,7 +2,8 @@ name: verify
 
 # The gate that `scripts/verify.sh` is, run as parallel jobs mapped to the surfaces a change
 # touches. The `changes` job diffs the pull request against its base and turns paths into scope
-# flags; each job below runs one `verify.sh` scope and starts only when its scope is touched.
+# flags; each job below runs one `verify.sh` scope and starts only when its scope is touched --
+# except `frontend`, which runs the same mapping itself and skips its own steps on a false.
 #
 # Invariants:
 # - A push to main runs every scope unconditionally, which also backstops the path mapping.
@@ -16,6 +17,16 @@ on:
 # compromised dependency reaches. This workflow publishes nothing and comments on nothing.
 permissions:
   contents: read
+
+# The keyword, never a hand-copied `bash -eo pipefail {0}`: GitHub expands `bash` to that plus
+# `--noprofile --norc`, and a builtin cannot drift. It replaces an UNSPECIFIED shell, whose `-e`
+# alone lets a mid-pipe failure be masked by the last stage.
+
+# What the expansion does NOT carry is `-u`, and this does not add it: it makes each unset variable
+# in a `run:` block a hard failure, a walk only actionlint could vouch for.
+defaults:
+  run:
+    shell: bash
 
 concurrency:
   group: verify-${{ github.ref }}
@@ -120,12 +131,24 @@ jobs:
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
+          # setup-uv reads `[tool.uv] required-version` from the repository root alone, and the pin
+          # lives in fl_backend's manifest. Without this line CI's uv is that day's latest, and
+          # every `uv sync` below refuses the moment the two differ.
+          version-file: fl_backend/pyproject.toml
       - name: Create the backend virtualenv
         # The commit check runs on the interpreter fl_backend pins, never on whichever Python the
         # runner image happens to ship: one floor for every caller, so a check cannot pass here and
         # fail on a development machine over a language version.
+
+        # `--locked` at every `uv sync` in this workflow: a bare sync REWRITES uv.lock in the working
+        # tree, so a branch with a stale committed lockfile passes every later check against the
+        # rewritten file. `--locked` refuses it; `--frozen` would accept it.
+
+        # `--only-group dev` where no step imports the application: the checkers under scripts/ are
+        # standard library, so the project and its graph stay uninstalled here. `docs`, `backend`
+        # and `backend-db` keep `--dev`, those scopes importing `app`.
         working-directory: fl_backend
-        run: uv sync --dev
+        run: uv sync --locked --only-group dev
       - name: Check the branch's commit messages
         env:
           BASE_REF: ${{ github.base_ref }}
@@ -143,11 +166,16 @@ jobs:
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
+          # The pin's file, for the reason written at `commits`.
+          version-file: fl_backend/pyproject.toml
       - name: Create the backend virtualenv
         # The scripts scope lints scripts/*.py with the repository's own ruff, which lives in this
         # venv. verify.sh resolves .venv/bin/python (Linux) itself.
+
+        # The dev group alone, as at `commits`: scripts/pyrightconfig.json names no venv because
+        # nothing there imports past the standard library, and scripts/tests imports the same set.
         working-directory: fl_backend
-        run: uv sync --dev
+        run: uv sync --locked --only-group dev
       - name: Install the shellcheck the gate pins
         # The runner image ships its own shellcheck, and selfcheck.sh prefers a binary on PATH over
         # the image it pins -- so without this CI lints the branch against a different rule set from
@@ -197,10 +225,14 @@ jobs:
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
+          # The pin's file, for the reason written at `commits`.
+          version-file: fl_backend/pyproject.toml
       - name: Create the backend virtualenv
         # verify.sh resolves .venv/bin/python (Linux) or .venv/Scripts/python.exe (Windows) itself.
+        # `--dev`, not the dev group alone: this scope runs fl_backend/tests/openapi_document.py,
+        # which imports the application.
         working-directory: fl_backend
-        run: uv sync --dev
+        run: uv sync --locked --dev
       # The scope check classifies a changed .ts file through `scripts/check_scope.py`, whose
       # TypeScript half needs `scripts/ts_normalize.mjs`. Without the installed tree the answer
       # degrades to "code", and the run is asked for scopes it does not owe.
@@ -238,9 +270,11 @@ jobs:
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
+          # The pin's file, for the reason written at `commits`.
+          version-file: fl_backend/pyproject.toml
       - name: Create the backend virtualenv
         working-directory: fl_backend
-        run: uv sync --dev
+        run: uv sync --locked --dev
       - name: Run the backend scope
         run: ./scripts/verify.sh --backend
 
@@ -259,15 +293,49 @@ jobs:
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
+          # The pin's file, for the reason written at `commits`.
+          version-file: fl_backend/pyproject.toml
       - name: Create the backend virtualenv
         working-directory: fl_backend
-        run: uv sync --dev
+        run: uv sync --locked --dev
+      - name: Pull the mongod image the db tier starts
+        # INSTRUMENTATION, not a saving: the pull is inside the job span either way. As its own step
+        # the download is attributed in the log rather than hidden in pytest's span -- a slow tier
+        # told from a slow registry. The tag is read from the conftest.
+
+        # No image cache beside this: §7's "Pin `type=gha`'s version; share one cache scope; re-add
+        # `actions/cache`" constrains exactly that, so none is added here.
+
+        # This job is a required status check and this step decides nothing, so it may not fail one
+        # -- testcontainers pulls the image anyway. Same flag, same reason, as the advisory steps
+        # below.
+        continue-on-error: true
+        # One process, no pipe: `sed | head` exits 141 under `pipefail` when the reader closes
+        # first, which is a bare 141 with nothing printed, the guard below never having run.
+        run: |
+          image="$(awk -F'"' '/Container\("mongo:/ { print $2; exit }' fl_backend/tests/conftest.py)"
+          if [ -z "$image" ]; then
+            echo "::error::no mongo image tag found in fl_backend/tests/conftest.py -- the spelling this step reads has moved."
+            exit 1
+          fi
+          docker pull "$image"
       - name: Run the db scope
         run: ./scripts/verify.sh --db
 
+  # Off `needs: changes`, alone among the scope jobs: the longest job is the run's binder, and
+  # waiting on a whole job for one boolean cost it that job's span plus a queue. Its first step runs
+  # scripts/ci_scopes.sh itself and gates every later step.
+
+  # A job that maps its scope off and ends green has the semantics `skipped` already has in the
+  # aggregate below, decided by the same mapping -- which stays one copy, in one script.
+
+  # §7's "let the comment classifier shrink a CI job" does not bind this: the mapping is
+  # ci_scopes.sh's PATH mapping, the one `changes` already shrinks every other job by, and not
+  # scripts/check_scope.py's comment classifier.
+
+  # The `changes` job still emits `frontend`, because `format`'s condition reads it -- without that,
+  # `format` would run beside this job and prettier twice per push.
   frontend:
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -289,28 +357,74 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Full history, where depth 1 served before: ci_scopes.sh diffs against the merge base
+          # with the target branch and refuses without one. The extra fetch is a real subtraction
+          # from what skipping `changes` saves -- the pack is small, not free.
+          fetch-depth: 0
+      - name: Map changed paths to scopes
+        id: map
+        # The two arms are the `changes` job's, verbatim: a pull request diffs against its base, a
+        # push to main turns every scope on. Values reach the script through env, never `${{ }}`
+        # in `run:`; the reason is written out in .github/workflows/pr-body.yml.
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            ./scripts/ci_scopes.sh "origin/${BASE_REF}" >> "$GITHUB_OUTPUT"
+          else
+            ./scripts/ci_scopes.sh --all >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.map.outputs.frontend == 'true'
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          # The pin's file, for the reason written at `commits`.
+          version-file: fl_backend/pyproject.toml
+      - name: Create the backend virtualenv
+        # NOT unused, and this is the job where that is hardest to see: no step here runs python,
+        # yet `scripts/gate_pool.py` -- which starts this scope's checks together -- needs one at
+        # the checkers' floor, above this image's own.
+
+        # Without it `scripts/_lib.sh :: any_python` falls back to the runner's python3, the pool
+        # probe zeroes `scripts/verify.sh :: STEP_JOBS`, and the scope silently costs the sum of
+        # its checks rather than the longest.
+
+        # The dev group alone, as at `images`, the other job wanting this venv for the pool alone.
+        if: steps.map.outputs.frontend == 'true'
+        working-directory: fl_backend
+        run: uv sync --locked --only-group dev
       # The scope builds the application, so the installed tree is the job.
-      - uses: ./.github/actions/frontend-toolchain
+      - if: steps.map.outputs.frontend == 'true'
+        uses: ./.github/actions/frontend-toolchain
       # The source trees are in the key, not the lockfile alone: a key coarser than what the cache
       # depends on hits exactly every run, and actions/cache does not write on an exact hit. The
       # prefix restore is safe because the Next cache is content-addressed.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - if: steps.map.outputs.frontend == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: fl_frontend/.next/cache
           key: nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**', 'fl_frontend/next.config.ts') }}
           restore-keys: |
             nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
       - name: Run the frontend scope
+        if: steps.map.outputs.frontend == 'true'
         run: ./scripts/verify.sh --frontend
-      - name: Fail if the build rewrote tsconfig.json
-        # `next build` writes fl_frontend/tsconfig.json for any compilerOptions key that is absent --
-        # a presence check, documented at that file's `allowJs` line -- then repairs it and carries
-        # on, so the build stays green having read a different config from the tsc step before it.
+      - name: Fail if the frontend scope rewrote tsconfig.json
+        if: steps.map.outputs.frontend == 'true'
+        # `next typegen` and `next build` both write fl_frontend/tsconfig.json for any compilerOptions
+        # key that is absent -- one presence check, Next's `writeConfigurationDefaults`, documented at
+        # that file's `allowJs` line -- then carry on.
+
+        # The scope runs typegen first, so it is typegen's write this diff sees and the build then
+        # finds nothing to add; either way every reader after it checked a config the committed file
+        # does not hold.
+
         # Locally the dirty tree is visible; on a runner the repaired copy is discarded with the
         # workspace, and a framework upgrade reaches this condition with nobody editing the file.
         run: |
           if ! git diff --exit-code -- fl_frontend/tsconfig.json; then
-            echo "::error::next build rewrote fl_frontend/tsconfig.json -- a compilerOptions key is absent. Run 'cd fl_frontend && pnpm build' and commit the result."
+            echo "::error::the frontend scope rewrote fl_frontend/tsconfig.json -- a compilerOptions key is absent. Run 'cd fl_frontend && pnpm typegen' and commit the result."
             exit 1
           fi
 
@@ -328,12 +442,16 @@ jobs:
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
+          # The pin's file, for the reason written at `commits`.
+          version-file: fl_backend/pyproject.toml
       - name: Create the backend virtualenv
         # `any_python` falls back to the runner's python3, which is under the checkers' floor on
         # this image, and the ops scope degrades "could not run" to a skip — so without this venv
         # the job is green having never compared the compose files.
+
+        # The dev group alone, as at `commits`: the mirror check is standard library.
         working-directory: fl_backend
-        run: uv sync --dev
+        run: uv sync --locked --only-group dev
       - name: Run the ops scope
         run: ./scripts/verify.sh --ops
 
@@ -352,12 +470,17 @@ jobs:
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
+          # The pin's file, for the reason written at `commits`.
+          version-file: fl_backend/pyproject.toml
       - name: Create the backend virtualenv
         # The two builds start together only through `scripts/gate_pool.py`, which needs a python at
         # the checkers' floor -- above this image's own. Without this venv the scope costs their sum
         # rather than the longer of the two, against the timeout above.
+
+        # The dev group alone, as at `commits`: the pool is standard library, and each Dockerfile
+        # installs its own tree inside the build.
         working-directory: fl_backend
-        run: uv sync --dev
+        run: uv sync --locked --only-group dev
       # buildx talks to the Actions cache service itself, so there is no actions/cache
       # step and no cache directory to carry. This action exists because the runner injects the
       # service credentials into JavaScript actions alone.

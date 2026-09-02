@@ -33,6 +33,12 @@ permissions:
   security-events: write
   actions: read
 
+# Same shell as verify.yml, for the reason written there. No `run:` step exists here today; the
+# default is declared so one added later inherits the same failure semantics as the other two.
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: codeql-${{ github.ref }}
   # Same rule as `.github/workflows/verify.yml`: supersede an in-flight PR run, never a run on main.
@@ -45,7 +51,9 @@ jobs:
   # analysis already filed under the old name.
   analyze-javascript:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Several times the analysis's own duration at its tail; the only failure mode of a margin this
+    # size is a red run somebody re-runs.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -65,7 +73,8 @@ jobs:
 
   analyze-python:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Same margin as the JavaScript job, for the same reason.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
