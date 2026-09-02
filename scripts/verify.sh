@@ -160,6 +160,49 @@ build_image() {
 do_build_frontend() { build_image frontend fl_frontend/Dockerfile fl_frontend; }
 do_build_backend()  { build_image backend fl_backend/Dockerfile fl_backend; }
 
+# The frontend's and the formatter's bodies. Each `cd`s inside a subshell: in the serial form the
+# body runs in this process, whose directory every later step still assumes.
+do_prettier()   { ( cd fl_frontend && pnpm format:check ); }
+do_lockfile()   { ( cd fl_frontend && pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install ); }
+do_typegen()    { ( cd fl_frontend && pnpm typegen ); }
+do_typecheck()  { ( cd fl_frontend && pnpm typecheck:only ); }
+do_eslint()     { ( cd fl_frontend && pnpm lint ); }
+do_audit()      { ( cd fl_frontend && pnpm audit:prod ); }
+do_unit_tests() { ( cd fl_frontend && pnpm test ); }
+# The build evaluates modules that read the environment, so a checkout with no .env dies at
+# page-data collection. Placeholders on this command alone; the schema is enforced by
+# `scripts/local.sh` and by every deploy.
+do_next_build() {
+  ( cd fl_frontend && SKIP_ENV_VALIDATION=true MONGODB_URI=mongodb://localhost:27017/placeholder \
+      NEXT_TELEMETRY_DISABLED=1 pnpm build )
+}
+
+# The frontend scope's two phases as data, not prose: every pooled unit reads
+# `fl_frontend/tsconfig.json`, and each writer rewrites it through Next's
+# `writeConfigurationDefaults`, so a unit in both lists would read the file mid-write.
+FRONTEND_POOL=(typecheck eslint audit)
+FRONTEND_WRITERS=(typegen next_build)
+frontend_phases_disjoint() {
+  local unit writer
+  for unit in "${FRONTEND_POOL[@]}"; do
+    for writer in "${FRONTEND_WRITERS[@]}"; do
+      [[ "$unit" != "$writer" ]] \
+        || on_error 3 "${LINENO}" "do_${unit} stands in FRONTEND_POOL and FRONTEND_WRITERS both, so the pool would read tsconfig.json while it is written"
+    done
+  done
+}
+frontend_phases_disjoint
+
+# A writer runs alone, in place, and only if the list names it: the list is then what decides the
+# phase, and a body moved into the pool by hand is refused rather than raced.
+run_writer() { # $1 unit
+  local writer
+  for writer in "${FRONTEND_WRITERS[@]}"; do
+    if [[ "$1" == "$writer" ]]; then quietly "do_$1"; return; fi
+  done
+  on_error 3 "${BASH_LINENO[0]}" "do_$1 is run as a writer, and FRONTEND_WRITERS does not name it"
+}
+
 # A step worker answers with the one body it was named, and reaches this before any section opens:
 # its capture then holds the check's own output and none of the gate's chrome.
 if step_worker; then
@@ -688,17 +731,22 @@ if (( RUN_FORMAT )); then
   section format
 
   # Check mode, never write: a gate that reformats measured a tree the author never saw.
-  # Formatting belongs to `.githooks/pre-commit`.
+  # Formatting belongs to `.githooks/pre-commit`. Never pooled: the frontend pool opens
+  # below this section, after `next typegen` rewrites a file prettier reads.
   step "format · prettier  (check mode — this gate never writes)"
   # The message asserts no cause: this fails for an unformatted file and for a pnpm that would not
   # start, and the captured output above is the only thing that knows which.
-  ( cd fl_frontend && quietly pnpm format:check ) \
+  quietly do_prettier \
     || die "the formatter check did not pass — its own output is above.
 Where it names files, they are unformatted:  cd fl_frontend && pnpm format  -- then commit the result."
   ok "the tree is formatted"
 fi
 
 # --- frontend --------------------------------------------------------------------------------------
+
+# Three phases, the data above `run_writer` naming them: the two writers of
+# `fl_frontend/tsconfig.json` run alone -- `next typegen` before the readers, `next build` last --
+# and the readers run together between them.
 if (( RUN_FRONTEND )); then
   section frontend
 
@@ -706,38 +754,54 @@ if (( RUN_FRONTEND )); then
   # true and answers from mtimes, so a manifest restored with its timestamp passes while
   # disagreeing with the lockfile.
   step "frontend · pnpm  (manifest and lockfile agree)"
-  ( cd fl_frontend && quietly pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install ) \
+  # `--frozen-lockfile` makes `--lockfile-only`'s write impossible rather than unlikely: pnpm's
+  # own words are "don't generate a lockfile and fail if an update is needed".
+  quietly do_lockfile \
     || die "fl_frontend's manifest and lockfile disagree — the packages are named above.
 Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile."
   ok "manifest and lockfile agree"
 
+  # Before the readers and never beside them: it writes the ambient types `tsc` needs, and
+  # rewrites tsconfig.json through the same Next code path `next build` uses.
+  step "frontend · next typegen  (the ambient types tsc checks against)"
+  run_writer typegen || die "next typegen failed — its own output is above."
+  ok "route types generated"
+
+  # Started together: each reads `src/` and tsconfig.json and writes only its own cache, and the
+  # audit is a network call touching nothing. Verdicts follow in written order. `docs/ops/spec.md` §1.6.
+  start_steps --frontend "${FRONTEND_POOL[@]}"
+
   step "frontend · tsc"
-  ( cd fl_frontend && quietly pnpm typecheck ) || die "tsc found type errors."
+  unit_join typecheck
+  unit_verdict typecheck "${LINENO}" "tsc found type errors."
   ok "no type errors"
 
   step "frontend · eslint"
-  ( cd fl_frontend && quietly pnpm lint ) || die "eslint failed."
+  unit_join eslint
+  unit_verdict eslint "${LINENO}" "eslint failed."
   ok "lint clean"
 
-  step "frontend · next build"
-  # The build evaluates modules that read the environment, so a checkout with no .env dies at
-  # page-data collection. Placeholders, set on this command so only the build sees them; the
-  # schema is enforced by `scripts/local.sh` and by every deploy.
-  ( cd fl_frontend && SKIP_ENV_VALIDATION=true MONGODB_URI=mongodb://localhost:27017/placeholder \
-      NEXT_TELEMETRY_DISABLED=1 quietly pnpm build ) || die "next build failed."
-  ok "build succeeds"
-
-  step "frontend · unit tests"
-  ( cd fl_frontend && quietly pnpm test ) || die "frontend unit tests failed."
-  ok "unit tests pass"
-
   # Advisory, not fatal: something published upstream overnight must not block an unrelated merge.
+  # Never `unit_verdict`, which turns this check's 1 into `die`.
   step "frontend · dependency audit  (runtime advisories only)"
-  if ( cd fl_frontend && quietly pnpm audit:prod ); then
+  unit_join audit
+  if quietly unit_replay audit; then
     ok "no known runtime vulnerabilities"
   else
     warn "runtime advisories present — triage with: cd fl_frontend && pnpm audit"
   fi
+
+  # Alone and before the build: the tests already run one process per core less one, and the
+  # build takes every core.
+  step "frontend · unit tests"
+  quietly do_unit_tests || die "frontend unit tests failed."
+  ok "unit tests pass"
+
+  # Last and alone: the build rewrites tsconfig.json when a `compilerOptions` key it probes for is
+  # absent, and writes `.next/`, which tsconfig.json's `include` covers.
+  step "frontend · next build"
+  run_writer next_build || die "next build failed."
+  ok "build succeeds"
 fi
 
 # --- ops -------------------------------------------------------------------------------------------

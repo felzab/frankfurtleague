@@ -209,3 +209,56 @@ def test_a_pool_that_left_a_manifest_is_read_from_it() -> None:
     code, output = _parent(body, lifted=POOL, units="alpha\tscope\n", manifest="alpha\t0\t100\t250\n")
     assert code == 0, f"a complete manifest was refused: {output}"
     assert "alpha=0" in output, output
+
+
+# --- the frontend scope's two phases, which the pool must never mix ---------------------------------
+
+# `unit_replay` rides along so a writer routed through it by mistake reaches the crash path this
+# file already knows, rather than an undefined-helper error that says nothing about the pool.
+PHASES: Final[tuple[tuple[str, str], ...]] = (
+    ("frontend_phases_disjoint", ""),
+    ("run_writer", ""),
+    ("unit_replay", ""),
+)
+
+
+def test_a_unit_named_in_both_frontend_phases_is_refused_before_anything_runs() -> None:
+    """The phases are data so this can drive them: a comment saying the lists are disjoint enforces nothing."""
+    wrong: list[str] = []
+    for pool, writers, expected in (
+        ("typecheck eslint audit", "typegen next_build", 0),
+        ("typecheck eslint typegen", "typegen next_build", 3),
+    ):
+        body = f"FRONTEND_POOL=({pool})\nFRONTEND_WRITERS=({writers})\nfrontend_phases_disjoint\nprintf 'reached\\n'"
+        code, output = _parent(body, lifted=PHASES)
+        if code != expected:
+            wrong.append(f"pool [{pool}] against writers [{writers}] exited {code}, and the contract gives it {expected}")
+        if expected == 3 and "typegen" not in output:
+            wrong.append("the refusal did not name the unit standing in both lists")
+        if expected == 0 and "reached" not in output:
+            wrong.append("disjoint lists stopped the run")
+    assert not wrong, "\n".join(wrong)
+
+
+def test_a_writer_runs_in_place_while_the_pool_is_open() -> None:
+    """A writer of tsconfig.json never enters the pool, so with STEP_JOBS=1 and no status for it the body itself must run."""
+    body = (
+        'do_typegen() { printf "ran\\n"; return 7; }\n'
+        "FRONTEND_POOL=(typecheck)\nFRONTEND_WRITERS=(typegen)\n"
+        "rc=0; run_writer typegen || rc=$?\n"
+        'printf "rc=%s STEP_JOBS=%s\\n" "$rc" "$STEP_JOBS"'
+    )
+    code, output = _parent(body, lifted=PHASES)
+    # Asserted rather than assumed: on a machine whose probe zeroed the pool, both cases below would
+    # pass through the serial arm without touching the property.
+    assert "STEP_JOBS=1" in output, output
+    assert output.count("ran") == 1, output
+    assert "did not run to completion" not in output, output
+    assert "rc=7" in output, output
+    # Its twin: a unit the writers list does not name is refused, so the list decides and not the call.
+    code, output = _parent(
+        'do_eslint() { printf "ran\\n"; }\nFRONTEND_POOL=(eslint)\nFRONTEND_WRITERS=(typegen)\nrun_writer eslint',
+        lifted=PHASES,
+    )
+    assert code == 3, f"an unlisted writer exited {code}: {output}"
+    assert "ran" not in output, output
