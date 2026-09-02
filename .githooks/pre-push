@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+#
+# GITHOOKS · print the CI scopes a push will run, and block nothing.
+#
+# `scripts/check_scope.py` compares a named scope against the diff before a local run; this prints
+# what `.github/workflows/verify.yml` would compute for the push, so a wasted CI round trip is seen
+# before it is paid for. Advisory only, and that is a hard property: git aborts a push on a
+# non-zero status, so no path here may answer one — its own failure included.
+
+set -euo pipefail
+
+# Every line below goes to stderr, which a wrapper may have closed. The trap answers 0 whatever
+# happens, a failed write under `set -e` included; ignoring SIGPIPE brings a dead reader to that
+# trap rather than killing the shell at the write.
+trap 'exit 0' EXIT
+trap '' PIPE
+
+# Non-fatal by construction, so one unwritable line does not cost the rest of the report.
+say() { echo "  pre-push hook: $*" >&2 || true; }
+
+if ! command -v git >/dev/null 2>&1; then
+  say "no git on PATH, so the CI scopes were not computed — advisory only, the push goes ahead."
+  exit 0
+fi
+
+# Git runs a hook from the top of the working tree; anything else driving it need not, and the
+# mapping script below is reached by a relative path.
+cd "$(git rev-parse --show-toplevel 2>/dev/null || printf '.')" || true
+
+remote="${1:-origin}"
+# `verify.yml` runs on a pull request, diffed against whatever branch it targets, and on a push to
+# main. No request exists yet, so the default branch stands in: the remote's recorded HEAD, or
+# `main` where the clone recorded none.
+default="$(git symbolic-ref -q "refs/remotes/${remote}/HEAD" 2>/dev/null || true)"
+default="${default#refs/remotes/"${remote}"/}"
+default="${default:-main}"
+head="$(git rev-parse HEAD 2>/dev/null || true)"
+
+# `|| [[ -n … ]]`: a final line with no newline leaves `read` non-zero with the fields set, and
+# dropping it would report nothing for the one ref being pushed. Git terminates its lines.
+while read -r _ local_sha remote_ref _ || [[ -n "${local_sha:-}" ]]; do
+  [[ "$local_sha" != 0000000000000000000000000000000000000000 ]] || continue
+  if [[ "$remote_ref" != refs/heads/* ]]; then
+    say "${remote_ref:-that ref} is not a branch, and the workflow triggers on a pull request and on a push to ${default} — so nothing runs for it. Advisory only."
+    continue
+  fi
+  branch="${remote_ref#refs/heads/}"
+  if [[ "$branch" == "$default" ]]; then
+    when="this push to ${default} runs"; mode=--all
+    note="Advisory only."
+  else
+    when="a pull request from ${branch} onto ${default} would run"; mode="${remote}/${default}"
+    note="Advisory only: nothing runs until one is open, and a request onto another branch maps against that branch instead."
+  fi
+  # `ci_scopes.sh` diffs HEAD and nothing else, so a push of any other commit is answered for HEAD.
+  if [[ "$local_sha" != "$head" ]]; then when="${when} (mapped from HEAD, not ${local_sha:0:7})"; fi
+  # `</dev/null` because the ref lines are this loop's stdin, and a child reading it would eat them.
+  if out="$(./scripts/ci_scopes.sh "$mode" </dev/null 2>&1)"; then
+    on="$(printf '%s\n' "$out" | awk -F= 'NF == 2 && $2 == "true" { printf " %s", $1 }')"
+    say "${when}:${on:- no scope}. ${note}"
+  else
+    say "scripts/ci_scopes.sh ${mode} did not answer — advisory only, the push goes ahead:"
+    printf '%s\n' "$out" | sed 's/^/      /' >&2 || true
+  fi
+done
+exit 0
