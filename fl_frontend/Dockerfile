@@ -26,13 +26,17 @@ ENV CI=true
 FROM toolchain AS deps
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* ./
+# The lockfile and the workspace settings alone, which is all `pnpm fetch` reads (pnpm.io/cli/fetch).
+# With package.json in this layer's key, renaming a script re-downloads every package.
+COPY pnpm-lock.yaml pnpm-workspace.yaml* ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
+COPY package.json ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --offline
 
 # Stage 4: Builder -> Compile app
-FROM toolchain AS builder
-WORKDIR /app
+# FROM deps, never a copy of its node_modules: a cross-stage copy of that tree costs the cold build
+# a second transfer of it and puts a second copy into what `mode=max` exports.
+FROM deps AS builder
 
 # This stage has no .env, so the startup gate would reject every variable and the build would die on
 # the first module that reads config. The schema is still enforced by local.sh and on every deploy.
@@ -41,7 +45,6 @@ ENV SKIP_ENV_VALIDATION=true
 # scope, and `new MongoClient(undefined)` throws.
 ENV MONGODB_URI=mongodb://localhost:27017/placeholder
 
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
