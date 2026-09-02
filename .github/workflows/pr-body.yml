@@ -20,8 +20,8 @@ on:
 permissions:
   contents: read
 
-# Same shell as verify.yml, for the reason written there. It earns its place here: `bash` expands to
-# `-o pipefail`, without which the pipe below reports jq's status and never printf's.
+# Same shell as verify.yml, for the reason written there; its `-o pipefail` also makes the pipe
+# below report printf's status, not python's alone.
 defaults:
   run:
     shell: bash
@@ -48,9 +48,7 @@ jobs:
           # The pin's file, for the reason written at verify.yml's `commits` job.
           version-file: fl_backend/pyproject.toml
       - name: Create the backend virtualenv
-        # Same reason as verify.yml's `commits` job: the checkers run on the interpreter fl_backend
-        # pins, so one Python floor covers CI and a development machine alike. `--locked` and
-        # `--only-group dev` for the reasons written at that job.
+        # As verify.yml's `commits` job, for the reasons written there.
         working-directory: fl_backend
         run: uv sync --locked --only-group dev
 

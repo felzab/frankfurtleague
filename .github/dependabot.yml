@@ -14,10 +14,9 @@ version: 2
 #   commit SHA, and every `uses:` naming a repository is pinned that way, so for actions the
 #   scheduled run below IS the coverage: a fix arrives on that schedule rather than on the day it is
 #   disclosed. Why that trade is worth taking belongs to `docs/_git/spec.md`, Repository settings.
-# - Every ecosystem sets a seven-day cooldown, so a release compromised at publication has a week in
-#   which to be yanked before a pull request proposes it. A cooldown delays no security update,
-#   which is exempt from it — except under `github-actions`, where that exemption is empty for the
-#   reason above.
+# - Every ecosystem sets the same cooldown, so a release compromised at publication can be yanked
+#   before a pull request proposes it. A security update is exempt from the cooldown — except under
+#   `github-actions`, where that exemption is empty for the reason above.
 # - Each ecosystem sets a commit prefix, so messages keep docs/_git/templates.md's shape.
 # - No ecosystem below can read a version written inside a shell script or a Python string, so the
 #   shellcheck and actionlint images in `scripts/selfcheck.sh` and the mongo image in
@@ -29,12 +28,9 @@ updates:
   # The highest-value ecosystem here and the cheapest to review: few dependencies, small diffs, and
   # an outdated action is a supply-chain exposure that nothing else in the repo would surface.
 
-  # Weekly, alone among the ecosystems here, because for actions this run is the only security route
-  # rather than merely the routine one (the invariant above), and it is the one ecosystem whose
-  # extra pull requests cost little to read. The security-update path a cooldown exempts does not
-  # exist for a SHA-pinned action, so here the wait from a disclosure to an open pull request is
-  # bounded by one whole interval plus the cooldown: about fourteen days on this schedule, about
-  # thirty-eight on the monthly one.
+  # Weekly, alone here: for a SHA-pinned action this run is the only security route (invariant
+  # above), and its pull requests are cheap to read. Disclosure to pull request is bounded by one
+  # interval plus the cooldown: ~14 days weekly, ~38 monthly.
 
   # `/` is not the repository for this ecosystem: it means the root `action.yml` plus
   # `.github/workflows/`, and reaches no composite action. The glob over `.github/actions` is what
@@ -47,9 +43,8 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
-    # Explicit because the default of 5 is reachable -- five action repositories plus the group --
-    # and hitting it silently stops version updates, which for this ecosystem are the whole
-    # security route. Weekly reaches a ceiling four times faster.
+    # Explicit: the default of 5 is reachable here, and hitting it silently stops version updates --
+    # this ecosystem's only security route.
     open-pull-requests-limit: 10
     commit-message:
       prefix: "CI"

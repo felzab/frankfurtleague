@@ -6,39 +6,28 @@ description: >-
 # The caller checks out first. A `./` action is read from the workspace, so the runner cannot find
 # this file until actions/checkout has run -- which is also why the checkout stays in each job,
 # where its own fetch-depth is decided.
-#
-# Local to this repository, so it needs no Actions allowlist entry (docs/_git/spec.md, Repository
-# settings) -- the action it calls does. The pin below is the same full-SHA form the workflows use;
-# dependabot reaches it through the composite-action entry in .github/dependabot.yml, never through
-# its root one.
+
+# Local, so it needs no Actions allowlist entry (docs/_git/spec.md, Repository settings); the action
+# it calls does. Dependabot reaches its pin through .github/dependabot.yml's composite-action entry.
 
 runs:
   using: composite
   steps:
-    # One action where there were two: pnpm/setup fetches pnpm's release binary at the version
-    # `packageManager` names -- no npm self-install and downgrade -- and installs the Node
-    # `devEngines.runtime` declares via `pnpm runtime set`, replacing setup-node.
+    # pnpm/setup fetches pnpm's binary at the `packageManager` version and installs the Node
+    # `devEngines.runtime` declares: one action for both, and no npm self-install.
 
-    # A CACHED CHECK, signed off rather than inherited: whatever `cache` says, the action restores
-    # pnpm's verification log, which memoizes the verdict that each lockfile entry's hash matches
-    # the registry. An unchanged lockfile is not re-checked.
+    # A CACHED CHECK, accepted knowingly: whatever `cache` says, pnpm's verification log is restored,
+    # and an unchanged lockfile is not re-verified against the registry.
 
-    # Accepted because the reuse is bounded: pnpm re-verifies once the lockfile's bytes change, the
-    # log is uploaded when the install ends rather than at job end, out of reach of later steps,
-    # and one a record vanished from is discarded.
+    # Bounded: a changed lockfile re-verifies, the log is uploaded when the install ends rather than
+    # at job end, out of reach of later steps, and one a record vanished from is discarded.
     - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
       with:
-        # `packageManager` and `devEngines.runtime` are read from the manifest here, and the install
-        # runs here. The image pins pnpm again at `fl_frontend/Dockerfile :: ARG PNPM_VERSION`, and
-        # nothing compares the two -- bump both.
+        # The image pins pnpm again at `fl_frontend/Dockerfile :: ARG PNPM_VERSION`; nothing compares
+        # them, so bump both.
         working-directory: fl_frontend
-        # The store cache, keyed on fl_frontend/pnpm-lock.yaml and the installed runtime, in place
-        # of setup-node's `cache: pnpm`.
+        # The store cache, keyed on the lockfile and the runtime.
         cache: true
-        # Runs the install as `pnpm install --frozen-lockfile`, and refuses outright when no
-        # lockfile is there to freeze.
-
-        # That second half is what a plain install lacks: pnpm declines to UPDATE a lockfile under
-        # CI, but with none at all it resolves from the registry, writes one and exits 0 -- an
-        # unpinned tree, green.
+        # `pnpm install --frozen-lockfile`, plus a refusal when no lockfile exists at all -- where a
+        # plain install resolves from the registry, writes one and exits 0.
         require-lockfile: true

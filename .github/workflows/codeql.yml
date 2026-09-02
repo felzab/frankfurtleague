@@ -26,15 +26,15 @@ on:
   schedule:
     - cron: "37 4 * * 1"
 
-# Least privilege, same reasoning as `.github/workflows/verify.yml`. `security-events: write` is the one addition, and it
-# is what uploads results to the Security tab; without it the analysis runs and the findings vanish.
+# Least privilege, as in verify.yml, plus the analysis's grants: `security-events: write` uploads
+# results to the Security tab, without which the findings vanish. `actions: read` is the starter
+# workflow's, required for a private repository only.
 permissions:
   contents: read
   security-events: write
   actions: read
 
-# Same shell as verify.yml, for the reason written there. No `run:` step exists here today; the
-# default is declared so one added later inherits the same failure semantics as the other two.
+# Same shell as verify.yml, for the reason written there, so a `run:` step added later inherits it.
 defaults:
   run:
     shell: bash
@@ -51,8 +51,7 @@ jobs:
   # analysis already filed under the old name.
   analyze-javascript:
     runs-on: ubuntu-latest
-    # Several times the analysis's own duration at its tail; the only failure mode of a margin this
-    # size is a red run somebody re-runs.
+    # Several times the analysis's longest run; the only failure mode of a margin this size is a re-run.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

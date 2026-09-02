@@ -48,29 +48,25 @@ dev = [
     # `fastapi.testclient.TestClient` is a thin wrapper over httpx and imports it eagerly, so the
     # tests fail at collection without it. No module in app/ touches it.
     "httpx>=0.28.1",
-    # The type checker the editor already runs as Pylance. In the venv so `verify.sh` runs the SAME
-    # one, rather than the gate and the editor disagreeing about whether the code is correct.
-    # `[nodejs]` because the wrapper takes nodejs-wheel's binaries ahead of a PATH node or a nodeenv
-    # download, so the Node pyright runs on is the lockfile's, not the runner image's or a developer's.
+    # `[nodejs]`: the wrapper takes nodejs-wheel's Node ahead of a PATH node or a nodeenv download,
+    # so the lockfile pins the Node pyright runs on. Why the gate runs pyright at all: `[tool.pyright]`.
     "pyright[nodejs]>=1.1.406",
     # Starts a real mongod for the `db`-marked tests. Only those tests import it, and
     # they are deselected by default, so a normal `pytest` run never loads it or touches Docker.
     "testcontainers[mongodb]>=4.15.0",
-    # Distributes the `db` tier over worker processes, which `scripts/verify.sh`'s db scope asks for
-    # with `-n auto --dist loadfile`. No module imports it, and the one place its hookspec is named
-    # -- `tests/conftest.py :: pytest_configure_node` -- carries `optionalhook`, which is what lets a
-    # run whose environment lacks the plugin collect at all rather than end at 3.
+    # Distributes the `db` tier (`scripts/verify.sh`'s db scope).
+    # `tests/conftest.py :: pytest_configure_node` carries `optionalhook` so a venv without this
+    # plugin still collects.
     "pytest-xdist>=3.8.0",
-    # Lints the workflows for what actionlint leaves alone -- unpinned actions, over-broad permissions,
-    # persisted credentials. A Rust binary shipped as a wheel, so it comes through the lockfile like
-    # every other checker. No module imports it.
+    # Lints the workflows for what actionlint leaves alone; a Rust binary shipped as a wheel, so it
+    # comes through the lockfile like every other checker.
     "zizmor>=1.30.0",
 ]
 
 [tool.uv]
-# The uv the Dockerfile copies into the image, so the gate's venv and the image's come from one
-# resolver; setup-uv reads this key to pick CI's uv. Moves with the Dockerfile's
-# `FROM ghcr.io/astral-sh/uv:` line, which nothing compares it to.
+# The uv the Dockerfile copies in, so one resolver builds the gate's venv and the image's;
+# setup-uv's `version-file` reads it too. Moves with the Dockerfile's `FROM ghcr.io/astral-sh/uv:`
+# line, which nothing compares.
 required-version = "==0.12.3"
 
 [tool.ruff]
@@ -83,12 +79,9 @@ select = [
     "F",  # pyflakes
     "I",  # isort (alphabetizes your imports!)
     "B",  # flake8-bugbear
-    # Modernisations with a mechanical fix and no judgment in them — `re.I` spelled out as
-    # `re.IGNORECASE` is the motivating case, caught by an editor while the gate could not see it.
-    # Measured at zero findings across app and tests when selected, so it costs nothing today.
-    # This is NOT the `UP` family, which is a real migration and belongs to roadmap item BE-7.
-    # The stable subset only: ruff gates 14 of FURB's 36 rules behind `preview` (ruff 0.16.2), and
-    # those are out of scope -- turning preview on would move every other family's behaviour too.
+    # Fixes with no judgment in them -- `re.I` spelled `re.IGNORECASE` is the motivating case. Not the
+    # `UP` family, which is a real migration. Stable subset only: ruff holds part of FURB behind
+    # `preview`, and turning that on moves every other family too.
     "FURB",  # refurb — mechanical modernisations
     # Docstring FORMATTING only (docs/standard.md, INC-7). Deliberately NOT the D1xx
     # missing-docstring family: requiring a docstring on every symbol manufactures boilerplate, and
