@@ -85,37 +85,26 @@ the request line as written, so `/api/v0//system/is_live` is answered by FastAPI
 URI this block matches decodes either to the probe or to nothing — but the error body fingerprints
 the framework the origin runs.
 
-**`$remote_addr` is the visitor rather than the Cloudflare edge**: `realip` rewrites it from the
-header `nginx/prod.conf :: real_ip_header` names, for a request arriving from
-`nginx/prod.conf :: set_real_ip_from`'s ranges, and every zone keys on what that rewrite produced —
-without it every visitor behind one point of presence would share a key. **The range list is
-maintained by hand and goes stale**, and the trust it grants reaches every Cloudflare customer
-rather than this account alone (§4); the access line records what the rewrite produced
-([`docs/logging/spec.md`](../logging/spec.md) §1.2). **A fallback inside the trusted ranges is
-marked rather than silent**: `nginx/prod.conf :: geo $realip_fallback` re-tests `$remote_addr`
-after `realip` has run — a header that is absent or unparseable leaves the edge address in place —
-and the access line carries the verdict as `realip_fallback`, `1` on the fallback (each case
-measured 2026-08-31 against a running nginx: recovered `0`, absent `1`, malformed `1`). The marker
-costs a second hand-kept copy of the ranges per file, held to the first by nothing (§4, db2a-9qu3),
-and reaches only that route: an address from a range published after the fetch falls back
-**outside** both copies, so keeping the list current stays the only answer there.
+**`$remote_addr` is the visitor rather than the Cloudflare edge**, and every zone keys on what that
+rewrite produced (`nginx/prod.conf :: real_ip_header`, `:: set_real_ip_from`); the access line
+records it ([`docs/logging/spec.md`](../logging/spec.md) §1.2). **The range list is maintained by
+hand and goes stale**, and the trust it grants reaches every Cloudflare customer rather than this
+account alone (§4). **A fallback inside the trusted ranges is marked rather than silent**: the
+access line carries `realip_fallback`, `1` where the rewrite did not take (each case measured
+2026-08-31 against a running nginx: recovered `0`, absent `1`, malformed `1`). The marker costs a
+second hand-kept copy of the ranges per file, held to the first by nothing (§4, db2a-9qu3), and
+reaches only that route: an address from a range published after the fetch falls back **outside**
+both copies, so keeping the list current stays the only answer there.
 
-**Every zone is keyed on a POST map, the two Kürzel zones excepted.** `$signin_limit_key` (and its
-`48` twin — a `map` takes one source variable) is empty for anything but a POST, and an empty key
-is exempt from `limit_req`, which is what lets the method maps serve `signin`, `clienterr` and
-`bewerbung` without limiting the GETs on those paths. The Kürzel check IS a GET, so keyed there it
-would read as limited and be unlimited; its zones key on the network maps unconditionally, at a
-rate well above the submission's.
+**Every zone is keyed on a POST map, the two Kürzel zones excepted** — an empty key is exempt from
+`limit_req`, so `signin`, `clienterr` and `bewerbung` limit no GET on their paths. The Kürzel check
+IS a GET, so keyed there it would read as limited and be unlimited; its zones key on the network
+maps unconditionally, at a rate well above the submission's.
 
-**Underneath both, the key is a NETWORK rather than an address, and there are two of them**:
-`nginx/prod.conf :: map $remote_addr $client_net` answers the /64 for an IPv6 visitor and the whole
-address for an IPv4 one, `nginx/prod.conf :: map $remote_addr $client_net48` the /48, and the
-method maps chain onto both. A /64 is the floor of what one subscriber holds, so the narrow key
-keeps ordinary visitors apart while the wide one caps the walk across a subscriber's own blocks; a
-/56 key is not expressible from these strings, nginx stripping a group's leading zeros. **Every
-render shape is enumerated rather than matched by a prefix, in both maps** — nginx's zero-run
-compression falls where the HOST bits put it, so a shape a map missed would split one prefix into
-two buckets and double its allowance.
+**Underneath both, the key is a NETWORK rather than an address, and there are two of them** —
+`nginx/prod.conf :: map $remote_addr $client_net` for the /64 and `:: map $remote_addr
+$client_net48` for the /48, the whole address on IPv4 either way. A /56 key is not expressible from
+these strings at all, nginx stripping a group's leading zeros.
 
 **Both maps were verified against a RUNNING nginx** — their bodies extracted into a throwaway
 `nginx:1.31-alpine` answering with what it rendered, driven across every zero/non-zero group
@@ -136,43 +125,20 @@ rather than `return 308`, which would be nginx deciding a trailing-slash policy 
 Percent-encoded, double-slash and dot-segment forms need no twin: nginx decodes, merges and
 resolves each before matching, all three measured reaching their zone (measured 2026-08-30).
 
-**Each pair is one narrow zone and one wide one, the wide at ten times the rate and the burst** —
-the narrow zone decides an ordinary visitor's request, the wide one caps the walk. **The pairs are
-held apart per unit of WORK rather than pooled**: a Kürzel keystroke and an outbound email cost
-differently, and one shared ceiling would let the cheap traffic spend what guards the expensive.
-**Two paths reaching the same work share one pair for that same reason** — `location = /signin` and
-`location /api/auth/signin` both end in one Resend message and one verification-token write, so
-separate budgets would hand a caller twice the allowance for alternating between them. **The
-application form's submission carries the lowest rate here**, its
-handler mailing an address the REQUEST supplied — every allowed request is a message to a chosen
-stranger — and lowering the reachable ceiling again is the wide multiplier's job rather than the
-narrow rate's.
+**Each pair is one narrow zone and one wide one, the wide at ten times the rate and the burst**, and
+the pairs are held apart per unit of WORK rather than pooled — two paths reaching the same work
+share one pair. `bewerbung48` is the one deliberate exception to the multiplier, and it is on the
+RATE alone: three times rather than ten, on a count of applications per season rather than a ratio.
+What decides that number, and what it risks, is at the zone in `nginx/prod.conf`.
 
-**`bewerbung48` is the one deliberate exception to the multiplier, and it is on the RATE alone**:
-its 6r/m against `bewerbung`'s 2r/m is three times rather than ten, the burst staying at the ten
-the rule sets. What decides it is a count rather than a ratio — the number of applications a season
-takes before the admin triage read answers 500 — and the narrower wide rate puts that flood hours
-out of one allocation rather than under an hour. What it risks, and what the multiplier exists to
-protect, is a school behind one `/48` signing up as a class. The argument is at the zone, in
-`nginx/prod.conf`'s own comment, which is where a reader changing the number stands.
+**`location /` takes a connection ceiling rather than a rate zone**, `limit_conn conn 50` on the
+narrow key, sized for HTTP/2 where nginx counts each concurrent request as a connection. **That
+makes one directive count differently in the two files**: `nginx/local.conf` serves HTTP/1.1, so
+the byte-identical line bounds whole connections locally, and nothing compares the pair (§4,
+db2a-9qu3).
 
-**`location /` takes a connection ceiling rather than a rate zone** — a `limit_req` there would
-meter `/_next/static` too and stall an ordinary page load, so `limit_conn conn 50` on the narrow
-key bounds the same flood without metering anything, `limit_conn_status` matching
-`limit_req_status`. It is sized for HTTP/2, where nginx counts each CONCURRENT REQUEST as a
-connection; through Cloudflare, whose edge pools origin connections, it is a backstop rather than a
-per-visitor control. **That makes one directive count differently in the two files**:
-`nginx/local.conf` serves HTTP/1.1, so the byte-identical line bounds whole connections locally,
-and nothing compares the pair (§4, db2a-9qu3).
-
-**Three 15-second timeouts bound the gap between two reads, not a transfer** —
-`client_header_timeout`, `client_body_timeout` and `send_timeout`, so a slow upload from a phone is
-unaffected while a connection held open without sending is not.
-
-**The public write caps its body at `64k` against the server block's `20M`**:
-`FLPostBewerbungPayloadSchema` is a fixed-shape object with no array a caller can grow, so the
-server-level allowance was headroom for an attacker alone. Measured 2026-08-30: a 100,049-byte POST
-is refused `413` at the edge, while a 4,049-byte POST reaches the handler.
+**The public write caps its body at `64k` against the server block's `20M`.** Measured 2026-08-30:
+a 100,049-byte POST is refused `413` at the edge, while a 4,049-byte POST reaches the handler.
 
 **A zone has been observed refusing, and what that establishes is the MECHANISM, not the numbers.**
 A burst at the Kürzel check was refused past the burst as `429` (not nginx's `503` default), the
@@ -182,13 +148,9 @@ envelope, nginx's own behaviour. No rate here is measured — the figures remain
 the `limit_conn` figure is derived from HTTP/2 semantics and never exercised (measured 2026-08-30).
 
 **The liveness location carries no `limit_req` zone, and that is a decision rather than an
-omission**: it answers a GET that takes no key and touches no database, Cloudflare sits in front of
-it, and a zone would throttle the uptime monitor the path is published for (§3) before it throttled
-anything else.
+omission**: a zone would throttle the uptime monitor the path is published for (§3) before it
+throttled anything else.
 
-Server blocks: port 80 redirects to HTTPS and strips `www.`; a `default_server` block on 443
-rejects unknown hosts with `ssl_reject_handshake`; a second HTTPS block serves
-`www.frankfurtleague.de` and 301s to the apex; the real server block serves `frankfurtleague.de`.
 **The www block over HTTPS is not redundant with the port-80 redirect**: HSTS carries
 `includeSubDomains`, so a browser that has visited once never issues the plaintext request the
 port-80 block would have caught — without the block that request has its handshake rejected,
@@ -196,25 +158,13 @@ observed 2026-08-01 as a public `525`. **A Cloudflare proxy sits in front of ngi
 [overview](overview.md)), so an origin-side failure can surface as a Cloudflare status code that
 names neither nginx nor the block responsible.
 
-Proxy headers are declared at server level: `Host`, `X-Real-IP`, `X-Forwarded-For`,
-`X-Forwarded-Proto`, `X-Forwarded-Host`, `X-Forwarded-Port`, HTTP/1.1 — plus the two the edge
-controls outright, `X-Correlation-ID` minted and `X-FL-Actor` blanked, which are L7 and L10's rows
-([`docs/logging/spec.md`](../logging/spec.md) §1.1).
-
 **A `location` declaring any `proxy_set_header` REPLACES that whole inherited set rather than
-extending it** — the mechanism I2 records for `add_header`. Both nginx configs hold the same two
-locations that declare one: `location = /api/v0/system/is_live` restates the server block's list in
-full with `Host $proxy_host`, so FastAPI is addressed as the upstream `proxy_pass` names and the
-public hostname needs no place in `api_trusted_hosts`, both edge-controlled headers applied there
-(I13); and `location /_next/static/` declares `Host $http_host` and nothing else, so neither
-edge-controlled header reaches a static asset — nothing under that prefix runs application code,
-and its access line carries `$request_id` either way.
-
-Every SERVING block writes the `fl_json` access format, which carries the id, `$request_time` and
-`$upstream_response_time`.
-
-Buffers are enlarged (`proxy_buffer_size 128k`, `proxy_buffers 4 256k`) specifically to stop 502s from
-large Auth.js cookies.
+extending it** — the mechanism I2 records for `add_header`, and what decides which of the two
+edge-controlled headers, `X-Correlation-ID` and `X-FL-Actor`, reaches an upstream (L7 and L10,
+[`docs/logging/spec.md`](../logging/spec.md) §1.1). The liveness location restates the set in full
+so that FastAPI is addressed as the upstream `proxy_pass` names and the public hostname needs no
+place in `api_trusted_hosts` (I13); `location /_next/static/` restates none of it, nothing under
+that prefix running application code.
 
 ### 1.4 Security headers
 
@@ -260,30 +210,19 @@ machinery, and **prod** only pulls (I6). Machine-specific scripts will not start
 platform.
 
 **The local stack points both application services at its own database through compose's
-`environment`**, which overrides what `env_file` carries, so no `.env` is edited and no run is left
-aimed at the wrong cluster. The frontend needs that override as much as the backend does: Auth.js
-reaches MongoDB directly ([`../frontend/overview.md`](../frontend/overview.md)), so leaving its
-`MONGODB_URI` alone would sign the local stack in against production.
+`environment`**, so no `.env` is edited and no run is left aimed at the wrong cluster
+(`docker-compose.local.yml`, whose invariant block holds the argument for each override).
 
-**That database is a single-node replica set rather than a standalone**, the argument written at
-`docker-compose.local.yml :: mongo`; its healthcheck reports healthy only once the node has elected
-itself primary, and both application services wait on `service_healthy` — the backend because its
-lifespan applies every validator before it yields.
+**`./scripts/ops/local.sh --seed` fills it from production**, through two containers of which only
+one is handed the production credentials — a discipline rather than a boundary, its costs written
+at `scripts/ops/local.sh :: take_dump`. A copy already on disk is reused however old it is,
+`--refresh-db` takes a new one and `--fresh` deletes the volume. The copy lands in `.local-db/`,
+which `.gitignore` and `.prettierignore` both cover because it is real data and this repository is
+public.
 
-**`./scripts/ops/local.sh --seed` fills it from production**, through two containers of which only one
-is handed the production credentials, and that one a `mongodump` command and no other — a
-discipline rather than a boundary, its costs written at `scripts/ops/local.sh :: take_dump`. A copy
-already on disk is reused, `--refresh-db` takes a new one, and `--fresh` deletes the volume. The
-copy lands in `.local-db/`, which `.gitignore` and `.prettierignore` both cover because it is real
-data and this repository is public — its log with it, a failed copy quoting the cluster it could
-not reach.
-
-**A seed runs before the application services exist**: nothing renders a page against an empty
-database, so no empty read is cached for the days the reference reads hold a value
-([`../frontend/spec.md`](../frontend/spec.md) §1.2), and the copy step may clear the directory this
-file bind-mounts, which is only safe while no container holds that mount. What the seed checks
-before restoring is that the database container can see collections under it — `mongorestore`
-pointed at an empty directory writes nothing and still exits 0.
+**A seed runs before the application services exist**, so nothing renders a page against an empty
+database and no empty read is cached for the days the reference reads hold a value
+([`../frontend/spec.md`](../frontend/spec.md) §1.2).
 
 **The copy is the application database and not the Auth.js store beside it** — the backend's
 credential is scoped to one database (the two-users split in [`overview.md`](overview.md)), so the
@@ -292,14 +231,16 @@ sign in is an environment value rather than a stored row.
 
 **The production tier's limitations shape that command**, and they are the fastest-rotting fact on
 this page: read from MongoDB's Atlas Flex limitations documentation, 2026-08-27. What each denial
-costs the command is written at `scripts/ops/local.sh :: take_dump`; the copy carries no users or roles
-and is consistent per collection rather than at one instant. Two things fix the local image's major
-version — that tier's MongoDB floor, and the tag the db tier runs against
+costs the command is written at `scripts/ops/local.sh :: take_dump`; the copy carries no users or
+roles, is taken one collection at a time against the tier's rate cap, and is consistent per
+collection rather than at one instant. Two things fix the local image's major version — that tier's
+MongoDB floor, and the tag the db tier runs against
 (`fl_backend/tests/conftest.py :: mongo_replica_set_url`) — and mongorestore refuses a dump whose
 source carries a different one.
 
-**`deploy.sh` reads the server's Docker Engine version before it stops anything** — the comment at
-`scripts/ops/deploy.sh :: ENGINE_MIN` holds why preflight asks rather than the deploy.
+**`deploy.sh` reads the server's Docker Engine version in preflight, before it stops or pulls
+anything**, the compose files' `start_interval` being what needs it
+(`scripts/ops/deploy.sh :: ENGINE_MIN`).
 
 **`scripts/gate/scope_map.sh` is the one copy of the path-to-scope mapping.** Every CI workflow that
 maps paths reads it, and so does `scripts/checks/check_scope.py` through its `--stdin` mode; every other
@@ -315,36 +256,18 @@ repository, so `.github/workflows/pr-body.yml` is the only place it is addressab
 javascript helper is `scripts/checks/ts_normalize.mjs`, whose comment at
 `scripts/checks/ts_normalize.mjs :: printer` argues the exception.
 
-**`scripts/tests/` is the pytest suite that proves the gate's own coverage** (PRE-4), and every
-module belongs to one of three groups; what a module covers in particular is its own header.
-
-**What each checker reports, planted and driven.** A module here plants a violation, asserts the
-check finds it, and asserts the same check says nothing about a corpus with none; every check
-`scripts/checks/docs_gate/kernel.py :: CHECKS` registers is held to having such a case
+**`scripts/tests/` is the pytest suite that proves the gate's own coverage** (PRE-4); what a module
+covers is its own header, and a check `scripts/checks/docs_gate/kernel.py :: CHECKS` registers
+without a planted violation beside it fails
 (`scripts/tests/test_check_docs.py :: test_every_registered_check_and_verdict_has_a_plant`).
 
-**What stops a sweep going quiet.** A checker that has stopped reading the tree reports success over
-an empty collection, so a module here pins a floor against this repository rather than against a
-fixture — the population a sweep reaches, or `scripts/checks/docs_gate/branch.py :: INCODE_SCOPES` against
-the rule text it enforces.
-
-**What a run exits with, executed rather than read.** A comparison of two literals cannot see an arm
-reordered inside a shell function, so a module here runs the thing and asserts the status a caller
-branches on — down to every shell arm degrading on a crash spelling
-`scripts/lib/checker_kernel.py :: EXIT_CRASH` as its own literal, a copy left behind being invisible to
-the run it silently reprieves.
-
-**`scripts/gate/selfcheck.sh` tests the scripts themselves**, and it is the scripts scope's first step —
-reach for it directly after editing anything in `scripts/`, `.claude/hooks/` or `.githooks/`. Its
-passes catch the defects Windows hides: CRLF endings, and an executable bit that `chmod +x` in Git
-Bash never reaches, either of which works locally and fails on the server (I10). It probes the
-assistant guards against a throwaway repository, drives `check_scope.py`'s comment-only classifier
-over fixtures in both directions — the one gate decision whose wrong answer is silent — and
-byte-compares the blocks the guards duplicate rather than source, between their sentinel markers,
-so a fix made to one copy and not the rest fails the gate rather than leaving a hole. It holds
-`_lib.sh`'s log redaction to fixtures the same way (§1.7), that one being silent in both directions:
-a credential reaching the operator's terminal, or the host redacted out of the log a failing deploy
-is read from.
+**`scripts/gate/selfcheck.sh` tests the scripts themselves**, and it is the scripts scope's first
+step — reach for it directly after editing anything in `scripts/`, `.claude/hooks/` or
+`.githooks/`. Its passes catch the defects Windows hides: CRLF endings, and an executable bit that
+`chmod +x` in Git Bash never reaches, either of which works locally and fails on the server (I10).
+It also holds the two decisions that are silent when wrong — `check_scope.py`'s comment-only
+classifier, and `_lib.sh`'s log redaction (§1.7), whose failure is either a credential on the
+operator's terminal or the host redacted out of the log a failing deploy is read from.
 
 **That classifier's TypeScript half needs the frontend's `typescript`, and the scope does not
 require it**: where `typescript` does not resolve, the classifier is required to answer "code", and
@@ -354,14 +277,10 @@ exactly this reason — otherwise the parser half would be exercised on no machi
 **shellcheck and actionlint are pinned, and nothing but a person bumps them** — the versions are
 written in the self-check itself, where no dependency ecosystem can read them, the deliberate
 manual half of a pinning policy Dependabot otherwise maintains
-([`docs/_git/spec.md`](../_git/spec.md) §1.6). The shellcheck pin carries the release tarball's
-sha256 beside it (`scripts/gate/selfcheck.sh :: SHELLCHECK_LINUX_X86_64_SHA256`), because CI is what
-downloads that tarball and unpacks it as root onto `PATH`, and a release asset can be replaced
-without its tag moving. A `shellcheck` on PATH is used and warned about off
-the pin; with no binary and no daemon each step skips rather than fails outside CI, so the shell
-and the workflows go unlinted while the rest of the scope passes — in CI the same shortfall is a
-finding. `require_docker` runs for the ops, database and image scopes alone, so nothing announces
-the shortfall before a `--scripts` run starts.
+([`docs/_git/spec.md`](../_git/spec.md) §1.6). **With no binary and no daemon each step skips
+rather than fails outside CI**, so the shell and the workflows go unlinted while the rest of the
+scope passes; in CI the same shortfall is a finding. `require_docker` runs for the ops, database
+and image scopes alone, so nothing announces the shortfall before a `--scripts` run starts.
 
 **Publishing needs a classic token with `write:packages`** (`docker login ghcr.io -u felzab`): a
 fine-grained token logs in and then fails the push with `permission_denied`, ghcr evaluating
@@ -382,35 +301,25 @@ When pruning, keep roughly the last five `sha-` tags per package and never delet
 created alongside a tag still in use** — BuildKit provenance attestations the tagged image
 references by digest, so deleting one corrupts the tag it belongs to.
 
-**`--status` reads and changes nothing, and it ends one of three ways** — pruning is decided from
-what it prints, so which ending it reached is the first thing to read.
+**`--status` reads and changes nothing, and it ends green, with findings or refused (§1.7)** —
+pruning is decided from what it prints, so which ending it reached is the first thing to read.
+**Green is the
+only ending a registry may be pruned from**: findings mean something definite is wrong with what is
+running, and a refusal means a question the report is built from went unanswered, so the rollback
+list it printed may be short by whatever went unread and "never delete what is live" cannot be
+applied to it.
 
-**Green, exit 0.** Both services are running, they name the same build, and the edge answers the
-liveness probe with 200. This is the only ending that says what is live, and the only one a registry
-may be pruned from.
+**A stopped service is graded as a finding rather than an advisory**, because the edge can still
+answer 200 from a worker that outlived it: a green probe over a stopped pair is what a stale nginx
+or a stray container looks like, and it is the state that most resembles a healthy one from
+outside. That probe is the only line in the report not taken from a container, nginx resolving its
+upstreams once as it loads, so a healthy pair says nothing about whether the edge is still pointed
+at it (I9).
 
-**Findings, exit 1.** Something definite is wrong with what is running: a service is not running at
-all, the two services are running different builds — the row naming both and the tag that puts them
-back on one (§3) — or the edge answered the liveness probe with an HTTP status other than 200. **A
-stopped service is graded here rather than as an advisory**, because the edge can still answer 200
-from a worker that outlived it: a green probe over a stopped pair is exactly what a stale nginx or a
-stray container looks like, and it is the state that most resembles a healthy one from outside. That
-probe is the only line in the report not taken from a container, nginx resolving its upstreams once
-as it loads, so a healthy pair says nothing about whether the edge is still pointed at it (I9).
-
-**Refused, exit 2.** A question the report is built from went unanswered: compose declined to say
-whether a service is running, a container was removed between `ps` and `inspect`, a build label
-could not be read, or this host's images could not be listed. An unasked service reads exactly like a
-stopped one, so the report withholds its verdict rather than grading around the gap. **Prune nothing
-after this ending** — the rollback list it printed may be short by whatever went unread, and "never
-delete what is live" cannot be applied to a list that is not the whole one.
-
-**`curl` writes `000` where no HTTP response arrived at all** — a DNS failure, a refused connection,
-a TLS failure and a timeout all print it, and the empty string means only that `curl` itself did not
-run. That is an advisory rather than a finding, because `deploy.sh` runs on the server: the read is
-the host asking for its own public hostname, so a host that does not resolve the domain publicly, or
-whose network does not route 443 back to it, answers `000` while the site is perfectly well. The
-deploy's own probe of the same URL grades every one of those answers the same way (§1.7).
+**`curl` writing `000`, on the other hand, is an advisory**, because `deploy.sh` runs on the server:
+the read is the host asking for its own public hostname, so a host that does not resolve the domain
+publicly, or whose network does not route 443 back to it, answers `000` while the site is perfectly
+well. The deploy's own probe of the same URL grades it the same way.
 
 ### 1.6 The verification gate
 
@@ -420,138 +329,78 @@ surfaces and combine, and `--frontend` implies `--format`, the frontend scope re
 files the formatter governs.
 
 Scopes **run concurrently by default**, one worker process each, and `verify.sh` replays their
-captured output in that order — so a parallel run reads as the serial one, byte for byte, per
+captured output in written order — so a parallel run reads as the serial one, byte for byte, per
 stream: a terminal merging stdout and stderr sees a scope's error lines after its output rather
 than between it, which is the merge and not a defect. A failing scope still ends the run at its
 own replay, but only after every later scope that finished with a verdict has its ledger rows
 adopted — rows alone, never the captured output — so the closing table tells a passing scope from
-one that never ran, and a session fixing the failure knows what it need not pay for again. The
-run's exit is then the worst adopted rank, findings outranking a refusal as everywhere else
-(`scripts/lib/_lib.sh :: finish`); byte-identity with the serial run is a green run's property, a
-failing serial run having stopped where the parallel one did not. `--serial` runs them one at a
-time and is what a byte-identity comparison is measured against; `--verbose`, a run covering one
-scope, CI (already one scope per job) and a machine with no interpreter at the checkers' floor are
-serial too. **No scope waits on another** — the compose parse reads its stand-in `.env` files from
-a scratch copy, never the real trees — so every scope starts at once and the run's floor is its
-longest. `scripts/gate/gate_pool.py` owns the spawning and nothing else; the sections and closing
-statements stay in `scripts/lib/_lib.sh`.
+one that never ran, and a session fixing the failure knows what it need not pay for again.
+Byte-identity with the serial run is a green run's property, a failing serial run having stopped
+where the parallel one did not, and `--serial` is what that comparison is measured against.
+**No scope waits on another**, so every scope starts at once and the run's floor is its longest.
 
 **A worker's exit status and the rows it sent home are two accounts of one run, and the parent holds
-them to each other** (`scripts/lib/_lib.sh :: adopt_ending`): a status of 1 has to name a finding in the
-rows and a status of 2 a refusal, and one whose rows name neither **ends the run at 3, never at 2**.
-Read a 3 there as the code for the environment says: the fault is in this gate's own handoff, and
-nothing in the tree under test can be changed to answer for it. A scope that sent no ledger at all
-is exempt, being already a state §1.7's closing table will not call green.
+them to each other** (`scripts/lib/_lib.sh :: adopt_ending`): one whose rows name neither a finding
+nor a refusal **ends the run at 3, never at 2**. Read a 3 there as the code for the environment
+says: the fault is in this gate's own handoff, and nothing in the tree under test can be changed to
+answer for it.
 
-**Most scopes carry that shape one level down, through the same pool**: a scope's checks start
-together and each is collected at its own step, so the scope costs its slowest check rather than the
-sum; the format scope, with its single check, and the ops and database scopes run theirs in place.
-Every verdict is still reached in written order, a unit records an exit status and never speaks, and
-a unit that left none is read as a crash rather than as a pass.
+**Most scopes carry that shape one level down, through the same pool**, so a scope costs its
+slowest check rather than the sum; the format, ops and database scopes run theirs in place. **A
+pool's own wiring is refused at 3 before anything runs**, each refusal carrying its argument at the
+line it guards.
 
-**A pool's own wiring is refused at 3 before anything runs**, each refusal carrying its argument at
-the line it guards: a unit list may not name a body no `do_<check>` defines
-(`scripts/gate/verify.sh :: pool_bodies_declared`); a unit a pool starts must be replayed by some
-`unit_replay` or `unit_verdict` call (`scripts/gate/verify.sh :: pool_units_replayed`), one that is not
-running, satisfying the wait, and having its output and its exit status discarded under a scope that
-still closes green; and a unit may not stand in both of a scope's phase lists
-(`scripts/gate/verify.sh :: backend_phases_disjoint`, `:: frontend_phases_disjoint`).
+**A failure is reported once the pool is done, never while it runs**, so a scope whose first check
+fails still costs its longest unit before saying so; what that buys is one mechanism for both
+levels, the alternative being a second per-unit join living beside the pool, and a green run — the
+common one — costs the same either way. **The pool ends its units rather than outliving them**
+(`scripts/gate/gate_pool.py :: terminate`), down to the build a unit was waiting on. **None of that
+is installed off POSIX** (`scripts/gate/gate_pool.py :: arm`), so on Windows a run under way is
+only ever waited out, and an interrupt there leaves the builds running.
 
-**Only `--serial`, `--verbose` and a machine with no interpreter at the checkers' floor reach this
-level** (`scripts/gate/verify.sh :: STEP_JOBS`); the pool's other serial exceptions are the pool's alone,
-so a one-scope run and CI both still start their checks together —
-CI's `images` job creates the backend virtualenv for that reason alone, `any_python` otherwise
-falling back to a runner `python3` below the floor, and it runs its two `docker buildx build`
-invocations side by side, each exporting its own `type=gha` cache. **A run that finds no interpreter
-at the floor says so rather than falling back quietly** (`scripts/gate/verify.sh :: POOL_FALLBACK`). A
-step joined after its work ran beside its neighbours is re-dated to that work's own length
-(`scripts/lib/_lib.sh :: step_took_ms`), without which the first step joined absorbs the whole stretch
-and every step after it reads as free.
+**`next typegen` goes first and alone** because it writes the route types under
+`fl_frontend/.next/types/` and `fl_frontend/next-env.d.ts` that `tsc` reads: without them a
+checkout that has never built type-checks a smaller program than a development machine does. The
+two phases are data (`scripts/gate/verify.sh :: FRONTEND_POOL`, `:: FRONTEND_WRITERS`) and a unit
+in both is refused. Prettier is in neither: the format section runs it in place, before the
+frontend's opens.
 
-**The frontend pool is bounded on both sides by a writer of `fl_frontend/tsconfig.json`**:
-`scripts/gate/verify.sh :: FRONTEND_POOL` names the readers, `scripts/gate/verify.sh :: FRONTEND_WRITERS` the
-writers, and `scripts/gate/verify.sh :: run_writer` refuses a writer the list does not name. `next
-typegen` goes first and alone because it writes the route types under `fl_frontend/.next/types/`
-and `fl_frontend/next-env.d.ts` that `tsc` reads: without them a checkout that has never built
-type-checks a smaller program than a development machine does. Prettier is not in that pool: the
-format section runs it in place, before the frontend's opens.
-
-**A failure is reported once the pool is done, never while it runs.** The whole pool is waited on,
-so a scope whose first check fails still costs its longest unit before saying so; what that buys is
-one mechanism for both levels, the alternative being a second per-unit join living beside the pool.
-A green run, which is the common one, costs the same either way. **The pool ends its units rather
-than outliving them** (`scripts/gate/gate_pool.py :: terminate`, `:: drive`): a `SIGTERM`, a `Ctrl-C` or
-the caller going away stops every unit still running — down to the build a unit was waiting on —
-and lets each wind down through its own trap. **None of that is installed off POSIX**
-(`scripts/gate/gate_pool.py :: arm`), so on Windows a run under way is only ever waited out, and an
-interrupt there leaves the builds running.
-
-**A unit carries its own command, which is what lets one runner serve both levels.** A scope unit
-is a `verify.sh` run of that scope, given `FL_GATE_WORKER` and the ledger path its rows travel in;
-a step unit is a `verify.sh` run given `FL_GATE_STEP`, which names one `do_<check>` body and is
-answered before any section opens, so a step's capture holds the check's own output and none of the
-gate's chrome. A scope's two streams are captured apart and replayed each to its own; a step's are
-captured merged and replayed as one, the interleaving being the only thing that says which line a
-tool wrote first. **A step unit reclaims nothing on its way out**
-(`scripts/gate/verify.sh :: gate_exit`), the run's scratch being its parent's and still in use, and the
-ops and images reclaims are each guarded by the scope that created them. **A status outside the
-range a verdict can occupy is a kill, not a pass**, read as one by both
-`scripts/gate/verify.sh :: unit_replay` and `scripts/lib/_lib.sh :: adopt_ending`.
-
-**The eslint step is cached and deliberately not threaded.** The two levers compose — each worker
-thread builds its own lint-result cache through `createLintResultCache`, and `lintFile` returns a
-cached verdict from `getCachedLintResults` before it reads the file — so the choice is the clock's
-and not the source's. Threading buys the cold fill and costs the warm run, which eslint measures
-itself: a warm threaded run emits `ESLintPoorConcurrencyWarning`, whose advice is to disable
-concurrency. A development machine mostly pays the warm run, so the step takes it and gives up the
-cold arm, which a fresh worktree and a CI job each pay once. **What makes the cached verdict honest
-is `fl_frontend/eslint.config.mjs :: crossFileDigest`** — eslint keys a cached verdict on the
-linted file and the resolved config alone, so the inputs deciding a verdict from outside both are
-hashed into `settings`, which lands inside that key: the stylesheets `better-tailwindcss` resolves
-class names against, the route files `@next/next/no-html-link-for-pages` turns into URLs, and
-`fl_frontend/pnpm-lock.yaml` standing in for the rule implementations. **Nothing restores that
-cache in CI**, which is the bound on the digest rather than an omission — a fresh checkout carries
-no `.eslintcache`, so the run that gates a pull request re-decides every file, and a cross-file
-input the digest has not grown to cover costs a false green on a development machine rather than a
-merged one. The measurements behind the trade are in the body of the commit that added
+**The eslint step is cached and deliberately not threaded.** The two levers compose, so the choice
+is the clock's and not the source's: threading buys the cold fill and costs the warm run, which
+eslint measures itself — a warm threaded run emits `ESLintPoorConcurrencyWarning`, whose advice is
+to disable concurrency. A development machine mostly pays the warm run, so the step takes it and
+gives up the cold arm, which a fresh worktree and a CI job each pay once. **What makes the cached
+verdict honest is `fl_frontend/eslint.config.mjs :: crossFileDigest`**, which hashes the inputs
+deciding a verdict from outside eslint's own key into `settings`; **nothing restores that cache in
+CI**, which is the bound on the digest rather than an omission — a cross-file input it has not
+grown to cover costs a false green on a development machine rather than a merged one. The
+measurements behind the trade are in the body of the commit that added
 `fl_frontend/eslint.config.mjs :: filesUnder`.
 
 **No formatter the gate runs writes a tracked file** — prettier runs in check mode everywhere, so a
 run cannot hand back a tree different from the one its later steps measured. Formatting happens at
 commit time instead: `.githooks/pre-commit` formats what is staged and re-stages it, and refuses a
 file staged in part. The hook is convenience and never the enforcement — a clone that has not
-pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what bind. The check
-does write one untracked file: `format:check` passes `--cache --cache-strategy content`, whose
-cache lands under `fl_frontend/node_modules/.cache/prettier/`, an ignored path needing no
-`.gitignore` line of its own. The content key re-checks any file whose bytes changed; what it
-cannot see is a prettier plugin's own change, so a plugin bump warrants deleting that cache file —
-prettier's documented caveat, accepted because a plugin moves only through the lockfile and CI
-runs uncached either way. **What the cache spares is the parse and never the walk**: prettier reads
-every file under a directory argument before it consults the cache, so `.prettierignore` sets this
-scope's floor, and a tool cache that file does not name is read on every run.
+pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what bind. The
+formatter's own cache is keyed on content, and what it cannot see is a prettier plugin's own
+change, so a plugin bump warrants deleting that cache file — prettier's documented caveat, accepted
+because a plugin moves only through the lockfile and CI runs uncached either way. **What the cache
+spares is the parse and never the walk**: prettier reads every file under a directory argument
+before it consults the cache, so `.prettierignore` sets this scope's floor, and a tool cache that
+file does not name is read on every run.
 
-**An editor formats earlier still.** `.vscode/settings.json` maps every file type prettier governs
-to it, and names the module, the configuration and the ignore file the gate itself reads, so a save
-produces what this scope checks and the hook usually finds nothing left to do. It binds no more than
-the hook does: a developer without the extension is held by this scope and CI alone. `.editorconfig`
-carries the same conventions to the files prettier never opens — the python, shell, TOML and nginx
-ones — and stays clear of every setting `.prettierrc.json` decides.
+**An editor formats earlier still, and binds no more than the hook does**: `.vscode/settings.json`
+names the module, the configuration and the ignore file the gate itself reads, and a developer
+without the extension is held by this scope and CI alone. `.editorconfig` carries the same
+conventions to the files prettier never opens and stays clear of every setting `.prettierrc.json`
+decides.
 
-**Every untracked file a run writes is gitignored where it lands, and three of them are caches
-this repository opts into**: `tsc` writes `fl_frontend/tsconfig.tsbuildinfo` under `incremental`,
-the eslint step writes `fl_frontend/.eslintcache` under `--cache`, and prettier writes the cache the
-formatter paragraph above locates under the same flag, each of which the next run reads. `next
-build` writes `fl_frontend/.next/`, which is output rather than state, and the stand-in `.env` files
-and `.tmp-nginx-check/` the ops scope needs are this run's own fixtures, removed on exit. The tools
-a scope runs also cache on their own account and without being asked — ruff's and pytest's
-directories, and a `__pycache__/` beside every python package a step imports, one set per working
-directory the scope enters — and `.gitignore` carries a rule for each. None of it is a formatter's
-output and none of it is tracked, so the rule above is untouched — and a cache the gate reads is
-only as good as its key, which is why the eslint one carries the digest above; the ones nothing here
-asked for are keyed by the tool that writes them. **Outside CI the two Next commands install as well
-as write**: handed a missing `typescript` or `@types/*` package, `next typegen` and `next build` add
-it to `node_modules` rather than failing, where a runner takes the refusing branch, keyed off Next's
-own `isCI`.
+**Every untracked file a run writes is gitignored where it lands**, the three caches this repository
+opts into — `tsc`'s, eslint's and prettier's — among them, so none of it is a tracked file the gate
+wrote. **Outside
+CI the two Next commands install as well as write**: handed a missing `typescript` or `@types/*`
+package, `next typegen` and `next build` add it to `node_modules` rather than failing, where a
+runner takes the refusing branch, keyed off Next's own `isCI`.
 
 **One tracked file a gate run writes is not a formatter's doing**: `next typegen` and `next build`
 each rewrite `fl_frontend/tsconfig.json` where a `compilerOptions` key is absent (Next's
@@ -587,48 +436,34 @@ alone where nothing imports the application, on the uv `fl_backend/pyproject.tom
 | `--db`       | `pytest -m db -n auto --dist loadfile`, capped at `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST`, against the two real `mongod`s the xdist controller starts (`docs/backend/spec.md` §1.6)                              | venv + Docker                                                                                                                                |
 | `--images`   | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                    | Docker                                                                                                                                       |
 
-**Each of the images scope's three probes answers three ways, and the third is a refusal.** A clean
-answer is 0 and a real breach 1; an image that would not run at all is refused at exit 2, as
-`scripts/ops/publish.sh`'s `instrumentation.js` probe refuses the same answer (§1.5), and the capture
-names which image (`scripts/gate/verify.sh :: do_image_user`, `:: do_image_context`). An interrupt is
-none of the three and ends the run at 130, as every graded status does. The context probe searches
-the build context under `/app` alone for the credential shapes both `.dockerignore` files exclude
-(`scripts/gate/verify.sh :: IMAGE_CONTEXT_FIND`), and `scripts/tests/test_image_assertions.py` holds the
-two lists to each other.
+**Each of the images scope's three probes answers three ways, and the third is a refusal**: an
+image that would not run at all is refused at exit 2 rather than graded, as `publish.sh`'s
+`instrumentation.js` probe refuses the same answer (§1.5). The context probe and both
+`.dockerignore` files hold the same list of credential shapes, and
+`scripts/tests/test_image_assertions.py` holds the two to each other.
 
 Docker is checked before any check runs on a run covering the ops, database or image scopes, and
 the backend virtualenv on one covering the scripts, documentation, backend or database scopes; the
 frontend's `pnpm install` prerequisite is checked nowhere, so a missing one surfaces at the first
 step running a tool out of `node_modules`. Each tool is its own step, tool output is captured and
 shown only when its step fails, and `--verbose` streams everything instead (§1.7). **Two checkers
-are the exception, both because a passing run's output is worth reading.** The self-check is
-replayed rather than captured: what it skipped and warned about reaches the screen even on a step
-that passed, because a skip nobody sees reads as a pass (§1.7). The documentation gate runs in
-`scripts/gate/verify.sh :: run_checker`'s `annotate` mode, which prints a passing run's capture: the
-population it scanned, which is what says the sweep read the tree rather than an empty collection
-(§1.5). Under Actions it streams, so its workflow commands reach the runner.
+are the exception, both because a passing run's output is worth reading**: the self-check, whose
+skips and warnings would otherwise read as passes, and the documentation gate, whose printed
+population is what says the sweep read the tree rather than an empty collection (§1.5).
 
 **A manifest is compared against its lockfile before anything reads the installed tree** — the
 frontend scope resolves the lockfile against `package.json` and the backend scope runs
 `uv lock --check`, both cheap, where otherwise the breach surfaced only where discovery is
-expensive. The frontend check passes `--lockfile-only`, which keeps it a check rather than an
-install, and `--no-optimistic-repeat-install`, which keeps it a check at all — the default answers
-from file timestamps, so a manifest restored with its mtime preserved passes while disagreeing with
-the lockfile.
+expensive.
 
 **Before any of them runs, `check_scope.py` compares the scopes named against what the branch
 actually changed.** It refuses a run whose diff reaches the image build with a change that is more
-than comments, and merely reports every other surface the run leaves unproven. What counts as "more
-than comments" is decided by a parser: TypeScript through its own parser, Python through `ast`,
-TOML through `tomllib`, and everything else is code, the safe answer where no parser is available.
-**Two shapes a parser calls a comment are excluded by name, because a tool downstream reads them** —
-a line matching `scripts/checks/check_scope.py :: TOOLCHAIN_DIRECTIVE`, which pyright, ruff, prettier and
-the OS loader each read, and a docstring under `scripts/checks/check_scope.py :: DOCSTRINGS_ARE_PUBLISHED`,
-which FastAPI publishes as the OpenAPI `description` so that rewriting one leaves
-`fl_backend/openapi.json` stale. Docstrings are stripped everywhere else. **Those two exclusions are
-pattern matches on comment text**, which the rest of this decision deliberately is not: each is
-named because the parser's answer is right about the language and wrong about what reads the file. The check is skipped in CI, which maps its own scopes
-from the paths.
+than comments, and merely reports every other surface the run leaves unproven. **What counts as
+"more than comments" is decided by a parser, and anything unproven counts as code**; two shapes a
+parser calls a comment are excluded by name because a tool downstream reads them
+(`scripts/checks/check_scope.py :: TOOLCHAIN_DIRECTIVE`, `:: DOCSTRINGS_ARE_PUBLISHED`), and those
+two exclusions are pattern matches on comment text where the rest of the decision deliberately is
+not. The check is skipped in CI, which maps its own scopes from the paths.
 
 **The scripts scope lints and type-checks its own python**, through configs that sit at the top of
 `scripts/` rather than at the repository root or inside one of its five directories: a root config
@@ -638,21 +473,16 @@ overriding the backend's pyright block, while a copy inside `gate/`, `checks/`, 
 and adds nothing, so the selection stays in one file; `scripts/pyrightconfig.json` pins the python
 version rather than letting pyright infer one, which would answer differently per machine.
 
-**A checker resolves `scripts/lib/` for itself, and `pyrightconfig.json` is the second listing of
-the same fact.** python seeds `sys.path` with the directory of the script it was handed, so a
-checker in `checks/` reaches its siblings and nothing else; each entry point inserts `lib/` at its
-own top, and `pyrightconfig.json` names `lib` and `checks` in `extraPaths` because pyright emulates
-neither rule. A `PYTHONPATH` set by the caller would be the alternative, and it would have to be
-spelled again in every workflow `run:` line, every hook and every test.
+**A checker resolves `scripts/lib/` for itself**, each entry point inserting it at its own top, and
+`pyrightconfig.json`'s `extraPaths` is the second listing of that fact. A `PYTHONPATH` set by the
+caller would be the alternative, and it would have to be spelled again in every workflow `run:`
+line, every hook and every test.
 
 **Commit messages ride in the docs scope**, the commit bodies being documentation and merges never
 squashed precisely so they survive ([`docs/_git/spec.md`](../_git/spec.md) §1.4). In CI the check
 can ride nowhere, a commit message having no path to filter on, so `.github/workflows/verify.yml`
-gives it a `commits` job of its own, filtered by nothing and depended on by nothing. It is not in
-the `changes` job that every scope job but `frontend` waits on: the backend install the check needs
-would then sit on the critical path of the whole run, and on a push to `main` — where there is no
-branch to measure — it would be installed for a step that does not run. The `verify` aggregate lists
-`commits` among its `needs`, which is what keeps the required check gating on it.
+gives it a `commits` job of its own that the `verify` aggregate lists among its `needs`, which is
+what keeps the required check gating on it.
 
 **The two call sites resolve the base differently, and the difference is safe in one direction
 only.** CI passes `--base origin/<the pull request's base>`; the gate passes nothing and takes
@@ -664,24 +494,19 @@ superset, already checked when the branch beneath was, so the local run is stric
 than blinder.
 
 **The `changes` job writes a line-delta glance** into its run summary on every pull request. It
-decides nothing and can shrink no scope; the bucketing, and the reason each generated file is held
-out of the net, are at that job in `.github/workflows/verify.yml`.
+decides nothing and can shrink no scope.
 
 The **ops** scope exists because the compose files have no compiler and no test suite, and the
 nginx config has no compiler — without it, a typo in either surfaces on the server, at deploy
 time. What the nginx half does have is `nginx/redaction_test.sh`, which drives a real request
-through a real edge and reads the access line back (`docs/logging/spec.md` L11). `nginx -t` runs
-against throwaway self-signed certificates and loopback upstream hosts, because a config test loads
-both.
+through a real edge and reads the access line back (`docs/logging/spec.md` L11).
 
 **The scope also holds the local stack to production's shape.** The differences meant to be there
-are the local file's declared list, restated as data in `scripts/checks/check_compose_mirror.py` so the
-claim is testable, and a declared delta matching no real difference is a finding too: the list
+are the local file's declared list, restated as data in `scripts/checks/check_compose_mirror.py` so
+the claim is testable, and a declared delta matching no real difference is a finding too: the list
 stays honest in both directions. A compose construct outside the reader's parsed subset is a
-refusal rather than a verdict (§1.7). **The largest declared delta is a whole service** — the local
-database, its volume and the `depends_on` keys (`scripts/checks/check_compose_mirror.py ::
-DECLARED_DELTAS`) — and a delta covering a whole service covers its ports with it, which is why I1
-is held by a check of its own over both files rather than by that list.
+refusal rather than a verdict (§1.7). **A declared delta covering a whole service covers its ports
+with it**, which is why I1 is held by a check of its own over both files rather than by that list.
 
 **One path reaches across the boundary on purpose**: `fl_backend/openapi.json` selects the
 **frontend** scope alongside the backend ones, because the frontend scope holds the Zod-mirror
@@ -747,13 +572,10 @@ and the clause are one mechanism's three parts, and `scripts/tests/test_check_ga
 drives the committed table red and green against its own budgets so the file can never become one
 the check reads but cannot fail on.
 
-**The documentation gate** (`scripts/checks/check_docs.py`) reads `/docs`, the source comments beside the
-code and the configuration files scanned with them, and its byte-level checks read every tracked
-text file — so a finding this scope raises need not be about a document at all. Its checks are
-registered in `scripts/checks/docs_gate/kernel.py :: CHECKS` and nowhere else. It prints the gate's own
-columns by default and GitHub's workflow commands under `--output-format github`, which puts each
-finding on the diff line it names rather than in a log a reader has to scroll. The gate passes that
-flag itself, under `GITHUB_ACTIONS` alone (`scripts/gate/verify.sh :: do_docs_gate`).
+**The documentation gate** (`scripts/checks/check_docs.py`) reads `/docs`, the source comments
+beside the code and the configuration files scanned with them, and its byte-level checks read every
+tracked text file — so a finding this scope raises need not be about a document at all. Its checks
+are registered in `scripts/checks/docs_gate/kernel.py :: CHECKS` and nowhere else.
 
 **Two of its checks read code rather than prose** (`scripts/checks/docs_gate/platform.py`), and I15 and
 I16 are what they hold. `platform-branch` holds four clauses. PLAT-1: a Python read of the platform
@@ -788,15 +610,11 @@ form regardless of what it touched, unless it changed documentation only.
 
 ### 1.7 Script conventions
 
-All scripts source `scripts/lib/_lib.sh`: strict mode (`set -Eeuo pipefail`, hardened `IFS`) — the `-E` is
-what makes the trap below reach inside a function, errtrace being off by default, so a command failing
-there exits with its own status rather than the crash floor and a crashed scope prints as a pass — an error trap
-naming the script, line and command that failed, an interrupt trap that exits through each script's
-own cleanup rather than around it, guards (`require_platform`, `require_docker`, `require_file`,
-`require_dir`), `wait_healthy` for Compose services, and `usage`, which prints the calling script's own
-header so `--help` cannot drift from the code. Every script resolves the repository root itself, so it
-behaves the same from any working directory; arguments are parsed before any environmental check, so a
-typo fails instantly.
+All scripts source `scripts/lib/_lib.sh`, which applies strict mode and installs the error and
+interrupt traps, and which carries the guards, `wait_healthy` and the output verbs below. Two
+things a caller may rely on across every one of them: a script resolves the repository root itself,
+so it behaves the same from any working directory, and arguments are parsed before any
+environmental check, so a typo fails instantly rather than after a Docker probe.
 
 **The output standard.** One vocabulary, one verb per meaning, and no script writes formatting of its
 own:
@@ -834,35 +652,23 @@ The checkers answer on the same scale: `scripts/lib/checker_kernel.py` fixes 0 f
 a step reading a checker's status has one meaning to route rather than a private convention per
 checker.
 
-`info`, `skip`, `warn`, `fail`, `ok`, `die` and `refuse` funnel through `scripts/lib/_lib.sh :: _emit`;
-`section`, `step`, `detail` and `excerpt` own their own line shapes, and `scripts/checks/check_docs.py`
-prints to the same columns, so the whole gate reads as one voice. A run closes with one row per
-section and then the statement for whichever ending it reached, and a section that closed with no
-verdict at all is recorded as a finding rather than passed over. **A scope the run announced and
-then never opened takes a row of its own, reading `unreached` over two dashes**
-(`scripts/lib/_lib.sh :: _find_unreached`, fed by `scripts/gate/verify.sh :: set_selected`). It is neither a
-scope nobody selected, which the not-run line names, nor one that reached a verdict, which a rank
-would say — and an ending reached partway through a run would otherwise leave it named nowhere at
-all, having been announced as covered. The row is reporting alone: the finding, refusal or crash
-that stopped the run short of the scope is what the exit code still answers for. Colour is decided
-centrally:
-`FL_GATE_COLOR` is read ahead of everything else — the gate's own variable, how a parent hands a
-worker its answer without exporting one every tool would take as an instruction — then `NO_COLOR` /
-`FORCE_COLOR`, a terminal, and GitHub Actions, whose log renders ANSI. A spinner draws only where
-somebody is watching one — off under `NO_SPINNER` where a terminal mangles a carriage return, and
-never under `--verbose`, whose whole purpose is the tool's own output as it arrives.
+A run closes with one row per section and then the statement for whichever ending it reached, and a
+section that closed with no verdict at all is recorded as a finding rather than passed over. **A
+scope the run announced and then never opened takes a row of its own, reading `unreached` over two
+dashes** (`scripts/lib/_lib.sh :: _find_unreached`). It is neither a scope nobody selected, which
+the not-run line names, nor one that reached a verdict, which a rank would say — and an ending
+reached partway through a run would otherwise leave it named nowhere at all, having been announced
+as covered. The row is reporting alone: the finding, refusal or crash that stopped the run short of
+the scope is what the exit code still answers for. **Colour is decided centrally, through
+`FL_GATE_COLOR` ahead of everything else** — the gate's own variable, how a parent hands a worker
+its answer without exporting one every tool would take as an instruction.
 
 **A CONTAINER's own log passes through one filter more before any of those verbs.**
 `scripts/lib/_lib.sh :: redact_uri_credentials` replaces the userinfo in every `mongodb://` and
 `mongodb+srv://` URI on the line and leaves the host, port and options standing: a driver quotes the
 configured connection string back in precisely the failures `wait_healthy` greps a failing service's
-log for, and a truncated host is what the tc3c-nudr incident was diagnosed from. **The match ends at the
-first `@` after the scheme.** No character a password holds can defeat that, which a bound made of
-delimiters cannot say: a password carrying a `/`, a `?`, a `"` or a space would leave such a match
-with no `@` to reach, nothing would match at all, and the whole credential would pass through — and
-an ill-formed connection string is precisely the one a driver could not parse and quotes back.
-Ending at the first `@` is also what leaves the host standing, a greedy run reaching an `@` further
-along the line instead. `scripts/gate/selfcheck.sh :: redact_case` pins both directions against fixtures.
+log for, and a truncated host is what the tc3c-nudr incident was diagnosed from.
+`scripts/gate/selfcheck.sh :: redact_case` pins both directions against fixtures.
 
 **What still gets through is recorded as accepted in [`docs/logging/spec.md`](../logging/spec.md)
 section 4**: a credential arriving with no URI around it, which no filter of this shape reaches, and
@@ -881,26 +687,28 @@ its human-readable line on stderr, where it cannot reach the outputs.
 
 ## 2. Invariants
 
-| #   | Invariant                                                                                                                                                                     | Enforced by                                                                                                                                                                                        |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| I1  | Only nginx publishes a port another host can reach — the local database's is bound to `127.0.0.1`                                                                             | `scripts/checks/check_compose_mirror.py :: off_host_ports`, over both files                                                                                                                        |
-| I2  | Security headers are repeated in every `location` that sets any header                                                                                                        | `nginx/prod.conf :: location /_next/static/` and `:: location = /api/v0/system/is_live`, each restating the set its own `add_header` replaced; both observed carrying the full set, 2026-08-30     |
-| I3  | A `default_server` block rejects unknown hosts                                                                                                                                | `ssl_reject_handshake on`                                                                                                                                                                          |
-| I4  | Sign-in rate limiting applies to POST only                                                                                                                                    | the `map` producing an empty key otherwise                                                                                                                                                         |
-| I5  | The builder stage has no reachable backend or real env                                                                                                                        | `SKIP_ENV_VALIDATION=true`, placeholder `MONGODB_URI`, no `API_URL`                                                                                                                                |
-| I6  | Production never builds                                                                                                                                                       | `deploy.sh` only pulls                                                                                                                                                                             |
-| I7  | Both images build before either is pushed                                                                                                                                     | `publish.sh`; and `deploy.sh`, which compares the pulled `:latest` builds' `version` labels before recreating anything, warning rather than failing where an image carries none                    |
-| I8  | Publishing stops on a dirty tree by default                                                                                                                                   | `publish.sh`, whose `--allow-dirty` escape suffixes the tag `-dirty` and a fingerprint of the tree (`scripts/ops/publish.sh :: DIRTY_ID`)                                                          |
-| I9  | Deploy recreates the application containers in place, leaving nginx running and reloading it                                                                                  | `deploy.sh`                                                                                                                                                                                        |
-| I10 | Scripts use LF line endings and carry the git executable bit                                                                                                                  | `selfcheck.sh` (its LF and executable-bit checks)                                                                                                                                                  |
-| I11 | The three API keys are 64 characters and match on both sides                                                                                                                  | `fl_frontend/src/core/config.ts` alone (`length(64)`); the backend requires presence only                                                                                                          |
-| I12 | Publishing stops on a commit no remote holds — any remote branch clears the bar, not only an ancestor of `main`                                                               | `publish.sh`, whose preflight requires HEAD to be an ancestor of a branch tip a remote answered for, `--dry-run` included (§1.5)                                                                   |
-| I13 | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)      | unenforced — `nginx -t` reads no location it parses (§1.6), nothing compares `nginx/local.conf` against production's (§4, db2a-9qu3), and no test requests a backend path                          |
-| I14 | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                   | `nginx/prod.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate, as I13 is                                                                            |
-| I15 | Every platform-conditional branch `scripts/checks/docs_gate/platform.py` reaches is a named module constant or an allowlist row carrying its reason (§1.6, PLAT-1 to PLAT-4)  | gate check `platform-branch`, over `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`; the effect a branch selects is proven by the `verify` workflow's Linux run alone                      |
-| I16 | No Python in `scripts/checks/docs_gate/platform.py :: PYTHON_SCOPES` opens a text-mode writer without `newline=""`, so nothing it writes carries CRLF to a Linux shell (§1.6) | gate check `crlf-write`, over `scripts/checks/docs_gate/platform.py :: TEXT_WRITE_ALLOW`; a shell redirect of a program's stdout carries no call to read and stays the reader's                    |
-| I17 | No `verify` job spans longer than its budget in `.github/gate-wall-clock.tsv`, no job runs without a row, and no figure rises unmeasured (§1.6)                               | `scripts/checks/check_gate_budget.py`, `--jobs` in the aggregate `verify` job and `--base` in `commits`; `scripts/tests/test_check_gate_budget.py` drives the committed table red and green (§1.6) |
-| I18 | A rate-limit key is the visitor's own network, never the Cloudflare edge, and no prefix splits across two keys (§1.3)                                                         | `nginx/prod.conf :: map $remote_addr $client_net`, `:: map $remote_addr $client_net48`, `:: set_real_ip_from` and `:: real_ip_header`; unenforced by the gate, on §1.3's one-off measurement alone |
+| #    | Invariant                                                                                                                                                                     | Enforced by                                                                                                                                                                                        |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I1   | Only nginx publishes a port another host can reach — the local database's is bound to `127.0.0.1`                                                                             | `scripts/checks/check_compose_mirror.py :: off_host_ports`, over both files                                                                                                                        |
+| I2   | Security headers are repeated in every `location` that sets any header                                                                                                        | `nginx/prod.conf :: location /_next/static/` and `:: location = /api/v0/system/is_live`, each restating the set its own `add_header` replaced; both observed carrying the full set, 2026-08-30     |
+| I3   | A `default_server` block rejects unknown hosts                                                                                                                                | `ssl_reject_handshake on`                                                                                                                                                                          |
+| I4   | Sign-in rate limiting applies to POST only                                                                                                                                    | the `map` producing an empty key otherwise                                                                                                                                                         |
+| I5   | The builder stage has no reachable backend or real env                                                                                                                        | `SKIP_ENV_VALIDATION=true`, placeholder `MONGODB_URI`, no `API_URL`                                                                                                                                |
+| I6   | Production never builds                                                                                                                                                       | `deploy.sh` only pulls                                                                                                                                                                             |
+| I7   | Both images build before either is pushed                                                                                                                                     | `publish.sh`; and `deploy.sh`, which compares the pulled `:latest` builds' `version` labels before recreating anything, warning rather than failing where an image carries none                    |
+| I8   | Publishing stops on a dirty tree by default                                                                                                                                   | `publish.sh`, whose `--allow-dirty` escape suffixes the tag `-dirty` and a fingerprint of the tree (`scripts/ops/publish.sh :: DIRTY_ID`)                                                          |
+| I9   | Deploy recreates the application containers in place, leaving nginx running and reloading it                                                                                  | `deploy.sh`                                                                                                                                                                                        |
+| I10  | Scripts use LF line endings and carry the git executable bit                                                                                                                  | `selfcheck.sh` (its LF and executable-bit checks)                                                                                                                                                  |
+| I11  | The three API keys are 64 characters and match on both sides                                                                                                                  | `fl_frontend/src/core/config.ts` alone (`length(64)`); the backend requires presence only                                                                                                          |
+| I12  | Publishing stops on a commit no remote holds — any remote branch clears the bar, not only an ancestor of `main`                                                               | `publish.sh`, whose preflight requires HEAD to be an ancestor of a branch tip a remote answered for, `--dry-run` included (§1.5)                                                                   |
+| I13  | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)      | unenforced — `nginx -t` reads no location it parses (§1.6), nothing compares `nginx/local.conf` against production's (§4, db2a-9qu3), and no test requests a backend path                          |
+| I14  | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                   | `nginx/prod.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate, as I13 is                                                                            |
+| I15  | Every platform-conditional branch `scripts/checks/docs_gate/platform.py` reaches is a named module constant or an allowlist row carrying its reason (§1.6, PLAT-1 to PLAT-4)  | gate check `platform-branch`, over `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`; the effect a branch selects is proven by the `verify` workflow's Linux run alone                      |
+| I16  | No Python in `scripts/checks/docs_gate/platform.py :: PYTHON_SCOPES` opens a text-mode writer without `newline=""`, so nothing it writes carries CRLF to a Linux shell (§1.6) | gate check `crlf-write`, over `scripts/checks/docs_gate/platform.py :: TEXT_WRITE_ALLOW`; a shell redirect of a program's stdout carries no call to read and stays the reader's                    |
+| I17  | No `verify` job spans longer than its budget in `.github/gate-wall-clock.tsv`, no job runs without a row, and no figure rises unmeasured (§1.6)                               | `scripts/checks/check_gate_budget.py`, `--jobs` in the aggregate `verify` job and `--base` in `commits`; `scripts/tests/test_check_gate_budget.py` drives the committed table red and green (§1.6) |
+| I18  | A rate-limit key is the visitor's own network, never the Cloudflare edge, and no prefix splits across two keys (§1.3)                                                         | `nginx/prod.conf :: map $remote_addr $client_net`, `:: map $remote_addr $client_net48`, `:: set_real_ip_from` and `:: real_ip_header`; unenforced by the gate, on §1.3's one-off measurement alone |
+| I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/prod.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                 |
+| I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/prod.conf` names no `/docs` location, and nothing checks either                                                     |
 
 ## 3. Violation → remedy
 
@@ -929,7 +737,7 @@ its human-readable line on stderr, where it cannot reach the outputs.
 | Uptime monitor shows green during a backend outage                                | The error page streams after headers, so the edge status is 200                                                                                 | Monitor `GET https://frankfurtleague.de/api/v0/system/is_live` at the apex host: a trailing slash redirects and reads green, a `HEAD` is answered 405 (`fl_backend/app/api/system/router.py :: check_is_live`, §1.3) |
 | Application container logs are empty right after a deploy                         | Working as intended — `json-file` logs live in the container, and the deploy replaces both application containers; nginx keeps its own          | Nothing. Copy them off before deploying ([`docs/logging/spec.md`](../logging/spec.md))                                                                                                                               |
 | Reference data stale for up to a day                                              | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                           | Nothing. The bound is the cache lifetime: wait for the daily expiry, or recreate the frontend container                                                                                                              |
-| League table or fixtures stale after a season edit                                | Same cause — a season decides the default season and the points                                                                                 | Same remedy; recreation drops every cached page at once                                                                                                                                                              |
+| League table or fixtures stale after a season edit                                | Same cause — a season decides the default season and the points                                                                                 | Same remedy, and the backend's own season cache expires separately ([`docs/backend/spec.md`](../backend/spec.md) I131); recreation drops every cached page at once                                                   |
 | The `verify` check is red naming a job, its seconds and a budget                  | The job spanned longer than its ceiling in `.github/gate-wall-clock.tsv` — a cost the change added, or a slow runner (§1.6)                     | Re-run first, then take the cost out rather than raise the figure; a right raise stamps the row with its measuring runs (§1.6)                                                                                       |
 | The `commits` job is red naming a row that rose on an unchanged stamp             | A budget or a reference in `.github/gate-wall-clock.tsv` was raised by editing the number alone (§1.6)                                          | Measure on CI's own runs, never a development machine, and write the count and the newest run's day into the row's `measured` column (§1.6)                                                                          |
 
