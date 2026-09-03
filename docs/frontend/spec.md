@@ -462,7 +462,23 @@ Vitest or Jest, and no test config file.
 **Tests sit next to the code they test**, unlike the backend's separate `fl_backend/tests/` tree —
 each side takes its own ecosystem's default, and colocation ships nothing, bundlers excluding
 `.test.` files by pattern ([`docs/backend/spec.md`](../backend/spec.md) §1.6). Most test files
-cover pure functions; there are no component tests and no end-to-end suite.
+cover pure functions, and there is no end-to-end suite.
+
+**A claim about what a component renders is asserted against the markup it renders**, through
+`fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup`. The component under test is reached
+with `await import`, never by a static import beside that helper: the helper registers the compile
+step as it evaluates, and every static import in the graph has resolved before then.
+
+**A source-text assertion is for what no rendering can show** — a convention spanning files, a
+directive, a wiring between two of them. Held against a component's own output, a regex over the
+source passes on markup that says the opposite and on a component nothing renders at all.
+
+**Two shapes stay outside a render test:**
+
+- a module graph reaching `fl_frontend/src/core/config.ts`, whose gate refuses an unconfigured
+  environment at import — a form owning a submit reaches it through its slice's actions module,
+  while the field panels that form composes do not
+- an async Server Component, which a synchronous render cannot await
 
 **Several tests sweep the source tree rather than exercise a function** — that is how a rule no
 linter can express is held, `fl_frontend/src/core/refusalPaths.test.ts` (I34) and
