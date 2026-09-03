@@ -22,8 +22,8 @@ const SEARCH_KEYS = [
 ] as const;
 
 /**
- * **Neither modal renderer is passed, and that is the shape of this resource**: the contacts are
- * written on each team's own page, so a row here has nothing to open and nothing to delete.
+ * **No `renderDeleteModal`, and no editing**: each team's own page owns its contacts, so a row here
+ * is only ever read.
  */
 export function AdminKontakteView({ kontakte, teams }: { kontakte: AdminKontakteRow[]; teams: readonly { teamId: string; name: string }[] }) {
   /* Built HERE and never handed down: a facet carries a `read` FUNCTION, which a Server Component

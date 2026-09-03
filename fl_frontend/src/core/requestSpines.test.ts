@@ -60,6 +60,21 @@ function declaresGuard(file: string): boolean {
   return sourceOf(file).includes(KOPF);
 }
 
+/** One module's guard read whole: the condition it branches on, and the statement it returns. */
+function guardOf(file: string): { bedingung: string; rumpf: string } {
+  const source = sourceOf(file);
+  const ab = source.slice(source.indexOf(KOPF) + KOPF.length);
+
+  assert.ok(ab.includes(") {"), `${path.relative(SRC_DIR, file)} reads Sec-Fetch-Site and then branches on nothing`);
+
+  return {
+    bedingung: ab.slice(ab.indexOf("if (") + "if (".length, ab.indexOf(") {")),
+    // Cut at the statement's own semicolon: the first `}` past the brace can belong to an object
+    // literal inside the call rather than to the block.
+    rumpf: ab.slice(ab.indexOf(") {") + ") {".length, ab.indexOf(";", ab.indexOf(") {")) + 1).trim(),
+  };
+}
+
 // Next's own routing convention decides this listing, so a handler added tomorrow is swept with no
 // edit here. Both suffixes: `route.tsx` is as much a handler as `route.ts`.
 const ROUTES = filesUnder(APP_DIR, (name) => name === "route.ts" || name === "route.tsx", 8);
@@ -86,12 +101,18 @@ const isSweptSource = (name: string) => /\.tsx?$/.test(name) && !isTestFile(name
 const guardingByTree = filesUnder(SRC_DIR, isSweptSource, 350).filter(declaresGuard);
 
 describe("the cross-site guard every session-less route stands behind", () => {
-  /* Two, because a guard answers in one of two shapes — a German sentence a form renders, and a
-     bare status for a caller with nothing to render — and a rule read over one proves half of it. */
+  /* One of each shape rather than two modules: `(new )?` below asserts over both a bare status and a
+     rendered German body, and a population holding one shape leaves the other branch over nothing. */
   it("finds a guarded module for either shape of refusal", () => {
+    const rumpfe = guardingByTree.map((file) => guardOf(file).rumpf);
+
     assert.ok(
-      guardingByTree.length >= 2,
-      `only ${String(guardingByTree.length)} modules declare the guard, so the rules below reach too little`,
+      rumpfe.some((rumpf) => rumpf.startsWith("return new NextResponse")),
+      `none of ${String(rumpfe.length)} guarded modules refuses with a bare status, so the rule below asserts that shape over nothing`,
+    );
+    assert.ok(
+      rumpfe.some((rumpf) => rumpf.startsWith("return NextResponse.json")),
+      `none of ${String(rumpfe.length)} guarded modules refuses with a rendered body, so the rule below asserts that shape over nothing`,
     );
   });
 
@@ -105,14 +126,7 @@ describe("the cross-site guard every session-less route stands behind", () => {
   it("returns the refusal it builds, on exactly the condition it declares", () => {
     for (const file of guardingByTree) {
       const name = path.relative(SRC_DIR, file);
-      const ab = sourceOf(file).slice(sourceOf(file).indexOf(KOPF) + KOPF.length);
-
-      assert.ok(ab.includes(") {"), `${name} reads Sec-Fetch-Site and then branches on nothing`);
-
-      const bedingung = ab.slice(ab.indexOf("if (") + "if (".length, ab.indexOf(") {"));
-      // Cut at the statement's own semicolon: the first `}` past the brace can belong to an object
-      // literal inside the call rather than to the block.
-      const rumpf = ab.slice(ab.indexOf(") {") + ") {".length, ab.indexOf(";", ab.indexOf(") {")) + 1).trim();
+      const { bedingung, rumpf } = guardOf(file);
 
       assert.equal(bedingung, BEDINGUNG, `${name}'s condition was widened or made conditional`);
       /* WHICH refusal is deliberately not pinned: `app/api/client-error/route.ts` answers a bare 403

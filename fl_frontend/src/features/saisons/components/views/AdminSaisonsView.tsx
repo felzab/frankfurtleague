@@ -14,8 +14,8 @@ import type { AdminSaisonRow } from "@/features/saisons/types";
 const SEARCH_KEYS = ["id", "start_date", "end_date", "searchable_start_date", "searchable_end_date"] as const;
 
 /**
- * **Neither modal renderer is passed, and that is the shape of this resource**: the editor is a page,
- * so the table's pencil is a `<Link>`, and there is no delete at all.
+ * **No `renderDeleteModal`**: a season is never deleted, and its editor is a page, so the table's
+ * pencil is a `<Link>` rather than a press.
  */
 export function AdminSaisonsView({ saisons }: { saisons: AdminSaisonRow[] }) {
   // A reader types the spelling they have seen on the rows. Deriving it through the formatter the

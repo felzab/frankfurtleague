@@ -119,8 +119,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
           height={18}
         />
       </RowActionLink>
-      {/* A link rather than a press: the matchday form edits on a page, so the pencil is
-          a navigation and the shared view renders no edit overlay. */}
+      {/* A link rather than a press: the matchday form edits on a page, so the pencil is a navigation. */}
       <RowActionLink
         href={saisonHref(`/admin/spieltage/${spieltag.id}`)}
         label="Bearbeiten"

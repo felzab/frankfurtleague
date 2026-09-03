@@ -70,7 +70,11 @@ export function AdminCreateTeamForm({
                 saisonIds={saisonOptions.map((option) => option.saisonId)}
               />
 
+              {/* Marked, but not swept: `fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn` reads a literal
+                  mark off a literal `name`, and this picker spells both through props.
+                  `FLCreateTeamFormPayloadSchema` is what refuses the null. */}
               <GruppeSelect
+                isRequired
                 value={draft.gruppe}
                 onChange={(gruppe) => setDraft((current) => ({ ...current, gruppe }))}
                 offer={selectedOption?.offer ?? []}

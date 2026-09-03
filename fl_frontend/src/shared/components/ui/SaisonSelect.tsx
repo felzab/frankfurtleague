@@ -26,10 +26,10 @@ export function SaisonSelect({
   };
 
   return (
+    // A literal, and this note outside the tag: `fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn`
+    // reads the mark off the tag's own text, where `isRequired={…}` or a `>` would drop every schema
+    // asserted to refuse an empty `saison_id`, and the gate would stay green.
     <Select
-      // A literal, never the prop the sibling selects take: `fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn`
-      // reads the mark off one opening tag, so `isRequired={…}` drops every schema asserted to refuse an empty
-      // `saison_id` and leaves the gate green.
       isRequired
       name="saison_id"
       aria-label="Saison"

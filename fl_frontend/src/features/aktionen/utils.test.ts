@@ -28,6 +28,12 @@ describe("labelForCollection", () => {
   it("falls back to a name it does not know", () => {
     assert.equal(labelForCollection("pokale"), "pokale");
   });
+
+  it("falls back for a name that is a prototype key, which `??` would let through", () => {
+    // A prototype key selects a FUNCTION, which is not nullish, so `??` keeps it and the cell renders
+    // `function Object() { [native code] }` where a collection name belongs.
+    assert.equal(labelForCollection("constructor"), "constructor");
+  });
 });
 
 describe("describeAktionDatensatz", () => {

@@ -52,7 +52,6 @@ export function AdminCrudView<TItem extends { id: string }>({
    * rows, and this re-renders on every navigation: `React.memo` the table, and pass `items` + a render function.
    */
   renderTable: (args: {
-    query: string;
     filteredItems: TItem[];
     /** Which stage left the table with nothing, for an empty state to name. */
     emptiness: CrudEmptiness;
@@ -81,7 +80,7 @@ export function AdminCrudView<TItem extends { id: string }>({
         items={items}
       />
 
-      {renderTable({ query, filteredItems, emptiness, onDelete: setDeletingItem })}
+      {renderTable({ filteredItems, emptiness, onDelete: setDeletingItem })}
 
       {renderDeleteModal?.({ item: deletingItem, isOpen: deletingItem !== null, onClose: () => setDeletingItem(null) })}
 

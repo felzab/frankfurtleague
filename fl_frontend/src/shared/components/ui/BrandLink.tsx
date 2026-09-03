@@ -8,18 +8,18 @@ import { FLLogo } from "./FLLogo";
  */
 export function BrandLink({
   title = "Startseite",
+  hideName = false,
+  className = "",
+  onNavigate,
+}: {
+  title?: string;
   /**
    * Drops the wordmark at every width, for a rail too narrow to hold it. One link either way: a second copy at
    * another breakpoint would be a second tab stop announcing the same destination.
    */
-  hideName = false,
-  className = "",
-  /** Runs as this link navigates, and never on a press the browser turns into a new tab or a download. */
-  onNavigate,
-}: {
-  title?: string;
   hideName?: boolean;
   className?: string;
+  /** Runs as this link navigates, and never on a press the browser turns into a new tab or a download. */
   onNavigate?: () => void;
 }) {
   return (
