@@ -626,15 +626,33 @@ describe("every path a refusal mapper emits", () => {
     // Two under the population, whose members are one mapper per slice: the equality below grades
     // each file, so this floor only has to refuse a sweep that collapsed.
     assert.ok(declaredMappers.length >= 7, `expected at least 7 modules mapping a refusal, found ${String(declaredMappers.length)}`);
-    assert.ok(
-      declaredFunctions >= 40,
-      `expected at least 40 functions declared to answer with field errors, found ${String(declaredFunctions)}`,
-    );
+
+    // Two under the mapper signatures this pattern reaches: a server action declares `fieldErrors`
+    // through `ActionResult`, which no source-text pattern follows.
+    assert.ok(declaredFunctions >= 8, `expected at least 8 mapper signatures declaring field errors, found ${String(declaredFunctions)}`);
 
     // And a floor on the EMISSION route, which the signature floors above say nothing about:
     // narrowing key extraction to the first of each literal leaves both of those standing.
     const paths = [...emitted.values()].reduce((sum, keys) => sum + keys.length, 0);
     assert.ok(paths >= 12, `expected at least 12 hand-written field paths across the mappers, found ${String(paths)}`);
+  });
+
+  it("reads a return type, and not the same shape declared anywhere else", () => {
+    /* The tree's mapper signatures are identical, so no floor over them separates this pattern from
+       a blind one (`docs/frontend/spec.md` §1.9). Teaching it `ActionResult` would trade this shape
+       match for a name match. */
+    const sample: [source: string, matches: boolean][] = [
+      ["function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {", true],
+      ["export async function patchTeamAction(payload: P): Promise<{ success: boolean; fieldErrors?: FieldErrors }> {", true],
+      ["interface Draft { state: { fieldErrors?: FieldErrors }; }", false],
+      ["const initial: { fieldErrors?: FieldErrors } = {};", false],
+      ["export async function postSaisonAction(payload: P): Promise<ActionResult<{ created_id?: string }>> {", false],
+    ];
+
+    assert.deepEqual(
+      sample.filter(([source]) => DECLARES_FIELD_ERRORS.test(source)).map(([source]) => source),
+      sample.filter(([, matches]) => matches).map(([source]) => source),
+    );
   });
 
   it("reads every key of a literal, whatever the value before it is made of", () => {
