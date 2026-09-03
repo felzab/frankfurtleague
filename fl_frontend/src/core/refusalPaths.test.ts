@@ -1,23 +1,21 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import z from "zod";
 
+import { filesUnder } from "@/core/treeWalk.ts";
+
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
-function collectSources(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return collectSources(full);
-    return entry.name.endsWith(".ts") || entry.name.endsWith(".tsx") ? [full] : [];
-  });
-}
-
+// Test files are IN: a mapper spelled inside one would still be a mapper this sweep has to grade.
 const sources = new Map(
-  collectSources(SRC_DIR).map((file) => [path.relative(SRC_DIR, file).split(path.sep).join("/"), readFileSync(file, "utf8")]),
+  filesUnder(SRC_DIR, (name) => name.endsWith(".ts") || name.endsWith(".tsx"), 400).map((file) => [
+    path.relative(SRC_DIR, file).split(path.sep).join("/"),
+    readFileSync(file, "utf8"),
+  ]),
 );
 const components = [...sources.keys()].filter((file) => file.endsWith(".tsx"));
 

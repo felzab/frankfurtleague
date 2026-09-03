@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement } from "react";
 
+import { filesUnder } from "@/core/treeWalk.ts";
 import { renderTree } from "@/shared/testing/renderTest";
 
 /*
@@ -15,15 +16,7 @@ const { PanelHeading } = await import("./PanelHeading.tsx");
 
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
-function tsxUnder(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-
-    return entry.isDirectory() ? tsxUnder(full) : entry.name.endsWith(".tsx") ? [full] : [];
-  });
-}
-
-const FILES = tsxUnder(SRC);
+const FILES = filesUnder(SRC, (name) => name.endsWith(".tsx"), 200);
 const COMPONENT = path.join(SRC, "shared", "components", "ui", "PanelHeading.tsx");
 const rel = (file: string) => path.relative(SRC, file).split(path.sep).join("/");
 

@@ -1,20 +1,15 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
+
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
 /** Tests are left out because this file is one: the patterns below would otherwise match themselves. */
-function collectSources(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return collectSources(full);
-    if (/\.test\.tsx?$/.test(entry.name)) return [];
-
-    return entry.name.endsWith(".ts") || entry.name.endsWith(".tsx") ? [full] : [];
-  });
-}
+const collectSources = (dir: string): string[] =>
+  filesUnder(dir, (name) => (name.endsWith(".ts") || name.endsWith(".tsx")) && !isTestFile(name), 350);
 
 /** Relative POSIX path → source text, for every module under `src`. */
 const sources = new Map(

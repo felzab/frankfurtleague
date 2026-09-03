@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
 import ts from "typescript";
+
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
@@ -17,15 +19,7 @@ const HINT_POINT_CAP = 4;
  */
 const ABBREVIATIONS = ["z.B.", "ca.", "bzw.", "u.a.", "etc.", "ggf.", "evtl.", "inkl.", "max.", "min.", "Nr.", "Std.", "Mio.", "Mrd."];
 
-function collectSources(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return collectSources(full);
-    if (/\.test\.tsx?$/.test(entry.name)) return [];
-
-    return entry.name.endsWith(".tsx") ? [full] : [];
-  });
-}
+const collectSources = (dir: string): string[] => filesUnder(dir, (name) => name.endsWith(".tsx") && !isTestFile(name), 200);
 
 const sources = new Map(
   collectSources(SRC_DIR).map((file) => [path.relative(SRC_DIR, file).split(path.sep).join("/"), readFileSync(file, "utf8")]),

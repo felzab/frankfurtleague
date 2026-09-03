@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
+
+import { filesUnder } from "@/core/treeWalk.ts";
 
 import { textLink } from "./textLink.ts";
 
@@ -10,13 +12,7 @@ import { textLink } from "./textLink.ts";
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
 /** Every `.tsx` under `src`, which is where a link can be spelled. */
-function componentsUnder(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return componentsUnder(full);
-    return entry.name.endsWith(".tsx") ? [full] : [];
-  });
-}
+const componentsUnder = (dir: string): string[] => filesUnder(dir, (name) => name.endsWith(".tsx"), 200);
 
 describe("the one treatment a link inside text wears", () => {
   /* Colour alone is not a link to a reader who cannot see it, which is why the underline is in the

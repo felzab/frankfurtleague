@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
+
+import { filesUnder } from "@/core/treeWalk.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
@@ -19,14 +21,7 @@ const gefegt = (name: string): boolean =>
   SUFFIXE.some((suffix) => name.endsWith(suffix)) && !PRUEFSUFFIXE.some((suffix) => name.endsWith(suffix));
 
 /** Discovered rather than listed: a named handful is the boxes somebody remembered. */
-function collectSources(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return collectSources(full);
-
-    return gefegt(entry.name) ? [full] : [];
-  });
-}
+const collectSources = (dir: string): string[] => filesUnder(dir, gefegt, 350);
 
 /** `100dvh` and `dvh` generally are the answer, so the search is for the unit that is not. */
 const BARE_VH = /(?<![a-z-])\d+vh\b|\bvh-screen\b/;

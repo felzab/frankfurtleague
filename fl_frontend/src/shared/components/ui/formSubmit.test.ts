@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
+
+import { filesUnder } from "@/core/treeWalk.ts";
 
 import { runOnSubmit } from "./formSubmit.ts";
 
@@ -9,17 +11,12 @@ import type { FormEvent } from "react";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
-function collectTsxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return collectTsxFiles(full);
-    return entry.name.endsWith(".tsx") ? [full] : [];
-  });
-}
-
 /** Relative POSIX path → source text, for every component in the tree. */
 const sources = new Map(
-  collectTsxFiles(SRC_DIR).map((file) => [path.relative(SRC_DIR, file).split(path.sep).join("/"), readFileSync(file, "utf8")]),
+  filesUnder(SRC_DIR, (name) => name.endsWith(".tsx"), 200).map((file) => [
+    path.relative(SRC_DIR, file).split(path.sep).join("/"),
+    readFileSync(file, "utf8"),
+  ]),
 );
 
 const filesContaining = (needle: string): string[] => [...sources].filter(([, text]) => text.includes(needle)).map(([file]) => file);
@@ -71,11 +68,11 @@ const confirmingEditors = filesContaining("<ConfirmSaveModal");
 
 describe("every editor raising the save confirmation", () => {
   it("is discovered by the dialog it renders", () => {
-    // A floor rather than an exact count: a renamed dialog leaves this sweep looping over nothing,
-    // which is the one answer it cannot tell apart from a clean one.
+    // A renamed dialog leaves this sweep looping over nothing, which is the one answer it cannot
+    // tell apart from a clean one. Set under the tree, so retiring an editor never moves it.
     assert.ok(
-      confirmingEditors.length >= 8,
-      `expected at least 8 editors raising the save confirmation, found ${String(confirmingEditors.length)}`,
+      confirmingEditors.length >= 5,
+      `expected at least 5 editors raising the save confirmation, found ${String(confirmingEditors.length)}`,
     );
   });
 

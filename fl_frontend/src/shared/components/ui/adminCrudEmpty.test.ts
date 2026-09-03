@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
 import ts from "typescript";
+
+import { filesUnder } from "@/core/treeWalk.ts";
 
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 const FEATURES = path.join(SRC, "features");
@@ -34,13 +36,8 @@ const TABLES = [
 const read = (file: string): string => readFileSync(path.join(SRC, file), "utf8");
 
 /** Every `.tsx` under `src/features`, so a table added in a slice this roster has never heard of is still found. */
-function tsxUnder(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return tsxUnder(full);
-    return entry.name.endsWith(".tsx") ? [path.relative(SRC, full).split(path.sep).join("/")] : [];
-  });
-}
+const tsxUnder = (dir: string): string[] =>
+  filesUnder(dir, (name) => name.endsWith(".tsx"), 100).map((full) => path.relative(SRC, full).split(path.sep).join("/"));
 
 /** Each `@theme` block's body. Tailwind takes a theme variable from nowhere else, so nor does this. */
 function themeBlocks(css: string): string[] {
