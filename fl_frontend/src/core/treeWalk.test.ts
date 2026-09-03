@@ -41,7 +41,20 @@ describe("the floor every sweep must name", () => {
   /* The whole reason the parameter is positional and undefaulted: a walk that quietly returned
      nothing would let every assertion downstream of it pass over an empty list. */
   it("refuses a walk that came back under the number its caller chose", () => {
-    assert.throws(() => filesUnder(root, (n) => n.endsWith(".ts"), 5), /under this sweep's floor of 5/);
+    assert.throws(
+      () => filesUnder(root, (n) => n.endsWith(".ts"), 5),
+      (error: unknown) => {
+        // All three facts, because whoever meets this refusal needs to know which sweep and how far.
+        const message = error instanceof Error ? error.message : "";
+        return message.includes(root) && message.includes("yielded 4") && message.includes("floor of 5");
+      },
+    );
+  });
+
+  /* A floor AT the population passes. `<=` in the comparison reads identically against every other
+     case here, and would fire on each sweep whose population sits exactly on its number. */
+  it("takes a walk that came back on the number exactly", () => {
+    assert.equal(filesUnder(root, (n) => n.endsWith(".ts"), 4).length, 4);
   });
 
   it("hands the predicate a bare name, so no caller can filter on what it asserts", () => {

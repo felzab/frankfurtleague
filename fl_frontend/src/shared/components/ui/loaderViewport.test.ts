@@ -32,9 +32,6 @@ const sources = collectSources(SRC_DIR).map(
 
 describe("the unit a viewport-sized box may be expressed in", () => {
   it("reads the whole tree, so a new box is swept without being remembered", () => {
-    // Anti-vacuity: a changed extension filter or a moved root would leave the case below true of nothing.
-    assert.ok(sources.length >= 200, `expected at least 200 sources, found ${String(sources.length)}`);
-
     for (const suffix of SUFFIXE) {
       assert.ok(
         sources.some(([file]) => file.endsWith(suffix)),
