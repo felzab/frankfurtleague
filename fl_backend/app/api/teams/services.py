@@ -25,7 +25,6 @@ from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.custom import CustomObjectId
 
-SPIELE_COLLECTION_NAME = "spiele"
 AS_NAME = "saison_data"
 STATISTIK_AS_NAME = "statistik_data"
 ABSAGE_AS_NAME = "absage_data"
@@ -67,7 +66,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
 
     return {
         "$lookup": {
-            "from": SPIELE_COLLECTION_NAME,
+            "from": Collection.SPIELE,
             "let": {"team_oid": "$_id"},
             "pipeline": [
                 {
@@ -128,7 +127,7 @@ def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Ma
 
     return {
         "$lookup": {
-            "from": SPIELE_COLLECTION_NAME,
+            "from": Collection.SPIELE,
             "let": {"team_oid": "$_id"},
             "pipeline": [
                 {
