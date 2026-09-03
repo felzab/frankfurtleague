@@ -20,6 +20,7 @@ from tests.core.app_source import (
     WRITE_HELPERS,
     crud_helpers_taking_a_session,
     declared,
+    driver_reads_named_by_the_crud_header,
     parsed,
     removals,
     transactional_callbacks,
@@ -272,6 +273,15 @@ class TestEveryWriteInsideATransactionCarriesIt:
         ]
 
         assert loose == []
+
+
+class TestTheCrudHeaderNamesEveryDriverRead:
+    """The header is what a router author reads before adding a direct read, and nothing else holds it to the set the sweeps match."""
+
+    def test_the_header_names_exactly_the_reads_the_sweeps_match(self):
+        """Drop a name from that header clause, or add a sixth read to `DRIVER_READS` alone, and this fails."""
+
+        assert driver_reads_named_by_the_crud_header() == DRIVER_READS
 
 
 class TestEveryReadInsideATransactionCarriesIt:
