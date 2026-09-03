@@ -353,8 +353,15 @@ exactly what the default run skips.
 **A test that touches the database carries `@pytest.mark.db`.** Without it the test runs in the fast
 tier, where there is no container, and fails for a reason that looks unrelated to what it is testing.
 `--strict-markers` catches a misspelled marker, and `scripts/checks/check_test_estate.py` refuses an
-omitted one wherever the test's reach resolves inside `fl_backend/tests/` — never through a fixture a
-plugin supplies or a name assembled at run time, which stay the author's to mark.
+omitted one wherever it can follow the test's reach: into its own module, into the modules it imports
+by dotted path or relatively, along its conftest chain, and through a fixture named as a string on
+the test, on its class or at module scope. **A reach it cannot follow stays the author's to mark**:
+
+- a fixture a plugin supplies, which is outside `fl_backend/tests/` altogether
+- a fixture module named in `pytest_plugins`, which the rule does not read
+- a fixture name assembled at run time, which no constant string carries
+- a helper handed on through its module's name rather than called — `run(helpers.seed)`, where
+  `helpers.seed(…)` is followed
 
 **The marker exists to keep the fast tier fast**, and a real `mongod` sits behind it because
 `mongomock` cannot execute this pipeline and a check against the live database tests the data rather

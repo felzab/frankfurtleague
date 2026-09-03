@@ -416,12 +416,16 @@ is never a finding, while a fenced block reproducing a conflict as git writes it
 **The estate check refuses three silences the backend suite would otherwise pass**
 (`scripts/checks/check_test_estate.py`): a test whose transitive reach — through a helper it calls
 or a fixture it takes — needs a server and carries no `@pytest.mark.db`, so it runs in the default
-tier that starts no container; a fixture no test and no other fixture consumes; and a pytest
-configuration leaving `empty_parameter_set_mark` at its default, where a parametrised sweep whose
-discovery found nothing passes as one skip. **The database rule exempts a client built from a URI
-written into the module**, which is a server nothing here starts — the idiom that tells a guard's
-refusal from a route that does not exist — and that exemption follows the constant into a helper it
-is passed to, so it releases the call site rather than the helper.
+tier that starts no container; a fixture whose name no parameter and no `usefixtures` string
+anywhere under `fl_backend/tests/` repeats, so a name an unrelated helper's parameter happens to
+share reads as consumed; and a pytest configuration leaving `empty_parameter_set_mark` at its
+default, where a parametrised sweep whose discovery found nothing passes as one skip. **The database
+rule exempts a client built from a source-written URI naming a port nothing here serves**
+(`scripts/checks/check_test_estate.py :: SERVED_PORT`) — the idiom that tells a guard's refusal from
+a route that does not exist — and that exemption follows the constant into a helper it is passed to,
+so it releases the call site rather than the helper. A URI on the served port is refused however it
+is written, `./scripts/ops/local.sh` answering it on the author's machine and nothing answering it
+in CI.
 
 CI runs the same checks as parallel jobs mapped from the paths a pull request touches:
 `scripts/gate/scope_map.sh` emits one `name=true|false` line per `verify.sh` flag, so a scope's name in
