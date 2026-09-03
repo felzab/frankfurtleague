@@ -67,8 +67,19 @@ const SNAPSHOT_STATE = /const \[(\w+), set\w+\] = useState<BlockingBanners \| nu
 /** The editor's own banners, optionally less the refusals the save gate does not confirm. */
 const GATE_ARGUMENT = /resolveBlockingBanners\(banners(?:\.filter\(\(banner\) => !isSpielRefusalBannerId\(banner\.id\)\))?\)/;
 
+const confirmingEditors = filesContaining("<ConfirmSaveModal");
+
 describe("every editor raising the save confirmation", () => {
-  for (const file of filesContaining("<ConfirmSaveModal")) {
+  it("is discovered by the dialog it renders", () => {
+    // A floor rather than an exact count: a renamed dialog leaves this sweep looping over nothing,
+    // which is the one answer it cannot tell apart from a clean one.
+    assert.ok(
+      confirmingEditors.length >= 8,
+      `expected at least 8 editors raising the save confirmation, found ${String(confirmingEditors.length)}`,
+    );
+  });
+
+  for (const file of confirmingEditors) {
     it(`${file} shows the snapshot the gate took, not a live derivation`, () => {
       const source = sources.get(file) ?? "";
 

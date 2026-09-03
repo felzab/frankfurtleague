@@ -5,16 +5,26 @@ import { describe, it } from "node:test";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
+/** The kinds a box can be sized in. A height in `globals.css` reaches every page and no component names it. */
+const SUFFIXE = [".ts", ".tsx", ".css"];
+
 /**
- * Discovered rather than listed: a named handful is the boxes somebody remembered. Stylesheets are read too — a
- * height in `globals.css` reaches every page and no component file mentions it.
+ * Each kind's test form, derived rather than typed: an exclusion written for one suffix where the
+ * walk takes three leaves the others' fixtures read as text the tree ships.
  */
+const PRUEFSUFFIXE = SUFFIXE.map((suffix) => `.test${suffix}`);
+
+/** A file the browser is served. A fixture naming a box reaches no page, so a hit in one is not a defect. */
+const gefegt = (name: string): boolean =>
+  SUFFIXE.some((suffix) => name.endsWith(suffix)) && !PRUEFSUFFIXE.some((suffix) => name.endsWith(suffix));
+
+/** Discovered rather than listed: a named handful is the boxes somebody remembered. */
 function collectSources(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) return collectSources(full);
 
-    return /\.(tsx?|css)$/.test(entry.name) ? [full] : [];
+    return gefegt(entry.name) ? [full] : [];
   });
 }
 
@@ -29,9 +39,20 @@ describe("the unit a viewport-sized box may be expressed in", () => {
   it("reads the whole tree, so a new box is swept without being remembered", () => {
     // Anti-vacuity: a changed extension filter or a moved root would leave the case below true of nothing.
     assert.ok(sources.length >= 200, `expected at least 200 sources, found ${String(sources.length)}`);
-    assert.ok(
-      sources.some(([file]) => file.endsWith(".css")),
-      "no stylesheet is being read, where a height reaches every page",
+
+    for (const suffix of SUFFIXE) {
+      assert.ok(
+        sources.some(([file]) => file.endsWith(suffix)),
+        `no ${suffix} file is being read, so a box written in one is swept by nothing`,
+      );
+    }
+
+    // By the name rather than by the list the walk filters on: a check reading that list back cannot
+    // fail, a suffix missing from it dropping out of both sides at once.
+    assert.deepEqual(
+      sources.filter(([file]) => file.split("/").at(-1)?.includes(".test.")).map(([file]) => file),
+      [],
+      "a fixture is being read as text the tree ships",
     );
   });
 

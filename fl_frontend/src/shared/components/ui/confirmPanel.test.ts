@@ -3,6 +3,21 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { createElement } from "react";
+
+import { renderMarkup } from "@/shared/testing/renderTest";
+
+import { formButton } from "./formButtons";
+import { PANEL_REVEAL } from "./motion";
+
+/*
+ Reached after the harness above has evaluated, which is when the JSX compile step is registered: a
+ static import beside it resolves first and dies on the extension (`docs/frontend/spec.md` §1.9).
+*/
+const { ConfirmActionRow } = await import("./ConfirmActionRow.tsx");
+const { ConfirmReadoutRow } = await import("./ConfirmReadoutRow.tsx");
+const { ConfirmReveal } = await import("./ConfirmReveal.tsx");
+
 /**
  * Source text with every comment blanked first. `ConfirmReveal`'s JSDoc names `role="alert"` while
  * explaining it, so a raw match survives the attribute's deletion — and a panel's `doesNotMatch` of
@@ -44,11 +59,31 @@ function code(source: string): string {
 
 const read = (file: string): string => code(readFileSync(path.resolve(import.meta.dirname, file), "utf8"));
 
-const REVEAL = read("ConfirmReveal.tsx");
-const ACTION_ROW = read("ConfirmActionRow.tsx");
-const READOUT_ROW = read("ConfirmReadoutRow.tsx");
+const REVEAL_SOURCE = read("ConfirmReveal.tsx");
+const ACTION_ROW_SOURCE = read("ConfirmActionRow.tsx");
 
-/** Every panel that escalates a press in place. Each renders the shell rather than spelling one. */
+/** The armed shell as a panel renders it, around a child of the panel's own. */
+const REVEAL = renderMarkup(ConfirmReveal, { children: createElement("p", { id: "folge" }, "Der Spielplan wird gelöscht.") });
+
+/** The primary control the row stands its cancel beside, whose label is the panel's rather than the row's. */
+const PRIMAER = createElement("button", { type: "button" }, "Ja, löschen");
+
+const UNARMED = renderMarkup(ConfirmActionRow, { isConfirming: false, isPending: false, onCancel: () => undefined, children: PRIMAER });
+const ARMED = renderMarkup(ConfirmActionRow, { isConfirming: true, isPending: false, onCancel: () => undefined, children: PRIMAER });
+const IN_FLIGHT = renderMarkup(ConfirmActionRow, { isConfirming: true, isPending: true, onCancel: () => undefined, children: PRIMAER });
+
+const READOUT = renderMarkup(ConfirmReadoutRow, { label: "Saison", value: "2026/27" });
+
+/** The classes on the element a component renders outermost, which is the box every claim below is about. */
+const wurzelKlassen = (html: string): string[] => (/^<\w+[^>]*\sclass="([^"]*)"/.exec(html)?.[1] ?? "").split(" ");
+
+/** Every button the row renders, in document order, by the words standing on it. */
+const beschriftungen = (html: string): string[] =>
+  [...html.matchAll(/<button\b[^>]*>(.*?)<\/button>/g)].map((treffer) => treffer[1]!.replace(/<[^>]*>/g, ""));
+
+/** The cancel's own opening tag: it is the row's second button, the panel's control being the first. */
+const abbrechen = (html: string): string => [...html.matchAll(/<button\b[^>]*>/g)][1]?.[0] ?? "";
+
 /**
  * Every panel that escalates a press, DISCOVERED rather than typed.
  *
@@ -104,70 +139,89 @@ describe("the source these files are read as", () => {
 });
 
 describe("the armed reveal", () => {
-  /* The one mechanism every escalating panel shares. Without it the only signal that the next press became
-     irreversible is the button label quietly changing, which no assistive technology announces. */
-  it("announces itself as an alert and says so in words", () => {
-    assert.match(REVEAL, /role="alert"/);
-    assert.match(REVEAL, /Bist Du Dir sicher\?/);
+  /* The one mechanism every escalating panel shares. Without it the only signal that the next press
+     became irreversible is the button label quietly changing, which nothing announces. */
+  it("announces itself as an alert and says so in words, around the panel's own copy", () => {
+    assert.match(REVEAL, /^<div role="alert"/, "the armed state is announced to nobody");
+    assert.ok(REVEAL.includes("Bist Du Dir sicher?"), "the armed state announces itself without saying what it is");
+    assert.ok(REVEAL.includes('id="folge"'), "the alert holds none of the consequence the panel handed it");
   });
 
-  /* Tier 3, a section unfolding inside a page already in view — spelled as the shared token so the
-     app's one motion vocabulary reaches it, and so reduced motion reaches it too. */
+  /* Tier 3, a section unfolding inside a page already in view, so the app's one motion vocabulary
+     reaches it — and reduced motion with it, which is what `motion.ts` alone is wired for. */
   it("reveals through the shared motion token rather than its own classes", () => {
-    assert.match(REVEAL, /\$\{PANEL_REVEAL\}/);
-    assert.doesNotMatch(REVEAL, /animate-in/, "the reveal spells a motion class beside the token");
+    for (const token of PANEL_REVEAL.split(" ")) {
+      assert.ok(wurzelKlassen(REVEAL).includes(token), `the reveal is missing ${token}, which the shared token carries`);
+    }
+
+    assert.equal(wurzelKlassen(REVEAL).filter((token) => token === "animate-in").length, 1, "the reveal wears a second entry animation");
+    // A literal spelling the same classes renders identically, so which of the two stands here is
+    // legible in the source alone.
+    assert.match(REVEAL_SOURCE, /\$\{PANEL_REVEAL\}/, "the reveal spells its motion beside the vocabulary the app keeps");
   });
 
-  /* One gap for every panel on the roster. A prop here would be a variant prop under another name, which
-     `docs/frontend/spec.md :: I67` refuses for exactly this shape. */
+  /* One gap for every panel on the roster. A prop here would be a variant prop under another name,
+     which `docs/frontend/spec.md :: I67` refuses for exactly this shape. */
   it("takes no variant of any kind", () => {
-    assert.match(REVEAL, /flex flex-col gap-4/);
-    assert.doesNotMatch(REVEAL, /\bvariant\b|\bgap\?:|\btone\b/, "the shell grew a knob");
+    for (const token of ["flex", "flex-col", "gap-4"]) {
+      assert.ok(wurzelKlassen(REVEAL).includes(token), `the reveal is missing ${token}, so its gap is no longer one decision`);
+    }
+
+    // A knob nobody has passed yet changes nothing it renders, so the declaration is where one shows.
+    assert.doesNotMatch(REVEAL_SOURCE, /\bvariant\b|\bgap\?:|\btone\b/, "the shell grew a knob");
   });
 });
 
 describe("the armed action row", () => {
   /* A standing „Abbrechen“ beside an unarmed control offers to cancel nothing, so the cancel is the
-     armed state's and appears with it. */
+     armed state's and stands after the control it cancels. */
   it("renders the cancel with the armed state and never before it", () => {
-    assert.match(ACTION_ROW, /\{isConfirming && \(/);
-    assert.match(ACTION_ROW, /Abbrechen/);
+    assert.deepEqual(beschriftungen(UNARMED), ["Ja, löschen"], "an unarmed row offers to cancel a press nobody has made");
+    assert.deepEqual(beschriftungen(ARMED), ["Ja, löschen", "Abbrechen"], "the armed row does not stand its cancel beside the control");
   });
 
-  /* Closed rather than hidden: a control vanishing mid-press reflows the row under the pointer, and
-     a second cancel during the request would disarm a write already sent. */
+  /* Closed rather than taken away: a control vanishing mid-press reflows the row under the pointer,
+     and a second cancel during the request would disarm a write already sent. */
   it("closes the cancel while the write is in flight", () => {
-    assert.match(ACTION_ROW, /isDisabled=\{isPending\}/);
+    assert.deepEqual(beschriftungen(IN_FLIGHT), ["Ja, löschen", "Abbrechen"], "the cancel leaves the row mid-press");
+    assert.match(abbrechen(IN_FLIGHT), /\sdisabled=""/, "the cancel stays pressable while the write it would disarm is in flight");
+    assert.doesNotMatch(abbrechen(ARMED), /\sdisabled=""/, "the cancel is closed before there is anything in flight");
   });
 
-  /* The app's one cancel treatment. Spell the classes here and this row drifts from every other
-     form's pair the first time `formButton` moves. */
-  it("takes the cancel's fill from the shared intent", () => {
-    assert.match(ACTION_ROW, /formButton\(\{ intent: "cancel"/);
+  /* The app's one cancel treatment, at the width a column asks for. Spell the classes here and this
+     row drifts from every other form's pair the first time `formButton` moves. */
+  it("takes the cancel's fill and its column width from the shared intent", () => {
+    const getragen = (abbrechen(ARMED).match(/\sclass="([^"]*)"/)?.[1] ?? "").split(" ");
+
+    for (const token of formButton({ intent: "cancel", stacks: true }).split(" ")) {
+      assert.ok(getragen.includes(token), `the cancel is missing ${token}, which the shared recipe emits`);
+    }
+
+    // Two recipes emitting the same classes render alike, so a copy is legible in the source alone.
+    assert.match(ACTION_ROW_SOURCE, /formButton\(\{ intent: "cancel", stacks: true \}\)/, "the cancel is dressed beside the shared recipe");
   });
 
   /* A row wherever a pair looks uncramped, a column of FULL-WIDTH buttons where it does not — never
-     a column of narrow ones. `stacks` reaches the buttons and the direction the box: either alone
-     leaves the shape this removes. */
-  it("stands its buttons in a full-width column below `sm`", () => {
-    assert.match(ACTION_ROW, /flex-col[^"]*\bsm:flex-row\b/, "the row is not a column below `sm`");
-    // Every centring class rather than the scoped one's presence: `sm:items-center` still matches with
-    // an unscoped one added beside it, which is the shape this refuses.
+     a column of narrow ones. The width is the recipe's, above; the direction is the box's. */
+  it("stands its buttons in a column below `sm`", () => {
+    const klassen = wurzelKlassen(ARMED);
+
+    assert.ok(klassen.includes("flex-col") && klassen.includes("sm:flex-row"), "the row is not a column below `sm`");
+    // Every centring class rather than the scoped one's presence: `sm:items-center` is still there
+    // with an unscoped one beside it, which is the shape this refuses.
     assert.deepEqual(
-      [...ACTION_ROW.matchAll(/[\w:-]*items-center/g)].map((found) => found[0]),
+      klassen.filter((token) => token.endsWith("items-center")),
       ["sm:items-center"],
       "the row's centring is no longer exactly the `sm:`-scoped one",
     );
-    assert.match(ACTION_ROW, /formButton\(\{ intent: "cancel", stacks: true \}\)/, "the cancel does not fill the column it stands in");
   });
 });
 
 describe("the readout row", () => {
   /* A `<dt>`/`<dd>` pair and not two spans: the pair is what makes the value a fact about the label
      rather than two strings sharing a line. */
-  it("renders a description pair", () => {
-    assert.match(READOUT_ROW, /<dt /);
-    assert.match(READOUT_ROW, /<dd /);
+  it("renders its label and value as a description pair", () => {
+    assert.match(READOUT, /<dt[^>]*>Saison<\/dt><dd[^>]*>2026\/27<\/dd>/, "the readout is two strings sharing a line");
   });
 });
 
