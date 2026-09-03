@@ -1,9 +1,11 @@
-"""SCRIPTS · the throwaway repository the gate-facing suites build, and what removes it
+"""SCRIPTS · the throwaway repository the gate-facing suites build, and the readers that drive one
 
 Five modules copy scripts/ into a temporary tree and import the gate out of the copy, so the checker
-under test roots at a planted corpus rather than at this repository. Shared here is the building and
-the removal only: each module keeps its own corpus, its own plants and its own reset, because a
-fixture shared where a case mutates it would let a planted violation stop being found.
+under test roots at a planted corpus rather than at this repository. Of that tree only the building
+and the removal are shared: each module keeps its own corpus, its own plants and its own reset,
+because a fixture shared where a case mutates it would let a planted violation stop being found. The
+readers below hold no state and are shared whole -- a module spelling one for itself answers a
+question nothing else is held to, which is how two copies of one reader come to disagree.
 
 Invariants:
   Nothing here imports pytest: `scripts/pyrightconfig.json` declares no virtualenv, so it would not resolve.
@@ -12,6 +14,7 @@ Invariants:
 
 from __future__ import annotations
 
+import ast
 import contextlib
 import os
 import shutil
@@ -21,7 +24,7 @@ import sys
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
 
@@ -95,6 +98,73 @@ def base_env() -> dict[str, str]:
     env["FL_GATE_COLOR"] = "0"
     env["NO_SPINNER"] = "1"
     return env
+
+
+def write_shell(path: Path, text: str) -> Path:
+    """One shell fixture on disk, `newline=""` throughout.
+
+    A Windows text-mode write turns every newline into a carriage return pair, and bash reads the
+    result as a stray return on every line.
+    """
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(text)
+    return path
+
+
+def run_shell(
+    bash: str, script: Path, *args: str, env: dict[str, str] | None = None, cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
+    """One shell script run to its end, its streams decoded as utf-8.
+
+    `text=True` alone would decode with the machine locale, which is cp1252 on Windows, where a
+    verdict carrying an em dash does not survive.
+    """
+    # `errors="replace"`: a byte outside utf-8 belongs in the output being asserted on rather than
+    # in a decode error that says nothing about the run.
+    return subprocess.run(
+        (bash, script.as_posix(), *args),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env,
+        cwd=cwd,
+        check=False,
+    )
+
+
+def lift_function(script: Path, name: str, indent: str = "") -> str:
+    """One shell function's source, by its opening and closing lines, dedented to the margin.
+
+    Read rather than reimplemented: a copy in a test passes while the gate's own copy regresses.
+    """
+    lines = script.read_text(encoding="utf-8").splitlines()
+    # Anchored on the opening line's own text rather than on a position, so a function that moves
+    # inside its script is still found.
+    start = next((i for i, line in enumerate(lines) if line.startswith(f"{indent}{name}() {{")), -1)
+    assert start >= 0, f"{_cited(script)} no longer defines {name}"
+    end = next((i for i in range(start + 1, len(lines)) if lines[i] == f"{indent}}}"), -1)
+    assert end > start, f"{_cited(script)}'s {name} has no closing line"
+    return "\n".join(line.removeprefix(indent) for line in lines[start : end + 1])
+
+
+def declared(source: Path, name: str) -> Any:
+    """One module-level annotated constant, as its own source declares it.
+
+    Never imported: a checker raises on an interpreter below its own floor, and a module another
+    fixture cached would answer for the copy under test.
+    """
+    for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.AnnAssign) and node.value is not None and getattr(node.target, "id", "") == name:
+            return ast.literal_eval(node.value)
+    raise AssertionError(f"{_cited(source)} no longer declares {name}")
+
+
+def _cited(path: Path) -> str:
+    """A path as a citation, and its bare name where it sits in a fixture tree instead."""
+    try:
+        return path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return path.name
 
 
 def new_root(prefix: str) -> Path:

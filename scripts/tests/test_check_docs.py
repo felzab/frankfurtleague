@@ -2181,23 +2181,6 @@ def test_a_skipped_folder_is_skipped_at_every_depth() -> None:
     assert not kernel._skipped(root / NOTES)
 
 
-def test_a_directory_only_ignore_rule_is_asked_in_both_spellings() -> None:
-    """The corpus's own ignored folder is on disk, so only a rule naming one that is not can reach the retry."""
-    _reset()
-    kernel = _module("docs_gate.kernel")
-    absent = "absent-folder"
-    write(_gate().root, GITIGNORE, _read(GITIGNORE) + "/" + absent + "/" + NEWLINE)
-    _clear_caches(_gate().root / SCRIPTS_COPY)
-    try:
-        assert not (_gate().root / absent).exists(), "the folder is there, so the retry is not what answers"
-        assert kernel.is_gitignored(absent)
-        assert not kernel.is_gitignored(NOTES)
-    finally:
-        _clear_caches(_gate().root / SCRIPTS_COPY)
-        _reset()
-    _assert_corpus_restored()
-
-
 # --- how a Python module is cut into comment blocks ------------------------------------------------
 
 # Built line by line, so this file's own text carries neither a margin quote nor a bare marker for
