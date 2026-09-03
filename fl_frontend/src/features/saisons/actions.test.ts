@@ -70,11 +70,12 @@ describe("the saison actions against the backend's refusal register", () => {
   });
 
   it("maps every refusal the create endpoint declares", () => {
+    /* `POST /saisons` is a prefix of the activate and the draw operations, so a substring read
+       answers here with codes the create cannot raise. */
     const declared = declaredCodes(CREATE_OPERATION);
 
-    /* The whole list, before the loop, for two reasons: a register that stopped naming the operation
-       runs the loop zero times and green, and `POST /saisons` is a prefix of the activate and the draw
-       operations, so a substring read would answer here with codes the create cannot raise. */
+    /* The whole list before the loop: a register that stopped naming the operation runs the loop
+       zero times and green. */
     assert.deepEqual(declared, CREATE_CODES);
     for (const code of declared)
       assert.ok(RULES_MAP.includes(`case "${code}":`), `${code} reaches the admin as the message about a taken Saison-ID`);
