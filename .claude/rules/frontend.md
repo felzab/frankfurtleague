@@ -28,6 +28,8 @@ own config files included, on §7's terms.
 - **forms** — Confirm a clean save; raise the dialog on `info`; drop the undo when the dialog appears
 - **swap** — Make the club editor the swap's home; grade a swap pair separately in each component
 - **bracket** — Store a bracket fault; report a merely undecided placing; wrap a card without moving its role
+- **tests** — Justify a source-text assertion by the runner's inability to render, in its own words or by citing a file that carries that excuse; assert over source text what a render can show
+- **sweeps** — Take a test file's fixtures as the production text a sweep asserts over; decide the test files for one suffix where the walk takes two
 
 ## Styling and motion
 

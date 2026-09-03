@@ -19,6 +19,7 @@ paths:
 - **db** — Spell a collection name as a literal; enumerate the field names too
 - **routing** — Answer 422 for a malformed path id, or 404 for a query one
 - **spiele** — Drop a forfeit from the cancellation count; merge it into the scoring lookup
+- **tests** — Mark a test `db` for a decision the default tier reaches
 
 ## Traps
 
