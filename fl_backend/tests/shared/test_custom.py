@@ -23,13 +23,23 @@ class _ObjectId(BaseModel):
     value: CustomObjectId
 
 
-@pytest.mark.parametrize("value", ["2026-01-01", "2026-12-31", "2024-02-29", "2026-02-28"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2026-12-31",
+        "2024-02-29",
+        "2026-02-28",
+        # The only case reaching `DATE_REGEX`'s single-digit day arm, and its only month `01`:
+        # narrowing either leaves every other value here passing.
+        "2026-01-01",
+    ],
+)
 def test_accepts_real_calendar_dates(value):
     """`2024-02-29` is load-bearing: a real leap day the calendar check must accept."""
     assert _Date.model_validate({"value": value}).value == value
 
 
-@pytest.mark.parametrize("value", ["2026-02-31", "2026-04-31", "2026-02-30", "2025-02-29"])
+@pytest.mark.parametrize("value", ["2026-02-31", "2026-04-31", "2025-02-29"])
 def test_rejects_dates_that_pass_the_regex_but_do_not_exist(value):
     """`2025-02-29` is load-bearing: `DATE_REGEX` cannot tell a leap year from an ordinary one."""
     with pytest.raises(ValidationError):

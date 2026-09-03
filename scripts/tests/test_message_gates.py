@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
+from conftest import write
+
 SCRIPTS: Final = Path(__file__).resolve().parents[1]
 
 # Withdrawn again, kernel dropped from the cache with it: `test_check_docs.py` runs the gate from a
@@ -41,6 +43,7 @@ MIDDLE_DOT: Final = chr(0xB7)
 
 CLEAN_BODY: Final = "The four endings are executed rather than compared, and the run returned exit 0."
 LONG_LINE: Final = "the gate ran and " * 8
+PLACEHOLDER_BODY: Final = "Verified. `./scripts/gate/verify.sh [SCOPES - FILL IN]` returned exit code\n[EXIT CODE - FILL IN]."
 
 # Two ids of the shape the roadmap generates. Neither is meant to be found anywhere: a token is
 # random, so a case naming one proves the form alone.
@@ -109,6 +112,13 @@ MESSAGE_CASES: Final[tuple[Case, ...]] = (
     Case("a body paragraph nobody wrapped", _message("Ops: the gate proves it", LONG_LINE), (("fail", "the paragraph was never wrapped"),)),
     # One long unbroken token is a URL or a path, and wrapping it would break it.
     Case("a body line nothing could wrap", _message("Ops: the gate proves it", CLEAN_BODY + "\nhttps://example.com/" + "x" * 90)),
+    # The shape four commits reached `main` with. The verification paragraph is present, so the
+    # advisory the row below drives stays silent while the paragraph records nothing.
+    Case(
+        "a verification paragraph still holding the form's placeholders",
+        _message("Ops: the gate proves it", PLACEHOLDER_BODY),
+        (("fail", "a bracketed FILL IN placeholder"),),
+    ),
     Case(
         "a body recording no verification",
         _message("Ops: the gate proves it", "The two halves land together and the table now has a row for each."),
@@ -781,3 +791,46 @@ def test_the_hook_admits_a_trailer_it_has_no_diff_to_judge() -> None:
             refused = commits.check_message_file(path)
     assert admitted == 0, "the hook refused a trailer it has no diff to judge against"
     assert refused == 1, refused
+
+
+# --- the body gate as its own process, which is where a printed line and an exit code can disagree -
+
+
+BODY_GATE: Final = SCRIPTS / "checks" / "check_pr_body.py"
+
+# The claim a run that reported a finding may not close with. A `report` leaves the exit code at 0,
+# so a closing line saying this denies and asserts the same thing in one run.
+CONFORMANCE_CLAIM: Final = "follows the form"
+
+
+def _run_body_gate(body: str, scratch: Path) -> subprocess.CompletedProcess[str]:
+    """The gate as its own process, so the status read is the one it exited with."""
+    write(scratch, "BODY.md", body)
+    return subprocess.run(
+        [sys.executable, str(BODY_GATE), str(scratch / "BODY.md")],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+def test_a_run_that_reported_a_finding_closes_without_claiming_the_body_is_clean() -> None:
+    """The reporting tier alone reaches this: it prints a finding and still exits 0, so what it closes with is that run's only verdict."""
+    reported = "word " * (body_gate.SUMMARY_TARGET + 1) + "\n\n**Verified** exit 0.\n"
+    with tempfile.TemporaryDirectory() as scratch:
+        root = Path(scratch)
+        # Driven beside the reported body rather than on its own: a closing line true of one green
+        # tier and wrong for the other is the failure here, so the two have to close the same way.
+        clean = _run_body_gate(CLEAN_PR_BODY, root)
+        advised = _run_body_gate(reported, root)
+        # What prints and what the run exits with are separate contracts, and this tier holds the
+        # second one: a closing line is free to change only while the three codes below do not.
+        refused = _run_body_gate("Nothing here names the section the form requires.\n", root)
+
+    assert (clean.returncode, advised.returncode, refused.returncode) == (0, 0, 1), (clean, advised, refused)
+    assert "report  " in advised.stderr, f"the reporting tier never fired, so the closing line proves nothing: {advised.stderr!r}"
+    assert CONFORMANCE_CLAIM not in advised.stdout, f"a run that reported a finding still called the body clean: {advised.stdout!r}"
+    assert advised.stdout.strip(), "a run that reported a finding closed with nothing at all"
+    assert advised.stdout == clean.stdout, (clean.stdout, advised.stdout)

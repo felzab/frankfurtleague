@@ -298,6 +298,7 @@ exit code belongs to a command rather than to a file.
 - **exit codes** — Collapse a refusal into a failure; move one half of the exit contract alone
 - **hooks** — Release a command on one token; source the shared write-shape block rather than duplicating it in both bash guards
 - **docs gate** — Delete a shim re-export as unused; repoint a citation off it; name a package `check_docs`
+- **probes** — Add a probe no failure needs alone; leave a guard thinly probed because its refusals resist enumeration, not because they protect less
 
 ## 8. Documentation
 

@@ -825,7 +825,11 @@ else
         fl_frontend/src/app fl_frontend/src/features .vscode
       # certs/ is here because the real repository ignores it: without that line the credential
       # override never decides a certs path here, and the probes on it cannot fail.
-      printf 'docs/audit/\n.vscode/\ncerts/\n' > .gitignore
+
+      # node_modules/ and build-out/ for the same reason on the credential guard's other half:
+      # unignored, its exemption probe passes for want of a match and its refusal cannot fire.
+      # build-out/ is the ignored path that is neither credential-shaped nor exempt.
+      printf 'docs/audit/\n.vscode/\ncerts/\nnode_modules/\nbuild-out/\n' > .gitignore
       for tracked in notes.md scripts/gate/verify.sh scripts/checks/check_docs.py src/tracked.py \
         fl_frontend/package.json fl_frontend/src/app.ts fl_frontend/src/clean.ts \
         fl_frontend/src/features/keep.ts docs/_standard/standard.md \
@@ -918,6 +922,7 @@ else
     hb='guard-branch-bash.sh';   hs='guard-standard-bash.sh';   ht='guard-branch.sh'
     he='guard-standard-edit.sh'; hc='guard-local-compose.sh';   hk='guard-stale-type-class.sh'
     hp='guard-branch-powershell.sh'; hq='guard-credential-shell.sh'
+    ha='guard-auditor-write.sh'
 
     # --- guard-branch.sh on main: the tool route -------------------------------------------------
 
@@ -982,6 +987,10 @@ else
     probe "$hb" denied  cmd 'docker compose config -o rendered.yml'            'bash guard: a compose rendering saved with -o'
     probe "$hb" denied  cmd 'docker compose config --lock-image-digests'       'bash guard: a compose override file'
     probe "$hb" denied  cmd 'sort -o notes.md notes.md'                        'bash guard: sort writing through -o'
+    # A TAB where the patterns spell a space, the one whitespace a doubled space cannot stand in
+    # for: `-o` is matched as `" -o "`, so with tabs unfolded this reaches a tracked file with
+    # nothing refusing it.
+    probe "$hb" denied  cmd "$(printf 'sort\t-o\tnotes.md notes.md')"          'bash guard: sort writing through -o, tab-separated'
     probe "$hb" denied  cmd 'curl -o notes.md https://example.invalid/x'       'bash guard: curl writing through -o'
     probe "$hb" allowed cmd 'grep -o docker notes.md'                          'bash guard: -o as a match selector'
     probe "$hb" denied  cmd 'cp docs/audit/r.md docs/audit/credentials.json'   'bash guard: credential shape in an ignored dir'
@@ -1005,6 +1014,8 @@ else
 
     probe "$hb" denied  cmd 'xargs -I{} cd docs/audit > docs/audit/out.log'    'bash guard: cd in a simple command'
     probe "$hb" denied  cmd 'sed -i s/a/b/ scripts/*.py docs/audit/note.md'    'bash guard: glob over tracked files'
+    # A guard a session cannot escape is the one failure this hook may never have, so both
+    # spellings of the branch step are held open.
     probe "$hb" allowed cmd 'git checkout -b my-topic-branch'                  'bash guard: the escape hatch'
     probe "$hb" allowed cmd 'git switch -c my-topic-branch'                    'bash guard: the escape hatch, switch spelling'
     probe "$hb" allowed cmd "printf x > ${TMPDIR:-/tmp}/claude/x/scratchpad/note.txt" 'bash guard: a scratchpad write'
@@ -1100,7 +1111,6 @@ else
     probe "$hb" denied  cmd 'printf x &>scripts/gate/verify.sh'                     'bash guard: &> redirect onto a tracked file'
     probe "$hb" denied  cmd 'echo x|tee scripts/gate/verify.sh'                     'bash guard: tee, no spaces round the pipe'
     probe "$hb" denied  cmd 'echo x | tee scripts/gate/verify.sh'                   'bash guard: tee, spaced'
-    probe "$hb" denied  cmd 'sed  -i s/a/b/ scripts/gate/verify.sh'                 'bash guard: sed -i, doubled space'
     probe "$hb" denied  cmd 'sed -e s/a/b/ -i scripts/gate/verify.sh'               'bash guard: sed with -i behind another flag'
     # A verb is a word to this scan, so every spelling that leaves it a word has to reach it: a
     # directory in front, and ANSI-C quoting the shell takes off before it runs anything.
@@ -1114,14 +1124,19 @@ else
     probe "$hb" denied  cmd 'bash -c "printf x > scripts/gate/verify.sh"'           'bash guard: a redirect inside an interpreter argument'
     probe "$hb" denied  cmd "sh -c 'printf x > scripts/gate/verify.sh'"             'bash guard: the single-quoted spelling of the same'
     probe "$hb" denied  cmd 'awk {print > "scripts/gate/verify.sh"} notes.md'       'bash guard: a redirect inside an awk program'
-    # Each commits, merges or patches on main while naming a git subcommand a raw-string scan
-    # does not see.
+    # A global option and its value stand between the program and the subcommand, so each has to
+    # be stepped over rather than read as the subcommand.
     probe "$hb" denied  cmd 'git -c user.name=x commit -am wip'                'bash guard: a commit on main behind -c'
     probe "$hb" denied  cmd 'git -C . commit -am wip'                          'bash guard: a commit on main behind -C'
-    probe "$hb" denied  cmd 'git  commit -am wip'                              'bash guard: a commit on main, doubled space'
-    probe "$hb" denied  cmd 'git  apply docs/audit/change.patch'               'bash guard: git apply, doubled space'
     probe "$hb" denied  cmd 'git -C . merge topic'                             'bash guard: a merge behind -C'
-    probe "$hb" denied  cmd 'git  restore fl_frontend/package.json'            'bash guard: git restore, doubled space'
+
+    # One per entry of the write-subcommand list: nothing else here names any of these five, so
+    # dropping one from that list refuses nothing and every other probe stays green.
+    probe "$hb" denied  cmd 'git restore fl_frontend/package.json'             'bash guard: git restore'
+    probe "$hb" denied  cmd 'git am docs/audit/change.patch'                   'bash guard: git am'
+    probe "$hb" denied  cmd 'git cherry-pick topic'                            'bash guard: git cherry-pick'
+    probe "$hb" denied  cmd 'git clean -fd fl_frontend/src'                    'bash guard: git clean'
+    probe "$hb" denied  cmd 'git revert HEAD'                                  'bash guard: git revert'
     # The allowlist boundary has to survive a respelt redirect, or only the expected spelling
     # ever reaches it.
     probe "$hb" denied  cmd 'pnpm format >&docs/audit/format.log'              'bash guard: a formatter behind a >& redirect'
@@ -1129,9 +1144,6 @@ else
     # The flag skip must not read a dashed destination as a flag once `--` has named it.
     probe "$hb" denied  cmd 'printf x > -weird docs/audit/note.md'             'bash guard: a redirect target starting with a dash'
     probe "$hb" denied  cmd 'touch -- -newfile.ts docs/audit/note.md'          'bash guard: a dash-leading path after --'
-    # A guard a session cannot escape is the one failure this hook may never have.
-    probe "$hb" allowed cmd 'git  checkout -b my-topic-branch'                 'bash guard: the escape hatch, doubled space'
-    probe "$hb" allowed cmd 'git  log --oneline -5'                            'bash guard: a read, doubled space'
     probe "$hb" allowed cmd 'printf x > docs/audit/note.md 2>&1'               'bash guard: a real descriptor dup still allowed'
 
     # What the refusals above must not have taken with them.
@@ -1163,9 +1175,6 @@ else
     probe "$hb" denied cmd 'echo x;rm -rf fl_frontend/src'      'bash guard: a semicolon in front of rm'
     probe "$hb" denied cmd 'echo x&&rm -rf fl_frontend/src'     'bash guard: && in front of rm'
     probe "$hb" denied cmd 'echo x||mv notes.md b.md'           'bash guard: || in front of mv'
-    probe "$hb" denied cmd 'echo x;sed -i s/a/b/ scripts/gate/verify.sh' 'bash guard: a semicolon in front of sed -i'
-    probe "$hb" denied cmd 'echo x;git commit -am wip'          'bash guard: a semicolon in front of git'
-    probe "$hb" denied cmd 'git status&&git reset --hard'       'bash guard: && in front of a git write'
     probe "$hb" denied cmd '(git commit -am wip)'               'bash guard: a git write inside a subshell'
     probe "$hb" denied cmd 'ls docs/audit | xargs rm'           'bash guard: a verb ending the command'
     # A quote is stripped by the token stage, so the scan has to strip one too — otherwise the verb
@@ -1184,19 +1193,13 @@ else
     # shellcheck disable=SC2016
     probe "$hb" denied cmd 'printf x > docs/audit/$AUDIT/note.md'               'bash guard: a bare variable inside an ignored path'
 
-    # --- In-place editing, one spelling at a time ------------------------------------------------
+    # --- In-place editing, one probe per gate ----------------------------------------------------
 
-    # The flag is read by shape, so each line here is a spelling the one above it does not reach.
-    probe "$hb" denied  cmd 'perl -i -pe s/a/b/ scripts/gate/verify.sh'             'bash guard: perl -i'
+    # One program per list entry, one spelling per piece of the flag shape. A suffix on the flag
+    # reaches no piece of its own: every pattern here ignores what follows the `i`.
     probe "$hb" denied  cmd 'perl -pi -e s/a/b/ scripts/gate/verify.sh'             'bash guard: perl -i bundled behind -p'
-    probe "$hb" denied  cmd 'perl -i.bak -pe s/a/b/ scripts/gate/verify.sh'         'bash guard: perl -i carrying a suffix'
-    probe "$hb" denied  cmd 'perl -nli.orig -e print scripts/gate/verify.sh'        'bash guard: perl -i bundled and suffixed'
-    probe "$hb" denied  cmd 'perl -e s/a/b/ -i scripts/gate/verify.sh'              'bash guard: perl with -i behind another flag'
     probe "$hb" denied  cmd 'ruby -i -pe s/a/b/ scripts/gate/verify.sh'             'bash guard: ruby -i'
-    probe "$hb" denied  cmd 'ruby -pi.bak -e s/a/b/ scripts/gate/verify.sh'         'bash guard: ruby -i bundled and suffixed'
     probe "$hb" denied  cmd 'sed --in-place s/a/b/ scripts/gate/verify.sh'          'bash guard: the long in-place spelling'
-    probe "$hb" denied  cmd 'sed -i.bak s/a/b/ scripts/gate/verify.sh'              'bash guard: sed -i carrying a suffix'
-    probe "$hb" denied  cmd 'gawk -i inplace {print} scripts/gate/verify.sh'        'bash guard: gawk -i inplace'
     probe "$hb" denied  cmd 'awk -i inplace {print} scripts/gate/verify.sh'         'bash guard: awk -i inplace'
     probe "$hb" denied  cmd 'gawk --include=inplace -f p.awk scripts/gate/verify.sh' 'bash guard: gawk naming the extension'
     probe "$hb" denied  cmd 'yq -i .a=1 fl_frontend/package.json'              'bash guard: yq -i'
@@ -1282,34 +1285,22 @@ else
     probe "$hp" allowed raw '{"tool_name":"Bash","tool_input":{"command":"rm -rf src"}}' 'powershell guard: another tool payload'
 
     # --- guard-standard-bash.sh: the sign-off gate on every branch -------------------------------
+
+    # The write shapes are step 10's: byte-identical to guard-branch-bash.sh's copy, so a shape
+    # probed there is probed here. What is left is this hook's own — that it consults the shared
+    # verdict, and the decisions it makes alone.
     probe "$hs" asked   cmd 'printf x > docs/_standard/standard.md'                      'standard bash guard: a plain write'
-    probe "$hs" asked   cmd 'cp /tmp/x docs/_standard/standard.md >/dev/null'            'standard bash guard: null device'
-    probe "$hs" asked   cmd 'rmdir docs/_standard/standard.md'                           'standard bash guard: rmdir'
+    # Its token reader, not the shared block: a quote it fails to strip and a redirect it fails to
+    # split each resolve to some other path, and the question is never asked.
     probe "$hs" asked   cmd 'echo x > "docs/_standard/"standard.md'                      'standard bash guard: quote-split path'
     probe "$hs" asked   cmd 'echo x >docs/_standard/standard.md'                         'standard bash guard: spaceless redirect'
-    # The same write-shape block, so the same respellings have to reach the question here.
-    probe "$hs" asked   cmd 'printf x >&docs/_standard/standard.md'                      'standard bash guard: >& redirect'
-    probe "$hs" asked   cmd 'printf x ->docs/_standard/standard.md'                      'standard bash guard: -> redirect'
-    probe "$hs" asked   cmd 'sed -e s/a/b/ -i docs/_standard/standard.md'                'standard bash guard: sed -i behind another flag'
-    probe "$hs" asked   cmd 'echo x;sed -i s/a/b/ docs/_standard/standard.md'            'standard bash guard: a semicolon in front of sed -i'
-    # The shared block moves in lockstep, so the `-o` shape has to reach this copy as well.
-    probe "$hs" asked   cmd 'sort -o docs/_standard/standard.md docs/_standard/standard.md'        'standard bash guard: sort writing through -o'
-    probe "$hs" asked   cmd 'git checkout -- docs/_standard/standard.md'                 'standard bash guard: git checkout --'
-    probe "$hs" asked   cmd "$(printf 'echo start\ngit checkout -- docs/_standard/standard.md')" 'standard bash guard: a discard on a second line'
-    probe "$hs" asked   cmd 'git status && git checkout -- docs/_standard/standard.md'   'standard bash guard: a discard behind a git read'
-    probe "$hs" asked   cmd 'rm docs/_standard/standard.md'                              'standard bash guard: a deletion'
+    # Each raises the question on its own account, the shared shapes seeing neither.
+    probe "$hs" asked   cmd 'node scripts/gen.js docs/_standard/standard.md'             'standard bash guard: an interpreter'
+    probe "$hs" asked   cmd 'Set-Content -Path docs/_standard/standard.md -Value x'      'standard bash guard: a PowerShell write cmdlet'
     probe "$hs" asked   raw 'not json'                                         'standard bash guard: unparseable payload'
-    # Neither program is on the interpreter list beside it, so the in-place arm is what answers.
-    probe "$hs" asked   cmd 'awk -i inplace {print} docs/_standard/standard.md'          'standard bash guard: awk -i inplace'
-    probe "$hs" asked   cmd '/usr/bin/sed -i s/a/b/ docs/_standard/standard.md'          'standard bash guard: an editor spelled with a path'
-    probe "$hs" asked   cmd "\$'sed' -i s/a/b/ docs/_standard/standard.md"               'standard bash guard: an editor in ANSI-C quotes'
-    probe "$hs" allowed cmd 'grep -n "a -> b" docs/_standard/standard.md'                'standard bash guard: an arrow inside quotes is not a redirect'
     # The guard asks on path EQUALITY, so a name sharing the standard's prefix must pass untouched.
     probe "$hs" allowed cmd 'printf x > docs/_standard/standard-notes.md'                'standard bash guard: a sibling name is not the standard'
-    probe "$hs" allowed cmd 'grep -i foo docs/_standard/standard.md'                     'standard bash guard: grep -i is not an in-place edit'
-    probe "$hs" allowed cmd 'ls docs/_standard/standard.md > /dev/null'                  'standard bash guard: nothing written'
     probe "$hs" allowed cmd 'cat docs/_standard/standard.md'                             'standard bash guard: a read'
-    probe "$hs" allowed cmd 'git switch topic'                                 'standard bash guard: leaving a branch'
     probe "$hs" allowed cmd 'printf x > docs/audit/note.md'                    'standard bash guard: a write elsewhere'
 
     # --- guard-standard-edit.sh: the same sign-off, on the tool route ----------------------------
@@ -1319,7 +1310,9 @@ else
     probe "$he" asked   file "${hook_root}/docs/_standard/x/../standard.md"    'standard edit guard: .. re-entry'
     probe "$he" asked   raw  '{"tool_input":{}}'                     'standard edit guard: payload without a path'
     probe "$he" asked   raw  'not json'                              'standard edit guard: unparseable payload'
-    probe "$he" asked   raw  "$(printf '{"tool_input":{"notebook_path":"%s/docs/_standard/standard.md"}}' "$hook_root")" 'standard edit guard: a notebook path'
+    # Allowed, never asked: with `notebook_path` unread every notebook write reads as pathless, and
+    # this guard asks about all of them.
+    probe "$he" allowed raw  "$(printf '{"tool_input":{"notebook_path":"%s/docs/notes.ipynb"}}' "$hook_root")" 'standard edit guard: a notebook path elsewhere'
     # Equality on the RESOLVED path: the raw spelling below contains the standard's whole name and
     # still lands elsewhere, so a textual prefix test would ask where this must not.
     probe "$he" allowed file "${hook_root}/docs/_standard/standard.md/../elsewhere.md" 'standard edit guard: .. climbs out'
@@ -1340,21 +1333,65 @@ else
     probe "$hk" allowed file "${hook_root}/scripts/outside.ts"         'stale-class guard: the string out of scope'
     probe "$hk" allowed file "${hook_root}/fl_frontend/src/gone.ts"    'stale-class guard: a file that is not there'
 
+    # --- guard-auditor-write.sh: the cold-auditor's tree is read-only ----------------------------
+
+    # Registered by `.claude/agents/cold-auditor.md` rather than by settings.json, so no other
+    # session loads it and nothing else here would notice it had stopped refusing.
+    probe "$ha" denied  file "${hook_root}/notes.md"                 'auditor write guard: a path inside the repo'
+    # The write it must NOT refuse: the agent's scratch is outside the tree, and refusing there
+    # leaves it unable to write anywhere at all.
+    probe "$ha" allowed file "${hook_root}/../outside.md"            'auditor write guard: a path outside the repo'
+    # Containment is decided on canonical paths: a sibling directory whose name opens with the
+    # root's own spelling is what a textual prefix test releases the tree for.
+    probe "$ha" allowed file "${hook_root}-sibling/x.md"             'auditor write guard: a sibling sharing the root spelling'
+    # NotebookEdit names its path under another key, and the regression is a refusal EVERYWHERE,
+    # the agent's own scratch included. Only the allowed direction catches it: unread, the key
+    # leaves the path undefined, which the pathless arm denies anyway.
+    probe "$ha" allowed raw  "$(printf '{"tool_input":{"notebook_path":"%s/../outside.ipynb"}}' "$hook_root")" 'auditor write guard: a notebook path outside the repo'
+    probe "$ha" denied  raw  '{"tool_input":{}}'                     'auditor write guard: payload without a path'
+    probe "$ha" denied  raw  'not json'                              'auditor write guard: unparseable payload'
+
     # --- guard-credential-shell.sh: the shell route to credential material -----------------------
-    # Decided on the command text, so no fixture file is needed; the gitignore arm asks git from
-    # the throwaway repository, whose ignore file names certs/.
+
+    # This hook is section 1's whole mechanical enforcement on the shell route, so the count here
+    # follows its refusal text: one probe per route that text names, one per boundary that keeps
+    # a session able to work beside it.
+
+    # Decided on the command text, so no fixture file is needed. Only the ignored-path arm asks
+    # git, and it is the fixture's build-out/ that reaches it — a name every text pass ignores.
     probe "$hq" denied  cmd 'cat fl_backend/.env'                       'credential guard: a direct read'
+    # A pattern reaches what a name does: onto a dotfile it reads .env without naming it, and
+    # carrying a credential word it is aimed at the same family.
+    probe "$hq" denied  cmd 'cat fl_backend/.e*'                        'credential guard: a glob onto a dotfile'
+    probe "$hq" denied  cmd 'ls conf/*secret*'                          'credential guard: a glob carrying a credential word'
     # shellcheck disable=SC2016  # the hook has to see the dollar a session would type
     probe "$hq" denied  cmd 'echo $AUTH_SECRET'                         'credential guard: an expansion'
+    # Each names its target only once the shell has run, which is after this guard has answered.
+    # shellcheck disable=SC2016
+    probe "$hq" denied  cmd 'echo ${!VARNAME}'                          'credential guard: an indirect expansion'
+    probe "$hq" denied  cmd 'eval ls -la'                               'credential guard: a string assembled at run time'
     probe "$hq" denied  cmd 'printenv'                                  'credential guard: a whole-environment dump'
     probe "$hq" denied  cmd 'docker inspect fl_backend'                 'credential guard: a container route'
+    probe "$hq" denied  cmd 'gh auth token'                             'credential guard: a token printer'
+    probe "$hq" denied  cmd 'base64 fl_frontend/package.json'           'credential guard: an encoder'
     # A bare private key with no directory in front, read by a program outside every list.
     probe "$hq" denied  cmd 'dd if=server.key'                          'credential guard: a bare private key'
-    probe "$hq" denied  cmd 'ls certs/'                                 'credential guard: a gitignored path'
+    probe "$hq" denied  cmd 'ls certs/'                                 'credential guard: a credential directory segment'
+    # The one pass reading the raw string, so neither quoting nor a searcher stands it down. No key
+    # material below: a PEM header carries none, and the URI password is spelled pw.
+    probe "$hq" denied  cmd 'grep -n "-----BEGIN RSA PRIVATE KEY-----" notes.md' 'credential guard: a private-key header in the command'
+    probe "$hq" denied  cmd 'curl https://user:pw@example.invalid/x'    'credential guard: a URI carrying a password'
+    # The half of the hook no text pass reaches: git places the path, and the exemption list then
+    # decides. Without a probe landing here that whole second half is unrun.
+    probe "$hq" denied  cmd 'cat build-out/x.txt'                       'credential guard: a gitignored path'
     probe "$hq" denied  raw '{"tool_name":"Bash"}'                      'credential guard: a payload naming no command'
     probe "$hq" denied  raw 'not json'                                  'credential guard: an unparseable payload'
+    # A guard a session cannot work beside is one it routes around, so each of these must stay open.
     probe "$hq" allowed cmd 'grep -rn process.env fl_frontend/src'      'credential guard: a search is text'
     probe "$hq" allowed cmd 'grep -rn api_key fl_backend/app'           'credential guard: an identifier grep runs'
+    probe "$hq" allowed cmd 'ls my-certs/notes.md'                      'credential guard: a name ending in certs is not a certs directory'
+    probe "$hq" allowed cmd 'printenv PATH'                             'credential guard: one named non-credential variable'
+    probe "$hq" allowed cmd 'env node --version'                        'credential guard: env with an operand runs a program'
     probe "$hq" allowed cmd 'cat fl_frontend/node_modules/x/index.d.ts' 'credential guard: a node_modules read'
     probe "$hq" allowed cmd 'cat docs/audit/note.md'                    'credential guard: the exempt ignored path'
     probe "$hq" allowed cmd './scripts/gate/verify.sh --docs --format'       'credential guard: the gate runs'
@@ -1502,7 +1539,6 @@ else
         probe "$hb" denied  cmd  '\git commit -am wip'                         'bash guard: a backslash in front of git'
         probe "$hb" denied  cmd  'C:\bin\rm -rf fl_frontend/src'               'bash guard: a deletion spelled with a Windows path'
         probe "$hb" denied  cmd  "\$'\\x72\\x6d' -rf fl_frontend/src"          'bash guard: a verb spelled in hex escapes'
-        probe "$hs" asked   cmd  '\sed -i s/a/b/ docs/_standard/standard.md'             'standard bash guard: a backslash in front of sed'
         ;;
       # Every CI job is ubuntu-latest, so this group is proven on a developer's machine and nowhere
       # else. Left silent it is the shortfall step 16 exists to force into the open.
@@ -1577,6 +1613,50 @@ else
   expect_emission "standard hook: the same file again" "$(probe_standard "$(standard_md_payload "${standard_root}/docs/README.md")")"
   expect_silent "standard hook: comment-free source"   "$(probe_standard "$(standard_src_payload "${standard_root}/fl_frontend/src/probe.ts")")"
   expect_silent "standard hook: path outside the repo" "$(probe_standard "$(standard_md_payload "${standard_root}/../outside.md")")"
+
+  # Outside the probe table twice over: this hook reads no payload, and its answer comes from
+  # netstat, which a shim replaces so the verdict is the hook's rather than this machine's own
+  # port 3000.
+  ORPHAN_HOOK="${REPO_ROOT}/.claude/hooks/warn-orphan-server.sh"
+  # Goes on PATH as it stands, REPO_ROOT already being POSIX-spelled here: a drive letter's colon
+  # would be read as the PATH separator, leaving the real netstat to answer.
+  orphan_shim="${HOOKFX}/shim"
+  mkdir -p "$orphan_shim"
+  # shellcheck disable=SC2016  # the shim reads the name at its own run time, not at this one
+  printf '#!/usr/bin/env bash\ncat "$FL_NETSTAT_FIXTURE"\n' > "${orphan_shim}/netstat"
+  printf '#!/usr/bin/env bash\nprintf %%s "\\"node.exe\\",\\"4242\\"\\n"\n' > "${orphan_shim}/tasklist"
+  chmod +x "${orphan_shim}/netstat" "${orphan_shim}/tasklist"
+
+  # ABHÖREN, not LISTENING: this machine localises the state column, so a hook reading that column
+  # is silently dead here. The foreign address is what the hook reads instead.
+  printf '  TCP    0.0.0.0:3000    0.0.0.0:0    ABH\xc3\x96REN    4242\n' > "${HOOKFX}/ns-listen"
+  # A browser tab on localhost:3000 is a connection, not a listener, and would fire every turn.
+  printf '  TCP    127.0.0.1:3000  127.0.0.1:55123    HERGESTELLT    777\n' > "${HOOKFX}/ns-connected"
+  printf '  TCP    0.0.0.0:30000   0.0.0.0:0    ABH\xc3\x96REN    555\n' > "${HOOKFX}/ns-port30000"
+
+  orphan_drive() { # $1 netstat fixture, or empty for no netstat at all — prints what the hook said
+    local rc=0 out
+    if [[ -n "$1" ]]; then
+      out="$(FL_NETSTAT_FIXTURE="$1" PATH="${orphan_shim}:${PATH}" bash "$ORPHAN_HOOK" </dev/null 2>&1)" || rc=$?
+    else
+      out="$(PATH=/nonexistent "$BASH" "$ORPHAN_HOOK" </dev/null 2>&1)" || rc=$?
+    fi
+    # Advisory means exit 0 always: a Stop hook that fails takes the turn's ending with it.
+    if (( rc != 0 )); then printf 'exit %s: %s' "$rc" "${out:0:120}"; else printf '%s' "$out"; fi
+  }
+  orphan_out="$(orphan_drive "${HOOKFX}/ns-listen")"
+  case "$orphan_out" in
+    *'"systemMessage"'*node.exe*4242*) info 'orphan server hook: a localised listener — named' ;;
+    *) note_fail "orphan server hook: a listener on 3000 went unnamed, got '${orphan_out:-nothing}'" ;;
+  esac
+  for orphan_case in ns-connected ns-port30000; do
+    orphan_out="$(orphan_drive "${HOOKFX}/${orphan_case}")"
+    if [[ -z "$orphan_out" ]]; then info "orphan server hook: ${orphan_case#ns-} — silent"
+    else note_fail "orphan server hook: ${orphan_case#ns-} must say nothing, got '${orphan_out}'"; fi
+  done
+  orphan_out="$(orphan_drive "")"
+  if [[ -z "$orphan_out" ]]; then info 'orphan server hook: no netstat — silent, exit 0'
+  else note_fail "orphan server hook: without netstat it must say nothing and exit 0, got '${orphan_out}'"; fi
 fi
 
 step "15. The pre-push hook prints the CI scopes and blocks nothing"

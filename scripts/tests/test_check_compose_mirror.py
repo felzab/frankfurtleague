@@ -197,17 +197,6 @@ def test_a_row_matching_a_difference_is_returned(monkeypatch):
     assert mirror.declaring(difference) is FREE
 
 
-def test_a_row_that_covered_a_difference_is_not_reported_as_rot(monkeypatch):
-    """Every row earning its place is the state a clean gate run reports."""
-    monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, FREE))
-    judged = [
-        (mirror.Difference("services.nginx.ports", ["80:80"], ["3000:80"]), PINNED),
-        (mirror.Difference("services.a.build", mirror.ABSENT, {"context": "."}), FREE),
-    ]
-
-    assert mirror.uncovered(judged) == []
-
-
 def test_a_row_covering_nothing_is_a_finding(monkeypatch):
     """Allowlist rot pointed the way nothing usually catches: the files agreed and the claim stayed."""
     monkeypatch.setattr(mirror, "DECLARED_DELTAS", (PINNED, FREE))

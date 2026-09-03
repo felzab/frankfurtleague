@@ -1,23 +1,16 @@
 import assert from "node:assert/strict";
-import { readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import z from "zod";
 
+import { filesUnder } from "@/core/treeWalk.ts";
+
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
 /** Every `schemas.ts` under `src`, the same set `apiContract.test.ts` walks. */
-function findSchemaModules(dir: string): string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) found.push(...findSchemaModules(full));
-    else if (entry.name === "schemas.ts") found.push(full);
-  }
-  return found.sort();
-}
+const findSchemaModules = (dir: string): string[] => filesUnder(dir, (name) => name === "schemas.ts", 8).sort();
 
 function isZodSchema(value: unknown): value is z.ZodType {
   return typeof value === "object" && value !== null && "_zod" in value;

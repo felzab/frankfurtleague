@@ -203,6 +203,9 @@ do_backend_ruff() {
 }
 do_backend_pyright() { ( cd fl_backend && "$PY" -m pyright ); }
 do_backend_pytest()  { ( cd fl_backend && "$PY" -m pytest ); }
+# What ruff, pyright and pytest between them cannot answer: pytest runs what it collected, and says
+# nothing about a guarantee that stopped being collected.
+do_backend_estate()  { "$PY" scripts/checks/check_test_estate.py; }
 
 build_image() {
   local name="$1" dockerfile="$2" context="$3"
@@ -310,7 +313,7 @@ run_writer() { # $1 unit
 # beside that proof rather than behind it.
 DOCS_POOL=(conflict_markers docs_gate commit_messages openapi)
 BACKEND_SERIAL=(backend_lock)
-BACKEND_POOL=(backend_ruff backend_pyright backend_pytest)
+BACKEND_POOL=(backend_ruff backend_pyright backend_pytest backend_estate)
 
 # A name with no body reaches `FL_GATE_STEP` as a child-process crash; refused here, where the
 # list is written.
@@ -888,6 +891,11 @@ These are the same errors Pylance shows in the editor."
   unit_join backend_pytest
   unit_verdict backend_pytest "${LINENO}" "fl_backend tests failed."
   ok "default-tier tests pass"
+
+  step "backend · test estate  (markers, fixtures, empty parametrize)"
+  unit_join backend_estate
+  unit_verdict backend_estate "${LINENO}" "The backend suite carries a guarantee nothing is checking."
+  ok "the estate answers loudly"
 fi
 
 # --- format ----------------------------------------------------------------------------------------

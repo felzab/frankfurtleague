@@ -12,13 +12,12 @@ from __future__ import annotations
 import os
 import re
 import shutil
-import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env
+from conftest import base_env, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 REPO_ROOT: Final = SCRIPTS.parent
@@ -103,21 +102,11 @@ def _run(case: Case) -> tuple[int, str]:
         environment.pop(inherited, None)
     environment.update({"CI": "1", CASE_VAR: case.name})
     with tempfile.TemporaryDirectory() as scratch:
-        stub = Path(scratch) / "docker"
-        # `newline=""` (CLAUDE.md §6); the execute bit is what puts this ahead of a real daemon on PATH.
-        with stub.open("w", encoding="utf-8", newline="") as handle:
-            handle.write(STUB)
+        stub = write_shell(Path(scratch) / "docker", STUB)
+        # The execute bit is what puts this ahead of a real daemon on PATH.
         os.chmod(stub, 0o755)
         environment["PATH"] = scratch + os.pathsep + environment["PATH"]
-        done = subprocess.run(
-            (BASH, VERIFY.as_posix(), "--images", "--serial"),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            env=environment,
-            check=False,
-        )
+        done = run_shell(BASH, VERIFY, "--images", "--serial", env=environment)
     return done.returncode, done.stdout + done.stderr
 
 

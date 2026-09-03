@@ -19,13 +19,17 @@ paths:
 - **db** — Spell a collection name as a literal; enumerate the field names too
 - **routing** — Answer 422 for a malformed path id, or 404 for a query one
 - **spiele** — Drop a forfeit from the cancellation count; merge it into the scoring lookup
+- **tests** — Mark a test `db` for a decision the default tier reaches
 
 ## Traps
 
 `.claude/CLAUDE.md` §6's, on §6's terms: each fails silently.
 
 - Mark a db-touching test `@pytest.mark.db`. Without it the test runs in the default tier with no
-  container and fails for an unrelated-looking reason; nothing catches an omitted marker.
+  container and fails for an unrelated-looking reason.
+  `scripts/checks/check_test_estate.py :: check_db_markers` refuses an omitted marker only where the
+  test's reach resolves inside `fl_backend/tests/` — never through a fixture a plugin supplies or a
+  name assembled at run time, which stay yours to mark.
 - Pass a Pydantic field default by keyword — `Field(default=0, ge=0)`, never `Field(0, ge=0)`.
   Positional leaves Pyright believing the field is required while ruff and pytest stay green.
 - Change a model and its hand-written copy in `fl_backend/app/core/constraints.py` in the same

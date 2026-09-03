@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
+
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 import { SAISON_PARAM, withSaisonId } from "./saisonHref.ts";
 
@@ -32,17 +34,10 @@ describe("withSaisonId", () => {
   });
 });
 
+// `isTestFile` decides both spellings: a `.test.tsx` was reaching the sweep, where its fixtures read
+// as navigations.
 /** Every `.ts`/`.tsx` under `src`, tests excluded — the population the sweep below enumerates. */
-function collectSourceFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return collectSourceFiles(full);
-    if (!entry.name.endsWith(".ts") && !entry.name.endsWith(".tsx")) return [];
-    // Both spellings: a `.test.tsx` was reaching the sweep, where its fixtures read as navigations.
-    if (/\.test\.tsx?$/.test(entry.name)) return [];
-    return [full];
-  });
-}
+const SOURCE_FILES = filesUnder(SRC_DIR, (name) => (name.endsWith(".ts") || name.endsWith(".tsx")) && !isTestFile(name), 350);
 
 /**
  * Blanks comments so prose naming a route is not read as a link. Tracks the delimiters rather than
@@ -122,7 +117,7 @@ type Navigation = { file: string; route: string; carries: boolean };
 function collectNavigations(): Navigation[] {
   const found: Navigation[] = [];
 
-  for (const full of collectSourceFiles(SRC_DIR)) {
+  for (const full of SOURCE_FILES) {
     const file = path.relative(SRC_DIR, full).split(path.sep).join("/");
     const code = stripCommentLines(readFileSync(full, "utf8"));
 
@@ -168,7 +163,6 @@ describe("every admin navigation carries the season", () => {
   /* First, because a walk or a pattern that quietly stopped matching would leave every case below
      iterating an empty list and passing. */
   it("swept a whole tree rather than an empty one", () => {
-    assert.ok(collectSourceFiles(SRC_DIR).length > 200, `only ${collectSourceFiles(SRC_DIR).length} source files reached the sweep`);
     assert.ok(navigations.length >= 30, `only ${navigations.length} admin routes were found; the pattern has stopped matching`);
     assert.ok(
       navigations.some((nav) => nav.file === "features/spiele/utils.ts"),
@@ -192,7 +186,7 @@ describe("every admin navigation carries the season", () => {
   it("routes no navigation through a relative path", () => {
     const relativ: string[] = [];
 
-    for (const full of collectSourceFiles(SRC_DIR)) {
+    for (const full of SOURCE_FILES) {
       const file = path.relative(SRC_DIR, full).split(path.sep).join("/");
 
       for (const match of stripCommentLines(readFileSync(full, "utf8")).matchAll(

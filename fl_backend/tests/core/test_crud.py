@@ -32,6 +32,7 @@ TERMS = {"saison_id", "team_id"}
 
 class TestBuildQuery:
     def test_passes_a_named_term_through_under_its_own_name(self):
+        """Equality rather than membership: `limit`, `sort_by` and `order` are how a read is served, not what it selects."""
         query = build_query(_Filters.model_validate({"saison_id": "2526"}), terms=TERMS)
 
         assert query == {"saison_id": "2526"}
@@ -39,12 +40,6 @@ class TestBuildQuery:
     def test_omits_a_term_that_was_not_asked_for(self):
         """An unset term is absent, never null: a null would match documents that carry nothing there."""
         assert build_query(_Filters.model_validate({}), terms=TERMS) == {}
-
-    def test_never_leaks_paging_or_sorting_into_the_query(self):
-        """`limit`, `sort_by` and `order` are how a read is served, not what it selects."""
-        query = build_query(_Filters.model_validate({"saison_id": "2526"}), terms=TERMS)
-
-        assert {"limit", "sort_by", "order", "include_inactive"}.isdisjoint(query)
 
     def test_an_objectid_term_stays_an_objectid(self):
         """The stringified form matches no document, and matching nothing looks like an empty result rather than a fault."""

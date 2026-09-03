@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
+
+import { filesUnder } from "@/core/treeWalk.ts";
 
 /**
  * Zod's own wording, which is English. Matched rather than the German it replaces: a field MISSING its sentence
@@ -13,14 +15,7 @@ const ZOD_DEFAULT = /^(Invalid input|Invalid option|Invalid key|Too small|Too bi
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
 /** Every `schemas.ts` under `features/`, discovered on disk — the same route `apiContract.test.ts` takes. */
-function findSchemaModules(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return findSchemaModules(full);
-
-    return entry.name === "schemas.ts" ? [full] : [];
-  });
-}
+const findSchemaModules = (dir: string): string[] => filesUnder(dir, (name) => name === "schemas.ts", 8);
 
 /**
  * Every payload schema in the app, found by walking the modules rather than by naming them: a hand-written list
@@ -179,14 +174,7 @@ function requiredNamesIn(source: string): string[] {
   return found;
 }
 
-function collectComponents(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return collectComponents(full);
-
-    return entry.name.endsWith(".tsx") ? [full] : [];
-  });
-}
+const collectComponents = (dir: string): string[] => filesUnder(dir, (name) => name.endsWith(".tsx"), 200);
 
 /** Every path some form marks required, discovered from the forms rather than listed beside them. */
 const REQUIRED_NAMES = new Set(collectComponents(SRC_DIR).flatMap((file) => requiredNamesIn(readFileSync(file, "utf8"))));

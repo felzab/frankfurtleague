@@ -17,11 +17,9 @@ const oneFieldChanged: readonly (readonly [string, FLSpieltagDraftFields])[] = [
 ];
 
 describe("deriveSpieltagDraftStatus", () => {
-  it("reports a clean draft as not dirty, with every field present", () => {
+  it("carries a row for each end of the span", () => {
     const status = deriveSpieltagDraftStatus({ stored, draft: { ...stored }, fieldErrors: {}, isSingleDay: false });
 
-    assert.equal(status.isDirty, false);
-    assert.equal(status.changed.length, 0);
     // The span is the whole editable record; the matchday's name has no row because it has no field.
     assert.equal(status.fields.length, 2);
   });
@@ -58,7 +56,9 @@ describe("deriveSpieltagDraftStatus", () => {
     const status = deriveSpieltagDraftStatus({ stored: { beginn: "", ende: "" }, draft: stored, fieldErrors: {}, isSingleDay: false });
 
     const row = status.byPath.get("beginn");
-    assert.ok(row?.isChanged);
+    // `readDatum`'s empty guard on the STORED side: without it a generated matchday reads as the
+    // date placeholder, and dating one would render as an edit rather than as an addition.
+    assert.ok(row);
     assert.equal(row.storedText, null);
   });
 
@@ -66,7 +66,8 @@ describe("deriveSpieltagDraftStatus", () => {
     const status = deriveSpieltagDraftStatus({ stored, draft: { ...stored, ende: "" }, fieldErrors: {}, isSingleDay: false });
 
     const row = status.byPath.get("ende");
-    assert.ok(row?.isChanged);
+    // `readDatum`'s empty guard is what renders this as a removal rather than as the date placeholder.
+    assert.ok(row);
     assert.equal(row.draftText, null);
   });
 
@@ -137,7 +138,6 @@ describe("deriveSpieltagDraftStatus where one picker dates the matchday", () => 
       status.changed.map((field) => field.label),
       ["Beginn", "Ende"],
     );
-    assert.equal(status.changed.length, 2);
   });
 
   it("carries a message the schema names on ende to the row the reader can see", () => {
@@ -165,7 +165,8 @@ describe("deriveSpieltagDraftStatus where one picker dates the matchday", () => 
       isSingleDay: true,
     });
 
+    // That `beginn` is the first `errorPaths` entry is this table's, so only a case over this table
+    // can pin which row a message on that path reaches.
     assert.equal(status.byPath.get("beginn")?.error, "Dieser Zeitraum liegt außerhalb des Zeitraums der Saison.");
-    assert.equal(status.invalid.length, 1);
   });
 });

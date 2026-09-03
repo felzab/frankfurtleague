@@ -87,6 +87,12 @@ describe("the undraw half of the Spielplan panel", () => {
     assert.match(ARMED, /Es gibt in der Verwaltung keinen Weg zurück\./);
   });
 
+  /* The words, not the counts above them: softening this to "der Spielplan wird ersetzt" leaves the
+     figures rendered and the losses unnamed, which nothing else here would catch. */
+  it("names the matchdays and the fixtures the press deletes", () => {
+    assert.match(ARMED, /Die Spieltage und Spiele oben werden dabei gelöscht\./);
+  });
+
   /* Wire an undo here and this fails, for the draw's reason: there is no endpoint to replay the
      removed matchdays and fixtures into, so an offer would promise a restore that cannot run. */
   it("offers no undo beside a write that has none", () => {

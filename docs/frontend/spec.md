@@ -299,11 +299,13 @@ the whole body** (`fl_backend/tests/api/test_payload_strictness.py`), which is w
 one place per slice.
 
 **Every resource with write endpoints has an action calling them**, each dispatched from a
-page-owned editor — except `kontakte`, whose erasure stands as a panel on the list, keyed on an
-ADDRESS across every season and both collections. **These of its writes are irreversible** — a
-pupil's erasure, a referee's anonymisation, a contact person's erasure, the replacement of a club
-on a season's junction row, the draw's `replace`, the undraw beside it, the rollover's close of the
-outgoing season and the triage's decisions
+page-owned editor — `kontakte`'s erasure from inside the seat holding the person it erases, keyed on
+an ADDRESS rather than on the seat it stands in, so it reaches every season's junction row, every
+application and the log
+(`fl_backend/app/api/kontakte/admin_router.py :: erase_kontaktperson`). **These of its writes are
+irreversible** — a pupil's erasure, a referee's anonymisation, a contact person's erasure, the
+replacement of a club on a season's junction row, the draw's `replace`, the undraw beside it, the
+rollover's close of the outgoing season and the triage's decisions
 ([`docs/backend/spec.md`](../backend/spec.md#11-endpoint-inventory)). Each destroys or hands on
 what nothing here can put back, so each confirms in place behind I37's shared escalation and none
 offers an undo. **The triage's decisions hand on rather than destroy**: each mails the school as it
@@ -462,7 +464,60 @@ Vitest or Jest, and no test config file.
 **Tests sit next to the code they test**, unlike the backend's separate `fl_backend/tests/` tree —
 each side takes its own ecosystem's default, and colocation ships nothing, bundlers excluding
 `.test.` files by pattern ([`docs/backend/spec.md`](../backend/spec.md) §1.6). Most test files
-cover pure functions; there are no component tests and no end-to-end suite.
+cover pure functions, and there is no end-to-end suite.
+
+**A claim about what a component renders is asserted against the markup it renders**, through
+`fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup`. The component under test is reached
+with `await import`, never by a static import beside that helper: the helper registers the compile
+step as it evaluates, and every static import in the graph has resolved before then.
+
+**A source-text assertion is for what no rendering can show** — a convention spanning files, a
+directive, a wiring between two of them. Held against a component's own output, a regex over the
+source passes on markup that says the opposite and on a component nothing renders at all.
+
+**The `test` script stands `fl_frontend/src/core/config.ts`'s gate down and supplies the database
+URI a module reads past it** (`fl_frontend/package.json`), so a component whose graph reaches that
+gate renders — a form through its slice's actions module, and every field panel that form composes.
+That environment is the script's own, so every runner of the suite inherits it by invoking
+`pnpm test` rather than spelling it — the gate's `scripts/gate/verify.sh :: do_unit_tests` and CI
+alike.
+
+**The shapes no render reaches:**
+
+- an async Server Component, whose content sits behind its own awaits — a render reaches the
+  fallback it declares, so an assertion over that markup passes without seeing the component's own
+- a state a press or a submit arrives at: the component mounts in its resting form, and every other
+  form it has sits behind an interaction
+  (`fl_frontend/src/shared/components/ui/ConfirmReveal.tsx`)
+- an overlay's body — a modal, a `ComboBox`'s suggestion list, a `DatePicker`'s calendar — which the
+  component holds outside the markup it renders, a modal handed `isOpen` included
+- a call site taking a class-name recipe rather than the classes it returns
+  (`fl_frontend/src/shared/components/ui/overlayPanel.ts`), a literal spelling those classes
+  rendering identical markup
+
+**A `Select` is the exception that makes a picker assertable**: react-aria mirrors the whole
+collection into a hidden native `<select>` carrying every member's value and text, the selection,
+and the control's `required`
+(`fl_frontend/src/features/teams/components/forms/GruppeSelect.tsx`). A row's own `isDisabled` is
+not in that mirror, and neither is a `name` the control was never handed
+(`fl_frontend/src/shared/components/ui/RefusableSelect.tsx`).
+
+**A component reading a Next client context renders under `renderTree` with that context's provider,
+which `next/navigation` does not export** — `useSearchParams` answers `null` without one and throws
+where a parameter is read, and `useRouter` throws for a router nothing has mounted.
+`fl_frontend/src/features/kontakte/editor.test.ts` reaches both at the paths Next keeps them on,
+which a seat holding an address requires; neither hook puts a component out of reach.
+
+**A replacement reason names what the assertion is about, never what the runner cannot do** — a
+ratified decision (`.claude/rules/frontend.md`), not this sheet's to widen. Calling a server action
+for the sentence it returns is the standing exception — it raises Next's request-scope error, and a
+refusal mapper is module-private besides
+(`fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`).
+
+**A citation to this section never stands as that reason.** The shapes above decide whether a
+source-text assertion is available at all; what a test writes is the subject its own assertion has —
+the armed form of a two-press control, the wiring between two modules — and a pointer to this
+section in place of one is the excuse that decision refuses.
 
 **Several tests sweep the source tree rather than exercise a function** — that is how a rule no
 linter can express is held, `fl_frontend/src/core/refusalPaths.test.ts` (I34) and
@@ -489,7 +544,9 @@ its floor over the tree as well: the two answer different questions.
 
 **A sweep that would report the same clean answer over an empty list floors itself first, and a
 sweep whose population could be filtered on the property it asserts derives that population twice**
-(`docs/_standard/standard.md` PRE-4).
+(`docs/_standard/standard.md` PRE-4). **A floor sits under its population with room for ordinary
+product change**: one set at the count fires when a file is legitimately retired, and whoever meets
+it then lowers it, after which it protects nothing.
 `fl_frontend/src/shared/hooks/useDraftFieldErrors.test.ts` derives the form population twice, the
 second route eliminating a named prose-only allowlist from every file mentioning `<Form` at all, so
 narrowing either route breaks the equality rather than shrinking the sweep (I71).

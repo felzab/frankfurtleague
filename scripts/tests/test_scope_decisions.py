@@ -14,14 +14,13 @@ from __future__ import annotations
 import importlib
 import os
 import shutil
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import Final
 
-from conftest import REPO_ROOT, configure, copy_scripts, git, new_root, withdraw, write
+from conftest import REPO_ROOT, configure, copy_scripts, git, new_root, run_shell, withdraw, write
 
 # Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
@@ -174,16 +173,6 @@ def test_a_code_change_asks_for_every_scope_that_covers_it() -> None:
         assert flag in named, flag + " was not asked for: " + named
 
 
-def test_only_the_image_build_fails_and_it_names_the_file() -> None:
-    """`images` is the one scope whose absence refuses a run, and the finding is what an operator re-runs from."""
-    _reset()
-    _edit(DOCKERFILE, "node:26-slim", "node:27-slim")
-    failing, _ = _run("frontend docs format")
-    assert len(failing) == 1, "the image build did not refuse the run: " + repr(failing)
-    assert DOCKERFILE in failing[0]
-    assert "--images" in failing[0]
-
-
 def test_a_typescript_comment_edit_is_read_as_comments_alone() -> None:
     """The case that fails when the classifier is not really running: unresolved, this file reads as code.
 
@@ -220,6 +209,9 @@ def test_the_image_refusal_names_only_the_files_that_ask_for_it() -> None:
     assert len(failing) == 1, "the image build did not refuse the run: " + repr(failing)
     assert DOCKERFILE in failing[0], failing[0]
     assert SAMPLE not in failing[0], "a file reaching no image was named as the reason: " + failing[0]
+    # `images` is the one scope whose absence refuses a run, and this sentence is what an operator
+    # re-runs from.
+    assert "--images" in failing[0], failing[0]
 
 
 def test_naming_the_image_build_clears_the_refusal() -> None:
@@ -388,14 +380,7 @@ def _mapping_for_base(root: Path, base: str) -> dict[str, bool]:
     diffs anything: the listing this mode builds is checked by nothing else.
     """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-    done = subprocess.run(
-        (BASH, str(root / SCRIPTS_COPY / "gate" / "scope_map.sh"), base),
-        cwd=root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
+    done = run_shell(BASH, root / SCRIPTS_COPY / "gate" / "scope_map.sh", base, cwd=root)
     assert done.returncode == 0, "scope_map.sh refused the base ref: " + done.stderr
     return {name: value == "true" for name, _, value in (line.partition("=") for line in done.stdout.splitlines() if "=" in line)}
 

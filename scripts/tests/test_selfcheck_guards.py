@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-import textwrap
 from pathlib import Path
 from typing import Final
+
+from conftest import lift_function, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 SELFCHECK: Final = SCRIPTS / "gate" / "selfcheck.sh"
@@ -27,32 +28,27 @@ SHEBANG: Final = "#!/usr/bin/env bash"
 
 
 def _function(name: str, indent: str = "") -> str:
-    """One function's source, taken out of selfcheck.sh by its opening and closing lines.
-
-    Read rather than reimplemented: a copy here would pass while the gate's own copy regressed.
-    """
-    lines = SELFCHECK.read_text(encoding="utf-8").splitlines()
-    start = next((i for i, line in enumerate(lines) if line.startswith(f"{indent}{name}() {{")), -1)
-    assert start >= 0, f"selfcheck.sh no longer defines {name}"
-    end = next((i for i in range(start + 1, len(lines)) if lines[i] == f"{indent}}}"), -1)
-    assert end > start, f"selfcheck.sh's {name} has no closing line"
-    return textwrap.dedent("\n".join(lines[start : end + 1]))
+    return lift_function(SELFCHECK, name, indent)
 
 
 def _bash(lines: tuple[str, ...], cwd: Path) -> tuple[int, str, str]:
-    """The harness written with `newline=""` and handed to bash as a path.
+    """The harness handed to bash as a path, its two streams read apart.
 
-    Windows would otherwise turn every newline into a carriage return pair, and bash reads the
-    result as one unterminated line.
+    A hook's stderr is a verdict of its own here, so it may not be merged into the stdout the
+    verdicts are counted from.
     """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-    fixture = cwd / "drive.sh"
-    with open(fixture, "w", newline="", encoding="utf-8") as handle:
-        handle.write("\n".join((*lines, "")))
-    # `encoding` rather than `text=True`: that decodes with the machine locale, which is cp1252 on
-    # Windows, and every verdict here carries an em dash.
-    done = subprocess.run((BASH, fixture.as_posix()), capture_output=True, encoding="utf-8", cwd=cwd)
+    done = run_shell(BASH, write_shell(cwd / "drive.sh", "\n".join((*lines, ""))), cwd=cwd)
     return done.returncode, done.stdout, done.stderr
+
+
+def _reader(tmp_path: Path) -> Path:
+    """The call-site reader, lifted out of selfcheck.sh's `CMD_WORDS` and written where awk reads it."""
+    held = SELFCHECK.read_text(encoding="utf-8").split("CMD_WORDS='", 1)
+    assert len(held) == 2, "selfcheck.sh no longer holds the call-site reader"
+    reader = tmp_path / "reader.awk"
+    reader.write_text(held[1].split("\n'\n", 1)[0], encoding="utf-8", newline="\n")
+    return reader
 
 
 # Each fake hook fails in a way that leaves stdout empty, which is also how a hook says "allowed".
@@ -167,12 +163,8 @@ def test_the_helper_check_reads_its_subjects_out_of_the_scripts(tmp_path: Path) 
     `set_not_run` proved it: defined in `_lib.sh`, called by `verify.sh` after a `then`, and
     invisible to a hand-written alternation that never spelled it.
     """
-    held = SELFCHECK.read_text(encoding="utf-8").split("CMD_WORDS='", 1)
-    assert len(held) == 2, "selfcheck.sh no longer holds the call-site reader"
-    reader = tmp_path / "reader.awk"
-    reader.write_text(held[1].split("\n'\n", 1)[0], encoding="utf-8", newline="\n")
     done = subprocess.run(
-        ["awk", "-f", reader.as_posix(), (SCRIPTS / "gate" / "verify.sh").as_posix()],
+        ["awk", "-f", _reader(tmp_path).as_posix(), (SCRIPTS / "gate" / "verify.sh").as_posix()],
         capture_output=True,
         encoding="utf-8",
     )
@@ -185,15 +177,6 @@ def test_the_helper_check_reads_its_subjects_out_of_the_scripts(tmp_path: Path) 
 BS: Final = chr(92)
 SQ: Final = chr(39)
 DOLLAR: Final = chr(36)
-
-
-def _reader(tmp_path: Path) -> Path:
-    """The call-site reader, lifted out of selfcheck.sh's `CMD_WORDS` and written where awk can read it."""
-    held = SELFCHECK.read_text(encoding="utf-8").split("CMD_WORDS='", 1)
-    assert len(held) == 2, "selfcheck.sh no longer holds the call-site reader"
-    reader = tmp_path / "reader.awk"
-    reader.write_text(held[1].split("\n'\n", 1)[0], encoding="utf-8", newline="\n")
-    return reader
 
 
 # One fixture per construct the reader was driven against: its lines, the helper that must still

@@ -20,15 +20,14 @@ claim that reaches a permanent artefact.
 | ending the session                         | [§7](#7-ending-the-session)           |
 | planning a programme                       | [handoff](handoff-template.md)        |
 
-[USAGE.md](USAGE.md) is how this skill loads and how a session starts or resumes.
-
 **This page is a fixed budget, and nothing checks it.** Compaction keeps only its first 5,000 tokens
 ([USAGE.md](USAGE.md) has the why), so **add nothing without removing something of its size**: an
 addition displacing nothing is paid for out of the end of the page. Whether the file is inside that
 budget is **not established** — `wc -c` is the only proxy here, and tokenizing it would settle it.
 **The physical order is for compaction, not chronology** — the table above reaches each section by
-its moment, so §2 sits last, spent before the second agent runs. Each section closes with the
-incidents that made its rules.
+its moment, so §2 sits last, spent before the second agent runs. Compaction takes sections the table
+still names; re-read them at `.claude/skills/orchestration/`. Each section closes with the incidents
+that made its rules.
 
 ## 1. Starting, pausing or resuming
 
@@ -62,11 +61,10 @@ twice, the second time with no warning at all.
 
 1. **A commit lands in the turn its report is judged**, from the register's commit table, and its
    audit is dispatched in the same action: a cycle that ends on a commit has skipped its last step.
-   Neither waits for the wave boundary, where the tree is reconciled and pushed.
+   Neither waits for the wave boundary.
 2. **Check every message against its own diff, never against the proposal it came from** — for
    every path in the diff, does the body account for it? Validate each with
-   `python scripts/checks/check_commits.py --message-file <file>` — that route alone is a false
-   green, and the second is [register-template.md](register-template.md)'s.
+   both routes [register-template.md](register-template.md) gives.
 3. **Re-establish every fact in the message as you commit it**, never from the agent's report: an
    installed version, a remote setting or a file's presence moves between drafting and permanence.
    **A claim about the code is checked against that commit**, never against where the branch ends —
@@ -83,17 +81,15 @@ twice, the second time with no warning at all.
    it is a stranded plant until proven otherwise: ask its owner, never restore it** — a restore over
    a live drive corrupts the measurement and invites a re-plant.
 6. **Push once per wave**, one _saved_ edit to a path [the brief](agent-brief-template.md) section 9
-   names arming the full-form gate for the rest of the branch. Only the gate's own invocation
-   counts, over a tree that has stopped moving: while a fleet writes it exits non-zero on somebody's
-   half-written file, so mid-wave ask only whether it reports a finding in the files you are about
-   to commit. Read its exit code from the command itself (CLAUDE.md §2), past section 9's
-   byte-masking trap.
+   names arming the full-form gate for the rest of the branch. Run it over a tree that has stopped
+   moving ([resume-prompt.md](resume-prompt.md) step 6), and mid-wave ask only whether it reports a
+   finding in the files you are about to commit. Read its exit code from the command itself
+   (CLAUDE.md §2), past section 9's byte-masking trap.
 
 Incidents. Commits first planned at hour four met fifty uncommitted files from twenty agents, and a
 file five of them had edited became one commit. A commit landed carrying two agents' changes under
-one agent's message; nothing failed, and re-reading the body beside the diff found it. Three items
-reached a commit with no audit at all, and only the owner's question surfaced it. Six subjects over
-72 characters cost a full branch replay. Nine implied full-form runs became four by pushing per wave.
+one agent's message, and nothing failed. Three items reached a commit with no audit at all, and only
+the owner's question surfaced it. Nine implied full-form runs became four by pushing per wave.
 
 ## 7. Ending the session
 
@@ -104,14 +100,14 @@ ending below, start nothing new.
 The ending, in order:
 
 1. Assemble the last wave (§5), run the gate at the branch's scope, open the draft pull request,
-   print its link, and name the conclusion of every check it starts — the body you just typed is
-   checked by one that is not `verify` (CLAUDE.md §2).
+   print its link, and name the conclusion of every check it starts (CLAUDE.md §2).
 2. **Write the handoff ([handoff-template.md](handoff-template.md)) from the material the register
    banked as reports landed, and have it audited by an agent that has seen none of the work**, then
    fix what the audit finds.
-3. Write the next session's starter prompt beside the handoff as `START-<session>.md`, the name
-   [USAGE.md](USAGE.md) tells the owner to paste. **Where a programme plan's handoff instructions
-   differ from this skill's, this skill wins.**
+3. Write the next session's starter prompt beside the handoff as `START-<session>.md`
+   ([USAGE.md](USAGE.md)). **Where a programme plan's handoff instructions differ from this skill's,
+   this skill wins; where this skill differs from `.claude/CLAUDE.md` or the owner's standing
+   instructions, this skill is wrong and is fixed here.**
 
 Incidents. A session that spent everything on dispatch ended with sixteen commits, an unpushed branch
 and no pull request.
@@ -134,11 +130,13 @@ Run it for every agent, the fifteenth as much as the first.
    ([the brief](agent-brief-template.md) section 6): where a question needs a fresh agent, you
    dispatch it.
 4. **Brief from [agent-brief-template.md](agent-brief-template.md)**, every section, with the file
-   list in full and the scratch path written out.
-5. **Dispatch a judging auditor as `cold-auditor`** — no `Edit`, `Bash` or `Agent`. A re-auditor
-   that must plant needs a shell and goes as `general-purpose`, read-only by prose alone. Each has
-   its form in [the brief](agent-brief-template.md), which also checks the brief's verbs against the
-   type's tools — nothing else catches a `cold-auditor` told to run, measure or read a diff.
+   list in full and the scratch path written out. Its section 14(e), what in this brief was wrong,
+   is answered even where nothing was: a premise worked around in silence returns in your next
+   brief.
+5. **Dispatch a judging auditor as `cold-auditor`.** A re-auditor that must plant needs a shell and
+   goes as `general-purpose`, read-only by prose alone. Each has its form in
+   [the brief](agent-brief-template.md), which also checks the brief's verbs against the type's
+   tools.
 6. **Record the dispatch in the register before it runs.** One working tree, never worktrees.
 
 Incidents. Work went twice to a fresh agent a live one already covered. An audit whose only decisive
@@ -149,17 +147,18 @@ per-tree installs than they bought.
 ## 4. Running the fleet
 
 - **Check the live count against the cap before every reply, and end the reply with the gauge that
-  proves you did:** `Fleet: 3 of 20, two queued behind the gate commit.` Numbers, one short
-  sentence, and no clause explaining a blockage, which belongs in the reply's prose where the reader
-  needs it. **It is never dropped and never dissolved into the prose**, least of all in the turn it
-  feels most redundant. The owner asking about parallelism is a defect report, never a question.
+  proves you did:** `Fleet: 3 of 20, two queued behind the gate commit.` No clause explaining a
+  blockage: that belongs in the reply's prose where the reader needs it. **It is never dropped and
+  never dissolved into the prose**, least of all in the turn it feels most redundant. The owner
+  asking about parallelism is a defect report, never a question.
 - **Dispatch before you read, and before you reply.** A landed report frees a slot, and the queue's
   next standing action fills it before the report is opened.
 - **Your own serial work is a dispatch** once it needs more than a minute and none of your context —
   a commit message, the partition, report condensation, the pull request body, the handoff draft;
-  you judge the output. **Quoting your own serial time to the owner is the moment to run this rule
-  on it**, which is where it goes unapplied.
-- **Verify agents have stopped by listing them.** Killing a parent does not kill its children.
+  you judge the output — **and below that it stays yours**, a two-comment repair dispatched at the
+  cap having cost a brief, a report and a slot with parallel work behind it. **Quoting your own
+  serial time to the owner is the moment to run this rule on it**, which is where it goes unapplied.
+- **Verify agents have stopped by listing them** ([resume-prompt.md](resume-prompt.md) step 3).
 - **Bank each verdict into the register in the turn it lands, and size a brief by what losing its
   whole output costs** — a report is the agent's final message and there is no second copy of it
   anywhere ([register-template.md](register-template.md)).
@@ -174,6 +173,8 @@ per-tree installs than they bought.
 - **A claim about what the tooling permits is banked only once something has attempted it** — ask
   which command was run, and read its success as evidence about that command and no wider class; a
   green on a check nobody drove is not evidence either.
+- **A checker's exit code omits every finding it merely reports**, so read the output: an over-long
+  commit subject and an over-long pull request summary each come back at 0.
 - **Route every out-of-scope finding in the turn you read it**, from the report's separately headed
   list: an owner, a roadmap entry, or a check where the class is mechanically detectable, and say
   which each got. Reports rank findings by their author's scope, so the one that matters is rarely
@@ -185,8 +186,8 @@ per-tree installs than they bought.
 
 Incidents. The owner demanded full parallelism five times in one session, and each time three to
 five dispatchable items were waiting on the coordinator's reading. An agent's own uncommitted
-edit was quoted back at it as evidence and it was stood down on that. Every false green in this
-repository's record was a status-carrying bug.
+edit was quoted back at it as evidence and it was stood down on that. Six commit subjects over the
+target cost a full branch replay, the checker having reported every one.
 
 ### Tree and machine are shared
 
@@ -235,32 +236,33 @@ none confirming the previous findings had closed.
 
 Do these in this order. None is skippable.
 
-1. **Enumerate the population from the tree by command, and tick every slice off against that
+1. **Cut the session's one branch (CLAUDE.md §2) before the first read**: every step below reads
+   the repository.
+2. **Enumerate the population from the tree by command, and tick every slice off against that
    listing.** A queue written from what agents reported touching covers what agents reported
    touching, and no check asks whether a file was considered: seven files, one the corpus's largest
    page, went unswept while every slice truthfully reported itself complete. Measure across the
-   whole set in the same pass, duplication above all: an agent judging one item at a time keeps all
-   nine copies of a paragraph, correctly.
-2. **Build the file-ownership map, not a task list**, from every file each unit of work writes. A
+   whole set in the same pass, duplication above all (§6).
+3. **Build the file-ownership map, not a task list**, from every file each unit of work writes. A
    file two or more units write is a **hub**: one agent owns it and carries every unit's hunk for it
    as an ordered checklist. Everything else is a **leaf**, sits on nobody's critical path, and goes
    out at once. Cut agents by file and audits by unit of work.
-3. **Name the couplings that are not file edges** — a script that parses another, a library several
+4. **Name the couplings that are not file edges** — a script that parses another, a library several
    files source, a rule and the check enforcing it, and every **shared contract**: a message string,
    an exit code, a flag name that one file emits and another asserts. Coupled files share a wave and
    a re-auditor, because an edit to either can turn the other red after both agents have finished.
-4. **The ownership map is the commit plan.** Fill the register's commit table now, its ordering
+5. **The ownership map is the commit plan.** Fill the register's commit table now, its ordering
    constraints (§5) included, which survive a coordinator change only in writing.
    `.githooks/pre-commit` refuses a partly staged file only where prettier parses it — never a
    `.py`, `.sh` or Dockerfile — so two agents' hunks in one hub file are one commit, or they are
    separated by a commit boundary in time.
    **One session, one branch, one pull request** (the owner's standing instructions): a finding that
    seems to want its own branch is in scope and fixed here, or out of scope and a roadmap entry.
-5. **Decide each slice's cycle now (§6)**, with its reason. Never decide it while reading findings.
-6. **Enumerate the ending (§7)** so the dispatch floor has something to count.
-7. **Write the register ([register-template.md](register-template.md)) and cut the session's one
-   branch (CLAUDE.md §2) before the first agent runs**, the register naming both it and the
-   session's scratch path, whose top level you own. Then send the owner batch.
+6. **Decide each slice's cycle now (§6)**, with its reason. Never decide it while reading findings.
+7. **Enumerate the ending (§7)** so the dispatch floor has something to count.
+8. **Write the register ([register-template.md](register-template.md)) before the first agent
+   runs**, naming step 1's branch and the session's scratch path, whose top level you own. Then send
+   the owner batch.
 
 Incidents. A plan cut into ten units and dispatched as ten agents ran almost serially because six
 units wrote one file. Two agents took opposite sides of one contract while owning

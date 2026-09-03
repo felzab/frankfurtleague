@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
 import ts from "typescript";
 import { z } from "zod";
 
-// Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { filesUnder } from "../../core/treeWalk.ts";
+// Relative imports: this file's siblings resolve either way, and a mixed file reads as a decision.
 import {
   applyVerdicts,
   differsFromSubmitted,
@@ -379,7 +380,7 @@ describe("submitRefusals", () => {
 
   it("hands the write to the guard rather than answering whether one may run", () => {
     // The TYPE is the guard: `guardSubmit` returns `void` and takes the write, so an ignored answer is a
-    // compile error at all twelve call sites. This pins only what the signature cannot say.
+    // compile error at every call site. This pins only what the signature cannot say.
     const source = readFileSync(path.join(import.meta.dirname, "useDraftFieldErrors.ts"), "utf8");
     const BLOCK = ["    if (decision.blocked) {", "      setSubmitFieldErrors(decision.refusals, payloads);"].join("\n");
 
@@ -422,16 +423,11 @@ describe("applyVerdicts", () => {
   });
 });
 
-function collectTsxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return collectTsxFiles(full);
-    return entry.name.endsWith(".tsx") ? [full] : [];
-  });
-}
-
 const sources = new Map(
-  collectTsxFiles(SRC_DIR).map((file) => [path.relative(SRC_DIR, file).split(path.sep).join("/"), readFileSync(file, "utf8")]),
+  filesUnder(SRC_DIR, (name) => name.endsWith(".tsx"), 200).map((file) => [
+    path.relative(SRC_DIR, file).split(path.sep).join("/"),
+    readFileSync(file, "utf8"),
+  ]),
 );
 
 /**
@@ -468,9 +464,10 @@ describe("the sweep's own reach", () => {
     const namesAForm = [...sources].filter(([, text]) => MENTIONS_A_FORM.test(text)).map(([file]) => file);
     const byElimination = namesAForm.filter((file) => !PROSE_ONLY.includes(file));
 
-    // The anti-vacuity clause: a discriminator that stopped matching would leave every assertion below
-    // true of an empty list, and the equality below true of two empty ones.
-    assert.ok(formFiles.length >= 12, `expected at least 12 forms, found ${String(formFiles.length)}: ${formFiles.join(", ")}`);
+    // The anti-vacuity clause: a discriminator that stopped matching leaves every assertion below
+    // true of an empty list, and the equality below true of two empty ones. Set under the tree, so
+    // adding or retiring a form never moves it.
+    assert.ok(formFiles.length >= 8, `expected at least 8 forms, found ${String(formFiles.length)}: ${formFiles.join(", ")}`);
     assert.deepEqual(formFiles, byElimination, "the two routes disagree: a form is swept by one and not the other");
   });
 

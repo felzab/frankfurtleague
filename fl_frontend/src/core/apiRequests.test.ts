@@ -5,6 +5,8 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
+import { filesUnder } from "@/core/treeWalk.ts";
+
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 const FRONTEND_DIR = path.resolve(SRC_DIR, "..");
 const FEATURES_DIR = path.resolve(SRC_DIR, "features");
@@ -135,18 +137,13 @@ for (const [publishedPath, item] of Object.entries(publishedPaths)) {
   }
 }
 
-function sourceFilesUnder(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return sourceFilesUnder(full);
-    return /\.tsx?$/.test(entry.name) ? [full] : [];
-  });
-}
-
 // Every module MENTIONING the client, not the two conventional filenames: a call added under `app/`
 // or `shared/` has to fall under the same comparison.
-const callerFiles = sourceFilesUnder(SRC_DIR).filter((file) => readFileSync(file, "utf8").includes("apiClient"));
+const callerFiles = filesUnder(SRC_DIR, (name) => /\.tsx?$/.test(name), 400).filter((file) => readFileSync(file, "utf8").includes("apiClient"));
 
+// The second route, and deliberately not the walk above: the two listings must agree, so they are
+// reached by different readers — one recursing, this one reading a single level
+// (`docs/_standard/standard.md` PRE-4).
 const featureSlices = readdirSync(FEATURES_DIR, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name);

@@ -1,19 +1,22 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { createElement } from "react";
+
+import { filesUnder } from "@/core/treeWalk.ts";
+import { renderTree } from "@/shared/testing/renderTest";
+
+/*
+ Reached after the harness above has evaluated, which is when the JSX compile step is registered: a
+ static import beside it resolves first and dies on the extension.
+*/
+const { PanelHeading } = await import("./PanelHeading.tsx");
+
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
-function tsxUnder(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-
-    return entry.isDirectory() ? tsxUnder(full) : entry.name.endsWith(".tsx") ? [full] : [];
-  });
-}
-
-const FILES = tsxUnder(SRC);
+const FILES = filesUnder(SRC, (name) => name.endsWith(".tsx"), 200);
 const COMPONENT = path.join(SRC, "shared", "components", "ui", "PanelHeading.tsx");
 const rel = (file: string) => path.relative(SRC, file).split(path.sep).join("/");
 
@@ -40,6 +43,15 @@ function headings(source: string): Heading[] {
 
   return found;
 }
+
+/** The shared heading as a panel renders it, with a hint of the panel's own handed in beside. */
+const HEADING = renderTree(
+  createElement(
+    PanelHeading,
+    { className: "fluid-md font-bold", title: "Kontaktpersonen" },
+    createElement("span", { id: "hinweis" }, "Wer erreichbar ist"),
+  ),
+);
 
 /**
  * Names in this module whose own declaration renders a hint.
@@ -94,20 +106,20 @@ describe("a panel's hint sits beside its heading", () => {
   it("puts nothing but the title in the one heading it renders", () => {
     // The shared component is now the only place that could nest them again, and the only place the
     // panel's heading LEVEL is decided.
-    const rendered = headings(code(readFileSync(COMPONENT, "utf8")));
-
     assert.deepEqual(
-      rendered.map(({ level, body }) => [level, body.trim()]),
-      [["2", "{title}"]],
+      headings(HEADING).map(({ level, body }) => [level, body]),
+      [["2", "Kontaktpersonen"]],
+      "the shared heading no longer renders exactly one `<h2>` holding its title alone",
     );
   });
 
-  it("renders the hint as the heading's next sibling", () => {
+  it("renders the hint as the heading's next sibling, sharing the title's line box", () => {
     // Dropping `{children}` takes every hint off the page, which the cases above read as a success: no
     // heading holds a hint once no heading has one to hold.
-    const source = code(readFileSync(COMPONENT, "utf8"));
-    const beside = source.slice(source.indexOf("</h2>"));
-
-    assert.ok(beside.includes("{children}"), "the shared heading renders nothing beside its title");
+    assert.ok(HEADING.includes('</h2><span id="hinweis"'), "the shared heading renders nothing beside its title");
+    // `docs/frontend/spec.md :: I81`: a text run's mass sits above its box's centre, so a flex row
+    // centring the pair looks wrong where the shared line box does not.
+    assert.match(HEADING, /^<div><h2 /, "the pair is laid out by a box of its own rather than by the title's own line");
+    assert.ok(headings(HEADING)[0]?.tag.includes("inline"), "the heading takes the whole line, leaving the hint below it");
   });
 });

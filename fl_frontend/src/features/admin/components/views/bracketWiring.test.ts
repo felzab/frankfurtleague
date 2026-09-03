@@ -8,8 +8,9 @@ import ts from "typescript";
 const VIEW = "AdminBracketWiringView.tsx";
 
 /**
- * Parsed rather than matched as text: there is no DOM harness here, and every decision below is one a
- * reformatting must stay free to move. What the parse cannot reach is left unpinned.
+ * The view as written and not as rendered: a recipe call and its expansion render alike. Parsed
+ * rather than matched as text, so an assertion here survives the view being reformatted; what the
+ * parse cannot reach is left unpinned.
  */
 const text = readFileSync(path.resolve(import.meta.dirname, VIEW), "utf8");
 const source = ts.createSourceFile(VIEW, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);

@@ -8,13 +8,13 @@ an arm reordered inside `scripts/lib/_lib.sh :: finish`.
 from __future__ import annotations
 
 import ast
-import os
 import shutil
-import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
+
+from conftest import base_env, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
@@ -50,9 +50,11 @@ ENDINGS: Final[tuple[Ending, ...]] = (
     Ending("an interrupt", ("section demo", "on_interrupt"), 130, "Interrupted after"),
     # `adopt_ending` is the parent's half of the contract: a worker's raw wait status, classified
     # before anything is allowed to `exit` with it.
-    Ending("a worker killed with a status above 255", ("adopt_ending 2304",), 3, "Crashed after"),
     Ending("a worker that was interrupted", ("adopt_ending 130",), 130, "Interrupted after"),
     Ending("a worker that crashed", ("adopt_ending 4",), 4, "Crashed after"),
+    # 2304 is what a Windows kill reports, and `exit` masks it to the zero that closes a run green
+    # over a scope nothing judged.
+    Ending("a worker killed with a status above 255", ("adopt_ending 2304",), 3, "Crashed after"),
     Ending("a worker whose rows tell the whole story", ("adopt_section demo 2 10 0 0", "adopt_ending 0", "finish"), 0, "Green"),
     # A 1 names a finding and a 2 names a refusal, and a plain-pass row carries neither. Neither
     # account is then a verdict: graded 3, the code for the run's own plumbing, never green.
@@ -116,29 +118,12 @@ def _kernel_exit_codes() -> dict[str, int]:
 def _run(ending: Ending) -> tuple[int, str]:
     """Reach one ending in a throwaway script, and answer its status beside everything it printed."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-    # A parent's own run state would decide the answer: FL_GATE_WORKER silences every summary, and
-    # the pool's variables point a fixture at a ledger belonging to another run entirely.
-    env = {name: value for name, value in os.environ.items() if not name.startswith("FL_GATE_")}
-    env.pop("GITHUB_ACTIONS", None)
-    env.pop("VERBOSE", None)
-    env["FL_GATE_COLOR"] = "0"
-    env["NO_SPINNER"] = "1"
+    env = base_env()
     env.update(dict(ending.env))
     with tempfile.TemporaryDirectory() as scratch:
-        fixture = Path(scratch) / "ending.sh"
-        # `newline=""` because a CRLF fixture leaves bash a stray return on every line. Sourcing
-        # `_lib.sh` cds to the repository root, so nothing here may lean on this directory.
-        with fixture.open("w", encoding="utf-8", newline="") as handle:
-            handle.write("\n".join(("#!/usr/bin/env bash", f'source "{LIB.as_posix()}"', *ending.body, "")))
-        done = subprocess.run(
-            (BASH, fixture.as_posix()),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            env=env,
-            check=False,
-        )
+        # Sourcing `_lib.sh` cds to the repository root, so no body may lean on this directory.
+        body = "\n".join(("#!/usr/bin/env bash", f'source "{LIB.as_posix()}"', *ending.body, ""))
+        done = run_shell(BASH, write_shell(Path(scratch) / "ending.sh", body), env=env)
     return done.returncode, done.stdout + done.stderr
 
 
@@ -152,14 +137,6 @@ def test_every_ending_exits_the_code_the_contract_gives_it() -> None:
         if ending.says is not None and ending.says not in output:
             wrong.append(f"{ending.name}: nothing it printed says {ending.says!r}")
     assert not wrong, "\n".join(wrong)
-
-
-def test_a_status_above_255_is_a_crash_rather_than_the_zero_it_masks_to() -> None:
-    """A worker killed on Windows reports 2304, and the truncation `exit` would apply to it is a green run."""
-    assert 2304 % 256 == 0
-    code, output = _run(Ending("a killed worker", ("adopt_ending 2304",), 3))
-    assert code == 3, f"a raw status of 2304 exited {code}"
-    assert "Crashed after" in output
 
 
 def test_an_ending_reached_inside_a_worker_summarises_nothing() -> None:

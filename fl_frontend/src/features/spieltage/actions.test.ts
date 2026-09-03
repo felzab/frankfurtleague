@@ -3,23 +3,29 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { createElement as h } from "react";
+
+import { renderTree } from "@/shared/testing/renderTest.ts";
+
 import { DECLARED_RULES, declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 import { FLSaisonPhaseSchema } from "../saisons/schemas.ts";
 import { buildSpieltagBanners } from "./components/forms/AdminSpieltagEditForm/banners.ts";
 import { FLPatchSpieltagPayloadSchema } from "./schemas.ts";
 import { deriveSpieltagDraftStatus } from "./spieltagDraftStatus.ts";
 
+const { FormZeitraumSection } = await import("./components/forms/AdminSpieltagEditForm/FormZeitraumSection.tsx");
+const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
+
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const EDITOR_DIR = path.resolve(import.meta.dirname, "components", "forms", "AdminSpieltagEditForm");
 
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 const UNDO_ROUTE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin", "spieltage", "undo", "route.ts"), "utf8");
-const ZEITRAUM_SECTION = readFileSync(path.resolve(EDITOR_DIR, "FormZeitraumSection.tsx"), "utf8");
 const EDIT_FORM = readFileSync(path.resolve(EDITOR_DIR, "AdminSpieltagEditForm.tsx"), "utf8");
 /** The span validator the pickers feed, which is the backend's and not the Zod mirror's. */
 const BACKEND_CUSTOM_SCHEMAS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "shared", "schemas", "custom.py"), "utf8");
 /** Whitespace-collapsed: the formatter picks the hint body's line breaks, not the author. */
-const HINT_SECTION = ZEITRAUM_SECTION.replace(/\s+/g, " ");
+const HINT_SECTION = readFileSync(path.resolve(EDITOR_DIR, "FormZeitraumSection.tsx"), "utf8").replace(/\s+/g, " ");
 
 const PATCH_OPERATION = "PATCH /spieltage/{spieltag_id}";
 
@@ -130,6 +136,8 @@ describe("what bounds the Zeitraum pickers", () => {
      own answer and carries no sentence beside it (`docs/frontend/spec.md` §1.12, diagnostic 4), so a
      bound reaching wider than the span would be the only thing left saying which days are offered. */
   it("bounds both pickers by the season's span, and promises the greying in no sentence", () => {
+    // Both claims are read off the panel's text: react-aria keeps a calendar's bounds in the popover
+    // it opens, and the hint body sits in a second one, so a rendering of the closed panel has neither.
     const bounds = [...HINT_SECTION.matchAll(/(?:minValue|maxValue)=\{\w+\}/g)].map((match) => match[0]);
 
     assert.deepEqual([...new Set(bounds)].sort(), ["maxValue={spanEnd}", "minValue={spanStart}"]);
@@ -137,39 +145,58 @@ describe("what bounds the Zeitraum pickers", () => {
   });
 });
 
-/**
- * One of the panel's two field arrangements, cut at the markers that open and close its branch. The
- * comment lines go first: one quoting an attribute it explains would otherwise count as a field.
- */
-const zeitraumBranch = (from: string, to: string): string => sliceBetween(ZEITRAUM_SECTION, from, to).replace(/^\s*\/\/.*$/gm, "");
+/** The matchday nothing has been entered for, which both the rail and the pickers are read against. */
+const UNDATED = { beginn: "", ende: "" };
 
-const SINGLE_DAY_FIELDS = zeitraumBranch("{isSingleDay ? (", ") : (");
-const SPAN_FIELDS = zeitraumBranch("<>", "</>");
+const zeitraumMarkup = (isSingleDay: boolean): string =>
+  renderTree(
+    h(DraftStatusProvider, {
+      status: deriveSpieltagDraftStatus({ stored: UNDATED, draft: UNDATED, fieldErrors: {}, isSingleDay }),
+      children: h(FormZeitraumSection, {
+        beginn: "2026-09-04",
+        ende: "2026-09-06",
+        isSingleDay,
+        onBeginnChange: () => undefined,
+        onEndeChange: () => undefined,
+        saisonSpan: { start: "2026-08-01", end: "2027-05-31" },
+        banners: [],
+      }),
+    }),
+  );
 
-const fieldNames = (branch: string): string[] => [...branch.matchAll(/name="(\w+)"/g)].map((match) => match[1] ?? "");
-const fieldLabels = (branch: string): string[] => [...branch.matchAll(/<FieldLabel path="\w+">([^<]+)</g)].map((match) => match[1] ?? "");
+const SINGLE_DAY = zeitraumMarkup(true);
+const SPAN = zeitraumMarkup(false);
+
+/** The paths the panel submits under. Deduplicated: react-aria mirrors each picker into two inputs. */
+const fieldNames = (html: string): string[] => [...new Set([...html.matchAll(/\sname="(\w+)"/g)].map((match) => match[1] ?? ""))];
+
+const fieldLabels = (html: string): string[] => [...html.matchAll(/data-slot="label">([^<]*)</g)].map((match) => match[1] ?? "");
+
+const pickerCount = (html: string): number => (html.match(/data-slot="date-picker"/g) ?? []).length;
 
 describe("the one date a final's Spieltag is given", () => {
   /* The final is a single match played inside one day, so a second picker asks for a date whose only
      legal value is the one already entered. */
   it("puts one picker where a span puts two", () => {
-    assert.deepEqual(fieldNames(SINGLE_DAY_FIELDS), ["beginn"]);
-    assert.deepEqual(fieldNames(SPAN_FIELDS), ["beginn", "ende"]);
+    assert.equal(pickerCount(SINGLE_DAY), 1);
+    assert.equal(pickerCount(SPAN), 2);
+    assert.deepEqual(fieldNames(SINGLE_DAY), ["beginn"]);
+    assert.deepEqual(fieldNames(SPAN), ["beginn", "ende"]);
   });
 
   /* `mapSpieltagRefusal` puts the containment refusal on `beginn` and nothing else on a field, so
      a picker sitting elsewhere sends every one to
      `fl_frontend/src/shared/hooks/useServerFieldErrors.ts`'s unhandled-refusal toast. */
   it("keeps that picker on the one path a refusal can land on", () => {
-    assert.deepEqual(fieldNames(SINGLE_DAY_FIELDS), ["beginn"]);
+    assert.deepEqual(fieldNames(SINGLE_DAY), ["beginn"]);
     assert.match(ACTIONS, /fieldErrors: \{ beginn:/);
   });
 
   /* A label is a promise about the value under it, and this day is the matchday's end as much as its
      beginning. */
   it("names the picker after neither end of a span", () => {
-    assert.deepEqual(fieldLabels(SINGLE_DAY_FIELDS), ["Datum"]);
-    assert.deepEqual(fieldLabels(SPAN_FIELDS), ["Beginn", "Ende"]);
+    assert.deepEqual(fieldLabels(SINGLE_DAY), ["Datum"]);
+    assert.deepEqual(fieldLabels(SPAN), ["Beginn", "Ende"]);
   });
 
   /* `spieltagLabels` composes the rendered name from the phase and `position`, so a form choosing on
@@ -212,12 +239,11 @@ describe("the one date a final's Spieltag is given", () => {
   /* Read off the derivation rather than off its source, so the rail's row and the control the reader
      is looking at are pinned to each other whichever of the two is renamed. */
   it("gives each panel's rows the labels that panel's pickers carry", () => {
-    const undated = { beginn: "", ende: "" };
     const railLabels = (isSingleDay: boolean): string[] =>
-      deriveSpieltagDraftStatus({ stored: undated, draft: undated, fieldErrors: {}, isSingleDay }).fields.map((field) => field.label);
+      deriveSpieltagDraftStatus({ stored: UNDATED, draft: UNDATED, fieldErrors: {}, isSingleDay }).fields.map((field) => field.label);
 
-    assert.deepEqual(fieldLabels(SINGLE_DAY_FIELDS), railLabels(true));
-    assert.deepEqual(fieldLabels(SPAN_FIELDS), railLabels(false));
+    assert.deepEqual(fieldLabels(SINGLE_DAY), railLabels(true));
+    assert.deepEqual(fieldLabels(SPAN), railLabels(false));
   });
 
   /* `fl_backend/app/core/domain.py :: UNENFORCED` names this file as where a matchday off its implied

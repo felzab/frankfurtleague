@@ -1,18 +1,13 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { filesUnder } from "@/core/treeWalk.ts";
+
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
-function collectTsxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return collectTsxFiles(full);
-
-    return entry.name.endsWith(".tsx") ? [full] : [];
-  });
-}
+const collectTsxFiles = (dir: string): string[] => filesUnder(dir, (name) => name.endsWith(".tsx"), 200);
 
 /**
  * **Found by the CONTROL, never by how the empty case is spelled.** Grepping for `isNaN` finds only the sites

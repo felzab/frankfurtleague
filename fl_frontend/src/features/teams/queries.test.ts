@@ -1,23 +1,10 @@
 import assert from "node:assert/strict";
-import { createRequire, registerHooks } from "node:module";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-const FRONTEND_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
-const requireFrom = createRequire(path.join(FRONTEND_DIR, "package.json"));
-
-/** One render pass's memo table, and the handle React reaches it through. */
-type CacheDispatcher = { getCacheForType: <T>(create: () => T) => T };
-
-type ServerReact = {
-  cache: <A extends unknown[], R>(fn: (...args: A) => R) => (...args: A) => R;
-  __SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE: { A: CacheDispatcher | null };
-};
-
-// Loaded by path because `node --test` resolves `react` without `react-server`, whose build is the real memoizer.
-const REACT_DIR = path.dirname(requireFrom.resolve("react/package.json"));
-const SERVER_REACT_URL = pathToFileURL(path.join(REACT_DIR, "react.react-server.js")).href;
+import { beginRenderPass, itOpensAScopeThatMemoizes, requireFromFrontend, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
 
 /** The two membership modules under test, whose `react` imports the server build must answer. */
 const FEATURE_URLS = ["teams", "spieler"].map((feature) => `${pathToFileURL(path.join(import.meta.dirname, "..", feature)).href}/`);
@@ -31,14 +18,14 @@ const RECORDER = "__flAdminMembershipReads";
 (globalThis as unknown as Record<string, string[]>)[RECORDER] = reads;
 
 // Replaced at the module boundary rather than the reads being reshaped to admit a seam: the real
-// client imports `server-only` and validates the whole environment at import.
+// client reaches a backend no test process runs, at a base URL no test run holds.
 const API_DOUBLE = `export const apiClient = async (endpoint) => {
   globalThis.${RECORDER}.push(endpoint);
   return { teams: [], spieler: [] };
 };`;
 
 // Extensionless, not an exports-map subpath: only CJS resolution adds one. Up here: `require.resolve` re-enters the hook.
-const NEXT_CACHE_URL = pathToFileURL(requireFrom.resolve("next/cache")).href;
+const NEXT_CACHE_URL = pathToFileURL(requireFromFrontend.resolve("next/cache")).href;
 
 const TEAMS_ENDPOINT = "/teams/memberships";
 const SPIELER_ENDPOINT = "/spieler/memberships";
@@ -59,23 +46,6 @@ registerHooks({
   },
 });
 
-const serverReact = (await import(SERVER_REACT_URL)) as unknown as ServerReact;
-const internals = serverReact.__SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-assert.ok(internals, "the react-server build no longer exposes its internals -- this harness needs a new way to open a cache scope");
-
-let memoTable = new Map<unknown, unknown>();
-internals.A = {
-  getCacheForType: <T>(create: () => T): T => {
-    if (!memoTable.has(create)) memoTable.set(create, create());
-    return memoTable.get(create) as T;
-  },
-};
-
-/** Next installs one of these per request, so a fresh table here is the next request arriving. */
-function beginRenderPass(): void {
-  memoTable = new Map();
-}
-
 const { getTeamMemberships } = await import("./queries.ts");
 const { getSpielerMemberships } = await import("../spieler/queries.ts");
 
@@ -83,21 +53,7 @@ const countOf = (endpoint: string): number => reads.filter((read) => read === en
 
 describe("the admin membership lists across a render pass", () => {
   /* First, so a scope that failed to take fails here rather than under every count below. */
-  it("opens a scope that memoizes, and shows the miss when nothing memoizes", () => {
-    beginRenderPass();
-    let wrapped = 0;
-    let bare = 0;
-    const readWrapped = serverReact.cache(() => (wrapped += 1));
-    const readBare = (): number => (bare += 1);
-
-    readWrapped();
-    readWrapped();
-    readBare();
-    readBare();
-
-    assert.equal(wrapped, 1, "the scope is not memoizing -- `cache` here is the client build's passthrough");
-    assert.equal(bare, 2, "an unwrapped call is being counted as memoized, so the counter proves nothing");
-  });
+  itOpensAScopeThatMemoizes();
 
   it("is fetched once when both `/admin/teams` boundaries read the club list", async () => {
     beginRenderPass();
