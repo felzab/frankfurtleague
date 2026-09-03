@@ -26,8 +26,8 @@ const sources = new Map(
 );
 
 /**
- * The cap binds the content, so both panel mechanisms are swept: a site the sweep cannot see is one exempt for not
- * having moved. `IconTooltip` is absent, drawing `HINT_SURFACE`, the label chip.
+ * Every site carrying one of these tags is collected; which are capped is decided below by tag, and for `Hint` by mode.
+ * `IconTooltip` carries a label rather than a hint, so it has no blocks to cap.
  */
 const MEASURED_TAGS = new Set(["Hint", "InfoHint"]);
 
