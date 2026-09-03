@@ -42,7 +42,8 @@ this session could not run, say so instead of guessing.>
 
 - Branch, and the commit SUBJECTS -- never SHAs, which a rebase invalidates silently.
 - Gate state: the scope run, the real exit code, the findings.
-- Counts, each with the moment it was taken and a note that it will move.
+- Counts, each with who measured it, the moment it was taken, and a note that it will move. A
+  figure whose provenance the next session cannot see is one it will act on without re-measuring.
 - What could NOT be established here, and why.
 ```
 
