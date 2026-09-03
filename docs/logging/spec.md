@@ -20,11 +20,12 @@ all three surfaces, the browser-crash path, and the development formats.
 **One id per HTTP request: 32 lowercase hex, minted at the edge.** nginx sets `X-Correlation-ID` to
 its own `$request_id` at server level and discards anything the client sent — an attacker-chosen id
 would otherwise appear verbatim in three surfaces' logs. A `location` declaring any
-`proxy_set_header` of its own replaces the whole inherited set, and two do:
-`nginx/prod.conf :: location = /api/v0/system/is_live` repeats it in full, while
-`nginx/prod.conf :: location /_next/static/` sets `Host` alone, so neither this header nor
-`X-FL-Actor` is applied to the static-asset requests it proxies. Next's static file server reads
-neither, and the edge's own access line carries `$request_id` whatever a location does.
+`proxy_set_header` of its own replaces the whole inherited set
+([`docs/ops/spec.md`](../ops/spec.md) §1.3), and two do:
+`nginx/prod.conf :: location = /api/v0/system/is_live`, which restates it in full, and
+`nginx/prod.conf :: location /_next/static/`, which does not, so neither this header nor
+`X-FL-Actor` reaches a static-asset request. The edge's own access line carries `$request_id`
+whatever a location does.
 
 | Surface  | Behaviour                                                                                                                                               | Where                                                                              |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -69,12 +70,9 @@ carries a freshly minted id of its own (`fl_frontend/src/core/api.ts :: apiClien
   lines carry the same id as the nginx line.
 
 **Everything dynamic seeds through one seam**,
-`fl_frontend/src/shared/utils/correlationScope.ts :: runWithIncomingCorrelationId`, which reads the
-edge-minted id off the incoming headers, validates it, and runs its caller under it. It lives in
-`shared/` rather than beside the storage in `fl_frontend/src/core/requestScope.ts` for a packaging
-reason worth knowing before moving it: `fl_frontend/src/core/logging.ts` is reachable from the Edge
-middleware bundle through `fl_frontend/src/core/auth.ts` and `fl_frontend/src/proxy.ts`, and
-`next/headers` is a request-only API that must not be bundled for that runtime.
+`fl_frontend/src/shared/utils/correlationScope.ts :: runWithIncomingCorrelationId`, which sits
+apart from the storage in `fl_frontend/src/core/requestScope.ts` for a packaging reason written at
+its own import.
 
 Lines written outside any request carry the sentinel `SYSTEM`, so `correlation_id` exists on every
 line — except where a caller mints one to correlate a failure standing outside a request, which
@@ -103,20 +101,18 @@ Per-surface extras: the backend adds `module`/`line` and the access-line fields 
 `realip_fallback`, `x_forwarded_for`, `host`, `referer`, `user_agent`; the frontend adds whatever a call site passes
 (`digest`, `route`, `fetch_correlation_id`).
 
-**`client` is the visitor and `x_forwarded_for` is that header as it arrived.** nginx rewrites
-`$remote_addr` from the Cloudflare header named at `nginx/prod.conf :: real_ip_header` for a request
-reaching it through Cloudflare ([`docs/ops/spec.md`](../ops/spec.md) §1.3), so `client` names the
-person rather than the edge — and `realip_fallback` is `1` on a line where that rewrite fell back
-and `client` is an edge after all ([`docs/ops/spec.md`](../ops/spec.md) §1.3); the two are carried
-separately because a forwarding chain a client wrote
-is worth reading beside the address the edge settled on, and neither is the other.
+**`client` is the visitor and `x_forwarded_for` is that header as it arrived** — and
+`realip_fallback` is `1` on a line where the rewrite behind `client` did not take, so `client` is a
+Cloudflare edge after all ([`docs/ops/spec.md`](../ops/spec.md) §1.3). The two addresses are
+carried separately because a forwarding chain a client wrote is worth reading beside the address
+the edge settled on, and neither is the other.
 
 How each surface keeps its stream to one format:
 
-- **Backend:** uvicorn runs with `--no-access-log` and a log config that propagates its loggers to
-  the application handler (`fl_backend/Dockerfile :: CMD`,
-  `fl_backend/app/core/uvicorn_logging.json`); `CorrelationIdMiddleware` writes the per-request line
-  instead, which is what puts the id and `duration_ms` on it.
+- **Backend:** uvicorn's own access log is off and its loggers propagate to the application handler
+  (`fl_backend/Dockerfile :: CMD`, `fl_backend/app/core/uvicorn_logging.json`);
+  `CorrelationIdMiddleware` writes the per-request line instead, which is what puts the id and
+  `duration_ms` on it.
 - **Frontend:** the logger writes to stdout directly, and a console shim installed at startup wraps
   everything else reaching `console.*` — Next's own `⨯ Error` dumps included — into the same
   envelope with `source: "console"` (`fl_frontend/src/core/consoleShim.ts :: installConsoleShim`).
@@ -150,12 +146,11 @@ A client component cannot reach the server-only logger, so a browser-side crash 
 nowhere. The error boundary (`fl_frontend/src/app/error.tsx`) posts crashes **without a digest** to
 `POST /api/client-error`, which validates a strictly bounded payload and writes the one
 `FE-CLIENT-001` line (`fl_frontend/src/app/api/client-error/route.ts`). The route is public and
-unauthenticated by design, which is why nginx gives it a PAIR of `limit_req` zones of its own on
-sign-in's POST-only key shape, one keyed on the visitor's /64 and one on the /48
-(`nginx/prod.conf :: zone=clienterr`, `nginx/prod.conf :: zone=clienterr48`; [`docs/ops/spec.md`](../ops/spec.md) §1.3
-argues the pairing), and why every field is length-capped. Its log line carries the
-ingest request's own id — the browser cannot know the crashed request's — so the join to the crash
-is the digest, the path and the time.
+unauthenticated by design, which is why nginx gives it a pair of `limit_req` zones of its own
+(`nginx/prod.conf :: zone=clienterr`, `:: zone=clienterr48`; [`docs/ops/spec.md`](../ops/spec.md)
+§1.3 argues the pairing) and why every field is length-capped. Its log line carries the ingest
+request's own id — the browser cannot know the crashed request's — so the join to the crash is the
+digest, the path and the time.
 
 ### 1.4 Development logging
 
@@ -171,11 +166,8 @@ convention rather than by enforcement.
 Both console formats share one line shape — padded level, timestamp, `<correlation_id>`, dash,
 message — so the two dev streams read as one convention.
 
-**There is no nginx in dev, and every line still carries an id.** Whichever service receives the
-request mints it: the backend's middleware for a direct API call,
-`fl_frontend/src/core/api.ts :: apiClient` for a frontend-originated one. The rule is identical on
-every surface — honour a well-formed incoming id, mint one otherwise — so dev differs only in
-**who** mints.
+**There is no nginx in dev, and every line still carries an id**: whichever service receives the
+request mints it, under §1.1's rule unchanged, so dev differs only in **who** mints.
 
 On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 [`docs/ops/spec.md`](../ops/spec.md) §3 carries the symptom.
@@ -203,8 +195,9 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | A page view has an nginx line and no application line    | A cache hit issued no request                                                                                               | Working as intended (1.1). The edge line is the record                                                                                                                                                        |
 | A frontend error's id matches no page view               | A cache fill minted its own id                                                                                              | Join on `fetch_correlation_id`, not `correlation_id` (1.1)                                                                                                                                                    |
 | A total backend outage reports HTTP 200                  | The error boundary streams after headers are sent, so status is no health signal                                            | Monitor `GET https://frankfurtleague.de/api/v0/system/is_live`, the apex host with no trailing slash — either variation answers a redirect a monitor reads as green ([`docs/ops/spec.md`](../ops/spec.md) §3) |
+| A request was slow and no line says where the time went  | Each hop meters its own span, and nothing joins the figures (1.2, `nginx/prod.conf :: log_format fl_json`)                  | An edge `duration_s` with an empty `upstream_duration_s` is nginx or the network; a large backend `duration_ms` is the application                                                                            |
 | An application service's log lines vanish after a deploy | `up -d --force-recreate frontend backend` replaces both containers and their log files                                      | Copy the stream off the host before deploying (1.2)                                                                                                                                                           |
-| One digest matches many unrelated incidents              | A digest names an error class, not an incident — Next derives it from the message                                           | Search on digest plus time plus route, then follow the `FE-RSC-001` line's id                                                                                                                                 |
+| One digest matches many unrelated incidents              | A digest names an error class, not an incident — Next derives it from the message                                           | Search on digest plus time plus route, then follow the `FE-RSC-001` line's id; the error page's report link pre-fills them (`fl_frontend/src/shared/components/ui/Error.tsx :: reportHref`)                   |
 | Non-JSON lines appear in a stream                        | nginx's error log and both services' boot lines are outside the contract                                                    | Working as intended (1.2, section 4). A parser skips non-`{` lines                                                                                                                                            |
 | A log line carries personal data                         | A handler logged a rejected value rather than the field that carried it                                                     | Log the field NAME; the value belongs in neither the message nor an extra (L9)                                                                                                                                |
 | A sign-in token appears in nginx's error stream          | A callback request FAILED, and the error log repeats the whole request line — L11 governs the access line alone (section 4) | Treat that token as spent: it is single-use and short-lived (`fl_frontend/src/core/auth.ts :: Resend`). The stream dies with the container on the next deploy (1.2)                                           |
