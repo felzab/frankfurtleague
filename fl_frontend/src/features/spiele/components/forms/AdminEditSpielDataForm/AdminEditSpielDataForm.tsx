@@ -15,6 +15,7 @@ import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
@@ -112,7 +113,6 @@ export function AdminEditSpielDataForm({
   const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startTransition] = useTransition();
-  const [isLeaving, startLeaving] = useTransition();
 
   const [sonderereignis, setSonderereignis] = useState<FLSonderereignis | null>(spielData.sonderereignis);
   // Held, never derived from the value: a scalar has no empty-but-present form, so a derived
@@ -147,14 +147,11 @@ export function AdminEditSpielDataForm({
   // Latched on a successful save, so the guard below does not challenge the save's own navigation —
   // at that moment the draft still differs from the `spielData` this render was given.
   const [hasSaved, setHasSaved] = useState(false);
-  const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
   // Stored with the draft it answers, `useVoidPreview`'s rule: the remedies retire the moment an
   // input the refusal was judged on moves, so a corrected draft never carries the previous ones.
   const [refusal, setRefusal] = useState<{ key: string; code: SpielRefusalCode } | null>(null);
-
-  const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   // The same schema `patchAdminSpielDataAction` parses, so a message shown here is the one the
   // server would have produced.
@@ -199,8 +196,6 @@ export function AdminEditSpielDataForm({
   if (hasSaved && !status.isDirty) setHasSaved(false);
 
   useUnsavedChangesWarning(isDirty);
-
-  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   // Read off the STORED sides: what is already wired is what a save resolves. The groups come from
   // the clubs, a fixture document carrying none.
@@ -322,32 +317,6 @@ export function AdminEditSpielDataForm({
     validatePaths("spiel", { ...buildPayload(), ...selected }, paths);
 
   /**
-   * `router.back()` on a cold deep link is a silent no-op, which would leave every exit on this
-   * page dead. `history.length` is the only signal the platform offers, and a fresh tab is 1.
-   */
-  const leavePage = () => {
-    // Correctness, not tidiness: react-aria clears `data-focused` on blur, so leaving with a field
-    // focused strands it set on a tree the router keeps.
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-
-    // Hover next: the disabled flag is what ends it (`docs/frontend/spec.md :: I68`).
-    startLeaving(() => {
-      if (window.history.length > 1) router.back();
-      else router.push(saisonHref("/admin"));
-    });
-  };
-
-  /** Both routes out of this page — Abbrechen and the view's Zurück pill — come through here. */
-  const requestLeave = () => {
-    if (isDirty) {
-      setHasLeftViaDiscard(false);
-      setIsConfirmingDiscard(true);
-      return;
-    }
-    leavePage();
-  };
-
-  /**
    * **Leaving the page is not enough**: the App Router keeps the tree alive, so a discard that only
    * navigated leaves the abandoned draft in the fields. `spielStateKey` puts a save-then-undo back
    * on the same key, so a save needs this too.
@@ -372,12 +341,13 @@ export function AdminEditSpielDataForm({
     setSubmitFieldErrors({}, {});
   };
 
-  const discardAndLeave = () => {
-    resetDraftToStored();
-    setIsConfirmingDiscard(false);
-    setHasLeftViaDiscard(true);
-    leavePage();
-  };
+  const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
+    fallbackHref: saisonHref("/admin"),
+    isDirty,
+    resetDraftToStored,
+  });
+
+  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
     // Refusal banners are excluded: each names a save the endpoint refuses, where this gate confirms
@@ -423,7 +393,7 @@ export function AdminEditSpielDataForm({
         // Only for failures no single field owns.
         if (!hasFieldErrors(fieldErrorsFromServer)) {
           appToast.danger("Speichern fehlgeschlagen", {
-            description: res.error || res.message || "Versuche es erneut.",
+            description: res.error || "Versuche es erneut.",
           });
         }
         return;
@@ -440,7 +410,7 @@ export function AdminEditSpielDataForm({
       // Only a save that moved something pays for this round trip: the season list is base-tier and
       // carries no money, so a moved fixture cannot be restored whole without reading its booking.
       const read = moved.length === 0 ? undefined : await readAdminSpielBookingsAction(moved.map((spiel) => spiel.id));
-      const bookings = new Map((read?.bookings ?? []).map(({ id, ...booking }) => [id, booking]));
+      const bookings = new Map((read !== undefined && read.success ? (read.bookings ?? []) : []).map(({ id, ...booking }) => [id, booking]));
 
       // A read that FAILED leaves the same empty map a deleted fixture would, and the undo shrinks
       // to the edited fixture either way. Only the failure is worth saying out loud.
@@ -624,7 +594,7 @@ export function AdminEditSpielDataForm({
       {!hasLeftViaDiscard && (
         <ConfirmDiscardModal
           isOpen={isConfirmingDiscard}
-          onClose={() => setIsConfirmingDiscard(false)}
+          onClose={closeDiscard}
           onDiscard={discardAndLeave}
           changeCount={status.changed.length}
         />
