@@ -116,13 +116,16 @@ deliverable.
 | `2pqm-yxyu` | The origin trusts every source inside Cloudflare's ranges                                                            | Ops, Docs, edge                                                             | Open     |
 | `2zah-pvu2` | The gate's binding unit costs more inside a run than it does alone                                                   | Ops, gate, tests                                                            | Open     |
 | `3gag-st7h` | Invariant numbers are permanent per sheet and allocated as though one namespace held all three                       | Ops, Docs, gate                                                             | Open     |
+| `3hdg-3r59` | The replace and the undraw each write the season's clearing, and each is proved separately                           | BE, DB, Docs, tests, saisons                                                | Open     |
 | `3s6w-kndn` | The gate saturates the machine, then idles through its tail                                                          | BE, Ops, gate, tests                                                        | Open     |
 | `54yr-fgun` | A changed citation target puts no page in front of the session                                                       | Ops, Docs, gate                                                             | Open     |
 | `5h9m-nntd` | A formatter reshapes a comment before INC-9 measures it                                                              | BE, Ops, Docs, gate, teams                                                  | Open     |
+| `5qzd-ubrg` | A test's name counts the cases beside it, and the table has outgrown the count                                       | Ops, gate, tests                                                            | Open     |
 | `5tnp-5uff` | A python constant's closing quotes open a comment run                                                                | Ops, Docs, gate, tests                                                      | Open     |
 | `645h-nj9q` | The linter runs a version past its end of life                                                                       | FE, Docs, versions                                                          | Standing |
 | `6zuv-9tkx` | No check can render a Server Component, so the render-prop rule is unenforced                                        | FE, Docs, tests                                                             | Open     |
-| `9q6h-3a34` | The runner cannot load a component, so none is tested                                                                | FE, Docs, tests, versions                                                   | Open     |
+| `79y5-vdpq` | Two gate functions are rewritten in miniature inside the test that drives them                                       | Ops, gate, tests                                                            | Open     |
+| `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                           | FE, tests, saisons, spiele, teams                                           | Open     |
 | `9r6p-z26g` | Five fixture repositories are copied out of a live directory                                                         | Ops, gate, tests                                                            | Open     |
 | `aee2-vxqc` | A deprecated test-client dependency will end four modules' collection                                                | BE, ci, tests, versions                                                     | Open     |
 | `b3c5-avuj` | One uv version is pinned twice and compared by nothing                                                               | BE, Ops, gate, ci, versions                                                 | Open     |
@@ -137,6 +140,7 @@ deliverable.
 | `eg48-8863` | Two db-tier runs at once fail in a way that names nothing                                                            | BE, Ops, gate, ci, tests                                                    | Open     |
 | `f4uf-jape` | A copy test pins what its own author wrote                                                                           | FE, BE, Docs, tests, saisons, teams                                         | Open     |
 | `fha5-k95h` | A projection's coupling is guarded in one direction only                                                             | BE, tests, saisons                                                          | Open     |
+| `g98z-k4cp` | Two hook watchdogs sit under a registration in another file, and nothing compares the pair                           | Ops, Docs, gate                                                             | Open     |
 | `gbjj-9wfh` | A test fixture asserts the type nothing else checks                                                                  | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
 | `gkp4-q3q9` | The unique-index test pairs by ordinal position                                                                      | BE, DB, tests                                                               | Open     |
 | `gvyr-3nws` | Stylesheet comment blocks stand over INC-9's bound, quiet only while nobody lengthens one                            | FE, Ops, Docs, gate                                                         | Standing |
@@ -149,7 +153,11 @@ deliverable.
 | `nce5-j467` | A comment claims two files hold one pattern, unchecked                                                               | FE, BE, tests                                                               | Open     |
 | `p2y9-p9za` | Four helpers every script calls are checked by nothing                                                               | Ops, Docs, gate                                                             | Open     |
 | `q2de-43qd` | A declared-permitted state's reason is checked by nothing                                                            | BE, Ops, gate, tests                                                        | Open     |
+| `qbzd-xrcu` | A scope sweep asserts against a rebuilt predicate rather than the gate's own                                         | Ops, Docs, gate, tests                                                      | Open     |
+| `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                            | FE, Docs, tests                                                             | Open     |
 | `qw6j-scru` | The CSP's style directive is wider than it needs to be                                                               | FE, Ops, Docs, edge                                                         | Open     |
+| `r5xm-ac7m` | A hook probe reads the status only where the verdict was empty                                                       | Ops, Docs, gate                                                             | Open     |
+| `ru7v-jndc` | The guard holding an auditor out of the tree is driven by no probe                                                   | Ops, Docs, gate                                                             | Open     |
 | `s28h-m39z` | A moved vocabulary table is reported on the wrong branch                                                             | Ops, Docs, gate, ci, tests                                                  | Open     |
 | `s88t-ceby` | Nothing checks a generated file against its generator                                                                | FE, BE, tests                                                               | Open     |
 | `spq6-zy2d` | A renamed file's comment blocks are never measured                                                                   | Ops, gate                                                                   | Open     |
@@ -158,6 +166,7 @@ deliverable.
 | `srec-8jxj` | Naming the image build's culprits costs a process per file                                                           | Ops, Docs, gate                                                             | Open     |
 | `suuz-dged` | Process-wide test hooks close the runner's one-process mode                                                          | FE, tests, versions                                                         | Open     |
 | `tc3c-nudr` | Nothing validates the contents of a restored `.env`                                                                  | FE, BE, Ops, Docs, edge                                                     | Standing |
+| `tnvw-4cqz` | One bash guard runs its twin's scan with no watchdog under it                                                        | Docs                                                                        | Open     |
 | `ua29-4s7q` | COR-6's checks read one spelling of a citation and one of a SHA, and the rule reaches past both                      | Ops, gate                                                                   | Open     |
 | `uayf-u7g4` | Crawler policy split between robots.txt and Cloudflare                                                               | FE, Ops, Docs, edge                                                         | Standing |
 | `v48b-waa5` | A rule pattern reaches less than the rule it enforces                                                                | Ops, gate                                                                   | Standing |
@@ -165,6 +174,8 @@ deliverable.
 | `vy6b-ftj4` | The backend, db and frontend jobs have stepped up in wall clock                                                      | Ops, gate, ci                                                               | Open     |
 | `y2bd-s7bf` | A width share floored at one worker sits below both measured widths                                                  | Ops, gate, ci, tests                                                        | Open     |
 | `y3jf-vwrs` | No check enters the gate's serial or streaming run form                                                              | Ops, Docs, gate, ci, tests                                                  | Open     |
+| `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                | FE, BE, tests                                                               | Open     |
+| `z9gx-tekp` | A README enumerates a suite's subjects, and the tree has moved past the list                                         | Ops, tests                                                                  | Open     |
 | `zp4w-tg6x` | No check selects by the trees the In-code Scope names, and its register stands on its tests alone                    | Ops, Docs, gate, ci, tests                                                  | Standing |
 
 ## The items
@@ -2065,6 +2076,30 @@ allocator reading three files.
 **Done when** one convention is stated where somebody adding a row will read it, and the next free
 number is derived rather than counted off three pages by hand.
 
+### `3hdg-3r59` · The replace and the undraw each write the season's clearing, and each is proved separately
+
+| Tags                         | Status | Depends on |
+| ---------------------------- | ------ | ---------- |
+| BE, DB, Docs, tests, saisons | Open   | —          |
+
+**Two endpoints spell one removal.**
+`fl_backend/app/api/saisons/admin_router.py :: generate_spielplan` clears the season inside its
+`replace` branch, and `:: undraw_spielplan` writes the same two
+`fl_backend/app/core/crud.py :: delete_many_from_db` calls — same filter, same session, same order.
+The comment at the first sends a reader to the second for the ordering, which is the coupling
+written down and held by nothing.
+
+**The order is the half that fails quietly.** Fixtures go before matchdays so that neither the log's
+rows nor a restore replaying them names a matchday already gone (`docs/backend/spec.md :: I46` and
+`:: I48`). Reversed at one site alone both endpoints still answer and both still record, and what
+breaks is a restore nobody runs until they need it.
+`fl_backend/tests/api/test_undraw_execution.py` and `fl_backend/tests/api/test_spielplan_execution.py`
+each prove that ordering for their own endpoint, so the duplication is paid a second time in the
+estate.
+
+**Done when** one function clears a season and both endpoints call it, answering the two counts
+rather than reporting them: the replace has them only where the flag was set, the undraw always.
+
 ### `3s6w-kndn` · The gate saturates the machine, then spends its whole tail unable to use it
 
 | Tags                 | Status | Depends on |
@@ -2190,6 +2225,25 @@ nothing further and leaves the measurement wrong; the first two are a mechanism.
 written-down trap is sufficient is a real answer**, and this entry exists because that is a judgement
 rather than a defect.
 
+### `5qzd-ubrg` · A test's name counts the cases beside it, and the table has outgrown the count
+
+| Tags             | Status | Depends on |
+| ---------------- | ------ | ---------- |
+| Ops, gate, tests | Open   | —          |
+
+**`scripts/tests/test_selfcheck_guards.py :: test_the_reader_lexes_seven_constructs_it_used_to_get_wrong`
+states a count in its name, and its docstring splits that same count two ways.** The table it
+iterates has since grown, so both numbers are wrong and the run is green: nothing reads a count in a
+name, and the case that is missing is exactly the one the number hides.
+
+**The name is what a failure prints**, so a reader who arrives at a red run takes the count for the
+population and stops short of the cases past it. What selects the set is the constant the test loops
+over, which answers the size question in seconds and stays right on its own (COR-4).
+
+**Done when** neither the name nor the docstring carries a number, the name saying instead what the
+constructs have in common — every one a shape the call-site reader in
+`scripts/gate/selfcheck.sh` once mis-lexed.
+
 ### `5tnp-5uff` · A python constant's closing delimiter opens a comment run, so code is measured as prose
 
 | Tags                   | Status | Depends on |
@@ -2304,40 +2358,52 @@ lists which shapes are covered, so the render-prop rule stops reading as though 
 **Choosing the second is a real answer**; leaving the choice unmade is what currently reads as the
 first.
 
-**`9q6h-3a34` is its predecessor rather than its answer**: that entry is that no component can be
-loaded at all, and repairing it buys a runner for CLIENT components. A Server Component needs a
-different harness again, so that entry landing leaves this one exactly where it is.
+**The shared render harness is not its answer.** `fl_frontend/src/shared/testing/renderTest.ts`
+compiles a `.tsx` and renders it synchronously, which reaches a Client Component and no async Server
+Component ([`docs/frontend/spec.md`](../frontend/spec.md) §1.9), so what that harness buys leaves
+this entry where it stands.
 
-### `9q6h-3a34` · No component can be loaded by the frontend test runner, so no component test can be written
+### `79y5-vdpq` · Two gate functions are rewritten in miniature inside the test that drives them
 
-| Tags                      | Status | Depends on |
-| ------------------------- | ------ | ---------- |
-| FE, Docs, tests, versions | Open   | —          |
+| Tags             | Status | Depends on |
+| ---------------- | ------ | ---------- |
+| Ops, gate, tests | Open   | —          |
 
-**[`docs/frontend/spec.md`](../frontend/spec.md) §1.9 states that there are no component tests, and a
-stranger reads that as a gap in discipline. It is a gap in the toolchain.** The runner is Node's own,
-driven through `pnpm test`, and nothing in that invocation transforms JSX — so a `.test.tsx` file
-fails before its first assertion, and a `.test.ts` file fails the moment an import reaches an
-application component, every one of those living in a `.tsx`. Measured 2026-08-21 rather than
-inferred, by driving the repository's own test invocation over probe files written outside the tree
-against the installed Node 26.3.0: both shapes die with `TypeError [ERR_UNKNOWN_FILE_EXTENSION]:
-Unknown file extension ".tsx"`, and for the `.test.ts` probe the path that error names is the
-component's rather than the test file's — **which is what says the wall is the extension of the
-module being loaded and not the shape of the test**.
+**`scripts/tests/test_worker_handoff.py :: PARENT_SCRIPT` and `:: _worker_script` are hand-written
+miniatures of `scripts/gate/verify.sh :: replay_scope` and `:: gate_exit`**, each saying so where it
+stands, and nothing compares either against the function it is standing in for. What every case in
+that module is graded against is the copy, so the gate's own replay can lose a row, mis-rank a scope
+or stop emitting a ledger at all and the module still passes — the false green its own header says
+it exists to catch.
 
-**`fl_frontend/tsconfig-alias-hook.mjs` cannot close it, and is not where the repair goes.** It
-registers a `resolve` hook alone, so it answers where a specifier points and never how the file
-behind it is read; the `load` hook is the half that is absent, and a transform to put behind it is
-absent from `fl_frontend/package.json` along with any DOM environment and any testing library. **So
-what closes this is a devDependency and a hook rather than a test**, which is why no amount of
-discipline reaches it and why the effort is a day or two rather than an afternoon.
-`fl_frontend/src/shared/components/ui/requiredMarking.test.ts` is not a counter-example: it puts real
-HeroUI through `renderToStaticMarkup` over a tree it composes itself from library primitives, proving
-what the library emits for a shape and nothing about a component written here.
+**The repair is already written twice in the same directory.**
+`scripts/tests/test_unit_replay.py` builds its parent by lifting functions out of
+`scripts/gate/verify.sh` and laying down the pool state they read, and
+`scripts/tests/test_selfcheck_guards.py` lifts the same way — both for the reason the estate records
+where it lifts: a copy passes while the gate's own regresses.
 
-**Done when** a component written in this repository can be rendered by a test, and
-[`docs/frontend/spec.md`](../frontend/spec.md) §1.9 — which states the opposite — moves in the same
-commit (CUR-2).
+**Done when** both are driven by the functions themselves. `replay_scope` is nested and reads the
+pool directory and the status map — the state `test_unit_replay.py`'s parent already writes before
+it lifts anything, which is what makes the lift the smaller change rather than the larger one.
+
+### `7wne-u6hm` · Three test modules each open a cache scope through the same React internal
+
+| Tags                              | Status | Depends on |
+| --------------------------------- | ------ | ---------- |
+| FE, tests, saisons, spiele, teams | Open   | —          |
+
+**`fl_frontend/src/features/saisons/queries.test.ts`,
+`fl_frontend/src/features/spiele/queries.test.ts` and
+`fl_frontend/src/features/teams/queries.test.ts` each import React's `react-server` build and
+install a memo table on the internals object whose exported name says it may not be used**, and each
+carries its own assertion that the build still exposes it. What the three prove is that one render
+pass memoizes a filtered admin read, which is what a page relies on; what they rest on is React's
+private surface, so a release moving it fails three modules at once and the same repair is written
+three times.
+
+**Done when** one module opens the scope and the three take it from there. It has to be reached by a
+static import, the modules under test by `await import`: the opener installs itself as it evaluates,
+and a module already resolved by then gets the real cache rather than the harness's.
 
 ### `9r6p-z26g` · Five fixture repositories are copied out of a live directory behind five hand-written denylists, and one of them already differs
 
@@ -2796,9 +2862,10 @@ endpoint stamps `saison_spieler` and touches no `spieler` document, so the forbi
 correct one. The suite was green throughout, and the test was what would have had to be edited before
 the defect could be fixed.
 
-**A DOM runner does not close it**, which is why this is not `9q6h-3a34`: rendering the panel and
-asserting on the rendered text would fail in precisely the same way, because the fault is in what the
-assertion compares against rather than in how it reads the component.
+**Rendering the panel does not close it.** An assertion over the markup
+`fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup` produces fails in precisely the same
+way, because the fault is in what the assertion compares against rather than in how it reads the
+component.
 
 **Done when** the vocabulary has an authority and a test reads it — the pair of verbs declared once
 in [`docs/glossary.md`](../glossary.md), which today describes `inactive_since` as "the day something
@@ -2856,6 +2923,31 @@ from the guards around it.
 covered by name, and every key `fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact` and
 `:: _a_side_is_off_the_draw` read today is fetched by the projection. What is missing is anything
 holding them to it.
+
+### `g98z-k4cp` · Two hook watchdogs sit under a registration in another file, and nothing compares the pair
+
+| Tags            | Status | Depends on |
+| --------------- | ------ | ---------- |
+| Ops, Docs, gate | Open   | —          |
+
+Lands with: `tnvw-4cqz`
+
+**`.claude/hooks/guard-credential-shell.sh` and `.claude/hooks/guard-branch-bash.sh` each decide in a
+child under a kill budget of their own and deny on anything but that child's answer**, and each
+states at the line that its budget has to stay under the hook's own registration in
+`.claude/settings.json`. A hook the harness kills prints nothing, and a hook that prints nothing has
+allowed the command — so a registration lowered to the child's budget or below hands the kill to the
+harness, and the guard falls silent on the write to `main` or the command reaching credential
+material that it was written to refuse.
+
+**Nothing reads either relationship.** The numbers sit in two files, the failure leaves no trace in
+the transcript, and every probe that drives these guards runs them directly rather than through the
+harness, so all of them stay green. Changing a registration is also the cheapest edit on the page:
+whoever lowers one is tuning a timeout, not touching a guard.
+
+**Done when** one check reads both files and refuses a registration that does not stand clear of the
+budget beneath it. `scripts/gate/selfcheck.sh` already refuses a declared pair that has drifted
+apart, so what is missing is the comparison rather than a place to put it.
 
 ### `gbjj-9wfh` · A test fixture asserts its own type, and the assertion is the only thing holding it to the model
 
@@ -3315,6 +3407,50 @@ confidently from something false, and the states it covers are the ones nobody r
 neighbouring fields already are, in `fl_backend/tests/core/test_domain.py`, which already walks
 `UNENFORCED` and so has both a host and a precedent.
 
+### `qbzd-xrcu` · A scope sweep asserts against a rebuilt predicate rather than the gate's own
+
+| Tags                   | Status | Depends on |
+| ---------------------- | ------ | ---------- |
+| Ops, Docs, gate, tests | Open   | —          |
+
+**`scripts/tests/test_scope_agreement.py :: _bounded_of` rebuilds
+`scripts/checks/docs_gate/branch.py :: _bounded` out of the registers that function reads**, and the
+sweep walking the In-code Scope's trees for a file of a kind the gate cannot read asserts against
+the rebuild rather than against the gate's own answer.
+
+**Two guards bound the shapes it can follow silently**: the rebuild refuses a `_bounded` reading more
+than one suffix register, and one selecting by tree. Neither catches a condition added to `_bounded`
+that widens what it bounds — the rebuild then bounds less than the gate does, the sweep finds nothing
+and passes, and a file the gate hands to the `#` reader goes unreported. Widening in the other
+direction fails loudly, so the quiet half is the one to close.
+
+**Importing it is what the constraint rules out, and not driving it.**
+`scripts/tests/test_check_docs.py` runs a copy of that package under the same names, so a module
+cached here would decide which of the two trees either file measures — which a subprocess leaves
+alone.
+
+**Done when** the sweep asks `_bounded` itself. `docs/_standard/standard.md`'s In-code Scope is the
+other half of what this module holds together, so its own reading of the register survives whichever
+route is chosen.
+
+### `qg8u-tbd6` · One test module is named for a function and holds the cases of two others
+
+| Tags            | Status | Depends on |
+| --------------- | ------ | ---------- |
+| FE, Docs, tests | Open   | —          |
+
+**`fl_frontend/src/shared/hooks/focusFirstRefusal.test.ts` is named for one export of
+`fl_frontend/src/shared/hooks/useServerFieldErrors.ts`**, covers that module's other exports beside
+it, and then covers `fl_frontend/src/shared/hooks/useDraftFieldErrors.ts` as well — which already
+has `fl_frontend/src/shared/hooks/useDraftFieldErrors.test.ts` of its own.
+
+**Colocation is what says where a module's tests are** ([`docs/frontend/spec.md`](../frontend/spec.md)
+§1.9), and here it says the wrong thing twice: a session changing `useServerFieldErrors.ts` finds no
+test file beside it and reads that as untested, and one changing `useDraftFieldErrors.ts` finds one
+of its two files and stops.
+
+**Done when** each module's cases sit in the file named for it.
+
 ### `qw6j-scru` · The style directive concedes more than the reason recorded for it needs
 
 | Tags                | Status | Depends on |
@@ -3354,6 +3490,48 @@ measurement, and it is worth re-checking beside the one above it.
 form with the images built ([`docs/ops/spec.md`](../ops/spec.md) §1.6), and the config is mounted
 read-only with nginx waiting on both upstreams being healthy — so a bad block takes the site down
 rather than turning something red.
+
+### `r5xm-ac7m` · A hook probe reads the status only where the verdict was empty
+
+| Tags            | Status | Depends on |
+| --------------- | ------ | ---------- |
+| Ops, Docs, gate | Open   | —          |
+
+**`scripts/gate/selfcheck.sh :: unit_probe` grades a hook by matching its stdout first**, and asks
+the child's exit status only in the branch that stdout left empty. The contract it names at that
+branch is that every deciding path exits 0 with JSON on stdout — so a guard printing a correct
+refusal and then dying is graded by the refusal, and the crash is invisible to the one thing driving
+these guards.
+
+**The same function fails a correct answer the other way round.** The payload reaches the hook
+through a pipe, under `pipefail`, and a guard can reach its verdict without reading stdin at all —
+`.claude/hooks/guard-branch-bash.sh` stands down off `main` before it looks. Once a payload
+outgrows the pipe buffer, the writer dies of SIGPIPE, the pipeline carries that status, and a silent
+allow is reported as a crash. Nothing today comes near the buffer, so this half is latent rather
+than live, and it turns live on whichever probe first carries a long command.
+
+**Done when** the status is read whatever stdout said, and the payload reaches the hook from a file.
+`scripts/gate/selfcheck.sh :: prepush_drive` already drives its own fixture that way, and records
+the SIGPIPE reading as the reason.
+
+### `ru7v-jndc` · The guard holding an auditor out of the tree is driven by no probe
+
+| Tags            | Status | Depends on |
+| --------------- | ------ | ---------- |
+| Ops, Docs, gate | Open   | —          |
+
+**`.claude/hooks/guard-auditor-write.sh` is what a cold-auditor agent's `Write` grant still buys**,
+declared by `.claude/agents/cold-auditor.md` and refusing every write inside the repository, and
+`scripts/gate/selfcheck.sh` drives it with nothing. It reaches that verdict the way
+`.claude/hooks/guard-branch.sh` does — canonical paths compared in node, never as text — and that
+guard is probed through a spread of spellings of one path precisely because every cheap containment
+test lets one of them through.
+
+**An answer of "outside" for a path inside the tree allows the write**, and no second mechanism is
+holding the tree read-only for an agent whose whole discipline is that it does not write.
+
+**Done when** it is probed on what its refusal protects: a path inside the repository in each
+spelling the branch guard's own probes already tell apart, and one genuinely outside it.
 
 ### `s28h-m39z` · A moved vocabulary table is a skip on the next `scripts` branch, and nothing on the branch that moved it
 
@@ -3628,6 +3806,32 @@ honest question is whether a faster diagnosis is worth a new way for `deploy.sh`
 site cannot tolerate a restore that produces an unusable value on a host with no previous build to
 fall back to. Ops audit pass O1 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers
 script failure modes and owns this.
+
+### `tnvw-4cqz` · One bash guard runs its twin's scan with no watchdog under it
+
+| Tags | Status | Depends on |
+| ---- | ------ | ---------- |
+| Docs | Open   | —          |
+
+Lands with: `g98z-k4cp`
+
+**`.claude/hooks/guard-standard-bash.sh` carries the write-shape scan byte for byte from
+`.claude/hooks/guard-branch-bash.sh`, parses its payload through node and asks git for the
+repository root — and runs all of it in the hook process.** Its twin runs the same work in a child
+under a kill budget and denies on anything but an answer; this one has no child, and its
+registration in `.claude/settings.json` is the shorter of the two.
+
+**The twin records at that budget that its child came close to exhausting it under full core
+occupancy** — a child doing more than the shared scan, and already a duration above this hook's
+whole registration. The twin also reaches its scan on `main` alone, while this guard reaches its
+scan on every branch and every shell command. A hook the harness
+kills prints nothing, and for a guard whose only verdict is a question, silence is the write to
+`docs/_standard/standard.md` going through without one being asked.
+
+**Done when** the asymmetry is decided either way — a child with its own budget and a refusal on
+anything else, or the reason this guard needs none recorded where the twin records the opposite.
+Factoring the shared scan into one file is not on the table: `.claude/CLAUDE.md` §7 keeps the two
+copies deliberately.
 
 ### `ua29-4s7q` · COR-6's checks read one spelling of a citation and one of a SHA, and the rule reaches past both
 
@@ -3927,6 +4131,44 @@ it — is the thing that is broken.
 identity §1.6 claims between the forms is measured rather than asserted.
 `scripts/tests/test_image_assertions.py` shows what makes that affordable: a scope whose tools are
 stubbed, driven through the forms, rather than a fixture paying for a real gate run.
+
+### `z82x-us4y` · A contract sweep's caller set is every file naming the client, its own tests included
+
+| Tags          | Status | Depends on |
+| ------------- | ------ | ---------- |
+| FE, BE, tests | Open   | —          |
+
+**`fl_frontend/src/core/apiRequests.test.ts` builds its caller set by walking the source tree for
+every `.ts` and `.tsx` whose text names the client**, and nothing in that walk decides a test file.
+Several of the files it takes are tests, and the sweep is green only because each of them names the
+client inside a string or a comment rather than calling it. Every comparison the module makes
+against `fl_backend/openapi.json` reads that one set.
+
+**A fixture calling the real client against an unpublished path would fail as though production
+had**, naming a test file to a reader who then goes looking for a broken route — and a fixture
+written to exercise a refusal is exactly the shape that calls an unpublished path on purpose.
+
+**Done when** the walk decides the test files for both suffixes it collects. Deciding one suffix
+where the walk takes two leaves a `.test.tsx` in the set and reads, from the code, as though the
+question had been settled.
+
+### `z9gx-tekp` · A README enumerates a suite's subjects, and the tree has moved past the list
+
+| Tags       | Status | Depends on |
+| ---------- | ------ | ---------- |
+| Ops, tests | Open   | —          |
+
+**`scripts/README.md` answers the `scripts/tests/` row's Purpose column with a prose enumeration of
+what that suite covers**, and the directory holds modules the enumeration does not reach. A reader
+taking the row for the suite's scope is told less than the tree holds, and the row is accurate only
+while somebody keeps paying for it.
+
+**COR-4 asks what selects a set rather than what is in it**, and an enumeration survives only where
+the gate resolves every member; nothing resolves this one. Adding the missing subjects re-buys the
+same debt on the next module.
+
+**Done when** the row says what the suite is for and leaves membership to the directory, which
+answers it in seconds.
 
 ### `zp4w-tg6x` · No check selects a file by the trees the In-code Scope names, and the register spelling them is held in place by its own tests
 
