@@ -428,7 +428,8 @@ describe("who the submission's receipt is addressed to", () => {
  a handler answers a request rather than rendering anything at all.
 */
 describe("what stands in for a session on the session-less routes", () => {
-  /** Both spines, because the guard is identical and one of the two being pinned is how this got here. */
+  /** Both spines, because the guard is identical and one of the two being pinned is how this got here.
+      Every site carrying that guard is `fl_frontend/src/core/requestSpines.test.ts`'s population. */
   const SPINES = [
     ["the public spine", PUBLIC_ROUTE],
     ["the undo spine", UNDO_ROUTE],
