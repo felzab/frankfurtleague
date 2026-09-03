@@ -18,6 +18,7 @@ import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
@@ -52,7 +53,6 @@ export function AdminKontakteEditForm({
   const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startTransition] = useTransition();
-  const [isLeaving, startLeaving] = useTransition();
 
   const storedMembership = saison.membership;
   const storedKontakte = storedMembership?.kontakte ?? null;
@@ -60,9 +60,7 @@ export function AdminKontakteEditForm({
   const [kontakte, setKontakte] = useState<SaisonTeamKontakteDraft | null>(storedKontakte);
 
   const [hasSaved, setHasSaved] = useState(false);
-  const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
-  const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { kontakte: FLPatchSaisonTeamKontaktePayloadSchema },
@@ -86,8 +84,6 @@ export function AdminKontakteEditForm({
 
   useUnsavedChangesWarning(isDirty);
 
-  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
-
   // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
   useForgiveFixed({ kontakte: buildPayload() });
 
@@ -108,38 +104,19 @@ export function AdminKontakteEditForm({
     emptiedSeatLabels: emptiedSeatLabels(storedKontakte, kontakte === null ? null : mirrorKontakte(kontakte)),
   });
 
-  const leavePage = () => {
-    // Blur first: react-aria's focus attribute survives a kept-alive tree.
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-
-    // Hover next: the disabled flag is what ends it (`docs/frontend/spec.md :: I68`).
-    startLeaving(() => {
-      if (window.history.length > 1) router.back();
-      else router.push(saisonHref("/admin/kontakte"));
-    });
-  };
-
-  const requestLeave = () => {
-    if (isDirty) {
-      setHasLeftViaDiscard(false);
-      setIsConfirmingDiscard(true);
-      return;
-    }
-    leavePage();
-  };
-
   const resetDraftToStored = () => {
     setKontakte(storedKontakte);
 
     setSubmitFieldErrors({}, {});
   };
 
-  const discardAndLeave = () => {
-    resetDraftToStored();
-    setIsConfirmingDiscard(false);
-    setHasLeftViaDiscard(true);
-    leavePage();
-  };
+  const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
+    fallbackHref: saisonHref("/admin/kontakte"),
+    isDirty,
+    resetDraftToStored,
+  });
+
+  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
     // Snapshotted, not read live: a background revalidation would move the list under the dialog.
@@ -245,7 +222,7 @@ export function AdminKontakteEditForm({
       {!hasLeftViaDiscard && (
         <ConfirmDiscardModal
           isOpen={isConfirmingDiscard}
-          onClose={() => setIsConfirmingDiscard(false)}
+          onClose={closeDiscard}
           onDiscard={discardAndLeave}
           changeCount={status.changed.length}
         />

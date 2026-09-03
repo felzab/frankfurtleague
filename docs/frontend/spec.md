@@ -622,13 +622,13 @@ sufficient on its own.
 Next 16 exposes **no navigation blocker** — verified against the `next/navigation` export list.
 What the page can intercept, it does:
 
-| Leaving by                      | Guarded | How                                                                              |
-| ------------------------------- | :-----: | -------------------------------------------------------------------------------- |
-| Reload, tab close, browser quit |   ✅    | `beforeunload`, in `useUnsavedChangesWarning`                                    |
-| A link this page renders        |   ✅    | `<Link onNavigate>`                                                              |
-| Abbrechen, and the Zurück pill  |   ✅    | The form's own `requestLeave`, handed to `EditFormLayout` and to `FormActionBar` |
-| The admin sidemenu's links      |   ❌    | Rendered by the layout, above this tree                                          |
-| The browser's Back button       |   ❌    | `popstate` fires after the router has committed                                  |
+| Leaving by                      | Guarded | How                                                                                                                    |
+| ------------------------------- | :-----: | ---------------------------------------------------------------------------------------------------------------------- |
+| Reload, tab close, browser quit |   ✅    | `beforeunload`, in `useUnsavedChangesWarning`                                                                          |
+| A link this page renders        |   ✅    | `<Link onNavigate>`                                                                                                    |
+| Abbrechen, and the Zurück pill  |   ✅    | `requestLeave` from `fl_frontend/src/shared/hooks/useEditorExit.ts`, handed to `EditFormLayout` and to `FormActionBar` |
+| The admin sidemenu's links      |   ❌    | Rendered by the layout, above this tree                                                                                |
+| The browser's Back button       |   ❌    | `popstate` fires after the router has committed                                                                        |
 
 **The gaps are accepted** rather than paid for, and the shape of the payment is recorded so the
 trade can be re-taken rather than re-derived: a `NavigationGuardContext` in the admin layout, which

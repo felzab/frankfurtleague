@@ -17,6 +17,7 @@ import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
@@ -52,16 +53,13 @@ export function AdminSpielortEditForm({
   const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startTransition] = useTransition();
-  const [isLeaving, startLeaving] = useTransition();
 
   const [name, setName] = useState(spielort.name);
   const [address, setAddress] = useState<FLAddress>(spielort.address);
   const [defaultMietpreis, setDefaultMietpreis] = useState<number | null>(spielort.default_mietpreis);
 
   const [hasSaved, setHasSaved] = useState(false);
-  const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
-  const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { spielort: FLPatchSpielortPayloadSchema },
@@ -95,8 +93,6 @@ export function AdminSpielortEditForm({
 
   useUnsavedChangesWarning(isDirty);
 
-  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
-
   // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
   useForgiveFixed({ spielort: buildPayload() });
 
@@ -114,26 +110,6 @@ export function AdminSpielortEditForm({
     isAddressChanged,
   });
 
-  const leavePage = () => {
-    // Blur first: react-aria's focus attribute survives a kept-alive tree.
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-
-    // Hover next: the disabled flag is what ends it (`docs/frontend/spec.md :: I68`).
-    startLeaving(() => {
-      if (window.history.length > 1) router.back();
-      else router.push(saisonHref("/admin/spielorte"));
-    });
-  };
-
-  const requestLeave = () => {
-    if (isDirty) {
-      setHasLeftViaDiscard(false);
-      setIsConfirmingDiscard(true);
-      return;
-    }
-    leavePage();
-  };
-
   const resetDraftToStored = () => {
     setName(spielort.name);
     setAddress(spielort.address);
@@ -142,12 +118,13 @@ export function AdminSpielortEditForm({
     setSubmitFieldErrors({}, {});
   };
 
-  const discardAndLeave = () => {
-    resetDraftToStored();
-    setIsConfirmingDiscard(false);
-    setHasLeftViaDiscard(true);
-    leavePage();
-  };
+  const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
+    fallbackHref: saisonHref("/admin/spielorte"),
+    isDirty,
+    resetDraftToStored,
+  });
+
+  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
     // Snapshotted, not read live: a background revalidation would move the list under the dialog.
@@ -252,7 +229,7 @@ export function AdminSpielortEditForm({
       {!hasLeftViaDiscard && (
         <ConfirmDiscardModal
           isOpen={isConfirmingDiscard}
-          onClose={() => setIsConfirmingDiscard(false)}
+          onClose={closeDiscard}
           onDiscard={discardAndLeave}
           changeCount={status.changed.length}
         />
