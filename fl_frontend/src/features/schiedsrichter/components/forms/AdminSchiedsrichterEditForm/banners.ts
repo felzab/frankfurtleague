@@ -1,6 +1,6 @@
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
-export type SchiedsrichterBannerId = "schiedsrichter.retired" | "schiedsrichter.name-changed";
+type SchiedsrichterBannerId = "schiedsrichter.retired" | "schiedsrichter.name-changed";
 
 /** Every situation here reaches the whole record rather than one field, so no panel renders one beside a control. */
 export type SchiedsrichterBanner = RailBanner<SchiedsrichterBannerId> & { inline: null };

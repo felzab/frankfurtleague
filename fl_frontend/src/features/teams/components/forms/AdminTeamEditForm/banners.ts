@@ -5,7 +5,7 @@ import type { FLAustritt } from "@/features/teams/schemas";
 import type { TeamSaisonMembership } from "@/features/teams/types";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
-export type TeamBannerId =
+type TeamBannerId =
   | "team.retired"
   | "team.not-in-saison-retired"
   | "team.not-in-saison-future"
@@ -17,7 +17,7 @@ export type TeamBannerId =
 
 // `saison-kein-eintritt` is where the season panel explains a CLOSED entry, named for the place
 // rather than for either of the two conditions that close it.
-export type TeamBannerSpot = "gruppe" | "saison-eintritt" | "saison-kein-eintritt" | "austritt-eintrag" | "austritt-aufhebung";
+type TeamBannerSpot = "gruppe" | "saison-eintritt" | "saison-kein-eintritt" | "austritt-eintrag" | "austritt-aufhebung";
 
 export type TeamBanner = RailBanner<TeamBannerId> & { inline: TeamBannerSpot | null };
 

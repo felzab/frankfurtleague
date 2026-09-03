@@ -18,7 +18,7 @@ export type BewerbungSeats = {
 };
 
 /** A seat by its stored key. Read off the block above, so a fourth seat reaches the fan-out with the type. */
-export type BewerbungRolle = keyof BewerbungSeats;
+type BewerbungRolle = keyof BewerbungSeats;
 
 /**
  * One mailbox and the seats it holds, already one German phrase. **Per recipient**: two of the three

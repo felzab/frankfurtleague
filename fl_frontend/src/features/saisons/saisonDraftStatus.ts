@@ -8,7 +8,7 @@ import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatu
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SaisonDraftFields } from "./types";
 
-export type FLSaisonFieldGroup = "Zeitraum" | "Regeln" | "Bewerbung";
+type FLSaisonFieldGroup = "Zeitraum" | "Regeln" | "Bewerbung";
 
 export type FLSaisonDraftStatus = FLDraftStatus<FLSaisonFieldGroup>;
 

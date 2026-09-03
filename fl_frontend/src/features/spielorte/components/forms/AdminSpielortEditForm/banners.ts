@@ -1,8 +1,8 @@
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
-export type SpielortBannerId = "spielort.retired" | "spielort.name-adresse-changed";
+type SpielortBannerId = "spielort.retired" | "spielort.name-adresse-changed";
 
-export type SpielortBannerSpot = "adresse";
+type SpielortBannerSpot = "adresse";
 
 export type SpielortBanner = RailBanner<SpielortBannerId> & { inline: SpielortBannerSpot | null };
 

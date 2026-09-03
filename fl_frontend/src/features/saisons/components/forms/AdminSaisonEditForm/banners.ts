@@ -1,7 +1,7 @@
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
-export type SaisonBannerId =
+type SaisonBannerId =
   | "saison.past"
   | "saison.drawn"
   | "saison.end-before-start"
@@ -11,7 +11,7 @@ export type SaisonBannerId =
   | "saison.stufen-changed"
   | "saison.rollover-blocked";
 
-export type SaisonBannerSpot = "zeitraum" | "regeln-qualifikanten" | "regeln-status" | "umstellung";
+type SaisonBannerSpot = "zeitraum" | "regeln-qualifikanten" | "regeln-status" | "umstellung";
 
 export type SaisonBanner = RailBanner<SaisonBannerId> & { inline: SaisonBannerSpot | null };
 

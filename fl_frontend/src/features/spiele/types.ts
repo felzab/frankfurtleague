@@ -15,7 +15,7 @@ export type ActionRequiredCategory =
   | "schiedsrichter_missing"
   | "abgesagt";
 
-export type FLSpieleSortingOptions = "datum" | "uhrzeit" | "spiel_nr" | "saison_phase";
+type FLSpieleSortingOptions = "datum" | "uhrzeit" | "spiel_nr" | "saison_phase";
 
 export type FLSpieleFilterParams = {
   saison_id?: string;

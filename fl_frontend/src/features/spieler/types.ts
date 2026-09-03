@@ -8,7 +8,7 @@ import type {
 } from "./schemas";
 
 /** Mirrors `FLSpielerSortOptions`: every option is a field the base tier serves, and it serves neither `nachname` whole nor `stufe` at all. */
-export type FLSpielerSortingOptions = "vorname" | "nummer" | "position";
+type FLSpielerSortingOptions = "vorname" | "nummer" | "position";
 
 /**
  * An absent `saison_id` does NOT resolve to the current season here: the read narrows by `team_id`,
@@ -56,7 +56,7 @@ export type SpielerPersonFields = {
  * One STORED squad row. `team_id` is plain here and nullable only in the drafts above: a row that
  * exists always names a team, and the null is only an untouched picker's state.
  */
-export type SpielerSquadFields = {
+type SpielerSquadFields = {
   team_id: string;
   nummer: string | null;
   position: FLSpielerPosition | null;

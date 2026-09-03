@@ -103,14 +103,14 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
 }
 
 /** On the descriptor, so a surface grouping by panel needs no second path-to-panel mapping. */
-export type FLSpielFieldGroup = "Ansetzung" | "Begegnung" | "Ergebnis" | "Notiz" | "Sonderereignis";
+type FLSpielFieldGroup = "Ansetzung" | "Begegnung" | "Ergebnis" | "Notiz" | "Sonderereignis";
 
 /**
  * Named for what is still waited on rather than for how loud it is: a fixture with an unresolvable
  * slot or an unrecorded score cannot be SCORED, while a date, a time, a venue and a referee are what
  * arranging it takes. Marker colours and the open-items badges both read this.
  */
-export type FLExpectedSeverity = "scoring" | "scheduling";
+type FLExpectedSeverity = "scoring" | "scheduling";
 
 const severityFor = (category: ActionRequiredCategory): FLExpectedSeverity =>
   category === "besetzung_missing" || category === "ergebnis_pending" ? "scoring" : "scheduling";

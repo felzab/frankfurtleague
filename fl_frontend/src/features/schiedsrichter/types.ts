@@ -6,7 +6,7 @@ import type { FLPostSchiedsrichterPayload, FLSchiedsrichterPayloadDraft } from "
  */
 export type SchiedsrichterDraft = FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>;
 
-export type FLSchiedsrichterSortingOptions = "name" | "default_payment";
+type FLSchiedsrichterSortingOptions = "name" | "default_payment";
 
 export type FLSchiedsrichterFilterParams = {
   default_payment?: number;

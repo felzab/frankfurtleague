@@ -6,7 +6,7 @@ import { skeletonBlock } from "@/shared/components/ui/skeleton";
  * deleting one brings back the shift this exists to prevent. Sizes are `SpielCard`'s own classes,
  * never re-derived, and must stay in step with it.
  */
-export function SpielCardSkeleton() {
+function SpielCardSkeleton() {
   return (
     <div
       aria-hidden="true"

@@ -19,7 +19,7 @@ export type SpielBannerId =
   | "spiel.void-preview"
   | "spiel.release-preview";
 
-export type SpielBannerSpot =
+type SpielBannerSpot =
   | "team1-herkunft"
   | "team2-herkunft"
   | "team1-manuell"
@@ -101,7 +101,7 @@ const REFUSAL_BANNER_IDS: ReadonlySet<SpielBannerId> = new Set<SpielBannerId>(Ob
 export const isSpielRefusalBannerId = (id: SpielBannerId): boolean => REFUSAL_BANNER_IDS.has(id);
 
 /** A list of fixture numbers as German writes it: "29, 30 und 31", with "und" and no serial comma. */
-export const joinGerman = (spielNummern: readonly number[]): string =>
+const joinGerman = (spielNummern: readonly number[]): string =>
   new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(spielNummern.map(String));
 
 export function buildSpielBanners({

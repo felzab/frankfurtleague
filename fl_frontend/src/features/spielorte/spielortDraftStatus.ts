@@ -12,7 +12,7 @@ export type FLSpielortDraftFields = {
   default_mietpreis: number | null;
 };
 
-export type FLSpielortFieldGroup = "Spielort" | "Adresse" | "Miete";
+type FLSpielortFieldGroup = "Spielort" | "Adresse" | "Miete";
 
 export type FLSpielortDraftStatus = FLDraftStatus<FLSpielortFieldGroup>;
 

@@ -4,7 +4,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import type { SpielerSaisonMembership } from "@/features/spieler/types";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
-export type SpielerBannerId =
+type SpielerBannerId =
   | "spieler.retired"
   | "spieler.not-in-kader-entry"
   | "spieler.row-retired-since"
@@ -13,7 +13,7 @@ export type SpielerBannerId =
   | "spieler.team-changed"
   | "spieler.rolle-vergeben";
 
-export type SpielerBannerSpot = "kader-eintritt" | "kader-nachgetragen" | "kader-rolle" | "austragen";
+type SpielerBannerSpot = "kader-eintritt" | "kader-nachgetragen" | "kader-rolle" | "austragen";
 
 export type SpielerBanner = RailBanner<SpielerBannerId> & { inline: SpielerBannerSpot | null };
 
