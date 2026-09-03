@@ -110,8 +110,8 @@ class Rule:
     summary: str
     implemented_by: str
     tested_by: str
-    #: True where the rule needs more than the payload and its own document -- the rules a uniform
-    #: evaluator could not express, because they read the aggregate rather than a row.
+    #: True where the rule needs more than the payload and its own document. WHICH document, never
+    #: which snapshot: a rule re-reading its own row outside the transaction's session is still False.
     multi_document: bool = False
 
 
@@ -1390,7 +1390,6 @@ RULES: tuple[Rule, ...] = (
         summary="contact details entered again while an anonymisation runs are refused, never left standing",
         implemented_by="app.api.schiedsrichter.services.find_anonymisation_refusal",
         tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestAReEntryLandingMidAnonymisationIsRefused",
-        multi_document=True,
     ),
     Rule(
         code="REQ-SQUAD-001",
