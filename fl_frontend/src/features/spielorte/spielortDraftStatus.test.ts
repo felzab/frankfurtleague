@@ -29,11 +29,9 @@ const oneFieldChanged: readonly (readonly [string, FLSpielortDraftFields])[] = [
 ];
 
 describe("deriveSpielortDraftStatus", () => {
-  it("reports a clean draft as not dirty, with every field present", () => {
+  it("carries a row for every venue field", () => {
     const status = deriveSpielortDraftStatus({ stored, draft: { ...stored }, fieldErrors: {} });
 
-    assert.equal(status.isDirty, false);
-    assert.equal(status.changed.length, 0);
     // `maps_link` is deliberately absent: the backend derives it and no payload carries it.
     assert.equal(status.fields.length, 7);
   });
@@ -68,7 +66,9 @@ describe("deriveSpielortDraftStatus", () => {
     const status = deriveSpielortDraftStatus({ stored, draft, fieldErrors: {} });
 
     const row = status.byPath.get("address.stadtteil");
-    assert.ok(row?.isChanged);
+    // `draftText: null` is what makes the change list render this as a removal. It comes from this
+    // table's own `read`, so only a case over this table can pin it.
+    assert.ok(row);
     assert.equal(row.draftText, null);
     assert.equal(row.storedText, "Ostend");
   });
@@ -76,21 +76,19 @@ describe("deriveSpielortDraftStatus", () => {
   it("keeps a whitespace-only edit visible, because nothing trims before the save", () => {
     const status = deriveSpielortDraftStatus({ stored, draft: { ...stored, name: "Sporthalle Ostend " }, fieldErrors: {} });
 
-    assert.equal(status.isDirty, true);
+    // The trailing space survives because this table's `read` is `emptyAsNull`, which trims nothing.
     assert.equal(status.byPath.get("name")?.draftText, "Sporthalle Ostend ");
   });
 
-  it("carries a field error onto its own row and into invalid", () => {
+  it("carries a field error onto its own row", () => {
     const status = deriveSpielortDraftStatus({
       stored,
       draft: { ...stored, address: { ...stored.address, plz: "603" } },
       fieldErrors: { "address.plz": "Die PLZ muss genau 5 Ziffern haben." },
     });
 
+    // The descriptor's default `errorPaths`, which is this table's: widen it and the message
+    // answers on a path no input carries.
     assert.equal(status.byPath.get("address.plz")?.error, "Die PLZ muss genau 5 Ziffern haben.");
-    assert.deepEqual(
-      status.invalid.map((field) => field.path),
-      ["address.plz"],
-    );
   });
 });

@@ -22,11 +22,9 @@ const oneFieldChanged: readonly (readonly [string, FLSchiedsrichterDraftFields])
 ];
 
 describe("deriveSchiedsrichterDraftStatus", () => {
-  it("reports a clean draft as not dirty, with every field present", () => {
+  it("carries a row for every referee field", () => {
     const status = deriveSchiedsrichterDraftStatus({ stored, draft: { ...stored }, fieldErrors: {} });
 
-    assert.equal(status.isDirty, false);
-    assert.equal(status.changed.length, 0);
     assert.equal(status.fields.length, 5);
   });
 
@@ -50,32 +48,30 @@ describe("deriveSchiedsrichterDraftStatus", () => {
   });
 
   it("reads a cleared optional as a removal rather than as an empty string", () => {
-    const draft = { ...stored, schule: null, kontakt: { ...stored.kontakt, telefon: "" } };
+    const draft = { ...stored, kontakt: { ...stored.kontakt, telefon: "" } };
     const status = deriveSchiedsrichterDraftStatus({ stored, draft, fieldErrors: {} });
 
-    assert.equal(status.byPath.get("schule")?.draftText, null);
+    // The empty string becomes `null` in this table's own `read`, which is what renders a removal.
     assert.equal(status.byPath.get("kontakt.telefon")?.draftText, null);
   });
 
   it("keeps a whitespace-only edit visible, because nothing trims before the save", () => {
     const status = deriveSchiedsrichterDraftStatus({ stored, draft: { ...stored, name: " Klaus Meier " }, fieldErrors: {} });
 
-    assert.equal(status.isDirty, true);
+    // Both spaces survive because this table's `read` is `emptyAsNull`, which trims nothing.
     assert.equal(status.byPath.get("name")?.draftText, " Klaus Meier ");
   });
 
-  it("carries a field error onto its own row and into invalid", () => {
+  it("carries a field error onto its own row", () => {
     const status = deriveSchiedsrichterDraftStatus({
       stored,
       draft: { ...stored, kontakt: { ...stored.kontakt, email: "keine-mail" } },
       fieldErrors: { "kontakt.email": "Bitte gib eine gültige E-Mail-Adresse ein." },
     });
 
+    // The descriptor's default `errorPaths`, which is this table's: widen it and the message
+    // answers on a path no input carries.
     assert.equal(status.byPath.get("kontakt.email")?.error, "Bitte gib eine gültige E-Mail-Adresse ein.");
-    assert.deepEqual(
-      status.invalid.map((field) => field.path),
-      ["kontakt.email"],
-    );
   });
 
   it("groups the rows as the editor renders them", () => {

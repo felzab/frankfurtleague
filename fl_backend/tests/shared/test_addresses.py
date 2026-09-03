@@ -50,7 +50,20 @@ def test_accepts_a_five_digit_plz(address):
     assert FLAddress.model_validate(address(plz="00000")).plz == "00000"
 
 
-@pytest.mark.parametrize("hausnummer", ["12", "12a", "12-14", "12A", ""])
+@pytest.mark.parametrize(
+    "hausnummer",
+    [
+        "12",
+        "12a",
+        "12-14",
+        "12A",
+        # `12bcBC` is not an address: it carries every letter of
+        # `fl_backend/app/shared/schemas/addresses.py :: HAUSNUMMER_PATTERN` the rows beside it leave
+        # untouched, so a narrowed class, or one that stops repeating, refuses a value the API accepts.
+        "12bcBC",
+        "",
+    ],
+)
 def test_accepts_the_house_number_charset(address, hausnummer):
     assert FLAddress.model_validate(address(hausnummer=hausnummer)).hausnummer == hausnummer
 

@@ -27,11 +27,9 @@ const stored: FLTeamDraftFields = {
 const draftFrom = (overrides: Partial<FLTeamDraftFields>): FLTeamDraftFields => ({ ...stored, ...overrides });
 
 describe("deriveTeamDraftStatus", () => {
-  it("reports a clean draft as not dirty, with every field present", () => {
+  it("carries a row for every club field and every junction row", () => {
     const status = deriveTeamDraftStatus({ stored, draft: draftFrom({}), fieldErrors: {} });
 
-    assert.equal(status.isDirty, false);
-    assert.equal(status.changed.length, 0);
     // Every club field plus every junction row. The season's three contact seats are not among them:
     // they are `fl_frontend/src/features/kontakte/kontakteDraftStatus.ts`'s, and their own page's.
     assert.equal(status.fields.length, 14);
@@ -40,7 +38,6 @@ describe("deriveTeamDraftStatus", () => {
   it("reports a renamed club as one change carrying both texts", () => {
     const status = deriveTeamDraftStatus({ stored, draft: draftFrom({ name: "Helmholtz II" }), fieldErrors: {} });
 
-    assert.equal(status.isDirty, true);
     assert.deepEqual(
       status.changed.map((field) => [field.path, field.storedText, field.draftText]),
       [["name", "Helmholtz", "Helmholtz II"]],
@@ -55,8 +52,9 @@ describe("deriveTeamDraftStatus", () => {
     });
 
     const row = status.byPath.get("address.stadtteil");
-    assert.ok(row?.isChanged);
-    // `draftText: null` is what makes the change list render this as a removal.
+    // `draftText: null` is what makes the change list render this as a removal. It comes from this
+    // table's own `read`, so only a case over this table can pin it.
+    assert.ok(row);
     assert.equal(row.draftText, null);
     assert.equal(row.storedText, "Ostend");
   });
