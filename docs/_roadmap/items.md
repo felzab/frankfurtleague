@@ -1326,17 +1326,21 @@ error with `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult`,
 sets `error`, and every failing return under `fl_frontend/src` carries an `error` beside it.
 
 **Seventeen of those sites fall back to a sentence of their own rather than to the shared one**, in
-eight files, and one family inside them is a second sentence with no home: the undo's refusal
-`"Die Änderung steht weiterhin."` is spelled out 19 times across 10 files — eight page-owned
-editors, a route handler and a test — and no module owns it. §1.12 of
+eight files, and one family inside them is a second sentence with no home: the undo's outcome
+`"Die Änderung steht weiterhin."` stands 20 times across 14 files (measured 2026-09-03) — the five
+undo route handlers, the five slice `actions.test.ts` files reading them, `undoDispatch.ts` with its
+test, `undoRoute.ts` and the public-route test — and no module owns it. **No page-owned editor
+carries it**, which is worth saying because that is where a reader looks first. §1.12 of
 [`docs/frontend/spec.md`](../frontend/spec.md) is where a refusal's vocabulary is fixed and it names
 the two homes a new failure message is written from —
 `fl_frontend/src/shared/utils/refusal.ts :: buildRefusal` for a refusal that can name a cause, and
 `:: UNKNOWN_REFUSAL` for one that cannot.
 
-**Done is the type moving first.** `FormState` becoming a union whose failing member requires its
-`error` turns each remaining fallback into a compile error rather than a judgement call per site;
-short of that, deleting one is an argument to be had 40 times.
+**The type has moved half the way.** `fl_frontend/src/shared/types/types.ts :: ActionResult` is a
+union now and `:: ActionFailure` is its failing member, so the shape this entry asked for exists.
+`error` stays optional on that member, which is what keeps every fallback a judgement call rather
+than a compile error. **Done is requiring it there**, which turns the rest into a mechanical sweep;
+short of that, deleting one is an argument to be had at every site.
 
 **What makes it more than deleting a token.** `fl_frontend/src/shared/components/ui/EntityForm.tsx`
 and `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx` reach the sentence through
