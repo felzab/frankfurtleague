@@ -3,16 +3,26 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { createElement as h } from "react";
+/* No public export carries either context — `useRouter` reads the first and `useSearchParams` the
+   second — and the seats below render under both. A Next release that moves either module fails this
+   file at import rather than quietly. */
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
+import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
+
+import { renderTree } from "@/shared/testing/renderTest";
+
 import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
 import { describeKontaktErasureUmfang } from "./utils.ts";
 
+import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { FLKontaktErasureResponse } from "./schemas.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 /**
- * Every source read below is a module whose graph reaches `fl_frontend/src/core/config.ts`, whose
- * gate refuses an unconfigured environment at import (`docs/frontend/spec.md` §1.9) — the action and
- * the mutation directly, the section through the action it dispatches.
+ * Read rather than called: what each case asserts is which module carries a step — which declares a
+ * tier, which composes the report — and a call reports an outcome rather than the site.
  */
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
@@ -24,6 +34,90 @@ const SECTION = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const PAGE = PAGE_SOURCE.replace(/\s+/g, " ");
+
+/* Reached with `await import` and never a static import beside the harness: the JSX compile step is
+   registered as `renderTest` evaluates, and a static import resolves before that. */
+const { FormKontakteSection } = await import("./components/forms/AdminKontakteEditForm/FormKontakteSection.tsx");
+const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
+const { default: AdminKontaktePage } = await import("@/app/admin/kontakte/page.tsx");
+
+/** What `useRouter` hands the erasure control. `bfcacheId` is a value rather than a call. */
+const ROUTER = {
+  back: () => undefined,
+  forward: () => undefined,
+  refresh: () => undefined,
+  push: () => undefined,
+  replace: () => undefined,
+  prefetch: () => undefined,
+  bfcacheId: "",
+};
+
+const person = (vorname: string, nachname: string, email: string): FLKontaktperson => ({
+  vorname,
+  nachname,
+  email,
+  telefon: "069 111",
+  geburtsdatum: "1990-12-10",
+  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "1", datum: "2026-03-12" },
+});
+
+/** Three seats, each holding a different person, so an offer on the wrong one names the wrong name. */
+const BLOCK: FLSaisonTeamKontakte = {
+  trainer: person("Ada", "Byron", "ada@example.org"),
+  ansprechperson: person("Grace", "Hopper", "grace@example.org"),
+  stellvertretung: person("Alan", "Turing", "alan@example.org"),
+  trainer_ist_zugleich: null,
+};
+
+/** The same three with no address, which is the one state the write has no key for. */
+const BLOCK_OHNE_ADRESSE: FLSaisonTeamKontakte = {
+  ...BLOCK,
+  trainer: person("Ada", "Byron", ""),
+  ansprechperson: person("Grace", "Hopper", ""),
+  stellvertretung: person("Alan", "Turing", ""),
+};
+
+/** The seats under every context they read: the router, the query the way out rides, the draft status. */
+const sectionMarkup = (kontakte: FLSaisonTeamKontakte): string =>
+  renderTree(
+    h(
+      AppRouterContext.Provider,
+      { value: ROUTER },
+      h(
+        SearchParamsContext.Provider,
+        { value: new URLSearchParams("saison_id=2526") },
+        h(DraftStatusProvider, {
+          status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
+          children: h(FormKontakteSection, {
+            value: kontakte,
+            isMember: true,
+            teamHref: "/admin/teams/t1?saison_id=2526",
+            banners: [],
+            onChange: () => undefined,
+            onFieldLeft: () => undefined,
+            isDirty: false,
+            onValidateSelection: () => undefined,
+          }),
+        }),
+      ),
+    ),
+  );
+
+/** One rendered seat per entry, cut at the next seat's own title. */
+const seatPanels = (html: string): string[] => html.split("<h2").slice(1);
+
+/** The list page's own return. Its table sits behind the boundary, whose fallback stands here. */
+const PAGE_MARKUP = renderTree(
+  h(
+    AppRouterContext.Provider,
+    { value: ROUTER },
+    h(
+      SearchParamsContext.Provider,
+      { value: new URLSearchParams("saison_id=2526") },
+      h(AdminKontaktePage, { params: Promise.resolve({}), searchParams: Promise.resolve({ saison_id: "2526" }) }),
+    ),
+  ),
+);
 
 const ERASURE_OPERATION = "POST /kontakte/erasure";
 
@@ -113,8 +207,8 @@ describe("what the erasure moves", () => {
   });
 
   /* The admin tier is what `apiClient` sends `X-FL-Actor` on, so any other tier is refused 401 and
-     unattributable both. Read as TEXT: this module is `server-only`, so nothing here can call it and
-     observe the header. */
+     unattributable both. What is asserted is the tier every write DECLARES; a call would report one
+     request's outcome rather than the set. */
   it("leaves at the admin tier and at no other", () => {
     // Every write in the module, not the erasure alone: both are admin-tier and a second one added
     // at any other tier is refused 401 and unattributable both.
@@ -215,22 +309,42 @@ describe("where the control stands", () => {
      reaches appear on no row of the list, so a reader has to see whose data it is while reading what
      it takes. */
   it("stands inside the panel of the person it erases, never on the list", () => {
+    // One offer per seat, each naming the person that seat holds and no other.
+    assert.deepEqual(
+      seatPanels(sectionMarkup(BLOCK)).map((seat) => /<strong>([^<]*)<\/strong>/.exec(seat)?.[1] ?? ""),
+      ["Ada Byron", "Grace Hopper", "Alan Turing"],
+      "a seat offers the erasure of somebody it does not hold, or offers none",
+    );
+    // The ADDRESS is the key the write travels with, and nothing paints a value the markup never shows.
+    assert.match(SECTION, /<FormKontaktErasure email=\{person\.email\}/, "the erasure is keyed on something other than the seat's own address");
+
+    assert.ok(!PAGE_MARKUP.includes("Kontaktperson löschen"), "the list's own chrome offers the erasure");
+    /* The list's rows render behind the boundary that chrome carries, so what the table hands a row
+       is read here rather than met in the markup above. */
     assert.ok(!PAGE.includes("FormKontaktErasure"), "the erasure is on the list, detached from the person");
-    assert.match(SECTION, /<FormKontaktErasure email=\{person\.email\}/, "no seat offers the erasure of the person it holds");
   });
 
   /* The claim points two seats at one record. Offered on both, the same person would read as two, and
      the second press would erase somebody already gone. */
   it("offers it on the seat that holds the person, never on the mirrored copy", () => {
-    assert.match(
-      SECTION,
-      /person !== null && !isMirrored && person\.email !== "" && \( <FormKontaktErasure/,
+    const offers = (kontakte: FLSaisonTeamKontakte): boolean[] =>
+      seatPanels(sectionMarkup(kontakte)).map((seat) => seat.includes("Kontaktperson löschen"));
+
+    assert.deepEqual(offers(BLOCK), [true, true, true], "a seat holding a person offers no erasure, so the absences below prove nothing");
+    // The Trainer IS the named seat's person here, so a second offer would erase somebody already gone.
+    assert.deepEqual(
+      offers({ ...BLOCK, trainer_ist_zugleich: "ansprechperson" }),
+      [false, true, true],
       "the mirrored seat offers its own erasure",
     );
+    // The address is the whole key, so a seat holding none can offer nothing to erase.
+    assert.deepEqual(offers(BLOCK_OHNE_ADRESSE), [false, false, false], "a seat with no address offers an erasure keyed on nothing");
   });
 
   /* One `h1` per page and the shell owns it; the heading LEVEL is `PanelHeading`'s and pinned there. */
   it("raises no heading the shell already owns", () => {
+    assert.ok(!PAGE_MARKUP.includes("<h1"), "the page's own chrome raises an h1 the shell already owns");
+    // The list itself renders behind the boundary, so what the table returns is read rather than met.
     assert.ok(!PAGE.includes("<h1"), "the page raises an h1 the shell already owns");
   });
 

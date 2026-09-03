@@ -505,8 +505,8 @@ not in that mirror, and neither is a `name` the control was never handed
 **A component reading a Next client context renders under `renderTree` with that context's provider,
 which `next/navigation` does not export** — `useSearchParams` answers `null` without one and throws
 where a parameter is read, and `useRouter` throws for a router nothing has mounted.
-`fl_frontend/src/features/kontakte/editor.test.ts` reaches the first at the path Next keeps it on;
-neither hook puts a component out of reach.
+`fl_frontend/src/features/kontakte/editor.test.ts` reaches both at the paths Next keeps them on,
+which a seat holding an address requires; neither hook puts a component out of reach.
 
 **A replacement reason names what the assertion is about, never what the runner cannot do** — a
 ratified decision (`.claude/rules/frontend.md`), not this sheet's to widen. Calling a server action
