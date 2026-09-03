@@ -158,15 +158,7 @@ such row fails `GET /spiele/action_required` for the entire league — a `past` 
 included, which is the one nobody thinks to suspect. The two reports are independent: an orphan row can carry
 a perfectly good name, and a row missing its name can name a club that exists.
 
-## 3. After changing anything about the brand mark
-
-```bash
-cd fl_frontend && pnpm brand
-```
-
-**Re-run it rather than editing any of its outputs**, or the header mark and the icons drift apart.
-
-## 4. Granting or revoking admin access
+## 3. Granting or revoking admin access
 
 Editing `ALLOWED_ADMIN_EMAILS` and restarting is the whole procedure; why a restart is needed and how `role`
 is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that are easy to get wrong:
@@ -176,7 +168,7 @@ is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that ar
 - **An admin ending their own session needs no restart at all**: the sidemenu's options menu carries a
   sign-out, which arms on the first press and ends the session on the second.
 
-## 5. When the application queue has been flooded
+## 4. When the application queue has been flooded
 
 **The state announces itself, and the read degrades rather than refusing.** `GET /bewerbungen` serves at most
 `LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the

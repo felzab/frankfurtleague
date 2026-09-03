@@ -162,7 +162,6 @@ deliverable.
 | `qw6j-scru` | The CSP's style directive is wider than it needs to be                                                               | FE, Ops, Docs, edge                                                         | Open     |
 | `r5xm-ac7m` | A hook probe reads the status only where the verdict was empty                                                       | Ops, Docs, gate                                                             | Open     |
 | `s28h-m39z` | A moved vocabulary table is reported on the wrong branch                                                             | Ops, Docs, gate, ci, tests                                                  | Open     |
-| `s88t-ceby` | Nothing checks a generated file against its generator                                                                | FE, BE, tests                                                               | Open     |
 | `spq6-zy2d` | A renamed file's comment blocks are never measured                                                                   | Ops, gate                                                                   | Open     |
 | `sqwz-xyxg` | An enforcement claim is resolved in one direction only                                                               | Ops, gate                                                                   | Open     |
 | `srbc-6buy` | An allowlist row naming an absent file is passed over, not reported                                                  | Ops, Docs, gate, tests                                                      | Open     |
@@ -3692,33 +3691,6 @@ documentation gate could take it only with a bash reader it has no other use for
 one shape is the doubt this leaves**, and what holds the awk and the python to one another is the
 closing session's decision; the cheap form is the check owning the lead-in as a constant and a
 `scripts/tests/` case asserting the step's reader carries the same literal.
-
-### `s88t-ceby` · Nothing checks a generated file against the generator that owns it
-
-| Tags          | Status | Depends on |
-| ------------- | ------ | ---------- |
-| FE, BE, tests | Open   | —          |
-
-**`fl_frontend/src/shared/components/ui/FLLogo.tsx` is written by
-`fl_frontend/scripts/generate-brand-assets.mjs`, and what keeps them in step is a banner asking a
-reader not to edit the file.** A hand-edit type-checks, lints and builds. It then survives until
-somebody runs `pnpm brand` for an unrelated reason — a new icon size, a manifest entry — at which
-point the generator overwrites it inside a commit whose subject says something else entirely. Every
-other asset that script emits carries no banner at all.
-
-**The artifacts agree today.** What the generator emits for the component and what the repository
-holds differ in whitespace alone, so the mark that renders is the mark the geometry produces: this
-entry is about the missing check, not about a divergence. **The pattern exists already, on the other
-surface** — `fl_backend/openapi.json` is a committed generated artifact whose freshness is a test
-(`fl_backend/tests/openapi_document.py`) — which is why the effort is small.
-
-**Done when** the frontend scope of the gate regenerates the component into a temporary location and
-fails where it differs from the committed one, after the formatter has run over each side so the
-comparison is about content rather than layout. **The images are deliberately out of scope, and that
-exclusion is written down rather than assumed**: they go through sharp, whose output is not
-guaranteed byte-identical across versions, so a check that diffs them fails on a dependency bump
-rather than on a hand-edit — **and a check that fails for reasons unrelated to the defect is one that
-gets suppressed**.
 
 ### `spq6-zy2d` · A file that arrives as a rename brings its comment blocks in as context, so INC-9 measures none of them
 

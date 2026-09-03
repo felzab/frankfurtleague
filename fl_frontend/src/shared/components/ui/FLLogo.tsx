@@ -1,9 +1,5 @@
 import { useId } from "react";
 
-/**
- * **Generated — do not edit by hand.** `pnpm brand` owns the geometry and emits this beside the icons, so the two cannot
- * drift. The letters are rectangles rather than `<text>`, librsvg rasterising the PNGs and having no Impact.
- */
 export function FLLogo({ className = "size-8" }: { className?: string }) {
   // Unique per instance: `url(#…)` resolves to the first match, so a second logo on the page would
   // silently borrow the first one's filter.
@@ -16,8 +12,7 @@ export function FLLogo({ className = "size-8" }: { className?: string }) {
       className={className}
       role="presentation">
       <defs>
-        {/* Turbulence roughens the outline, then a coarser one is thresholded into specks and punched out of the
-            letters. Change the erosion strength in the generator, not here. */}
+        {/* Turbulence roughens the outline, then a coarser one is thresholded into specks and punched out of the letters. */}
         <filter
           id={filterId}
           x="-18%"
