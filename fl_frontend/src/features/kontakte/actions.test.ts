@@ -12,23 +12,18 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 /**
  * Every source read below is a module whose graph reaches `fl_frontend/src/core/config.ts`, whose
  * gate refuses an unconfigured environment at import (`docs/frontend/spec.md` §1.9) — the action and
- * the mutation directly, the two panels through the action they dispatch.
+ * the mutation directly, the section through the action it dispatches.
  */
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
 const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
-const PANEL_SOURCE = readFileSync(path.resolve(import.meta.dirname, "components", "forms", "AdminKontaktErasureForm.tsx"), "utf8");
-/** Whitespace-collapsed: the panel's copy is JSX text, so the formatter picks its line breaks. */
-const PANEL = PANEL_SOURCE.replace(/\s+/g, " ");
-/** The page the control stands on, collapsed for the same reason. */
+/** Whitespace-collapsed: the admin list page's copy is JSX text, so the formatter picks its line breaks. */
 const PAGE_SOURCE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "kontakte", "page.tsx"), "utf8");
 const SECTION = readFileSync(
   path.resolve(import.meta.dirname, "components", "forms", "AdminKontakteEditForm", "FormKontakteSection.tsx"),
   "utf8",
 ).replace(/\s+/g, " ");
 const PAGE = PAGE_SOURCE.replace(/\s+/g, " ");
-/** The backend redaction the panel's copy describes, read where it is written. */
-const RECORDING = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "recording.py"), "utf8");
 
 const ERASURE_OPERATION = "POST /kontakte/erasure";
 
@@ -39,13 +34,6 @@ const ACTION_HEADER = sliceBetween(ACTIONS, '"use server"', "export async functi
 /* The erasure's own half of `mutations.ts`. Cut, because the module holds the seats' write too, and
    an assertion over the whole file would answer about whichever of the two moved last. */
 const ERASE_MUTATION = sliceBetween(MUTATIONS, "export async function eraseKontaktperson", "// Both ids go in the PATH");
-/* The panel's handlers, read as written rather than collapsed: what is asserted over them is code,
-   and each is cut at the next declaration so a statement smuggled in between fails a case below. */
-const ADDRESS_CHANGE = sliceBetween(PANEL_SOURCE, "const handleAddressChange", "/** The write itself");
-const COMMIT = sliceBetween(PANEL_SOURCE, "const commit = async", "const handleErase =");
-const HANDLE_ERASE = sliceBetween(PANEL_SOURCE, "const handleErase =", "/**");
-const HANDLE_ARM = sliceBetween(PANEL_SOURCE, "const handleArm =", "return (");
-const JUDGE_ADDRESS = sliceBetween(PANEL_SOURCE, "const judgeAddress", "const { isConfirming");
 const RESPONSE_SCHEMA = sliceBetween(SCHEMAS, "export const FLKontaktErasureResponseSchema", null);
 
 /**
@@ -84,12 +72,6 @@ describe("the erasure against the backend's refusal register", () => {
       ACTION_HEADER.includes('eraseKontaktperson, patchSaisonTeamKontakte } from "./mutations"'),
       "the header's slice no longer holds the import",
     );
-    assert.notEqual(ADDRESS_CHANGE, "", "the panel's change handler is no longer where the cut looks for it");
-    assert.ok(COMMIT.includes("await eraseKontaktpersonAction("), "the write's own slice does not reach the call");
-    assert.ok(!COMMIT.includes("press("), "the write's slice reaches the presses that dispatch it");
-    assert.ok(HANDLE_ERASE.includes("press("), "the press handler's slice does not reach its dispatch");
-    assert.ok(HANDLE_ARM.includes("isConfirming"), "the arm handler's slice does not reach its guard");
-    assert.ok(JUDGE_ADDRESS.includes("guardSubmit"), "the address guard's slice does not reach its block");
     assert.ok(RESPONSE_SCHEMA.includes("redacted_aktionen"), "the response schema's slice does not reach its fields");
   });
 
@@ -146,209 +128,6 @@ describe("what the erasure moves", () => {
     assert.ok(!RESPONSE_SCHEMA.includes("email"), "the response mirror carries an address the endpoint withholds");
     assert.ok(!/\bemail\b/.test(ERASE_ACTION), "the action's own report reads the address it was handed");
     assert.match(ERASE_ACTION, /message: describeKontaktErasureUmfang\(erasure\)/, "the report is composed somewhere else now");
-  });
-
-  /* Enumerated rather than pattern-matched: the FAILURE path is where an echo would go unnoticed, so
-     every statement of the write touching the address is listed and a fourth one fails here. */
-  it("touches the address in three places on the write path, and in no toast", () => {
-    // A substring rather than a word boundary, so `setEmail` is on the list too.
-    const addressLines = statementsOf(COMMIT).filter((line) => /email/i.test(line));
-
-    assert.deepEqual(addressLines, [
-      "const res = await eraseKontaktpersonAction({ email });",
-      "if (hasFieldErrors(res.fieldErrors)) setSubmitFieldErrors(res.fieldErrors, { erasure: { email } });",
-      'setEmail("");',
-    ]);
-    assert.match(
-      COMMIT,
-      /appToast\.danger\("Kontaktperson nicht gelöscht", \{ description: res\.error \?\? UNKNOWN_REFUSAL \}\);/,
-      "the failure toast says something other than the refusal it was handed",
-    );
-    /* The zero branch, as the editor's own control takes it: the endpoint refuses nothing, so an
-       address matching nobody succeeds and clears zero, and „gelöscht“ over that is a quiet lie. */
-    assert.match(
-      COMMIT,
-      /if \(res\.cleared === 0\) appToast\.warning\("Nichts gefunden", \{ description: res\.message \}\);/,
-      "a write that found nothing is reported as a deletion",
-    );
-    assert.match(
-      COMMIT,
-      /else appToast\.success\("Kontaktperson gelöscht", \{ description: res\.message \}\);/,
-      "the success toast says something other than the action's report",
-    );
-
-    /* The referee anonymisation already owns „Kontaktdaten gelöscht“, and two different writes under
-       one title read as one thing having happened. */
-    assert.ok(!COMMIT.includes("Kontaktdaten gelöscht"), "the erasure took the anonymisation's title");
-  });
-
-  /* One call site, so nothing reaches the endpoint around the confirm: a `press`-less second call
-     would arm nothing and write at once, which is the shape a stray dispatch takes. */
-  it("is reachable from exactly one place in the panel", () => {
-    const calls = [...PANEL_SOURCE.matchAll(/eraseKontaktpersonAction\(/g)].length;
-
-    assert.equal(calls, 1, `the panel reaches the erasure from ${String(calls)} places`);
-    assert.deepEqual(statementsOf(HANDLE_ERASE), ["const handleErase = () => press(commit);"], "the press handler grew a second statement");
-  });
-});
-
-describe("the erasure's copy", () => {
-  it("says what goes, in the rows and in the log", () => {
-    assert.match(PANEL, /jeden Kontakteintrag mit dieser E-Mail-Adresse/, "the panel does not name what is emptied");
-    assert.match(PANEL, /in jeder Saison und in jeder Bewerbung/, "the panel does not say how far the erasure reaches");
-    assert.match(PANEL, /gesicherte[rn]? Stand/, "the panel does not name the pre-image the log keeps");
-    assert.ok(!PANEL.includes("Rückgängig"), "the panel offers an undo, and no endpoint can honour one");
-  });
-
-  /* `build_redaction_update` nulls `before`, the WHOLE pre-image of every row naming a reached row.
-     An unrelated edit to that row loses its image too, so copy narrowing this to the contact details
-     describes a smaller write. */
-  it("matches what the redaction actually clears", () => {
-    assert.match(RECORDING, /def build_redaction_update[\s\S]*?"before": None/, "the backend no longer clears the whole pre-image");
-    assert.match(
-      PANEL,
-      /Das gilt auch für Zeilen, in denen es um etwas ganz anderes ging, etwa um eine Trikotfarbe oder einen Gruppenwechsel/,
-      "the panel narrows the redaction to rows about a contact entry",
-    );
-    assert.doesNotMatch(PANEL, /die einen dieser Einträge betrifft/, "the panel narrows the redaction's reach to the entries themselves");
-  });
-
-  /* What survives is as load-bearing as what goes: the rows stay, so the log still shows that
-     something happened and when, and the two people beside the erased one are untouched. */
-  it("says what stays", () => {
-    assert.match(PANEL, /Was wann geschehen ist, bleibt lesbar/, "the panel does not say what the log keeps");
-    assert.match(PANEL, /Die anderen Kontaktpersonen beim selben Team bleiben eingetragen/, "the panel does not spare the people beside them");
-    assert.match(PANEL, /Das Team und die Saison bleiben bestehen/, "the armed state does not say the club and the season survive");
-  });
-
-  /* The two beside them survive in the LIVE row and not in the log, whose whole image goes. The
-     qualification belongs in the reveal: the body's warning sits a paragraph above the last thing
-     read before the press. */
-  it("qualifies the reassurance where the reveal gives it", () => {
-    const reveal = sliceBetween(PANEL, "Zurückholen lässt sich das nicht.", "</p>");
-
-    assert.notEqual(reveal, "", "the reveal's closing paragraph is no longer where the cut looks for it");
-    assert.match(reveal, /Die anderen Kontaktpersonen bleiben eingetragen/, "the reveal drops what survives the press");
-    // Never „die beiden anderen“: `trainer_ist_zugleich` seats one person in two slots, so an
-    // erasure can leave one other person rather than two.
-    assert.ok(!PANEL.includes("beiden anderen"), "the copy counts the survivors, and a double-seated person makes it one");
-    assert.match(reveal, /Ihr gesicherter Stand im Änderungsprotokoll geht aber mit/, "the reveal spares the two beside them in the log too");
-    assert.ok(!reveal.includes("bleiben unberührt"), "the reveal calls the two beside them untouched, which the log makes false");
-  });
-
-  /* The club and the season are reached by nothing here: the SLOT is nulled and never the block, and
-     no season row is removed. Copy claiming otherwise would describe a write the backend refuses. */
-  it("never claims the club, the season or the application is removed", () => {
-    for (const claim of ["Team wird gelöscht", "Saison wird gelöscht", "Bewerbung wird gelöscht", "Team endgültig löschen"]) {
-      assert.ok(!PANEL.includes(claim), `the copy claims „${claim}“, which this press does not do`);
-    }
-  });
-
-  /* Frontend spec §1.3 splits irreversible in two: `Es gibt in der Verwaltung keinen Weg zurück.`
-     where the log keeps the pre-image, `Zurückholen lässt sich das nicht.` where the same
-     transaction empties it. This one empties it. */
-  it("takes the irreversibility sentence for a write that empties the log too", () => {
-    assert.match(PANEL, /Zurückholen lässt sich das nicht\./, "the confirmation does not refuse an undo in words");
-    assert.ok(!PANEL.includes("keinen Weg zurück"), "the panel promises a readable pre-image its own transaction empties");
-  });
-
-  it("arms before it writes, and keeps the object in the armed label", () => {
-    // Panel-local: the write is reached only through `press` (`shared/hooks/useTwoPressConfirm.test.ts` pins the order).
-    assert.match(PANEL, /press\(commit\)/, "the panel writes outside the armed press");
-    assert.match(PANEL, /<ConfirmReveal>/, "the escalation replaces the copy in place with no announcement");
-    assert.match(PANEL, /className=\{confirmButton\(isConfirming\)\}/, "the armed press is not graded as destructive");
-    assert.match(
-      PANEL,
-      /"Löscht\.\.\." : isConfirming \? "Ja, Kontaktperson endgültig löschen" : "Kontaktperson löschen"/,
-      "the label lost a state",
-    );
-    assert.ok(!PANEL.includes('"Ja, endgültig löschen"'), "the armed label drops the object, and reads as the team going");
-  });
-
-  /* One `h1` per page and the shell owns it. The heading LEVEL is `PanelHeading`'s now and pinned there;
-     what this panel owes is using it, and its readout's `h3`. */
-  it("raises no heading the shell already owns", () => {
-    assert.ok(!PANEL.includes("<h1"), "the panel raises a second h1");
-    assert.ok(!PAGE.includes("<h1"), "the page raises an h1 the shell already owns");
-    assert.ok(PANEL.includes("<PanelHeading className={panel.heading()}"), "the panel spells its own heading again");
-  });
-});
-
-describe("the address the press acts on", () => {
-  /* A ratified decision: a typed field is judged when it is LEFT. A message between two keystrokes
-     describes a value nobody finished entering. */
-  it("judges the address on blur and never between keystrokes", () => {
-    assert.match(
-      PANEL,
-      /onBlur=\{\(\) => validatePaths\("erasure", \{ email \}, \["email"\]\)\}/,
-      "the field is no longer judged when it is left",
-    );
-    assert.ok(!ADDRESS_CHANGE.includes("validatePaths"), "the change handler judges the address between keystrokes");
-    assert.match(
-      PANEL,
-      /useDraftFieldErrors\(\{ schemas: \{ erasure: FLKontaktErasurePayloadSchema \}, \}\)/,
-      "the panel judges off some other hook",
-    );
-  });
-
-  /* Both halves or neither: `validationErrors` shows a server refusal, `formRef` moves focus onto it
-     (frontend spec I32). That there is a form at all, and that it passes no `action`, is every draft
-     form's at `fl_frontend/src/shared/components/ui/formSubmit.test.ts`. */
-  it("renders the one field-error map through a form the hook can reach", () => {
-    assert.match(PANEL, /ref=\{formRef\}/, "the hook cannot reach the form");
-    assert.match(PANEL, /validationErrors=\{fieldErrors\}/, "the field errors reach no form");
-    // Which handler, not merely that one is wrapped: the sweep above accepts any, and this one ARMS.
-    assert.match(PANEL, /onSubmit=\{runOnSubmit\(handleArm\)\}/, "the form submits something other than the arming press");
-  });
-
-  /* The submit ARMS and never commits: Return auto-repeats, so as a submit this control would take
-     the repeat as its second press behind one decision. Every other `useTwoPressConfirm` control in
-     the app is a `type="button"`. */
-  it("keeps the commit off the form's submit", () => {
-    assert.ok(!PANEL.includes('<Button type="submit"'), "the confirm control is a submit, which the Return key repeats into");
-    assert.match(
-      PANEL,
-      /<Button type="button" variant="primary" isDisabled=\{isErasing\} onPress=\{handleErase\}/,
-      "the button lost its own press",
-    );
-    assert.deepEqual(
-      statementsOf(HANDLE_ARM),
-      ["const handleArm = () => {", "if (!isConfirming) press(commit);", "};"],
-      "the arm handler changed shape",
-    );
-    assert.ok(!HANDLE_ARM.includes("commit()"), "the arm handler calls the write rather than arming it");
-  });
-
-  /* Handed to the hook, which runs it before arming AND before writing — that order is pinned at
-     `shared/hooks/useTwoPressConfirm.test.ts`. An unjudged address may not reach the wire. */
-  it("guards both presses on the address", () => {
-    assert.match(PANEL, /useTwoPressConfirm\(judgeAddress\)/, "the panel arms on an address nothing judged");
-    // The whole body, exactly: the verdict is whether the block RAN the write, so a hardcoded `true` or an
-    // extra disjunct widening what counts as judged both leave this list changed rather than still matching.
-    assert.deepEqual(statementsOf(JUDGE_ADDRESS), [
-      "const judgeAddress = (): boolean => {",
-      "let mayWrite = false;",
-      "guardSubmit({ erasure: { email } }, () => {",
-      "mayWrite = true;",
-      "});",
-      "return mayWrite;",
-      "};",
-    ]);
-  });
-
-  /* The reveal names one address. Editing the box after arming would leave a press standing over a
-     value nobody read there, so the escalation drops with the change. */
-  it("disarms when the address changes", () => {
-    assert.match(ADDRESS_CHANGE, /if \(isConfirming\) cancel\(\);/, "an edit leaves the panel armed over the address it replaced");
-  });
-
-  /* The value is what the press exists to destroy, so it does not stay on screen afterwards. */
-  it("clears the box once the write lands", () => {
-    assert.match(
-      PANEL,
-      /appToast\.success\("Kontaktperson gelöscht"[\s\S]*?setEmail\(""\);[\s\S]*?router\.refresh\(\);/,
-      "the erased address stays in the box",
-    );
   });
 });
 
@@ -432,13 +211,11 @@ describe("the report the toast carries", () => {
 });
 
 describe("where the control stands", () => {
-  /* Below the list and not on a row: the operation is keyed on the ADDRESS across every season and
-     both collections, and the applications it also reaches appear on no row of this page. */
+  /* Keyed on the ADDRESS across every season and both collections, and the applications it also
+     reaches appear on no row of the list, so a reader has to see whose data it is while reading what
+     it takes. */
   it("stands inside the panel of the person it erases, never on the list", () => {
-    /* Moved off the list and onto the person. The reach is what makes the placement matter: keyed on
-       an ADDRESS, it clears every season and both collections, so a reader has to see whose data it
-       is while reading what it takes. */
-    assert.ok(!PAGE.includes("AdminKontaktErasureForm"), "the erasure is back on the list, detached from the person");
+    assert.ok(!PAGE.includes("FormKontaktErasure"), "the erasure is on the list, detached from the person");
     assert.match(SECTION, /<FormKontaktErasure email=\{person\.email\}/, "no seat offers the erasure of the person it holds");
   });
 
@@ -452,8 +229,13 @@ describe("where the control stands", () => {
     );
   });
 
+  /* One `h1` per page and the shell owns it; the heading LEVEL is `PanelHeading`'s and pinned there. */
+  it("raises no heading the shell already owns", () => {
+    assert.ok(!PAGE.includes("<h1"), "the page raises an h1 the shell already owns");
+  });
+
   /* The page's chrome may never wait on the list, and the fetch below the boundary may never run in
-     the image build. Both halves are the page's, and the panel is outside them. */
+     the image build. */
   it("leaves the page's shape intact", () => {
     assert.match(PAGE, /export default function AdminKontaktePage/, "the page's default export became async");
     // The FIRST statement, not merely a present one: the image builder reaches no backend, so a fetch

@@ -217,7 +217,6 @@ const THE_PAGE_SEASON = "the page's selected season, parsed at `.length(4)` befo
 
 const NO_FORM_AT_ALL = "a row button's whole argument: an id in the path, no request body, no form";
 
-/** The draw is the one payload here with a body and still no field: its confirmation is an escalation, not an input. */
 const DRAW_HAS_NO_FIELDS = "the draw's panel: the season is in the path and the replace is a two-press escalation, neither being an input";
 
 const ANONYMISATION_HAS_NO_FIELDS =
@@ -226,6 +225,10 @@ const ANONYMISATION_HAS_NO_FIELDS =
 /** A panel rather than a row button, which is why `NO_FORM_AT_ALL` would read wrong beside it. */
 const ERASURE_HAS_NO_FIELDS =
   "the erasure's panel: the id is in the path and the confirmation is a two-press escalation, neither being an input";
+
+/** Not `ERASURE_HAS_NO_FIELDS`: this address travels in the body, so a reason naming a path parameter would read false beside it. */
+const THE_PERSON_THE_PANEL_IS_FOR =
+  "the address of the person whose panel this is, handed in as a prop, so no control offers it and no refusal can land on one";
 
 const UNDRAW_HAS_NO_FIELDS =
   "the undraw's panel: the season is in the path and the confirmation is a two-press escalation, neither being an input";
@@ -253,6 +256,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLUndrawSpielplanPayloadSchema: { id: UNDRAW_HAS_NO_FIELDS },
   FLDeleteSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
   FLEraseSpielerPayloadSchema: { id: ERASURE_HAS_NO_FIELDS },
+  FLKontaktErasurePayloadSchema: { email: THE_PERSON_THE_PANEL_IS_FOR },
   FLAnonymiseSchiedsrichterPayloadSchema: { id: ANONYMISATION_HAS_NO_FIELDS },
   FLDeleteTeamPayloadSchema: { id: NO_FORM_AT_ALL },
   FLReactivateSpielerPayloadSchema: { id: NO_FORM_AT_ALL },
