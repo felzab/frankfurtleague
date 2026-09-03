@@ -181,7 +181,8 @@ OPEN_TO_THE_EMPTY_STRING = frozenset({"stadtteil", "hausnummer", "description"})
 FLOORED_BY_DECISION = frozenset({"FLBewerbungAddressPayload.stadtteil"})
 
 
-# `empty_parameter_set_mark` defaults to skip, so a sweep that matched nothing would pass in silence.
+# Ahead of `pyproject.toml :: empty_parameter_set_mark`, which refuses an empty parametrize without
+# saying which of the three readings below lost its subjects.
 assert BODY_CASES, "no route declares a request body; the app, or the way a body is declared, has moved"
 assert READ_SIDE_CASES, "nothing is left on the read side; the split between the two has moved"
 assert LAX_CASES, "no payload-side block is lax; the exemption below, and the property holding it safe, no longer have a subject"

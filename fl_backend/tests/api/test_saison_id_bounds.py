@@ -56,7 +56,8 @@ def _fields_pinned_to_a_season_id() -> list[tuple[str, type[BaseModel], str]]:
 PINNED_FIELDS = _fields_pinned_to_a_season_id()
 PINNED_IDS = [label for label, _, _ in PINNED_FIELDS]
 
-# `empty_parameter_set_mark` defaults to skip, so a sweep that matched nothing would pass in silence.
+# Ahead of `pyproject.toml :: empty_parameter_set_mark`, which refuses an empty parametrize without
+# naming what to look at when the sweep stops matching.
 assert PINNED_FIELDS, "no model carries the season-id length bound; the schema modules or the bound itself have moved"
 
 

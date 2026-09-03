@@ -311,7 +311,8 @@ def _season_write_handlers() -> dict[str, ast.AST]:
 
 SEASON_WRITE_HANDLERS = _season_write_handlers()
 
-# `empty_parameter_set_mark` defaults to skip, so a sweep that recognised nothing would pass in silence.
+# Ahead of `pyproject.toml :: empty_parameter_set_mark`, which refuses an empty parametrize without
+# naming what to look at when the recognition stops matching.
 assert SEASON_WRITE_HANDLERS, "no admin endpoint was seen writing a season; did the dependency or the crud helpers get renamed?"
 
 
