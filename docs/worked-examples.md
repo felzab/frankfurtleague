@@ -59,9 +59,9 @@ it:
         """The atomic one. A pre-image read separately could name a document another writer had already replaced."""
 ```
 
-**No check sees a reason written four times.** Gate check `echo` fails a passage repeated word for
-word, and these four are paraphrases of one another, which COR-2 leaves to `/docs:audit`. Each block
-reads reasonably alone.
+**No check sees a reason written four times.** Gate check `echo` reads a page's paragraphs and never
+a comment or a docstring, and these four are paraphrases besides; COR-2 leaves both to `/docs:audit`.
+Each block reads reasonably alone.
 
 **After**, the cell holds the contract and nothing else, cut to the invariant with its argument in the
 commit (OUT-4):
@@ -160,8 +160,7 @@ and the remedy:
 **What stayed**
 
 - **The refusal of the obvious simplification, in the cell**: a collated read loses a
-  simple-collation index, which is what stops a reader making the collation a default. OUT-4 settles
-  which half of a cell survives, and COR-5 never cuts this half.
+  simple-collation index, which is what stops a reader making the collation a default (OUT-4).
 - **The clause that refuses the client-side repair**, moved to the remedy column, where somebody who
   has just seen the symptom is standing.
 
@@ -171,7 +170,7 @@ default, and the reader of a remedy row already has the wrong order in front of 
 
 ## A paragraph loses the tail that re-derives it
 
-Rules: COR-5, COR-13.
+Rules: COR-1, COR-5, COR-13.
 
 From [`frontend/spec.md`](frontend/spec.md#19-the-test-suite), before:
 
@@ -211,12 +210,11 @@ its floor over the tree as well: the two answer different questions.
   which is the clause that stops the next reader deleting the floor over the tree as redundant.
 - **Both citations**, so each floor is checkable against the test that keeps it.
 
-**The two halves of that tail are not the same kind of sentence**, and this is the discrimination the
-example is for. One says why a constraint exists and COR-5 never cuts it; the other restates a
-failure mode given two sentences above. A pass that reads the tail as one unit takes both or leaves
-both, and both answers are wrong. The "after" also spells its clauses out rather than compressing
-them — "each keeps its floor over the tree as well" rather than a pronoun and a "too" with nothing to
-attach to (COR-5).
+**The two halves of that tail are not the same kind of sentence.** One says why a constraint exists
+and COR-5 never cuts it; the other restates a failure mode given two sentences above. A pass that
+reads the tail as one unit takes both or leaves both, and both answers are wrong. The "after" also
+spells its referents out — "each keeps its floor over the tree as well" rather than a pronoun and a
+"too" with nothing to attach to (COR-1).
 
 ## An enumeration written as prose becomes a list
 
@@ -337,8 +335,8 @@ A block that answers all three and is still over the bound cannot be made smalle
 of its two halves, so it stays over it (INC-9).
 
 **This lesson reaches an existing block, and which blocks count as existing is a matching rule
-rather than a judgment.** Gate check `comment-length` exempts one thing: a block the fork already
-held over the bound, held to the word count it ran to there.
+rather than a judgment.** Gate check `comment-length` holds a block the fork already carried over the
+bound to the word count it ran to there rather than to the bound.
 `scripts/checks/docs_gate/branch.py :: _fork_ceiling` matches a block to its earlier self by the
 content lines the two share — **any one shared line is a match**, the largest overlap wins, and a tie
 goes to the largest fork word count. The candidates are the blocks the fork held **over** the bound
@@ -472,5 +470,5 @@ stop.
   harder here than anywhere else.
 
 **Nothing here is a length rule.** A model-only file has no cap and takes COR-5's test instead
-(COR-15) — which is why the cut above is one sentence and not a paragraph, and why the sentence next
-to it survives at full width.
+(COR-15) — which is why the cut above is one sentence and not a paragraph, and why nothing beside it
+was cut to reach a number.

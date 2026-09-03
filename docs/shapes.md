@@ -1,9 +1,9 @@
 # The shapes, written out to be copied
 
 **Purpose:** each shape [`standard.md`](standard.md) fixes and a gate check refuses, as a skeleton to
-copy. The rule is the standard's and this page is that rule made fillable; where the two disagree the
-standard wins (PRE-1), and a skeleton that has grown a constraint of its own is a rule with no home
-and it goes.
+copy. Every one is a template (OUT-9), and the rule stays the standard's, where it lives exactly once
+(PRE-4): where a skeleton and the standard disagree the standard wins, and a skeleton that has grown
+a constraint of its own goes.
 
 What a skeleton carries that prose cannot is the **spelling a check compares against** — a section's
 exact wording, a separator character, a column count. Those are what a writer reconstructs from the
@@ -89,9 +89,8 @@ literal text; between them the sections are the writer's. Mechanism belongs to t
 
 ## A README
 
-Orientation and nothing else: the navigation table, and at most one body section — the single thing
-a reader needs before opening anything in the table. A closing `## Read next` is navigation rather
-than that body section, and it appears only where the table does not already send the reader on.
+A closing `## Read next` is navigation rather than the one body section below, and it appears only
+where the table does not already send the reader on.
 
 ```
 # <Folder name>
@@ -113,11 +112,9 @@ than that body section, and it appears only where the table does not already sen
 
 A header keeps this shape in a Python module and in a shell script, in both cases only under the
 prefixes `scripts/checks/docs_gate/checks.py :: HEADER_SCOPES` names, and only for a fact attaching
-to no symbol. Outside those prefixes a header is measured by no bound at all — neither INC-2's nor
-INC-9's — because `scripts/checks/docs_gate/kernel.py :: comment_runs` skips an opening block
-wherever the file's kind can carry a header. The title's separator is a middle dot with a space on
-each side. `Invariants:` and `See:` are the only labels a header may carry, every `See:` entry
-resolves to a file that is there, and the block carries no drawn rule and no upper-case label row.
+to no symbol. The title's separator is a middle dot with a space on each side. `Invariants:` and
+`See:` are the only labels a header may carry, every `See:` entry resolves to a file that is there,
+and the block carries no drawn rule and no upper-case label row.
 
 ```sh
 #!/usr/bin/env bash
