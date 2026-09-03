@@ -160,7 +160,6 @@ deliverable.
 | `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                            | FE, Docs, tests                                                             | Open     |
 | `qw6j-scru` | The CSP's style directive is wider than it needs to be                                                               | FE, Ops, Docs, edge                                                         | Open     |
 | `r5xm-ac7m` | A hook probe reads the status only where the verdict was empty                                                       | Ops, Docs, gate                                                             | Open     |
-| `ru7v-jndc` | The guard holding an auditor out of the tree is driven by no probe                                                   | Ops, Docs, gate                                                             | Open     |
 | `s28h-m39z` | A moved vocabulary table is reported on the wrong branch                                                             | Ops, Docs, gate, ci, tests                                                  | Open     |
 | `s88t-ceby` | Nothing checks a generated file against its generator                                                                | FE, BE, tests                                                               | Open     |
 | `spq6-zy2d` | A renamed file's comment blocks are never measured                                                                   | Ops, gate                                                                   | Open     |
@@ -3620,25 +3619,6 @@ than live, and it turns live on whichever probe first carries a long command.
 **Done when** the status is read whatever stdout said, and the payload reaches the hook from a file.
 `scripts/gate/selfcheck.sh :: prepush_drive` already drives its own fixture that way, and records
 the SIGPIPE reading as the reason.
-
-### `ru7v-jndc` · The guard holding an auditor out of the tree is driven by no probe
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Ops, Docs, gate | Open   | —          |
-
-**`.claude/hooks/guard-auditor-write.sh` is what a cold-auditor agent's `Write` grant still buys**,
-declared by `.claude/agents/cold-auditor.md` and refusing every write inside the repository, and
-`scripts/gate/selfcheck.sh` drives it with nothing. It reaches that verdict the way
-`.claude/hooks/guard-branch.sh` does — canonical paths compared in node, never as text — and that
-guard is probed through a spread of spellings of one path precisely because every cheap containment
-test lets one of them through.
-
-**An answer of "outside" for a path inside the tree allows the write**, and no second mechanism is
-holding the tree read-only for an agent whose whole discipline is that it does not write.
-
-**Done when** it is probed on what its refusal protects: a path inside the repository in each
-spelling the branch guard's own probes already tell apart, and one genuinely outside it.
 
 ### `s28h-m39z` · A moved vocabulary table is a skip on the next `scripts` branch, and nothing on the branch that moved it
 
