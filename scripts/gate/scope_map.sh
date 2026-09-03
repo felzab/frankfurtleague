@@ -109,6 +109,12 @@ else
       # prettier's configuration and its ignore file decide what the format scope proves, so a change
       # to either is a change to that scope — and to nothing else, the build reading neither.
       .prettierignore|*/.prettierignore|.prettierrc.json|*/.prettierrc.json) format=true ;;
+      # The bounds and patterns `fl_backend/tests/shared/test_frontend_mirrors.py` compares are
+      # retyped by hand in these modules, so a diff editing the frontend side of a mirror would
+      # otherwise reach that comparison no earlier than the push to main.
+      fl_frontend/src/shared/schemas.ts|fl_frontend/src/features/bewerbungen/constants.ts| \
+      fl_frontend/src/features/teams/constants.ts|fl_frontend/src/features/spiele/constants.ts)
+        frontend=true; backend=true; db=true; docs=true ;;
       fl_frontend/*) frontend=true; docs=true ;;
       fl_backend/*) backend=true; db=true; docs=true ;;
       # The ops scope parses the compose files and runs nginx against prod.conf; prettier also formats
