@@ -568,6 +568,15 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SAISONS,
+        "rules.max_kadergroesse",
+        Editability.CONDITIONAL,
+        "never below the largest squad the season already holds (`REQ-RULES-009`): a lowered cap would leave rows "
+        "`REQ-SQUAD-003` refuses to create today. Unlike `teams_per_group`'s floor this one clears -- the largest "
+        "squad counts only rows whose `inactive_since` is null, so retiring players lowers it",
+        "app.api.saisons.services.find_rules_refusal",
+    ),
+    FieldPolicy(
+        Collection.SAISONS,
         "rules.erlaubte_stufen",
         Editability.EDITABLE,
         "narrowing is safe at any time, a finished season included: it bounds what a FORM offers and never what a stored squad row holds",
