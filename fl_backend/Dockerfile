@@ -1,7 +1,7 @@
 # A named stage rather than a bare `COPY --from=<image>`: Dependabot's docker ecosystem scans FROM
 # lines alone, so this is what puts the installer's version under the same review as every other
 # base image here.
-FROM ghcr.io/astral-sh/uv:0.12.8 AS uv
+FROM ghcr.io/astral-sh/uv:0.12.9 AS uv
 
 # The OS layer the build and the runtime share, so anything added here ships in the image.
 FROM python:3.14-slim AS base
