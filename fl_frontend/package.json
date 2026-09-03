@@ -13,7 +13,7 @@
     "node": ">=26",
     "pnpm": ">=11.18.0"
   },
-  "packageManager": "pnpm@11.18.0",
+  "packageManager": "pnpm@11.25.0",
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next dev --turbo",
     "build": "next build",
@@ -49,7 +49,7 @@
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
     "@tailwindcss/postcss": "^4.3.3",
-    "@types/node": "^26.4.0",
+    "@types/node": "^26.4.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@typescript-eslint/eslint-plugin": "^8.69.0",

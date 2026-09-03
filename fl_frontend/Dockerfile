@@ -12,7 +12,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # 57 MB of installer no CMD invokes, and CI/PNPM_HOME are build-time answers that have no business
 # in a production process environment.
 FROM base AS toolchain
-ARG PNPM_VERSION=11.18.0
+ARG PNPM_VERSION=11.25.0
 
 RUN npm install -g pnpm@${PNPM_VERSION}
 
