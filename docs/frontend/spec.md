@@ -299,8 +299,9 @@ the whole body** (`fl_backend/tests/api/test_payload_strictness.py`), which is w
 one place per slice.
 
 **Every resource with write endpoints has an action calling them**, each dispatched from a
-page-owned editor — except `kontakte`, whose erasure stands as a panel on the list, keyed on an
-ADDRESS across every season and both collections. **These of its writes are irreversible** — a
+page-owned editor — `kontakte`'s erasure from inside the seat holding the person it erases, keyed on
+an ADDRESS across every season and both collections rather than on the seat it stands in. **These of
+its writes are irreversible** — a
 pupil's erasure, a referee's anonymisation, a contact person's erasure, the replacement of a club
 on a season's junction row, the draw's `replace`, the undraw beside it, the rollover's close of the
 outgoing season and the triage's decisions
@@ -473,12 +474,40 @@ step as it evaluates, and every static import in the graph has resolved before t
 directive, a wiring between two of them. Held against a component's own output, a regex over the
 source passes on markup that says the opposite and on a component nothing renders at all.
 
-**Two shapes stay outside a render test:**
+**The `test` script stands `fl_frontend/src/core/config.ts`'s gate down and supplies the database
+URI a module reads past it** (`fl_frontend/package.json`), so a component whose graph reaches that
+gate renders — a form through its slice's actions module, and every field panel that form composes.
+A module the gate refuses dies at import, failing its whole test file rather than one case. The
+script spells that environment as CI's frontend job spells it at job level
+(`.github/workflows/verify.yml`), so the two runs prove the same suite.
 
-- a module graph reaching `fl_frontend/src/core/config.ts`, whose gate refuses an unconfigured
-  environment at import — a form owning a submit reaches it through its slice's actions module,
-  while the field panels that form composes do not
+**Four shapes no render reaches:**
+
 - an async Server Component, which a synchronous render cannot await
+- a state a press or a submit arrives at, a static render producing the resting state alone
+- an overlay's body — a modal, a `ComboBox`'s suggestion list, a `DatePicker`'s calendar — which a
+  static render never produces, a modal handed `isOpen` included
+- a call site taking a class-name recipe rather than the classes it returns
+  (`fl_frontend/src/shared/components/ui/overlayPanel.ts`), a literal spelling those classes
+  rendering identical markup
+
+**A `Select` is the exception that makes a picker assertable**: react-aria mirrors the whole
+collection into a hidden native `<select>` carrying every member's value and text, the selection,
+and the control's `required`
+(`fl_frontend/src/features/teams/components/forms/GruppeSelect.tsx`). A row's own `isDisabled` is
+not in that mirror.
+
+**A component reading a Next client context renders under `renderTree` with that context's provider,
+which `next/navigation` does not export** — `useSearchParams` answers `null` without one and throws
+where a parameter is read, and `useRouter` throws for a router nothing has mounted.
+`fl_frontend/src/features/kontakte/editor.test.ts` reaches the first at the path Next keeps it on;
+neither hook puts a component out of reach.
+
+**A replacement reason names what the assertion is about, never what the runner cannot do**: the
+second goes stale the moment the runner changes, leaving a file asserting source text over markup
+that carries the claim. Calling a server action for the sentence it returns is the standing
+exception — it raises Next's request-scope error, and a refusal mapper is module-private besides
+(`fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`).
 
 **Several tests sweep the source tree rather than exercise a function** — that is how a rule no
 linter can express is held, `fl_frontend/src/core/refusalPaths.test.ts` (I34) and
