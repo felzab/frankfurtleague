@@ -7,7 +7,7 @@ import { renderMarkup } from "@/shared/testing/renderTest";
 
 /*
  Reached after the harness above has evaluated, which is when the JSX compile step is registered: a
- static import beside it resolves first and dies on the extension (`docs/frontend/spec.md` §1.9).
+ static import beside it resolves first and dies on the extension.
 */
 const { RowActionDelete, RowActionRestore } = await import("./RowActions.tsx");
 
@@ -101,14 +101,14 @@ describe("a row action the endpoint already refuses", () => {
     }
   });
 
-  /* Read as text, optionality being erased before anything renders: most call sites pass no reason,
-     and a required prop would put a compile error on every list whose action is never refused. */
   /* A literal spelling ACTION_BUTTON_CLASS's classes renders identically, so the markup above
      cannot tell the shared constant from a copy of it that stops tracking. */
   it("dresses both controls from the shared constant rather than a copy", () => {
     assert.equal(SOURCE.match(/className=\{ACTION_BUTTON_CLASS\}/g)?.length, AKTIONEN.length);
   });
 
+  /* Read as text, optionality being erased before anything renders: most call sites pass no reason,
+     and a required prop would put a compile error on every list whose action is never refused. */
   it("leaves the reason optional on both", () => {
     assert.equal(SOURCE.match(/disabledReason\?: string \| null;/g)?.length, AKTIONEN.length, "a row action's reason became required");
   });

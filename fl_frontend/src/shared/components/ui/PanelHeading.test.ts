@@ -10,7 +10,7 @@ import { renderTree } from "@/shared/testing/renderTest";
 
 /*
  Reached after the harness above has evaluated, which is when the JSX compile step is registered: a
- static import beside it resolves first and dies on the extension (`docs/frontend/spec.md` §1.9).
+ static import beside it resolves first and dies on the extension.
 */
 const { PanelHeading } = await import("./PanelHeading.tsx");
 

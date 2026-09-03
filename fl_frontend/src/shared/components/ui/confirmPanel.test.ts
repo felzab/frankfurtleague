@@ -12,7 +12,7 @@ import { PANEL_REVEAL } from "./motion";
 
 /*
  Reached after the harness above has evaluated, which is when the JSX compile step is registered: a
- static import beside it resolves first and dies on the extension (`docs/frontend/spec.md` §1.9).
+ static import beside it resolves first and dies on the extension.
 */
 const { ConfirmActionRow } = await import("./ConfirmActionRow.tsx");
 const { ConfirmReadoutRow } = await import("./ConfirmReadoutRow.tsx");
