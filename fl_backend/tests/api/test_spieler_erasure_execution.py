@@ -240,7 +240,7 @@ async def every_collection_as_text(database: AsyncDatabase) -> str:
 
 
 class TestARetiredPupilIsErasedWhole:
-    """D83 through the endpoint: the person, their squad rows and their values in the log, or none of the three."""
+    """`docs/backend/spec.md :: I42` through the endpoint: the person, their squad rows and their values in the log, or none of the three."""
 
     def test_the_person_is_gone_from_the_collection(self, mongo_replica_set_url: str):
         """Catches an erasure that only stamps `inactive_since` again -- the soft delete wearing a new route."""
@@ -437,7 +437,7 @@ class TestAPupilWhoNeverJoinedASquad:
 
 
 class TestTheErasureIsRefusedUntilTheyAreRetired:
-    """`REQ-PURGE-001`, D60's precondition: the reversible step has to have been taken and left standing."""
+    """`REQ-PURGE-001`: the reversible step has to have been taken and left standing."""
 
     def test_a_pupil_still_in_the_league_is_refused(self, mongo_replica_set_url: str):
         """Catches dropping the precondition, which would put an unrecoverable write one click from the squad list."""
@@ -484,7 +484,10 @@ class TestTheErasureIsRefusedUntilTheyAreRetired:
 
 
 class TestAHalfDoneErasureCommitsNothing:
-    """D83's failure mode: a person removed while the log still holds their values reports an erasure that did not happen."""
+    """`docs/backend/spec.md :: I42`'s failure mode.
+
+    A person removed while the log still holds their values reports an erasure that did not happen.
+    """
 
     def test_a_refused_redaction_takes_both_removals_back(self, mongo_replica_set_url: str):
         """A `$jsonSchema` refusing a stamped row fails the LAST of the three writes, after the other two have landed.

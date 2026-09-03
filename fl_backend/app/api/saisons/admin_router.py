@@ -124,7 +124,7 @@ async def _rewrite_gruppenphase_sides(
     teams_collection: AsyncCollection,
     session: AsyncClientSession,
 ) -> int:
-    """Rewrite each club's side of these fixtures to the other, returning how many were touched.
+    """Rewrite each club's side of these fixtures to the other.
 
     Named by `_id` from a snapshot read BEFORE any write: filtering on the club would let the second
     pass match what the first just wrote and swap it back.
@@ -432,11 +432,10 @@ async def activate_saison(
     db: DBClient,
 ) -> FLActivateSaisonResponse:
     """
-    Make this the active season, moving whichever holds `active` to `past`.
+    Make this the active season, moving whichever holds `active` to `past` in one transaction.
 
-    The only path to `status: "active"`. One transaction judges and writes, so the league never
-    briefly holds no active season, nor two, and neither season can be drawn or undrawn under the
-    judgement. The outgoing must be finished, and a `past` target refused.
+    The only path to `status: "active"`. The outgoing season must be finished, and a `past` target
+    is refused (`docs/backend/spec.md :: I18`).
     """
 
     async def judge_and_roll_the_league_over(session: AsyncClientSession) -> FLActivateSaisonResponse:
@@ -505,9 +504,9 @@ async def activate_saison(
             return_document=ReturnDocument.AFTER,
         )
 
-        # A target already `active` is `$set` to that same status, so the promotion rewrites nothing
-        # and joins no write set: a rival demoting it raises no conflict to retry on. Re-judged
-        # OUTSIDE the session (I53); the window to the commit is the residue.
+        # A target already `active` joins no write set, so a rival demoting it raises no conflict to
+        # retry on (`docs/backend/spec.md :: I53`). Re-judged outside the session; the window to the
+        # commit is the residue.
 
         # The STATUS alone, because it is the only input a rival can move here: an undraw and a
         # replace each need a `future` season, a draw only adds fixtures, and a new incumbent arrives
@@ -675,7 +674,7 @@ async def swap_gruppen(
         return swapped
 
     # `with_transaction`, not a bare `start_transaction`: two admins on one season can write-conflict,
-    # and the callback re-reads everything it judges on, so a retry is safe.
+    # and a retry judges these rows as the rival left them.
     async with db.start_session() as session:
         return await session.with_transaction(exchange_the_two_gruppen)
 
@@ -799,9 +798,8 @@ async def generate_spielplan(
             ],
         )
 
-        # Both collections together (`docs/backend/spec.md :: I46`), fixtures first: the reverse of
-        # the write order below, so neither the log's rows nor a restore replaying them holds a
-        # fixture whose matchday is gone.
+        # Both collections together (`docs/backend/spec.md :: I46`), fixtures first for
+        # `undraw_spielplan`'s reason.
         removed_spieltage = 0
         removed_spiele = 0
 
@@ -850,8 +848,8 @@ async def generate_spielplan(
             removed_spiele=removed_spiele,
         )
 
-    # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges
-    # on, and a retry is safe because it generates its own ids and wires by `spiel_nr`, never by one.
+    # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the draw
+    # generates its own ids and wires by `spiel_nr`, never by one.
     async with db.start_session() as session:
         drawn_response = await session.with_transaction(draw_the_whole_season)
 
@@ -924,8 +922,8 @@ async def undraw_spielplan(
             watermark_cleared=before.get("spielplan") is not None,
         )
 
-    # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges
-    # on, and a retry is safe because it removes a set by filter rather than by any id it read.
+    # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the undraw
+    # removes a set by filter rather than by any id it read.
     async with db.start_session() as session:
         undrawn = await session.with_transaction(undraw_the_whole_season)
 

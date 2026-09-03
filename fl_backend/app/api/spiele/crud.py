@@ -73,7 +73,7 @@ async def _resolve_one_saison(
 
         # From the fixtures ARGUED, never re-read: the preview hands in a season this collection
         # does not hold yet, so a table read back from it would rank the save's fixtures while the
-        # walk ranks the preview's (`docs/backend/spec.md :: I29`).
+        # walk ranks the preview's (`docs/backend/spec.md :: I98`).
         by_team = build_statistik_by_team(gruppenphase, rules)
 
         standings = build_decided_standings(

@@ -258,7 +258,7 @@ async def patch_spiel_data(
         verdict = judge_spieltag_occupancy(spiel_id, spiel_data, season)
         refuse(verdict.refusal)
 
-        # The same slice the refusals above judged (`docs/backend/spec.md :: I45`), so this read
+        # The same slice the refusals above judged (`docs/backend/spec.md :: I108`), so this read
         # cannot quietly skip the date rule over a fixture they already stood on.
         stored = stored_in_slice(spiel_id, season)
 

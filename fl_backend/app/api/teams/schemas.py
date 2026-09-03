@@ -42,13 +42,12 @@ FLAustrittType = Literal["disqualifikation", "rueckzug"]
 
 
 # Slugs rather than the German the league's CI document spells, for the reason
-# `fl_backend/app/api/spieler/schemas.py :: FLSpielerRolle` gives: a stored German word becomes a
-# third spelling for a label and a badge to drift from.
+# `fl_backend/app/api/spieler/schemas.py :: FLSpielerRolle` gives.
 FLSchulform = Literal["gymnasium_g8", "gymnasium_g9", "gesamtschule", "privatschule_g8", "privatschule_g9", "oberstufengymnasium"]
 
 
-# The CI document's palette, slugged for the reason above: two of its colours are named in German
-# there, and the badge renders a swatch rather than either spelling.
+# The CI document's palette, slugged for `FLSchulform`'s reason: two of its colours are named in
+# German there, and the badge renders a swatch rather than either spelling.
 FLTrikotFarbe = Literal[
     "weiss",
     "schwarz",
@@ -91,8 +90,8 @@ class FLAustritt(BaseModel):
 def strip_austritt_grund(value: Any) -> Any:
     """Strip the reason before `FLAustritt`'s floor counts it, on the WRITE side alone.
 
-    Never on `FLAustritt`, which every read of a club embeds and must take a stored value as it
-    stands: the strip runs BEFORE the floor, so a stored blank would refuse.
+    The strip runs BEFORE the floor, so on a read model a stored blank would refuse the club it
+    stands on.
     """
 
     if isinstance(value, Mapping) and isinstance(grund := value.get("grund"), str):
@@ -108,8 +107,8 @@ class FLKontaktEinwilligung(BaseModel):
     """
 
     umfang: Literal["kontaktdaten"]
-    # Who gave it. Distinguishing the two is what stops an admin's transcription reading as a
-    # person's own consent.
+    # Distinguishing the two is what stops an admin's transcription reading as a person's own
+    # consent.
     erteilt_von: Literal["person", "administrativ"]
     # The version of the text they were shown. The text lives in the frontend and is versioned
     # there, so a later rewording never changes what a stored record claims.
@@ -148,9 +147,9 @@ class FLSaisonTeamKontakte(BaseModel):
     trainer_ist_zugleich: FLTrainerZugleich | None
 
 
-# The bounded copies the junction PATCH embeds. The ceilings are here and not on the read models
-# above for `FLAddressPayload`'s reason: refusing a stored value on read answers 500 for a whole
-# list over one row. For these, the bound is the write side's.
+# The ceilings are here and not on the read models above for `FLAddressPayload`'s reason: refusing a
+# stored value on read answers 500 for a whole list over one row, and locks out the write that would
+# repair it.
 class FLKontaktEinwilligungPayload(FLKontaktEinwilligung):
     model_config = ConfigDict(extra="forbid")
 
@@ -171,13 +170,10 @@ class FLKontaktpersonPayload(FLKontaktperson):
     nachname: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN)
     ]
-    # On the write side, not the read: `GET /teams/memberships` is the ONLY route to repairing a bad
-    # row, so a value it refused would lock itself in. The ceiling is stated rather than left to
-    # email-validator, whose refusal names no field.
+    # The ceiling is stated rather than left to email-validator, whose refusal names no field.
     email: Annotated[EmailStr, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH)]
-    # Here for the same reason, and on this side rather than beside the format: the pattern caps the
-    # length at 20 inside itself, which makes it a ceiling -- and a ceiling is the write side's, a
-    # read refusing a stored value refusing the row that repairs it.
+    # Here rather than beside the format: the pattern caps the length inside itself, which makes it
+    # a ceiling.
     telefon: str = Field(pattern=PHONE_REGEX)
     einwilligung: FLKontaktEinwilligungPayload
 
@@ -224,7 +220,6 @@ class _TeamWritable(BaseModel):
     full_name: CustomNonEmptyString
     # NO default here, so the payloads inherit none: `PATCH` replaces the club wholesale, and an
     # omitted key would clear a school form and fan the clearing out as an edit somebody asked for.
-    # The two READ models below add one back.
     schulform: FLSchulform | None
     # Rendered straight into an href on a public page, so the scheme is constrained here as well as
     # in the frontend (`app/shared/schemas/custom.py :: validate_external_url`). NULL where a school
@@ -285,7 +280,7 @@ class FLGruppenTeam(BaseModel):
     austritt_type: FLAustrittType | None
     # Fixtures neither counted nor called off in the `statistik_scope` asked for, so points are still
     # to be awarded here. REQUIRED with no default: a caller that forgot it would silently strip a
-    # placing (`docs/backend/spec.md :: I24b`).
+    # placing (`docs/backend/spec.md :: I97`).
     anzahl_ausstehende_spiele: int = Field(ge=0)
 
 
@@ -305,10 +300,6 @@ class FLTeamMembership(BaseModel):
     austritt: FLAustritt | None
     # Defaulted because `$project` omits a key the stored row has not got: a season entered before
     # either field existed would otherwise 500 the whole admin club list.
-
-    # The one model here Pydantic validates a stored document into. The write echoes take these
-    # fields with NO default: each is built from keywords, so an absent key is the endpoint's to
-    # answer for and a default would echo what no caller wrote.
     trikot_farbe: FLTrikotFarbe | None = None
     kontakte: FLSaisonTeamKontakte | None = None
 
@@ -517,6 +508,8 @@ class FLTeamWriteResponse(BaseAPIResponse):
 class FLSaisonTeamResponse(BaseAPIResponse):
     """A junction row, which has no read model of its own -- so it is echoed as it was written."""
 
+    # No field here carries a default, as none does on the other write echoes: each is built from
+    # keywords, so a default would echo what no caller wrote.
     saison_id: str
     team_id: CustomObjectId
     gruppe: FLGruppenNames
@@ -548,8 +541,7 @@ class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
 class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     """The junction row as the replacement left it, plus what it reached beyond that row.
 
-    Of the three fields a replacement clears, the two that leave a GAP are echoed; `austritt` is
-    not, a club that has not withdrawn needing nothing done about it.
+    `austritt` is cleared and not echoed: a club that has not withdrawn needs nothing done about it.
     """
 
     saison_id: str
@@ -565,8 +557,8 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     # Reseeded from the incoming club, exactly as entry seeds them.
     name: CustomNonEmptyString
     shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
-    # Reported rather than assumed, as `FLPatchTeamResponse` reports its own: this fan-out is the
-    # half of the endpoint that fails silently (`docs/backend/spec.md :: I13`).
+    # Reported rather than assumed, as `FLPatchTeamResponse` reports its own
+    # (`docs/backend/spec.md :: I13`).
     fanned_out_to_spiele: int
     # Reported for the same reason, and separately: the outgoing club's squad leaves the season with
     # it, and zero is a real answer -- a club can hold a junction row and no squad at all.

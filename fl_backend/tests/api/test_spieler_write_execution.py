@@ -154,7 +154,7 @@ async def hand_the_junction_row_over(database: AsyncDatabase, team_id: ObjectId)
 
 
 class TestTheConsentRecordIsComposedAndNeverAccepted:
-    """D59 through the endpoints: only a database shows what is stored, and what survives a later write."""
+    """Through the endpoints, because only a database shows what is stored and what survives a later write."""
 
     def test_creating_a_player_stores_a_collected_consent(self, mongo_url: str):
         """`erziehungsberechtigt` with both dates set -- a guardian filing a registration today really is consenting."""

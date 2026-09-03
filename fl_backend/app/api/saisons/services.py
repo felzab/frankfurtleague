@@ -84,22 +84,19 @@ def _forfeit_draws_a_knockout(rules: FLSaisonRules) -> bool:
 def find_rules_refusal(
     *,
     saison_status: str,
+    # `None` on a create, whose whole rules object is the step (`docs/backend/spec.md :: I44`).
     stored: FLSaisonRules | None,
     proposed: FLSaisonRules,
     occupancy_by_gruppe: dict[FLGruppenNames, int],
     highest_wired_platz: int,
     largest_squad: int = 0,
+    # The LARGEST count any single matchday of a phase holds, never the sum.
     attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
     drawn_fixtures: int = 0,
+    # Counted over `app/api/teams/services.py :: has_taken_place`, as `REQ-SWAP-002`'s window is.
     played_knockout_fixtures: int = 0,
 ) -> WriteRefusal | None:
-    """Why these rules must be refused, or `None`.
-
-    `stored` is `None` on a create, whose whole rules object is the step
-    (`docs/backend/spec.md :: I44`). `attached_by_phase` is the LARGEST count any single matchday of
-    a phase holds, not the sum, and `played_knockout_fixtures` is counted over
-    `app/api/teams/services.py :: has_taken_place`, as `REQ-SWAP-002`'s own window is.
-    """
+    """Why these rules must be refused, or `None`."""
 
     # The freeze first: no point naming a bound when the whole edit is refused anyway.
     if stored is not None and saison_status == "past":
@@ -329,8 +326,8 @@ DRAWN_HOLDING_ITS_SIDES: FLSaisonPhase = "gruppenphase"
 def _a_side_is_off_the_draw(spiel: Mapping[str, Any]) -> bool:
     """Whether either side departs from what the draw leaves on this fixture's phase.
 
-    A group fixture is drawn OCCUPIED and unwired, a bracket fixture WIRED and empty, so any other
-    pairing is an edit: a hand-picked slot, a cleared quelle, an emptied side.
+    Any other pairing of occupied and wired is an edit: a hand-picked slot, a cleared quelle, an
+    emptied side.
     """
 
     # A document with no `saison_phase` reads as a bracket, so every group fixture then counts as

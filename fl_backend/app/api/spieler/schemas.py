@@ -269,8 +269,7 @@ class FLSpielerMembership(_SaisonSpielerWritable):
     where a team never leaves a season at all.
     """
 
-    # Defaulted as `FLSpieler` is: this reads STORED rows, and the lookup projects a missing key
-    # away rather than as null, so one row predating either field would 500 the whole list.
+    # Defaulted for `FLSpieler`'s reason, over a row predating either field.
     is_nachgetragen: bool = False
     rolle: FLSpielerRolle | None = None
 
@@ -290,8 +289,7 @@ class FLSpielerWithMemberships(_SpielerPerson):
     # The day the PERSON left the league; a squad row retires independently, on the membership above.
     inactive_since: CustomOptionalDateString
     # On the PERSON, as `inactive_since` is: consent is given by somebody, not per season. Defaulted
-    # where `FLSpieler` requires it, because this model reads STORED rows and one written before the
-    # field existed would 500 the whole list.
+    # where `FLSpieler` requires it, for `FLSpielerMembership`'s reason.
     einwilligung: FLEinwilligung | None = None
     memberships: list[FLSpielerMembership]
 

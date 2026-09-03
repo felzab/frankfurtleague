@@ -61,7 +61,7 @@ TARGET_INDEX = next(index for index in SUPPORT_INDEXES if index.collection == Co
 
 
 def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
-    """Every field the validator requires, and the referee SERVING: D60 attaches no retire-first precondition to this endpoint."""
+    """Every field the validator requires, and the referee SERVING: no retire-first precondition attaches to this endpoint."""
 
     return {
         "_id": schiedsrichter_id,

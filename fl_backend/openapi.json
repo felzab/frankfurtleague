@@ -3650,7 +3650,7 @@
     "/api/v0/saisons/{saison_id}/activate": {
       "post": {
         "summary": "Make this the active Saison",
-        "description": "Make this the active season, moving whichever holds `active` to `past`.\n\nThe only path to `status: \"active\"`. One transaction judges and writes, so the league never\nbriefly holds no active season, nor two, and neither season can be drawn or undrawn under the\njudgement. The outgoing must be finished, and a `past` target refused.",
+        "description": "Make this the active season, moving whichever holds `active` to `past` in one transaction.\n\nThe only path to `status: \"active\"`. The outgoing season must be finished, and a `past` target\nis refused (`docs/backend/spec.md :: I18`).",
         "operationId": "activate_saison_api_v0_saisons__saison_id__activate_post",
         "security": [
           {
@@ -3937,7 +3937,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren": {
       "post": {
         "summary": "Clear a Schiedsrichter's contact details",
-        "description": "Null the referee's telephone number and email address, in the row and in the log.\n\nThe row and its `name` stay: every Spiel embeds both, so a removal would strand copies. A\nre-entry under it is refused (`REQ-ANONYMISE-001`).",
+        "description": "Null the referee's telephone number and email address, in the row and in the log.\n\nThe row and its `name` stay: every Spiel embeds both, so a removal would strand copies. A\nre-entry under it is refused (`REQ-ANONYMISE-001`). No precondition on officiating: the details\nmay go while the referee still takes fixtures.",
         "operationId": "anonymise_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__anonymisieren_post",
         "security": [
           {
@@ -5590,7 +5590,7 @@
           "vergeben"
         ],
         "title": "FLBewerbungKuerzelResponse",
-        "description": "Whether a proposed Kürzel is already a club's. ONE neutral answer.\n\nIt names no club and does not tell an active one from a retired one: the uniqueness it mirrors\nspans both, and a shape distinguishing them would publish which schools have left."
+        "description": "Whether a proposed Kürzel is already a club's.\n\nIt names no club and does not tell an active one from a retired one: the uniqueness it mirrors\nspans both, and a shape distinguishing them would publish which schools have left."
       },
       "FLBewerbungSchule": {
         "properties": {
@@ -6065,7 +6065,7 @@
           "spiel_datum"
         ],
         "title": "FLBracketFaultOccupant",
-        "description": "One fixture fielding a team that left the season, dated on or after the day of its exit or undated, and recording no absence for it.\n\nThe date and the carve-out are `REQ-ELIGIBILITY-001`'s. Derived beside the bracket walk rather\nthan inside it, so no phase is out of its reach; nothing is emptied\n(`fl_backend/app/core/domain.py :: UNENFORCED`)."
+        "description": "One fixture fielding a team that left the season (`docs/backend/spec.md :: I28`).\n\nThe date rule and the carve-out are `REQ-ELIGIBILITY-001`'s. Nothing is emptied\n(`fl_backend/app/core/domain.py :: UNENFORCED`)."
       },
       "FLBracketFaultQuelle": {
         "properties": {
@@ -8051,7 +8051,7 @@
           "ausgetragene_squad_rows"
         ],
         "title": "FLReplaceSaisonTeamResponse",
-        "description": "The junction row as the replacement left it, plus what it reached beyond that row.\n\nOf the three fields a replacement clears, the two that leave a GAP are echoed; `austritt` is\nnot, a club that has not withdrawn needing nothing done about it."
+        "description": "The junction row as the replacement left it, plus what it reached beyond that row.\n\n`austritt` is cleared and not echoed: a club that has not withdrawn needs nothing done about it."
       },
       "FLSaison": {
         "properties": {
@@ -9703,7 +9703,7 @@
           "tore"
         ],
         "title": "FLSpielTeamFieldPayload",
-        "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the season's `saison_teams` row is where a club's name lives, so a copy\na client typed could only disagree with it. The server composes them.\n\nA submitted copy is IGNORED rather than refused, alone among the payload models: the stored and\nthe joined sides below EXTEND this one and `extra` is inherited, so refusing here would answer\n500 for a fixture read over a document carrying a key no model declares."
+        "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the server composes them from the season's `saison_teams` row\n(`docs/backend/spec.md :: I3`). A submitted copy is IGNORED rather than refused, alone among the\npayload models (`docs/backend/spec.md :: I49`)."
       },
       "FLSpieleActionRequiredResponse": {
         "properties": {

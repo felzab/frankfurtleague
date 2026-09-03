@@ -354,7 +354,7 @@ async def post_saison_team(
             # neither, and a row that states so is easier to read back than one that omits them.
             "trikot_farbe": None,
             "kontakte": None,
-            # Copied rather than joined on read (`docs/backend/spec.md :: I11`): once the season is
+            # Copied rather than joined on read (`docs/backend/spec.md :: I95`): once the season is
             # `past` this is the name it was played under, which makes the copy in its fixtures true
             # rather than merely old.
             "name": team_raw["name"],
@@ -520,8 +520,8 @@ async def replace_saison_team(
     async def hand_the_row_over(session: AsyncClientSession) -> FLReplaceSaisonTeamResponse:
         """The whole replacement: judge, rewrite the fixtures, then the row. Everything it decides on is read in-session."""
 
-        # For the 404 alone, and deliberately NOT a read of the club it names: D43 repairs a row
-        # whose `team_id` resolves to no `teams` document, so nothing here may require one.
+        # For the 404 alone, and deliberately NOT a read of the club it names: a replacement repairs
+        # a row whose `team_id` resolves to no `teams` document, so nothing here may require one.
         await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
@@ -569,7 +569,7 @@ async def replace_saison_team(
         )
 
         # One dict for both layers, so the season's row and its fixtures cannot come to disagree
-        # about what this club is called (`docs/backend/spec.md :: I11`). No `tore`: a fixture
+        # about what this club is called (`docs/backend/spec.md :: I95`). No `tore`: a fixture
         # holding one has taken place, which `REQ-REPLACE-002` has already refused.
         incoming_side = {
             "team_id": replacement_data.incoming_team_id,

@@ -164,8 +164,8 @@ SQUAD_FULL = "REQ-SQUAD-003"
 # against two values rather than two failure modes.
 SQUAD_ROLLE_TAKEN = "REQ-SQUAD-004"
 
-# D60's precondition on the erasure: retirement is the reversible half of the same intent, and a
-# person still in the league is one somebody would notice missing.
+# The erasure's precondition (`docs/backend/spec.md :: I12`): a person still in the league is one
+# somebody would notice missing.
 ERASURE_NOT_RETIRED = "REQ-PURGE-001"
 
 

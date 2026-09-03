@@ -37,7 +37,7 @@ INCOMING = ObjectId("6890a1b2c3d4e5f607260002")
 RIVAL = ObjectId("6890a1b2c3d4e5f607260003")
 ENTERED = ObjectId("6890a1b2c3d4e5f607260004")
 RETIRED = ObjectId("6890a1b2c3d4e5f607260005")
-# A junction row points at this id and NO `teams` document does: the phantom D43 exists to repair.
+# A junction row points at this id and NO `teams` document does: the phantom a replacement repairs.
 PHANTOM = ObjectId("6890a1b2c3d4e5f607260006")
 ABSENT = ObjectId("6890a1b2c3d4e5f607260009")
 
@@ -217,7 +217,7 @@ def gruppen_fixture(
     tore: tuple[int | None, int | None] = (None, None),
     saison_id: str = SAISON_ID,
 ) -> dict[str, Any]:
-    """`datum`, `uhrzeit` and `spieltag_id` are the schedule D43 promises survives, so every fixture carries all three."""
+    """`datum`, `uhrzeit` and `spieltag_id` are the schedule a replacement leaves standing, so every fixture carries all three."""
 
     return {
         "saison_id": saison_id,
@@ -478,7 +478,7 @@ class TestAllFourLayersMoveTogether:
         assert len(rows) == 4, "the season gained or lost a junction row"
 
     def test_the_schedule_survives_intact(self, mongo_replica_set_url: str):
-        """D43's promise. Kills a rewrite that redraws the fixture rather than replacing one side of it."""
+        """Kills a rewrite that redraws the fixture rather than replacing one side of it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await spiele_now(database)
@@ -606,7 +606,10 @@ class TestTheReplacementReachesNothingElse:
 
 
 class TestAPhantomRowIsRepaired:
-    """D43 names this as one of the operation's purposes, so no refusal here may require the outgoing club to exist."""
+    """Repairing a row naming a club no `teams` document holds is one of the operation's purposes.
+
+    No refusal here may therefore require the outgoing club to exist.
+    """
 
     def test_a_row_whose_club_is_gone_is_replaced(self, mongo_replica_set_url: str):
         """Kills a guard reading the outgoing club for its name or its standing, which would 404 on exactly the row this repairs."""
@@ -709,7 +712,7 @@ class TestTheSeasonGateOnTheRoute:
 
     @pytest.mark.parametrize("saison_status", ["future", "active"])
     def test_a_planned_or_started_season_permits_it(self, mongo_replica_set_url: str, saison_status: str):
-        """Kills borrowing D34's `future`-only window: a club withdraws from a season that has already started."""
+        """Kills borrowing the entry gate's `future`-only window (`REQ-ENTER-001`): a club withdraws from a season that has already started."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_replace(database, client)

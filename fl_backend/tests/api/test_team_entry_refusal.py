@@ -158,7 +158,7 @@ async def junction_rows(database: AsyncDatabase) -> list[dict[str, Any]]:
 
 @pytest.mark.db
 class TestEnteringAClubThroughTheEndpoint:
-    """`REQ-ENTER-005` and D52 against a real mongod: a refusal that exists is not a refusal that is reached."""
+    """`REQ-ENTER-005` and the 404 beside it, against a real mongod: a refusal that exists is not a refusal that is reached."""
 
     def test_a_retired_club_is_refused_with_the_rule_that_stopped_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
@@ -185,7 +185,7 @@ class TestEnteringAClubThroughTheEndpoint:
         assert on_a_league(mongo_replica_set_url, body) == CLUB_RETIRED
 
     def test_a_club_no_document_names_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
-        """The referential hole D52 closes: without the read, the row would name a club `teams` does not hold."""
+        """The referential hole the club read closes: without it, the row would name a club `teams` does not hold."""
 
         async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(DocumentNotFoundException):

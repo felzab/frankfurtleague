@@ -345,7 +345,7 @@ def test_every_rule_is_tested_where_it_says(rule):
 # each entry, so a rule that starts refusing a declared state fails that entry's own test.
 @pytest.mark.parametrize("entry", UNENFORCED, ids=lambda entry: entry.subject)
 def test_every_unenforced_entry_names_the_rule_a_reader_would_expect(entry):
-    """D76's entry bar, as a check: a state sitting near no rule surprises nobody, so it is a comment rather than a row."""
+    """`UNENFORCED`'s entry bar, as a check: a state sitting near no rule surprises nobody, so it is a comment rather than a row."""
 
     assert entry.near, f"'{entry.subject}' names no adjacent rule and so clears no entry bar"
 
