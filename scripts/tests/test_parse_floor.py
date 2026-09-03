@@ -1,3 +1,11 @@
+"""SCRIPTS · every module a checker imports, parsed at the floor `checker_kernel.py` declares.
+
+Syntax newer than that floor raises before any guard runs, and the interpreter exits on it with a
+finding's own code — so the gate reports a documentation defect where the real cause is a module the
+running python cannot read. The walk carries a floor of its own, a moved folder otherwise leaving
+this reporting success over nothing.
+"""
+
 from __future__ import annotations
 
 import ast

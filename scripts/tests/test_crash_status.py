@@ -1,3 +1,11 @@
+"""SCRIPTS · the shell arms that degrade on the crash status, read against the kernel's own number.
+
+`scripts/lib/checker_kernel.py` declares the status in Python and each arm compares a bash literal
+against it. Nothing links the two, so renumbering the kernel leaves every arm comparing to a value
+nothing sends — and the arms exist for the interpreter too old to import the kernel, which is why
+the number is read out of the source here rather than imported.
+"""
+
 from __future__ import annotations
 
 import re

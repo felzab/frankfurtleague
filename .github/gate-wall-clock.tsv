@@ -37,14 +37,14 @@
 #
 # `docs` gained two checks: `cell-prose` costs 0.05 s and `echo` 1.01 s over the whole corpus,
 # measured locally on 2026-09-02 with the file listing already warmed, so the figures are the
-# checks' own rather than the walk's. Their 1.06 s sits inside the 8 s floor the docs row already
+# checks' own rather than the walk's. Their 1.06 s sits inside the 8% floor the docs row already
 # carries, so neither reference nor budget moves and neither takes a new stamp.
 #
 # `backend` gained a check: `check_test_estate.py` costs 1.90-1.96 s over six interleaved runs, each
 # returning exit 0, measured locally on 2026-09-03 on a sixteen-core machine carrying ten other
 # workloads, so both ends are upper bounds reading that contention as much as the check. It is
 # pooled with the scope's other three units, so the job pays that span only where the pool cannot
-# start all four at once, and either way it sits inside the 14 s floor the backend row carries, so
+# start all four at once, and either way it sits inside the 14% floor the backend row carries, so
 # neither reference nor budget moves and neither takes a new stamp.
 #
 # `ops` is the one seconds figure below that is a projection rather than a measurement: the 12 s
