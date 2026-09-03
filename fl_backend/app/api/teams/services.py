@@ -304,7 +304,7 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
         if counted is None:
             continue
 
-        team1_id, tore1, team2_id, tore2 = counted
+        team1_id, tore1, _, tore2 = counted
         for team_id in sides:
             # Slot one first, as the projection's `$cond` on `_IS_THIS_TEAM_IN_SLOT_ONE` is, so the
             # degenerate fixture above is oriented the one way both derivations orient it.
