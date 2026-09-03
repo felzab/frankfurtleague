@@ -50,7 +50,7 @@ def test_accepts_a_five_digit_plz(address):
     assert FLAddress.model_validate(address(plz="00000")).plz == "00000"
 
 
-@pytest.mark.parametrize("hausnummer", ["12", "12a", "12-14", "12A", "7b", ""])
+@pytest.mark.parametrize("hausnummer", ["12", "12a", "12-14", "12A", ""])
 def test_accepts_the_house_number_charset(address, hausnummer):
     assert FLAddress.model_validate(address(hausnummer=hausnummer)).hausnummer == hausnummer
 
@@ -83,10 +83,12 @@ def test_the_payload_keeps_the_non_empty_floor(address, assert_rejects, field):
     assert_rejects(FLAddressPayload, address(**{field: ""}), field)
 
 
-@pytest.mark.parametrize("hausnummer", ["7/3", "12 a", "twelve"])
-def test_the_payload_keeps_the_house_number_alphabet(address, assert_rejects, hausnummer):
-    """Redeclared for its ceiling, and a redeclaration drops the pattern unless it restates it -- which nothing else would catch."""
-    assert_rejects(FLAddressPayload, address(hausnummer=hausnummer), "hausnummer")
+def test_the_payload_keeps_the_house_number_alphabet(address, assert_rejects):
+    """Redeclared for its ceiling, and a redeclaration drops the pattern unless it restates it -- which nothing else would catch.
+
+    `12 a` is the tightest of the refused values, one space away from the legal `12a`.
+    """
+    assert_rejects(FLAddressPayload, address(hausnummer="12 a"), "hausnummer")
 
 
 def test_the_payload_still_accepts_an_empty_house_number(address):

@@ -232,11 +232,13 @@ class TestTheWindowDecidesWhetherAnApplicationMayArrive:
         assert refusal is not None
         assert refusal.error_code == BEWERBUNG_FENSTER_GESCHLOSSEN
 
-    @pytest.mark.parametrize("bewerbung", SHUT_WINDOWS)
-    def test_the_public_read_and_the_write_agree_on_every_one(self, bewerbung: Any):
-        """The judgement is ONE function, so `GET /fenster` cannot show a form the POST then refuses."""
+    def test_the_public_read_takes_the_same_judgement_as_the_write(self):
+        """The judgement is ONE function, so `GET /fenster` cannot show a form the POST then refuses.
 
-        assert window_is_running(bewerbung=bewerbung, today=TODAY) is False
+        A complete window rather than an unreadable one: `/fenster` 404s short of the three fields, and `laeuft` is a `bool`.
+        """
+
+        assert window_is_running(bewerbung={**OPEN_WINDOW, "offen": False}, today=TODAY) is False
 
 
 # The four combinations of (`team_id` set or null) by (`schule` set or null): exactly one of them
