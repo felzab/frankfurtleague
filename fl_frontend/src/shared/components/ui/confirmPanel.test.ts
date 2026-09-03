@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import { createElement } from "react";
 
-import { renderMarkup } from "@/shared/testing/renderTest";
+import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 import { formButton } from "./formButtons";
 import { PANEL_REVEAL } from "./motion";
@@ -78,8 +78,7 @@ const READOUT = renderMarkup(ConfirmReadoutRow, { label: "Saison", value: "2026/
 const wurzelKlassen = (html: string): string[] => (/^<\w+[^>]*\sclass="([^"]*)"/.exec(html)?.[1] ?? "").split(" ");
 
 /** Every button the row renders, in document order, by the words standing on it. */
-const beschriftungen = (html: string): string[] =>
-  [...html.matchAll(/<button\b[^>]*>(.*?)<\/button>/g)].map((treffer) => treffer[1]!.replace(/<[^>]*>/g, ""));
+const beschriftungen = (html: string): string[] => [...html.matchAll(/<button\b[^>]*>(.*?)<\/button>/g)].map((treffer) => textOf(treffer[1]!));
 
 /** The cancel's own opening tag: it is the row's second button, the panel's control being the first. */
 const abbrechen = (html: string): string => [...html.matchAll(/<button\b[^>]*>/g)][1]?.[0] ?? "";

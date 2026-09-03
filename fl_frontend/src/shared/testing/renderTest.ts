@@ -90,3 +90,18 @@ export function renderMarkup<P extends object>(Component: ComponentType<P>, prop
 export function renderTree(tree: ReactNode): string {
   return renderToStaticMarkup(tree);
 }
+
+/**
+ * The words inside markup. It repeats because one pass over `<a<b>>` leaves `<a` standing, which a
+ * caller then reads as text — the shape CodeQL's incomplete-multi-character-sanitization names.
+ */
+export function textOf(html: string): string {
+  let text = html;
+
+  for (let previous = ""; text !== previous;) {
+    previous = text;
+    text = text.replace(/<[^>]*>/g, "");
+  }
+
+  return text;
+}
