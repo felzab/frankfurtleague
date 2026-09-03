@@ -10,8 +10,7 @@ import { FLPostBewerbungPayloadSchema } from "./schemas.ts";
 
 /*
  Every module below is reached AFTER the harness above has evaluated, because that is when the JSX
- compile step is registered; a static import beside it resolves first and dies on the extension
- (`docs/frontend/spec.md` §1.9).
+ compile step is registered; a static import beside it resolves first and dies on the extension.
 */
 const { BewerbungForm } = await import("./components/forms/BewerbungForm/BewerbungForm.tsx");
 const { FormSchuleSection } = await import("./components/forms/BewerbungForm/FormSchuleSection.tsx");
@@ -206,9 +205,8 @@ describe("what a refusal on a switch has to land on", () => {
 });
 
 /*
- The page is read rather than rendered: it reaches the environment gate at import through the reads
- it awaits, and each claim here is about the shape of the module rather than about markup
- (`docs/frontend/spec.md` §1.9).
+ The page is read rather than rendered: each claim here is about the shape of the module rather than
+ about markup.
 */
 describe("the public application page", () => {
   /* `docs/frontend/spec.md :: I22`: a dynamic segment awaits `params` INSIDE its boundary. A

@@ -14,8 +14,7 @@ import type { FLBewerbungFensterResponse } from "./schemas.ts";
 
 /*
  Every module below is reached AFTER the harness above has evaluated, because that is when the JSX
- compile step is registered; a static import beside it resolves first and dies on the extension
- (`docs/frontend/spec.md` §1.9).
+ compile step is registered; a static import beside it resolves first and dies on the extension.
 */
 const { ComboBox, Input, Label } = await import("@heroui/react");
 const { BewerbungView } = await import("./components/views/BewerbungView.tsx");
@@ -23,6 +22,10 @@ const { FormTeamSection } = await import("./components/forms/BewerbungForm/FormT
 const { KontaktView } = await import("@/features/meta/components/views/KontaktView.tsx");
 const { ContentLoader } = await import("@/shared/components/ui/ContentLoader.tsx");
 const { default: BewerbungLoading } = await import("@/app/(public)/bewerbung/[saison_id]/loading.tsx");
+const { default: BewerbungPage } = await import("@/app/(public)/bewerbung/[saison_id]/page.tsx");
+const { default: LandingPage } = await import("@/app/(public)/page.tsx");
+const { default: KontaktPage } = await import("@/app/(public)/(meta)/kontakt/page.tsx");
+const { BewerbungBandSkeleton } = await import("./components/ui/BewerbungBandSkeleton.tsx");
 const { ctaButton } = await import("@/shared/components/ui/formButtons.ts");
 const { formPanel } = await import("@/shared/components/ui/formPanel.ts");
 const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
@@ -266,17 +269,21 @@ describe("what the application page holds while it loads", () => {
     assert.equal(wurzelKlasse(renderMarkup(BewerbungLoading, {})), viewport, "the route's loading.tsx stops short of the footer");
   });
 
-  /* The streamed half is the page's own boundary, and the page reaches the environment gate at
-     import (`docs/frontend/spec.md` §1.9), so what it hands the loader is read rather than rendered. */
+  /* The streamed half is the page's own boundary: everything inside it awaits, so a render of the
+     page draws the fallback and nothing else, which is the state a reader meets first. */
   it("fills the viewport on a stream", () => {
-    assert.match(PAGE, /fallback=\{<ContentLoader fills="viewport" \/>\}/, "the page's boundary stops short of the footer");
+    const region = wurzelKlasse(renderMarkup(ContentLoader, {}));
+    const viewport = wurzelKlasse(renderMarkup(ContentLoader, { fills: "viewport" as const }));
+    const gestreamt = renderMarkup(BewerbungPage, { params: Promise.resolve({ saison_id: "2026" }), searchParams: Promise.resolve({}) });
+
+    assert.notEqual(region, viewport, "the two fills render alike, so this case compares nothing");
+    assert.equal(wurzelKlasse(gestreamt), viewport, "the page's boundary stops short of the footer");
   });
 });
 
 /*
- Read rather than rendered: `BewerbungOffenBand` awaits its own window read, so it is both an async
- Server Component and a graph reaching the environment gate, and `BewerbungBandSkeleton` imports the
- recipe from it (`docs/frontend/spec.md` §1.9).
+ Read rather than rendered: what is asserted is which arm of the band's recipe a colour sits in, and
+ which page asks for which arm — a rendered class list is one flat string that names neither.
 */
 describe("how the band writes the season it is inviting applications for", () => {
   /* Read from the LANDING arm, never the base: the base deliberately carries no colour, so an assertion
@@ -309,8 +316,9 @@ describe("how the band writes the season it is inviting applications for", () =>
 });
 
 /*
- The two pages are read rather than rendered: each reaches the environment gate at import through the
- read it awaits (`docs/frontend/spec.md` §1.9).
+ What is read rather than rendered below is which component is handed to which as a prop, and which
+ classes a recipe wrote: a prop binding reaches no markup, and a literal spelling those classes
+ renders identical markup.
 */
 describe("what the landing page's one band slot holds", () => {
   /* The contact band reaches the page ONLY as what stands in for the application band, so a running
@@ -323,10 +331,10 @@ describe("what the landing page's one band slot holds", () => {
   /* Neither band's words may be the fallback: the read resolves after paint, so a sentence there is
      one the reader watches being swapped for a different one. A skeleton says „not yet“ instead. */
   it("falls back to a skeleton rather than to either band's words", () => {
-    const fallback = /fallback=\{([\s\S]*?)\}>\s*<BewerbungOffenBand/.exec(LANDING)?.[1] ?? "";
+    const landing = renderMarkup(LandingPage, {});
 
-    assert.match(fallback, /<BewerbungBandSkeleton \/>/, "the band slot falls back to something other than its skeleton");
-    assert.doesNotMatch(fallback, /Deine Schule|Du hast Fragen/, "the fallback shows words it may have to swap for different ones");
+    assert.ok(landing.includes(renderMarkup(BewerbungBandSkeleton, {})), "the band slot falls back to something other than its skeleton");
+    assert.doesNotMatch(landing, /Deine Schule|Du hast Fragen/, "the fallback shows words it may have to swap for different ones");
   });
 
   /* The skeleton is built FROM the recipes it stands in for, so its height cannot drift from theirs.
@@ -339,7 +347,7 @@ describe("what the landing page's one band slot holds", () => {
   /* The contact page keeps `null`: its band renders nothing for most of the year, and a skeleton
      resolving to nothing would open a gap the slot does not otherwise cost. */
   it("leaves the contact page's slot costing nothing while it waits", () => {
-    assert.match(KONTAKT_PAGE, /<Suspense fallback=\{null\}>/, "the contact page's slot reserves space its band may not fill");
+    assert.equal(renderMarkup(KontaktPage, {}), renderMarkup(KontaktView, {}), "the contact page's slot reserves space its band may not fill");
   });
 
   /* The two halves drift apart on their own: the page can stop passing the slot, or the view can
@@ -406,9 +414,8 @@ describe("who the submission's receipt is addressed to", () => {
 });
 
 /*
- Both spines are read rather than rendered: each reaches the environment gate at import, and what is
- asserted is a route handler's control flow, which renders nothing at all
- (`docs/frontend/spec.md` §1.9).
+ Both spines are read rather than rendered: what is asserted is a route handler's control flow, and
+ a handler answers a request rather than rendering anything at all.
 */
 describe("what stands in for a session on the session-less routes", () => {
   /** Both spines, because the guard is identical and one of the two being pinned is how this got here. */
@@ -627,7 +634,7 @@ describe("which kit colours the wish picker leaves out", () => {
 
   /* Colours an administrator ASSIGNED, off the endpoint that answers `saison_teams.trikot_farbe`.
      Read off another application's `trikot.wunschfarbe` instead, the picker would carry one school's
-     submission into another school's form. The page reaches the environment gate at import. */
+     submission into another school's form. Which endpoint a page reads reaches no markup. */
   it("reads the season's assignments and no other application's wish", () => {
     assert.match(PAGE, /getBewerbungTrikotfarben\(saison_id\)/, "the page no longer reads which colours the season has assigned");
     assert.doesNotMatch(PAGE, /wunschfarbe/, "the application page reads a wish where it must read an assignment");

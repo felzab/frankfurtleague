@@ -17,7 +17,7 @@ const RECORDER = "__flAdminSaisonReads";
 (globalThis as unknown as Record<string, string[]>)[RECORDER] = reads;
 
 // Replaced at the module boundary rather than the season code being reshaped to admit a seam: the
-// real client imports `server-only` and validates the whole environment at import.
+// real client reaches a backend no test process runs, at a base URL no test run holds.
 const API_DOUBLE = `export const apiClient = async (endpoint) => {
   globalThis.${RECORDER}.push(endpoint);
   return { saisons: [{ id: "2526" }] };

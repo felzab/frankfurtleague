@@ -40,8 +40,8 @@ export function RefusableSelect({
   className?: string;
 }) {
   const handleChange = (key: Key | null) => {
-    // The whole decision is `pickIfOffered`'s, where a unit test can reach it: this component cannot
-    // be rendered by the test runner, and the re-read of `refusal` is the only guard left.
+    // The whole decision is `pickIfOffered`'s, where a unit test can call it: a key arrives here
+    // through an event, and a static render draws none.
     const offered = pickIfOffered(options, key?.toString() ?? null);
     if (offered !== null) onChange(offered);
   };
@@ -73,6 +73,8 @@ export function RefusableSelect({
                 key={option.id}
                 id={option.id}
                 textValue={option.name}
+                // react-aria's hidden native mirror renders a refused row as a plain option, which
+                // is why `pickIfOffered` re-reads `refusal` rather than trusting this flag alone.
                 isDisabled={option.refusal !== null}
                 className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-(--motion-base) data-disabled:cursor-not-allowed data-disabled:opacity-40">
                 <span className="min-w-0 truncate">{option.name}</span>

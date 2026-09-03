@@ -22,9 +22,8 @@ const ADMIN_ROUTER = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "
 const EXCEPTION_HANDLERS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "exception_handlers.py"), "utf8");
 
 /**
- * The confirmation panels, read rather than rendered: each imports this slice's actions module for
- * the decision it submits, which reaches the environment gate at import (`docs/frontend/spec.md`
- * §1.9). What they promise is behind a confirmation press besides.
+ * The confirmation panels, read rather than rendered: what they promise is behind a confirmation
+ * press.
  */
 const PANELS = ["AdminBewerbungAnnehmenSection", "AdminBewerbungAblehnenSection"].map((name) => ({
   name: name,
