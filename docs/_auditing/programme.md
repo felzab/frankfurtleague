@@ -5,13 +5,13 @@ rules a session works under, and the close-out every wave ends with.
 
 The `/audit:*` commands in `.claude/commands/audit/` load and apply this page.
 
-| Section                     | Answers                                                             |
-| --------------------------- | ------------------------------------------------------------------- |
-| 1 · The lifecycle           | Which phases exist, in which order, and what each one writes        |
-| 2 · The artifacts           | What each file holds and how long it lives                          |
-| 3 · Session rules           | What one session may do, and what it must never carry into the next |
-| 4 · Close-out               | What every wave ends with                                           |
-| 5 · The documentation sweep | Why `/docs:audit` is not a programme                                |
+| Section                                                                      | Answers                                                             |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| [1 · The lifecycle](#1-the-lifecycle)                                        | Which phases exist, in which order, and what each one writes        |
+| [2 · The artifacts](#2-the-artifacts)                                        | What each file holds and how long it lives                          |
+| [3 · Session rules](#3-session-rules)                                        | What one session may do, and what it must never carry into the next |
+| [4 · Close-out](#4-close-out-identical-every-wave)                           | What every wave ends with                                           |
+| [5 · The documentation sweep](#5-the-documentation-sweep-is-not-a-programme) | Why `/docs:audit` is not a programme                                |
 
 ---
 

@@ -5,11 +5,11 @@
 The vocabulary appears verbatim in collection names, schema fields, API parameters and URLs. Translating
 it in your head is fine; translating it in code is not.
 
-| Section                              | Answers                                          |
-| ------------------------------------ | ------------------------------------------------ |
-| Core entities                        | What each stored entity is                       |
-| Attributes and values                | What a field on one of them means                |
-| Terms that are not domain vocabulary | What a word that only looks like one actually is |
+| Section                                                                       | Answers                                          |
+| ----------------------------------------------------------------------------- | ------------------------------------------------ |
+| [Core entities](#core-entities)                                               | What each stored entity is                       |
+| [Attributes and values](#attributes-and-values)                               | What a field on one of them means                |
+| [Terms that are not domain vocabulary](#terms-that-are-not-domain-vocabulary) | What a word that only looks like one actually is |
 
 **The ones that most often cost an hour:** `Spieltag` is not `Spiel` · a `Team` document is
 season-independent · `"playoffs"` is not a stored value · a no-show still counts in the table
@@ -80,7 +80,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 **Is:** a row of the `aktionen` collection — one write, carrying the actor it is attributed to — an admin session, the public where the request authenticates nobody, or the system where no request made it at all — the route, the collection, the operation, and the image of what the write replaced or removed.\
 **In code:** `fl_backend/app/core/recording.py :: record_write` appends it from `fl_backend/app/core/crud.py`, which every write passes through; `fl_backend/app/api/aktionen/schemas.py :: FLAktion` is the shape served back.\
 **Trap:** each fan-out is ONE row, carrying the filter it ran and a count and no pre-image at all, so nothing can restore a document from it — and a club rename issues a fan-out per collection pass beside the row for the club itself, every one of them sharing that rename's correlation id, which is what gathers them into a single action on the page; and that filter is text rendered for a reader rather than a query anything can replay. A removal is the one row carrying an image PER document it took, or none at all where it was an erasure, whose image would be a fresh copy of exactly what the erasure destroyed. And a row outliving its subject is the point everywhere but a person: every write that destroys a person's values reaches in here in the same transaction, empties the images in place and stamps `redacted_at`, and no row is ever dropped.\
-**See:** backend spec I40 for what a fan-out records, I48 for what a removal records and I42 for the redaction, and [`domain.md`](domain.md) for why the collection sits in no consistency boundary.
+**See:** backend spec I40 for what a fan-out records, I48 for what a removal records, I42 for the redaction and I119 for the log only growing, and [`domain.md`](domain.md) for why the collection sits in no consistency boundary.
 
 ---
 
@@ -255,5 +255,5 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 | --------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `slice`                     | A frontend code-organisation unit under `src/features/`, one per business entity                      |
 | `surface`                   | A documentation term: frontend, backend, or ops. See [`standard.md`](standard.md#corpus)              |
-| `base` / `system` / `admin` | The three API key tiers, not user roles. See the backend spec                                         |
+| `base` / `system` / `admin` | The three API key tiers, not user roles. See backend spec I7                                          |
 | `format`                    | The discriminator on the teams response (`list` · `grouped`, or `single` from `GET /teams/{team_id}`) |

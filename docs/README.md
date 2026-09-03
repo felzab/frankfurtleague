@@ -4,26 +4,26 @@
 
 ## Folder overview
 
-| Read                                                     | For                                                                                         |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| [`glossary.md`](glossary.md)                             | The German domain vocabulary, and the pitfall in each term                                  |
-| [`domain.md`](domain.md)                                 | What depends on what, when a field may be edited, and what is refused                       |
-| [`datenschutz.md`](datenschutz.md)                       | The data-protection rulings, held there until each reaches its home                         |
-| [`frontend/overview.md`](frontend/overview.md)           | What the Next.js app is for, and how it is organised                                        |
-| [`frontend/spec.md`](frontend/spec.md)                   | Its contract — routes, caching, invariants                                                  |
-| [`backend/overview.md`](backend/overview.md)             | What the FastAPI app is for, and how it is organised                                        |
-| [`backend/spec.md`](backend/spec.md)                     | Its contract — endpoints, error codes, the test suite                                       |
-| [`ops/overview.md`](ops/overview.md)                     | How the system is built, routed and deployed                                                |
-| [`ops/spec.md`](ops/spec.md)                             | Compose, nginx, the scripts and every gate scope                                            |
-| [`ops/runbooks.md`](ops/runbooks.md)                     | The recurring procedures, and what this repository cannot record about the host             |
-| [`logging/README.md`](logging/README.md)                 | Following a request through the logs, and adding an error code                              |
-| [`_git/`](_git/)                                         | Branching, commits, pull requests, the gate, repository settings                            |
-| [`_roadmap/open-items.md`](_roadmap/open-items.md)       | What is planned for the product, ranked, and what is deliberately not                       |
-| [`_roadmap/tooling-items.md`](_roadmap/tooling-items.md) | What is planned for the toolchain and the documentation corpus, ranked                      |
-| [`_roadmap/closed-items.md`](_roadmap/closed-items.md)   | What happened to an item no longer listed                                                   |
-| [`standard.md`](standard.md)                             | Writing or changing any documentation — the rules and the shapes                            |
-| [`_auditing/`](_auditing/)                               | Running an audit or a remediation programme                                                 |
-| `audit/`                                                 | **Gitignored.** Working documents; what lives there is listed in [`_auditing/`](_auditing/) |
+| Read                                           | For                                                                                         |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [`glossary.md`](glossary.md)                   | The German domain vocabulary, and the pitfall in each term                                  |
+| [`domain.md`](domain.md)                       | What depends on what, when a field may be edited, and what is refused                       |
+| [`datenschutz.md`](datenschutz.md)             | The data-protection rulings, held there until each reaches its home                         |
+| [`frontend/overview.md`](frontend/overview.md) | What the Next.js app is for, and how it is organised                                        |
+| [`frontend/spec.md`](frontend/spec.md)         | Its contract — routes, caching, invariants                                                  |
+| [`backend/overview.md`](backend/overview.md)   | What the FastAPI app is for, and how it is organised                                        |
+| [`backend/spec.md`](backend/spec.md)           | Its contract — endpoints, error codes, the test suite                                       |
+| [`ops/overview.md`](ops/overview.md)           | How the system is built, routed and deployed                                                |
+| [`ops/spec.md`](ops/spec.md)                   | Compose, nginx, the scripts and every gate scope                                            |
+| [`ops/runbooks.md`](ops/runbooks.md)           | The recurring procedures, and what this repository cannot record about the host             |
+| [`logging/README.md`](logging/README.md)       | Following a request through the logs, and adding an error code                              |
+| [`_git/`](_git/)                               | Branching, commits, pull requests, the gate, repository settings                            |
+| [`_roadmap/items.md`](_roadmap/items.md)       | What is open on the product, the toolchain, the gate and the documentation corpus           |
+| [`standard.md`](standard.md)                   | Writing or changing any documentation — every rule, one line each                           |
+| [`shapes.md`](shapes.md)                       | Starting a spec sheet, an overview, a README or a module header — the shape to copy         |
+| [`worked-examples.md`](worked-examples.md)     | Applying a documentation rule — real passages, each shown before and after                  |
+| [`_auditing/`](_auditing/)                     | Running an audit or a remediation programme                                                 |
+| `audit/`                                       | **Gitignored.** Working documents; what lives there is listed in [`_auditing/`](_auditing/) |
 
 ## Coming back after a while
 

@@ -43,7 +43,8 @@ a `<button>` inside one is invalid HTML and a double tab stop; overlays survive 
 navigation unless wired to the shared navigation-close hook, because a client-side navigation is
 not a light-dismiss interaction; and anything making `<html>` or `<body>` a containing block opens
 every top-placed overlay a whole scroll height low on a route whose document scrolls, so verify
-`docs/frontend/spec.md :: I29`, which enumerates the properties that do it.
+`docs/frontend/spec.md :: I29` over both roots' class lists and every `html` or `body` selector in
+the stylesheets it names.
 
 A2. **Keyboard reachability.** Click handlers on non-interactive elements, custom dropdowns, table
 row interactions, anything reachable by pointer only. Drive the running app, honouring the
@@ -54,7 +55,7 @@ tag the remainder needs-human.
 A3. **Forms.** Label association, errors programmatically linked and rendered at the field, focus
 moved to the first invalid field on a _server_ failure (`validationBehavior="aria"` leaves
 `reportValidity()` nothing to report, so focus is moved by walking the form's controls — frontend
-spec I40), `isInvalid` never passed as a
+spec I74), `isInvalid` never passed as a
 defined `false` (it builds a controlled error that outranks the schema's), pending states
 preventing double submit, cleared numeric fields not coercing to 0.
 

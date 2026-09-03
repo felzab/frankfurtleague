@@ -30,13 +30,24 @@ the paragraph whose change it belongs to.>
 <Verified. What was actually run and what it returned — the gate invocation and
 its exit code, plus any manual check and its result. Never the word "passing".
 Name what could not be verified, and why.>
+
+Closes: <token>
 ```
+
+**The last paragraph is the trailer, and only a commit retiring a roadmap entry has one.** `<token>`
+is that entry's own id, copied from the heading the same commit deletes rather than typed out, so
+the characters it may hold are `scripts/checks/check_commits.py :: CLOSES_RE`'s rather than this
+page's; a commit retiring more than one entry carries one line per entry. Drop
+the paragraph entirely otherwise: a `Closes:` on a commit whose diff retires nothing is refused, as
+is any other trailer name ([`spec.md`](spec.md) §1.3). An entry ending only partly done is rewritten
+rather than deleted, and that commit carries no trailer.
 
 Two related changes may share one subject, joined by `, and`. **Never "correct" a declarative
 subject to the imperative** ([`spec.md`](spec.md) §1.3).
 
 Narrower scopes carry the changes the form's subject line does not name, and a wave of an audit
-programme in progress leads with its own name (`Wave 6`):
+programme in progress leads with its own name (`Wave <n>`), which the recorded vocabulary below does
+not hold: a wave subject draws a report rather than a refusal ([`spec.md`](spec.md) §1.3).
 
 | Scope           | Used for                                           |
 | --------------- | -------------------------------------------------- |
@@ -54,9 +65,11 @@ combines them — `Backend + Frontend` — and each component is resolved agains
 own (`scripts/checks/check_commits.py :: unknown_scope`).
 
 `scripts/checks/check_commits.py` refuses a `Co-authored-by` or a `Signed-off-by` trailer
-(`scripts/checks/check_commits.py :: BANNED`), and a subject or a body line past the hard maximum
-(`scripts/checks/check_commits.py :: LINE_MAX`) — unless that line is one unbroken token or carries a long
-URL, which wrapping would break (`scripts/checks/check_commits.py :: UNWRAPPABLE`).
+(`scripts/checks/check_commits.py :: BANNED`), every trailer name but `Closes` and every `Closes:`
+value that is not a token (`scripts/checks/check_commits.py :: CLOSES_RE`), and a subject or a body line
+past the hard maximum (`scripts/checks/check_commits.py :: LINE_MAX`) — unless that line is one unbroken
+token or carries a long URL, which wrapping would break
+(`scripts/checks/check_commits.py :: UNWRAPPABLE`).
 
 A commit Dependabot wrote — matched on an exact author identity
 (`scripts/checks/check_commits.py :: BOT_IDENTITIES`), never a substring — is released from the sign-off
@@ -91,8 +104,11 @@ why. Drop a heading rather than padding it: nothing left undone means no heading
 ```
 
 `scripts/checks/check_pr_body.py` refuses a body still carrying this form's placeholder prose, a body with
-no Verified section, a summary above the first heading past 500 words, and three or more
+no Verified section, a summary above the first heading past the hard maximum
+(`scripts/checks/check_pr_body.py :: SUMMARY_MAX`), and three or more
 **consecutive** list items each carrying a commit hash. A line of prose breaks that run; a blank
-line does not (`scripts/checks/check_pr_body.py :: longest_commit_run`). A body Dependabot opened is
-skipped whole (`scripts/checks/check_pr_body.py :: BOT_AUTHORS`); this form governs human-authored bodies
-alone.
+line does not (`scripts/checks/check_pr_body.py :: longest_commit_run`). A summary past the shorter
+`scripts/checks/check_pr_body.py :: SUMMARY_TARGET` is reported rather than refused, so the check
+stays green and the finding sits in the `pr-body` run's log for a reader who opens it. A body
+Dependabot opened is skipped whole (`scripts/checks/check_pr_body.py :: BOT_AUTHORS`); this form
+governs human-authored bodies alone.
