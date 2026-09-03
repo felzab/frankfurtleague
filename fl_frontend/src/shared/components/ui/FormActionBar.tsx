@@ -4,9 +4,9 @@ import { useId } from "react";
 
 import { Button } from "@heroui/react";
 
-import { DisabledHint } from "@/shared/components/ui/DisabledHint";
 import { useDraftStatus } from "@/shared/components/ui/DraftStatusContext";
 import { formButton } from "@/shared/components/ui/formButtons";
+import { Hint } from "@/shared/components/ui/Hint";
 
 /**
  * **Never disabled on a client verdict** (it can be stale), but disabled while nothing has changed:
@@ -68,7 +68,8 @@ export function FormActionBar({
               answers to one question. */}
           {/* The hint answers the standing block only. `isPending` ends by itself and the label
               already says "Speichert...", so explaining it would describe a state nobody waits on. */}
-          <DisabledHint
+          <Hint
+            mode="refusal"
             reason={isPending || status.isDirty ? null : "Es gibt noch keine Änderung zu speichern."}
             className="flex-1 sm:flex-initial">
             <Button
@@ -79,7 +80,7 @@ export function FormActionBar({
               className={`${formButton({ intent: "submit" })} w-full`}>
               {isPending ? "Speichert..." : "Speichern"}
             </Button>
-          </DisabledHint>
+          </Hint>
         </div>
       </div>
     </div>

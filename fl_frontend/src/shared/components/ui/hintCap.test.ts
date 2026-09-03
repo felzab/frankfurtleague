@@ -27,7 +27,7 @@ const sources = new Map(
 
 /**
  * The cap binds the content, so both panel mechanisms are swept: a site the sweep cannot see is one exempt for not
- * having moved. `DisabledHint` and `IconTooltip` are absent, each drawing `HINT_SURFACE`, the label chip.
+ * having moved. `IconTooltip` is absent, drawing `HINT_SURFACE`, the label chip.
  */
 const MEASURED_TAGS = new Set(["Hint", "InfoHint"]);
 

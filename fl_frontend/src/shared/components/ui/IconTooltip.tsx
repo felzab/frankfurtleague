@@ -39,7 +39,7 @@ export function IconTooltip({
         role="presentation">
         {children}
       </Tooltip.Trigger>
-      {/* The surface is shared with `DisabledHint`, so a reader cannot tell which mechanism drew the panel. */}
+      {/* The surface is shared with `Hint`'s refusal panel, so a reader cannot tell which mechanism drew the panel. */}
       <Tooltip.Content
         placement={placement}
         className={`${HINT_SURFACE} ${tone === "danger" ? "text-danger" : "text-foreground"}`}>
