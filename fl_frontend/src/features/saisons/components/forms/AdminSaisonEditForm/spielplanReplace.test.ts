@@ -127,6 +127,15 @@ describe("the draw half of the Spielplan panel", () => {
       0,
       "a closed panel offers numbers no press can send",
     );
+
+    // The picked operation and the shared table, neither of which a render reaches: only a press
+    // moves the pick, and three boxes written out by hand render the same three payload paths.
+    const offer = SOURCE.indexOf("{isDrawing && replacesDraw && (");
+    const fields = SOURCE.indexOf("SHAPE_FIELDS.map");
+
+    assert.ok(offer !== -1, "the panel gates the numbers on something other than a picked draw that replaces");
+    assert.ok(fields !== -1, "the three boxes are written out rather than taken from the shared table");
+    assert.ok(offer < fields, "the shape fields stand outside the replace branch");
   });
 
   /* Leave them live under the confirmation and this fails: the readout the admin agreed to would

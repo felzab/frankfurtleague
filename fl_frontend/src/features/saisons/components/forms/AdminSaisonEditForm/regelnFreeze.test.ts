@@ -68,6 +68,9 @@ describe("the rules panel's tiebreak freeze", () => {
      control at all — or a file renamed out from under this test — passes in silence. */
   it("renders the tiebreak control, and reads the two coupled panels out of their files", () => {
     assert.notEqual(tiebreakTag({}), "", "the rules panel renders no tiebreak control");
+    // A hand-written `select` renders the same opening tag, so only the source says the panel seats
+    // the shared picker rather than a control of its own.
+    assert.ok(REGELN.includes("SaisonTiebreakSelect"), "the rules panel spells a tiebreak control of its own");
     assert.ok(EDIT_FORM.includes("<FormRegelnSection"), "the edit form no longer renders the rules panel");
     assert.ok(SWAP.includes("export function FormGruppenSwapSection"), "the swap panel, which shares this fact, is somewhere else now");
   });
@@ -98,6 +101,13 @@ describe("the rules panel's tiebreak freeze", () => {
   it("names the rule behind the closure, and leaves a finished season to its own banner", () => {
     assert.match(markup({ isKnockoutStarted: true }), /Nach dem Beginn der KO-Runde/, "the closure is unexplained");
     assert.doesNotMatch(markup({}), /Nach dem Beginn der KO-Runde/, "an open control is explained as a closed one");
+    // Every state, as the freeze above: a gate leaking the sentence into a finished season no
+    // knockout has started in passes the other three.
+    assert.doesNotMatch(
+      markup({ isFinishedSaison: true }),
+      /Nach dem Beginn der KO-Runde/,
+      "a finished season is explained past its own banner",
+    );
     assert.doesNotMatch(markup({ isKnockoutStarted: true, isFinishedSaison: true }), /Nach dem Beginn der KO-Runde/, "explained twice over");
   });
 });
