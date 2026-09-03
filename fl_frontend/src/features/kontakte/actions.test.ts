@@ -344,6 +344,9 @@ describe("where the control stands", () => {
   /* One `h1` per page and the shell owns it; the heading LEVEL is `PanelHeading`'s and pinned there. */
   it("raises no heading the shell already owns", () => {
     assert.ok(!PAGE_MARKUP.includes("<h1"), "the page's own chrome raises an h1 the shell already owns");
+    /* The control that absence needs: the page's whole return is one boundary, so what renders is
+       the fallback, and a page rendering nothing at all would satisfy the line above unread. */
+    assert.ok(PAGE_MARKUP.includes('role="status"'), "the page's chrome renders nothing, so the absence above proves nothing");
     // The list itself renders behind the boundary, so what the table returns is read rather than met.
     assert.ok(!PAGE.includes("<h1"), "the page raises an h1 the shell already owns");
   });
