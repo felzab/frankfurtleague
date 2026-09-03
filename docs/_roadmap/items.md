@@ -3836,8 +3836,9 @@ scope that removes work rather than moving it**.
 deliberately.** Each calls `registerHooks` from `node:module` to answer a `resolve` or a `load` for
 the whole process, standing a double in for a module the code under test imports —
 `fl_frontend/src/core/mail.test.ts` is the clearest, replacing `fl_frontend/src/core/config.ts` and
-`fl_frontend/src/core/logging.ts` because the real config validates the whole environment at import,
-and that module also replaces `globalThis.fetch` outright. **A hook registered for the process is
+`fl_frontend/src/core/logging.ts` because the test script stands that config's gate down without
+supplying a provider key, while the send is asserted by the header that key spells. That module also
+replaces `globalThis.fetch` outright. **A hook registered for the process is
 registered for every file in it**, so under one process those doubles reach modules that never asked
 for them, and the replaced `fetch` is every other test's `fetch` too. **The per-test-file recorder
 globals are not the obstacle**: each carries a name of its own, so no two collide.

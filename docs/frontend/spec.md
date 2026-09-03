@@ -300,11 +300,12 @@ one place per slice.
 
 **Every resource with write endpoints has an action calling them**, each dispatched from a
 page-owned editor — `kontakte`'s erasure from inside the seat holding the person it erases, keyed on
-an ADDRESS across every season and both collections rather than on the seat it stands in. **These of
-its writes are irreversible** — a
-pupil's erasure, a referee's anonymisation, a contact person's erasure, the replacement of a club
-on a season's junction row, the draw's `replace`, the undraw beside it, the rollover's close of the
-outgoing season and the triage's decisions
+an ADDRESS rather than on the seat it stands in, so it reaches every season's junction row, every
+application and the log
+(`fl_backend/app/api/kontakte/admin_router.py :: erase_kontaktperson`). **These of its writes are
+irreversible** — a pupil's erasure, a referee's anonymisation, a contact person's erasure, the
+replacement of a club on a season's junction row, the draw's `replace`, the undraw beside it, the
+rollover's close of the outgoing season and the triage's decisions
 ([`docs/backend/spec.md`](../backend/spec.md#11-endpoint-inventory)). Each destroys or hands on
 what nothing here can put back, so each confirms in place behind I37's shared escalation and none
 offers an undo. **The triage's decisions hand on rather than destroy**: each mails the school as it
@@ -477,16 +478,17 @@ source passes on markup that says the opposite and on a component nothing render
 **The `test` script stands `fl_frontend/src/core/config.ts`'s gate down and supplies the database
 URI a module reads past it** (`fl_frontend/package.json`), so a component whose graph reaches that
 gate renders — a form through its slice's actions module, and every field panel that form composes.
-A module the gate refuses dies at import, failing its whole test file rather than one case. The
-script spells that environment as CI's frontend job spells it at job level
-(`.github/workflows/verify.yml`), so the two runs prove the same suite.
+That environment is the script's own, so every runner of the suite inherits it by invoking
+`pnpm test` rather than spelling it — the gate's `scripts/gate/verify.sh :: do_unit_tests` and CI
+alike.
 
-**Four shapes no render reaches:**
+**The shapes no render reaches:**
 
-- an async Server Component, which a synchronous render cannot await
-- a state a press or a submit arrives at, a static render producing the resting state alone
-- an overlay's body — a modal, a `ComboBox`'s suggestion list, a `DatePicker`'s calendar — which a
-  static render never produces, a modal handed `isOpen` included
+- an async Server Component, whose markup exists only once its own awaits have resolved
+- a state a press or a submit arrives at: the component mounts in its resting form, and every other
+  form it has sits behind an interaction
+- an overlay's body — a modal, a `ComboBox`'s suggestion list, a `DatePicker`'s calendar — which the
+  component holds outside the markup it renders, a modal handed `isOpen` included
 - a call site taking a class-name recipe rather than the classes it returns
   (`fl_frontend/src/shared/components/ui/overlayPanel.ts`), a literal spelling those classes
   rendering identical markup
@@ -503,11 +505,16 @@ where a parameter is read, and `useRouter` throws for a router nothing has mount
 `fl_frontend/src/features/kontakte/editor.test.ts` reaches the first at the path Next keeps it on;
 neither hook puts a component out of reach.
 
-**A replacement reason names what the assertion is about, never what the runner cannot do**: the
-second goes stale the moment the runner changes, leaving a file asserting source text over markup
-that carries the claim. Calling a server action for the sentence it returns is the standing
-exception — it raises Next's request-scope error, and a refusal mapper is module-private besides
+**A replacement reason names what the assertion is about, never what the runner cannot do** — a
+ratified decision (`.claude/rules/frontend.md`), not this sheet's to widen. Calling a server action
+for the sentence it returns is the standing exception — it raises Next's request-scope error, and a
+refusal mapper is module-private besides
 (`fl_frontend/src/features/saisons/actions.ts :: mapRulesRefusal`).
+
+**A citation to this section never stands as that reason.** The shapes above decide whether a
+source-text assertion is available at all; what a test writes is the subject its own assertion has —
+the armed form of a two-press control, the wiring between two modules — and a pointer to this
+section in place of one is the excuse that decision refuses.
 
 **Several tests sweep the source tree rather than exercise a function** — that is how a rule no
 linter can express is held, `fl_frontend/src/core/refusalPaths.test.ts` (I34) and
