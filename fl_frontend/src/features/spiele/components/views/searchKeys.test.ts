@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-/** Source text rather than a render, `sonderereignisPick.test.ts`'s idiom and for its reason. */
+/**
+ * The view's own text. `SEARCH_KEYS` is module-private and decides which fields a typed query is
+ * matched against — a wiring into `useFuzzySearch` rather than anything the view puts on the page.
+ */
 const SOURCE = readFileSync(path.resolve(import.meta.dirname, "SpielsucheView.tsx"), "utf8");
 
 /** The list alone, so a field named anywhere else in the view cannot satisfy an assertion below. */
