@@ -1,4 +1,6 @@
+import importlib
 import inspect
+from pathlib import Path
 
 import pytest
 from pytest import HIDDEN_PARAM
@@ -7,43 +9,36 @@ from app.api.spiele.schemas import FLPatchSpielDataResponse
 from app.api.system.schemas import CheckIsLiveResponse, CheckIsReadyResponse, SystemInfoResponse
 from app.shared.schemas.responses import BaseAPIResponse
 
-RESPONSE_MODULES = [
-    "app.api.saisons.schemas",
-    "app.api.schiedsrichter.schemas",
-    "app.api.spiele.schemas",
-    "app.api.spieler.schemas",
-    "app.api.spielorte.schemas",
-    "app.api.spieltage.schemas",
-    "app.api.teams.schemas",
-    "app.api.system.schemas",
-]
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+# Globbed rather than listed, so a slice added later is swept without an edit here.
+SCHEMA_PATHS = sorted(BACKEND_ROOT.glob("app/api/*/schemas.py")) + sorted(BACKEND_ROOT.glob("app/shared/schemas/*.py"))
 
 
 def _response_models():
-    import importlib
-
-    for module_path in RESPONSE_MODULES:
-        module = importlib.import_module(module_path)
+    for path in SCHEMA_PATHS:
+        module_name = ".".join(path.relative_to(BACKEND_ROOT).with_suffix("").parts)
+        module = importlib.import_module(module_name)
         for name, obj in vars(module).items():
             if inspect.isclass(obj) and name.endswith("Response") and obj is not BaseAPIResponse:
-                if obj.__module__ == module_path:
-                    yield f"{module_path}.{name}", obj
+                if obj.__module__ == module_name:
+                    yield f"{module_name}.{name}", obj
 
 
 RESPONSE_MODELS = list(_response_models())
 
-# `empty_parameter_set_mark` defaults to skip, so renaming the modules above would turn this whole
-# guarantee into one silent skip. The floor makes that a hard failure instead.
-MINIMUM_EXPECTED_RESPONSE_MODELS = 20
+# `empty_parameter_set_mark` is `fail_at_collect` here, so a discovery finding NOTHING already fails.
+# The floor catches the partial loss it cannot see: one slice dropping out of the glob.
+MINIMUM_EXPECTED_RESPONSE_MODELS = 58
 assert len(RESPONSE_MODELS) >= MINIMUM_EXPECTED_RESPONSE_MODELS, (
-    f"discovered only {len(RESPONSE_MODELS)} response models across {len(RESPONSE_MODULES)} modules; "
-    f"expected at least {MINIMUM_EXPECTED_RESPONSE_MODELS}. Did a module move or a naming convention change?"
+    f"discovered only {len(RESPONSE_MODELS)} response models across {len(SCHEMA_PATHS)} schema modules; "
+    f"expected at least {MINIMUM_EXPECTED_RESPONSE_MODELS}. Did a slice's schemas leave the glob, or was a model removed?"
 )
 
 
 @pytest.mark.parametrize("name,model", RESPONSE_MODELS, ids=lambda v: v if isinstance(v, str) else HIDDEN_PARAM)
 def test_every_response_model_carries_the_envelope(name, model):
-    """Discovered rather than listed: any `*Response` added to the API is covered without editing this file."""
+    """Every `*Response` the globbed schema modules define. One declared outside them, in a router or a service, is swept by nothing."""
     assert issubclass(model, BaseAPIResponse), f"{name} does not extend BaseAPIResponse"
     assert model.model_fields["acknowledged"].default == 1
 
