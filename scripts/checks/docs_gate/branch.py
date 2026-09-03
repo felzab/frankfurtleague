@@ -407,8 +407,8 @@ def check_branch_diff(branch: Branch) -> list[Finding]:
 def _bounded(rel: str) -> bool:
     """Whether INC-9's bound reaches this file, by kind and never by tree.
 
-    `comment_style` hands an unrecognised kind to the `#` reader, so a CSS id selector under
-    `fl_frontend/src/` would be read as a comment run and bounded.
+    `comment_style` answers every kind rather than refusing one, so selecting by tree would hand the
+    images under `fl_frontend/src/` to the `#` reader.
     """
     return rel.endswith(SCANNED_SUFFIXES) or rel.rsplit("/", 1)[-1] in OPS_FILENAMES
 

@@ -28,9 +28,11 @@ from checker_kernel import REPO_ROOT, UNREADABLE, git, git_input, git_status
 SKIP_DIRS: Final[tuple[str, ...]] = ("docs/audit", "node_modules", ".venv")
 
 # The comment-bearing source suffixes the gate scans (INC-6).
-SOURCE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs", ".py", ".sh")
+SOURCE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs", ".py", ".sh", ".css")
 # JSON is NOT here: it is scanned rather than read a line at a time, for `_jsonc_comments`' reason.
-CSTYLE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs")
+# `.css` is here because `/* */` is its only comment form, and the `#` reader measured its id
+# selectors as prose.
+CSTYLE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs", ".css")
 
 # COR-6 binds these comments as it binds a spec sheet's prose, although the In-code section's
 # Scope names subtrees rather than these kinds.

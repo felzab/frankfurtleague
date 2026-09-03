@@ -187,7 +187,7 @@ ROADMAP_TRANSIENT_STATUS: Final = "Closed"
 # One table row's cells, the outer pipes' empty halves dropped.
 TABLE_LINE_RE: Final = re.compile(r"^[ \t]*\|(.*)\|[ \t]*$")
 
-# `docs/_roadmap/protocol.md`'s derivation table, as far as a path can carry it. A path is
+# `docs/_roadmap/items.md`'s tag derivation table, as far as a path can carry it. A path is
 # resolved before it is matched, so a prefix here is a real subtree rather than a spelling.
 TAG_PATH_SOURCES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("FE", ("fl_frontend/",)),
@@ -546,7 +546,7 @@ def _stray_root_segments(paths: frozenset[str]) -> frozenset[str]:
 
 
 def _derived_tags(section: str, paths: frozenset[str]) -> frozenset[str]:
-    """The tags an entry's own text produces, by `docs/_roadmap/protocol.md`'s table."""
+    """The tags an entry's own text produces, by `docs/_roadmap/items.md`'s tag derivation table."""
     tags = {tag for tag, prefixes in TAG_PATH_SOURCES if any(path.startswith(prefixes) for path in paths)}
     names = {path.rsplit("/", 1)[-1] for path in paths}
     if names & VERSION_FILENAMES or VERSION_MARK_RE.search(section):
