@@ -484,9 +484,11 @@ alike.
 
 **The shapes no render reaches:**
 
-- an async Server Component, whose markup exists only once its own awaits have resolved
+- an async Server Component, whose content sits behind its own awaits — a render reaches the
+  fallback it declares, so an assertion over that markup passes without seeing the component's own
 - a state a press or a submit arrives at: the component mounts in its resting form, and every other
   form it has sits behind an interaction
+  (`fl_frontend/src/shared/components/ui/ConfirmReveal.tsx`)
 - an overlay's body — a modal, a `ComboBox`'s suggestion list, a `DatePicker`'s calendar — which the
   component holds outside the markup it renders, a modal handed `isOpen` included
 - a call site taking a class-name recipe rather than the classes it returns
@@ -497,7 +499,8 @@ alike.
 collection into a hidden native `<select>` carrying every member's value and text, the selection,
 and the control's `required`
 (`fl_frontend/src/features/teams/components/forms/GruppeSelect.tsx`). A row's own `isDisabled` is
-not in that mirror.
+not in that mirror, and neither is a `name` the control was never handed
+(`fl_frontend/src/shared/components/ui/RefusableSelect.tsx`).
 
 **A component reading a Next client context renders under `renderTree` with that context's provider,
 which `next/navigation` does not export** — `useSearchParams` answers `null` without one and throws
