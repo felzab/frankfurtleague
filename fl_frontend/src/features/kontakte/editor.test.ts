@@ -370,6 +370,9 @@ describe("the editor's shape", () => {
     // The control: an editor rendering no title at all would satisfy the absence above.
     assert.ok(headings(editor, "h2").includes("Trainer"), "the editor renders no seat title, so the absence above proves nothing");
     assert.ok(!PAGE_MARKUP.includes("<h1"), "the page's own chrome raises an h1 the shell already owns");
+    /* The control the absence above needs more than the editor's: the page's whole return is one
+       boundary, so this render is the fallback and an empty one would satisfy it unread. */
+    assert.ok(PAGE_MARKUP.includes('role="status"'), "the page's chrome renders nothing, so the absence above proves nothing");
     /* The page's remaining half is its data component, which sits behind the boundary the chrome
        renders: what stands in the markup above is the fallback, so what it wraps the view in is read. */
     assert.ok(!PAGE.includes("<h1"), "the page raises an h1 the shell already owns");
@@ -450,10 +453,12 @@ describe("the editor's shape", () => {
      saying why it is empty — so neither surface may say why either. */
   it("renders an empty seat as its switch alone, and never explains one", () => {
     const CLAIMS = ["gelöscht", "entfernt worden", "nicht mehr", "unbekannt", "keine Angabe"];
-    // Both states of the editor's own seats: an emptied one, and the filled one it is read against.
+    /* Both states of the editor's own seats, and the arm that renders neither: a club with no junction
+       row meets a link where the seats would be, which every render passing `isMember` reads past. */
     for (const [wo, html] of [
       ["an empty seat", sectionMarkup(BLOCK_LEER)],
       ["a filled seat", sectionMarkup(BLOCK)],
+      ["a club with no junction row", sectionMarkup(BLOCK_LEER, false)],
     ] as const) {
       for (const claim of CLAIMS) assert.ok(!html.includes(claim), `the editor says „${claim}“ at ${wo}, which the row records no field for`);
     }
@@ -651,6 +656,13 @@ describe("the way in and out of the editor", () => {
     const wegRaus = /<a [^>]*href="([^"]*)"[^>]*>Zur Seite des Teams</.exec(viewMarkup(null, false))?.[1] ?? "";
 
     assert.equal(wegRaus, teamPageHref("t1", "2526"), "the way out is spelled a second time, or lost the season");
+    /* Read beside the render: this season needs no escaping, so a literal template renders the same
+       href while dropping the `encodeURIComponent` the builder puts round a season that does. */
+    assert.match(
+      FORM_SOURCE,
+      /teamHref=\{teamPageHref\(teamId, saison\.saisonId\)\}/,
+      "the way out is built at the call site rather than by the builder",
+    );
   });
 
   /* One noun for one concept: `Saison-Zugehörigkeit` is what the admin surface calls a junction row,
@@ -663,7 +675,13 @@ describe("the way in and out of the editor", () => {
       /Kontakte werden bei der Saison-Zugehörigkeit hinterlegt/,
       "the banner renamed the row the seats hang off",
     );
-    assert.ok(!viewMarkup(BLOCK).includes("Saisonteilnahme"), "the editor carries a second noun for the junction row");
+    /* The arm that renders no seat at all belongs here more than the others: it is the one place the
+       editor has to NAME the junction row, being the state where the club has none. */
+    for (const [wo, html] of [
+      ["the editor", viewMarkup(BLOCK)],
+      ["a club with no junction row", viewMarkup(null, false)],
+    ] as const)
+      assert.ok(!html.includes("Saisonteilnahme"), `${wo} carries a second noun for the junction row`);
     // Every state the banner author can be in, since a rail banner is composed rather than rendered here.
     for (const state of [
       {},
@@ -698,6 +716,9 @@ describe("how the editor clears a season's contact block", () => {
     const seiten = sectionMarkup(BLOCK);
 
     assert.ok(!seiten.includes("Kontakte hinterlegt"), "the block toggle is back, and it deletes on the way off");
+    // The arm the seats never render in, which the sweep above reads past: a toggle put there would
+    // sit above the link rather than above the seats.
+    assert.ok(!sectionMarkup(BLOCK_LEER, false).includes("Kontakte hinterlegt"), "the block toggle is back where the club has no junction row");
     // The control: one switch per seat is what stayed, so a render carrying none proves nothing above.
     assert.ok(seiten.includes("Trainer hinterlegt"), "the seats render no switch at all");
     assert.ok(!SECTION.includes("toggleBlock"), "the block toggle's logic is back");
@@ -713,8 +734,16 @@ describe("how the editor clears a season's contact block", () => {
       editor.indexOf("Kontakte dieser Saison löschen") > editor.indexOf("Trainer hinterlegt"),
       "the deletion sits above the fields it deletes",
     );
-    // The recipe's own danger classes, so a panel regraded centrally moves with it.
-    assert.ok(editor.includes(`<section class="${formPanel({ tone: "danger" }).root()}">`), "the deletion is not graded as destructive");
+    /* Every graded slot the section renders, never the box alone: the recipe grades the header band
+       and the title beside it, and each falls back to neutral on its own. */
+    const danger = formPanel({ tone: "danger" });
+
+    assert.ok(editor.includes(`<section class="${danger.root()}">`), "the deletion's box is not graded as destructive");
+    assert.ok(editor.includes(`<div class="${danger.header()}">`), "the deletion's header band is not graded as destructive");
+    assert.ok(editor.includes(`<h2 class="${danger.heading()}`), "the deletion's title is not graded as destructive");
+    // Read beside the render: spelling all three by hand renders identical markup, and what picks the
+    // tone is the one thing no state of this panel puts in the markup.
+    assert.match(LOESCHEN, /formPanel\(\{ tone: hasStored \? "danger" : "neutral" \}\)/, "the grade is no longer the recipe's to give");
     // Nothing stored is nothing at stake, so the grade is spent nowhere.
     assert.ok(!viewMarkup(null).includes("border-danger/30"), "an empty block is graded as destructive");
     assert.ok(
@@ -835,6 +864,13 @@ describe("how the editor divides one person from the next", () => {
       assert.ok(header.includes(`<h2 class="${panel.heading()}`), "a seat spells its own heading again");
     }
     assert.ok(!sectionMarkup(BLOCK).includes("border-t pt-5 first:border-t-0"), "the seats are back to being slices of one panel");
+    /* Read beside the render: a literal spelling those same classes renders identical markup, and the
+       copy drifts at the next change to the recipe with nothing able to see it. */
+    assert.match(
+      SECTION,
+      /<section className=\{panel\.root\(\)\}> <div className=\{panel\.header\(\)\}> <PanelHeading className=\{panel\.heading\(\)\}/,
+      "a seat's panel is spelled out instead of read off formPanel",
+    );
   });
 
   /* An empty card carrying a title and nothing else is what the block heading had become once each
@@ -859,6 +895,14 @@ describe("how the editor divides one person from the next", () => {
     assert.equal(hinweise.length, 3, "the seats carry no cards of their own, so this compares nothing");
     assert.equal(new Set(hinweise).size, 3, `two seats share one explanation, or a seat carries none: ${hinweise.join(" | ")}`);
     for (const hinweis of hinweise) assert.match(hinweis, /^Hinweis zu/, `„${hinweis}“ is no explanation of a seat`);
+
+    /* Read rather than rendered: a press reveals the explanation itself, so the markup carries the
+       labels alone — and three derived from the seat names are distinct while all three read alike. */
+    assert.match(SECTION, /SEAT_HINT\[rolle\]/, "the seats no longer take their explanation from the per-seat table");
+    const leads = [...sliceBetween(SECTION_SOURCE, "const SEAT_HINT", "\n};").matchAll(/lead: "([^"]*)"/g)].map((found) => found[1] ?? "");
+
+    assert.equal(leads.length, 3, "the table no longer explains all three seats");
+    assert.equal(new Set(leads).size, 3, `two seats are explained by the same sentence: ${leads.join(" | ")}`);
   });
 
   /* The lighter rule stays where it belongs: INSIDE a person, between their details and the
@@ -876,6 +920,9 @@ describe("how the editor divides one person from the next", () => {
         "the seat's one rule opens something other than the agreement",
       );
     }
+    /* Counted over the file as well: a rule drawn BETWEEN the cards sits inside no seat's body, so
+       every count above passes while the two depths are back to being drawn alike. */
+    assert.equal([...SECTION_SOURCE.matchAll(/border-t pt-\d/g)].length, 1, "the section draws a rule outside a seat");
   });
 });
 

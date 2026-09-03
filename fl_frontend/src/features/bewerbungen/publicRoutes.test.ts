@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { FIELD_LABEL } from "@/shared/components/ui/formFieldStyles.ts";
-import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
+import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 
 import { BEWERBUNG_SEATS } from "./constants.ts";
 
@@ -105,7 +105,7 @@ function kopfLinks(html: string): { href: string; klassen: string; text: string;
   return [...nav.matchAll(/<a ([^>]*)>([\s\S]*?)<\/a>/g)].map((treffer) => ({
     href: /href="([^"]*)"/.exec(treffer[1] ?? "")?.[1] ?? "",
     klassen: /class="([^"]*)"/.exec(treffer[1] ?? "")?.[1] ?? "",
-    text: (treffer[2] ?? "").replace(/<[^>]*>/g, "").trim(),
+    text: textOf(treffer[2] ?? "").trim(),
     ikonen: [...(treffer[2] ?? "").matchAll(/<path[^>]*\bd="([^"]*)"/g)].map((pfad) => pfad[1] ?? ""),
   }));
 }
@@ -278,6 +278,9 @@ describe("what the application page holds while it loads", () => {
 
     assert.notEqual(region, viewport, "the two fills render alike, so this case compares nothing");
     assert.equal(wurzelKlasse(gestreamt), viewport, "the page's boundary stops short of the footer");
+    /* Read beside the render: a `<div>` spelling the loader's own classes renders the same markup, so
+       only the source says the boundary holds the component rather than a copy of its output. */
+    assert.match(PAGE, /fallback=\{<ContentLoader fills="viewport" \/>\}/, "the page's boundary no longer holds a ContentLoader");
   });
 });
 
@@ -335,6 +338,13 @@ describe("what the landing page's one band slot holds", () => {
 
     assert.ok(landing.includes(renderMarkup(BewerbungBandSkeleton, {})), "the band slot falls back to something other than its skeleton");
     assert.doesNotMatch(landing, /Deine Schule|Du hast Fragen/, "the fallback shows words it may have to swap for different ones");
+    /* Anchored on the slot rather than the page: the render finds the skeleton's markup ANYWHERE, so
+       a skeleton moved out of the fallback and drawn as a standing sibling satisfies it. */
+    assert.match(
+      LANDING,
+      /<Suspense fallback=\{<BewerbungBandSkeleton \/>\}>\s*<BewerbungOffenBand/,
+      "the band's slot falls back to something else",
+    );
   });
 
   /* The skeleton is built FROM the recipes it stands in for, so its height cannot drift from theirs.

@@ -220,6 +220,9 @@ describe("the replacement panel", () => {
     assert.deepEqual(closureTitles(shut), ["Nur Teams, die noch kein Spiel gespielt haben, können ersetzt werden"]);
     // The END of what the panel renders, which is where a body under the title would land.
     assert.ok(played.endsWith("Nur Teams, die noch kein Spiel gespielt haben, können ersetzt werden"), `the dictated closure reads: ${played}`);
+    /* Read beside the render: a hand-written box seating the same sentence in a `<strong>` renders
+       markup neither assertion above can tell from a Callout's, and the severity goes with it. */
+    assert.match(FLAT, /<Callout severity="info" title="Nur Teams, die noch kein Spiel gespielt haben, können ersetzt werden" \/>/);
     // The two situation openings, which no state of this panel renders and so no render can refuse.
     assert.doesNotMatch(PANEL, /Die Saison ist zu weit|und das trifft auf keines mehr zu/);
   });
