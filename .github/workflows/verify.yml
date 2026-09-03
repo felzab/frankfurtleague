@@ -167,6 +167,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The sha check's own test needs a commit whose short form carries a digit and a letter,
+          # and only a real one proves the checker reports a run it can resolve. The default depth
+          # of 1 offers the merge commit alone, whose short form is mixed only by chance.
+          fetch-depth: 20
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
