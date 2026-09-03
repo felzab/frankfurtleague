@@ -1,13 +1,13 @@
 # Datenschutz — the rulings, held here until each reaches its home
 
 **Purpose:** every data-protection decision I have taken for the league site, recorded once, so
-none is lost before the code, a spec sheet or a runbook carries it. Where each ruling finally
-lives is decided once the shape of the whole set is known; until then a ruling leaves only when
-its text has reached its destination, and it moves rather than copies (`docs/standard.md` COR-2).
+none is lost before the code, a spec sheet or a runbook carries it. A ruling leaves only when its
+text has reached its destination, and it moves rather than copies (`docs/standard.md` COR-2).
 
 Nothing here is a legal conclusion. A ruling marked **Datenschutzexperte consulted** was taken after
-consulting one; every other ruling is mine and stands open to a qualified reviewer's correction.
-Where today's behaviour differs from a ruling, the entry says so.
+consulting one; every other ruling is mine, taken on 2026-09-01 in a review of every open question
+and refined on 2026-09-02, and each stands open to a qualified reviewer's correction. Where today's
+behaviour differs from a ruling, the entry says so.
 
 | Section                                                                                                    | Answers                                                      |
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
@@ -33,8 +33,9 @@ Where today's behaviour differs from a ruling, the entry says so.
   Informationsfreiheit** in Wiesbaden, reached at datenschutz.hessen.de, which supervises
   associations seated in Hesse. A personal-data breach is reported through its Art. 33 form within
   72 hours of becoming aware of it; requesting the upload link does not stop that clock. That is a
-  fact mirrored from the authority's own pages, which move without us, and not a ruling; it is here
-  because [section 8](#8-two-procedures-still-to-be-written)'s breach procedure needs it.
+  fact mirrored from the authority's own pages, which move without us and were read on 2026-09-02,
+  and not a ruling; it is here because
+  [section 8](#8-two-procedures-still-to-be-written)'s breach procedure needs it.
 - **Every request — withdrawal of a consent, access, rectification, erasure, objection — goes to
   kontakt@frankfurtleague.de** until people can act for themselves. The consent text
   (`fl_frontend/src/core/einwilligung.ts`) promises withdrawal at any time and today names no
@@ -48,11 +49,12 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 - **Everyone signs up for themselves through the website and gives their own consent there** —
   players, referees, contact persons, organisers and administrators alike. An administrator can
   neither create a player nor assume, enter or transcribe a consent on anybody's behalf.
+  `8wd7-ff49` holds the question this answers.
 - **The minimum age is 16, for everyone, and a sign-up below it is refused.** Sixteen is the age
   at which a person consents for themselves under Art. 8 GDPR in Germany, and one rule for every
-  role replaces three. The birthdate is **required** at sign-up and stored, never optional, because
-  the check cannot run without it. The consent vocabulary's `volljaehrig`
-  (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, and
+  role replaces three. The birthdate is **required** at sign-up and stored, never optional —
+  `8y7c-rstr` holds the optional field as the rejected shape and the reason it stays rejected. The
+  consent vocabulary's `volljaehrig` (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, and
   `fl_backend/app/core/constraints.py`) pins no age in code and reads as 18, so reading the enum as
   the rule gets the threshold wrong by two years; 16 is the one number the tree already commits to
   for a contact person
@@ -85,24 +87,26 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   backfilled carry a consent nobody was asked for, marked as carried over
   (`bestandsuebernahme`); the rows registered since through the admin form carry the guardian
   consent an administrator composed. Nothing is built against either population and nobody is
-  unpublished in the meantime. **Datenschutzexperte consulted.**
+  unpublished in the meantime. **Datenschutzexperte consulted.** Ruled 2026-08 and re-confirmed
+  2026-09-01 and 2026-09-02.
 - **At the end of this season, once, every player row is deleted and the action log is reset in
   full.** From the next season on every player signs up through the website, and from then on
   player records are kept and governed by
-  [section 6](#6-retention-is-bounded-where-a-bound-was-chosen); the reset is not repeated.
+  [section 6](#6-retention-is-bounded-where-a-bound-was-chosen); the reset is not repeated. Ruled
+  2026-09-02.
 
 ## 4. What is published, and on what basis
 
 - **A club's street address is public and the application form says so** (`READ-ADDRESS-002`).
-  **Datenschutzexperte consulted.**
+  **Datenschutzexperte consulted.** Ruled 2026-08.
 - **The application form's address sentence also belongs on the acceptance screen**, where the
   administrator takes the action that publishes it and which
   `docs/backend/spec.md :: Acceptance publishes a school's address as the club's` already names;
-  the admin club forms need none.
+  the admin club forms need none. Ruled 2026-09-01.
 - **The organisers named on the public team page each fully agreed to be listed**, having confirmed
-  it to me directly. Their names are source code in a public repository, so removal is a code change
-  plus a deploy, and a name stays in the repository's history regardless. The page's source carries
-  this record once it leaves here.
+  it to me directly on 2026-09-02. Their names are source code in a public repository, so removal is
+  a code change plus a deploy, and a name stays in the repository's history regardless. The page's
+  source carries this record once it leaves here.
 - **AI crawlers are both asked and blocked, and the block is the source of truth.**
   `fl_frontend/src/app/robots.ts` disallows named crawlers, which is a request; the edge's
   crawler block enforces it, and that setting lives in the hosting dashboard rather than in this
@@ -118,13 +122,12 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   is reduced, so the consent architecture covers the less-exposing publication and not the more-
   exposing one, and the same pupil can appear under both rules. The reduction is a response-model
   change rather than a data migration: `fl_backend/app/api/spieler/services.py :: public_initial`
-  is the function the squad read already uses.
+  is the function the squad read already uses. Ruled 2026-09-02.
 - **The free-text fields on public pages stay public** — a fixture's note and a withdrawal's
   reason — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`).
 - **The privacy notice becomes a static route in this repository**, linked from the footer and
   from the application form, and it is live before the self-signup flow opens, because that flow
-  is the moment people consent to a document they must be able to read. Kept in the tree it is
-  served, and it is checked by the same gate as everything else.
+  is the moment people consent to a document they must be able to read.
 
 ## 5. Erasure reaches everyone who asks
 
@@ -148,15 +151,16 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   sessions expire rather than persisting unredeemed.
 - **Backups outlive an erasure by the snapshot window, and the person is told so.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
-  console, which moves without us. An erased person
-  is gone from the live database at once and from backups within that window, and that sentence
-  is what a requester receives. No replay of erasures after a restore is built.
+  console, which moves without us, as it stood on 2026-09-01. An erased person is gone from the live
+  database at once and from backups within that window, and that sentence is what a requester
+  receives. No replay of erasures after a restore is built.
 - **A retired row is never removed because of its age.** A player who left a squad, a referee who
   stopped, a club that left and a past season all keep their rows; the one removal is the
   person's own request, and self-service for that request comes with the account tiers. The
   Known-open row `docs/backend/spec.md :: Nothing purges a retired row` carries this today, naming
-  `fl_backend/app/core/domain.py :: UNENFORCED` and `REQ-PURGE-001`.
-  **Datenschutzexperte consulted.**
+  `fl_backend/app/core/domain.py :: UNENFORCED` and `docs/backend/spec.md :: I12`, which holds the
+  erasure's own refusal code. **Datenschutzexperte consulted.** Ruled 2026-08 and re-confirmed
+  2026-09-02.
 
 ## 6. Retention is bounded where a bound was chosen
 
@@ -170,7 +174,7 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   log's value exactly where writes matter most. A person who asks for erasure still has their log
   rows emptied and stamped inside the transaction that removes them
   (`docs/backend/spec.md :: I42`); what the bound answers is the copies of everyone who never
-  asked.
+  asked. Ruled 2026-09-02.
 - **A declined application is kept for one month after the decision, its three people's contact
   details included, then deleted. An accepted application is kept for the season it was accepted
   for and the season after it, then deleted.** The application's own privacy text states both
@@ -192,7 +196,8 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 
 ## 7. Processors and third parties
 
-Every row mirrors that provider's own legal pages, which move without us.
+Every row mirrors that provider's own legal pages, which move without us and were read on
+2026-09-02.
 
 | Processor                      | What reaches them                                                              | Agreement                                                                                               | Where the data is                                                                                                       |
 | ------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -203,10 +208,12 @@ Every row mirrors that provider's own legal pages, which move without us.
 | Gmail, via members' forwarding | Whatever league mail a member opens in a personal Gmail account                | **None — a consumer Gmail account has no processing agreement.** Accepted for now, as a known gap       | Not committed                                                                                                           |
 | WhatsApp (consumer app)        | Phone numbers and messages of anyone who contacts the league that way          | **None for the consumer app**; the consent text discloses the channel. Accepted for now, as a known gap | Not committed                                                                                                           |
 
-What follows from the table: for Resend, Cloudflare and MongoDB Atlas nothing is left to sign — the
-task is to keep the dated agreement pages and Resend's executed copy with the account's acceptance
-date, and to record Resend's United States storage as a transfer. The gaps in bold are each accepted
-for now, and named so the notice can tell the truth about them.
+**Nothing is left to sign for Resend, Cloudflare and MongoDB Atlas.** Ruled 2026-09-02. What is
+owed:
+
+- Keep the dated agreement pages, and Resend's executed copy with the account's acceptance date.
+- Record Resend's United States storage as a transfer.
+- Leave the gaps in bold accepted, and named so the notice can tell the truth about them.
 
 ## 8. Two procedures still to be written
 
@@ -228,8 +235,8 @@ for now, and named so the notice can tell the truth about them.
 
 ## 10. Adjacent decisions were accepted as recommended
 
-Roadmap items that needed no expert, each accepted as its entry recommends. What is still to do is
-that entry's own `Status` in [`_roadmap/items.md`](_roadmap/items.md).
+Roadmap items that needed no expert, each accepted on 2026-09-02 as its entry recommends. What is
+still to do is that entry's own `Status` in [`_roadmap/items.md`](_roadmap/items.md).
 
 | Entry       | Decision                                                                                                                                             |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -242,11 +249,10 @@ that entry's own `Status` in [`_roadmap/items.md`](_roadmap/items.md).
 
 ## 11. Open, and owed a decision
 
-No Datenschutzexperte has seen the rulings this page does not mark as consulted, and the privacy
-notice they feed is still a draft. The two together are the gate on everything in
-[section 8](#8-two-procedures-still-to-be-written).
-
-The access-log bound ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)) is meant to
-reach Cloudflare's log at its own edge (`docs/logging/spec.md :: Cloudflare logs the request line`)
-as well as the host's, and the edge is not yet configured to it. Cloudflare's retention is set in
-its dashboard rather than in this repository.
+- **No Datenschutzexperte has seen the rulings this page does not mark as consulted**, and the
+  privacy notice they feed is still a draft. The two together are the gate on everything in
+  [section 8](#8-two-procedures-still-to-be-written).
+- **The access-log bound is not yet configured at Cloudflare's own edge.**
+  [Section 6](#6-retention-is-bounded-where-a-bound-was-chosen) is meant to reach the edge log
+  (`docs/logging/spec.md :: Cloudflare logs the request line`) as well as the host's; Cloudflare's
+  retention is set in its dashboard rather than in this repository.
