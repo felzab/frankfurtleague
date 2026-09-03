@@ -12,7 +12,7 @@ each entry carrying the analysis its decision needs. How an entry is authored, t
 
 ## What every entry carries
 
-An entry is a `### <token> · <the claim>` heading, then one table of the three fields below, then
+An entry is a ``### `<token>` · <the claim>`` heading, then one table of the three fields below, then
 the analysis, and it says what is wrong, why it matters and what done looks like. Analysis stays
 only where it changes the approach — a rejected alternative written as a present constraint, or a
 trap the implementer would otherwise walk into. Everything else goes to the body of the commit that
@@ -111,7 +111,7 @@ deliverable.
 | `yjsf-uc2y` | Acceptance copies a school's postal address into the club, where an anonymous read serves it                         | FE, BE, DB, Docs, bewerbungen, teams                                        | Decided  |
 | `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                        | BE, Docs, versions                                                          | Decided  |
 | `zp46-yt3p` | The certainty walk gives up in a group of six or more                                                                | BE, teams                                                                   | Standing |
-| `zr2y-4uwj` | A tie-break that provably cannot fire is what stops the index being walked                                           | BE, DB, Docs, bewerbungen, saisons, spiele, spieltage                       | Standing |
+| `zr2y-4uwj` | A tie-break that provably cannot fire is what stops the index being walked                                           | BE, DB, tests, bewerbungen, saisons, spiele, spieltage                      | Standing |
 | `2d76-kydk` | A citation is resolved by asking the filesystem, so a mis-cased path fails only on the runner                        | Ops, Docs, gate, ci                                                         | Open     |
 | `2pqm-yxyu` | The origin trusts every source inside Cloudflare's ranges                                                            | Ops, Docs, edge                                                             | Open     |
 | `2zah-pvu2` | The gate's binding unit costs more inside a run than it does alone                                                   | Ops, gate, tests                                                            | Open     |
@@ -132,16 +132,14 @@ deliverable.
 | `c8rx-gqun` | An invariant citation resolves to a string, not to a definition                                                      | Ops, Docs, gate                                                             | Open     |
 | `ckf7-7w58` | The frontend mirrors the backend's payload bounds by hand, and one of them is swept                                  | FE, BE, tests, bewerbungen, spiele, teams                                   | Open     |
 | `crwn-qfp7` | The opening comment block of every file read as a shell script is measured by neither bound                          | Ops, Docs, gate                                                             | Open     |
-| `ctmz-5aj9` | COR-2 states an exemption the check tests after a floor no exempt passage clears                                     | Ops, Docs, gate                                                             | Open     |
 | `d5j8-js4n` | A real file in an unaccepted spelling reads as a missing file                                                        | Ops, gate                                                                   | Open     |
 | `db2a-9qu3` | The local edge claims to mirror production, unchecked                                                                | Ops, Docs, gate, edge                                                       | Open     |
-| `e6kh-3kj9` | A generated file carries its generator's comment, and COR-2's exemption is written around one fixed consumer         | FE, BE, Ops, gate                                                           | Open     |
 | `eg48-8863` | Two db-tier runs at once fail in a way that names nothing                                                            | BE, Ops, gate, ci, tests                                                    | Open     |
 | `f4uf-jape` | A copy test pins what its own author wrote                                                                           | FE, BE, Docs, tests, saisons, teams                                         | Open     |
 | `fha5-k95h` | A projection's coupling is guarded in one direction only                                                             | BE, tests, saisons                                                          | Open     |
 | `gbjj-9wfh` | A test fixture asserts the type nothing else checks                                                                  | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
 | `gkp4-q3q9` | The unique-index test pairs by ordinal position                                                                      | BE, DB, tests                                                               | Open     |
-| `gvyr-3nws` | The gate never reads a stylesheet's comments                                                                         | FE, BE, Ops, Docs, gate, admin                                              | Open     |
+| `gvyr-3nws` | Stylesheet comment blocks stand over INC-9's bound, quiet only while nobody lengthens one                            | FE, Ops, Docs, gate                                                         | Standing |
 | `hnx7-zbb9` | One field list is drift-guarded on one side only                                                                     | FE, BE, tests, saisons                                                      | Open     |
 | `ja32-9rpv` | A call site's key tier is held to its route by nothing                                                               | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
 | `jcpc-dee5` | Two routes on one path and method collapse to one                                                                    | BE, tests                                                                   | Open     |
@@ -1844,9 +1842,9 @@ groups are sized.
 
 ### `zr2y-4uwj` · A tie-break that provably cannot fire is what stops the index being walked
 
-| Tags                                                  | Status   | Depends on |
-| ----------------------------------------------------- | -------- | ---------- |
-| BE, DB, Docs, bewerbungen, saisons, spiele, spieltage | Standing | —          |
+| Tags                                                   | Status   | Depends on |
+| ------------------------------------------------------ | -------- | ---------- |
+| BE, DB, tests, bewerbungen, saisons, spiele, spieltage | Standing | —          |
 
 **Not a defect today, and the bound rather than the plan is why.**
 `fl_backend/app/api/spiele/services.py :: build_spiele_sort` appends `datum` to a `spiel_nr` sort.
@@ -1893,8 +1891,10 @@ the same bound, so whatever removes it reopens both.
 **Why it is filed rather than fixed.** `:: build_spiele_sort` carries a decision at the line it
 governs: its order is defined by that code under PRE-1, and moving it is its own change rather than
 a side effect of one. Taking it quietly inside a branch about something else is what that comment
-exists to prevent. `.claude/rules/backend.md` keeps `fl_backend/app/api/spiele/services.py` free of
-an `await` and a collection, and the repair needs neither.
+exists to prevent.
+`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments` keeps
+`fl_backend/app/api/spiele/services.py` free of an `await` and a collection, and the repair needs
+neither.
 
 **What was measured and what was not** (COR-9). The plans above were measured; the uniqueness, the
 season resolution and the shape ceiling were read off `UNIQUE_INDEXES`, `pull_current_saison_id` and
@@ -2634,38 +2634,6 @@ contracts at the wrong rung rather than passages to shorten.
 to the `#` reader, with those blocks brought under a bound in the same change — or the exemption is a
 decision `docs/standard.md` states rather than the residue of two scopes not meeting.
 
-### `ctmz-5aj9` · COR-2 says the check exempts one duplicate, and the floor tested before the exemption drops every passage that could reach it
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Ops, Docs, gate | Open   | —          |
-
-**The rule and the check disagree about whether an exemption exists.** COR-2 in `docs/standard.md`
-closes with "One duplicate survives, and it is the only thing the check exempts", naming the copy no
-citation can reach because a tool consumes it verbatim at a fixed location.
-`scripts/checks/docs_gate/checks.py :: check_echo` skips a paragraph when
-`word_count(key) < ECHO_WORD_FLOOR or key in exempt`, and Python evaluates the floor first.
-
-**No exempt key can clear that floor.** `:: _consumed_verbatim` builds the exempt set out of
-`scripts/checks/check_pr_body.py :: TEMPLATE_FRAGMENTS`, whose four fragments normalise to 9, 11, 12
-and 15 words against a floor of 20. Every passage the exemption was written for is already dropped by
-the arm before it, so the exempt test has never decided anything, and rewording a fragment up past
-twenty words is what would make it start deciding.
-
-**Emptying the exemption changes nothing, measured with the check's own code.** `check_echo` returns
-the same finding count over this repository with `_consumed_verbatim` intact and with it replaced by
-an empty set, and no paragraph in the scanned corpus normalises to any of the four keys — the
-fragments live in `docs/_git/templates.md` inside a fenced block, which
-`checks.py :: _prose_blocks` does not read.
-
-**The repair is a decision, not a patch.** Testing the exempt key before the floor makes the
-exemption real and widens what a short verbatim copy is measured against; making COR-2's exemption
-clause explicitly review's leaves the floor alone and drops the claim that a check enforces it. The
-first changes the gate, the second changes a rule the gate enforces, and either leaves the two saying
-one thing.
-
-**Done when** COR-2's exemption clause and `check_echo`'s condition state the same rule.
-
 ### `d5j8-js4n` · A citation naming a real file in an unaccepted spelling is reported as a file that does not exist
 
 | Tags      | Status | Depends on |
@@ -2735,32 +2703,6 @@ targets, the `add_header` set — built against the same kernel the other checke
 `nginx -t` over `local.conf` is a different question and a much cheaper one**: it proves the file
 parses and proves nothing about the pair. Both are worth having, and that one is the half that could
 ship on its own.
-
-### `e6kh-3kj9` · A generated file carries its generator's comment, and COR-2's exemption is written around one fixed consumer
-
-| Tags              | Status | Depends on |
-| ----------------- | ------ | ---------- |
-| FE, BE, Ops, gate | Open   | —          |
-
-Lands with: `s88t-ceby`
-
-**`scripts/checks/docs_gate/checks.py :: _consumed_verbatim` exempts one duplicate — the fragments
-`scripts/checks/check_pr_body.py :: TEMPLATE_FRAGMENTS` quotes — and a generated file's copy of its
-generator's comment is not it.** `fl_frontend/scripts/generate-brand-assets.mjs` emits that comment
-inside the component it writes, so `fl_frontend/src/shared/components/ui/FLLogo.tsx` holds it word for
-word and gate check `echo` reports the copy. Neither side offers a repair: editing the component is an
-edit the generator overwrites, and deleting the comment takes it off the file a reader opens.
-
-**COR-2's exemption is keyed on a consumer that is not a reader, at a location something else fixes.** A
-generated file fails both halves — a reader is exactly who meets the copy, and its location is
-wherever the generator writes.
-
-**What the repair needs first is what "generated" means here.** Nothing in the tree marks a file as
-one; `fl_backend/openapi.json` is generated, committed and unmarked as well, and a convention invented
-for `echo` alone would be a second thing somebody has to keep true.
-
-**Done when** a generated file's copy is exempt by a mark the tree carries rather than by a hand-kept
-list, and `echo` offers a route out that is not somebody remembering.
 
 ### `eg48-8863` · Two db-tier runs at once fail in a way that names nothing
 
@@ -3002,54 +2944,32 @@ reorder is inert, and the id is derived from the same value the case is. The pre
 away — `fl_backend/tests/api/test_rules_refusal.py` asserts its own case list against the imported
 field tuple at module level, so an unpaired field fails at import.
 
-### `gvyr-3nws` · The documentation gate never opens a stylesheet, and the standard says it should
+### `gvyr-3nws` · Stylesheet comment blocks stand over INC-9's bound, quiet only while nobody lengthens one
 
-| Tags                           | Status | Depends on |
-| ------------------------------ | ------ | ---------- |
-| FE, BE, Ops, Docs, gate, admin | Open   | —          |
+| Tags                | Status   | Depends on |
+| ------------------- | -------- | ---------- |
+| FE, Ops, Docs, gate | Standing | —          |
 
-**`scripts/checks/docs_gate/kernel.py :: SOURCE_SUFFIXES` does not carry `.css`, so no comment check has ever
-read a stylesheet.** Two filters stand in the way and neither admits one:
-`scripts/checks/docs_gate/kernel.py :: tracked_files` builds the corpus from markdown plus
-`:: SCANNED_SUFFIXES`, so a stylesheet is never a file `scripts/checks/docs_gate/checks.py :: check_file` is
-handed, and `scripts/checks/docs_gate/branch.py :: check_comment_bounds` tests the same tuple again before it
-measures a block. INC-9's bounds, INC-6's comment citations and COR-3's history phrases all sit downstream of
-one filter or the other. **The standard's In-code section states its scope by directory and draws no line by
-file type** — [`docs/standard.md`](../standard.md)'s In-code scope line names `fl_frontend/src` among five
-roots — so by the written standard both stylesheets' comments carry INC-9 and INC-6, by the gate they carry
-nothing, and neither page says the two disagree.
+**Not a defect today, and what keeps it quiet is the fork each branch measures against.**
+[`docs/standard.md`](../standard.md#in-code)'s In-code Scope reaches
+`fl_frontend/src/app/globals.css` by kind, and blocks in it run past INC-9's forty words.
+`scripts/checks/docs_gate/branch.py :: check_comment_bounds` measures only a block the branch in hand
+added a line to, and `:: _fork_ceiling` keeps one that was already over at the fork for as long as
+nothing lengthens it. **The trigger is a branch that adds a word to such a block**, which then fails
+on prose it did not write, its author the first person to read that block against a bound.
 
-**The rule this hole covers has already been broken here, and a person caught it rather than the
-check.** `scripts/checks/docs_gate/checks.py :: check_owner_voice` raises `owner-voice` on one
-revision of `fl_frontend/src/app/globals.css` and nothing on the revision that followed it,
-measured 2026-08-27 by handing the checker both with `.css` read as a C-style source.
-Neither verdict is one the gate can reach, that file never being in the corpus. **That is this
-entry's sharpest evidence, and it outweighs any count of what is currently clean**: COR-11 held in
-the stylesheet most read for how this application looks only for as long as somebody swept it by
-hand.
+**How far a block runs past the bound is not the finding, and a pass driven by that is the wrong
+pass.** INC-9 lets a single line's irreducible constraint stand over the bound, so a block past it
+raises COR-14's questions rather than settling them: whether the block is a contract at the wrong
+rung, which moves to an invariant row, and whether it constrains more than one line, which makes it
+more than one constraint. Neither is answered by compression, and the runs recording a contrast
+ratio or citing a WCAG criterion are the longest in the file, so a shortening pass reaches them
+first. A measurement is INC-1's clearest case: nothing in the declaration beside it re-derives the
+number.
 
-**Done when** the disagreement is settled deliberately, and which way is open. **Widening the filter
-is not one line**: `.css` has to reach `scripts/checks/docs_gate/kernel.py :: CSTYLE_SUFFIXES` as
-well, or `:: comment_style` hands the file to the `#` reader and every check runs over an empty body,
-which is the same silence reproduced in a new place. A widening also has to settle
-`scripts/checks/docs_gate/checks.py :: HEADER_SCOPES`, which would not bind either file on a suffix
-addition, and both files open on a block INC-2 admits in no stylesheet. The cheaper alternative is to
-say in the In-code scope line where its checks stop, which leaves every block in the two stylesheets
-carrying this application's styling reasoning under no bound at all. **The outcome to avoid is
-neither**, the enforcement claim and the silence both left standing, which is how the next over-long
-block gets written into the file most read for how this application is styled.
-
-**What this does not clear is a standing breach.** Of the 161 comment blocks the two tracked
-stylesheets hold — 139 in `fl_frontend/src/app/globals.css` and 22 in
-`fl_frontend/src/app/admin/admin.css`, measured 2026-08-27 — three break INC-9 and all three are in
-`globals.css`; **none would fail the gate even with the suffix widened**, `check_comment_bounds`
-measuring only a block the branch in hand wrote, so they stay `/docs:audit`'s (CUR-6). **The byte
-checks are not in the gap**: `scripts/checks/docs_gate/checks.py :: check_line_endings` and
-`:: check_binary_bytes` iterate the index rather than the corpus, so CRLF and a stray CR are caught in
-a stylesheet as anywhere else. `scripts/ruff.toml` and `fl_backend/app/core/uvicorn_logging.json` are
-a second instance of the same gap, reached for citations through
-`scripts/checks/docs_gate/kernel.py :: OPS_SUFFIXES` but not for INC-9, with no comment block below a
-module header in either, so nothing is through it.
+**Done when** every block past the bound in that file has been read once against COR-5 and COR-14 —
+each one carrying more than one constraint split to the lines it is about, the rest left standing as
+INC-9 permits — so that no later branch meets that question for the first time in a red gate.
 
 ### `hnx7-zbb9` · One field list is drift-guarded on the backend and hand-written on the frontend
 
@@ -3477,8 +3397,6 @@ closing session's decision; the cheap form is the check owning the lead-in as a 
 | Tags          | Status | Depends on |
 | ------------- | ------ | ---------- |
 | FE, BE, tests | Open   | —          |
-
-Lands with: `e6kh-3kj9`
 
 **`fl_frontend/src/shared/components/ui/FLLogo.tsx` is written by
 `fl_frontend/scripts/generate-brand-assets.mjs`, and what keeps them in step is a banner asking a
