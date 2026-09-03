@@ -41,6 +41,7 @@ MIDDLE_DOT: Final = chr(0xB7)
 
 CLEAN_BODY: Final = "The four endings are executed rather than compared, and the run returned exit 0."
 LONG_LINE: Final = "the gate ran and " * 8
+PLACEHOLDER_BODY: Final = "Verified. `./scripts/gate/verify.sh [SCOPES - FILL IN]` returned exit code\n[EXIT CODE - FILL IN]."
 
 # Two ids of the shape the roadmap generates. Neither is meant to be found anywhere: a token is
 # random, so a case naming one proves the form alone.
@@ -109,6 +110,13 @@ MESSAGE_CASES: Final[tuple[Case, ...]] = (
     Case("a body paragraph nobody wrapped", _message("Ops: the gate proves it", LONG_LINE), (("fail", "the paragraph was never wrapped"),)),
     # One long unbroken token is a URL or a path, and wrapping it would break it.
     Case("a body line nothing could wrap", _message("Ops: the gate proves it", CLEAN_BODY + "\nhttps://example.com/" + "x" * 90)),
+    # The shape four commits reached `main` with. The verification paragraph is present, so the
+    # advisory the row below drives stays silent while the paragraph records nothing.
+    Case(
+        "a verification paragraph still holding the form's placeholders",
+        _message("Ops: the gate proves it", PLACEHOLDER_BODY),
+        (("fail", "a bracketed FILL IN placeholder"),),
+    ),
     Case(
         "a body recording no verification",
         _message("Ops: the gate proves it", "The two halves land together and the table now has a row for each."),

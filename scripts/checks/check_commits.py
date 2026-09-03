@@ -131,6 +131,10 @@ UNWRAPPABLE: Final = re.compile(r"^\S+$|https?://\S{40,}")
 
 VERIFIED_HINT: Final = re.compile(r"\bverif\w+|\bexit 0\b|\bchecked\b|\bran\b", re.IGNORECASE)
 
+# The bracketed shape alone. The form's angle-bracket prose is deliberately unmatched: every
+# pattern wide enough to catch it also refuses a body naming an HTML element or a TS generic.
+UNFILLED: Final = re.compile(r"\[[^\]\n]{0,80}\bFILL[ _-]?IN\b[^\]\n]{0,20}\]", re.IGNORECASE)
+
 
 @dataclass(frozen=True)
 class CommitFinding(Finding):
@@ -281,6 +285,11 @@ def check_message(message: str, short: str, *, is_bot: bool = False, departed: f
                 break
         if not VERIFIED_HINT.search(body):
             report("the body records no verification - what was run, and what it returned?")
+
+    # Outside the block the bot exemption drops: nothing a generator or a revert writes carries a
+    # placeholder, so the exemption needs no fourth rule to stay this wide.
+    if UNFILLED.search(message):
+        fail("the message carries a bracketed FILL IN placeholder - the form was pasted rather than filled in")
 
     named = [what for pattern, what, binds_a_bot in BANNED if (binds_a_bot or not is_bot) and pattern.search(message)]
     for what in named:

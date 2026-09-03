@@ -119,10 +119,12 @@ reported green.
   `output: "standalone"` — which silently disables an environment gate and all production error
   logging.
 - **A silent skip makes a suite lie.** `pytest -q` hides what failed, so use `-ra --showlocals`;
-  `parametrize` over an empty list skips rather than fails, so give a discovery-driven test a count
-  floor; a bare `pytest.raises(ValidationError)` passes whatever went wrong, so assert the failing
-  field; `node --test` collects any `test-*` file including tooling files and reports them as passing
-  tests.
+  `parametrize` over an empty list skips rather than fails wherever no ini file sets
+  `empty_parameter_set_mark` — `fl_backend/pyproject.toml` sets it and `scripts/tests` resolves no
+  ini file at all — and a count floor is still what catches a discovery-driven test that found one
+  case where fifty were owed; a bare `pytest.raises(ValidationError)` passes whatever went wrong, so
+  assert the failing field; `node --test` collects any `test-*` file including tooling files and
+  reports them as passing tests.
 - **A gate over an uncommitted tree has checked nothing that is not tracked, and a gate that stops at
   its first failing scope understates the branch.** Citations resolve against tracked files, so a new
   file's breaches appear only once it is committed; and the scopes after the failing one never run,

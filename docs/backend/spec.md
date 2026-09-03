@@ -352,7 +352,9 @@ exactly what the default run skips.
 
 **A test that touches the database carries `@pytest.mark.db`.** Without it the test runs in the fast
 tier, where there is no container, and fails for a reason that looks unrelated to what it is testing.
-`--strict-markers` catches a misspelled marker; nothing catches an omitted one.
+`--strict-markers` catches a misspelled marker, and `scripts/checks/check_test_estate.py` refuses an
+omitted one wherever the test's reach resolves inside `fl_backend/tests/` — never through a fixture a
+plugin supplies or a name assembled at run time, which stay the author's to mark.
 
 **The marker exists to keep the fast tier fast**, and a real `mongod` sits behind it because
 `mongomock` cannot execute this pipeline and a check against the live database tests the data rather
@@ -421,8 +423,12 @@ and cannot suffer same-basename collisions.
   it invalid and no two cases can leak state through a shared mutable dict
   (`fl_backend/tests/conftest.py :: _factory`). Payloads are keyed the way MongoDB serves them — `_id`,
   not `id` — because that is the validation alias the models declare.
-- **Reject-cases are parametrised.** One `pytest.mark.parametrize` per rule, listing every value that
-  must fail, so adding a case is one line.
+- **Reject-cases are parametrised**, one `pytest.mark.parametrize` per rule, holding one value per code
+  path the rule refuses on and that path's boundaries. A value reaching a branch another case already
+  reaches passes and fails with that case, so it pins nothing of its own and is not added. **A value
+  that is in the list because it once got through says which failure it pins**, in a `#` beside it:
+  nothing else separates a regression pin from padding, and a later pass that cannot separate them cuts
+  the pin.
 - **Assert _which_ field failed when more than one could**, using the `assert_rejects` fixture
   (`fl_backend/tests/conftest.py :: assert_rejects`): a bare `pytest.raises(ValidationError)` passes
   whatever went wrong, so a test meant to prove one constraint stays green while an unrelated typo in
@@ -445,6 +451,14 @@ and cannot suffer same-basename collisions.
 - **The `db` corpus is documented where it is seeded**, in `fl_backend/tests/api/conftest.py`: a
   comment at each seeded club and each fixture names the one thing it is there to make observable,
   and the tests reading it derive their expected figures in their own docstrings.
+- **An invariant's `Enforced by` names the class that proves it**, and gate check `citation` resolves
+  that name, so cutting a claimed class turns the gate red rather than leaving the row citing nothing.
+  **That is the whole of what is mechanical**: nothing holds a claimed class to still asserting its
+  row, and a class no invariant claims is cut in silence. Holding the column both ways, as
+  `fl_backend/app/core/domain.py :: UNENFORCED` is held
+  (`fl_backend/tests/core/test_domain.py :: test_every_unenforced_entry_is_paired_with_the_test_that_proves_it`),
+  needs a population with an edge: one dedicated file gives that pair one, and a column citing the
+  whole tests tree has none.
 
 ### 1.7 Read rules
 
