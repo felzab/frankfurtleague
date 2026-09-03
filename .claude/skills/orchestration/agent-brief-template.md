@@ -256,9 +256,11 @@ directory this agent has nothing to put in; eight governs planting and twelve me
 do neither. Ten is replaced rather than dropped because its
 second half, a guard refusal being a rule arriving, is the one clause of it this agent will meet:
 its own `Write` hits that refusal. Section 14 goes because (a) to (c) ask for files written, files
-restored and exit codes, none of which this agent can produce; the replacement is the order **and
-the medium** its agent definition gives, so the two contracts are one — check that, because a
-definition drifting from this page is how an agent gets two report contracts at once.
+restored and exit codes, none of which this agent can produce; `.claude/agents/cold-auditor.md`
+holds the replacement — the order **and the medium** — which the block below cites rather than
+copies (COR-2). Never restate that contract in a brief: the definition replaces the brief's section
+14 whatever the brief says, so a restatement that has drifted is a contract the agent reads and does
+not follow, and nothing announces the difference.
 
 **Check the brief's verbs against that list before it goes out.** Run, measure, drive red and read
 the diff each need a shell this agent has not, and it cannot know what tools it was meant to have:
@@ -294,11 +296,8 @@ introduced and which predate it.
 11 BLAST RADIUS. Say what each change could break outside the files it touches, and name the
                 command that would test that.
 
-14 REPORT.      Your report is your FINAL MESSAGE and there is no second copy: the harness
-                instructs you to return findings as text rather than write a report file, so an
-                audit cut short returns nothing. No length limit. Exactly, in this order: what you
-                verified and how; what you could NOT verify, and why; anything in this brief that
-                was wrong; anything outside your scope, described and not fixed.
+14 REPORT.      Your agent definition `.claude/agents/cold-auditor.md` gives the order and the
+                medium, and it replaces this section.
 ```
 
 ### The driving form — a `general-purpose` re-auditor that must plant
