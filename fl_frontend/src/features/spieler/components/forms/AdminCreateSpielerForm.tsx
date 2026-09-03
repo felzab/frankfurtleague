@@ -1,6 +1,6 @@
 "use client";
 
-import { FieldError, Input, Label, ListBox, Select, TextField } from "@heroui/react";
+import { FieldError, Input, Label, TextField } from "@heroui/react";
 
 import { postSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
@@ -8,11 +8,10 @@ import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
 import { NUMMER_MAX_LENGTH, NUMMER_MUST_BE_DIGITS, POSITION_OPTIONS } from "@/features/spieler/constants";
 import { FLCreateSpielerFormPayloadSchema } from "@/features/spieler/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
-import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { SaisonSelect } from "@/shared/components/ui/SaisonSelect";
 
 import type { SpielerCreateDraft, SpielerCreateSaisonOption } from "@/features/spieler/types";
-import type { Key } from "@heroui/react";
 
 const EMPTY_DRAFT_BASE = {
   vorname: "",
@@ -85,14 +84,9 @@ export function AdminCreateSpielerForm({
             </div>
 
             <div className={FIELD_PAIR}>
-              <Select
-                isRequired
-                name="saison_id"
-                aria-label="Saison"
+              <SaisonSelect
                 value={draft.saison_id}
-                onChange={(key: Key | null) => {
-                  if (!key) return;
-                  const nextSaisonId = key.toString();
+                onChange={(nextSaisonId) => {
                   const nextOption = saisonOptions.find((option) => option.saisonId === nextSaisonId);
                   setDraft((current) => ({
                     ...current,
@@ -110,27 +104,8 @@ export function AdminCreateSpielerForm({
                     stufe: current.stufe !== null && (nextOption?.erlaubteStufen ?? []).includes(current.stufe) ? current.stufe : null,
                   }));
                 }}
-                className="w-full">
-                <Label className={FIELD_LABEL}>Saison</Label>
-                <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
-                  <span>Saison {draft.saison_id}</span>
-                  <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
-                </Select.Trigger>
-                <FieldError className={FIELD_ERROR} />
-                <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
-                  <ListBox aria-label="Verfügbare Saisons">
-                    {saisonOptions.map((option) => (
-                      <ListBox.Item
-                        key={option.saisonId}
-                        id={option.saisonId}
-                        textValue={`Saison ${option.saisonId}`}
-                        className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
-                        Saison {option.saisonId}
-                      </ListBox.Item>
-                    ))}
-                  </ListBox>
-                </Select.Popover>
-              </Select>
+                saisonIds={saisonOptions.map((option) => option.saisonId)}
+              />
 
               <TeamSelect
                 isRequired

@@ -38,7 +38,6 @@ export function AdminCrudView<TItem extends { id: string }>({
   facets = NO_FACETS,
   isCollection = true,
   renderTable,
-  renderEditModal,
   renderDeleteModal,
 }: {
   items: TItem[];
@@ -57,18 +56,14 @@ export function AdminCrudView<TItem extends { id: string }>({
     filteredItems: TItem[];
     /** Which stage left the table with nothing, for an empty state to name. */
     emptiness: CrudEmptiness;
-    onEdit: (item: TItem) => void;
     onDelete: (item: TItem) => void;
   }) => ReactNode;
-  /** Optional: a resource whose form outgrew a dialog edits on a page, and its table renders a link where others wire `onEdit`. */
-  renderEditModal?: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
   /** Optional: a season is never deleted, since removing it would orphan every row carrying its id. */
   renderDeleteModal?: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
 }) {
   // The narrowing controls live above and below this component; the URL is where they meet it.
   const query = useUrlQuery();
   const selection = useFacetSelection(facets);
-  const [editingItem, setEditingItem] = useState<TItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<TItem | null>(null);
 
   const narrowedItems = useMemo(() => applyFacets(items, facets, selection), [items, facets, selection]);
@@ -86,9 +81,8 @@ export function AdminCrudView<TItem extends { id: string }>({
         items={items}
       />
 
-      {renderTable({ query, filteredItems, emptiness, onEdit: setEditingItem, onDelete: setDeletingItem })}
+      {renderTable({ query, filteredItems, emptiness, onDelete: setDeletingItem })}
 
-      {renderEditModal?.({ item: editingItem, isOpen: editingItem !== null, onClose: () => setEditingItem(null) })}
       {renderDeleteModal?.({ item: deletingItem, isOpen: deletingItem !== null, onClose: () => setDeletingItem(null) })}
 
       {/* The same placeholder the route already drew, over the whole region rather than the table alone,
