@@ -1494,7 +1494,7 @@ else
         probe "$hb" denied  cmd  "cp docs/audit/note.md ${hook_root//\//\\}\\scripts\\gate\\verify.sh" 'bash guard: drive letter, tracked'
         probe "$hb" denied  cmd  "cp docs/audit/note.md ${hook_msys}/scripts/gate/verify.sh" 'bash guard: MSYS /c/ spelling, tracked'
         probe "$hs" asked   cmd  "printf x > ${hook_msys}/docs/_standard/standard.md"    'standard bash guard: MSYS /c/ spelling'
-        probe "$he" asked   file "${hook_root}/DOCS/STANDARD.MD"               'standard edit guard: a case respelling'
+        probe "$he" asked   file "${hook_root}/DOCS/_STANDARD/STANDARD.MD"               'standard edit guard: a case respelling'
         # A backslash suppresses alias expansion and changes nothing else, so each of these runs the
         # verb it hides; on Windows the same character separates a path.
         probe "$hb" denied  cmd  '\rm -rf fl_frontend/src'                     'bash guard: a backslash in front of rm'
