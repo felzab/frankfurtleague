@@ -16,7 +16,7 @@ deleted ([`programme.md`](programme.md)), because nothing recovers it afterwards
 
 # \<Surface\> audit and remediation — final report
 
-**Programme:** \<yyyy-mm-dd\> → \<yyyy-mm-dd\> · **Method:** [`docs/_auditing/`](../README.md)\
+**Programme:** \<yyyy-mm-dd\> → \<yyyy-mm-dd\> · **Method:** `docs/_auditing/README.md`\
 **Scope:** \<what was audited: the directories, the file count with the date it was counted, and the
 installed stack versions at audit time\>\
 **Outcome in one line:** \<findings, waves, pull requests, and the verdict in one sentence\>

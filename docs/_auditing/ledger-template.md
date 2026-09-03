@@ -44,10 +44,11 @@ rows rather than deciding silently.**
 | **Files**  | The primary file reference — a starting point, never the blast radius                                                                             |
 | **Status** | `[ ]` open · `[~]` in progress · `[x]` done · `[!]` blocked · `[-]` won't do                                                                      |
 
-**The ledger row wins wherever it contradicts the source report.** Wave 0 answers and later waves
-amend findings; the reports are never rewritten to match.
+**The ledger row wins wherever it contradicts the source report** — Wave 0 answers and later waves
+amend findings (`docs/_auditing/programme.md` §2).
 
-**Severity is not priority.** Work the waves in order; never re-sort by severity.
+**Severity is not priority.** Work the waves in order; never re-sort by severity
+(`docs/_auditing/lessons.md` §8).
 
 **Row hygiene.** A closed row is a status marker, the forward constraints a later wave must obey, and
 a report link — 150 to 600 characters. A `[-]` or `[!]` row additionally carries the reason, the
@@ -128,9 +129,9 @@ items.\>
 
 Written once, before any wave runs.
 
-\<One `## Wave N — <name>` section per wave, in execution order. Wave count is whatever the dependency
-structure needs, and the ordering constraints are [`lessons.md`](lessons.md) §8. Sub-split a long
-wave — 5a/5b, 8a/8b/8c — rather than letting one pull request become unreviewable.\>
+\<One `## Wave N — <name>` section per wave, in execution order. Wave count and splitting are
+`docs/_auditing/programme.md` §1.4; the ordering constraints are [`lessons.md`](lessons.md) §8. A
+sub-split wave is numbered 5a/5b or 8a/8b/8c.\>
 
 ## Wave N — \<name\>
 

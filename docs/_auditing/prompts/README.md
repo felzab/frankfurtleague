@@ -4,9 +4,8 @@
 
 ## Folder overview
 
-Listed in the order a programme runs them — risk, then the surface passes, then crosscut.
-[`../programme.md`](../programme.md) carries that ordering and its reasoning; §1.6 there is how a
-prompt is written, added or split.
+Listed in the order a programme runs them; [`../programme.md`](../programme.md) carries the reasoning
+for that order, and §1.6 there is how a prompt is written, added or split.
 
 | Read                                                                     | For                                                                     |
 | ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |

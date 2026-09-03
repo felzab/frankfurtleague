@@ -1,7 +1,6 @@
 # Lessons — the traps an audit programme runs into
 
-Read this before running any phase. Every lesson is a **rule**, with what ignoring it costs, and the
-**instances** that produced it.
+Read this before running any phase.
 
 | Section                                                                                 | Read it when                                        |
 | --------------------------------------------------------------------------------------- | --------------------------------------------------- |
@@ -19,11 +18,8 @@ Read this before running any phase. Every lesson is a **rule**, with what ignori
 running system — then merge it into the matching section, in the same commit as the work that found
 it. Never append a per-run dump at the end. Only one session edits this file at a time.
 
-**Cite what can move; restate nothing.** A lesson points at its source — `scripts/gate/verify.sh` and
-`docs/ops/spec.md` §1.6 for the gate, `.claude/CLAUDE.md` §7 and the `.claude/rules/` files it
-indexes for ratified decisions, the installed
-package for library behaviour. A named example illustrates the rule and is not a current-state claim;
-confirm any file, function, flag or version there before relying on it.
+**Cite what can move; restate nothing.** A named example here illustrates the rule and is not a
+current-state claim; confirm any file, function, flag or version it names before relying on it.
 
 ---
 
