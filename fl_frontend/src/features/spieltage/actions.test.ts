@@ -53,7 +53,13 @@ function refusalArm(code: string): string {
  * a concatenation, so the seam falls wherever the line ran out and lands mid-phrase often enough.
  */
 function refusalMessage(code: string): string {
-  return [...refusalArm(code).matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((match) => match[1]).join("");
+  const message = [...refusalArm(code).matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((match) => match[1]).join("");
+
+  // Thrown rather than answered as "": a `doesNotMatch` below passes over an empty message while the
+  // German it is about is unwritten.
+  if (message === "") throw new Error(`the mapper spells no message for ${code}`);
+
+  return message;
 }
 
 /** The moved-span warning's body, which states the rule BEFORE a save rather than after one. */
