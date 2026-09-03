@@ -8,7 +8,7 @@ import { ArrowRightArrowLeft } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 
 import { activateSaisonAction } from "@/features/saisons/actions";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
@@ -87,13 +87,7 @@ export function FormRolloverSection({
     <section className={panel.root()}>
       <div className={`${panel.header()} relative`}>
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
-          {isAlreadyActive ? (
-            <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>
-          ) : saisonStatus === "future" ? (
-            <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Geplant</span>
-          ) : (
-            <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>
-          )}
+          <SaisonBadge status={saisonStatus} />
         </span>
         <PanelHeading
           className={panel.heading()}

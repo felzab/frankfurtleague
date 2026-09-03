@@ -4,10 +4,9 @@ import { useTransition } from "react";
 
 import { reactivateSpielortAction } from "@/features/spielorte/actions";
 import { AdminSpielortEditForm } from "@/features/spielorte/components/forms/AdminSpielortEditForm/AdminSpielortEditForm";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { appToast } from "@/shared/utils/appToast";
-import { formatSpielDatum } from "@/shared/utils/format";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { FLAddress } from "@/shared/schemas";
@@ -44,9 +43,7 @@ export function AdminSpielortEditView({
         pageHeader={{
           title: spielort.name,
           // The retirement date, which the rail's banner states as a state and never as a day.
-          chip: isRetired ? (
-            <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(inactiveSince)}</span>
-          ) : undefined,
+          chip: isRetired ? <RetiredBadge since={inactiveSince} /> : undefined,
           reactivate: isRetired ? { isPending: isReactivating, onPress: handleReactivate } : undefined,
         }}
       />

@@ -4,10 +4,9 @@ import { useTransition } from "react";
 
 import { reactivateTeamAction } from "@/features/teams/actions";
 import { AdminTeamEditForm } from "@/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { appToast } from "@/shared/utils/appToast";
-import { formatSpielDatum } from "@/shared/utils/format";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
@@ -60,7 +59,7 @@ export function AdminTeamEditView({
           title: team.name,
           // Retirement outranks the Kürzel: the Kürzel is a field of the form below, the day is nowhere else.
           chip: isRetired ? (
-            <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(team.inactive_since)}</span>
+            <RetiredBadge since={team.inactive_since} />
           ) : (
             // The TeamCard's chip, so the Kürzel wears one colour everywhere.
             <span className="bg-brand-solid text-brand-solid-foreground flex h-10 w-10 items-center justify-center rounded-xl font-extrabold shadow-sm">

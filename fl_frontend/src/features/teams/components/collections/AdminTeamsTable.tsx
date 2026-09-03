@@ -12,9 +12,9 @@ import { austrittZustand } from "@/features/teams/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
+import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
-import { formatSpielDatum } from "@/shared/utils/format";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
@@ -63,9 +63,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   // One source for both layouts, so the table and the phone cards cannot disagree about a row's state.
   const renderStatusBadges = (team: AdminTeamRow) => (
     <div className="flex flex-wrap items-center gap-1.5">
-      {team.inactive_since !== null && (
-        <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(team.inactive_since)}</span>
-      )}
+      {team.inactive_since !== null && <RetiredBadge since={team.inactive_since} />}
       {team.selected === null && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Nicht aufgenommen</span>}
       {team.selected?.austritt != null && (
         <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>{austrittZustand(team.selected.austritt.type)}</span>

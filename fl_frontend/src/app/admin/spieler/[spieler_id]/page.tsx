@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { getAdminSaisons } from "@/features/saisons/queries";
-import { resolveSaisonId } from "@/features/saisons/resolvers";
+import { resolveSaisonId, selectSaison } from "@/features/saisons/resolvers";
 import { AdminSpielerEditView } from "@/features/spieler/components/views/AdminSpielerEditView";
 import { orderStufen } from "@/features/spieler/constants";
 import { getSpielerMemberships } from "@/features/spieler/queries";
@@ -42,10 +42,7 @@ async function AdminSpielerEditContent({
   const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
 
   const [membershipsRes, saisonsRes, teamsRes] = await Promise.all([getSpielerMemberships(), getAdminSaisons(), getTeamMemberships()]);
-  const saisons = saisonsRes.saisons;
-  const selectedSaison = requestedSaisonId
-    ? saisons.find((saison) => saison.id === requestedSaisonId)
-    : saisons.find((saison) => saison.status === "active");
+  const selectedSaison = selectSaison(saisonsRes.saisons, requestedSaisonId);
   if (!selectedSaison) {
     notFound();
   }

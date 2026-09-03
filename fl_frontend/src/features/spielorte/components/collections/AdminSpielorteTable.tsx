@@ -8,13 +8,13 @@ import { Table } from "@heroui/react";
 
 import { reactivateSpielortAction } from "@/features/spielorte/actions";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
+import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
-import { formatAddressFull, formatEuro, formatSpielDatum } from "@/shared/utils/format";
+import { formatAddressFull, formatEuro } from "@/shared/utils/format";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import { formatMapsLink } from "../../utils";
@@ -77,10 +77,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
 
   // Beside the identity rather than in a column: retirement is the only state a venue has, so a
   // column would be empty on every live row.
-  const renderRetiredBadge = (ort: FLSpielort) =>
-    ort.inactive_since === null ? null : (
-      <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(ort.inactive_since)}</span>
-    );
+  const renderRetiredBadge = (ort: FLSpielort) => (ort.inactive_since === null ? null : <RetiredBadge since={ort.inactive_since} />);
 
   const renderMietpreis = (ort: FLSpielort) => (
     <span className="bg-muted text-foreground fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">

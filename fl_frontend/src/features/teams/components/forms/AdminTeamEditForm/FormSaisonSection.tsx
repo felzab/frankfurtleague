@@ -8,11 +8,11 @@ import { ArrowRightArrowLeft, LockFill } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 
 import { swapGruppenAction } from "@/features/saisons/actions";
+import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
 import { findSwapPartnerRefusal } from "@/features/saisons/utils";
 import { postSaisonTeamAction } from "@/features/teams/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { TrikotFarbeSelect } from "@/features/teams/components/forms/TrikotFarbeSelect";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
@@ -48,13 +48,6 @@ const PARTNER_REFUSAL_LABEL: Record<SwapPartnerRefusal, string> = {
   played: "hat schon gespielt",
   spieltagClash: "zweimal am Spieltag",
 };
-
-/** The app's one wording and one palette for a season's state. */
-function SaisonBadge({ status }: { status: TeamSaisonContext["saisonStatus"] }) {
-  if (status === "active") return <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>;
-  if (status === "future") return <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Geplant</span>;
-  return <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>;
-}
 
 /**
  * The group swap with ONE side already decided — one picker, because the page has answered "which
@@ -290,13 +283,14 @@ export function FormSaisonSection({
     startEntering(async () => {
       const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe });
 
-      const gruppeError = res.fieldErrors?.gruppe ?? null;
-      setEntryGruppeError(gruppeError);
-
       if (res.success) {
+        setEntryGruppeError(null);
         appToast.success(res.message ?? "Team aufgenommen");
         return;
       }
+
+      const gruppeError = res.fieldErrors?.gruppe ?? null;
+      setEntryGruppeError(gruppeError);
       // Suppressed where the picker carries the message, so a refusal about the chosen group is not
       // also said in a toast that names no field.
       if (gruppeError === null) {

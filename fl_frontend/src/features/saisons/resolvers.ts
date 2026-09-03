@@ -6,6 +6,7 @@ import { getAdminSaisons, getSaisons } from "./queries";
 import { searchWithoutSaisonId } from "./utils";
 
 import type { NextPageProps } from "@/shared/types/types";
+import type { FLSaisonStatus } from "./schemas";
 
 const saisonIdSchema = z.string().trim().length(4).optional().catch(undefined);
 
@@ -34,6 +35,17 @@ export async function resolveSaisonId(
   // Redirecting without the unknown value, rather than ignoring it, is what keeps this and
   // `SaisonSelector` from disagreeing.
   redirect(searchWithoutSaisonId(searchParams));
+}
+
+/**
+ * Which season a page addresses: the one asked for, else the running one. It returns rather than
+ * redirecting or raising, so the page's own `notFound()` stays where a reader of the page meets it.
+ */
+export function selectSaison<T extends { id: string; status: FLSaisonStatus }>(
+  saisons: readonly T[],
+  requestedSaisonId: string | undefined,
+): T | undefined {
+  return saisons.find((saison) => (requestedSaisonId === undefined ? saison.status === "active" : saison.id === requestedSaisonId));
 }
 
 /**
