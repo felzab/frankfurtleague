@@ -147,7 +147,7 @@ subject is an email address and travels in the body instead.
 | POST   | `/schiedsrichter/{schiedsrichter_id}/reactivate`       | Clears `inactive_since`                                                                                                                                                         |
 | POST   | `/bewerbungen/{bewerbung_id}/annehmen`                 | Accepts an application — I51's transaction. `gruppe` and `trikot_farbe` on the body. **IRREVERSIBLE**: a club entered in error leaves only by an `austritt` (I19, I31)          |
 | POST   | `/bewerbungen/{bewerbung_id}/ablehnen`                 | Declines an application, recording who decided and why. `status` and `entscheidung` move and nothing else, so the submission stays as the school wrote it (`REQ-BEWERBUNG-001`) |
-| POST   | `/kontakte/erasure`                                    | Clears one contact person from every `saison_teams` and `bewerbungen` row and redacts those log images — I42's transaction. The SLOT is nulled, never the block                 |
+| POST   | `/kontakte/erasure`                                    | Clears one contact person from every `saison_teams` and `bewerbungen` row and redacts the log images — I42's transaction. The SLOT is nulled, never the block                   |
 | POST   | `/schiedsrichter/{schiedsrichter_id}/anonymisieren`    | Clears `kontakt`'s `telefon` and `email` and redacts them in the log, in one transaction — never the block itself, and never `name`. See I42, I53                               |
 
 **There is no `DELETE /saisons/{saison_id}`**, and none on `/teams/{team_id}/saisons/{saison_id}` or on

@@ -2366,8 +2366,8 @@ worse than a gap nobody has written down, because it reads to every later reader
 somebody is keeping. Each layer misses it for its own reason and the reasons do not overlap: a prop
 typed `readonly Facet<Row>[]` is correct, the type system having no notion of the serialisation
 boundary, so a function is a good value on both sides of it; `next build` never renders a dynamic
-route, so the failure has no build-time moment; and no test renders a Server Component, the node
-runner having no way to. **So the three things a branch is cleared by are each right and each blind to
+route, so the failure has no build-time moment; and no test renders an async Server Component, whose
+markup exists only once its own awaits have resolved. **So the three things a branch is cleared by are each right and each blind to
 the same defect** — which surfaced instead as a flash and a German error on an admin page, found by a
 person opening it.
 
