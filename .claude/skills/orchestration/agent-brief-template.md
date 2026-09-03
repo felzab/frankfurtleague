@@ -2,9 +2,10 @@
 
 Every dispatched agent gets every section below. Push back and the report contract are the two that
 pay for the whole template: across two sessions more than half the briefs carried a premise the tree
-contradicted, and every agent that pushed back was right. Fill the angle-bracketed placeholders and
-delete nothing: a brief is a prompt rather than a file, so nothing checks one, and a section dropped
-here is a constraint the agent never sees.
+contradicted, and every agent that pushed back was right — counted from the landed reports, the only
+place that figure exists. Fill the angle-bracketed placeholders and delete nothing: a brief is a
+prompt rather than a file, so nothing checks one, and a section dropped here is a constraint the
+agent never sees.
 
 **The brief is the agent's whole world, so it has to carry what the agent must NOT do as carefully
 as what it must.** Sections 5, 6, 9 and 10 are that half, and each of them exists because an agent
@@ -55,15 +56,15 @@ did the reasonable thing in their absence.
                 longer carries the claim, and a deleted concept's VOCABULARY survives in prose no
                 citation check reads: both are green in every gate there is.
 
-4  PUSH BACK.   This brief may be wrong. More than half of them are, and the agents caught every
-                one. If a premise here does not survive contact with the tree, stop and report it
-                instead of building on it. Naming a wrong premise is worth more to me than
-                finishing the task. A premise that names its source -- "an audit reported X" --
-                is a claim: verify it in one command before you build on it, and ask for the
-                evidence behind one that names no source at all. Every figure here names where it
-                came from, and one that is not mine to vouch for you measure yourself before you
-                act on it -- cutting to meet a description rather than the rule is how a report
-                comes back successful against a number nobody held.
+4  PUSH BACK.   This brief may be wrong. More than half of them are, by my count across this
+                programme's sessions, and the agents caught every one. If a premise here does not
+                survive contact with the tree, stop and report it instead of building on it. Naming
+                a wrong premise is worth more to me than finishing the task. A premise that names
+                its source -- "an audit reported X" -- is a claim: verify it in one command before
+                you build on it, and ask for the evidence behind one that names no source at all.
+                Every figure here names where it came from, and one that is not mine to vouch for
+                you measure yourself before you act on it -- cutting to meet a description rather
+                than the rule is how a report comes back successful against a number nobody held.
 
 5  GIT.         You are on branch <branch>, which I cut before dispatching you. `.claude/CLAUDE.md`
                 §2's branch trigger binds you as it binds me, and here it is already satisfied: run
@@ -200,7 +201,11 @@ did the reasonable thing in their absence.
                 (b) every file you broke and restored, with the byte comparison for each;
                 (c) per checklist item, the acceptance evidence, with real exit codes;
                 (d) what you could NOT verify, and why;
-                (e) anything in this brief that was wrong;
+                (e) under its own heading, ALWAYS answered: what in this brief was wrong -- a
+                    premise the tree contradicts, a figure that does not hold, a proof this brief
+                    prescribes that returns the opposite result. "Nothing was wrong" is an answer,
+                    and a contradicted premise is worth more to me than a confirmed one: it is the
+                    only thing that stops me writing the next brief the same way;
                 (f) under its own heading, short: anything you found outside your scope --
                     describe it, do not fix it, and where it looks like one instance of a class,
                     say what the class is and how wide you think it runs;
@@ -229,6 +234,11 @@ here" rather than quoting a number nobody could trust, and (f) is what stops a f
 finding from becoming an unowned edit inside another agent's file. Its own heading is what stops it
 being lost in a report of several thousand words. **These three are also the first casualties of a
 length cap**, which is why none is set: they look less like findings than the findings do.
+
+**(e) is asked because agents do not volunteer it.** A wrong premise worked around in silence leaves
+the next brief carrying it, and the agent is the only party who can see it: one brief prescribed its
+own proof — run the backend suite, expect it to pass — against a suite that returned exit 1 with 155
+failures.
 
 ## The auditor variant
 
