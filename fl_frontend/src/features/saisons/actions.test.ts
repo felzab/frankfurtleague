@@ -7,9 +7,8 @@ import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 /**
- * Read rather than imported: this module's graph reaches `fl_frontend/src/core/config.ts`, whose
- * gate refuses an unconfigured environment at import (`docs/frontend/spec.md` §1.9), so no mapper
- * here can be called for the sentence it returns.
+ * Read rather than called: what is asserted is which site carries a behaviour — which mapper's arm
+ * answers a code, which action clears which tags — and a call reports the outcome, never the site.
  */
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 // A unique index refusing a write is a global handler rather than a `Rule(`, so `domain.py` does not carry its code.

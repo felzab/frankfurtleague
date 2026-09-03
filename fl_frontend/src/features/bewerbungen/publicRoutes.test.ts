@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { FIELD_LABEL } from "@/shared/components/ui/formFieldStyles.ts";
 import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
 
 import { BEWERBUNG_SEATS } from "./constants.ts";
@@ -223,6 +224,13 @@ describe("the links the application page's header offers", () => {
       for (const klasse of outline) assert.ok(klassen.includes(klasse), `${link.href} lost the outline recipe's ${klasse}`);
       for (const klasse of nurPrimary) assert.ok(!klassen.includes(klasse), `${link.href} was promoted above the other two`);
     }
+  });
+
+  /* Read rather than rendered: a literal spelling the recipe's classes renders markup identical to
+     the recipe's, so only the source tells a nav that READS `ctaButton` from a copy of its output. */
+  it("reads that recipe off ctaButton rather than retyping its classes", () => {
+    assert.match(VIEW, /ctaButton\(\{ intent: "outline", size: "sm", hover: "css" \}\)/, "the header hand-writes what the recipe spells");
+    assert.doesNotMatch(VIEW, /transform-none items-center justify-center rounded-xl/, "a second spelling of the recipe's classes is back");
   });
 });
 
@@ -513,6 +521,16 @@ describe("how the form asks for a wished opponent", () => {
   it("renders the control, under a label naming the wish", () => {
     assert.notEqual(traeger, null, "the team section renders nothing carrying the payload's own field name");
     assert.match(WUNSCHGEGNER, /<label[^>]*>Wunschgegner[^<]*<\/label>/, "the control carries no label naming the wish");
+  });
+
+  /* Read off `FIELD_LABEL` rather than spelled here: a hand-typed size or weight drifts from the
+     labels above it on the same panel, and the case above passes on the words alone. */
+  it("dresses that label in the shared field-label style", () => {
+    const etikett = /<label ([^>]*)>Wunschgegner[^<]*<\/label>/.exec(WUNSCHGEGNER)?.[1] ?? "";
+    const klassen = (/class="([^"]*)"/.exec(etikett)?.[1] ?? "").split(" ");
+
+    assert.notEqual(etikett, "", "the wish's label moved, so the loop below reads nothing");
+    for (const klasse of FIELD_LABEL.split(" ")) assert.ok(klassen.includes(klasse), `the wish's label lost FIELD_LABEL's ${klasse}`);
   });
 
   /* The whole reason this is not a picker. A closed set moves the payload name onto a hidden input
