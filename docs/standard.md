@@ -6,10 +6,15 @@ comments, prompts, command files, templates, commit messages and pull request bo
 **Three rules carry the weight**, and a writer holding only those gets most of it right: COR-13, why
 rather than what; COR-5, the deletion test; COR-14, which rung.
 
-**Every rule is one line, and the argument for it is in the commit that wrote that line** (COR-14).
+**Every rule is one line (PRE-4), and the argument for it is in the commit that wrote that line
+(COR-14).**
 
 **This file never arrives alone.** `.claude/hooks/docs-standard.sh` puts the Spine and the bounds,
-sliced out of it at the moment of writing, in front of every documentation-shaped edit, and names
+sliced out of it at the moment of writing, in front of a markdown edit and of a comment edit in the
+kinds its own `.claude/hooks/docs-standard.sh :: isDocs` test names, which is narrower than the
+corpus `scripts/checks/docs_gate/kernel.py :: SCANNED_SUFFIXES` and `:: OPS_FILENAMES` select — a
+`.json`, a `.css`, a `.dockerignore` and a `.githooks/` hook reach the gate and not the hook, so the
+rules below bind an edit that was never prompted with them. It names
 this file and `docs/worked-examples.md` — these rules applied to real passages, each shown before and
 after — to be read in full; every agent brief names both, and the examples cite these rules rather
 than restating them (COR-2). The mechanical defence is `scripts/checks/check_docs.py`,
@@ -43,9 +48,10 @@ means.
 - **COR-5:** ask of every sentence, **what does a reader do differently because this sentence is
   here?** No answer, and it is deleted rather than shortened; then ask it of the paragraph, and of
   the page. These never have an answer: announcing that the next sentence matters; restating the
-  paragraph you are closing; naming where an argument lives and then giving it; justifying a decision
-  recorded elsewhere; recounting how a measurement was taken rather than what it found (COR-9); a
-  remark the code beside it states; a section introducing the one below it; a hedge or an
+  paragraph you are closing; naming where an argument lives and then giving it (COR-2); justifying a
+  decision recorded elsewhere; recounting how a measurement was taken rather than what it found
+  (COR-9); a remark the code beside it states; a section introducing the one below it, whose repair
+  is COR-8's merge upward rather than this test's deletion; a hedge or an
   intensifier; a claim true of any project of this kind. **What survives is tightened freely**:
   shortening the sentence that carries a caveat is not cutting the caveat, and enumerable content
   takes COR-8's list rather than a paragraph. Never cut a caveat that changes what someone would do,
@@ -71,20 +77,32 @@ means.
   clause about how the code achieves the invariant goes down a rung to the comment at the line,
   moved rather than compressed; where both clauses would be undone by the reader with no code open
   they are two invariants and the row splits, a row being one invariant; and a clause fitting no
-  rung stays where it is, which leaves the cell over OUT-4's bound with no exemption to reach and
-  the docs gate red for every branch until I widen the bound or the clause finds a rung after all.
+  rung stays where it is, in a cell over OUT-4's bound with no exemption to reach — **a cell that
+  does not land until I have widened the bound**, because `cell-prose` reads every tracked spec
+  sheet rather than a diff, so a cell left in place fails every later branch for a page none of them
+  touched, which is the standing tax CUR-6 refuses.
   The argument behind any of them is in the commit that made it, reached with
   `git log -S` on the identifier, never repeated at the rung. _Enforced by_ `/docs:audit`.
 
 ## Precedence
 
-- **PRE-1:** when two sources disagree the higher wins: the code and what it actually does, then a
-  spec sheet for a current contract, then `.claude/CLAUDE.md`, then an overview, then everything
-  else — a runbook, a backlog entry, an audit prompt, a command file. _Enforced by_ unenforced —
-  judgment.
+- **PRE-1:** the ladder ranks sources by how closely they describe the system, so a source governing
+  conduct rather than describing anything is not on it at all: when two descriptions disagree the
+  higher wins — the code and what it actually does, then a spec sheet for a current contract, then
+  `.claude/CLAUDE.md`, then an overview, then everything else, a runbook, a backlog entry, an audit
+  prompt or a command file. **This file is off the ladder**, as `.claude/CLAUDE.md`'s directives are:
+  it fixes what a written artifact may say and what shape each kind keeps, so a spec sheet outranks
+  it on that sheet's contract and never on that sheet's own shape (COR-12), and no page cites a rung
+  to keep a shape this file refuses. _Enforced by_ unenforced — judgment.
 - **PRE-2:** correct the summary, never the source. Where a document disagrees with the code the
   document is wrong: fix it in the commit that discovered it, because editing the source to match its
-  summary launders an error into a decision. _Enforced by_ unenforced — judgment.
+  summary launders an error into a decision. **A ratified constraint reverses which side is the
+  summary**: where the code contradicts a spec-sheet invariant or a ruling a document records as one,
+  the constraint was decided before the code was written, so the code is the regression and the
+  disagreement is reported with neither side edited — a `.claude/CLAUDE.md` §7 line and a
+  `.claude/rules/` clause already resolve that way in that file. **The trigger is that a source
+  ratified the constraint and never that an author doubts the code**, which would make every
+  inconvenient document an argument. _Enforced by_ unenforced — judgment.
 - **PRE-4:** a rule lives here exactly once, as a list line `- **<ID>:** <the whole rule>`, whose one
   line is everything a citation resolves to and which names what enforces it. An id is an address,
   not an order: its prefix names its family rather than its section, it is assigned once and never
@@ -107,7 +125,9 @@ These bind every written artifact. A comment is documentation and carries every 
   else — not the conversation, the session, the branch or the effort behind the change. Every
   identifier resolves, every domain term is the glossary's, a term or a referent is spelled out
   wherever the shorter form would not resolve, and the reasoning stands at the claim rather than
-  behind a pointer to a file deleted by design. _Enforced by_ `/docs:audit`.
+  behind a pointer to a file deleted by design. _Enforced by_ gate check `comment-citation` for a
+  reference to a session or a review round in a comment the branch added; every other way a reader
+  is asked for context they do not have is `/docs:audit`'s.
 - **COR-2:** a fact is stated in full in exactly one place — the rung COR-14 gives it — and cited
   from everywhere else. A second mention is **one sentence and a citation**; a second paragraph is a
   second home, and one of the two goes. A sentence that names where the argument lives does not then
@@ -122,8 +142,10 @@ These bind every written artifact. A comment is documentation and carries every 
   something other than a reader consumes it at a fixed location — a path a platform serves, a form a
   tool quotes verbatim. Convenience is never the reason, and neither is the copy being short.
   **The check exempts nothing**, and grants that survival to nobody: it reads a page's paragraphs,
-  and a copy consumed by something other than a reader is short, fenced or in source, so it reaches
-  no paragraph and an exemption keyed on it would be a branch nothing can take.
+  and a copy consumed by something other than a reader is fenced, in source, or shorter than the
+  floor `scripts/checks/docs_gate/checks.py :: ECHO_WORD_FLOOR` sets — below which two files stating
+  one sentence is the language rather than a copy — so an exemption keyed on the consumption would
+  be a branch nothing can take.
   _Enforced by_ gate check `echo` over a page's paragraphs alone, exempting nothing; the surviving
   duplicate and every comment run are `/docs:audit`'s,
   which can tell a restated argument from the restated claim the bold clause above requires, where a
@@ -134,23 +156,29 @@ These bind every written artifact. A comment is documentation and carries every 
   at the reader about to propose it again. A document whose subject is what happened is exempt within
   that job — a commit body, a pull request, an audit report, and `docs/worked-examples.md`, whose
   subject is a passage on each side of a cut. _Enforced by_ gate check `history` for a fixed phrase
-  list over a branch's added lines; both banned shapes past those phrases, and the exemptions, are
-  `/docs:audit`'s.
+  list over a branch's added lines, **which implements no exemption**: it spares
+  `docs/worked-examples.md` only as far as that page's narration stays inside a fence, which
+  `scripts/checks/docs_gate/kernel.py :: strip_fences` blanks, so an exempt sentence written as
+  prose there fails a branch that is obeying this rule; both banned shapes past those phrases, and
+  the exemptions, are `/docs:audit`'s.
 - **COR-4:** **the test is derivability, never a list of banned words**: a value this repository
   answers in seconds — from a command, a manifest, a config file, a data file or a constant — is
   cited and never written, whatever kind of value it is. A count, an enumeration, an ordinal, a size,
   a duration, a version, a date, a tool's configuration and a line number are the classes that keep
   catching people, and they illustrate the test rather than bound it. Name what selects a set instead
-  of listing it, and an enumeration survives only where the gate resolves every member. **A date is
-  the commit's** (COR-14), so no sentence in the working tree is dated. Five things are not values in
+  of listing it, and an enumeration survives only where the gate resolves every member. **A date a
+  commit already holds is the commit's** (COR-14), so a sentence dated because the work happened then
+  loses the date. Five things are not values in
   this sense: a bound this file sets, which is a decision; a figure a test or a data file asserts,
   which is the assertion; a fact copied from outside, at the line holding the copy, which says what it
-  mirrors and
-  that the source moves without us; a set the same sentence closes, which is a definition; and a date
-  that is itself the datum — a document whose subject is that date, and **the date a measurement was
+  mirrors, that the source moves without us, and the date it was read there, which dates the mirror
+  rather than the fact; a set the same sentence closes, which is a definition; and a date
+  that is itself the datum — a document whose subject is that date; **the date a measurement was
   taken, which stays beside the figure**, because a figure nobody can date is a figure nobody can call
   stale, and because `scripts/checks/check_gate_budget.py` refuses a raised budget whose stamp did not
-  move, making that stamp a value the repository reads rather than one it merely records. _Enforced by_ gate check `line-citation`
+  move, making that stamp a value the repository reads rather than one it merely records; and **the
+  date a ruling was taken, with each date it was re-confirmed**, because a person weighing a decision
+  again and leaving it standing writes no commit for git to hold the date in. _Enforced by_ gate check `line-citation`
   for the line-number class alone; every other class, and the exceptions, are `/docs:audit`'s.
 - **COR-6:** a citation is a backticked `<path> :: <symbol>`, `<path> :: <short quoted fragment>`, a
   bare backticked repository path, a rule or invariant id, or the continuation `` `:: <anchor>` ``,
@@ -196,16 +224,20 @@ These bind every written artifact. A comment is documentation and carries every 
 - **COR-11:** the words "the owner" appear in no tracked file outside `.claude/` — everything so
   written speaks in my own voice: first person where a person acts, neutral imperative everywhere
   else. `.claude/` is exempt whole, needing me named as a third party to be unambiguous; quoting the
-  phrase to name what is banned is a mention, not a use. _Enforced by_ gate check `owner-voice`,
-  which reads a quoted or backticked occurrence as the mention it is; `/docs:audit` for the
+  phrase to name what is banned is a mention, not a use. _Enforced by_ gate check `owner-voice` over
+  the half of a file a reader reads — a page's prose and a source file's comments, never a string
+  literal, an identifier or a kind the corpus does not scan — reading a quoted or backticked
+  occurrence as the mention it is; `/docs:audit` for the rest of every file, and for the
   third-person constructions that avoid the phrase.
 - **COR-12:** a file whose kind has a defined shape never deviates from it — not once, not for one
   file, not by approval. The shapes are a README's (OUT-3), a spec sheet's (OUT-4), an overview's
   (OUT-5), a glossary entry's (OUT-6), a module header's (INC-2) and a rule's (PRE-4). Where a file
   does not fit, **the file changes**: the content that does not fit moves to a page whose shape holds
-  it, or it goes. _Enforced by_ gate checks `readme-cap`, `spec-spine`, `invariant-row`,
-  `overview-spine`, `glossary-entry`, `module-header` and `rule-shape`; whether a deviation was
-  repaired by moving the content or by widening the shape is review judgment.
+  it, or it goes. _Enforced by_ gate checks `spec-spine`, `invariant-row`, `overview-spine`,
+  `glossary-entry`, `module-header` and `rule-shape`, each over the part of its shape its own rule
+  names — **a README's shape is checked by nothing**, `readme-cap` reading its word count alone
+  (OUT-3), so the title, the purpose line, the table and the one body section are `/docs:audit`'s;
+  whether a deviation was repaired by moving the content or by widening the shape is review judgment.
 - **COR-15:** a file whose only reader is a model — a command file, a rules file, `.claude/CLAUDE.md`,
   a skill page, an audit pass prompt — is written for that reader alone, and its length is judged per
   invocation rather than per file, because it is paid again on every run. What goes is everything
@@ -225,8 +257,8 @@ Scope: every tracked file of a kind `scripts/checks/docs_gate/kernel.py :: SCANN
 `fl_backend/app`, `fl_backend/tests` and `scripts/`, the hook folders `.claude/hooks/` and
 `.githooks/`, and the Dockerfile, workflow and manifest outside all of them. **A tree is in scope
 for those kinds and never whole**, because `scripts/checks/docs_gate/kernel.py :: comment_style`
-hands an unrecognised kind to the shell-comment reader, which cannot tell a CSS id selector from a
-comment.
+answers every kind rather than refusing one, handing an unrecognised suffix to the shell-comment
+reader; the kind register is the only thing keeping an image under `fl_frontend/src` out of it.
 The hooks are exempt from INC-2's shape alone — their uniform label rows keep the folder scannable
 side by side — and every other rule here binds them as written, INC-2's own checked reach being
 narrower than this Scope in a way INC-2 states.
@@ -252,11 +284,14 @@ narrower than this Scope in a way INC-2 states.
   belongs at a lower rung, and that fact moves (COR-14). **Outside `HEADER_SCOPES` a header is
   measured by no bound at all — where the file has one**:
   `scripts/checks/docs_gate/kernel.py :: comment_runs` skips a leading run of comment lines, and it
-  finds one only where the file's first non-blank line below any shebang begins with a marker. A
-  hook, a `.githooks/` file, a Dockerfile, a `.dockerignore`, an nginx configuration and `zizmor.yml`
-  do open that way, so their opening block is held to COR-5's test and to review alone. A workflow,
-  `.github/dependabot.yml` and `fl_backend/pyproject.toml` open on a key instead, which leaves their
-  first comment run an ordinary block INC-9 bounds like any other. That gap is stated rather than
+  finds one only where the file's first non-blank line below any shebang begins with a marker.
+  **Whether it does is a property of the file and never of its tree, among the kinds
+  `scripts/checks/docs_gate/kernel.py :: comment_style` reads as shell or Python**, so what carries
+  an unmeasured opening block is named by that test rather than listed (COR-4): a hook, a
+  `.githooks/` file, a Dockerfile, a `.dockerignore`, an nginx configuration, a compose file, a
+  workflow and a manifest each open either way, and the one opening on a marker is held to COR-5's
+  test and to review alone while the one opening on a key has its first comment run bounded like any
+  other block. That gap is stated rather than
   closed because a bound reaches a file only once someone has read it against COR-5 first, and a
   header failing a bound nobody applied when it was written is a red gate rather than a repair.
   _Enforced by_ gate check
@@ -381,10 +416,16 @@ README and every template.
   oversight and gets "fixed"; **its shape is the writer's** (COR-8), and a gap carrying a finding, a
   procedure and a refusal at once is a list entry rather than a cell losing one of the three, the
   bound reaching a table cell and nothing else. Every claim carries an anchored citation (COR-6). _Enforced by_ gate
-  checks `cell-prose`, `spec-spine`, `invariant-row`, `invariant-id`, `citation` and `path`; contract
-  over mechanism is `/docs:audit`'s.
+  checks `cell-prose`, `spec-spine`, `invariant-row`, `citation` and `path`; `invariant-id` for a
+  cited number no sheet's table defines, which is a dead citation rather than an ambiguous one;
+  gate check `rule-id`, which fails a bare number two sheets both define — **in a comment alone, and
+  not where a surface word sits in the same block**, so a page naming the wrong sheet or no sheet is
+  `/docs:audit`'s, as contract over mechanism is.
 - **OUT-5:** overview spine — a two-or-three-sentence opening, `How it is organised`, sections,
-  `Read next` — with mechanism left to the spec sheet and the argument for one to its commit. **No
+  `Read next` — with mechanism off the page and the argument for one in its commit. **Where it goes
+  is COR-14's question and never "the spec sheet" by default**: what a caller may rely on is the
+  sheet's contract, what constrains one line is the comment at that line, and how a function does
+  its work is derivable and written nowhere (COR-13, OUT-4). **No
   bound holds an overview**, deliberately: what lengthens one is mechanism, mechanism has a named
   destination and moves there (COR-14), and a number in its place would be read as room to fill by
   the content that should not be on the page at all. _Enforced by_ gate check `overview-spine` for
@@ -436,8 +477,10 @@ README and every template.
   record to satisfy it. _Enforced by_ unenforced — the close-out question, and review.
 - **CUR-6:** **a branch is failed only for a finding it can fix** — a gate failing branches over
   pages they never touched trains people to override it. This is not a promise that every check is
-  branch-scoped: only `comment-length`, `history` and `comment-citation` read the branch's own diff,
-  and every other check here reads the whole corpus. What holds the promise instead is that the
+  branch-scoped: `comment-length`, `history`, `branch-scope` and the half of `comment-citation`
+  `scripts/checks/docs_gate/branch.py :: check_added_citations` emits read the branch's own diff,
+  while `scripts/checks/docs_gate/checks.py :: check_comment_citations` emits that name's other half
+  over every scanned file, as every check not listed here does. What holds the promise instead is that the
   corpus stays clean, so a whole-corpus check has nothing standing to charge anyone: **a check lands
   in the same commit that clears the findings it raises**, and a migration too large for that commit
   is a migration, never a per-branch tax collected until somebody gets to it. What no change has touched is

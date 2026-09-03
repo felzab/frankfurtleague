@@ -135,6 +135,8 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    | C8  | **Its own shape**                          | Does it meet the rules for what this document _is_ — spec sheet, overview, module header, endpoint docstring?        |
    | C9  | **Comment altitude** (INC-1, INC-2, INC-9) | Does a comment say what its code already says, or a header or block break the shape those rules fix?                 |
    | C10 | **Earns its place** (COR-5)                | Should this text exist at all? The class that proposes a deletion; COR-5 holds a page and a comment to separate bars |
+   | C11 | **Why, not what** (COR-13)                 | Is this derivable by reading the tree, or is a why the tree cannot answer missing from it?                           |
+   | C12 | **Right rung** (COR-14)                    | Does this fact sit at the lowest rung its reader reaches, or is it a contract in a comment or a line rule on a page? |
 
    ### The finding format, one row each
 
