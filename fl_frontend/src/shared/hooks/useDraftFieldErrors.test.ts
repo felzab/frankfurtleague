@@ -7,7 +7,7 @@ import ts from "typescript";
 import { z } from "zod";
 
 import { filesUnder } from "../../core/treeWalk.ts";
-// Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
+// Relative imports: this file's siblings resolve either way, and a mixed file reads as a decision.
 import {
   applyVerdicts,
   differsFromSubmitted,
