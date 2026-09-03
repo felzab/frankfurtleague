@@ -113,6 +113,7 @@ deliverable.
 | `zp46-yt3p` | The certainty walk gives up in a group of six or more                                                                | BE, teams                                                                   | Standing |
 | `zr2y-4uwj` | A tie-break that provably cannot fire is what stops the index being walked                                           | BE, DB, tests, bewerbungen, saisons, spiele, spieltage                      | Standing |
 | `2d76-kydk` | A citation is resolved by asking the filesystem, so a mis-cased path fails only on the runner                        | Ops, Docs, gate, ci                                                         | Open     |
+| `2eec-8qa9` | The hook fixture's builder writes into a directory it never creates, and reports success                             | Ops, Docs, gate                                                             | Open     |
 | `2pqm-yxyu` | The origin trusts every source inside Cloudflare's ranges                                                            | Ops, Docs, edge                                                             | Open     |
 | `2zah-pvu2` | The gate's binding unit costs more inside a run than it does alone                                                   | Ops, gate, tests                                                            | Open     |
 | `3gag-st7h` | Invariant numbers are permanent per sheet and allocated as though one namespace held all three                       | Ops, Docs, gate                                                             | Open     |
@@ -133,6 +134,7 @@ deliverable.
 | `bfs4-ax6a` | The fixtures' drift guard cannot see a database view                                                                 | BE, DB, tests                                                               | Open     |
 | `bpve-vhag` | The fork exemption's ceiling is charged per block, and nothing caps the blocks one ancestor excuses                  | Ops, Docs, gate, tests                                                      | Open     |
 | `c8rx-gqun` | An invariant citation resolves to a string, not to a definition                                                      | Ops, Docs, gate                                                             | Open     |
+| `cckv-edvy` | The published document's drift check fails with the command that accepts the drift                                   | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `ckf7-7w58` | The frontend mirrors the backend's payload bounds by hand, and one of them is swept                                  | FE, BE, tests, bewerbungen, spiele, teams                                   | Open     |
 | `crwn-qfp7` | The opening comment block of every file read as a shell script is measured by neither bound                          | Ops, Docs, gate                                                             | Open     |
 | `d5j8-js4n` | A real file in an unaccepted spelling reads as a missing file                                                        | Ops, gate                                                                   | Open     |
@@ -144,6 +146,7 @@ deliverable.
 | `gbjj-9wfh` | A test fixture asserts the type nothing else checks                                                                  | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
 | `gkp4-q3q9` | The unique-index test pairs by ordinal position                                                                      | BE, DB, tests                                                               | Open     |
 | `gvyr-3nws` | Stylesheet comment blocks stand over INC-9's bound, quiet only while nobody lengthens one                            | FE, Ops, Docs, gate                                                         | Standing |
+| `h4wq-p7ct` | A block carried into a file the fork does not hold is charged to the branch                                          | Ops, Docs, gate, tests                                                      | Open     |
 | `hnx7-zbb9` | One field list is drift-guarded on one side only                                                                     | FE, BE, tests, saisons                                                      | Open     |
 | `ja32-9rpv` | A call site's key tier is held to its route by nothing                                                               | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
 | `jcpc-dee5` | Two routes on one path and method collapse to one                                                                    | BE, tests                                                                   | Open     |
@@ -1958,6 +1961,34 @@ cycle's closing act.
 **Done when** every site deciding a citation's target answers from one unfiltered listing built off
 git, and the bare-filename lookup keys against that same listing.
 
+### `2eec-8qa9` · The hook fixture's builder writes into a directory it never creates, and the failure reaches nobody
+
+| Tags            | Status | Depends on |
+| --------------- | ------ | ---------- |
+| Ops, Docs, gate | Open   | —          |
+
+**`scripts/gate/selfcheck.sh :: build_hook_fixture` writes every file its list puts under a
+`scripts/` subdirectory into a parent its own `mkdir -p` never makes, and the caller is told the
+build succeeded.** The builder is a subshell run as the condition of an `if !`, and bash ignores
+errexit for everything a compound command in that position runs, the subshell's own `set -e`
+included. Each of those redirects fails, the loop carries on to the files after it, the subshell's
+last command decides its status, and `note_fail` never fires. The hook probes then run against a
+fixture missing the paths those probes name as the tracked file a write must be refused for.
+
+**Rearming errexit inside the subshell is not the repair, because it is already rearmed there.** Run
+on its own the same function exits non-zero, so only the calling position changes the answer, and the
+write's status has to be carried out of the loop deliberately rather than left to `set -e`.
+
+**Nothing fails today, and what keeps it quiet is that no guard asks whether the path exists.**
+`.claude/hooks/guard-branch-bash.sh` places each candidate path and denies it unless git calls it
+ignored, and `git check-ignore` answers for a path nobody wrote. The trap is a probe added later for
+a hook that reads the file its payload names rather than the payload —
+`.claude/hooks/guard-stale-type-class.sh` is already one — where an absent file yields a verdict the
+table then records as the expected one.
+
+**Done when** the loop makes each file's parent before writing it, and a builder that cannot write
+one of its files reaches `note_fail`.
+
 ### `2pqm-yxyu` · The origin trusts every source inside Cloudflare's published ranges, so the visitor's name is whatever the request says it is
 
 | Tags            | Status | Depends on |
@@ -2578,7 +2609,7 @@ never what the database holds — so the next reader does not take the exclusion
 | ---------------------- | ------ | ---------- |
 | Ops, Docs, gate, tests | Open   | —          |
 
-Lands with: `spq6-zy2d`
+Lands with: `h4wq-p7ct`, `spq6-zy2d`
 
 **`scripts/checks/docs_gate/branch.py :: _fork_ceiling` hands one ancestor's word count to every
 current block overlapping it, and nothing records that the ancestor has already been spent.** A block
@@ -2638,6 +2669,41 @@ substring fallback stays** for what no reader can index — a shell symbol, a ma
 config key — so this narrows the check for one anchor shape rather than replacing the fallback, and
 `scripts/checks/docs_gate/checks.py :: INVARIANT_CITE_RE` is the pattern that already recognises that
 shape.
+
+### `cckv-edvy` · The published document's drift check fails with the command that accepts the drift
+
+| Tags                           | Status | Depends on |
+| ------------------------------ | ------ | ---------- |
+| FE, BE, Ops, Docs, gate, tests | Open   | —          |
+
+**`fl_backend/tests/api/test_openapi_document.py :: test_the_committed_document_is_the_one_the_service_publishes`
+compares the tracked `fl_backend/openapi.json` with what the models publish, and the message it fails
+with names the command that overwrites the document.** `scripts/gate/verify.sh` prints the same
+instruction beside its own `--check` run of `fl_backend/tests/openapi_document.py`. Following either
+turns the run green, the document now saying whatever the models say — so a check whose stated remedy
+is to accept what moved cannot separate a document left behind by an intended change from a model
+change nobody meant to make.
+
+**Some narrowings have nowhere else to fail.** A field's `pattern` can be tightened so that every
+value its own tests accept is still accepted and every value they refuse is still refused, while the
+published string changes: a house number's charset is such a constraint, and
+`fl_backend/tests/shared/test_addresses.py` names values on both sides of it that a pattern
+additionally requiring a leading digit would decide exactly as they are decided now. What the reader
+gets in that case is the closing line of
+`fl_backend/tests/api/test_openapi_document.py :: summarize_drift`, which says a field inside one of
+the components changed and cannot say which — and then the instruction to accept it.
+
+**Nothing objects afterwards**, because every other reader takes the committed file rather than the
+models: `fl_frontend/src/core/apiContract.test.ts` reads the document that was just rewritten, and
+the `--check` run compares the rewritten document with the models it was built from.
+
+**Widening the frontend's comparison is refused already and is not the repair.**
+`.claude/rules/cross-surface.md`'s **openapi** clause holds the Zod mirror to presence, required,
+nullable, type and enum, so a narrowed pattern is not that comparison's to catch.
+
+**Done when** the failure separates the two readings it now collapses — naming the field whose value
+moved rather than reporting that one did, and offering the rewrite for a change the session meant
+while saying that the repair for one it did not mean is in the models.
 
 ### `ckf7-7w58` · The frontend mirrors the backend's payload bounds by hand, and one of them is swept
 
@@ -3062,6 +3128,47 @@ number.
 **Done when** every block past the bound in that file has been read once against COR-5 and COR-14 —
 each one carrying more than one constraint split to the lines it is about, the rest left standing as
 INC-9 permits — so that no later branch meets that question for the first time in a red gate.
+
+### `h4wq-p7ct` · A block carried into a file the fork does not hold is charged to the branch that only moved it
+
+| Tags                   | Status | Depends on |
+| ---------------------- | ------ | ---------- |
+| Ops, Docs, gate, tests | Open   | —          |
+
+Lands with: `bpve-vhag`, `spq6-zy2d`
+
+**INC-9 matches a block to its earlier self by the lines the two versions share, and
+`scripts/checks/docs_gate/branch.py :: check_comment_bounds` offers `:: check_comment_length` the
+candidates from one path.** It passes `partial(_blob_at, fork, rel)`, so a file the branch adds has no
+fork version at all, `:: _fork_ceiling` is handed an empty candidate list, and every block in that
+file already over the bound is reported as one the branch wrote.
+[`docs/_standard/standard.md`](../_standard/standard.md#in-code) and
+[`worked-examples.md`](../_standard/worked-examples.md#a-block-over-the-bound-can-be-finished-already)
+both describe the candidates as the blocks the fork held over the bound and name no path, so what is
+narrow here is the implementation and not the rule.
+
+**What it costs is the file split, not the prose.** Moving a group of cases out of a long module is
+the repair available where the suite distributes over `--dist loadfile` and sends each module whole
+to one worker; with the check as it stands, the region that may move is bounded by which blocks
+happen to sit under the bound rather than by which cases belong together. Compressing them instead
+is the repair INC-9 names as wrong, and what an over-bound docstring in a test module carries is
+INC-8's own content — which case is load-bearing, and the failure the name cannot state — which
+COR-5 refuses to cut.
+
+**`bpve-vhag` is the same function failing the other way**: there one ancestor's count is handed to
+every block matching it, here no ancestor is offered at all. Widening the candidate pool multiplies
+that double-spend, and closing `spq6-zy2d` on its own turns a rename's silence into this entry's
+charge over every block that rename carried, the fork holding the old path and not the new one —
+which is why the three are settled in one pass.
+
+**A git spawn per file is what the current shape buys, and what a widening spends.** The fork blob is
+read lazily, and only for a file whose touched blocks already stand over the bound; a pool drawn from
+the fork's tree pays once per run instead. Whether that pool should be the whole tree or only the
+paths this branch deleted from is the decision the pass takes.
+
+**Done when** a block carried unchanged into a file the fork does not hold keeps the ceiling it had,
+and `scripts/tests/test_branch_checks.py` carries a scenario that moves an over-bound block to a path
+the fork has no version of and reads the silence back.
 
 ### `hnx7-zbb9` · One field list is drift-guarded on the backend and hand-written on the frontend
 
@@ -3603,7 +3710,7 @@ gets suppressed**.
 | --------- | ------ | ---------- |
 | Ops, gate | Open   | —          |
 
-Lands with: `bpve-vhag`
+Lands with: `bpve-vhag`, `h4wq-p7ct`
 
 **`scripts/checks/docs_gate/branch.py :: check_comment_length` reads a block only where the branch
 touched a line inside it, and a rename puts no line of a carried block in the branch's added set.**
