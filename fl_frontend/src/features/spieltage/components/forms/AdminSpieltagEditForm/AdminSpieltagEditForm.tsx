@@ -122,8 +122,7 @@ export function AdminSpieltagEditForm({
     // Blur first: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    // Hover next, and the disabled flag is what ends it: `useHover` clears `data-hovered` when a
-    // control turns disabled, and no `pointerleave` follows a click that leaves.
+    // Hover next: the disabled flag is what ends it (`docs/frontend/spec.md :: I68`).
     startLeaving(() => {
       if (window.history.length > 1) router.back();
       else router.push(saisonHref("/admin/spieltage"));
@@ -154,8 +153,7 @@ export function AdminSpieltagEditForm({
   };
 
   const requestSave = () => {
-    // Snapshotted rather than read live: a background revalidation re-deriving the banners under an
-    // open dialog would move the list the reader agreed to.
+    // Snapshotted, not read live: a background revalidation would move the list under the dialog.
     const blocking = resolveBlockingBanners(banners);
     if (blocking !== null) {
       setConfirmingBanners(blocking);
@@ -165,8 +163,7 @@ export function AdminSpieltagEditForm({
   };
 
   const handleFormSubmit = () => {
-    // `aria` blocks nothing natively, so this call is what keeps an incomplete draft off the wire, in the
-    // schema's own German rather than the browser's bubble. It RUNS the write, so there is no answer to drop.
+    // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
     guardSubmit({ spieltag: buildPayload() }, writeAfterBlock);
   };
 
@@ -212,9 +209,7 @@ export function AdminSpieltagEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
-        // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting
-        // the browser's required message the moment an edited field is cleared. `aria` keeps
-        // `aria-required` and leaves every message to `useDraftFieldErrors`.
+        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
         validationBehavior="aria"
         ref={formRef}
         validationErrors={fieldErrors}

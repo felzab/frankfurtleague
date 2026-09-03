@@ -50,8 +50,7 @@ export function SignInForm() {
   }, [state, setSubmitFieldErrors]);
 
   const handleFormSubmit = () => {
-    // `aria` blocks nothing natively, so this is what keeps an unusable address off the action. It RUNS the
-    // write, so there is no answer a later edit can drop.
+    // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
     guardSubmit({ signIn: { email } }, () => {
       const submitted = new FormData();
       submitted.set("email", email);
@@ -117,8 +116,7 @@ export function SignInForm() {
 
             <Tabs.Panel id="Admin">
               <Form
-                // `aria` so an emptied address stays quiet until it is sent; the block below is what `native`
-                // used to do, in our own German rather than the browser's bubble.
+                // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
                 validationBehavior="aria"
                 ref={formRef}
                 validationErrors={fieldErrors}

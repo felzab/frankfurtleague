@@ -15,9 +15,7 @@ type ServerReact = {
   __SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE: { A: CacheDispatcher | null };
 };
 
-// `node --test` resolves `react` without the `react-server` condition, and that build's `cache` is
-// a bare passthrough -- every count below would read unmemoized and blame the source. Loading the
-// server build by path puts the real memoizer under test.
+// Loaded by path because `node --test` resolves `react` without `react-server`, whose build is the real memoizer.
 const REACT_DIR = path.dirname(requireFrom.resolve("react/package.json"));
 const SERVER_REACT_URL = pathToFileURL(path.join(REACT_DIR, "react.react-server.js")).href;
 
@@ -39,9 +37,7 @@ const API_DOUBLE = `export const apiClient = async (endpoint) => {
   return { teams: [], spieler: [] };
 };`;
 
-// Real module, through CJS: an extensionless file rather than an exports-map subpath, which Node's
-// ESM resolver will not add an extension for and its CJS one will. Resolved up here because
-// `require.resolve` re-enters the hook below.
+// Extensionless, not an exports-map subpath: only CJS resolution adds one. Up here: `require.resolve` re-enters the hook.
 const NEXT_CACHE_URL = pathToFileURL(requireFrom.resolve("next/cache")).href;
 
 const TEAMS_ENDPOINT = "/teams/memberships";
@@ -49,8 +45,7 @@ const SPIELER_ENDPOINT = "/spieler/memberships";
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    // Only for the modules under test, which the real app compiles under that condition. Next's
-    // client runtime is loaded into this process too and needs the client build's `createContext`.
+    // Only for the modules under test: Next's client runtime is in this process and needs the client build.
     const parent = context.parentURL;
     if (specifier === "react" && FEATURE_URLS.some((url) => parent?.startsWith(url))) return { url: SERVER_REACT_URL, shortCircuit: true };
     if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
@@ -87,8 +82,7 @@ const { getSpielerMemberships } = await import("../spieler/queries.ts");
 const countOf = (endpoint: string): number => reads.filter((read) => read === endpoint).length;
 
 describe("the admin membership lists across a render pass", () => {
-  /* First, because a cache scope that failed to take would leave every count at its unmemoized
-     value and each assertion after this would fail for the harness rather than for the code. */
+  /* First, so a scope that failed to take fails here rather than under every count below. */
   it("opens a scope that memoizes, and shows the miss when nothing memoizes", () => {
     beginRenderPass();
     let wrapped = 0;

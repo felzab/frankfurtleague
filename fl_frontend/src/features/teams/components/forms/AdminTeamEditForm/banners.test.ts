@@ -28,8 +28,7 @@ describe("buildTeamBanners", () => {
     assert.deepEqual(ids(build()), []);
   });
 
-  /* One shape across the four retirable editors: the title names the exclusion, the body names what
-     survives, and the way back is the header's own control rather than a sentence pointing at it. */
+  /* The title names the exclusion, the body what survives, and neither points at a control. */
   it("states the retirement as the exclusion plus what survives, and points at no control", () => {
     const [banner] = build({ isRetired: true });
 

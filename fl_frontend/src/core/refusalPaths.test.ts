@@ -220,7 +220,6 @@ const NO_FORM_AT_ALL = "a row button's whole argument: an id in the path, no req
 /** The draw is the one payload here with a body and still no field: its confirmation is an escalation, not an input. */
 const DRAW_HAS_NO_FIELDS = "the draw's panel: the season is in the path and the replace is a two-press escalation, neither being an input";
 
-/** A panel rather than a row button, as the erasure's is. */
 const ANONYMISATION_HAS_NO_FIELDS =
   "the anonymisation's panel: the id is in the path and the confirmation is a two-press escalation, neither being an input";
 
@@ -228,7 +227,6 @@ const ANONYMISATION_HAS_NO_FIELDS =
 const ERASURE_HAS_NO_FIELDS =
   "the erasure's panel: the id is in the path and the confirmation is a two-press escalation, neither being an input";
 
-/** The draw's own sibling, and a panel rather than a row button for the same reason. */
 const UNDRAW_HAS_NO_FIELDS =
   "the undraw's panel: the season is in the path and the confirmation is a two-press escalation, neither being an input";
 

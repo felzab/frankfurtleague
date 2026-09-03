@@ -106,8 +106,7 @@ function directivesIn(file: string): string[] {
 const ONE_ID = "0123456789abcdef01234567";
 
 describe("the two admin-tier triage reads", () => {
-  /* First, because a harness whose double never ran would leave `calls` empty and every assertion
-     after this would fail for the harness rather than for the source. */
+  /* First, so a double that never ran fails here rather than under every assertion below. */
   it("reaches the backend through the doubled client at all", async () => {
     await getBewerbungen();
     await getBewerbungById(ONE_ID);

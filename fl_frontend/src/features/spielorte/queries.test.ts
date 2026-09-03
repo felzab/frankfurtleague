@@ -82,8 +82,7 @@ function directivesIn(file: string): string[] {
 }
 
 describe("the two admin-tier reference reads", () => {
-  /* First, because a harness whose double never ran would leave `calls` empty and every assertion
-     after this would fail for the harness rather than for the source. */
+  /* First, so a double that never ran fails here rather than under every assertion below. */
   it("reaches the backend through the doubled client at all", async () => {
     await getSpielorte();
     await getSchiedsrichter();

@@ -6,10 +6,7 @@ import { describe, it } from "node:test";
 /** Source text rather than a render, `oneWayGuards.test.ts`'s idiom and for its reason. */
 const SOURCE = readFileSync(path.resolve(import.meta.dirname, "FormSpielplanSection.tsx"), "utf8");
 
-/**
- * The armed alert alone — what this panel puts INSIDE the shared shell. The heading, the announcement
- * and the reveal itself belong to `ConfirmReveal` and are asserted at its own home.
- */
+/** The armed alert alone: the shell's own parts are asserted at `ConfirmReveal`'s home. */
 const ARMED = (SOURCE.split("<ConfirmReveal>")[1] ?? "").split("</ConfirmReveal>")[0] ?? "";
 
 /** The armed alert's scope section alone, which is the half the new numbers invalidate. */
@@ -19,8 +16,7 @@ const ENTSTEHT = ARMED.split("Daraus entsteht")[1] ?? "";
 const HINWEIS = (SOURCE.split("Hinweis zum Spielplan")[1] ?? "").split("</h2>")[0] ?? "";
 
 describe("the draw half of the Spielplan panel", () => {
-  /* First, because a boundary string that stopped matching leaves the slices empty — and half the
-     assertions below are `doesNotMatch`, which an empty string passes without reading the panel. */
+  /* First, and half the assertions below are `doesNotMatch`, which an empty slice passes silently. */
   it("cuts the armed alert, its scope section and the hint out of the file before reading them", () => {
     assert.ok(ARMED.includes("Daraus entsteht"), "the armed alert's readout is outside its slice");
     assert.ok(ENTSTEHT.includes("<dl"), "the scope section is outside its slice");

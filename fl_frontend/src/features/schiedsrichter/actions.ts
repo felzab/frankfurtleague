@@ -26,10 +26,7 @@ import type {
   FLSchiedsrichterKeyPayload,
 } from "./schemas";
 
-/**
- * The retirement refusal, or `null` when the 409 is something else. It lands on no field: the retire
- * control is a dialog rather than a form.
- */
+/** `null` where the 409 is something else; it lands on no field, the retire control being a dialog. */
 function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
@@ -63,8 +60,7 @@ function mapAnonymiseRefusal(error: unknown): { error?: string; fieldErrors?: Fi
 }
 
 export async function postSchiedsrichterAction(
-  // The DRAFT shape: an emptied money field submits `null`, and the schema below is what turns that into a
-  // field error rather than a type error.
+  // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>,
 ): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSchiedsrichterAction", async () => {
@@ -96,8 +92,7 @@ export async function postSchiedsrichterAction(
 }
 
 export async function patchSchiedsrichterAction(
-  // The DRAFT shape: an emptied money field submits `null`, and the schema below is what turns that into a
-  // field error rather than a type error.
+  // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSchiedsrichterPayloadDraft<FLPatchSchiedsrichterPayload>,
 ): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("patchSchiedsrichterAction", async () => {

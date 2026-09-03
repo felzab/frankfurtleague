@@ -57,11 +57,7 @@ type TeamUndoPayloads = {
   saison?: FLPatchSaisonTeamPayload;
 };
 
-/**
- * **One save bar over TWO endpoints**, run in order for whichever halves are dirty. A partial
- * failure is toasted as well as shown inline, because the half that SUCCEEDED revalidates and
- * remounts this form over the inline message.
- */
+/** **One save bar over TWO endpoints**: a partial failure is toasted as well as shown inline. */
 export function AdminTeamEditForm({
   team,
   saison,
@@ -212,8 +208,7 @@ export function AdminTeamEditForm({
     // Blur first: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    // Hover next, and the disabled flag is what ends it: `useHover` clears `data-hovered` when a
-    // control turns disabled, and no `pointerleave` follows a click that leaves.
+    // Hover next: the disabled flag is what ends it (`docs/frontend/spec.md :: I68`).
     startLeaving(() => {
       if (window.history.length > 1) router.back();
       else router.push(saisonHref("/admin/teams"));
@@ -257,8 +252,7 @@ export function AdminTeamEditForm({
   };
 
   const requestSave = () => {
-    // Snapshotted, not read live: the reader agrees to the list the gate stopped on, and a background
-    // revalidation re-deriving the banners under an open dialog would move it.
+    // Snapshotted, not read live: a background revalidation would move the list under the dialog.
     const blocking = resolveBlockingBanners(banners);
     if (blocking !== null) {
       setConfirmingBanners(blocking);
@@ -268,8 +262,7 @@ export function AdminTeamEditForm({
   };
 
   const handleFormSubmit = () => {
-    // Only the halves this press writes: `aria` blocks nothing natively, and judging an untouched half
-    // would refuse a save over a field nobody is sending.
+    // Only the halves this press writes: judging an untouched half refuses a save over a field nobody sends.
     guardSubmit(
       {
         ...(clubDirty ? { team: buildClubPayload() } : {}),
@@ -391,9 +384,7 @@ export function AdminTeamEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
-        // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting
-        // the browser's required message the moment an edited field is cleared. `aria` keeps
-        // `aria-required` and leaves every message to `useDraftFieldErrors`.
+        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
         validationBehavior="aria"
         ref={formRef}
         validationErrors={fieldErrors}

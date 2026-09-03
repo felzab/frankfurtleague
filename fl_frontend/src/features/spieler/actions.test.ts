@@ -73,8 +73,7 @@ function squadBranch(code: string): string {
 }
 
 describe("the erasure action against the backend's refusal register", () => {
-  /* First, because a boundary string that stopped matching leaves the slices empty and every
-     assertion over them would then fail for something that is not the defect. */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper and the action out of the file before reading them", () => {
     assert.ok(ERASURE_MAP.includes('serverErrorCode === "REQ-PURGE-001"'), "the erasure's branch is outside its slice");
     assert.ok(!ERASURE_MAP.includes("REQ-SQUAD-001"), "the erasure's slice runs on into the squad mapper's arms");
@@ -93,9 +92,7 @@ describe("the erasure action against the backend's refusal register", () => {
   it("maps every refusal the erasure endpoint declares", () => {
     const declared = declaredCodes(ERASURE_OPERATION);
 
-    // Asserted before the loop rather than left to it: an operation the register stopped naming
-    // declares nothing, the loop then runs zero times, and a green result would claim the mapper
-    // covers an endpoint whose refusals it has in fact stopped reading.
+    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
     assert.deepEqual(declared, ERASURE_CODES);
     for (const code of declared)
       assert.ok(ERASURE_MAP.includes(`serverErrorCode === "${code}"`), `${code} reaches the admin as an unhandled conflict`);
@@ -142,8 +139,7 @@ describe("the erasure's copy", () => {
   /* The escalation is two presses, the draw's shape. One press would put a permanent removal behind
      the same gesture as a name edit. */
   it("arms before it writes", () => {
-    // The two-press ORDER is the shared hook's and is pinned once at `shared/hooks/useTwoPressConfirm.test.ts`;
-    // what is panel-local is that the write is reached only through `press`, never from the bare handler.
+    // Panel-local: the write is reached only through `press` (`shared/hooks/useTwoPressConfirm.test.ts` pins the order).
     assert.match(PANEL, /press\(async \(\) => \{/, "the panel writes outside the armed press");
     assert.match(PANEL, /<ConfirmReveal>/, "the escalation replaces the copy in place with no announcement");
   });

@@ -19,10 +19,7 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
 }: {
   draft: T;
   onChange: (updatedDraft: T) => void;
-  /**
-   * For the inline-create panel, which renders inside the match form's `<form>` where `Form`'s
-   * `validationErrors` context cannot reach it. The `EntityForm` callers leave it undefined.
-   */
+  /** For the inline-create panel, inside the match form's `<form>` where `Form`'s `validationErrors` cannot reach. */
   errors?: FieldErrors;
 }) {
   return (

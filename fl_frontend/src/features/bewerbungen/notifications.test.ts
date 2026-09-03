@@ -100,8 +100,7 @@ function reset(): void {
 }
 
 describe("who a decision is sent to", () => {
-  /* First, because a harness whose double never ran would leave `sent` empty and every assertion
-     after this would fail for the harness rather than for the source. */
+  /* First, so a double that never ran fails here rather than under every assertion below. */
   it("reaches the provider through the doubled transport at all", async () => {
     reset();
     const outcome = await sendBewerbungMail({ operation: "test", recipients: [empfaenger("a@schule.de")], buildMail: buildMail });

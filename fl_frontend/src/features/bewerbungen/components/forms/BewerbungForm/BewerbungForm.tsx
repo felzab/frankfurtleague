@@ -217,8 +217,7 @@ export function BewerbungForm({
     if (isPending) return;
 
     const payload = bewerbungPayload(draft);
-    // `aria` blocks nothing natively, so this is what keeps an incomplete application off an
-    // unauthenticated endpoint — and names every missing field in the schema's own German at once.
+    // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
     guardSubmit({ bewerbung: payload }, writeAfterBlock);
   };
 
@@ -277,9 +276,7 @@ export function BewerbungForm({
   return (
     <Form
       ref={formRef}
-      // `aria`, as every form here is: native mode validates on the DOM `change` event, so a field
-      // cleared after an edit reported `valueMissing` before anyone had left it. Under `aria` that
-      // flag is never set, and our own German arrives with the submit.
+      // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
       validationBehavior="aria"
       // A create form, so its required fields carry the asterisk every other create form marks them
       // with: nearly every box here is required, and a stranger fills this in once.

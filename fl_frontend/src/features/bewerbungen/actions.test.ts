@@ -58,8 +58,7 @@ const NOTIFY = sliceBetween(ACTIONS, "async function notifyBewerbung", "export a
 const mappedCodes = [...MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
 
 describe("the slices these assertions read", () => {
-  /* First, because a boundary string that stopped matching leaves the slices empty and every
-     assertion over them would then fail for something that is not the defect. */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper and both actions out of the file before reading them", () => {
     assert.ok(MAPPER.includes("error.serverErrorCode"), "the mapper's switch is outside its slice");
     assert.ok(!MAPPER.includes("annehmenBewerbung(validated.data)"), "the mapper's slice reaches the acceptance");

@@ -153,8 +153,7 @@ function mirroredKey(projected: string): string {
 }
 
 describe("the replace window against the backend's own projection", () => {
-  /* First, because a boundary string that stopped matching leaves the projection empty, and the
-     comparison below would then fail for something that is not the drift it is here to catch. */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
   it("cuts the projection out of the module before reading it", () => {
     assert.ok(PROJECTION_SOURCE.includes('"saison_phase"'), "the tuple's first entry is outside its slice");
     assert.ok(!PROJECTION_SOURCE.includes("DRAWN_HOLDING_ITS_SIDES"), "the tuple's slice runs on past its closing paren");
