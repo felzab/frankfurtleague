@@ -10,13 +10,22 @@ here is a constraint the agent never sees.
 as what it must.** Sections 5, 6, 9 and 10 are that half, and each of them exists because an agent
 did the reasonable thing in their absence.
 
-**Three rules about writing one.** Glob every path before the brief goes out: a file list assembled
-from another agent's report inherits that report's errors, and the agent's rediscovery costs more
-than the check. Give every figure its provenance, because a number acquires false authority in
-transit — three relayed in one programme were wrong in three different directions. And **never cap
-the report's length**: a cap makes an agent drop its caveats, its
-not-established notes and its out-of-scope findings first, those looking least like findings, which
-is the class the report exists to carry. Shape is the instruction instead, and section 14 gives it.
+**Five rules about writing one.**
+
+- **Glob every path before the brief goes out.** A file list assembled from another agent's report
+  inherits that report's errors, and the agent's rediscovery costs more than the check.
+- **Give every figure its provenance**, because a number acquires false authority in transit —
+  three relayed in one programme were wrong in three different directions.
+- **Never cap the report's length.** A cap makes an agent drop its caveats, its not-established
+  notes and its out-of-scope findings first, those looking least like findings, which is the class
+  the report exists to carry. Shape is the instruction instead, and section 14 gives it.
+- **A judgement test the brief hands out names its parameters, and is calibrated once with a worked
+  verdict before it reaches a second agent.** A test phrased over "a reader" left every sweep to
+  pick its own, each picking the most generous one available, so one rule produced opposite verdicts
+  across a corpus with nothing to reconcile them and the coordinator alone able to see the spread.
+- **Where the session is rewriting the rules it works under, every instruction citing one says which
+  version it means.** An agent reading `HEAD` is right to refuse a clause that exists only in the
+  revision being assembled, and you are the only party holding both texts.
 
 ```
 1  OWNERSHIP.   The exact files you may write, listed in full:
@@ -56,7 +65,12 @@ is the class the report exists to carry. Shape is the instruction instead, and s
                 act on it -- cutting to meet a description rather than the rule is how a report
                 comes back successful against a number nobody held.
 
-5  GIT.         You run NO git command that writes and NO command that reaches the remote: no
+5  GIT.         You are on branch <branch>, which I cut before dispatching you. `.claude/CLAUDE.md`
+                §2's branch trigger binds you as it binds me, and here it is already satisfied: run
+                `git rev-parse --abbrev-ref HEAD` before your first edit, and anything but <branch>
+                is a wrong premise under section 4 -- stop and report it rather than moving the
+                tree yourself.
+                You run NO git command that writes and NO command that reaches the remote: no
                 add, commit, checkout, stash, reset, no push, and no `gh` at all -- not
                 `gh pr create`, not `gh pr ready`, not `gh pr merge`. A `git stash push` by one
                 agent emptied the shared tree under nine editors, and concurrent staging corrupts
@@ -136,14 +150,14 @@ is the class the report exists to carry. Shape is the instruction instead, and s
                   recognises at all. Satisfying it is mine at the wave boundary: never widen the
                   argument to get past it.
                 - Everything in `.claude/CLAUDE.md` binds you too -- it is in your context without
-                  your reading it -- and the pipe rule and the text-mode write rule are there.
-                  Three parts of it are mine rather than yours, and each would otherwise send you
-                  into a file you do not own: §2's branch, push and pull-request clauses, which
-                  are section 5 above; §3's "a finding outside the task becomes a roadmap entry at
-                  once", which is section 14(f) for you and mine to route, since every agent's
-                  out-of-scope findings land on the one roadmap page; and §8's "update every
-                  claim a change invalidates in the same commit", which is section 11 for you --
-                  write the hunk, and I apply it in that commit.
+                  your reading it -- and the pipe rule, the text-mode write rule and §2's branch
+                  trigger are there. Three parts of it are mine rather than yours, and each would
+                  otherwise send you into a file you do not own: §2's branch-cutting, push and
+                  pull-request clauses, which are section 5 above; §3's "a finding outside the task
+                  becomes a roadmap entry at once", which is section 14(f) for you and mine to
+                  route, since every agent's out-of-scope findings land on the one roadmap page;
+                  and §8's "update every claim a change invalidates in the same commit", which is
+                  section 11 for you -- write the hunk, and I apply it in that commit.
                 - <plus the traps specific to this work>
 
 10 TELL ME.     Two things stop your work and come to me. Both are cheap for you to raise and

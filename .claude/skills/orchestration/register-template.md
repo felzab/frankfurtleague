@@ -71,6 +71,10 @@ is. "Lands after" holds the ordering constraints (`SKILL.md` §5) -- a citation'
 workflow's manifest -- never prose elsewhere. "Audit dispatched to" is filled in the same edit as
 "Landed", and a landed row with it empty is committed work nobody is auditing.
 
+**Stage a file that must execute with its mode, and read it back with `git ls-files -s`.**
+`core.fileMode` is false here, so a new file lands 100644 whatever the filesystem says, and a hook
+without the executable bit is skipped in silence on Linux.
+
 **Validate every message twice.** `python scripts/checks/check_commits.py --message-file <file>`
 prints only what fails, so an over-long subject and an unknown scope come back at exit 0 with no
 output at all. The second route is the checking function itself, which prints both tiers:
@@ -103,6 +107,16 @@ plumbing, and it is the only instrument that can find the mechanism worthless wh
 time to change it. Driving every check red proves the machinery runs, which is the cheap half; a
 check is verified against what it makes people WRITE, and the free half of that is asking each
 agent to report where it shaped its prose to satisfy a checker.
+
+**A check reading the whole corpus rather than a branch's diff is run against the real tree before
+it is wired into anything, and its findings are CLASSIFIED rather than counted.** A plant proves a
+check can fail and says nothing about what it fails on: one such check returned 286 findings that
+were every one a genuine defect, and another returned 179 of which none was the defect its rule
+forbids -- the rule's own mandated repair having pushed the shared text past the check's word floor,
+a floor being an accidental exemption wherever the rule refuses shortness as a reason. From outside
+the two are the same thing, a new check with a three-figure backlog, and only the classification
+separates a migration worth doing from a check that must not ship. A suite of 301 passing fixtures
+stood beside 181 corpus failures the same night.
 
 ## Tree health -- re-established at every wave boundary, not assumed
 
@@ -196,8 +210,9 @@ violation.>
 
 ## Running unattended
 
-`SKILL.md` §1 gives the decision axis; this is what the register then owes. **A subagent's prompt
-surfaces in the owner's session rather than the agent's**, so an agent that trips one does not fail
+`SKILL.md` §1 says when this is prepared; the axis and what the register then owes are here. **A
+subagent's prompt surfaces in the owner's session rather than the agent's**, so an agent that trips
+one does not fail
 fast — it parks the whole fleet behind a dialog nobody is awake to answer, and the register is the
 only thing that will still be true in the morning.
 
@@ -205,10 +220,12 @@ only thing that will still be true in the morning.
   `PreToolUse` hook returning `permissionDecision: "ask"` prompted the owner with bypass mode
   active. So bypass is not the preparation, whatever it is named for; removing the registration is
   the only mechanism that reaches such a prompt, which is the next clause's cost.
-- **A deny lets a session adapt; only an unanswerable ask hangs it.** So the asks go and every deny
-  stays, and hooks are never disabled wholesale: the denies are what prevent real damage, and a
-  session that has switched off its credential and branch guards to sleep more soundly has bought
-  the wrong thing.
+- **A deny lets a session adapt; only an unanswerable ask hangs it.** So what an unattended stretch
+  can need lifted is an ask and never a deny — and only an ask that is not itself holding a change
+  for the owner's sign-off, since removing that one spends the sign-off it exists to collect, which
+  is the next clause's answer as much as its cost. Hooks are never disabled wholesale: the denies
+  are what prevent real damage, and a session that has switched off its credential and branch guards
+  to sleep more soundly has bought the wrong thing.
 - **Removing a guard's registration is the owner's instruction to give, never the coordinator's to
   take** — it is routing around a guard, whatever the reason looks like at midnight.
 - **The prompt surface is not enumerable from the hooks.** Prompts also come from the harness's own

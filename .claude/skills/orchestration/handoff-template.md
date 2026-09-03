@@ -87,4 +87,5 @@ delivers. The owner sends `/orchestration` as its own message before pasting it
   work audit it, then fixing what it finds.
 ```
 
-Both live in the durable plan directory beside the plan and every document they cite.
+Both live in the durable plan directory beside the plan, with **one copy of each document they
+cite**: a second copy diverges, and a ruling standing in one and not the other gets re-asked.
