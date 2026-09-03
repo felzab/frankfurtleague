@@ -219,7 +219,7 @@ def test_a_comment_block_over_the_bound_in_a_hook_is_reported() -> None:
         write(root, HOOK, _page(*HOOK_LINES))
     reported = [(check, file) for check, file, _, _ in answer["findings"]]
     assert reported == [("comment-length", HOOK)], answer["findings"]
-    assert "INC-9 caps a block at 250" in answer["findings"][0][3]
+    assert "INC-9 caps a block at 40" in answer["findings"][0][3]
 
 
 def test_a_hook_block_that_was_already_over_the_bound_is_left_alone() -> None:

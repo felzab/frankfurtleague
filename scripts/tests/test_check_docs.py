@@ -50,7 +50,7 @@ SAMPLE: Final = "fl_backend/app/sample.py"
 SECOND_SAMPLE: Final = "fl_backend/app/second.py"
 THIRD_SAMPLE: Final = "fl_backend/app/spare.py"
 LABEL_SAMPLE: Final = "fl_backend/app/label.py"
-# The one module carrying a comment block the corpus commits ALREADY over INC-9's character bound,
+# The one module carrying a comment block the corpus commits ALREADY over INC-9's word bound,
 # so a plant can edit inside it and a plant can lengthen the short block beside it.
 LEGACY_SAMPLE: Final = "fl_backend/app/legacy.py"
 # One module per comment marker, because the marker is what a wrapped citation drags into its anchor.
@@ -60,17 +60,25 @@ MARKER_TSX: Final = "fl_frontend/src/marker.tsx"
 # reader after a file nobody named.
 QUOTED_ERROR: Final = "121 · Plan executor error during update :: caused by :: Document failed validation"
 # Three DISTINCT lines: a plant edits the middle one, and the block is recognised across that edit
-# by its opening -- which a plant editing the opening itself would change, and own.
+# by the lines it still shares with the fork.
 LEGACY_OPENING: Final = "an opening line of a comment block the corpus itself committed over what a comment may ever hold"
-LEGACY_MIDDLE: Final = "a middle line a plant edits, leaving the block over a character bound it was already over before"
-LEGACY_CLOSING: Final = "a closing line carrying the block past the character bound well before any plant was ever written"
-SHORT_LINE: Final = "a block inside the character bound until something is added to it"
-# What a plant adds to the short block to carry it past the character bound and nothing else, so
+LEGACY_MIDDLE: Final = "a middle line a plant edits, leaving the block over a word bound it was already over before"
+LEGACY_CLOSING: Final = "a closing line carrying the block past the word bound well before any plant was ever written"
+SHORT_LINE: Final = "a block inside the word bound until something is added to it"
+# What a plant adds to the short block to carry it past the word bound and nothing else, so
 # only the branch's own text can be what fires.
-LENGTHENING_LINE: Final = "a clause that carries the block past the character bound " * 4
+LENGTHENING_LINE: Final = "a clause that carries the block past the word bound " * 4
 # The one C-style module in the corpus. A JSX comment opens with a brace, so no other fixture puts
 # that shape in front of the reader, and it is bounded as an inline comment rather than a symbol doc.
 TSX_SAMPLE: Final = "fl_frontend/src/sample.tsx"
+# One slice per arm the tag checks take: derived, stale and frontend-only. A slice exists only
+# while a file holds its folder open, and `git clean` takes an empty one with it.
+SPIELE_ROUTER: Final = "fl_backend/app/api/spiele/router.py"
+TEAMS_ROUTER: Final = "fl_backend/app/api/teams/router.py"
+SPIELER_PANEL: Final = "fl_frontend/src/features/spieler/Panel.tsx"
+# A file sitting directly under a slice root, so a named segment can be one the tree defines no
+# slice for. Every other fixture path under these roots names a folder.
+SLICE_STRAY: Final = "fl_frontend/src/features/registry.ts"
 # The one file carrying German a reader would see. It holds the date range as well, that being the
 # only dash §1.12 permits and the only thing keeping the formatter exemption from reading as stale.
 COPY_SAMPLE: Final = "fl_frontend/src/copy.tsx"
@@ -97,18 +105,34 @@ BACKEND_SPEC: Final = "docs/backend/spec.md"
 FRONTEND_SPEC: Final = "docs/frontend/spec.md"
 OVERVIEW: Final = "docs/backend/overview.md"
 FRONTEND_OVERVIEW: Final = "docs/frontend/overview.md"
-ROADMAP: Final = "docs/_roadmap/open-items.md"
-# The tooling half of the split roadmap, so the shape check has more than the one ranked page to
-# loop over.
-TOOLING_ROADMAP: Final = "docs/_roadmap/tooling-items.md"
-# The log a ranked page is resolved against: an id standing on both is a removal applied by halves.
-CLOSED_ROADMAP: Final = "docs/_roadmap/closed-items.md"
-CLOSED_ROW: Final = "| FX-8 | An item that was concluded | Closed |"
-# Its one ranked item. The corpus writes the row and the entry, the plant rewrites them, and one
-# spelling here is what keeps the page the plant edits and the page the corpus holds in step.
-TOOLING_ITEM: Final = "Rank the tooling work apart"
-TOOLING_ROW: Final = "| 1 | TL-1 | " + TOOLING_ITEM + " |"
-TOOLING_ENTRY: Final = "1 · TL-1 — " + TOOLING_ITEM
+ROADMAP: Final = "docs/_roadmap/items.md"
+
+
+def _tick(token: str) -> str:
+    """A token as the page spells it: backticked, like every other identifier COR-6 governs."""
+    return "`" + token + "`"
+
+
+# Two ids from the entry alphabet, which holds no `i`, `l`, `o`, `0` or `1`. Random-looking on
+# purpose: `check_added_citations` resolves an eight-character word against these tables, so an id
+# spelling an English word would report every comment carrying that word.
+DOCS_ENTRY: Final = "kxr7-m2qd"
+SLICE_ENTRY: Final = "vb4n-hs9t"
+# What a plant files without an entry under it, and an id carrying a letter the alphabet excludes.
+ORPHAN_ENTRY: Final = "jd8s-hrkm"
+MALFORMED_ENTRY: Final = "kxr7-m2qo"
+# One item's claim, spelled once: the corpus writes it into the index row and the heading alike, and
+# a plant rewriting either has to keep them in step.
+DOCS_ITEM: Final = "Give the gate a fixture net"
+SLICE_ITEM: Final = "Serve a fixture through the slice"
+DOCS_ROW: Final = "| " + _tick(DOCS_ENTRY) + " | " + DOCS_ITEM + " | Docs | Open |"
+SLICE_ROW: Final = "| " + _tick(SLICE_ENTRY) + " | " + SLICE_ITEM + " | BE, spiele | Open |"
+# The heading closing the page. Every plant that APPENDS to this page lands under it, so nothing a
+# case appends is read as the last entry's own prose.
+ROADMAP_TAIL: Final = "Appendix"
+# The slice entry's closing line, spelled once: a plant anchors the batching line on it to put that
+# line INSIDE the entry, which an append to the page could not do.
+SLICE_DONE: Final = "Done is `fl_backend/app/api/spiele/router.py` serving the read the panel beside it asks for."
 TEMPLATES: Final = "docs/_git/templates.md"
 SWEEP: Final = ".claude/commands/docs/audit.md"
 ROOT_README: Final = "README.md"
@@ -139,6 +163,16 @@ UNSTAGED_MODULE: Final = "fl_backend/app/unstaged.py"
 UNSTAGED_BLOCK: Final = "fl_backend/app/unstaged_block.py"
 # The one path a plant writes into more than one file, so placement is what a finding turns on.
 DEAD_PATH: Final = "docs/gone-in-an-unstaged-module.md"
+# One cell past the words a cell may hold, and one passage past what makes a repeat worth naming.
+# Both are spelled once: a plant writes them into two places, and the check reads what it finds.
+PARAGRAPH_CELL: Final = (
+    "The write path validates its input before it stores anything, because a document that fails "
+    "validation after the write has already reached every reader of the collection"
+)
+ECHOED_PASSAGE: Final = (
+    "A passage long enough that repeating it is a second home rather than a turn of phrase, "
+    "so the reader who finds both has no way to tell which of the two is the one being maintained."
+)
 # The glossary heading the notes page cites by bare name, which is what the untracked twin copies.
 GLOSSARY_ANCHOR: Final = "the competition year"
 # What the fixture is BUILT out of rather than checked. Naming what must SURVIVE the reset keeps this
@@ -196,7 +230,7 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "**Programme:** the fixture net · **Method:** a planted corpus",
             "",
             # An underscore survives GitHub's slugger and a repeated heading takes a `-N` suffix, so
-            # both fragments below resolve. The link text carries no ordinal: `counts` reads one.
+            # both fragments below resolve, one anchoring in this page and one from the page beside it.
             _heading(2, "The saison_id field"),
             "",
             "A link to [the field](#the-saison_id-field) resolves.",
@@ -329,63 +363,43 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "**Purpose:** every rule this corpus is held to, in one file.\\",
             "**Applies to:** every written artifact this corpus holds.",
             "",
-            # Both of a rule's shapes: list lines, and sections carrying the ordered fields. The
-            # enforcement claims name real checks, so the clean corpus resolves every one.
+            # The one shape PRE-4 admits. The enforcement claims name real checks, so the clean
+            # corpus resolves every one; a section-shaped rule is what a plant adds.
             "- **COR-1:** write for a reader with no context. _Enforced by_ `citation` and `path`.",
+            "- **COR-2:** a fact is stated in full in one place and cited from everywhere else. _Enforced by_ `glossary-entry`.",
             "- **COR-13:** a rule stated as a list line alone still claims enforcement. _Enforced by_ review judgment.",
-            "",
-            _heading(3, "COR-2 — Say it once"),
-            "",
-            "**Rule:** a fact is stated in full in exactly one place and cited from everywhere else.",
-            "",
-            "**Why:** a fact stated twice eventually disagrees with itself.",
-            "",
-            "**Exceptions:** —",
-            "",
-            "**Enforced by:** `glossary-entry`.",
-            "",
-            "**Example:** a claim cited rather than repeated.",
-            "",
-            _heading(3, "OUT-42 — A second section, so a plant can break one shape per rule"),
-            "",
-            "**Rule:** the corpus carries a rule in each shape it may take, and more than one section.",
-            "",
-            "**Enforced by:** `rule-shape`.",
         ),
         ROADMAP: _page(
-            _heading(1, "Open items"),
+            _heading(1, "Items"),
             "",
-            "**Purpose:** what is open, ranked.",
+            "**Purpose:** what is open, in one file.",
             "",
-            "| Rank | ID | Item |",
-            "| --- | --- | --- |",
-            "| 1 | FX-1 | Give the gate a fixture net |",
+            "| ID | Item | Tags | Status |",
+            "| --- | --- | --- | --- |",
+            DOCS_ROW,
+            SLICE_ROW,
             "",
-            _heading(3, "1 · FX-1 — Give the gate a fixture net"),
+            _heading(3, _tick(DOCS_ENTRY) + " · " + DOCS_ITEM),
             "",
-            "**Status:** Open",
-        ),
-        TOOLING_ROADMAP: _page(
-            _heading(1, "Tooling items"),
+            "| Tags | Status | Effort | Depends on |",
+            "| --- | --- | --- | --- |",
+            "| Docs | Open | S | — |",
             "",
-            "**Purpose:** what is open in the tooling, ranked.",
+            "No check is driven against a planted violation. A check nobody drives red is one nobody",
+            "proved. Done is a net beside `docs/notes.md` that plants one violation per check.",
             "",
-            "| Rank | ID | Item |",
-            "| --- | --- | --- |",
-            TOOLING_ROW,
+            _heading(3, _tick(SLICE_ENTRY) + " · " + SLICE_ITEM),
             "",
-            _heading(3, TOOLING_ENTRY),
+            "| Tags | Status | Effort | Depends on |",
+            "| --- | --- | --- | --- |",
+            "| BE, spiele | Open | M | — |",
             "",
-            "**Status:** Open",
-        ),
-        CLOSED_ROADMAP: _page(
-            _heading(1, "Closed items"),
+            "The slice answers no request. A reader filtering on it meets one half of the feature.",
+            SLICE_DONE,
             "",
-            "**Purpose:** what has left a ranked page.",
+            _heading(2, ROADMAP_TAIL),
             "",
-            "| ID | Item | Status |",
-            "| --- | --- | --- |",
-            CLOSED_ROW,
+            "A closing section, so a line a plant appends lands outside every entry rather than inside the last one.",
         ),
         TEMPLATES: _page(
             _heading(1, "Templates"),
@@ -459,7 +473,7 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
         LEGACY_SAMPLE: _page(
             QUOTES + "BACKEND · a module whose comments the corpus committed before any plant." + QUOTES,
             "",
-            # Committed over the character bound, and silent while nothing touches it: a run with an
+            # Committed over the word bound, and silent while nothing touches it: a run with an
             # empty diff adds no line, which is what leaves an untouched block outside the check.
             *[HASH + " " + line for line in (LEGACY_OPENING, LEGACY_MIDDLE, LEGACY_CLOSING)],
             "LEGACY = 1",
@@ -471,6 +485,24 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             QUOTES + "BACKEND · a module whose own name no ASCII listing can spell." + QUOTES,
             "",
             "UMLAUT = 1",
+        ),
+        SPIELE_ROUTER: _page(
+            QUOTES + "BACKEND · the slice an entry names, so a derived tag has a folder to come from." + QUOTES,
+            "",
+            "SPIELE = 1",
+        ),
+        TEAMS_ROUTER: _page(
+            QUOTES + "BACKEND · a second slice, so a row can carry a tag the entry derives nothing for." + QUOTES,
+            "",
+            "TEAMS = 1",
+        ),
+        SPIELER_PANEL: _page(
+            "export function Panel() {",
+            "  return <output>a third slice, and the one spelled on the frontend alone</output>;",
+            "}",
+        ),
+        SLICE_STRAY: _page(
+            "export const REGISTRY = 1;",
         ),
         TSX_SAMPLE: _page(
             "export function Sample() {",
@@ -596,7 +628,6 @@ def _module(name: str) -> ModuleType:
 
 FINDING_RE: Final = re.compile(r"\[([a-z][a-z0-9-]*)\]$")
 FAILING: Final = "failing finding"
-ADVISORY: Final = "advisory finding"
 
 # One printed finding. The file separates a check that fires from one firing about the wrong page;
 # counting the triples separates a check with two producers from one that has lost one.
@@ -628,8 +659,6 @@ def _reported(output: str) -> Counter[Reported]:
         text = line.strip()
         if FAILING in text:
             severity = "fail"
-        elif ADVISORY in text:
-            severity = "report"
         elif (match := FINDING_RE.search(text)) is None:
             continue
         # A finding under no severity heading means the run's shape moved. Left silent it would read
@@ -670,7 +699,7 @@ def _run() -> tuple[int, Counter[Reported]]:
     _clear_caches(fixture.root / SCRIPTS_COPY)
     buffer = io.StringIO()
     argv = sys.argv
-    sys.argv = ["check_docs.py", "--all"]
+    sys.argv = ["check_docs.py"]
     try:
         with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
             code = int(fixture.gate.main())
@@ -735,9 +764,10 @@ def _delete(rel: str) -> None:
 
 
 def _plant_rule_shapes() -> None:
-    """A heading with no claim, and a section stating no required field."""
-    _replace(STANDARD, _heading(3, "COR-2 — Say it once"), _heading(3, "COR-2 stated as a title rather than a claim"))
-    _drop(STANDARD, "**Rule:** the corpus carries a rule in each shape it may take, and more than one section.")
+    """Both arms: a rule written as a section, and a list line claiming no enforcement."""
+    # The heading names no other id: every one it carries is resolved, and the corpus defines three.
+    _append(STANDARD, _heading(3, "OUT-42 — A rule written as a section"), "", "**Rule:** it states its fields under a heading.")
+    _replace(STANDARD, " _Enforced by_ review judgment.", "")
 
 
 def _plant_glossary() -> None:
@@ -790,7 +820,7 @@ def _plant_module_headers() -> None:
         _page(
             QUOTES + "a title with no separator in it",
             "─" * 12,
-            *["a filler line carrying the header past its cap" for _ in range(18)],
+            *["a filler line carrying the header past the words a header may hold" for _ in range(18)],
             QUOTES,
         ).rstrip("\n"),
     )
@@ -814,23 +844,38 @@ def _plant_module_headers() -> None:
 
 
 def _plant_roadmap() -> None:
-    """Every shape a ranked page can lose, and a subset on the tooling page.
+    """Every structural shape the file can lose, one producer apiece.
 
-    A plant on the product page alone cannot tell the check's LOOP from one stopping at the first
-    page.
+    The tag arms are planted by the cases below this one, where each can be asserted on its own.
     """
+    # A row nothing files under it.
+    _replace(ROADMAP, DOCS_ROW, DOCS_ROW + "\n| " + _tick(ORPHAN_ENTRY) + " | A row with no entry below it | Docs | Open |")
+    # The status the trailer replaces, in both places a status is written.
+    _replace(ROADMAP, DOCS_ROW, DOCS_ROW.replace("| Open |", "| Closed |"))
+    _replace(ROADMAP, "| Docs | Open | S | — |", "| Docs | Closed | S | — |")
+    # A heading between two entries, which is a category kept in a second place.
+    _replace(ROADMAP, _heading(3, _tick(SLICE_ENTRY)), _heading(2, "The slice work") + "\n\n" + _heading(3, _tick(SLICE_ENTRY)))
+    # A batch naming an id this file holds no entry for.
+    _replace(ROADMAP, SLICE_DONE, SLICE_DONE + "\n\nLands with: " + ORPHAN_ENTRY)
+    # A second entry under an id already filed, and an id carrying a letter the alphabet excludes.
+    # Both go above the closing heading, or the heading would sit between two entries as well.
     _replace(
         ROADMAP,
-        "| 1 | FX-1 | Give the gate a fixture net |",
-        "| 1 | FX-1 | Give the gate a fixture net |\n| 3 | FX-2 | A row with no entry below it | Closed |",
+        _heading(2, ROADMAP_TAIL),
+        _page(
+            _heading(3, _tick(DOCS_ENTRY) + " · " + DOCS_ITEM),
+            "",
+            "A second entry under an id already filed, naming `docs/notes.md` so its tags still agree.",
+            "",
+            # A malformed id is planted as a heading and never as a row: the pairing runs over the
+            # well-formed ids alone, so planting both would be one defect reported twice.
+            _heading(3, _tick(MALFORMED_ENTRY) + " · An id no alphabet admits"),
+            "",
+            "An id carrying a letter the alphabet excludes, naming `docs/notes.md` like the one above it.",
+            "",
+            _heading(2, ROADMAP_TAIL),
+        ).rstrip("\n"),
     )
-    _replace(ROADMAP, _heading(3, "1 · FX-1 — Give the gate a fixture net"), _heading(3, "4 · FX-1 — Give the gate a fixture net"))
-    _append(ROADMAP, _heading(3, "2 · FX-9 — An entry no table defines"), "", "**Status:** Closed")
-    _replace(TOOLING_ROADMAP, TOOLING_ROW, TOOLING_ROW + "\n| 2 | TL-2 | A tooling row with no entry below it |")
-    _replace(TOOLING_ROADMAP, _heading(3, TOOLING_ENTRY), _heading(3, "2 · TL-1 — " + TOOLING_ITEM))
-    # The half-applied removal: the log records the tooling entry as finished while the page still
-    # ranks it. Neither file contradicts itself, so only the two read together can say so.
-    _replace(CLOSED_ROADMAP, CLOSED_ROW, CLOSED_ROW + "\n| TL-1 | " + TOOLING_ITEM + " | Closed |")
 
 
 def _plant_segment_map() -> None:
@@ -909,13 +954,14 @@ def _plant_rule_ids() -> None:
     """
     _append(NOTES, "A claim citing COR-99.")
     _append(SAMPLE, HASH + " a bare I1 with no sheet named")
-    _append(STANDARD, "- **COR-1:** write for a reader with no context, stated again.")
+    # The claim is kept, or the line breaks `rule-shape` as well and one plant answers two checks.
+    _append(STANDARD, "- **COR-1:** write for a reader with no context, stated again. _Enforced by_ `citation`.")
 
 
 def _plant_branch_scope() -> None:
     """A clone with no base ref, as a fork and a trimmed checkout both are.
 
-    Renamed rather than rewritten: HEAD keeps its history, so the findings are the advisory alone.
+    Renamed rather than rewritten: HEAD keeps its history, so the one finding is the refusal itself.
     """
     git(_gate().root, "branch", "-m", "main", "trunk")
 
@@ -962,35 +1008,41 @@ def _plant_history() -> None:
             QUOTES,
         ).rstrip("\n"),
     )
+    # A second file, or the case cannot tell a per-file finding from one naming no file at all.
+    _append(NOTES, "The page was renamed after the draw, and no longer answers the old question.")
 
 
 def _plant_enforced_by() -> None:
-    """PRE-4's enforcement claim in both shapes: a section's field, and a list line's claim.
+    """PRE-4's enforcement claim naming a check the gate does not emit.
 
-    A rule with no section claims enforcement in its list line alone, so a field-only plant would
-    pass with every line claim unresolved.
+    Two lines rather than one: the claim is read per rule, so a reader that stopped after the first
+    would still answer this case with one finding.
     """
-    _replace(STANDARD, "**Enforced by:** `glossary-entry`.", "**Enforced by:** `no-such-check`.")
+    _replace(STANDARD, "_Enforced by_ `glossary-entry`.", "_Enforced by_ `no-such-check`.")
     _replace(STANDARD, "_Enforced by_ review judgment.", "_Enforced by_ gate check `absent-check`.")
 
 
-def _plant_counts() -> None:
-    """COR-4's enumerations in each half of the reader: a page's prose, and a module's docstring.
+def _plant_cell_prose() -> None:
+    """A spec-sheet cell carrying a paragraph, beside one that is a verbatim fragment.
 
-    Two files, because this check reports per file -- which is what separates the docstring half
-    from the markdown half when either stops being read.
+    A check that measured the quoted one too would answer this case with two findings and read as
+    working.
     """
-    _append(NOTES, "The pages here number four.")
     _replace(
-        SAMPLE,
-        QUOTES + "BACKEND · a sample module the corpus scans." + QUOTES,
-        _page(
-            QUOTES + "BACKEND · a sample module the corpus scans.",
-            "",
-            "It holds three constants a reader could count.",
-            QUOTES,
-        ).rstrip("\n"),
+        BACKEND_SPEC,
+        "| I1 | The write path validates its input | The sample module's own suite |",
+        "| I1 | " + PARAGRAPH_CELL + " | The sample module's own suite |\n| I2 | `" + PARAGRAPH_CELL + "` | The same suite |",
     )
+
+
+def _plant_echo() -> None:
+    """One passage stated on a second page.
+
+    A page and never a source file: COR-2's several-sites clause keeps a comment's claim at every
+    line it constrains, so this check reads no comment run at all.
+    """
+    _append(NOTES, "", ECHOED_PASSAGE)
+    _append(TWIN_NOTES, "", ECHOED_PASSAGE)
 
 
 def _plant_line_citations() -> None:
@@ -1087,9 +1139,9 @@ def _plant_comment_bounds() -> None:
     """
     _append(SAMPLE, *[HASH + " a line of a block that runs past what a comment may hold" for _ in range(6)])
     # One line, so nothing but this block's own text can be what fires.
-    _append(SECOND_SAMPLE, HASH + " " + ("a clause that carries the block past the character bound " * 5))
+    _append(SECOND_SAMPLE, HASH + " " + ("a clause that carries the block past the word bound " * 5))
     _append(THIRD_SAMPLE, QUOTES + "a docstring summary line", "", *["a line of its prose carrying the block past the bound"] * 5, QUOTES)
-    _append(TSX_SAMPLE, "/** a symbol doc " + ("whose clauses carry it past the character bound " * 6) + "*/")
+    _append(TSX_SAMPLE, "/** a symbol doc " + ("whose clauses carry it past the word bound " * 6) + "*/")
 
 
 def _plant_comment_citations() -> None:
@@ -1102,10 +1154,9 @@ def _plant_comment_citations() -> None:
         SAMPLE,
         HASH + " an audit id § S2 belongs to no clone",
         HASH + " and the last session is not a citation",
-        # The pattern's other half. `first` is the one ordinal COUNT_WORDS leaves out, so this line
-        # reaches the review reference and nothing else.
+        # The pattern's other half, so a reader that lost one spelling of a review reference is caught.
         HASH + " nor is the first review, which no clone holds",
-        HASH + " nor is FX-1 on its own",
+        HASH + " nor is " + DOCS_ENTRY + " on its own",
     )
     _append(SECOND_SAMPLE, HASH + " the ledger 3 entry is not a citation either")
 
@@ -1127,10 +1178,6 @@ def _plant_platform_branch() -> None:
 def _fails(check: str, *files: str) -> tuple[Reported, ...]:
     """One failing finding per file named -- a file twice is a check that must speak twice about it."""
     return tuple(("fail", check, rel) for rel in files)
-
-
-def _reports(check: str, *files: str) -> tuple[Reported, ...]:
-    return tuple(("report", check, rel) for rel in files)
 
 
 @dataclass(frozen=True)
@@ -1157,25 +1204,24 @@ CASES: Final[tuple[Case, ...]] = (
         _plant_bare_paths,
     ),
     Case("binary-byte", _fails("binary-byte", NOTES, UMLAUT_MODULE), _plant_binary_bytes),
-    Case("branch-scope", _reports("branch-scope", BRANCH_DIFF), _plant_branch_scope, _undo_branch_scope),
+    Case("cell-prose", _fails("cell-prose", BACKEND_SPEC), _plant_cell_prose),
+    Case("branch-scope", _fails("branch-scope", BRANCH_DIFF), _plant_branch_scope, _undo_branch_scope),
     Case("citation", _fails("citation", NOTES, NOTES, ROADMAP, ROADMAP, ROADMAP, TEMPLATES, SWEEP, TWIN_NOTES), _plant_citations),
-    Case(
-        "comment-citation",
-        _fails("comment-citation", SAMPLE, SECOND_SAMPLE) + _reports("comment-citation", SAMPLE, SAMPLE, SAMPLE),
-        _plant_comment_citations,
-    ),
+    Case("comment-citation", _fails("comment-citation", *[SAMPLE] * 4, SECOND_SAMPLE), _plant_comment_citations),
     Case("comment-length", _fails("comment-length", SAMPLE, SECOND_SAMPLE, THIRD_SAMPLE, TSX_SAMPLE), _plant_comment_bounds),
     Case("copy-corpus", _fails("copy-corpus", COPY_ROOT, COPY_ROOT), _plant_copy_corpus),
     Case("copy-dash", _fails("copy-dash", *[COPY_SAMPLE] * 3), _plant_copy_dash),
     Case("copy-formal", _fails("copy-formal", COPY_SAMPLE), _plant_copy_formal),
     Case("copy-informal", _fails("copy-informal", COPY_SAMPLE), _plant_copy_informal),
     Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
-    Case("counts", _reports("counts", NOTES, SAMPLE), _plant_counts),
     Case("crlf-write", _fails("crlf-write", SAMPLE), _plant_text_write),
+    # The corpus is walked in path order, so the twin under `docs/frontend/` is the home the two
+    # copies below it are told to cite.
+    Case("echo", _fails("echo", NOTES), _plant_echo),
     Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD), _plant_enforced_by),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
     Case("header-see", _fails("header-see", *[SAMPLE] * 4), _plant_header_see),
-    Case("history", _reports("history", BRANCH_DIFF), _plant_history),
+    Case("history", _fails("history", NOTES, SECOND_SAMPLE), _plant_history),
     Case("inputs", _fails("inputs", ROADMAP), lambda: _delete(ROADMAP)),
     Case(
         "invariant-id",
@@ -1192,14 +1238,16 @@ CASES: Final[tuple[Case, ...]] = (
     Case("owner-voice", _fails("owner-voice", NOTES), lambda: _append(NOTES, "The owner reads it.")),
     Case("path", _fails("path", NOTES), lambda: _append(NOTES, "`docs/gone.md` is named here.")),
     Case("platform-branch", _fails("platform-branch", HOOK_SAMPLE), _plant_platform_branch),
-    Case("readme-cap", _fails("readme-cap", ROOT_README), lambda: _append(ROOT_README, *["A line." for _ in range(130)])),
-    Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 7, *[TOOLING_ROADMAP] * 4), _plant_roadmap),
+    # Prose lines, not table rows: OUT-3 counts the words a table does not hold, so a plant made of
+    # rows would leave the bound unreached however long the page grew.
+    Case("readme-cap", _fails("readme-cap", ROOT_README), lambda: _append(ROOT_README, *["A line of README prose." for _ in range(160)])),
+    Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 7), _plant_roadmap),
     # The standard names its own duplicated id, which is what reports the collision: every citer of
     # a multiply homed id fails, and the definition lines are themselves citations.
     Case("rule-id", _fails("rule-id", NOTES, SAMPLE, STANDARD), _plant_rule_ids),
     Case("rule-shape", _fails("rule-shape", STANDARD, STANDARD), _plant_rule_shapes),
     Case("segment-map", _fails("segment-map", SWEEP, SWEEP), _plant_segment_map),
-    Case("sha", _reports("sha", NOTES), lambda: _append(NOTES, "The commit `abc1234` is gone.")),
+    Case("sha", _fails("sha", NOTES), lambda: _append(NOTES, "The commit `abc1234` is gone.")),
     Case("spec-spine", _fails("spec-spine", BACKEND_SPEC, FRONTEND_SPEC), _plant_spec_spines),
     Case(
         "template-fragment",
@@ -1294,24 +1342,24 @@ def test_the_standard_leaving_the_index_empties_its_readers_rather_than_raising(
         _reset()
     # Counted by name rather than by number: what is pinned is which checks spoke, the citation
     # count being the corpus' own and free to move.
-    assert set(reported) == {("fail", "rule-id", STANDARD), ("report", "counts", STANDARD)}, _shape(reported)
+    assert set(reported) == {("fail", "rule-id", STANDARD)}, _shape(reported)
     assert code == 1
     _assert_corpus_restored()
 
 
-def test_an_untracked_ranked_page_is_read_as_a_page_nobody_added() -> None:
-    """A ranked roadmap page on disk and outside the index fails, rather than passing unexamined.
+def test_an_untracked_roadmap_is_read_as_a_page_nobody_added() -> None:
+    """The roadmap on disk and outside the index fails, rather than passing unexamined.
 
     Driven directly: a page out of the index yields no shape finding to share a case with, and
     satisfies `inputs`, which asks the disk.
     """
     _reset()
-    git(_gate().root, "rm", "--cached", "-q", "--", TOOLING_ROADMAP)
+    git(_gate().root, "rm", "--cached", "-q", "--", ROADMAP)
     try:
         _, reported = _run()
     finally:
         _reset()
-    assert reported[("fail", "roadmap-shape", TOOLING_ROADMAP)] == 1, "an untracked ranked page passed: " + _shape(reported)
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an untracked roadmap passed: " + _shape(reported)
     _assert_corpus_restored()
 
 
@@ -1435,10 +1483,10 @@ def test_a_word_changed_inside_an_older_block_is_not_this_branch_s() -> None:
     Driven apart from the case above: silence proves nothing while a second block is speaking.
     """
     _reset()
-    cap = _module("docs_gate.branch").COMMENT_CHAR_CAP
+    branch = _module("docs_gate.branch")
     legacy = " ".join((LEGACY_OPENING, LEGACY_MIDDLE, LEGACY_CLOSING))
     # The premise, asserted: a corpus block INSIDE the bound would let this case pass on nothing.
-    assert len(legacy) > cap, "the corpus block is inside the bound, so nothing here is exempted"
+    assert len(legacy.split()) > branch.COMMENT_WORD_CAP, "the corpus block is inside the bound, so nothing here is exempted"
     _replace(LEGACY_SAMPLE, HASH + " " + LEGACY_MIDDLE, HASH + " " + LEGACY_MIDDLE.replace("edits", "rewords"))
     try:
         _, reported = _run()
@@ -1671,7 +1719,7 @@ def test_a_hook_s_embedded_javascript_comments_are_read() -> None:
         {
             ("fail", "bare-path", hook): 1,
             ("fail", "comment-length", hook): 1,
-            ("report", "history", BRANCH_DIFF): 1,
+            ("fail", "history", hook): 1,
         }
     )
     assert reported == expected, _shape(reported)
@@ -1718,8 +1766,8 @@ def test_a_corpus_with_no_file_in_it_refuses_rather_than_passing() -> None:
 def test_the_workflow_command_format_is_what_the_github_output_prints() -> None:
     """`--output-format github` is a mode CI reads and no human ever sees, so only a run proves it.
 
-    Both severities, because the annotation's level is the verdict the gate reached: a diff
-    annotated `warning` throughout reads as a run that passed.
+    Every annotation is an error, because every finding fails the run: one annotated `warning` reads
+    as something a reader may leave standing.
     """
     _reset()
     _plant_history()
@@ -1731,8 +1779,8 @@ def test_the_workflow_command_format_is_what_the_github_output_prints() -> None:
     lines = [line for line in output.split("\n") if line.startswith("::")]
     assert code == 1, output
     assert any(line.startswith("::error ") and "title=bare-path" in line for line in lines), output
-    assert any(line.startswith("::warning ") and "title=history" in line for line in lines), output
-    assert "FAIL " not in output and "report  " not in output, output
+    assert any(line.startswith("::error ") and "title=history" in line for line in lines), output
+    assert "::warning" not in output, output
     _assert_corpus_restored()
 
 
@@ -1808,11 +1856,11 @@ def test_a_finding_carries_the_line_the_token_it_read_sits_on() -> None:
 
 
 def test_an_annotation_carries_the_verdict_the_exit_code_carries() -> None:
-    """A diff annotated `warning` throughout reads as a run that passed, whatever the exit code said."""
+    """A diff annotated `warning` reads as a run that passed, whatever the exit code said."""
     _reset()
     finding = _module("docs_gate.kernel").Finding
     assert finding("fail", "path", NOTES, "a detail", 7).github().startswith("::error file=" + NOTES + ",line=7,title=path::")
-    assert finding("report", "history", NOTES, "a detail").github().startswith("::warning file=" + NOTES + ",title=history::")
+    assert finding("fail", "history", NOTES, "a detail").github().startswith("::error file=" + NOTES + ",title=history::")
 
 
 def test_a_workflow_command_escapes_what_would_otherwise_end_it() -> None:
@@ -1832,7 +1880,9 @@ def test_a_finding_naming_a_check_no_registry_holds_is_refused_where_it_is_built
     """The registry is what `enforced-by` resolves a rule's claim against, so a check outside it is invisible."""
     _reset()
     finding = _module("docs_gate.kernel").Finding
-    for check, severity in (("no-such-check", "fail"), ("history", "fail")):
+    # The severity as well as the name: one value is registered, and a finding claiming any other
+    # is a tier this gate does not have.
+    for check, severity in (("no-such-check", "fail"), ("history", "report")):
         try:
             finding(severity, check, NOTES, "a detail")
         except ValueError:
@@ -1865,73 +1915,91 @@ def test_a_nul_at_the_first_byte_is_reported_and_one_inside_a_token_never_ends_t
 # --- the arms a check takes when its own input refuses ---------------------------------------------
 
 
-def test_a_ranked_page_that_cannot_be_decoded_is_read_against_nothing() -> None:
+def test_a_roadmap_that_cannot_be_decoded_is_read_against_nothing() -> None:
     """A page the reader refuses yields no heading and no row, which is the shape of a clean page."""
     _reset()
-    _write_raw(TOOLING_ROADMAP, UNDECODABLE_BYTES)
+    _write_raw(ROADMAP, UNDECODABLE_BYTES)
     try:
         _, reported = _run()
     finally:
         _reset()
-    assert reported[("fail", "roadmap-shape", TOOLING_ROADMAP)] == 1, _shape(reported)
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, _shape(reported)
     _assert_corpus_restored()
 
 
-def test_a_closed_log_outside_the_index_leaves_the_ranked_pages_resolved_against_nothing() -> None:
-    """Untracked rather than absent: absence is `inputs`' finding, and this is the reading check's own."""
+def _roadmap_findings(plant: Callable[[], None]) -> Counter[Reported]:
+    """One roadmap plant's findings, restored whatever it raised."""
     _reset()
-    git(_gate().root, "rm", "--cached", "-q", "--", CLOSED_ROADMAP)
     try:
-        _, reported = _run()
+        plant()
+        return _run()[1]
     finally:
         _reset()
-    assert reported[("fail", "roadmap-shape", CLOSED_ROADMAP)] == 1, _shape(reported)
+
+
+def test_an_entry_heading_no_index_row_defines_is_reported_once() -> None:
+    """An id in no index row is the pairing's finding, and nothing else on the page speaks about it."""
+    added = _page(
+        _heading(3, _tick(ORPHAN_ENTRY) + " · An entry no index row defines"),
+        "",
+        "It names `docs/notes.md`.",
+        "",
+        _heading(2, ROADMAP_TAIL),
+    ).rstrip("\n")
+    reported = _roadmap_findings(lambda: _replace(ROADMAP, _heading(2, ROADMAP_TAIL), added))
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a heading no row defines went unreported: " + _shape(reported)
     _assert_corpus_restored()
 
 
-def test_a_closed_log_that_cannot_be_decoded_leaves_the_ranked_pages_resolved_against_nothing() -> None:
-    _reset()
-    _write_raw(CLOSED_ROADMAP, UNDECODABLE_BYTES)
-    try:
-        _, reported = _run()
-    finally:
-        _reset()
-    assert reported[("fail", "roadmap-shape", CLOSED_ROADMAP)] == 1, _shape(reported)
+def test_a_written_tag_naming_a_slice_the_entry_never_touches_fails_both_ways() -> None:
+    """The arm the slice axis exists for: a tag derived from the tree, against one somebody wrote."""
+    reported = _roadmap_findings(lambda: _replace(ROADMAP, SLICE_ROW, SLICE_ROW.replace("BE, spiele", "BE, teams")))
+    # Both directions, because either alone passes a row half-right: a derived tag left out reads
+    # as a narrower item, and a written one nothing derives reads as a wider one.
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 2, "a slice tag no path touches passed: " + _shape(reported)
     _assert_corpus_restored()
 
 
-def test_an_id_ranked_on_both_pages_fails_on_the_page_read_second() -> None:
-    """Each page agrees with itself, so only the insert into the cross-page map can see the repeat.
+def test_a_slice_is_matched_as_a_whole_segment_rather_than_as_a_substring() -> None:
+    """`spiele` opens `spieler` and `spieltage`, so a substring test tags an entry with slices it never touches.
 
-    Folded in silently, the second page replaces the first, and the log comparison then blames one
-    page for an entry the other ranks too.
+    The entry names the `spieler` panel alone: read as a substring its path carries `spiele` too.
     """
-    _reset()
-    product_row = "| 1 | FX-1 | Give the gate a fixture net |"
-    _replace(ROADMAP, product_row, product_row + "\n| 2 | TL-1 | " + TOOLING_ITEM + " |")
-    _append(ROADMAP, _heading(3, "2 · TL-1 — " + TOOLING_ITEM), "", "**Status:** Open")
-    try:
-        _, reported = _run()
-    finally:
-        _reset()
-    assert reported[("fail", "roadmap-shape", TOOLING_ROADMAP)] == 1, "an id ranked on both pages passed: " + _shape(reported)
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "the first page to rank it is the one it stays on: " + _shape(reported)
+
+    def plant() -> None:
+        _replace(ROADMAP, SLICE_DONE, "Done is `" + SPIELER_PANEL + "` rendering the squad it names.")
+        _replace(ROADMAP, SLICE_ROW, SLICE_ROW.replace("BE, spiele", "FE, spieler"))
+
+    reported = _roadmap_findings(plant)
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "a whole-segment match reported anyway: " + _shape(reported)
     _assert_corpus_restored()
 
 
-def test_a_ranked_heading_no_table_defines_is_the_row_test_s_finding() -> None:
-    """An id in no roadmap table has no row on its own page either, so the row test holds the vocabulary.
+def test_a_segment_under_a_slice_root_that_names_no_slice_is_reported() -> None:
+    """Dropped instead, a mistyped slice would leave the entry judged against a narrower derivation and the row reading as correct (PRE-4)."""
+    # Three: the stray segment, the frontend tag the new path derives, and the two the old one no
+    # longer does. The stray is what this case turns on, and the other two follow from the swap.
+    reported = _roadmap_findings(lambda: _replace(ROADMAP, SLICE_DONE, "Done is `" + SLICE_STRAY + "` naming a segment no slice owns."))
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 3, "a stray slice segment passed: " + _shape(reported)
+    _assert_corpus_restored()
 
-    FX-9 stands in no table anywhere in the corpus and is reported exactly once, by that test.
-    """
-    _reset()
-    _append(ROADMAP, _heading(3, "2 · FX-9 — An entry no table defines"), "", "**Status:** Open")
-    try:
-        _, reported = _run()
-    finally:
-        _reset()
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a heading no table defines went unreported: " + _shape(reported)
-    assert reported[("fail", "roadmap-shape", TOOLING_ROADMAP)] == 0, _shape(reported)
+
+def test_an_entry_naming_no_path_is_reported_rather_than_defaulted() -> None:
+    """No derived tag is an entry nobody can place, which is a subject nobody stated."""
+
+    def plant() -> None:
+        _replace(ROADMAP, SLICE_DONE, "Done is a read that answers.")
+        _replace(ROADMAP, SLICE_ROW, SLICE_ROW.replace("BE, spiele", "BE"))
+
+    reported = _roadmap_findings(plant)
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an entry naming nothing was defaulted: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_batch_naming_an_entry_this_file_holds_stays_silent() -> None:
+    """The batching line resolves rather than judges: a token that names an entry is the whole test."""
+    reported = _roadmap_findings(lambda: _replace(ROADMAP, SLICE_DONE, SLICE_DONE + "\n\nLands with: " + DOCS_ENTRY))
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "a resolvable batch reported anyway: " + _shape(reported)
     _assert_corpus_restored()
 
 
@@ -1958,29 +2026,42 @@ def test_a_file_the_byte_check_cannot_open_is_named_rather_than_passed_over() ->
     assert "could not be opened" in found[0].detail, found[0].detail
 
 
-def test_a_clone_git_will_not_read_says_the_shas_went_unresolved() -> None:
-    """A refused batch is every SHA unread, and saying nothing about that looks like a clean answer."""
+def test_a_sha_this_clone_resolves_is_failed_like_any_other() -> None:
+    """HEAD's own short form is the one SHA no clone can call dangling, and so the case a resolution-shaped reader lets through (COR-6)."""
     _reset()
     branch = _module("docs_gate.branch")
     kernel = _module("docs_gate.kernel")
-    _append(NOTES, "The commit `abc1234` is named here.")
+    head = git(_gate().root, "rev-parse", "HEAD")
+    live = next((head[:n] for n in (8, 7) if any(c.isdigit() for c in head[:n]) and any(c.isalpha() for c in head[:n])), None)
+    assert live is not None, "HEAD's short form carries no digit and letter, so it proves nothing here"
+    _append(NOTES, "The commit `" + live + "` is named here.")
     _clear_caches(_gate().root / SCRIPTS_COPY)
-    real = branch.git_input
-
-    def refusing(*args: str, stdin: str) -> str | None:
-        return None
-
-    # Through the module's own namespace: a module carries no declared attribute for a checker to
-    # assign to, and the dict is the same binding the function reads at each call.
-    vars(branch)["git_input"] = refusing
     try:
         found = branch.check_prose_shas(kernel.scanned_files())
     finally:
-        vars(branch)["git_input"] = real
         _reset()
-    assert len(found) == 1, found
-    assert "prose SHA resolution did not run" in found[0].detail, found[0].detail
+    assert [(f.check, f.file) for f in found] == [("sha", NOTES)], [f.detail for f in found]
     _assert_corpus_restored()
+
+
+def test_a_module_header_s_list_markers_cost_it_nothing() -> None:
+    """INC-2 measures the header text with its markers stripped, and its `See:` list is written with them.
+
+    Called directly rather than planted: reaching that bound through the corpus needs a header
+    longer than every plant beside it.
+    """
+    checks = _module("docs_gate.checks")
+    entry = "- fl_backend/app/sample.py"
+    # Enough entries that the markers alone decide, with the prose a word under the bound.
+    markers = checks.HEADER_WORD_CAP // 2
+    filler = ["BACKEND · a module whose header is a word under the bound before any marker is read."]
+    filler += ["a clause of the header's prose"] * ((checks.HEADER_WORD_CAP - 15 - markers * 2) // 6)
+    header = filler + ["See:"] + [entry] * markers
+    raw = "\n".join("# " + line for line in header) + "\nVALUE = 1\n"
+    words = checks.word_count(" ".join(line.removeprefix("- ") for line in header))
+    assert words <= checks.HEADER_WORD_CAP < words + markers, "the fixture proves nothing unless the markers alone break the bound"
+    found = checks.check_module_header("scripts/sample.py", raw, ".sh")
+    assert [f.detail for f in found if "caps it at" in f.detail] == [], [f.detail for f in found]
 
 
 # --- the copy scanner's own verdict ------------------------------------------------------------------

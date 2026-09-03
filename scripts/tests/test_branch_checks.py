@@ -26,9 +26,14 @@ MOD: Final = "fl_backend/app/mod.py"
 SIDE: Final = "fl_backend/app/side.py"
 LEGACY: Final = "fl_backend/app/legacy.py"
 FRESH: Final = "fl_backend/app/fresh.py"
+# The document INC-4's exemption is taken from, and the tree the second listing is read out of.
+OPENAPI: Final = "fl_backend/openapi.json"
 NOTES: Final = "docs/notes.md"
 SPARE: Final = "docs/spare.md"
-ROADMAP: Final = "docs/_roadmap/open-items.md"
+# A German page name, which `core.quotePath` spells back as an escaped run this diff walk cannot
+# key on. The domain vocabulary is German, so this path is the ordinary case and not the exotic one.
+UMLAUT_PAGE: Final = "docs/prüfung.md"
+ROADMAP: Final = "docs/_roadmap/items.md"
 ENTRYPOINT: Final = "nginx/entrypoint.sh"
 TOML: Final = "fl_backend/pyproject.toml"
 # A tracked file outside every scanned suffix: the diff must see it and every check must not.
@@ -43,21 +48,43 @@ BRANCH_DIFF: Final = "(branch diff)"
 
 # The id the fixture roadmap defines, so an added comment naming it is resolvable. Spelled only in
 # strings: named in a comment of this file it would be read as this file's own citation.
-ROADMAP_ID: Final = "FX-9"
-# What `LOOSE_ID_RE` matches and the roadmap tables cannot resolve: a refusal code carries the id
-# shape inside it, an encoding name is one whole. Each is what an unresolved hit looks like.
-REFUSAL_CODE: Final = "REQ-DATE-002"
-ENCODING_NAME: Final = "UTF-8"
+ROADMAP_ID: Final = "q7mf-zd4x"
+# What `LOOSE_ID_RE` matches and the roadmap table cannot resolve: a short hyphenated word, and a
+# token nothing files. Each is what an unresolved hit looks like, and the table is what parts a
+# citation from either.
+PLAIN_WORD: Final = "read-only"
+UNFILED_TOKEN: Final = "zzzz-9999"
 DROPPABLE: Final = "A droppable line the deletion scenario removes."
 LONG_TEXT: Final = "a line of a block that runs past what a comment may hold"
 LEGACY_OPEN: Final = "an opening line of a committed comment block that already runs far past what a comment may hold"
 LEGACY_MID: Final = "a middle line a scenario amends in place, to prove the fork text exempts the block it opens"
 LEGACY_END: Final = "a closing line that keeps the committed block over the bound before any scenario touches it"
+# The one description the fixture document publishes, over the bound so that any silence proves the
+# exemption. Multi-line, with a blank line, a heading and a list: a one-line description is the one
+# shape whose two normalisers cannot disagree.
+PUBLISHED_LINES: Final[tuple[str, ...]] = (
+    "Read the operation a caller reaches, whose refusal conditions run past what a comment",
+    "beside code may hold.",
+    "",
+    "# A markdown heading, which the source-side normaliser strips and the document side must too",
+    "",
+    "- a bulleted refusal a caller would be surprised by",
+    "- a second, so the published document carries this contract for a reader with no code open",
+)
+PUBLISHED_TEXT: Final = "\n".join(PUBLISHED_LINES)
+# A docstring of the same length under the same decorator, which the document does not publish.
+UNPUBLISHED_LINES: Final[tuple[str, ...]] = (PUBLISHED_LINES[0].replace("Read the", "Write the"), *PUBLISHED_LINES[1:])
+UNPUBLISHED_TEXT: Final = "\n".join(UNPUBLISHED_LINES)
+# A bulleted clause short enough that six of them keep the bound on words and break it on markers.
+BULLET_TEXT: Final = "a bulleted clause charging no word"
+BULLET_ITEMS: Final = 6
+# What a scenario adds INSIDE the committed block, which no rewrite of a line already there would.
+ADDED_CLAUSE: Final = "a further clause a scenario writes into a block that was over the bound already"
 
-# What every diff-reading check's advisory names, and the advisory's own shape
+# What every diff-reading check's refusal names, and that refusal's own shape
 # (`scripts/checks/docs_gate/branch.py :: check_branch_diff`). Spelled here as a pin: the wording is
 # behaviour a consolidation must preserve.
-DIFF_READERS: Final = "history, counts, added comment citations and comment length"
+DIFF_READERS: Final = "history, added comment citations and comment length"
 
 # The driver composes the branch checks in the gate's own order, read from whichever module wires
 # the run rather than listed here: a check dropped from that wiring has to fail this net, and a
@@ -89,7 +116,6 @@ additions = branch.branch_additions(state)
 calls = {
     "check_branch_diff": lambda: branch.check_branch_diff(state),
     "check_history_phrases": lambda: branch.check_history_phrases(additions),
-    "check_counts": lambda: branch.check_counts(additions),
     "check_added_citations": lambda: branch.check_added_citations(additions),
     "check_comment_bounds": lambda: branch.check_comment_bounds(state),
     "check_prose_shas": lambda: branch.check_prose_shas(scanned_files()),
@@ -136,9 +162,9 @@ def _corpus() -> dict[str, str]:
         ROADMAP: _page(
             HASH + " Roadmap",
             "",
-            "| Rank | ID | Item |",
-            "| --- | --- | --- |",
-            "| 1 | " + ROADMAP_ID + " | A ranked scenario item |",
+            "| ID | Item | Tags | Status |",
+            "| --- | --- | --- | --- |",
+            "| `" + ROADMAP_ID + "` | A scenario item | Docs | Open |",
         ),
         MOD: _module("a module the scenarios write comments into."),
         SIDE: _module("a module kept beside the first, so per-file answers separate."),
@@ -151,6 +177,7 @@ def _corpus() -> dict[str, str]:
             HASH + " " + LEGACY_MID,
             HASH + " " + LEGACY_END,
         ),
+        OPENAPI: json.dumps({"paths": {"/read": {"get": {"description": PUBLISHED_TEXT}}}}, indent=2) + "\n",
         ENTRYPOINT: _page(HASH + "!/bin/sh", "exec true"),
         TOML: _page("[tool.sample]", "key = 1"),
         PLAIN: _page("plain text outside every scanned suffix"),
@@ -243,17 +270,21 @@ def _line_of(rel: str, text: str) -> int:
     return _read(rel).split("\n").index(text) + 1
 
 
-def _bound_fail(rel: str, chars: int) -> tuple[str, str, str, str]:
-    detail = f"the comment block runs {chars} characters -- INC-9 caps a block at 250, every shape alike"
+def _bound_fail(rel: str, words: int) -> tuple[str, str, str, str]:
+    detail = f"the comment block runs {words} words -- INC-9 caps a block at 40, every shape alike"
     return ("fail", "comment-length", rel, detail)
 
 
-def _scope_report(missing: str) -> tuple[str, str, str, str]:
-    return ("report", "branch-scope", BRANCH_DIFF, DIFF_READERS + " did not run: git could not " + missing)
+def _sha_fail(rel: str, sha: str) -> tuple[str, str, str, str]:
+    return ("fail", "sha", rel, f"commit {sha} is named here -- COR-6 reaches the argument with `git log -S` on the constraint instead")
+
+
+def _scope_refusal(missing: str) -> tuple[str, str, str, str]:
+    return ("fail", "branch-scope", BRANCH_DIFF, DIFF_READERS + " did not run: git could not " + missing)
 
 
 LONG_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + LONG_TEXT for _ in range(6))
-LONG_CHARS: Final = len(" ".join([LONG_TEXT] * 6))
+LONG_WORDS: Final = len(" ".join([LONG_TEXT] * 6).split())
 
 
 def test_a_clean_branch_arms_nothing_and_reports_nothing() -> None:
@@ -266,7 +297,7 @@ def test_a_clean_branch_arms_nothing_and_reports_nothing() -> None:
     assert _findings(data) == []
 
 
-def test_an_added_comment_citation_reports_the_review_reference_and_the_roadmap_id() -> None:
+def test_an_added_comment_citation_fails_on_the_review_reference_and_the_roadmap_id() -> None:
     """The same id added to a markdown page stays outside this check, which reads source suffixes alone."""
     _reset()
     _append(MOD, HASH + " " + ROADMAP_ID + " says so", HASH + " the last session shaped this")
@@ -277,26 +308,27 @@ def test_an_added_comment_citation_reports_the_review_reference_and_the_roadmap_
         _reset()
     assert MOD in data["additions"] and NOTES in data["additions"]
     assert _findings(data) == [
-        ("report", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)"),
-        ("report", "comment-citation", MOD, "roadmap id " + ROADMAP_ID + " in an added comment -- state the constraint (INC-6)"),
+        ("fail", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)"),
+        ("fail", "comment-citation", MOD, "roadmap id " + ROADMAP_ID + " in an added comment -- state the constraint (INC-6)"),
     ]
 
 
 def test_an_id_shaped_token_the_roadmap_cannot_resolve_stays_silent() -> None:
-    """Resolving a hit against the roadmap tables is what separates a citation from a refusal code.
+    """Resolving a hit against the roadmap table is what separates a citation from an ordinary word.
 
-    The review reference beside the tokens is the evidence the check read the file: with no
-    resolution every backend comment naming a refusal code would report.
+    An entry id is eight lower-case characters, and so is `register`: without the resolution every
+    comment carrying an eight-letter word would report.
     """
     _reset()
-    _append(MOD, HASH + " " + REFUSAL_CODE + " decoded as " + ENCODING_NAME + " is a shape, not an id")
+    _append(MOD, HASH + " " + PLAIN_WORD + " and " + UNFILED_TOKEN + " are a shape, not an id")
+    # The review reference beside them is the evidence the check read the file at all.
     _append(MOD, HASH + " drawn up in the last session")
     try:
         data = _run()
     finally:
         _reset()
     assert MOD in data["additions"]
-    assert _findings(data) == [("report", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)")]
+    assert _findings(data) == [("fail", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)")]
 
 
 def test_an_added_block_over_the_bound_fails_and_a_short_one_stays_silent() -> None:
@@ -309,12 +341,15 @@ def test_an_added_block_over_the_bound_fails_and_a_short_one_stays_silent() -> N
     finally:
         _reset()
     assert sorted(data["additions"]) == [MOD, SIDE]
-    assert _findings(data) == [_bound_fail(MOD, LONG_CHARS)]
+    assert _findings(data) == [_bound_fail(MOD, LONG_WORDS)]
     assert _lines(data, "comment-length") == [line]
 
 
-def test_added_history_phrases_are_one_report_across_the_whole_diff() -> None:
-    """A fenced markdown line carrying a phrase is outside the scanned body, so the count stays at the comment's and the prose line's."""
+def test_added_history_phrases_are_one_finding_per_file_naming_its_phrases() -> None:
+    """A fenced markdown line carrying a phrase is outside the scanned body, so neither count holds it.
+
+    Two files, so a finding naming one cannot be the branch-wide count that named no file at all.
+    """
     fence = "`" * 3
     _reset()
     _append(MOD, HASH + " this previously lived elsewhere")
@@ -323,45 +358,36 @@ def test_added_history_phrases_are_one_report_across_the_whole_diff() -> None:
         data = _run()
     finally:
         _reset()
-    assert _findings(data) == [("report", "history", BRANCH_DIFF, "2 added line(s) match a COR-3 history phrase -- read them")]
-
-
-def test_added_count_words_report_per_file() -> None:
-    _reset()
-    _append(NOTES, "The pages here number four.")
-    _append(MOD, HASH + " it holds five constants")
-    try:
-        data = _run()
-    finally:
-        _reset()
     assert _findings(data) == [
-        ("report", "counts", NOTES, "1 added line(s) name a count or an ordinal -- read them (COR-4)"),
-        ("report", "counts", MOD, "1 added line(s) name a count or an ordinal -- read them (COR-4)"),
+        ("fail", "history", NOTES, "1 added line(s) match a COR-3 history phrase ('was renamed') -- rewrite them in the present"),
+        ("fail", "history", MOD, "1 added line(s) match a COR-3 history phrase ('previously') -- rewrite them in the present"),
     ]
 
 
-def test_a_prose_sha_reports_only_an_unresolvable_mixed_hex_run() -> None:
-    """The digits-only run, the 9-character run and a resolvable prefix of HEAD all stay silent; one sha named twice is one finding."""
+def test_a_prose_sha_reports_every_mixed_hex_run_resolvable_or_not() -> None:
+    """The digits-only run and the 9-character digest stay silent; one sha named twice is one finding.
+
+    A prefix of HEAD fails beside the dangling one, COR-6 banning a commit SHA rather than a dead
+    one.
+    """
     _reset()
     head = git(_root(), "rev-parse", "HEAD")
     resolvable = next((head[:n] for n in (8, 7) if any(c.isdigit() for c in head[:n]) and any(c.isalpha() for c in head[:n])), None)
+    assert resolvable is not None, "HEAD's short form carries no digit and letter, so it proves nothing here"
     tick = "`"
-    lines = [
+    _append(
+        NOTES,
         "The commit " + tick + "abc1234" + tick + " is named here.",
         "And " + tick + "abc1234" + tick + " is named again.",
         "A digits-only run: " + tick + "1234567" + tick + ".",
         "An asset digest: " + tick + "abcdef123" + tick + ".",
-    ]
-    if resolvable is not None:
-        lines.append("A commit this clone holds: " + tick + resolvable + tick + ".")
-    _append(NOTES, *lines)
+        "A commit this clone holds: " + tick + resolvable + tick + ".",
+    )
     try:
         data = _run()
     finally:
         _reset()
-    assert _findings(data) == [
-        ("report", "sha", NOTES, "commit abc1234 resolves to nothing in this clone -- was it rewritten out of the history?")
-    ]
+    assert sorted(_findings(data)) == sorted([_sha_fail(NOTES, "abc1234"), _sha_fail(NOTES, resolvable)])
 
 
 def test_a_prose_sha_the_branch_never_touched_still_reports() -> None:
@@ -387,9 +413,32 @@ def test_a_prose_sha_the_branch_never_touched_still_reports() -> None:
         _reset()
     assert data["diffed"] == [NOTES]
     assert sorted(data["additions"]) == [NOTES]
-    assert _findings(data) == [
-        ("report", "sha", SPARE, "commit abc1234 resolves to nothing in this clone -- was it rewritten out of the history?")
-    ]
+    assert _findings(data) == [_sha_fail(SPARE, "abc1234")]
+
+
+def test_a_non_ascii_path_and_a_prefixless_diff_both_still_report() -> None:
+    """Two git configurations that silently emptied this walk.
+
+    `core.quotePath` is on by default; `diff.noprefix` drops the `b/` the walk keys on, for EVERY
+    file. Each drop is silent, so the evidence is the finding rather than a count.
+    """
+    _reset()
+    root = _root()
+    write(root, UMLAUT_PAGE, _page(HASH + " Prüfung", "", "This page was renamed after the draw."))
+    # Staged: `git diff <fork>` reaches the working tree, and an unstaged new file goes through
+    # `_added_whole` instead, which never reads a diff header at all.
+    git(root, "add", "--", UMLAUT_PAGE)
+    expected = [("fail", "history", UMLAUT_PAGE, "1 added line(s) match a COR-3 history phrase ('was renamed') -- rewrite them in the present")]
+    try:
+        quoted = _run()
+        git(root, "config", "diff.noprefix", "true")
+        prefixless = _run()
+    finally:
+        git(root, "config", "--unset", "diff.noprefix")
+        _reset()
+    assert quoted["additions"].get(UMLAUT_PAGE), "the diff walk dropped a non-ASCII path: " + repr(sorted(quoted["additions"]))
+    assert _findings(quoted) == expected
+    assert _findings(prefixless) == expected
 
 
 def test_a_change_to_an_unscanned_suffix_reaches_the_diff_and_no_check() -> None:
@@ -442,40 +491,46 @@ def test_an_untracked_corpus_file_is_read_whole_and_a_non_corpus_one_is_not() ->
     assert data["diffed"] == [FRESH]
     assert sorted(data["additions"]) == [FRESH]
     assert data["additions"][FRESH][-6:] == list(LONG_BLOCK)
-    assert _findings(data) == [_bound_fail(FRESH, LONG_CHARS)]
+    assert _findings(data) == [_bound_fail(FRESH, LONG_WORDS)]
     assert _lines(data, "comment-length") == [line]
 
 
-def test_a_source_file_outside_the_incode_scopes_feeds_citations_and_not_the_bounds() -> None:
-    """A shell file under nginx carries a source suffix the added-line checks read, while INC-9's scope list leaves it unmeasured."""
+def test_a_source_file_outside_the_named_trees_is_reached_by_its_kind() -> None:
+    """A shell file under nginx sits in no tree the Scope names, and its kind is what puts it in scope."""
+    # Both readers, because the by-kind half is what the bounds and the added-line checks share: a
+    # file admitted by one and dropped by the other leaves the Scope naming what nothing measures.
     _reset()
     _append(ENTRYPOINT, *LONG_BLOCK)
     _append(ENTRYPOINT, HASH + " drawn up in the last session")
+    line = _line_of(ENTRYPOINT, LONG_BLOCK[0])
     try:
         data = _run()
     finally:
         _reset()
     assert sorted(data["additions"]) == [ENTRYPOINT]
-    assert _findings(data) == [("report", "comment-citation", ENTRYPOINT, "review reference 'last session' in an added comment (INC-6, COR-1)")]
+    assert _findings(data) == [
+        ("fail", "comment-citation", ENTRYPOINT, "review reference 'last session' in an added comment (INC-6, COR-1)"),
+        _bound_fail(ENTRYPOINT, LONG_WORDS),
+    ]
+    assert _lines(data, "comment-length") == [line]
 
 
 def test_a_scanned_config_suffix_feeds_the_prose_checks_and_not_the_source_ones() -> None:
-    """A toml comment is inside history's and counts' reach, and outside comment-citation's and the bounds'."""
+    """A toml comment is inside history's reach, and outside comment-citation's and the bounds'."""
     _reset()
-    _append(TOML, HASH + " the table was renamed", HASH + " it holds four rows", HASH + " " + ROADMAP_ID + " sits here")
+    _append(TOML, HASH + " the table was renamed", HASH + " it holds the rows", HASH + " " + ROADMAP_ID + " sits here")
     try:
         data = _run()
     finally:
         _reset()
     assert sorted(data["additions"]) == [TOML]
     assert _findings(data) == [
-        ("report", "history", BRANCH_DIFF, "1 added line(s) match a COR-3 history phrase -- read them"),
-        ("report", "counts", TOML, "1 added line(s) name a count or an ordinal -- read them (COR-4)"),
+        ("fail", "history", TOML, "1 added line(s) match a COR-3 history phrase ('was renamed') -- rewrite them in the present")
     ]
 
 
-def test_a_missing_base_ref_is_one_advisory_and_the_bounds_stay_silent() -> None:
-    """The prose-sha check still reports, reading the corpus rather than the diff; the planted block and phrase go unread."""
+def test_a_missing_base_ref_is_one_refusal_and_the_bounds_stay_silent() -> None:
+    """The prose-sha check still speaks, reading the corpus rather than the diff; the planted block and phrase go unread."""
     tick = "`"
     _reset()
     _append(MOD, *LONG_BLOCK, HASH + " this previously lived elsewhere")
@@ -490,12 +545,12 @@ def test_a_missing_base_ref_is_one_advisory_and_the_bounds_stay_silent() -> None
     assert data["diffed"] is None
     assert data["additions"] == {}
     assert _findings(data) == [
-        _scope_report("resolve main to a commit this branch forked from"),
-        ("report", "sha", NOTES, "commit abc1234 resolves to nothing in this clone -- was it rewritten out of the history?"),
+        _scope_refusal("resolve main to a commit this branch forked from"),
+        _sha_fail(NOTES, "abc1234"),
     ]
 
 
-def test_an_unreadable_fork_is_the_other_advisory_arm() -> None:
+def test_an_unreadable_fork_is_the_other_refusal_arm() -> None:
     """A fork commit git cannot diff degrades every diff reader together, in one sentence."""
     _reset()
     _append(MOD, *LONG_BLOCK)
@@ -505,11 +560,11 @@ def test_an_unreadable_fork_is_the_other_advisory_arm() -> None:
         _reset()
     assert data["diffed"] is None
     assert data["additions"] == {}
-    assert _findings(data) == [_scope_report("read this branch's diff")]
+    assert _findings(data) == [_scope_refusal("read this branch's diff")]
 
 
 def test_an_older_over_bound_block_edited_in_place_stays_exempt() -> None:
-    """The fork text identifies the committed block by its opening line.
+    """The fork text matches the committed block by the lines the two versions share.
 
     An edit inside that block fails nothing, while a block newly added beside it still does.
     """
@@ -523,8 +578,118 @@ def test_an_older_over_bound_block_edited_in_place_stays_exempt() -> None:
     finally:
         _reset()
     assert _findings(edited, "comment-length") == []
-    assert _findings(added, "comment-length") == [_bound_fail(LEGACY, LONG_CHARS)]
+    assert _findings(added, "comment-length") == [_bound_fail(LEGACY, LONG_WORDS)]
     assert _lines(added, "comment-length") == [line]
+
+
+def test_rewriting_an_older_block_s_opening_sentence_keeps_its_standing() -> None:
+    """An opening-line key drops the exemption for the one edit INC-9 most wants a writer to make.
+
+    The match is the lines the two versions share, so rewriting the opening costs the block nothing.
+    """
+    _reset()
+    _replace(LEGACY, LEGACY_OPEN, "an opening sentence a scenario rewrote outright, shorter and clearer than the one committed")
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert _findings(data, "comment-length") == []
+
+
+def test_lengthening_an_older_block_fails_and_names_both_numbers() -> None:
+    """The standing is the block's own word count, so an edit may not make an over-bound block worse."""
+    _reset()
+    _replace(LEGACY, HASH + " " + LEGACY_END, HASH + " " + ADDED_CLAUSE + "\n" + HASH + " " + LEGACY_END)
+    committed = len(" ".join([LEGACY_OPEN, LEGACY_MID, LEGACY_END]).split())
+    try:
+        data = _run()
+    finally:
+        _reset()
+    grown = committed + len(ADDED_CLAUSE.split())
+    detail = f"the comment block runs {grown} words, up from {committed} where the branch forked -- INC-9 lets neither number rise"
+    assert _findings(data, "comment-length") == [("fail", "comment-length", LEGACY, detail)]
+
+
+def test_a_list_s_markers_cost_a_block_nothing() -> None:
+    """INC-9 counts the words a list carries and never the shape COR-8 asks for.
+
+    `word_count` charges a marker one word per item, so the strip belongs in the reader INC-9 alone
+    goes through.
+    """
+    words = len(BULLET_TEXT.split()) * BULLET_ITEMS
+    assert words <= 40 < words + BULLET_ITEMS, "the fixture proves nothing unless the markers alone break the bound"
+    _reset()
+    try:
+        _append(MOD, *(HASH + " - " + BULLET_TEXT for _ in range(BULLET_ITEMS)))
+        bulleted = _run()
+        _reset()
+        # One append rather than two: a second would leave a blank line parting the run in half.
+        _append(MOD, *(HASH + " - " + BULLET_TEXT for _ in range(BULLET_ITEMS * 2)))
+        doubled = _run()
+    finally:
+        _reset()
+    assert _findings(bulleted, "comment-length") == []
+    assert _findings(doubled, "comment-length") == [_bound_fail(MOD, words * 2)]
+
+
+def _endpoint(lines: tuple[str, ...], *, decorated: bool) -> tuple[str, ...]:
+    """A function carrying one docstring over as many lines as it was given, decorated or not.
+
+    Indented as a real one is, so the source side has the dedent to undo that the document side
+    never had to do.
+    """
+    opener = ('@router.get("/read")',) if decorated else ()
+    body = ("    " + QUOTES + lines[0], *("    " + line if line else "" for line in lines[1:]), "    " + QUOTES)
+    return ("", "") + opener + ("def read():", *body, "    return VALUE")
+
+
+def _bound_words(lines: tuple[str, ...]) -> int:
+    """What INC-9 charges the block: a heading's `#` and a list's markers cost nothing.
+
+    Spelled here rather than imported, a test taking its number from the code under test asserting
+    only that the code agrees with itself.
+    """
+    return len(" ".join(line.lstrip("#- ").strip() for line in lines).split())
+
+
+def test_a_published_endpoint_docstring_is_exempt_and_needs_both_listings() -> None:
+    """INC-4 puts a published endpoint docstring at a rung no bound here reaches.
+
+    The exempt set is the published document's; a route decorator is a second condition, not a
+    second population, that document being generated from these same docstrings.
+    """
+    _reset()
+    try:
+        _append(MOD, *_endpoint(PUBLISHED_LINES, decorated=True))
+        exempt = _run()
+        _reset()
+        _append(MOD, *_endpoint(PUBLISHED_LINES, decorated=False))
+        undecorated = _run()
+        _reset()
+        _append(MOD, *_endpoint(UNPUBLISHED_LINES, decorated=True))
+        unpublished = _run()
+    finally:
+        _reset()
+    words = _bound_words(PUBLISHED_LINES)
+    assert words > 40, "a docstring inside the bound would pass without the exemption"
+    assert _findings(exempt, "comment-length") == []
+    # Reached by only one of the two listings, a block is measured like any other.
+    assert _findings(undecorated, "comment-length") == [
+        (
+            "fail",
+            "comment-length",
+            MOD,
+            f"the comment block runs {words} words and no route decorator carries it -- INC-4's exemption needs both (PRE-4)",
+        ),
+    ]
+    assert _findings(unpublished, "comment-length") == [
+        (
+            "fail",
+            "comment-length",
+            MOD,
+            f"the comment block runs {words} words and `{OPENAPI}` publishes no such description -- INC-4's exemption needs both",
+        ),
+    ]
 
 
 def test_a_committed_addition_reads_the_same_as_a_working_tree_one() -> None:
@@ -543,7 +708,7 @@ def test_a_committed_addition_reads_the_same_as_a_working_tree_one() -> None:
         _reset()
     assert data["diffed"] == [MOD]
     assert _findings(data) == [
-        ("report", "comment-citation", MOD, "roadmap id " + ROADMAP_ID + " in an added comment -- state the constraint (INC-6)")
+        ("fail", "comment-citation", MOD, "roadmap id " + ROADMAP_ID + " in an added comment -- state the constraint (INC-6)")
     ]
 
 

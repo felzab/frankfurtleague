@@ -29,26 +29,31 @@ means.
 ## Spine
 
 - **COR-13:** documentation says why the code is the way it is; the code says what it does. Anything
-  a reader gets by reading the code, running it or asking git is not written. Three questions the
-  repository cannot answer by being read are the only reasons a written artifact exists: **why a
-  shape was chosen** — this value, this order, the alternative rejected, what breaks otherwise;
-  **what a caller may rely on**, true across a whole surface and so stated nowhere inside it; and
-  **what has not reached the code** — a term's trap, a procedure performed at a keyboard, an
-  obligation from outside, a decision not yet taken. What is none of the three is not written; what
-  is one of them is written in full, at COR-14's rung, and leaving it out because a reader could work
-  it out is not conciseness. _Enforced by_ `/docs:audit`.
+  a reader gets by reading the code, running it or asking git is not written, and **that category is
+  wider than it feels**: every reader here has the tree open and reads it fast, so what a function
+  does, what a shape holds, how a mechanism works, a walkthrough of two files opened together, and a
+  justification the code itself makes evident are all derivable, and none is written however well it
+  reads. Three questions the repository cannot answer by being read are the only reasons a written
+  artifact exists: **why a shape was chosen** — this value, this order, the alternative rejected,
+  what breaks otherwise; **what a caller may rely on**, true across a whole surface and so stated
+  nowhere inside it; and **what has not reached the code** — a term's trap, a procedure performed at
+  a keyboard, an obligation from outside, a decision not yet taken. What is none of the three is not
+  written; what is one of them is written in full, at COR-14's rung, and leaving it out because a
+  reader could work it out is not conciseness. _Enforced by_ `/docs:audit`.
 - **COR-5:** ask of every sentence, **what does a reader do differently because this sentence is
   here?** No answer, and it is deleted rather than shortened; then ask it of the paragraph, and of
   the page. These never have an answer: announcing that the next sentence matters; restating the
   paragraph you are closing; naming where an argument lives and then giving it; justifying a decision
   recorded elsewhere; recounting how a measurement was taken rather than what it found (COR-9); a
   remark the code beside it states; a section introducing the one below it; a hedge or an
-  intensifier; a claim true of any project of this kind. Never compress what survives: spell terms
-  out and keep the words that make a sentence
-  readable. Never cut a caveat that changes what someone would do, a failure mode, or the reason a
-  constraint exists — they look least like instructions, so a pass deleting by appearance takes them
-  first. **Unnecessary is decided by this test and never by a quota**: no pass carries a percentage
-  or a target, because a passage already at its floor is then cut to reach it. **Every bound in this
+  intensifier; a claim true of any project of this kind. **What survives is tightened freely**:
+  shortening the sentence that carries a caveat is not cutting the caveat, and enumerable content
+  takes COR-8's list rather than a paragraph. Never cut a caveat that changes what someone would do,
+  a failure mode, or the reason a constraint exists — they look least like instructions, so a pass
+  deleting by appearance takes them first; where a sentence is arguably derivable (COR-13) and
+  arguably one of those three it stays, a little more prose than needed being the smaller defect.
+  **Unnecessary is decided by this test and never by a quota**: no pass carries a percentage or a
+  target, because a passage already at its floor is then cut to reach it. **Every bound in this
   file is read after this test and never instead of it** — a passage still over one when every
   surviving sentence has an answer is content in the wrong place and it moves (COR-14); trimming from
   just over a bound to just under it is the defect the bound reveals, not the repair. _Enforced by_
@@ -100,8 +105,9 @@ These bind every written artifact. A comment is documentation and carries every 
 
 - **COR-1:** write for a reader who knows this stack and this repository's conventions and nothing
   else — not the conversation, the session, the branch or the effort behind the change. Every
-  identifier resolves, every domain term is the glossary's, and the reasoning stands at the claim
-  rather than behind a pointer to a file deleted by design. _Enforced by_ `/docs:audit`.
+  identifier resolves, every domain term is the glossary's, a term or a referent is spelled out
+  wherever the shorter form would not resolve, and the reasoning stands at the claim rather than
+  behind a pointer to a file deleted by design. _Enforced by_ `/docs:audit`.
 - **COR-2:** a fact is stated in full in exactly one place — the rung COR-14 gives it — and cited
   from everywhere else. A second mention is **one sentence and a citation**; a second paragraph is a
   second home, and one of the two goes. A sentence that names where the argument lives does not then
@@ -111,11 +117,15 @@ These bind every written artifact. A comment is documentation and carries every 
   COR-14's reader meets it at the line and never at its home, and a comment reading only "see the
   spec sheet" fails the person about to break the line: what goes is every copy restating the
   argument, what stays is the copy stating the claim, cited to the argument's home where one is
-  citable and one sentence alone where none is. One duplicate survives, and it is the only thing the
-  check exempts: the copy no citation can reach, because
+  citable and one sentence alone where none is. One duplicate survives: the copy no citation can
+  reach, because
   something other than a reader consumes it at a fixed location — a path a platform serves, a form a
   tool quotes verbatim. Convenience is never the reason, and neither is the copy being short.
-  _Enforced by_ gate check `echo` over a page's paragraphs alone; comment runs are `/docs:audit`'s,
+  **The check exempts nothing**, and grants that survival to nobody: it reads a page's paragraphs,
+  and a copy consumed by something other than a reader is short, fenced or in source, so it reaches
+  no paragraph and an exemption keyed on it would be a branch nothing can take.
+  _Enforced by_ gate check `echo` over a page's paragraphs alone, exempting nothing; the surviving
+  duplicate and every comment run are `/docs:audit`'s,
   which can tell a restated argument from the restated claim the bold clause above requires, where a
   mechanical match reports both alike.
 - **COR-3:** no document names a file, symbol, field, endpoint or behaviour absent from the

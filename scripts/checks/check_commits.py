@@ -73,8 +73,9 @@ GENERATED_SUBJECT: Final = re.compile(r'^(?:Revert|Reapply) ".+"$')
 # every change reaches main through a merge, so both endings are the marker.
 GENERATED_BODY: Final = re.compile(r"^This reverts commit [0-9a-f]{7,40}[.,]", re.MULTILINE)
 
-# Banned outright: a trailer, an issue-closing keyword, an AI-authorship signature. The first two are
-# the convention (`docs/_git/templates.md :: Commit messages`); the third is CLAUDE.md §2.
+# Banned outright: two named trailers, an issue-closing keyword, an AI-authorship signature. The
+# first two are the convention (`docs/_git/templates.md :: Commit messages`); the third is CLAUDE.md
+# §2.
 
 # The trailing flag is whether the rule still binds a commit the bot exemption released. Only the
 # sign-off is dropped, that being the one thing dependabot's generator cannot leave out.
@@ -96,9 +97,29 @@ BOT_IDENTITIES: Final[frozenset[tuple[str, str]]] = frozenset(
 # A trailer is read in the message's LAST paragraph alone, where git reads one, and the paragraph
 # has to be nothing else.
 TRAILER_LINE_RE: Final = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*:[ \t]\S")
-# The hyphen separates a trailer from a sentence: a body closing `Verified: ... exit 0.` is prose,
-# and failing that spelling is the false positive that gets the check switched off.
-HYPHENATED_TRAILER_RE: Final = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+:[ \t]\S")
+# What parts a trailer from a sentence. A body closing `Verified: ... exit 0.` is prose, and
+# failing that spelling switches the check off. `Closes` in either case, so a mis-cased one is
+# refused rather than read as prose.
+TRAILER_EVIDENCE_RE: Final = re.compile(r"^(?:[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+|[Cc]loses):[ \t]\S")
+
+# An id is read aloud, so `i`, `l`, `o`, `0` and `1` are out.
+ENTRY_ALPHABET: Final = "[abcdefghjkmnpqrstuvwxyz23456789]"
+# The hyphen parts a roadmap entry's id from an ordinary identifier, which is what makes
+# `git grep <token>` a uniqueness proof.
+ENTRY_TOKEN: Final = f"{ENTRY_ALPHABET}{{4}}-{ENTRY_ALPHABET}{{4}}"
+# The only trailer the convention admits, in the one spelling `git grep <token>` finds.
+CLOSES_RE: Final = re.compile(rf"^Closes:[ \t]({ENTRY_TOKEN})$")
+
+# git is asked for the directory rather than the page, so headings arriving by a rename are still
+# in the diff.
+ROADMAP_DIR: Final = "docs/_roadmap"
+# Which page in the directory holds entries, so an entry-shaped heading on any other page there
+# retires nothing.
+ROADMAP_ENTRY_PAGES: Final[tuple[str, ...]] = (f"{ROADMAP_DIR}/items.md",)
+# One entry heading as a diff line, with the side it sits on. Backticks are optional here because
+# `scripts/checks/docs_gate/checks.py :: ROADMAP_ENTRY_RE` admits both, and a heading only one
+# reader calls an entry switches this contract off unseen.
+ENTRY_HEADING_DIFF_RE: Final = re.compile(rf"^([-+])[ ]{{0,3}}###[ \t]+`?({ENTRY_TOKEN})`?[ \t]+·")
 
 # Ranges rather than a library: CI runs this on a bare runner with no virtualenv at all.
 EMOJI: Final = re.compile(
@@ -173,10 +194,44 @@ def trailer_block(message: str) -> list[str]:
     lines = [line for line in paragraphs[-1].split("\n") if line.strip()]
     if not all(TRAILER_LINE_RE.match(line) for line in lines):
         return []
-    return lines if any(HYPHENATED_TRAILER_RE.match(line) for line in lines) else []
+    return lines if any(TRAILER_EVIDENCE_RE.match(line) for line in lines) else []
 
 
-def check_message(message: str, short: str, *, is_bot: bool = False) -> list[CommitFinding]:
+def entry_tokens_departed(diff: str) -> frozenset[str]:
+    """The entries a diff over the roadmap retires.
+
+    Removed headings minus added ones: an entry ending only partly done is rewritten rather than
+    deleted, which removes its heading line and adds one carrying the same token.
+    """
+    sides: dict[str, set[str]] = {"-": set(), "+": set()}
+    writes_entries = False
+    in_a_hunk = False
+    for line in diff.split("\n"):
+        if line.startswith("diff --git "):
+            writes_entries, in_a_hunk = False, False
+        elif line.startswith("@@"):
+            in_a_hunk = True
+        # Read before the first `@@`, where an added line of content cannot be mistaken for the header.
+        elif not in_a_hunk and line.startswith("+++ "):
+            # The hunk's DESTINATION decides whether its lines are entries, so a page renamed into
+            # the entry page is read and a page deleted outright asks for nothing.
+            writes_entries = line[len("+++ ") :].removeprefix("b/") in ROADMAP_ENTRY_PAGES
+        elif writes_entries and (match := ENTRY_HEADING_DIFF_RE.match(line)):
+            sides[match.group(1)].add(match.group(2))
+    return frozenset(sides["-"] - sides["+"])
+
+
+def commit_departures(sha: str) -> frozenset[str] | None:
+    """Which entries one commit retires, or None where git would not hand over its diff.
+
+    None is not an empty set: a diff nothing read is indistinguishable from one retiring nothing,
+    and the caller answers for the difference.
+    """
+    diff = git("show", "--format=", "--unified=0", sha, "--", ROADMAP_DIR)
+    return None if diff is None else entry_tokens_departed(diff)
+
+
+def check_message(message: str, short: str, *, is_bot: bool = False, departed: frozenset[str] | None = None) -> list[CommitFinding]:
     """Every rule against one message; `is_bot` drops the three a bot cannot satisfy.
 
     Dependabot writes an unwrapped body line, signs off, and records no verification, none of it
@@ -231,10 +286,26 @@ def check_message(message: str, short: str, *, is_bot: bool = False) -> list[Com
     for what in named:
         fail(f"the message carries {what}")
     # Only where none of the named patterns matched: a Co-authored-by line is both.
-    if not named and (tokens := [line.split(":", 1)[0] for line in trailer_block(message)]):
+    block = [] if named else trailer_block(message)
+    closes = [match.group(1) for line in block if (match := CLOSES_RE.match(line))]
+    if len(closes) != len(block):
+        names = [line.split(":", 1)[0] for line in block]
+        malformed = [line.strip() for line in block if line.split(":", 1)[0].lower() == "closes" and not CLOSES_RE.match(line)]
+        if malformed:
+            fail(f"`{malformed[0]}` names no entry - `Closes:` takes an entry's token: four characters, a hyphen, four more")
         # The shape half of the dropped rule and no wider: any other trailer is still refused.
-        if not (is_bot and all(token.lower() == "signed-off-by" for token in tokens)):
-            fail(f"the message ends in a trailer block ({', '.join(tokens)}) - the convention carries no trailers")
+        elif not (is_bot and all(name.lower() == "signed-off-by" for name in names)):
+            fail(f"the message ends in a trailer block ({', '.join(names)}) - `Closes: <token>` is the only trailer the convention carries")
+
+    # Skipped where the diff is unknowable rather than empty, which is the commit-msg hook: the
+    # commit has no diff yet, and the index is the wrong one under `git commit --amend`.
+    if departed is not None:
+        if departed and not closes:
+            fail(f"the diff retires {', '.join(sorted(departed))} and the message carries no `Closes:` trailer")
+        elif closes and not departed:
+            fail(f"the message closes {', '.join(closes)}, and this commit retires no roadmap entry")
+        elif set(closes) != departed:
+            fail(f"the message closes {', '.join(sorted(set(closes)))}, and the diff retires {', '.join(sorted(departed))} instead")
 
     if EMOJI.search(message):
         fail("the message carries an emoji")
@@ -243,7 +314,7 @@ def check_message(message: str, short: str, *, is_bot: bool = False) -> list[Com
 
 
 def check_commit(sha: str) -> list[CommitFinding]:
-    """One commit's author and message from one `git show`: every commit on the branch pays this."""
+    """One commit's author, message and roadmap diff: every commit on the branch pays two `git show`s."""
     raw = git("show", "-s", "--format=%an%n%ae%n%B", sha)
     if raw is None:
         # Failed rather than skipped: a message nothing read is indistinguishable from a clean one.
@@ -251,15 +322,18 @@ def check_commit(sha: str) -> list[CommitFinding]:
     # git forbids a newline in either ident field, so the first two lines are the identity.
     name, _, rest = raw.partition("\n")
     email, _, message = rest.partition("\n")
-    return check_message(message, sha[:7], is_bot=(name, email) in BOT_IDENTITIES)
+    # A second `git show` rather than one: a pathspec makes it print nothing at all -- header
+    # included -- for a commit that touches no path the pathspec names.
+    departed = commit_departures(sha)
+    findings = check_message(message, sha[:7], is_bot=(name, email) in BOT_IDENTITIES, departed=departed)
+    if departed is None:
+        detail = "git could not read this commit's roadmap diff, so its trailer was never judged"
+        findings.append(CommitFinding("fail", detail, sha[:7], message.split("\n")[0]))
+    return findings
 
 
 def check_message_file(path: Path) -> int:
-    """The commit-msg hook's entry point: one message, not yet a commit.
-
-    The exemption is never granted here: this path runs on the machine writing the commit, where
-    the author field is whatever the author set.
-    """
+    """The commit-msg hook's entry point: one message, not yet a commit."""
     if git_is_composing():
         return EXIT_OK
     marker = comment_char()
@@ -267,6 +341,8 @@ def check_message_file(path: Path) -> int:
     # Git strips comment lines only AFTER this hook runs, so an editor-written message still carries
     # the whole "# Please enter the commit message" block here.
     message = "\n".join(line for line in raw.split("\n") if not line.startswith(marker))
+    # Two rules cannot bind here: the bot exemption, this being the machine the author sets the
+    # ident on, and the `Closes:` arms, for want of a diff (`docs/_git/spec.md :: 1.3 Commits`).
     findings = failures(check_message(message, "pending"))
     if not findings:
         return EXIT_OK

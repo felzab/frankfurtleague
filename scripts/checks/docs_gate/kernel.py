@@ -35,8 +35,9 @@ CSTYLE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs")
 # COR-6 binds these comments as it binds a spec sheet's prose, although the In-code section's
 # Scope names subtrees rather than these kinds.
 OPS_SUFFIXES: Final[tuple[str, ...]] = (".conf", ".yml", ".yaml", ".toml", ".json")
-# Suffixless files INC-6 still binds, matched on `p.name`; the glob is a prefilter.
-OPS_FILENAMES: Final[tuple[str, ...]] = ("Dockerfile", "pre-commit", "commit-msg", "pre-push")
+# A dotfile and a hook have no suffix for `Path.suffix` to dispatch on, so INC-6 reaches them by
+# whole name here or the In-code section's Scope would name files no check reads.
+OPS_FILENAMES: Final[tuple[str, ...]] = ("Dockerfile", ".dockerignore", "pre-commit", "commit-msg", "pre-push")
 SCANNED_SUFFIXES: Final[tuple[str, ...]] = SOURCE_SUFFIXES + OPS_SUFFIXES
 
 # Anything else in backticks is prose: a bare `queries.ts` names a KIND of file, not one file.
@@ -81,39 +82,39 @@ ROADMAP_GLOB: Final = f"{ROADMAP_DIR}/*.md"
 # A fixed page is its own glob, so one spelling answers `tracked_glob` and `tracked_page` alike.
 GLOSSARY_PAGE: Final = f"{DOCS_DIR}/glossary.md"
 STANDARD_PAGE: Final = f"{DOCS_DIR}/standard.md"
-ROADMAP_PAGE: Final = f"{ROADMAP_DIR}/open-items.md"
-ROADMAP_TOOLING_PAGE: Final = f"{ROADMAP_DIR}/tooling-items.md"
-ROADMAP_CLOSED_PAGE: Final = f"{ROADMAP_DIR}/closed-items.md"
+# One file: an entry is placed by its tags, so a second page would state the surface tag twice.
+# `ROADMAP_GLOB` also matches the folder's other pages, so presence and tracking are asked of this
+# one by name instead.
+ROADMAP_PAGE: Final = f"{ROADMAP_DIR}/items.md"
 TEMPLATES_PAGE: Final = f"{DOCS_DIR}/_git/templates.md"
 SWEEP_PAGE: Final = ".claude/commands/docs/audit.md"
 
-# `ROADMAP_GLOB` also matches pages carrying no ranked entries, so presence and tracking are
-# asked of these by name instead.
-ROADMAP_RANKED_PAGES: Final[tuple[str, ...]] = (ROADMAP_PAGE, ROADMAP_TOOLING_PAGE)
 
-
-Severity = Literal["fail", "report"]
+# One severity: a check fails, or it does not exist. A tier nobody had to clear was read as a list
+# of things somebody else would get to, so every check here is one the run stops for.
+Severity = Literal["fail"]
 
 # `enforced-by` resolves the standard's claims against this; `Finding` refuses a name outside it.
 CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "anchor": frozenset({"fail"}),
     "bare-path": frozenset({"fail"}),
     "binary-byte": frozenset({"fail"}),
-    "branch-scope": frozenset({"report"}),
+    "branch-scope": frozenset({"fail"}),
+    "cell-prose": frozenset({"fail"}),
     "citation": frozenset({"fail"}),
-    "comment-citation": frozenset({"fail", "report"}),
+    "comment-citation": frozenset({"fail"}),
     "comment-length": frozenset({"fail"}),
     "copy-corpus": frozenset({"fail"}),
     "copy-dash": frozenset({"fail"}),
     "copy-formal": frozenset({"fail"}),
     "copy-informal": frozenset({"fail"}),
     "copy-term": frozenset({"fail"}),
-    "counts": frozenset({"report"}),
     "crlf-write": frozenset({"fail"}),
+    "echo": frozenset({"fail"}),
     "enforced-by": frozenset({"fail"}),
     "glossary-entry": frozenset({"fail"}),
     "header-see": frozenset({"fail"}),
-    "history": frozenset({"report"}),
+    "history": frozenset({"fail"}),
     "inputs": frozenset({"fail"}),
     "invariant-id": frozenset({"fail"}),
     "invariant-row": frozenset({"fail"}),
@@ -131,7 +132,7 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "rule-id": frozenset({"fail"}),
     "rule-shape": frozenset({"fail"}),
     "segment-map": frozenset({"fail"}),
-    "sha": frozenset({"report"}),
+    "sha": frozenset({"fail"}),
     "spec-spine": frozenset({"fail"}),
     "template-fragment": frozenset({"fail"}),
     "unreadable": frozenset({"fail"}),
@@ -183,15 +184,14 @@ class Finding:
     def github(self) -> str:
         """One workflow command, which a runner turns into an annotation on the pull request's diff.
 
-        The severity deciding the exit code decides the annotation's too, so a reader of the diff
-        meets the verdict the gate reached rather than a second one.
+        Every finding is an error, because every finding fails the run: a diff carrying a warning
+        would read as something a reader may leave standing.
         """
-        command = "error" if self.severity == "fail" else "warning"
         fields = [f"file={_escaped(self.file, in_property=True)}"]
         if self.line is not None:
             fields.append(f"line={self.line}")
         fields.append(f"title={_escaped(self.check, in_property=True)}")
-        return f"::{command} {','.join(fields)}::{_escaped(self.detail, in_property=False)}"
+        return f"::error {','.join(fields)}::{_escaped(self.detail, in_property=False)}"
 
 
 def is_placeholder(text: str) -> bool:
@@ -210,6 +210,26 @@ def strip_fences(text: str) -> str:
             continue
         out.append("" if in_fence else raw)
     return "\n".join(out)
+
+
+def word_count(text: str) -> int:
+    """The unit every prose bound is measured in: runs of non-whitespace.
+
+    One definition for all of them, so no bound can be avoided by reflowing the lines under it.
+    """
+    return len(text.split())
+
+
+LIST_MARKER_RE: Final = re.compile(r"^(?:[-*+•]|\d+[.)])\s+")
+
+
+def unlisted(lines: Iterable[str]) -> str:
+    """The one line INC-2's and INC-9's bounds are measured over, a list's markers off.
+
+    Outside `word_count`: OUT-3's and OUT-4's bounds measure through that too, and only these two
+    rules say the shape COR-8 asks for costs nothing.
+    """
+    return " ".join(LIST_MARKER_RE.sub("", line) for line in lines if line).strip()
 
 
 def line_of(body: str, offset: int) -> int:
@@ -571,6 +591,16 @@ def _header_line(line: str, suffix: str) -> str:
     return text
 
 
+def unmarked_line(text: str) -> str:
+    """One docstring or comment line with its marker off.
+
+    Both listings behind INC-4's exemption normalise here: a heading inside a published description
+    that only one side stripped matches neither, leaving the exemption unreachable.
+    """
+    stripped = text.strip()
+    return stripped.lstrip("#").strip() if stripped.startswith("#") else _header_line(stripped, ".py")
+
+
 def _python_runs(raw: str, start_at: int) -> list[tuple[int, list[str]]]:
     """Each run of consecutive comment lines in a Python module, read through its own tokenizer.
 
@@ -613,7 +643,7 @@ def _python_runs(raw: str, start_at: int) -> list[tuple[int, list[str]]]:
             opened_on = span
         if not current:
             first_line = number
-        current.append(text.lstrip("#").strip() if text.startswith("#") else _header_line(text, ".py"))
+        current.append(unmarked_line(text))
     flush()
     return runs
 
@@ -773,16 +803,30 @@ def tracked_page(rel: str) -> Path | None:
     return next((path for spelling, path in _tracked_index() if spelling.as_posix() == rel), None)
 
 
-# The id is captured loose, so a malformed one is caught against the vocabulary, not skipped.
-ROADMAP_ID_DEF_RE: Final = re.compile(r"^[ \t]*\|\s*(?:\d+\s*\|\s*)?\*{0,2}([A-Z]{1,4}-\d{1,3})\*{0,2}\s*\|", re.MULTILINE)
+# No `i`, `l`, `o`, `0` or `1`: an id is read aloud and typed into a commit trailer. Spelled again
+# in `scripts/checks/check_commits.py :: ENTRY_TOKEN`, which CI runs on a bare runner that can
+# import nothing from this package.
+ENTRY_TOKEN_ALPHABET: Final = "abcdefghjkmnpqrstuvwxyz23456789"
+# The hyphen is what keeps `git grep <token>` a proof of uniqueness: eight bare lower-case
+# alphanumerics is the shape of an ordinary identifier.
+ENTRY_TOKEN_PATTERN: Final = rf"[{ENTRY_TOKEN_ALPHABET}]{{4}}-[{ENTRY_TOKEN_ALPHABET}]{{4}}"
+ENTRY_TOKEN_RE: Final = re.compile(rf"^{ENTRY_TOKEN_PATTERN}$")
+# The token as a table row defines it: the first cell of an index row, backticked as COR-6 spells
+# every other identifier.
+ROADMAP_ID_DEF_RE: Final = re.compile(rf"^[ \t]*\|\s*`({ENTRY_TOKEN_PATTERN})`\s*\|", re.MULTILINE)
+
+
+def is_entry_token(text: str) -> bool:
+    """Whether a string is an id an entry may carry. One definition, so no arm invents a second."""
+    return ENTRY_TOKEN_RE.match(text) is not None
 
 
 @cache
 def roadmap_ids() -> frozenset[str]:
-    """Every hyphenated id the roadmap tables define.
+    """Every entry token the roadmap tables define.
 
-    Read rather than guessed: the prefixes are open-ended, so a pattern would catch `UTF-8`. An
-    unhyphenated id is left out, that shape occurring in code for unrelated reasons.
+    Read from the tables rather than matched anywhere on the page: what an index row defines is
+    what a citation resolves against, and a page's prose names a token it does not file.
     """
     ids: set[str] = set()
     for page in tracked_glob(ROADMAP_GLOB):
