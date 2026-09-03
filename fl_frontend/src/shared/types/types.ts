@@ -42,26 +42,37 @@ interface SidemenuStructureEntry<TIcon extends string> {
 
 export type SidemenuStructure<TIcon extends string> = SidemenuStructureEntry<TIcon>[];
 
-export type FormState = {
-  message?: string;
-  success: boolean;
+export type ActionFailure = {
+  success: false;
   error?: string;
   /** Keyed by the field's dotted payload path. `error` stays the transport-level fallback: a 500 belongs to no field. */
   fieldErrors?: FieldErrors;
-  /** Safe to echo back: it is the user's own input rather than a lookup result, so it reveals no registration. */
-  submittedEmail?: string;
   /**
    * The backend's code for a failure a field can own; the form places the message, holding the payload it submitted. A
    * failure body carries nothing else (L4 in `docs/logging/spec.md`), and one code covers one rule, not one field.
    */
   errorCode?: string;
-  /**
-   * The `spiel_nr` of every other fixture a match write moved. Read by the edit page's live warning through
-   * `dry_run=true` and by the undo toast; both are empty on an ordinary edit, which is what makes presence mean something.
-   */
-  voidedFixtures?: number[];
-  releasedFixtures?: number[];
-} | null;
+};
+
+/**
+ * `TPayload`'s own fields stay optional because `runAdminMutation` declares `NonNullable<FormState>` as its other
+ * arm, which carries none of them: a required one would be a promise that wrapper cannot keep.
+ */
+export type ActionSuccess<TPayload extends object = object> = TPayload & {
+  success: true;
+  message?: string;
+};
+
+export type ActionResult<TPayload extends object = object> = ActionSuccess<TPayload> | ActionFailure;
+
+type SubmittedEmail = {
+  /** Safe to echo back: it is the user's own input rather than a lookup result, so it reveals no registration. */
+  submittedEmail?: string;
+};
+
+// Intersected onto the failure arm rather than left to `ActionSuccess`: the sign-in records a refusal
+// against the address that was SENT, not whatever is in the box when the answer lands.
+export type FormState = ActionSuccess<SubmittedEmail> | (ActionFailure & SubmittedEmail) | null;
 
 /** Both members are Promises: a page destructuring them synchronously type-checks against an older shape and fails at request time. */
 export type NextPageProps<TParams = Record<string, string | string[]>, TSearchParams = { [key: string]: string | string[] | undefined }> = {

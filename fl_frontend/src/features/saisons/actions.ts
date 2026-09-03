@@ -22,6 +22,7 @@ import {
 import { describeSpielplanUmfang } from "./utils";
 
 import type { FLSaisonRulesDraft, SaisonCreateDraft } from "@/features/saisons/types";
+import type { ActionResult } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLActivateSaisonPayload,
@@ -240,7 +241,7 @@ export async function postSaisonAction(
   // The DRAFT shape: an emptied rule count submits `null`, and the schema below is what turns that into a
   // field error rather than a type error.
   rawPayload: SaisonCreateDraft,
-): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ created_id?: string }>> {
   return runAdminMutation("postSaisonAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -281,13 +282,9 @@ export async function postSaisonAction(
   });
 }
 
-export async function patchSaisonAction(rawPayload: Omit<FLPatchSaisonPayload, "rules"> & { rules: FLSaisonRulesDraft }): Promise<{
-  success: boolean;
-  saison?: FLPatchSaisonResponse;
-  message?: string;
-  error?: string;
-  fieldErrors?: FieldErrors;
-}> {
+export async function patchSaisonAction(
+  rawPayload: Omit<FLPatchSaisonPayload, "rules"> & { rules: FLSaisonRulesDraft },
+): Promise<ActionResult<{ saison?: FLPatchSaisonResponse }>> {
   return runAdminMutation("patchSaisonAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -329,13 +326,7 @@ export async function patchSaisonAction(rawPayload: Omit<FLPatchSaisonPayload, "
  * season still owes results, `REQ-ACTIVATE-002` on a `past` target nothing reopens, and
  * `REQ-ACTIVATE-003` on one with nothing drawn to play.
  */
-export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload): Promise<{
-  success: boolean;
-  saison?: FLActivateSaisonResponse;
-  message?: string;
-  error?: string;
-  fieldErrors?: FieldErrors;
-}> {
+export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload): Promise<ActionResult<{ saison?: FLActivateSaisonResponse }>> {
   return runAdminMutation("activateSaisonAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -402,13 +393,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
  * rewrites every drawn Gruppenphase fixture fielding either club, so a cached schedule would name the
  * club that used to play there.
  */
-export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promise<{
-  success: boolean;
-  swap?: FLSwapGruppenResponse;
-  message?: string;
-  error?: string;
-  fieldErrors?: FieldErrors;
-}> {
+export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promise<ActionResult<{ swap?: FLSwapGruppenResponse }>> {
   return runAdminMutation("swapGruppenAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -500,13 +485,9 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
  * the season's matchdays and fixtures and draws fresh ones** (`REQ-SPIELPLAN-005`), and nothing
  * writes them back (`docs/backend/spec.md :: I26`).
  */
-export async function generateSpielplanAction(rawPayload: FLGenerateSpielplanPayload): Promise<{
-  success: boolean;
-  spielplan?: FLGenerateSpielplanResponse;
-  message?: string;
-  error?: string;
-  fieldErrors?: FieldErrors;
-}> {
+export async function generateSpielplanAction(
+  rawPayload: FLGenerateSpielplanPayload,
+): Promise<ActionResult<{ spielplan?: FLGenerateSpielplanResponse }>> {
   return runAdminMutation("generateSpielplanAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -558,13 +539,9 @@ export async function generateSpielplanAction(rawPayload: FLGenerateSpielplanPay
  * an inverse** (`docs/backend/spec.md :: I26`): nothing writes the removed rows back, and a fresh
  * draw draws its own.
  */
-export async function undrawSpielplanAction(rawPayload: FLUndrawSpielplanPayload): Promise<{
-  success: boolean;
-  undraw?: FLUndrawSpielplanResponse;
-  message?: string;
-  error?: string;
-  fieldErrors?: FieldErrors;
-}> {
+export async function undrawSpielplanAction(
+  rawPayload: FLUndrawSpielplanPayload,
+): Promise<ActionResult<{ undraw?: FLUndrawSpielplanResponse }>> {
   return runAdminMutation("undrawSpielplanAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };

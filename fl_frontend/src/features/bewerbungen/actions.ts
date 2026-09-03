@@ -18,6 +18,7 @@ import { FLAblehnenBewerbungPayloadSchema, FLAnnehmenBewerbungPayloadSchema } fr
 import { bewerbungTeamName, describeAufnahme } from "./utils";
 
 import type { BewerbungEmail } from "@/core/bewerbungEmail";
+import type { ActionResult } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { BewerbungBetreff } from "./notifications";
 import type { FLAblehnenBewerbungPayload, FLAnnehmenBewerbungPayload, FLBewerbung } from "./schemas";
@@ -176,14 +177,9 @@ async function notifyBewerbung({
  * **IRREVERSIBLE**: `saison_teams` has no DELETE, so a club entered in error leaves only through an
  * `austritt`. The control pressing this arms first.
  */
-export async function annehmenBewerbungAction(rawPayload: FLAnnehmenBewerbungPayload): Promise<{
-  success: boolean;
-  updated_document?: FLBewerbung;
-  team_id?: string;
-  message?: string;
-  error?: string;
-  fieldErrors?: FieldErrors;
-}> {
+export async function annehmenBewerbungAction(
+  rawPayload: FLAnnehmenBewerbungPayload,
+): Promise<ActionResult<{ updated_document?: FLBewerbung; team_id?: string }>> {
   return runAdminMutation("annehmenBewerbungAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -246,7 +242,7 @@ export async function annehmenBewerbungAction(rawPayload: FLAnnehmenBewerbungPay
     });
 
     return {
-      success: Boolean(annahmeOperation.acknowledged),
+      success: true,
       updated_document: annahmeOperation.updated_document,
       team_id: annahmeOperation.team_id,
       message: `${aufnahme} ${zustellung}`,
@@ -260,7 +256,7 @@ export async function annehmenBewerbungAction(rawPayload: FLAnnehmenBewerbungPay
  */
 export async function ablehnenBewerbungAction(
   rawPayload: FLAblehnenBewerbungPayload,
-): Promise<{ success: boolean; updated_document?: FLBewerbung; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ updated_document?: FLBewerbung }>> {
   return runAdminMutation("ablehnenBewerbungAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -307,7 +303,7 @@ export async function ablehnenBewerbungAction(
     });
 
     return {
-      success: Boolean(absageOperation.acknowledged),
+      success: true,
       updated_document: absageOperation.updated_document,
       message: `Die Bewerbung ist abgelehnt. ${zustellung}`,
     };

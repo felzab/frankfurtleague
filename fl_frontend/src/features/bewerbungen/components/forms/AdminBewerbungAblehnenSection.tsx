@@ -67,14 +67,15 @@ export function AdminBewerbungAblehnenSection({
     press(async () => {
       const res = await ablehnenBewerbungAction({ id: bewerbungId, grund: grund });
 
-      const fieldError = res.fieldErrors?.grund ?? null;
-      setGrundError(fieldError);
-
       if (!res.success) {
+        const fieldError = res.fieldErrors?.grund ?? null;
+        setGrundError(fieldError);
+
         if (fieldError === null) appToast.danger("Absage fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
         return;
       }
 
+      setGrundError(null);
       appToast.success("Bewerbung abgelehnt", { description: res.message });
       // The application is decided now, so this page has to come back showing that: the two decision
       // panels go and the Entscheidung block takes their place.

@@ -78,16 +78,17 @@ export function AdminBewerbungAnnehmenSection({
     press(async () => {
       const res = await annehmenBewerbungAction({ id: bewerbungId, gruppe: chosen, trikot_farbe: trikotFarbe });
 
-      const fieldError = res.fieldErrors?.gruppe ?? null;
-      setGruppeError(fieldError);
-
       if (!res.success) {
+        const fieldError = res.fieldErrors?.gruppe ?? null;
+        setGruppeError(fieldError);
+
         // Suppressed where the picker carries the message, so a refusal about the chosen group is
         // not also said in a toast that names no field.
         if (fieldError === null) appToast.danger("Zusage fehlgeschlagen", { description: res.error ?? UNKNOWN_REFUSAL });
         return;
       }
 
+      setGruppeError(null);
       appToast.success("Bewerbung angenommen", { description: res.message });
       // The application is decided now, so this page has to come back showing that: the two decision
       // panels go and the Entscheidung block takes their place.

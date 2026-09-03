@@ -32,6 +32,7 @@ import {
 } from "./schemas";
 import { describeErasureUmfang } from "./utils";
 
+import type { ActionResult } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLDeleteSpielerPayload,
@@ -109,7 +110,7 @@ export async function postSpielerAction(
   // The DRAFT shape: an untouched picker submits `team_id: null`, and the schema below is what turns
   // that into a field error rather than a type error.
   rawPayload: SpielerCreateDraft,
-): Promise<{ success: boolean; spieler_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ spieler_id?: string }>> {
   return runAdminMutation("postSpielerAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -162,20 +163,14 @@ export async function postSpielerAction(
     invalidateSpieler();
 
     return {
-      success: Boolean(postOperation.acknowledged),
+      success: true,
       spieler_id: postOperation.spieler_id,
       message: "Spieler angelegt",
     };
   });
 }
 
-export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Promise<{
-  success: boolean;
-  spieler?: FLSpielerAdminSingleResponse;
-  message?: string;
-  error?: string;
-  fieldErrors?: FieldErrors;
-}> {
+export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Promise<ActionResult<{ spieler?: FLSpielerAdminSingleResponse }>> {
   return runAdminMutation("patchSpielerAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -195,7 +190,7 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
     invalidateSpieler();
 
     return {
-      success: Boolean(patchOperation.acknowledged),
+      success: true,
       spieler: patchOperation,
       message: "Spieler bearbeitet",
     };
@@ -204,7 +199,7 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
 
 export async function deleteSpielerAction(
   rawPayload: FLDeleteSpielerPayload,
-): Promise<{ success: boolean; spieler?: FLSpielerAdminSingleResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ spieler?: FLSpielerAdminSingleResponse }>> {
   return runAdminMutation("deleteSpielerAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -224,7 +219,7 @@ export async function deleteSpielerAction(
     invalidateSpieler();
 
     return {
-      success: Boolean(deleteOperation.acknowledged),
+      success: true,
       spieler: deleteOperation,
       message: "Spieler stillgelegt. Seine Kadereinträge bleiben erhalten.",
     };
@@ -233,7 +228,7 @@ export async function deleteSpielerAction(
 
 export async function reactivateSpielerAction(
   rawPayload: FLReactivateSpielerPayload,
-): Promise<{ success: boolean; spieler?: FLSpielerAdminSingleResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ spieler?: FLSpielerAdminSingleResponse }>> {
   return runAdminMutation("reactivateSpielerAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -253,7 +248,7 @@ export async function reactivateSpielerAction(
     invalidateSpieler();
 
     return {
-      success: Boolean(reactivateOperation.acknowledged),
+      success: true,
       spieler: reactivateOperation,
       message: "Spieler reaktiviert",
     };
@@ -265,9 +260,7 @@ export async function reactivateSpielerAction(
  * transaction. **No undo is offered and none exists** — nothing writes the person back, and the log
  * deliberately keeps no image of them.
  */
-export async function eraseSpielerAction(
-  rawPayload: FLEraseSpielerPayload,
-): Promise<{ success: boolean; erasure?: FLSpielerErasureResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+export async function eraseSpielerAction(rawPayload: FLEraseSpielerPayload): Promise<ActionResult<{ erasure?: FLSpielerErasureResponse }>> {
   return runAdminMutation("eraseSpielerAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -304,7 +297,7 @@ export async function eraseSpielerAction(
 export async function postSaisonSpielerAction(
   // Draft-shaped for the same reason as the create: an untouched team picker submits null.
   rawPayload: SaisonSpielerEnterDraft,
-): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ saison_spieler?: FLSaisonSpielerResponse }>> {
   return runAdminMutation("postSaisonSpielerAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -342,7 +335,7 @@ export async function postSaisonSpielerAction(
 
 export async function patchSaisonSpielerAction(
   rawPayload: SaisonSpielerMembershipDraft,
-): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ saison_spieler?: FLSaisonSpielerResponse }>> {
   return runAdminMutation("patchSaisonSpielerAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -376,7 +369,7 @@ export async function patchSaisonSpielerAction(
 // Independent of the person's own retirement: this takes the player out of ONE season's squad.
 export async function deleteSaisonSpielerAction(
   rawPayload: FLSaisonSpielerKeyPayload,
-): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ saison_spieler?: FLSaisonSpielerResponse }>> {
   return runAdminMutation("deleteSaisonSpielerAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -402,7 +395,7 @@ export async function deleteSaisonSpielerAction(
 
 export async function reactivateSaisonSpielerAction(
   rawPayload: FLSaisonSpielerKeyPayload,
-): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ saison_spieler?: FLSaisonSpielerResponse }>> {
   return runAdminMutation("reactivateSaisonSpielerAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };

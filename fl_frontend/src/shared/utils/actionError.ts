@@ -2,7 +2,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/cor
 
 import { buildRefusal, UNKNOWN_REFUSAL } from "./refusal";
 
-import type { FormState } from "@/shared/types/types";
+import type { ActionFailure } from "@/shared/types/types";
 
 /**
  * The Spiel refusals `fl_frontend/src/features/spiele/actions.ts :: mapSpielRefusal` does not map.
@@ -23,10 +23,10 @@ const OCCUPANT_REFUSALS: Record<string, string> = {
 };
 
 /**
- * Maps whatever a mutation threw onto the `FormState` the admin forms render. Each message names the way out rather
+ * Maps whatever a mutation threw onto the refusal the admin forms render. Each message names the way out rather
  * than the failure: the diagnosis is already in the server log, and the toast's title carries that the save is off.
  */
-export function toActionErrorResult(error: unknown): NonNullable<FormState> {
+export function toActionErrorResult(error: unknown): ActionFailure {
   if (error instanceof APIBadStatusError) {
     if (error.statusCode === 409 && error.serverErrorCode === "REQ-WIRING-001") {
       // The form does not offer these shapes, so the request was built against a season that has since moved.
@@ -55,10 +55,14 @@ export function toActionErrorResult(error: unknown): NonNullable<FormState> {
         }),
       };
     }
-    if (error.statusCode === 409 && error.serverErrorCode !== undefined && error.serverErrorCode in OCCUPANT_REFUSALS) {
-      // Unlike the stale-form refusal above, reloading fixes none of these. The code rides back out
-      // so the form can put the message on the side that caused it.
-      return { success: false, error: OCCUPANT_REFUSALS[error.serverErrorCode], errorCode: error.serverErrorCode };
+    if (error.statusCode === 409 && error.serverErrorCode !== undefined) {
+      // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
+      const occupantRefusal = Object.hasOwn(OCCUPANT_REFUSALS, error.serverErrorCode) ? OCCUPANT_REFUSALS[error.serverErrorCode] : undefined;
+      if (occupantRefusal !== undefined) {
+        // Unlike the stale-form refusal above, reloading fixes none of these. The code rides back out
+        // so the form can put the message on the side that caused it.
+        return { success: false, error: occupantRefusal, errorCode: error.serverErrorCode };
+      }
     }
     if (error.statusCode === 409) {
       // The ordinary outcome of a create hitting a unique index (DB-COMMON-002), possibly a retired row keeping its slot.

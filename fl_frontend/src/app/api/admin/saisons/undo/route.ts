@@ -13,7 +13,7 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-DATE-005": "Der ursprüngliche Zeitraum ist zu kurz für die Spieltage, die diese Saison nach ihren Regeln braucht.",
   "REQ-RULES-001": "Die ursprünglichen Zahlen für Gruppen und Qualifikanten ergeben keine KO-Runde, die diese Saison spielen kann.",
   "REQ-RULES-002": "Die ursprüngliche Zahl der Gruppen lässt eine Gruppe wegfallen, die inzwischen Teams hält.",
-  "REQ-RULES-003": "Mindestens eine Gruppe hält inzwischen mehr Teams, als die ursprüngliche Zahl je Gruppe zulässt.",
+  "REQ-RULES-003": "Mindestens eine Gruppe hält inzwischen mehr Teams, als die ursprüngliche Zahl der Teams pro Gruppe zulässt.",
   "REQ-RULES-004": "Ein Platz im KO-Baum verweist auf eine Platzierung, die es bei der ursprünglichen Zahl der Qualifikanten nicht gibt.",
   "REQ-RULES-005": "Diese Saison ist inzwischen abgeschlossen, deshalb sind Punkte, Tiebreak und Qualifikanten festgeschrieben.",
   "REQ-RULES-006": "Mindestens ein Spieltag enthält mehr Spiele, als die ursprünglichen Regeln vorsehen.",
@@ -38,7 +38,8 @@ export async function POST(request: NextRequest) {
         operation = await patchSaison(payload);
       } catch (error) {
         const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
-        const refusal = code == null ? undefined : REPLAY_REFUSALS[code];
+        // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
+        const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
         if (refusal === undefined) throw error;
 
         return `${refusal} ${CHANGE_STANDS}`;

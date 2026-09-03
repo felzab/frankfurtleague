@@ -15,9 +15,18 @@ import { getAdminSpiel } from "./queries";
 import { FLPatchSpielDataPayloadSchema, FLSpielSchema } from "./schemas";
 import { formatSpielUpdateMessage } from "./utils";
 
-import type { FormState } from "@/shared/types/types";
+import type { ActionResult } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLSpielBooking } from "./schemas";
+
+/**
+ * The `spiel_nr` of every other fixture a match write moved. Read by the edit page's live warning through
+ * `dry_run=true` and by the undo toast; both are empty on an ordinary edit, which is what makes presence mean something.
+ */
+type MovedFixtures = {
+  voidedFixtures?: number[];
+  releasedFixtures?: number[];
+};
 
 /**
  * The 409s a match write answers here. `REQ-DATE-001` lands on `datum`, the field that caused it;
@@ -60,7 +69,7 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   return null;
 }
 
-export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId: unknown): Promise<NonNullable<FormState>> {
+export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId: unknown): Promise<ActionResult<MovedFixtures>> {
   return runAdminMutation("patchAdminSpielDataAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -107,7 +116,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
     // The faults the resolution walked past ride along: the save that introduces one is when its
     // cause is known.
     return {
-      success: Boolean(patch_operation.acknowledged),
+      success: true,
       message: formatSpielUpdateMessage(patch_operation.advanced_to, patch_operation.bracket_faults, patch_operation.released_sides),
       // `voided_ergebnis` alone still names every one: a no-show needs both sides and composes its
       // own forfeit, so `voided_sonderereignis` never travels without the result it produced.
@@ -124,7 +133,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
  */
 export async function readAdminSpielBookingsAction(
   rawSpielIds: unknown,
-): Promise<{ success: boolean; error?: string; bookings?: (FLSpielBooking & { id: string })[] }> {
+): Promise<ActionResult<{ bookings?: (FLSpielBooking & { id: string })[] }>> {
   return runAdminMutation("readAdminSpielBookingsAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -153,7 +162,7 @@ export async function readAdminSpielBookingsAction(
  * same code the save uses. **No `updateTag` here, ever** — nothing changed, so it would evict every
  * cached match list on every keystroke.
  */
-export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<NonNullable<FormState>> {
+export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<ActionResult<MovedFixtures>> {
   return runAdminMutation("previewAdminSpielDataAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };

@@ -51,10 +51,11 @@ export async function POST(request: NextRequest) {
           operation = await patchAdminSpielData(payload);
         } catch (error) {
           const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
-          const refusal = code == null ? undefined : REPLAY_REFUSALS[code];
+          // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
+          const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
           if (refusal === undefined) throw error;
 
-          // The count, not `CHANGE_STANDS`, once a fixture is back: the change no longer stands whole.
+          // The count, not `CHANGE_STANDS`, once a fixture is back: the change stands only in part.
           const outcome = restored === 0 ? CHANGE_STANDS : `Die Rücknahme wurde nach ${restored} von ${payloads.length} Spielen abgebrochen.`;
           return `${refusal} ${outcome}`;
         }
