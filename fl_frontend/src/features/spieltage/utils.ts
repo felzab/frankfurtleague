@@ -56,7 +56,7 @@ export function spieltagLabel({ phase, ordinal, countInPhase }: { phase: FLSaiso
 
 /**
  * Over the whole list, because `countInPhase` is knowable only once the phase has been seen. The
- * ordinal is the served `position` (`docs/frontend/spec.md` I27).
+ * ordinal is the served `position` (`docs/frontend/spec.md` I60).
  */
 export function spieltagLabels(
   spieltage: readonly { id: string; saison_phase: FLSaisonPhase; position: number }[],

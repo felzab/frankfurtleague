@@ -182,7 +182,7 @@ export type SaisonReplacementRow = {
   isVerwaist: boolean;
 };
 
-/** One club that could take a season's row over, with the two standing facts that refuse it. */
+/** One club that could take a season's row over, with the standing facts that refuse it. */
 export type SaisonReplacementCandidate = {
   id: string;
   name: string;

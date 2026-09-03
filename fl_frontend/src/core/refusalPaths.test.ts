@@ -329,7 +329,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLPostSaisonSpielerPayloadSchema: {
     spieler_id: IN_THE_PATH,
     saison_id: THE_PAGE_SEASON,
-    is_nachgetragen: "derived from the season's status, never asked (decided 2026-08-07)",
+    is_nachgetragen: "derived from the season's status, never asked",
   },
   FLPatchSaisonSpielerPayloadSchema: {
     spieler_id: IN_THE_PATH,
@@ -337,7 +337,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
     is_nachgetragen: "round-tripped read-only: a historical fact about the entry, not an editable field",
   },
   FLCreateSpielerFormPayloadSchema: {
-    is_nachgetragen: "derived from the chosen season's status, never asked (decided 2026-08-07)",
+    is_nachgetragen: "derived from the chosen season's status, never asked",
     rolle: "hardcoded null: a squad role is decided on the player's own page, on an existing squad",
   },
 
@@ -486,7 +486,7 @@ describe("every path a refusal mapper emits", () => {
 
   /**
    * What each `fieldErrors` assignment's value is made of, which is what decides whether this half can
-   * read it (`docs/frontend/spec.md :: I34`). The `?` is what separates a declaration from a filling.
+   * read it (`docs/frontend/spec.md` §1.9). The `?` is what separates a declaration from a filling.
    */
   const FORWARDED = /^\w+\.fieldErrors\b/;
 

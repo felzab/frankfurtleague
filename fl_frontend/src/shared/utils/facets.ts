@@ -99,7 +99,7 @@ export function readFacetSelection<TItem>(facets: readonly Facet<TItem>[], param
 
     // Absent and unrecognised answer alike, with the default. Two admin lists can spell one parameter
     // differently, and reading a foreign value as the off-switch hands the reader an unnarrowed list
-    // with no pill saying why (owner's call, 2026-08-28).
+    // with no pill saying why.
     if (picked.length > 0) {
       selection[facet.param] = picked;
     } else if (facet.defaultValues !== undefined && facet.defaultValues.length > 0) {

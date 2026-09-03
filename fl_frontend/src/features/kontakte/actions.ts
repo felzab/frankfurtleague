@@ -85,9 +85,7 @@ export async function patchSaisonTeamKontakteAction(
       return { success: false, error: buildRefusal({ reason: "Die Kontakte wurden nicht gespeichert", repair: "Versuche es erneut" }) };
     }
 
-    // Nothing to invalidate: no cached read holds a contact person.
-    // `fl_frontend/src/features/teams/queries.ts :: getTeamMemberships` is memoised per render pass
-    // and not across requests, and no public team read carries `kontakte`.
+    // Nothing to invalidate, for the erasure's reason above.
 
     return {
       success: true,

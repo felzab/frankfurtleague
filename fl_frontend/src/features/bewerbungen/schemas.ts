@@ -51,8 +51,8 @@ export type FLBewerbungStatus = z.infer<typeof FLBewerbungStatusSchema>;
  * Null on an application that picked an existing club.
  */
 export const FLBewerbungSchuleSchema = z.object({
-  // The club's SHORT name beside `full_name`, not the school's own — the backend model says why it
-  // is spelled `team_name` inside a block called `schule`.
+  // The club's SHORT name beside `full_name`, not the school's own — which is why a block called
+  // `schule` holds a `team_name`.
   team_name: z.string().nonempty(),
   full_name: z.string().nonempty(),
   shorthand: z.string(),
@@ -60,7 +60,6 @@ export const FLBewerbungSchuleSchema = z.object({
   address: FLAddressSchema,
   // A plain string, never `ExternalUrlSchema`: the API serves a stored value unchecked, and refusing
   // one on read fails the whole list over the row an administrator needs in order to decline it.
-  // Nullable because a school may name no website at all.
   website_url: z.string().nullable(),
 });
 export type FLBewerbungSchule = z.infer<typeof FLBewerbungSchuleSchema>;
@@ -108,12 +107,12 @@ export const FLBewerbungSchema = z.object({
   team_id: CustomObjectIdStringSchema.nullable(),
   schule: FLBewerbungSchuleSchema.nullable(),
   // The junction's own three seats, imported rather than restated: an application's three people
-  // BECOME the junction's three at acceptance, which is how the backend declares it too.
+  // BECOME the junction's three at acceptance.
   kontakte: FLSaisonTeamKontakteSchema,
   trikot: FLBewerbungTrikotSchema,
   kader: FLBewerbungKaderSchema,
   // A FREE STRING and never a club id: a school may name an applicant the league has not accepted,
-  // so nothing here resolves against the roster. Unbounded on read, as every read field here is.
+  // so nothing here resolves against the roster.
   wunschgegner: z.string().nullable(),
   entscheidung: FLBewerbungEntscheidungSchema.nullable(),
 });
@@ -139,7 +138,7 @@ export type FLAnnehmenBewerbungPayload = z.infer<typeof FLAnnehmenBewerbungPaylo
 export const FLAblehnenBewerbungPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   // Required and non-empty: it is stored on the application AND sent to the people who applied, so a
-  // decline with nothing to say is one nobody can act on. German because the panel binds it to its input.
+  // decline with nothing to say is one nobody can act on.
   grund: z
     .string()
     // Trimmed before it is measured, and the trimmed value is what the write carries: „   “ is an
@@ -233,8 +232,8 @@ export type FLBewerbungKuerzelResponse = z.infer<typeof FLBewerbungKuerzelRespon
  */
 export const FLBewerbungTrikotFarbenResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
-  // `vergeben` as the Kürzel read means it — taken, and by nobody this answer names. A list because
-  // JSON has no set; the endpoint is what makes it distinct and palette-ordered.
+  // `vergeben` as the Kürzel read means it — taken. A list because JSON has no set; the endpoint is
+  // what makes it distinct and palette-ordered.
   vergeben: z.array(FLTrikotFarbeSchema),
 });
 export type FLBewerbungTrikotFarbenResponse = z.infer<typeof FLBewerbungTrikotFarbenResponseSchema>;
@@ -268,7 +267,6 @@ export const FLBewerbungEinwilligungPayloadSchema = z.object({
 });
 export type FLBewerbungEinwilligungPayload = z.infer<typeof FLBewerbungEinwilligungPayloadSchema>;
 
-/** Both name boxes and both count boxes share a ceiling, so each sentence is written once. */
 const NAME_ZU_LANG = `Der Name darf höchstens ${String(KONTAKT_NAME_MAX_LENGTH)} Zeichen lang sein.`;
 const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MAX)} Spieler an.`;
 
@@ -277,15 +275,12 @@ const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MA
  * form gathers and the one date bound on this payload alone.
  */
 export const FLBewerbungKontaktpersonPayloadSchema = z.object({
-  // The alphabet is `PersonNameSchema`'s and the ceiling is this payload's, as the backend spells it.
   vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
   nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
   email: z
     .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
     .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
   telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
-  // Bounded HERE and on no other date in the application: these three are the people the league
-  // deals with, and a birthdate outside this span is a typo rather than a person.
   geburtsdatum: CustomDateStringSchema.refine(
     (value) => {
       const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr());
@@ -314,7 +309,7 @@ const KONTAKT_PAARE = [
   ["ansprechperson", "stellvertretung"],
 ] as const;
 
-/** Compared without case and without surrounding space, as a person retyping their own address writes it. */
+/** A person retyping their own address is the same person, whatever the case and the surrounding space. */
 const gleicheAdresse = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase() && a.trim() !== "";
 
 // Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
@@ -423,9 +418,9 @@ export const FLBewerbungAddressPayloadSchema = FLAddressPayloadSchema.extend({
 export type FLBewerbungAddressPayload = z.infer<typeof FLBewerbungAddressPayloadSchema>;
 
 /**
- * A name is a name: none of these eight belongs in one, and refusing the class is cheaper than
- * reasoning about each renderer downstream. CR and LF forge a fact line in a decision mail besides
- * (`docs/frontend/spec.md :: I46`).
+ * A name is a name: none of them belongs in one, and refusing the class is cheaper than
+ * reasoning about each renderer downstream (`docs/frontend/spec.md :: I87`). CR and LF forge a fact
+ * line in a decision mail besides (`:: I46`).
  */
 // Mirrors `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN`. One asymmetry,
 // fail-closed: `strip()` drops U+0085 where `trim()` keeps it, so a value PADDED with one is taken
@@ -441,8 +436,6 @@ const einzeiligerName = (schema: z.ZodString, feld: string) =>
  * a school cannot submit what the admin form would refuse.
  */
 export const FLBewerbungSchulePayloadSchema = z.object({
-  // The club's SHORT name beside `full_name`, which is why it is spelled `team_name` inside a block
-  // called `schule`.
   team_name: einzeiligerName(
     z
       .string()
@@ -487,8 +480,8 @@ export const FLBewerbungTrikotPayloadSchema = z.object({
     .max(BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH, {
       error: `Die Beschreibung darf höchstens ${String(BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH)} Zeichen lang sein.`,
     }),
-  // Answered, unlike the stored field this becomes: a wish is one of sixteen colours and the school
-  // has one. `FLBewerbungTrikot` stays nullable, where an unanswered older record still reads and
+  // Answered, unlike the stored field this becomes: a wish is one of the offered colours and the
+  // school has one. `FLBewerbungTrikot` stays nullable, where an unanswered older record still reads and
   // where the administrator's assignment is a different field.
   wunschfarbe: FLTrikotFarbeSchema,
 });
@@ -509,8 +502,8 @@ export const FLBewerbungKaderPayloadSchema = z
       .nonnegative({ error: "Bitte gib eine Zahl ab 0 ein." })
       .max(BEWERBUNG_KADER_GROESSE_MAX, { error: KADER_ZU_GROSS }),
   })
-  // Mirrors the model validator: a subset cannot outnumber the whole, and both figures are the school's own
-  // estimate. Equal passes — a school may rate its whole squad. On `gute_spieler`, the box the applicant lowers.
+  // Mirrors the model validator: a subset cannot outnumber the whole. Equal passes — a school may
+  // rate its whole squad. On `gute_spieler`, the box the applicant lowers.
   .refine((kader) => kader.gute_spieler <= kader.voraussichtliche_groesse, {
     error: "Die Anzahl der guten Spieler darf die voraussichtliche Kadergröße nicht überschreiten.",
     path: ["gute_spieler"],
@@ -525,7 +518,6 @@ export type FLBewerbungKaderPayload = z.infer<typeof FLBewerbungKaderPayloadSche
 export const FLPostBewerbungPayloadSchema = z
   .object({
     saison_id: z.string().trim().length(4, { error: "Diese Bewerbung nennt keine Saison. Lade die Seite neu." }),
-    // The club PICKED out of the league's own list, null where the school proposes a new one.
     team_id: CustomObjectIdStringSchema.nullable(),
     schule: FLBewerbungSchulePayloadSchema.nullable(),
     kontakte: FLBewerbungKontaktePayloadSchema,
@@ -533,7 +525,7 @@ export const FLPostBewerbungPayloadSchema = z
     kader: FLBewerbungKaderPayloadSchema,
     // The one OPTIONAL key on this payload, mirroring the backend's one default: a client that has
     // not asked yet omits it. Line-bounded like `schule.team_name` and for its reason
-    // (`docs/frontend/spec.md :: I46`).
+    // (`docs/frontend/spec.md :: I87`).
     wunschgegner: einzeiligerName(
       z
         .string()

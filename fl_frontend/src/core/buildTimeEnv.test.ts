@@ -7,7 +7,7 @@ import ts from "typescript";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
-/** The names the builder stage itself sets; a name added here is a claim about the Dockerfile (`docs/frontend/spec.md :: I45`). */
+/** The names the builder stage itself sets; a name added here is a claim about the Dockerfile (`docs/frontend/spec.md :: I84`). */
 const PROVIDED_WHILE_BUILDING = new Set(["MONGODB_URI", "NODE_ENV", "NEXT_RUNTIME", "NEXT_TELEMETRY_DISABLED"]);
 
 function collectModules(dir: string): string[] {

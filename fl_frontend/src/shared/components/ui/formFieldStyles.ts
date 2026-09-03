@@ -32,7 +32,7 @@ export const FIELD_COUNT_INPUT = "fluid-sm w-full";
 const INDICATOR_CLEARANCE = "pe-9";
 
 /**
- * For `Autocomplete.Trigger` and `Select.Trigger`. **No `gap-x-*` here** (I30 in `docs/frontend/spec.md`), and both
+ * For `Autocomplete.Trigger` and `Select.Trigger`. **No `gap-x-*` here** (I61 in `docs/frontend/spec.md`), and both
  * structures are vendored — re-read `autocomplete.js` and `select.js` on an upgrade.
  */
 export const FIELD_TRIGGER = `${FIELD_INPUT} ${INDICATOR_CLEARANCE}`;

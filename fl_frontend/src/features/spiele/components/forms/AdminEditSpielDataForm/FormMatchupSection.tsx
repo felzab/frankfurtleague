@@ -79,14 +79,14 @@ export function FormMatchupSection({
           title="Begegnung">
           {/* Two elements rather than one with a conditional body: `hintCap.test.ts` counts a
               literal, and a ternary is a body it cannot measure. What a manual side COSTS is the
-              takeover banner's, so this row says only what the choice does. The bullet is the one
-              thing no control shows: `FormTeamPicker` drops a taken outcome from the list in silence. */}
+              takeover banner's, so this row says only what the choice does. */}
           {isKnockout ? (
             <Hint
               mode="reveal"
               label="Hinweis zur Begegnung"
               body={{
                 lead: "Jede Seite hat eine Herkunft.",
+                // The one thing no control shows: `FormTeamPicker` drops a taken outcome from the list in silence.
                 points: [{ text: "Wählbar sind nur frühere Runden, deren Ausgang noch kein anderes Spiel belegt." }],
               }}
             />

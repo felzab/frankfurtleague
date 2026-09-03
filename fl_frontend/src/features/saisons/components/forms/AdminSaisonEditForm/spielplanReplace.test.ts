@@ -137,15 +137,15 @@ describe("the draw half of the Spielplan panel", () => {
     assert.doesNotMatch(ARMED, /Schiedsrichter/);
   });
 
-  /* Restore "noch kein Spiel gewertet" anywhere and this fails: the window closes on anything
-     entered, cancellations and bookings included, which that sentence understates. */
+  /* Write "noch kein Spiel gewertet" anywhere and this fails: the window closes on anything
+     entered, cancellations and bookings included, which that wording understates. */
   it("states the window as nothing entered rather than nothing scored", () => {
     assert.doesNotMatch(SOURCE, /noch kein Spiel gewertet/);
     assert.match(SOURCE, /zu keinem ihrer\s+Spiele\s+etwas\s+eingetragen wurde/);
   });
 
-  /* Reinstate the old sentence anywhere in the panel and this fails: inside `REQ-SPIELPLAN-005`'s
-     window the draw runs as often as the rules need correcting. */
+  /* Write "genau einmal" anywhere in the panel and this fails: inside `REQ-SPIELPLAN-005`'s window
+     the draw runs as often as the rules need correcting. */
   it("makes no claim that a season is drawn exactly once", () => {
     assert.doesNotMatch(SOURCE, /genau einmal/);
   });

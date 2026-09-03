@@ -34,7 +34,7 @@ const SCHULE_ITEM = "fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px
 
 /**
  * What the team brings and what it would like — the two blocks an acceptance reads but copies
- * nothing from. A wished colour is not an assignment, and a squad estimate binds nobody.
+ * nothing from.
  */
 export function FormTeamSection({
   trikot,

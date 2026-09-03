@@ -151,7 +151,7 @@ describe("buildSaisonBanners", () => {
   });
 
   /* Both titles are fixed copy rather than §1.12's output, and each is the whole banner: a body under
-     either would answer a second question, and the placing one would reinstate the tail I struck. */
+     either would answer a second question its title has not raised. */
   it("carries the placing and the Stufen entry in their titles alone", () => {
     assert.equal(build({ isPlacingChanged: true })[0]?.body, undefined);
     assert.equal(build({ isStufenChanged: true })[0]?.body, undefined);

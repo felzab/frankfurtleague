@@ -205,8 +205,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
                 </Table.Column>
               </Table.Header>
 
-              {/* `items` plus a render function, never mapped children: the static form stops
-                  committing its row collection after a few navigations away and back. */}
+              {/* `items` plus a render function, never mapped children — see the memo note above. */}
               <Table.Body
                 items={filteredSpielorte}
                 renderEmptyState={() => <AdminCrudEmptyRow message={EMPTY_MESSAGES[emptiness]} />}>

@@ -33,11 +33,6 @@ export function FormZeitraumSection({
   endDate: CalendarDate | null;
   onEndDateChange: (next: CalendarDate | null) => void;
   onFieldLeft: (paths: readonly string[]) => void;
-  /**
-   * The span the DATED matchdays occupy (`REQ-DATE-004`). `null` at an end leaves that picker
-   * unbounded, which is the answer for a season with no matchday and for one whose matchdays are all
-   * still undated.
-   */
   spieltagBound: SaisonSpieltagBound;
   banners: readonly SaisonBanner[];
 }) {

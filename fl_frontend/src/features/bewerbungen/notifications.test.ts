@@ -337,7 +337,7 @@ describe("what the administrator is told", () => {
 });
 
 /**
- * Composing is inside the settling too (`docs/frontend/spec.md :: I39`): the public receipt
+ * Composing is inside the settling too (`docs/frontend/spec.md :: I70`): the public receipt
  * `fl_frontend/src/app/api/bewerbung/route.ts` awaits this with no `catch`, so a rejected fan-out
  * would show an applicant a failure for a stored application.
  */

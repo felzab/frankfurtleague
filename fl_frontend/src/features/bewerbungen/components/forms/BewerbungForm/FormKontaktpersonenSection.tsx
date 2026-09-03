@@ -41,7 +41,6 @@ function toCalendarDate(stored: string): CalendarDate | null {
  */
 const ZUGLEICH_PATH = "kontakte.trainer_ist_zugleich";
 
-/** One seat, as the form asks for it and as the payload spells its path. */
 export type SeatRolle = "ansprechperson" | "stellvertretung" | "trainer";
 
 /**
@@ -134,8 +133,6 @@ export function FormKontaktpersonenSection({
             className="flex w-full flex-col gap-y-1"
             name={ZUGLEICH_PATH}
             isSelected={istZugleichTrainer === true}
-            // One claim across all three seats, so ticking this one necessarily clears the other: two
-            // people cannot both be the coach, and no press here can be made to say they are.
             onChange={onZugleichToggled}>
             <Switch.Content className={panel.switchContent()}>
               Diese Person ist zugleich Trainerin oder Trainer

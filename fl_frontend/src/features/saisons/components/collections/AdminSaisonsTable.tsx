@@ -96,8 +96,8 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
 
   return (
     <>
-      {/* The phone layout: one card per season, no horizontal scrolling anywhere — the pattern all four
-          admin tables follow below `md`. */}
+      {/* The phone layout: one card per season, no horizontal scrolling anywhere — the pattern every
+          admin table follows below `md`. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
         {filteredSaisons.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredSaisons.map((saison) => (
@@ -121,8 +121,8 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
           {/* No `scrollbar-hide`: below the minimum declared on the table this container is the
               only way to reach the columns it cannot fit, and a hidden bar says it is not. */}
           <Table.ScrollContainer>
-            {/* Fixed layout holds the columns when the rows go. The minimum is the three declared
-                columns plus 304 for the span, which needs 236 to set its two dates on one line. */}
+            {/* Fixed layout holds the columns when the rows go. The minimum is every pinned column's
+                width plus a floor for the span, which needs room to set its two dates on one line. */}
             <Table.Content
               aria-label="Tabelle aller Saisons"
               className="min-w-3xl table-fixed">

@@ -1,3 +1,5 @@
+// Mounted from a client component because `I18nProvider` creates its context at module scope, which
+// the RSC runtime refuses and the root layout is.
 "use client";
 
 import { useRouter } from "next/navigation";

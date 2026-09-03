@@ -39,7 +39,7 @@ import type {
 const SAISON_ID_TAKEN = "Diese Saison-ID ist schon vergeben. Wähle eine andere oder bearbeite die vorhandene Saison.";
 
 /**
- * The four stored-rules faults a DRAW raises as well as an edit, each worded once: the rules editor
+ * The stored-rules faults a DRAW raises as well as an edit, each worded once: the rules editor
  * seats the sentence under its field, and the generator, having no field, seats it in a message that
  * names where the repair is made.
  */
@@ -92,9 +92,8 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
       return { fieldErrors: { "rules.draw_points": DRAW_BEATS_WIN } };
     case "REQ-RULES-009":
       return { fieldErrors: { "rules.max_kadergroesse": "Mindestens ein Kader hat schon mehr Spieler als dieses Maximum." } };
-    // On the winner's box, which is the one to raise, and only there: `<FieldError>` renders under
-    // the input whose `name` the key matches, and the pair's own row picks it up through
-    // `saisonDraftStatus`'s `errorPaths`.
+    // On the winner's box, which is the one to raise, and only there: the pair's own row picks it up
+    // through `saisonDraftStatus`'s `errorPaths`.
     case "REQ-RULES-010":
       return { fieldErrors: { "rules.forfeit_ergebnis.sieger_tore": FORFEIT_CANNOT_DECIDE } };
     // Neither freeze can see whether the other holds, so each names only the fields it freezes. A
@@ -474,8 +473,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
       return { success: false, error: buildRefusal({ reason: "Die Gruppen wurden nicht getauscht", repair: "Versuche es erneut" }) };
     }
 
-    // Both layers: the base tag serves reads that named no season, the granular one those that named
-    // this season.
+    // Both layers (`docs/frontend/spec.md` §1.4).
     updateTag("teams");
     updateTag(`teams:saison_id:${validated.data.saison_id}`);
 

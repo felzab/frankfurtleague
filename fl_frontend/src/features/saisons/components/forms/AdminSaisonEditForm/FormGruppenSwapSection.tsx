@@ -142,8 +142,7 @@ export function FormGruppenSwapSection({
   };
 
   const handleSwap = () => {
-    // Ahead of `press`, so a half-made pair neither arms nor writes. Both are `const`, which is what
-    // carries the narrowing into the closure below.
+    // Ahead of `press`, so a half-made pair neither arms nor writes.
     if (first === null || second === null) return;
 
     press(async () => {

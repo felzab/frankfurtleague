@@ -39,8 +39,7 @@ const WEBSITE_SATZ = { vor: "Spielplan, Tabelle und Ergebnisse veröffentlichen 
 
 /**
  * A wish answered as one. The Spielplan is drawn after the decision, so nothing here knows whether it
- * can be met, and „wir versuchen“ would promise a result of a draw that has not run (my wording of
- * 2026-08-31).
+ * can be met, and „wir versuchen“ would promise a result of a draw that has not run (my wording).
  */
 const wunschgegnerSatz = (gegner: string): string =>
   `Als Wunschgegner für den ersten Spieltag haben wir ${gegner} notiert; über die Paarungen entscheidet der Spielplan.`;
@@ -228,7 +227,7 @@ function renderHtml(nachricht: Nachricht, bloecke: readonly string[]): string {
  */
 function renderText(nachricht: Nachricht, body: readonly string[]): string {
   // A blank line before a stacked fact, so the lines it wraps onto do not read as further facts.
-  // Both shapes are normalised here rather than trusted from the payload (`docs/frontend/spec.md :: I46`).
+  // Both shapes are normalised here rather than trusted from the payload (`docs/frontend/spec.md :: I85`).
   const zeile = (fakt: Fakt): string =>
     fakt.gestapelt === true ? `${fakt.label}: ${eingerueckt(fakt.value)}` : `${fakt.label}: ${einzeilig(fakt.value)}`;
   const fakten = nachricht.fakten.flatMap((fakt) => (fakt.gestapelt === true ? ["", zeile(fakt)] : [zeile(fakt)]));

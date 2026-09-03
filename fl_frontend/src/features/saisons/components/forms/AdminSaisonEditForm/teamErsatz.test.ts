@@ -116,8 +116,8 @@ describe("the replacement panel", () => {
     assert.match(FLAT, /title="Nachrücken kann nur ein Team, das in dieser Saison noch nicht dabei und nicht stillgelegt ist"/);
   });
 
-  /* Dictated verbatim, and the whole callout: a sweep restoring a situation title above it, or a body
-     under it, is the failure this pins. The bare title is the banner-title decision of 2026-08-27. */
+  /* Dictated verbatim, and the whole callout: a situation title above it, or a body under it, is the
+     failure this pins. */
   it("carries the dictated closure as its title alone, without a trailing stop", () => {
     assert.match(FLAT, /title="Nur Teams, die noch kein Spiel gespielt haben, können ersetzt werden"\s*\/>/);
     assert.doesNotMatch(PANEL, /Die Saison ist zu weit|und das trifft auf keines mehr zu/);

@@ -148,13 +148,9 @@ export function missingVerdicts<TSchema extends string>({
   return Object.keys(published).length === 0 ? null : published;
 }
 
-/**
- * Every refusal across the payloads one press writes, keyed as the payload spells it. Separate from the hook so the
- * decision can be exercised without a renderer, and so a two-schema editor's halves merge in one place.
- */
-/** Spelled per count rather than interpolated: `1` and the rest need their own German. */
 export const BLOCKED_SUBMIT_TITLE = "Noch nicht abgeschickt";
 
+/** Spelled per count rather than interpolated: `1` and the rest need their own German. */
 export const blockedSubmitDetail = (refused: number): string =>
   refused === 1
     ? "Ein Feld braucht noch eine Angabe. Es ist unten markiert."
@@ -175,6 +171,10 @@ export function submitDecision<TSchema extends string>(args: {
   return Object.keys(refusals).length === 0 ? { blocked: false } : { blocked: true, refusals };
 }
 
+/**
+ * Every refusal across the payloads one press writes, keyed as the payload spells it. Separate from the hook so the
+ * decision can be exercised without a renderer, and so a two-schema editor's halves merge in one place.
+ */
 export function submitRefusals<TSchema extends string>({
   payloads,
   schemas,
@@ -208,7 +208,7 @@ export function applyVerdicts(current: FieldVerdicts, incoming: FieldVerdicts | 
 
 /**
  * The one field-error map an editor renders, so no form wires the merge's order wrong
- * (`docs/frontend/spec.md` I19). Each key's schema is the one its server action parses
+ * (`docs/frontend/spec.md` I19 and I56). Each key's schema is the one its server action parses
  * (`docs/frontend/spec.md` I18), or browser and server state different rules.
  */
 export function useDraftFieldErrors<TSchema extends string>({ schemas }: { schemas: Readonly<Record<TSchema, ZodType>> }) {

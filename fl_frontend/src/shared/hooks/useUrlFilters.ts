@@ -68,8 +68,8 @@ export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
   );
 
   /**
-   * Every facet at once, named explicitly so a parameter that is not a facet survives. A default goes with them
-   * (owner's call, 2026-08-26): the control promises a complete list, and one left standing would still draw a pill.
+   * Every facet at once, named explicitly so a parameter that is not a facet survives. A default goes with them:
+   * the control promises a complete list, and one left standing would still draw a pill.
    */
   const clearAll = useCallback(() => {
     write(Object.fromEntries(facets.map((facet) => [facet.param, []])));

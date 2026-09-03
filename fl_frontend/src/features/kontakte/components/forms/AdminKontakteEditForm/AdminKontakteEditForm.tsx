@@ -68,12 +68,11 @@ export function AdminKontakteEditForm({
   });
 
   // Both ids ride in the request path, so neither is a field an input renders or a refusal can name.
-  /* The claim is honoured HERE and nowhere earlier. Composed, the seat that made it stays the one
-     place its person is edited, and lifting it returns the Trainer's own; written into the draft it
-     overwrites whichever of two real people it does not name. */
   const buildPayload = (): SaisonTeamKontaktePayloadDraft => ({
     team_id: teamId,
     saison_id: saison.saisonId,
+    // The claim is honoured HERE and nowhere earlier
+    // (`fl_frontend/src/features/kontakte/utils.ts :: mirrorKontakte`).
     kontakte: kontakte === null ? null : mirrorKontakte(kontakte),
   });
 

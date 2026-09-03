@@ -11,7 +11,7 @@ export function SoccerfieldBg({ children }: { children: React.ReactNode }) {
           <div className="penalty-area-base penalty-area-bottom" />
         </div>
 
-        {/* Content Layer with generous vertical padding to completely clear the penalty boxes */}
+        {/* The vertical padding is a floor rather than a taste call: under it the content sits on the penalty boxes drawn above. */}
         <div className="relative z-10 flex w-full flex-col items-center px-4 py-24 sm:px-8 sm:py-32 lg:px-16 lg:py-44">{children}</div>
       </div>
     </div>

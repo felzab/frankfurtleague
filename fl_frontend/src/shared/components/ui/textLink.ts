@@ -1,6 +1,6 @@
 import { tv } from "tailwind-variants";
 
-/** The one treatment a link inside text wears, and the whole of it (`docs/frontend/spec.md :: I43`). */
+/** The one treatment a link inside text wears (`docs/frontend/spec.md :: I43`), and the whole of it (`:: I78`). */
 export const textLink = tv({
   base: "underline underline-offset-2 transition-colors",
   variants: {

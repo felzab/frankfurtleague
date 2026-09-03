@@ -50,9 +50,7 @@ export function BewerbungView({
   today: string;
   /** Empty unless the window runs: a closed page reads no club list for a picker it never shows. */
   schulen: readonly { id: string; name: string }[];
-  /** Whether that list was read at all, so an empty picker says which of the two emptied it. */
   isSchulenLesbar: boolean;
-  /** The colours an administrator has ASSIGNED this season, which the wish picker then leaves out. */
   vergebeneFarben: readonly FLTrikotFarbe[];
 }) {
   const zustand = isUnlesbar ? "unlesbar" : fensterZustand(fenster, today);
@@ -68,8 +66,8 @@ export function BewerbungView({
           Mit Deiner Schule <span className="text-brand">mitspielen</span>
         </h1>
 
-        {/* The invitation is the RUNNING state's alone: five of the six render no form, and „Trag Dein
-            Team hier ein“ above a panel saying the window is shut is the page contradicting itself. */}
+        {/* The invitation is the RUNNING state's alone: every other state renders no form, and „Trag
+            Dein Team hier ein“ above a panel saying the window is shut is the page contradicting itself. */}
         <p className="muted-hint max-w-xl">
           Die Frankfurt-League ist das Fußballturnier der Frankfurter Oberstufen.{" "}
           {zustand === "laeuft"

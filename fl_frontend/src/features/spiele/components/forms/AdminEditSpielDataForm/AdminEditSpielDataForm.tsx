@@ -319,13 +319,13 @@ export function AdminEditSpielDataForm({
     refusalCode: refusal?.key === refusalKey ? refusal.code : null,
   });
 
+  // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
+  useForgiveFixed({ spiel: buildPayload() });
+
   /**
    * For a control the user TYPES into, on blur. Writes only the client-side verdicts: the submit's
    * map calls `reportValidity()`, which on a blur throws focus off the field being tabbed past.
    */
-  // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
-  useForgiveFixed({ spiel: buildPayload() });
-
   const validateFields = (paths: readonly string[]) => validatePaths("spiel", buildPayload(), paths);
 
   /**

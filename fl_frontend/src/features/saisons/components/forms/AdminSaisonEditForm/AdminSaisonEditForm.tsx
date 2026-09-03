@@ -102,16 +102,12 @@ export function AdminSaisonEditForm({
     schemas: { saison: FLPatchSaisonPayloadSchema },
   });
 
-  // `""` for a cleared picker rather than a cast: the schema refuses an empty string with the date
-  // message, which is one the form can render on the field.
-  /**
-   * Widened at the money field the way `FLSpielOrtFieldDraft` is: an emptied box holds `null`, and the payload
-   * schema's `z.int()` is what asks for a number at the submit.
-   */
   type SaisonPatchDraft = Omit<FLPatchSaisonPayload, "rules"> & { rules: FLSaisonRulesDraft };
 
   const buildPayload = (): SaisonPatchDraft => ({
     id: saison.id,
+    // `""` for a cleared picker rather than a cast: the schema refuses an empty string with the date
+    // message, which is one the form can render on the field.
     start_date: startDate?.toString() ?? "",
     end_date: endDate?.toString() ?? "",
     rules,
@@ -377,11 +373,7 @@ export function AdminSaisonEditForm({
             isFinishedSaison={saison.status === "past"}
           />
 
-          {/* Between the swap and the rollover: the rollover's class of control rather than the
-              swap's, in that it writes on press, never joins the save bar, and no later edit
-              reverses it. One panel over the draw and the rücknahme that reverses it: both are open
-              at once on a drawn planned season and both destroy the same rows, so the operation is
-              picked before arming rather than raced between two armed states. */}
+          {/* Between the swap and the rollover, in the rollover's class of control. */}
           <FormSpielplanSection
             saisonId={saison.id}
             saisonStatus={saison.status}

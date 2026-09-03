@@ -180,8 +180,8 @@ describe("the bracket wiring review", () => {
     assert.ok(text.includes("export function AdminBracketWiringView"), `${VIEW}: the view is no longer exported from here`);
   });
 
-  /* Decided 2026-08-07: the fact under review is the edge, and a match card drops the provenance the
-     moment a winner arrives. `.claude/rules/frontend.md` carries it as "render its wiring as cards". */
+  /* The fact under review is the edge, and a match card drops the provenance the moment a winner
+     arrives. `.claude/rules/frontend.md` carries it as "render its wiring as cards". */
   it("draws the fixtures as table rows, and nothing here as a card", () => {
     assert.ok(namedImportsFrom("@heroui/react").has("Table"), `${VIEW}: HeroUI's Table is no longer imported`);
     assert.ok(tags.has("Table.Row"), `${VIEW}: a fixture is no longer a table row`);
@@ -218,9 +218,8 @@ describe("the bracket wiring review", () => {
     assert.equal(items.length, 1, `${VIEW}: ${String(items.length)} elements carry role="listitem", and the cascade animates each of them`);
   });
 
-  /* Decided 2026-08-07, re-argued twice since: four states, four fills, so a chip answers "does this
-     need me?" first. Flattened to one value the panel reads as one colour; flattened to bare ink it
-     stops being a chip. */
+  /* Four states, four fills, so a chip answers "does this need me?" first. Flattened to one value the
+     panel reads as one colour; flattened to bare ink it stops being a chip. */
   it("keeps the four origin tints four distinct fill-and-ink pairs", () => {
     const record = objectConstant("HERKUNFT_TINTS");
     assert.ok(record !== null, `${VIEW}: HERKUNFT_TINTS is no longer a record the guard can read`);
@@ -263,8 +262,8 @@ describe("the bracket wiring review", () => {
     assert.deepEqual(vendored, [], `${VIEW}: renders HeroUI's ${vendored.join(", ")}`);
   });
 
-  /* Decided 2026-08-27: the chip names the round a slot is fed FROM, not the round it stands in, so
-     the panel's own phase must never be what colours it — one round can be fed by two. */
+  /* The chip names the round a slot is fed FROM, not the round it stands in, so the panel's own
+     phase must never be what colours it — one round can be fed by two. */
   it("colours a slot from the phase of the fixture feeding it", () => {
     assert.ok(propsOf("SlotWiring").includes("phaseBySpielNr"), `${VIEW}: a slot is no longer told which phase each fixture number sits in`);
 
@@ -283,8 +282,8 @@ describe("the bracket wiring review", () => {
     assert.ok(carriers[0]?.classes.includes("sr-only"), `${VIEW}: the seat name is drawn, and it reads as a second number beside the origin`);
   });
 
-  /* Decided 2026-08-27: the heading states the phase, and states it with an ordinal a phase chip
-     drops, so a chip beside it repeats one fact and loses another. */
+  /* The heading states the phase, and states it with an ordinal a phase chip drops, so a chip beside
+     it repeats one fact and loses another. */
   it("heads a round with the matchday label alone", () => {
     const headings = taggedAs("h2");
 
@@ -327,8 +326,8 @@ describe("the bracket wiring review", () => {
       );
     });
 
-    /* Decided 2026-08-27: one cell declaring an alignment the other does not puts the control some
-       sixty pixels above its own number on the worst phone row, and nothing else here catches it. */
+    /* One cell declaring an alignment the other does not puts the control some sixty pixels above its
+       own number on the worst phone row, and nothing else here catches it. */
     it("declares no vertical alignment on the number or the action, so both take the vendored middle", () => {
       for (const [which, cell] of [
         ["fixture-number", numberCell[0]],

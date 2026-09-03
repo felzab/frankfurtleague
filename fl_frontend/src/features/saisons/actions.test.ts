@@ -213,7 +213,7 @@ describe("the German each widened refusal renders", () => {
     assert.doesNotMatch(SPAN_MESSAGE, /Saison-ID/);
   });
 
-  /* Three endpoints now refuse on this code, so a sentence written twice could tell two admins two
+  /* Several endpoints refuse on this code, so a sentence written twice could tell two admins two
      different things about one rule. Each arm adds its own tail and shares the opening. */
   it("opens the schedule refusal from one declaration on both paths", () => {
     for (const [name, arm] of [

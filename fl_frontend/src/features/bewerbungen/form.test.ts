@@ -86,8 +86,8 @@ describe("the public application form", () => {
     }
   });
 
-  /* The Trainer first, my rule of 2026-08-29: it is the seat a school fills in first when it thinks
-     about who is coming, and the two contacts follow from it. */
+  /* The Trainer first: it is the seat a school fills in first when it thinks about who is coming,
+     and the two contacts follow from it. */
   /* Read from the constant rather than from its source text: the order is what the form renders, and
      a re-indent must not be able to fail this or, worse, pass it vacuously. */
   it("asks for the Trainer first, ahead of the two seats that can claim to be one", () => {
@@ -194,8 +194,8 @@ describe("what the form does with a submit already in flight", () => {
     assert.match(FORM, /if \(shorthand\.length !== KUERZEL_LAENGE\) \{/, "the blur check fires on a code nobody finished typing");
   });
 
-  /* Thirty fields, entered once, by somebody who has them saved nowhere else. Every write to the
-     draft goes through one setter, so nothing can move it without arming the browser's prompt. */
+  /* A long form, entered once, by somebody who has it saved nowhere else. Every write to the draft
+     goes through one setter, so nothing can move it without arming the browser's prompt. */
   it("warns before an unload that would lose the draft", () => {
     assert.match(FORM, /useUnsavedChangesWarning\(hasTyped && !isEingereicht\)/, "an unload takes the draft with it silently");
 

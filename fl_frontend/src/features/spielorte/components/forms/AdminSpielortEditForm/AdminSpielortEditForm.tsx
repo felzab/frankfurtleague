@@ -67,10 +67,8 @@ export function AdminSpielortEditForm({
   });
 
   // The wire carries `id` in the path, so no refusal can name it and no input renders it.
-  /**
-   * Widened at the money field the way `FLSpielOrtFieldDraft` is: an emptied box holds `null`, and the payload
-   * schema's `z.int()` is what asks for a number at the submit.
-   */
+
+  // The widening `fl_frontend/src/features/spielorte/schemas.ts :: FLSpielortPayloadDraft` states in full.
   type SpielortPatchDraft = Omit<FLPatchSpielortPayload, "default_mietpreis"> & { default_mietpreis: number | null };
 
   const buildPayload = (): SpielortPatchDraft => ({

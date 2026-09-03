@@ -86,8 +86,7 @@ export function WebsiteUrlField({
             className="fluid-sm min-w-0 ps-2"
           />
         </InputGroup>
-        {/* The pair `RowActionDelete` splits, for its reason: the live link's label names what its own press does,
-            while a refusal has no press of its own to arrive on, so the hint has to take the press instead. */}
+        {/* The pair `fl_frontend/src/shared/components/ui/RowActions.tsx :: RowActionDelete` splits, for its reason. */}
         {isFollowable ? (
           <IconTooltip label="Link in neuem Tab öffnen">{openLink}</IconTooltip>
         ) : (

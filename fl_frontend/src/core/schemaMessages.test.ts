@@ -123,7 +123,7 @@ describe("what a closed set says when it refuses", () => {
 
       /* The third, and the one the two checks above let through: `enum member expected` is neither
          Zod's wording nor its own type name. What separates copy from a note is exact and cheap —
-         copy is a SENTENCE. This proves shape, never language: see §4. */
+         copy is a SENTENCE. This proves shape, never language (`docs/frontend/spec.md` §4). */
       assert.match(own, /^[A-ZÄÖÜ]/u, `${alias.name} answers with a fragment rather than a sentence: "${own}"`);
       assert.match(own, /\.$/u, `${alias.name} answers without a full stop, which is a note rather than a sentence: "${own}"`);
     });

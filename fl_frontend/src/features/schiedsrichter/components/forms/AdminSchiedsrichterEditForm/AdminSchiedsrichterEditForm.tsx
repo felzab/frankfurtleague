@@ -70,10 +70,8 @@ export function AdminSchiedsrichterEditForm({
   });
 
   // The wire carries `id` in the path, so no refusal can name it and no input renders it.
-  /**
-   * Widened at the money field the way `FLSpielOrtFieldDraft` is: an emptied box holds `null`, and the payload
-   * schema's `z.int()` is what asks for a number at the submit.
-   */
+
+  // The widening `fl_frontend/src/features/schiedsrichter/schemas.ts :: FLSchiedsrichterPayloadDraft` states in full.
   type SchiedsrichterPatchDraft = Omit<FLPatchSchiedsrichterPayload, "default_payment"> & { default_payment: number | null };
 
   const buildPayload = (): SchiedsrichterPatchDraft => ({

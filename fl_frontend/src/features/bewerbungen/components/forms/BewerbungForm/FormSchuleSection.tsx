@@ -63,7 +63,7 @@ export function FormSchuleSection({
   kuerzelHinweis,
   isSchulenLesbar,
 }: {
-  /** Every club a school may pick itself out of, name and id alone, name-sorted by the backend. */
+  /** Name-sorted by the backend, so nothing here re-sorts them. */
   schulen: readonly { id: string; name: string }[];
   /** The picked key: a club id, the sentinel, or nothing picked yet. */
   auswahl: string | null;
@@ -144,7 +144,7 @@ export function FormSchuleSection({
             <Autocomplete.Trigger className={FIELD_TRIGGER}>
               <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
               {/* `ms-2` rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
-                  truncated name ends against this button (`docs/frontend/spec.md` I30). `hover: "css"`
+                  truncated name ends against this button (`docs/frontend/spec.md` I61). `hover: "css"`
                   because HeroUI renders this as a plain `<button>`. */}
               <Autocomplete.ClearButton
                 type="button"
@@ -331,9 +331,9 @@ export function FormSchuleSection({
 
             <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
               <h3 className={FORM_SECTION_HEADING}>Adresse der Schule</h3>
-              {/* Not copy to trim: decided 2026-08, Datenschutzexperte consulted — the address stays
-                  public, and the form says so where it is asked for. The rule stands where the read
-                  serves it (`fl_backend/app/api/teams/schemas.py :: _TeamWritable`). */}
+              {/* Not copy to trim: the address stays public, and the form says so where it is asked
+                  for. The rule stands where the read serves it
+                  (`fl_backend/app/api/teams/schemas.py :: _TeamWritable`). */}
               <p
                 id={adressHinweisId}
                 className="fluid-xxs text-foreground-muted leading-relaxed font-medium text-pretty">

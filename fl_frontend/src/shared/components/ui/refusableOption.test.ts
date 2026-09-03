@@ -19,7 +19,7 @@ describe("the row a refusable picker hands on", () => {
     assert.equal(pickIfOffered(OPTIONS, "auch-frei"), "auch-frei");
   });
 
-  /* The clause the panels no longer carry themselves. Widen this to a plain existence check and a
+  /* The clause no panel carries itself. Widen this to a plain existence check and a
      closed row reaches a write the endpoint answers 409 — with the picker still showing it disabled,
      so nothing on the page says what happened. */
   it("refuses a row carrying a refusal, however it arrived", () => {

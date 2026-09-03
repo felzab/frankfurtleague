@@ -76,7 +76,7 @@ function cappedFields(): Capped[] {
     const properties = document.components.schemas[component]?.properties ?? {};
     for (const [field, spec] of Object.entries(properties)) {
       // A nullable field publishes its bound inside `anyOf`, never beside the type: read only the outer
-      // level and `website_url`'s 300 is silently unswept.
+      // level and `website_url`'s own ceiling is silently unswept.
       const branches = [spec, ...((spec.anyOf as Record<string, unknown>[] | undefined) ?? [])];
       const maxLength = branches.map((branch) => branch.maxLength).find((value) => typeof value === "number");
       const maximum = branches.map((branch) => branch.maximum).find((value) => typeof value === "number");
@@ -166,10 +166,11 @@ describe("where a ceiling reaches the box the applicant types in", () => {
     });
   }
 
-  /* The website box holds the URL WITHOUT the scheme, which the group renders as furniture. Capped at
-     the payload's own ceiling it would accept eight characters the submit then refuses, and the
-     presence check above is satisfied by the constant alone. */
+  /* The presence check above is satisfied by the constant alone. */
   it("subtracts the scheme from the one cap whose box does not hold it", () => {
+    // The website box holds the URL WITHOUT the scheme, which the group renders as furniture.
+    // Capped at the payload's own ceiling it would accept the scheme's length in characters the
+    // submit then refuses.
     assert.match(
       readForm("FormSchuleSection.tsx"),
       /maxLength=\{TEAM_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME\.length\}/,

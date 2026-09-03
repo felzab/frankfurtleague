@@ -9,9 +9,7 @@ export type ShapeField = { key: keyof FLSpielplanShape; label: string; minValue:
  * The bounds are the schema's, pinned by this file's test.
  */
 export const SHAPE_FIELDS: readonly ShapeField[] = [
-  // The closed set is A to D and a season runs a prefix of it, so 4 is a ceiling rather than a policy.
   { key: "number_of_groups", label: "Gruppen", minValue: 1, maxValue: 4 },
-  // Below 2 a group generates no fixture; above 16 a season-scoped read truncates.
   { key: "teams_per_group", label: "Teams pro Gruppe", minValue: 2, maxValue: 16 },
   { key: "qualifiers_per_group", label: "Qualifikanten pro Gruppe", minValue: 1 },
 ];

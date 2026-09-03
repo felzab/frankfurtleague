@@ -21,12 +21,10 @@ import type {
 
 /**
  * The ONE answer a taken Kürzel gets, wherever it is judged. It names no club and does not say
- * whether that club still plays: the check is open to anybody, and either would be a read of the
- * league's roster nobody asked it for.
+ * whether that club still plays.
  */
 export const KUERZEL_VERGEBEN = "Dieses Kürzel ist schon vergeben. Bitte wähle ein anderes.";
 
-/** The three things the blur-time check has to say short of a refusal. */
 export const KUERZEL_PRUEFUNG = "Wir prüfen, ob das Kürzel noch frei ist...";
 const KUERZEL_FREI = "Dieses Kürzel ist noch frei.";
 export const KUERZEL_UNGEPRUEFT = "Ob das Kürzel frei ist, prüfen wir spätestens beim Abschicken.";
@@ -40,7 +38,7 @@ export const KUERZEL_UNGEPRUEFT = "Ob das Kürzel frei ist, prüfen wir spätest
 export function kuerzelHinweis(shorthand: string, verdikt: KuerzelVerdikt | null, isPending: boolean): string | null {
   if (shorthand.length !== KUERZEL_LAENGE) return null;
   if (isPending) return KUERZEL_PRUEFUNG;
-  // A verdict about another value says nothing about this one, whatever it said about that one.
+  // A verdict about another value says nothing about this one.
   if (verdikt === null || verdikt.shorthand !== shorthand) return KUERZEL_UNGEPRUEFT;
 
   return verdikt.vergeben ? null : KUERZEL_FREI;
@@ -148,8 +146,6 @@ export function mapBewerbungSubmitRefusal(error: unknown): { error?: string; fie
     // only one of them is what the backend refused.
     case "REQ-BEWERBUNG-007":
       return { fieldErrors: { team_id: "Diese Schule spielt in dieser Saison schon mit. Wähle eine andere aus, wenn Du Dich vertan hast." } };
-    // The same neutral answer the availability check gives: it names no club and says nothing about
-    // whether the club holding the code still plays.
     case "REQ-BEWERBUNG-008":
       return { fieldErrors: { "schule.shorthand": KUERZEL_VERGEBEN } };
     default:
@@ -185,15 +181,13 @@ export function abiJahrgang(saisonId: string): string {
   return String(Number(saisonId) + 1);
 }
 
-/** One blank contact person, for the moment the form is opened. */
 export const buildEmptyBewerbungKontaktperson = (): BewerbungKontaktpersonDraft => ({
   vorname: "",
   nachname: "",
   email: "",
   telefon: "",
   geburtsdatum: "",
-  // The wording's version is written by the form rather than typed: the text lives in the frontend
-  // and is versioned there, so what a record cites is what its reader was actually shown.
+  // Stamped as the form opens, so what a record cites is the wording its reader was shown.
   einwilligung: { text_version: LIGA_EINWILLIGUNG.textVersion, erteilt: false },
 });
 
@@ -209,7 +203,6 @@ export const buildEmptyBewerbungSchule = (): BewerbungSchuleDraft => ({
   website_url: null,
 });
 
-/** The whole form as it opens: one season, nobody picked, three blank people. */
 export const buildEmptyBewerbungDraft = (saisonId: string): BewerbungFormDraft => ({
   saison_id: saisonId,
   auswahl: null,

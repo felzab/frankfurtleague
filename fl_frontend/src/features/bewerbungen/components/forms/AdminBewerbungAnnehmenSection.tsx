@@ -71,8 +71,7 @@ export function AdminBewerbungAnnehmenSection({
   const panel = formPanel();
 
   const handleAccept = () => {
-    // Ahead of `press`, so an unchosen group neither arms nor writes. `chosen` is a `const`, which is
-    // what carries the narrowing into the closure below.
+    // Ahead of `press`, so an unchosen group neither arms nor writes.
     const chosen = gruppe;
     if (chosen === null) return;
 
