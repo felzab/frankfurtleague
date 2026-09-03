@@ -1,5 +1,40 @@
 import { useId } from "react";
 
+/**
+ * The FL letterform. Rectangles rather than a `<text>` node: the mark must not depend on a font
+ * being installed where it renders.
+ */
+const LETTERFORM = [
+  { x: 95.72, y: 154, width: 61.02, height: 226 },
+  { x: 95.72, y: 154, width: 167.24, height: 61.02 },
+  { x: 95.72, y: 243.27, width: 135.6, height: 61.02 },
+  { x: 294.6, y: 154, width: 61.02, height: 226 },
+  { x: 294.6, y: 318.98, width: 153.68, height: 61.02 },
+] as const;
+
+/**
+ * **Subtracted per rectangle rather than applied as a group `transform`**: both filtered groups
+ * sample `feTurbulence` in user space, so a translate would carry the noise with the letters and
+ * retexture the mark.
+ */
+const FACE_LIFT = 16;
+
+function Letterform({ lift = 0 }: { lift?: number }) {
+  return (
+    <>
+      {LETTERFORM.map((bar) => (
+        <rect
+          key={`${String(bar.x)}-${String(bar.y)}-${String(bar.width)}`}
+          x={bar.x - lift}
+          y={bar.y - lift}
+          width={bar.width}
+          height={bar.height}
+        />
+      ))}
+    </>
+  );
+}
+
 export function FLLogo({ className = "size-8" }: { className?: string }) {
   // Unique per instance: `url(#…)` resolves to the first match, so a second logo on the page would
   // silently borrow the first one's filter.
@@ -68,106 +103,19 @@ export function FLLogo({ className = "size-8" }: { className?: string }) {
         <g
           fill="#4d0e10"
           filter={`url(#${filterId})`}>
-          <rect
-            x="95.72"
-            y="154"
-            width="61.02"
-            height="226"
-          />
-          <rect
-            x="95.72"
-            y="154"
-            width="167.24"
-            height="61.02"
-          />
-          <rect
-            x="95.72"
-            y="243.27"
-            width="135.6"
-            height="61.02"
-          />
-          <rect
-            x="294.6"
-            y="154"
-            width="61.02"
-            height="226"
-          />
-          <rect
-            x="294.6"
-            y="318.98"
-            width="153.68"
-            height="61.02"
-          />
+          <Letterform />
         </g>
         <g
           fill="none"
           stroke="#ffffff"
           strokeWidth="7"
           opacity="0.75">
-          <rect
-            x="95.72"
-            y="154"
-            width="61.02"
-            height="226"
-          />
-          <rect
-            x="95.72"
-            y="154"
-            width="167.24"
-            height="61.02"
-          />
-          <rect
-            x="95.72"
-            y="243.27"
-            width="135.6"
-            height="61.02"
-          />
-          <rect
-            x="294.6"
-            y="154"
-            width="61.02"
-            height="226"
-          />
-          <rect
-            x="294.6"
-            y="318.98"
-            width="153.68"
-            height="61.02"
-          />
+          <Letterform />
         </g>
         <g
           fill="#ffffff"
           filter={`url(#${filterId})`}>
-          <rect
-            x="79.72"
-            y="138"
-            width="61.02"
-            height="226"
-          />
-          <rect
-            x="79.72"
-            y="138"
-            width="167.24"
-            height="61.02"
-          />
-          <rect
-            x="79.72"
-            y="227.27"
-            width="135.6"
-            height="61.02"
-          />
-          <rect
-            x="278.6"
-            y="138"
-            width="61.02"
-            height="226"
-          />
-          <rect
-            x="278.6"
-            y="302.98"
-            width="153.68"
-            height="61.02"
-          />
+          <Letterform lift={FACE_LIFT} />
         </g>
       </g>
 

@@ -78,7 +78,7 @@ export function RowActionCopy({ label, ariaLabel, onPress }: { label: string; ar
 /**
  * Shown in `RowActionDelete`'s place on a retired row. No confirmation step: one press of the delete reverses it.
  *
- * It takes the delete's `disabledReason`, whose note below carries the mechanism for both.
+ * It takes the delete's `disabledReason`; `ACTION_BUTTON_SHAPE` carries the mechanism both rely on.
  */
 export function RowActionRestore({
   label,
