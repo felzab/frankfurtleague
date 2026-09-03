@@ -8,5 +8,4 @@
    globals.css's theme without emitting it twice. Removed, `next build` fails and nothing else does. */
 @reference "../globals.css";
 
-/* The description editors, admin-only. */
 @import "@heroui/styles/components/textarea.css" layer(components);
