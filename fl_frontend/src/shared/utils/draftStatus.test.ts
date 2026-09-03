@@ -213,7 +213,9 @@ describe("deriveDraftStatus", () => {
   });
 
   it("answers byPath for exactly the rows it reports, so no marker asks after a row that is not there", () => {
-    const status = derive({ draft: draftFrom({}) });
+    // A draft the `slot` descriptor is filtered out of. Where every descriptor applies, the two
+    // lists agree under any fold, one keying `byPath` off the unfiltered `descriptors` included.
+    const status = derive({ draft: draftFrom({ slot: null }) });
 
     assert.deepEqual(
       [...status.byPath.keys()],
