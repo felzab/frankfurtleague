@@ -140,6 +140,7 @@ deliverable.
 | `d5j8-js4n` | A real file in an unaccepted spelling reads as a missing file                                                        | Ops, gate                                                                   | Open     |
 | `db2a-9qu3` | The local edge claims to mirror production, unchecked                                                                | Ops, Docs, gate, edge                                                       | Open     |
 | `eg48-8863` | Two db-tier runs at once fail in a way that names nothing                                                            | BE, Ops, gate, ci, tests                                                    | Open     |
+| `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing    | FE, Docs, tests                                                             | Open     |
 | `f4uf-jape` | A copy test pins what its own author wrote                                                                           | FE, BE, Docs, tests, saisons, teams                                         | Open     |
 | `fha5-k95h` | A projection's coupling is guarded in one direction only                                                             | BE, tests, saisons                                                          | Open     |
 | `g98z-k4cp` | Two hook watchdogs sit under a registration in another file, and nothing compares the pair                           | Ops, Docs, gate                                                             | Open     |
@@ -174,6 +175,7 @@ deliverable.
 | `v48b-waa5` | A rule pattern reaches less than the rule it enforces                                                                | Ops, gate                                                                   | Standing |
 | `vspa-r35v` | One commit imports a module the commit after it adds                                                                 | FE, Docs, ci, tests, saisons                                                | Standing |
 | `vy6b-ftj4` | The backend, db and frontend jobs have stepped up in wall clock                                                      | Ops, gate, ci                                                               | Open     |
+| `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                 | FE, tests, saisons                                                          | Open     |
 | `y2bd-s7bf` | A width share floored at one worker sits below both measured widths                                                  | Ops, gate, ci, tests                                                        | Open     |
 | `y3jf-vwrs` | No check enters the gate's serial or streaming run form                                                              | Ops, Docs, gate, ci, tests                                                  | Open     |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                | FE, BE, tests                                                               | Open     |
@@ -2899,6 +2901,40 @@ of a second of each other on an idle machine.
 `verify.sh` scope per job and each job takes its own runner, so two db-tier runs would have to land
 on one host — which a hosted runner is not.
 
+### `f38s-y3hj` · A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing
+
+| Tags            | Status | Depends on |
+| --------------- | ------ | ---------- |
+| FE, Docs, tests | Open   | —          |
+
+Lands with: `z82x-us4y`
+
+**Every sweep collecting `.tsx` alone hands `fl_frontend/src/core/treeWalk.ts :: filesUnder` a
+predicate that decides no test file**, where the sweeps collecting `.ts` as well call
+`fl_frontend/src/core/treeWalk.ts :: isTestFile`, which reads either spelling. What holds the first
+set clean is that the estate spells every test file `.test.ts`, so a `.tsx` predicate drops them by
+accident rather than by decision.
+
+**The failure is a rename away, and a sweep is already sitting on it.**
+`fl_frontend/src/shared/components/ui/formSubmit.test.ts` collects the `.tsx` files whose text names
+`<ConfirmSaveModal` and holds the result to a floor — and it writes that literal itself, as the
+needle it searches for. Under the other spelling it would be swept into its own answer and counted
+among the editors it measures. The rest carry the same shape: what each searches for is text it also
+contains. Whether such a file would run is a separate question from whether it is swept, because the
+walk reads the directory and nothing about the runner's collection reaches it.
+
+**Nothing stands behind the rule that already names this.** `.claude/rules/frontend.md`'s **sweeps**
+clause bars taking a test file's fixtures as the production text a sweep asserts over; no gate check,
+lint rule or hook refuses the `.test.tsx` spelling, so what holds the clause here is the tree's
+current habit.
+
+**A blanket exclusion is not the repair.** `fl_frontend/src/core/mail.test.ts` sweeps the tree and
+asserts against a set naming its own file, so a sweep may legitimately want the test files. What
+none may do is leave the answer to whichever suffix it happened to want.
+
+**Done when** every sweep's predicate states its own answer to the test-file question, so the
+population each walks is the one it chose rather than the one the tree's current spelling gives it.
+
 ### `f4uf-jape` · A copy test compares source text against a literal its own author typed
 
 | Tags                                | Status | Depends on |
@@ -4118,6 +4154,37 @@ commits stop being few.
 and `frontend` at the build — and `.github/gate-wall-clock.tsv` is re-measured and rewritten, its
 figures being the ones this entry says are too high.
 
+### `w2c2-xc9j` · One tag strip repeats until it is done, and every other reader of markup as text makes a single pass
+
+| Tags               | Status | Depends on |
+| ------------------ | ------ | ---------- |
+| FE, tests, saisons | Open   | —          |
+
+**`fl_frontend/src/shared/testing/renderTest.ts :: textOf` repeats its replacement until the string
+stops moving, and every other reader of markup as text in the estate makes one pass.** One pass over
+`<a<b>>` leaves `<a` standing for the caller to read as text, which is the shape
+`js/incomplete-multi-character-sanitization` names. The single-pass readers are
+`fl_frontend/src/core/authEmail.test.ts :: readable`,
+`fl_frontend/src/core/bewerbungEmail.test.ts :: readable`,
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/spielplanReplace.test.ts :: gelesen`
+and
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/teamErsatz.test.ts :: gelesen`.
+
+**No residue reaches any of them, and that is not what this asks about.** Each is handed markup its
+own module rendered or built, and the email shell escapes every interpolation through
+`fl_frontend/src/core/emailShell.ts :: escapeHtml` — read off the call sites rather than exercised,
+so an input that defeats one of them is not established either way. What the estate holds is one
+operation written in more than one shape, with nothing in the tree saying which is the answer, so
+the next reader copies whichever they open first.
+
+**One helper for all of them would be wrong.** The `readable` helpers strip `<style>` blocks and
+decode entities around the tag pass, so that shape is theirs. Each `gelesen` helper is `textOf`
+followed by a whitespace collapse, and can delegate.
+
+**Done when** no reader of markup as text stops after a single pass: the helpers whose shape the
+harness already serves delegate to it, and the ones it does not repeat their own strip until the
+string stops moving.
+
 ### `y2bd-s7bf` · A consumer's share of the gate's concurrency is floored at one worker, so a machine smaller than the gate's demand is handed widths already measured to be slower
 
 | Tags                 | Status | Depends on |
@@ -4225,6 +4292,8 @@ stubbed, driven through the forms, rather than a fixture paying for a real gate 
 | Tags          | Status | Depends on |
 | ------------- | ------ | ---------- |
 | FE, BE, tests | Open   | —          |
+
+Lands with: `f38s-y3hj`
 
 **`fl_frontend/src/core/apiRequests.test.ts` builds its caller set by walking the source tree for
 every `.ts` and `.tsx` whose text names the client**, and nothing in that walk decides a test file.
