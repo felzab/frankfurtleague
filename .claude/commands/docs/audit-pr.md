@@ -28,8 +28,8 @@ stop.
    - the comments, module headers and docstrings of every changed source file — shell, YAML,
      Dockerfiles and workflows included.
 
-4. **Load the standard**: read `docs/standard.md` in full — it is one file, and every shape in the
-   subset is governed from there.
+4. **Load the standard**: read `docs/standard.md` in full — every shape in the subset is governed
+   from there.
 
 5. **Audit the subset with the check classes** from [`audit.md`](audit.md#the-check-classes), applied
    from there rather than from a copy. The slice adds the one question a whole-corpus sweep cannot

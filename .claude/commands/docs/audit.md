@@ -83,7 +83,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    | Frontend documents          | `docs/frontend/**`                                                                                                                                                                                                                                                                                         |
    | Logging documents           | `docs/logging/**`                                                                                                                                                                                                                                                                                          |
    | Ops documents               | `docs/ops/**`                                                                                                                                                                                                                                                                                              |
-   | Loose documents             | `docs/domain.md` · `docs/glossary.md` · `docs/README.md` · `docs/datenschutz.md`                                                                                                                                                                                                                           |
+   | Loose documents             | `docs/domain.md` · `docs/glossary.md` · `docs/README.md` · `docs/datenschutz.md` · `docs/shapes.md` · `docs/worked-examples.md`                                                                                                                                                                            |
    | Assistant instructions      | `.claude/CLAUDE.md` · `.claude/rules/**` · `.claude/commands/**` · `.claude/skills/**` · `.claude/agents/**`                                                                                                                                                                                               |
    | Public root documents       | `README.md` · `SECURITY.md`                                                                                                                                                                                                                                                                                |
    | Frontend source             | `fl_frontend/src/**`                                                                                                                                                                                                                                                                                       |
@@ -105,8 +105,8 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 
 5. **Dispatch one agent per segment**, in batches small enough that each report is read as it lands.
    Each prompt carries the agent's file list, the report path it writes to, and everything below
-   plus the rules above. Each agent reads `docs/standard.md` in full — the standard is one file —
-   and applies the rules from there.
+   plus the rules above. Each agent reads `docs/standard.md` in full and applies the rules from
+   there.
 
    **Settle before launching any of them how an agent reports finishing and how it reports being
    blocked**, as a closing line every prompt carries: the report path when it finished, what it is
@@ -131,7 +131,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    | C4  | **Still true** (PRE-2, COR-4)              | Read the code the claim describes. Does it still do that?                                                            |
    | C5  | **Evidence holds** (COR-6, CUR-1)          | Does each anchored citation support the claim beside it?                                                             |
    | C6  | **Doubt is stated** (COR-9)                | Is anything unverified written as fact, or a plan written as a description?                                          |
-   | C7  | **Shape** (COR-7, COR-8, COR-10)           | Does the page meet the shape rules? Judge against the chapter's text, never from memory                              |
+   | C7  | **Shape** (COR-7, COR-8, COR-10)           | Does the page meet the shape rules? Judge against each rule's own line, never from memory                            |
    | C8  | **Its own shape**                          | Does it meet the rules for what this document _is_ — spec sheet, overview, module header, endpoint docstring?        |
    | C9  | **Comment altitude** (INC-1, INC-2, INC-9) | Does a comment say what its code already says, or a header or block break the shape those rules fix?                 |
    | C10 | **Earns its place** (COR-5)                | Should this text exist at all? The class that proposes a deletion; COR-5 holds a page and a comment to separate bars |
@@ -158,7 +158,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
      names and read it.
    - **A `Duplicate` finding names which copy dies**, and confirms the survivor is reachable by
      citation from where the dying copy's readers stand. COR-2 decides what the dying copy leaves
-     behind, and its Exceptions field decides which duplicate may survive at all.
+     behind, and which single duplicate may survive at all.
    - **Re-derive the population of any judgment-based cluster with a grep before stating its size**,
      and report `Shape` and `Cold` counts as lower bounds unless the rule's full reach was measured.
    - **Report what you did not read**, and why. The report is allowed to be incomplete and is not

@@ -98,7 +98,8 @@ scope is the expensive one and the only hard refusal. [`docs/ops/spec.md`](../do
 - **Read the exit code from the command whose code it is.** A status read through a pipe is the
   pipe's: `verify.sh --docs | tail -5` reports `tail`'s 0 while the gate exited 1. Let the command
   finish, read `$?`, and report the number — never the word "passing", never a substitute such as
-  `check_docs.py --all`, which has reported clean while the gate was red.
+  `check_docs.py` run on its own, which has reported clean while the gate was red — `--docs` runs
+  more checkers than it, and any of them can be the red one.
 - Write the commit message to `docs/_git/templates.md`'s form the first time. The `commit-msg` hook
   and `--docs` both refuse a malformed one, and a reword after the push is a rebase.
 - The gate writes no tracked file except `fl_frontend/tsconfig.json`, which `next typegen` and
@@ -121,8 +122,8 @@ scope is the expensive one and the only hard refusal. [`docs/ops/spec.md`](../do
   what was exercised and what was not.
 - Where you are unsure whether a fix is yours — scope, a §7 decision, a product call — ask at the
   moment you hit it, never in the wrap-up. A finding outside the task becomes a roadmap entry at
-  once: `docs/_roadmap/open-items.md` for the product, `docs/_roadmap/tooling-items.md` for the
-  toolchain and the corpus, [`protocol.md`](../docs/_roadmap/protocol.md) deciding which.
+  once, on [`docs/_roadmap/items.md`](../docs/_roadmap/items.md), tagged to
+  [`protocol.md`](../docs/_roadmap/protocol.md).
 
 ## 4. Stack and versions
 
@@ -271,14 +272,17 @@ exit code belongs to a command rather than to a file.
 ## 8. Documentation
 
 **Read [`docs/standard.md`](../docs/standard.md) before writing a document or a comment** — a rule
-is one list line or one section; read the section governing what you are about to write. A hook
-delivers the standard in full after the session's first documentation-shaped edit, so the first edit
-is the one it cannot help: cite by anchor, never a line number (COR-6); name only what exists — no
-file, symbol or behaviour that is gone, no edit narration, nothing documenting an absence (COR-3);
-update every claim a change invalidates in the same commit (CUR-2), this file included, since
-`--docs` scans it like any spec sheet.
+is one list line; read the rules governing what you are about to write. Three carry the weight:
+COR-13, why rather than what; COR-5, the deletion test, which every bound in that file is read after
+and never instead of; COR-14, which rung a fact belongs on. COR-15 binds this file and everything
+else under `.claude/`, whose only reader is a model. A hook puts the Spine and the bounds, sliced out of
+the standard, in front of every documentation-shaped edit, and names both it and
+[`docs/worked-examples.md`](../docs/worked-examples.md) to read in full; the three below sit outside
+that slice: cite by anchor, never a line number (COR-6); name only what exists — no file, symbol or behaviour that is gone, no edit
+narration, nothing documenting an absence (COR-3); update every claim a change invalidates in the
+same commit (CUR-2), this file included, since `--docs` scans it like any spec sheet.
 
-Record a decision where it will be read — a comment of 250 characters or fewer at the line it
+Record a decision where it will be read — a comment of forty words or fewer at the line it
 constrains (INC-9), a §7 line, or a spec-sheet invariant, chosen by which failure it prevents — and
 the full argument in the closing commit body, which `scripts/checks/check_commits.py` holds to
 `docs/_git/templates.md`'s form. In code a comment carries why, never what the line does and never
@@ -287,7 +291,7 @@ a type (INC-1).
 ## 9. Commands, and the guards that run without being asked
 
 Commands live in `.claude/commands/` and are slash-only — never launch one from prose: `/audit:*`
-for the audit programme, `/roadmap:start` and `/roadmap:add` for the ranked pages, `/docs:audit`
+for the audit programme, `/roadmap:start` and `/roadmap:add` for the roadmap page, `/docs:audit`
 and `/docs:audit-pr` for the documentation sweep.
 
 `.claude/settings.json` registers the hooks in `.claude/hooks/` for every session, and an agent

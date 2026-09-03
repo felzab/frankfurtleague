@@ -28,7 +28,7 @@ documents.
    question, an accepted deviation, an `[!]` row, an unbuilt guardrail, an uncovered hazard — moves
    somewhere that survives **with its analysis intact**, and the destination depends on whether
    publishing it is safe:
-   - **Safe to publish** → the ranked page `docs/_roadmap/protocol.md` names, or the report's
+   - **Safe to publish** → the roadmap page `docs/_roadmap/protocol.md` names, or the report's
      "Left open".
    - **Actionable by an attacker if published** → a private security advisory on this repository,
      the channel `SECURITY.md` names. The report gives the area and says it is tracked there,
