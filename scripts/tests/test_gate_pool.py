@@ -8,11 +8,12 @@ drives the module as a subprocess, for `scripts/tests/conftest.py :: withdraw`'s
 
 from __future__ import annotations
 
-import ast
 import subprocess
 import sys
 from pathlib import Path
 from typing import Final
+
+from conftest import declared
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 POOL: Final = SCRIPTS / "gate" / "gate_pool.py"
@@ -211,18 +212,6 @@ SCHEDULE: Final[tuple[str, ...]] = (
 )
 
 
-def _constant(path: Path, name: str) -> str:
-    """A constant as its own source declares it, read rather than imported.
-
-    Spelling one again here would be a pair nothing compares: a rename would leave the test passing
-    against a word nothing in the module spells.
-    """
-    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-        if isinstance(node, ast.AnnAssign) and node.value is not None and getattr(node.target, "id", "") == name:
-            return str(ast.literal_eval(node.value))
-    raise AssertionError(f"{path.name} no longer declares {name}")
-
-
 def _exits(status: int) -> tuple[str, ...]:
     return (sys.executable, "-c", f"raise SystemExit({status})")
 
@@ -238,7 +227,7 @@ def _pool(directory: Path, rows: list[tuple[str, ...]], *, merge: bool = False) 
 
 
 def _rows(directory: Path) -> list[list[str]]:
-    raw = (directory / _constant(POOL, "MANIFEST")).read_bytes()
+    raw = (directory / str(declared(POOL, "MANIFEST"))).read_bytes()
     assert b"\r" not in raw, "the manifest was written through a text handle, which bash cannot read back"
     return [line.split("\t") for line in raw.decode("utf-8").splitlines()]
 
@@ -271,8 +260,10 @@ def test_the_manifest_is_written_in_the_caller_s_order_and_not_the_schedule_s(tm
 def test_a_unit_that_never_started_leaves_a_word_no_exit_status_could_spell(tmp_path: Path) -> None:
     """The one reading of silence: a numeric sentinel would reach the gate through the arm meant for a real answer."""
     result = _pool(tmp_path, [("gone", str(tmp_path / "no-such-program"))])
-    assert result.returncode == int(_constant(KERNEL, "EXIT_CRASH")), result.stderr
-    not_started = _constant(POOL, "NOT_STARTED")
+    assert result.returncode == int(declared(KERNEL, "EXIT_CRASH")), result.stderr
+    # Read out of the source rather than spelled: against a literal the digit assertion below is a
+    # pair nothing compares, and it passes whatever word the module holds.
+    not_started = str(declared(POOL, "NOT_STARTED"))
     assert not not_started.isdigit()
     assert _rows(tmp_path)[0][1] == not_started
 
@@ -288,7 +279,7 @@ MALFORMED: Final[tuple[tuple[list[tuple[str, ...]], str], ...]] = (
 
 def test_a_units_file_the_pool_cannot_read_crashes_and_names_what_is_wrong(tmp_path: Path) -> None:
     """A file the caller wrote wrongly must never run in part: the manifest it left behind would be read as a verdict."""
-    crash = int(_constant(KERNEL, "EXIT_CRASH"))
+    crash = int(declared(KERNEL, "EXIT_CRASH"))
     wrong: list[str] = []
     for number, (rows, says) in enumerate(MALFORMED):
         directory = tmp_path / f"case{number}"

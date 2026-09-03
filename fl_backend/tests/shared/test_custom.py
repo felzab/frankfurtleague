@@ -23,7 +23,17 @@ class _ObjectId(BaseModel):
     value: CustomObjectId
 
 
-@pytest.mark.parametrize("value", ["2026-12-31", "2024-02-29", "2026-02-28"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2026-12-31",
+        "2024-02-29",
+        "2026-02-28",
+        # The only case reaching `DATE_REGEX`'s single-digit day arm, and its only month `01`:
+        # narrowing either leaves every other value here passing.
+        "2026-01-01",
+    ],
+)
 def test_accepts_real_calendar_dates(value):
     """`2024-02-29` is load-bearing: a real leap day the calendar check must accept."""
     assert _Date.model_validate({"value": value}).value == value
