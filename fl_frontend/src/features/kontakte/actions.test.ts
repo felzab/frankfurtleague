@@ -68,8 +68,7 @@ function erasure(counts: Partial<Omit<FLKontaktErasureResponse, "acknowledged">>
 }
 
 describe("the erasure against the backend's refusal register", () => {
-  /* First, because a boundary string that stopped matching leaves the slices empty and every
-     assertion over them would then fail for something that is not the defect. */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
   it("cuts the action out of the file before reading it", () => {
     assert.ok(ERASE_ACTION.includes("eraseKontaktperson(validated.data)"), "the erasure's call is outside its slice");
     assert.ok(!ERASE_ACTION.includes("import {"), "the erasure's slice reaches back over the module's imports");
@@ -249,8 +248,7 @@ describe("the erasure's copy", () => {
   });
 
   it("arms before it writes, and keeps the object in the armed label", () => {
-    // The two-press ORDER is the shared hook's and is pinned once at `shared/hooks/useTwoPressConfirm.test.ts`;
-    // what is panel-local is that the write is reached only through `press`, never from the bare handler.
+    // Panel-local: the write is reached only through `press` (`shared/hooks/useTwoPressConfirm.test.ts` pins the order).
     assert.match(PANEL, /press\(commit\)/, "the panel writes outside the armed press");
     assert.match(PANEL, /<ConfirmReveal>/, "the escalation replaces the copy in place with no announcement");
     assert.match(PANEL, /className=\{confirmButton\(isConfirming\)\}/, "the armed press is not graded as destructive");
@@ -288,9 +286,7 @@ describe("the address the press acts on", () => {
     );
   });
 
-  /* Both halves or neither: a `<Form>` with no `validationErrors` shows a server refusal nowhere,
-     and its `formRef` is what moves focus onto a refused box. An `action` would reset every
-     controlled field (frontend spec I32). */
+  /* Both halves or neither: `validationErrors` shows a server refusal, `formRef` moves focus onto it (frontend spec I32). */
   it("renders the one field-error map through a form the hook can reach", () => {
     assert.match(PANEL, /<Form\b/, "the panel renders no form");
     assert.match(PANEL, /ref=\{formRef\}/, "the hook cannot reach the form");
@@ -372,8 +368,7 @@ describe("the report the toast carries", () => {
     );
   });
 
-  /* GELEERT, never deleted: no log row is dropped, only the values one held. The word is the whole
-     difference between what happened and what the sentence would otherwise claim. */
+  /* GELEERT, never deleted: no log row is dropped, only the values one held. */
   it("claims of the log only what is true of a row that lost nothing", () => {
     const report = describeKontaktErasureUmfang(erasure({ cleared_saison_teams: 1, cleared_kontakt_slots: 1, redacted_aktionen: 4 }));
 

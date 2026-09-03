@@ -12,8 +12,7 @@ import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 export async function generateMetadata(props: NextPageProps<{ saison_id: string }>): Promise<Metadata> {
-  // connection() because the Docker builder stage has no reachable FastAPI, so an unguarded read
-  // here would fail the image build. `generateMetadata` is not part of the shell, so it awaits itself.
+  // `generateMetadata` is not part of the App Shell, so it awaits at the top level.
   await connection();
   const saison_id = await resolveSaisonIdParam(props.params);
 
@@ -51,9 +50,9 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
     () => ({ isUnlesbar: true, fenster: null }),
   );
 
-  // Read only where the form will render it: a closed page shows no picker, and the club list is a
-  // read of the league's roster nothing on such a page asked for. A failure degrades to the
-  // new-school arm rather than taking the whole form down with it.
+  // A closed page shows no picker, and the club list is a read of the league's roster nothing on
+  // such a page asked for. A failure degrades to the new-school arm rather than taking the whole
+  // form down with it.
   const schulen =
     fenster.fenster?.laeuft === true
       ? await getBewerbungSchulen().then(
@@ -62,8 +61,8 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
         )
       : { isSchulenLesbar: true, schulen: [] };
 
-  // Degraded to the EMPTY set: an unreadable answer means nothing is KNOWN to be taken, which offers
-  // the whole palette. Narrowing instead would withhold a colour nobody holds.
+  // Degraded to the EMPTY set: an unreadable answer means nothing is KNOWN to be taken, offering
+  // the whole palette.
   const vergeben =
     fenster.fenster?.laeuft === true
       ? await getBewerbungTrikotfarben(saison_id).then(

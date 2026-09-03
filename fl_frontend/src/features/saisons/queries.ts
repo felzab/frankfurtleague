@@ -25,9 +25,7 @@ export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<F
  * Every season, the planned ones `getSaisons` withholds included. A club is entered into a season
  * only while it is still planned, so an admin surface that cannot see one cannot run the league.
  */
-// React's `cache` memoizes per RENDER PASS, never across requests -- unlike `"use cache"`, whose
-// key is the arguments, not the caller, so an admin read there becomes a slot of authorized data
-// any caller reaches. One pass, one round trip.
+// `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments (`docs/frontend/spec.md` §1.2).
 export const getAdminSaisons = cache(async (): Promise<FLSaisonsListResponse> =>
   runWithIncomingCorrelationId(() =>
     apiClient<FLSaisonsListResponse>("/saisons/list/admin", FLSaisonsListResponseSchema, { authType: "admin" }),

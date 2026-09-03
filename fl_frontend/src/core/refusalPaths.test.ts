@@ -220,7 +220,6 @@ const NO_FORM_AT_ALL = "a row button's whole argument: an id in the path, no req
 /** The draw is the one payload here with a body and still no field: its confirmation is an escalation, not an input. */
 const DRAW_HAS_NO_FIELDS = "the draw's panel: the season is in the path and the replace is a two-press escalation, neither being an input";
 
-/** A panel rather than a row button, as the erasure's is. */
 const ANONYMISATION_HAS_NO_FIELDS =
   "the anonymisation's panel: the id is in the path and the confirmation is a two-press escalation, neither being an input";
 
@@ -228,7 +227,6 @@ const ANONYMISATION_HAS_NO_FIELDS =
 const ERASURE_HAS_NO_FIELDS =
   "the erasure's panel: the id is in the path and the confirmation is a two-press escalation, neither being an input";
 
-/** The draw's own sibling, and a panel rather than a row button for the same reason. */
 const UNDRAW_HAS_NO_FIELDS =
   "the undraw's panel: the season is in the path and the confirmation is a two-press escalation, neither being an input";
 
@@ -329,7 +327,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
   FLPostSaisonSpielerPayloadSchema: {
     spieler_id: IN_THE_PATH,
     saison_id: THE_PAGE_SEASON,
-    is_nachgetragen: "derived from the season's status, never asked (decided 2026-08-07)",
+    is_nachgetragen: "derived from the season's status, never asked",
   },
   FLPatchSaisonSpielerPayloadSchema: {
     spieler_id: IN_THE_PATH,
@@ -337,7 +335,7 @@ const EXEMPT: Record<string, Record<string, string>> = {
     is_nachgetragen: "round-tripped read-only: a historical fact about the entry, not an editable field",
   },
   FLCreateSpielerFormPayloadSchema: {
-    is_nachgetragen: "derived from the chosen season's status, never asked (decided 2026-08-07)",
+    is_nachgetragen: "derived from the chosen season's status, never asked",
     rolle: "hardcoded null: a squad role is decided on the player's own page, on an existing squad",
   },
 
@@ -486,7 +484,7 @@ describe("every path a refusal mapper emits", () => {
 
   /**
    * What each `fieldErrors` assignment's value is made of, which is what decides whether this half can
-   * read it (`docs/frontend/spec.md :: I34`). The `?` is what separates a declaration from a filling.
+   * read it (`docs/frontend/spec.md` §1.9). The `?` is what separates a declaration from a filling.
    */
   const FORWARDED = /^\w+\.fieldErrors\b/;
 

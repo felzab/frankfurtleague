@@ -6,9 +6,9 @@ was verified, and does every step of the pipeline do what its documentation clai
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
 to `docs/audit/programme/o1-build-deploy.md`.
 
-SCOPE — the ops surface as `docs/README.md` defines it: `docker-compose*.yml`, both Dockerfiles, both
-`.dockerignore`s, `nginx/` (routing only — security posture is `ops 2`), everything in `scripts/`,
-`.github/workflows/` and `.github/actions/`, and the build-relevant config in both packages
+SCOPE — the ops surface (`docs/_standard/standard.md :: OUT-8`), narrowed to routing alone for `nginx/` because
+its security posture is `ops 2`'s, and widened past that definition to `.github/workflows/`,
+`.github/actions/`, both `.dockerignore`s and the build-relevant config in each package
 (`next.config.ts` `output`, `pyproject` build metadata). `docs/ops/overview.md` and `docs/ops/spec.md`
 are the documented claims this pass checks reality against.
 

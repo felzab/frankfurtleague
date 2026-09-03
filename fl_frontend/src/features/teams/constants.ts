@@ -84,7 +84,6 @@ export const SCHULFORM_OPTIONS: readonly SchulformOption[] = [
   { value: "oberstufengymnasium", label: "Oberstufengymnasium" },
 ];
 
-/** What every surface renders for a stored school type. */
 export function schulformLabel(schulform: FLSchulform): string {
   return SCHULFORM_OPTIONS.find((option) => option.value === schulform)?.label ?? "";
 }
@@ -122,7 +121,6 @@ export const TRIKOT_FARBE_OPTIONS: readonly TrikotFarbeOption[] = [
 
 const trikotFarbeOption = (farbe: FLTrikotFarbe): TrikotFarbeOption | undefined => TRIKOT_FARBE_OPTIONS.find((o) => o.value === farbe);
 
-/** What every surface renders for a stored kit colour. */
 export function trikotFarbeLabel(farbe: FLTrikotFarbe): string {
   return trikotFarbeOption(farbe)?.label ?? "";
 }

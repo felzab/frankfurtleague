@@ -87,8 +87,7 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<SaisonDraftFields, FLSaisonF
     label: "Bewerbungsfrist",
     group: "Bewerbung",
     // ONE row over the whole window: opening it, moving it and freischalten are one decision about
-    // when a school may apply, and a row per key would report a fragment of it. `errorPaths` is what
-    // still lands each field's own message on it.
+    // when a school may apply, and a row per key would report a fragment of it.
     read: (source) => {
       const fenster = source.bewerbung;
       if (fenster === null) return null;

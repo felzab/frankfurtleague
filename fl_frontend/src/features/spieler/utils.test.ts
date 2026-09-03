@@ -46,8 +46,7 @@ describe("describeErasureUmfang", () => {
     }
   });
 
-  /* GELEERT, never deleted: no log row is dropped, only the values one held. The word is the whole
-     difference between what happened and what the sentence would otherwise claim. */
+  /* GELEERT, never deleted: no log row is dropped, only the values one held. */
   it("says the log was emptied rather than removed", () => {
     assert.match(describeErasureUmfang(0, 4), /geleert/);
     assert.doesNotMatch(describeErasureUmfang(0, 4), /Einträge im Änderungsprotokoll gelöscht/);

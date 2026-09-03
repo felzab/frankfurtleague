@@ -15,7 +15,7 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /**
  * The contacts editor. One club per URL; WHICH season's three seats it addresses is the sidemenu
- * selector's `?saison_id=`. It resolves nothing itself — see the match editor.
+ * selector's `?saison_id=`. It resolves nothing itself (`docs/frontend/spec.md :: I22`).
  */
 export default function AdminKontakteEditPage(props: NextPageProps<{ team_id: string }>) {
   return (
@@ -35,13 +35,10 @@ async function AdminKontakteEditContent({
   params: NextPageProps<{ team_id: string }>["params"];
   searchParams: NextPageProps["searchParams"];
 }) {
-  // The image builder reaches no backend, so the fetches below have to be kept out of the build.
   await connection();
   const teamId = await resolveTeamId(params);
   const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
 
-  // One read carries the club and every membership, exactly as the list above this route reads them;
-  // the season list answers which season is selected and its state.
   const [membershipsRes, saisonsRes] = await Promise.all([getTeamMemberships(), getAdminSaisons()]);
   const saisons = saisonsRes.saisons;
   const selectedSaison = requestedSaisonId
@@ -61,7 +58,7 @@ async function AdminKontakteEditContent({
   const saison: TeamSaisonMembership = resolveTeamSaisonMembership(team.memberships, selectedSaison);
 
   return (
-    // Keyed by the state the draft mirrors, for the match editor's reason.
+    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed`).
     <AdminKontakteEditView
       key={JSON.stringify({ team, saison })}
       team={{ id: team.id, name: team.name, shorthand: team.shorthand, inactive_since: team.inactive_since }}

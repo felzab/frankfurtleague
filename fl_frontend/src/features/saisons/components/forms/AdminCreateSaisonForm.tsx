@@ -104,8 +104,7 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
             />
           </div>
 
-          {/* Grouped as the season editor groups them, so the two forms describe one set of rules:
-              all four say what a single fixture is worth. */}
+          {/* Grouped as the season editor groups them, so the two forms describe one set of rules. */}
           {/* The dialog's own step between children, which is the ceiling here: a wider break inside
               this group would part the pair further than whole groups are parted. */}
           <div className="flex w-full flex-col gap-y-4">
@@ -170,8 +169,8 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
-          {/* Its own group and never under the points above: this re-sorts a table the points
-              scored, which is a different promise from the four numbers over it. */}
+          {/* Its own group and never under the points above, as the season editor has it: this
+              re-sorts a table the points scored. */}
           <div className="flex w-full flex-col gap-y-3">
             <h3 className={FORM_SECTION_HEADING}>Tiebreak</h3>
             <SaisonTiebreakSelect
@@ -184,12 +183,14 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
 
           <div className="flex w-full flex-col gap-y-3">
             <h3 className={FORM_SECTION_HEADING}>Aufbau der Saison</h3>
+            {/* Bounds mirrored from `fl_frontend/src/features/saisons/schemas.ts :: FLSaisonRulesSchema`,
+                which says why each one is where it is: a stepper offering a number the submit refuses
+                is one that wasted the trip. */}
             <div className={FIELD_TRIO}>
               <SaisonRuleNumberField
                 name="rules.number_of_groups"
                 label={<Label className={FIELD_LABEL}>Gruppen</Label>}
                 minValue={1}
-                // The closed set is A to D and this picks a prefix, so 4 is a ceiling, not a policy.
                 maxValue={4}
                 value={draft.rules.number_of_groups}
                 onChange={(number_of_groups) => setDraft((current) => ({ ...current, rules: { ...current.rules, number_of_groups } }))}
@@ -197,8 +198,6 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
               <SaisonRuleNumberField
                 name="rules.teams_per_group"
                 label={<Label className={FIELD_LABEL}>Teams pro Gruppe</Label>}
-                // Below 2 a group generates no fixture; above 16 a season-scoped read is truncated
-                // and the refusals over it cannot be trusted.
                 minValue={2}
                 maxValue={16}
                 value={draft.rules.teams_per_group}

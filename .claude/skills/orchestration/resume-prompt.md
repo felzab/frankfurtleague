@@ -37,7 +37,11 @@ Resume this session. Do not continue any work until you have finished this proto
 
 3. THE FLEET. List every subagent that is actually running. Assume none is alive and none is
    dead -- killing a parent does not kill its children. For each agent the register records:
-     - finished, with its report on disk        -> read the condensed verdict, mark it done;
+     - finished, and its verdict banked here    -> that banked verdict is the only copy of its
+       report there is, the harness having each agent return findings as text rather than write a
+       file. Mark it done. Where an agent finished and nothing was banked, its findings are gone
+       and only its edits on disk survive: judge those, and re-dispatch what you cannot establish
+       from them;
      - running                                  -> leave it, note what it owns;
      - paused, killed, or unaccounted for       -> try to RESUME it first, addressed by the agent
        name the register records, since a resumed agent keeps its whole context and re-reads
@@ -58,6 +62,10 @@ Resume this session. Do not continue any work until you have finished this proto
    and the starter, whose paths the register header carries, the rulings recorded in the register,
    and the constraints in the brief that started this session. Say which ones the work in flight
    touches. An instruction nobody restated after a gap is the one that gets dropped.
+   Then read the register's list of changes made for an unattended stretch, and confirm each is
+   still exactly as the register describes it -- still uncommitted, its backup still on disk, its
+   restore command still correct. A gap is where a configuration change made to let a fleet run
+   overnight gets committed by the session that inherits it.
 
 6. VERIFY, DO NOT TRUST. Re-establish the last verification result from the register's `Last gate
    run`, and confirm the commit it names is still the tip. Run the gate yourself only once step 3
@@ -91,8 +99,10 @@ for the part that was nearly done. A resumed agent re-enters its partition — t
 one directory because a resume was not treated as a dispatch — and one nested helper never returned
 at all, which is why the fleet is listed rather than assumed.
 
-At the stop itself, message none of them to checkpoint: every file edit and every incremental report
-is already on disk, and what is at risk is only what the register does not hold (`SKILL.md` §1).
+At the stop itself, message none of them to checkpoint. Their file edits are already on disk, and
+their unreported findings are unreachable by any route: a report is an agent's final message and
+messaging costs the same quota that stopped you. What is recoverable is what the register holds
+(`SKILL.md` §1), so the single action is to bring it current.
 
 ## What a resume restores, and what it does not
 

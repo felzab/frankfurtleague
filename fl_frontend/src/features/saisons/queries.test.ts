@@ -47,8 +47,7 @@ const NEXT_MODULE_URLS = new Map(
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    // Only for the modules under test, which the real app compiles under that condition. Next's
-    // client runtime is loaded into this process too and needs the client build's `createContext`.
+    // Only for the modules under test: Next's client runtime is in this process and needs the client build.
     if (specifier === "react" && context.parentURL?.startsWith(FEATURE_URL)) return { url: SERVER_REACT_URL, shortCircuit: true };
     if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
     const nextUrl = NEXT_MODULE_URLS.get(specifier);
@@ -85,8 +84,7 @@ const { resolveSaisonId } = await import("./resolvers.ts");
 const adminReads = (): number => reads.filter((endpoint) => endpoint === "/saisons/list/admin").length;
 
 describe("the admin season list across a render pass", () => {
-  /* First, because a cache scope that failed to take would leave every count at its unmemoized
-     value and each assertion after this would fail for the harness rather than for the code. */
+  /* First, so a scope that failed to take fails here rather than under every count below. */
   it("opens a scope that memoizes, and shows the miss when nothing memoizes", () => {
     beginRenderPass();
     let wrapped = 0;

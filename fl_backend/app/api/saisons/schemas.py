@@ -140,8 +140,8 @@ class FLSaison(_SaisonWritable):
 
     status: FLSaisonStatus
 
-    # DEFAULTED, as `FLSpiel.notiz` is: nothing tells a missing key from a stored null, and every
-    # season written before the generator existed carries neither.
+    # DEFAULTED, as `FLSpiel.notiz` is: every season written before the generator existed carries
+    # no key.
     spielplan: FLSaisonSpielplan | None = None
 
     # DEFAULTED for `spielplan`'s reason, and re-declared rather than defaulted on the base above:

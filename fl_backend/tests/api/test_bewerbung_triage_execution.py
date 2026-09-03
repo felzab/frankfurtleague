@@ -117,7 +117,7 @@ KONTAKTE: Mapping[str, Any] = {
     "trainer": kontaktperson("Wraxlington"),
     "ansprechperson": kontaktperson("Quillhilde"),
     "stellvertretung": kontaktperson("Bramblewick"),
-    # False, not True: the two slots hold different people, and the flag is a claim of its own.
+    # Null, never a seat name: the three slots hold three people, and the flag is a claim of its own.
     "trainer_ist_zugleich": None,
 }
 

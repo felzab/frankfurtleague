@@ -2,10 +2,9 @@
 
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
-**Every failure response body is `{error_code, correlation_id}` and nothing else** — messages, validation
-details and stack traces go to the log, never the wire
-(`fl_backend/app/core/exception_handlers.py :: error_response`). **Every failure log line carries its code as
-the `error_code` field.**
+**A failure answers `{error_code, correlation_id}` and nothing else** ([`spec.md`](spec.md#2-invariants) L4):
+the message, the validation detail and the stack trace reach the log and never the wire, so a code seen on a
+response is followed by finding the log line carrying that same code under that correlation id.
 
 The taxonomy is `<AREA>-<SUBJECT>-<NNN>`, and the area names the side that must act: `REQ-*` the request was
 wrong, `DB-*` the database refused or failed, `SRV-*` the server itself failed, `FE-*` a frontend-side
@@ -16,11 +15,10 @@ response body, no log line and no row on this page, and the `RULES` corresponden
 `REQ-` alone. What a read rule governs is which tier a field is served
 ([`docs/backend/spec.md`](../backend/spec.md#17-read-rules) §1.7).
 
-| Section                                           | Answers                                         |
-| ------------------------------------------------- | ----------------------------------------------- |
-| [Backend codes](#1-backend-codes)                 | Every code FastAPI raises, and its status       |
-| [Frontend codes](#2-frontend-codes)               | Every code the Next surface raises              |
-| [The mutation boundary](#3-the-mutation-boundary) | Why an admin write never reaches the error page |
+| Section                             | Answers                                                             |
+| ----------------------------------- | ------------------------------------------------------------------- |
+| [Backend codes](#1-backend-codes)   | Every code FastAPI raises, and its status                           |
+| [Frontend codes](#2-frontend-codes) | Every code the Next surface raises, and why none reaches a 500 page |
 
 ## 1. Backend codes
 
@@ -28,13 +26,12 @@ The exception types carrying them are declared in `fl_backend/app/core/exception
 `fl_backend/app/core/exception_handlers.py`.
 
 **A code raised under `app/api/` is a domain rule and has a row in
-`fl_backend/app/core/domain.py :: RULES`; the protocol codes in `app/core/` describe who you are, whether
-the body parses, and whether an id is an ObjectId.**
+`fl_backend/app/core/domain.py :: RULES`, which is where what it refuses is stated in full; the protocol codes
+in `app/core/` describe who you are, whether the body parses, and whether an id is an ObjectId.**
 `fl_backend/tests/core/test_domain.py :: test_every_domain_rule_the_application_defines_is_declared` holds
-that correspondence in both directions and excuses the protocol codes by name;
-`fl_backend/tests/core/test_domain.py :: test_the_protocol_codes_are_the_ones_outside_the_api_layer` pins the
-excused set, without which the exclusion list could grow to cover a real domain rule and stay green.
-**`RULES` says what each rule refuses; this table says its code and status.**
+that correspondence in both directions and excuses the protocol codes by name, and
+`:: test_the_protocol_codes_are_the_ones_outside_the_api_layer` pins the excused set — without which the
+exclusion list could grow to cover a real domain rule and stay green.
 
 Every domain refusal is a 409, for one reason: nothing about the payload is malformed, so the same request
 would have succeeded against a different state of the database
@@ -50,25 +47,21 @@ same submission would have been stored a week earlier, or before another school 
 and body an id naming nothing gets ([`docs/backend/spec.md`](../backend/spec.md) I47), so a 404 carrying
 it is never on its own proof that the document is absent.
 
-**A refusal comparing a payload against the document it replaces names a step, never a state**: `REQ-RULES-001`,
-`REQ-RULES-004`, `REQ-RULES-006`, `REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009`, `REQ-RULES-010`,
-`REQ-RULES-011` and `REQ-RULES-012` arrive on the edit that introduces or worsens the violation and let a
-resubmission of the stored values through, because a season patch replaces `rules` wholesale.
-`REQ-DATE-008` is the same shape one payload
-over: a matchday patch carries `beginn` and `ende` together, so an `ende`-only edit resubmits the stored `beginn`. The
-wiring codes read the same way on a third payload: a match patch carries both `quelle` fields, so `REQ-WIRING-001`,
-`REQ-WIRING-002` and `REQ-WIRING-003` judge the side whose source the save MOVES and leave a fixture already wired out
-of rule editable (`docs/backend/spec.md :: I44`).
+**Which codes name a STEP rather than a state** (`docs/backend/spec.md :: I44`), and the payload that makes
+each set behave that way:
 
-**The draw freezes a season's SHAPE alone**: `REQ-RULES-011` names `number_of_groups`, `teams_per_group` and
-`qualifiers_per_group`, the rules the fixtures were drawn from. The freeze is ABSOLUTE on the patch and it is not a dead
-end, but the three do not share one repair, so the refusal composes a repair per field that moved: `qualifiers_per_group`
-moves by drawing the season AGAIN with the new number carried on the replace and written in the transaction that redraws
-(`REQ-SPIELPLAN-005`), while the clubs entered fix the other two, whose repair is an undraw (`REQ-SPIELPLAN-006`), a
-change to those entries, and a fresh draw ([`docs/domain.md`](../domain.md)). What a season scores by stays editable
-until the season turns `past`, where `REQ-RULES-005` freezes it. **The tie-break alone freezes sooner**:
-`REQ-RULES-012` closes `tiebreak_order` once a knockout fixture of the season has left a record, the bracket
-having been seeded from the group placings that order decides.
+- **A season patch replaces `rules` wholesale**, so `REQ-RULES-001`, `REQ-RULES-004`, `REQ-RULES-006`,
+  `REQ-RULES-007`, `REQ-RULES-008`, `REQ-RULES-009`, `REQ-RULES-010`, `REQ-RULES-011` and `REQ-RULES-012`
+  arrive on the edit that introduces or worsens the violation and let a resubmission of the stored values
+  through.
+- **A matchday patch carries `beginn` and `ende` together**, so an `ende`-only edit resubmits the stored
+  `beginn` and `REQ-DATE-008` judges the pair.
+- **A match patch carries both `quelle` fields**, so `REQ-WIRING-001`, `REQ-WIRING-002` and `REQ-WIRING-003`
+  judge the side whose source the save MOVES and leave a fixture already wired out of rule editable.
+
+**`REQ-RULES-011` composes a repair per field that moved**, the three fields it names not sharing one. The
+freeze is absolute on the patch and is not a dead end, and which route leads back for which field is
+[`docs/domain.md`](../domain.md#a-seasons-rules-are-the-interesting-case).
 
 | Code                  | Status | Meaning                                                                                                                                                |
 | --------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -157,7 +150,13 @@ having been seeded from the group placings that order decides.
 
 ## 2. Frontend codes
 
-Declared in `fl_frontend/src/core/errors.ts`, plus the call sites named.
+Declared in `fl_frontend/src/core/errors.ts`, plus the call sites named. Unlike section 1's, this set has no
+declaration a test holds it against, so a code added at a call site reaches this table only by hand.
+
+**None of them reaches the error page from an admin write.** `runAdminMutation` wraps both entry points — the
+admin server actions and the page-owned editors' undo route handlers — logging the failure with its codes and
+returning the `FormState` the caller toasts, because a 409 is an ordinary outcome of a create rather than a
+crash ([`spec.md`](spec.md#2-invariants) L6).
 
 | Code            | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -172,9 +171,3 @@ Declared in `fl_frontend/src/core/errors.ts`, plus the call sites named.
 | `FE-MAIL-001`   | The mail provider refused an outbound message (`MailSendError`, logged by `fl_frontend/src/core/mail.ts :: sendMail`) — a send that never reached it is `FE-NET-001`, and on the sign-in path `FE-AUTH-002` follows it under the same correlation id                                                                                                                                                                                          |
 | `FE-MAIL-002`   | A decision's notification did not reach the people an application names — one recipient refused (`fl_frontend/src/features/bewerbungen/notifications.ts :: sendBewerbungMail`, the rest still sent), or the club's name could not be read and nobody was reached at all (`fl_frontend/src/features/bewerbungen/actions.ts :: notifyBewerbung`). The decision stands either way, and an address reaches the administrator rather than the line |
 | `FE-CLIENT-001` | A browser-side crash reported through the ingest route (`fl_frontend/src/app/api/client-error/route.ts`)                                                                                                                                                                                                                                                                                                                                      |
-
-## 3. The mutation boundary
-
-**An admin mutation never lets a typed API error escape.** `runAdminMutation` logs the failure with its codes
-and returns the `FormState` the caller toasts, because a 409 is an ordinary outcome of a create rather than a
-crash. It wraps both entry points: the admin server actions and the page-owned editors' undo route handlers.

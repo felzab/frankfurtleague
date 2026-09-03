@@ -4,7 +4,7 @@
 
 The contracts these depend on — the services, the scripts, the gate scopes and the registry — are
 [`spec.md`](spec.md); the pipeline a change travels from a branch to a deploy is
-[`../_git/spec.md`](../_git/spec.md) §1.1. Each script's `--help` prints its header, which carries its usage.
+[`../_git/spec.md`](../_git/spec.md) §1.1.
 
 ---
 
@@ -164,9 +164,7 @@ a perfectly good name, and a row missing its name can name a club that exists.
 cd fl_frontend && pnpm brand
 ```
 
-Regenerates the favicon, app icons, both manifest sets, the Open Graph card and the `FLLogo` component from
-one parameterised source. **Re-run it rather than editing any of its outputs**, or the header mark and the
-icons drift apart.
+**Re-run it rather than editing any of its outputs**, or the header mark and the icons drift apart.
 
 ## 4. Granting or revoking admin access
 

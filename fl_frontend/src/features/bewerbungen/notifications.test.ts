@@ -100,8 +100,7 @@ function reset(): void {
 }
 
 describe("who a decision is sent to", () => {
-  /* First, because a harness whose double never ran would leave `sent` empty and every assertion
-     after this would fail for the harness rather than for the source. */
+  /* First, so a double that never ran fails here rather than under every assertion below. */
   it("reaches the provider through the doubled transport at all", async () => {
     reset();
     const outcome = await sendBewerbungMail({ operation: "test", recipients: [empfaenger("a@schule.de")], buildMail: buildMail });
@@ -337,7 +336,7 @@ describe("what the administrator is told", () => {
 });
 
 /**
- * Composing is inside the settling too (`docs/frontend/spec.md :: I39`): the public receipt
+ * Composing is inside the settling too (`docs/frontend/spec.md :: I70`): the public receipt
  * `fl_frontend/src/app/api/bewerbung/route.ts` awaits this with no `catch`, so a rejected fan-out
  * would show an applicant a failure for a stored application.
  */

@@ -1,7 +1,8 @@
 # Backend tests
 
-**Folder purpose:** the regression net under the backend's validation rules — the constraints the
-frontend mirrors rather than enforces, plus what MongoDB actually does with them.
+**Folder purpose:** the regression net under everything the backend refuses, composes and serves —
+the constraints the frontend mirrors rather than enforces, plus what MongoDB actually does with
+them.
 
 ## Folder overview
 
@@ -23,11 +24,10 @@ frontend mirrors rather than enforces, plus what MongoDB actually does with them
 `cd fl_backend && uv run pytest` runs the fast tier, which needs no daemon.
 `uv run pytest -m db` runs the tier that starts a real `mongod`. Which tests
 belong to which tier, why the split exists, and every convention the suite is written to are in the
-backend spec sheet — `fl_backend/` is the backend surface, and the surface owns its contract.
+backend spec sheet.
 
 The tree mirrors `app/`, so the test for a module is where you would look for it.
 
 ## Read next
 
-- [`../../docs/backend/spec.md`](../../docs/backend/spec.md) — the suite's contract, in §1.6
 - [`../../docs/ops/spec.md`](../../docs/ops/spec.md) — which gate scope runs which tier

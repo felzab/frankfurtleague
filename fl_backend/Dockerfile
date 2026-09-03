@@ -1,10 +1,9 @@
-# Stage 1: uv -> the installer, pinned on a line Dependabot reads
 # A named stage rather than a bare `COPY --from=<image>`: Dependabot's docker ecosystem scans FROM
 # lines alone, so this is what puts the installer's version under the same review as every other
 # base image here.
 FROM ghcr.io/astral-sh/uv:0.12.8 AS uv
 
-# Stage 2: Base -> the OS layer the build and the runtime share
+# The OS layer the build and the runtime share, so anything added here ships in the image.
 FROM python:3.14-slim AS base
 
 # tini for PID 1 signal routing -> the container shuts down gracefully.
@@ -18,7 +17,6 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Stage 3: Builder -> Compile app
 FROM base AS builder
 
 # uv is copied here rather than into `base`, so the runner does not inherit 54 MB of an installer
@@ -39,7 +37,6 @@ COPY . .
 
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
 
-# Stage 4: Runner -> Runtime environment
 FROM base AS runner
 
 RUN addgroup --system fl_api && adduser --system --group fl_api_user --home /usr/fl_backend --shell /usr/sbin/nologin
@@ -48,7 +45,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 COPY --from=builder --chown=fl_api_user:fl_api /app/.venv ./.venv
 
-# fl_backend/.dockerignore keeps .env, the local virtualenv and the test suite out of the image.
+# This copies the whole build context, and fl_backend/.dockerignore is what narrows it.
 COPY --chown=fl_api_user:fl_api . .
 
 USER fl_api_user

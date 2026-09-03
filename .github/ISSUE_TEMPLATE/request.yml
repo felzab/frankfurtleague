@@ -8,7 +8,7 @@ body:
     attributes:
       value: |
         If the idea needs analysis before anyone can decide on it, it belongs in
-        [docs/_roadmap/open-items.md](https://github.com/felzab/frankfurtleague/blob/main/docs/_roadmap/open-items.md)
+        [docs/_roadmap/items.md](https://github.com/felzab/frankfurtleague/blob/main/docs/_roadmap/items.md)
         rather than here — that is where undecided questions keep their reasoning. Use this form for
         something concrete enough to act on.
 

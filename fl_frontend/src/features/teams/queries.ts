@@ -79,9 +79,8 @@ export function getAdminTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeam
  * Every team with every membership, for the admin surfaces — the season-scoped reads cannot answer a
  * club-centric question.
  */
-// React's `cache` memoizes per RENDER PASS, never across requests -- unlike `"use cache"`, whose
-// key is the arguments, not the caller, so an admin read there becomes a slot of authorized data
-// any caller reaches. One pass, one round trip.
+// Never `"use cache"` here, which keys on the arguments rather than the caller
+// (`docs/frontend/spec.md` §1.2).
 export const getTeamMemberships = cache(async (): Promise<FLTeamsMembershipsResponse> =>
   runWithIncomingCorrelationId(() =>
     apiClient<FLTeamsMembershipsResponse>("/teams/memberships", FLTeamsMembershipsResponseSchema, { authType: "admin" }),

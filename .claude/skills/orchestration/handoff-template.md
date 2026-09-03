@@ -42,7 +42,8 @@ this session could not run, say so instead of guessing.>
 
 - Branch, and the commit SUBJECTS -- never SHAs, which a rebase invalidates silently.
 - Gate state: the scope run, the real exit code, the findings.
-- Counts, each with the moment it was taken and a note that it will move.
+- Counts, each with who measured it, the moment it was taken, and a note that it will move. A
+  figure whose provenance the next session cannot see is one it will act on without re-measuring.
 - What could NOT be established here, and why.
 ```
 
@@ -86,4 +87,5 @@ delivers. The owner sends `/orchestration` as its own message before pasting it
   work audit it, then fixing what it finds.
 ```
 
-Both live in the durable plan directory beside the plan and every document they cite.
+Both live in the durable plan directory beside the plan, with **one copy of each document they
+cite**: a second copy diverges, and a ruling standing in one and not the other gets re-asked.

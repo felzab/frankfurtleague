@@ -81,8 +81,7 @@ export function FormTeamErsatzSection({
   const panel = formPanel({ tone: isOffered ? "danger" : "neutral" });
 
   const handleReplace = () => {
-    // Ahead of `press`, so a half-made pair neither arms nor writes. Both are `const`, which is what
-    // carries the narrowing into the closure below.
+    // Ahead of `press`, so a half-made pair neither arms nor writes.
     if (outgoing === null || incoming === null) return;
 
     press(async () => {

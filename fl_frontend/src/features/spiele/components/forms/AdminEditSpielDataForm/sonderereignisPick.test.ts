@@ -10,8 +10,7 @@ const SOURCE = readFileSync(path.resolve(import.meta.dirname, "FormSonderereigni
 const SELECT = (SOURCE.split("<Select\n")[1] ?? "").split("</Select>")[0] ?? "";
 
 describe("the Sonderereignis panel's pick", () => {
-  /* First, because a boundary string that stopped matching leaves the slice empty and every
-     assertion over it would then fail for something that is not the defect. */
+  /* First, so a boundary that stopped matching fails here rather than everywhere below. */
   it("cuts the select out of the file before reading it", () => {
     assert.ok(SELECT.includes('name="sonderereignis"'), "the select is outside its slice");
     assert.ok(!SELECT.includes("<section"), "the slice runs on into the markup");

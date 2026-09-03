@@ -38,7 +38,7 @@ export type FLSpielDraftFields = {
 
 /**
  * One statement of the condition for the panel, the draft and the preview alike — never retracted
- * handler by handler (`docs/frontend/spec.md` I33).
+ * handler by handler (`docs/frontend/spec.md` I62).
  */
 export function admitsShootOut(
   saisonPhase: FLSpiel["saison_phase"],

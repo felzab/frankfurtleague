@@ -6,7 +6,7 @@ export const SAISONS_CRUD_COPY = {
 } as const;
 
 /**
- * The five phases in the competition's own playing order, which `PHASE_RANK` in
+ * The phases in the competition's own playing order, which `PHASE_RANK` in
  * `fl_frontend/src/features/spiele/utils.ts` ranks against. The schema owns the SET; this owns the
  * SEQUENCE.
  */
@@ -64,7 +64,7 @@ const PUNKTE_RUNG: TiebreakRung = { label: "Punkte", caveat: null };
 const TORE_RUNG: TiebreakRung = { label: "Tordifferenz, dann Tore aus allen Spielen", caveat: null };
 
 /**
- * The two ways a season separates clubs level on points, in the picker's order. Both wordings live
+ * The ways a season separates clubs level on points, in the picker's order. Every wording lives
  * here as one fact: a surface writing its own German would describe the same rule differently.
  */
 export const TIEBREAK_ORDER_OPTIONS: readonly TiebreakOption[] = [
@@ -105,7 +105,6 @@ export const TIEBREAK_LADDER_TAIL = "Bleibt es gleich, stehen die Teams gleichau
 const tiebreakOption = (value: FLSaisonTiebreakOrder): TiebreakOption | undefined =>
   TIEBREAK_ORDER_OPTIONS.find((option) => option.value === value);
 
-/** The criterion's name — `Tordifferenz`, `Direkter Vergleich`. */
 export function tiebreakLabel(value: FLSaisonTiebreakOrder): string {
   return tiebreakOption(value)?.label ?? "";
 }

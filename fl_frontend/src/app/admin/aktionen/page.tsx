@@ -32,7 +32,6 @@ export default function AdminAktionenPage(props: NextPageProps) {
 }
 
 async function AktionenTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  // The image builder reaches no backend, so the fetch below has to be kept out of the build.
   await connection();
   const params = (await searchParams) ?? {};
   // Anything but one plain value reads as no narrowing, so a hand-edited URL falls back to the

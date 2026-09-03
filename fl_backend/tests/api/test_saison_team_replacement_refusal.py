@@ -33,7 +33,7 @@ def fixture(**overrides):
 
 class TestWhichSeasonsAreOpenToAReplacement:
     def test_a_started_season_permits_one(self):
-        """The window is NOT D34's `future`-only one: a club withdraws mid-season by definition."""
+        """The window is NOT the entry gate's `future`-only one (`REQ-ENTER-001`): a club withdraws mid-season by definition."""
 
         assert replacement(saison_status="active") is None
 

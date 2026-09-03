@@ -9,11 +9,8 @@ version: 2
 # and is the only ecosystem here that is — the reason is written at that ecosystem below.
 #
 # Invariants:
-# - Security updates arrive from Dependabot alerts, not from here, and ignore this schedule — for
-#   every ecosystem below except `github-actions`. GitHub raises no alert for an action pinned to a
-#   commit SHA, and every `uses:` naming a repository is pinned that way, so for actions the
-#   scheduled run below IS the coverage: a fix arrives on that schedule rather than on the day it is
-#   disclosed. Why that trade is worth taking belongs to `docs/_git/spec.md`, Repository settings.
+# - Security updates arrive from Dependabot alerts, not from here, and ignore this schedule
+#   (`docs/_git/spec.md`, Repository settings); for `github-actions` there are no such alerts.
 # - Every ecosystem sets the same cooldown, so a release compromised at publication can be yanked
 #   before a pull request proposes it. A security update is exempt from the cooldown — except under
 #   `github-actions`, where that exemption is empty for the reason above.
@@ -28,9 +25,11 @@ updates:
   # The highest-value ecosystem here and the cheapest to review: few dependencies, small diffs, and
   # an outdated action is a supply-chain exposure that nothing else in the repo would surface.
 
-  # Weekly, alone here: for a SHA-pinned action this run is the only security route (invariant
-  # above), and its pull requests are cheap to read. Disclosure to pull request is bounded by one
-  # interval plus the cooldown: ~14 days weekly, ~38 monthly.
+  # Weekly, alone here: GitHub raises no alert for an action pinned to a commit SHA and every
+  # `uses:` naming a repository is pinned that way, so for actions this scheduled run IS the
+  # coverage rather than a convenience.
+
+  # A fix therefore arrives one interval plus one cooldown after disclosure, at worst.
 
   # `/` is not the repository for this ecosystem: it means the root `action.yml` plus
   # `.github/workflows/`, and reaches no composite action. The glob over `.github/actions` is what

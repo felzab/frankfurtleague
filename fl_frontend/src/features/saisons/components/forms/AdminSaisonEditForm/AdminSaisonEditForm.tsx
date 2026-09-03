@@ -102,16 +102,12 @@ export function AdminSaisonEditForm({
     schemas: { saison: FLPatchSaisonPayloadSchema },
   });
 
-  // `""` for a cleared picker rather than a cast: the schema refuses an empty string with the date
-  // message, which is one the form can render on the field.
-  /**
-   * Widened at the money field the way `FLSpielOrtFieldDraft` is: an emptied box holds `null`, and the payload
-   * schema's `z.int()` is what asks for a number at the submit.
-   */
   type SaisonPatchDraft = Omit<FLPatchSaisonPayload, "rules"> & { rules: FLSaisonRulesDraft };
 
   const buildPayload = (): SaisonPatchDraft => ({
     id: saison.id,
+    // `""` for a cleared picker rather than a cast: the schema refuses an empty string with the date
+    // message, which is one the form can render on the field.
     start_date: startDate?.toString() ?? "",
     end_date: endDate?.toString() ?? "",
     rules,
@@ -198,8 +194,7 @@ export function AdminSaisonEditForm({
     // Blur first: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    // Hover next, and the disabled flag is what ends it: `useHover` clears `data-hovered` when a
-    // control turns disabled, and no `pointerleave` follows a click that leaves.
+    // Hover next: the disabled flag is what ends it (`docs/frontend/spec.md :: I68`).
     startLeaving(() => {
       if (window.history.length > 1) router.back();
       else router.push(saisonHref("/admin/saisons"));
@@ -232,8 +227,7 @@ export function AdminSaisonEditForm({
   };
 
   const requestSave = () => {
-    // Snapshotted rather than read live: a background revalidation re-deriving the banners under an
-    // open dialog would move the list the reader agreed to.
+    // Snapshotted, not read live: a background revalidation would move the list under the dialog.
     const blocking = resolveBlockingBanners(banners);
     if (blocking !== null) {
       setConfirmingBanners(blocking);
@@ -243,8 +237,7 @@ export function AdminSaisonEditForm({
   };
 
   const handleFormSubmit = () => {
-    // `aria` blocks nothing natively, so this call is what keeps an incomplete draft off the wire, in the
-    // schema's own German rather than the browser's bubble. It RUNS the write, so there is no answer to drop.
+    // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
     guardSubmit({ saison: buildPayload() }, writeAfterBlock);
   };
 
@@ -307,9 +300,7 @@ export function AdminSaisonEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
-        // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting
-        // the browser's required message the moment an edited field is cleared. `aria` keeps
-        // `aria-required` and leaves every message to `useDraftFieldErrors`.
+        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
         validationBehavior="aria"
         ref={formRef}
         validationErrors={fieldErrors}
@@ -377,11 +368,7 @@ export function AdminSaisonEditForm({
             isFinishedSaison={saison.status === "past"}
           />
 
-          {/* Between the swap and the rollover: the rollover's class of control rather than the
-              swap's, in that it writes on press, never joins the save bar, and no later edit
-              reverses it. One panel over the draw and the rücknahme that reverses it: both are open
-              at once on a drawn planned season and both destroy the same rows, so the operation is
-              picked before arming rather than raced between two armed states. */}
+          {/* Between the swap and the rollover, in the rollover's class of control. */}
           <FormSpielplanSection
             saisonId={saison.id}
             saisonStatus={saison.status}

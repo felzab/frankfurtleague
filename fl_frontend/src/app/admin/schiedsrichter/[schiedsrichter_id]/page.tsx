@@ -11,7 +11,7 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /**
  * The referee editor. One per URL and no season in it: a referee belongs to the league, so the
- * sidemenu's selector changes nothing here. It resolves nothing itself — see the match editor.
+ * sidemenu's selector changes nothing here. It resolves nothing itself (`docs/frontend/spec.md :: I22`).
  */
 export default function AdminSchiedsrichterEditPage(props: NextPageProps<{ schiedsrichter_id: string }>) {
   return (
@@ -25,7 +25,6 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   await connection();
   const schiedsrichterId = await resolveSchiedsrichterId(params);
 
-  // The list read, which serves the contact details and the fee this form round-trips.
   // `include_inactive`, or a retired referee's own editor answers not-found.
   const schiedsrichterRes = await getSchiedsrichter({ include_inactive: true });
   const schiedsrichter = schiedsrichterRes.schiedsrichter.find((candidate) => candidate.id === schiedsrichterId);
@@ -34,7 +33,7 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   }
 
   return (
-    // Keyed by the state the draft mirrors, for the match editor's reason.
+    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed`).
     <AdminSchiedsrichterEditView
       key={JSON.stringify(schiedsrichter)}
       schiedsrichter={{

@@ -317,7 +317,7 @@ fi
 
 step "4. Every helper called is defined"
 # The names checked are read out of the SCRIPTS, never out of `_lib.sh`: a pattern built from what
-# is defined can only match names that resolve, which is `docs/standard.md` PRE-4. A hand-written
+# is defined can only match names that resolve, which is `docs/_standard/standard.md` PRE-4. A hand-written
 # pattern is the same thing one edit later.
 
 # Command position only: a name in a string, a comment, a case pattern or a `for` variable is not a
@@ -376,8 +376,9 @@ BEGIN { Q = sprintf("%c", 39); q = 0; cmd = 1; heredoc = ""; incase = 0; pat = 0
         (i == 1 || substr(line, i-1, 1) != "<")) {
       rest = substr(line, i+2); sub(/^-/, "", rest); sub(/^[ \t]+/, "", rest)
       fc = substr(rest, 1, 1)
-      # The delimiter is the whole word, punctuation included: an identifier class took `E` out of
-      # a quoted delimiter carrying a hyphen, and every remaining line of the file was then
+      # The delimiter is the whole word, punctuation included: an identifier class stops at the
+      # first hyphen, so the closing line never matches what it recorded and every line below the
+      # opener is read as body.
       if (fc == Q || fc == "\"") {
         rest = substr(rest, 2); k = index(rest, fc)
         if (k > 1) heredoc = substr(rest, 1, k - 1)
@@ -820,14 +821,14 @@ else
       cd "$HOOK_REPO"
       git init -q -b main
       git config core.autocrlf false
-      mkdir -p docs/audit scripts src \
+      mkdir -p docs/audit docs/_standard scripts src \
         fl_frontend/src/app fl_frontend/src/features .vscode
       # certs/ is here because the real repository ignores it: without that line the credential
       # override never decides a certs path here, and the probes on it cannot fail.
       printf 'docs/audit/\n.vscode/\ncerts/\n' > .gitignore
       for tracked in notes.md scripts/gate/verify.sh scripts/checks/check_docs.py src/tracked.py \
         fl_frontend/package.json fl_frontend/src/app.ts fl_frontend/src/clean.ts \
-        fl_frontend/src/features/keep.ts docs/standard.md \
+        fl_frontend/src/features/keep.ts docs/_standard/standard.md \
         docs/audit/tracked-note.md docs/audit/note.md \
         docs/audit/r.md docs/audit/a.md docs/audit/change.patch docs/audit/helper.sh \
         docs/audit/msg.txt; do
@@ -1079,7 +1080,7 @@ else
     # A redirect into the null device must not release the command carrying it.
     probe "$hb" denied  cmd 'echo hack > fl_frontend/src/app.ts 2>/dev/null'   'bash guard: stderr to the null device'
     probe "$hb" denied  cmd 'mv fl_frontend/src/app.ts fl_frontend/b.ts >/dev/null' 'bash guard: stdout to the null device'
-    probe "$hb" allowed cmd 'ls docs/standard.md > /dev/null'                  'bash guard: null device, nothing written'
+    probe "$hb" allowed cmd 'ls docs/_standard/standard.md > /dev/null'                  'bash guard: null device, nothing written'
     probe "$hb" denied  cmd 'printf x >fl_frontend/package.json'               'bash guard: spaceless redirect'
     probe "$hb" denied  cmd 'git checkout -- fl_frontend/package.json'         'bash guard: git checkout --'
     probe "$hb" denied  cmd 'git switch --discard-changes topic'               'bash guard: git switch, discarding'
@@ -1281,48 +1282,48 @@ else
     probe "$hp" allowed raw '{"tool_name":"Bash","tool_input":{"command":"rm -rf src"}}' 'powershell guard: another tool payload'
 
     # --- guard-standard-bash.sh: the sign-off gate on every branch -------------------------------
-    probe "$hs" asked   cmd 'printf x > docs/standard.md'                      'standard bash guard: a plain write'
-    probe "$hs" asked   cmd 'cp /tmp/x docs/standard.md >/dev/null'            'standard bash guard: null device'
-    probe "$hs" asked   cmd 'rmdir docs/standard.md'                           'standard bash guard: rmdir'
-    probe "$hs" asked   cmd 'echo x > "docs/"standard.md'                      'standard bash guard: quote-split path'
-    probe "$hs" asked   cmd 'echo x >docs/standard.md'                         'standard bash guard: spaceless redirect'
+    probe "$hs" asked   cmd 'printf x > docs/_standard/standard.md'                      'standard bash guard: a plain write'
+    probe "$hs" asked   cmd 'cp /tmp/x docs/_standard/standard.md >/dev/null'            'standard bash guard: null device'
+    probe "$hs" asked   cmd 'rmdir docs/_standard/standard.md'                           'standard bash guard: rmdir'
+    probe "$hs" asked   cmd 'echo x > "docs/_standard/"standard.md'                      'standard bash guard: quote-split path'
+    probe "$hs" asked   cmd 'echo x >docs/_standard/standard.md'                         'standard bash guard: spaceless redirect'
     # The same write-shape block, so the same respellings have to reach the question here.
-    probe "$hs" asked   cmd 'printf x >&docs/standard.md'                      'standard bash guard: >& redirect'
-    probe "$hs" asked   cmd 'printf x ->docs/standard.md'                      'standard bash guard: -> redirect'
-    probe "$hs" asked   cmd 'sed -e s/a/b/ -i docs/standard.md'                'standard bash guard: sed -i behind another flag'
-    probe "$hs" asked   cmd 'echo x;sed -i s/a/b/ docs/standard.md'            'standard bash guard: a semicolon in front of sed -i'
+    probe "$hs" asked   cmd 'printf x >&docs/_standard/standard.md'                      'standard bash guard: >& redirect'
+    probe "$hs" asked   cmd 'printf x ->docs/_standard/standard.md'                      'standard bash guard: -> redirect'
+    probe "$hs" asked   cmd 'sed -e s/a/b/ -i docs/_standard/standard.md'                'standard bash guard: sed -i behind another flag'
+    probe "$hs" asked   cmd 'echo x;sed -i s/a/b/ docs/_standard/standard.md'            'standard bash guard: a semicolon in front of sed -i'
     # The shared block moves in lockstep, so the `-o` shape has to reach this copy as well.
-    probe "$hs" asked   cmd 'sort -o docs/standard.md docs/standard.md'        'standard bash guard: sort writing through -o'
-    probe "$hs" asked   cmd 'git checkout -- docs/standard.md'                 'standard bash guard: git checkout --'
-    probe "$hs" asked   cmd "$(printf 'echo start\ngit checkout -- docs/standard.md')" 'standard bash guard: a discard on a second line'
-    probe "$hs" asked   cmd 'git status && git checkout -- docs/standard.md'   'standard bash guard: a discard behind a git read'
-    probe "$hs" asked   cmd 'rm docs/standard.md'                              'standard bash guard: a deletion'
+    probe "$hs" asked   cmd 'sort -o docs/_standard/standard.md docs/_standard/standard.md'        'standard bash guard: sort writing through -o'
+    probe "$hs" asked   cmd 'git checkout -- docs/_standard/standard.md'                 'standard bash guard: git checkout --'
+    probe "$hs" asked   cmd "$(printf 'echo start\ngit checkout -- docs/_standard/standard.md')" 'standard bash guard: a discard on a second line'
+    probe "$hs" asked   cmd 'git status && git checkout -- docs/_standard/standard.md'   'standard bash guard: a discard behind a git read'
+    probe "$hs" asked   cmd 'rm docs/_standard/standard.md'                              'standard bash guard: a deletion'
     probe "$hs" asked   raw 'not json'                                         'standard bash guard: unparseable payload'
     # Neither program is on the interpreter list beside it, so the in-place arm is what answers.
-    probe "$hs" asked   cmd 'awk -i inplace {print} docs/standard.md'          'standard bash guard: awk -i inplace'
-    probe "$hs" asked   cmd '/usr/bin/sed -i s/a/b/ docs/standard.md'          'standard bash guard: an editor spelled with a path'
-    probe "$hs" asked   cmd "\$'sed' -i s/a/b/ docs/standard.md"               'standard bash guard: an editor in ANSI-C quotes'
-    probe "$hs" allowed cmd 'grep -n "a -> b" docs/standard.md'                'standard bash guard: an arrow inside quotes is not a redirect'
+    probe "$hs" asked   cmd 'awk -i inplace {print} docs/_standard/standard.md'          'standard bash guard: awk -i inplace'
+    probe "$hs" asked   cmd '/usr/bin/sed -i s/a/b/ docs/_standard/standard.md'          'standard bash guard: an editor spelled with a path'
+    probe "$hs" asked   cmd "\$'sed' -i s/a/b/ docs/_standard/standard.md"               'standard bash guard: an editor in ANSI-C quotes'
+    probe "$hs" allowed cmd 'grep -n "a -> b" docs/_standard/standard.md'                'standard bash guard: an arrow inside quotes is not a redirect'
     # The guard asks on path EQUALITY, so a name sharing the standard's prefix must pass untouched.
-    probe "$hs" allowed cmd 'printf x > docs/standard-notes.md'                'standard bash guard: a sibling name is not the standard'
-    probe "$hs" allowed cmd 'grep -i foo docs/standard.md'                     'standard bash guard: grep -i is not an in-place edit'
-    probe "$hs" allowed cmd 'ls docs/standard.md > /dev/null'                  'standard bash guard: nothing written'
-    probe "$hs" allowed cmd 'cat docs/standard.md'                             'standard bash guard: a read'
+    probe "$hs" allowed cmd 'printf x > docs/_standard/standard-notes.md'                'standard bash guard: a sibling name is not the standard'
+    probe "$hs" allowed cmd 'grep -i foo docs/_standard/standard.md'                     'standard bash guard: grep -i is not an in-place edit'
+    probe "$hs" allowed cmd 'ls docs/_standard/standard.md > /dev/null'                  'standard bash guard: nothing written'
+    probe "$hs" allowed cmd 'cat docs/_standard/standard.md'                             'standard bash guard: a read'
     probe "$hs" allowed cmd 'git switch topic'                                 'standard bash guard: leaving a branch'
     probe "$hs" allowed cmd 'printf x > docs/audit/note.md'                    'standard bash guard: a write elsewhere'
 
     # --- guard-standard-edit.sh: the same sign-off, on the tool route ----------------------------
-    probe "$he" asked   file "${hook_root}/docs/standard.md"         'standard edit guard: a plain absolute path'
-    probe "$he" asked   file "${hook_root}/docs/./standard.md"       'standard edit guard: ./ segment'
-    probe "$he" asked   file "docs/standard.md"                      'standard edit guard: a relative path'
-    probe "$he" asked   file "${hook_root}/docs/x/../standard.md"    'standard edit guard: .. re-entry'
+    probe "$he" asked   file "${hook_root}/docs/_standard/standard.md"         'standard edit guard: a plain absolute path'
+    probe "$he" asked   file "${hook_root}/docs/_standard/./standard.md"       'standard edit guard: ./ segment'
+    probe "$he" asked   file "docs/_standard/standard.md"                      'standard edit guard: a relative path'
+    probe "$he" asked   file "${hook_root}/docs/_standard/x/../standard.md"    'standard edit guard: .. re-entry'
     probe "$he" asked   raw  '{"tool_input":{}}'                     'standard edit guard: payload without a path'
     probe "$he" asked   raw  'not json'                              'standard edit guard: unparseable payload'
-    probe "$he" asked   raw  "$(printf '{"tool_input":{"notebook_path":"%s/docs/standard.md"}}' "$hook_root")" 'standard edit guard: a notebook path'
+    probe "$he" asked   raw  "$(printf '{"tool_input":{"notebook_path":"%s/docs/_standard/standard.md"}}' "$hook_root")" 'standard edit guard: a notebook path'
     # Equality on the RESOLVED path: the raw spelling below contains the standard's whole name and
     # still lands elsewhere, so a textual prefix test would ask where this must not.
-    probe "$he" allowed file "${hook_root}/docs/standard.md/../elsewhere.md" 'standard edit guard: .. climbs out'
-    probe "$he" allowed file "${hook_root}/docs/standard-notes.md"   'standard edit guard: a sibling name is not the standard'
+    probe "$he" allowed file "${hook_root}/docs/_standard/standard.md/../elsewhere.md" 'standard edit guard: .. climbs out'
+    probe "$he" allowed file "${hook_root}/docs/_standard/standard-notes.md"   'standard edit guard: a sibling name is not the standard'
     probe "$he" allowed file "${hook_root}/docs/README.md"           'standard edit guard: elsewhere in the repo'
     probe "$he" allowed file "${hook_root}/../outside.md"            'standard edit guard: outside the repo'
 
@@ -1492,8 +1493,8 @@ else
         probe "$hp" denied  cmd  'Set-Content -Path C:certs\a.md -Value y'     'powershell guard: a certs directory, drive-relative'
         probe "$hb" denied  cmd  "cp docs/audit/note.md ${hook_root//\//\\}\\scripts\\gate\\verify.sh" 'bash guard: drive letter, tracked'
         probe "$hb" denied  cmd  "cp docs/audit/note.md ${hook_msys}/scripts/gate/verify.sh" 'bash guard: MSYS /c/ spelling, tracked'
-        probe "$hs" asked   cmd  "printf x > ${hook_msys}/docs/standard.md"    'standard bash guard: MSYS /c/ spelling'
-        probe "$he" asked   file "${hook_root}/DOCS/STANDARD.MD"               'standard edit guard: a case respelling'
+        probe "$hs" asked   cmd  "printf x > ${hook_msys}/docs/_standard/standard.md"    'standard bash guard: MSYS /c/ spelling'
+        probe "$he" asked   file "${hook_root}/DOCS/_STANDARD/STANDARD.MD"               'standard edit guard: a case respelling'
         # A backslash suppresses alias expansion and changes nothing else, so each of these runs the
         # verb it hides; on Windows the same character separates a path.
         probe "$hb" denied  cmd  '\rm -rf fl_frontend/src'                     'bash guard: a backslash in front of rm'
@@ -1501,7 +1502,7 @@ else
         probe "$hb" denied  cmd  '\git commit -am wip'                         'bash guard: a backslash in front of git'
         probe "$hb" denied  cmd  'C:\bin\rm -rf fl_frontend/src'               'bash guard: a deletion spelled with a Windows path'
         probe "$hb" denied  cmd  "\$'\\x72\\x6d' -rf fl_frontend/src"          'bash guard: a verb spelled in hex escapes'
-        probe "$hs" asked   cmd  '\sed -i s/a/b/ docs/standard.md'             'standard bash guard: a backslash in front of sed'
+        probe "$hs" asked   cmd  '\sed -i s/a/b/ docs/_standard/standard.md'             'standard bash guard: a backslash in front of sed'
         ;;
       # Every CI job is ubuntu-latest, so this group is proven on a developer's machine and nowhere
       # else. Left silent it is the shortfall step 16 exists to force into the open.
@@ -1527,7 +1528,7 @@ else
     ( cd "$HOOK_REPO" && git checkout -q topic )
     probe "$ht" allowed file "${hook_root}/inside.py"      'branch guard: topic branch'
     probe "$hb" allowed cmd  'printf x > notes.md'         'bash guard: a redirect off main'
-    probe "$hs" asked   cmd  'printf x > docs/standard.md' 'standard bash guard: still asks off main'
+    probe "$hs" asked   cmd  'printf x > docs/_standard/standard.md' 'standard bash guard: still asks off main'
     par_run unit_probe
 
     ( cd "$HOOK_REPO" && git checkout -q --detach )
@@ -1535,9 +1536,8 @@ else
     par_run unit_probe
   fi
 
-  # The one informational hook, failing silently either way: stop emitting and no session sees the
-  # standard, stop staying quiet and it is restated on every edit. Serial, because the dedupe
-  # marker is state the probes share.
+  # The one informational hook, failing silently either way: stop emitting and no write sees the
+  # standard, stop staying quiet and every write outside the scope pays for a slice it cannot use.
   standard_hook="${REPO_ROOT}/.claude/hooks/docs-standard.sh"
   # A crash is silent, and silence is this hook's pass — so the status and stderr are turned into
   # output of their own rather than dropped, and every reader below sees a crash as a wrong answer.
@@ -1556,27 +1556,27 @@ else
   expect_silent() { # $1 label · $2 hook output — the contract is silence
     if [[ -z "$2" ]]; then info "$1 — silent"; else note_fail "$1: expected silence, got '$2'"; fi
   }
-  standard_md_payload()  { printf '{"session_id":"%s","tool_input":{"file_path":"%s","content":"x"}}' "$1" "$2"; }
-  standard_src_payload() { printf '{"session_id":"%s","tool_input":{"file_path":"%s","new_string":"const a = 1;"}}' "$1" "$2"; }
+  expect_emission() { # $1 label · $2 hook output — the contract is a slice
+    case "$2" in
+      # Read before the emission arm: a crash reported through stderr can carry the very marker the
+      # arm below looks for, and a crash is not an emission.
+      crashed*)             note_fail "$1 — $2" ;;
+      *hookSpecificOutput*) info "$1 — emitted" ;;
+      *)                    note_fail "$1: expected a slice of the standard, got '${2:-nothing}'" ;;
+    esac
+  }
+  standard_md_payload()  { printf '{"tool_input":{"file_path":"%s","content":"x"}}' "$1"; }
+  standard_src_payload() { printf '{"tool_input":{"file_path":"%s","new_string":"const a = 1;"}}' "$1"; }
 
   # The root as the hook sees it: a payload built from the MSYS spelling in REPO_ROOT resolves to
   # a different drive inside node.
   standard_root="$(git -C "$REPO_ROOT" rev-parse --show-toplevel 2>/dev/null)"
-  # The session id and the sweep below belong to this run alone: the dedupe marker lives in the
-  # shared temp directory, and a wildcard would delete a concurrent run's mid-probe.
-  sid="sc-${RUN_ID}-${RANDOM}"
-  out="$(probe_standard "$(standard_md_payload "$sid" "${standard_root}/docs/README.md")")"
-  case "$out" in
-    # Read before the emission arm: a crash reported through stderr can carry the very marker the
-    # arm below looks for, and a crash is not an emission.
-    crashed*) note_fail "standard hook: first repo .md edit — ${out}" ;;
-    *hookSpecificOutput*) info "standard hook: first repo .md edit — emitted" ;;
-    *) note_fail "standard hook: expected the standard on a first repo .md edit, got '${out:-nothing}'" ;;
-  esac
-  expect_silent "standard hook: same session again"    "$(probe_standard "$(standard_md_payload "$sid" "${standard_root}/docs/README.md")")"
-  expect_silent "standard hook: comment-free source"   "$(probe_standard "$(standard_src_payload "${sid}-b" "${standard_root}/fl_frontend/src/probe.ts")")"
-  expect_silent "standard hook: path outside the repo" "$(probe_standard "$(standard_md_payload "${sid}-c" "${standard_root}/../outside.md")")"
-  rm -f "$(node -e 'process.stdout.write(require("os").tmpdir())')"/claude-docs-standard-"${sid}"* 2>/dev/null || true
+  # The same path twice: the hook keeps no per-session state, so every documentation-shaped write
+  # owes the same slice, and one that answered the first alone would serve nobody after it.
+  expect_emission "standard hook: repo .md write"      "$(probe_standard "$(standard_md_payload "${standard_root}/docs/README.md")")"
+  expect_emission "standard hook: the same file again" "$(probe_standard "$(standard_md_payload "${standard_root}/docs/README.md")")"
+  expect_silent "standard hook: comment-free source"   "$(probe_standard "$(standard_src_payload "${standard_root}/fl_frontend/src/probe.ts")")"
+  expect_silent "standard hook: path outside the repo" "$(probe_standard "$(standard_md_payload "${standard_root}/../outside.md")")"
 fi
 
 step "15. The pre-push hook prints the CI scopes and blocks nothing"

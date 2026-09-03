@@ -40,7 +40,7 @@ MIETPREIS_KEY = "mietpreis"
 PAYMENT_KEY = "payment"
 MONEY_KEYS = frozenset({MIETPREIS_KEY, PAYMENT_KEY})
 
-# What `docs/backend/spec.md :: I32` keeps off a served fixture side: the free text naming a school and the day it took
+# What `docs/backend/spec.md :: I102` keeps off a served fixture side: the free text naming a school and the day it took
 # effect. Spelled as a DOCUMENT spells them, for `MONEY_KEYS`' reason.
 AUSTRITT_DETAIL_KEYS = frozenset({"grund", "datum"})
 AUSTRITT_TYPE_KEY = "austritt_type"
@@ -174,11 +174,7 @@ def keys_under(payload: Any, field: str) -> set[str]:
 
 
 def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
-    """One request per client, the request and the close on ONE loop.
-
-    Both halves for the reason `fl_backend/tests/api/test_malformed_ids.py :: answered` gives, no
-    lifespan included.
-    """
+    """One request per client, request and close on ONE loop, no lifespan (`tests/api/test_malformed_ids.py :: answered`)."""
 
     async def _answered() -> Response:
         app = create_app(build_test_config())

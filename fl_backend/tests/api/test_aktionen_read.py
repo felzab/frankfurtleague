@@ -112,7 +112,7 @@ class TestARecordedRowSurvivesTheResponseModel:
 
 
 class TestTheListReportsTheImageWithoutServingIt:
-    """The list row answers `stand_gesichert` in the image's place (`docs/backend/spec.md :: I43`).
+    """The list row answers `stand_gesichert` in the image's place (`docs/backend/spec.md :: I107`).
 
     The empty array is load-bearing: a removal that matched nothing secured no document, and must
     not badge like a kept image (I48).

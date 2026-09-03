@@ -21,9 +21,7 @@ export function ConfirmSaveModal({
   onConfirm,
   banners,
 }: {
-  /** Stay on the page and keep editing. */
   onClose: () => void;
-  /** Run the save the submit was about to run. */
   onConfirm: () => void;
   /** What the gate stopped on, frozen when it fired, or `null` for a dialog that is not raised. */
   banners: BlockingBanners | null;

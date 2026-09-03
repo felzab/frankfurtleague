@@ -26,7 +26,7 @@ export type BewerbungRolle = keyof BewerbungSeats;
  */
 export type BewerbungEmpfaenger = { address: string; rollenText: string };
 
-/** What one fan-out reached and what it did not, in the order the addresses were tried. */
+/** Both lists are in the order the addresses were tried. */
 export type BewerbungMailOutcome = {
   delivered: readonly string[];
   unreachable: readonly string[];
@@ -81,7 +81,6 @@ function collectSeats(kontakte: BewerbungSeats): { address: string; rollen: Bewe
   return [...mailboxes.values()];
 }
 
-/** One mailbox as a message is addressed to it. */
 function toEmpfaenger({ address, rollen }: { address: string; rollen: readonly BewerbungRolle[] }): BewerbungEmpfaenger {
   return { address: address, rollenText: joinUnd(rollen.map(rolleLabel)) };
 }

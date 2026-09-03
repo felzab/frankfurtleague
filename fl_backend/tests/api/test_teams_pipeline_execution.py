@@ -53,9 +53,6 @@ def table(league: SeededLeague, **kwargs: Any) -> dict[str, dict[str, int]]:
     return {row["name"]: row["statistik"] for row in rows(league, **kwargs)}
 
 
-# The scope
-
-
 def test_the_default_scope_counts_only_the_gruppenphase(league: SeededLeague):
     """Helmholtz has played four matches and three of them are league matches."""
     assert table(league)["Helmholtz"]["anzahl_gespielte_spiele"] == 3
@@ -78,9 +75,6 @@ def test_the_playoff_win_moves_points_and_goals_too(league: SeededLeague):
 def test_the_scopes_agree_for_a_team_with_no_playoff_match(league: SeededLeague):
     """Lessing played no Viertelfinale, so the scope must be invisible to it."""
     assert table(league)["Lessing"] == table(league, scope="gesamt")["Lessing"]
-
-
-# Which matches count
 
 
 def test_a_no_show_carrying_its_awarded_result_still_counts(league: SeededLeague):

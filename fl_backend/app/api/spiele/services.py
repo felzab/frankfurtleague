@@ -463,8 +463,7 @@ def resolve_bracket(spiele: Iterable[FLSpielCommon], standings: Mapping[FLGruppe
 class SaisonMembership:
     """One club's `saison_teams` row: the name this SEASON is played under, and the day the club left it.
 
-    The season's name rather than the club's, so a finished season keeps what it was played under
-    while a rename reaches the ones still running.
+    The season's name rather than the club's (`docs/backend/spec.md :: I13`).
     """
 
     name: str
@@ -620,7 +619,7 @@ def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload, ru
 
 
 def stored_in_slice(spiel_id: CustomObjectId, season: Sequence[FLSpiel]) -> FLSpiel:
-    """The fixture under edit, from the caller's slice (`docs/backend/spec.md :: I45`).
+    """The fixture under edit, from the caller's slice (`docs/backend/spec.md :: I108`).
 
     Absent means a truncated or wrong-season slice: the route has already read this `_id`. A
     refusal that permits what it cannot see is the wrong default.
@@ -878,12 +877,7 @@ def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielD
 
 
 def find_departed_occupants(spiele: Sequence[FLSpielJoinedInternal]) -> list[FLBracketFaultOccupant]:
-    """Every fixture fielding a team that left the season, dated on or after its exit or undated, that records no absence for it.
-
-    The internal fixture: the ordering is against the DAY a club left, which no served side
-    carries. Both halves are `REQ-ELIGIBILITY-001`'s, so the state the 409 sends an admin to record
-    is the state that clears the fault -- and every phase counts, the walk reaching none of them.
-    """
+    """Every fixture fielding a team that left the season, in every phase (`docs/backend/spec.md :: I28`)."""
 
     faults: list[FLBracketFaultOccupant] = []
     for spiel in sorted(spiele, key=lambda entry: (entry.saison_id, entry.spiel_nr)):
@@ -892,6 +886,8 @@ def find_departed_occupants(spiele: Sequence[FLSpielJoinedInternal]) -> list[FLB
             if occupant is None or occupant.austritt is None:
                 continue
 
+            # The internal fixture: the ordering is against the DAY a club left, which no served
+            # side carries. The date rule is `REQ-ELIGIBILITY-001`'s.
             effective = occupant.austritt.datum
             if spiel.datum is not None and spiel.datum < effective:
                 continue
@@ -1046,9 +1042,8 @@ def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:
 
 WIRING_UNSUPPORTED = "REQ-WIRING-001"
 
-# Its own code because the repair differs: `REQ-WIRING-001` can mean the season moved and a reload
-# clears it, while nothing moves a fixture's round, so a resend answers the same. The way out is a
-# different source on that side, or a hand-set team.
+# Its own code because the repair differs from `_wiring_refusal`'s: nothing moves a fixture's round,
+# so a resend answers the same. The way out is a different source on that side, or a hand-set team.
 WIRING_SEED_PAST_THE_OPENING_ROUND = "REQ-WIRING-002"
 
 # Its own code again: the picker offers only the season's groups, so this arriving means the season
@@ -1125,9 +1120,9 @@ def find_wiring_refusal(
                 message=f"{label}_quelle names Gruppe {quelle.gruppe}, a group this season does not run",
             )
 
-        # A group placing seeds the bracket's ENTRANCE; every later slot is fed by a match. Which
-        # round that is comes off the rounds the season HOLDS, never a phase name: a bracket of four
-        # opens at the Halbfinale and one of two at the Finale.
+        # Which round the bracket opens on comes off the rounds the season HOLDS, never a phase name
+        # (`docs/backend/spec.md :: I27`): a bracket of four opens at the Halbfinale and one of two
+        # at the Finale.
         if isinstance(quelle, FLSpielQuelleGruppe) and any(
             other.saison_phase != "gruppenphase" and PHASE_RANK[other.saison_phase] < PHASE_RANK[stored.saison_phase] for other in season
         ):

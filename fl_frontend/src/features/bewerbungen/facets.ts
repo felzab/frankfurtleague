@@ -3,8 +3,7 @@ import { BEWERBUNG_STATUS_OPTIONS } from "./constants";
 import type { Facet } from "@/shared/utils/facets";
 import type { AdminBewerbungRow } from "./types";
 
-// Module scope is load-bearing: `AdminCrudView`'s memo and the react-aria collection behind it both
-// key on the array's identity.
+// Module scope is load-bearing (`docs/frontend/spec.md` §1.1).
 export const BEWERBUNGEN_FACETS: readonly Facet<AdminBewerbungRow>[] = [
   {
     // Its own parameter, never `/admin/teams`'s `zugehoerigkeit`: the two lists label this question

@@ -110,12 +110,9 @@ MAX_QUALIFIERS: int = 2 ** len(KNOCKOUT_PHASES)
 class FLSpielTeamFieldPayload(BaseModel):
     """One side of a fixture as the admin PATCH SUBMITS it.
 
-    No name and no shorthand: the season's `saison_teams` row is where a club's name lives, so a copy
-    a client typed could only disagree with it. The server composes them.
-
-    A submitted copy is IGNORED rather than refused, alone among the payload models: the stored and
-    the joined sides below EXTEND this one and `extra` is inherited, so refusing here would answer
-    500 for a fixture read over a document carrying a key no model declares.
+    No name and no shorthand: the server composes them from the season's `saison_teams` row
+    (`docs/backend/spec.md :: I3`). A submitted copy is IGNORED rather than refused, alone among the
+    payload models (`docs/backend/spec.md :: I49`).
     """
 
     team_id: CustomObjectId
@@ -255,8 +252,7 @@ class FLSpielElfmeterschiessen(BaseModel):
     def a_shootout_names_a_winner(self) -> "FLSpielElfmeterschiessen":
         """Refuse a level shoot-out: the one value this field could hold and still name nobody.
 
-        It fails on READ as well as on write, which is what catches a hand edit;
-        `docs/backend/spec.md :: I16` leaves this to the model, not the database validator.
+        It fails on READ as well as on write, which is what catches a hand edit.
         """
 
         if self.team1 == self.team2:
@@ -306,10 +302,9 @@ class FLBracketFaultSpiel(_BracketFault):
 
 
 class FLBracketFaultOccupant(_BracketFault):
-    """One fixture fielding a team that left the season, dated on or after the day of its exit or undated, and recording no absence for it.
+    """One fixture fielding a team that left the season (`docs/backend/spec.md :: I28`).
 
-    The date and the carve-out are `REQ-ELIGIBILITY-001`'s. Derived beside the bracket walk rather
-    than inside it, so no phase is out of its reach; nothing is emptied
+    The date rule and the carve-out are `REQ-ELIGIBILITY-001`'s. Nothing is emptied
     (`fl_backend/app/core/domain.py :: UNENFORCED`).
     """
 

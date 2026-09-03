@@ -15,10 +15,7 @@ import type { FLSpielortPayloadDraft } from "@/features/spielorte/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielort, FLSpielortKeyPayload } from "./schemas";
 
-/**
- * The retirement refusal, or `null` when the 409 is something else. It lands on no field: the retire
- * control is a dialog rather than a form.
- */
+/** `null` where the 409 is something else; it lands on no field, the retire control being a dialog. */
 function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
@@ -32,8 +29,7 @@ function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: Field
 }
 
 export async function postSpielortAction(
-  // The DRAFT shape: an emptied money field submits `null`, and the schema below is what turns that into a
-  // field error rather than a type error.
+  // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSpielortPayloadDraft<FLPostSpielortPayload>,
 ): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("postSpielortAction", async () => {
@@ -61,8 +57,7 @@ export async function postSpielortAction(
 }
 
 export async function patchSpielortAction(
-  // The DRAFT shape: an emptied money field submits `null`, and the schema below is what turns that into a
-  // field error rather than a type error.
+  // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSpielortPayloadDraft<FLPatchSpielortPayload>,
 ): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   return runAdminMutation("patchSpielortAction", async () => {

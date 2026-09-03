@@ -15,8 +15,6 @@ import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 export async function generateMetadata(props: NextPageProps<{ team_id: string }>): Promise<Metadata> {
-  // connection() because the Docker builder stage has no reachable FastAPI, so an unguarded read
-  // here would fail `docker compose build`.
   await connection();
   const team_id = await resolveTeamId(props.params);
 

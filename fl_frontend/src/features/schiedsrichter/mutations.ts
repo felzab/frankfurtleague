@@ -20,10 +20,7 @@ export async function postSchiedsrichter(postSchiedsrichterPayload: FLPostSchied
   });
 }
 
-/**
- * The id goes in the path and never in the body: the payload schema carries it for the form, so each
- * mutation splits it off, and a backend model that saw an `id` refuses the whole body.
- */
+/** The id goes in the path, never the body: the backend model refuses a body that names one. */
 export async function patchSchiedsrichter({ id, ...fields }: FLPatchSchiedsrichterPayload): Promise<FLPatchSchiedsrichterResponse> {
   return apiClient<FLPatchSchiedsrichterResponse>(`/schiedsrichter/${id}`, FLPatchSchiedsrichterResponseSchema, {
     method: "PATCH",

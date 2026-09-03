@@ -25,9 +25,8 @@ export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<F
  * `getSpieler` cannot serve the admin surfaces at any filter setting — backend spec I33 carries the
  * reasons.
  */
-// React's `cache` memoizes per RENDER PASS, never across requests -- unlike `"use cache"`, whose
-// key is the arguments, not the caller, so an admin read there becomes a slot of authorized data
-// any caller reaches. One pass, one round trip.
+// Never `"use cache"` here, which keys on the arguments rather than the caller
+// (`docs/frontend/spec.md` §1.2).
 export const getSpielerMemberships = cache(async (): Promise<FLSpielerMembershipsResponse> =>
   runWithIncomingCorrelationId(() =>
     apiClient<FLSpielerMembershipsResponse>("/spieler/memberships", FLSpielerMembershipsResponseSchema, { authType: "admin" }),

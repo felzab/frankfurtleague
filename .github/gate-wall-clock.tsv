@@ -35,6 +35,11 @@
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it, or the next report says the total has drifted.
 #
+# `docs` gained two checks: `cell-prose` costs 0.05 s and `echo` 1.01 s over the whole corpus,
+# measured locally on 2026-09-02 with the file listing already warmed, so the figures are the
+# checks' own rather than the walk's. Their 1.06 s sits inside the 8 s floor the docs row already
+# carries, so neither reference nor budget moves and neither takes a new stamp.
+#
 # `ops` is the one seconds figure below that is a projection rather than a measurement: the 12 s
 # that scope took in CI before `nginx/redaction_test.sh` joined it, plus the 14 s the new check
 # costs, measured locally rather than on a runner. Replace it with a real median once twelve main

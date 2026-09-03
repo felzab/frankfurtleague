@@ -206,7 +206,7 @@ describe("where the contact page seats the application band", () => {
 });
 
 describe("what the page's header claims while no form is on it", () => {
-  /* Five of the six window states render no form. The condition is compared WHOLE, not split on:
+  /* Every window state but the running one renders no form. The condition is compared WHOLE, not split on:
      `zustand === "laeuft" || zustand === "vorbei"` still contains the literal a split would find. */
   it("keeps the invitation on exactly the running state", () => {
     const [, kopf = ""] = VIEW.split("muted-hint max-w-xl");
@@ -301,7 +301,7 @@ describe("what stands in for a session on the session-less routes", () => {
       assert.doesNotMatch(source, /Verbindung/, `${name} sends a cross-site caller to check their connection`);
     }
 
-    // The admin's half the old sentence got right: the undo did not happen and the change stands.
+    // The admin's own half: the undo did not happen and the change stands.
     assert.match(UNDO_ROUTE, /Die Änderung steht weiterhin\./, "the undo refusal stopped saying the change still stands");
   });
 
@@ -404,8 +404,8 @@ describe("which kit colours the wish picker leaves out", () => {
     assert.doesNotMatch(VIEW, /wunschfarbe/, "the application view reads a wish where it must read an assignment");
   });
 
-  /* Three hops, each of which can be dropped on its own and leaves the picker offering all sixteen
-     with every gate green. */
+  /* Three hops, each of which can be dropped on its own and leaves the picker offering the whole
+     palette with every gate green. */
   it("carries them from the page down to the picker", () => {
     assert.match(PAGE, /vergebeneFarben=\{vergeben\}/, "the page reads the assigned colours and hands them to nothing");
     assert.match(VIEW, /vergebeneFarben=\{vergebeneFarben\}/, "the view drops the assigned colours before the form");

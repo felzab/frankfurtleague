@@ -9,7 +9,8 @@ import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
-// Not async — see the note on the schiedsrichter page.
+// Not async, so the chrome never waits on the list: a static heading must not sit behind a
+// round-trip.
 export default function AdminSpielortePage() {
   return (
     <AdminCrudShell
@@ -29,8 +30,7 @@ export default function AdminSpielortePage() {
 
 async function SpielorteTable() {
   await connection();
-  // Retired included: this list is the only surface that can bring one back. The picker asks
-  // without the flag, so it keeps offering live venues only.
+  // Retired included: this list is the only surface that can bring one back.
   const spielorteRes = await getSpielorte({ include_inactive: true });
 
   return <AdminSpielorteView spielorte={spielorteRes.spielorte} />;

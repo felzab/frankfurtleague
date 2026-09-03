@@ -440,7 +440,7 @@ def _break_tie(
 
         # Recomputed over THESE teams and refused where they have not all met: a table that cannot
         # rank them ranks nobody, wherever it sits in the chain, and the criterion that led is
-        # already level across them -- so what is left is a genuine tie.
+        # already level across them.
         inner_table = _head_to_head_table(still_level, spiele, rules, placeable)
         tiers.extend(_grouped(still_level, inner_table.key_of) if inner_table.every_pair_met else [still_level])
 
@@ -684,11 +684,7 @@ def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
 
 
 def _standing_row(team: FLTeam, still_to_play: int) -> FLGruppenTeam:
-    """One ranked team as the table publishes it, with the still-to-play term the placing rule needs.
-
-    Narrowed on purpose: this response reaches a public client component, so every field on it is in
-    the page source whether a column renders it or not.
-    """
+    """One ranked team as the table publishes it, with the still-to-play term the placing rule needs."""
 
     return FLGruppenTeam(
         id=team.id,
@@ -772,8 +768,8 @@ CLUB_RETIRED = "REQ-ENTER-005"
 def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
     """Why this CLUB may not be entered into any season, or `None`.
 
-    Its own function beside `find_entry_refusal`, which judges the season and the group: a group
-    move re-uses that one, and a club's standing in the LEAGUE is not what a move is about.
+    Its own function beside `find_entry_refusal`: a group move re-uses that one, and a club's
+    standing in the LEAGUE is not what a move is about.
     """
 
     if inactive_since is not None:

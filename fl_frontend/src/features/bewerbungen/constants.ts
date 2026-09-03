@@ -16,8 +16,8 @@ type BewerbungStatusOption = {
 };
 
 /**
- * The three states an application stands in, in the order the triage works them down. All three
- * wordings live here as one fact, so no two surfaces can name one state differently.
+ * The states an application stands in, in the order the triage works them down. Every wording lives
+ * here as one fact, so no two surfaces can name one state differently.
  */
 export const BEWERBUNG_STATUS_OPTIONS: readonly BewerbungStatusOption[] = [
   { value: "eingereicht", label: "Eingereicht" },
@@ -25,7 +25,6 @@ export const BEWERBUNG_STATUS_OPTIONS: readonly BewerbungStatusOption[] = [
   { value: "abgelehnt", label: "Abgelehnt" },
 ];
 
-/** What every surface renders for a stored status. */
 export function bewerbungStatusLabel(status: FLBewerbungStatus): string {
   return BEWERBUNG_STATUS_OPTIONS.find((option) => option.value === status)?.label ?? "";
 }

@@ -32,7 +32,7 @@ def find_anonymisation_refusal(*, re_entered: bool) -> WriteRefusal | None:
     """Why this anonymisation must be refused, or `None`.
 
     `re_entered` is read OUTSIDE the transaction: a row already cleared is `$set` to what it holds,
-    so nothing is written and nothing conflicts (`docs/backend/spec.md :: I53`).
+    so nothing is written and nothing conflicts (`docs/backend/spec.md :: I117` and `:: I53`).
     """
 
     if not re_entered:

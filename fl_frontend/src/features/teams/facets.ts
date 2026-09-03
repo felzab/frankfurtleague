@@ -30,7 +30,7 @@ export const TEAM_FACETS: readonly Facet<AdminTeamRow>[] = [
       { value: "nicht_aufgenommen", label: "Nicht in dieser Saison" },
     ],
     // The rows are every club in every season, so unnarrowed the list answers a question almost nobody arrives
-    // with. The sidemenu's season is the one an admin came here about (owner's call, 2026-08-26).
+    // with. The sidemenu's season is the one an admin came here about.
     defaultValues: ["aufgenommen"],
     // Asks about the season the sidemenu holds, through the page's own `selected`, rather than
     // about a season of its own.

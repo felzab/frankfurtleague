@@ -294,10 +294,11 @@ async def erase_spieler(
             redacted_aktionen=redacted.modified_count,
         )
 
-    # ONE transaction over all THREE (D83): a person removed while the log still holds their
-    # values reports an erasure that did not happen. `with_transaction` over a bare one -- the
-    # callback re-reads everything it judges, so a retry is safe.
+    # ONE transaction over all THREE (`docs/backend/spec.md :: I42`): a person removed while the log
+    # still holds their values reports an erasure that did not happen.
     async with db.start_session() as session:
+        # `with_transaction` over a bare one -- the callback re-reads everything it judges, so a
+        # retry is safe.
         return await session.with_transaction(erase_the_person_and_their_record)
 
 
@@ -326,8 +327,7 @@ async def post_saison_spieler(
     # Asked first: a cap on a squad the club does not have is not a fact worth reporting.
     refuse(find_squad_refusal(team_in_saison=team_in_saison))
 
-    # Count-then-insert, not transactional, as `post_saison_team` is: losing the race costs one
-    # player over a planning bound rather than corrupt data, on a single-admin surface.
+    # Count-then-insert, not transactional, as `post_saison_team` is.
     await _refuse_a_full_squad(
         saison_spieler_collection=saison_spieler_collection,
         saisons_collection=saisons_collection,

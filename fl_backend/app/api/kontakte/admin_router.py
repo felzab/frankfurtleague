@@ -110,8 +110,8 @@ async def erase_kontaktperson(
             redacted_aktionen=redacted.modified_count + orphaned.modified_count,
         )
 
-    # ONE transaction over all of it (D83): rows cleared while the log still holds the block reports
-    # an erasure that did not happen, and clearing one collection without the other answers the
-    # request in name only.
+    # ONE transaction over all of it (`docs/backend/spec.md :: I42`): rows cleared while the log
+    # still holds the block reports an erasure that did not happen, and clearing one collection
+    # without the other answers the request in name only.
     async with db.start_session() as session:
         return await session.with_transaction(clear_the_person_and_their_record)

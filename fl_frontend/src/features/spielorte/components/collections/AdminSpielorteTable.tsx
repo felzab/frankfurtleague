@@ -28,11 +28,7 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   none: "Es wurden noch keine Spielorte angelegt.",
 };
 
-/**
- * A react-aria collection re-rendered while hidden in an Activity tree loses its rows, and the
- * parent's `useSearchParams()` re-renders this one on any navigation. `Table.Body`'s `items` form
- * carries the fix; `memo` is the second layer.
- */
+/** `memo` and `Table.Body`'s `items`: a collection re-rendered while hidden in an Activity tree loses its rows. */
 export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   filteredSpielorte,
   emptiness,
@@ -205,8 +201,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
                 </Table.Column>
               </Table.Header>
 
-              {/* `items` plus a render function, never mapped children: the static form stops
-                  committing its row collection after a few navigations away and back. */}
+              {/* `items` plus a render function, never mapped children — see the memo note above. */}
               <Table.Body
                 items={filteredSpielorte}
                 renderEmptyState={() => <AdminCrudEmptyRow message={EMPTY_MESSAGES[emptiness]} />}>

@@ -3,15 +3,13 @@
 **Purpose:** the method an audit-and-remediation programme runs by — its phases, its artifacts, the
 rules a session works under, and the close-out every wave ends with.
 
-The `/audit:*` commands in `.claude/commands/audit/` load and apply this page.
-
-| Section                     | Answers                                                             |
-| --------------------------- | ------------------------------------------------------------------- |
-| 1 · The lifecycle           | Which phases exist, in which order, and what each one writes        |
-| 2 · The artifacts           | What each file holds and how long it lives                          |
-| 3 · Session rules           | What one session may do, and what it must never carry into the next |
-| 4 · Close-out               | What every wave ends with                                           |
-| 5 · The documentation sweep | Why `/docs:audit` is not a programme                                |
+| Section                                                                      | Answers                                                             |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| [1 · The lifecycle](#1-the-lifecycle)                                        | Which phases exist, in which order, and what each one writes        |
+| [2 · The artifacts](#2-the-artifacts)                                        | What each file holds and how long it lives                          |
+| [3 · Session rules](#3-session-rules)                                        | What one session may do, and what it must never carry into the next |
+| [4 · Close-out](#4-close-out-identical-every-wave)                           | What every wave ends with                                           |
+| [5 · The documentation sweep](#5-the-documentation-sweep-is-not-a-programme) | Why `/docs:audit` is not a programme                                |
 
 ---
 
@@ -25,8 +23,7 @@ The `/audit:*` commands in `.claude/commands/audit/` load and apply this page.
 | 4 · Waves  | `/audit:wave <n>` | One per wave | Source code, on a branch, plus wave report                |
 | 5 · Close  | `/audit:finish`   | One          | `docs/audit/<yyyy-mm>-<surface>.md`; deletes `programme/` |
 
-`/audit:status` reads `programme/state.md`, reconstructs from git whatever that file does not cover,
-and resumes interrupted work. Run it first after any crash, token exhaustion, or return from a break.
+Run `/audit:status` first after any crash, token exhaustion, or return from a break.
 
 **One programme runs at a time**, because every working document lives in the single
 `docs/audit/programme/` folder.
@@ -38,9 +35,8 @@ the deletion at `/audit:finish`.
 
 ### 1.1 Passes
 
-One lens per session, one report each, **report-only — zero fixes, zero source changes**. How a pass
-session runs: [`prompts/_shared-protocol.md`](prompts/_shared-protocol.md). How a prompt is built:
-§1.6.
+**Report-only — zero fixes, zero source changes.** How a pass session runs:
+[`prompts/_shared-protocol.md`](prompts/_shared-protocol.md). How a prompt is built: §1.6.
 
 **Run them risk → surface → crosscut.** The risk pass assigns each outcome to the pass that should
 look there and sets the severity every later pass inherits. Each surface pass cites the earlier
@@ -67,15 +63,14 @@ Every blocking question answered and every decision of mine settled **before any
 ### 1.4 Waves
 
 **One wave = one branch = one pull request = one fresh session.** Wave count is whatever the
-dependency structure needs; split any wave whose pull request would be too large to review. Each wave
-verifies its findings, batches its questions for me, implements, and runs the close-out in §4.
+dependency structure needs; split any wave whose pull request would be too large to review.
 
 ### 1.5 Close
 
-The final report goes to `docs/audit/`, then `docs/audit/programme/` is deleted. **Everything
-still owed leaves that folder first** — an open item, an accepted deviation, an unbuilt guardrail or
-an uncovered hazard goes somewhere that survives the delete, with its reasoning intact, or it is
-lost. What the report carries: [`final-report-template.md`](final-report-template.md).
+**Everything still owed leaves `docs/audit/programme/` before it is deleted** — an open item, an
+accepted deviation, an unbuilt guardrail or an uncovered hazard goes somewhere that survives the
+delete, with its reasoning intact, or it is lost. What the report carries:
+[`final-report-template.md`](final-report-template.md).
 
 ### 1.6 Writing a prompt
 
@@ -105,11 +100,11 @@ lens rather than letting one report grow too large to load ([`lessons.md`](lesso
 | `docs/audit/register.md`                       | The standing failure-mode register                     | Survives a close |
 | `docs/audit/<yyyy-mm>-<surface>.md`            | The permanent account of one programme                 | Survives a close |
 
-**`docs/audit/` is gitignored** so that a public repository never publishes a finding still being
-remediated. Two consequences: **nothing under it has git history to recover from**, so snapshot the
-ledger to `docs/audit/programme/.snapshots/<date>-<time>.md` before any bulk edit; and **a pull
-request body can point at none of it**, which is why [`../_git/spec.md`](../_git/spec.md) §1.4
-requires a body that stands alone.
+**`docs/audit/` is gitignored** ([`README.md`](README.md)), with two consequences: **nothing under it
+has git history to recover from**, so snapshot the ledger to
+`docs/audit/programme/.snapshots/<date>-<time>.md` before any bulk edit; and **a pull request body
+can point at none of it**, which is why [`../_git/spec.md`](../_git/spec.md) §1.4 requires a body
+that stands alone.
 
 **Rules per artifact.**
 
@@ -136,8 +131,8 @@ requires a body that stands alone.
 - **Ask more, not less.** An ambiguous finding, a user-visible change, a decision that reopens
   something ratified, two fixes that conflict — each is a question for me, collected during planning
   and put as **one batch** with measured options and a recommendation.
-- **Independent review is a phase, not a favour.** After implementation and before the wave report,
-  review the wave's own diff as if it were unreviewed code from a stranger.
+- **Independent review is a phase, not a favour**, and it sits after implementation and before the
+  wave report (§4.4).
 
 ### Recording work as it happens
 
@@ -186,8 +181,8 @@ only**, which runs the scope [`../ops/spec.md`](../ops/spec.md) §1.6's table na
 
 ### 4.3 Confirm the exit gate and the guardrails
 
-Every exit-gate clause, manual ones included. A clause needing a human or wall-clock time becomes its
-own ledger row with a trigger — never tick it unverified, and never stall the wave on it.
+Every exit-gate clause, manual ones included, on the terms
+[`ledger-template.md`](ledger-template.md)'s exit-gate field sets.
 
 Then the guardrails. For every defect class this wave fixed, either its control from the ledger's
 guardrail backlog is in place and was **demonstrated failing against the old code**, or a row records
@@ -214,9 +209,8 @@ Where anything changed after a row or section was written, revise it in place.
 ### 4.7 Push and hand over
 
 Push the branch, then print the pull request title and body in one copy-paste block, to
-[`../_git/spec.md`](../_git/spec.md) §1.4. Open it with `gh pr create --draft`, hand over the link
-and name the `verify` run's conclusion (`.claude/CLAUDE.md` §2); marking a draft ready is the act
-of saying it passed review, and that is mine.
+[`../_git/spec.md`](../_git/spec.md) §1.4. The draft pull request, its link and the `verify` run's
+conclusion are `.claude/CLAUDE.md` §2's.
 
 ---
 
@@ -225,8 +219,5 @@ of saying it passed review, and that is mine.
 **`/docs:audit` audits what is written down rather than what runs**, so almost nothing above applies
 to it. Its behaviour is in `.claude/commands/docs/audit.md`; where it sits against the gate and
 against one branch's slice is CUR-6.
-
-It has no risk pass, no severities I set, and no ledger or waves — its fixes go in one pull request,
-and its report expires rather than being permanent.
 
 **That report goes beside `programme/`, never inside it** — `/audit:finish` deletes that folder.

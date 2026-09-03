@@ -20,6 +20,11 @@ const ClientErrorReportSchema = z.object({
   stack: z.string().max(4000).optional(),
 });
 
+/**
+ * Reachable the moment this file exists: nginx names no frontend route, so the catch-all carries
+ * every path to Next (`docs/ops/overview.md :: Routing`). Nothing authenticates it —
+ * `sec-fetch-site` and the schema bounds are all that stand in front of the log.
+ */
 export async function POST(request: NextRequest) {
   const secFetchSite = request.headers.get("sec-fetch-site");
   if (secFetchSite !== null && secFetchSite !== "same-origin") {

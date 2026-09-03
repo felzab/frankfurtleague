@@ -304,7 +304,7 @@ describe("what a submission's refusal is shown as", () => {
   });
 
   /* A refusal naming a field has to land under the control at fault: as a toast it names a box the
-     applicant then has to find, and this form has thirty of them. */
+     applicant then has to find, and this form has dozens of them. */
   it("puts each field refusal on the path its own input renders", () => {
     assert.deepEqual(Object.keys(refusal("REQ-BEWERBUNG-005")?.fieldErrors ?? {}), ["team_id"]);
     assert.deepEqual(Object.keys(refusal("REQ-BEWERBUNG-006")?.fieldErrors ?? {}), ["team_id"]);

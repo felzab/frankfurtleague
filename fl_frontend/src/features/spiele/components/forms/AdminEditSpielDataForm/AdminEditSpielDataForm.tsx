@@ -319,13 +319,13 @@ export function AdminEditSpielDataForm({
     refusalCode: refusal?.key === refusalKey ? refusal.code : null,
   });
 
+  // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
+  useForgiveFixed({ spiel: buildPayload() });
+
   /**
    * For a control the user TYPES into, on blur. Writes only the client-side verdicts: the submit's
    * map calls `reportValidity()`, which on a blur throws focus off the field being tabbed past.
    */
-  // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
-  useForgiveFixed({ spiel: buildPayload() });
-
   const validateFields = (paths: readonly string[]) => validatePaths("spiel", buildPayload(), paths);
 
   /**
@@ -345,8 +345,7 @@ export function AdminEditSpielDataForm({
     // focused strands it set on a tree the router keeps.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    // Hover next, and the disabled flag is what ends it: `useHover` clears `data-hovered` when a
-    // control turns disabled, and no `pointerleave` follows a click that leaves.
+    // Hover next: the disabled flag is what ends it (`docs/frontend/spec.md :: I68`).
     startLeaving(() => {
       if (window.history.length > 1) router.back();
       else router.push(saisonHref("/admin"));
@@ -538,9 +537,7 @@ export function AdminEditSpielDataForm({
           dialog below asks what the fixture is still waiting on. */}
       <SpielExpectedProvider expected={status.expected}>
         <Form
-          // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting
-          // the browser's required message the moment an edited field is cleared. `aria` keeps
-          // `aria-required` and leaves every message to `useDraftFieldErrors`.
+          // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
           validationBehavior="aria"
           ref={formRef}
           validationErrors={fieldErrors}

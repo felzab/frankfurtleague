@@ -43,8 +43,7 @@ export async function getBewerbungen(filters: FLBewerbungenFilterParams = {}): P
  * The one application the triage page decides against, uncached for the reason above. `null` on a
  * 404, which the page turns into `notFound()`; everything else throws.
  */
-// React's `cache` memoizes per RENDER PASS, never across requests -- unlike `"use cache"`, whose key
-// is the arguments, not the caller. One pass, one round trip.
+// `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments (`docs/frontend/spec.md` §1.2).
 export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBewerbungSingleResponse | null> =>
   runWithIncomingCorrelationId(() =>
     apiClient<FLBewerbungSingleResponse>(`/bewerbungen/${encodeURIComponent(bewerbungId)}`, FLBewerbungSingleResponseSchema, {
@@ -113,10 +112,7 @@ export async function getBewerbungTrikotfarben(saisonId: string): Promise<FLBewe
   );
 }
 
-/**
- * Whether a two-letter code already belongs to a club. ONE neutral answer: it separates no active
- * club from a retired one and names none, this check being open to anybody who opens the form.
- */
+/** Whether a two-letter code already belongs to a club, in one neutral answer that names none. */
 export async function getBewerbungKuerzel(shorthand: string): Promise<FLBewerbungKuerzelResponse> {
   return runWithIncomingCorrelationId(() =>
     apiClient<FLBewerbungKuerzelResponse>(`/bewerbungen/kuerzel/${encodeURIComponent(shorthand)}`, FLBewerbungKuerzelResponseSchema, {

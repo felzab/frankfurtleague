@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# PreToolUse hook on Bash and PowerShell — a shell command writing to docs/standard.md asks the
+# PreToolUse hook on Bash and PowerShell — a shell command writing to docs/_standard/standard.md asks the
 # owner first, on every branch: guard-standard-edit.sh sees only the tools, and guard-branch-bash.sh
 # stands down off `main`. It asks whenever it cannot tell, a hole costing more than a question.
 
 ask() {
-  printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"This shell command writes to docs/standard.md — the documentation standard changes only with your explicit sign-off (owner rule, 2026-08-08). Approve to let this one command through, or deny and discuss the change first."}}'
+  printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"This shell command writes to docs/_standard/standard.md — the documentation standard changes only with your explicit sign-off (owner rule, 2026-08-08). Approve to let this one command through, or deny and discuss the change first."}}'
   exit 0
 }
 
@@ -192,7 +192,7 @@ repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$repo_root" ] || command -v git >/dev/null 2>&1 || ask
 [ -n "$repo_root" ] || exit 0
 
-# ANY path-like candidate resolving to docs/standard.md asks: there is no exemption, a token
+# ANY path-like candidate resolving to docs/_standard/standard.md asks: there is no exemption, a token
 # landing somewhere harmless answering nothing about the one that does.
 decision="$(printf '%s' "$scan" | REPO_ROOT="$repo_root" node -e '
 const path = require("path");
@@ -206,7 +206,7 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
   const msys = (p) => (/^\/[A-Za-z]\//.test(p) ? p.charAt(1) + ":/" + p.slice(3) : p);
   const fold = (p) => (process.platform === "win32" ? p.toLowerCase() : p);
 
-  const standard = path.resolve(strip(process.env.REPO_ROOT), "docs", "standard.md");
+  const standard = path.resolve(strip(process.env.REPO_ROOT), "docs", "_standard", "standard.md");
 
   // PowerShell binds a value with a colon, which the split below leaves glued to its flag. The
   // leading dash is what keeps a drive letter out: C:/x is a path, not a bound parameter.

@@ -151,8 +151,8 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
           {/* No `scrollbar-hide`: below the minimum declared on the table this container is the only
               way to reach the columns it cannot fit, and a hidden bar says it is not. */}
           <Table.ScrollContainer>
-            {/* Fixed layout holds the columns when the rows go. The minimum is the six declared
-                columns plus 256 for the name, under which it gets nothing. */}
+            {/* Fixed layout holds the columns when the rows go. The minimum is every pinned column's
+                width plus a floor for the name, under which the name gets nothing. */}
             <Table.Content
               aria-label="Tabelle aller Bewerbungen"
               className="min-w-7xl table-fixed">

@@ -263,7 +263,7 @@ class TestTheAustrittFilterIsTranslated:
 
     @pytest.mark.parametrize("austritt_type", get_args(FLAustrittType))
     def test_a_type_selects_the_route_out_and_not_merely_having_left(self, austritt_type: FLAustrittType):
-        """The question `has_austritt` cannot ask: a withdrawal is not a sanction (`docs/backend/spec.md :: I31`)."""
+        """The question `has_austritt` cannot ask: a withdrawal is not a sanction (`docs/backend/spec.md :: I103`)."""
         assert junction_match(build(austritt_type=austritt_type)) == {"saison_id": "2026", "austritt.type": austritt_type}
 
     def test_the_two_terms_compose_rather_than_one_implying_the_other(self):

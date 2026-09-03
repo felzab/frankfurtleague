@@ -41,7 +41,7 @@ type SpielplanOperation = "anlegen" | "zuruecknehmen";
  * The season's fixture list, over `POST` and `DELETE /saisons/{saison_id}/spielplan`. **One panel and
  * one armed state for both**: on a drawn planned season each is open and each destroys the same
  * matchdays and fixtures, so the operation is picked before arming rather than raced between two
- * controls (`docs/frontend/spec.md :: I37`).
+ * controls (`docs/frontend/spec.md :: I66`).
  *
  * **A confirmation step rather than an undo** on either write: one press writes, and nothing replays
  * the removed rows back (`docs/backend/spec.md :: I26`).
@@ -67,7 +67,7 @@ export function FormSpielplanSection({
    * values would promise a season this press cannot write.
    */
   rules: FLSaisonRules;
-  /** The season's STORED span, exactly as `rules` above is stored: `REQ-DATE-005`'s mirror judges the season the press would draw, never a draft. */
+  /** The season's STORED span: `REQ-DATE-005`'s mirror judges the season the press would draw, never a draft. */
   startDate: string;
   endDate: string;
   /** `REQ-SPIELPLAN-001`: the season already holds fixtures, whoever put them there. */

@@ -65,8 +65,7 @@ export function EntityForm<TDraft>({
 
   const handleSubmit = () => {
     const payload = toPayload(draft);
-    // `aria` blocks nothing natively, so without this an empty required field reaches the server unannounced.
-    // It RUNS the write: an answer returned here can be dropped at the call site with everything still green.
+    // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
     guardSubmit({ entity: payload }, writeAfterBlock);
   };
 
@@ -97,9 +96,7 @@ export function EntityForm<TDraft>({
 
   return (
     <Form
-      // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting the
-      // browser's message the moment an edited field is cleared. `aria` blocks nothing, so `guardSubmit`
-      // above is what refuses an emptied field.
+      // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
       validationBehavior="aria"
       ref={formRef}
       validationErrors={fieldErrors}

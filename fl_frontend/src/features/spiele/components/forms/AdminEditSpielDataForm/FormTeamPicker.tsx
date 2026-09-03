@@ -277,7 +277,7 @@ export function FormTeamPicker({
       </FieldLabel>
       <Autocomplete.Trigger className={FIELD_TRIGGER}>
         {/* The name from the prop, never `Autocomplete.Value`, and `flex-1` as
-            `.autocomplete__value` carries on every sibling trigger (`docs/frontend/spec.md` I30). */}
+            `.autocomplete__value` carries on every sibling trigger (`docs/frontend/spec.md` I30 and I61). */}
         <span className={`fluid-sm min-w-0 flex-1 truncate ${teamPayload === null ? "text-foreground-muted" : ""}`}>
           {teamPayload?.name ?? PLACEHOLDER.slot}
         </span>

@@ -119,8 +119,7 @@ describe("the mail transport", () => {
     respond = async () => jsonResponse({ id: "01HZ" }, 200);
   });
 
-  /* First, because a harness whose double never ran would leave `sends` empty and every assertion
-     after this would fail for the harness rather than for the transport. */
+  /* First, so a double that never ran fails here rather than under every assertion below. */
   it("posts one request to the provider's send endpoint", async () => {
     const sent = await sentRequest();
 

@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 # OPS · what the edge's access line CONTAINS, driven against the pinned nginx.
 #
-# `nginx -t` is a parse: it cannot see a log line, which is why the sign-in token's redaction was
-# broken and re-broken four times in one day with every gate green — 7e62e36d guarded $request_uri
-# and emitted $uri, 9f7caf0c failed open on five alternate spellings, 08cb1d31 on case, on a
-# trailing slash and on the referer, and the parameter guard that followed on a second literal `?`
-# and on a raw URI holding no `?` at all. Every one of those is a row in the table below.
+# `nginx -t` is a parse: it cannot see a log line, so a redaction that fails open passes every
+# gate. Every way this one can is a row in the table below, grouped by the shape it turns on.
 #
-# It serves `nginx/local.conf` ITSELF, never a copy — a copy proves the copy — stubs both upstreams
-# inside the same container, drives the table through it and reads back what nginx actually wrote.
+# It serves `nginx/local.conf` ITSELF, never a copy — a copy proves the copy — and grades each case
+# on the access line nginx wrote rather than on anything this file models.
 #
 # Enforces `docs/logging/spec.md` invariant L11, whose subject is what the access line CONTAINS. Not
 # `docs/ops/spec.md` I13, which is about which locations the edge makes reachable — a different
@@ -94,18 +91,18 @@ done
 #   KEEP|<url>|<text>  <text> MUST appear; the controls below carry why
 
 CASES=(
-  # 7e62e36d's own case: @auth/core's callback, credentials in the query.
+  # The plain case: @auth/core's callback, credentials in the query.
   "LEAK|${BASE}/api/auth/callback/resend?callbackUrl=%2F&token=${TOK}&email=${EM}"
 
-  # 9f7caf0c: five spellings the raw URI does not begin with, which $request_uri saw and $uri did
-  # not. A trailing slash on AUTH_URL produces the first of them for real.
+  # Spellings the raw URI does not begin with, which $request_uri carries and $uri does not. A
+  # trailing slash on AUTH_URL produces the first of them for real.
   "LEAK|${BASE}//api/auth/callback/resend?token=${TOK}"
   "LEAK|${BASE}/api//auth/callback/resend?token=${TOK}"
   "LEAK|${BASE}/%61pi/auth/callback/resend?token=${TOK}"
   "LEAK|${BASE}/api/./auth/callback/resend?token=${TOK}"
   "LEAK|${BASE}/api/auth/callback/resend%3Ftoken=${TOK}"
 
-  # 08cb1d31: case, and a prefix that demanded the trailing slash.
+  # Case, and the callback path with no trailing slash, which a prefix written with one walks past.
   "LEAK|${BASE}/API/AUTH/CALLBACK/resend?token=${TOK}"
   "LEAK|${BASE}/Api/Auth/Callback/resend?token=${TOK}"
   "LEAK|${BASE}/api/auth/callback?token=${TOK}"

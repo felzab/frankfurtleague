@@ -17,8 +17,7 @@ export function TeamDetailsBackButton() {
   return (
     <Button
       onPress={() => {
-        // The pending flag is what ends react-aria's hover: it clears `data-hovered` when a control
-        // turns disabled, and no `pointerleave` follows a click that leaves.
+        // The pending flag is what ends react-aria's hover (`docs/frontend/spec.md :: I68`).
         startLeaving(() => {
           // `router.back()` is a silent no-op on a cold entry, and this page gets linked to.
           // `history.length` is the platform's only signal; a fresh tab reads 1.

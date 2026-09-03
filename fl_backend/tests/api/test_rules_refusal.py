@@ -487,11 +487,7 @@ assert tuple(field for field, _, _ in SHAPE_REPAIR_CASES) == SHAPE_RULES_FIELDS,
 
 
 class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
-    """The three numbers a season's fixture list is generated from.
-
-    A RAISE is the case nothing else reaches: `REQ-RULES-006` refuses a narrowing alone, and a
-    wider group leaves every matchday under the count `anzahl_spiele` then implies.
-    """
+    """The three numbers a season's fixture list is generated from."""
 
     @pytest.mark.parametrize(
         ("label", "changed"),
@@ -512,7 +508,11 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
         assert label in refusal.message
 
     def test_widening_a_group_is_refused_though_no_bound_is_crossed(self):
-        """The hole this closes: `anzahl_spiele` is derived, so a wider group leaves every matchday short of matches nobody drew."""
+        """The case nothing else reaches: `REQ-RULES-006` refuses a narrowing alone.
+
+        `anzahl_spiele` is derived, so a wider group leaves every matchday short of matches nobody
+        drew.
+        """
 
         refusal = judge(stored=rules(per_group=4), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
 

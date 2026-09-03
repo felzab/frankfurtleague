@@ -11,10 +11,9 @@ table (A3), and the per-call-site response-validation table (B1). Report each in
 gap rows.
 
 CONTEXT — derive, do not assume: `cacheComponents` is on; data reaches the frontend exclusively
-through `src/core/api.ts` against FastAPI. The caching design is ratified in `.claude/rules/frontend.md` —
-two granular tags with unconditional base tags, the season default server-side, `connection()`
-preceding every page fetch, no `generateStaticParams` (`docs/frontend/spec.md :: I28`), the uncached
-admin-authed reads. This pass audits **conformance to those decisions**, not the decisions.
+through `src/core/api.ts` against FastAPI. The caching design is ratified — the clauses in
+`.claude/rules/frontend.md`, plus `docs/frontend/spec.md :: I28` — and this pass audits
+**conformance to those decisions**, not the decisions.
 
 SECTION A — CACHING, RSC, DATA FLOW
 

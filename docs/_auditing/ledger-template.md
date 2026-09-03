@@ -1,16 +1,24 @@
-# Remediation ledger
+# Remediation ledger template
 
-**Shape:** [`programme.md`](programme.md) §2. Copy the page below to
-`docs/audit/programme/0-remediation-ledger.md` and delete this heading and this line.
+**Purpose:** the shape of the plan-and-state file every remediation wave is worked from. Copy the
+page below to `docs/audit/programme/0-remediation-ledger.md` at `/audit:plan`, then delete this
+heading and everything above the rule.
+
+**Nothing checks the file this form produces:** `docs/audit/` is gitignored, so the documentation
+gate never sees it (`scripts/checks/docs_gate/kernel.py :: SKIP_DIRS`). It is also the only
+programme artifact that survives a context reset ([`programme.md`](programme.md)), so a part dropped
+from the copy is a part nobody reports and the next session cannot act on.
+
+---
 
 # Remediation Ledger — \<programme name\>
 
-**Purpose.** The plan and the state for remediating the reports listed below; those reports are the
+**Purpose:** the plan and the state for remediating the reports listed below; those reports are the
 evidence. The context budget a session reads them under is `docs/_auditing/programme.md` §3.\
-**Wave reports.** `docs/audit/programme/wave-reports.md` records what was actually done and why.
+**Wave reports:** `docs/audit/programme/wave-reports.md` records what was actually done and why.
 Status here, narrative there.\
 **Wave 0 status:** `OPEN` — \<replace with `SETTLED <yyyy-mm-dd>` once every Part 1 answer is
-recorded; `/audit:wave` refuses to run while this reads `OPEN`\>
+recorded; `/audit:wave` stops on its precondition table while this reads `OPEN`\>
 
 ## Source reports
 
@@ -36,15 +44,17 @@ rows rather than deciding silently.**
 | **Files**  | The primary file reference — a starting point, never the blast radius                                                                             |
 | **Status** | `[ ]` open · `[~]` in progress · `[x]` done · `[!]` blocked · `[-]` won't do                                                                      |
 
-**The ledger row wins wherever it contradicts the source report.** Wave 0 answers and later waves
-amend findings; the reports are never rewritten to match.
+**The ledger row wins wherever it contradicts the source report** — Wave 0 answers and later waves
+amend findings (`docs/_auditing/programme.md` §2).
 
-**Severity is not priority.** Work the waves in order; never re-sort by severity.
+**Severity is not priority.** Work the waves in order; never re-sort by severity
+(`docs/_auditing/lessons.md` §8).
 
 **Row hygiene.** A closed row is a status marker, the forward constraints a later wave must obey, and
 a report link — 150 to 600 characters. A `[-]` or `[!]` row additionally carries the reason, the
 evidence and a **reversal trigger**. Never bulk-edit this file with pattern-matched scripts: use
-line-scoped edits, and diff against the latest `.snapshots/` copy before moving on.
+line-scoped edits, and diff against the snapshot `docs/_auditing/programme.md` §2 requires before
+one.
 
 ---
 
@@ -119,9 +129,9 @@ items.\>
 
 Written once, before any wave runs.
 
-\<One `## Wave N — <name>` section per wave, in execution order. Wave count is whatever the dependency
-structure needs, and the ordering constraints are `docs/_auditing/lessons.md` §8. Sub-split a long
-wave — 5a/5b, 8a/8b/8c — rather than letting one pull request become unreviewable.\>
+\<One `## Wave N — <name>` section per wave, in execution order. Wave count and splitting are
+`docs/_auditing/programme.md` §1.4; the ordering constraints are [`lessons.md`](lessons.md) §8. A
+sub-split wave is numbered 5a/5b or 8a/8b/8c.\>
 
 ## Wave N — \<name\>
 
@@ -132,10 +142,10 @@ wave — 5a/5b, 8a/8b/8c — rather than letting one pull request become unrevie
 | ID  | §   | Sev | Item | Files | Status |
 | --- | --- | :-: | ---- | ----- | :----: |
 
-**Exit gate:** \<the checks that must pass before this wave merges — the `./scripts/gate/verify.sh` exit
-code, plus wave-specific clauses such as a lint rule flipping to `error`, a manual browser check or a
-measurement. A clause needing a human or wall-clock time becomes its own row with a trigger: never
-tick it unverified, and never stall the wave on it.\>
+**Exit gate:** \<the checks that must pass before this wave merges — the `./scripts/gate/verify.sh`
+invocation with its closing line quoted, plus wave-specific clauses such as a lint rule flipping to
+`error`, a manual browser check or a measurement. A clause needing a human or wall-clock time becomes
+its own row with a trigger: never tick it unverified, and never stall the wave on it.\>
 
 ---
 

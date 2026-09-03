@@ -51,8 +51,7 @@ export function FormAdresseSection({
       {/* `relative` + an absolutely placed control, so the h2 keeps every other panel heading's flow. */}
       <div className={`${panel.header()} relative`}>
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
-          {/* The pair `RowActionDelete` splits, for its reason: the live link's label names what its own press does,
-              while a refusal has no press of its own to arrive on, so the hint has to take the press instead. */}
+          {/* The pair `fl_frontend/src/shared/components/ui/RowActions.tsx :: RowActionDelete` splits, for its reason. */}
           {isSearchable ? (
             <IconTooltip label="Adresse auf Google Maps öffnen">{mapsLink}</IconTooltip>
           ) : (

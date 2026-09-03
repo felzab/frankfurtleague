@@ -16,10 +16,7 @@ const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "..", "..",
  */
 const flatten = (jsx: string): string => jsx.replaceAll('{" "}', " ").replace(/\s+/g, " ");
 
-/**
- * The armed alert alone — what this panel puts INSIDE the shared shell. The heading, the announcement
- * and the reveal itself belong to `ConfirmReveal` and are asserted at its own home.
- */
+/** The armed alert alone: the shell's own parts are asserted at `ConfirmReveal`'s home. */
 const ARMED = flatten((SOURCE.split("<ConfirmReveal>")[1] ?? "").split("</ConfirmReveal>")[0] ?? "");
 
 /** The panel's own hint, which stands in the heading and ends with it. */
@@ -35,8 +32,7 @@ const HANDLER = (SOURCE.split("const handlePress = () => {")[1] ?? "").split("re
 const UNDRAW_BRANCH = (HANDLER.split("} else {")[1] ?? "").split("\n      }")[0] ?? "";
 
 describe("the undraw half of the Spielplan panel", () => {
-  /* First, because a boundary string that stopped matching leaves the slices empty and every
-     assertion over them would then fail for something that is not the defect. */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
   it("cuts the armed alert, the hint and the handler out of the file before reading them", () => {
     assert.ok(ARMED.includes("Was dabei gelöscht wird"), "the armed alert's readout is outside its slice");
     assert.ok(HINWEIS.includes("points: ["), "the hint's bullets are outside its slice");

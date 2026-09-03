@@ -76,8 +76,8 @@ function renderText(url: string): string {
 }
 
 /**
- * **The two parts state the same facts.** A mail client renders one or the other, so anything only
- * the text half carried would reach only the readers whose client refuses HTML.
+ * **The two parts state the same facts**, as in the application messages
+ * (`fl_frontend/src/core/bewerbungEmail.ts :: buildBewerbungZusageEmail`).
  */
 export function buildMagicLinkEmail(url: string): MagicLinkEmail {
   return {

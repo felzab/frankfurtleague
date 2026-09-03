@@ -14,7 +14,6 @@ paths:
 - **db** — Generate the `$jsonSchema` validators from the models
 - **routing** — Move a guard onto an endpoint; merge the two routers; delete `GET /{id}`
 - **placings** — Recurse the tiebreak chain; seed a placing the group can still change
-- **spiele** — Give `app/api/spiele/services.py` an `await` or a collection
 - **draw** — Store `anzahl_spiele`; hardcode the qualifier cap
 - **domain** — Import `app/core/domain.py` from `app/`; generate it; enforce it
 - **db** — Spell a collection name as a literal; enumerate the field names too

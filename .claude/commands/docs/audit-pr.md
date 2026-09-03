@@ -2,7 +2,7 @@
 description: Audit and fix the branch's documentation slice before its pull request — /docs:audit-pr
 ---
 
-Audit the documentation this branch touches — and only that — against `docs/standard.md`, and fix what
+Audit the documentation this branch touches — and only that — against `docs/_standard/standard.md`, and fix what
 fails **on the branch itself**. It takes no arguments (`$ARGUMENTS`): the branch in the working tree
 is the scope.
 
@@ -28,8 +28,8 @@ stop.
    - the comments, module headers and docstrings of every changed source file — shell, YAML,
      Dockerfiles and workflows included.
 
-4. **Load the standard**: read `docs/standard.md` in full — it is one file, and every shape in the
-   subset is governed from there.
+4. **Load the standard**: read `docs/_standard/standard.md` in full — every shape in the subset is governed
+   from there.
 
 5. **Audit the subset with the check classes** from [`audit.md`](audit.md#the-check-classes), applied
    from there rather than from a copy. The slice adds the one question a whole-corpus sweep cannot

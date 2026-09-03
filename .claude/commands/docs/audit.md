@@ -1,8 +1,8 @@
 ---
-description: Audit every document in the repo against docs/standard.md — /docs:audit, or /docs:audit fix
+description: Audit every document in the repo against docs/_standard/standard.md — /docs:audit, or /docs:audit fix
 ---
 
-Audit **all** documentation in this repository against `docs/standard.md`, and against what the code
+Audit **all** documentation in this repository against `docs/_standard/standard.md`, and against what the code
 actually does today. Mode from the arguments: `$ARGUMENTS`
 
 | Arguments | Mode      | Does                                                                                     |
@@ -30,7 +30,7 @@ Neither mode runs inside the other's session.
   `scripts/checks/check_docs.py :: check_comment_bounds` reads only the comment blocks this branch added.
   Where the existing population matters — a newly introduced rule above all — measure it directly and
   work that list.
-- **Never restate a rule from `docs/standard.md` — not here, and not in an agent's prompt.** Cite it;
+- **Never restate a rule from `docs/_standard/standard.md` — not here, and not in an agent's prompt.** Cite it;
   the reader opens it.
 
 ---
@@ -78,7 +78,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    | Auditing method             | `docs/_auditing/**`                                                                                                                                                                                                                                                                                        |
    | Git workflow                | `docs/_git/**`                                                                                                                                                                                                                                                                                             |
    | Roadmap                     | `docs/_roadmap/**`                                                                                                                                                                                                                                                                                         |
-   | Documentation standard      | `docs/standard.md`                                                                                                                                                                                                                                                                                         |
+   | Documentation standard      | `docs/_standard/**`                                                                                                                                                                                                                                                                                        |
    | Backend documents           | `docs/backend/**`                                                                                                                                                                                                                                                                                          |
    | Frontend documents          | `docs/frontend/**`                                                                                                                                                                                                                                                                                         |
    | Logging documents           | `docs/logging/**`                                                                                                                                                                                                                                                                                          |
@@ -105,8 +105,8 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 
 5. **Dispatch one agent per segment**, in batches small enough that each report is read as it lands.
    Each prompt carries the agent's file list, the report path it writes to, and everything below
-   plus the rules above. Each agent reads `docs/standard.md` in full — the standard is one file —
-   and applies the rules from there.
+   plus the rules above. Each agent reads `docs/_standard/standard.md` in full and applies the rules from
+   there.
 
    **Settle before launching any of them how an agent reports finishing and how it reports being
    blocked**, as a closing line every prompt carries: the report path when it finished, what it is
@@ -131,10 +131,12 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    | C4  | **Still true** (PRE-2, COR-4)              | Read the code the claim describes. Does it still do that?                                                            |
    | C5  | **Evidence holds** (COR-6, CUR-1)          | Does each anchored citation support the claim beside it?                                                             |
    | C6  | **Doubt is stated** (COR-9)                | Is anything unverified written as fact, or a plan written as a description?                                          |
-   | C7  | **Shape** (COR-7, COR-8, COR-10)           | Does the page meet the shape rules? Judge against the chapter's text, never from memory                              |
+   | C7  | **Shape** (COR-7, COR-8, COR-10)           | Does the page meet the shape rules? Judge against each rule's own line, never from memory                            |
    | C8  | **Its own shape**                          | Does it meet the rules for what this document _is_ — spec sheet, overview, module header, endpoint docstring?        |
    | C9  | **Comment altitude** (INC-1, INC-2, INC-9) | Does a comment say what its code already says, or a header or block break the shape those rules fix?                 |
    | C10 | **Earns its place** (COR-5)                | Should this text exist at all? The class that proposes a deletion; COR-5 holds a page and a comment to separate bars |
+   | C11 | **Why, not what** (COR-13)                 | Is this derivable by reading the tree, or is a why the tree cannot answer missing from it?                           |
+   | C12 | **Right rung** (COR-14)                    | Does this fact sit at the lowest rung its reader reaches, or is it a contract in a comment or a line rule on a page? |
 
    ### The finding format, one row each
 
@@ -158,7 +160,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
      names and read it.
    - **A `Duplicate` finding names which copy dies**, and confirms the survivor is reachable by
      citation from where the dying copy's readers stand. COR-2 decides what the dying copy leaves
-     behind, and its Exceptions field decides which duplicate may survive at all.
+     behind, and which single duplicate may survive at all.
    - **Re-derive the population of any judgment-based cluster with a grep before stating its size**,
      and report `Shape` and `Cold` counts as lower bounds unless the rule's full reach was measured.
    - **Report what you did not read**, and why. The report is allowed to be incomplete and is not
@@ -178,7 +180,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
      rulebook (PRE-2); a row the code contradicts is a defect in the code rather than in the row. A
      rules file's `paths:` frontmatter is checked the same way: a glob matching nothing puts the
      clause in front of nobody.
-   - **`docs/standard.md` against itself**, held to its own rules.
+   - **`docs/_standard/standard.md` against itself**, held to its own rules.
    - **Every "Enforced by" line against what the gate actually runs**, which is a stale claim
      wherever it overstates. Check the gate's **scope mapping** as well as its scanner: a scope arm
      that never selects the documentation gate leaves that surface unaudited whatever the scanner
@@ -218,7 +220,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 4. **Never run a formatter while editing work is in flight.** One run, at the end, by the session
    that ships.
 
-5. **Fix in verdict order** — `Wrong` first. `docs/standard.md` governs how each repair is written
+5. **Fix in verdict order** — `Wrong` first. `docs/_standard/standard.md` governs how each repair is written
    (COR-3, COR-9).
 
    Where a row changes the corpus rather than a sentence:

@@ -1,17 +1,12 @@
 name: verify
 
 # The gate that `scripts/gate/verify.sh` is, run as parallel jobs mapped to the surfaces a change
-# touches. The `changes` job diffs the pull request against its base and turns paths into scope
-# flags; each job below runs one `verify.sh` scope and starts only when its scope is touched --
-# except `frontend`, which runs the same mapping itself and skips its own steps on a false.
-#
-# Invariants:
-# - A push to main runs every scope unconditionally, which also backstops the path mapping.
-# - Every job is held to the wall-clock budget its row in .github/gate-wall-clock.tsv gives it, by
-#   the aggregate job and on every event; nothing about the budget is advisory.
+# touches.
 
 on:
   pull_request:
+  # A push to main runs every scope unconditionally, which is what backstops the path mapping: a
+  # scope the mapping failed to select on the pull request still runs here.
   push:
     branches: [main]
 
@@ -21,8 +16,8 @@ permissions:
   contents: read
 
 # The keyword, never a hand-copied `bash -eo pipefail {0}`: GitHub expands `bash` to that plus
-# `--noprofile --norc`, and a builtin cannot drift. It replaces an UNSPECIFIED shell, whose `-e`
-# alone lets a mid-pipe failure be masked by the last stage.
+# `--noprofile --norc`, and a builtin cannot drift. The alternative is an unspecified shell, whose
+# `-e` alone lets the last stage mask a mid-pipe failure.
 
 # What the expansion does NOT carry is `-u`, and this does not add it: it makes each unset variable
 # in a `run:` block a hard failure, a walk only actionlint could vouch for.
@@ -158,7 +153,7 @@ jobs:
       - name: Hold a moved gate budget to its measurement
         # A budget or a reference raised in .github/gate-wall-clock.tsv carries a new measurement
         # stamp, or the pull request is refused here. This job, because it already has the venv
-        # and the full history the base comparison reads, and nothing waits on it.
+        # and the full history the base comparison reads.
         env:
           BASE_REF: ${{ github.base_ref }}
         run: fl_backend/.venv/bin/python scripts/checks/check_gate_budget.py --base "origin/${BASE_REF}"
@@ -188,15 +183,10 @@ jobs:
       - name: Install the shellcheck the gate pins
         # The runner image ships its own shellcheck, and selfcheck.sh prefers a binary on PATH over
         # the image it pins -- so without this CI lints the branch against a different rule set from
-        # a development machine, and says so only as an advisory that leaves the run green. The
-        # version and the digest are read from selfcheck.sh rather than repeated here: a second copy
-        # is a pair nothing compares, and that file carries the note about bumping both by hand.
-        #
-        # The digest is checked before anything is unpacked: a release asset can be replaced without
-        # its tag moving, and this lands as root in a directory on PATH beside a checkout. Fetched to
-        # a file rather than piped into tar, so a truncated stream is a mismatch rather than a
-        # partial write nothing hashed.
+        # a development machine, and says so only as an advisory that leaves the run green.
         run: |
+          # Read out of selfcheck.sh rather than repeated here: a second copy is a pair nothing
+          # compares, and that file carries the note about bumping both by hand.
           version="$(sed -n 's/^SHELLCHECK_VERSION="\([0-9.]*\)"$/\1/p' scripts/gate/selfcheck.sh)"
           digest="$(sed -n 's/^SHELLCHECK_LINUX_X86_64_SHA256="\([0-9a-f]*\)"$/\1/p' scripts/gate/selfcheck.sh)"
           if [ -z "$version" ] || [ -z "$digest" ]; then
@@ -204,7 +194,11 @@ jobs:
             exit 1
           fi
           tarball="${RUNNER_TEMP}/shellcheck-v${version}.linux.x86_64.tar.xz"
+          # Fetched to a file rather than piped into tar, so a truncated stream is a digest mismatch
+          # rather than a partial write nothing hashed.
           curl -fsSL -o "$tarball" "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.linux.x86_64.tar.xz"
+          # Checked before anything is unpacked: a release asset can be replaced without its tag
+          # moving, and this lands as root in a directory on PATH beside a checkout.
           if ! printf '%s  %s\n' "$digest" "$tarball" | sha256sum -c -; then
             echo "::error::the shellcheck tarball does not match the digest in scripts/gate/selfcheck.sh -- nothing was installed."
             exit 1
@@ -352,23 +346,17 @@ jobs:
     # ENV lines apply. These reproduce them across its base and builder stages;
     # `fl_frontend/Dockerfile` is the authority, and the two move together.
     env:
-      # `next build` evaluates modules that read the environment, and a clean checkout has no .env,
-      # so the startup gate rejects every variable and the build dies. The schema is still enforced
-      # for real by local.sh and on every deploy.
       SKIP_ENV_VALIDATION: "true"
-      # Needed even with validation skipped: `fl_frontend/src/core/db.ts` constructs a MongoClient at
-      # MODULE SCOPE, and `new MongoClient(undefined)` throws. Same placeholder the Dockerfile uses.
       MONGODB_URI: mongodb://localhost:27017/placeholder
-      # The Dockerfile disables telemetry in its base stage; the runner is not that image.
       NEXT_TELEMETRY_DISABLED: "1"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # Full history, where depth 1 served before: scope_map.sh diffs against the merge base
-          # with the target branch and refuses without one. The extra fetch is a real subtraction
-          # from what skipping `changes` saves -- the pack is small, not free.
+          # Full history: scope_map.sh diffs against the merge base with the target branch and
+          # refuses without one. The extra fetch is a real subtraction from what skipping `changes`
+          # saves -- the pack is small, not free.
           fetch-depth: 0
       - name: Map changed paths to scopes
         id: map
@@ -519,7 +507,7 @@ jobs:
     steps:
       # First, so it prints whether or not the verdict below refuses. A green `verify` says nothing
       # about which scopes ran, and a mapping that turned every scope off looks identical to a
-      # change that genuinely touched nothing — this is where the difference is readable.
+      # change that genuinely touched nothing.
       - name: Report each scope's result
         # This job IS the required status check, so nothing diagnostic in it may decide a merge. The
         # verdict is the step below and only that step; a report that cannot format its own output
@@ -729,14 +717,17 @@ jobs:
           python-version: "3.14"
       - name: Hold every job to its wall-clock budget
         # THE BUDGET. Not advisory: a job over its row in .github/gate-wall-clock.tsv fails the
-        # required check, naming the job and both figures, and so does a job that ran with no row.
-        # After the scope verdict and under its `success()`, so a failed gate is reported as the
-        # failure it is and a job's length is judged only where the job passed. This run's own
-        # jobs come from the API the report reads past runs from, so the two describe one
-        # population. `gh api` is released from `-e` so that a payload it could not fetch reaches
-        # the checker, whose refusal is the exit code, rather than ending the step on gh's own.
+        # required check, naming the job and both figures, and so does a job that ran with no row
+        # (`docs/ops/spec.md :: I17`). After the scope verdict and under its `success()`, so a
+        # failed gate is reported as the failure it is and a job's length is judged only where the
+        # job passed.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # The API the report above reads past runs from, so this run's jobs and those it compares
+          # describe one population.
+
+          # Released from `-e` so that a payload gh could not fetch reaches the checker, whose
+          # refusal is the exit code, rather than ending the step on gh's own.
           gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" > "${RUNNER_TEMP}/jobs.json" || true
           python scripts/checks/check_gate_budget.py --jobs "${RUNNER_TEMP}/jobs.json"

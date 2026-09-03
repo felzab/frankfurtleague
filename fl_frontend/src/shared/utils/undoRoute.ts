@@ -28,7 +28,7 @@ type UndoRoute<TPayload> = {
   /**
    * Reached only where the restore committed, and guarded: the write has landed, so a failed
    * invalidation must not report a failure. The call stays in the route, where `revalidateTag`
-   * and its `{ expire: 0 }` belong (`docs/frontend/spec.md` I14).
+   * and its `{ expire: 0 }` belong (`docs/frontend/spec.md` I14 and I55).
    */
   invalidate: (payload: TPayload) => void;
 };

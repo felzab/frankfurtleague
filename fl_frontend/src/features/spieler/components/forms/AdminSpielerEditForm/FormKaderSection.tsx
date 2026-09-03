@@ -59,7 +59,7 @@ export function FormKaderSection({
   banners,
 }: {
   saison: SpielerSaisonContext & { erlaubteStufen: readonly FLSpielerStufe[] };
-  /** The selected season's teams — what the picker may offer. */
+  /** The selected season's teams, not the league's. */
   teams: readonly SpielerTeamOption[];
   isMember: boolean;
   teamId: string | null;

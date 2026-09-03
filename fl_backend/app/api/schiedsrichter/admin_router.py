@@ -164,7 +164,8 @@ async def anonymise_schiedsrichter(
     """Null the referee's telephone number and email address, in the row and in the log.
 
     The row and its `name` stay: every Spiel embeds both, so a removal would strand copies. A
-    re-entry under it is refused (`REQ-ANONYMISE-001`).
+    re-entry under it is refused (`REQ-ANONYMISE-001`). No precondition on officiating: the details
+    may go while the referee still takes fixtures.
     """
 
     async def clear_the_details_and_the_record(session: AsyncClientSession) -> FLSchiedsrichterWriteResponse:
@@ -211,8 +212,9 @@ async def anonymise_schiedsrichter(
 
         return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
 
-    # ONE transaction over both (D83): a referee cleared while the log still holds their details
-    # reports an anonymisation that did not happen. `with_transaction` over a bare one -- the
-    # callback derives both writes from the path id, so a retry is safe.
+    # ONE transaction over both (`docs/backend/spec.md :: I42`): a referee cleared while the log
+    # still holds their details reports an anonymisation that did not happen.
     async with db.start_session() as session:
+        # `with_transaction` over a bare one -- the callback derives both writes from the path id,
+        # so a retry is safe.
         return await session.with_transaction(clear_the_details_and_the_record)

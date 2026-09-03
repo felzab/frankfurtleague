@@ -67,10 +67,8 @@ export function AdminSpielortEditForm({
   });
 
   // The wire carries `id` in the path, so no refusal can name it and no input renders it.
-  /**
-   * Widened at the money field the way `FLSpielOrtFieldDraft` is: an emptied box holds `null`, and the payload
-   * schema's `z.int()` is what asks for a number at the submit.
-   */
+
+  // The widening `fl_frontend/src/features/spielorte/schemas.ts :: FLSpielortPayloadDraft` states in full.
   type SpielortPatchDraft = Omit<FLPatchSpielortPayload, "default_mietpreis"> & { default_mietpreis: number | null };
 
   const buildPayload = (): SpielortPatchDraft => ({
@@ -134,8 +132,7 @@ export function AdminSpielortEditForm({
     // Blur first: react-aria's focus attribute survives a kept-alive tree.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    // Hover next, and the disabled flag is what ends it: `useHover` clears `data-hovered` when a
-    // control turns disabled, and no `pointerleave` follows a click that leaves.
+    // Hover next: the disabled flag is what ends it (`docs/frontend/spec.md :: I68`).
     startLeaving(() => {
       if (window.history.length > 1) router.back();
       else router.push(saisonHref("/admin/spielorte"));
@@ -167,8 +164,7 @@ export function AdminSpielortEditForm({
   };
 
   const requestSave = () => {
-    // Snapshotted rather than read live: a background revalidation would move the list under an
-    // open dialog, and the reader agreed to the one the gate stopped on.
+    // Snapshotted, not read live: a background revalidation would move the list under the dialog.
     const blocking = resolveBlockingBanners(banners);
     if (blocking !== null) {
       setConfirmingBanners(blocking);
@@ -178,8 +174,7 @@ export function AdminSpielortEditForm({
   };
 
   const handleFormSubmit = () => {
-    // `aria` blocks nothing natively, so this call is what keeps an incomplete draft off the wire, in the
-    // schema's own German rather than the browser's bubble. It RUNS the write, so there is no answer to drop.
+    // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
     guardSubmit({ spielort: buildPayload() }, writeAfterBlock);
   };
 
@@ -225,9 +220,7 @@ export function AdminSpielortEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
-        // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting
-        // the browser's required message the moment an edited field is cleared. `aria` keeps
-        // `aria-required` and leaves every message to `useDraftFieldErrors`.
+        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
         validationBehavior="aria"
         ref={formRef}
         validationErrors={fieldErrors}

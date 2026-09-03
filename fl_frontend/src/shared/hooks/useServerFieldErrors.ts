@@ -7,13 +7,11 @@ import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
-/**
- * The one answer to a refusal no input can show, written where it is detected rather than at each
- * form: every editor reaching this state has the same thing to say and no reason to word it anew.
- */
+// The one answer to a refusal no input can show, written where it is detected rather than at each
+// form: every editor reaching this state has the same thing to say and no reason to word it anew.
 /**
  * What it COST, never why the mechanism could not mark a control. The second half is the reassuring one: a reader
- * told a save failed wants to know whether the work is gone. Exported so the wording is pinned rather than retyped.
+ * told a save failed wants to know whether the work is gone.
  */
 export const UNHANDLED_FIELD_REFUSAL = buildRefusal({
   // Never `Ablehnung` — that is the triage's decline, and this fires on that page too. Never a reload: it would

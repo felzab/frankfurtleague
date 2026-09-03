@@ -74,8 +74,7 @@ function mapTriageRefusal(error: unknown): { error?: string; fieldErrors?: Field
           repair: "Lehne die Bewerbung ab",
         }),
       };
-    // On the picker, which is the field at fault and the one the admin can move. `<FieldError>`
-    // renders under the control whose `name` the key matches.
+    // On the picker, which is the field at fault and the one the admin can move.
     case "REQ-ENTER-002":
       return { fieldErrors: { gruppe: "Diese Gruppe gibt es in der Saison der Bewerbung nicht." } };
     case "REQ-ENTER-003":
@@ -160,7 +159,6 @@ async function notifyBewerbung({
     return `Zu dieser Bewerbung ist kein Teamname hinterlegt, deshalb ging die ${betreff} an niemanden raus.`;
   }
 
-  // Narrowed by the guard above, so the club's name is fixed before the per-recipient half is.
   const benanntesTeam = teamName;
 
   const outcome = await sendBewerbungMail({
@@ -229,7 +227,6 @@ export async function annehmenBewerbungAction(rawPayload: FLAnnehmenBewerbungPay
         buildBewerbungZusageEmail({
           teamName: teamName,
           saisonId: annahmeOperation.saison_id,
-          // The seats THIS reader holds: three people are told one decision and each their own place in it.
           rollenText: rollenText,
           gruppe: annahmeOperation.gruppe,
           // Rendered here: the label lives in
@@ -260,8 +257,6 @@ export async function annehmenBewerbungAction(rawPayload: FLAnnehmenBewerbungPay
 /**
  * Declines the application, recording who decided and the reason they gave, and tells the people who
  * applied.
- *
- * The submission itself is untouched: the write moves `status` and `entscheidung` and nothing else.
  */
 export async function ablehnenBewerbungAction(
   rawPayload: FLAblehnenBewerbungPayload,

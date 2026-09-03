@@ -21,7 +21,7 @@ const ADMIN_ROUTER = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "
 /** Where a duplicate key becomes a 409, which is the only channel a Kürzel collision arrives on. */
 const EXCEPTION_HANDLERS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "exception_handlers.py"), "utf8");
 
-/** The two confirmations, read as text: what they PROMISE is the claim these assertions hold. */
+/** The confirmation panels, read as text: what they PROMISE is the claim these assertions hold. */
 const PANELS = ["AdminBewerbungAnnehmenSection", "AdminBewerbungAblehnenSection"].map((name) => ({
   name: name,
   source: readFileSync(path.resolve(import.meta.dirname, "components", "forms", `${name}.tsx`), "utf8").replace(/\s+/g, " "),
@@ -41,10 +41,10 @@ const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
 /** Where the entry rules acceptance REUSES are declared: they belong to the season's boundary, not the triage's. */
 const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 
-/** The season's two entry services, which `annehmen_bewerbung` calls rather than restating. */
+/** The season's entry services, which `annehmen_bewerbung` calls rather than restating. */
 const REUSED_SERVICES = ["find_entry_refusal", "find_club_entry_refusal"];
 
-/** The four entry rules those two services implement, and so the four an acceptance can answer. */
+/** The entry rules those services implement, and so the ones an acceptance can answer. */
 const REUSED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
 
 const MAPPER = sliceBetween(ACTIONS, "function mapTriageRefusal", "async function resolveBewerbungTeamName");
@@ -58,8 +58,7 @@ const NOTIFY = sliceBetween(ACTIONS, "async function notifyBewerbung", "export a
 const mappedCodes = [...MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
 
 describe("the slices these assertions read", () => {
-  /* First, because a boundary string that stopped matching leaves the slices empty and every
-     assertion over them would then fail for something that is not the defect. */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
   it("cuts the mapper and both actions out of the file before reading them", () => {
     assert.ok(MAPPER.includes("error.serverErrorCode"), "the mapper's switch is outside its slice");
     assert.ok(!MAPPER.includes("annehmenBewerbung(validated.data)"), "the mapper's slice reaches the acceptance");
@@ -127,8 +126,6 @@ describe("the triage's refusals against the backend's register", () => {
     }
   });
 
-  /* A new school's club is created with the Kürzel the school typed, and a club's only unique key is
-     that Kürzel. Unmapped, the generic 409 names no way out and the application cannot be edited. */
   it("answers the Kürzel collision with the repair rather than the generic conflict", () => {
     assert.ok(EXCEPTION_HANDLERS.includes('HTTP_409_CONFLICT, "DB-COMMON-002"'), "a duplicate key no longer arrives as a 409");
     assert.match(MAPPER, /case "DB-COMMON-002":/, "the Kürzel collision falls through to the generic conflict message");
@@ -140,8 +137,6 @@ describe("the triage's refusals against the backend's register", () => {
      path turns the application into a shape acceptance takes. */
   it("names the school's own fields, and a repair that exists, when no club can be created", () => {
     assert.match(MAPPER, /case "REQ-BEWERBUNG-003":/, "a school no club can be created from falls through to the generic conflict");
-    // Spelled as `BewerbungAngabenPanel` labels them: a field named here that the panel does not
-    // carry sends the administrator looking for something that is not on the page.
     assert.match(
       MAPPER,
       /Team-Name, vollständiger Name, Kürzel, Adresse oder Website/,

@@ -43,8 +43,7 @@ export function DisabledHint({
         {children}
       </Popover.Trigger>
 
-      {/* The outer box is cleared: HeroUI's `.popover` draws a fill, a shadow and a larger radius, which would ring
-          the panel's own corners. The panel below is the one surface, shared with `IconTooltip`. */}
+      {/* The outer box is cleared for `Hint.tsx`'s reason: HeroUI's `.popover` would ring the panel's own corners. */}
       <Popover.Content
         placement={placement}
         offset={8}

@@ -2,14 +2,13 @@
 
 **Purpose:** the German domain vocabulary — what each term is, where it lives, and what catches people.
 
-The vocabulary appears verbatim in collection names, schema fields, API parameters and URLs. Translating
-it in your head is fine; translating it in code is not.
+Translating it in your head is fine; translating it in code is not.
 
-| Section                              | Answers                                          |
-| ------------------------------------ | ------------------------------------------------ |
-| Core entities                        | What each stored entity is                       |
-| Attributes and values                | What a field on one of them means                |
-| Terms that are not domain vocabulary | What a word that only looks like one actually is |
+| Section                                                                       | Answers                                          |
+| ----------------------------------------------------------------------------- | ------------------------------------------------ |
+| [Core entities](#core-entities)                                               | What each stored entity is                       |
+| [Attributes and values](#attributes-and-values)                               | What a field on one of them means                |
+| [Terms that are not domain vocabulary](#terms-that-are-not-domain-vocabulary) | What a word that only looks like one actually is |
 
 **The ones that most often cost an hour:** `Spieltag` is not `Spiel` · a `Team` document is
 season-independent · `"playoffs"` is not a stored value · a no-show still counts in the table
@@ -21,7 +20,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 ### `Saison` — the competition year
 
-**Is:** the year everything else hangs off, carrying the `rules` that configure the scoring, the tiebreak, the groups, the qualifiers, the squad cap, the award a no-show hands over and the eligible school levels — and, outside `rules`, the `bewerbung` window saying when a school may apply to play it.\
+**Is:** the year everything else hangs off, carrying the `rules` that configure how it is played — and, outside `rules`, the `bewerbung` window saying when a school may apply to play it.\
 **In code:** `fl_backend/app/api/saisons/schemas.py :: FLSaison` over the writable half both payloads share, `:: _SaisonWritable`; the application window is `:: FLSaisonBewerbung`, and the schedule the rules imply is `fl_backend/app/api/saisons/schedule.py :: knockout_phases_for`.\
 **Trap:** the id is a short fixed-length string rather than an ObjectId (`fl_backend/app/shared/schemas/bounds.py :: SAISON_ID_LENGTH`), and every model that ACCEPTS one AS DATA TO STORE holds it to that length. Backend spec I5 names the kinds that deliberately do not: a model echoing a stored id, because one refusing a stored row would answer 500 for the whole list it appears in, and a LIST FILTER, which matches rather than stores. So an id of the wrong length that reaches the database by a route holding it to nothing is echoed back without complaint, while every match and matchday carrying it fails to read. The application window carries an asymmetry of its own: `_SaisonWritable` declares `bewerbung` with NO default, so a PATCH omitting the key is refused rather than silently closing a window somebody opened, while `FLSaison` re-declares it with one, every season stored before the field carrying neither key nor value.\
 **See:** backend spec I5 for the length, I18 for the single path to `status`.
@@ -70,7 +69,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 ### `Bewerbung` — a school's application to play a season
 
-**Is:** one school's application to play one season, stored as it arrived: the triage moves `status`, `entscheidung` and `team_id`, a contact erasure empties the slot naming the person who asked for it, and nothing else on the document moves at all. It carries the season, the club the school picked or the one it proposes, the three people it is reached through, what kit it owns and what colour it would like, the school's own estimate of its squad, and the opponent it would like on the first Spieltag. That last one is a FREE STRING and never a reference: a school may name an applicant nobody has accepted yet, and a picker over the accepted ones would give a later applicant the longer list.\
+**Is:** one school's application to play one season, stored as it arrived: the triage moves `status`, `entscheidung` and `team_id`, a contact erasure empties the slot naming the person who asked for it, and nothing else on the document moves at all. The opponent it would like on the first Spieltag is a FREE STRING and never a reference: a school may name an applicant nobody has accepted yet, and a picker over the accepted ones would give a later applicant the longer list.\
 **In code:** `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung`, the stored shape; `POST /bewerbungen` in `fl_backend/app/api/bewerbungen/public_router.py` is what creates one, and the two decisions are `POST /bewerbungen/{bewerbung_id}/annehmen` and `.../ablehnen` in `fl_backend/app/api/bewerbungen/admin_router.py`.\
 **Trap:** **while the application still stands `eingereicht`**, exactly one of `team_id` and `schule` carries a value — the club the applicant picked, or the school they propose — and no validator of types and enums can say so, which is why acceptance judges it and refuses the rest (`REQ-BEWERBUNG-002`) rather than branching on an assumption. Acceptance is IRREVERSIBLE, `saison_teams` having no DELETE, so a second decision on either endpoint is refused (`REQ-BEWERBUNG-001`) rather than entering the club again; it writes the created club's id back into `team_id` and leaves `schule` where it stood, so a decided application always names a club and an accepted new school's names both. No route serves a STORED application to the base tier, unlike `spiele`: an application holds three people's email addresses, telephone numbers and dates of birth, and says which schools asked and were turned down. The collection is not closed to that tier, though — the public form's create is base-tier and echoes nothing of what it wrote (`READ-BEWERBUNG-001`).\
 **See:** backend spec I16 for what a validator may assert, which is why the exclusive pair is the write path's, and [`domain.md`](domain.md) for the boundary this collection is held true in.
@@ -80,7 +79,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 **Is:** a row of the `aktionen` collection — one write, carrying the actor it is attributed to — an admin session, the public where the request authenticates nobody, or the system where no request made it at all — the route, the collection, the operation, and the image of what the write replaced or removed.\
 **In code:** `fl_backend/app/core/recording.py :: record_write` appends it from `fl_backend/app/core/crud.py`, which every write passes through; `fl_backend/app/api/aktionen/schemas.py :: FLAktion` is the shape served back.\
 **Trap:** each fan-out is ONE row, carrying the filter it ran and a count and no pre-image at all, so nothing can restore a document from it — and a club rename issues a fan-out per collection pass beside the row for the club itself, every one of them sharing that rename's correlation id, which is what gathers them into a single action on the page; and that filter is text rendered for a reader rather than a query anything can replay. A removal is the one row carrying an image PER document it took, or none at all where it was an erasure, whose image would be a fresh copy of exactly what the erasure destroyed. And a row outliving its subject is the point everywhere but a person: every write that destroys a person's values reaches in here in the same transaction, empties the images in place and stamps `redacted_at`, and no row is ever dropped.\
-**See:** backend spec I40 for what a fan-out records, I48 for what a removal records and I42 for the redaction, and [`domain.md`](domain.md) for why the collection sits in no consistency boundary.
+**See:** backend spec I40 for what a fan-out records, I48 for what a removal records, I42 for the redaction and I119 for the log only growing, and [`domain.md`](domain.md) for why the collection sits in no consistency boundary.
 
 ---
 
@@ -207,10 +206,10 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 ### `kontakte` — the three people the league reaches a team through
 
-**Is:** a block of three slots — a Trainer, an Ansprechperson and a Stellvertretung — beside a declaration naming which OTHER seat the Trainer also holds, or nobody, held on TWO collections from one pair of declarations: nullable as a whole on a `saison_teams` row, which is entered before anybody has been recorded, and required on an application, which IS the form those people filled in. Each person carries a name, an email address, a telephone number, a date of birth, and the consent record saying on whose word those are held.\
+**Is:** a block of three slots — a Trainer, an Ansprechperson and a Stellvertretung — beside a declaration naming which OTHER seat the Trainer also holds, or nobody, held on TWO collections from one pair of declarations: nullable as a whole on a `saison_teams` row, which is entered before anybody has been recorded, and required on an application, which IS the form those people filled in.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLSaisonTeamKontakte` over `:: FLKontaktperson` and `:: FLKontaktEinwilligung`, tightened for a write by `:: FLSaisonTeamKontaktePayload` and imported rather than restated by `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung`; both validators are built from `fl_backend/app/core/constraints.py :: _KONTAKTE_REQUIRED` and `:: _KONTAKTE_PROPERTIES`. A junction row's three are entered on a page of their own, `fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteSection.tsx`, which the club's season panel links to rather than holding a field of; an accepted application's arrive with the row acceptance writes, and `POST /kontakte/erasure` is what takes one person out of both collections.\
 **Trap:** each slot is nullable on its own on the stored shape and on the JUNCTION's write — an application's payload requires all three, non-null (`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungKontaktePayload`) — so an erasure can empty the slot naming one person without reaching the two beside them, and a row it emptied still saves — a payload requiring all three would have made every later edit to that row re-collect the person who asked to be forgotten. On a junction row, three whole people in a block filled in for the first time is `FormKontakteSection.tsx`'s guarantee rather than the payload's; on an application it is the payload's, and `trainer_ist_zugleich` stands through an erasure, recording what somebody asserted rather than what the block now holds. Season-scoped and never carried forward: these are one cohort's people, so a new season collects them again rather than inheriting them, and a replacement clears the block rather than handing the outgoing school's people to the incoming one. `FLKontaktEinwilligung` is deliberately not the `einwilligung` a pupil carries: that one records what may be PUBLISHED about a person, this one only that these details may be held and used, and entangling them would put a club's contacts behind an open question about pupil data. The junction join withholds this block from the base tier inside the `$lookup` rather than at a later stage, a club's public read being one aggregation away from it otherwise.\
-**See:** backend spec I50 for the withholding at the join and for the replacement clearing the block, [`backend/overview.md`](backend/overview.md) for the junction having no stored-document model, and [`domain.md`](domain.md) for where a season-scoped fact belongs.
+**See:** backend spec I50 for the withholding at the join and I137 for what a replacement clears, [`backend/overview.md`](backend/overview.md) for the junction having no stored-document model, and [`domain.md`](domain.md) for where a season-scoped fact belongs.
 
 ### `inactive_since` — the day something left
 
@@ -221,7 +220,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 ### `Statistik` — the derived league-table figures
 
-**Is:** the league table's figures — played, won, drawn, lost, goals for and against, points, cancellations — computed per team and season from `spiele` on every read.\
+**Is:** the league table's figures, computed per team and season from `spiele` on every read.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLTeamStatistik`, built over a read of `spiele` by `fl_backend/app/api/teams/services.py :: build_team_pipeline`, and over fixtures a caller already holds by `fl_backend/app/api/teams/services.py :: build_statistik_by_team` — the bracket resolution's preview.\
 **Trap:** nothing stores it, so there is no field to update and nothing to back-fill; a match counts exactly when it carries an `ergebnis`, points come from the season's `rules` rather than a hardcoded 3/1/0, and `statistik_scope` decides which table you get, defaulting to the narrow `gruppenphase` one.\
 **See:** backend spec I1 for the derivation, I1c for the default scope.
@@ -254,6 +253,6 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 | Term                        | Actually                                                                                              |
 | --------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `slice`                     | A frontend code-organisation unit under `src/features/`, one per business entity                      |
-| `surface`                   | A documentation term: frontend, backend, or ops. See [`standard.md`](standard.md#corpus)              |
-| `base` / `system` / `admin` | The three API key tiers, not user roles. See the backend spec                                         |
+| `surface`                   | A documentation term: frontend, backend, or ops. See [`standard.md`](_standard/standard.md#corpus)    |
+| `base` / `system` / `admin` | The three API key tiers, not user roles. See backend spec I7                                          |
 | `format`                    | The discriminator on the teams response (`list` · `grouped`, or `single` from `GET /teams/{team_id}`) |

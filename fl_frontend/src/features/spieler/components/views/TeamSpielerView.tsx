@@ -28,8 +28,7 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
     <div className={`${PAGE_RISE} flex w-full flex-col`}>
       <Button
         onPress={() => {
-          // The pending flag is what ends react-aria's hover: it clears `data-hovered` when a control
-          // turns disabled, and no `pointerleave` follows a click that leaves.
+          // The pending flag is what ends react-aria's hover (`docs/frontend/spec.md :: I68`).
           startLeaving(() => {
             router.back();
           });

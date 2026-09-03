@@ -95,9 +95,7 @@ export function BewerbungForm({
 }: {
   saisonId: string;
   schulen: readonly { id: string; name: string }[];
-  /** Whether the list was read at all, so an empty picker says which of the two emptied it. */
   isSchulenLesbar: boolean;
-  /** The colours an administrator has ASSIGNED this season, which the wish picker then leaves out. */
   vergebeneFarben: readonly FLTrikotFarbe[];
 }) {
   const [isPending, startTransition] = useTransition();
@@ -118,7 +116,7 @@ export function BewerbungForm({
   // hook called only on the way to it would run a different number of times per render.
   useForgiveFixed({ bewerbung: bewerbungPayload(draft) });
 
-  // Thirty fields, entered once, by somebody who will not have them saved anywhere else.
+  // A long form, entered once, by somebody who will not have it saved anywhere else.
   useUnsavedChangesWarning(hasTyped && !isEingereicht);
 
   const mirroredSeat = draft.kontakte.trainer_ist_zugleich;
@@ -219,8 +217,7 @@ export function BewerbungForm({
     if (isPending) return;
 
     const payload = bewerbungPayload(draft);
-    // `aria` blocks nothing natively, so this is what keeps an incomplete application off an
-    // unauthenticated endpoint — and names every missing field in the schema's own German at once.
+    // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
     guardSubmit({ bewerbung: payload }, writeAfterBlock);
   };
 
@@ -249,7 +246,6 @@ export function BewerbungForm({
     });
   };
 
-  /** Takes the caret the unmounting form drops, so the receipt is where a keyboard lands and what a reader hears. */
   const eingereichtRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (isEingereicht) eingereichtRef.current?.focus();
@@ -280,12 +276,10 @@ export function BewerbungForm({
   return (
     <Form
       ref={formRef}
-      // `aria`, as every form here is: native mode validates on the DOM `change` event, so a field
-      // cleared after an edit reported `valueMissing` before anyone had left it. Under `aria` that
-      // flag is never set, and our own German arrives with the submit.
+      // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
       validationBehavior="aria"
-      // A create form, so its required fields carry the asterisk every other create form marks them with:
-      // roughly twenty-five of these are required and two are not, and a stranger fills this in once.
+      // A create form, so its required fields carry the asterisk every other create form marks them
+      // with: nearly every box here is required, and a stranger fills this in once.
       data-required-marks="on"
       validationErrors={mergedErrors}
       className="flex w-full flex-col gap-5"

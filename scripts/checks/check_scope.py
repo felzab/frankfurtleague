@@ -24,8 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-# Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
-# sibling of it rather than in it.
+# `scripts/lib/` is a sibling of this directory, and a script's sys.path opens with this one.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 from checker_kernel import (  # noqa: E402 -- the insert above is what resolves it
@@ -465,7 +464,8 @@ def main() -> int:
     base = resolve_base()
     if base is None:
         # Refused, not green: this checker's only question is about the diff, so with no base it
-        # judged nothing. `check_docs.py` answers an advisory instead, judging the corpus anyway.
+        # judged nothing. `check_docs.py` fails its branch-scoped checks instead, having a corpus
+        # left to judge either way.
         print(f"      no merge base with {DEFAULT_BASE} -- this run was not checked against the diff.")
         print(f"      A single-branch clone fetches no base. Add it:  git remote set-branches --add origin {DEFAULT_BASE}")
         print(f"                                                      git fetch origin {DEFAULT_BASE}")

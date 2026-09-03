@@ -27,8 +27,7 @@ const ARMED = sliceBetween("<ConfirmReveal>", "</ConfirmReveal>");
 const FLAT = PANEL.replace(/\s+/g, " ");
 
 describe("the replacement panel", () => {
-  /* First, because a boundary string that stopped matching leaves a slice empty and every assertion
-     over it would then pass or fail for something that is not the defect. */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
   it("cuts the handler and the armed alert out of the file before reading them", () => {
     assert.ok(HANDLER.includes("replaceSaisonTeamAction("), "the write is outside the handler's slice");
     assert.ok(!HANDLER.includes("<section"), "the handler's slice runs on into the markup");
@@ -116,8 +115,8 @@ describe("the replacement panel", () => {
     assert.match(FLAT, /title="Nachrücken kann nur ein Team, das in dieser Saison noch nicht dabei und nicht stillgelegt ist"/);
   });
 
-  /* Dictated verbatim, and the whole callout: a sweep restoring a situation title above it, or a body
-     under it, is the failure this pins. The bare title is the banner-title decision of 2026-08-27. */
+  /* Dictated verbatim, and the whole callout: a situation title above it, or a body under it, is the
+     failure this pins. */
   it("carries the dictated closure as its title alone, without a trailing stop", () => {
     assert.match(FLAT, /title="Nur Teams, die noch kein Spiel gespielt haben, können ersetzt werden"\s*\/>/);
     assert.doesNotMatch(PANEL, /Die Saison ist zu weit|und das trifft auf keines mehr zu/);

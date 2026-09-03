@@ -45,7 +45,7 @@ THE CHECKS, in priority order:
      Pydantic models by hand on purpose, and `app/core/domain.py` is a declaration nothing may import
      from `app/`.
 
-4. **TYPING AND MODERNISATION.** A known open item in `docs/_roadmap/open-items.md`: several modules
+4. **TYPING AND MODERNISATION.** A known open item in `docs/_roadmap/items.md`: several modules
    import `Mapping` / `Sequence` / `Optional` / `Callable` from `typing` instead of
    `collections.abc` and PEP-604 syntax, and the recorded decision is to enable ruff's `UP` rules and
    migrate **in one pass, never piecemeal**. This pass is that moment: measure what `UP` would flag,
@@ -76,4 +76,4 @@ THE CHECKS, in priority order:
 BOUNDARIES — not this pass: write→read consistency → b1 · contract divergence → b2 · auth, injection
 and leakage → b3 · Dockerfile, compose and CI mechanics beyond "does the configured tool run" → the
 ops passes · module headers, docstrings and comment drift → `/docs:audit`, which reads every comment
-in this tree against `docs/standard.md`.
+in this tree against `docs/_standard/standard.md`.

@@ -43,8 +43,7 @@ function activateBranch(code: string): string {
 }
 
 describe("the saison actions against the backend's refusal register", () => {
-  /* First, because a boundary string that stopped matching leaves the slices empty and every
-     assertion over them would then fail for something that is not the defect. */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
   it("cuts each mapper out of the file before reading it", () => {
     assert.ok(RULES_MAP.includes('case "REQ-DATE-005":'), "the editor's switch is outside its slice");
     assert.ok(!RULES_MAP.includes("REQ-SPIELPLAN"), "the editor's slice runs on into the draw's arms");
@@ -75,9 +74,7 @@ describe("the saison actions against the backend's refusal register", () => {
   it("maps every refusal the create endpoint declares", () => {
     const declared = declaredCodes(CREATE_OPERATION);
 
-    // Asserted before the loop rather than left to it: an operation the register stopped naming
-    // declares nothing, the loop then runs zero times, and a green result would claim the mapper
-    // covers an endpoint whose refusals it has in fact stopped reading.
+    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
     assert.deepEqual(declared, CREATE_CODES);
     for (const code of declared)
       assert.ok(RULES_MAP.includes(`case "${code}":`), `${code} reaches the admin as the message about a taken Saison-ID`);
@@ -213,7 +210,7 @@ describe("the German each widened refusal renders", () => {
     assert.doesNotMatch(SPAN_MESSAGE, /Saison-ID/);
   });
 
-  /* Three endpoints now refuse on this code, so a sentence written twice could tell two admins two
+  /* Several endpoints refuse on this code, so a sentence written twice could tell two admins two
      different things about one rule. Each arm adds its own tail and shares the opening. */
   it("opens the schedule refusal from one declaration on both paths", () => {
     for (const [name, arm] of [

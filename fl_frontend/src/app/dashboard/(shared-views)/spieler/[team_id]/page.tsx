@@ -14,7 +14,6 @@ import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 export async function generateMetadata(props: NextPageProps<{ team_id: string }>): Promise<Metadata> {
-  // See teams/[team_id]/page.tsx: connection() keeps this out of the backend-less builder stage.
   await connection();
   const team_id = await resolveTeamId(props.params);
 

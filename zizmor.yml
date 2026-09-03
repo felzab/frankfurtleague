@@ -13,7 +13,6 @@
 
 rules:
   self-repository:
-    # actionlint refuses `$/` as a `uses:` format (1.7.12, its latest on 2026-09-02), so taking
-    # zizmor's fix reddens `scripts/gate/selfcheck.sh :: run_actionlint`. Re-open when actionlint
-    # accepts it.
+    # actionlint refuses `$/` as a `uses:` format, so taking zizmor's fix reddens
+    # `scripts/gate/selfcheck.sh :: run_actionlint`. Re-open when actionlint accepts it.
     disable: true

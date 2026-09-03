@@ -160,6 +160,10 @@ def build_redaction_filter(targets: Sequence[RedactionTarget]) -> Mapping[str, A
     # Equality on `collection` and a match on `document_id` in each branch, the shape
     # `aktionen_target` serves (`app/core/constraints.py :: SUPPORT_INDEXES`). An `$in` of no ids
     # matches nothing rather than everything.
+
+    # A `delete_many` row's `document_id` is an ARRAY, and `$in` matches it on its members, so the
+    # one row holding a whole set of images sits inside the same `(collection, document_id)`
+    # selection as a row naming one.
     return {"$or": [{"collection": str(collection), "document_id": {"$in": list(document_ids)}} for collection, document_ids in targets]}
 
 

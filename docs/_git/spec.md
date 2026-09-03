@@ -32,19 +32,18 @@ graph LR
 
 Two gaps in that chain are deliberate. **Images are built on the development machine, never on the
 server** — a server that builds is a server that can fail a build, at the worst moment, with the site
-down. **Merging does not deploy**: publishing and deploying are separate manual steps, and there is no
-automation between `main` and production.
+down. **Merging does not deploy**: publishing and deploying are separate manual steps.
 
 **Order a data change against the deployed image, never against `main`.** `main` routinely describes
 a service that is not running, and `./scripts/ops/deploy.sh --status` is what names the live commit.
 
-Everything up to the merge is dev (Windows, Git Bash); publishing is dev and deploying is the server.
+Every step the diagram places on dev runs on Windows, in Git Bash.
 
 ### 1.2 Branching
 
-`main` is the only long-lived branch. There is no `develop`, no release branches, and no long-running
-feature branches. Work happens on short-lived topic branches cut from `main`, named in kebab-case for
-the change itself, with **no prefix taxonomy** — no `feature/`, `fix/`, `chore/`.
+`main` is the only long-lived branch. Work happens on short-lived topic branches cut from `main`,
+named in kebab-case for the change itself, with **no prefix taxonomy** — no `feature/`, `fix/`,
+`chore/`.
 
 ```bash
 git checkout main
@@ -59,14 +58,13 @@ documentation conflicts on every shared page, and the cost compounds until it is
 since the fork and prove none is absent from the result. Taking one side whole is how a heading, a
 clause and an edited line each disappeared while the result read correctly.
 
-**`--ff-only` on the way back down is the point.** Because every change reaches `main` through GitHub,
-local `main` is only ever strictly behind, so a fast-forward is always possible. Where it is not,
-`--ff-only` refuses instead of inventing a merge commit — which is exactly the moment to stop and
-look.
+**`--ff-only` on the way back down is the point.** Every change reaches `main` through GitHub, so
+local `main` is only ever strictly behind and a fast-forward is always possible; where it is not,
+`--ff-only` refuses instead of inventing a merge commit.
 
 ### 1.3 Commits
 
-The convention is consistent across the whole history and is **not** Conventional Commits.
+The convention is **not** Conventional Commits.
 
 **Subject:** `Scope: what changed` — sentence case after the scope, no trailing period, the scope taken
 from the table in [`templates.md`](templates.md). Subjects are **declarative rather
@@ -80,17 +78,42 @@ Four things a body carries that the diff cannot:
 - **where a prior assumption turned out to be wrong**
 - **the rejected alternative**, where there was one
 
-No issue-closing keywords, no emoji, no trailers — except a closing paragraph that is sign-offs and
-nothing else, which is what Dependabot's generator always writes and the only trailer form the
-checker releases, on an exact author identity (`scripts/checks/check_commits.py :: BOT_IDENTITIES`, and
+No issue-closing keywords and no emoji. **One trailer, `Closes: <token>`**, naming the roadmap entry
+the commit retires, in the last paragraph where git reads a trailer at all and with nothing else in
+that paragraph. It is **required** of a commit whose diff retires an entry — a heading it removes
+from the roadmap and does not put back — and **refused** of a commit whose diff retires none, the
+second half being what stops the convention drifting back toward general-purpose trailers. The token
+is the entry's own id and nothing else validates
+(`scripts/checks/check_commits.py :: CLOSES_RE`): **a serial id in that position is a mistake rather
+than an older spelling**, and the checker says so. **The hyphen in it is load-bearing** — it is what
+parts a token from the eight bare alphanumerics ordinary code spells for its own reasons, and so
+what makes `git grep <token>` a uniqueness proof and the corpus-wide id registry
+(`scripts/checks/docs_gate/kernel.py :: roadmap_ids`) able to exclude the unhyphenated shape.
+
+**An entry that ends only partly done is rewritten rather than deleted**, and the commit doing that
+carries no trailer ([`../_roadmap/protocol.md`](../_roadmap/protocol.md) §3).
+
+The one other trailer is a closing paragraph that is sign-offs and nothing else, which is what
+Dependabot's generator always writes and the only trailer form the checker releases on an exact
+author identity (`scripts/checks/check_commits.py :: BOT_IDENTITIES`, and
 [`templates.md`](templates.md) for what else that identity releases there). Work is never signed as
 AI-generated, which overrides any tool default appending a `Co-Authored-By` line.
 
-**None of that rests on memory.** `scripts/checks/check_commits.py` refuses a malformed message as a
-`commit-msg` hook when you write it, in the `--docs` gate scope before you push, and in CI on every
-pull request. It reads the branch's own commits, never history, which predates the convention.
-`git config core.hooksPath .githooks` installs every hook in that folder, this one among them, and
-**a fresh clone has none until that is run** — until then the gate and CI are the only checks.
+**The trailer's two halves are checked in different places.** Its shape is checked wherever a
+message is, the `commit-msg` hook included. Whether the diff _asks_ for one is checked only where
+the commit exists — the gate's `--docs` scope and CI's `commits` job, both reading `base..HEAD`. The
+hook cannot ask: at `commit-msg` time the commit has no diff, and the staged one is measured against
+the commit being replaced under `git commit --amend` and during a `rebase -i` reword, so a hook
+reading it would refuse the very message that repairs a trailer.
+
+`scripts/checks/check_commits.py` reads the message three times over — as a `commit-msg` hook when
+you write it, in the `--docs` gate scope before you push, and in CI on every pull request — and
+reads the branch's own commits, never history, which predates the convention. **Only a refusal
+reaches the hook** (`scripts/checks/check_commits.py :: check_message_file`), so every finding the
+list below marks _reported_ passes the hook in silence and first appears at the gate, where the
+reword it asks for costs a rebase. `git config core.hooksPath .githooks` installs every hook in that
+folder, this one among them, and **a fresh clone has none until that is run** — until then the gate
+and CI are the only checks.
 
 [`templates.md`](templates.md) holds the form and what the checker refuses outright.
 Beyond that list:
@@ -100,12 +123,14 @@ Beyond that list:
   (`scripts/checks/check_commits.py :: SUBJECT_TARGET`); one longer still, past the width at which nothing
   wrapped it for any view, is refused instead (`scripts/checks/check_commits.py :: LINE_MAX`).
 - A scope outside the recorded set is reported, not refused.
+- A `Closes:` line whose value is not a token — a serial id, a heading slug, a mis-cased trailer
+  name — is refused where it stands (`scripts/checks/check_commits.py :: CLOSES_RE`).
 - A body recording no verification is reported, not refused — and not reported at all for a commit
   Dependabot wrote, whose generator records none and has no way to.
 - Merge and revert subjects are skipped — they are git's.
-- Nothing else is released for a bot: the subject's shape and its length tiers, the scope vocabulary,
-  the emoji, issue-closing and AI-signature bans, and every trailer but the sign-off all answer for
-  Dependabot as for anyone — I4 included, so a bot commit with no body is still refused.
+- **The bot exemption drops three rules and no more**: the sign-off, the wrapped body, and the
+  missing-verification report. Everything else answers for Dependabot as for anyone — I4 included,
+  so a bot commit with no body is still refused.
 
 ### 1.4 Pull requests
 
@@ -132,19 +157,17 @@ gh pr create --draft --title "Scope: what changed" --body-file <path>
 | `gh pr view`, `gh pr checks`, `gh run view` — reading anything | `gh pr ready` — that is the review |
 | `gh pr edit --body-file` — correcting a body after a change    | `gh pr merge`                      |
 
-**Editing beats reopening.** Pushing another commit updates an open pull request in place, and
-`gh pr edit` rewrites the title and body without touching anything else; the number and the URL survive
-both. The only expensive change is rewriting the branch's own commits, which moves every line a review
-comment is anchored to.
+**Editing beats reopening**: another commit and `gh pr edit` both update an open pull request in
+place. The one expensive change is rewriting the branch's own commits, which moves every line a
+review comment is anchored to.
 
 **Title:** the same shape as a commit subject. For a single-commit pull request, the commit subject
 verbatim.
 
 **Body: a summary of the branch, never an index of its commits.** A single-commit pull request gets
 a pointer, because the commit body already says it; a multi-commit one opens with an orientation
-sentence and then summarises at the level no commit reaches. Two things only the body can carry,
-which is why the template's headings are what they are: what was verified and how, and anything
-deliberately left undone.
+sentence and then summarises at the level no commit reaches. Two things only the body can carry:
+what was verified and how, and anything deliberately left undone.
 
 **A body must stand alone.** `docs/audit/` is gitignored, so a reviewer sees none of it — never point
 at anything under it from a body.
@@ -155,24 +178,21 @@ at anything under it from a body.
 ./scripts/gate/verify.sh
 ```
 
-Scopes run concurrently, and `verify.sh` replays their output in cheapest-to-fail order, so a parallel
-run reads as a serial one. A bare invocation runs everything; scope flags name surfaces and combine.
-The scope table, what each scope runs and what it needs, the `--serial` oracle that ordering is
-measured against, the diff check that refuses an undersized scope and the CI job mapping are all in
+A bare invocation runs everything; scope flags name surfaces and combine. The scope table, what each
+scope runs and what it needs, the `--serial` oracle that its ordering is measured against, the diff
+check that refuses an undersized scope and the CI job mapping are all in
 [`../ops/spec.md`](../ops/spec.md) §1.6, which owns `scripts/`.
 
-`.githooks/pre-push` prints, at the moment of a push, the scopes CI would run for it —
-`scripts/gate/scope_map.sh`'s answer against the remote's default branch, a **stand-in** for the target
-the pull request will name, so a branch chained onto another topic branch is over-reported. It is
-advisory and exits 0 on every path, its own failure included; §1.3's `core.hooksPath` line installs it.
+`.githooks/pre-push` prints, at the moment of a push, the scopes CI would run for it. It maps
+against the remote's default branch, a **stand-in** for the target the pull request will name, so a
+branch chained onto another topic branch is over-reported; it blocks nothing on any path, its own
+failure included. §1.3's `core.hooksPath` line installs it.
 
-> **`pnpm format` covers the whole repository.** It runs prettier over the repository root under the
-> root `.prettierrc.json`, and what stays out is decided by one ignore file, `.prettierignore` beside
-> it. There is no path list to keep in step, so moving, renaming or adding a file cannot make the
-> formatter fail on a path that is not there. **Verify with a gate run whose scope includes the
-> formatter — `./scripts/gate/verify.sh --format`, or any run that implies it, such as `--frontend` or
+> **Verify formatting with a gate run whose scope includes the formatter —
+> `./scripts/gate/verify.sh --format`, or any run that implies it, such as `--frontend` or
 > `--quick` — never with a hand-written `prettier` command**, which covers the paths you happen to
-> remember. In CI the `format` job runs the check for changes outside `fl_frontend`.
+> remember. `pnpm format` reaches the whole repository, and one ignore file decides what stays out
+> ([`../ops/spec.md`](../ops/spec.md) §1.6).
 
 > **When bumping an action, resolve the version to a commit SHA and pin that, never the tag.**
 > `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` names the object the tag points at. Where that
@@ -191,7 +211,8 @@ advisory and exits 0 on every path, its own failure included; §1.3's `core.hook
 ### 1.6 Repository settings
 
 **Written down because nothing else records them** — GitHub offers no export, and deleting a
-repository destroys them. Read from the live repository on 2026-08-09. The ruleset is a single branch
+repository destroys them. Every row mirrors a live panel that moves without us, so a row is only as
+current as the commit that last wrote it, which `git blame` names. The ruleset is a single branch
 ruleset targeting the default branch, enforcement **Active**.
 
 | Setting                               | Value                                                                                  | Panel                        |
@@ -204,11 +225,11 @@ ruleset targeting the default branch, enforcement **Active**.
 | Block force pushes                    | on                                                                                     | Rules → Rulesets             |
 | Require a pull request before merging | on, required approvals **`0`**                                                         | Rules → Rulesets             |
 | Require status checks to pass         | on — **`verify`**, **`backend-db`**, **`pr-body`**                                     | Rules → Rulesets             |
-| Require branches up to date to merge  | **off** — read 2026-08-11                                                              | Rules → Rulesets             |
+| Require branches up to date to merge  | **off**                                                                                | Rules → Rulesets             |
 | Require linear history                | **off**                                                                                | Rules → Rulesets             |
 | Bypass list                           | **empty**                                                                              | Rules → Rulesets             |
 | Actions permissions                   | GitHub-authored, plus `pnpm/action-setup@*`, `pnpm/setup@*` and `astral-sh/setup-uv@*` | Actions → General            |
-| Require actions pinned to a SHA       | **off** — read 2026-09-01; recommended on, see below                                   | Actions → General            |
+| Require actions pinned to a SHA       | **off** — recommended on, see below                                                    | Actions → General            |
 | Fork pull request workflows           | require approval for all outside collaborators                                         | Actions → General            |
 | Default workflow permissions          | read-only; Actions may not create or approve pull requests                             | Actions → General            |
 | Secret scanning, push protection      | on                                                                                     | Security → Advanced Security |
@@ -226,11 +247,9 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 - **CodeQL is deliberately not a required check** — it reports more than one, and an upstream
   query-pack problem would block merges for a reason unrelated to the change.
 - **Each required check is added by hand in this panel**, so a new workflow reports until someone
-  adds it here. `verify` is `.github/workflows/verify.yml`'s aggregate job and `backend-db` a
-  separate job of the same workflow; `pr-body` holds the body to the form in
-  [`templates.md`](templates.md) and is its own workflow because it listens for `edited` —
-  subscribing `verify.yml` to that event would rebuild both images every time a description gained a
-  comma.
+  adds it here. `pr-body` is its own workflow rather than a job of `verify.yml` because it listens
+  for `edited` — subscribing `verify.yml` to that event would rebuild both images every time a
+  description gained a comma.
 - **"Require branches up to date to merge" stays off**
   (`strict_required_status_checks_policy`, read through
   `gh api repos/<owner>/<repo>/rules/branches/main`). A required check therefore passes against a
@@ -257,10 +276,19 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
   repository changes. **The pin also costs the alert route**: Dependabot raises no advisory alert
   for an action pinned to a SHA, so the scheduled version-update run in `.github/dependabot.yml` is
   this repository's whole coverage for a vulnerable action, and a published advisory waits for that
-  run — which is why `.github/dependabot.yml` schedules this one ecosystem weekly and every other
-  monthly, the trade being written out at the ecosystem itself. A
+  run, which is what buys that one ecosystem a shorter interval than the rest. A
   local `./` action needs no pin, and the pins **inside** one are watched only because
   `.github/dependabot.yml` names the composite-action directory separately (COR-2).
+- **Routine dependency updates are shaped by noise, not by coverage**, and the policies below hold
+  across every ecosystem block in `.github/dependabot.yml` rather than belonging to any one of them.
+  Ungrouped weekly updates everywhere would open dozens of pull requests a month, each running the
+  full `verify` gate, and none would be read — so minor and patch bumps are **grouped per ecosystem
+  on a monthly interval**, `github-actions` alone weekly for the reason above. A **major stays its
+  own pull request**, ungrouped, because those are the ones that need a changelog read. Every
+  ecosystem sets the **same cooldown**, so a release compromised at publication can be yanked before
+  a pull request proposes it, and its own **commit prefix**, so the messages keep
+  [`templates.md`](templates.md)'s shape. The intervals, the cooldown and the prefixes are in that
+  file; what is here is why they are the same everywhere.
 - **Every workflow triggers on `pull_request`, never `pull_request_target`**, so a fork's run
   receives no secrets and no write token. Each declares its own `permissions:` block, and the
   read-only default is what one that forgets inherits.
@@ -287,6 +315,7 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 | I8  | Every action is pinned to a full commit SHA                   | review of `.github/workflows/` and `.github/actions/` |
 | I9  | Every workflow triggers on `pull_request`                     | `.github/workflows/`                                  |
 | I10 | The ruleset's bypass list is empty                            | the ruleset                                           |
+| I11 | A commit retiring a roadmap entry names it, and only then     | `scripts/checks/check_commits.py :: check_message`    |
 
 ## 3. Violation → remedy
 
@@ -296,7 +325,9 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 | `git pull` refuses to fast-forward                       | Local `main` has drifted                                                                                                    | Stop and look. `--ff-only` failing is the signal, not the problem                                      |
 | The gate refuses a run naming too few scopes             | The branch touches a packaging path                                                                                         | Run the full form, images included                                                                     |
 | The gate reports surfaces it did not prove               | A scoped run mid-work                                                                                                       | Expected. Report it rather than suppressing it                                                         |
-| A commit is refused by the `commit-msg` hook             | No body, an unwrapped line, a malformed subject, a trailer                                                                  | Rewrite the message to [`templates.md`](templates.md); `git commit -F` recovers a draft                |
+| A commit is refused by the `commit-msg` hook             | No body, an unwrapped line, a malformed subject, a trailer the convention does not admit                                    | Rewrite the message to [`templates.md`](templates.md); `git commit -F` recovers a draft                |
+| The gate refuses a message the `commit-msg` hook passed  | A `Closes:` trailer missing, spurious, or naming an entry the diff kept — the arms the hook has no diff to run (§1.3)       | Read the finding: it names what the diff retired beside what the message claimed                       |
+| The gate reports a subject or a scope the hook passed    | A report-severity finding is filtered out of the hook's own output and survives to the gate (§1.3)                          | Reword — a rebase once pushed. Read a subject's length and its scope before committing, not after      |
 | A pull request check named `pr-body` fails               | The body indexes commits instead of summarising                                                                             | Rewrite the body; `gh pr edit --body-file` updates it in place                                         |
 | A merge button is greyed out with every check green      | The pull request is still a draft                                                                                           | Marking it ready is the review, and it is mine                                                         |
 | CI fails instantly on an action reference                | The pin resolves to nothing — a version that never existed, or an annotated tag's own object instead of the commit under it | Resolve the tag to its commit and read `action.yml` at that SHA before writing the pin (§1.5)          |

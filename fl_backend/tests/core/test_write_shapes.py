@@ -1,5 +1,6 @@
 import ast
-from typing import Any, Callable
+from pathlib import Path
+from typing import Any, Callable, Iterator
 
 from app.api.bewerbungen.services import parse_new_club
 from app.api.saisons.services import RECORDED_FACT_FIELDS
@@ -10,12 +11,16 @@ from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.domain import AGGREGATES
 from tests.core.app_source import (
+    APP_ROOT,
+    BACKEND_ROOT,
+    COLLECTION_ARGUMENT_SUFFIX,
     DRIVER_READS,
     READ_HELPERS,
     REMOVAL_HELPERS,
     WRITE_HELPERS,
     crud_helpers_taking_a_session,
     declared,
+    parsed,
     removals,
     transactional_callbacks,
 )
@@ -38,6 +43,21 @@ SESSION_TAKING_HELPERS = WRITE_HELPERS | REMOVAL_HELPERS
 # What a save may move on a fixture while nothing counts as recorded against it: rescheduling is
 # what a replace and an undraw are FOR, and `delete_many_from_db` keeps both in the images it logs.
 NOT_A_RECORD: frozenset[str] = frozenset({"datum", "uhrzeit"})
+
+# Every package under `app/api/` declaring a services module, pinned beside the glob that finds
+# them: a glob narrowing to nothing would pass every clause below over no module at all.
+# `app/api/system/` declares none.
+SERVICE_PACKAGES: frozenset[str] = frozenset(
+    {"aktionen", "bewerbungen", "kontakte", "saisons", "schiedsrichter", "spiele", "spieler", "spielorte", "spieltage", "teams"}
+)
+
+# The driver itself, and the two modules that hand a live handle out. `bson` is deliberately
+# absent: an `ObjectId` is a value, and `app/api/aktionen/services.py` composes one.
+DATABASE_MODULES: tuple[str, ...] = ("pymongo", "motor", "app.core.db", "app.core.dependencies")
+
+# Where a handle's annotations are declared. Read rather than listed, so a collection alias added
+# there is covered here with no edit.
+DEPENDENCIES_MODULE = APP_ROOT / "core" / "dependencies.py"
 
 
 def _model_dump_keywords(function: Callable[..., Any]) -> list[frozenset[tuple[str, str]]]:
@@ -62,6 +82,75 @@ def _model_copy_keys(function: Callable[..., Any]) -> set[str]:
         for key in keyword.value.keys
         if isinstance(key, ast.Constant) and isinstance(key.value, str)
     }
+
+
+def _service_modules() -> list[Path]:
+    """Every services module, off the DIRECTORY rather than off the purity below.
+
+    One selected by the property under test drops out of the population the moment it breaks the
+    rule; one selected by its path stays in and fails.
+    """
+
+    return sorted(APP_ROOT.glob("api/*/services.py"))
+
+
+def _database_annotations() -> frozenset[str]:
+    """Every name that annotates a live handle: the driver types `app/core/dependencies.py` imports, and the aliases built on them.
+
+    Derived there rather than listed here, so a collection added to that module is covered with no
+    edit.
+    """
+
+    tree = parsed(DEPENDENCIES_MODULE)
+    driver = {
+        alias.asname or alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("pymongo")
+        for alias in node.names
+    }
+
+    return frozenset(
+        driver
+        | {
+            target.id
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Name) and {name.id for name in ast.walk(node.value) if isinstance(name, ast.Name)} & driver
+        }
+    )
+
+
+def _annotation_names(annotation: ast.expr | None) -> set[str]:
+    """Every name one annotation mentions, a dotted one's attribute included, so an alias reached through its module reads too."""
+
+    if annotation is None:
+        return set()
+
+    return {node.id for node in ast.walk(annotation) if isinstance(node, ast.Name)} | {
+        node.attr for node in ast.walk(annotation) if isinstance(node, ast.Attribute)
+    }
+
+
+def _parameters(tree: ast.Module) -> Iterator[tuple[str, ast.arg]]:
+    """Every parameter one module declares, with the function around it -- every position, so one taken by keyword alone is read too."""
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            arguments = node.args
+            for argument in [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs, arguments.vararg, arguments.kwarg]:
+                if argument is not None:
+                    yield node.name, argument
+
+
+def _imported_modules(tree: ast.Module) -> Iterator[str]:
+    """Every module one module imports, by the name the import spells."""
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            yield node.module or ""
+        elif isinstance(node, ast.Import):
+            yield from (alias.name for alias in node.names)
 
 
 class TestWhatARemovalFilterMayName:
@@ -282,3 +371,85 @@ class TestTheTwoPathsIntoTeamsDumpTheClubAlike:
         assert dumped, "no `model_dump` is seen in `parse_new_club`, so the comparison below is vacuous"
 
         assert dumped == _model_dump_keywords(post_team)
+
+
+class TestEveryServiceModuleDecidesFromItsArguments:
+    """That no services module reaches the database, which keeps its tests off the container tier.
+
+    A read added to one goes green by SHRINKING: its test would need `@pytest.mark.db`, which
+    deselects it from the tier running with no container.
+    """
+
+    def test_the_sweep_reads_every_service_module_and_every_handle_name(self):
+        """The floor: a glob matching nothing, or a derivation that empties, passes each clause below over any application."""
+
+        assert {module.parent.name for module in _service_modules()} == SERVICE_PACKAGES
+
+        handles = _database_annotations()
+
+        # Both halves, so neither goes inert: the driver's own types, and the aliases every router's
+        # parameters are actually annotated with.
+        assert {"AsyncCollection", "AsyncDatabase", "AsyncMongoClient"} <= handles
+        assert {"SpieleCollection", "TeamsCollection", "DB", "DBClient"} <= handles
+
+    def test_no_service_module_awaits(self):
+        """Give a services module an `await` and this fails, and keeps failing once `@pytest.mark.db` has repaired the tests around it."""
+
+        awaiting = [
+            module.relative_to(BACKEND_ROOT).as_posix()
+            for module in _service_modules()
+            if any(isinstance(node, (ast.Await, ast.AsyncFunctionDef, ast.AsyncFor, ast.AsyncWith)) for node in ast.walk(parsed(module)))
+        ]
+
+        assert awaiting == []
+
+    def test_no_database_handle_reaches_a_service_module(self):
+        """Give one a `spiele_collection` parameter, or an `AsyncCollection` annotation, and this fails.
+
+        The name and the annotation are separate ways in: an unannotated parameter carries neither
+        type nor alias, and a handle named `db` carries no suffix.
+        """
+
+        handles = _database_annotations()
+        reached = [
+            f"{module.relative_to(BACKEND_ROOT).as_posix()} :: {function} takes {argument.arg}"
+            for module in _service_modules()
+            for function, argument in _parameters(parsed(module))
+            if argument.arg.endswith(COLLECTION_ARGUMENT_SUFFIX) or _annotation_names(argument.annotation) & handles
+        ]
+
+        assert reached == []
+
+    def test_no_service_module_imports_the_database(self):
+        """Import `app.core.dependencies` into one and this fails, where the handle clause would go quiet.
+
+        An alias must be imported to be written, so this holds the handle clause from being routed
+        around by a spelling it does not know.
+        """
+
+        imported = [
+            f"{module.relative_to(BACKEND_ROOT).as_posix()} imports {name}"
+            for module in _service_modules()
+            for name in _imported_modules(parsed(module))
+            if any(name == database or name.startswith(f"{database}.") for database in DATABASE_MODULES)
+        ]
+
+        assert imported == []
+
+    def test_no_service_module_names_a_helper_that_reaches_the_database(self):
+        """Name `pull_one_from_db` in one and this fails, `await` or none.
+
+        A coroutine composed here and awaited by its caller carries no `await` of its own, so the
+        await clause passes it.
+        """
+
+        # `build_query` and `build_sort` take no session, so neither is in the set this reads.
+        session_taking = crud_helpers_taking_a_session()
+        called = [
+            f"{module.relative_to(BACKEND_ROOT).as_posix()} names {node.id}"
+            for module in _service_modules()
+            for node in ast.walk(parsed(module))
+            if isinstance(node, ast.Name) and node.id in session_taking
+        ]
+
+        assert called == []

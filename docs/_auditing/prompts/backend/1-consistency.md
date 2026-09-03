@@ -105,7 +105,7 @@ auditor reliably reads it as a defect:
 - **The two definitions of `ausstehend`** — the server's filter includes today, the client's label
   excludes it — are ratified. Verify the code still matches; the divergence itself is not a finding.
 
-KNOWN OPEN ITEMS: `docs/_roadmap/open-items.md` tracks the backend items that are open by decision.
+KNOWN OPEN ITEMS: `docs/_roadmap/items.md` tracks the backend items that are open by decision.
 Verify each at the current code and cite the roadmap entry instead of re-analysing it.
 
 CROSS-SURFACE QUESTIONS: whether a given consistency gap is a defect or an accepted manual workflow

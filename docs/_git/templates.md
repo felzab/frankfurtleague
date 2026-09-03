@@ -30,13 +30,22 @@ the paragraph whose change it belongs to.>
 <Verified. What was actually run and what it returned — the gate invocation and
 its exit code, plus any manual check and its result. Never the word "passing".
 Name what could not be verified, and why.>
+
+Closes: <token>
 ```
+
+**The last paragraph is the trailer, and only a commit retiring a roadmap entry has one.** Copy
+`<token>` from the heading the same commit deletes rather than typing it out — one line per entry
+retired — and drop the paragraph entirely otherwise ([`spec.md`](spec.md) §1.3 for when it is
+required and when refused). An entry ending only partly done is rewritten rather than deleted, and
+that commit carries no trailer.
 
 Two related changes may share one subject, joined by `, and`. **Never "correct" a declarative
 subject to the imperative** ([`spec.md`](spec.md) §1.3).
 
-Narrower scopes carry the changes the form's subject line does not name, and a wave of an audit
-programme in progress leads with its own name (`Wave 6`):
+Narrower scopes carry the changes the form's subject line does not name. A wave of an audit
+programme in progress leads with its own name (`Wave <n>`), which the recorded vocabulary does not
+hold: a wave subject draws a report rather than a refusal.
 
 | Scope           | Used for                                           |
 | --------------- | -------------------------------------------------- |
@@ -48,15 +57,15 @@ programme in progress leads with its own name (`Wave 6`):
 
 Dependabot writes to the same shape, leading with whichever prefix `.github/dependabot.yml` gives
 the update entry. It shares the dependency scopes above with a person; its base-image prefixes are
-its alone, an image bump made by hand being `Ops`. `scripts/checks/check_commits.py :: KNOWN_SCOPES` is the
-recorded vocabulary, those prefixes and the scopes above together. A subject reaching more than one surface
-combines them — `Backend + Frontend` — and each component is resolved against that vocabulary on its
-own (`scripts/checks/check_commits.py :: unknown_scope`).
+its alone, an image bump made by hand being `Ops`. The recorded vocabulary is those prefixes and the
+scopes above together (`scripts/checks/check_commits.py :: KNOWN_SCOPES`). A subject reaching more
+than one surface combines them — `Backend + Frontend` — each component resolved against that
+vocabulary on its own.
 
 `scripts/checks/check_commits.py` refuses a `Co-authored-by` or a `Signed-off-by` trailer
-(`scripts/checks/check_commits.py :: BANNED`), and a subject or a body line past the hard maximum
-(`scripts/checks/check_commits.py :: LINE_MAX`) — unless that line is one unbroken token or carries a long
-URL, which wrapping would break (`scripts/checks/check_commits.py :: UNWRAPPABLE`).
+(`:: BANNED`), every trailer name but `Closes` and every `Closes:` value that is not a token
+(`:: CLOSES_RE`), and a subject or a body line past the hard maximum (`:: LINE_MAX`) — unless that
+line is one unbroken token or carries a long URL, which wrapping would break (`:: UNWRAPPABLE`).
 
 A commit Dependabot wrote — matched on an exact author identity
 (`scripts/checks/check_commits.py :: BOT_IDENTITIES`), never a substring — is released from the sign-off
@@ -91,8 +100,11 @@ why. Drop a heading rather than padding it: nothing left undone means no heading
 ```
 
 `scripts/checks/check_pr_body.py` refuses a body still carrying this form's placeholder prose, a body with
-no Verified section, a summary above the first heading past 500 words, and three or more
+no Verified section, a summary above the first heading past the hard maximum
+(`scripts/checks/check_pr_body.py :: SUMMARY_MAX`), and three or more
 **consecutive** list items each carrying a commit hash. A line of prose breaks that run; a blank
-line does not (`scripts/checks/check_pr_body.py :: longest_commit_run`). A body Dependabot opened is
-skipped whole (`scripts/checks/check_pr_body.py :: BOT_AUTHORS`); this form governs human-authored bodies
-alone.
+line does not (`scripts/checks/check_pr_body.py :: longest_commit_run`). A summary past the shorter
+`scripts/checks/check_pr_body.py :: SUMMARY_TARGET` is reported rather than refused, so that finding
+reaches only a reader who opens the `pr-body` run's log. A body
+Dependabot opened is skipped whole (`scripts/checks/check_pr_body.py :: BOT_AUTHORS`); this form
+governs human-authored bodies alone.

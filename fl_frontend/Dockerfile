@@ -1,4 +1,4 @@
-# Stage 1: Base -> the OS layer the build and the runtime share
+# The OS layer the build and the runtime share, so anything added here ships in the image.
 FROM node:26-alpine3.24 AS base
 
 # libc6-compat for Alpine's native C binaries (SWC while building, image optimization while
@@ -8,10 +8,9 @@ RUN apk add --no-cache libc6-compat tini
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Stage 2: Toolchain -> the package manager, for the stages that build
-# It sits between base and the build stages so the runner inherits none of it: pnpm is 57 MB of
-# installer no CMD invokes, and CI/PNPM_HOME are build-time answers that have no business in a
-# production process environment.
+# This stage sits between base and the build stages so the runner inherits none of it: pnpm is
+# 57 MB of installer no CMD invokes, and CI/PNPM_HOME are build-time answers that have no business
+# in a production process environment.
 FROM base AS toolchain
 ARG PNPM_VERSION=11.18.0
 
@@ -22,7 +21,6 @@ ENV PATH="$PNPM_HOME:$PATH"
 # pnpm prompts interactively without it, and nothing here can answer.
 ENV CI=true
 
-# Stage 3: Deps -> Isolate dependency resolution
 FROM toolchain AS deps
 WORKDIR /app
 
@@ -33,7 +31,6 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 COPY package.json ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --offline
 
-# Stage 4: Builder -> Compile app
 # FROM deps, never `COPY --from=deps` of node_modules: a second transfer on a cold build, and a
 # second copy in what `mode=max` exports.
 FROM deps AS builder
@@ -50,7 +47,6 @@ COPY . .
 RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
     pnpm run build
 
-# Stage 5: Runner -> Runtime environment
 FROM base AS runner
 WORKDIR /app
 

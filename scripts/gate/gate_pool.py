@@ -26,8 +26,7 @@ from pathlib import Path
 from types import FrameType
 from typing import IO, Final
 
-# Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
-# sibling of it rather than in it.
+# `scripts/lib/` is a sibling of this directory, and a script's sys.path opens with this one.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 from checker_kernel import EXIT_INTERRUPTED, EXIT_OK, run  # noqa: E402 -- the insert above is what resolves it

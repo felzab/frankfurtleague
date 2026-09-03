@@ -1,7 +1,6 @@
 import type { FLAktion, FLAktor } from "./schemas";
 
-// Its own module and not an export of the `"use client"` view: every export of a client module
-// becomes a client reference on the server side.
+// Its own module: every export of a `"use client"` view becomes a client reference.
 export const AKTIONEN_CRUD_COPY = {
   searchLabel: "Protokoll durchsuchen",
   searchPlaceholder: "z.B. name@beispiel.de oder eine Vorgangsnummer",

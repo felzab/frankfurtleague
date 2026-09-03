@@ -43,8 +43,7 @@ SAISON_ID = "2026"
 # that lost its `saison_id` would take with it.
 NEIGHBOUR_SAISON_ID = "2025"
 
-# The neighbour's rows are minted well clear of the subject's, so the two seasons share no `_id`
-# and no club. A neighbour left standing can then only be the filter's doing.
+# Minted well clear of the subject rows, so only the filter can leave a neighbour standing.
 NEIGHBOUR_OID_OFFSET = 100
 
 # Fixed rather than the real day, so the watermark the draw leaves is a value this file chose.
@@ -65,7 +64,7 @@ WIDER_PER_GROUP = 6
 NEWCOMER_OID = ObjectId("6890a1b2c3d4e5f607770001")
 
 # A hand-assigned kickoff the draw never wrote and nothing regenerates, which is what the removal's
-# images are for (`docs/backend/spec.md :: I48`).
+# images are for (`docs/backend/spec.md :: I138` and `:: I48`).
 A_DATE = "2026-05-01"
 A_KICKOFF = "18:00:00"
 
@@ -181,8 +180,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False) -> Any:
     """The SHIPPED validators and unique indexes, so a document MongoDB would refuse in production fails here too.
 
-    `mutates_schema=True` where the body narrows one of those validators: `tests/database.py` then
-    keeps the change off every later test.
+    `mutates_schema=True` where the body narrows one of those validators (`tests/database.py :: a_clean_database`).
     """
 
     seeded = seed or Seed()
@@ -348,7 +346,7 @@ class TestAnUndrawRemovesTheWholeSpielplan:
         assert (undrawn.spieltage, undrawn.spiele) == (0, 0)
 
     def test_the_season_keeps_no_watermark(self, mongo_replica_set_url: str):
-        """Leave the watermark standing and the season reads as drawn while holding nothing, which `docs/backend/spec.md :: I46` prevents."""
+        """Leave the watermark standing and the season reads as drawn while holding nothing, which `docs/backend/spec.md :: I110` prevents."""
 
         undrawn = an_undrawn_season(mongo_replica_set_url)
 
@@ -365,7 +363,7 @@ class TestAnUndrawRemovesTheWholeSpielplan:
 
 
 class TestTheRemovalKeepsEveryImage:
-    """`docs/backend/spec.md :: I48`: a drawn schedule carries hand-assigned dates and kickoff times nothing regenerates."""
+    """`docs/backend/spec.md :: I138`: a drawn schedule carries hand-assigned dates and kickoff times nothing regenerates."""
 
     def test_the_log_records_both_removals_and_the_watermark_as_three_rows(self, mongo_replica_set_url: str):
         """Fixtures before matchdays, the reverse of the draw's write order: no image names a matchday already gone."""

@@ -79,8 +79,7 @@ function statementsOf(slice: string): string[] {
 }
 
 describe("the contacts write against the backend's refusal register", () => {
-  /* First, because a boundary string that stopped matching leaves the slices empty and every
-     assertion over them would then fail for something that is not the defect. */
+  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
   it("cuts each declaration out of its file before reading it", () => {
     assert.ok(PATCH_ACTION.includes("patchSaisonTeamKontakte(validated.data)"), "the write's call is outside its slice");
     assert.ok(!PATCH_ACTION.includes("eraseKontaktperson("), "the write's slice reaches back over the erasure");
@@ -294,9 +293,7 @@ describe("the editor's shape", () => {
     assert.match(satz, /Niemand hinterlegt/, "an empty seat stopped reading as a sentence");
   });
 
-  /* Both halves or neither: a `<Form>` with no `validationErrors` shows a server refusal nowhere,
-     and its `formRef` is what moves focus onto a refused box. An `action` would reset every
-     controlled field (frontend spec I32). */
+  /* Both halves or neither: `validationErrors` shows a server refusal, `formRef` moves focus onto it (frontend spec I32). */
   it("renders the one field-error map through a form the hook can reach", () => {
     assert.match(FORM_SOURCE, /<Form\b/, "the editor renders no form");
     assert.match(FORM_SOURCE, /ref=\{formRef\}/, "the hook cannot reach the form");

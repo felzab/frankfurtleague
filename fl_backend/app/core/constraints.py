@@ -190,8 +190,6 @@ _SAISON_TEAM_KONTAKTE = _object(nullable=True, required=_KONTAKTE_REQUIRED, prop
 
 _BEWERBUNG_KONTAKTE = _object(required=_KONTAKTE_REQUIRED, properties=_KONTAKTE_PROPERTIES)
 
-# The season's application window. Nullable and out of `required` for `saisons.spielplan`'s reason:
-# every stored season predates the field.
 _SAISON_BEWERBUNG = _object(
     nullable=True,
     required=("offen", "von", "bis"),
@@ -266,8 +264,9 @@ _AUSTRITT = _object(
 
 _SPIEL_QUELLE = _object(
     nullable=True,
-    # `type` alone: `oneOf` could require each variant's own keys, but a ratified decision holds these
-    # validators to types, required fields and enums. What stays catchable here is a `platz` stored as "2".
+    # `type` alone: `oneOf` could require each variant's own keys, and these validators hold to types,
+    # required fields and enums (`docs/backend/spec.md :: I16`). What stays catchable here is a
+    # `platz` stored as "2".
     required=("type",),
     properties={
         "type": {"bsonType": "string", "enum": _QUELLE_TYPES},
@@ -373,9 +372,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                         "spiele": {"bsonType": "int"},
                     },
                 ),
-                # Out of `required` as `spielplan` is, and for its reason. Both halves together: a
-                # switch with no span cannot say when the window closes, and a span with no switch
-                # cannot be shut early.
+                # Nullable and out of `required` as `spielplan` is, and for its reason. Both halves
+                # together: a switch with no span cannot say when the window closes, and a span with
+                # no switch cannot be shut early.
                 "bewerbung": _SAISON_BEWERBUNG,
             },
         )
@@ -391,9 +390,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "full_name": {"bsonType": "string"},
                 "website_url": {"bsonType": _STRING_OR_NULL},
                 "address": _ADDRESS,
-                # Out of `required` on purpose: no club stored before the field carries the key, so
-                # demanding it would refuse every one of them until a backfill ran. A missing key
-                # and a stored null both read as a school form nobody has recorded.
+                # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
+                # null both read as a school form nobody has recorded.
                 "schulform": {"bsonType": _STRING_OR_NULL, "enum": [*_SCHULFORMEN, None]},
                 # A retired CLUB, not a club out of one season. `uniq_shorthand` keeps indexing it,
                 # so its two letters stay reserved.
@@ -413,14 +411,12 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "team_id": {"bsonType": "objectId"},
                 "gruppe": {"bsonType": "string", "enum": _GRUPPEN},
                 "austritt": _AUSTRITT,
-                # Both out of `required` for `teams.schulform`'s reason: every row entered before
-                # these existed carries neither key, and a required one would refuse the lot of them
-                # rather than the season's editor simply finding nothing filled in.
+                # Both out of `required` for `saisons.spielplan`'s reason.
                 "trikot_farbe": {"bsonType": _STRING_OR_NULL, "enum": [*_TRIKOT_FARBEN, None]},
                 "kontakte": _SAISON_TEAM_KONTAKTE,
                 # The name this club was PLAYED under, seeded at entry and rewritten by a rename only
-                # while the season is not `past`. A finished season keeps what it was played under,
-                # which is what makes the copy embedded in its fixtures true rather than merely old.
+                # while the season is not `past` (`docs/backend/spec.md :: I13`). What makes the copy
+                # embedded in its fixtures true rather than merely old.
                 "name": {"bsonType": "string"},
                 "shorthand": {"bsonType": "string"},
             },
@@ -458,9 +454,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "saison_id": {"bsonType": "string"},
                 "team_id": {"bsonType": "objectId"},
                 "is_nachgetragen": {"bsonType": "bool"},
-                # Deliberately out of `required`, as `saisons.spielplan` is: every stored row
-                # predates the field, so making the key mandatory would refuse every one of them and
-                # owe a backfill. A missing key and a stored null both read as holding no role.
+                # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
+                # null both read as holding no role.
                 "rolle": {"bsonType": _STRING_OR_NULL, "enum": [*_SPIELER_ROLLEN, None]},
                 "stufe": {"bsonType": _STRING_OR_NULL, "enum": [*_STUFEN, None]},
                 "position": {"bsonType": _STRING_OR_NULL, "enum": [*_POSITIONEN, None]},
@@ -581,16 +576,14 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "saison_id": {"bsonType": "string"},
                 "eingereicht_am": {"bsonType": "string"},
                 "status": {"bsonType": "string", "enum": _BEWERBUNG_STATUS},
-                # The club the applicant PICKED, null where they proposed a new school; acceptance
-                # writes the created club's id back here, so a decided application always names one.
+                # The club the applicant PICKED, null where they proposed a new school.
                 "team_id": {"bsonType": ["objectId", "null"]},
                 "schule": _BEWERBUNG_SCHULE,
                 "kontakte": _BEWERBUNG_KONTAKTE,
                 "trikot": _BEWERBUNG_TRIKOT,
                 "kader": _BEWERBUNG_KADER,
                 # Free text, a school being free to name an opponent that has not applied. Out of
-                # `required` for `saison_teams.trikot_farbe`'s reason: an application stored before
-                # the field carries none, and the triage's `$set` re-runs this over the whole document.
+                # `required` for `saisons.spielplan`'s reason.
                 "wunschgegner": {"bsonType": _STRING_OR_NULL},
                 "entscheidung": _BEWERBUNG_ENTSCHEIDUNG,
             },
@@ -676,11 +669,9 @@ class SupportIndex:
     rule: str
 
 
-# The action log is the one collection that only ever grows, so it is the one whose reads cannot be
-# left to a scan (`app/core/recording.py`).
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # `_id` is in the key because the read SORTS by it: with `at` alone MongoDB cannot walk this
-    # index and scans the whole log instead -- measured, on the one collection that only ever grows
+    # index and scans the whole log instead -- measured, on a collection that only ever grows
     # (`app/api/aktionen/admin_router.py :: get_aktionen`).
     SupportIndex(
         Collection.AKTIONEN,
@@ -1030,11 +1021,7 @@ def failure_message(failure: OperationFailure) -> str:
 
 
 def classify_failure(failure: OperationFailure) -> str:
-    """`"authentication"`, `"authorization"` or `"other"`, read from the MESSAGE.
-
-    On Atlas both refusals arrive as `AtlasError` 8000, so a code-only rule reports a missing
-    `collMod` grant as a rejected password.
-    """
+    """`"authentication"`, `"authorization"` or `"other"`, read from the MESSAGE."""
     message = failure_message(failure).lower()
 
     # Checked first: an Atlas authorization message can mention "auth" in the namespace it names.

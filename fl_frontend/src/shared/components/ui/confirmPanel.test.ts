@@ -119,7 +119,7 @@ describe("the armed reveal", () => {
   });
 
   /* One gap for every panel on the roster. A prop here would be a variant prop under another name, which
-     `docs/frontend/spec.md :: I37` refuses for exactly this shape. */
+     `docs/frontend/spec.md :: I67` refuses for exactly this shape. */
   it("takes no variant of any kind", () => {
     assert.match(REVEAL, /flex flex-col gap-4/);
     assert.doesNotMatch(REVEAL, /\bvariant\b|\bgap\?:|\btone\b/, "the shell grew a knob");

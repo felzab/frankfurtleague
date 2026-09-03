@@ -207,7 +207,7 @@ def test_a_request_body_refuses_a_key_no_model_declares(label: str, model: type[
 def test_a_model_is_strict_exactly_where_no_read_parses_it(label: str, model: type[BaseModel]):
     """The whole taxonomy as ONE equivalence, rather than two lists somebody has to keep in step.
 
-    Where the line falls, and why a read may not refuse, is `docs/backend/spec.md :: I49`.
+    Where the line falls, and why a read may not refuse, is `docs/backend/spec.md :: I114`.
     """
 
     shared = _a_read_parses_it(model)
@@ -259,7 +259,7 @@ class TestTheStrictHalf:
 class TestTheLaxHalf:
     """One stored document per block a read shares with a payload, each carrying a key no model declares.
 
-    Lax by decision rather than by omission (`docs/backend/spec.md :: I49`).
+    Lax by decision rather than by omission (`docs/backend/spec.md :: I114`).
     """
 
     def test_every_field_of_a_lax_block_is_required(self):

@@ -60,8 +60,8 @@ export const FLSaisonRulesSchema = z.object({
     .int({ error: "Bitte gib die Zahl der Teams pro Gruppe ein." })
     .min(2, { error: "Eine Gruppe braucht mindestens 2 Teams, sonst entsteht kein Spiel." })
     .max(16, { error: "Eine Gruppe fasst höchstens 16 Teams." }),
-  // German because the season editor binds this schema to its picker. Frozen once the season is
-  // `past`: the table is ordered from the rules on every read, so a later change rewrites a record.
+  // Frozen once the season is `past`: the table is ordered from the rules on every read, so a later
+  // change rewrites a record.
   tiebreak_order: z.enum(["tordifferenz", "direkter_vergleich"], { error: "Bitte wähle einen Tiebreak aus." }),
   // Enforced at the squad write rather than here: this bounds a season, not this payload.
   max_kadergroesse: z.int({ error: "Bitte gib die maximale Kadergröße ein." }).positive({ error: "Ein Kader fasst mindestens 1 Spieler." }),
@@ -142,7 +142,7 @@ export const FLSaisonsSingleResponseSchema = BaseAPIResponseSchema.extend({
 export type FLSaisonsSingleResponse = z.infer<typeof FLSaisonsSingleResponseSchema>;
 
 /**
- * The two rules a CREATE judges alone. A patch judges none of the family: each one turns on the step
+ * The rules a CREATE judges alone. A patch judges none of the family: each one turns on the step
  * from the stored rules, which the payload does not carry (`docs/backend/spec.md :: I44`), so the
  * server's 409 is what names them.
  */
@@ -165,7 +165,6 @@ const hasPlayableBracket = (rules: { number_of_groups: number; qualifiers_per_gr
   return qualifiers >= 2 && qualifiers <= MAX_QUALIFIERS && isPowerOfTwo(qualifiers);
 };
 
-// The message names `end_date`, the field to fix: react-aria renders it under the input its path names.
 const endsAfterItStarts = {
   error: "Das Enddatum darf nicht vor dem Startdatum liegen.",
   path: ["end_date"],

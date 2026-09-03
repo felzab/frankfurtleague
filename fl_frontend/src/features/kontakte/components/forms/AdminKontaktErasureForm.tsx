@@ -124,9 +124,7 @@ export function AdminKontaktErasureForm() {
       {/* `runOnSubmit` rather than an `action`, which React resets on every submit, turning each
           controlled field's reset into an `onChange` (frontend spec I32). */}
       <Form
-        // Missing belongs to the submit, not to a blur: `native` commits on every DOM `change`, painting
-        // the browser's required message the moment an edited field is cleared. `aria` keeps
-        // `aria-required` and leaves every message to `useDraftFieldErrors`.
+        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
         validationBehavior="aria"
         ref={formRef}
         validationErrors={fieldErrors}

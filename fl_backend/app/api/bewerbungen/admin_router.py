@@ -162,7 +162,7 @@ async def annehmen_bewerbung(
                 # The three people arrive WITH the season's row rather than being typed in after it:
                 # they are what the application was, and `/admin/kontakte` reads them from here.
                 "kontakte": bewerbung_raw["kontakte"],
-                # Copied rather than joined on read (`docs/backend/spec.md :: I11`).
+                # Copied rather than joined on read (`docs/backend/spec.md :: I95`).
                 "name": name,
                 "shorthand": shorthand,
             },

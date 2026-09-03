@@ -229,8 +229,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 def on_a_database(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     """A replica set, not the standalone: every endpoint here writes in a transaction, and seeding runs outside it.
 
-    `mutates_schema=True` where the body attaches a validator: `tests/database.py` then keeps the
-    change off every later test.
+    `mutates_schema=True` where the body attaches a validator (`tests/database.py :: a_clean_database`).
     """
 
     async def _run() -> Any:

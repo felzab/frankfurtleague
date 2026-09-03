@@ -1,11 +1,22 @@
-# Final report
+# Final report template
 
-**Shape:** [`programme.md`](programme.md) §1.5. Copy the page below to
-`docs/audit/<yyyy-mm>-<surface>.md` and delete this heading and this line.
+**Purpose:** the shape of the permanent account a finished audit programme leaves behind. Copy the
+page below to `docs/audit/<yyyy-mm>-<surface>.md` at `/audit:finish`, then delete this heading and
+everything above the rule.
+
+**Nothing checks the page this form produces.** `docs/audit/` is gitignored and
+`scripts/checks/docs_gate/kernel.py :: SKIP_DIRS` keeps it out of the corpus the documentation gate
+reads, so a section dropped from the copy is a section nobody reports. Two consequences follow from
+the same absence of git: the produced page writes its measurements out with the moment each was
+taken, because there is no commit to carry a date and an undated figure there cannot be placed
+again; and everything the programme still owes leaves `docs/audit/programme/` before that folder is
+deleted ([`programme.md`](programme.md)), because nothing recovers it afterwards.
+
+---
 
 # \<Surface\> audit and remediation — final report
 
-**Programme:** \<yyyy-mm-dd\> → \<yyyy-mm-dd\> · **Method:** [`docs/_auditing/`](../README.md)\
+**Programme:** \<yyyy-mm-dd\> → \<yyyy-mm-dd\> · **Method:** `docs/_auditing/README.md`\
 **Scope:** \<what was audited: the directories, the file count with the date it was counted, and the
 installed stack versions at audit time\>\
 **Outcome in one line:** \<findings, waves, pull requests, and the verdict in one sentence\>
@@ -60,14 +71,14 @@ out.\>
 
 ## 4. Decisions ratified
 
-\<One table: the decisions this programme settled into the CLAUDE.md ratified-decisions index and
-into the governing spec sheet's invariants, each with a one-line description and where it is
-recorded.\>
+\<One table: the decisions this programme settled into `.claude/CLAUDE.md` §7 or a `.claude/rules/`
+file, and into the governing spec sheet's invariants, each with a one-line description and where it
+is recorded.\>
 
 ## 5. Where the audit was wrong
 
 \<How many findings inverted, evaporated, or carried fixes that would not have worked, with
-representative examples and what now covers the gap. Point at `docs/_auditing/lessons.md` for the
+representative examples and what now covers the gap. Point at [`lessons.md`](lessons.md) for the
 transferable catalogue rather than repeating it.\>
 
 ## 6. The complete record of minor changes
@@ -81,10 +92,11 @@ reader greps.\>
 
 \<Everything that survived the programme: open items with their analysis and their triggers ·
 accepted deviations with the recorded reasoning · anything that could not be verified, with the
-reason. **Each entry names where it is now tracked.**\>
+reason. **Each entry names where it is now tracked**, because this page is the last thing written
+before `docs/audit/programme/` is deleted.\>
 
 ## 8. Verification state at close
 
-\<The final gate run, with its actual output shape and exit code · what is enforced continuously
-(lint rules at `error`, test suites, CI) · the manual checks a human performed · and plainly, what
-was never verified and why.\>
+\<The final gate run, with its closing line quoted and its real exit code · what is enforced
+continuously (lint rules at `error`, test suites, CI) · the manual checks a human performed · and
+plainly, what was never verified and why.\>

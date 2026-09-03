@@ -130,12 +130,7 @@ class FLBewerbung(BaseModel):
     kader: FLBewerbungKader
     # A FREE STRING, never a club reference: the school may name an applicant the league has not
     # accepted yet, and a picker over the accepted ones would give a LATER applicant the longer list.
-
-    # Beside `trikot` and `kader` rather than inside either: it is a fact about the fixture this
-    # school wants, and neither the kit it owns nor its own estimate of its squad.
-
-    # Defaulted for `app/api/teams/schemas.py :: FLTeam`'s reason: an application stored before the
-    # field carries no key, and a model that 422s over one describes a stored document as impossible.
+    # Defaulted for `app/api/teams/schemas.py :: FLTeam`'s reason.
     wunschgegner: str | None = None
     entscheidung: FLBewerbungEntscheidung | None
 
@@ -402,9 +397,9 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
     # Stripped before either floor counts it: `team_name` and `shorthand` reach a league table row.
     # The ceilings are here and not on the read model, which the triage reads a stored one through.
 
-    # `SINGLE_LINE_PATTERN` carries the class and the reason for it. CR and LF earn a second one
-    # here: the decision mail renders these two as `label: value` rows, so a name holding either
-    # forges a line the reader cannot tell from a stated fact.
+    # `SINGLE_LINE_PATTERN` earns a second reason on these two: the decision mail renders them as
+    # `label: value` rows, so a name holding a CR or an LF forges a line the reader cannot tell from
+    # a stated fact.
     team_name: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)
     ]
@@ -412,7 +407,7 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_FULL_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)
     ]
     shorthand: Annotated[str, StringConstraints(strip_whitespace=True, min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)]
-    # Required and NON-NULL here alone: the form offers the six real Schulformen and no "keine
+    # Required and NON-NULL here alone: the form offers the real Schulformen and no "keine
     # Angabe". The stored field stays nullable, for `app/core/constraints.py :: teams.schulform`'s reason.
     schulform: FLSchulform
     address: FLBewerbungAddressPayload
@@ -446,8 +441,8 @@ class FLBewerbungTrikotPayload(FLBewerbungTrikot):
 class FLBewerbungKaderPayload(FLBewerbungKader):
     model_config = ConfigDict(extra="forbid")
 
-    # `default=` is not passed at all -- both are required and neither is nullable. `ge=1` because a
-    # squad of nobody enters no season; `gute_spieler` counts a subset of it, so zero is its floor.
+    # `ge=1` because a squad of nobody enters no season; `gute_spieler` counts a subset of it, so
+    # zero is its floor.
 
     # The CEILING keeps an int32 validator from answering 500 where this endpoint promises 422.
     voraussichtliche_groesse: int = Field(ge=1, le=BEWERBUNG_KADER_GROESSE_MAX)
@@ -478,9 +473,8 @@ class FLPostBewerbungPayload(BaseModel):
 
     # Stripped before the width is counted, for `CustomStrippedNonEmptyString`'s reason.
     saison_id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)]
-    # The club picked off the autocomplete, null where the applicant proposed a new school. Exactly
-    # one of this and `schule` carries a value, which `REQ-BEWERBUNG-005` holds: types cannot state
-    # it (`docs/backend/spec.md :: I16`).
+    # The club picked off the autocomplete, null where the applicant proposed a new school;
+    # `REQ-BEWERBUNG-005` holds exactly one of this and `schule` filled in.
     team_id: CustomObjectId | None
     schule: FLBewerbungSchulePayload | None
     kontakte: FLBewerbungKontaktePayload
@@ -494,7 +488,7 @@ class FLPostBewerbungPayload(BaseModel):
     # silent null, so a frontend regression that stops sending this ships green -- where every
     # sibling's omission is a 422.
 
-    # `SINGLE_LINE_PATTERN` carries the class and its reason. CR and LF earn a second one here:
+    # `SINGLE_LINE_PATTERN` earns a second reason here:
     # `fl_frontend/src/core/bewerbungEmail.ts :: wunschgegnerSatz` sets this inside a sentence, and a
     # break there still opens a line in a line-oriented text body.
 
@@ -542,7 +536,7 @@ class FLBewerbungSchulenResponse(BaseAPIResponse):
 
 
 class FLBewerbungKuerzelResponse(BaseAPIResponse):
-    """Whether a proposed Kürzel is already a club's. ONE neutral answer.
+    """Whether a proposed Kürzel is already a club's.
 
     It names no club and does not tell an active one from a retired one: the uniqueness it mirrors
     spans both, and a shape distinguishing them would publish which schools have left.

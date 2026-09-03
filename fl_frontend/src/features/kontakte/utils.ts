@@ -163,9 +163,9 @@ export function resolveTeamSaisonMembership(
 }
 
 /**
- * Why the pre-save block cannot go back through the write, or `null` where it can. Backend I36
- * (`docs/backend/spec.md`) admits a malformed address on READ so a bad row stays repairable; that
- * same row is no legal write, and no reload makes it one.
+ * The alphabet, email and telephone bounds sit on the payload and not the read model, decided at
+ * each field (`docs/backend/spec.md :: I104`), so a stored block can be no legal write — and no
+ * reload makes it one.
  */
 export function describeUnrestorableKontakte(payload: SaisonTeamKontaktePayloadDraft): string | null {
   const parsed = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(payload);

@@ -170,8 +170,6 @@ export function BewerbungAngabenPanel({ bewerbung, teamName }: { bewerbung: FLBe
           <Angabe label="Wunschgegner">{wunschgegner === null || wunschgegner.trim() === "" ? <Leer /> : wunschgegner}</Angabe>
         </dl>
 
-        {/* The wish is not the assignment, and the estimate is not a squad: both are what the school
-            expected, and nothing checks either against what it fields. */}
         <p className="muted-hint">
           Die Wunschfarbe ist ein Wunsch. Die Trikotfarbe des Teams legst Du bei der Zusage fest, und die Kaderzahlen sind die Schätzung der
           Schule. Der Wunschgegner ist frei eingetragen und muss keine Schule sein, die die Liga führt.
@@ -183,8 +181,8 @@ export function BewerbungAngabenPanel({ bewerbung, teamName }: { bewerbung: FLBe
           <dl className={ANGABEN_GRID}>
             <Angabe label="Getroffen am">{formatSpielDatum(entscheidung.getroffen_am)}</Angabe>
             <Angabe label="Von">{entscheidung.von === "" ? "System" : entscheidung.von}</Angabe>
-            {/* Null on an acceptance: what an acceptance did is the club and the season entry it
-                wrote, and a reason field filled in with „angenommen“ would be a weaker record of it. */}
+            {/* Absent on an acceptance rather than filled in with „angenommen“: what an acceptance
+                did is the club and the season entry it wrote. */}
             {entscheidung.grund !== null && <Angabe label="Grund">{entscheidung.grund}</Angabe>}
           </dl>
         </Panel>

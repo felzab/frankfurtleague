@@ -70,7 +70,7 @@ class FLAktion(BaseModel):
         """Whether the row secured an image, computed from the stored `before` this model drops.
 
         Presence-aware, so a dropped field cannot read as a stored null
-        (`docs/backend/spec.md :: I48`).
+        (`docs/backend/spec.md :: I107`).
         """
 
         if isinstance(data, Mapping) and "stand_gesichert" not in data:

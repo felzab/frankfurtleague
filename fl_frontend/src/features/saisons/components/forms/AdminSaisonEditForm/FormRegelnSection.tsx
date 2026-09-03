@@ -81,8 +81,8 @@ export function FormRegelnSection({
       </div>
 
       <div className={panel.body()}>
-        {/* One group and not two: all four answer what a single fixture is worth, and the forfeit
-            result is that same question asked of a fixture nobody played. */}
+        {/* One group and not two: every number here answers what a single fixture is worth, and the
+            forfeit result is that same question asked of a fixture nobody played. */}
         {/* The panel body's own between-group step, so the one break inside this group is not its smallest gap. */}
         <div className="flex w-full flex-col gap-y-5">
           <div className="flex w-full flex-col gap-y-3">
@@ -174,13 +174,15 @@ export function FormRegelnSection({
 
         <div className="flex w-full flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING}>Aufbau der Saison</h3>
+          {/* Bounds mirrored from `fl_frontend/src/features/saisons/schemas.ts :: FLSaisonRulesSchema`,
+              which says why each one is where it is: a stepper offering a number the submit refuses
+              is one that wasted the trip. */}
           <div className={FIELD_TRIO}>
             <SaisonRuleNumberField
               name="rules.number_of_groups"
               isReadOnly={isDrawnSaison}
               label={<FieldLabel path="rules.number_of_groups">Gruppen</FieldLabel>}
               minValue={1}
-              // The closed set is A to D and this picks a prefix, so 4 is a ceiling rather than a policy.
               maxValue={4}
               value={rules.number_of_groups}
               onChange={(number_of_groups) => onRulesChange({ ...rules, number_of_groups })}
@@ -190,8 +192,6 @@ export function FormRegelnSection({
               name="rules.teams_per_group"
               isReadOnly={isDrawnSaison}
               label={<FieldLabel path="rules.teams_per_group">Teams pro Gruppe</FieldLabel>}
-              // Below 2 a group generates no fixture; above 16 a season-scoped read is truncated and
-              // the refusals over it cannot be trusted.
               minValue={2}
               maxValue={16}
               value={rules.teams_per_group}
