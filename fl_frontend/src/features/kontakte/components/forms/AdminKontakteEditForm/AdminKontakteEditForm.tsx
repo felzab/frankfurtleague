@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Form } from "@heroui/react";
@@ -19,6 +19,7 @@ import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
+import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 import { offerUndo } from "@/shared/utils/undoDispatch";
@@ -85,22 +86,7 @@ export function AdminKontakteEditForm({
 
   useUnsavedChangesWarning(isDirty);
 
-  // Ctrl+S / Cmd+S submits, gated on the same conditions as the Speichern button.
-  const canSubmitRef = useRef(true);
-  useEffect(() => {
-    canSubmitRef.current = !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty;
-  });
-  useEffect(() => {
-    const handleSaveShortcut = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        if (canSubmitRef.current) formRef.current?.requestSubmit();
-      }
-    };
-
-    window.addEventListener("keydown", handleSaveShortcut);
-    return () => window.removeEventListener("keydown", handleSaveShortcut);
-  }, [formRef]);
+  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
   useForgiveFixed({ kontakte: buildPayload() });

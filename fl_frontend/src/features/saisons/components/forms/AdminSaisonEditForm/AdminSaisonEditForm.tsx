@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { parseDate } from "@internationalized/date";
@@ -21,6 +21,7 @@ import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
+import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 import { guardAgainstDraft } from "@/shared/utils/draftGuard";
@@ -136,22 +137,7 @@ export function AdminSaisonEditForm({
 
   useUnsavedChangesWarning(isDirty);
 
-  // Ctrl+S / Cmd+S submits, gated on the same conditions as the Speichern button.
-  const canSubmitRef = useRef(true);
-  useEffect(() => {
-    canSubmitRef.current = !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty;
-  });
-  useEffect(() => {
-    const handleSaveShortcut = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        if (canSubmitRef.current) formRef.current?.requestSubmit();
-      }
-    };
-
-    window.addEventListener("keydown", handleSaveShortcut);
-    return () => window.removeEventListener("keydown", handleSaveShortcut);
-  }, [formRef]);
+  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
   useForgiveFixed({ saison: buildPayload() });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { parseDate, parseTime } from "@internationalized/date";
@@ -16,6 +16,7 @@ import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
+import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
@@ -199,23 +200,7 @@ export function AdminEditSpielDataForm({
 
   useUnsavedChangesWarning(isDirty);
 
-  // Ctrl+S submits, intercepted so the browser's save-page dialog cannot open over the form.
-  // `requestSubmit` and the button's own `isDirty`: two routes to one submit must agree.
-  const canSubmitRef = useRef(true);
-  useEffect(() => {
-    canSubmitRef.current = !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty;
-  });
-  useEffect(() => {
-    const handleSaveShortcut = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        if (canSubmitRef.current) formRef.current?.requestSubmit();
-      }
-    };
-
-    window.addEventListener("keydown", handleSaveShortcut);
-    return () => window.removeEventListener("keydown", handleSaveShortcut);
-  }, [formRef]);
+  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   // Read off the STORED sides: what is already wired is what a save resolves. The groups come from
   // the clubs, a fixture document carrying none.
