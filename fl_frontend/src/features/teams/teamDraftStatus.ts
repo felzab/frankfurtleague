@@ -30,7 +30,7 @@ export type FLTeamDraftFields = {
   } | null;
 };
 
-export type FLTeamFieldGroup = "Team" | "Adresse" | "Saison";
+type FLTeamFieldGroup = "Team" | "Adresse" | "Saison";
 
 export type FLTeamDraftStatus = FLDraftStatus<FLTeamFieldGroup>;
 

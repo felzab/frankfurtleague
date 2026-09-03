@@ -6,8 +6,8 @@ import { Calendar, Pencil, Persons } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
+import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -41,11 +41,12 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
 
   // `h-7` on the status badge and the id chip beside it: each sizes itself by its own padding, so one
   // fixed height at both call sites is what keeps them level.
-  const renderStatusBadge = (saison: AdminSaisonRow) => {
-    if (saison.status === "active") return <span className={`${LABEL_BADGE} bg-success/15 text-success-strong h-7 px-2`}>Laufend</span>;
-    if (saison.status === "future") return <span className={`${LABEL_BADGE} bg-info/15 text-info-strong h-7 px-2`}>Geplant</span>;
-    return <span className={`${LABEL_BADGE} bg-muted text-foreground-muted h-7 px-2`}>Abgeschlossen</span>;
-  };
+  const renderStatusBadge = (saison: AdminSaisonRow) => (
+    <SaisonBadge
+      status={saison.status}
+      className="h-7 px-2"
+    />
+  );
 
   /**
    * The span as two dates around a bis-Strich. `tabular-nums` keeps the digits in columns, so two

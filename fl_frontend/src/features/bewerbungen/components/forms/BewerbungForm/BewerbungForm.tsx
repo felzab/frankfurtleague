@@ -20,6 +20,7 @@ import {
 import { formButton } from "@/shared/components/ui/formButtons";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -237,7 +238,11 @@ export function BewerbungForm({
 
       if (!antwort.success) {
         setSubmitFieldErrors(antwort.fieldErrors ?? {}, { bewerbung: payload });
-        appToast.danger("Bewerbung nicht abgeschickt", { description: antwort.error ?? NICHT_ABGESCHICKT });
+
+        // A field-level rejection already speaks at the field; the toast is for a failure belonging to none.
+        if (!hasFieldErrors(antwort.fieldErrors)) {
+          appToast.danger("Bewerbung nicht abgeschickt", { description: antwort.error ?? NICHT_ABGESCHICKT });
+        }
         return;
       }
 

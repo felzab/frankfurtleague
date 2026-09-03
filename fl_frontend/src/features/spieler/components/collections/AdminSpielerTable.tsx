@@ -15,6 +15,7 @@ import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/Ad
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -77,9 +78,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   // One source for both layouts, so the table and the phone cards cannot disagree about a row's state.
   const renderStatusBadges = (spieler: AdminSpielerRow) => (
     <div className="flex flex-wrap items-center gap-1.5">
-      {spieler.inactive_since !== null && (
-        <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(spieler.inactive_since)}</span>
-      )}
+      {spieler.inactive_since !== null && <RetiredBadge since={spieler.inactive_since} />}
       {spieler.selected === null && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Nicht im Kader</span>}
       {spieler.selected?.inactive_since != null && (
         <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong`}>

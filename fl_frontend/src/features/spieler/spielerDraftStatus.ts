@@ -24,7 +24,7 @@ export type FLSpielerDraftFields = {
   } | null;
 };
 
-export type FLSpielerFieldGroup = "Person" | "Kader";
+type FLSpielerFieldGroup = "Person" | "Kader";
 
 export type FLSpielerDraftStatus = FLDraftStatus<FLSpielerFieldGroup>;
 

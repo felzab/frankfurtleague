@@ -53,7 +53,13 @@ function refusalArm(code: string): string {
  * a concatenation, so the seam falls wherever the line ran out and lands mid-phrase often enough.
  */
 function refusalMessage(code: string): string {
-  return [...refusalArm(code).matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((match) => match[1]).join("");
+  const message = [...refusalArm(code).matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((match) => match[1]).join("");
+
+  // Thrown rather than answered as "": a `doesNotMatch` below passes over an empty message while the
+  // German it is about is unwritten.
+  if (message === "") throw new Error(`the mapper spells no message for ${code}`);
+
+  return message;
 }
 
 /** The moved-span warning's body, which states the rule BEFORE a save rather than after one. */
@@ -81,14 +87,25 @@ describe("the Spieltag refusals against the backend's register", () => {
     assert.match(orderingCode(), /^REQ-DATE-\d{3}$/);
   });
 
+  /* Hoisted rather than spelled per row: a row keeping its own copy would reach the admin twice in
+     the toast the route joins the two into. */
+  it("adds the outcome sentence once, outside the rows", () => {
+    assert.ok(
+      UNDO_ROUTE.includes('const CHANGE_STANDS = "Die Änderung steht weiterhin.";'),
+      "the replay no longer tells the admin what became of the change",
+    );
+    assert.ok(UNDO_ROUTE.includes("`${refusal} ${CHANGE_STANDS}`"), "a refused replay answers the cause with no outcome beside it");
+  });
+
   for (const code of PATCH_CODES) {
     it(`${code} reaches the admin in German on both write paths`, () => {
-      assert.notEqual(refusalArm(code), "", `${code} falls through to the generic conflict message when the edit is saved`);
-      assert.notEqual(replayRow(code), "", `${code} falls through to the generic conflict message when the edit is undone`);
+      const row = replayRow(code);
 
-      // A replay that fails restores nothing, so a message stopping short of this reads as though
-      // the matchday were now in neither state.
-      assert.ok(replayRow(code).endsWith("Die Änderung steht weiterhin."), `${code}'s undo message leaves the outcome unstated`);
+      assert.notEqual(refusalArm(code), "", `${code} falls through to the generic conflict message when the edit is saved`);
+      assert.notEqual(row, "", `${code} falls through to the generic conflict message when the edit is undone`);
+      // The route joins the row to the outcome with a space, so a row without its own stop runs the two sentences together.
+      assert.ok(row.endsWith("."), `${code}'s replay row does not close its sentence`);
+      assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
     });
   }
 });

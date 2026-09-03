@@ -20,6 +20,7 @@ import {
 } from "./schemas";
 import { describeReplacementUmfang } from "./utils";
 
+import type { ActionResult } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLDeleteTeamPayload,
@@ -116,7 +117,7 @@ export async function postTeamAction(
   // The DRAFT shape: an untouched picker submits `gruppe: null`, and the schema below is what turns
   // that into a field error rather than a type error.
   rawPayload: TeamCreateDraft,
-): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ created_id?: string }>> {
   return runAdminMutation("postTeamAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -165,24 +166,22 @@ export async function postTeamAction(
     invalidateSeasonScoped("teams", saison_id);
 
     return {
-      success: Boolean(postOperation.acknowledged),
+      success: true,
       created_id: postOperation.created_id,
       message: "Team angelegt",
     };
   });
 }
 
-export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<{
-  success: boolean;
-  updated_document?: FLTeamRecord;
-  // Both counts, because both halves of the fan-out fail silently and each answers a different
-  // question — one about the seasons a club is entered in, the other about the matches it stands on.
-  fanned_out_to_spiele?: number;
-  fanned_out_to_saison_teams?: number;
-  message?: string;
-  error?: string;
-  fieldErrors?: FieldErrors;
-}> {
+export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<
+  ActionResult<{
+    updated_document?: FLTeamRecord;
+    // Both counts, because both halves of the fan-out fail silently and each answers a different
+    // question — one about the seasons a club is entered in, the other about the matches it stands on.
+    fanned_out_to_spiele?: number;
+    fanned_out_to_saison_teams?: number;
+  }>
+> {
   return runAdminMutation("patchTeamAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -215,7 +214,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<{
     updateTag("spiele");
 
     return {
-      success: Boolean(patchOperation.acknowledged),
+      success: true,
       updated_document: patchOperation.updated_document,
       fanned_out_to_spiele: patchOperation.fanned_out_to_spiele,
       fanned_out_to_saison_teams: patchOperation.fanned_out_to_saison_teams,
@@ -224,9 +223,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<{
   });
 }
 
-export async function deleteTeamAction(
-  rawPayload: FLDeleteTeamPayload,
-): Promise<{ success: boolean; updated_document?: FLTeamRecord; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise<ActionResult<{ updated_document?: FLTeamRecord }>> {
   return runAdminMutation("deleteTeamAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -261,16 +258,14 @@ export async function deleteTeamAction(
     updateTag("teams");
 
     return {
-      success: Boolean(deleteOperation.acknowledged),
+      success: true,
       updated_document: deleteOperation.updated_document,
       message: "Team stillgelegt. Seine Spiele und Saisons bleiben erhalten.",
     };
   });
 }
 
-export async function reactivateTeamAction(
-  rawPayload: FLReactivateTeamPayload,
-): Promise<{ success: boolean; updated_document?: FLTeamRecord; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+export async function reactivateTeamAction(rawPayload: FLReactivateTeamPayload): Promise<ActionResult<{ updated_document?: FLTeamRecord }>> {
   return runAdminMutation("reactivateTeamAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -290,7 +285,7 @@ export async function reactivateTeamAction(
     updateTag("teams");
 
     return {
-      success: Boolean(reactivateOperation.acknowledged),
+      success: true,
       updated_document: reactivateOperation.updated_document,
       message: "Team reaktiviert",
     };
@@ -300,7 +295,7 @@ export async function reactivateTeamAction(
 export async function postSaisonTeamAction(
   // Draft-shaped for the same reason as the create: an untouched group picker submits null.
   rawPayload: SaisonTeamEnterDraft,
-): Promise<{ success: boolean; saison_team?: FLSaisonTeamResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ saison_team?: FLSaisonTeamResponse }>> {
   return runAdminMutation("postSaisonTeamAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -342,7 +337,7 @@ export async function postSaisonTeamAction(
 
 export async function patchSaisonTeamAction(
   rawPayload: SaisonTeamMembershipDraft,
-): Promise<{ success: boolean; saison_team?: FLSaisonTeamResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ saison_team?: FLSaisonTeamResponse }>> {
   return runAdminMutation("patchSaisonTeamAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -387,7 +382,7 @@ export async function patchSaisonTeamAction(
  */
 export async function replaceSaisonTeamAction(
   rawPayload: FLReplaceSaisonTeamPayload,
-): Promise<{ success: boolean; replacement?: FLReplaceSaisonTeamResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ replacement?: FLReplaceSaisonTeamResponse }>> {
   return runAdminMutation("replaceSaisonTeamAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };

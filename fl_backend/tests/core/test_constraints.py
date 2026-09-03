@@ -1,9 +1,10 @@
 import asyncio
 from functools import partial
-from typing import Any, Mapping, get_args
+from typing import Annotated, Any, Literal, Mapping, Union, get_args, get_origin
 
 import pytest
-from pydantic import BaseModel
+from bson import ObjectId
+from pydantic import BaseModel, EmailStr
 from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
@@ -398,6 +399,98 @@ def test_every_required_field_is_required_on_its_model(
             f"{where}.{key} is required by the validator and optional on {optional_on}. "
             f"A positional `Field(0, ge=0)` is a default to Pydantic while Pyright still reads the field as required. "
             f"Drop it, or drop {key!r} from `required` in app/core/constraints.py in the same commit."
+        )
+
+
+# What a stored value of each annotation IS, which `model_json_schema()` cannot answer: it types a
+# `CustomObjectId` as a string, and objectId-versus-string is the distinction the validators exist for.
+BSON_TYPES: Mapping[Any, str] = {
+    ObjectId: "objectId",
+    bool: "bool",
+    # Bounded by what fits int32: `bson` encodes a larger int as int64, which stores as `long`. A
+    # field that needs one is annotated for it and takes its own row, rather than widening this one.
+    int: "int",
+    str: "string",
+    # A marker class rather than an alias of `str`, so no other row here answers it.
+    EmailStr: "string",
+    type(None): "null",
+}
+
+# (collection, path, field) -> what a row may STORE, where the read model deliberately narrows it:
+# `app/api/aktionen/schemas.py :: FLAktion._as_text` flattens the stored shapes to text, mapping a
+# removal's id array to null.
+STORED_WIDER_THAN_THE_MODEL: Mapping[tuple[Collection, tuple[str, ...], str], frozenset[str]] = {
+    (Collection.AKTIONEN, (), "document_id"): frozenset({"objectId", "string", "array", "null"}),
+}
+
+
+def bson_types(annotation: Any) -> set[str]:
+    """Every bsonType a value of this annotation stores as, a `None` member counted as one.
+
+    Raises on an annotation `BSON_TYPES` does not place: an unmapped spelling is a decision to
+    take, and a wrong guess shows up nowhere.
+    """
+    while get_origin(annotation) is Annotated:
+        annotation = get_args(annotation)[0]
+
+    origin = get_origin(annotation)
+
+    if origin is Union:
+        return set[str]().union(*(bson_types(member) for member in get_args(annotation)))
+
+    if origin is Literal:
+        return set[str]().union(*(bson_types(type(member)) for member in get_args(annotation)))
+
+    if origin is list:
+        return {"array"}
+
+    if origin is dict:
+        return {"object"}
+
+    if annotation in BSON_TYPES:
+        return {BSON_TYPES[annotation]}
+
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return {"object"}
+
+    raise AssertionError(f"{annotation!r} has no bsonType in BSON_TYPES, so no field annotated with it can be compared")
+
+
+@pytest.mark.parametrize(("collection", "path", "model", "not_stored"), MIRRORED_MODELS)
+def test_every_mirrored_field_declares_the_bson_type_of_its_annotation(
+    collection: Collection,
+    path: tuple[str, ...],
+    model: type[BaseModel] | tuple[type[BaseModel], ...],
+    not_stored: frozenset[str],
+):
+    """A wrong bsonType is invisible everywhere else.
+
+    Every mirrored row, which is not every declaration: `saison_teams` has no row model, so its own
+    `_id` and `team_id` are declared by the validator and compared here by nothing.
+    """
+
+    properties = properties_at(collection, path)
+    where = ".".join((collection, *path))
+    names = " | ".join(m.__name__ for m in (model if isinstance(model, tuple) else (model,)))
+
+    for key, declaring in stored_fields(model).items():
+        if key in not_stored:
+            continue
+
+        expected = set[str]().union(*(bson_types(field.annotation) for _, field in declaring))
+        spelled = properties.get(key, {}).get("bsonType")
+        declared = {spelled} if isinstance(spelled, str) else set(spelled or ())
+
+        stored = STORED_WIDER_THAN_THE_MODEL.get((collection, path, key))
+        if stored is not None:
+            assert declared == set(stored), f"{where}.{key} declares {sorted(declared)}, and the shape recorded for it is {sorted(stored)}"
+            assert expected <= declared, f"{where}.{key} annotates {sorted(expected)} on {names}, which {sorted(stored)} does not hold"
+            continue
+
+        assert declared == expected, (
+            f"{where}.{key} has drifted from {names}. "
+            f"Only on the model: {sorted(expected - declared)}. Only in the validator: {sorted(declared - expected)}. "
+            f"Update app/core/constraints.py in the same commit as the model."
         )
 
 

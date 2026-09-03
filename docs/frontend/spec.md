@@ -176,10 +176,11 @@ the replay, and nothing else. **Both answer 200 with the outcome in the body for
 case**, a non-2xx landing in the dispatch's rejection arm, which blames the transport and sends the
 admin to check a connection that is fine.
 
-**The matchday undo is the one that can be refused on the way back**, and it answers in German: it
-meets the rules the save met, so a span another tab has since narrowed comes back as a refusal, and
-the toast reports the change as still standing — which is correct. The contacts undo reaches
-`revalidateTag` not at all — the one place the eight differ (I14).
+**Five of the eight undo replays can be refused on the way back**, and each answers in German out of
+its own route's `REPLAY_REFUSALS`: the replay meets the rules the save met, so a span another tab has
+since narrowed comes back from the matchday's as a refusal, and the toast reports the change as still
+standing — which is correct. The contacts undo reaches `revalidateTag` not at all — the one place the
+eight differ (I14).
 
 **Where a page-owned editor's write has no undo, the absence is never an omission.** The rollover
 confirms in place: there is nothing for an undo to call (`REQ-ACTIVATE-002`, and no endpoint
@@ -622,13 +623,13 @@ sufficient on its own.
 Next 16 exposes **no navigation blocker** — verified against the `next/navigation` export list.
 What the page can intercept, it does:
 
-| Leaving by                      | Guarded | How                                                                              |
-| ------------------------------- | :-----: | -------------------------------------------------------------------------------- |
-| Reload, tab close, browser quit |   ✅    | `beforeunload`, in `useUnsavedChangesWarning`                                    |
-| A link this page renders        |   ✅    | `<Link onNavigate>`                                                              |
-| Abbrechen, and the Zurück pill  |   ✅    | The form's own `requestLeave`, handed to `EditFormLayout` and to `FormActionBar` |
-| The admin sidemenu's links      |   ❌    | Rendered by the layout, above this tree                                          |
-| The browser's Back button       |   ❌    | `popstate` fires after the router has committed                                  |
+| Leaving by                      | Guarded | How                                                                                                                    |
+| ------------------------------- | :-----: | ---------------------------------------------------------------------------------------------------------------------- |
+| Reload, tab close, browser quit |   ✅    | `beforeunload`, in `useUnsavedChangesWarning`                                                                          |
+| A link this page renders        |   ✅    | `<Link onNavigate>`                                                                                                    |
+| Abbrechen, and the Zurück pill  |   ✅    | `requestLeave` from `fl_frontend/src/shared/hooks/useEditorExit.ts`, handed to `EditFormLayout` and to `FormActionBar` |
+| The admin sidemenu's links      |   ❌    | Rendered by the layout, above this tree                                                                                |
+| The browser's Back button       |   ❌    | `popstate` fires after the router has committed                                                                        |
 
 **The gaps are accepted** rather than paid for, and the shape of the payment is recorded so the
 trade can be re-taken rather than re-derived: a `NavigationGuardContext` in the admin layout, which

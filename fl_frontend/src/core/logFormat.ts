@@ -10,7 +10,7 @@ export interface LogMeta extends Record<string, unknown> {
 
 // Lifecycle lines run outside any request; the key stays present so a parser can rely on it.
 // Mirrors the backend's `NO_REQUEST_SENTINEL`.
-export const NO_REQUEST_SENTINEL = "SYSTEM";
+const NO_REQUEST_SENTINEL = "SYSTEM";
 
 function serializeError(error: unknown): unknown {
   if (error instanceof Error) {

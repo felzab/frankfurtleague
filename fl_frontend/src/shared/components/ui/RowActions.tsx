@@ -6,7 +6,7 @@ import { ArrowRotateLeft, Copy, TrashBin } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
-import { DisabledHint } from "./DisabledHint";
+import { Hint } from "./Hint";
 import { IconTooltip } from "./IconTooltip";
 import { ROW_ACTION_SIZE } from "./rowActionSize";
 
@@ -22,7 +22,7 @@ const ACTION_LINK_CLASS = `${ACTION_SHAPE} hover:bg-hover hover:text-brand`;
 
 /**
  * `disabled:pointer-events-none` is load-bearing: a disabled control dispatches no pointer event and none reaches an
- * ancestor either, so `DisabledHint`'s wrapper is the hit target only once this makes the button transparent.
+ * ancestor either, so the refusal hint's wrapper is the hit target only once this makes the button transparent.
  */
 const ACTION_BUTTON_SHAPE = `${ACTION_SHAPE} disabled:pointer-events-none`;
 
@@ -78,7 +78,7 @@ export function RowActionCopy({ label, ariaLabel, onPress }: { label: string; ar
 /**
  * Shown in `RowActionDelete`'s place on a retired row. No confirmation step: one press of the delete reverses it.
  *
- * It takes the delete's `disabledReason`, whose note below carries the mechanism for both.
+ * It takes the delete's `disabledReason`; `ACTION_BUTTON_SHAPE` carries the mechanism both rely on.
  */
 export function RowActionRestore({
   label,
@@ -112,7 +112,11 @@ export function RowActionRestore({
   );
 
   return disabledReason != null ? (
-    <DisabledHint reason={disabledReason}>{button}</DisabledHint>
+    <Hint
+      mode="refusal"
+      reason={disabledReason}>
+      {button}
+    </Hint>
   ) : (
     <IconTooltip label={label}>{button}</IconTooltip>
   );
@@ -150,7 +154,11 @@ export function RowActionDelete({
   // The live control keeps `IconTooltip`: `label` names the act, which is a description rather than a
   // refusal, and a press there opens the delete instead of an explanation.
   return disabledReason != null ? (
-    <DisabledHint reason={disabledReason}>{button}</DisabledHint>
+    <Hint
+      mode="refusal"
+      reason={disabledReason}>
+      {button}
+    </Hint>
   ) : (
     <IconTooltip
       label={label}

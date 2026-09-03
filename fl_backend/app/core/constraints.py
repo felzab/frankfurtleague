@@ -123,9 +123,9 @@ _AKTOR = _object(
 )
 
 _AKTION_REQUEST = _object(
+    nullable=True,
     required=("method", "path"),
     properties={"method": {"bsonType": "string"}, "path": {"bsonType": "string"}},
-    nullable=True,
 )
 
 # Required TOGETHER: the four keys are always present, and a null `bestaetigt_am` is what says
@@ -506,6 +506,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "sonderereignis": {"bsonType": _STRING_OR_NULL, "enum": [*_SONDEREREIGNISSE, None]},
                 "saison_phase": {"bsonType": "string", "enum": _SAISON_PHASEN},
                 "saison_id": {"bsonType": "string"},
+                # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
+                # null both read as a fixture nobody has annotated.
                 "notiz": {"bsonType": _STRING_OR_NULL},
             },
         )

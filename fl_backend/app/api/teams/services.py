@@ -25,7 +25,6 @@ from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.custom import CustomObjectId
 
-SPIELE_COLLECTION_NAME = "spiele"
 AS_NAME = "saison_data"
 STATISTIK_AS_NAME = "statistik_data"
 ABSAGE_AS_NAME = "absage_data"
@@ -67,7 +66,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
 
     return {
         "$lookup": {
-            "from": SPIELE_COLLECTION_NAME,
+            "from": Collection.SPIELE,
             "let": {"team_oid": "$_id"},
             "pipeline": [
                 {
@@ -128,7 +127,7 @@ def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Ma
 
     return {
         "$lookup": {
-            "from": SPIELE_COLLECTION_NAME,
+            "from": Collection.SPIELE,
             "let": {"team_oid": "$_id"},
             "pipeline": [
                 {
@@ -304,7 +303,7 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
         if counted is None:
             continue
 
-        team1_id, tore1, team2_id, tore2 = counted
+        team1_id, tore1, _, tore2 = counted
         for team_id in sides:
             # Slot one first, as the projection's `$cond` on `_IS_THIS_TEAM_IN_SLOT_ONE` is, so the
             # degenerate fixture above is oriented the one way both derivations orient it.

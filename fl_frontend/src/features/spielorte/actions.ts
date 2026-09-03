@@ -12,6 +12,7 @@ import { deleteSpielort, patchSpielort, postSpielort, reactivateSpielort } from 
 import { FLPatchSpielortPayloadSchema, FLPostSpielortPayloadSchema, FLSpielortKeyPayloadSchema } from "./schemas";
 
 import type { FLSpielortPayloadDraft } from "@/features/spielorte/schemas";
+import type { ActionResult } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielort, FLSpielortKeyPayload } from "./schemas";
 
@@ -31,7 +32,7 @@ function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: Field
 export async function postSpielortAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSpielortPayloadDraft<FLPostSpielortPayload>,
-): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ created_id?: string }>> {
   return runAdminMutation("postSpielortAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -52,14 +53,14 @@ export async function postSpielortAction(
       return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
 
-    return { success: Boolean(postOperation.acknowledged), created_id: postOperation.created_id, message: "Spielort angelegt" };
+    return { success: true, created_id: postOperation.created_id, message: "Spielort angelegt" };
   });
 }
 
 export async function patchSpielortAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSpielortPayloadDraft<FLPatchSpielortPayload>,
-): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
   return runAdminMutation("patchSpielortAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -84,16 +85,14 @@ export async function patchSpielortAction(
     updateTag("spiele");
 
     return {
-      success: Boolean(patchOperation.acknowledged),
+      success: true,
       updated_document: patchOperation.updated_document,
       message: "Spielort bearbeitet",
     };
   });
 }
 
-export async function deleteSpielortAction(
-  rawPayload: FLSpielortKeyPayload,
-): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
   return runAdminMutation("deleteSpielortAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -124,7 +123,7 @@ export async function deleteSpielortAction(
     }
 
     return {
-      success: Boolean(patchOperation.acknowledged),
+      success: true,
       updated_document: patchOperation.updated_document,
       message: "Spielort stillgelegt. Seine Spiele bleiben erhalten.",
     };
@@ -135,9 +134,7 @@ export async function deleteSpielortAction(
  * Nothing to invalidate, unlike the patch: this write moves only `inactive_since`, which no match
  * document carries. The endpoint refuses nothing — a venue coming back takes no fixtures with it.
  */
-export async function reactivateSpielortAction(
-  rawPayload: FLSpielortKeyPayload,
-): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
   return runAdminMutation("reactivateSpielortAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -159,7 +156,7 @@ export async function reactivateSpielortAction(
     }
 
     return {
-      success: Boolean(reactivateOperation.acknowledged),
+      success: true,
       updated_document: reactivateOperation.updated_document,
       message: "Spielort reaktiviert",
     };

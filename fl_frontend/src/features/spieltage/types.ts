@@ -2,7 +2,7 @@ import type { FLSaisonPhase } from "../saisons/schemas";
 
 // `natural` is the backend's played order and the default: phase in bracket order, then the stored
 // `position`. `anzahl_spiele` is not sortable — derived on read, so no Mongo sort can reach it.
-export type FLSpieltageSortingOptions = "natural" | "beginn" | "ende";
+type FLSpieltageSortingOptions = "natural" | "beginn" | "ende";
 
 export type FLSpieltageFilterParams = {
   saison_id?: string;

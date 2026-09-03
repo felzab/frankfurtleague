@@ -4,11 +4,11 @@ import { useState, useTransition } from "react";
 
 import { Button, FieldError, Input, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
 
+import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
 import { postSaisonSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
 import { NUMMER_MAX_LENGTH, NUMMER_MUST_BE_DIGITS, POSITION_OPTIONS, ROLLE_OPTIONS } from "@/features/spieler/constants";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
@@ -26,13 +26,6 @@ import type { SpielerBanner } from "./banners";
 
 /** Names the role chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
 const ROLLE_LABEL_ID = "kader-rolle";
-
-/** The app's one wording and one palette for a season's state. */
-function SaisonBadge({ status }: { status: SpielerSaisonContext["saisonStatus"] }) {
-  if (status === "active") return <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>;
-  if (status === "future") return <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Geplant</span>;
-  return <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>;
-}
 
 /**
  * The team is editable with no lock and a `future` season is not required, unlike the club editor's
@@ -107,13 +100,14 @@ export function FormKaderSection({
         rolle: null,
       });
 
-      const teamError = res.fieldErrors?.team_id ?? null;
-      setEntryTeamError(teamError);
-
       if (res.success) {
+        setEntryTeamError(null);
         appToast.success(res.message ?? "Spieler aufgenommen");
         return;
       }
+
+      const teamError = res.fieldErrors?.team_id ?? null;
+      setEntryTeamError(teamError);
       // Suppressed where the picker carries the message, so a refusal about the chosen team is not
       // also said in a toast that names no field.
       if (teamError === null) {

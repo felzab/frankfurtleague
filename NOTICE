@@ -32,11 +32,6 @@ this notice.
      fl_frontend/src/app/apple-icon.png
      fl_frontend/public/icons/**
      fl_frontend/src/shared/components/ui/FLLogo.tsx
-     fl_frontend/scripts/generate-brand-assets.mjs
-
-   The generator is listed deliberately: it is the source the mark is produced
-   from, and excluding the outputs while licensing the generator would be an
-   exclusion in name only.
 
 3. LEAGUE DATA AND WRITTEN CONTENT
 

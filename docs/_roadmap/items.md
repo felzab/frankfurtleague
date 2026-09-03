@@ -78,6 +78,7 @@ deliverable.
 
 | Token       | Item                                                                                                                 | Tags                                                                        | Status   |
 | ----------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
+| `2qae-xcut` | A rule declared multi-document reads only the row its own endpoint writes                                            | BE, spiele                                                                  | Open     |
 | `2rz3-a754` | Deciding an application does not drain the queue, and duplicates are marked only across one read's rows              | FE, BE, Ops, Docs, edge, admin, bewerbungen                                 | Open     |
 | `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                  | FE, BE, DB, Docs, spiele                                                    | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                        | BE, Docs, spieler                                                           | Blocked  |
@@ -88,23 +89,26 @@ deliverable.
 | `ex2m-qjkg` | The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                      | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
 | `fau5-jtph` | The action log's page narrows one capped read, and a toast promises more than search can show                        | FE, BE, Docs, admin, aktionen                                               | Open     |
-| `fs48-z652` | A serving referee is published in full where a pupil beside them is reduced to an initial                            | BE, DB, Docs, spiele, spieler                                               | Decided  |
+| `fs48-z652` | A serving referee is published in full where a pupil beside them is reduced to an initial                            | BE, DB, Docs, spiele, spieler                                               | Open     |
 | `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                     | BE, DB, Docs, saisons                                                       | Standing |
-| `gc4a-duuh` | An erased referee's name stays on every past fixture the anonymisation does not reach                                | BE, DB, Docs, tests, schiedsrichter, spiele                                 | Decided  |
+| `gc4a-duuh` | An erased referee's name stays on every past fixture the anonymisation does not reach                                | BE, DB, Docs, tests, schiedsrichter, spiele                                 | Open     |
 | `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                        | BE, Docs, spiele, teams                                                     | Open     |
 | `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                          | FE, Docs                                                                    | Decided  |
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                   | FE, BE, admin, spieler                                                      | Open     |
-| `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                         | FE, BE, Docs, spieler                                                       | Decided  |
+| `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                         | FE, BE, Docs, spieler                                                       | Open     |
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                 | FE, Docs                                                                    | Open     |
-| `n56q-zu6n` | `Team` names a club and the people who run the league, and the public site renders both                              | FE, Docs, meta, teams                                                       | Decided  |
+| `n56q-zu6n` | `Team` names a club and the people who run the league, and the public site renders both                              | FE, Docs, meta, teams                                                       | Open     |
 | `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                    | FE, auth, spiele, spielorte, teams                                          | Open     |
 | `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                          | FE, Docs                                                                    | Open     |
+| `nr85-vwnj` | A rule declares whether it reads a second document, and nothing resolves the claim                                   | BE, Docs, tests, bewerbungen, saisons                                       | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                    | FE, BE, spiele                                                              | Open     |
+| `q7jv-hskm` | The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep           | BE, DB, tests, saisons                                                      | Standing |
 | `qp88-3t35` | A cached read's backend call joins to no render, and telemetry has nowhere to go                                     | FE, BE, Ops, Docs, versions                                                 | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                        | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                               | FE, BE, DB, admin, bewerbungen                                              | Standing |
-| `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                           | FE, BE, Docs, tests, saisons                                                | Decided  |
+| `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                           | FE, BE, Docs, tests, saisons                                                | Open     |
 | `vyr6-uk2p` | The open-window read filters into arrays and subscripts whatever comes back                                          | FE, BE, tests, bewerbungen                                                  | Open     |
+| `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                | FE, tests, spieler                                                          | Open     |
 | `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
 | `x7pk-g4bh` | Three entry refusals are rendered twice, and nothing holds either half to the other                                  | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
 | `xe5b-v4nu` | A fourth rendering of the retired-club refusal sits outside the helper that grades the other three                   | FE, tests, bewerbungen, teams                                               | Open     |
@@ -162,7 +166,6 @@ deliverable.
 | `qw6j-scru` | The CSP's style directive is wider than it needs to be                                                               | FE, Ops, Docs, edge                                                         | Open     |
 | `r5xm-ac7m` | A hook probe reads the status only where the verdict was empty                                                       | Ops, Docs, gate                                                             | Open     |
 | `s28h-m39z` | A moved vocabulary table is reported on the wrong branch                                                             | Ops, Docs, gate, ci, tests                                                  | Open     |
-| `s88t-ceby` | Nothing checks a generated file against its generator                                                                | FE, BE, tests                                                               | Open     |
 | `spq6-zy2d` | A renamed file's comment blocks are never measured                                                                   | Ops, gate                                                                   | Open     |
 | `sqwz-xyxg` | An enforcement claim is resolved in one direction only                                                               | Ops, gate                                                                   | Open     |
 | `srbc-6buy` | An allowlist row naming an absent file is passed over, not reported                                                  | Ops, Docs, gate, tests                                                      | Open     |
@@ -183,6 +186,35 @@ deliverable.
 | `zp4w-tg6x` | No check selects by the trees the In-code Scope names, and its register stands on its tests alone                    | Ops, Docs, gate, ci, tests                                                  | Standing |
 
 ## The items
+
+### `2qae-xcut` · A rule declared multi-document reads only the row its own endpoint writes
+
+| Tags       | Status | Depends on |
+| ---------- | ------ | ---------- |
+| BE, spiele | Open   | —          |
+
+**`fl_backend/app/core/domain.py :: Rule.multi_document` is true where a rule needs more than the
+payload and its own document, and `REQ-RESULT-001` declares it while reading one row.**
+`fl_backend/app/api/spiele/services.py :: find_result_removal_refusal` takes the season's whole
+fixture set, resolves the row `spiel_id` names out of it through `:: stored_in_slice`, and judges
+that row's two stored sides against the payload. It reads no other fixture. `REQ-STATE-002` and
+`REQ-STATE-003` sit on the same endpoint, decide on the payload alone and declare `False`, so what
+the endpoint may write is not what carries the value.
+
+**Which unit decides the value is the open half.** Read as what the rule itself consumes, the row is
+`False`. Read as what its caller must fetch to feed it, the season slice makes it `True` — and that
+slice is assembled for `:: judge_spieltag_occupancy` and `:: find_wiring_refusal`, which need every
+fixture, so the feed answers a question about the endpoint rather than about this rule. The commit
+declaring `REQ-RESULT-001` argues the refusal and says nothing about the flag, so no decision is
+being reopened here.
+
+**Why it matters.** Nothing reads the field, so a wrong row costs nothing until somebody derives
+from it — and a reader taking `REQ-RESULT-001` as the precedent declares `True` for every rule whose
+caller happens to hold a set, which is most of them.
+
+**Done when** `REQ-RESULT-001` carries the value that
+`fl_backend/app/core/domain.py :: Rule.multi_document` gives it, and the unit that decides — the
+rule's own reads, or its caller's — is written where the next declaration meets it.
 
 ### `2rz3-a754` · Deciding an application does not drain the queue, and duplicates are marked only across one read's rows
 
@@ -839,9 +871,9 @@ rows the collection holds today was not counted, so how soon the state arrives i
 
 ### `fs48-z652` · A serving referee is published in full where a pupil beside them is reduced to an initial
 
-| Tags                          | Status  | Depends on |
-| ----------------------------- | ------- | ---------- |
-| BE, DB, Docs, spiele, spieler | Decided | —          |
+| Tags                          | Status | Depends on |
+| ----------------------------- | ------ | ---------- |
+| BE, DB, Docs, spiele, spieler | Open   | —          |
 
 **`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPublic` carries the referee's
 `name` as a required non-empty string, and its own docstring says it is the model a BASE-TIER read
@@ -920,9 +952,9 @@ guarantee is written down as resting on a bound in one file rather than on the r
 
 ### `gc4a-duuh` · An erased referee's name stays on every past fixture the anonymisation does not reach
 
-| Tags                                        | Status  | Depends on |
-| ------------------------------------------- | ------- | ---------- |
-| BE, DB, Docs, tests, schiedsrichter, spiele | Decided | —          |
+| Tags                                        | Status | Depends on |
+| ------------------------------------------- | ------ | ---------- |
+| BE, DB, Docs, tests, schiedsrichter, spiele | Open   | —          |
 
 **`fl_backend/app/api/schiedsrichter/services.py :: ANONYMISED_KONTAKT` clears the contact block and
 nothing else**, and the referee's name is not in it: the mapping is built from `FLKontakt`'s own
@@ -1120,9 +1152,9 @@ already full.
 
 ### `kyc4-75k5` · A pupil's consent is stored and served, and shown by nothing
 
-| Tags                  | Status  | Depends on |
-| --------------------- | ------- | ---------- |
-| FE, BE, Docs, spieler | Decided | —          |
+| Tags                  | Status | Depends on |
+| --------------------- | ------ | ---------- |
+| FE, BE, Docs, spieler | Open   | —          |
 
 **`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` records what a pupil agreed may be
 published — its `umfang`, who gave it in `erteilt_von`, and the dates beside them — and no surface
@@ -1181,9 +1213,9 @@ the honest scope is a look at one editor past 96rem, in a real browser, by someb
 
 ### `n56q-zu6n` · `Team` names a club and the people who run the league, and the public site renders both
 
-| Tags                  | Status  | Depends on |
-| --------------------- | ------- | ---------- |
-| FE, Docs, meta, teams | Decided | —          |
+| Tags                  | Status | Depends on |
+| --------------------- | ------ | ---------- |
+| FE, Docs, meta, teams | Open   | —          |
 
 **[`docs/glossary.md`](../glossary.md) defines `Team` as a club, and `/team` is a page about the
 people who run the league.** Its heading is `Frankfurt-League Team`
@@ -1294,17 +1326,21 @@ error with `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult`,
 sets `error`, and every failing return under `fl_frontend/src` carries an `error` beside it.
 
 **Seventeen of those sites fall back to a sentence of their own rather than to the shared one**, in
-eight files, and one family inside them is a second sentence with no home: the undo's refusal
-`"Die Änderung steht weiterhin."` is spelled out 19 times across 10 files — eight page-owned
-editors, a route handler and a test — and no module owns it. §1.12 of
+eight files, and one family inside them is a second sentence with no home: the undo's outcome
+`"Die Änderung steht weiterhin."` stands 20 times across 14 files (measured 2026-09-03) — the five
+undo route handlers, the five slice `actions.test.ts` files reading them, `undoDispatch.ts` with its
+test, `undoRoute.ts` and the public-route test — and no module owns it. **No page-owned editor
+carries it**, which is worth saying because that is where a reader looks first. §1.12 of
 [`docs/frontend/spec.md`](../frontend/spec.md) is where a refusal's vocabulary is fixed and it names
 the two homes a new failure message is written from —
 `fl_frontend/src/shared/utils/refusal.ts :: buildRefusal` for a refusal that can name a cause, and
 `:: UNKNOWN_REFUSAL` for one that cannot.
 
-**Done is the type moving first.** `FormState` becoming a union whose failing member requires its
-`error` turns each remaining fallback into a compile error rather than a judgement call per site;
-short of that, deleting one is an argument to be had 40 times.
+**The type has moved half the way.** `fl_frontend/src/shared/types/types.ts :: ActionResult` is a
+union now and `:: ActionFailure` is its failing member, so the shape this entry asked for exists.
+`error` stays optional on that member, which is what keeps every fallback a judgement call rather
+than a compile error. **Done is requiring it there**, which turns the rest into a mechanical sweep;
+short of that, deleting one is an argument to be had at every site.
 
 **What makes it more than deleting a token.** `fl_frontend/src/shared/components/ui/EntityForm.tsx`
 and `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx` reach the sentence through
@@ -1317,6 +1353,40 @@ weight and a fallback that is the only sentence naming what did not happen read 
 **Not decided:** whether the shared sentence should stay generic at all. `toActionErrorResult`
 states its own reason for one — the diagnosis is already in the server log, and what an admin needs
 is whether retrying can help.
+
+### `nr85-vwnj` · A rule declares whether it reads a second document, and nothing resolves the claim
+
+| Tags                                  | Status | Depends on  |
+| ------------------------------------- | ------ | ----------- |
+| BE, Docs, tests, bewerbungen, saisons | Open   | `2qae-xcut` |
+
+**`fl_backend/app/core/domain.py :: Rule.multi_document` is read by no code in the repository.** The
+identifier appears in that module and in no other — no application code, no test. Every sibling
+claim on the same dataclass is resolved: `fl_backend/tests/core/test_domain.py ::
+test_every_rule_is_implemented_where_it_says` holds `implemented_by` to the constant carrying the
+code, and `:: test_every_rule_is_tested_where_it_says` holds `tested_by` to a class asserting on it.
+A row can be given either value and the whole default tier stays green.
+
+**What a check would have to do.** Derive each rule's document reach from `fl_backend/app/api`
+rather than from the declaration (`docs/_standard/standard.md :: PRE-4`), which means reading the
+endpoint that calls the refusal, following which of its collection reads reach the arguments the
+rule's own branch consumes, and comparing that against the collection the endpoint addresses.
+
+**Three control-flow shapes defeat a reader that attributes arguments to a rule by its refusal's
+enclosing tests alone, and any attempt starts by handling all three.** A guard returning `None`
+before the refusal is part of that refusal's condition and its inputs belong to the rule
+(`fl_backend/app/api/bewerbungen/services.py :: find_window_refusal`); a guard returning a
+_different_ refusal is another rule's and its inputs do not, which matters because twelve rules share
+`fl_backend/app/api/saisons/services.py :: find_rules_refusal` and four of them are declared
+`False` while sitting after guards that read the season's fixtures; and a refusal built inside a
+`try`/`except` reaches its inputs through the exception rather than through a parameter
+(`fl_backend/app/api/bewerbungen/services.py :: find_new_club_refusal`). Forty-three of the rules
+share a refusal function with another rule, so a check that skips shared functions covers a minority
+of the table.
+
+**Done when** a check in `fl_backend/tests/core/test_domain.py` reads every rule, derives the reach
+from `fl_backend/app/api` source, states in its own docstring which rules it does not reach and what
+that makes permanent, and has been driven red against a row flipped in place.
 
 ### `pb66-krbw` · A fixture carries one date, and a play window cannot be expressed
 
@@ -1341,6 +1411,53 @@ the Spielsuche; and the `ausstehend` semantics, **where a filter selects and a l
 range makes the ausstehend/heute/vergangen ternary genuinely harder, and the intent (a fixture whose
 play window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives both definitions under ranges.
+
+### `q7jv-hskm` · The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep
+
+| Tags                   | Status   | Depends on |
+| ---------------------- | -------- | ---------- |
+| BE, DB, tests, saisons | Standing | —          |
+
+**Both destructive paths make the same pair of removals, in the same order, for the same reason.**
+`fl_backend/app/api/saisons/admin_router.py :: generate_spielplan` under its `replace` flag, and
+`:: undraw_spielplan` unconditionally, each call `fl_backend/app/core/crud.py :: delete_many_from_db`
+on `spiele` and then on `spieltage`, filtered on `saison_id` and carrying the session. Fixtures go
+before matchdays at both, so that neither the log's rows nor a restore replaying them holds a fixture
+whose matchday is already gone; the draw's own comment cites the undraw for that order rather than
+restating it. A collection joining the season's draw is a change both sites take, which is the test
+a shared removal would pass.
+
+**Sharing it takes both removals out of the sweep that holds them to their session.**
+`fl_backend/tests/core/app_source.py :: transactional_callbacks` reads a `with_transaction`
+callback's own lexical body: it follows a helper declared inside the callback, and stops at one the
+callback merely calls at module level, following those taking a call graph rather than a sweep. A
+shared helper cannot be declared inside either callback and still be shared, so it sits at module
+level, and both removals leave the population
+`fl_backend/tests/core/test_write_shapes.py :: TestEveryWriteInsideATransactionCarriesIt` reads.
+**The loss is silent**: the call handing `session=` on is excused as a hand-off to a helper of the
+application's own, so nothing reports the narrowing, and
+`fl_backend/tests/core/test_write_shapes.py :: TestWhatARemovalFilterMayName` keeps passing over both
+removals inside the helper — it reads the filter and never the session. Drop `session=` from either
+removal afterwards and the whole file stays green.
+
+**No other home is open.** Every services module decides from its arguments and takes no database
+handle (`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments`),
+so `fl_backend/app/api/saisons/services.py` cannot hold a removal. A session-taking helper added to
+`fl_backend/app/core/crud.py` fails
+`fl_backend/tests/core/test_write_shapes.py :: test_every_crud_helper_taking_a_session_is_named_by_one_of_the_three_sets`,
+whose assertion is an equality, until that test's own name sets are widened — which is the check
+reshaped to fit the code.
+
+**The removals are one of several pairs these two paths hold in parallel.** The in-session season
+read is another, and so is the recorded-fact count, which sums
+`fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact` over an identically projected read
+of `spiele` at both sites and is what `g7hr-c8bn` turns on. Extracting one pair leaves every other
+parallel, so the two callbacks read alike in fewer places than they do now, and the next reader has
+one indirection to follow and no rule saying which pairs took it.
+
+**What reopens this:** a third site removing a season's drawn collections, which is the instance that
+would make the shape worth naming; or `transactional_callbacks` learning to follow one hop, which
+removes the cost above rather than paying it.
 
 ### `qp88-3t35` · A cached read's backend call joins to no render, and telemetry has nowhere to go
 
@@ -1483,9 +1600,9 @@ another consumer rather than proven by instrumenting the endpoint.
 
 ### `skyx-nrgh` · A refusal composes a repair the product refuses to perform
 
-| Tags                         | Status  | Depends on |
-| ---------------------------- | ------- | ---------- |
-| FE, BE, Docs, tests, saisons | Decided | —          |
+| Tags                         | Status | Depends on |
+| ---------------------------- | ------ | ---------- |
+| FE, BE, Docs, tests, saisons | Open   | —          |
 
 **`REQ-RULES-011` names an undraw whose window is narrower than the refusal's own.**
 `fl_backend/app/api/saisons/services.py :: find_rules_refusal` composes a repair per moved field, and the one
@@ -1577,6 +1694,34 @@ query, and the test's own comment already claims the class it belongs to.
 rethrow were read off the query, `_fenster`, the filter semantics and the two frontend files; no
 list-wrapped season was seeded and no request was made against `/fenster`, and what the start page
 renders on that throw was not exercised. The commit dating the validator was read from `git log -S`.
+
+### `w4tm-9khd` · A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population
+
+| Tags               | Status | Depends on |
+| ------------------ | ------ | ---------- |
+| FE, tests, spieler | Open   | —          |
+
+**`fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn` cuts each candidate at
+`indexOf(">")` and reads the mark and the field name out of what is left.** Anything standing between
+the `<` and the tag's real close therefore truncates the read, and a JSX attribute value is allowed to
+contain a `>` — an arrow function most commonly. The sweep exits 0 either way, so what is lost is a
+schema's assertion that it refuses an empty value, not a test.
+
+**Today it holds by attribute order alone.**
+`fl_frontend/src/features/spieler/components/forms/AdminCreateSpielerForm.tsx` renders a control whose
+`onChange={(key) => …}` sits after `isRequired` and `name`, so the cut lands past both. Moving that
+attribute above them — a reformat, an alphabetisation, a prettier setting — drops the field from the
+population and takes every schema asserted through it. Nothing forbids the move and no check sees it.
+
+**Why a comment cannot be the answer.** The same reader is what
+`fl_frontend/src/shared/components/ui/SaisonSelect.tsx` keeps a literal `isRequired` for, and the note
+explaining that had to be moved above its own tag for exactly this reason: written inside the tag, one
+`>` in the sentence disarmed the sweep the sentence was defending. A convention that cannot be stated
+inside the construct it governs is one the next reader breaks.
+
+**Done when** the reader finds a tag's real close rather than its first `>` — comments and attribute
+values skipped, so attribute order carries nothing — and has been driven against a control whose
+arrow function is written first.
 
 ### `wszt-rpmy` · Wiring the write path refuses stands unreported once it is in storage
 
@@ -2006,6 +2151,10 @@ limits count nothing and the access line names whoever the sender chose. **The w
 which is worth saying because it looks as though it should: `$client_net48` bounds a walk across a real
 allocation, and an invented address lands in a fresh bucket in both keys at once.
 
+**Ruled: Authenticated Origin Pulls is the cheapest real fix, and a tunnel is the strongest**
+(`docs/datenschutz.md` §10, 2026-09-02). The three below are ranked rather than open, so what is
+owed is the account and host access rather than the choice.
+
 **Done when the origin stops trusting a range list to name the visitor, and none of the three
 remedies is a change to this repository.** Authenticated Origin Pulls is the smallest — an
 `ssl_client_certificate` and `ssl_verify_client` pair here, plus a certificate and a per-hostname
@@ -2110,9 +2259,9 @@ number is derived rather than counted off three pages by hand.
 
 ### `3hdg-3r59` · The replace and the undraw each write the season's clearing, and each is proved separately
 
-| Tags                         | Status | Depends on |
-| ---------------------------- | ------ | ---------- |
-| BE, DB, Docs, tests, saisons | Open   | —          |
+| Tags                         | Status | Depends on  |
+| ---------------------------- | ------ | ----------- |
+| BE, DB, Docs, tests, saisons | Open   | `q7jv-hskm` |
 
 **Two endpoints spell one removal.**
 `fl_backend/app/api/saisons/admin_router.py :: generate_spielplan` clears the season inside its
@@ -2129,8 +2278,15 @@ breaks is a restore nobody runs until they need it.
 each prove that ordering for their own endpoint, so the duplication is paid a second time in the
 estate.
 
-**Done when** one function clears a season and both endpoints call it, answering the two counts
-rather than reporting them: the replace has them only where the flag was set, the undraw always.
+**Extracting the removal is refused, and `q7jv-hskm` is where that is argued.** A shared helper
+cannot be declared inside either transaction callback and still be shared, so both removals leave the
+sweep that holds a write to its session — silently, and the whole file stays green afterwards. What
+is left here is the coupling rather than the duplication.
+
+**Done when** one assertion reads both callbacks' removal sequence and fails when they diverge,
+rather than the two per-endpoint tests each proving the order for their own. The comment at the
+replace sends a reader to the undraw for that order, so the two are already written as one decision;
+nothing fails when they stop being one.
 
 ### `3s6w-kndn` · The gate saturates the machine, then spends its whole tail unable to use it
 
@@ -3692,33 +3848,6 @@ documentation gate could take it only with a bash reader it has no other use for
 one shape is the doubt this leaves**, and what holds the awk and the python to one another is the
 closing session's decision; the cheap form is the check owning the lead-in as a constant and a
 `scripts/tests/` case asserting the step's reader carries the same literal.
-
-### `s88t-ceby` · Nothing checks a generated file against the generator that owns it
-
-| Tags          | Status | Depends on |
-| ------------- | ------ | ---------- |
-| FE, BE, tests | Open   | —          |
-
-**`fl_frontend/src/shared/components/ui/FLLogo.tsx` is written by
-`fl_frontend/scripts/generate-brand-assets.mjs`, and what keeps them in step is a banner asking a
-reader not to edit the file.** A hand-edit type-checks, lints and builds. It then survives until
-somebody runs `pnpm brand` for an unrelated reason — a new icon size, a manifest entry — at which
-point the generator overwrites it inside a commit whose subject says something else entirely. Every
-other asset that script emits carries no banner at all.
-
-**The artifacts agree today.** What the generator emits for the component and what the repository
-holds differ in whitespace alone, so the mark that renders is the mark the geometry produces: this
-entry is about the missing check, not about a divergence. **The pattern exists already, on the other
-surface** — `fl_backend/openapi.json` is a committed generated artifact whose freshness is a test
-(`fl_backend/tests/openapi_document.py`) — which is why the effort is small.
-
-**Done when** the frontend scope of the gate regenerates the component into a temporary location and
-fails where it differs from the committed one, after the formatter has run over each side so the
-comparison is about content rather than layout. **The images are deliberately out of scope, and that
-exclusion is written down rather than assumed**: they go through sharp, whose output is not
-guaranteed byte-identical across versions, so a check that diffs them fails on a dependency bump
-rather than on a hand-edit — **and a check that fails for reasons unrelated to the defect is one that
-gets suppressed**.
 
 ### `spq6-zy2d` · A file that arrives as a rename brings its comment blocks in as context, so INC-9 measures none of them
 

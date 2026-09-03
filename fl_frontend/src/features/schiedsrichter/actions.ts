@@ -17,6 +17,7 @@ import {
 } from "./schemas";
 
 import type { FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/schemas";
+import type { ActionResult } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLAnonymiseSchiedsrichterPayload,
@@ -62,7 +63,7 @@ function mapAnonymiseRefusal(error: unknown): { error?: string; fieldErrors?: Fi
 export async function postSchiedsrichterAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>,
-): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ created_id?: string }>> {
   return runAdminMutation("postSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -84,7 +85,7 @@ export async function postSchiedsrichterAction(
     }
 
     return {
-      success: Boolean(postOperation.acknowledged),
+      success: true,
       created_id: postOperation.created_id,
       message: "Schiedsrichter angelegt",
     };
@@ -94,7 +95,7 @@ export async function postSchiedsrichterAction(
 export async function patchSchiedsrichterAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSchiedsrichterPayloadDraft<FLPatchSchiedsrichterPayload>,
-): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
   return runAdminMutation("patchSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -122,7 +123,7 @@ export async function patchSchiedsrichterAction(
     updateTag("spiele");
 
     return {
-      success: Boolean(postOperation.acknowledged),
+      success: true,
       updated_document: postOperation.updated_document,
       message: "Schiedsrichter bearbeitet",
     };
@@ -131,7 +132,7 @@ export async function patchSchiedsrichterAction(
 
 export async function deleteSchiedsrichterAction(
   rawPayload: FLSchiedsrichterKeyPayload,
-): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
   return runAdminMutation("deleteSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -162,7 +163,7 @@ export async function deleteSchiedsrichterAction(
     }
 
     return {
-      success: Boolean(postOperation.acknowledged),
+      success: true,
       updated_document: postOperation.updated_document,
       message: "Schiedsrichter stillgelegt. Seine Spiele bleiben erhalten.",
     };
@@ -175,7 +176,7 @@ export async function deleteSchiedsrichterAction(
  */
 export async function reactivateSchiedsrichterAction(
   rawPayload: FLSchiedsrichterKeyPayload,
-): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
   return runAdminMutation("reactivateSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -197,7 +198,7 @@ export async function reactivateSchiedsrichterAction(
     }
 
     return {
-      success: Boolean(reactivateOperation.acknowledged),
+      success: true,
       updated_document: reactivateOperation.updated_document,
       message: "Schiedsrichter reaktiviert",
     };
@@ -211,7 +212,7 @@ export async function reactivateSchiedsrichterAction(
  */
 export async function anonymiseSchiedsrichterAction(
   rawPayload: FLAnonymiseSchiedsrichterPayload,
-): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
   return runAdminMutation("anonymiseSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -246,7 +247,7 @@ export async function anonymiseSchiedsrichterAction(
     // cached read holds a contact detail.
 
     return {
-      success: Boolean(anonymiseOperation.acknowledged),
+      success: true,
       updated_document: anonymiseOperation.updated_document,
       message:
         "E-Mail und Telefonnummer sind gelöscht. Im Änderungsprotokoll ist der gesicherte Stand jeder Zeile gelöscht, " +

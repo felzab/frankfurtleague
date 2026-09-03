@@ -13,7 +13,7 @@ export type FLSchiedsrichterDraftFields = {
   default_payment: number | null;
 };
 
-export type FLSchiedsrichterFieldGroup = "Person" | "Kontakt" | "Honorar";
+type FLSchiedsrichterFieldGroup = "Person" | "Kontakt" | "Honorar";
 
 export type FLSchiedsrichterDraftStatus = FLDraftStatus<FLSchiedsrichterFieldGroup>;
 

@@ -1,10 +1,10 @@
 import type { TeamSaisonMembership } from "@/features/teams/types";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
-export type KontakteBannerId = "kontakte.not-in-saison" | "kontakte.saison-past" | "kontakte.block-removed" | "kontakte.seats-emptied";
+type KontakteBannerId = "kontakte.not-in-saison" | "kontakte.saison-past" | "kontakte.block-removed" | "kontakte.seats-emptied";
 
 /** The one panel spot: the block switch is what raises every change banner this editor has. */
-export type KontakteBannerSpot = "kontakte-block";
+type KontakteBannerSpot = "kontakte-block";
 
 export type KontakteBanner = RailBanner<KontakteBannerId> & { inline: KontakteBannerSpot | null };
 

@@ -30,7 +30,7 @@ const nextConfig: NextConfig = {
     return [
       {
         // Scoped to `public/` — and not `immutable`: that promise holds only for a content-hashed
-        // filename, and `pnpm brand` rewrites these URLs in place. `/_next/static` is
+        // filename, and a replacement asset lands at these same URLs. `/_next/static` is
         // untouched, where Next sets its own immutable header.
         source: "/icons/:path*",
         headers: [

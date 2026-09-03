@@ -9,7 +9,7 @@ import { eraseKontaktperson, patchSaisonTeamKontakte } from "./mutations";
 import { FLKontaktErasurePayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { describeKontaktErasureUmfang } from "./utils";
 
-import type { FieldErrors } from "@/shared/utils/validation";
+import type { ActionResult } from "@/shared/types/types";
 import type { FLKontaktErasurePayload, FLPatchSaisonTeamKontakteResponse } from "./schemas";
 import type { SaisonTeamKontaktePayloadDraft } from "./types";
 
@@ -18,9 +18,7 @@ import type { SaisonTeamKontaktePayloadDraft } from "./types";
  * images of both. **Permanent, with no undo.** It refuses nothing: a person may ask to be forgotten
  * while the club they were reached for still plays.
  */
-export async function eraseKontaktpersonAction(
-  rawPayload: FLKontaktErasurePayload,
-): Promise<{ success: boolean; cleared?: number; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+export async function eraseKontaktpersonAction(rawPayload: FLKontaktErasurePayload): Promise<ActionResult<{ cleared?: number }>> {
   return runAdminMutation("eraseKontaktpersonAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };
@@ -64,7 +62,7 @@ export async function patchSaisonTeamKontakteAction(
   // The DRAFT shape: an unpicked Einwilligung submits `erteilt_von: null`, and the schema below is
   // what turns that into a field error rather than a type error.
   rawPayload: SaisonTeamKontaktePayloadDraft,
-): Promise<{ success: boolean; saison_team?: FLPatchSaisonTeamKontakteResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+): Promise<ActionResult<{ saison_team?: FLPatchSaisonTeamKontakteResponse }>> {
   return runAdminMutation("patchSaisonTeamKontakteAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };

@@ -13,7 +13,7 @@ export type FLKontakteDraftFields = {
 };
 
 /** One section per seat, plus the block's own row for the flag that spans two of them. */
-export type FLKontakteFieldGroup = "Trainer" | "Ansprechperson" | "Stellvertretung" | "Kontakte";
+type FLKontakteFieldGroup = "Trainer" | "Ansprechperson" | "Stellvertretung" | "Kontakte";
 
 export type FLKontakteDraftStatus = FLDraftStatus<FLKontakteFieldGroup>;
 

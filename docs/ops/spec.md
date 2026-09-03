@@ -15,7 +15,7 @@
 | [3. Violation → remedy](#3-violation--remedy)          | A symptom, its cause, and what to do about it                        |
 | [4. Known-open](#4-known-open)                         | The accepted gaps                                                    |
 
-The recurring procedures — the constraints checker, the brand mark, an admin revocation — are in
+The recurring procedures — the constraints checker, an admin revocation, a flooded queue — are in
 [`runbooks.md`](runbooks.md). This page covers the contracts and constraints those procedures depend
 on, and the scripts that carry them.
 

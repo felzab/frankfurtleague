@@ -157,3 +157,46 @@ describe("the German each replacement refusal renders", () => {
     assert.doesNotMatch(REPLACE_ACTION, /Austritt wurde|aufgehoben/);
   });
 });
+
+describe("the junction edit's refusals when the undo replays it", () => {
+  const UNDO_ROUTE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin", "teams", "undo", "route.ts"), "utf8");
+
+  /** One row of the route's replay table, which is a literal keyed by code. */
+  const replayRow = (code: string): string => new RegExp(`"${code}":\\s*"([^"]*)"`).exec(UNDO_ROUTE)?.[1] ?? "";
+
+  /* Neither `ENTRY_OPERATION` nor `REPLACEMENT_OPERATION`: the junction patch is a third endpoint, and the one the undo replays. */
+  const PATCH_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}";
+
+  /* `PATCH /teams/{team_id}` is a prefix of it, so a substring read would hand the junction's codes to
+     the club row. The club patch declares none, which is why the route catches nothing around it. */
+  it("reads the junction patch as a whole token, not as a prefix", () => {
+    assert.deepEqual(declaredCodes(PATCH_OPERATION), ["REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-004"]);
+    assert.deepEqual(declaredCodes("PATCH /teams/{team_id}"), [], "the club patch now declares a rule the replay does not answer");
+  });
+
+  /* Two outcomes and not one: the club half goes back before the junction is replayed, so a refusal
+     after it may not tell the admin the change stands whole. */
+  it("carries both outcome sentences, outside the rows", () => {
+    assert.ok(UNDO_ROUTE.includes('const CHANGE_STANDS = "Die Änderung steht weiterhin.";'), "the whole-change outcome is gone");
+    assert.ok(
+      UNDO_ROUTE.includes('const CLUB_HALF_RESTORED = "Nur die Stammdaten wurden zurückgesetzt.";'),
+      "the half-restore outcome is gone",
+    );
+    assert.ok(UNDO_ROUTE.includes("club === undefined ? CHANGE_STANDS : CLUB_HALF_RESTORED"), "one outcome now answers both halves");
+  });
+
+  for (const code of declaredCodes(PATCH_OPERATION)) {
+    it(`${code} reaches the admin in German on both write paths`, () => {
+      const row = replayRow(code);
+
+      assert.ok(
+        ENTRY_MAP.includes(`error.serverErrorCode === "${code}"`),
+        `${code} falls through to the generic conflict message when the edit is saved`,
+      );
+      assert.notEqual(row, "", `${code} falls through to the generic conflict message when the edit is undone`);
+      // The route joins the row to the outcome with a space, so a row without its own stop runs the two sentences together.
+      assert.ok(row.endsWith("."), `${code}'s replay row does not close its sentence`);
+      assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
+    });
+  }
+});

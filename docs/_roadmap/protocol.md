@@ -65,3 +65,8 @@ changes rows nobody edited. **A closing commit walks the entire table and re-der
 **`Decided` is not done**: the entry has become an instruction rather than a question, and the work
 remains. A status that contradicts the `Depends on` beside it is the failure this rule exists to
 catch, so read the two columns together.
+
+**Rule 3's three homes are the whole set.** An argument recorded anywhere else — a page holding it
+until it reaches its own destination, a commit body, a report — leaves the entry at rule 4, because
+what makes a question settled is that whoever meets the constraint next is standing where the answer
+is written.

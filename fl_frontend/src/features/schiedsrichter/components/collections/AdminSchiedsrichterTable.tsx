@@ -8,13 +8,13 @@ import { Table } from "@heroui/react";
 
 import { reactivateSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
+import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
-import { formatEuro, formatSpielDatum } from "@/shared/utils/format";
+import { formatEuro } from "@/shared/utils/format";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
@@ -77,11 +77,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   // Beside the identity rather than in a column: retirement is the only state a referee has, so a
   // column would be empty on every live row.
   const renderRetiredBadge = (schiedsrichter: FLSchiedsrichter) =>
-    schiedsrichter.inactive_since === null ? null : (
-      <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>
-        Stillgelegt seit {formatSpielDatum(schiedsrichter.inactive_since)}
-      </span>
-    );
+    schiedsrichter.inactive_since === null ? null : <RetiredBadge since={schiedsrichter.inactive_since} />;
 
   const renderHonorar = (schiedsrichter: FLSchiedsrichter) => (
     <span className="bg-muted text-foreground fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">

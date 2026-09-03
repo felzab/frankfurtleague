@@ -18,8 +18,8 @@ import type { AdminAktionRow } from "@/features/aktionen/types";
 const SEARCH_KEYS = ["actor.email", "document_id", "correlation_id", "request.path"] as const;
 
 /**
- * **Neither modal renderer is passed, and that is the shape of this resource**: the log is written by every other admin
- * page and edited by none, so a row has nothing to open and nothing to delete.
+ * **No `renderDeleteModal`**: the log is written by every other admin page and never from here, so a row is read and
+ * never changed.
  */
 export function AdminAktionenView({
   aktionen,

@@ -11,6 +11,7 @@ import { toFieldErrors } from "@/shared/utils/validation";
 import { patchSpieltag } from "./mutations";
 import { FLPatchSpieltagPayloadSchema } from "./schemas";
 
+import type { ActionResult } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLPatchSpieltagPayload, FLSpieltagWriteResponse } from "./schemas";
 
@@ -47,13 +48,7 @@ function invalidateSpieltage(): void {
   updateTag("spieltage");
 }
 
-export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): Promise<{
-  success: boolean;
-  spieltag?: FLSpieltagWriteResponse;
-  message?: string;
-  error?: string;
-  fieldErrors?: FieldErrors;
-}> {
+export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): Promise<ActionResult<{ spieltag?: FLSpieltagWriteResponse }>> {
   return runAdminMutation("patchSpieltagAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: ADMIN_FORBIDDEN };

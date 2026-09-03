@@ -273,3 +273,28 @@ describe("the German each widened refusal renders", () => {
     assert.match(activateBranch("REQ-ACTIVATE-003"), /Spielplan/);
   });
 });
+
+describe("the season edit's refusals when the undo replays it", () => {
+  const UNDO_ROUTE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin", "saisons", "undo", "route.ts"), "utf8");
+
+  /** One row of the route's replay table, which is a literal keyed by code. */
+  const replayRow = (code: string): string => new RegExp(`"${code}":\\s*"([^"]*)"`).exec(UNDO_ROUTE)?.[1] ?? "";
+
+  it("adds the outcome sentence once, outside the rows", () => {
+    assert.ok(
+      UNDO_ROUTE.includes('const CHANGE_STANDS = "Die Änderung steht weiterhin.";'),
+      "the replay no longer tells the admin what became of the change",
+    );
+  });
+
+  for (const code of declaredCodes("PATCH /saisons/{saison_id}")) {
+    it(`${code} reaches the admin in German when the edit is undone`, () => {
+      const row = replayRow(code);
+
+      assert.notEqual(row, "", `${code} falls through to the generic conflict message when the edit is undone`);
+      // The route joins the row to the outcome with a space, so a row without its own stop runs the two sentences together.
+      assert.ok(row.endsWith("."), `${code}'s replay row does not close its sentence`);
+      assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
+    });
+  }
+});

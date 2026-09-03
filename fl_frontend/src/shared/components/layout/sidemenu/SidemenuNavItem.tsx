@@ -36,7 +36,7 @@ export function SidemenuNavItem({
       {IconComponent && (
         <IconComponent
           aria-hidden="true"
-          className={`h-[18px] w-[18px] shrink-0 ${isActive ? "text-brand opacity-100" : "opacity-70"}`}
+          className={`size-[18px] shrink-0 ${isActive ? "text-brand opacity-100" : "opacity-70"}`}
         />
       )}
       {!isDesktopCollapsed && <span className="fluid-sm truncate">{label}</span>}

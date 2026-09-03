@@ -1,9 +1,8 @@
 "use client";
 
 import { AdminKontakteEditForm } from "@/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
-import { formatSpielDatum } from "@/shared/utils/format";
+import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 
 import type { TeamSaisonMembership } from "@/features/teams/types";
 
@@ -31,7 +30,7 @@ export function AdminKontakteEditView({
           // Retirement outranks the Kürzel, as it does on the club's own editor: the Kürzel is a
           // field of a form elsewhere, the day is nowhere else.
           chip: isRetired ? (
-            <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(team.inactive_since)}</span>
+            <RetiredBadge since={team.inactive_since} />
           ) : (
             // The TeamCard's chip, so the Kürzel wears one colour everywhere.
             <span className="bg-brand-solid text-brand-solid-foreground flex h-10 w-10 items-center justify-center rounded-xl font-extrabold shadow-sm">

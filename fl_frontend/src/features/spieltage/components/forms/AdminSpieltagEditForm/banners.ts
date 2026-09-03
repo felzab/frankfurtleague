@@ -1,8 +1,8 @@
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
-export type SpieltagBannerId = "spieltag.zeitraum-changed" | "spieltag.ende-vor-beginn" | "spieltag.anzahl-offen";
+type SpieltagBannerId = "spieltag.zeitraum-changed" | "spieltag.ende-vor-beginn" | "spieltag.anzahl-offen";
 
-export type SpieltagBannerSpot = "zeitraum";
+type SpieltagBannerSpot = "zeitraum";
 
 export type SpieltagBanner = RailBanner<SpieltagBannerId> & { inline: SpieltagBannerSpot | null };
 

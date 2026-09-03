@@ -17,8 +17,7 @@ const SEARCH_KEYS = ["label", "beginn", "ende", "searchable_beginn", "searchable
 
 /**
  * `renderTable` is not a table: that slot takes whatever places many of one thing, and a matchday
- * list needs phase-sectioned order rather than a grid. `renderEditModal` is not passed — the form
- * edits on a page, so the row's pencil is a `<Link>`.
+ * list needs phase-sectioned order rather than a grid.
  */
 export function AdminSpieltageView({
   spieltage,

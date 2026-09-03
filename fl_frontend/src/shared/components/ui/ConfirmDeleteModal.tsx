@@ -93,7 +93,7 @@ export function ConfirmDeleteModal({
       // A plain dialog is announced exactly like the create and edit ones, so the destructive framing would be silent.
       role="alertdialog"
       icon={
-        <div className="bg-danger/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+        <div className="bg-danger/15 flex size-10 shrink-0 items-center justify-center rounded-xl">
           <TrashBin
             className="text-danger"
             width={20}

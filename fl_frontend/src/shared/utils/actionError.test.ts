@@ -34,6 +34,19 @@ describe("toActionErrorResult", () => {
     }
   });
 
+  it("reads the occupant table with `hasOwn`, so a code named for a prototype key is not a refusal", () => {
+    // `serverErrorCode` is `String(body.error_code)` off the response with nothing narrowing it
+    // (`fl_frontend/src/core/api.ts`), so `in` would select `Object.prototype.toString` — a function,
+    // where every caller is promised German.
+    for (const serverErrorCode of ["toString", "constructor", "valueOf"]) {
+      const result = toActionErrorResult(new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode }));
+
+      assert.equal(typeof result.error, "string", serverErrorCode);
+      assert.match(result.error ?? "", /Konflikt/, serverErrorCode);
+      assert.equal(result.errorCode, undefined, serverErrorCode);
+    }
+  });
+
   it("keeps the two rail-backed refusals to one sentence about the value", () => {
     // The field register `docs/frontend/spec.md` §1.12 sets. Their remedies are pinned where they
     // live, in `AdminEditSpielDataForm/banners.test.ts`: a shared module may not reach a feature.

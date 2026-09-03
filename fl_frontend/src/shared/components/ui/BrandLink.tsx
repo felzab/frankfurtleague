@@ -8,21 +8,18 @@ import { FLLogo } from "./FLLogo";
  */
 export function BrandLink({
   title = "Startseite",
-  /** Drops the wordmark at every width, for a rail too narrow to hold it. */
   hideName = false,
-  /**
-   * Classes for the wordmark alone, so a caller can hide it at some widths and not others. One link either way: a second
-   * copy at another breakpoint would be a second tab stop announcing the same destination.
-   */
-  nameClassName = "",
   className = "",
-  /** Runs as this link navigates, and never on a press the browser turns into a new tab or a download. */
   onNavigate,
 }: {
   title?: string;
+  /**
+   * Drops the wordmark at every width, for a rail too narrow to hold it. One link either way: a second copy at
+   * another breakpoint would be a second tab stop announcing the same destination.
+   */
   hideName?: boolean;
-  nameClassName?: string;
   className?: string;
+  /** Runs as this link navigates, and never on a press the browser turns into a new tab or a download. */
   onNavigate?: () => void;
 }) {
   return (
@@ -34,7 +31,7 @@ export function BrandLink({
         hideName ? "justify-center" : "gap-2"
       } ${className}`}>
       <FLLogo />
-      {!hideName && <span className={nameClassName}>Frankfurt-League</span>}
+      {!hideName && <span>Frankfurt-League</span>}
     </Link>
   );
 }

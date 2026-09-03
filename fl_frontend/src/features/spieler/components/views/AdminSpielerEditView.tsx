@@ -4,10 +4,9 @@ import { useTransition } from "react";
 
 import { reactivateSpielerAction } from "@/features/spieler/actions";
 import { AdminSpielerEditForm } from "@/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { appToast } from "@/shared/utils/appToast";
-import { formatSpielDatum } from "@/shared/utils/format";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
@@ -61,7 +60,7 @@ export function AdminSpielerEditView({
           title: fullName,
           // Retirement outranks the number: the number is a field of the form below, the day is nowhere else.
           chip: isRetired ? (
-            <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(spieler.inactive_since)}</span>
+            <RetiredBadge since={spieler.inactive_since} />
           ) : saison.membership?.nummer ? (
             <span className="bg-muted text-foreground flex h-10 min-w-10 items-center justify-center rounded-xl px-2 font-extrabold shadow-sm">
               {saison.membership.nummer}

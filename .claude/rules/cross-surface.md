@@ -46,9 +46,10 @@ German term, take the enclosing word rather than the substring, and widen rather
 
 `.claude/CLAUDE.md` §6's, on §6's terms: it fails silently.
 
-- A backend refusal and its German are two sites. `fl_backend/app/core/domain.py` declares the rule
-  and its code; the feature slice's `actions.ts` turns the code into words. A code no slice maps
-  falls through to the 409 fallback in `fl_frontend/src/shared/utils/actionError.ts`, which tells the
-  admin an equivalent entry already exists. A test reading
-  `fl_frontend/src/core/refusalRegister.ts :: declaredCodes` holds most slices to this; `spiele` and
-  `spielorte` have none, so there the wrong message ships green.
+- A backend refusal and its German are three sites. `fl_backend/app/core/domain.py` declares the rule
+  and its code; the feature slice's `actions.ts` words it for the save, and where the replayed
+  endpoint declares refusals the undo `route.ts` words it again in its own `REPLAY_REFUSALS`. A code
+  either path leaves unmapped falls through to the 409 fallback in
+  `fl_frontend/src/shared/utils/actionError.ts`, which tells the admin an equivalent entry already
+  exists. Tests reading `fl_frontend/src/core/refusalRegister.ts :: declaredCodes` hold both paths to
+  this, per slice.

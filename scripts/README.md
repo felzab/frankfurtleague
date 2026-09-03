@@ -84,8 +84,7 @@ On Windows, run them from Git Bash, and prefix a hand-typed `docker run -v` with
 `MSYS_NO_PATHCONV=1` —
 [`../docs/ops/spec.md`](../docs/ops/spec.md) §3 says what MSYS does to the path without it.
 
-Two run from outside this folder, each because it needs a package's own dependencies:
-`fl_frontend/scripts/generate-brand-assets.mjs`, run as `pnpm brand` from `fl_frontend/`, and
+One runs from outside this folder, because it needs its package's own dependencies:
 `fl_backend/tests/openapi_document.py`, which the `--docs` scope runs in `--check` mode because the
 published document is composed from the application's own docstrings
 ([`../docs/ops/spec.md`](../docs/ops/spec.md) §1.6).

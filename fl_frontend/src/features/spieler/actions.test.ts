@@ -377,3 +377,42 @@ describe("the number's format as the admin reads it", () => {
     );
   });
 });
+
+describe("the squad edit's refusals when the undo replays it", () => {
+  const UNDO_ROUTE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin", "spieler", "undo", "route.ts"), "utf8");
+
+  /** One row of the route's replay table, which is a literal keyed by code. */
+  const replayRow = (code: string): string => new RegExp(`"${code}":\\s*"([^"]*)"`).exec(UNDO_ROUTE)?.[1] ?? "";
+
+  const PATCH_OPERATION = "PATCH /spieler/{spieler_id}/saisons/{saison_id}";
+
+  /* `PATCH /spieler/{spieler_id}` is a prefix of it, so a substring read would hand the squad's codes
+     to the person row. The person patch declares none, which is why the route catches nothing around it. */
+  it("reads the squad patch as a whole token, not as a prefix", () => {
+    assert.deepEqual(declaredCodes(PATCH_OPERATION), ["REQ-SQUAD-001", "REQ-SQUAD-003", "REQ-SQUAD-004"]);
+    assert.deepEqual(declaredCodes("PATCH /spieler/{spieler_id}"), [], "the person patch now declares a rule the replay does not answer");
+  });
+
+  /* Two outcomes and not one: the name goes back before the squad row is replayed, so a refusal after
+     it may not tell the admin the change stands whole. */
+  it("carries both outcome sentences, outside the rows", () => {
+    assert.ok(UNDO_ROUTE.includes('const CHANGE_STANDS = "Die Änderung steht weiterhin.";'), "the whole-change outcome is gone");
+    assert.ok(UNDO_ROUTE.includes('const NAME_HALF_RESTORED = "Nur der Name wurde zurückgesetzt.";'), "the half-restore outcome is gone");
+    assert.ok(UNDO_ROUTE.includes("person === undefined ? CHANGE_STANDS : NAME_HALF_RESTORED"), "one outcome now answers both halves");
+  });
+
+  for (const code of declaredCodes(PATCH_OPERATION)) {
+    it(`${code} reaches the admin in German on both write paths`, () => {
+      const row = replayRow(code);
+
+      assert.ok(
+        SQUAD_MAP.includes(`error.serverErrorCode === "${code}"`),
+        `${code} falls through to the generic conflict message when the edit is saved`,
+      );
+      assert.notEqual(row, "", `${code} falls through to the generic conflict message when the edit is undone`);
+      // The route joins the row to the outcome with a space, so a row without its own stop runs the two sentences together.
+      assert.ok(row.endsWith("."), `${code}'s replay row does not close its sentence`);
+      assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
+    });
+  }
+});

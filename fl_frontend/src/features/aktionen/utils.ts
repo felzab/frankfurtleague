@@ -13,7 +13,10 @@ export function herkunftOfAktor(actor: FLAktor): AktionHerkunft {
 
 /** Falls back to the stored name, so a collection the backend adds lists as itself rather than as an empty cell. */
 export function labelForCollection(collection: string): string {
-  return AKTION_COLLECTION_LABELS[collection] ?? collection;
+  // The collection is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
+  const known = Object.hasOwn(AKTION_COLLECTION_LABELS, collection) ? AKTION_COLLECTION_LABELS[collection] : undefined;
+
+  return known ?? collection;
 }
 
 // Europe/Berlin, as every other date in this app is rendered: the log stores UTC, and an admin reading

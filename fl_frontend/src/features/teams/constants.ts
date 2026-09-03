@@ -53,8 +53,8 @@ export function austrittKuerzel(type: FLAustrittType): string {
 }
 
 /**
- * The description's bound, mirrored from the backend models, which each spell it as a literal.
- * Every frontend enforcement point reads it from here, so no two can disagree about the cap.
+ * The description's bound, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Every frontend
+ * enforcement point reads it from here, so no two can disagree about the cap.
  */
 export const DESCRIPTION_MAX_LENGTH = 4096;
 

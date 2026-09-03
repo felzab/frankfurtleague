@@ -110,8 +110,8 @@ class Rule:
     summary: str
     implemented_by: str
     tested_by: str
-    #: True where the rule needs more than the payload and its own document -- the rules a uniform
-    #: evaluator could not express, because they read the aggregate rather than a row.
+    #: True where the rule needs more than the payload and its own document. WHICH document, never
+    #: which snapshot: a rule re-reading its own row outside the transaction's session is still False.
     multi_document: bool = False
 
 
@@ -642,6 +642,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "austritt",
         Editability.EDITABLE,
         "required on the payload with no default, so an omitted one is a 422 rather than a team quietly reinstated",
+        "app.api.teams.schemas.FLPatchSaisonTeamPayload",
     ),
     FieldPolicy(
         Collection.SAISON_TEAMS,
@@ -649,6 +650,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.EDITABLE,
         "required on the payload with no default, as `austritt` is, and cleared by a REPLACEMENT: the kit belongs to the "
         "school that entered, not to the row. No state refuses it",
+        "app.api.teams.schemas.FLPatchSaisonTeamPayload",
     ),
     FieldPolicy(
         Collection.SAISON_TEAMS,
@@ -659,6 +661,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "required on the payload with no default, so an omitted block is a 422 rather than three people's records silently "
         "dropped; and cleared by a REPLACEMENT for `trikot_farbe`'s reason, holding the outgoing school's contact details "
         "against another club being personal data nobody there gave. No state refuses it",
+        "app.api.teams.schemas.FLPatchSaisonTeamKontaktePayload",
     ),
     FieldPolicy(
         Collection.SAISON_TEAMS,
@@ -1387,7 +1390,6 @@ RULES: tuple[Rule, ...] = (
         summary="contact details entered again while an anonymisation runs are refused, never left standing",
         implemented_by="app.api.schiedsrichter.services.find_anonymisation_refusal",
         tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestAReEntryLandingMidAnonymisationIsRefused",
-        multi_document=True,
     ),
     Rule(
         code="REQ-SQUAD-001",
@@ -1456,6 +1458,7 @@ RULES: tuple[Rule, ...] = (
         summary="an application is submitted only while the season's application window is open",
         implemented_by="app.api.bewerbungen.services.find_window_refusal",
         tested_by="tests/api/test_bewerbung_submission_refusal.py::TestTheWindowDecidesWhetherAnApplicationMayArrive",
+        multi_document=True,
     ),
     Rule(
         code="REQ-BEWERBUNG-005",
@@ -1472,6 +1475,7 @@ RULES: tuple[Rule, ...] = (
         summary="a club the public list does not offer is not one an application may be submitted as",
         implemented_by="app.api.bewerbungen.services.find_picked_club_refusal",
         tested_by="tests/api/test_bewerbung_submission_refusal.py::TestWhetherThePickedClubMayApply",
+        multi_document=True,
     ),
     Rule(
         code="REQ-BEWERBUNG-007",
@@ -1480,6 +1484,7 @@ RULES: tuple[Rule, ...] = (
         summary="a club already playing the season does not apply to play it",
         implemented_by="app.api.bewerbungen.services.find_already_entered_refusal",
         tested_by="tests/api/test_bewerbung_submission_refusal.py::TestAClubAlreadyInTheSeason",
+        multi_document=True,
     ),
     Rule(
         code="REQ-BEWERBUNG-008",
@@ -1488,6 +1493,7 @@ RULES: tuple[Rule, ...] = (
         summary="a new school does not propose a Kürzel a club already holds",
         implemented_by="app.api.bewerbungen.services.find_shorthand_refusal",
         tested_by="tests/api/test_bewerbung_submission_refusal.py::TestTheProposedKuerzel",
+        multi_document=True,
     ),
     Rule(
         code="REQ-PURGE-001",
@@ -1512,7 +1518,9 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "`future` and nothing else touches the field -- and that it demotes and promotes in one transaction. "
             "That is weaker than at-most-one, and parts from it on the same case: where NOTHING holds `active` "
             "the demotion matches nothing and writes nothing, so two concurrent rollovers have disjoint write "
-            "sets and both commit, leaving two seasons `active`."
+            "sets and both commit, leaving two seasons `active`. NOTHING REPORTS THE PAIR EITHER: `/admin/saisons` "
+            "badges every season with its own status, so two of them reading `Laufend` sit in one list where a "
+            "person can see them, and no read names the pair as a state."
         ),
         near=("REQ-ACTIVATE-001",),
         proven_by="tests/core/test_unenforced.py::TestExactlyOneActiveSeason",
@@ -1577,7 +1585,9 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "trigger. `inactive_since` stays a date (`docs/backend/spec.md :: I12`): it records WHEN a row retired, "
             "not when a sweep may take it. What the proof reaches is a removal through `app/core/crud.py`'s two "
             "helpers: refused where its literal filter names the field at any depth, failed outright where the "
-            "filter is a variable. A sweep inside that module, or outside `app/`, is unscanned."
+            "filter is a variable. A sweep inside that module, or outside `app/`, is unscanned. NOTHING SHOWS THE "
+            "KEEPING: every admin list badges a retired row with the day it retired, so how long one has stood is "
+            "readable, and no read calls a row kept too long -- there is no age for one to call it against."
         ),
         near=("REQ-RETIRE-001",),
         proven_by="tests/core/test_unenforced.py::TestNoPurgeReachesARetiredRow",

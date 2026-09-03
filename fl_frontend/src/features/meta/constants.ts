@@ -2,7 +2,7 @@ import type { KontaktChannel, QaQuestion, TeamMember } from "./types";
 
 // Content in code and not data: no database backing and no admin surface, so a change here is a
 // deploy. The pages it feeds change once or twice a year.
-export const TEAM_MEMBERS: TeamMember[] = [
+const TEAM_MEMBERS: TeamMember[] = [
   { id: 1, name: "David", role: "Vorstand", desc: "Ligaleitung & Orga", tag: "vorstand" },
   { id: 2, name: "Maria-Lucia", role: "Vorstand", desc: "Ligaleitung & Orga", tag: "vorstand" },
   { id: 3, name: "Matin", role: "Organisation", desc: "Orga & Verwaltung", tag: "orga" },

@@ -12,7 +12,7 @@ const MS_PER_CHARACTER = 55;
 const MIN_MS = 4000;
 const MAX_MS = 14000;
 
-export function readingDuration(title: string, description?: string): number {
+function readingDuration(title: string, description?: string): number {
   const characters = description === undefined ? title.length : title.length + description.length;
 
   return Math.min(MAX_MS, Math.max(MIN_MS, NOTICE_MS + characters * MS_PER_CHARACTER));

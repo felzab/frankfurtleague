@@ -1,6 +1,7 @@
 import ast
 import functools
 import inspect
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator
@@ -29,12 +30,29 @@ DRIVER_READS = frozenset({"aggregate", "count_documents", "distinct", "find", "f
 # its dependencies this way.
 COLLECTION_ARGUMENT_SUFFIX = "_collection"
 
+# The clause in `app/core/crud.py`'s header naming the driver's own reads. Anchored on the prose
+# around it rather than on every backtick in the header, which would also take `None` and
+# `DocumentNotFoundException` from the paragraph above it.
+CRUD_HEADER_READ_CLAUSE = re.compile(r"several routers call\s+(?P<names>.+?)\s+directly", re.DOTALL)
+
 
 @functools.cache
 def parsed(file: Path) -> ast.Module:
     """Cached across the sweeps that read it, several of which read the same file."""
 
     return ast.parse(file.read_text(encoding="utf-8"))
+
+
+def driver_reads_named_by_the_crud_header() -> frozenset[str]:
+    """Every read `app/core/crud.py`'s header claims a router makes directly, taken from its prose rather than from the code it describes."""
+
+    header = ast.get_docstring(parsed(APP_ROOT / "core" / "crud.py"))
+    assert header is not None, "`app/core/crud.py` carries no module header, so its claim about the driver's reads is gone"
+
+    clause = CRUD_HEADER_READ_CLAUSE.search(header)
+    assert clause is not None, "`app/core/crud.py`'s header no longer names the driver's reads where `CRUD_HEADER_READ_CLAUSE` looks"
+
+    return frozenset(re.findall(r"`([^`]+)`", clause["names"]))
 
 
 def module_of(function: Callable[..., Any]) -> Path:

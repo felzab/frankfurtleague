@@ -10,7 +10,7 @@ import type {
 
 // `"_id"` sorts chronologically: the season id is the four-character year string. A property of the
 // id format rather than a coincidence.
-export type FLSaisonsSortOptions = "_id" | "start_date" | "end_date";
+type FLSaisonsSortOptions = "_id" | "start_date" | "end_date";
 
 export type FLSaisonsFilterParams = {
   // No `saison_id`: this narrows a LIST, where `GET /saisons/{saison_id}` names one. The endpoint

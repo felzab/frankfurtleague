@@ -6,7 +6,7 @@ import type { FLPostSpielortPayload, FLSpielortPayloadDraft } from "./schemas";
  */
 export type SpielortDraft = FLSpielortPayloadDraft<FLPostSpielortPayload>;
 
-export type FLSpielorteSortingOptions = "name";
+type FLSpielorteSortingOptions = "name";
 
 export type FLSpielorteFilterParams = {
   // A switch, not a value to match on: retirement is a date, and a caller wanting the retired venues

@@ -13,7 +13,7 @@ export type FLSpieltagDraftFields = {
   ende: string;
 };
 
-export type FLSpieltagFieldGroup = "Zeitraum";
+type FLSpieltagFieldGroup = "Zeitraum";
 
 export type FLSpieltagDraftStatus = FLDraftStatus<FLSpieltagFieldGroup>;
 

@@ -216,6 +216,8 @@ const seatCards = (html: string): { header: string; body: string }[] => {
 const UNDO_ROUTE = readFileSync(path.resolve(SRC, "app", "api", "admin", "kontakte", "undo", "route.ts"), "utf8");
 /** The shared dispatch the editor rides, whose own copy is `undoDispatch.test.ts`'s to hold. */
 const DISPATCH = readFileSync(path.resolve(SRC, "shared", "utils", "undoDispatch.ts"), "utf8");
+/** The shared way out the editor rides. The cases below are where its shape is held, for all eight editors. */
+const EXIT_HOOK = readFileSync(path.resolve(SRC, "shared", "hooks", "useEditorExit.ts"), "utf8");
 
 const KONTAKTE_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte";
 
@@ -234,7 +236,7 @@ const RESPONSE_SCHEMA = sliceBetween(
   "export type FLPatchSaisonTeamKontakteResponse",
 );
 const SUBMIT = sliceBetween(FORM_SOURCE, "const handleFormSubmit", "return (");
-const REQUEST_LEAVE = sliceBetween(FORM_SOURCE, "const requestLeave", "const resetDraftToStored");
+const REQUEST_LEAVE = sliceBetween(EXIT_HOOK, "const requestLeave", "const discardAndLeave");
 const OFFER_UNDO = sliceBetween(FORM_SOURCE, "offerUndo({", "});");
 /* Cut at the signature's closing brace rather than at the declaration: the parameter list spans
    several lines, and each would otherwise read as a statement of the body. */
@@ -498,7 +500,7 @@ describe("the editor's shape", () => {
      reopened editor, and this reset is what makes a tree the router kept alive honest. */
   it("resets the draft on both exits", () => {
     assert.match(SUBMIT, /resetDraftToStored\(\);\s*\n\s*leavePage\(\);/, "a save leaves typed values standing in the tree");
-    assert.match(FORM_SOURCE, /const discardAndLeave = \(\) => \{\s*\n\s*resetDraftToStored\(\);/, "a discard leaves typed values standing");
+    assert.match(EXIT_HOOK, /const discardAndLeave = \(\) => \{\s*\n\s*resetDraftToStored\(\);/, "a discard leaves typed values standing");
   });
 
   /* Unsaved work may not leave unasked. No markup carries which handler a control was given, so what

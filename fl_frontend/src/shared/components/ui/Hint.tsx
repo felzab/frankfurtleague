@@ -34,8 +34,6 @@ type HintBody = {
   points?: readonly HintPoint[];
 };
 
-type HintPlacement = "top" | "right" | "bottom" | "left";
-
 type HintProps =
   /** Rendered in the flow, so mounting one on a keystroke shifts the layout under somebody typing. */
   | {
@@ -56,7 +54,7 @@ type HintProps =
    * A refusal is not capped here: `adminMutation.ts :: VALIDATION_FAILED` sets its register, which
    * allows the second sentence that names the way out.
    */
-  | { mode: "refusal"; reason: string | null; className?: string; placement?: HintPlacement; children: ReactNode };
+  | { mode: "refusal"; reason: string | null; className?: string; children: ReactNode };
 
 /**
  * **No severity, deliberately.** A hint written where a blocking banner was owed would never reach
@@ -79,8 +77,7 @@ export function Hint(props: HintProps) {
     return (
       <RefusalHint
         reason={props.reason}
-        className={props.className}
-        placement={props.placement}>
+        className={props.className}>
         {props.children}
       </RefusalHint>
     );
@@ -144,17 +141,7 @@ function RevealHint({ label, body, trigger }: { label: string; body: HintBody; t
  * reaches an ancestor, so the wrapper is the hit target — and the tab stop, a disabled button being
  * out of the tab order entirely.
  */
-function RefusalHint({
-  reason,
-  className,
-  placement = "top",
-  children,
-}: {
-  reason: string | null;
-  className?: string;
-  placement?: HintPlacement;
-  children: ReactNode;
-}) {
+function RefusalHint({ reason, className, children }: { reason: string | null; className?: string; children: ReactNode }) {
   const { isOpen, onOpenChange, openFromHover, captureDialog } = useHoverOpenOverlay();
 
   // `inline-block` is what `.popover__trigger` resolves to, so a flex parent lays both branches out identically.
@@ -176,7 +163,7 @@ function RefusalHint({
       {/* The outer box is cleared: HeroUI's `.popover` draws a fill, a shadow and a larger radius, which would ring
           the panel's own corners. The panel below is the one surface, shared with `IconTooltip`. */}
       <Popover.Content
-        placement={placement}
+        placement="top"
         offset={8}
         className="bg-transparent shadow-none">
         <Popover.Dialog

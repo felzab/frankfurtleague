@@ -1,17 +1,14 @@
 "use client";
 
-import { FieldError, Label, ListBox, Select } from "@heroui/react";
-
 import { postTeamAction } from "@/features/teams/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { TeamFormFields } from "@/features/teams/components/forms/TeamFormFields";
 import { FLCreateTeamFormPayloadSchema } from "@/features/teams/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
-import { FIELD_ERROR, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
-import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { SaisonSelect } from "@/shared/components/ui/SaisonSelect";
 
 import type { TeamCreateDraft, TeamCreateSaisonOption } from "@/features/teams/types";
-import type { Key } from "@heroui/react";
 
 const EMPTY_DRAFT_BASE = {
   name: "",
@@ -55,13 +52,9 @@ export function AdminCreateTeamForm({
             />
 
             <div className={FIELD_PAIR}>
-              <Select
-                name="saison_id"
-                aria-label="Saison"
+              <SaisonSelect
                 value={draft.saison_id}
-                onChange={(key: Key | null) => {
-                  if (!key) return;
-                  const nextSaisonId = key.toString();
+                onChange={(nextSaisonId) => {
                   const nextOffer = saisonOptions.find((option) => option.saisonId === nextSaisonId)?.offer ?? [];
                   setDraft((current) => ({
                     ...current,
@@ -74,29 +67,14 @@ export function AdminCreateTeamForm({
                         : null,
                   }));
                 }}
-                className="w-full">
-                <Label className={FIELD_LABEL}>Saison</Label>
-                <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
-                  <span>Saison {draft.saison_id}</span>
-                  <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
-                </Select.Trigger>
-                <FieldError className={FIELD_ERROR} />
-                <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
-                  <ListBox aria-label="Verfügbare Saisons">
-                    {saisonOptions.map((option) => (
-                      <ListBox.Item
-                        key={option.saisonId}
-                        id={option.saisonId}
-                        textValue={`Saison ${option.saisonId}`}
-                        className="text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
-                        Saison {option.saisonId}
-                      </ListBox.Item>
-                    ))}
-                  </ListBox>
-                </Select.Popover>
-              </Select>
+                saisonIds={saisonOptions.map((option) => option.saisonId)}
+              />
 
+              {/* Marked, but not swept: `fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn` reads a literal
+                  mark off a literal `name`, and this picker spells both through props.
+                  `FLCreateTeamFormPayloadSchema` is what refuses the null. */}
               <GruppeSelect
+                isRequired
                 value={draft.gruppe}
                 onChange={(gruppe) => setDraft((current) => ({ ...current, gruppe }))}
                 offer={selectedOption?.offer ?? []}

@@ -12,13 +12,13 @@ import type {
   FLTrikotFarbe,
 } from "./schemas";
 
-export type FLTeamsSortingOptions = "name";
+type FLTeamsSortingOptions = "name";
 
 /**
  * Omitting it is `"gruppenphase"`: both scopes return the same fields, so a forgotten parameter must
  * not produce a standing that counts playoff results.
  */
-export type FLTeamStatistikScope = "gruppenphase" | "gesamt";
+type FLTeamStatistikScope = "gruppenphase" | "gesamt";
 
 /**
  * What narrows the LIST — one team by its id is an identity, not a filter.
@@ -83,7 +83,7 @@ export type AustrittDraft = Omit<FLAustritt, "type"> & {
  * The agreement mid-edit, with its origin widened to `null` so a freshly opened block claims nobody's
  * word until somebody says whose it is. The schema refuses the null, as it refuses an unpicked route.
  */
-export type KontaktEinwilligungDraft = Omit<FLKontaktEinwilligung, "erteilt_von"> & {
+type KontaktEinwilligungDraft = Omit<FLKontaktEinwilligung, "erteilt_von"> & {
   erteilt_von: FLKontaktEinwilligung["erteilt_von"] | null;
 };
 

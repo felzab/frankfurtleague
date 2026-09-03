@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { parseDate } from "@internationalized/date";
@@ -20,7 +20,9 @@ import { FormActionBar } from "@/shared/components/ui/FormActionBar";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
+import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 import { offerUndo } from "@/shared/utils/undoDispatch";
@@ -82,7 +84,6 @@ export function AdminTeamEditForm({
   const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startTransition] = useTransition();
-  const [isLeaving, startLeaving] = useTransition();
 
   const storedMembership = saison.membership;
 
@@ -108,9 +109,7 @@ export function AdminTeamEditForm({
   });
 
   const [hasSaved, setHasSaved] = useState(false);
-  const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
-  const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   const { fieldErrors, setSubmitFieldErrors, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
     schemas: { team: FLPatchTeamPayloadSchema, saisonTeam: FLPatchSaisonTeamPayloadSchema },
@@ -154,23 +153,6 @@ export function AdminTeamEditForm({
 
   useUnsavedChangesWarning(isDirty);
 
-  // Ctrl+S / Cmd+S submits, gated on the same conditions as the Speichern button.
-  const canSubmitRef = useRef(true);
-  useEffect(() => {
-    canSubmitRef.current = !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty;
-  });
-  useEffect(() => {
-    const handleSaveShortcut = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        if (canSubmitRef.current) formRef.current?.requestSubmit();
-      }
-    };
-
-    window.addEventListener("keydown", handleSaveShortcut);
-    return () => window.removeEventListener("keydown", handleSaveShortcut);
-  }, [formRef]);
-
   // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
   useForgiveFixed({ team: buildClubPayload(), saisonTeam: buildSaisonPayload() });
 
@@ -204,26 +186,6 @@ export function AdminTeamEditForm({
     isGruppeChanged: isChanged("gruppe"),
   });
 
-  const leavePage = () => {
-    // Blur first: react-aria's focus attribute survives a kept-alive tree.
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-
-    // Hover next: the disabled flag is what ends it (`docs/frontend/spec.md :: I68`).
-    startLeaving(() => {
-      if (window.history.length > 1) router.back();
-      else router.push(saisonHref("/admin/teams"));
-    });
-  };
-
-  const requestLeave = () => {
-    if (isDirty) {
-      setHasLeftViaDiscard(false);
-      setIsConfirmingDiscard(true);
-      return;
-    }
-    leavePage();
-  };
-
   const resetDraftToStored = () => {
     setClubDraft({
       name: team.name,
@@ -244,12 +206,13 @@ export function AdminTeamEditForm({
     setSubmitFieldErrors({}, {});
   };
 
-  const discardAndLeave = () => {
-    resetDraftToStored();
-    setIsConfirmingDiscard(false);
-    setHasLeftViaDiscard(true);
-    leavePage();
-  };
+  const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
+    fallbackHref: saisonHref("/admin/teams"),
+    isDirty,
+    resetDraftToStored,
+  });
+
+  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
     // Snapshotted, not read live: a background revalidation would move the list under the dialog.
@@ -472,7 +435,7 @@ export function AdminTeamEditForm({
       {!hasLeftViaDiscard && (
         <ConfirmDiscardModal
           isOpen={isConfirmingDiscard}
-          onClose={() => setIsConfirmingDiscard(false)}
+          onClose={closeDiscard}
           onDiscard={discardAndLeave}
           changeCount={status.changed.length}
         />
