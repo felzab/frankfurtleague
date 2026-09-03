@@ -407,6 +407,8 @@ def test_every_required_field_is_required_on_its_model(
 BSON_TYPES: Mapping[Any, str] = {
     ObjectId: "objectId",
     bool: "bool",
+    # Bounded by what fits int32: `bson` encodes a larger int as int64, which stores as `long`. A
+    # field that needs one is annotated for it and takes its own row, rather than widening this one.
     int: "int",
     str: "string",
     # A marker class rather than an alias of `str`, so no other row here answers it.
@@ -463,8 +465,8 @@ def test_every_mirrored_field_declares_the_bson_type_of_its_annotation(
 ):
     """A wrong bsonType is invisible everywhere else.
 
-    A `CustomObjectId` reaches JSON schema as a plain string, so the objectId is declared in the
-    hand-written validator and nowhere else.
+    Every mirrored row, which is not every declaration: `saison_teams` has no row model, so its own
+    `_id` and `team_id` are declared by the validator and compared here by nothing.
     """
 
     properties = properties_at(collection, path)

@@ -27,13 +27,12 @@ def _response_models():
 
 RESPONSE_MODELS = list(_response_models())
 
-# `empty_parameter_set_mark` is `fail_at_collect` here, so a discovery finding NOTHING already fails.
-# The floor catches the partial loss it cannot see: one slice dropping out of the glob.
-MINIMUM_EXPECTED_RESPONSE_MODELS = 58
-assert len(RESPONSE_MODELS) >= MINIMUM_EXPECTED_RESPONSE_MODELS, (
-    f"discovered only {len(RESPONSE_MODELS)} response models across {len(SCHEMA_PATHS)} schema modules; "
-    f"expected at least {MINIMUM_EXPECTED_RESPONSE_MODELS}. Did a slice's schemas leave the glob, or was a model removed?"
-)
+# A floor rather than the exact count: a model added is swept by the parametrisation below without
+# editing this file, so pinning the number would ask for a bump and prove nothing.
+
+# Eight under the population: fewer than either of the two largest slices contributes, so one
+# leaving the glob lands below the floor.
+MINIMUM_EXPECTED_RESPONSE_MODELS = 50
 
 
 @pytest.mark.parametrize("name,model", RESPONSE_MODELS, ids=lambda v: v if isinstance(v, str) else HIDDEN_PARAM)
@@ -41,6 +40,18 @@ def test_every_response_model_carries_the_envelope(name, model):
     """Every `*Response` the globbed schema modules define. One declared outside them, in a router or a service, is swept by nothing."""
     assert issubclass(model, BaseAPIResponse), f"{name} does not extend BaseAPIResponse"
     assert model.model_fields["acknowledged"].default == 1
+
+
+def test_the_response_model_inventory_clears_its_floor():
+    """The partial loss `pyproject.toml :: empty_parameter_set_mark` cannot reach.
+
+    That setting refuses a discovery that found NOTHING; one that found a single slice parametrises,
+    and every case it runs passes.
+    """
+    assert len(RESPONSE_MODELS) >= MINIMUM_EXPECTED_RESPONSE_MODELS, (
+        f"discovered only {len(RESPONSE_MODELS)} response models across {len(SCHEMA_PATHS)} schema modules; "
+        f"expected at least {MINIMUM_EXPECTED_RESPONSE_MODELS}. Did a slice's schemas leave the glob, or was a model removed?"
+    )
 
 
 @pytest.mark.parametrize(
