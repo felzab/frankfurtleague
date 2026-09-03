@@ -22,8 +22,7 @@
 ### 1.1 Endpoint inventory
 
 All paths are prefixed `/api/v{API_VERSION}`. Guards are declared at router level and inherited by
-every endpoint in the router, `system` alone excepted (I7), and the grouping below is by tier, then by
-method.
+every endpoint in the router, `system` alone excepted (I7).
 
 #### Base-tier reads — guard `verify_access_base`
 
@@ -48,11 +47,9 @@ method.
 
 **Every route that serves matches runs one aggregation**, the admin reads below included, because
 each side of a fixture carries an `austritt_type` joined from `saison_teams` rather than embedded
-(I32). **The shape it feeds is not the same everywhere:**
-`GET /spiele/{spiel_id}/admin` answers `fl_backend/app/api/spiele/schemas.py :: FLSpielJoinedAdmin`, and
-every other route serving matches — `GET /spiele/action_required` among them — answers
-`:: FLSpielJoined`, which carries no `ort.mietpreis` and no `schiedsrichter.payment`. The stored
-`:: FLSpiel` is on neither.
+(I32). **The shape it feeds is not the same everywhere:** `GET /spiele/{spiel_id}/admin` alone answers
+`fl_backend/app/api/spiele/schemas.py :: FLSpielJoinedAdmin`, every other route serving matches
+answers `:: FLSpielJoined` (`READ-MONEY-001`), and the stored `:: FLSpiel` is on neither.
 
 #### Base-tier writes — guard `verify_access_base`
 
@@ -68,9 +65,7 @@ no `before`, so the row records that an application arrived rather than anything
 | POST   | `/bewerbungen` | Stores one school's application for the season it names, answering the id it wrote and echoing nothing it was sent; `REQ-BEWERBUNG-004..008` refuse |
 
 **`GET /bewerbungen` stays the admin list on `router.py`; only the POST at that path is public.** What
-keeps it the only base-tier write is `fl_backend/tests/api/test_admin_guard.py :: PUBLIC_WRITES`, read the
-way I7's `fl_backend/tests/api/test_admin_guard.py :: UNGUARDED_BY_DESIGN` is read: every published mutation is admin-guarded unless that register
-names it, and each name it holds is asserted base-tier and unreachable without the base key.
+keeps it the only base-tier write is `fl_backend/tests/api/test_admin_guard.py :: PUBLIC_WRITES` (I7).
 
 #### Admin-tier reads — guard `verify_access_admin`
 
@@ -104,18 +99,14 @@ narrower shape of the reads below.
 **Every ENTITY resource carries a `GET /{id}` whether or not something calls it** — the callerless
 ones are §4's. The one that carries none is not an entity: an erasure is keyed on an address rather
 than on a row (`fl_backend/app/api/kontakte/admin_router.py`). The log is read as a stream, its
-single read existing for the pre-image (I43) rather than for addressability.
-`/teams/{team_id}` serves the team detail pages, which read it once per season because a 404 is the
-read that answers "not in this season" (I11); which read each admin editor opens on is
-[`docs/frontend/spec.md`](../frontend/spec.md) §1.2's.
+single read existing for the pre-image (I43) rather than for addressability. Which read each admin
+editor opens on is [`docs/frontend/spec.md`](../frontend/spec.md) §1.2's.
 
 #### Admin-tier writes — guard `verify_access_admin`
 
 One `admin_router.py` per slice, beside the reads for the resource it changes. Every mutation
 is addressed resource-first, with the subject in the path — `POST /kontakte/erasure` excepted, whose
-subject is an email address and travels in the body instead. `fl_backend/tests/api/test_admin_guard.py`
-walks `app.openapi()["paths"]` and fails a mutation that loses its guard, `fl_backend/tests/api/test_admin_guard.py :: PUBLIC_WRITES` naming the
-whole of the exception.
+subject is an email address and travels in the body instead.
 
 | Method | Path                                                   | Effect                                                                                                                                                                          |
 | ------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -129,7 +120,7 @@ whole of the exception.
 | POST   | `/teams/{team_id}/saisons`                             | Adds the club to a season, seeding the row's `name` and `shorthand` from the club (I95). `saison_id` and `gruppe` on the body; `REQ-ENTER-001..003`, `-005` refuse              |
 | PATCH  | `/teams/{team_id}/saisons/{saison_id}`                 | Group, `austritt` and the kit colour, replaced WHOLESALE with no defaults — an omitted `austritt` reinstates a club that left. No DELETE (I19, I31, I50)                        |
 | PATCH  | `/teams/{team_id}/saisons/{saison_id}/kontakte`        | The contact block alone, replaced wholesale; `null` clears it. Its own endpoint so two editors cannot clobber one row, and it refuses nothing (I19, I50)                        |
-| POST   | `/teams/{team_id}/saisons/{saison_id}/replace`         | Repoints the row and its fixtures at another club, clearing the outgoing school's `austritt`, kit colour and contacts and retiring its squad rows (I19, I50)                    |
+| POST   | `/teams/{team_id}/saisons/{saison_id}/replace`         | Repoints the row and its fixtures at another club, clearing the outgoing school's `austritt`, kit colour and contacts and retiring its squad rows (I19, I137)                   |
 | POST   | `/spieler`                                             | Creates a person                                                                                                                                                                |
 | PATCH  | `/spieler/{spieler_id}`                                | Updates a person. Replaces both names wholesale, so neither has a default — see I34                                                                                             |
 | DELETE | `/spieler/{spieler_id}`                                | Soft delete                                                                                                                                                                     |
@@ -161,15 +152,13 @@ whole of the exception.
 
 **There is no `DELETE /saisons/{saison_id}`**, and none on `/teams/{team_id}/saisons/{saison_id}` or on
 `/spieltage/{spieltag_id}` either — `spieltage` carries no `inactive_since`, so a matchday has no
-field to stamp and none to clear. The absent verbs on `/spiele` are I26's, and the rows above cite it.
+field to stamp and none to clear.
 
-**Every `spieltage` response carrying a matchday injects `anzahl_spiele` before validation, writes
-as much as reads.** The field is required on `FLSpieltag` and sits on no document, so
-both reads and `PATCH /spieltage/{spieltag_id}`, the one write that echoes a matchday, pass the
-document through `fl_backend/app/api/spieltage/services.py :: with_expected_matches` first.
-The draw needs none: it answers with counts and a date and echoes no matchday at all.
-**The rule reaches every echo, not only the reads** — a new write endpoint
-that echoes a matchday injects too, or it answers 500 from its own response.
+**Every `spieltage` response carrying a matchday injects `anzahl_spiele` before validation, writes as
+much as reads** (`fl_backend/app/api/spieltage/services.py :: with_expected_matches`). The field is
+required on `FLSpieltag` and sits on no document, so **the rule reaches every echo, not only the
+reads** — a new write endpoint that echoes a matchday injects too, or it answers 500 from its own
+response.
 
 **The resource-first rule bends for one class of write and no other: a decision about a season that no
 per-resource route can express atomically.** `/saisons/{saison_id}/gruppen/swap` writes `saison_teams`
@@ -236,28 +225,22 @@ what follows from that decision travels in its transaction (I42, I51) rather tha
 | 4    | Where a slot's `Quelle` names a group placing, `build_team_pipeline` derives the standing for the referenced groups alone; a bracket referencing none skips the read               | A group the edit just completed would read as unfinished and seed nothing; figures re-read from `spiele` would rank the preview wrong (I98)                     |
 | 5    | The season's bracket is resolved and every disagreeing fixture written (I23, I24a, I25), each reported with what that write destroyed (I99)                                        | A winner would never reach the fixture whose `Quelle` names its match, and a deleted scoreline would read as an ordinary pairing change                         |
 
-**`dry_run=true` runs step 0, the whole of `judge`, a read-only step 3a, step 4, and a read-only step 5, and writes nothing** (I29).
-It resolves the bracket over a season assembled in memory — the patched fixture and any released sides
-substituted in, and the standings step 4 derives taken from that same assembly — and returns the same
-`FLPatchSpielDataResponse` the save does. No transaction: nothing is written, and a preview that took a
-write lock would be paying for a question.
+**`dry_run=true` runs step 0, the whole of `judge`, a read-only step 3a, step 4, and a read-only step 5,
+and writes nothing** (I29). It resolves the bracket over a season assembled in memory and returns the
+same `FLPatchSpielDataResponse` the save does, so a preview promises what a save would do. No
+transaction: a preview that took a write lock would be paying for a question.
 
 **Step 0 reads the `saison_id` and nothing else, and the fixture itself comes off step 1's season**
 (`fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`, then
 `fl_backend/app/api/spiele/services.py :: stored_in_slice`) — so the normalisation and every refusal
-stand on one slice rather than on two reads that could disagree (I108). Step 2's return is not read at
-all: a miss raises, so the 404 is the helper's (I2) and the raise
-unwinds the transaction rather than leaving the change half-applied. Step 5 must be scoped to one season, because `spiel_nr` identifies a match _within_ a
-season, and `saison_id` is on no payload — so the `$set` cannot have moved the fixture out from under
-the scope.
+stand on one slice rather than on two reads that could disagree (I108). Step 5 must be scoped to one
+season, because `spiel_nr` identifies a match _within_ a season, and `saison_id` is on no payload — so
+the `$set` cannot have moved the fixture out from under the scope.
 
 **More than one document, and still one transaction**, because the result and the advancement it causes
 are one fact. Step 5's read takes the session, or it would see the snapshot from before step 2 and
 resolve the bracket from the match as it was; step 4's takes it so the junction rows the standings
 rank — each club's group and its `austritt` — are read at the same instant.
-
-**A shoot-out rides with the result and is read only by the bracket** — step 5 takes a winner from it,
-and the derived table does not (I25, I25a).
 
 **No team document is written.** The league table is computed from the match documents by `GET /teams`
 (I1), so entering a result moves the table on the next read. The frontend still invalidates the `teams`
@@ -303,8 +286,7 @@ one of these, where the season has not moved at all.
 
 **One code per rule, never one per side.** The failure body is `{error_code, correlation_id}` and
 nothing else (L4), so the code is the only channel — and "team1 has left the season" and "team2 has
-left the season" are one failure mode, which is what the code table's own rule keys on. The form works out
-which side from the payload it submitted, using the predicates its pickers already evaluate.
+left the season" are one failure mode, which is what the code table's own rule keys on.
 
 **A malformed id: 404 in a path, 422 in a query — a deliberate split.** The `objectid` convertor
 (`fl_backend/app/core/routing.py :: by_id`) means `/spiele/not-an-id` matches no route at all, and a
@@ -344,18 +326,10 @@ and this suite pins them. Without it a constraint could be relaxed — to make a
 say — and nothing would notice, because a loosened rule fails no test and breaks no build.
 `fl_backend/tests/README.md` navigates the tree; the contract is here.
 
-**Covers:** Pydantic model validation chiefly — every constrained model accepts a valid payload, rejects
-the specific bad value each constraint exists to stop, and still accepts the legitimate edge cases that
-look like bad values (an empty `stadtteil`, a null `ergebnis` for an unplayed match, an integral float
-`mietpreis`). Plus the declared domain model, the database's own `$jsonSchema` validators and unique
-indexes, the shared crud helpers with the query and sort builders behind a list read
-(`fl_backend/tests/core/test_crud.py`), the filter builders, the response envelope, every router's
-admin guard (`fl_backend/tests/api/test_admin_guard.py`), the order the routes are declared in
-(`fl_backend/tests/api/test_route_order.py`), the refusal paths, and both aggregation pipelines —
-what a pipeline _says_ and what MongoDB _computes_ from what it says. Plus, against a real `mongod`,
-the write paths themselves: the match save, the season rollover and the reference fan-outs, each with
-the mid-flight failure that has to take the whole write back — and for a rename, which embedded copies
-it rewrites and which it must leave alone. What is reached only indirectly is §4.
+**A constrained model is pinned three ways**: it accepts a valid payload, rejects the specific bad
+value the constraint exists to stop, and **still accepts the legitimate edge cases that look like bad
+values** — an empty `stadtteil`, a null `ergebnis` for an unplayed match, an integral float
+`mietpreis`. What is reached only indirectly is §4.
 
 #### The two tiers, and the marker that separates them
 
@@ -364,23 +338,17 @@ it rewrites and which it must leave alone. What is reached only indirectly is §
 | **Default** | everything unmarked | no           | The fast tier — no container and no network  |
 | **`db`**    | `@pytest.mark.db`   | yes          | The containers; cold adds the `mongo:8` pull |
 
-**Neither tier carries a duration here, and that is deliberate.** A figure for a tier moves with the
-machine as much as with the suite, so one taken on a contended developer machine measures the
-contention ([`docs/ops/spec.md`](../ops/spec.md) §3) while one taken on a quiet machine goes stale as
-the suite grows — and a stamped number nobody re-takes reads as current long after it has stopped
-being so. **What these tiers cost inside the gate is stamped where it is re-taken against a fixed
-reference**: [`docs/ops/spec.md`](../ops/spec.md) §1.6 and `.github/gate-wall-clock.tsv`, whose
-`backend` and `backend-db` rows are updated by hand and reported against per job. A db-tier
-measurement counts only as a pair of runs on an idle machine, which is
-[`docs/_roadmap/items.md`](../_roadmap/items.md) `:: eg48-8863`'s subject; the
-distributed `db` run the gate now makes (below) is owed a profile of its own, which is
-`:: 3s6w-kndn`'s.
-**The gate's `db` section costs more than the tier does alone**, the other sections running beside
-it, so neither figure ever stands in for the other.
+**Neither tier carries a duration here, and that is deliberate**: a figure for a tier moves with the
+machine as much as with the suite, and a stamped number nobody re-takes reads as current long after
+it has stopped being so. **What these tiers cost inside the gate is stamped where it is re-taken
+against a fixed reference**: [`docs/ops/spec.md`](../ops/spec.md) §1.6 and
+`.github/gate-wall-clock.tsv`, whose `backend` and `backend-db` rows are updated by hand. **The
+gate's `db` section costs more than the tier does alone**, the other sections running beside it, so
+neither figure ever stands in for the other.
 
 `fl_backend/pyproject.toml :: addopts` deselects the marker, so a bare `pytest` runs the fast tier only.
 A command-line `-m` overrides it — addopts are prepended rather than merged — so `pytest -m db` runs
-exactly what the default run skips. Why each of the other flags is there is commented at that same key.
+exactly what the default run skips.
 
 **A test that touches the database carries `@pytest.mark.db`.** Without it the test runs in the fast
 tier, where there is no container, and fails for a reason that looks unrelated to what it is testing.
@@ -388,15 +356,12 @@ tier, where there is no container, and fails for a reason that looks unrelated t
 
 **The marker exists to keep the fast tier fast**, and a real `mongod` sits behind it because
 `mongomock` cannot execute this pipeline and a check against the live database tests the data rather
-than the code. The gate's `--backend` scope runs the default tier only; the `db` tier is its own
-scope and its own parallel CI job ([`docs/ops/spec.md`](../ops/spec.md)).
+than the code. Which gate scope runs which tier is [`docs/ops/spec.md`](../ops/spec.md) §1.6's.
 
 An `*_execution.py` module runs against a real `mongod` what its structural sibling asserts about the
-dict, and neither replaces the other: the structural test fails when a rule is **deleted**, the
-executing one when a rule is present but **wrong**. `fl_backend/tests/api/test_spiele_pipeline_execution.py`
-and `fl_backend/tests/api/test_reference_fanout_execution.py` have no structural sibling — the spiele
-pipeline is exercised against the engine alone, and a fan-out is an `update_many` no assertion about a
-dict can describe.
+dict, and **neither replaces the other**: the structural test fails when a rule is **deleted**, the
+executing one when a rule is present but **wrong**. A pipeline or an `update_many` that no assertion
+about a dict can describe carries the executing module alone, with no sibling to add.
 
 #### What the suite reads, and what it does not
 
@@ -409,76 +374,42 @@ why a test about a default asserts on the model's field rather than on a constru
 
 **The server fixtures live in the root `conftest.py`**, not in `api/`, because suites under both
 `api/` and `core/` want a database; each is session-scoped, so one `mongod` serves every suite that
-asks for it. Both yield a connection url rather than a container:
-`fl_backend/tests/conftest.py :: mongo_url` is a standalone `mongod`, and `:: mongo_replica_set_url`
-a second one, single-node and transactional, for the reason written at `:: _replica_set_mongod`.
+asks for it. Which of the two a test takes — `fl_backend/tests/conftest.py :: mongo_url` or
+`:: mongo_replica_set_url` — is `:: _replica_set_mongod`'s.
 
 #### The tier distributed
 
-**The `db` tier runs over worker processes** — `pytest -m db -n auto --dist loadfile
---maxprocesses`, the cap being `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST`, which is what that
-file's db scope invokes; a bare `pytest -m db` still runs it serially and is the first thing to try
-against a failure that only appears distributed. **`loadfile` is a cost choice and not a correctness
-one.** It sends a whole file to one worker, so a module-scoped corpus is built
-once for the module that asks for it rather than once per worker holding a slice of it. What makes
-that corpus and a suite's `DATABASE_NAME` one process's property is the per-worker naming below,
-which is why the design holds under `--dist load`, splitting a file, just as well.
+**The `db` tier runs over worker processes** — `pytest -m db -n auto --dist loadfile --maxprocesses`,
+the cap being `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST`. **A bare `pytest -m db` still runs it
+serially and is the first thing to try against a failure that only appears distributed.**
+**`loadfile` is a cost choice and not a correctness one**: it keeps a module-scoped corpus built once
+rather than once per worker holding a slice of it, and the per-worker naming below is what would hold
+a run correct under `--dist load`, which splits a file, as well.
 
-**A worker is a pytest session of its own, so the two servers are the controller's rather than each
-worker's.** `fl_backend/tests/conftest.py :: pytest_configure_node` starts them once in the xdist
-controller and hands every worker their urls. Starting them there is also what keeps them:
-testcontainers' reaper reclaims a container when the process that started it disconnects, and the
-controller outlives every worker. **That hook carries `optionalhook`, and the default tier is what
-depends on it**: xdist is what declares this hookspec, so an environment behind `uv.lock` — one the
-developer has not re-synced — has no spec to match the implementation against, and pluggy answers an
-unknown hook with `PluginValidationError` inside `perform_collect`. Without the annotation that is an
-INTERNALERROR at exit 3 on EVERY invocation, a bare `pytest` included, under a message naming an
-xdist hook rather than a stale environment. With it, the default tier runs and `-n` fails as a usage
-error naming the flag. **A serial run is the only one that starts a server of its own** —
-under `-n` a run selecting a db test is a run the controller started the pair for, so `:: _shared`
-refuses rather than starting a second pair, and the refusal names what a worker arriving there
-without a url actually is: a test missing `@pytest.mark.db`.
+**The two servers are the xdist controller's rather than each worker's**
+(`fl_backend/tests/conftest.py :: pytest_configure_node`), because testcontainers' reaper reclaims a
+container when the process that started it disconnects and the controller outlives every worker; a
+serial run is the only one that starts a pair of its own. The controller skips the start only where
+the run's `-m` is spelled exactly as `fl_backend/pyproject.toml :: addopts` spells it, so another
+spelling of the same selection pays a start it does not need — but **a run selecting no db test
+passes either way**, a failed start travelling to the fixtures rather than ending collection.
 
-**The controller starting no pair is never the run's own failure.** It skips them where the run's
-`-m` is the one `fl_backend/pyproject.toml :: addopts` passes, which `fl_backend/tests/conftest.py :: _default_tier_markexpr`
-reads off `addopts` rather than repeating; that is a cost heuristic, and any other spelling of the
-same selection pays a start it does not need. Where the start itself fails, the reason travels to the
-workers and surfaces at whichever fixture wants a server, so a run selecting no db test passes
-however its mark expression is spelled rather than ending in an `INTERNALERROR` before collection.
+**That hook carries `optionalhook`, and the DEFAULT tier is what depends on it.** xdist declares the
+hookspec, so an environment behind `uv.lock` has none to match the implementation against, and
+pluggy answers an unknown hook with `PluginValidationError`: an INTERNALERROR at exit 3 on every
+invocation, a bare `pytest` included, under a message naming an xdist hook rather than the stale
+environment that is the cause.
 
-**Every database the tier names is that worker's own.** `fl_backend/tests/worker.py :: worker_database`
-appends the worker id to a base name — each suite's module-level `DATABASE_NAME`,
-`fl_backend/tests/config.py :: CORPUS_DATABASE`, and the `fl_test` that
-`fl_backend/tests/conftest.py :: mongo_database` hands
-out. **The two shared names are what forced it**: no suite's `DATABASE_NAME` is spelled twice, and
-`loadfile` keeps each on one worker, but `CORPUS_DATABASE` is read by the suites seeding through
-pymongo's synchronous client and `fl_test` by the suites reading
-`fl_backend/tests/api/conftest.py :: league` and
-`fl_backend/tests/api/test_spieler_memberships_read.py :: squads`, so two
-workers would have held one name against one server — and
-`fl_backend/tests/database.py :: a_clean_database` empties the database it is handed, so each would
-have cleared the other's seeds mid-test and failed a test somewhere else entirely. **Every name is
-scoped rather than those two**, which is what keeps a run correct under `--dist load`, which splits a
-file, as well. On a serial run `PYTEST_XDIST_WORKER` is unset, the
-suffix is empty, and every name is what it was.
+**Every database the tier names is that worker's own** — `fl_backend/tests/worker.py :: worker_database`
+issues the name, and `:: guard_every_database` holds the driver's own constructor to it, so a suite
+hand-rolling `client[name]` cannot sidestep the rule by seeding for itself. Two base names are read
+by more than one suite, which is what forced the scoping: two workers holding one name against one
+server each empty the other's seeds mid-test, and the test that fails for it is somewhere else
+entirely.
 
-**The rule is held where a database is opened, not where a suite seeds.**
-`fl_backend/tests/worker.py :: guard_every_database` wraps the driver's database constructor for the
-session — pymongo's synchronous `Database`, which a fixture seeding through `MongoClient` opens, and
-its async twin, which the async seeds and the app under test open — so `:: assert_worker_database`
-sees every `client[name]` the process makes. The hand-rolled seeds are held to it exactly as the
-helpers in `fl_backend/tests/database.py` are: `fl_backend/tests/api/test_standings_execution.py :: seeded` and
-`fl_backend/tests/core/test_constraints_execution_users.py :: on_a_fresh_client` name their own
-database and open it themselves, and neither can reach a server without passing the guard. What it refuses is a
-name `:: worker_database` never issued, and it refuses it unconditionally — membership in that
-record is a question a serial run can answer, where a suffix empty on that run is not. `admin` is
-exempt, being the driver's handshake and the fixtures' `ping`, `hello` and `replSetInitiate` and
-nobody's seed.
-
-**One test guards a rule nothing else can.**
-`fl_backend/tests/core/test_constraints.py :: test_every_mirrored_model_matches_its_validator` compares
-each Pydantic model's stored field names against the `$jsonSchema` its collection carries and fails
-naming the field, which is what makes a hand-written third copy of the schema affordable (I17).
+**One test guards a rule nothing else can**: `fl_backend/tests/core/test_constraints.py :: test_every_mirrored_model_matches_its_validator`
+compares each Pydantic model's stored field names against the `$jsonSchema` its collection carries,
+which is what makes a hand-written third copy of the schema affordable (I17).
 
 There are **no `__init__.py` files** — `pyproject.toml` sets `--import-mode=importlib`, which needs none
 and cannot suffer same-basename collisions.
@@ -492,8 +423,6 @@ and cannot suffer same-basename collisions.
   not `id` — because that is the validation alias the models declare.
 - **Reject-cases are parametrised.** One `pytest.mark.parametrize` per rule, listing every value that
   must fail, so adding a case is one line.
-- **Comments explain the _why_, not the assertion.** Where a constraint exists because of a specific
-  defect, the test says so.
 - **Assert _which_ field failed when more than one could**, using the `assert_rejects` fixture
   (`fl_backend/tests/conftest.py :: assert_rejects`): a bare `pytest.raises(ValidationError)` passes
   whatever went wrong, so a test meant to prove one constraint stays green while an unrelated typo in
@@ -502,27 +431,17 @@ and cannot suffer same-basename collisions.
 - **A `db` test that takes a clean database from a helper has it built once and emptied per test**,
   and a body that moves what a collection enforces — narrowing a validator, adding or dropping an
   index — says so where it seeds, `mutates_schema=True`. Forgetting is caught rather than
-  remembered: `fl_backend/tests/database.py :: a_clean_database` re-reads every collection's
-  enforcement, and its two refusal messages carry the contract — the sync fixture's, which can only
-  name the caller that inherited the drift, included.
-- **The suite that manipulates a schema takes a database no other test shares**:
-  `fl_backend/tests/core/test_constraints_execution.py :: on_a_database` drops its throwaway on
-  every call, a half-applied schema being a state nothing records; its siblings
-  `:: on_the_shipped_schema` and `:: on_an_unconstrained_database` are built once, and each
-  docstring names the body it serves. A body that creates a limited user lives in
-  `fl_backend/tests/core/test_constraints_execution_users.py`, a module of its own so that the
-  per-call client such a body needs is one file's cost, one file being one worker's whole under
-  `--dist loadfile`.
+  remembered, by `fl_backend/tests/database.py :: a_clean_database`.
+- **The suite that manipulates a schema takes a database no other test shares**, a half-applied
+  schema being a state nothing records
+  (`fl_backend/tests/core/test_constraints_execution.py :: on_a_database`).
 - **A `db` test reading a seeded corpus is served by a fixture that seeds once instead** —
-  `fl_backend/tests/api/conftest.py :: league` and its siblings, each dropping the collections it
-  owns and seeding them for the session, the modules taking one reading rather than writing. A
-  module whose every case reads takes a corpus of its own the same way, at module scope.
-- **A module-scoped corpus is held to being read rather than trusted to be.**
-  `fl_backend/tests/api/conftest.py :: unwritten` wraps one, compares its documents at the module's
-  end against what the seed wrote, and names the collections a write moved. The drift check above
-  cannot: its subject is the schema, which a write never touches. A module holding one case that
-  WRITES hands that case a database of its own, `:: config_for`, rather than dropping the shared
-  corpus back to a seed per test.
+  `fl_backend/tests/api/conftest.py :: league` and its siblings. A module whose every case reads
+  takes a corpus of its own the same way, at module scope.
+- **A module-scoped corpus is held to being read rather than trusted to be**
+  (`fl_backend/tests/api/conftest.py :: unwritten`), and a module holding one case that WRITES hands
+  that case a database of its own, `:: config_for`, rather than dropping the shared corpus back to a
+  seed per test.
 - **The `db` corpus is documented where it is seeded**, in `fl_backend/tests/api/conftest.py`: a
   comment at each seeded club and each fixture names the one thing it is there to make observable,
   and the tests reading it derive their expected figures in their own docstrings.
@@ -660,6 +579,11 @@ rather than by the handler remembering to conceal one.
 | I117 | A `$set` of the value the snapshot already holds rewrites nothing, so it puts its own document in no write set                                                                                     | `fl_backend/tests/api/test_activation_isolation.py :: TestARivalRolloverLandingMidReactivationIsJudgedAgain`, which drives a rival under a promotion that rewrites nothing                                                                                                                                                                                                                         |
 | I118 | An endpoint whose callback judges what it does not write re-reads the movable state OUTSIDE its session immediately before answering and refuses on what moved                                     | `fl_backend/tests/api/test_saison_patch_isolation.py :: TestAPlayerAddedMidPatchIsJudgedAgain` and `fl_backend/tests/api/test_schiedsrichter_anonymisierung.py :: TestAReEntryLandingMidAnonymisationIsRefused`, each paired with a control                                                                                                                                                        |
 | I119 | The action log only GROWS: a write destroying a person's values redacts the row in place (I42), and nothing deletes or ages one out                                                                | `fl_backend/tests/core/test_unenforced.py :: TestNoPurgeReachesARetiredRow`, which holds every removal to `fl_backend/app/core/crud.py` and refuses one selecting on an age; `fl_backend/app/api/aktionen/admin_router.py` declares two reads and no write                                                                                                                                         |
+| I130 | `YYYY-MM-DD`, zero-padded, is the ONE stored date form: every comparison ORDERING dates is a string comparison, and parsing appears only where arithmetic needs it                                 | `fl_backend/app/shared/schemas/custom.py :: DATE_REGEX` and `fl_backend/tests/shared/test_custom.py :: test_rejects_malformed_dates`, on write payloads alone; the validators pin no pattern (I16) and nothing sweeps the comparisons                                                                                                                                                              |
+| I131 | The backend's ONE cache is process-local and TTL-bounded over season documents (`fl_backend/app/api/saisons/cache.py :: SAISON_CACHE_TTL_SECONDS`), and every season write drops it WHOLE          | `fl_backend/tests/api/test_saison_cache.py :: TestEverySeasonWriteDropsIt`, an AST sweep of every admin handler writing a season, and `:: TestTheCacheContract` for the TTL and the copies                                                                                                                                                                                                         |
+| I132 | Reaching past `fl_backend/app/core/crud.py` is CLOSED to four reasons: a cursor, a sorted single-document read, a count, and absence answering rather than a 404                                   | unenforced — `fl_backend/tests/api/test_write_transactions.py` sweeps the WRITE sites alone, and nothing sweeps the reads; review judgment                                                                                                                                                                                                                                                         |
+| I137 | A replacement carries over the row's identity and its fixtures alone: the `austritt`, kit colour and contacts are cleared and the outgoing squad retired                                           | `fl_backend/app/api/teams/admin_router.py :: replace_saison_team`, one `$set` clearing the three; `fl_backend/tests/api/test_saison_team_replacement_execution.py :: TestAllFourLayersMoveTogether` and `:: TestTheOutgoingClubsSquadIsRetired`                                                                                                                                                    |
+| I138 | The draw writes no date or kickoff time: an undraw destroys hand-assigned ones without refusing (I109), and only the log's images hold them (I48)                                                  | `fl_backend/app/api/saisons/spielplan.py :: _spiel` writes both null, pinned by `fl_backend/tests/api/test_spielplan.py :: test_nothing_is_scheduled_and_nothing_has_happened`; `fl_backend/tests/api/test_undraw_execution.py :: TestTheRemovalKeepsEveryImage`                                                                                                                                   |
 
 ## 3. Violation → remedy
 
@@ -700,7 +624,7 @@ rather than by the handler remembering to conceal one.
 | A retire comes back 409 with `REQ-RETIRE-001`                                                          | The club is entered in a running or planned season                                                                                                                                          | Wait for the season to end, or leave the club active — a season is left only by an `austritt`                                                                                        |
 | A season patch comes back 409 with `REQ-RULES-012`                                                     | The patch moved `rules.tiebreak_order` on a season holding a knockout fixture that has taken place — the window `REQ-SWAP-002` reads (I38)                                                  | Leave the tie-break as stored and the rest of the patch goes through, judged on the move alone (I44). The order itself does not reopen                                               |
 | A confirmed replace comes back 409 with `REQ-SPIELPLAN-005`                                            | The season is outside the replace's window — not `future`, or holding a fixture with one of I109's records against it                                                                       | Reload — the panel gates the press on those same two figures. Nothing returns a season to `future` (I18), so the status half never reopens                                           |
-| An undraw comes back 409 with `REQ-SPIELPLAN-006`                                                      | The same window, which the undraw shares with the replace (I46)                                                                                                                             | Reload, exactly as for `REQ-SPIELPLAN-005` — the same figures gate both presses                                                                                                      |
+| An undraw comes back 409 with `REQ-SPIELPLAN-006`                                                      | The same window, which the undraw shares with the replace (I109)                                                                                                                            | Reload, exactly as for `REQ-SPIELPLAN-005` — the same figures gate both presses                                                                                                      |
 | A rollover comes back 409 with `REQ-ACTIVATE-001`                                                      | The outgoing season still holds fixtures with no result and no event that awards none (I18)                                                                                                 | Enter those results, or record the event that called each one off, then roll over                                                                                                    |
 | A rollover comes back 409 with `REQ-ACTIVATE-002`                                                      | The target season is already `past`, and promoting it would reopen the points, the groups and the table derived from them (I18)                                                             | Nothing. A season closed by mistake is repaired at the database                                                                                                                      |
 | A rollover comes back 409 with `REQ-ACTIVATE-003`                                                      | The target season holds no fixtures, and activation writes `status` one way (I18)                                                                                                           | Draw its Spielplan, then roll over                                                                                                                                                   |
@@ -720,7 +644,7 @@ rather than by the handler remembering to conceal one.
 | A replacement comes back 409 with `REQ-REPLACE-001`                                                    | The season is `past`, and its fixtures and the table derived from them are the record of who played                                                                                         | Nothing. A junction row changes hands only in a running or planned season (I19), and the panel explains rather than offering the press                                               |
 | A replacement comes back 409 with `REQ-REPLACE-002`                                                    | A fixture the outgoing club holds in this season has taken place, and a replacement would credit it to the incoming club                                                                    | Record an `austritt` on that club's junction row instead: the club leaves and keeps its fixtures, and that patch judges nothing (I31)                                                |
 | A replacement comes back 409 with `REQ-REPLACE-003`                                                    | The incoming club already holds a row in this season — which is also how one club named on both ends reads                                                                                  | Pick a club holding no row here; a club that withdrew still holds one (I31)                                                                                                          |
-| A replacement leaves the season with no way to reach the team                                          | Working as intended — the kit colour and the contact records described the OUTGOING school, so the replacement cleared them (I19, I50)                                                      | PATCH `/teams/{team_id}/saisons/{saison_id}/kontakte` with the incoming school's own three people, which is also when their consent is recorded                                      |
+| A replacement leaves the season with no way to reach the team                                          | Working as intended — the kit colour and the contact records described the OUTGOING school, so the replacement cleared them (I19, I137)                                                     | PATCH `/teams/{team_id}/saisons/{saison_id}/kontakte` with the incoming school's own three people, which is also when their consent is recorded                                      |
 | A public team read serves no kit colour and no contacts                                                | Working as intended — the junction join allow-lists what it carries back, and those fields are on no base-tier response (I50)                                                               | Read them from `GET /teams/memberships`, the admin surface that owns them                                                                                                            |
 | A squad row's reactivate comes back 409 with `REQ-SQUAD-001`                                           | Its club does not stand in the season — the state a REPLACEMENT leaves behind (I19)                                                                                                         | Reassign the row through `PATCH /spieler/{spieler_id}/saisons/{saison_id}` to a club the season holds, then reactivate. Putting the old club back is not the route (`REQ-ENTER-001`) |
 | A squad write comes back 409 with `REQ-SQUAD-004`                                                      | Another live row of the squad the write lands in already holds the `rolle` — on a transfer that is the club being joined (§1.1)                                                             | Take the role off whoever holds it, or retire that row, and save again. A reactivate carries the role its row was retired with                                                       |
@@ -742,7 +666,7 @@ rather than by the handler remembering to conceal one.
 | The database user needs `collMod`                                | Accepted — `collMod` is a `dbAdmin` action, so a user can build every index, attach no validators, and the app then refuses to start (I15)                                                                      |
 | Cross-document rules are reported, never applied                 | Accepted — `report_relations` counts what two rules no validator expresses are broken by (I30, I28); re-run `python -m app.core.constraints --check` after a hand edit                                          |
 | Two rules refusals cannot be reached                             | Accepted — `REQ-RULES-004` and `REQ-RULES-006` are unreachable, `REQ-RULES-011` answering first (I44). They stay declared against the freeze being lifted; no test asserts the unreachability                   |
-| OpenAPI carries no service-level prose                           | Open — every endpoint has a `summary` and a docstring; the app declares no `title` or `description`. The Swagger UI is not publicly routed ([`docs/ops/spec.md`](../ops/spec.md))                               |
+| OpenAPI carries no service-level prose                           | Open — every endpoint has a `summary` and a docstring; the app declares no `title` or `description`. The Swagger UI is routed nowhere ([`docs/ops/spec.md`](../ops/spec.md) I134)                               |
 | A single read exists whether or not something calls it           | Accepted — `GET /{id}` exists on every entity resource, `kontakte` alone addressing no row: an id is answerable at its resource whatever handed it over                                                         |
 | Nothing purges a retired row                                     | Accepted — a retired row is never purged on its age; the decision stands at `fl_backend/app/core/domain.py :: UNENFORCED`, the one removal a pupil's erasure (I12)                                              |
 | A write and its log row can commit apart                         | Open — a write and its log row commit apart where no transaction is open; a failed insert answers 500 for a committed write (I52)                                                                               |

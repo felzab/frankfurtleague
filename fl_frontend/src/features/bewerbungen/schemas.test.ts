@@ -467,9 +467,9 @@ describe("the opponent the school wishes for", () => {
     assert.deepEqual(refusedPaths(gueltig({ wunschgegner: "G".repeat(BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH) })), []);
   });
 
-  /* The forgery `docs/frontend/spec.md :: I46` describes, on the one applicant-controlled value this
-     change adds: the decision mail sets one fact to the line, so an interior break opens a line the
-     reader cannot tell from a stated one. */
+  /* The forgery `docs/frontend/spec.md :: I87` describes, on the one applicant-controlled value the
+     payload takes: the decision mail sets one fact to the line, so an interior break opens a line
+     the reader cannot tell from a stated one. */
   for (const [was, wert] of EINZEILIG_GEBROCHEN) {
     it(`refuses an opponent broken by ${was}`, () => {
       assert.deepEqual(refusedPaths(gueltig({ wunschgegner: wert })), ["wunschgegner"]);

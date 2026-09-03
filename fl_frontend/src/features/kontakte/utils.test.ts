@@ -280,9 +280,9 @@ describe("describeUnrestorableKontakte", () => {
     assert.equal(describeUnrestorableKontakte(payload(null)), null);
   });
 
-  /* Backend I36 admits a malformed address on READ so a bad row stays repairable. Once it is
-     repaired the pre-save block is no legal write, and the shared undo spine can only answer such a
-     body with a reload nothing would change. */
+  /* The read model takes an email the payload refuses (`docs/backend/spec.md :: I104`), so the
+     pre-save block here is no legal write and the shared undo spine can only answer it with a
+     reload nothing would change. */
   it("names the seats a stored row holds that the write refuses", () => {
     const report = describeUnrestorableKontakte(payload(block({ trainer: person({ email: "nicht-erreichbar" }) })));
 
