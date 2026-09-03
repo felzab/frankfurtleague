@@ -48,7 +48,9 @@ describe("every form holding a draft", () => {
 
   for (const file of draftForms) {
     it(`${file} submits through runOnSubmit and passes no action`, () => {
-      assert.ok(sources.get(file)?.includes("<Form"), `${file} holds a draft's field errors but renders no <Form>`);
+      // A substring answers to `<FormActionBar` and every other sibling whose name opens the same
+      // way, which ten of these eleven render: the boundary is what makes this an element.
+      assert.ok(/<Form(?![\w.])/.test(sources.get(file) ?? ""), `${file} holds a draft's field errors but renders no <Form>`);
       assert.ok(sources.get(file)?.includes("onSubmit={runOnSubmit("), `${file} does not submit through runOnSubmit`);
       // React resets a form whose `action` is a function, and the reset reaches the draft through
       // react-aria's per-field listeners. Matched at a JSX prop position, so `onAction` and a
