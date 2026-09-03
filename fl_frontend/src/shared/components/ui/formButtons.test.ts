@@ -298,8 +298,9 @@ async function chromeSources(): Promise<string[]> {
 describe("where a page's chrome buttons get their appearance", () => {
   it("finds every one of them going through the recipe", async () => {
     const files = await chromeSources();
-    // Below this the walk has stopped finding the population rather than the population having shrunk.
-    assert.ok(files.length >= 23, `expected the chrome population; found ${String(files.length)}`);
+    // Below this the walk has stopped finding the population rather than the population having
+    // shrunk. Five under it: more than any one slice's chrome holds, so retiring a slice never fires it.
+    assert.ok(files.length >= 20, `expected the chrome population; found ${String(files.length)}`);
 
     const spelledLocally: string[] = [];
 

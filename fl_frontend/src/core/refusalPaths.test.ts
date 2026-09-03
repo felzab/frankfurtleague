@@ -623,7 +623,9 @@ describe("every path a refusal mapper emits", () => {
       (sum, [, text]) => sum + (text.match(new RegExp(DECLARES_FIELD_ERRORS.source, "g")) ?? []).length,
       0,
     );
-    assert.ok(declaredMappers.length >= 9, `expected at least 9 modules mapping a refusal, found ${String(declaredMappers.length)}`);
+    // Two under the population, whose members are one mapper per slice: the equality below grades
+    // each file, so this floor only has to refuse a sweep that collapsed.
+    assert.ok(declaredMappers.length >= 7, `expected at least 7 modules mapping a refusal, found ${String(declaredMappers.length)}`);
     assert.ok(
       declaredFunctions >= 40,
       `expected at least 40 functions declared to answer with field errors, found ${String(declaredFunctions)}`,

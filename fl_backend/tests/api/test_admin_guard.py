@@ -69,7 +69,11 @@ MUTATIONS = [(path, method) for path, method in PUBLISHED_OPERATIONS if method !
 
 # A floor rather than the exact count: an endpoint added is covered by the parametrisation below
 # without editing this file, so pinning the number would ask for a bump and prove nothing.
-MINIMUM_EXPECTED_MUTATIONS = 25
+
+# Seven under the inventory: fewer than either of the two largest routers holds, so one dropping out
+# of it lands below the floor. `tests/api/test_actor_binding.py` floors the same operations reached
+# through the mounted routes, and the two move together.
+MINIMUM_EXPECTED_MUTATIONS = 30
 
 # Admin reads this inventory PINS, not every admin read the application serves -- nothing about a GET
 # tells the inventory which tier it belongs to, so each is enumerated and parametrised below.
@@ -127,7 +131,11 @@ def test_every_operation_carries_exactly_one_guard(path: str, method: str):
 
 
 def test_the_mutation_inventory_clears_its_floor():
-    """`empty_parameter_set_mark` defaults to skip, so an inventory that found nothing would turn the coverage above into one silent skip."""
+    """The partial loss `pyproject.toml :: empty_parameter_set_mark` cannot reach.
+
+    That setting refuses an inventory that found NOTHING; one that found a third of the writes
+    parametrises, and every case it runs passes.
+    """
     assert len(MUTATIONS) >= MINIMUM_EXPECTED_MUTATIONS, (
         f"discovered only {len(MUTATIONS)} mutations across {len(PUBLISHED_OPERATIONS)} published operations; "
         f"expected at least {MINIMUM_EXPECTED_MUTATIONS}. Did a router stop being included?"
@@ -167,7 +175,7 @@ def test_the_public_writes_are_published_and_exempt_from_nothing_else():
     above rather than naming a path never in it.
     """
 
-    assert PUBLIC_WRITES, "the exemption is empty, so the two cases above are silent skips"
+    assert PUBLIC_WRITES, "the exemption is empty, so the two comparisons below hold of nothing"
 
     assert set(PUBLIC_WRITES) <= set(PUBLISHED_OPERATIONS), f"{sorted(set(PUBLIC_WRITES) - set(PUBLISHED_OPERATIONS))} is not published"
 

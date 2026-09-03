@@ -235,7 +235,11 @@ MUTATIONS = sorted(operation for operation in ROUTES_BY_OPERATION if operation[1
 
 # A floor rather than the exact count: an endpoint added is covered by the parametrisation without
 # editing this file, so pinning the number would ask for a bump and prove nothing.
-MINIMUM_EXPECTED_MUTATIONS = 25
+
+# Seven under the inventory: fewer than either of the two largest routers holds, so one dropping out
+# of it lands below the floor. `tests/api/test_admin_guard.py` floors the same operations reached
+# through the published document, and the two move together.
+MINIMUM_EXPECTED_MUTATIONS = 30
 
 
 def binds_an_actor(route: APIRoute) -> bool:
@@ -250,7 +254,11 @@ def test_every_mutation_binds_an_actor(path: str, method: str):
 
 
 def test_the_mutation_inventory_clears_its_floor():
-    """`empty_parameter_set_mark` defaults to skip, so an inventory that found nothing would turn the coverage above into one silent skip."""
+    """The partial loss `pyproject.toml :: empty_parameter_set_mark` cannot reach.
+
+    That setting refuses an inventory that found NOTHING; one that found a third of the writes
+    parametrises, and every case it runs passes.
+    """
     assert len(MUTATIONS) >= MINIMUM_EXPECTED_MUTATIONS, (
         f"discovered only {len(MUTATIONS)} mutations across {len(ROUTES_BY_OPERATION)} operations. Did a router stop being included?"
     )
@@ -293,7 +301,7 @@ def test_the_public_actor_is_not_the_system_one():
 
 
 def test_the_public_write_inventory_is_not_empty():
-    """`empty_parameter_set_mark` defaults to skip, so an emptied exemption would turn the cases above into silent passes."""
+    """The two set comparisons below are true of an empty list, so the exemption is asserted non-empty before either runs."""
 
     assert PUBLIC_WRITES
 

@@ -500,9 +500,12 @@ describe("every page-owned editor", () => {
   it("is discovered by the sweep", () => {
     // A floor rather than an exact count: what it guards is a discovery that silently finds nothing
     // after the routine is renamed, which would leave every assertion below vacuously true.
+
+    // Two under the population, which holds one editor per admin entity, so retiring one never
+    // fires it.
     assert.ok(
-      pageOwnedEditors.length >= 7,
-      `expected at least 7 page-owned editors, found ${String(pageOwnedEditors.length)}: ${pageOwnedEditors.join(", ")}`,
+      pageOwnedEditors.length >= 6,
+      `expected at least 6 page-owned editors, found ${String(pageOwnedEditors.length)}: ${pageOwnedEditors.join(", ")}`,
     );
   });
 
