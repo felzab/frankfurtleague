@@ -2,7 +2,7 @@
 
 **Purpose:** every data-protection decision I have taken for the league site, recorded once, so
 none is lost before the code, a spec sheet or a runbook carries it. A ruling leaves only when its
-text has reached its destination, and it moves rather than copies (`docs/standard.md` COR-2).
+text has reached its destination, and it moves rather than copies (`docs/_standard/standard.md` COR-2).
 
 Nothing here is a legal conclusion. A ruling marked **Datenschutzexperte consulted** was taken after
 consulting one; every other ruling is mine, taken on 2026-09-01 in a review of every open question

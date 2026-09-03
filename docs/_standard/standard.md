@@ -15,7 +15,7 @@ kinds its own `.claude/hooks/docs-standard.sh :: isDocs` test names, which is na
 corpus `scripts/checks/docs_gate/kernel.py :: SCANNED_SUFFIXES` and `:: OPS_FILENAMES` select — a
 `.json`, a `.css`, a `.dockerignore` and a `.githooks/` hook reach the gate and not the hook, so the
 rules below bind an edit that was never prompted with them. It names
-this file and `docs/worked-examples.md` — these rules applied to real passages, each shown before and
+this file and `docs/_standard/worked-examples.md` — these rules applied to real passages, each shown before and
 after — to be read in full; every agent brief names both, and the examples cite these rules rather
 than restating them (COR-2). The mechanical defence is `scripts/checks/check_docs.py`,
 run by `./scripts/gate/verify.sh` in its docs scope; its checks are registered at
@@ -154,10 +154,10 @@ These bind every written artifact. A comment is documentation and carries every 
   repository right now. Two shapes are banned outright: narrating an edit, and documenting an absence
   for its own sake. A rejected alternative is neither: write it in the present, as a constraint aimed
   at the reader about to propose it again. A document whose subject is what happened is exempt within
-  that job — a commit body, a pull request, an audit report, and `docs/worked-examples.md`, whose
+  that job — a commit body, a pull request, an audit report, and `docs/_standard/worked-examples.md`, whose
   subject is a passage on each side of a cut. _Enforced by_ gate check `history` for a fixed phrase
   list over a branch's added lines, **which implements no exemption**: it spares
-  `docs/worked-examples.md` only as far as that page's narration stays inside a fence, which
+  `docs/_standard/worked-examples.md` only as far as that page's narration stays inside a fence, which
   `scripts/checks/docs_gate/kernel.py :: strip_fences` blanks, so an exempt sentence written as
   prose there fails a branch that is obeying this rule; both banned shapes past those phrases, and
   the exemptions, are `/docs:audit`'s.
@@ -219,7 +219,7 @@ These bind every written artifact. A comment is documentation and carries every 
   _Enforced by_ `/docs:audit`.
 - **COR-10:** a normative document — this file, a command file, a rules file — writes a placeholder
   rather than a real path, symbol or value, so nothing in it reads as a claim about the tree that a
-  rename can falsify. A rule's own subject is excepted, and so is `docs/worked-examples.md`, whose
+  rename can falsify. A rule's own subject is excepted, and so is `docs/_standard/worked-examples.md`, whose
   real passages are the point. _Enforced by_ `/docs:audit`.
 - **COR-11:** the words "the owner" appear in no tracked file outside `.claude/` — everything so
   written speaks in my own voice: first person where a person acts, neutral imperative everywhere

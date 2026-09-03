@@ -30,7 +30,7 @@ from .kernel import (
     word_count,
 )
 
-# The trees `docs/standard.md` In-code's Scope names, which `test_scope_agreement.py` holds it to
+# The trees `docs/_standard/standard.md` In-code's Scope names, which `test_scope_agreement.py` holds it to
 # and sweeps. Nothing selects on them -- `_bounded` reads the kind, a tree admitting kinds the gate
 # cannot read.
 INCODE_SCOPES: Final[tuple[str, ...]] = (

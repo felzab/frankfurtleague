@@ -99,7 +99,7 @@ SHELL_FILE: Final = "nginx/entrypoint.sh"
 HOOK_SAMPLE: Final = ".claude/hooks/probe.sh"
 DOCKERFILE: Final = "fl_backend/Dockerfile"
 # The one-file standard, carrying both of the shapes a rule may take (PRE-4).
-STANDARD: Final = "docs/standard.md"
+STANDARD: Final = "docs/_standard/standard.md"
 GLOSSARY: Final = "docs/glossary.md"
 BACKEND_SPEC: Final = "docs/backend/spec.md"
 FRONTEND_SPEC: Final = "docs/frontend/spec.md"

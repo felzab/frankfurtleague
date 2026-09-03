@@ -18,13 +18,13 @@ branch named for the change (CLAUDE.md §2).
 
 1. **Read all of these before writing a line.**
 
-   | Read                        | For                                                                                      |
-   | --------------------------- | ---------------------------------------------------------------------------------------- |
-   | `docs/_roadmap/protocol.md` | The page's shape (§1), what a `Lands with:` line is not (§2), the status derivation (§4) |
-   | `docs/_roadmap/README.md`   | What belongs on the roadmap, and what belongs to a settled decision or a spec sheet      |
-   | `docs/_roadmap/items.md`    | Every open entry, and the shape "What every entry carries" fixes                         |
-   | `docs/standard.md`          | An entry is documentation: COR-1, COR-3, COR-4, COR-6 and COR-9 bind it                  |
-   | `docs/_auditing/lessons.md` | How a claim is verified before it is written down                                        |
+   | Read                         | For                                                                                      |
+   | ---------------------------- | ---------------------------------------------------------------------------------------- |
+   | `docs/_roadmap/protocol.md`  | The page's shape (§1), what a `Lands with:` line is not (§2), the status derivation (§4) |
+   | `docs/_roadmap/README.md`    | What belongs on the roadmap, and what belongs to a settled decision or a spec sheet      |
+   | `docs/_roadmap/items.md`     | Every open entry, and the shape "What every entry carries" fixes                         |
+   | `docs/_standard/standard.md` | An entry is documentation: COR-1, COR-3, COR-4, COR-6 and COR-9 bind it                  |
+   | `docs/_auditing/lessons.md`  | How a claim is verified before it is written down                                        |
 
 2. **Triage every bullet and say each outcome back before writing anything.**
 

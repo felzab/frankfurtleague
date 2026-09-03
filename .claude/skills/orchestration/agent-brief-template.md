@@ -209,15 +209,15 @@ did the reasonable thing in their absence.
                     matcher. That is a finding about the check and you are the only one who can
                     see it, so it reads as process narration and gets left out unless asked for.
 
-15 THE STANDARD. `docs/standard.md` binds every document, comment, commit message and pull
-                request body you write, and `docs/worked-examples.md` is those rules applied to
+15 THE STANDARD. `docs/_standard/standard.md` binds every document, comment, commit message and pull
+                request body you write, and `docs/_standard/worked-examples.md` is those rules applied to
                 real passages. Read both in full, at those paths, before your first
                 documentation-shaped write. `.claude/hooks/docs-standard.sh` puts the Spine and
                 the bounds in front of every such write, sliced out of the standard at runtime --
                 one section of it, and never a substitute for the read.
 ```
 
-**Section 15 names `docs/standard.md` and `docs/worked-examples.md` rather than copying either.**
+**Section 15 names `docs/_standard/standard.md` and `docs/_standard/worked-examples.md` rather than copying either.**
 Each rule keeps the one home COR-2 gives it, `.claude/hooks/docs-standard.sh` slices the same file
 at every documentation-shaped write, and a rename that misses one of the three fails the `path`
 check here and the `bare-path` check in the hook. The paths are repeated in this sentence because

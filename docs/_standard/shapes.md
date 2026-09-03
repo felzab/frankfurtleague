@@ -145,7 +145,7 @@ Invariants:
 
 - **A glossary entry**, because OUT-6 spells the heading and all four fields in its own line: a
   skeleton would be that line retyped, which is a second home (COR-2).
-- **A roadmap entry**, because [`_roadmap/protocol.md`](_roadmap/protocol.md) states its shape and
+- **A roadmap entry**, because [`_roadmap/protocol.md`](../_roadmap/protocol.md) states its shape and
   gate check `roadmap-shape` refuses a departure.
 - **A rule**, because PRE-4 gives the whole shape as one line, and that line is on the page every
   rule already sits on.

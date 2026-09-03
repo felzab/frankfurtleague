@@ -41,7 +41,7 @@ The comment above the call inside it:
     # row naming a document this write never touched.
 ```
 
-I39's invariant cell in [`backend/spec.md`](backend/spec.md#2-invariants):
+I39's invariant cell in [`backend/spec.md`](../backend/spec.md#2-invariants):
 
 ```markdown
 `patch_one_in_db` takes the log's pre-image from the update itself, asking the driver for `BEFORE`,
@@ -119,7 +119,7 @@ And the test keeps its two assertions and loses its docstring:
 
 Rules: OUT-4, COR-14, COR-5.
 
-I54's invariant cell in [`backend/spec.md`](backend/spec.md#2-invariants), before:
+I54's invariant cell in [`backend/spec.md`](../backend/spec.md#2-invariants), before:
 
 ```markdown
 A read whose order a person sees attaches `fl_backend/app/core/crud.py :: GERMAN_COLLATION` at the
@@ -140,7 +140,7 @@ read and never as a default: a collated read loses a simple-collation index
 ```
 
 **The rest moves rather than going**, into
-[`backend/spec.md`](backend/spec.md#3-violation--remedy), whose columns are the symptom, the cause
+[`backend/spec.md`](../backend/spec.md#3-violation--remedy), whose columns are the symptom, the cause
 and the remedy:
 
 ```markdown
@@ -172,7 +172,7 @@ default, and the reader of a remedy row already has the wrong order in front of 
 
 Rules: COR-1, COR-5, COR-13.
 
-From [`frontend/spec.md`](frontend/spec.md#19-the-test-suite), before:
+From [`frontend/spec.md`](../frontend/spec.md#19-the-test-suite), before:
 
 ```markdown
 **A sweep's own reader is held against a synthetic sample, not only against the tree.** A floor over
@@ -220,7 +220,7 @@ spells its referents out — "each keeps its floor over the tree as well" rather
 
 Rules: COR-8, COR-5.
 
-From [`frontend/spec.md`](frontend/spec.md#19-the-test-suite), before:
+From [`frontend/spec.md`](../frontend/spec.md#19-the-test-suite), before:
 
 ```markdown
 **It is blind to a request made with bare `fetch`, to the runtime value inside a `${…}` hole, to a
@@ -282,7 +282,7 @@ what a caller may rely on — true across both surfaces and stated inside neithe
 sheet's rung and not a comment's (COR-14). The ceiling's own sentence is the line constraint, aimed
 at whoever is about to change the number.
 
-**After**, the contract is an invariant row in [`backend/spec.md`](backend/spec.md#2-invariants),
+**After**, the contract is an invariant row in [`backend/spec.md`](../backend/spec.md#2-invariants),
 taking that sheet's next free number, which OUT-4 then makes permanent:
 
 ```markdown
@@ -367,7 +367,7 @@ INC-9 asks for puts each half at the line it constrains, where neither half need
 
 Rules: COR-4, COR-8, COR-5, COR-2, OUT-4.
 
-From [`frontend/spec.md`](frontend/spec.md#11-slice-inventory), the line above the table and four of
+From [`frontend/spec.md`](../frontend/spec.md#11-slice-inventory), the line above the table and four of
 its rows, before:
 
 ```markdown
@@ -422,7 +422,7 @@ all. A gloss no lower rung answers does not leave with the names — it goes to 
   `bewerbungen`'s "both irreversible". Each is a rule a session would otherwise break, and none is
   derivable.
 - **The German exactly as it stands.** "Spielplan" in the `saisons` cell is
-  [`glossary.md`](glossary.md)'s term, and a German compound means something other than its parts,
+  [`glossary.md`](../glossary.md)'s term, and a German compound means something other than its parts,
   so replacing one with an English gloss drops the trap the glossary exists to carry.
 
 ## A file only a model reads keeps the caveat and loses the pacing
@@ -433,7 +433,7 @@ The opening of `.claude/commands/docs/audit-pr.md`, a command file whose only re
 before:
 
 ```markdown
-Audit the documentation this branch touches — and only that — against `docs/standard.md`, and fix what
+Audit the documentation this branch touches — and only that — against `docs/_standard/standard.md`, and fix what
 fails **on the branch itself**. It takes no arguments (`$ARGUMENTS`): the branch in the working tree
 is the scope.
 
@@ -445,7 +445,7 @@ stop.
 After:
 
 ```markdown
-Audit the documentation this branch touches — and only that — against `docs/standard.md`, and fix what
+Audit the documentation this branch touches — and only that — against `docs/_standard/standard.md`, and fix what
 fails **on the branch itself**. It takes no arguments (`$ARGUMENTS`): the branch in the working tree
 is the scope. On `main`, or with nothing changed since the fork point, say there is no slice and
 stop.

@@ -1,8 +1,8 @@
 ---
-description: Audit every document in the repo against docs/standard.md — /docs:audit, or /docs:audit fix
+description: Audit every document in the repo against docs/_standard/standard.md — /docs:audit, or /docs:audit fix
 ---
 
-Audit **all** documentation in this repository against `docs/standard.md`, and against what the code
+Audit **all** documentation in this repository against `docs/_standard/standard.md`, and against what the code
 actually does today. Mode from the arguments: `$ARGUMENTS`
 
 | Arguments | Mode      | Does                                                                                     |
@@ -30,7 +30,7 @@ Neither mode runs inside the other's session.
   `scripts/checks/check_docs.py :: check_comment_bounds` reads only the comment blocks this branch added.
   Where the existing population matters — a newly introduced rule above all — measure it directly and
   work that list.
-- **Never restate a rule from `docs/standard.md` — not here, and not in an agent's prompt.** Cite it;
+- **Never restate a rule from `docs/_standard/standard.md` — not here, and not in an agent's prompt.** Cite it;
   the reader opens it.
 
 ---
@@ -78,12 +78,12 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    | Auditing method             | `docs/_auditing/**`                                                                                                                                                                                                                                                                                        |
    | Git workflow                | `docs/_git/**`                                                                                                                                                                                                                                                                                             |
    | Roadmap                     | `docs/_roadmap/**`                                                                                                                                                                                                                                                                                         |
-   | Documentation standard      | `docs/standard.md`                                                                                                                                                                                                                                                                                         |
+   | Documentation standard      | `docs/_standard/**`                                                                                                                                                                                                                                                                                        |
    | Backend documents           | `docs/backend/**`                                                                                                                                                                                                                                                                                          |
    | Frontend documents          | `docs/frontend/**`                                                                                                                                                                                                                                                                                         |
    | Logging documents           | `docs/logging/**`                                                                                                                                                                                                                                                                                          |
    | Ops documents               | `docs/ops/**`                                                                                                                                                                                                                                                                                              |
-   | Loose documents             | `docs/domain.md` · `docs/glossary.md` · `docs/README.md` · `docs/datenschutz.md` · `docs/shapes.md` · `docs/worked-examples.md`                                                                                                                                                                            |
+   | Loose documents             | `docs/domain.md` · `docs/glossary.md` · `docs/README.md` · `docs/datenschutz.md`                                                                                                                                                                                                                           |
    | Assistant instructions      | `.claude/CLAUDE.md` · `.claude/rules/**` · `.claude/commands/**` · `.claude/skills/**` · `.claude/agents/**`                                                                                                                                                                                               |
    | Public root documents       | `README.md` · `SECURITY.md`                                                                                                                                                                                                                                                                                |
    | Frontend source             | `fl_frontend/src/**`                                                                                                                                                                                                                                                                                       |
@@ -105,7 +105,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 
 5. **Dispatch one agent per segment**, in batches small enough that each report is read as it lands.
    Each prompt carries the agent's file list, the report path it writes to, and everything below
-   plus the rules above. Each agent reads `docs/standard.md` in full and applies the rules from
+   plus the rules above. Each agent reads `docs/_standard/standard.md` in full and applies the rules from
    there.
 
    **Settle before launching any of them how an agent reports finishing and how it reports being
@@ -180,7 +180,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
      rulebook (PRE-2); a row the code contradicts is a defect in the code rather than in the row. A
      rules file's `paths:` frontmatter is checked the same way: a glob matching nothing puts the
      clause in front of nobody.
-   - **`docs/standard.md` against itself**, held to its own rules.
+   - **`docs/_standard/standard.md` against itself**, held to its own rules.
    - **Every "Enforced by" line against what the gate actually runs**, which is a stale claim
      wherever it overstates. Check the gate's **scope mapping** as well as its scanner: a scope arm
      that never selects the documentation gate leaves that surface unaudited whatever the scanner
@@ -220,7 +220,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
 4. **Never run a formatter while editing work is in flight.** One run, at the end, by the session
    that ships.
 
-5. **Fix in verdict order** — `Wrong` first. `docs/standard.md` governs how each repair is written
+5. **Fix in verdict order** — `Wrong` first. `docs/_standard/standard.md` governs how each repair is written
    (COR-3, COR-9).
 
    Where a row changes the corpus rather than a sentence:

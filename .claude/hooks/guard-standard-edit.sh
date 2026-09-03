@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# PreToolUse hook on Edit|Write|NotebookEdit — a write to docs/standard.md asks the owner first.
+# PreToolUse hook on Edit|Write|NotebookEdit — a write to docs/_standard/standard.md asks the owner first.
 # The standard defines how every other document is written and checked, so a quiet edit changes the
 # rules everything else is held to. A payload whose target cannot be read asks too.
 
 ask() {
-  printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"This edits docs/standard.md — the documentation standard changes only with your explicit sign-off (owner rule, 2026-08-08). Approve to let this one write through, or deny and discuss the change first."}}'
+  printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"This edits docs/_standard/standard.md — the documentation standard changes only with your explicit sign-off (owner rule, 2026-08-08). Approve to let this one write through, or deny and discuss the change first."}}'
   exit 0
 }
 
@@ -40,7 +40,7 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
     const strip = (p) => p.replace(/^[\\/]{2}[?.][\\/]/, "");
     const fold = (p) => (process.platform === "win32" ? p.toLowerCase() : p);
 
-    const standard = path.resolve(strip(process.env.REPO_ROOT), "docs", "standard.md");
+    const standard = path.resolve(strip(process.env.REPO_ROOT), "docs", "_standard", "standard.md");
     const target = path.resolve(strip(raw));
 
     // The standard is one file, so containment is equality — folded, Windows paths being case-blind.

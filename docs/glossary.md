@@ -253,6 +253,6 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 | Term                        | Actually                                                                                              |
 | --------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `slice`                     | A frontend code-organisation unit under `src/features/`, one per business entity                      |
-| `surface`                   | A documentation term: frontend, backend, or ops. See [`standard.md`](standard.md#corpus)              |
+| `surface`                   | A documentation term: frontend, backend, or ops. See [`standard.md`](_standard/standard.md#corpus)    |
 | `base` / `system` / `admin` | The three API key tiers, not user roles. See backend spec I7                                          |
 | `format`                    | The discriminator on the teams response (`list` · `grouped`, or `single` from `GET /teams/{team_id}`) |

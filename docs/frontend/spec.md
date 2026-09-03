@@ -489,7 +489,7 @@ its floor over the tree as well: the two answer different questions.
 
 **A sweep that would report the same clean answer over an empty list floors itself first, and a
 sweep whose population could be filtered on the property it asserts derives that population twice**
-(`docs/standard.md` PRE-4).
+(`docs/_standard/standard.md` PRE-4).
 `fl_frontend/src/shared/hooks/useDraftFieldErrors.test.ts` derives the form population twice, the
 second route eliminating a named prose-only allowlist from every file mentioning `<Form` at all, so
 narrowing either route breaks the equality rather than shrinking the sweep (I71).

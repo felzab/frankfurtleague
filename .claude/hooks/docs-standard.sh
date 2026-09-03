@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# PreToolUse hook on Edit|Write — slices the Spine out of docs/standard.md before a
+# PreToolUse hook on Edit|Write — slices the Spine out of docs/_standard/standard.md before a
 # documentation-shaped write, small enough to arrive inline, and names both documents to read.
 # It informs rather than protects, so failure is silence.
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$repo_root" ] || exit 0
 
-standard="$repo_root/docs/standard.md"
+standard="$repo_root/docs/_standard/standard.md"
 [ -f "$standard" ] || exit 0
 
 # node rather than jq: jq is not installed on the dev machine.
-REPO_ROOT="$repo_root" STANDARD_PATH="$standard" EXAMPLES_PATH="$repo_root/docs/worked-examples.md" node -e '
+REPO_ROOT="$repo_root" STANDARD_PATH="$standard" EXAMPLES_PATH="$repo_root/docs/_standard/worked-examples.md" node -e '
 const fs = require("fs");
 const path = require("path");
 
@@ -96,8 +96,8 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
   // A renamed heading empties the slice, so the paths carry the payload alone rather than the hook
   // going quiet at the moment it is most needed.
   const read =
-    "Read docs/standard.md" +
-    (examples ? " and docs/worked-examples.md" : "") +
+    "Read docs/_standard/standard.md" +
+    (examples ? " and docs/_standard/worked-examples.md" : "") +
     " in full at " +
     (examples ? "those paths" : "that path") +
     " before writing.";
@@ -108,7 +108,7 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
   if (measured.length !== 0) sent.push("the bounds it sets");
   const preamble =
     "The write about to happen is documentation — a repository markdown file, or source comments — " +
-    "so docs/standard.md binds it. " +
+    "so docs/_standard/standard.md binds it. " +
     (sent.length !== 0 ? "Below: " + sent.join(" and ") + "; the rest of it is not here. " : "Nothing of it is quoted below. ") +
     read;
 

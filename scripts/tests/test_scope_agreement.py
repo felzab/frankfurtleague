@@ -15,9 +15,9 @@ from typing import Final
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 SCRIPTS: Final = REPO_ROOT / "scripts"
-STANDARD: Final = REPO_ROOT / "docs" / "standard.md"
+STANDARD: Final = REPO_ROOT / "docs" / "_standard" / "standard.md"
 
-# The section whose scope line this is, and the label opening it. Both are `docs/standard.md`'s own
+# The section whose scope line this is, and the label opening it. Both are `docs/_standard/standard.md`'s own
 # spelling; a rename leaves the reader finding nothing, which fails rather than passing empty.
 IN_CODE_HEADING: Final = "## In-code"
 SCOPE_LABEL: Final = "Scope:"
@@ -50,7 +50,7 @@ def _scoped_by_the_standard() -> tuple[str, ...]:
     """The subtrees the In-code section names, as its scope line spells them."""
     lines = STANDARD.read_text(encoding="utf-8").split("\n")
     at = next((index for index, line in enumerate(lines) if line.strip() == IN_CODE_HEADING), None)
-    assert at is not None, f"docs/standard.md no longer carries a {IN_CODE_HEADING!r} heading"
+    assert at is not None, f"docs/_standard/standard.md no longer carries a {IN_CODE_HEADING!r} heading"
     opening = next((index for index in range(at + 1, at + 8) if lines[index].startswith(SCOPE_LABEL)), None)
     assert opening is not None, f"the In-code section no longer opens on a {SCOPE_LABEL!r} line"
     # The Scope line runs past its first physical line, so the blank line below it is what ends it.

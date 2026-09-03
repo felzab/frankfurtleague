@@ -10,7 +10,7 @@ sentence.
 **Precedence, highest first:** §1 security · §2 branch-before-edit · the owner, whose instruction
 given this session outranks the standing-instructions file the starter names · §7 ratified
 decisions · every other rule here. **That ladder orders this file's own clauses**, inside the rung
-PRE-1 gives `.claude/CLAUDE.md` in [`docs/standard.md`](../docs/standard.md); PRE-1 ranks sources
+PRE-1 gives `.claude/CLAUDE.md` in [`docs/_standard/standard.md`](../docs/_standard/standard.md); PRE-1 ranks sources
 describing the system, closest first, so it never lifts a spec sheet over §1, which governs conduct
 and describes nothing.
 
@@ -301,8 +301,8 @@ exit code belongs to a command rather than to a file.
 
 ## 8. Documentation
 
-**Read [`docs/standard.md`](../docs/standard.md) and
-[`docs/worked-examples.md`](../docs/worked-examples.md) in full before writing a document or a
+**Read [`docs/_standard/standard.md`](../docs/_standard/standard.md) and
+[`docs/_standard/worked-examples.md`](../docs/_standard/worked-examples.md) in full before writing a document or a
 comment.** Nothing prompts you for a write outside the repository root:
 `.claude/hooks/docs-standard.sh` returns in silence there, so a handoff, a starter prompt or
 anything on a scratch path gets nothing at all — and **the standard binds that write exactly as it

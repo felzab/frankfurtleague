@@ -2184,7 +2184,7 @@ has already bitten is the one place nothing will report.
 is several, which needs a rule for what separates them and the formatter has removed the evidence. Or
 measure comment length over the whole file rather than the added lines, which finds every old block
 at once and gives up the reason the added-set narrowing exists. **Or rest on the trap now recorded at
-INC-9** — [`docs/standard.md`](../standard.md) states the blank-line rule and the
+INC-9** — [`docs/_standard/standard.md`](../_standard/standard.md) states the blank-line rule and the
 move-above-the-statement answer, which is what the one author who met this did. The third costs
 nothing further and leaves the measurement wrong; the first two are a mechanism. **Deciding that a
 written-down trap is sufficient is a real answer**, and this entry exists because that is a judgement
@@ -2517,7 +2517,7 @@ Lands with: `spq6-zy2d`
 **`scripts/checks/docs_gate/branch.py :: _fork_ceiling` hands one ancestor's word count to every
 current block overlapping it, and nothing records that the ancestor has already been spent.** A block
 the fork held over INC-9's bound, split in two, gives each half that whole count as its ceiling: both
-halves pass at the original's length, so the pair passes at twice it. `docs/worked-examples.md` states
+halves pass at the original's length, so the pair passes at twice it. `docs/_standard/worked-examples.md` states
 the consequence for a writer, and nothing refuses it.
 
 **The same unit problem reaches a pair no fork produced.**
@@ -2622,7 +2622,7 @@ through `comment-length` like any other, which is why nothing about these files 
 
 **Measured over the tracked corpus on 2026-09-03: eighty opening blocks are measured by nothing**,
 twenty-two of them past INC-9's forty words and three past INC-2's 175. Twelve of the twenty-two sit
-in `.claude/hooks/` and `.githooks/`, which the In-code scope of `docs/standard.md` already claims;
+in `.claude/hooks/` and `.githooks/`, which the In-code scope of `docs/_standard/standard.md` already claims;
 `.claude/hooks/guard-local-compose.sh` carries the longest of them.
 
 **Widening `scripts/checks/docs_gate/checks.py :: HEADER_SCOPES` is the decision, and it is prose work
@@ -2632,7 +2632,7 @@ contracts at the wrong rung rather than passages to shorten.
 
 **Done when** the scope reaches the kinds `scripts/checks/docs_gate/kernel.py :: comment_style` sends
 to the `#` reader, with those blocks brought under a bound in the same change — or the exemption is a
-decision `docs/standard.md` states rather than the residue of two scopes not meeting.
+decision `docs/_standard/standard.md` states rather than the residue of two scopes not meeting.
 
 ### `d5j8-js4n` · A citation naming a real file in an unaccepted spelling is reported as a file that does not exist
 
@@ -2951,7 +2951,7 @@ field tuple at module level, so an unpaired field fails at import.
 | FE, Ops, Docs, gate | Standing | —          |
 
 **Not a defect today, and what keeps it quiet is the fork each branch measures against.**
-[`docs/standard.md`](../standard.md#in-code)'s In-code Scope reaches
+[`docs/_standard/standard.md`](../_standard/standard.md#in-code)'s In-code Scope reaches
 `fl_frontend/src/app/globals.css` by kind, and blocks in it run past INC-9's forty words.
 `scripts/checks/docs_gate/branch.py :: check_comment_bounds` measures only a block the branch in hand
 added a line to, and `:: _fork_ceiling` keeps one that was already over at the fork for as long as
@@ -3944,7 +3944,7 @@ unrecognised kind to the `#` reader, which measures a CSS id selector as a comme
 `kernel.py :: scanned_files` reaches, 849 sit under one of the six trees; two of those are markdown
 READMEs the kind test leaves alone, and 35 files it does bound sit under no named tree at all —
 `.github/workflows/verify.yml` and its neighbours, and `.claude/settings.json` among them. The In-code
-Scope in `docs/standard.md` already states the kind as the selector and the trees as where those
+Scope in `docs/_standard/standard.md` already states the kind as the selector and the trees as where those
 files mostly sit, so the rule and the code agree; what is left over is a register naming a population
 nothing selects by.
 

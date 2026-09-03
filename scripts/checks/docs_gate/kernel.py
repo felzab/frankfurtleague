@@ -83,7 +83,7 @@ OVERVIEW_GLOB: Final = f"{DOCS_DIR}/*/overview.md"
 ROADMAP_GLOB: Final = f"{ROADMAP_DIR}/*.md"
 # A fixed page is its own glob, so one spelling answers `tracked_glob` and `tracked_page` alike.
 GLOSSARY_PAGE: Final = f"{DOCS_DIR}/glossary.md"
-STANDARD_PAGE: Final = f"{DOCS_DIR}/standard.md"
+STANDARD_PAGE: Final = f"{DOCS_DIR}/_standard/standard.md"
 # One file: an entry is placed by its tags, so a second page would state the surface tag twice.
 # `ROADMAP_GLOB` also matches the folder's other pages, so presence and tracking are asked of this
 # one by name instead.

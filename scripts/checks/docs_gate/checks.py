@@ -261,7 +261,7 @@ def rule_blocks(text: str) -> list[tuple[str, str, str]]:
 
 
 def rule_ids() -> dict[str, list[str]]:
-    """Every rule id `docs/standard.md` defines, mapped to its homes (PRE-4).
+    """Every rule id `docs/_standard/standard.md` defines, mapped to its homes (PRE-4).
 
     Empty when the standard is gone, so every cited id then fails. More than one entry under an id
     is a duplicate home, which `rule-id` reports at every citer.
@@ -1427,9 +1427,9 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     for rule_id in sorted(set(RULE_ID_RE.findall(body))):
         homes = rules.get(rule_id, [])
         if not homes:
-            found.append(Finding("fail", "rule-id", rel, f"{rule_id} resolves to no rule in a tracked docs/standard.md"))
+            found.append(Finding("fail", "rule-id", rel, f"{rule_id} resolves to no rule in a tracked docs/_standard/standard.md"))
         elif len(homes) > 1:
-            detail = f"{rule_id} has more than one home in docs/standard.md ({' and '.join(homes)}) -- a citation cannot say which"
+            detail = f"{rule_id} has more than one home in docs/_standard/standard.md ({' and '.join(homes)}) -- a citation cannot say which"
             found.append(Finding("fail", "rule-id", rel, detail))
 
     if not is_markdown:
