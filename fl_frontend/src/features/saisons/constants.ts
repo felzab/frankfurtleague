@@ -13,9 +13,9 @@ export const SAISONS_CRUD_COPY = {
 export const SAISON_PHASE_OPTIONS: readonly FLSaisonPhase[] = ["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"];
 
 /**
- * The one German spelling of each phase, for every surface. A `.ts` module and not an export from the
- * chip that renders them: the node test runner cannot load a `.tsx`, so nothing importing one could be
- * unit-tested.
+ * The one German spelling of each phase, for every surface. Not an export from
+ * `fl_frontend/src/features/spiele/components/ui/SaisonPhaseChip.tsx`: the filter facets and a
+ * Spieltag's composed name need the label and render nothing.
  */
 export const PHASE_LABELS: Record<FLSaisonPhase, string> = {
   gruppenphase: "Gruppenphase",
