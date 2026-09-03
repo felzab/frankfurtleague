@@ -7,8 +7,8 @@ helper returns the empty result and never raises for absence.
 
 Every write here also appends to the action log (`app/core/recording.py`), which is what makes the
 log complete by construction: no WRITE reaches the driver outside this module. Reads are a different
-matter -- several routers call `find`, `find_one` and `count_documents` directly -- and a write
-shaped like one of those would escape the log.
+matter -- several routers call `aggregate`, `count_documents`, `distinct`, `find` and `find_one`
+directly -- and a write shaped like one of those would escape the log.
 """
 
 from typing import AbstractSet, Any, Mapping, Sequence
