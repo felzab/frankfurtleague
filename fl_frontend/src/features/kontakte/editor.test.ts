@@ -3,9 +3,24 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { createElement as h } from "react";
+/* No public export carries the context `useSearchParams` reads, and the table below cannot render
+   without one. A Next release that moves the module fails this file at import rather than quietly. */
+import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
+
+import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
+import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
 import { TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
+import { buildEmptyKontaktperson } from "@/features/teams/utils";
+import { resolveBlockingBanners, resolveRailBanners } from "@/shared/components/ui/railBanner";
+import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
 
 import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { buildKontakteBanners } from "./components/forms/AdminKontakteEditForm/banners.ts";
+
+import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
+import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types";
+import type { KontakteBanner } from "./components/forms/AdminKontakteEditForm/banners.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const SRC = path.resolve(REPO_ROOT, "fl_frontend", "src");
@@ -19,7 +34,6 @@ const FORM_SOURCE = readFileSync(path.resolve(EDITOR_DIR, "AdminKontakteEditForm
 const SECTION_SOURCE = readFileSync(path.resolve(EDITOR_DIR, "FormKontakteSection.tsx"), "utf8");
 const LOESCHEN = readFileSync(path.resolve(EDITOR_DIR, "FormKontakteLoeschenSection.tsx"), "utf8");
 const ERASURE = readFileSync(path.resolve(EDITOR_DIR, "FormKontaktErasure.tsx"), "utf8");
-const ACTIONS_SRC = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 /** Whitespace-collapsed: the section's copy is JSX text, so the formatter picks its line breaks. */
 const SECTION = SECTION_SOURCE.replace(/\s+/g, " ");
 const BANNERS = readFileSync(path.resolve(EDITOR_DIR, "banners.ts"), "utf8");
@@ -31,13 +45,57 @@ const VIEW = readFileSync(path.resolve(import.meta.dirname, "components", "views
 /** The club editor, which lost the block and shows the way here instead. */
 const TEAM_FORM_DIR = path.resolve(SRC, "features", "teams", "components", "forms", "AdminTeamEditForm");
 const TEAM_FORM = readFileSync(path.resolve(TEAM_FORM_DIR, "AdminTeamEditForm.tsx"), "utf8");
-const TEAM_LINK_SOURCE = readFileSync(path.resolve(TEAM_FORM_DIR, "FormKontakteLinkSection.tsx"), "utf8");
-const TEAM_LINK = TEAM_LINK_SOURCE.replace(/\s+/g, " ");
-/** The list this editor is reached from. */
-const LIST_TABLE = readFileSync(path.resolve(SRC, "features", "teams", "components", "collections", "AdminKontakteTable.tsx"), "utf8").replace(
-  /\s+/g,
-  " ",
-);
+
+/* The two surfaces of this slice that render without an action module behind them, so what a reader
+   meets is asserted as markup rather than as the source that produces it. */
+const { FormKontakteLinkSection } = await import("@/features/teams/components/forms/AdminTeamEditForm/FormKontakteLinkSection.tsx");
+const { AdminKontakteTable } = await import("@/features/teams/components/collections/AdminKontakteTable.tsx");
+
+/** The stored shape, which the list seat takes a subset of, so one person serves both renders below. */
+const ADA: FLKontaktperson = {
+  vorname: "Ada",
+  nachname: "Byron",
+  email: "ada@example.org",
+  telefon: "069 111",
+  geburtsdatum: "1990-12-10",
+  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "1", datum: "2026-03-12" },
+};
+
+/** One list seat. `person: null` is what an erasure leaves, which is the state these cases are about. */
+const seat = (rolle: AdminKontaktSeat["rolle"], label: string, person: AdminKontaktSeat["person"]): AdminKontaktSeat => ({
+  rolle,
+  label,
+  person,
+  istTrainerZugleich: false,
+});
+
+const listRow = (seats: readonly AdminKontaktSeat[]): AdminKontakteRow => ({
+  id: "t1",
+  teamId: "t1",
+  teamName: "SG Alpha",
+  teamShorthand: "ALP",
+  seats,
+  besetzt: seats.filter((each) => each.person !== null).length,
+});
+
+/**
+ * `useSearchParams` reads a context and nothing else supplies one, so the table renders under the
+ * provider rather than against a stubbed hook.
+ */
+const listMarkup = (row: AdminKontakteRow, query: string): string =>
+  renderTree(
+    h(
+      SearchParamsContext.Provider,
+      { value: new URLSearchParams(query) },
+      h(AdminKontakteTable, { filteredKontakte: [row], emptiness: "none" }),
+    ),
+  );
+
+/** The editor's banner author, in the one state each case below is about. */
+const bannersFor = (state: Partial<Parameters<typeof buildKontakteBanners>[0]>): readonly KontakteBanner[] =>
+  buildKontakteBanners({ saisonId: "2526", saisonStatus: "active", isMember: true, isBlockRemoved: false, emptiedSeatLabels: [], ...state });
+
+const bannerIds = (banners: readonly KontakteBanner[]): string[] => banners.map((banner) => banner.id);
 
 /** The undo the editor dispatches to, read as source for the same reason the editor is. */
 const UNDO_ROUTE = readFileSync(path.resolve(SRC, "app", "api", "admin", "kontakte", "undo", "route.ts"), "utf8");
@@ -278,28 +336,35 @@ describe("the editor's shape", () => {
   it("renders an empty seat as its switch alone, and never explains one", () => {
     for (const claim of ["gelöscht", "entfernt worden", "nicht mehr", "unbekannt", "keine Angabe"]) {
       assert.ok(!SECTION.includes(claim), `the section says „${claim}“ about a seat, which the row records no field for`);
-      assert.ok(!LIST_TABLE.includes(claim), `the list says „${claim}“ about a seat, which the row records no field for`);
     }
 
-    /* The arm that RENDERS it, not merely a null-check somewhere in the file: `LIST_TABLE` collapses
-       whitespace, so a bare `person === null ?` also matches the copy handler's own ternary. */
-    const leerArm = /person === null \? \((.*?)\) : \(/.exec(LIST_TABLE)?.[1] ?? "";
-    assert.notEqual(leerArm, "", "the list no longer gives a seat holding nobody its own arm");
+    const seats = [
+      seat("trainer", "Trainer", ADA),
+      seat("ansprechperson", "Ansprechperson", null),
+      seat("stellvertretung", "Stellvertretung", null),
+    ];
+    const leer = listMarkup(listRow(seats), "");
+    const times = (needle: string) => leer.split(needle).length - 1;
 
-    // Resolved through the file's own constants, so naming the sentence is as good as inlining it.
-    const genannt = /\{(\w+)\}/.exec(leerArm)?.[1];
-    const satz = genannt === undefined ? leerArm : (new RegExp(`${genannt} = "([^"]*)"`).exec(LIST_TABLE)?.[1] ?? "");
+    /* The occupied seat is the control: a list rendering no seat at all would satisfy every negative
+       check below. Counted against each other rather than against a number, because the phone cards
+       and the table each render all three. */
+    assert.ok(times("Ada Byron") > 0, "the list renders no seat at all, so the empty ones prove nothing");
+    assert.equal(times("Niemand hinterlegt"), 2 * times("Ada Byron"), "an empty seat stopped reading as a sentence, or borrowed a person");
 
-    assert.match(satz, /Niemand hinterlegt/, "an empty seat stopped reading as a sentence");
+    for (const claim of ["gelöscht", "entfernt worden", "nicht mehr", "unbekannt", "keine Angabe"]) {
+      assert.ok(!leer.includes(claim), `the list says „${claim}“ about a seat, which the row records no field for`);
+    }
   });
 
-  /* Both halves or neither: `validationErrors` shows a server refusal, `formRef` moves focus onto it (frontend spec I32). */
+  /* Both halves or neither: `validationErrors` shows a server refusal, `formRef` moves focus onto it
+     (frontend spec I32). That there is a form at all, and that it passes no `action`, is every draft
+     form's at `fl_frontend/src/shared/components/ui/formSubmit.test.ts`. */
   it("renders the one field-error map through a form the hook can reach", () => {
-    assert.match(FORM_SOURCE, /<Form\b/, "the editor renders no form");
     assert.match(FORM_SOURCE, /ref=\{formRef\}/, "the hook cannot reach the form");
     assert.match(FORM_SOURCE, /validationErrors=\{fieldErrors\}/, "the field errors reach no form");
-    assert.match(FORM_SOURCE, /onSubmit=\{runOnSubmit\(requestSave\)\}/, "the form no longer submits through runOnSubmit");
-    assert.ok(!/\saction=\{/.test(FORM_SOURCE), "the form takes an action, which React resets each submit");
+    // Which handler, not merely that one is wrapped: the sweep above accepts any.
+    assert.match(FORM_SOURCE, /onSubmit=\{runOnSubmit\(requestSave\)\}/, "the form submits something other than the guarded save");
   });
 
   /* Both gates of the reused-tree defect, and neither is sufficient alone: the key above re-seeds a
@@ -309,9 +374,8 @@ describe("the editor's shape", () => {
     assert.match(FORM_SOURCE, /const discardAndLeave = \(\) => \{\s*\n\s*resetDraftToStored\(\);/, "a discard leaves typed values standing");
   });
 
-  /* Unsaved work may not leave unasked. The dialog lives in a rendered tree and this repo has no
-     DOM test infrastructure, so what is reachable here is the handler's SHAPE: the whole body, so a
-     guard weakened into a no-op still fails. */
+  /* Unsaved work may not leave unasked. No markup carries which handler a control was given, so what
+     is asserted is the handler's SHAPE — the whole body, so a guard weakened into a no-op still fails. */
   it("takes the shape that guards the way out on unsaved changes", () => {
     assert.deepEqual(statementsOf(REQUEST_LEAVE), [
       "const requestLeave = () => {",
@@ -379,28 +443,50 @@ describe("what the undo says when it cannot run", () => {
 });
 
 describe("what the banners say", () => {
-  /* `resolveBlockingBanners` takes the non-info banners raised by the CHANGE, so these two are what
-     open the save dialog — and a standing situation, however grave, asks nothing. */
-  it("grades the two removals as changes and the two situations as state", () => {
-    const gradeOf = (id: string) => sliceBetween(BANNERS, `id: "${id}"`, "inline:");
+  /* `resolveBlockingBanners` takes the non-info banners raised by the CHANGE, so the two removals are
+     what open the save dialog — and a standing situation, however grave, asks nothing. */
+  it("puts the two removals in front of the save dialog and neither situation", () => {
+    const severities = (state: Parameters<typeof bannersFor>[0]) => bannersFor(state).map((banner) => banner.severity);
 
-    assert.match(gradeOf("kontakte.block-removed"), /severity: "warning",\s*\n\s*raisedBy: "change"/);
-    assert.match(gradeOf("kontakte.seats-emptied"), /severity: "warning",\s*\n\s*raisedBy: "change"/);
-    assert.match(gradeOf("kontakte.not-in-saison"), /severity: "info",\s*\n\s*raisedBy: "state"/);
-    assert.match(gradeOf("kontakte.saison-past"), /severity: "info",\s*\n\s*raisedBy: "state"/);
+    for (const state of [{ isBlockRemoved: true }, { emptiedSeatLabels: ["Trainer"] }]) {
+      assert.deepEqual(severities(state), ["warning"], `${JSON.stringify(state)} raises nothing, or grades a removal as ordinary`);
+      assert.notEqual(resolveBlockingBanners(bannersFor(state)), null, `${JSON.stringify(state)} saves without confirming what it clears`);
+    }
+
+    for (const state of [{ isMember: false }, { saisonStatus: "past" as const }]) {
+      /* Each grade asserted outright, which is also the floor: `null` below reads the same for a
+         situation correctly let through and for a state that raised nothing at all. */
+      assert.deepEqual(severities(state), ["info"], `${JSON.stringify(state)} raises nothing, or grades a standing state as a warning`);
+      assert.equal(resolveBlockingBanners(bannersFor(state)), null, `${JSON.stringify(state)} confirms a situation the save did not cause`);
+    }
   });
 
   /* The block's own removal takes every seat with it, so the per-seat sentence beneath it would name
      seats inside a block that is going whole. */
   it("drops the per-seat sentence where the whole block goes", () => {
-    assert.match(BANNERS, /supersedes: \["kontakte.seats-emptied"\]/, "both removals are stated at once");
+    const [entfernt, ...beside] = bannersFor({ isBlockRemoved: true, emptiedSeatLabels: ["Trainer", "Ansprechperson"] });
+
+    assert.equal(entfernt?.id, "kontakte.block-removed");
+    assert.deepEqual(bannerIds(beside), [], "the whole block's removal is stated beside a sentence about seats inside it");
+
+    // Declared as well as unraised: without it the rail would show both the day either is raised alone.
+    const paar = [...bannersFor({ emptiedSeatLabels: ["Trainer"] }), ...bannersFor({ isBlockRemoved: true })];
+
+    assert.deepEqual(entfernt?.supersedes, ["kontakte.seats-emptied"]);
+    assert.deepEqual(bannerIds(resolveRailBanners(paar)), ["kontakte.block-removed"]);
   });
 
   /* No count in a sentence that would have to agree with it: the seats are read out in the body
      instead, which is what keeps the wording right for one seat and for three. */
   it("names the emptied seats in a readout rather than counting them", () => {
-    assert.match(BANNERS, /body: `Betroffen: \$\{emptiedSeatLabels\.join\(", "\)\}\.`/, "the seats are no longer read out");
-    assert.ok(!BANNERS.includes("emptiedSeatLabels.length}"), "the banner interpolates a count into a sentence that has to agree with it");
+    const [einer] = bannersFor({ emptiedSeatLabels: ["Trainer"] });
+    const [drei] = bannersFor({ emptiedSeatLabels: ["Trainer", "Ansprechperson", "Stellvertretung"] });
+
+    assert.equal(einer?.body, "Betroffen: Trainer.");
+    assert.equal(drei?.body, "Betroffen: Trainer, Ansprechperson, Stellvertretung.");
+    for (const banner of [einer, drei]) {
+      assert.doesNotMatch(`${banner?.title ?? ""} ${banner?.body ?? ""}`, /\d/, "the banner counts the seats in a sentence that must agree");
+    }
   });
 });
 
@@ -419,14 +505,21 @@ describe("the way in and out of the editor", () => {
   /* Seats HELD, never the three the block always carries: an erasure leaves a block whose seats are
      empty, and a count off the block's presence would call that three. */
   it("counts the seats the link names off what is in them", () => {
-    assert.match(TEAM_LINK, /KONTAKT_ROLLEN\.filter\(\(\{ value \}\) => kontakte\?\.\[value\] != null\)\.length/, "the count moved");
-    // Each number spelled: `0` and `1` need their own German, and the link's text is its accessible name.
-    assert.match(TEAM_LINK, /Kontakte für Saison \$\{saisonId\} hinterlegen/, "the empty case reads as a count of none");
-    assert.match(TEAM_LINK, /1 Kontakteintrag für Saison \$\{saisonId\} bearbeiten/, "the singular reads as a plural");
-    assert.match(TEAM_LINK, /\$\{String\(belegt\)\} Kontakteinträge für Saison \$\{saisonId\} bearbeiten/, "the plural moved");
-    // Never „Personen“: `trainer_ist_zugleich` seats one person twice, so the entries are what
-    // can honestly be counted.
-    assert.ok(!TEAM_LINK.includes("Personen für Saison"), "the link counts people, and a double-seated person makes that wrong");
+    const block = (held: number): FLSaisonTeamKontakte => ({
+      trainer: held > 0 ? ADA : null,
+      ansprechperson: held > 1 ? ADA : null,
+      stellvertretung: null,
+      trainer_ist_zugleich: null,
+    });
+    const linkText = (kontakte: FLSaisonTeamKontakte | null): string =>
+      /<a [^>]*>(.*?)<\/a>/s.exec(renderMarkup(FormKontakteLinkSection, { saisonId: "2526", kontakte, href: "/admin/kontakte/t1" }))?.[1] ?? "";
+
+    /* An erasure leaves a block whose seats are empty, so an emptied block and an absent one read the
+       same: a count off the block's presence would call the first of these three. */
+    assert.equal(linkText(null), "Kontakte für Saison 2526 hinterlegen");
+    assert.equal(linkText(block(0)), "Kontakte für Saison 2526 hinterlegen");
+    assert.equal(linkText(block(1)), "1 Kontakteintrag für Saison 2526 bearbeiten");
+    assert.equal(linkText(block(2)), "2 Kontakteinträge für Saison 2526 bearbeiten");
   });
 
   /* The editor's own way back out, which the list's link and the club editor's each carry too. What
@@ -442,7 +535,13 @@ describe("the way in and out of the editor", () => {
   /* One noun for one concept: `Saison-Zugehörigkeit` is what the admin surface calls a junction row,
      and a second word for it inside one slice reads as a second thing. */
   it("calls the junction row by the admin surface's own noun", () => {
-    assert.match(BANNERS, /Kontakte werden bei der Saison-Zugehörigkeit hinterlegt/, "the banner renamed the row the seats hang off");
+    const [ohneZeile] = bannersFor({ isMember: false });
+
+    assert.match(
+      ohneZeile?.body ?? "",
+      /Kontakte werden bei der Saison-Zugehörigkeit hinterlegt/,
+      "the banner renamed the row the seats hang off",
+    );
     for (const [name, source] of [
       ["the banners", BANNERS],
       ["the section", SECTION],
@@ -453,16 +552,17 @@ describe("the way in and out of the editor", () => {
   });
 
   /* A row is one club's three seats, edited together, so its control opens this editor and not the
-     club's. The template is READ rather than matched whole: the destination and the season are what
-     must hold, not a variable's name. */
+     club's — and the season it was pressed in rides along, the seats being season-scoped. */
   it("points every row of the list at this editor, with the season riding along", () => {
-    const href = /href=\{withSaisonId\(`(\/admin\/kontakte\/[^`]*)`, (\w+)\)\}/.exec(LIST_TABLE);
+    const hrefs = (query: string) => [
+      ...new Set([...listMarkup(listRow([seat("trainer", "Trainer", ADA)]), query).matchAll(/href="([^"]*)"/g)].map((found) => found[1])),
+    ];
 
-    assert.ok(href !== null, "the list offers no link into this editor");
-    assert.match(href[1]!, /^\/admin\/kontakte\/\$\{\w+\.teamId\}$/, "a row opens the wrong destination");
-    // Composed through the shared helper, which is what resolves the `?`/`&` split for every table.
-    assert.match(href[2]!, /[Ss]aison/, "the row link is composed without the season it was pressed in");
-    assert.ok(!LIST_TABLE.includes("/admin/teams/${"), "a row still links to the club editor for its contacts");
+    assert.deepEqual(hrefs("saison_id=2526"), ["/admin/kontakte/t1?saison_id=2526"]);
+    // The season the sidemenu holds is the whole of what rides along; every other filter stays behind.
+    assert.deepEqual(hrefs("saison_id=2526&q=alpha&besetzung=leer"), ["/admin/kontakte/t1?saison_id=2526"]);
+    // Absent rather than empty: `?saison_id=` would read as a season nobody picked.
+    assert.deepEqual(hrefs("q=alpha"), ["/admin/kontakte/t1"]);
   });
 });
 
@@ -527,24 +627,28 @@ describe("how the editor asks which person the Trainer is", () => {
 
 describe("which consent wording a record cites", () => {
   /* The version NAMES the text. Kept apart, a rewording without a bump leaves every earlier record
-     claiming agreement to a text nobody was shown, and nothing anywhere would catch it. */
-  it("keeps the version in the same object as the wording it names", () => {
-    const CORE = readFileSync(path.resolve(SRC, "core", "einwilligung.ts"), "utf8");
-    const objekt = /export const LIGA_EINWILLIGUNG = \{([\s\S]*?)\} as const;/.exec(CORE)?.[1] ?? "";
-
-    assert.notEqual(objekt, "", "the league's consent constant is gone or no longer one object");
-    assert.match(objekt, /textVersion:/, "the object names no version");
-    assert.match(objekt, /text:/, "the object carries no wording for the version to name");
+     claiming agreement to a text nobody was shown. That they are one object is this file's type
+     error; what no type can say is that neither half is a placeholder. */
+  it("keeps a version and the wording it names, both filled in", () => {
+    assert.notEqual(LIGA_EINWILLIGUNG.textVersion, "", "the version is empty, so every record cites nothing");
+    assert.notEqual(LIGA_EINWILLIGUNG.text, "", "the version names no wording");
   });
 
   /* Both surfaces gather the SAME consent, so a copy per feature is two texts that drift and two
      versions that disagree about which one a record cites. */
-  it("is read from that one place by both surfaces", () => {
+  it("stamps that one version on a new record from either surface", () => {
+    assert.equal(buildEmptyKontaktperson().einwilligung.text_version, LIGA_EINWILLIGUNG.textVersion, "the admin editor stamps its own version");
+    assert.equal(
+      buildEmptyBewerbungKontaktperson().einwilligung.text_version,
+      LIGA_EINWILLIGUNG.textVersion,
+      "the public form stamps its own version",
+    );
+    // The identifier as well as the value: a literal that happens to agree today drifts on the next bump.
     for (const [name, file] of [
       ["the public form", path.resolve(SRC, "features", "bewerbungen", "utils.ts")],
       ["the admin editor", path.resolve(SRC, "features", "teams", "utils.ts")],
     ] as const) {
-      assert.match(readFileSync(file, "utf8"), /LIGA_EINWILLIGUNG/, `${name} stamps a version of its own`);
+      assert.match(readFileSync(file, "utf8"), /LIGA_EINWILLIGUNG/, `${name} spells the version rather than reading it`);
     }
   });
 
@@ -640,11 +744,7 @@ describe("what the two destructive controls do to the page", () => {
   /* `POST /kontakte/erasure` refuses NOTHING, so an address matching nobody succeeds and clears zero.
      Reported as „gelöscht“, that is a lie of the quiet kind. */
   it("tells an erasure apart from a no-op", () => {
-    assert.match(
-      ACTIONS_SRC,
-      /cleared: erasure\.cleared_kontakt_slots \+ erasure\.redacted_aktionen,/,
-      "the action reports no count to judge by",
-    );
+    assert.match(ACTIONS, /cleared: erasure\.cleared_kontakt_slots \+ erasure\.redacted_aktionen,/, "the action reports no count to judge by");
     assert.match(ERASURE, /if \(res\.cleared === 0\) appToast\.warning\(/, "a write that found nothing is reported as a deletion");
   });
 

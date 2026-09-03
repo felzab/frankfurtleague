@@ -9,6 +9,11 @@ import { describeKontaktErasureUmfang } from "./utils.ts";
 import type { FLKontaktErasureResponse } from "./schemas.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
+/**
+ * Every source read below is a module whose graph reaches `fl_frontend/src/core/config.ts`, whose
+ * gate refuses an unconfigured environment at import (`docs/frontend/spec.md` §1.9) — the action and
+ * the mutation directly, the two panels through the action they dispatch.
+ */
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
 const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
@@ -286,13 +291,14 @@ describe("the address the press acts on", () => {
     );
   });
 
-  /* Both halves or neither: `validationErrors` shows a server refusal, `formRef` moves focus onto it (frontend spec I32). */
+  /* Both halves or neither: `validationErrors` shows a server refusal, `formRef` moves focus onto it
+     (frontend spec I32). That there is a form at all, and that it passes no `action`, is every draft
+     form's at `fl_frontend/src/shared/components/ui/formSubmit.test.ts`. */
   it("renders the one field-error map through a form the hook can reach", () => {
-    assert.match(PANEL, /<Form\b/, "the panel renders no form");
     assert.match(PANEL, /ref=\{formRef\}/, "the hook cannot reach the form");
     assert.match(PANEL, /validationErrors=\{fieldErrors\}/, "the field errors reach no form");
-    assert.match(PANEL, /onSubmit=\{runOnSubmit\(handleArm\)\}/, "the form no longer submits through runOnSubmit");
-    assert.ok(!/\saction=\{/.test(PANEL), "the form takes an action, which React resets each submit");
+    // Which handler, not merely that one is wrapped: the sweep above accepts any, and this one ARMS.
+    assert.match(PANEL, /onSubmit=\{runOnSubmit\(handleArm\)\}/, "the form submits something other than the arming press");
   });
 
   /* The submit ARMS and never commits: Return auto-repeats, so as a submit this control would take

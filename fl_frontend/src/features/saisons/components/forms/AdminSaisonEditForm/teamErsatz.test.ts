@@ -3,7 +3,13 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-/** Source text rather than a render, `oneWayGuards.test.ts`'s idiom and for its reason. */
+import { describeUebernommeneSpiele } from "./replacementOffer.ts";
+
+/**
+ * Source text rather than a render: this panel imports `@/features/teams/actions`, whose graph
+ * reaches `fl_frontend/src/core/config.ts` and is refused at import in an unconfigured environment
+ * (`docs/frontend/spec.md` §1.9).
+ */
 const PANEL = readFileSync(path.resolve(import.meta.dirname, "FormTeamErsatzSection.tsx"), "utf8");
 
 function sliceBetween(from: string, to: string): string {
@@ -38,6 +44,14 @@ describe("the replacement panel", () => {
      asks an admin to agree to a loss that will not happen. The survival is promised in the callout
      instead (`docs/frontend/spec.md` §1.12). */
   it("promises the schedule survives through the callout, and never borrows the draw's deletion register", () => {
+    // The sentence itself, at every count it is written for: `replacementOffer.test.ts` pins each
+    // opening and would pass a tail rewritten into the draw's words.
+    for (const spiele of [0, 1, 4]) {
+      assert.doesNotMatch(describeUebernommeneSpiele(spiele), /verloren|gelöscht|entfäll|verschoben/);
+    }
+    assert.match(describeUebernommeneSpiele(1), /wechselt mit/);
+    assert.match(describeUebernommeneSpiele(4), /wechseln mit/);
+
     assert.match(PANEL, /describeUebernommeneSpiele\(outgoing\.spiele\)/);
     assert.doesNotMatch(PANEL, /gehen dabei verloren|gelöscht oder verschoben|Zurückholen lässt sich/);
   });
@@ -104,12 +118,11 @@ describe("the replacement panel", () => {
      button an admin would then hunt for a way to enable. */
   it("closes on a finished season rather than offering a press it would refuse", () => {
     assert.match(PANEL, /isFinishedSaison \?/);
-    assert.match(PANEL, /In einer abgeschlossenen Saison lässt sich kein Team mehr ersetzen/);
   });
 
   /* Each closure names the rule that shut the control, never the situation that met it
      (`docs/frontend/spec.md` §1.12), so an admin can predict the next season from what they read here. */
-  it("titles all four closures with their rule", () => {
+  it("titles each closure it renders with the rule that shut it", () => {
     assert.match(FLAT, /title="In einer abgeschlossenen Saison lässt sich kein Team mehr ersetzen"/);
     assert.match(FLAT, /title="Ersetzen lässt sich nur ein Team, das in dieser Saison steht"/);
     assert.match(FLAT, /title="Nachrücken kann nur ein Team, das in dieser Saison noch nicht dabei und nicht stillgelegt ist"/);

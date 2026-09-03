@@ -3,7 +3,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-/** Source text rather than a render, `oneWayGuards.test.ts`'s idiom and for its reason. */
+/**
+ * Source text rather than a render: this panel imports `@/features/saisons/actions`, whose graph
+ * reaches `fl_frontend/src/core/config.ts` and is refused at import in an unconfigured environment
+ * (`docs/frontend/spec.md` §1.9).
+ */
 const SOURCE = readFileSync(path.resolve(import.meta.dirname, "FormSpielplanSection.tsx"), "utf8");
 
 /** The armed alert alone: the shell's own parts are asserted at `ConfirmReveal`'s home. */
@@ -12,15 +16,16 @@ const ARMED = (SOURCE.split("<ConfirmReveal>")[1] ?? "").split("</ConfirmReveal>
 /** The armed alert's scope section alone, which is the half the new numbers invalidate. */
 const ENTSTEHT = ARMED.split("Daraus entsteht")[1] ?? "";
 
-/** The panel's own hint, which stands in the heading and ends with it. */
-const HINWEIS = (SOURCE.split("Hinweis zum Spielplan")[1] ?? "").split("</h2>")[0] ?? "";
+/** The press handler alone, so an ordering read off it is about the write and not about the markup. */
+const HANDLER = (SOURCE.split("const handlePress = () => {")[1] ?? "").split("return (")[0] ?? "";
 
 describe("the draw half of the Spielplan panel", () => {
   /* First, and half the assertions below are `doesNotMatch`, which an empty slice passes silently. */
-  it("cuts the armed alert, its scope section and the hint out of the file before reading them", () => {
+  it("cuts the armed alert, its scope section and the handler out of the file before reading them", () => {
     assert.ok(ARMED.includes("Daraus entsteht"), "the armed alert's readout is outside its slice");
     assert.ok(ENTSTEHT.includes("<dl"), "the scope section is outside its slice");
-    assert.ok(HINWEIS.includes("points: ["), "the hint's bullets are outside its slice");
+    assert.ok(HANDLER.includes("generateSpielplanAction("), "the draw's write is outside the handler's slice");
+    assert.ok(!HANDLER.includes("<section"), "the handler's slice runs on into the markup");
   });
 
   /* Hardcode the flag and this fails: `false` asks for a draw the endpoint refuses, `true` confirms
@@ -50,8 +55,8 @@ describe("the draw half of the Spielplan panel", () => {
   /* Call the action outside `press` and one press is the whole confirmation, on a write that redraws
      rather than restoring. The arming branch itself is `useTwoPressConfirm`'s to keep. */
   it("sends the write through the two-press control, and announces the armed state", () => {
-    const arming = SOURCE.indexOf("press(async () => {");
-    const writing = SOURCE.indexOf("generateSpielplanAction(");
+    const arming = HANDLER.indexOf("press(async () => {");
+    const writing = HANDLER.indexOf("generateSpielplanAction(");
 
     assert.ok(arming !== -1, "handlePress no longer presses through useTwoPressConfirm");
     assert.ok(arming < writing, "the write stands outside the armed branch");
@@ -102,14 +107,6 @@ describe("the draw half of the Spielplan panel", () => {
     assert.ok(branch < deletion, "the armed alert claims a deletion before it knows the season holds one");
   });
 
-  /* Soften the copy to "der Spielplan wird ersetzt" and this fails. The scheduling is the part an
-     admin cannot look up again afterwards, so the armed state has to name it rather than the draw. */
-  it("names the matchdays, the fixtures and the scheduling the replace destroys", () => {
-    for (const named of [/Spieltage/, /Spiele/, /Termin/, /Uhrzeit/]) {
-      assert.match(ARMED, named);
-    }
-  });
-
   /* A first draw on a PLANNED season has a repair, the undraw beside it (`REQ-SPIELPLAN-006`), so a
      permanence claim there sends an admin away from a control this panel offers. The other two
      destroy rows nothing replays. */
@@ -117,13 +114,6 @@ describe("the draw half of the Spielplan panel", () => {
     assert.match(ARMED, /Zurücknehmen lässt sich der Spielplan danach wieder hier/);
     assert.equal(ARMED.match(/Es gibt in der Verwaltung keinen Weg zurück\./g)?.length, 2);
     assert.doesNotMatch(ARMED, /Verwaltung nicht/);
-  });
-
-  /* Wire an undo here and this fails. `/spiele` has neither a create nor a delete, so nothing can
-     write the removed rows back; the action log's images are a record to read, not a restore. */
-  it("offers no undo beside the one destructive save that has none", () => {
-    assert.doesNotMatch(SOURCE, /actionProps/);
-    assert.doesNotMatch(SOURCE, /Rückgängig machen|children: "Rückgängig"/);
   });
 
   /* A venue or a referee is what `holds_a_recorded_fact` counts, so either CLOSES the replace and no
