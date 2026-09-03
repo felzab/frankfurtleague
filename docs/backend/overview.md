@@ -2,119 +2,70 @@
 
 **Scope:** `fl_backend/`
 
-A FastAPI application over MongoDB, with one authorization tier per router ([`spec.md`](spec.md) I7). The
-single fact that explains most of its shape: **no browser reaches a route here that reads or writes application
-data.** The edge carries exactly one exact-match path to this service, the liveness probe, and routes every other
-`/api` path to the frontend ([`../ops/spec.md`](../ops/spec.md) I13 and §1.3). The one path it does carry
-takes no key and touches no database, so every caller of a route serving application data is the Next.js container over the Docker network —
-which is why authentication is shared API keys rather than user sessions, and why this service sets no cache
-headers of its own — what reaches a reader cached was cached by the frontend or by the edge
-([`../ops/spec.md`](../ops/spec.md) §1.3). The one cache it keeps is internal: a TTL-bounded, process-local read
-of season documents (`fl_backend/app/api/saisons/cache.py`). The endpoint inventory is [`spec.md`](spec.md) §1.1.
+A FastAPI application over MongoDB. **No browser reaches a route here that reads or writes application
+data.** The edge carries one exact-match path to this service, the liveness probe, which takes no key
+and touches no database ([`../ops/spec.md`](../ops/spec.md) I13), so every caller of a route serving
+application data is the Next.js container over the Docker network — which is why authentication is
+shared API keys rather than user sessions, and why this service sets no cache headers of its own: what
+reaches a reader cached was cached by the frontend or by the edge ([`../ops/spec.md`](../ops/spec.md)
+§1.3). The one cache it keeps is internal — a TTL-bounded, process-local read of season documents
+(`fl_backend/app/api/saisons/cache.py`), dropped whole on the write path.
 
 ## How it is organised
 
-```
-fl_backend/
-├── app/
-│   ├── asgi.py        the process entry point — the ONE module that builds an app on import
-│   ├── main.py        `create_app()`: middleware, router registration. Builds nothing on import
-│   ├── core/          infrastructure: config · db · security · crud · recording · dependencies
-│   │                  routing · exceptions · exception_handlers · middlewares · logging
-│   │                  collections · constraints · domain — the declarations read as data
-│   ├── api/<slice>/   one package per slice: router · admin_router · schemas · services · crud
-│   │                  saisons adds cache · schedule · spielplan · visibility; bewerbungen adds
-│   │                  public_router; aktionen has two of the five
-│   └── shared/        schemas reused across entities (addresses, kontakt, custom types)
-└── tests/             pytest — schema constraints by default; `-m db` adds a real mongod
-```
-
-`api/<slice>/` is the repeating unit — usually one entity, and `kontakte` a concern crossing every collection
-that holds a contact block: `router.py` declares endpoints and orchestrates, `schemas.py` holds the Pydantic
-models, `services.py` holds pure query-building and computation, and `crud.py` holds slice-level database
-access more than one endpoint needs. A slice carries only the files it needs, its routers included: `system` is
-all reads and declares no `admin_router.py`, while `aktionen` — the action log, which serves back what every
-admin write recorded — and `kontakte` — one contact person's erasure — have nothing public to offer and
-declare no `router.py`. `bewerbungen` declares a third, `public_router.py`, because the application form
-reads and writes at a tier neither of its other two carries ([`spec.md`](spec.md) I7).
+`app/api/<slice>/` is the repeating unit — usually one entity, and `kontakte` a concern crossing
+every collection that holds a contact block. **A slice carries only the files it needs, its routers
+included**, because a router declares one tier ([`spec.md`](spec.md) I7): a slice with nothing public
+to offer declares no `router.py`, and `bewerbungen`, whose application form reads and writes at a
+tier neither its `router.py` nor its `admin_router.py` carries, declares a third, `public_router.py`.
 
 ## Authorization
 
-Bearer keys, not user identities:
+Three key tiers — `base` behind the public pages, `admin` for every other write and every read the
+base tier may not make, `system` for health and diagnostics ([`spec.md`](spec.md) §1.1). Guards sit
+on the `APIRouter` rather than on an endpoint
+([`spec.md`](spec.md) I7), so an endpoint reaches the wrong authorization only by being written in
+the wrong file. **What the file name does not settle is the tier**: a read router declares its own,
+so a slice only the admin surfaces read is guarded `admin` throughout.
 
-| Key      | Guards                                                                               | Used by                                                   |
-| -------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| `base`   | the routers behind the public pages — their reads, and the one write a visitor makes | every normal page load, and the application form's submit |
-| `admin`  | every other write, and every read the base tier may not make                         | every admin mutation, and the admin surfaces' own reads   |
-| `system` | `/system/is_ready` and `/system/info`                                                | health and diagnostics                                    |
-
-Guards sit on the `APIRouter` rather than on an endpoint, so an endpoint reaches the wrong authorization only
-by being written in the wrong file ([`spec.md`](spec.md) I7). What the file name does not settle is the tier:
-a read router declares its own, so a slice only the admin surfaces read is guarded `admin`
-throughout. No response shape follows the caller's key either, which is why a read carries an `/admin` twin
-([`spec.md`](spec.md) §1.7). [`spec.md`](spec.md) §1.1 is which tier answers each endpoint, and its `READ-*`
-rules are what each is served.
-
-The `system` slice carries no blanket guard at all: the endpoints needing one declare it themselves, and
-`/system/is_live` is deliberately unguarded — it is the container healthcheck and the public uptime probe both,
-and a probe that needs a secret fails for the wrong reasons ([`spec.md`](spec.md) I7).
-
-Every `admin_router.py` declares `bind_actor` in that same `dependencies` list, which is what attributes a write
-to the administrator who made it — and refuses one it cannot attribute, before the handler runs
-([`spec.md`](spec.md) I41). A READ router guarded `admin` declares none, having no write to attribute, and the
-base-tier router that does carry one declares `bind_public_actor` instead — a visitor is nobody that header
-could name, so the actor is set here rather than sent ([`spec.md`](spec.md) §1.1).
+**`system` is the one slice whose router carries no guard** ([`spec.md`](spec.md) I7), so an endpoint
+added there is unauthenticated until it declares its own. `/system/is_live` declares none
+deliberately — it is the container healthcheck and the public uptime probe both, and a probe that
+needs a secret fails for the wrong reasons.
 
 ## Data access
 
-PyMongo's async driver, `AsyncMongoClient`, with the client created once in the FastAPI `lifespan` and attached to `app.state`.
-Collections are injected as typed dependencies rather than reached for directly.
+**The application refuses to start unless MongoDB answers and the database's own constraints apply**
+([`spec.md`](spec.md) I9 and I15) — so the cluster cannot hold a set this repository does not
+describe, and a constraint survives a restore.
 
-**The application refuses to start unless MongoDB answers and the database's own constraints apply.**
-`lifespan` pings the server, then `core/constraints.py` reapplies every `$jsonSchema` validator and unique
-index on every boot ([`spec.md`](spec.md) I9 and I15) — so the cluster cannot hold a set this repository does
-not describe, and a constraint survives a restore. The same pass builds the action log's read indexes
-(`fl_backend/app/core/constraints.py :: SupportIndex`, whose docstring holds the split). Those validators are a hand-written copy of the
-Pydantic models, which keeps the rules where a hand edit lands: `saison_teams` has write payloads but no
-stored-document model, and Compass is reachable whatever the API offers. What holds the copy to its model is
-[`spec.md`](spec.md) I17; the database user's `collMod` requirement is §4.
+**Those validators are a hand-written copy of the Pydantic models**, which keeps the rules where a
+hand edit lands: `saison_teams` has write payloads but no stored-document model, and Compass is
+reachable whatever the API offers. What holds the copy to its model is [`spec.md`](spec.md) I17; the
+database user's `collMod` requirement is [`spec.md`](spec.md) §4.
 
-**Shared database access goes through the helpers in `core/crud.py`**, a module in sections. The driver
+**Shared database access goes through the helpers in `fl_backend/app/core/crud.py`.** The driver
 helpers are keyword-only and take a session, which is what lets a read inside a transaction see that
 transaction's own writes. The query and sort builders behind a list read are pure, so no resource
-translates a filter term or a tie-break chain its own way. The rest is what a write does beyond the driver
-call: a refusal turned into the 409 it means, a retirement written as a date on `inactive_since`, a create
-stamped live, and one action-log row appended per write, the log's own collection excepted — the module's
-own header holds why that makes the log complete by construction; what a single-document write records,
-what one touching a whole set records instead, and what a removal records, are [`spec.md`](spec.md) I39,
-I40 and I48. A handler reaches for the driver directly only to iterate a cursor, to sort a single-document read,
-to count without reading the documents, or where absence is a meaningful answer rather than a 404; the
-miss contract every helper keeps is [`spec.md`](spec.md) I2.
+translates a filter term or a tie-break chain its own way. A handler reaches for the driver directly
+only to iterate a cursor, to sort a single-document read, to count without reading the documents, or
+where absence is a meaningful answer rather than a 404; the miss contract every helper keeps is
+[`spec.md`](spec.md) I2.
 
 ## Time
 
-Dates and times are German wall-clock (`Europe/Berlin`), injected as strings. Match dates are `YYYY-MM-DD`
-and are compared as strings, which works because the format sorts lexicographically — and is why the format
-is not negotiable.
+Dates and times are German wall-clock (`Europe/Berlin`), injected as strings. Match dates are
+`YYYY-MM-DD` and are compared as strings, which works because the format sorts lexicographically —
+and is why the format is not negotiable.
 
 ## Errors
 
-Every failure the application raises carries an `error_code`, so a log line names a specific failure rather
-than a status class. The subclasses, the handlers carrying codes of their own, the full table and the
-response contract are [`docs/logging/error-codes.md`](../logging/error-codes.md).
-
-## Testing
-
-`fl_backend/tests/` runs in **two tiers**: a default tier needing no database, and a `db` tier carrying
-`@pytest.mark.db`, deselected by default, that runs against a real `mongod` ([`spec.md`](spec.md) §1.6, and
-§4 for what the suite reaches only indirectly).
-
-The frontend mirrors the backend's validation constraints in Zod rather than enforcing them itself, so this
-suite is the only regression net under them ([`spec.md`](spec.md) §1.6).
+Every failure the application raises carries an `error_code`, so a log line names a specific failure
+rather than a status class ([`docs/logging/error-codes.md`](../logging/error-codes.md)).
 
 ## Read next
 
-- [`spec.md`](spec.md) — the endpoint inventory, the contracts and the invariants
+- [`spec.md`](spec.md) — the endpoint inventory, the contracts, the test suite and the invariants
 - [`../glossary.md`](../glossary.md) — the German domain vocabulary
 - [`../frontend/overview.md`](../frontend/overview.md) — the client behind every application route
 - [`../ops/overview.md`](../ops/overview.md) — the container this runs in
