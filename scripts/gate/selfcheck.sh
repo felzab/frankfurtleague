@@ -987,6 +987,10 @@ else
     probe "$hb" denied  cmd 'docker compose config -o rendered.yml'            'bash guard: a compose rendering saved with -o'
     probe "$hb" denied  cmd 'docker compose config --lock-image-digests'       'bash guard: a compose override file'
     probe "$hb" denied  cmd 'sort -o notes.md notes.md'                        'bash guard: sort writing through -o'
+    # A TAB where the patterns spell a space, the one whitespace a doubled space cannot stand in
+    # for: `-o` is matched as `" -o "`, so with tabs unfolded this reaches a tracked file with
+    # nothing refusing it.
+    probe "$hb" denied  cmd "$(printf 'sort\t-o\tnotes.md notes.md')"          'bash guard: sort writing through -o, tab-separated'
     probe "$hb" denied  cmd 'curl -o notes.md https://example.invalid/x'       'bash guard: curl writing through -o'
     probe "$hb" allowed cmd 'grep -o docker notes.md'                          'bash guard: -o as a match selector'
     probe "$hb" denied  cmd 'cp docs/audit/r.md docs/audit/credentials.json'   'bash guard: credential shape in an ignored dir'
@@ -1306,7 +1310,9 @@ else
     probe "$he" asked   file "${hook_root}/docs/_standard/x/../standard.md"    'standard edit guard: .. re-entry'
     probe "$he" asked   raw  '{"tool_input":{}}'                     'standard edit guard: payload without a path'
     probe "$he" asked   raw  'not json'                              'standard edit guard: unparseable payload'
-    probe "$he" asked   raw  "$(printf '{"tool_input":{"notebook_path":"%s/docs/_standard/standard.md"}}' "$hook_root")" 'standard edit guard: a notebook path'
+    # Allowed, never asked: with `notebook_path` unread every notebook write reads as pathless, and
+    # this guard asks about all of them.
+    probe "$he" allowed raw  "$(printf '{"tool_input":{"notebook_path":"%s/docs/notes.ipynb"}}' "$hook_root")" 'standard edit guard: a notebook path elsewhere'
     # Equality on the RESOLVED path: the raw spelling below contains the standard's whole name and
     # still lands elsewhere, so a textual prefix test would ask where this must not.
     probe "$he" allowed file "${hook_root}/docs/_standard/standard.md/../elsewhere.md" 'standard edit guard: .. climbs out'
@@ -1338,8 +1344,10 @@ else
     # Containment is decided on canonical paths: a sibling directory whose name opens with the
     # root's own spelling is what a textual prefix test releases the tree for.
     probe "$ha" allowed file "${hook_root}-sibling/x.md"             'auditor write guard: a sibling sharing the root spelling'
-    # NotebookEdit carries its path under another key, and the hook is registered for it.
-    probe "$ha" denied  raw  "$(printf '{"tool_input":{"notebook_path":"%s/n.ipynb"}}' "$hook_root")" 'auditor write guard: a notebook path'
+    # NotebookEdit names its path under another key, and the regression is a refusal EVERYWHERE,
+    # the agent's own scratch included. Only the allowed direction catches it: unread, the key
+    # leaves the path undefined, which the pathless arm denies anyway.
+    probe "$ha" allowed raw  "$(printf '{"tool_input":{"notebook_path":"%s/../outside.ipynb"}}' "$hook_root")" 'auditor write guard: a notebook path outside the repo'
     probe "$ha" denied  raw  '{"tool_input":{}}'                     'auditor write guard: payload without a path'
     probe "$ha" denied  raw  'not json'                              'auditor write guard: unparseable payload'
 
