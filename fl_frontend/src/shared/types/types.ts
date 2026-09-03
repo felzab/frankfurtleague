@@ -31,7 +31,7 @@ export interface SidemenuStructureSubOption<TIcon extends string> {
   hint: SidemenuHint;
 }
 
-export interface SidemenuStructureEntry<TIcon extends string> {
+interface SidemenuStructureEntry<TIcon extends string> {
   /**
    * The heading above the group, or `""` for a group that needs none — an empty name is a real option rather than a
    * missing value, and `SidemenuNavLinks` keys such a group on its first item's id.
