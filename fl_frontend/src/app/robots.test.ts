@@ -11,7 +11,7 @@ const APP_DIR = import.meta.dirname;
 
 const FILE = robots();
 
-/** One rule or several: the convention takes either shape, and this file writes the second. */
+/** One rule or several: the convention takes either shape. */
 const RULES = [FILE.rules].flat();
 
 /** The rule every crawler arriving without a name of its own reads. */

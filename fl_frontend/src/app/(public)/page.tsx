@@ -110,8 +110,8 @@ export default function LandingPage() {
 }
 
 /**
- * `connection()` precedes the fetch: the Docker builder stage cannot reach FastAPI. Reads the same
- * daily `saisons` cache as the fixtures below, so a rollover moves the badge and them together.
+ * Reads the same daily `saisons` cache as the fixtures below, so a rollover moves the badge and
+ * them together.
  */
 async function CurrentSaisonLabel() {
   await connection();

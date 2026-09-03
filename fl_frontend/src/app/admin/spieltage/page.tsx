@@ -37,16 +37,13 @@ export default function AdminSpieltagePage(props: NextPageProps) {
   );
 }
 
-/**
- * The season is the sidemenu selector's, and the list below shows that season's matchdays. `null`
- * only where the league has no seasons at all.
- */
+/** `null` only where the league holds no seasons at all, never for a season that was not found. */
 async function resolveSelectedSaison(searchParams: NextPageProps["searchParams"]): Promise<FLSaison | null> {
   const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
   const saisonsRes = await getAdminSaisons();
 
-  // The requested season, else the active one, else the first. The whole season rather than its id:
-  // its schedule is what each phase's matchday count is read against.
+  // The whole season rather than its id: its schedule is what each phase's matchday count is read
+  // against.
   return (
     saisonsRes.saisons.find((saison) => saison.id === requestedSaisonId) ??
     saisonsRes.saisons.find((saison) => saison.status === "active") ??
@@ -75,7 +72,6 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
 
   const spieltageRes = await getAdminSpieltage({ saison_id: saisonId });
 
-  // One pass rather than per row: the label needs how many matchdays the phase holds.
   const labels = spieltagLabels(spieltageRes.spieltage);
 
   // Annotated on the callback, so the literal is checked against the row type itself: an element

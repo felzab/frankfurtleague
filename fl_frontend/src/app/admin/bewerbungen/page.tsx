@@ -35,11 +35,8 @@ export default function AdminBewerbungenPage(props: NextPageProps) {
 /**
  * Each row carries whether it is for the SELECTED season, so the facet can be turned off to reach
  * other seasons — the row-flag shape `/admin/teams` uses.
- *
- * `?order=` picks which end of the queue a cut-short answer keeps, offered where one came back.
  */
 async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  // The image builder reaches no backend, so the fetches below have to be kept out of the build.
   await connection();
   const params = (await searchParams) ?? {};
   const requestedSaisonId = await resolveSaisonId(searchParams, "admin");

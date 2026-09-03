@@ -63,8 +63,8 @@ async function CreateTeamModalLoader({ searchParams }: { searchParams: NextPageP
 }
 
 /**
- * EVERY club across every season, each row carrying the SELECTED season's junction data — the
- * club-centric question the season-scoped reads cannot answer. A club in no season is listed too.
+ * EVERY club across every season, each row carrying the SELECTED season's junction data
+ * (`fl_frontend/src/features/teams/queries.ts :: getTeamMemberships`); a club in no season is listed too.
  */
 async function TeamsTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();

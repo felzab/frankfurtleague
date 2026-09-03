@@ -14,8 +14,7 @@ export async function POST(request: NextRequest) {
       const operation = await patchSpielort(payload);
       return operation.acknowledged ? undefined : "Die Rücknahme wurde abgebrochen. Prüfe die Spielortdaten.";
     },
-    // `spiele` alone: the rename fans out into every fixture embedding this row, and those stay
-    // cached. The row's own read is admin-tier and uncached, so it has no tag to clear.
+    // `spiele` alone: the rename fans out into cached fixtures embedding this row (`docs/frontend/spec.md` §1.4).
     invalidate: () => {
       revalidateTag("spiele", { expire: 0 });
     },

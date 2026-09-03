@@ -16,7 +16,7 @@ import type { NextPageProps } from "@/shared/types/types";
 /**
  * The matchday editor. One per URL and no season in it: a matchday carries its own `saison_id`, so
  * reading it is what tells the page which season's rules bound the form. It resolves nothing
- * itself — see the match editor.
+ * itself (`docs/frontend/spec.md :: I22`).
  */
 export default function AdminSpieltagEditPage(props: NextPageProps<{ spieltag_id: string }>) {
   return (
@@ -35,7 +35,7 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
   await connection();
   const spieltagId = await resolveSpieltagId(params);
 
-  // Null for "no such matchday", which this page turns into `notFound()`. Everything else throws.
+  // `null` is "no such matchday"; everything else throws.
   const spieltagRes = await getAdminSpieltagById(spieltagId);
 
   if (!spieltagRes) {
@@ -74,7 +74,7 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
   };
 
   return (
-    // Keyed by the state the draft mirrors, for the match editor's reason.
+    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed`).
     <AdminSpieltagEditView
       key={JSON.stringify(row)}
       spieltag={row}

@@ -10,14 +10,13 @@ import { toFieldErrors } from "@/shared/utils/validation";
 
 import type { NextRequest } from "next/server";
 
-/** What one submitted application is told back. The record's own id stays off the page. */
+/** The record's own id stays off the page. */
 const EINGEGANGEN = "Deine Bewerbung ist bei uns eingegangen.";
 
 /**
  * One school's application, submitted by a visitor with no session.
  *
- * A route handler and not a server action: `docs/frontend/spec.md :: I7` starts every action with
- * `getAdminSession()`, and a public export there would read as that rule broken.
+ * A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives.
  */
 export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {

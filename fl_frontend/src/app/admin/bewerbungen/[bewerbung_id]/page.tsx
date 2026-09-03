@@ -33,7 +33,7 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
   await connection();
   const bewerbungId = await resolveBewerbungId(params);
 
-  // Null for "no such application", which this page turns into `notFound()`. Everything else throws.
+  // `null` is "no such application"; everything else throws.
   const bewerbungRes = await getBewerbungById(bewerbungId);
   if (!bewerbungRes) {
     notFound();

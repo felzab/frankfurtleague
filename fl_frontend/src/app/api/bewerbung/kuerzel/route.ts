@@ -7,16 +7,14 @@ import { handlePublicRequest } from "@/shared/utils/publicRoute";
 import type { NextRequest } from "next/server";
 
 /**
- * Exactly two characters, judged before the value reaches a path segment. The form refuses anything
- * else at the field, so this arm answers a request the form did not make.
+ * Judged before the value reaches a path segment. The form refuses anything else at the field, so
+ * this arm answers a request the form did not make.
  */
 const shorthandSchema = z.string().trim().length(KUERZEL_LAENGE);
 
 const UNREADABLE = "Das Kürzel konnte nicht geprüft werden.";
 
 /**
- * Whether a two-letter Kürzel already belongs to a club, for the public form's blur.
- *
  * **ONE neutral answer**, separating no active club from a retired one and naming none: the check
  * is open to anybody, and either would read the roster back.
  */

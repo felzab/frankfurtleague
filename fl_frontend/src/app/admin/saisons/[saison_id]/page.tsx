@@ -19,7 +19,7 @@ import type { NextPageProps } from "@/shared/types/types";
 /**
  * The season editor. The season is the SEGMENT, not the selector's `?saison_id=`: the club and
  * player editors address a junction row, while this page's subject IS a season. It resolves
- * nothing itself — see the match editor.
+ * nothing itself (`docs/frontend/spec.md :: I22`).
  */
 export default function AdminSaisonEditPage(props: NextPageProps<{ saison_id: string }>) {
   return (
@@ -94,9 +94,8 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     spielplan: saison.spielplan,
     spieltageCount: spieltageRes.spieltage.length,
     schedule: saison.schedule,
-    // Off the two fixture reads the swap already needs. Its `erfasst` half must keep mirroring
-    // `holds_a_recorded_fact`: too wide closes a replace `REQ-SPIELPLAN-005` allows, too narrow
-    // offers one it refuses.
+    // Its `erfasst` half must keep mirroring `holds_a_recorded_fact`: too wide closes a replace
+    // `REQ-SPIELPLAN-005` allows, too narrow offers one it refuses.
     bestand: buildSpielplanBestand({ gruppenSpiele: gruppenSpieleRes.spiele, playoffSpiele: playoffSpieleRes.spiele }),
   };
 
@@ -111,9 +110,8 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   });
 
   /**
-   * The replacement's two sides, off the reads above. Its rows are NOT `swap.teams`: a junction row
-   * whose club is gone reaches no club read, and handing exactly such a row on is what the operation
-   * is for — so the fixtures supply it.
+   * Its rows are NOT `swap.teams`: a junction row whose club is gone reaches no club read, and
+   * handing exactly such a row on is what the operation is for — so the fixtures supply it.
    */
   const ersatz = buildReplacementContext({
     saisonId: saison.id,
@@ -128,7 +126,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const spieltagBound = buildSpieltagBound(spieltageRes.spieltage);
 
   return (
-    // Keyed by the state the drafts mirror, for the match editor's reason.
+    // Keyed by the state the drafts mirror (`docs/frontend/spec.md :: The editor's subtree is keyed`).
     <AdminSaisonEditView
       key={JSON.stringify(saison)}
       saison={{

@@ -11,7 +11,7 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /**
  * The venue editor. One per URL and no season in it: a venue belongs to the league, so the
- * sidemenu's selector changes nothing here. It resolves nothing itself — see the match editor.
+ * sidemenu's selector changes nothing here. It resolves nothing itself (`docs/frontend/spec.md :: I22`).
  */
 export default function AdminSpielortEditPage(props: NextPageProps<{ spielort_id: string }>) {
   return (
@@ -25,8 +25,7 @@ async function AdminSpielortEditContent({ params }: { params: NextPageProps<{ sp
   await connection();
   const spielortId = await resolveSpielortId(params);
 
-  // The list read, which serves the address and the rent this form round-trips. `include_inactive`,
-  // or a retired venue's own editor answers not-found.
+  // `include_inactive`, or a retired venue's own editor answers not-found.
   const spielorteRes = await getSpielorte({ include_inactive: true });
   const spielort = spielorteRes.spielorte.find((candidate) => candidate.id === spielortId);
   if (!spielort) {
@@ -34,7 +33,7 @@ async function AdminSpielortEditContent({ params }: { params: NextPageProps<{ sp
   }
 
   return (
-    // Keyed by the state the draft mirrors, for the match editor's reason.
+    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed`).
     <AdminSpielortEditView
       key={JSON.stringify(spielort)}
       spielort={{

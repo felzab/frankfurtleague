@@ -39,7 +39,6 @@ export default function AdminKontaktePage(props: NextPageProps) {
  * are: a school's staff turns over, and a finished season records who was reachable while it ran.
  */
 async function KontakteTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  // The image builder reaches no backend, so the fetch below has to be kept out of the build.
   await connection();
   const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
 

@@ -19,7 +19,7 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /**
  * The team editor. One club per URL; WHICH season's membership it addresses is the sidemenu
- * selector's `?saison_id=`. It resolves nothing itself — see the match editor.
+ * selector's `?saison_id=`. It resolves nothing itself (`docs/frontend/spec.md :: I22`).
  */
 export default function AdminTeamEditPage(props: NextPageProps<{ team_id: string }>) {
   return (
@@ -43,8 +43,6 @@ async function AdminTeamEditContent({
   const teamId = await resolveTeamId(params);
   const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
 
-  // One read carries the record and every membership; the season list answers which season is
-  // selected and its state.
   const [membershipsRes, saisonsRes] = await Promise.all([getTeamMemberships(), getAdminSaisons()]);
   const saisons = saisonsRes.saisons;
   const selectedSaison = requestedSaisonId
@@ -108,7 +106,7 @@ async function AdminTeamEditContent({
   });
 
   return (
-    // Keyed by the state the drafts mirror, for the match editor's reason.
+    // Keyed by the state the drafts mirror (`docs/frontend/spec.md :: The editor's subtree is keyed`).
     <AdminTeamEditView
       key={JSON.stringify({ team, saison, gruppeLocked })}
       team={team}

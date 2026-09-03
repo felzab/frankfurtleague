@@ -17,7 +17,7 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /**
  * The squad editor. One player per URL; WHICH season's squad row it addresses is the sidemenu
- * selector's `?saison_id=`. It resolves nothing itself — see the match editor.
+ * selector's `?saison_id=`. It resolves nothing itself (`docs/frontend/spec.md :: I22`).
  */
 export default function AdminSpielerEditPage(props: NextPageProps<{ spieler_id: string }>) {
   return (
@@ -41,8 +41,6 @@ async function AdminSpielerEditContent({
   const spielerId = await resolveSpielerId(params);
   const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
 
-  // One read carries the record and every squad row; the season list answers which season is
-  // selected and its state; the team list resolves a `team_id` into the name the picker shows.
   const [membershipsRes, saisonsRes, teamsRes] = await Promise.all([getSpielerMemberships(), getAdminSaisons(), getTeamMemberships()]);
   const saisons = saisonsRes.saisons;
   const selectedSaison = requestedSaisonId
@@ -93,7 +91,7 @@ async function AdminSpielerEditContent({
     }));
 
   return (
-    // Keyed by the state the drafts mirror, for the match editor's reason.
+    // Keyed by the state the drafts mirror (`docs/frontend/spec.md :: The editor's subtree is keyed`).
     <AdminSpielerEditView
       key={JSON.stringify({ spieler, saison })}
       spieler={{

@@ -15,7 +15,7 @@ import type { NextPageProps } from "@/shared/types/types";
 /**
  * The match editor. One fixture per URL. **The page resolves NOTHING itself** — every await sits
  * inside the boundary below, which keeps a fallback-params route renderable. The sibling editors
- * follow the same shape and point here.
+ * follow the same shape.
  */
 export default function AdminSpielEditPage(props: NextPageProps<{ spiel_id: string }>) {
   return (
@@ -34,7 +34,6 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
 
   // Admin-tier and uncached, so the editor seeds from the fixture as it stands rather than from a
   // cache entry hours old. `null` is "no such fixture"; everything else throws.
-
   const spielRes = await getAdminSpiel(spielId);
 
   if (!spielRes) {

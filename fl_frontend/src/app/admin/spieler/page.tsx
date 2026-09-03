@@ -66,7 +66,6 @@ async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPa
       erlaubteStufen: orderStufen(saison.rules.erlaubte_stufen),
     }));
 
-  // The viewed season when it takes players, else the first that does.
   const defaultSaisonId = saisonOptions.find((option) => option.saisonId === requestedSaisonId)?.saisonId ?? saisonOptions[0]?.saisonId ?? null;
 
   return (
@@ -78,8 +77,8 @@ async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPa
 }
 
 /**
- * EVERY player across every season, each row carrying the SELECTED season's squad row — the
- * player-centric question the season-scoped reads cannot answer. A player in no squad is listed too.
+ * EVERY player across every season, each row carrying the SELECTED season's squad row
+ * (`fl_frontend/src/features/spieler/queries.ts :: getSpielerMemberships`); a player in no squad is listed too.
  */
 async function SpielerTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
