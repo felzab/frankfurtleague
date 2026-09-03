@@ -14,8 +14,6 @@ from app.api.teams.services import ZERO_STATISTIK, build_statistik_by_team, buil
 from app.core.collections import Collection
 from tests.worker import worker_database
 
-pytestmark = pytest.mark.db
-
 DATABASE_NAME = worker_database("fl_standings_test")
 
 SAISON_ID = "2026"
@@ -190,6 +188,7 @@ def season_in_scope(scope: FLTeamStatistikScope) -> list[FLSpiel]:
 class TestTheTwoDerivationsAgree:
     """The pipeline reads the collection and `build_statistik_by_team` reads a list; the bracket resolution now trusts the second."""
 
+    @pytest.mark.db
     @pytest.mark.parametrize("scope", ["gruppenphase", "gesamt"])
     def test_the_figures_match_the_pipelines_over_the_same_fixtures(self, seeded: Database, scope: FLTeamStatistikScope):
         filters = FLTeamsFilterParams(saison_id=SAISON_ID, statistik_scope=scope)
@@ -205,7 +204,11 @@ class TestTheTwoDerivationsAgree:
             expected = derived.get(row["_id"], ZERO_STATISTIK)
             assert row["statistik"] == dict(expected), f"the two derivations disagree about {row['name']}"
 
-    def test_the_scope_is_the_callers_filter_and_moves_the_figures(self, seeded: Database):
+
+class TestTheScopeIsTheCallersFilter:
+    """Its own class, and unmarked: the claim below reads `spiel_documents` through a filter and opens no database."""
+
+    def test_the_scope_is_the_callers_filter_and_moves_the_figures(self):
         """Both halves of one claim: the derivation filters nothing, so a caller handing it the wrong season answers the wrong question."""
 
         gruppenphase = build_statistik_by_team(season_in_scope("gruppenphase"), RULES)
@@ -217,6 +220,7 @@ class TestTheTwoDerivationsAgree:
 
 
 class TestAPipelineWithoutRulesDerivesNoTable:
+    @pytest.mark.db
     def test_a_row_it_returns_is_refused_by_flteam(self, seeded: Database):
         """The loud half of `rules=None`: a caller that forgets to supply figures gets a refusal, never a table of zeros."""
 
