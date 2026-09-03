@@ -6,6 +6,10 @@ import { describe, it } from "node:test";
 import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
+/**
+ * Read rather than called: what is asserted is which site carries a behaviour — which mapper's arm
+ * answers a code, which action clears which tags — and a call reports the outcome, never the site.
+ */
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
 // A unique index refusing a write is a global handler rather than a `Rule(`, so `domain.py` does not carry its code.
 const HANDLERS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "exception_handlers.py"), "utf8");
@@ -65,16 +69,13 @@ describe("the saison actions against the backend's refusal register", () => {
     assert.equal(UNDRAW_ACTION.match(/export async function/g)?.length, 1, "the undraw's slice reaches another action");
   });
 
-  /* `POST /saisons` is a prefix of `POST /saisons/{saison_id}/activate` and of the draw's operation,
-     so a substring match here would pull in codes the create cannot raise. */
-  it("reads the create's operation as a whole token, not as a prefix", () => {
-    assert.deepEqual(declaredCodes(CREATE_OPERATION), CREATE_CODES);
-  });
-
   it("maps every refusal the create endpoint declares", () => {
+    /* `POST /saisons` is a prefix of the activate and the draw operations, so a substring read
+       answers here with codes the create cannot raise. */
     const declared = declaredCodes(CREATE_OPERATION);
 
-    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
+    /* The whole list before the loop: a register that stopped naming the operation runs the loop
+       zero times and green. */
     assert.deepEqual(declared, CREATE_CODES);
     for (const code of declared)
       assert.ok(RULES_MAP.includes(`case "${code}":`), `${code} reaches the admin as the message about a taken Saison-ID`);

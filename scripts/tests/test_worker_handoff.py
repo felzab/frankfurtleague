@@ -12,13 +12,13 @@ A worker's exit status and the rows it sent home are two accounts of one run and
 
 from __future__ import annotations
 
-import os
 import shutil
-import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
+
+from conftest import base_env, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
@@ -41,6 +41,9 @@ class Handoff:
     parent_code: int
     # A fragment the parent's closing statement must carry.
     says: str
+    # A fragment the WORKER must have printed, for a case whose rows are empty by design: the
+    # worker's own message is then the only account of why the scope was left unproven.
+    worker_says: str | None = None
     # A status handed to the parent in place of the worker's own, for the one case no honest worker
     # produces: a status and rows that disagree.
     replay_as: int | None = None
@@ -95,6 +98,7 @@ HANDOFFS: Final[tuple[Handoff, ...]] = (
         1,
         1,
         "closed with no verdict",
+        worker_says="were recorded outside any section",
     ),
     # The false green, which only a disagreement produces: a status naming a finding over rows that
     # name none. Graded with the run's own faults, the handoff being what broke.
@@ -142,8 +146,10 @@ def _worker_script(body: tuple[str, ...]) -> str:
 
 
 # `scripts/gate/verify.sh :: replay_scope` and the loop that drives it, minus the captured bytes it
-# replays: rows, then status, then ending, one scope per three arguments. The rank-0 stand-in is
-# what a scope that sent no ledger home gets.
+# replays: rows, then status, then ending, one scope per three arguments.
+
+# Rank 0 is the parent's own stand-in for a scope that sent no ledger home, which `finish` refuses
+# to call green. Read as a disagreement instead, it would grade an honest worker 3.
 PARENT_SCRIPT: Final = "\n".join(
     (
         "#!/usr/bin/env bash",
@@ -179,36 +185,8 @@ class Replay:
 
 def _bash(path: Path, args: tuple[str, ...], env: dict[str, str]) -> tuple[int, str]:
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-    done = subprocess.run(
-        (BASH, path.as_posix(), *args),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        env=env,
-        check=False,
-    )
+    done = run_shell(BASH, path, *args, env=env)
     return done.returncode, done.stdout + done.stderr
-
-
-def _write(path: Path, text: str) -> None:
-    """`newline=""` because a CRLF fixture leaves bash a stray return on every line."""
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        handle.write(text)
-
-
-def _base_env() -> dict[str, str]:
-    """The environment a fixture must not inherit.
-
-    A parent's own run state would decide the answer: FL_GATE_WORKER silences every summary, and the
-    pool's variables point a fixture at a ledger belonging to another run entirely.
-    """
-    env = {name: value for name, value in os.environ.items() if not name.startswith("FL_GATE_")}
-    env.pop("GITHUB_ACTIONS", None)
-    env.pop("VERBOSE", None)
-    env["FL_GATE_COLOR"] = "0"
-    env["NO_SPINNER"] = "1"
-    return env
 
 
 def _run_worker(
@@ -217,7 +195,7 @@ def _run_worker(
     """Run one worker under its own ledger, and read that ledger back as rows."""
     ledger = scratch / f"{tag}.ledger"
     script = scratch / f"{tag}.sh"
-    _write(script, _worker_script(body))
+    write_shell(script, _worker_script(body))
     code, output = _bash(script, (), {**env, "FL_GATE_WORKER": "1", "FL_GATE_LEDGER": ledger.as_posix()})
     rows: list[tuple[int, int, int, str]] = []
     if ledger.exists():
@@ -230,10 +208,10 @@ def _run_worker(
 
 def _replay(case: Handoff) -> Replay:
     """Run the worker, read the ledger it wrote, and hand both to a parent."""
-    env = _base_env()
+    env = base_env()
     with tempfile.TemporaryDirectory() as scratch:
         parent = Path(scratch) / "parent.sh"
-        _write(parent, PARENT_SCRIPT)
+        write_shell(parent, PARENT_SCRIPT)
         worker_code, worker_output, ledger, rows = _run_worker(Path(scratch), "demo", case.body, env)
         status = case.worker_code if case.replay_as is None else case.replay_as
         parent_code, parent_output = _bash(parent, ("demo", ledger.as_posix(), str(status)), env)
@@ -257,6 +235,8 @@ def test_every_handoff_carries_the_workers_verdict_home_in_its_rows() -> None:
             wrong.append(f"{case.name}: the parent exited {seen.parent_code}, and the contract gives it {case.parent_code}")
         if case.says not in seen.parent_output:
             wrong.append(f"{case.name}: nothing the parent printed says {case.says!r}")
+        if case.worker_says is not None and case.worker_says not in seen.worker_output:
+            wrong.append(f"{case.name}: nothing the worker printed says {case.worker_says!r}")
         # On every case rather than one: each reaches `_closing` by a different arm, and a worker
         # summarising a run it sees one scope of duplicates the parent's table below it.
         for statement in ("Green —", "finding(s) in this run", "Refused after", "Crashed after", "Interrupted after"):
@@ -265,27 +245,16 @@ def test_every_handoff_carries_the_workers_verdict_home_in_its_rows() -> None:
     assert not wrong, "\n".join(wrong)
 
 
-def test_a_ledger_refuses_to_travel_at_all_over_a_finding_no_row_can_carry() -> None:
-    """The ledger is empty by design here, so the worker's own message is the only evidence.
-
-    A parent replaying it can report the scope unproven, and never why it was unproven.
-    """
-    case = next(one for one in HANDOFFS if one.name == "a finding recorded before the first section")
-    seen = _replay(case)
-    assert seen.rows == (), f"the ledger emitted {seen.rows} over a finding no row can carry"
-    assert "were recorded outside any section" in seen.worker_output
-
-
 def test_a_scope_whose_status_its_rows_contradict_is_caught_behind_a_scope_that_found_something() -> None:
     """Two scopes, because the cross-check reads state a run accumulates.
 
     The first scope's finding would stand in for the second scope's silence. Its status is replayed
     as 0 only so the replay reaches the second at all.
     """
-    env = _base_env()
+    env = base_env()
     with tempfile.TemporaryDirectory() as scratch:
         parent = Path(scratch) / "parent.sh"
-        _write(parent, PARENT_SCRIPT)
+        write_shell(parent, PARENT_SCRIPT)
         found = ("section one", "step work", 'fail "a real finding"')
         first_code, _, first, first_rows = _run_worker(Path(scratch), "one", found, env)
         second_code, _, second, second_rows = _run_worker(Path(scratch), "two", ("section two", 'ok "checked"'), env)
@@ -298,15 +267,3 @@ def test_a_scope_whose_status_its_rows_contradict_is_caught_behind_a_scope_that_
         )
     assert code == 3, f"the second scope's disagreement exited {code}"
     assert "the two scope exited 1" in output, output
-
-
-def test_a_scope_that_sent_no_ledger_home_is_not_read_as_a_scope_contradicting_itself() -> None:
-    """Rank 0 is the parent's own stand-in, which `finish` already refuses to call green.
-
-    Read as a disagreement it would answer 3 over a worker that reported honestly and only died
-    before it could write the row.
-    """
-    case = next(one for one in HANDOFFS if one.name == "a finding recorded before the first section")
-    seen = _replay(case)
-    assert seen.rows == ()
-    assert seen.parent_code == 1, f"a scope with no ledger of its own exited {seen.parent_code}"

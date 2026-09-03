@@ -1,23 +1,18 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
 import ts from "typescript";
+
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
 /** The names the builder stage itself sets; a name added here is a claim about the Dockerfile (`docs/frontend/spec.md :: I84`). */
 const PROVIDED_WHILE_BUILDING = new Set(["MONGODB_URI", "NODE_ENV", "NEXT_RUNTIME", "NEXT_TELEMETRY_DISABLED"]);
 
-function collectModules(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return collectModules(full);
-
-    return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) ? [full] : [];
-  });
-}
+const collectModules = (dir: string): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 350);
 
 interface Finding {
   readonly line: number;

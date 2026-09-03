@@ -4,6 +4,8 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { filesUnder } from "@/core/treeWalk.ts";
+
 import { applyFacets, countActiveFacets, countFacetOptions, readFacetSelection } from "./facets";
 
 import type { Facet } from "./facets";
@@ -324,14 +326,8 @@ const APP_DIR = path.resolve(import.meta.dirname, "..", "..", "app");
 const VIEWS_GLOB = /components\/views\/Admin\w+View\.tsx$/;
 const asPosix = (file: string): string => file.split(path.sep).join("/");
 
-/** Every `.ts`/`.tsx` under a directory, recursively. */
-function sourcesUnder(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return sourcesUnder(full);
-    return /\.tsx?$/.test(entry.name) ? [full] : [];
-  });
-}
+/** Every `.ts`/`.tsx` under a directory, recursively. Each caller names the floor its own root earns. */
+const sourcesUnder = (dir: string, floor: number): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name), floor);
 
 /**
  * Whether the module opens with a `"use client"` directive, comments before it skipped. Scanned, not
@@ -364,7 +360,7 @@ describe("who may hold a facet", () => {
      (`.claude/rules/frontend.md`). Neither `tsc` nor `next build` sees it; the page throws at render with
      a digest alone. */
   it("keeps every facets module out of the server half of the app", () => {
-    const leaks = sourcesUnder(APP_DIR)
+    const leaks = sourcesUnder(APP_DIR, 50)
       .filter((file) => !isClientModule(readFileSync(file, "utf8")))
       .filter((file) => /from "[^"]*facets"/.test(readFileSync(file, "utf8")))
       .map((file) => asPosix(path.relative(APP_DIR, file)));
@@ -380,7 +376,7 @@ describe("who may hold a facet", () => {
      them by whoever renders it, and the admin pages are Server Components. Built inside the view
      from plain data, nothing but data crosses. */
   it("builds every admin view's facets inside the view rather than taking them", () => {
-    const views = sourcesUnder(FEATURES_DIR).filter((file) => VIEWS_GLOB.test(asPosix(file)));
+    const views = sourcesUnder(FEATURES_DIR, 200).filter((file) => VIEWS_GLOB.test(asPosix(file)));
     assert.ok(views.length > 0, "no admin views were found, so this case compares nothing");
 
     const nehmen = views

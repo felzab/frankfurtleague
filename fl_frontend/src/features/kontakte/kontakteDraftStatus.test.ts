@@ -81,11 +81,10 @@ describe("deriveKontakteDraftStatus", () => {
     assert.equal(status.byPath.get("kontakte.ansprechperson")?.isChanged, false);
   });
 
-  it("reports a seat that was already empty as no change, its row still standing", () => {
+  it("keeps a row for a seat that was already empty, reading it as nothing", () => {
     const stored = block({ trainer: null });
     const status = deriveKontakteDraftStatus({ stored, draft: stored, fieldErrors: {} });
 
-    assert.equal(status.isDirty, false);
     assert.equal(status.fields.length, 7);
     assert.equal(status.byPath.get("kontakte.trainer")?.draftText, null);
   });

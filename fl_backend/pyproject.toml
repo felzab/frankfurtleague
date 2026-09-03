@@ -117,6 +117,10 @@ pythonpath = ["."]
 markers = [
     "db: needs a real mongod via testcontainers. Deselected by default; run with `pytest -m db`.",
 ]
+# pytest's default is `skip`, so a parametrize list whose discovery found nothing passes as one
+# silent skip and takes its whole guarantee with it
+# (`scripts/checks/check_test_estate.py :: check_empty_parametrize`).
+empty_parameter_set_mark = "fail_at_collect"
 
 [tool.pyright]
 # The type checker the EDITOR already runs. ruff lints and pytest executes and neither checks a

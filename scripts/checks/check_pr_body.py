@@ -123,7 +123,9 @@ def main() -> int:
         print("  Edit the body in place -- `gh pr edit <n> --body-file <path>` keeps the number and the URL.\n", file=sys.stderr)
         return code
 
-    print("  the body follows the form")
+    # A census, never a verdict: a `SUMMARY_TARGET` finding prints above this and still exits 0, so
+    # a line claiming the body follows the form would contradict the report the same run just made.
+    print("  checked the body against docs/_git/templates.md")
     return code
 
 

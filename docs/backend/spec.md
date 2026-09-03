@@ -147,7 +147,7 @@ subject is an email address and travels in the body instead.
 | POST   | `/schiedsrichter/{schiedsrichter_id}/reactivate`       | Clears `inactive_since`                                                                                                                                                         |
 | POST   | `/bewerbungen/{bewerbung_id}/annehmen`                 | Accepts an application — I51's transaction. `gruppe` and `trikot_farbe` on the body. **IRREVERSIBLE**: a club entered in error leaves only by an `austritt` (I19, I31)          |
 | POST   | `/bewerbungen/{bewerbung_id}/ablehnen`                 | Declines an application, recording who decided and why. `status` and `entscheidung` move and nothing else, so the submission stays as the school wrote it (`REQ-BEWERBUNG-001`) |
-| POST   | `/kontakte/erasure`                                    | Clears one contact person from every `saison_teams` and `bewerbungen` row and redacts those log images — I42's transaction. The SLOT is nulled, never the block                 |
+| POST   | `/kontakte/erasure`                                    | Clears one contact person from every `saison_teams` and `bewerbungen` row and redacts the log images — I42's transaction. The SLOT is nulled, never the block                   |
 | POST   | `/schiedsrichter/{schiedsrichter_id}/anonymisieren`    | Clears `kontakt`'s `telefon` and `email` and redacts them in the log, in one transaction — never the block itself, and never `name`. See I42, I53                               |
 
 **There is no `DELETE /saisons/{saison_id}`**, and none on `/teams/{team_id}/saisons/{saison_id}` or on
@@ -352,7 +352,16 @@ exactly what the default run skips.
 
 **A test that touches the database carries `@pytest.mark.db`.** Without it the test runs in the fast
 tier, where there is no container, and fails for a reason that looks unrelated to what it is testing.
-`--strict-markers` catches a misspelled marker; nothing catches an omitted one.
+`--strict-markers` catches a misspelled marker, and `scripts/checks/check_test_estate.py` refuses an
+omitted one wherever it can follow the test's reach: into its own module, into the modules it imports
+by dotted path or relatively, along its conftest chain, and through a fixture named as a string on
+the test, on its class or at module scope. **A reach it cannot follow stays the author's to mark**:
+
+- a fixture a plugin supplies, which is outside `fl_backend/tests/` altogether
+- a fixture module named in `pytest_plugins`, which the rule does not read
+- a fixture name assembled at run time, which no constant string carries
+- a helper handed on through its module's name rather than called — `run(helpers.seed)`, where
+  `helpers.seed(…)` is followed
 
 **The marker exists to keep the fast tier fast**, and a real `mongod` sits behind it because
 `mongomock` cannot execute this pipeline and a check against the live database tests the data rather
@@ -421,8 +430,12 @@ and cannot suffer same-basename collisions.
   it invalid and no two cases can leak state through a shared mutable dict
   (`fl_backend/tests/conftest.py :: _factory`). Payloads are keyed the way MongoDB serves them — `_id`,
   not `id` — because that is the validation alias the models declare.
-- **Reject-cases are parametrised.** One `pytest.mark.parametrize` per rule, listing every value that
-  must fail, so adding a case is one line.
+- **Reject-cases are parametrised**, one `pytest.mark.parametrize` per rule, holding one value per code
+  path the rule refuses on and that path's boundaries. A value reaching a branch another case already
+  reaches passes and fails with that case, so it pins nothing of its own and is not added. **A value
+  that is in the list because it once got through says which failure it pins**, in a `#` beside it:
+  nothing else separates a regression pin from padding, and a later pass that cannot separate them cuts
+  the pin.
 - **Assert _which_ field failed when more than one could**, using the `assert_rejects` fixture
   (`fl_backend/tests/conftest.py :: assert_rejects`): a bare `pytest.raises(ValidationError)` passes
   whatever went wrong, so a test meant to prove one constraint stays green while an unrelated typo in
@@ -445,6 +458,14 @@ and cannot suffer same-basename collisions.
 - **The `db` corpus is documented where it is seeded**, in `fl_backend/tests/api/conftest.py`: a
   comment at each seeded club and each fixture names the one thing it is there to make observable,
   and the tests reading it derive their expected figures in their own docstrings.
+- **An invariant's `Enforced by` names the class that proves it**, and gate check `citation` resolves
+  that name, so cutting a claimed class turns the gate red rather than leaving the row citing nothing.
+  **That is the whole of what is mechanical**: nothing holds a claimed class to still asserting its
+  row, and a class no invariant claims is cut in silence. Holding the column both ways, as
+  `fl_backend/app/core/domain.py :: UNENFORCED` is held
+  (`fl_backend/tests/core/test_domain.py :: test_every_unenforced_entry_is_paired_with_the_test_that_proves_it`),
+  needs a population with an edge: one dedicated file gives that pair one, and a column citing the
+  whole tests tree has none.
 
 ### 1.7 Read rules
 

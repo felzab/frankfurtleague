@@ -297,7 +297,7 @@ export function useDraftFieldErrors<TSchema extends string>({ schemas }: { schem
 
   /**
    * **The submit's only gate.** `aria` stops nothing natively, so a form without this call posts what it holds.
-   * It RUNS the write rather than answering: a returned answer can be dropped at a call site, and there are twelve.
+   * It RUNS the write rather than answering: a returned answer can be dropped at any of its call sites.
    */
   const guardSubmit = (payloads: Readonly<Partial<Record<TSchema, unknown>>>, write: () => void): void => {
     const decision = submitDecision({ payloads, schemas });

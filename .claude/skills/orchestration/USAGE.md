@@ -79,5 +79,4 @@ instruction, in a transcript already carrying this session's work, treats it as 
 ## Precedence
 
 This skill never overrides `.claude/CLAUDE.md` or the owner's standing-instructions file the
-starter names. Where the skill disagrees with either, the skill is wrong: fix it in the same
-session and say so.
+starter names ([SKILL.md](SKILL.md) §7).

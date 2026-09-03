@@ -3,10 +3,20 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { renderMarkup } from "@/shared/testing/renderTest";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { BEWERBUNG_SEATS } from "./constants.ts";
 import { FLPostBewerbungPayloadSchema } from "./schemas.ts";
+
+/*
+ Every module below is reached AFTER the harness above has evaluated, because that is when the JSX
+ compile step is registered; a static import beside it resolves first and dies on the extension.
+*/
+const { BewerbungForm } = await import("./components/forms/BewerbungForm/BewerbungForm.tsx");
+const { FormSchuleSection } = await import("./components/forms/BewerbungForm/FormSchuleSection.tsx");
+const { FieldLabel } = await import("@/shared/components/ui/FieldLabel.tsx");
+const { SCHULE_NICHT_IN_LISTE } = await import("./constants.ts");
+const { buildEmptyBewerbungSchule } = await import("./utils.ts");
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 
@@ -14,27 +24,59 @@ const read = (...parts: string[]): string => readFileSync(path.join(SRC_DIR, ...
 
 const FORM = read("features", "bewerbungen", "components", "forms", "BewerbungForm", "BewerbungForm.tsx");
 const SEATS = read("features", "bewerbungen", "components", "forms", "BewerbungForm", "FormKontaktpersonenSection.tsx");
-const SCHULE = read("features", "bewerbungen", "components", "forms", "BewerbungForm", "FormSchuleSection.tsx");
 const PAGE = read("app", "(public)", "bewerbung", "[saison_id]", "page.tsx");
-const CONSTANTS = read("features", "bewerbungen", "constants.ts");
+
+const SCHULEN = [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }];
+
+/** The form as the applicant meets it, composed by the component the page renders rather than here. */
+const FORMULAR = renderMarkup(BewerbungForm, { saisonId: "2026", schulen: SCHULEN, isSchulenLesbar: true, vergebeneFarben: [] });
+
+/**
+ * The new-school arm, which the form above never reaches: it opens on the picker's sentinel, and a
+ * fresh draft has picked nothing.
+ */
+const NEUE_SCHULE = renderMarkup(FormSchuleSection, {
+  schulen: SCHULEN,
+  auswahl: SCHULE_NICHT_IN_LISTE,
+  schule: buildEmptyBewerbungSchule(),
+  onAuswahlPicked: () => undefined,
+  onSchuleChange: () => undefined,
+  onFieldLeft: () => undefined,
+  onSchulformPicked: () => undefined,
+  onKuerzelLeft: () => undefined,
+  kuerzelHinweis: null,
+  isSchulenLesbar: true,
+});
+
+/** Every element a submitted value is read off, with the attributes that decide what it announces. */
+function benannteControls(html: string): { name: string; attrs: string }[] {
+  return [...html.matchAll(/<(?:input|select|textarea)\b([^>]*)>/g)]
+    .map((treffer) => ({ attrs: treffer[1] ?? "", name: /\bname="([^"]*)"/.exec(treffer[1] ?? "")?.[1] ?? "" }))
+    .filter((control) => control.name !== "");
+}
+
+/** Every switch, as the refusal has to find it: by the payload path its own checkbox carries. */
+const schalter = (html: string): { name: string; attrs: string }[] =>
+  [...html.matchAll(/<input\b([^>]*\brole="switch"[^>]*)>/g)].map((treffer) => ({
+    attrs: treffer[1] ?? "",
+    name: /\bname="([^"]*)"/.exec(treffer[1] ?? "")?.[1] ?? "",
+  }));
 
 describe("the public application form", () => {
-  /* First, because every assertion below reads one of these as text: a path that stopped resolving
+  /* First, because every source-text case below reads one of these: a path that stopped resolving
      would leave each of them matching against an empty string and reporting nothing. */
   it("finds each file it reads at all", () => {
     for (const [name, source] of [
       ["the form", FORM],
       ["the seats", SEATS],
-      ["the school section", SCHULE],
       ["the page", PAGE],
-      ["the constants", CONSTANTS],
     ] as const) {
       assert.ok(source.length > 0, `${name} is empty, so this file proves nothing about it`);
     }
   });
 
   /* One composer, so the submit cannot assemble a second payload beside the one the blur-time
-     judgements parse. What that composer does is pinned by `schemas.test.ts`, against values. */
+     judgements parse. Which composer a handler calls is not in the markup it produces. */
   it("submits the payload one composer built, the same one every blur-time judgement parses", () => {
     assert.match(FORM, /const payload = bewerbungPayload\(draft\);/, "the submit posts something other than the composed payload");
 
@@ -43,8 +85,8 @@ describe("the public application form", () => {
     assert.doesNotMatch(FORM, /team_id:/, "the form assembles a payload of its own beside bewerbungPayload");
   });
 
-  /* `location = /api/bewerbung/kuerzel` is an EXACT match, so a path segment falls through to the
-     catch-all with no limit, and neither `nginx -t` nor the build can see it. */
+  /* `location = /api/bewerbung/kuerzel` is an EXACT match in nginx, so a path segment falls through
+     to the catch-all with no limit, and neither `nginx -t` nor the build can see it. */
   it("calls both public routes at the exact paths the edge limits", () => {
     assert.match(FORM, /fetch\("\/api\/bewerbung", \{/, "the submission posts to something other than /api/bewerbung");
     assert.match(
@@ -66,8 +108,9 @@ describe("the public application form", () => {
     assert.match(FORM, /Zu viele Versuche in kurzer Zeit/);
   });
 
-  /* A ratified decision (`.claude/rules/frontend.md`): a typed field is judged when it is LEFT. A message
-     between two keystrokes describes a value nobody finished entering. */
+  /* A ratified decision (`.claude/rules/frontend.md`): a typed field is judged when it is LEFT. A
+     message between two keystrokes describes a value nobody finished entering. Which event a handler
+     is bound to reaches no markup. */
   it("judges a typed field on blur and a picked one on the press", () => {
     assert.match(SEATS, /onBlur=\{\(\) => onFieldLeft\(\[path\("vorname"\)\]\)\}/, "a typed seat field is judged elsewhere");
     assert.ok(!/onChange=\{\(next\) => \{[^}]*onFieldLeft/.test(SEATS), "a change handler judges a seat's field between keystrokes");
@@ -77,51 +120,71 @@ describe("the public application form", () => {
   /* `FieldLabel` reads a `DraftStatusProvider` this page has none of, and `fieldLabelPaths.test.ts`
      would then hold these paths against a descriptor table the slice does not keep for them. */
   it("labels its fields plainly, holding no draft status it cannot carry", () => {
-    for (const [name, source] of [
-      ["the seats", SEATS],
-      ["the school section", SCHULE],
+    assert.throws(
+      () => renderMarkup(FieldLabel, { path: "schule.team_name", children: "Teamname" }),
+      // The control: without it a `FieldLabel` that had stopped reading the provider would render
+      // here quietly, and the two assertions below would pass over a page carrying draft markers.
+      /DraftStatusProvider/,
+      "the draft-status label renders without a provider, so this case proves nothing",
+    );
+
+    for (const [name, html] of [
+      ["the form", FORMULAR],
+      ["the new-school arm", NEUE_SCHULE],
     ] as const) {
-      assert.ok(!source.includes("<FieldLabel"), `${name} renders a draft-status label on a page that keeps no draft status`);
-      assert.match(source, /<Label className=\{FIELD_LABEL\}>/, `${name} renders no plain label at all`);
+      assert.doesNotMatch(html, /id="feld-/, `${name} renders a draft-status label's rail anchor`);
+      assert.match(html, /data-slot="label"[^>]*>[^<]/, `${name} renders no label at all`);
     }
   });
 
   /* The Trainer first: it is the seat a school fills in first when it thinks about who is coming,
-     and the two contacts follow from it. */
-  /* Read from the constant rather than from its source text: the order is what the form renders, and
-     a re-indent must not be able to fail this or, worse, pass it vacuously. */
+     and the two contacts follow from it. The school before all three, the team after them. */
   it("asks for the Trainer first, ahead of the two seats that can claim to be one", () => {
     assert.deepEqual(
-      BEWERBUNG_SEATS.map((seat) => seat.value),
+      [...FORMULAR.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((treffer) => treffer[1]),
+      ["Schule", "Trainerin oder Trainer", "Ansprechperson", "Stellvertretung", "Team"],
+      "the form no longer asks the Trainer first, or renamed a panel",
+    );
+    // The payload's own keys in the same order, so a renamed panel heading cannot hide a reordering.
+    assert.deepEqual(
+      [...FORMULAR.matchAll(/name="kontakte\.(\w+)\.vorname"/g)].map((treffer) => treffer[1]),
       ["trainer", "ansprechperson", "stellvertretung"],
-      "BEWERBUNG_SEATS no longer asks the Trainer first",
+      "the seats are rendered in an order their headings do not show",
     );
   });
 
-  /* The one control the claim is made with. Two independent ticks would let a submission say that
-     two different people are both the coach, which `trainer_ist_zugleich` cannot express. */
+  /* One control, one payload field: two independent ticks would let a submission say that two
+     different people are both the coach, which `trainer_ist_zugleich` cannot express. */
   it("makes the claim through the one nullable field, so no press can put it on two seats", () => {
-    assert.match(FORM, /trainer_ist_zugleich: seat/, "the claim is written as something other than the one field");
-    assert.match(FORM, /onZugleichToggled=\{value === "trainer" \? undefined : \(on\) => pickZugleich\(on \? value : null\)\}/);
+    const zugleich = schalter(FORMULAR).filter((control) => control.name.endsWith("trainer_ist_zugleich"));
+
+    assert.equal(zugleich.length, 2, "the claim is offered on a number of seats other than the two that can make it");
+    assert.equal(new Set(zugleich.map((control) => control.name)).size, 1, "the two seats write the claim into two different fields");
+    // The Trainer seat is the one the claim points AT, so it offers no way to point it at itself.
+    const trainerPanel = FORMULAR.slice(FORMULAR.indexOf("Trainerin oder Trainer"), FORMULAR.indexOf("Ansprechperson"));
+    assert.doesNotMatch(trainerPanel, /name="kontakte\.trainer_ist_zugleich"/, "the Trainer seat can claim to be its own coach");
+  });
+
+  /* Off clears the field rather than leaving the last seat standing, which is what makes the switch
+     a nullable claim rather than a latch. A handler's argument reaches no markup. */
+  it("clears the claim when the press turns it off", () => {
+    assert.match(FORM, /pickZugleich\(on \? value : null\)/, "turning the claim off leaves it pointing at the seat that made it");
   });
 });
 
 describe("what a refusal on a switch has to land on", () => {
-  /* A `Switch` takes no `name`, so nothing it stands for appears in `form.elements`. Without a named
-     proxy around it, `focusFirstRefusal` reports `rendered` false and the applicant gets the
-     unhandled-path toast instead of a message under the control. */
+  /* A `Switch` takes no `name`, so nothing it stands for appears in `form.elements`. Without the
+     name on its own checkbox, `focusFirstRefusal` reports `rendered` false and the applicant gets
+     the unhandled-path toast instead of a message under the control. */
   it("gives every switch on this form a control a refusal can reach", () => {
-    // The switch carries the NAME itself, so its own checkbox is what `aria-invalid` and the message's
-    // `aria-describedby` land on. Behind a proxy the refusal reached a control nothing announces.
-    const schalter = [...SEATS.matchAll(/<Switch[^.\w]/g)];
-    assert.ok(schalter.length >= 2, "the seats render no switches, so this case compares nothing");
+    const alle = schalter(FORMULAR);
 
-    for (const treffer of schalter) {
-      const block = SEATS.slice(treffer.index, SEATS.indexOf(">", treffer.index));
-
-      assert.match(block, /name=\{/, "a switch carries no name, so a refusal on its path reaches no control");
+    assert.ok(alle.length >= 2, "the form renders no switches, so this case compares nothing");
+    for (const control of alle) {
+      assert.notEqual(control.name, "", "a switch carries no name, so a refusal on its path reaches no control");
       // Required-ness only where the schema demands it: the zugleich claim is one a school may leave alone.
-      if (block.includes("einwilligung.erteilt")) assert.match(block, /isRequired/, "a consent switch says its requirement to nobody");
+      const soll = control.name.endsWith("einwilligung.erteilt");
+      assert.equal(/aria-required="true"/.test(control.attrs), soll, `${control.name} states a requirement the schema does not`);
     }
   });
 
@@ -134,10 +197,17 @@ describe("what a refusal on a switch has to land on", () => {
     const pfad = Object.keys(toFieldErrors(geparst.error)).find((eintrag) => eintrag.endsWith("trainer_ist_zugleich"));
 
     assert.ok(pfad !== undefined, "the schema refuses the claim under no path at all");
-    assert.ok(SEATS.includes(`"${pfad}"`), `no control on this form names ${pfad ?? ""}`);
+    assert.ok(
+      benannteControls(FORMULAR).some((control) => control.name === pfad),
+      `no control on this form is named ${pfad ?? ""}`,
+    );
   });
 });
 
+/*
+ The page is read rather than rendered: each claim here is about the shape of the module rather than
+ about markup.
+*/
 describe("the public application page", () => {
   /* `docs/frontend/spec.md :: I22`: a dynamic segment awaits `params` INSIDE its boundary. A
      top-level await ties the fallback-params App Shell to one URL. */
@@ -179,6 +249,10 @@ describe("the public application page", () => {
   });
 });
 
+/*
+ Read rather than rendered: each claim here is about what a handler does with a press or an unload,
+ and none of it survives into the markup a press acts on.
+*/
 describe("what the form does with a submit already in flight", () => {
   /* The disabled button is not the whole guard: `Enter` in any field submits the form too, so a
      second press mid-flight would post the application twice. */
@@ -206,32 +280,47 @@ describe("what the form does with a submit already in flight", () => {
 });
 
 describe("what the form says about itself to a reader who cannot see it", () => {
-  /* `aria-label` beside a visible `<Label>` is not a second name — react-aria emits no label id at all, and the
-     non-empty `aria-labelledby` then outranks the `aria-label` too. The control announces its placeholder. */
+  /* `aria-label` beside a visible `<Label>` is not a second name — react-aria emits no label id at
+     all, and the non-empty `aria-labelledby` then outranks the `aria-label` too. The control
+     announces its placeholder. */
   it("names no control twice, so its visible label is the name it announces", () => {
-    for (const [datei, quelle] of [
-      ["FormSchuleSection.tsx", SCHULE],
-      ["FormKontaktpersonenSection.tsx", SEATS],
+    for (const [wo, html] of [
+      ["the form", FORMULAR],
+      ["the new-school arm", NEUE_SCHULE],
     ] as const) {
-      for (const treffer of quelle.matchAll(/aria-label="/g)) {
-        const block = quelle.slice(Math.max(0, treffer.index - 600), treffer.index + 600);
+      const controls = benannteControls(html);
+      const ids = new Set([...html.matchAll(/\bid="([^"]*)"/g)].map((treffer) => treffer[1]));
+      let benannt = 0;
 
-        assert.ok(!block.includes("<Label"), `${datei} sets an aria-label on a control that renders its own Label`);
+      assert.ok(controls.length > 5, `${wo} renders too few controls for this case to compare anything`);
+      for (const control of controls) {
+        assert.doesNotMatch(control.attrs, /\baria-label="/, `${wo}: ${control.name} is named twice, so it announces its placeholder`);
+
+        for (const ziel of (/\baria-labelledby="([^"]*)"/.exec(control.attrs)?.[1] ?? "").split(" ").filter(Boolean)) {
+          assert.ok(ids.has(ziel), `${wo}: ${control.name} is labelled by an element this page does not render`);
+          assert.match(html, new RegExp(`id="${ziel}"[^>]*>[^<]`), `${wo}: ${control.name} is labelled by an element with no words in it`);
+          benannt += 1;
+        }
       }
+
+      assert.ok(benannt > 0, `${wo} resolves no accessible name at all, so the loop above compared nothing`);
     }
   });
 
-  /* Every answer the schema demands says so, or it carries no asterisk, no `aria-required` and no mark of any
-     kind — and the applicant meets the requirement only when the submit refuses it. */
-  it("marks the birthdate required, as the schema's own span rule demands", () => {
-    const block = SEATS.slice(SEATS.indexOf("<DatePicker"), SEATS.indexOf(">", SEATS.indexOf("<DatePicker")));
+  /* Every answer the schema demands says so, or it carries no asterisk, no `aria-required` and no
+     mark of any kind — and the applicant meets the requirement only when the submit refuses it. */
+  it("marks every birthdate required, as the schema's own span rule demands", () => {
+    const picker = [...FORMULAR.matchAll(/<div ([^>]*data-slot="date-picker"[^>]*)>/g)].map((treffer) => treffer[1] ?? "");
 
-    assert.match(block, /isRequired/, "the birthdate is refused by the schema and asks for nothing");
+    assert.equal(picker.length, 3, "the form no longer renders one birthdate per seat");
+    for (const attrs of picker) assert.match(attrs, /data-required="true"/, "a birthdate the schema refuses asks for nothing");
   });
 
-  /* The receipt replaces the form under the pressed button, so without these the caret falls to `<body>` and
-     nothing is announced on the page somebody has just spent twenty minutes on. */
+  /* The receipt replaces the form under the pressed button, so without these the caret falls to
+     `<body>` and nothing is announced on the page somebody has just spent twenty minutes on. */
   it("announces the receipt and takes the caret the form drops", () => {
+    // Read rather than rendered: the panel arrives on a state transition, not on a prop.
+
     // Anchored to a line of its own: the comment above the receipt names `role="status"` too, and a loose
     // match is satisfied by the prose while the attribute is gone.
     assert.match(FORM, /^ +role="status"$/m, "the receipt is in no live region");

@@ -367,13 +367,22 @@ def test_added_history_phrases_are_one_finding_per_file_naming_its_phrases() -> 
 def test_a_prose_sha_reports_every_mixed_hex_run_resolvable_or_not() -> None:
     """The digits-only run and the 9-character digest stay silent; one sha named twice is one finding.
 
-    A prefix of HEAD fails beside the dangling one, COR-6 banning a commit SHA rather than a dead
+    A resolvable prefix fails beside the dangling one, COR-6 banning a commit SHA rather than a dead
     one.
     """
     _reset()
-    head = git(_root(), "rev-parse", "HEAD")
-    resolvable = next((head[:n] for n in (8, 7) if any(c.isdigit() for c in head[:n]) and any(c.isalpha() for c in head[:n])), None)
-    assert resolvable is not None, "HEAD's short form carries no digit and letter, so it proves nothing here"
+    # Whichever commit supplies it must be reachable, so the checker resolves it -- but a single
+    # commit's short form carries a digit and a letter only by chance, and this walks until one does.
+    resolvable = next(
+        (
+            sha[:n]
+            for sha in git(_root(), "rev-list", "--max-count=20", "HEAD").split("\n")
+            for n in (8, 7)
+            if any(c.isdigit() for c in sha[:n]) and any(c.isalpha() for c in sha[:n])
+        ),
+        None,
+    )
+    assert resolvable is not None, "no recent commit has a mixed short form, so this proves nothing here"
     tick = "`"
     _append(
         NOTES,

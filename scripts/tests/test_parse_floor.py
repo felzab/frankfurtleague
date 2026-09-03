@@ -1,8 +1,18 @@
+"""SCRIPTS · every module a checker imports, parsed at the floor `checker_kernel.py` declares.
+
+Syntax newer than that floor raises before any guard runs, and the interpreter exits on it with a
+finding's own code — so the gate reports a documentation defect where the real cause is a module the
+running python cannot read. The walk carries a floor of its own, a moved folder otherwise leaving
+this reporting success over nothing.
+"""
+
 from __future__ import annotations
 
 import ast
 from pathlib import Path
 from typing import Final
+
+from conftest import declared
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 
@@ -11,25 +21,15 @@ SCRIPTS: Final = Path(__file__).resolve().parent.parent
 MODULE_FLOOR: Final = 10
 
 
-def _floor() -> tuple[int, int]:
-    """PARSE_FLOOR as the kernel's source declares it.
-
-    Read out of the source, never imported: this asserts about a file it must not first execute.
-    """
-    source = (SCRIPTS / "lib" / "checker_kernel.py").read_text(encoding="utf-8")
-    for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.AnnAssign) and node.value is not None and getattr(node.target, "id", "") == "PARSE_FLOOR":
-            major, minor = ast.literal_eval(node.value)
-            return (major, minor)
-    raise AssertionError("checker_kernel.py no longer declares PARSE_FLOOR")
-
-
 def test_every_module_a_checker_imports_parses_at_the_parse_floor() -> None:
     """Newer syntax anywhere on an import path exits 1 -- a finding's code -- before the guard runs.
 
     `feature_version` is best-effort, so a clean run is evidence rather than proof.
     """
-    floor = _floor()
+    # The kernel is one of the modules swept below, so its floor is read out of its source rather
+    # than by an import this test must not perform.
+    major, minor = declared(SCRIPTS / "lib" / "checker_kernel.py", "PARSE_FLOOR")
+    floor = (int(major), int(minor))
     wrong: list[str] = []
     read = 0
     for path in sorted(SCRIPTS.rglob("*.py")):

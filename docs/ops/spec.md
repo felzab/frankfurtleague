@@ -413,6 +413,20 @@ wants its marker at the start of a line, so a document quoting one in backticks 
 is never a finding, while a fenced block reproducing a conflict as git writes it is one
 (`scripts/checks/check_conflict_markers.py`).
 
+**The estate check refuses three silences the backend suite would otherwise pass**
+(`scripts/checks/check_test_estate.py`): a test whose transitive reach — through a helper it calls
+or a fixture it takes — needs a server and carries no `@pytest.mark.db`, so it runs in the default
+tier that starts no container; a fixture whose name no parameter and no `usefixtures` string
+anywhere under `fl_backend/tests/` repeats, so a name an unrelated helper's parameter happens to
+share reads as consumed; and a pytest configuration leaving `empty_parameter_set_mark` at its
+default, where a parametrised sweep whose discovery found nothing passes as one skip. **The database
+rule exempts a client built from a source-written URI naming a port nothing here serves**
+(`scripts/checks/check_test_estate.py :: SERVED_PORT`) — the idiom that tells a guard's refusal from
+a route that does not exist — and that exemption follows the constant into a helper it is passed to,
+so it releases the call site rather than the helper. A URI on the served port is refused however it
+is written, `./scripts/ops/local.sh` answering it on the author's machine and nothing answering it
+in CI.
+
 CI runs the same checks as parallel jobs mapped from the paths a pull request touches:
 `scripts/gate/scope_map.sh` emits one `name=true|false` line per `verify.sh` flag, so a scope's name in
 the mapping and the flag that proves it are one word. Which paths select `format` is decided by
@@ -429,7 +443,7 @@ alone where nothing imports the application, on the uv `fl_backend/pyproject.tom
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--scripts`  | `selfcheck.sh`, `ruff` and `pyright` over the python in `scripts/`, and the pytest suite in `scripts/tests/` (§1.5)                                                                                                       | the backend venv, `pytest` included; shellcheck and actionlint from PATH, else Docker                                                        |
 | `--docs`     | `check_conflict_markers.py` over every tracked file; `check_docs.py`; `check_commits.py`; and `fl_backend/tests/openapi_document.py` in `--check` mode, the published document against the docstrings it is composed from | the backend venv                                                                                                                             |
-| `--backend`  | `uv lock --check` alone and first, then `ruff`, `pyright` and `pytest` (default tier) started together behind it                                                                                                          | the backend venv, and for the lockfile check the uv `fl_backend/pyproject.toml`'s `required-version` names; any other uv refuses at start-up |
+| `--backend`  | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `check_test_estate.py` started together behind it                                                                                  | the backend venv, and for the lockfile check the uv `fl_backend/pyproject.toml`'s `required-version` names; any other uv refuses at start-up |
 | `--format`   | prettier in check mode over the whole repository                                                                                                                                                                          | pnpm install                                                                                                                                 |
 | `--frontend` | the frozen lockfile check, `next typegen`, then tsc, eslint and the dependency audit as one pool, then the unit tests, then `next build` alone                                                                            | pnpm install                                                                                                                                 |
 | `--ops`      | both compose files parse; the local stack mirrors production; nginx accepts `prod.conf`, and its access line carries no credential                                                                                        | Docker, and an interpreter at the checkers' floor for the mirror                                                                             |

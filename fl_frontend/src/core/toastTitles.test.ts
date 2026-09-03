@@ -1,24 +1,21 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
-function collectSources(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return collectSources(full);
-    return entry.name.endsWith(".ts") || entry.name.endsWith(".tsx") ? [full] : [];
-  });
-}
-
 const sources = new Map(
-  collectSources(SRC_DIR).map((file) => [path.relative(SRC_DIR, file).split(path.sep).join("/"), readFileSync(file, "utf8")]),
+  filesUnder(SRC_DIR, (name) => name.endsWith(".ts") || name.endsWith(".tsx"), 400).map((file) => [
+    path.relative(SRC_DIR, file).split(path.sep).join("/"),
+    readFileSync(file, "utf8"),
+  ]),
 );
 
 /** A test's fixture is not copy the product raises, so the register is held against what ships. */
-const production = [...sources].filter(([file]) => !file.endsWith(".test.ts") && !file.endsWith(".test.tsx"));
+const production = [...sources].filter(([file]) => !isTestFile(file));
 
 /**
  * One argument's source, ended by the comma or bracket that closes it.
@@ -361,12 +358,12 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Kontaktdaten nicht gelöscht": { variant: "danger", identifies: "one site" },
   "Kontakte gelöscht": { variant: "success", identifies: "one site" },
   "Kontakte nicht gelöscht": { variant: "danger", identifies: "one site" },
-  "Kontaktperson gelöscht": { variant: "success", identifies: "its description" },
-  "Kontaktperson nicht gelöscht": { variant: "danger", identifies: "its description" },
+  "Kontaktperson gelöscht": { variant: "success", identifies: "one site" },
+  "Kontaktperson nicht gelöscht": { variant: "danger", identifies: "one site" },
   "Kopieren nicht möglich": { variant: "danger", identifies: "its description" },
   "Kürzel noch nicht geprüft": { variant: "warning", identifies: "one site" },
   "Mit Folgen gespeichert": { variant: "warning", identifies: "one site" },
-  "Nichts gefunden": { variant: "warning", identifies: "its description" },
+  "Nichts gefunden": { variant: "warning", identifies: "one site" },
   "Noch nicht abgeschickt": { variant: "danger", identifies: "one site" },
   "Nur teilweise gespeichert": { variant: "danger", identifies: "its description" },
   "Reaktivieren fehlgeschlagen": { variant: "danger", identifies: "its description" },

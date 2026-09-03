@@ -29,11 +29,9 @@ const rules = (overrides: Partial<SaisonDraftFields["rules"]>): Partial<SaisonDr
 });
 
 describe("deriveSaisonDraftStatus", () => {
-  it("reports a clean draft as not dirty, with every field present", () => {
+  it("carries a row for every season field", () => {
     const status = deriveSaisonDraftStatus({ stored, draft: draftFrom({}), fieldErrors: {} });
 
-    assert.equal(status.isDirty, false);
-    assert.equal(status.changed.length, 0);
     // `status` is deliberately not a field: the rollover is a control, never a draft the bar counts.
     assert.equal(status.fields.length, 12);
   });
@@ -85,7 +83,6 @@ describe("deriveSaisonDraftStatus", () => {
   it("reports a moved end date as one change carrying both texts", () => {
     const status = deriveSaisonDraftStatus({ stored, draft: draftFrom({ end_date: "2026-07-15" }), fieldErrors: {} });
 
-    assert.equal(status.isDirty, true);
     assert.deepEqual(
       status.changed.map((field) => [field.path, field.storedText, field.draftText]),
       [["end_date", "2026-06-30", "2026-07-15"]],
@@ -96,7 +93,9 @@ describe("deriveSaisonDraftStatus", () => {
     const status = deriveSaisonDraftStatus({ stored, draft: draftFrom(rules({ win_points: 2 })), fieldErrors: {} });
 
     const row = status.byPath.get("rules.win_points");
-    assert.ok(row?.isChanged);
+    // The digits, the dotted path and the `Regeln` group are all this table's, so only a case over
+    // this table can pin them.
+    assert.ok(row);
     assert.equal(row.storedText, "3");
     assert.equal(row.draftText, "2");
     assert.equal(row.group, "Regeln");
@@ -133,18 +132,16 @@ describe("deriveSaisonDraftStatus", () => {
     assert.equal(row.storedText, "E1, E2, Q1, Q2");
   });
 
-  it("carries a field error onto its own row and into invalid", () => {
+  it("carries a field error onto its own row", () => {
     const status = deriveSaisonDraftStatus({
       stored,
       draft: draftFrom(rules({ number_of_groups: 9 })),
       fieldErrors: { "rules.number_of_groups": "Es gibt höchstens 4 Gruppen." },
     });
 
+    // The descriptor's default `errorPaths`, which is this table's: widen it and the message
+    // answers on a path no input carries.
     assert.equal(status.byPath.get("rules.number_of_groups")?.error, "Es gibt höchstens 4 Gruppen.");
-    assert.deepEqual(
-      status.invalid.map((field) => field.path),
-      ["rules.number_of_groups"],
-    );
   });
 
   it("reports the whole application window as one row, freischaltung included", () => {
@@ -186,7 +183,6 @@ describe("deriveSaisonDraftStatus", () => {
       fieldErrors: {},
     });
 
-    assert.equal(status.changed.length, 2);
     assert.deepEqual(
       status.changed.map((field) => field.group),
       ["Zeitraum", "Regeln"],

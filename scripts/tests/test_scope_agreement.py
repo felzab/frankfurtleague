@@ -13,6 +13,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Final
 
+from conftest import declared
+
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 SCRIPTS: Final = REPO_ROOT / "scripts"
 STANDARD: Final = REPO_ROOT / "docs" / "_standard" / "standard.md"
@@ -33,17 +35,12 @@ UNTRACKED_DIRS: Final = frozenset({"__pycache__", "node_modules", ".venv", ".nex
 
 
 def _declared(module: str, name: str) -> tuple[str, ...]:
-    """One module-level tuple of strings, read out of the source rather than imported.
+    """One module-level tuple of strings, named relative to `scripts/`.
 
-    Never imported: `test_check_docs.py` drives a COPY of this package under the same name, and a
-    module cached here would decide which of the two either file measures.
+    `scripts/tests/test_check_docs.py` drives a COPY of this package under the same name, so a
+    module imported here would decide which of the two trees either file measures.
     """
-    source = (SCRIPTS / module).read_text(encoding="utf-8")
-    for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.AnnAssign) and node.value is not None and getattr(node.target, "id", "") == name:
-            value = ast.literal_eval(node.value)
-            return tuple(str(entry) for entry in value)
-    raise AssertionError(f"{module} no longer declares {name}")
+    return tuple(str(entry) for entry in declared(SCRIPTS / module, name))
 
 
 def _scoped_by_the_standard() -> tuple[str, ...]:

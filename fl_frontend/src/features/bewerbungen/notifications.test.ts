@@ -28,7 +28,8 @@ recorders.__flMailLogs = logged;
 recorders.__flRefusedMail = refused;
 
 // Replaced at the module boundary rather than the fan-out being reshaped to admit a seam: the real
-// transport reads an API key out of the validated environment at import, as the real logger does.
+// transport posts to the mail provider, on a key no test run holds, and the real logger writes past
+// this file.
 const MAIL_DOUBLE = `export const sendMail = async (mail) => {
   globalThis.__flSentMail.push({ to: mail.to, subject: mail.subject, text: mail.text });
   if (globalThis.__flRefusedMail.has(mail.to)) throw new Error("the provider refused the message");

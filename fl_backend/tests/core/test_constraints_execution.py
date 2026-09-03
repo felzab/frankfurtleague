@@ -707,6 +707,17 @@ AKTIONEN_QUEUE_FILTERS: list[dict[str, Any]] = [
 ]
 
 
+def index_reads(filters: list[dict[str, Any]]) -> list[Any]:
+    return [
+        # Every filter, because the planner is asked afresh for each. Some share an index with the
+        # unfiltered read; what the case pins is that the added predicate does not push the plan off it.
+        *(pytest.param(db_filter, "desc", id=f"{'+'.join(db_filter) or 'none'}-desc") for db_filter in filters),
+        # The whole `asc` pin: both sort builders derive a single `direction`, so a tie-break pinned
+        # against `order` breaks every `asc` read alike and one case catches it.
+        pytest.param({}, "asc", id="none-asc"),
+    ]
+
+
 def winning_stages(explained: Mapping[str, Any]) -> list[str]:
     """The winning plan's stages, outermost first. A blocking sort shows up here as `SORT`."""
 
@@ -731,8 +742,7 @@ def test_every_declared_support_index_is_built(mongo_url: str):
     assert on_the_shipped_schema(mongo_url, body) == len(SUPPORT_INDEXES)
 
 
-@pytest.mark.parametrize("order", ["asc", "desc"])
-@pytest.mark.parametrize("db_filter", BEWERBUNGEN_QUEUE_FILTERS, ids=lambda f: "+".join(f) or "none")
+@pytest.mark.parametrize(("db_filter", "order"), index_reads(BEWERBUNGEN_QUEUE_FILTERS))
 def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str, db_filter: dict[str, Any], order: str):
     """The property, not the key list: naming keys passes for an index this endpoint's own sort cannot use.
 
@@ -768,8 +778,7 @@ def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str
     assert "COLLSCAN" not in stages, f"{order} on {db_filter or 'no filter'} scans the archive: {stages}"
 
 
-@pytest.mark.parametrize("order", ["asc", "desc"])
-@pytest.mark.parametrize("db_filter", AKTIONEN_QUEUE_FILTERS, ids=lambda f: "+".join(f) or "none")
+@pytest.mark.parametrize(("db_filter", "order"), index_reads(AKTIONEN_QUEUE_FILTERS))
 def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str, db_filter: dict[str, Any], order: str):
     """The log is the one collection that only ever grows, so a scan here worsens for as long as the site runs.
 

@@ -25,7 +25,7 @@ const RECORDER = "__flBewerbungReadCalls";
 const THROWER = "__flBewerbungReadFailure";
 
 // Replaced at the module boundary rather than either query being reshaped to admit a seam: the real
-// client imports `server-only` and validates the whole environment at import.
+// client reaches a backend no test process runs, at a base URL no test run holds.
 const API_DOUBLE = `export const apiClient = async (endpoint, schema, options = {}) => {
   globalThis.${RECORDER}.push({ endpoint, options });
   const failure = globalThis.${THROWER};

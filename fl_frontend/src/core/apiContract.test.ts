@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import z from "zod";
+
+import { filesUnder } from "@/core/treeWalk.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 const DOCUMENT_PATH = path.resolve(SRC_DIR, "..", "..", "fl_backend", "openapi.json");
@@ -156,13 +158,9 @@ function readDocument(): JsonSchema {
 }
 
 function findSchemaModules(dir: string): string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) found.push(...findSchemaModules(full));
-    else if (entry.name === "schemas.ts") found.push(full);
-  }
-  return found.sort();
+  // Sorted because `mirrors.set` below lets a later module overwrite an earlier one: without a
+  // fixed order, a name two modules both export would attribute to either of them run to run.
+  return filesUnder(dir, (name) => name === "schemas.ts", 8).sort();
 }
 
 function isZodSchema(value: unknown): value is z.ZodType {

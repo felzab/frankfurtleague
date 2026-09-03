@@ -10,9 +10,9 @@ const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("expor
 
 const LOG_RECORDER = "__flMailLogLines";
 
-// Replaced at the module boundary rather than the transport being reshaped to admit a seam: the
-// real config validates the whole environment at import. The value below is a stand-in that
-// reaches no provider.
+// Replaced at the module boundary rather than the transport being reshaped to admit a seam: the key
+// the real config reads is a credential no test run holds, so the transport would authorise every
+// send below with `Bearer undefined`.
 const CONFIG_DOUBLE = `export const frontend_config = { AUTH_RESEND_KEY: "resend-key-double" };`;
 
 const LOGGER_DOUBLE = `export const logger = {

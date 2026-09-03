@@ -4,8 +4,8 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 /**
- * Source text rather than a render: the repository has no DOM runner, and what is claimed here is
- * which argument a panel hands the shared hook, which no exported value carries.
+ * Source text rather than a render: what is claimed here is which argument a panel hands the shared
+ * hook, which neither an exported value nor rendered markup carries.
  */
 function panelSource(file: string): string {
   return readFileSync(path.resolve(import.meta.dirname, file), "utf8");

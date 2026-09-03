@@ -25,7 +25,7 @@
     "typecheck": "pnpm typegen && tsc --noEmit",
     "typecheck:only": "tsc --noEmit",
     "brand": "node scripts/generate-brand-assets.mjs",
-    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tsconfig-alias-hook.mjs --test",
+    "test": "cross-env SKIP_ENV_VALIDATION=true MONGODB_URI=mongodb://localhost:27017/placeholder node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --enable-source-maps --import ./tsconfig-alias-hook.mjs --test",
     "audit:prod": "pnpm audit --prod --audit-level high"
   },
   "dependencies": {

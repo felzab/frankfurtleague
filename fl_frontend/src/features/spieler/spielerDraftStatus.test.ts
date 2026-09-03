@@ -30,11 +30,9 @@ const squad = (overrides: Partial<NonNullable<FLSpielerDraftFields["membership"]
 });
 
 describe("deriveSpielerDraftStatus", () => {
-  it("reports a clean draft as not dirty, with every field present", () => {
+  it("carries a row for every person field and every squad row", () => {
     const status = deriveSpielerDraftStatus({ stored, draft: draftFrom({}), fieldErrors: {}, teams: TEAMS });
 
-    assert.equal(status.isDirty, false);
-    assert.equal(status.changed.length, 0);
     // Two person fields plus the five squad rows; `is_nachgetragen` is a note, never a field.
     assert.equal(status.fields.length, 7);
   });
@@ -42,7 +40,6 @@ describe("deriveSpielerDraftStatus", () => {
   it("reports a renamed player as one change carrying both texts", () => {
     const status = deriveSpielerDraftStatus({ stored, draft: draftFrom({ vorname: "Moritz" }), fieldErrors: {}, teams: TEAMS });
 
-    assert.equal(status.isDirty, true);
     assert.deepEqual(
       status.changed.map((field) => [field.path, field.storedText, field.draftText]),
       [["vorname", "Max", "Moritz"]],
@@ -93,8 +90,9 @@ describe("deriveSpielerDraftStatus", () => {
     const status = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ nummer: "" })), fieldErrors: {}, teams: TEAMS });
 
     const row = status.byPath.get("nummer");
-    assert.ok(row?.isChanged);
-    // `draftText: null` is what makes the change list render this as a removal.
+    // `draftText: null` is what makes the change list render this as a removal. It comes from this
+    // table's own `read`, so only a case over this table can pin it.
+    assert.ok(row);
     assert.equal(row.draftText, null);
     assert.equal(row.storedText, "10");
   });
@@ -142,7 +140,7 @@ describe("deriveSpielerDraftStatus", () => {
     assert.equal(co.byPath.get("rolle")?.draftText, "Co-Kapitän");
   });
 
-  it("carries a field error onto its own row and into invalid", () => {
+  it("carries a field error onto its own row", () => {
     const status = deriveSpielerDraftStatus({
       stored,
       draft: draftFrom({ vorname: "" }),
@@ -150,11 +148,9 @@ describe("deriveSpielerDraftStatus", () => {
       teams: TEAMS,
     });
 
+    // The descriptor's default `errorPaths`, which is this table's: widen it and the message
+    // answers on a path no input carries.
     assert.equal(status.byPath.get("vorname")?.error, "Bitte gib einen Vornamen ein.");
-    assert.deepEqual(
-      status.invalid.map((field) => field.path),
-      ["vorname"],
-    );
   });
 
   it("counts several changes across both groups", () => {
@@ -165,7 +161,6 @@ describe("deriveSpielerDraftStatus", () => {
       teams: TEAMS,
     });
 
-    assert.equal(status.changed.length, 2);
     assert.deepEqual(
       status.changed.map((field) => field.group),
       ["Person", "Kader"],

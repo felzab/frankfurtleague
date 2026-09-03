@@ -11,13 +11,12 @@ nothing replays.
 
 from __future__ import annotations
 
-import ast
-import os
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import Final
+
+from conftest import base_env, declared, lift_function, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
@@ -33,30 +32,16 @@ STEP_READERS: Final[tuple[tuple[str, str], ...]] = (("unit_replay", ""), ("unit_
 
 
 def _lifted(name: str, indent: str = "") -> str:
-    """One function out of verify.sh, by its opening and closing lines, dedented to the margin.
-
-    Read rather than reimplemented: a copy would pass while the gate's own regressed. A rename
-    matches nothing, which fails loudly rather than testing nothing.
-    """
-    lines = VERIFY.read_text(encoding="utf-8").splitlines()
-    start = next((i for i, line in enumerate(lines) if line.startswith(f"{indent}{name}() {{")), -1)
-    assert start >= 0, f"scripts/gate/verify.sh no longer defines {name}"
-    end = next((i for i in range(start + 1, len(lines)) if lines[i] == f"{indent}}}"), -1)
-    assert end > start, f"scripts/gate/verify.sh's {name} has no closing line"
-    return "\n".join(line.removeprefix(indent) for line in lines[start : end + 1])
+    return lift_function(VERIFY, name, indent)
 
 
 def _not_started() -> str:
-    """`scripts/gate/gate_pool.py :: NOT_STARTED`, read out of the source rather than spelled again.
+    """`scripts/gate/gate_pool.py :: NOT_STARTED`, the manifest's word for a unit that never ran.
 
-    The manifest's word for a unit that never ran is the one value no exit code may collide with,
-    so the coupling is asserted rather than remembered.
+    Read out of the source because it is the one value no exit code may collide with, so the
+    coupling is asserted rather than remembered.
     """
-    source = (SCRIPTS / "gate" / "gate_pool.py").read_text(encoding="utf-8")
-    for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.AnnAssign) and node.value is not None and getattr(node.target, "id", "") == "NOT_STARTED":
-            return str(ast.literal_eval(node.value))
-    raise AssertionError("scripts/gate/gate_pool.py no longer declares NOT_STARTED")
+    return str(declared(SCRIPTS / "gate" / "gate_pool.py", "NOT_STARTED"))
 
 
 def _parent(
@@ -71,11 +56,7 @@ def _parent(
 ) -> tuple[int, str]:
     """One parent-side fixture: `_lib.sh`, the readers asked for, and the pool state left on disk."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-    env = {name: value for name, value in os.environ.items() if not name.startswith("FL_GATE_")}
-    env.pop("GITHUB_ACTIONS", None)
-    env.pop("VERBOSE", None)
-    env["FL_GATE_COLOR"] = "0"
-    env["NO_SPINNER"] = "1"
+    env = base_env()
     with tempfile.TemporaryDirectory() as scratch:
         pool = Path(scratch) / "pool"
         pool.mkdir()
@@ -100,17 +81,7 @@ def _parent(
             body,
             "",
         )
-        with fixture.open("w", encoding="utf-8", newline="") as handle:
-            handle.write("\n".join(lines))
-        done = subprocess.run(
-            (BASH, fixture.as_posix()),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            env=env,
-            check=False,
-        )
+        done = run_shell(BASH, write_shell(fixture, "\n".join(lines)), env=env)
     return done.returncode, done.stdout + done.stderr
 
 

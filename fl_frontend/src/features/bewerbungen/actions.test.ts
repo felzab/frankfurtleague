@@ -21,7 +21,10 @@ const ADMIN_ROUTER = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "
 /** Where a duplicate key becomes a 409, which is the only channel a Kürzel collision arrives on. */
 const EXCEPTION_HANDLERS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "exception_handlers.py"), "utf8");
 
-/** The confirmation panels, read as text: what they PROMISE is the claim these assertions hold. */
+/**
+ * The confirmation panels, read rather than rendered: what they promise is behind a confirmation
+ * press.
+ */
 const PANELS = ["AdminBewerbungAnnehmenSection", "AdminBewerbungAblehnenSection"].map((name) => ({
   name: name,
   source: readFileSync(path.resolve(import.meta.dirname, "components", "forms", `${name}.tsx`), "utf8").replace(/\s+/g, " "),
@@ -296,15 +299,16 @@ describe("the German one refusal code is given", () => {
     }
   });
 
-  /* `REQ-ENTER-005` is `inactive_since`, which every admin surface calls „stillgelegt“. „Verlassen“
-     is an `austritt` (`docs/glossary.md`), another record on another page. */
+  /* `REQ-ENTER-005` is `inactive_since`, whose verb pair `docs/glossary.md :: inactive_since` fixes:
+     _stilllegen_ retires the club across the league, _austragen_ takes one squad row out of one
+     season. „Verlassen“ is an `austritt`, a third record on a third page. */
   it("calls a retired club stillgelegt in every branch that answers it", () => {
     for (const { where, german } of RETIRED_RENDERINGS) {
       assert.ok(german.includes("stillgelegt"), `${where} gives REQ-ENTER-005 a state word other than „stillgelegt“`);
       assert.match(german, /\bTeam\b/, `${where} names the club as something other than a „Team“`);
 
-      for (const banned of ["usgeschieden", "verlassen", "Verein"]) {
-        assert.ok(!german.includes(banned), `${where} says „${banned}“ of a retired club, which is an austritt and another record`);
+      for (const banned of ["usgeschieden", "usgetragen", "verlassen", "Verein"]) {
+        assert.ok(!german.includes(banned), `${where} says „${banned}“ of a retired club, which is another record entirely`);
       }
     }
   });
