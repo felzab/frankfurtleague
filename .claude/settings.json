@@ -155,6 +155,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/docs-standard.sh\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -164,11 +174,6 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/guard-stale-type-class.sh\"",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/docs-standard.sh\"",
             "timeout": 10
           }
         ]
