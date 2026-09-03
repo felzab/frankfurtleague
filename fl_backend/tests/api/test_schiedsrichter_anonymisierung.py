@@ -47,13 +47,10 @@ KONTAKT = {
     OTHER_SCHIEDSRICHTER_OID: {"telefon": "+49 69 2223334", "email": "kraus.bernd@example.com"},
 }
 
-# Injected through `get_germany_now`, so the stamp under test is not the wall clock. Summer time,
-# which is what puts an offset on the conversion below.
+# Injected through `get_germany_now`, and in summer, so the conversion below moves the clock.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
-# The instant above as a log row spells it: 12:30 in Frankfurt is 10:30 in the log. Written out
-# rather than computed from `log_stamp`, a stored stamp compared against the function that produced
-# it agreeing with any conversion of it, including none.
+# Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`, including none.
 REDACTED_AT = "2026-04-01T10:30:00+00:00"
 
 # Read off the declaration rather than typed here, so renaming the index fails at its one source.
@@ -123,8 +120,7 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
 def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     """The REAL validators and support indexes, so a namespace a transaction cannot create is there.
 
-    `mutates_schema=True` where the body narrows one of those validators: `tests/database.py` then
-    keeps the change off every later test.
+    `mutates_schema=True` where the body narrows one of those validators (`tests/database.py :: a_clean_database`).
     """
 
     async def _run() -> Any:
@@ -263,10 +259,7 @@ def test_the_echo_carries_the_referee_as_they_now_stand(mongo_replica_set_url: s
 
 @pytest.mark.db
 def test_every_log_row_naming_them_is_emptied_and_stamped(mongo_replica_set_url: str):
-    """Kills dropping the redaction, one that stamps without clearing, and one that clears without stamping.
-
-    The pre-state is asserted too, without which a filter matching nothing would pass.
-    """
+    """Kills dropping the redaction, one that stamps without clearing, and one that clears without stamping."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         seeded = await log_rows_naming(database, SCHIEDSRICHTER_OID)
@@ -276,6 +269,7 @@ def test_every_log_row_naming_them_is_emptied_and_stamped(mongo_replica_set_url:
 
     seeded, rows = on_a_league(mongo_replica_set_url, body)
 
+    # The pre-state, without which a filter matching nothing would pass.
     assert [row for row in seeded if row["before"] is not None], "the seeded log held no image to redact"
     assert len(rows) > len(seeded), "the anonymisation's own patch recorded no row"
     assert all(row["before"] is None for row in rows)

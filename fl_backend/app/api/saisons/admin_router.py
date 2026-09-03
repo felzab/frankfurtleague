@@ -244,7 +244,7 @@ async def post_saison(
 
 
 class MovableFigures(NamedTuple):
-    """What `patch_saison` judges on and does not write, read once through its transaction and once outside it (I53)."""
+    """What `patch_saison` judges on and does not write, read once through its transaction and once outside it (I118)."""
 
     largest_squad: int
     spieltag_spans: Sequence[tuple[str, str]]
@@ -270,7 +270,7 @@ async def patch_saison(
     """
 
     async def judge_and_write_the_rules(session: AsyncClientSession) -> FLPatchSaisonResponse:
-        """Judge, then write the season's dates and rules. Every figure is read in-session, and the movable ones again outside it (I53)."""
+        """Judge, then write the season's dates and rules. Every figure is read in-session, and the movable ones again outside it (I118)."""
 
         # THROUGH the session, as the draw's reads are: a retry after a write conflict has to judge
         # the season as it stands then. A season id naming nothing raises the 404 here.
@@ -439,7 +439,7 @@ async def activate_saison(
     """
 
     async def judge_and_roll_the_league_over(session: AsyncClientSession) -> FLActivateSaisonResponse:
-        """Judge, then demote every incumbent and promote the target. Every figure is read in-session, and the status again outside it (I53)."""
+        """Judge, then demote every incumbent and promote the target. Every figure is read in-session, the status again outside it (I118)."""
 
         async def the_targets_status(status_session: AsyncClientSession | None) -> str:
             """`REQ-ACTIVATE-002`'s input, read either through the transaction or outside it.
@@ -505,7 +505,7 @@ async def activate_saison(
         )
 
         # A target already `active` joins no write set, so a rival demoting it raises no conflict to
-        # retry on (`docs/backend/spec.md :: I53`). Re-judged outside the session; the window to the
+        # retry on (`docs/backend/spec.md :: I117` and `:: I53`). Re-judged outside the session; the window to the
         # commit is the residue.
 
         # The STATUS alone, because it is the only input a rival can move here: an undraw and a
@@ -902,7 +902,7 @@ async def undraw_spielplan(
         removed_spiele = await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
         removed_spieltage = await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
 
-        # INSIDE the transaction holding both removals (`docs/backend/spec.md :: I46`): a season
+        # INSIDE the transaction holding both removals (`docs/backend/spec.md :: I46` and `:: I110`): a season
         # keeping its watermark while its fixtures are gone reads as drawn, and `$unset` is the shape
         # a season nobody has drawn carries.
         before = await patch_one_in_db(

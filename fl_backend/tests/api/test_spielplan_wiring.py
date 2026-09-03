@@ -36,7 +36,7 @@ PAYLOAD_FIELDS: tuple[str, ...] = tuple(FLPatchSpielDataPayload.model_fields)
 
 
 def rules(*, groups: int, teams: int, qualifiers: int) -> FLSaisonRules:
-    """One season's rules. 3/1/0 and a 3:0 forfeit are the ordinary competition, so no refusal fires on a field this file is not about."""
+    """3/1/0 and a 3:0 forfeit are the ordinary competition, so no refusal fires on a field this file is not about."""
 
     return FLSaisonRules.model_validate(
         {
@@ -81,7 +81,10 @@ def drawn(shape: Shape) -> Spielplan:
 
 @cache
 def season_of(shape: Shape) -> tuple[FLSpiel, ...]:
-    """The drawn fixtures as the write path reads them: every rule below takes the whole season as its slice (`docs/backend/spec.md :: I45`)."""
+    """The drawn fixtures as the write path reads them.
+
+    Every rule below takes the whole season as its slice (`docs/backend/spec.md :: I108`).
+    """
 
     return tuple(FLSpielListAdapter.validate_python(list(drawn(shape).spiele)))
 
@@ -89,7 +92,7 @@ def season_of(shape: Shape) -> tuple[FLSpiel, ...]:
 def with_the_slot_cleared(season: tuple[FLSpiel, ...], spiel_id: Any) -> tuple[FLSpiel, ...]:
     """`season` with this fixture stripped of its own sources, so resubmitting them reads as ENTERING them.
 
-    `find_wiring_refusal` judges the side whose source a save moves (`docs/backend/spec.md :: I44`),
+    `find_wiring_refusal` judges the side whose source a save moves (`docs/backend/spec.md :: I106` and `:: I44`),
     which a resubmission never does.
     """
 

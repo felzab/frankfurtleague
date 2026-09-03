@@ -128,8 +128,7 @@ def on_a_seeded_season(
 ) -> Any:
     """`spiele` by hand, a transaction being unable to create a collection.
 
-    `mutates_schema=True` where the body attaches a validator: `tests/database.py` then keeps the
-    change off every later test.
+    `mutates_schema=True` where the body attaches a validator (`tests/database.py :: a_clean_database`).
     """
 
     async def _run() -> Any:

@@ -51,7 +51,7 @@ def payload(spiel: PayloadFactory) -> FLPatchSpielDataPayload:
 
 
 class TestARefusalNeverPermitsWhatItCannotSee:
-    """Every refusal over a caller-supplied slice (`docs/backend/spec.md :: I45`).
+    """Every refusal over a caller-supplied slice (`docs/backend/spec.md :: I108`).
 
     `patch_spiel_data` has already read the fixture by `_id`, so an absence here is a truncated or
     wrong-season slice: a broken contract, not a user error a 409 could describe.

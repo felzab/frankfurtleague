@@ -184,7 +184,7 @@ async def get_trikotfarben(
     """
 
     # Not `refuse_withheld_saison`, which would 404 every season this read exists for: one taking
-    # applications is `future`. The WINDOW gates it instead, so `docs/backend/spec.md :: I47`'s
+    # applications is `future`. The WINDOW gates it instead, so `docs/backend/spec.md :: I111`'s
     # carve-out stays the window reads' own.
     bewerbung = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)
 

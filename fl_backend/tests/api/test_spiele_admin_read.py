@@ -90,11 +90,7 @@ def junction_row() -> dict[str, Any]:
 
 
 def answered(uri: str, path: str, headers: Mapping[str, str], *, selection_timeout_ms: int) -> Response:
-    """One request per client, the request and the close on ONE loop.
-
-    Both halves for the reason `fl_backend/tests/api/test_malformed_ids.py :: answered` gives, no
-    lifespan included.
-    """
+    """One request per client, request and close on ONE loop, no lifespan (`tests/api/test_malformed_ids.py :: answered`)."""
 
     async def _answered() -> Response:
         app = create_app(build_test_config())

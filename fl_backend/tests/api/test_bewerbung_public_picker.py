@@ -1,7 +1,7 @@
 """BACKEND · the two reads an applying school picks a club from, and the tier the whole public router is served at
 
 `tests/api/test_bewerbung_public_read.py` holds the other half of that router -- the application
-window, and the colour read `docs/backend/spec.md :: I47` puts inside its carve-out. A file of its
+window, and the colour read `docs/backend/spec.md :: I111` puts inside its carve-out. A file of its
 own because the db tier hands a module whole to one worker, so the two halves are timed beside
 each other rather than one behind the other.
 

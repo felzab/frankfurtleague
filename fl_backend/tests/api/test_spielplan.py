@@ -53,7 +53,7 @@ MULTI_GROUP_KEYS: tuple[tuple[int, int], ...] = tuple(sorted(key for key in BRAC
 
 
 def rules(*, groups: int, teams: int, qualifiers: int) -> FLSaisonRules:
-    """One season's rules. 3/1/0 and a 3:0 forfeit are the ordinary competition, so no refusal fires on a field this file is not about."""
+    """3/1/0 and a 3:0 forfeit are the ordinary competition, so no refusal fires on a field this file is not about."""
 
     return FLSaisonRules.model_validate(
         {

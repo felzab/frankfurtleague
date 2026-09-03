@@ -218,11 +218,7 @@ def seeded_with(mongo_url: str, saisons: list[dict[str, Any]]) -> str:
 
 
 def answered(uri: str, path: str, headers: Mapping[str, str] = BASE_AUTH, *, database_name: str = CORPUS_DATABASE) -> Response:
-    """One request per client, the request and the close on ONE loop.
-
-    Both halves for the reason `fl_backend/tests/api/test_malformed_ids.py :: answered` gives, no
-    lifespan included.
-    """
+    """One request per client, request and close on ONE loop, no lifespan (`tests/api/test_malformed_ids.py :: answered`)."""
 
     async def _answered() -> Response:
         app = create_app(config_for(database_name))
@@ -308,7 +304,7 @@ class TestTheWindowReads:
 class TestTheAssignedColoursRead:
     """What the Wunschfarbe picker excludes. The ASSIGNMENTS on `saison_teams`, never another applicant's wish.
 
-    Beside the window reads rather than the picker: `docs/backend/spec.md :: I47` puts it inside
+    Beside the window reads rather than the picker: `docs/backend/spec.md :: I111` puts it inside
     their carve-out.
     """
 

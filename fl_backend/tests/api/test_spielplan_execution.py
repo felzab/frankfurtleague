@@ -53,8 +53,7 @@ SAISON_ID = "2026"
 # that lost its `saison_id` would take with it.
 NEIGHBOUR_SAISON_ID = "2025"
 
-# The neighbour's rows are minted well clear of the subject's, so the two seasons share no `_id`
-# and no club. A neighbour left standing can then only be the filter's doing.
+# Minted well clear of the subject rows, so only the filter can leave a neighbour standing.
 NEIGHBOUR_OID_OFFSET = 100
 
 # Fixed rather than the real day, so the watermark's date is a value this file chose.
@@ -210,8 +209,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False) -> Any:
     """The SHIPPED validators and unique indexes, so a document MongoDB would refuse in production fails here.
 
-    `mutates_schema=True` where the body narrows one of those validators: `tests/database.py` then
-    keeps the change off every later test.
+    `mutates_schema=True` where the body narrows one of those validators (`tests/database.py :: a_clean_database`).
     """
 
     seeded = seed or Seed()

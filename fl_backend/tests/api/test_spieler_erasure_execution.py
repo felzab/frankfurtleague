@@ -52,13 +52,10 @@ HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607420001")
 AWAY_TEAM_OID = ObjectId("6890a1b2c3d4e5f607420002")
 
 TODAY = "2026-04-01"
-# Injected through `get_germany_now`, so the stamp under test is not the wall clock. Summer time,
-# which is what puts an offset on the conversion below.
+# Injected through `get_germany_now`, and in summer, so the conversion below moves the clock.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
-# The instant above as a log row spells it: 12:30 in Frankfurt is 10:30 in the log. Written out
-# rather than computed from `log_stamp`, a stored stamp compared against the function that produced
-# it agreeing with any conversion of it, including none.
+# Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`, including none.
 REDACTED_AT = "2026-04-01T10:30:00+00:00"
 
 RULES = {
@@ -79,8 +76,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     """The SHIPPED validators, so a document production would refuse fails here too, and every collection created.
 
-    `mutates_schema=True` where the body narrows one of those validators: `tests/database.py` then
-    keeps the change off every later test.
+    `mutates_schema=True` where the body narrows one of those validators (`tests/database.py :: a_clean_database`).
     """
 
     async def _run() -> Any:
