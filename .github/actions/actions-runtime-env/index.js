@@ -1,16 +1,3 @@
-/**
- * CI · expose the Actions cache credentials to `run:` steps.
- *
- * The runner injects ACTIONS_RUNTIME_TOKEN and ACTIONS_RESULTS_URL — what buildx's type=gha cache
- * authenticates with — into JavaScript actions alone, never into a `run:` step, so this action reads
- * them and writes them to $GITHUB_ENV. Dependency-free and in-tree, it is less surface than a third
- * party one and needs no allowlist entry (`docs/_git/spec.md`).
- *
- * Invariants:
- * - The token is masked before it is exported; the mask is what makes exporting it safe.
- * - Nothing here prints a value — only names.
- */
-
 const { appendFileSync } = require("node:fs");
 const { randomUUID } = require("node:crypto");
 

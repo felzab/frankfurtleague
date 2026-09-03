@@ -1,7 +1,7 @@
 name: Frontend toolchain
 description: >-
-  pnpm, Node and fl_frontend's installed dependencies, in one step. Four jobs of the verify workflow
-  want exactly this block, and a copy per job is a copy that can drift.
+  pnpm, Node and fl_frontend's installed dependencies, in one step. Several jobs of the verify
+  workflow want exactly this block, and a copy per job is a copy that can drift.
 
 # The caller checks out first. A `./` action is read from the workspace, so the runner cannot find
 # this file until actions/checkout has run -- which is also why the checkout stays in each job,

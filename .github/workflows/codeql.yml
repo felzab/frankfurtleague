@@ -4,15 +4,11 @@ name: codeql
 # setup: default setup configures itself invisibly in repository settings, whereas the query suite,
 # the schedule and the trigger set below are version-controlled and reviewable like everything else.
 #
-# Invariants:
-# - Every pull request, every push to main and every scheduled run analyses both languages, and
-#   no filter decides which of them runs.
-# - Neither language installs dependencies -- CodeQL reads source, so `build-mode: none` is the
-#   whole build and an install step buys minutes of runtime and nothing else.
-# - CodeQL catches pattern-matchable classes alone. An authorization gap is a valid program doing
-#   the wrong thing, and belongs to the audit programme (docs/_auditing/).
-# - Whether this workflow is required is a ruleset setting, outside the repository
-#   (docs/_git/spec.md).
+# CodeQL catches pattern-matchable classes alone. An authorization gap is a valid program doing the
+# wrong thing, and belongs to the audit programme (docs/_auditing/).
+#
+# Whether this workflow is required is a ruleset setting, outside the repository
+# (docs/_git/spec.md).
 
 on:
   # No path filter, as the sibling workflows carry none: a push to main analyses whatever the two
@@ -69,6 +65,8 @@ jobs:
         uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           languages: javascript-typescript
+          # CodeQL reads source, so this is the whole build and an install step ahead of it buys
+          # minutes of runtime and nothing else.
           build-mode: none
           # The default suite is deliberate: `security-extended` adds queries and false positives in
           # roughly equal measure, so start quiet and escalate on evidence. To escalate, add

@@ -402,8 +402,8 @@ run_checker() {
     "$@" || rc=$?
   else
     quietly "$@" || rc=$?
-    # `quietly` prints its capture only on a non-zero status, and a passing checker's advisories
-    # need printing. Guarded on rc, or a failure prints twice.
+    # `quietly` prints its capture only on a non-zero status, and a green run's scanned-population
+    # line is the whole of what a passing checker says. Guarded on rc, or a failure prints twice.
     if [[ "$mode" == "annotate" ]] && (( ! rc )) && [[ -n "$QUIETLY_OUTPUT" ]]; then
       printf '%s\n' "$QUIETLY_OUTPUT" | detail
     fi
@@ -807,8 +807,9 @@ file and the line it stands on. Resolve the conflict and commit the resolution."
   step "docs · citations, links and shapes"
   unit_join docs_gate
   # `annotate`, for `run_checker`'s reason.
-  if run_checker annotate "scripts/checks/check_docs.py" "The documentation gate failed. Each finding above names its file
-and what no longer resolves. Checks: scripts/checks/docs_gate/kernel.py :: CHECKS" \
+  if run_checker annotate "scripts/checks/check_docs.py" "The documentation gate failed. Each finding above opens with what it judged — a path,
+or (branch diff) where the check read the diff rather than any one file — and closes with the
+check's own name. Checks: scripts/checks/docs_gate/kernel.py :: CHECKS" \
     unit_replay docs_gate; then
     ok "documentation references resolve"
   else

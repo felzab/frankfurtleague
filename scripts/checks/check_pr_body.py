@@ -13,8 +13,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-# Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
-# sibling of it rather than in it.
+# `scripts/lib/` is a sibling of this directory, and a script's sys.path opens with this one.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 from checker_kernel import EXIT_OK, Finding, report_findings, run  # noqa: E402 -- the insert above is what resolves it
@@ -36,9 +35,9 @@ TEMPLATE_FRAGMENTS: Final[tuple[str, ...]] = (
     "The `./scripts/gate/verify.sh` invocation — its scopes and its exit code",
 )
 
-# Named alternation rather than a general "bolded phrase" pattern: the looser rule reads a
-# paragraph opening "Rankings. Twenty-eight entries ..." as a heading, cutting the measured
-# summary short in silence. Bold is optional; the header says why.
+# Named alternation, not a general "bolded phrase" rule: that reads a paragraph opening
+# "Images. Both builds..." as a heading, cutting the measured summary short in silence. Bold is
+# optional; the section is what this asks about, not its markup.
 SECTION_LEAD: Final = re.compile(
     r"^\**(?:Verified|Decisions taken|Left undone|Reviewer'?s first look)\b",
     re.MULTILINE | re.IGNORECASE,

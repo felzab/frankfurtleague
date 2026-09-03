@@ -376,8 +376,9 @@ BEGIN { Q = sprintf("%c", 39); q = 0; cmd = 1; heredoc = ""; incase = 0; pat = 0
         (i == 1 || substr(line, i-1, 1) != "<")) {
       rest = substr(line, i+2); sub(/^-/, "", rest); sub(/^[ \t]+/, "", rest)
       fc = substr(rest, 1, 1)
-      # The delimiter is the whole word, punctuation included: an identifier class took `E` out of
-      # a quoted delimiter carrying a hyphen, and every remaining line of the file was then
+      # The delimiter is the whole word, punctuation included: an identifier class stops at the
+      # first hyphen, so the closing line never matches what it recorded and every line below the
+      # opener is read as body.
       if (fc == Q || fc == "\"") {
         rest = substr(rest, 2); k = index(rest, fc)
         if (k > 1) heredoc = substr(rest, 1, k - 1)
@@ -1535,9 +1536,8 @@ else
     par_run unit_probe
   fi
 
-  # The one informational hook, failing silently either way: stop emitting and no session sees the
-  # standard, stop staying quiet and it is restated on every edit. Serial, because the dedupe
-  # marker is state the probes share.
+  # The one informational hook, failing silently either way: stop emitting and no write sees the
+  # standard, stop staying quiet and every write outside the scope pays for a slice it cannot use.
   standard_hook="${REPO_ROOT}/.claude/hooks/docs-standard.sh"
   # A crash is silent, and silence is this hook's pass — so the status and stderr are turned into
   # output of their own rather than dropped, and every reader below sees a crash as a wrong answer.
@@ -1556,27 +1556,27 @@ else
   expect_silent() { # $1 label · $2 hook output — the contract is silence
     if [[ -z "$2" ]]; then info "$1 — silent"; else note_fail "$1: expected silence, got '$2'"; fi
   }
-  standard_md_payload()  { printf '{"session_id":"%s","tool_input":{"file_path":"%s","content":"x"}}' "$1" "$2"; }
-  standard_src_payload() { printf '{"session_id":"%s","tool_input":{"file_path":"%s","new_string":"const a = 1;"}}' "$1" "$2"; }
+  expect_emission() { # $1 label · $2 hook output — the contract is a slice
+    case "$2" in
+      # Read before the emission arm: a crash reported through stderr can carry the very marker the
+      # arm below looks for, and a crash is not an emission.
+      crashed*)             note_fail "$1 — $2" ;;
+      *hookSpecificOutput*) info "$1 — emitted" ;;
+      *)                    note_fail "$1: expected a slice of the standard, got '${2:-nothing}'" ;;
+    esac
+  }
+  standard_md_payload()  { printf '{"tool_input":{"file_path":"%s","content":"x"}}' "$1"; }
+  standard_src_payload() { printf '{"tool_input":{"file_path":"%s","new_string":"const a = 1;"}}' "$1"; }
 
   # The root as the hook sees it: a payload built from the MSYS spelling in REPO_ROOT resolves to
   # a different drive inside node.
   standard_root="$(git -C "$REPO_ROOT" rev-parse --show-toplevel 2>/dev/null)"
-  # The session id and the sweep below belong to this run alone: the dedupe marker lives in the
-  # shared temp directory, and a wildcard would delete a concurrent run's mid-probe.
-  sid="sc-${RUN_ID}-${RANDOM}"
-  out="$(probe_standard "$(standard_md_payload "$sid" "${standard_root}/docs/README.md")")"
-  case "$out" in
-    # Read before the emission arm: a crash reported through stderr can carry the very marker the
-    # arm below looks for, and a crash is not an emission.
-    crashed*) note_fail "standard hook: first repo .md edit — ${out}" ;;
-    *hookSpecificOutput*) info "standard hook: first repo .md edit — emitted" ;;
-    *) note_fail "standard hook: expected the standard on a first repo .md edit, got '${out:-nothing}'" ;;
-  esac
-  expect_silent "standard hook: same session again"    "$(probe_standard "$(standard_md_payload "$sid" "${standard_root}/docs/README.md")")"
-  expect_silent "standard hook: comment-free source"   "$(probe_standard "$(standard_src_payload "${sid}-b" "${standard_root}/fl_frontend/src/probe.ts")")"
-  expect_silent "standard hook: path outside the repo" "$(probe_standard "$(standard_md_payload "${sid}-c" "${standard_root}/../outside.md")")"
-  rm -f "$(node -e 'process.stdout.write(require("os").tmpdir())')"/claude-docs-standard-"${sid}"* 2>/dev/null || true
+  # The same path twice: the hook keeps no per-session state, so every documentation-shaped write
+  # owes the same slice, and one that answered the first alone would serve nobody after it.
+  expect_emission "standard hook: repo .md write"      "$(probe_standard "$(standard_md_payload "${standard_root}/docs/README.md")")"
+  expect_emission "standard hook: the same file again" "$(probe_standard "$(standard_md_payload "${standard_root}/docs/README.md")")"
+  expect_silent "standard hook: comment-free source"   "$(probe_standard "$(standard_src_payload "${standard_root}/fl_frontend/src/probe.ts")")"
+  expect_silent "standard hook: path outside the repo" "$(probe_standard "$(standard_md_payload "${standard_root}/../outside.md")")"
 fi
 
 step "15. The pre-push hook prints the CI scopes and blocks nothing"
