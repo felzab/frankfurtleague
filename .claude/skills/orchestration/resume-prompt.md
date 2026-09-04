@@ -43,10 +43,11 @@ Resume this session. Do not continue any work until you have finished this proto
        and only its edits on disk survive: judge those, and re-dispatch what you cannot establish
        from them;
      - running                                  -> leave it, note what it owns;
-     - paused, killed, or unaccounted for       -> try to RESUME it first, addressed by the agent
-       name the register records, since a resumed agent keeps its whole context and re-reads
-       nothing. Treat the resume as a new dispatch: check that its files are still free before it
-       continues, and treat nothing it claims as done until the acceptance evidence is on disk.
+     - paused, killed, or unaccounted for       -> try to RESUME it first, addressed by the id the
+       Agent tool returned, which the register records beside the name, since a resumed agent keeps
+       its whole context and re-reads nothing. Treat the resume as a new dispatch: check that its
+       files are still free before it continues, and treat nothing it claims as done until the
+       acceptance evidence is on disk.
        Where the resume fails, re-brief
        it from its last provable state: the files it owns as they stand committed, plus the
        checklist items whose acceptance evidence exists. An item with no evidence is not done.
@@ -89,11 +90,11 @@ evidence is on disk and still valid. Re-run what you cannot prove; read what you
 
 ## Step 3's address
 
-The register carries each agent's name so that a resume has an address at all: the harness's
-agent-to-agent send tool is addressed by the name an agent was dispatched under, and a send resumes
-it from its transcript. That is **read from the tool's own definition and not driven**, so attempt
-it and see; an agent stopped by a quota limit has come back once, resumed by its name with its
-context intact, and the attempt costs one message where a re-brief costs the whole context. What a
+The register carries each agent's id so that a resume has an address at all: the harness's
+agent-to-agent send tool resumes an agent from its transcript, **addressed by the id the Agent tool
+returned rather than by the name in its brief, a send by name having failed** (the owner's standing
+instructions). An agent stopped by a quota limit has come back that way with its context intact and
+nothing on disk, and the attempt costs one message where a re-brief costs the whole context. What a
 resumed agent cannot supply is evidence: an agent that "was nearly done" has, by definition, none
 for the part that was nearly done. A resumed agent re-enters its partition — two agents were live in
 one directory because a resume was not treated as a dispatch — and one nested helper never returned

@@ -11,7 +11,7 @@ agent never sees.
 as what it must.** Sections 5, 6, 9 and 10 are that half, and each of them exists because an agent
 did the reasonable thing in their absence.
 
-**Five rules about writing one.**
+**The rules about writing one.**
 
 - **Glob every path before the brief goes out.** A file list assembled from another agent's report
   inherits that report's errors, and the agent's rediscovery costs more than the check.
@@ -27,6 +27,11 @@ did the reasonable thing in their absence.
 - **Where the session is rewriting the rules it works under, every instruction citing one says which
   version it means.** An agent reading `HEAD` is right to refuse a clause that exists only in the
   revision being assembled, and you are the only party holding both texts.
+- **Where the work needs a path that merely looks credential-shaped** — a dotfile glob, a compose
+  filename, anything under the virtualenv — the item says it is read with the `Read` tool. The
+  credential guard judges the command text, so a shell read of such a path is refused; the agent
+  that meets that refusal complies and reports it, correctly (section 10), at the cost of a round
+  trip you could have spent one clause avoiding.
 
 ```
 1  OWNERSHIP.   The exact files you may write, listed in full:
@@ -50,6 +55,12 @@ did the reasonable thing in their absence.
 3  THE WORK.    A numbered checklist. Each item states: the change; the anchor it lands at, which
                 is a symbol, a path or a rule id and never a line number; and its own acceptance
                 test, named before you start.
+                DRIVE every case you add or change RED before you call its item closed. A case
+                that compares a thing to its own definition, or that asserts source text nobody
+                rendered, passes on the day the behaviour goes -- and it is indistinguishable
+                from a real one until somebody breaks the code under it. Where an item changes
+                what a person SEES, its acceptance names the served page and the reading that
+                proves it, a source-text pin alone being exactly that vacuous case.
                 An item that changes a thing's IDENTITY -- splitting a numbered row, renaming a
                 symbol -- or that removes a concept carries its outward sweep in the same item.
                 Every citation into a split row still resolves while pointing at the half that no
@@ -81,7 +92,9 @@ did the reasonable thing in their absence.
                 to RECONCILE against that copy rather than restore from it, a restore being a
                 silent revert wearing a safety measure's clothes that discards whatever the file's
                 other writer did in the window you held it.
-                Write your proposed commit message to the scratch path; I assemble every commit.
+                Write ONE unpolished paragraph for the commit message to the scratch path -- what
+                changed and why -- and spend no more on it: I assemble and word every commit
+                message myself, and a polished draft is work neither of us keeps.
                 The gate is mine as well. `./scripts/gate/verify.sh` is a wave-boundary instrument and
                 a run over a tree a dozen agents are writing exits non-zero on somebody else's
                 half-written file, so drive your own checks by calling the underlying tool.
@@ -327,8 +340,9 @@ evidence.
 
 ## Batching re-auditors
 
-The test for whether two fixes may share one re-auditor is **blast-radius overlap**: they may share
-when what one could break is disjoint from what the other could break. The rules that follow:
+**One driving re-auditor takes every fix landed since the last one ran** (`SKILL.md` §6), planting
+each in turn. The test for splitting that bundle is **blast-radius overlap**: fixes may share one
+agent when what one could break is disjoint from what the other could break. The rules that follow:
 
 - Files that **cannot be judged apart** — one parses the other, one grades what the other ran, or
   one asserts a message or an exit code the other emits — go deliberately to a single agent.
