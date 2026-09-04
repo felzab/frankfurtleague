@@ -1,15 +1,40 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import type * as EmailShell from "./emailShell.ts";
+
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+
+/** The query that separates the hostile instance of the shell below from the one every other case renders through. */
+const GIFT_MARKE = "gift-marke";
+/** A controller line carrying every character `escapeHtml` covers, which the real address does not. */
+const GIFT_VEREIN = "Verein & Co.";
+const GIFT_ANSCHRIFT = `c/o <Haus> "Süd", 60311 Frankfurt`;
+const GIFT_VERANTWORTLICH = `${GIFT_VEREIN}, ${GIFT_ANSCHRIFT}`;
+/** Its escaping written out rather than computed, so the expectation cannot follow the escaper it holds to account. */
+const GIFT_VERANTWORTLICH_HTML = "Verein &amp; Co., c/o &lt;Haus&gt; &quot;Süd&quot;, 60311 Frankfurt";
+
+/* The controller line reaches the card from a module constant, so a hostile one arrives only by
+   replacing the brand module — the route that leaves production code with no test-only opening. */
+const MARKE_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(
+  [
+    `export const KONTAKT_EMAIL = "kontakt@beispiel.de";`,
+    `export const SITE_URL = "https://beispiel.de";`,
+    `export const VEREIN_NAME = ${JSON.stringify(GIFT_VEREIN)};`,
+    `export const VEREIN_ANSCHRIFT = ${JSON.stringify(GIFT_ANSCHRIFT)};`,
+  ].join("\n"),
+)}`;
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
+    // The parent decides, so the double reaches the hostile instance alone and every other case
+    // still renders against the real brand.
+    if (specifier === "./brand" && (context.parentURL ?? "").includes(GIFT_MARKE)) return { url: MARKE_DOUBLE_URL, shortCircuit: true };
     return nextResolve(specifier, context);
   },
 });
@@ -18,7 +43,6 @@ const {
   buildBewerbungAblehnungEmail,
   buildBewerbungAbsageEmail,
   buildBewerbungBestaetigungEmail,
-  buildBewerbungEingangEmail,
   buildBewerbungEingangOffenEmail,
   buildBewerbungErinnerungEmail,
   buildBewerbungGeloeschtEmail,
@@ -64,16 +88,11 @@ function steuerBereich(html: string): string {
 }
 
 /**
- * The builders the mail modules export, read out of their source. Listed by hand the population
- * silently stops being every message the day a sixth is added, and each sweep below narrows to
- * whatever this file still happens to name.
+ * Every builder the two mail modules export, read off the module namespace rather than matched in
+ * their source: a name no pattern anticipates would drop out of both sides of the register at once.
  */
-const GEBAUTE_NACHRICHTEN = readdirSync(import.meta.dirname)
-  .filter((datei) => datei.endsWith(".ts") && !datei.endsWith(".test.ts"))
-  .flatMap((datei) => [
-    ...readFileSync(path.join(import.meta.dirname, datei), "utf8").matchAll(/export (?:async )?(?:function|const) (build[A-Za-z]*Email)\b/g),
-  ])
-  .map((treffer) => treffer[1] ?? "")
+const GEBAUTE_NACHRICHTEN = [...Object.keys(await import("./bewerbungEmail.ts")), ...Object.keys(await import("./authEmail.ts"))]
+  .filter((name) => name.startsWith("build"))
   .sort();
 
 /** One fixture per builder, keyed by the name the walk finds, carrying the least its signature needs. */
@@ -93,7 +112,6 @@ const FIXTUREN: Record<string, () => { html: string; text: string }> = {
       rollenText: "Stellvertretung",
       grund: "Die Saison ist voll.",
     }),
-  buildBewerbungEingangEmail: () => buildBewerbungEingangEmail({ saisonId: "2627", rollenText: "Ansprechperson" }),
   buildBewerbungBestaetigungEmail: () =>
     buildBewerbungBestaetigungEmail({
       saisonId: "2627",
@@ -137,16 +155,16 @@ const FIXTUREN: Record<string, () => { html: string; text: string }> = {
   buildMagicLinkEmail: () => buildMagicLinkEmail("https://frankfurtleague.de/api/auth/callback/resend?token=abc&email=a%40b.de"),
 };
 
-/** Every message the app sends, so a design claim is checked against all of them rather than against the three that share a builder. */
+/** Every message the two mail modules build, so a design claim is checked against all of them rather than against one. */
 const NACHRICHTEN = Object.entries(FIXTUREN).map(([name, bauen]) => ({ name, mail: bauen() }));
 
 describe("the shared email shell", () => {
   /* Both directions, so neither side can be satisfied by the other shrinking: a builder with no
      fixture fails here rather than dropping out of every sweep, and a stale fixture fails too. */
   it("sweeps every message builder the mail modules export", () => {
-    // The sign-in link, the receipt, the two decisions and the confirmation workflow's six. A walk
-    // finding fewer has stopped reading the modules, and every sweep below then runs over nothing.
-    assert.ok(GEBAUTE_NACHRICHTEN.length >= 10, `expected at least 10 message builders, found ${String(GEBAUTE_NACHRICHTEN.length)}`);
+    // The sign-in link, the two decisions and the confirmation workflow's six. A walk finding fewer
+    // has stopped reading the modules, and every sweep below then runs over nothing.
+    assert.ok(GEBAUTE_NACHRICHTEN.length >= 9, `expected at least 9 message builders, found ${String(GEBAUTE_NACHRICHTEN.length)}`);
     assert.deepEqual(GEBAUTE_NACHRICHTEN, Object.keys(FIXTUREN).sort(), "a message builder has no fixture, or a fixture names no builder");
   });
 
@@ -432,16 +450,39 @@ describe("the shared email shell", () => {
 
   /* The controller line is the close's one interpolation with no caller to escape it and no helper
      in its path; the address is replaced by hand, where a c/o line carrying `&` is ordinary. */
-  it("escapes the controller line into the card and leaves the text branch raw", () => {
+  it("carries the controller line into both branches of every message", () => {
     const verantwortlich = `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`;
 
     for (const { name, mail } of NACHRICHTEN) {
       assert.ok(mail.html.includes(escapeHtml(verantwortlich)), `${name}'s card does not carry the controller escaped`);
       assert.ok(mail.text.endsWith(verantwortlich), `${name}'s text branch does not close on the controller raw`);
     }
-    // The two expectations part only once the address carries a markup character, so the escaper is
-    // held to the one that would invalidate the document while the placeholder carries none.
-    assert.equal(escapeHtml(`${verantwortlich} & Co.`), `${verantwortlich} &amp; Co.`);
+  });
+
+  /* Today's address escapes to itself, so the sweep above passes an unescaped card too. Held here
+     against an address carrying markup, which is what a c/o line and an „&“ in a name produce. */
+  it("escapes a controller line carrying markup, and leaves the text branch raw", async () => {
+    const shell = (await import(`./emailShell.ts?${GIFT_MARKE}`)) as typeof EmailShell;
+    const karte = shell.renderKarte({
+      titel: "Anmeldung",
+      ueberschrift: "Anmeldung",
+      bloecke: [],
+      aktionen: [],
+      fuss: "Antworten liest niemand.",
+    });
+    const schluss = karte.slice(karte.lastIndexOf("<hr"));
+
+    assert.ok(schluss.includes(GIFT_VERANTWORTLICH_HTML), "the card carries a controller line the escaper did not reach");
+    assert.ok(!schluss.includes(GIFT_ANSCHRIFT), "the card carries the address raw, which a „<“ in it makes markup");
+    // The text branch takes the address as typed: no client parses it, and an escaped „&“ there
+    // reaches the reader as five characters.
+    assert.deepEqual(shell.textFooter([]), [
+      "",
+      "-- ",
+      `Datenschutzerklärung: https://beispiel.de/datenschutz`,
+      `Impressum: https://beispiel.de/impressum`,
+      GIFT_VERANTWORTLICH,
+    ]);
   });
 
   /* The end-of-body branch, which no builder reaches: every body closes on fixed copy. Read through

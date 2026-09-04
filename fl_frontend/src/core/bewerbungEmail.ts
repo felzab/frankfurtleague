@@ -55,6 +55,9 @@ const IGNORIER_SATZ = `${IGNORIER_VOR}.`;
    and after the deletion nothing is left to promise. One wording for all three offers a route
    somebody has not got. */
 const IGNORIER_SATZ_EINTRAG = `${IGNORIER_VOR}: Deine Angaben werden nach 14 Tagen gelöscht. Oder lehne über den Link ab, dann entfernen wir sie sofort.`;
+/* Its own wording rather than the singular one over two links: „den Link“ names one of the two the
+   message carries, and the reader cannot tell which of them is being offered. */
+const IGNORIER_SATZ_EINTRAG_MEHRERE = `Weiß hier niemand von einer Bewerbung bei der ${BRAND_NAME}? Dann ignoriert diese E-Mail einfach. Für Euch ist nichts zu tun: Eure Angaben werden nach 14 Tagen gelöscht. Oder lehnt über die Links ab, dann entfernen wir sie sofort.`;
 const IGNORIER_SATZ_BEWERBUNG = `${IGNORIER_VOR}: die Bewerbung wird nach 14 Tagen gelöscht.`;
 const IGNORIER_SATZ_GELOESCHT = `${IGNORIER_VOR}: die Bewerbung wurde gelöscht.`;
 
@@ -64,9 +67,6 @@ const IGNORIER_SATZ_GELOESCHT = `${IGNORIER_VOR}: die Bewerbung wurde gelöscht.
  */
 const EMPFAENGER_SATZ = {
   kontaktpersonen: "Diese E-Mail geht an die Kontaktpersonen der Bewerbung.",
-  // The receipt alone, which reaches the seat named as Ansprechperson and nobody else
-  // (`fl_frontend/src/features/bewerbungen/notifications.ts :: collectBewerbungEingangEmpfaenger`).
-  ansprechperson: "Diese E-Mail geht nur an die Ansprechperson der Bewerbung.",
   eintrag: "Diese E-Mail geht nur an Dich.",
   // Says why a message about other people reached this reader: on a shared school inbox the other
   // reading is that the league mailed somebody their colleagues' details by mistake.
@@ -85,7 +85,7 @@ const LIGA_AKTION = { label: "Laufende Saison", href: `${SITE_URL}/dashboard` } 
 /** The way to a person, offered wherever the message leaves the reader with a question. */
 const FRAGE_AKTION = { label: "Frage stellen", href: `mailto:${KONTAKT_EMAIL}` } as const;
 
-/** The pair the receipt and the two decisions carry, in the landing page's own order: the offered action first, the way on beside it. */
+/** The pair the two decisions and the completion notice carry, in the landing page's own order: the offered action first, the way on beside it. */
 const AKTIONEN: readonly Aktion[] = [
   { href: FRAGE_AKTION.href, label: FRAGE_AKTION.label, ton: "primary" },
   { href: LIGA_AKTION.href, label: LIGA_AKTION.label, ton: "outline" },
@@ -105,6 +105,8 @@ function neuBewerbenAktion(saisonId: string): Aktion {
 // Spelled here as well as in `fl_frontend/src/core/authEmail.ts :: FALLBACK_SATZ`: one situation
 // reads as one sentence to the person meeting it, so the two move together.
 const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
+/** The singular sentence standing over two addresses tells its reader that one of them is theirs. */
+const FALLBACK_SATZ_MEHRERE = "Falls die Buttons nicht funktionieren, kopiert diese Adressen in Euren Browser:";
 
 /**
  * German lists nothing with a comma before its last item. In `core` because both the message naming
@@ -143,17 +145,6 @@ export interface BewerbungAbsageData {
   /** As on the acceptance, and for the same reason: a reader has to be able to place a message before reading it. */
   rollenText: string;
   grund: string;
-}
-
-/**
- * What a submitted application is told back. **The season, the reader's own seat, and nothing else**:
- * this goes out unprompted to an address nobody has confirmed yet, so it carries no copy of what the
- * form was told about anybody else.
- */
-export interface BewerbungEingangData {
-  saisonId: string;
-  /** As on the acceptance: the seats this one reader holds, rendered. */
-  rollenText: string;
 }
 
 /** The indent a stacked value's own lines carry, so none of them begins where a label does. */
@@ -201,12 +192,12 @@ interface Nachricht {
   readonly aktionen: readonly Aktion[];
   /** The same controls as lines, a button being nothing the text branch can draw. */
   readonly textAktionen: readonly string[];
-  /* Four wordings, because what ignoring costs differs per message. Defaulted, it would tell a
-     contact whose own seat is holding the application open that there is nothing to do. */
+  /* Stated per message, because what ignoring costs differs. Defaulted, it would tell a contact
+     whose own seat is holding the application open that there is nothing to do. */
   readonly ignorierSatz: string;
 }
 
-/** The brand colour on „Saison NNNN“ wherever it stands whole, which is the phrase all three messages turn on. */
+/** The brand colour on „Saison NNNN“ wherever it stands whole, which is the phrase every message turns on. */
 function saisonPhrase(saisonId: string): string {
   return brandPhrase(`Saison ${escapeHtml(saisonId)}`);
 }
@@ -403,68 +394,14 @@ export function buildBewerbungAbsageEmail({ teamName, saisonId, rollenText, grun
   return { subject: `Absage: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
-/**
- * **The two parts state the same facts**, as in the two decisions above.
- *
- * Of what was submitted it repeats the reader's own seat and nothing else: this is the one message
- * the league sends before anybody has confirmed the address it goes to.
- */
-export function buildBewerbungEingangEmail({ saisonId, rollenText }: BewerbungEingangData): BewerbungEmail {
-  const nachricht: Nachricht = {
-    headingVor: "Bewerbung für die",
-    saisonId: saisonId,
-    empfaenger: "ansprechperson",
-    fakten: [
-      { label: "Status", value: "Bewerbung eingegangen" },
-      { label: "Saison", value: saisonId, akzent: true },
-      // This message goes to one seat, and naming it is what tells a reader who did not fill the form
-      // in why it reached them.
-      { label: "Eingetragen als", value: rollenText },
-    ],
-    aktionen: AKTIONEN,
-    textAktionen: TEXT_AKTIONEN,
-    ignorierSatz: IGNORIER_SATZ,
-  };
-
-  const html = renderHtml(nachricht, [
-    paragraph(
-      `Deine Bewerbung für die ${saisonPhrase(saisonId)} der ${BRAND_NAME} ist ${strong("bei uns eingegangen")}. Danke für die Anmeldung Deines Teams.`,
-    ),
-    // What happens next, and how long it takes: without it the only answer to "und jetzt?" is a
-    // second application, which is the one thing this message exists to make unnecessary.
-    paragraph(
-      `Wir schauen sie uns an und melden uns bei allen drei Kontaktpersonen, sobald wir entschieden haben. ${strong("Du musst nichts weiter tun.")}`,
-    ),
-    // What the reader would otherwise chase us for: the other two have their own link, and the
-    // application waits on them rather than on anything left in this reader's hands.
-    paragraph(
-      `Die anderen Kontaktpersonen haben wir schon angeschrieben. ${strong("Vollständig ist die Bewerbung, sobald alle geantwortet haben.")}`,
-    ),
-    paragraph(`${WEBSITE_SATZ.vor}${link(SITE_URL, SITE_URL)}${WEBSITE_SATZ.nach}`),
-  ]);
-
-  const text = renderText(nachricht, [
-    `Deine Bewerbung für die Saison ${saisonId} der ${BRAND_NAME} ist bei uns eingegangen.`,
-    "Danke für die Anmeldung Deines Teams.",
-    "",
-    "Wir schauen sie uns an und melden uns bei allen drei Kontaktpersonen, sobald wir entschieden haben.",
-    "Du musst nichts weiter tun.",
-    "",
-    "Die anderen Kontaktpersonen haben wir schon angeschrieben.",
-    "Vollständig ist die Bewerbung, sobald alle geantwortet haben.",
-    "",
-    `${WEBSITE_SATZ.vor}${SITE_URL}${WEBSITE_SATZ.nach}`,
-  ]);
-
-  return { subject: `Bewerbung eingegangen: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
-}
-
 /** One seat, as a message names it to somebody who is not sitting in it. */
 export interface BewerbungSeat {
   readonly vorname: string;
   /**
-   * `fl_frontend/src/features/teams/constants.ts :: KONTAKT_ROLLEN`'s `langform`, rendered by the
-   * caller because `core` may not import `features` (`fl_frontend/eslint.config.mjs :: LAYER_BOUNDARY`).
+   * `fl_frontend/src/features/bewerbungen/constants.ts :: BEWERBUNG_SEATS`'s `label`, which that
+   * file maps from `fl_frontend/src/features/teams/constants.ts :: KONTAKT_ROLLEN`'s `langform`.
+   * Rendered by the caller because `core` may not import `features`
+   * (`fl_frontend/eslint.config.mjs :: LAYER_BOUNDARY`).
    */
   readonly rolleText: string;
 }
@@ -483,7 +420,9 @@ export interface BewerbungLinkSeat extends BewerbungSeat {
 export interface BewerbungBestaetigungData {
   saisonId: string;
   schule: string;
-  seats: readonly BewerbungLinkSeat[];
+  /* At least one, in the type: an empty list renders an empty fact row, a control row with no
+     control in it, and the sentence offering an address over nothing. */
+  seats: readonly [BewerbungLinkSeat, ...BewerbungLinkSeat[]];
   /**
    * The deadline as a German date, rendered by the caller for the reason `rollenText` is:
    * `fl_frontend/src/shared/utils/format.ts :: formatSpielDatum` sits in a layer `core` may not reach.
@@ -497,8 +436,8 @@ function seatName({ vorname, rolleText }: BewerbungSeat): string {
 }
 
 /** The plural form names whose each row is; the singular one has nobody to tell its reader apart from. */
-function seatFakten(seats: readonly BewerbungLinkSeat[]): Fakt[] {
-  if (seats.length < 2) return [{ label: "Eingetragen als", value: einzeilig(seats[0]?.rolleText ?? "") }];
+function seatFakten(seats: BewerbungBestaetigungData["seats"]): Fakt[] {
+  if (seats.length < 2) return [{ label: "Eingetragen als", value: einzeilig(seats[0].rolleText) }];
 
   return seats.map((seat) => ({ label: "Eingetragen als", value: seatName(seat) }));
 }
@@ -521,7 +460,7 @@ function seatFallbacks(seats: readonly BewerbungLinkSeat[]): Fallback[] {
 }
 
 /** The route for a reader whose client drew no button. */
-function fallbackBloecke(adressen: readonly Fallback[]): string[] {
+function fallbackBloecke(adressen: readonly Fallback[], satz: string): string[] {
   const adresse = ({ label, url }: Fallback, index: number): string => {
     /* Breaking inside a word, as `fl_frontend/src/core/authEmail.ts` does with its signed URL: a
        token URL is longer than the card is wide and would otherwise push the card open. */
@@ -534,7 +473,7 @@ function fallbackBloecke(adressen: readonly Fallback[]): string[] {
     );
   };
 
-  return [paragraph(FALLBACK_SATZ, "0 0 8px", ASIDE_TEXT), ...adressen.map(adresse)];
+  return [paragraph(satz, "0 0 8px", ASIDE_TEXT), ...adressen.map(adresse)];
 }
 
 /** The same addresses as lines. A label shares no line with its URL: that is what stops a client linkifying both as one. */
@@ -555,7 +494,7 @@ export function buildBewerbungBestaetigungEmail({ saisonId, schule, seats, frist
   const mehrere = seats.length > 1;
   const schuleText = einzeilig(schule);
   const frist = einzeilig(fristText);
-  const rollen = einzeilig(seats[0]?.rolleText ?? "");
+  const rollen = einzeilig(seats[0].rolleText);
   const offen = joinUnd(seats.map(seatName));
 
   const nachricht: Nachricht = {
@@ -568,13 +507,13 @@ export function buildBewerbungBestaetigungEmail({ saisonId, schule, seats, frist
       { label: "Schule", value: schuleText },
       { label: "Saison", value: saisonId, akzent: true },
       ...seatFakten(seats),
-      { label: "Link gültig bis", value: frist },
+      { label: mehrere ? "Links gültig bis" : "Link gültig bis", value: frist },
     ],
     aktionen: seatAktionen(seats),
     // Nothing under the note: every link this message offers already stands in its body, where the
     // text branch's reader has met it in the prose.
     textAktionen: [],
-    ignorierSatz: IGNORIER_SATZ_EINTRAG,
+    ignorierSatz: mehrere ? IGNORIER_SATZ_EINTRAG_MEHRERE : IGNORIER_SATZ_EINTRAG,
   };
 
   const html = renderHtml(nachricht, [
@@ -584,12 +523,16 @@ export function buildBewerbungBestaetigungEmail({ saisonId, schule, seats, frist
         : `${eingereichtSatz(schuleText, saisonId, true)} Darin bist Du als ${escapeHtml(rollen)} eingetragen. ${strong("Bitte bestätige, dass das stimmt")}: Erst dann führt die Liga Dich als Kontaktperson.`,
     ),
     paragraph(
-      `Klicke auf den Button. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Du kannst den Eintrag bestätigen oder ablehnen. Der Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal.`,
+      mehrere
+        ? `Klickt auf die Buttons und gebt dort nur Euer Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Jeder Eintrag lässt sich bestätigen oder ablehnen. Jeder Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal.`
+        : `Klicke auf den Button. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Du kannst den Eintrag bestätigen oder ablehnen. Der Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal.`,
     ),
     paragraph(
-      "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal; ist die Bewerbung nach 14 Tagen noch unvollständig, löschen wir sie mit allen Angaben.",
+      mehrere
+        ? "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal; ist die Bewerbung nach 14 Tagen noch unvollständig, löschen wir sie mit allen Angaben."
+        : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal; ist die Bewerbung nach 14 Tagen noch unvollständig, löschen wir sie mit allen Angaben.",
     ),
-    ...fallbackBloecke(seatFallbacks(seats)),
+    ...fallbackBloecke(seatFallbacks(seats), mehrere ? FALLBACK_SATZ_MEHRERE : FALLBACK_SATZ),
   ]);
 
   const text = renderText(nachricht, [
@@ -599,12 +542,18 @@ export function buildBewerbungBestaetigungEmail({ saisonId, schule, seats, frist
       ? "Bitte bestätigt jeden Eintrag einzeln: Erst dann führt die Liga Euch als Kontaktpersonen."
       : "Bitte bestätige, dass das stimmt: Erst dann führt die Liga Dich als Kontaktperson.",
     "",
-    "Öffne diesen Link. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Du kannst den Eintrag bestätigen oder ablehnen.",
-    `Der Link ist bis zum ${frist} gültig und funktioniert nur einmal.`,
+    mehrere
+      ? "Öffnet diese Links und gebt dort nur Euer Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Jeder Eintrag lässt sich bestätigen oder ablehnen."
+      : "Öffne diesen Link. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Du kannst den Eintrag bestätigen oder ablehnen.",
+    mehrere
+      ? `Jeder Link ist bis zum ${frist} gültig und funktioniert nur einmal.`
+      : `Der Link ist bis zum ${frist} gültig und funktioniert nur einmal.`,
     "",
     ...fallbackZeilen(seatFallbacks(seats)),
     "",
-    "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal;",
+    mehrere
+      ? "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal;"
+      : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal;",
     "ist die Bewerbung nach 14 Tagen noch unvollständig, löschen wir sie mit allen Angaben.",
   ]);
 
@@ -616,7 +565,7 @@ export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristTe
   const mehrere = seats.length > 1;
   const schuleText = einzeilig(schule);
   const loeschung = einzeilig(fristText);
-  const rollen = einzeilig(seats[0]?.rolleText ?? "");
+  const rollen = einzeilig(seats[0].rolleText);
   const offen = joinUnd(seats.map(seatName));
 
   const nachricht: Nachricht = {
@@ -635,7 +584,7 @@ export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristTe
     // somebody is still looking at would punish the reader it is chasing.
     aktionen: seatAktionen(seats),
     textAktionen: [],
-    ignorierSatz: IGNORIER_SATZ_EINTRAG,
+    ignorierSatz: mehrere ? IGNORIER_SATZ_EINTRAG_MEHRERE : IGNORIER_SATZ_EINTRAG,
   };
 
   const gebeten = mehrere
@@ -650,9 +599,11 @@ export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristTe
         : `${gebeten} In der Bewerbung der Schule ${strong(escapeHtml(schuleText))} zur ${saisonPhrase(saisonId)} bist Du als ${escapeHtml(rollen)} eingetragen. ${strong(fehlt)}`,
     ),
     paragraph(
-      `Klicke auf den Button, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder lehne ihn ab. Ohne Deine Antwort löschen wir die Bewerbung am ${strong(escapeHtml(loeschung))} mit allen Angaben.`,
+      mehrere
+        ? `Klickt auf die Buttons, gebt Euer Geburtsdatum ein und bestätigt die Einträge, oder lehnt sie ab. Ohne Eure Antwort löschen wir die Bewerbung am ${strong(escapeHtml(loeschung))} mit allen Angaben.`
+        : `Klicke auf den Button, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder lehne ihn ab. Ohne Deine Antwort löschen wir die Bewerbung am ${strong(escapeHtml(loeschung))} mit allen Angaben.`,
     ),
-    ...fallbackBloecke(seatFallbacks(seats)),
+    ...fallbackBloecke(seatFallbacks(seats), mehrere ? FALLBACK_SATZ_MEHRERE : FALLBACK_SATZ),
   ]);
 
   const text = renderText(nachricht, [
@@ -662,8 +613,12 @@ export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristTe
       : `In der Bewerbung der Schule ${schuleText} zur Saison ${saisonId} bist Du als ${rollen} eingetragen.`,
     fehlt,
     "",
-    "Öffne diesen Link, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder lehne ihn ab.",
-    `Ohne Deine Antwort löschen wir die Bewerbung am ${loeschung} mit allen Angaben.`,
+    mehrere
+      ? "Öffnet diese Links, gebt Euer Geburtsdatum ein und bestätigt die Einträge, oder lehnt sie ab."
+      : "Öffne diesen Link, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder lehne ihn ab.",
+    mehrere
+      ? `Ohne Eure Antwort löschen wir die Bewerbung am ${loeschung} mit allen Angaben.`
+      : `Ohne Deine Antwort löschen wir die Bewerbung am ${loeschung} mit allen Angaben.`,
     "",
     ...fallbackZeilen(seatFallbacks(seats)),
   ]);
@@ -747,7 +702,7 @@ export function buildBewerbungEingangOffenEmail({
     paragraph(
       `Nach drei Tagen erinnern wir alle, die noch nicht bestätigt haben. Ist die Bewerbung am ${strong(escapeHtml(frist))} noch unvollständig, löschen wir sie mit allen Angaben und sagen Dir Bescheid. Sag den anderen am besten selbst Bescheid, dann geht es schneller.`,
     ),
-    ...fallbackBloecke([{ label: "", url: url }]),
+    ...fallbackBloecke([{ label: "", url: url }], FALLBACK_SATZ),
   ]);
 
   const text = renderText(nachricht, [

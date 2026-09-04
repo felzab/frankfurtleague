@@ -6,7 +6,7 @@ import { sendMail } from "@/core/mail";
 
 import { BEWERBUNG_SEATS } from "./constants";
 
-import type { BewerbungEmail, BewerbungLinkSeat } from "@/core/bewerbungEmail";
+import type { BewerbungBestaetigungData, BewerbungEmail, BewerbungLinkSeat } from "@/core/bewerbungEmail";
 
 /**
  * The three seats, narrowed to the one field a fan-out reads. Both a stored block and a submitted
@@ -108,7 +108,12 @@ export type BewerbungLinkSeats = {
 };
 
 /** One mailbox and every link it is sent, which is one message's worth. */
-export type BewerbungLinkEmpfaenger = { address: string; seats: readonly BewerbungLinkSeat[] };
+export type BewerbungLinkEmpfaenger = { address: string; seats: BewerbungBestaetigungData["seats"] };
+
+/** The one place the emptiness is decided, so what the message's type demands is what the filter proves. */
+function hatLink(empfaenger: { address: string; seats: readonly BewerbungLinkSeat[] }): empfaenger is BewerbungLinkEmpfaenger {
+  return empfaenger.seats.length > 0;
+}
 
 /**
  * One message per mailbox, carrying one link for each seat that mailbox holds. Two people on a
@@ -119,7 +124,7 @@ export function seatsByMailbox(
   /** A seat the caller left out gets no link, and a mailbox left with none gets no message: that is what keeps a reminder off an answered seat. */
   linkBySeat: Partial<Record<BewerbungRolle, string>>,
 ): BewerbungLinkEmpfaenger[] {
-  const gruppiert = collectSeats(kontakte).map(({ address, rollen }) => {
+  const gruppiert: { address: string; seats: readonly BewerbungLinkSeat[] }[] = collectSeats(kontakte).map(({ address, rollen }) => {
     // Keyed by link rather than by person: one token answering two seats is what the message has to
     // offer once, and nothing else here can tell those two seats are the same reader.
     const proLink = new Map<string, { vorname: string; rollen: BewerbungRolle[] }>();
@@ -142,7 +147,7 @@ export function seatsByMailbox(
     return { address: address, seats: seats };
   });
 
-  return gruppiert.filter(({ seats }) => seats.length > 0);
+  return gruppiert.filter(hatLink);
 }
 
 /**
@@ -176,7 +181,7 @@ export async function sendBewerbungLinkMail({
 }: {
   operation: string;
   recipients: readonly BewerbungLinkEmpfaenger[];
-  buildMail: (seats: readonly BewerbungLinkSeat[]) => BewerbungEmail;
+  buildMail: (seats: BewerbungLinkEmpfaenger["seats"]) => BewerbungEmail;
 }): Promise<BewerbungMailOutcome> {
   return settleFanOut(operation, recipients, ({ seats }) => buildMail(seats));
 }
