@@ -4,7 +4,16 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import type { BewerbungAbsageData, BewerbungEingangData, BewerbungZusageData } from "./bewerbungEmail.ts";
+import type {
+  BewerbungAblehnungData,
+  BewerbungAbsageData,
+  BewerbungBestaetigungData,
+  BewerbungEingangData,
+  BewerbungEingangOffenData,
+  BewerbungGeloeschtData,
+  BewerbungVollstaendigData,
+  BewerbungZusageData,
+} from "./bewerbungEmail.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
@@ -16,8 +25,18 @@ registerHooks({
   },
 });
 
-const { buildBewerbungAbsageEmail, buildBewerbungEingangEmail, buildBewerbungZusageEmail } = await import("./bewerbungEmail.ts");
-const { KONTAKT_EMAIL, SITE_URL } = await import("./brand.ts");
+const {
+  buildBewerbungAblehnungEmail,
+  buildBewerbungAbsageEmail,
+  buildBewerbungBestaetigungEmail,
+  buildBewerbungEingangEmail,
+  buildBewerbungEingangOffenEmail,
+  buildBewerbungErinnerungEmail,
+  buildBewerbungGeloeschtEmail,
+  buildBewerbungVollstaendigEmail,
+  buildBewerbungZusageEmail,
+} = await import("./bewerbungEmail.ts");
+const { KONTAKT_EMAIL, SITE_URL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
 
 /**
  * The markup branch reduced to the facts a reader ends up with. Lets a fact be checked as a fact in
@@ -82,10 +101,11 @@ function proseBereich(html: string): string {
 }
 
 /**
- * The panel read back as the label-and-value pairs a reader sees. Rows are matched without nesting,
- * so the wrapper cell that carries the panel's own spacing is stepped over rather than swallowed.
+ * The panel read back as the label-and-value pairs a reader sees, in order. Rows are matched without
+ * nesting, so the wrapper cell that carries the panel's own spacing is stepped over rather than
+ * swallowed.
  */
-function faktRows(html: string): Map<string, string> {
+function faktListe(html: string): [string, string][] {
   // Stripped so the keys stay the nouns the text branch prints; a missing colon is its own assertion.
   const label = (cell: string | undefined): string => (cell ?? "").replace(/:$/, "");
 
@@ -93,20 +113,25 @@ function faktRows(html: string): Map<string, string> {
     [...(row[1] ?? "").matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((cell) => readable(cell[1] ?? "")),
   );
 
-  const fakten = new Map<string, string>();
+  const fakten: [string, string][] = [];
   let offen: string | null = null;
   for (const cells of rows) {
     // Two cells are a row of the label column and the value column; a single one is half of the
     // full-width pair a long value gets, so it is held until its other half arrives.
-    if (cells.length === 2) fakten.set(label(cells[0]), cells[1] ?? "");
+    if (cells.length === 2) fakten.push([label(cells[0]), cells[1] ?? ""]);
     else if (cells.length === 1 && offen === null) offen = label(cells[0]);
     else if (cells.length === 1) {
-      fakten.set(offen ?? "", cells[0] ?? "");
+      fakten.push([offen ?? "", cells[0] ?? ""]);
       offen = null;
     }
   }
 
   return fakten;
+}
+
+/** The same pairs keyed by label. A link message states „Eingetragen als“ once per seat, so those rows are read off the list. */
+function faktRows(html: string): Map<string, string> {
+  return new Map(faktListe(html));
 }
 
 /** A name carrying every character `escapeHtml` covers, so an unescaped one lands inside the markup. */
@@ -173,10 +198,16 @@ const WUNSCHGEGNER_SENTENCE = `Als Wunschgegner für den ersten Spieltag haben w
 /** The second control, the same on all three: one page that is a dead end for none of their readers. */
 const LIGA_AKTION = { label: "Laufende Saison", href: `${SITE_URL}/dashboard` };
 
+/** Spelled out for the reason above. The sign-in link states the same sentence, and the two move together. */
+const FALLBACK_SENTENCE = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
+
 /** What each message states about who it reached: the receipt goes to one seat, the two decisions to three. */
 const EMPFAENGER_SATZ = {
   kontaktpersonen: "Diese E-Mail geht an die Kontaktpersonen der Bewerbung.",
   ansprechperson: "Diese E-Mail geht nur an die Ansprechperson der Bewerbung.",
+  eintrag: "Diese E-Mail geht nur an Dich.",
+  postfach: "Diese E-Mail geht an dieses Postfach, weil dort mehrere Einträge hängen.",
+  einreichende: "Diese E-Mail geht nur an die Person, die die Bewerbung eingereicht hat.",
 };
 
 /** The closing sentences of a message that reached all three seats, which is either decision. */
@@ -188,7 +219,14 @@ const IGNORIER_SATZ =
 
 /** The text branch's close as a block, the delimiter included: its order is part of what it says. */
 const textFooter = (empfaenger: keyof typeof EMPFAENGER_SATZ): string =>
-  ["-- ", EMPFAENGER_SATZ[empfaenger], `Antworten an die Absenderadresse liest niemand. Schreibe uns an ${KONTAKT_EMAIL}.`].join("\n");
+  [
+    "-- ",
+    EMPFAENGER_SATZ[empfaenger],
+    `Antworten an die Absenderadresse liest niemand. Schreibe uns an ${KONTAKT_EMAIL}.`,
+    `Datenschutzerklärung: ${SITE_URL}/datenschutz`,
+    `Impressum: ${SITE_URL}/impressum`,
+    `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`,
+  ].join("\n");
 
 /**
  * The three messages, each beside the close it must carry and the destination its second control
@@ -893,4 +931,571 @@ describe("no value can open a line of its own in the text branch", () => {
       assert.ok(!forgedLine(zusage.text), `a name broken by ${name} forged a fact line`);
     });
   }
+});
+
+/** Not a token, and not shaped like one: a fixture a reader could mistake for a real credential is one somebody copies. */
+const LINK_EINS = `${SITE_URL}/bestaetigung?token=beispiel-eins`;
+const LINK_ZWEI = `${SITE_URL}/bestaetigung?token=beispiel-zwei`;
+const FRIST = "18.09.2026";
+
+const ERIKA = { vorname: "Erika", rolleText: "Ansprechperson", link: LINK_EINS };
+const JONAS = { vorname: "Jonas", rolleText: "Trainerin oder Trainer", link: LINK_ZWEI };
+
+const BESTAETIGUNG = {
+  saisonId: "2627",
+  schule: "Ernst-Reuter-Schule",
+  seats: [ERIKA],
+  fristText: FRIST,
+} satisfies BewerbungBestaetigungData;
+
+/** Two people on one school inbox, which is the case the singular form cannot reach. */
+const BESTAETIGUNG_POSTFACH = { ...BESTAETIGUNG, seats: [ERIKA, JONAS] } satisfies BewerbungBestaetigungData;
+
+const AUSSTEHEND = [
+  { vorname: "Jonas", rolleText: "Trainerin oder Trainer" },
+  { vorname: "Mira", rolleText: "Stellvertretung" },
+];
+
+const EINGANG_OFFEN = {
+  saisonId: "2627",
+  rollenText: "Ansprechperson",
+  ausstehend: AUSSTEHEND,
+  fristText: FRIST,
+  link: LINK_EINS,
+} satisfies BewerbungEingangOffenData;
+
+const VOLLSTAENDIG = { saisonId: "2627", rollenText: "Ansprechperson" } satisfies BewerbungVollstaendigData;
+const GELOESCHT = { saisonId: "2627", rollenText: "Ansprechperson", ausstehend: AUSSTEHEND } satisfies BewerbungGeloeschtData;
+const ABLEHNUNG = {
+  saisonId: "2627",
+  rollenText: "Ansprechperson",
+  abgelehnt: { vorname: "Jonas", rolleText: "Trainerin oder Trainer" },
+  fristText: FRIST,
+} satisfies BewerbungAblehnungData;
+
+/** „Jonas und Mira“ as both branches print a seat list, so an order change fails rather than reading oddly. */
+const OFFEN_LISTE = "Jonas (Trainerin oder Trainer) und Mira (Stellvertretung)";
+
+/**
+ * The six workflow messages, each beside the close it must carry. Paired here rather than per case,
+ * so no sweep can check one message against another's.
+ */
+const WORKFLOW = [
+  { name: "Bestätigung", build: () => buildBewerbungBestaetigungEmail(BESTAETIGUNG), empfaenger: "eintrag" },
+  { name: "Bestätigung (Postfach)", build: () => buildBewerbungBestaetigungEmail(BESTAETIGUNG_POSTFACH), empfaenger: "postfach" },
+  { name: "Erinnerung", build: () => buildBewerbungErinnerungEmail(BESTAETIGUNG), empfaenger: "eintrag" },
+  { name: "Erinnerung (Postfach)", build: () => buildBewerbungErinnerungEmail(BESTAETIGUNG_POSTFACH), empfaenger: "postfach" },
+  { name: "Eingang offen", build: () => buildBewerbungEingangOffenEmail(EINGANG_OFFEN), empfaenger: "einreichende" },
+  { name: "Vollständig", build: () => buildBewerbungVollstaendigEmail(VOLLSTAENDIG), empfaenger: "einreichende" },
+  { name: "Gelöscht", build: () => buildBewerbungGeloeschtEmail(GELOESCHT), empfaenger: "einreichende" },
+  { name: "Ablehnung", build: () => buildBewerbungAblehnungEmail(ABLEHNUNG), empfaenger: "einreichende" },
+] as const;
+
+const alleWorkflow = () => WORKFLOW.map((meldung) => ({ ...meldung, mail: meldung.build(), footer: textFooter(meldung.empfaenger) }));
+
+/** The controls as a reader meets them: where each goes, under the name it goes there under. */
+function steuerung(html: string): { href: string; label: string }[] {
+  return [...steuerBereich(html).matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map((treffer) => ({
+    href: treffer[1] ?? "",
+    label: readable(treffer[2] ?? ""),
+  }));
+}
+
+describe("buildBewerbungBestaetigungEmail", () => {
+  it("states the school, the season, the reader's seat and the link's own deadline", () => {
+    const mail = buildBewerbungBestaetigungEmail(BESTAETIGUNG);
+
+    assert.equal(mail.subject, `Bitte bestätigen: Frankfurt-League, Saison ${BESTAETIGUNG.saisonId}`);
+    assert.deepEqual(faktListe(mail.html), [
+      ["Schule", BESTAETIGUNG.schule],
+      ["Saison", BESTAETIGUNG.saisonId],
+      ["Eingetragen als", ERIKA.rolleText],
+      ["Link gültig bis", FRIST],
+    ]);
+  });
+
+  it("carries every sentence in both branches, the link among them", () => {
+    const mail = buildBewerbungBestaetigungEmail(BESTAETIGUNG);
+
+    for (const satz of [
+      `Für die Schule ${BESTAETIGUNG.schule} wurde eine Bewerbung zur Saison ${BESTAETIGUNG.saisonId} der Frankfurt-League eingereicht.`,
+      `Darin bist Du als ${ERIKA.rolleText} eingetragen.`,
+      "Bitte bestätige, dass das stimmt: Erst dann führt die Liga Dich als Kontaktperson.",
+      "Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist.",
+      "Du kannst den Eintrag bestätigen oder ablehnen.",
+      `Der Link ist bis zum ${FRIST} gültig und funktioniert nur einmal.`,
+      "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig.",
+      "Nach drei Tagen erinnern wir Dich einmal; ist die Bewerbung nach 14 Tagen noch unvollständig, löschen wir sie mit allen Angaben.",
+      LINK_EINS,
+    ]) {
+      assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
+      assert.ok(flat(mail.text).includes(satz), `the text branch lost „${satz}“`);
+    }
+  });
+
+  /* One press is what this message exists for. A second destination beside it competes with the one
+     the reader came for, which is the sign-in link's reason. */
+  it("offers one control, and it is the link", () => {
+    assert.deepEqual(steuerung(buildBewerbungBestaetigungEmail(BESTAETIGUNG).html), [{ href: LINK_EINS, label: "Eintrag bestätigen" }]);
+  });
+
+  it("gives a mailbox holding two seats one link each, under the name and role of the person it answers for", () => {
+    const mail = buildBewerbungBestaetigungEmail(BESTAETIGUNG_POSTFACH);
+
+    assert.deepEqual(steuerung(mail.html), [
+      { href: LINK_EINS, label: `Eintrag bestätigen: ${ERIKA.vorname} (${ERIKA.rolleText})` },
+      { href: LINK_ZWEI, label: `Eintrag bestätigen: ${JONAS.vorname} (${JONAS.rolleText})` },
+    ]);
+    // The panel names whose each row is, which the singular form has nobody to distinguish.
+    assert.deepEqual(faktListe(mail.html), [
+      ["Schule", BESTAETIGUNG.schule],
+      ["Saison", BESTAETIGUNG.saisonId],
+      ["Eingetragen als", `${ERIKA.vorname} (${ERIKA.rolleText})`],
+      ["Eingetragen als", `${JONAS.vorname} (${JONAS.rolleText})`],
+      ["Link gültig bis", FRIST],
+    ]);
+    // Both addresses reach the branch with no buttons too, each still placed by name.
+    for (const [seat, url] of [
+      [ERIKA, LINK_EINS],
+      [JONAS, LINK_ZWEI],
+    ] as const) {
+      assert.ok(mail.text.includes(`${seat.vorname} (${seat.rolleText}):\n${url}`), `the text branch does not place ${seat.vorname}'s link`);
+    }
+  });
+
+  it("addresses a shared mailbox in the plural and asks for each entry separately", () => {
+    const mail = buildBewerbungBestaetigungEmail(BESTAETIGUNG_POSTFACH);
+    const beide = `${ERIKA.vorname} (${ERIKA.rolleText}) und ${JONAS.vorname} (${JONAS.rolleText})`;
+
+    for (const satz of [
+      `Eure Einträge für die Saison ${BESTAETIGUNG.saisonId}`,
+      `Mit dieser E-Mail-Adresse sind darin ${beide} eingetragen.`,
+      "Bitte bestätigt jeden Eintrag einzeln: Erst dann führt die Liga Euch als Kontaktpersonen.",
+      EMPFAENGER_SATZ.postfach,
+    ]) {
+      assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
+      assert.ok(flat(mail.text).includes(satz), `the text branch lost „${satz}“`);
+    }
+    assert.ok(!flat(mail.text).includes("Darin bist Du als"), "a shared mailbox is addressed as one person");
+  });
+
+  /* `trainer_ist_zugleich` is one person under one token, which reaches this builder as a single
+     seat naming both roles. Two buttons to one URL would read as two things to do. */
+  it("names both seats and offers one control where one link answers for two", () => {
+    const zugleich = { vorname: "Erika", rolleText: "Ansprechperson und Trainerin oder Trainer", link: LINK_EINS };
+    const mail = buildBewerbungBestaetigungEmail({ ...BESTAETIGUNG, seats: [zugleich] });
+
+    assert.deepEqual(steuerung(mail.html), [{ href: LINK_EINS, label: "Eintrag bestätigen" }]);
+    assert.equal(faktRows(mail.html).get("Eingetragen als"), zugleich.rolleText);
+    assert.ok(flat(mail.text).includes(`Darin bist Du als ${zugleich.rolleText} eingetragen.`));
+  });
+});
+
+describe("buildBewerbungErinnerungEmail", () => {
+  it("names the deletion date rather than the link's validity, and carries the first message's link", () => {
+    const mail = buildBewerbungErinnerungEmail(BESTAETIGUNG);
+
+    assert.equal(mail.subject, `Erinnerung: Frankfurt-League, Saison ${BESTAETIGUNG.saisonId}`);
+    assert.deepEqual(faktListe(mail.html), [
+      ["Schule", BESTAETIGUNG.schule],
+      ["Saison", BESTAETIGUNG.saisonId],
+      ["Eingetragen als", ERIKA.rolleText],
+      ["Bewerbung wird gelöscht am", FRIST],
+    ]);
+    assert.deepEqual(steuerung(mail.html), [{ href: LINK_EINS, label: "Eintrag bestätigen" }]);
+  });
+
+  it("carries every sentence in both branches", () => {
+    const mail = buildBewerbungErinnerungEmail(BESTAETIGUNG);
+
+    for (const satz of [
+      "Vor drei Tagen haben wir Dich gebeten, Deinen Eintrag zu bestätigen:",
+      `In der Bewerbung der Schule ${BESTAETIGUNG.schule} zur Saison ${BESTAETIGUNG.saisonId} bist Du als ${ERIKA.rolleText} eingetragen.`,
+      "Bis jetzt fehlt Deine Antwort.",
+      `Ohne Deine Antwort löschen wir die Bewerbung am ${FRIST} mit allen Angaben.`,
+      LINK_EINS,
+    ]) {
+      assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
+      assert.ok(flat(mail.text).includes(satz), `the text branch lost „${satz}“`);
+    }
+  });
+
+  /* A seat that has answered carries no link, so the mailbox it shares is reminded about the other
+     one alone -- nobody is chased on somebody else's account. */
+  it("carries a link only for the seats it was given one for", () => {
+    const mail = buildBewerbungErinnerungEmail({ ...BESTAETIGUNG, seats: [JONAS] });
+
+    assert.deepEqual(steuerung(mail.html), [{ href: LINK_ZWEI, label: "Eintrag bestätigen" }]);
+    for (const branch of [readable(mail.html), mail.text]) {
+      assert.ok(!branch.includes(LINK_EINS), "a seat with no link was reminded anyway");
+      assert.ok(branch.includes(JONAS.rolleText));
+    }
+  });
+
+  it("addresses a shared mailbox in the plural", () => {
+    const mail = buildBewerbungErinnerungEmail(BESTAETIGUNG_POSTFACH);
+    const beide = `${ERIKA.vorname} (${ERIKA.rolleText}) und ${JONAS.vorname} (${JONAS.rolleText})`;
+
+    for (const satz of [
+      `Erinnerung: Eure Einträge für die Saison ${BESTAETIGUNG.saisonId}`,
+      "Vor drei Tagen haben wir Euch gebeten, Eure Einträge zu bestätigen:",
+      `sind mit dieser E-Mail-Adresse ${beide} eingetragen.`,
+      "Bis jetzt fehlt Eure Antwort.",
+    ]) {
+      assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
+      assert.ok(flat(mail.text).includes(satz), `the text branch lost „${satz}“`);
+    }
+  });
+});
+
+describe("buildBewerbungEingangOffenEmail", () => {
+  it("names who is still open and the reader's own link, and no school", () => {
+    const mail = buildBewerbungEingangOffenEmail(EINGANG_OFFEN);
+
+    assert.equal(mail.subject, `Bewerbung eingegangen: Frankfurt-League, Saison ${EINGANG_OFFEN.saisonId}`);
+    assert.deepEqual(faktListe(mail.html), [
+      ["Status", "Eingegangen, Bestätigungen offen"],
+      ["Saison", EINGANG_OFFEN.saisonId],
+      ["Eingetragen als", EINGANG_OFFEN.rollenText],
+      ["Noch offen", OFFEN_LISTE],
+      ["Frist", FRIST],
+    ]);
+    /* A mistyped submitter address then hands a stranger two first names and two roles with nothing
+       to attach them to, which is why no message to the submitter names the school. */
+    for (const branch of [readable(mail.html), mail.text]) {
+      assert.ok(!branch.includes(BESTAETIGUNG.schule), "a message to the submitter names the school");
+    }
+  });
+
+  it("carries every sentence in both branches", () => {
+    const mail = buildBewerbungEingangOffenEmail(EINGANG_OFFEN);
+
+    for (const satz of [
+      `Deine Bewerbung für die Saison ${EINGANG_OFFEN.saisonId} der Frankfurt-League ist bei uns eingegangen.`,
+      "Vollständig ist sie, sobald jede Kontaktperson ihren Eintrag selbst bestätigt hat.",
+      "Nach drei Tagen erinnern wir alle, die noch nicht bestätigt haben.",
+      `Ist die Bewerbung am ${FRIST} noch unvollständig, löschen wir sie mit allen Angaben und sagen Dir Bescheid.`,
+      "Sag den anderen am besten selbst Bescheid, dann geht es schneller.",
+      OFFEN_LISTE,
+      LINK_EINS,
+    ]) {
+      assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
+      assert.ok(flat(mail.text).includes(satz), `the text branch lost „${satz}“`);
+    }
+  });
+
+  it("offers the reader's own link first and the way to a person beside it", () => {
+    assert.deepEqual(steuerung(buildBewerbungEingangOffenEmail(EINGANG_OFFEN).html), [
+      { href: LINK_EINS, label: "Meinen Eintrag bestätigen" },
+      { href: `mailto:${KONTAKT_EMAIL}`, label: "Frage stellen" },
+    ]);
+  });
+});
+
+describe("buildBewerbungVollstaendigEmail", () => {
+  it("states that every contact confirmed, and offers the pair the decisions offer", () => {
+    const mail = buildBewerbungVollstaendigEmail(VOLLSTAENDIG);
+
+    assert.equal(mail.subject, `Bewerbung vollständig: Frankfurt-League, Saison ${VOLLSTAENDIG.saisonId}`);
+    assert.deepEqual(faktListe(mail.html), [
+      ["Status", "Vollständig, in Prüfung"],
+      ["Saison", VOLLSTAENDIG.saisonId],
+      ["Eingetragen als", VOLLSTAENDIG.rollenText],
+    ]);
+    assert.deepEqual(steuerung(mail.html), [
+      { href: `mailto:${KONTAKT_EMAIL}`, label: "Frage stellen" },
+      { href: LIGA_AKTION.href, label: LIGA_AKTION.label },
+    ]);
+  });
+
+  it("carries every sentence in both branches", () => {
+    const mail = buildBewerbungVollstaendigEmail(VOLLSTAENDIG);
+
+    for (const satz of [
+      `Vollständig: Bewerbung für die Saison ${VOLLSTAENDIG.saisonId}`,
+      "Alle Kontaktpersonen haben ihren Eintrag bestätigt.",
+      `Deine Bewerbung für die Saison ${VOLLSTAENDIG.saisonId} der Frankfurt-League ist damit vollständig, und wir schauen sie uns an.`,
+      "Wir melden uns bei allen drei Kontaktpersonen, sobald wir entschieden haben.",
+      "Du musst nichts weiter tun.",
+      WEBSITE_SENTENCE,
+    ]) {
+      assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
+      assert.ok(flat(mail.text).includes(satz), `the text branch lost „${satz}“`);
+    }
+  });
+});
+
+describe("buildBewerbungGeloeschtEmail", () => {
+  it("names who did not confirm and offers the way to start again", () => {
+    const mail = buildBewerbungGeloeschtEmail(GELOESCHT);
+
+    assert.equal(mail.subject, `Bewerbung gelöscht: Frankfurt-League, Saison ${GELOESCHT.saisonId}`);
+    assert.deepEqual(faktListe(mail.html), [
+      ["Status", "Gelöscht, nicht vollständig geworden"],
+      ["Saison", GELOESCHT.saisonId],
+      ["Eingetragen als", GELOESCHT.rollenText],
+      // Named, because a school told only that the application lapsed collects the same people again.
+      ["Nicht bestätigt", OFFEN_LISTE],
+    ]);
+    assert.deepEqual(steuerung(mail.html), [
+      { href: `${SITE_URL}/bewerbung/${GELOESCHT.saisonId}`, label: "Neu bewerben" },
+      { href: `mailto:${KONTAKT_EMAIL}`, label: "Frage stellen" },
+    ]);
+  });
+
+  it("carries every sentence in both branches", () => {
+    const mail = buildBewerbungGeloeschtEmail(GELOESCHT);
+
+    for (const satz of [
+      `Gelöscht: Bewerbung für die Saison ${GELOESCHT.saisonId}`,
+      "14 Tage lang haben nicht alle Kontaktpersonen ihren Eintrag bestätigt.",
+      `Deshalb haben wir Deine Bewerbung für die Saison ${GELOESCHT.saisonId} mit allen Angaben gelöscht, wie angekündigt.`,
+      "Solange die Bewerbungsfrist läuft, kann sich Deine Schule neu bewerben.",
+      "Frag die Kontaktpersonen am besten vorher, dann klappt es beim zweiten Mal schneller.",
+      OFFEN_LISTE,
+    ]) {
+      assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
+      assert.ok(flat(mail.text).includes(satz), `the text branch lost „${satz}“`);
+    }
+    // The text branch has no button to draw, so the offer is a labelled line under the note.
+    assert.ok(mail.text.includes(`Neu bewerben: ${SITE_URL}/bewerbung/${GELOESCHT.saisonId}`), "the text branch offers no way to start again");
+  });
+});
+
+describe("buildBewerbungAblehnungEmail", () => {
+  it("names the person and the role and takes no pronoun for either", () => {
+    const mail = buildBewerbungAblehnungEmail(ABLEHNUNG);
+    const wer = `${ABLEHNUNG.abgelehnt.vorname} (${ABLEHNUNG.abgelehnt.rolleText})`;
+
+    assert.equal(mail.subject, `Eintrag abgelehnt: Frankfurt-League, Saison ${ABLEHNUNG.saisonId}`);
+    assert.deepEqual(faktListe(mail.html), [
+      ["Status", "Nicht vollständig, eine Bestätigung fehlt"],
+      ["Saison", ABLEHNUNG.saisonId],
+      ["Eingetragen als", ABLEHNUNG.rollenText],
+      ["Abgelehnt von", wer],
+    ]);
+    for (const satz of [
+      `${wer} hat den Eintrag als Kontaktperson abgelehnt.`,
+      // „Diese Angaben“ stands where „seine“ or „ihre“ would, so the sentence reads for every name.
+      "Diese Angaben haben wir aus der Bewerbung entfernt.",
+      `So kann die Bewerbung nicht vollständig werden; am ${FRIST} löschen wir sie.`,
+      "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person in dieser Rolle. Frag sie vorher.",
+    ]) {
+      assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
+      assert.ok(flat(mail.text).includes(satz), `the text branch lost „${satz}“`);
+    }
+    for (const pronomen of ["seine Angaben", "ihre Angaben", "seinen Eintrag", "ihren Eintrag"]) {
+      assert.ok(!flat(readable(mail.html)).includes(pronomen), `the message takes „${pronomen}“, which misreads for half the names`);
+    }
+  });
+
+  it("offers the way to start again, as the deletion notice does", () => {
+    assert.deepEqual(steuerung(buildBewerbungAblehnungEmail(ABLEHNUNG).html), [
+      { href: `${SITE_URL}/bewerbung/${ABLEHNUNG.saisonId}`, label: "Neu bewerben" },
+      { href: `mailto:${KONTAKT_EMAIL}`, label: "Frage stellen" },
+    ]);
+  });
+});
+
+describe("the confirmation workflow's messages", () => {
+  it("state the same facts in both branches", () => {
+    for (const { name, mail } of alleWorkflow()) {
+      const fakten = faktListe(mail.html);
+
+      assert.ok(fakten.length >= 3, `${name} states no panel of facts at all, so this test proves nothing`);
+      for (const [label, value] of fakten) {
+        assert.ok(flat(mail.text).includes(`${label}: ${value}`), `${name}'s text branch lost „${label}: ${value}“`);
+      }
+    }
+  });
+
+  it("close on the recipient sentence each of them is actually true of", () => {
+    for (const { name, mail, empfaenger, footer } of alleWorkflow()) {
+      assert.ok(flat(readable(mail.html)).includes(EMPFAENGER_SATZ[empfaenger]), `${name}'s markup branch does not say who it reached`);
+      assert.ok(mail.text.endsWith(`\n${footer}`), `${name}'s text branch does not close with its footer, in its order`);
+
+      for (const [kreis, satz] of Object.entries(EMPFAENGER_SATZ)) {
+        if (kreis === empfaenger) continue;
+        assert.ok(!flat(readable(mail.html)).includes(satz), `${name} tells its reader it reached the ${kreis}`);
+      }
+    }
+  });
+
+  /* Four wordings, because what ignoring costs differs: a contact can end their seat through the
+     link, the submitter can only wait, and after the deletion there is nothing left to promise. */
+  it("tell a reader who never applied what ignoring the message actually costs", () => {
+    const KOSTEN: Record<string, string> = {
+      Bestätigung: "Deine Angaben werden nach 14 Tagen gelöscht. Oder lehne über den Link ab, dann entfernen wir sie sofort.",
+      "Bestätigung (Postfach)": "Deine Angaben werden nach 14 Tagen gelöscht. Oder lehne über den Link ab, dann entfernen wir sie sofort.",
+      Erinnerung: "Deine Angaben werden nach 14 Tagen gelöscht. Oder lehne über den Link ab, dann entfernen wir sie sofort.",
+      "Erinnerung (Postfach)": "Deine Angaben werden nach 14 Tagen gelöscht. Oder lehne über den Link ab, dann entfernen wir sie sofort.",
+      "Eingang offen": "die Bewerbung wird nach 14 Tagen gelöscht.",
+      Vollständig: "",
+      Gelöscht: "die Bewerbung wurde gelöscht.",
+      Ablehnung: "die Bewerbung wird nach 14 Tagen gelöscht.",
+    };
+    const auftakt =
+      "Du weißt nichts von einer Bewerbung bei der Frankfurt-League? Dann ignoriere diese E-Mail einfach. Für Dich ist nichts zu tun";
+
+    for (const { name, mail } of alleWorkflow()) {
+      const kosten = KOSTEN[name] ?? "";
+      const satz = kosten === "" ? `${auftakt}.` : `${auftakt}: ${kosten}`;
+
+      assert.ok(flat(readable(mail.html)).includes(satz), `${name}'s markup branch does not say what ignoring costs`);
+      assert.ok(flat(mail.text).includes(satz), `${name}'s text branch does not say what ignoring costs`);
+      // Once: `renderHtml` carries it for every message, and one adding its own would say it twice.
+      assert.equal(mail.text.split(auftakt).length - 1, 1, `${name}'s text branch states the note twice`);
+    }
+  });
+
+  it("set every „Saison NNNN“ in the brand colour", () => {
+    let gefunden = 0;
+
+    for (const { name, mail } of alleWorkflow()) {
+      const koerper = mail.html.slice(mail.html.indexOf("</head>"));
+      const stellen = [...koerper.matchAll(/Saison 2627/g)].map((treffer) => treffer.index);
+
+      // The decline states it in its heading alone; every other message states it in its prose too.
+      assert.ok(stellen.length >= 1, `${name} does not name its season in its body at all`);
+      gefunden += stellen.length;
+      for (const stelle of stellen) {
+        assert.ok(
+          koerper.slice(0, stelle).endsWith(`<strong class="fl-brand" style="color:${BRAND_COLOR};">`),
+          `${name} states the season uncoloured`,
+        );
+      }
+    }
+
+    assert.ok(gefunden > WORKFLOW.length, "the phrase stands once per message at most, so this test proves nothing");
+  });
+
+  /* `docs/frontend/spec.md :: 1.12`: the reader is `Du`, capitalised everywhere; no dash is
+     punctuation; and a club is a `Team`. A lower-case address reads as a different register. */
+  it("keep the copy rules the whole product is written to", () => {
+    for (const { name, mail } of alleWorkflow()) {
+      // The signature delimiter is RFC 3676's line and not punctuation, so it is read past.
+      const zweige = [
+        readable(mail.html),
+        mail.text
+          .split("\n")
+          .filter((zeile) => zeile !== "-- ")
+          .join("\n"),
+      ];
+
+      for (const zweig of zweige) {
+        assert.doesNotMatch(
+          zweig,
+          /\b(du|dein|deine|deinen|deinem|deiner|deines|dir|dich|euch|euer|eure|euren|eurem|eurer)\b/,
+          `${name} addresses its reader in lower case`,
+        );
+        assert.doesNotMatch(zweig, /\s[—–-]\s/, `${name} uses a dash as punctuation`);
+        assert.ok(!zweig.includes("Mannschaft"), `${name} says „Mannschaft“ where the league says „Team“`);
+        assert.ok(!zweig.includes("bereits"), `${name} says „bereits“ where the league says „schon“`);
+      }
+    }
+  });
+
+  /* Every value these builders interpolate, one hostile fixture at a time -- the nested seat fields
+     included, which no sweep over a flat record would reach. */
+  it("escape every value they interpolate into the markup", () => {
+    const gift = HOSTILE_NAME;
+    const cases = [
+      { field: "Bestätigung.schule", mail: buildBewerbungBestaetigungEmail({ ...BESTAETIGUNG, schule: gift }) },
+      { field: "Bestätigung.fristText", mail: buildBewerbungBestaetigungEmail({ ...BESTAETIGUNG, fristText: gift }) },
+      {
+        field: "Bestätigung.seats.rolleText",
+        mail: buildBewerbungBestaetigungEmail({ ...BESTAETIGUNG, seats: [{ ...ERIKA, rolleText: gift }] }),
+      },
+      {
+        field: "Bestätigung.seats.vorname",
+        mail: buildBewerbungBestaetigungEmail({ ...BESTAETIGUNG, seats: [{ ...ERIKA, vorname: gift }, JONAS] }),
+      },
+      { field: "Erinnerung.schule", mail: buildBewerbungErinnerungEmail({ ...BESTAETIGUNG, schule: gift }) },
+      { field: "Erinnerung.seats.rolleText", mail: buildBewerbungErinnerungEmail({ ...BESTAETIGUNG, seats: [{ ...ERIKA, rolleText: gift }] }) },
+      { field: "Eingang offen.rollenText", mail: buildBewerbungEingangOffenEmail({ ...EINGANG_OFFEN, rollenText: gift }) },
+      {
+        field: "Eingang offen.ausstehend.vorname",
+        mail: buildBewerbungEingangOffenEmail({ ...EINGANG_OFFEN, ausstehend: [{ vorname: gift, rolleText: "Stellvertretung" }] }),
+      },
+      { field: "Vollständig.rollenText", mail: buildBewerbungVollstaendigEmail({ ...VOLLSTAENDIG, rollenText: gift }) },
+      {
+        field: "Gelöscht.ausstehend.rolleText",
+        mail: buildBewerbungGeloeschtEmail({ ...GELOESCHT, ausstehend: [{ vorname: "Mira", rolleText: gift }] }),
+      },
+      {
+        field: "Ablehnung.abgelehnt.vorname",
+        mail: buildBewerbungAblehnungEmail({ ...ABLEHNUNG, abgelehnt: { vorname: gift, rolleText: "Stellvertretung" } }),
+      },
+      { field: "Ablehnung.fristText", mail: buildBewerbungAblehnungEmail({ ...ABLEHNUNG, fristText: gift }) },
+    ];
+
+    for (const { field, mail } of cases) {
+      assert.ok(!mail.html.includes("<script>"), `${field} reaches the markup unescaped`);
+      // Decoding the markup back returns the value, so escaping changed the encoding and not the fact.
+      assert.ok(readable(mail.html).includes(gift), `${field} did not survive escaping as the value written`);
+      assert.equal(stylesheet(mail.html), stylesheet(buildBewerbungVollstaendigEmail(VOLLSTAENDIG).html), `${field} reached the stylesheet`);
+    }
+  });
+
+  /* A client folding at a value's own delimiter line hides every line below it, the whole close
+     included. Stuffing is what keeps the value AND the footer. */
+  it("keep every value they interpolate from opening a second signature block", () => {
+    const cases = [
+      {
+        field: "Bestätigung.schule",
+        mail: buildBewerbungBestaetigungEmail({ ...BESTAETIGUNG, schule: DELIMITER_VALUE }),
+        empfaenger: "eintrag",
+      },
+      {
+        field: "Erinnerung.seats.vorname",
+        mail: buildBewerbungErinnerungEmail({ ...BESTAETIGUNG, seats: [{ ...ERIKA, vorname: DELIMITER_VALUE }, JONAS] }),
+        empfaenger: "postfach",
+      },
+      {
+        field: "Eingang offen.ausstehend.vorname",
+        mail: buildBewerbungEingangOffenEmail({ ...EINGANG_OFFEN, ausstehend: [{ vorname: DELIMITER_VALUE, rolleText: "Stellvertretung" }] }),
+        empfaenger: "einreichende",
+      },
+      {
+        field: "Ablehnung.abgelehnt.vorname",
+        mail: buildBewerbungAblehnungEmail({ ...ABLEHNUNG, abgelehnt: { vorname: DELIMITER_VALUE, rolleText: "Stellvertretung" } }),
+        empfaenger: "einreichende",
+      },
+    ] as const;
+
+    for (const { field, mail, empfaenger } of cases) {
+      assert.equal([...mail.text.matchAll(/^-- $/gm)].length, 1, `${field} stands as a second signature delimiter`);
+      assert.ok(mail.text.includes("Erste Zeile") && mail.text.includes("Zweite Zeile"), `${field}'s value was dropped rather than carried`);
+      assert.ok(mail.text.endsWith(`\n${textFooter(empfaenger)}`), `${field} pushed the footer out of the close`);
+      assert.ok(readable(mail.html).includes("Zweite Zeile"), `${field} lost the line below its delimiter in the markup`);
+    }
+  });
+
+  /* An address a reader has to select and paste is not a route, and one marked by colour alone is
+     not a link to a reader who cannot see the colour. */
+  it("make every address standing in prose a marked link", () => {
+    for (const { name, mail } of alleWorkflow()) {
+      for (const absatz of mail.html.matchAll(/<p [^>]*>([\s\S]*?)<\/p>/g)) {
+        const inner = absatz[1] ?? "";
+        if (!inner.includes(SITE_URL) && !inner.includes(KONTAKT_EMAIL)) continue;
+
+        assert.match(inner, /<a href="[^"]+"[^>]*>[^<]+<\/a>/, `${name} sets an address in prose without a link`);
+        assert.ok(inner.includes("text-decoration:underline"), `${name}'s prose link is marked by colour alone`);
+      }
+    }
+  });
+
+  /* A token URL is longer than the card is wide. Without the break it pushes the card open, and the
+     reader it exists for -- the one whose client drew no button -- is the one it breaks for. */
+  it("break a link that stands in the prose inside the word", () => {
+    for (const { name, mail } of alleWorkflow()) {
+      const absaetze = [...mail.html.matchAll(/<p ([^>]*)>([\s\S]*?)<\/p>/g)].filter(([, , inner]) => (inner ?? "").includes("/bestaetigung?"));
+      if (absaetze.length === 0) continue;
+
+      for (const [, stil] of absaetze) {
+        assert.ok((stil ?? "").includes("word-break:break-all"), `${name} sets a token URL in a paragraph that cannot break`);
+      }
+      assert.ok(flat(readable(mail.html)).includes(FALLBACK_SENTENCE), `${name} offers an address with no sentence saying why`);
+    }
+  });
 });

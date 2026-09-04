@@ -13,7 +13,7 @@ registerHooks({
 });
 
 const { buildMagicLinkEmail } = await import("./authEmail.ts");
-const { KONTAKT_EMAIL } = await import("./brand.ts");
+const { KONTAKT_EMAIL, SITE_URL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
 
 /** The markup branch reduced to the facts a reader ends up with, so a fact is checked as a fact in both branches. */
 function readable(html: string): string {
@@ -43,6 +43,15 @@ const HOSTILE_URL = `https://frankfurtleague.de/x?email=a"<script>&b='c'`;
 
 const FUSS_SATZ = `Antworten an die Absenderadresse liest niemand. Schreibe uns an ${KONTAKT_EMAIL}.`;
 const IGNORIER_SATZ = "Du hast diese Anmeldung nicht angefordert? Dann ignoriere diese E-Mail einfach. Ohne den Link passiert nichts.";
+
+/** The shell's close as this branch ends on it: the block a folded delimiter line would swallow whole. */
+const TEXT_SCHLUSS = [
+  "-- ",
+  FUSS_SATZ,
+  `Datenschutzerklärung: ${SITE_URL}/datenschutz`,
+  `Impressum: ${SITE_URL}/impressum`,
+  `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`,
+].join("\n");
 
 describe("buildMagicLinkEmail", () => {
   /* A mail client renders one branch or the other, so a fact only one half carried would reach only
@@ -111,14 +120,14 @@ describe("buildMagicLinkEmail", () => {
     assert.equal([...mail.text.matchAll(/^-- $/gm)].length, 1, "the link stands as a second signature delimiter");
     assert.ok(mail.text.includes("\n -- \n"), "the link's delimiter line was dropped rather than stuffed");
     assert.ok(mail.text.includes("Zweite Zeile"), "the line below the delimiter was lost");
-    assert.ok(mail.text.endsWith(`\n-- \n${FUSS_SATZ}`), "the link pushed the footer out of the close");
+    assert.ok(mail.text.endsWith(`\n${TEXT_SCHLUSS}`), "the link pushed the footer out of the close");
   });
 
   it("closes the text branch with RFC 3676's signature delimiter", () => {
     const mail = buildMagicLinkEmail(URL_);
 
     assert.ok(mail.text.includes("\n-- \n"), "without the trailing space no client folds the footer");
-    assert.ok(mail.text.endsWith(`\n-- \n${FUSS_SATZ}`), "the text branch no longer closes on its footer");
+    assert.ok(mail.text.endsWith(`\n${TEXT_SCHLUSS}`), "the text branch no longer closes on its footer");
     assert.ok(mail.text.indexOf(IGNORIER_SATZ) < mail.text.indexOf("\n-- \n"), "the note fell below the signature delimiter");
   });
 });

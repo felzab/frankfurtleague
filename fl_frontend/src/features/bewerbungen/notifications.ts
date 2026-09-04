@@ -1,11 +1,12 @@
 import "server-only";
 
+import { joinUnd } from "@/core/bewerbungEmail";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
 
 import { BEWERBUNG_SEATS } from "./constants";
 
-import type { BewerbungEmail } from "@/core/bewerbungEmail";
+import type { BewerbungEmail, BewerbungLinkSeat } from "@/core/bewerbungEmail";
 
 /**
  * The three seats, narrowed to the one field a fan-out reads. Both a stored block and a submitted
@@ -42,13 +43,6 @@ export type BewerbungBetreff = "Zusage" | "Absage";
 /** What one seat is called, in the wording the form asked for it under. */
 function rolleLabel(rolle: BewerbungRolle): string {
   return BEWERBUNG_SEATS.find((seat) => seat.value === rolle)?.label ?? "";
-}
-
-/** German lists nothing with a comma before its last item: „A, B und C“. */
-function joinUnd(labels: readonly string[]): string {
-  if (labels.length < 2) return labels[0] ?? "";
-
-  return `${labels.slice(0, -1).join(", ")} und ${labels[labels.length - 1]!}`;
 }
 
 /**
@@ -91,9 +85,9 @@ export function collectBewerbungEmpfaenger(kontakte: BewerbungSeats): BewerbungE
 }
 
 /**
- * The Ansprechperson's mailbox alone, and every seat that mailbox holds. **One address rather than
- * three**: the receipt goes out before anybody has confirmed the address, so it takes the narrowest
- * fan-out that still answers the applicant.
+ * The Ansprechperson's mailbox alone, and every seat it holds. **Every message addressed to the
+ * submitter goes here**: no seat records who submitted, and the Ansprechperson is the submitter by
+ * convention. Confirming an address is the link's job, not this fan-out's.
  */
 export function collectBewerbungEingangEmpfaenger(kontakte: BewerbungSeats): BewerbungEmpfaenger[] {
   // Collected over all three seats and narrowed afterwards, never read off the one seat: a person
@@ -101,6 +95,54 @@ export function collectBewerbungEingangEmpfaenger(kontakte: BewerbungSeats): Bew
   return collectSeats(kontakte)
     .filter((mailbox) => mailbox.rollen.includes("ansprechperson"))
     .map(toEmpfaenger);
+}
+
+/**
+ * The three seats with the first name a confirmation message states beside a link. Assignable to
+ * `BewerbungSeats`, so the dedupe reads one block whichever fan-out asked for it.
+ */
+export type BewerbungLinkSeats = {
+  trainer: { email: string; vorname: string } | null;
+  ansprechperson: { email: string; vorname: string } | null;
+  stellvertretung: { email: string; vorname: string } | null;
+};
+
+/** One mailbox and every link it is sent, which is one message's worth. */
+export type BewerbungLinkEmpfaenger = { address: string; seats: readonly BewerbungLinkSeat[] };
+
+/**
+ * One message per mailbox, carrying one link for each seat that mailbox holds. Two people on a
+ * school inbox are two entries under one address.
+ */
+export function seatsByMailbox(
+  kontakte: BewerbungLinkSeats,
+  /** A seat the caller left out gets no link, and a mailbox left with none gets no message: that is what keeps a reminder off an answered seat. */
+  linkBySeat: Partial<Record<BewerbungRolle, string>>,
+): BewerbungLinkEmpfaenger[] {
+  const gruppiert = collectSeats(kontakte).map(({ address, rollen }) => {
+    // Keyed by link rather than by person: one token answering two seats is what the message has to
+    // offer once, and nothing else here can tell those two seats are the same reader.
+    const proLink = new Map<string, { vorname: string; rollen: BewerbungRolle[] }>();
+
+    for (const rolle of rollen) {
+      const seatLink = linkBySeat[rolle];
+      if (seatLink === undefined || seatLink === "") continue;
+
+      const bekannt = proLink.get(seatLink) ?? { vorname: kontakte[rolle]?.vorname ?? "", rollen: [] };
+      bekannt.rollen.push(rolle);
+      proLink.set(seatLink, bekannt);
+    }
+
+    const seats = [...proLink].map(([seatLink, { vorname, rollen: gehalten }]) => ({
+      vorname: vorname,
+      rolleText: joinUnd(gehalten.map(rolleLabel)),
+      link: seatLink,
+    }));
+
+    return { address: address, seats: seats };
+  });
+
+  return gruppiert.filter(({ seats }) => seats.length > 0);
 }
 
 /**
@@ -118,14 +160,41 @@ export async function sendBewerbungMail({
   /** Composed per recipient, because each is told the seat they hold; the rest of the message is one text. */
   buildMail: (rollenText: string) => BewerbungEmail;
 }): Promise<BewerbungMailOutcome> {
+  return settleFanOut(operation, recipients, ({ rollenText }) => buildMail(rollenText));
+}
+
+/**
+ * One message per mailbox, each carrying that mailbox's own links.
+ *
+ * Its own entry point rather than a widened `sendBewerbungMail`, whose `rollenText` would then mean
+ * something different in each of the two.
+ */
+export async function sendBewerbungLinkMail({
+  operation,
+  recipients,
+  buildMail,
+}: {
+  operation: string;
+  recipients: readonly BewerbungLinkEmpfaenger[];
+  buildMail: (seats: readonly BewerbungLinkSeat[]) => BewerbungEmail;
+}): Promise<BewerbungMailOutcome> {
+  return settleFanOut(operation, recipients, ({ seats }) => buildMail(seats));
+}
+
+/** Settles every address, whatever the message was composed from. */
+async function settleFanOut<T extends { address: string }>(
+  operation: string,
+  recipients: readonly T[],
+  buildMail: (recipient: T) => BewerbungEmail,
+): Promise<BewerbungMailOutcome> {
   const settled = await Promise.allSettled(
     // `async`, so a compose that throws is inside the settled boundary too: without it the throw
     // escapes `.map()` before `allSettled` wraps anything and rejects the whole fan-out, reporting a
     // failure for a written decision (`docs/frontend/spec.md :: I39`).
-    recipients.map(async ({ address, rollenText }) => {
-      const mail = buildMail(rollenText);
+    recipients.map(async (recipient) => {
+      const mail = buildMail(recipient);
 
-      return sendMail({ to: address, subject: mail.subject, html: mail.html, text: mail.text });
+      return sendMail({ to: recipient.address, subject: mail.subject, html: mail.html, text: mail.text });
     }),
   );
 
