@@ -209,9 +209,11 @@ the starter names: read them there, never from memory (§1). What they leave to 
   pieces is in no piece's diff, so a slice several agents built in parallel is audited whole.
 - **A surface a person looks at is not audited by reading.** A cold auditor has no browser, a render
   harness cannot mount what needs a router, and a source-text pin passes on markup nobody rendered —
-  so a slice that changes what someone sees earns a browser pass over the local stack (CLAUDE.md
-  §5), run by you at the wave boundary, and the owner is put in front of that build BEFORE its fix
-  rounds, never after. **A look ruling is a class** and binds every surface in flight.
+  so a slice that changes what someone sees is judged by the OWNER in a browser over the local
+  stack (CLAUDE.md §5) as soon as it is served and before its fix rounds close — the owner reads a
+  page in minutes where your scripted pass blocks the fleet for an hour. Yours: the stack up, a
+  checklist of what changed, and the structural checks. **A look ruling is a class** and binds every
+  surface in flight.
 - **At many slices the lightening is the normal allocation and the full cycle the exception**
   ([register-template.md](register-template.md)): a non-critical slice gets one cold audit and one
   fix, and its fix is walked by whichever driving re-auditor runs next, never by a re-audit of its

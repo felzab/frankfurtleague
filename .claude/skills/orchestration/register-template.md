@@ -104,7 +104,8 @@ rather than by a re-audit of its own (`SKILL.md` §6).
 
 **A slice whose output a person looks at carries its browser pass in this table beside its rounds**
 (`SKILL.md` §6). A cold read cannot see a layout, so that pass is the slice's audit and not an
-extra: the owner's own pass reviews what it found, and is never the first look anybody takes.
+extra: the owner runs it over the served build as soon as the slice is up, and its findings enter
+the slice's fix round rather than a round of their own after the audits have closed.
 
 **Where the session BUILDS a mechanism meant to change what people write** -- a rule set, a prompt,
 a card delivered before every edit, a linter -- one of its slices is an A/B rather than an audit:
