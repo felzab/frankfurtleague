@@ -514,7 +514,7 @@ describe("the Abi-Jahrgang the school states", () => {
   /* An emptied box records `null` rather than a number nobody typed, and `z.int()` answers `null` and
      a fraction alike — which is why the mirror spells this one `z.number().int()`. */
   it("asks for the count where the box is empty, and for a whole number where it holds a fraction", () => {
-    assert.equal(stufenRefusal(null), "Bitte gib an, wie viele Schülerinnen und Schüler in Deiner Stufe sind.");
+    assert.equal(stufenRefusal(null), "Bitte gib an, wie viele Schülerinnen und Schüler in Deinem Abi-Jahrgang sind.");
     assert.equal(stufenRefusal(1.5), "Bitte gib eine ganze Zahl ein.");
   });
 

@@ -1291,19 +1291,20 @@ a form module and a box count, and the loop under it turns each row into one cas
 named in that file and in no other, so its rows are the whole population it is judged over: a bound
 absent from it generates no case, and the suite is as green with the row as without it.
 
-**A capped box already stands outside it.**
+**Nothing marks a bound as belonging here.**
 `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx` caps the
 Kürzel box with `KUERZEL_LAENGE`, which
 `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS` pairs against the backend's own
-length, and no row names it. The register's prose declares one bound deliberately outside it —
-`KONTAKT_EMAIL_MAX_LENGTH`, which bounds schemas and binds no input anywhere — and this is not that
-one.
+length; the register carries its row, and would read exactly as complete without it. The prose
+declares one bound deliberately outside — `KONTAKT_EMAIL_MAX_LENGTH`, which bounds schemas and binds
+no input anywhere — and that is the only stated exception, so a row nobody wrote and a row nobody
+wanted are indistinguishable by reading.
 
 **Severity is low and worth stating rather than inflating.** The Zod mirror still refuses an
 over-long Kürzel, so an uncapped box costs the applicant a refusal at the submit rather than a stop
 at the keystroke, which is the whole of what a cap on the control buys. What makes it worth an entry
 is that the rule the register enforces — each ceiling reaches the control as well as the schema — is
-enforced over the rows somebody remembered, and one row is already missing.
+enforced over the rows somebody remembered.
 
 **The same file refuses a hand-kept list for its other register.**
 `fl_frontend/src/features/bewerbungen/payloadBounds.test.ts :: MIRRORS` takes its ceilings off

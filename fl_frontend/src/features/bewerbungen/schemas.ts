@@ -557,7 +557,9 @@ export const FLPostBewerbungPayloadSchema = z
     // `z.number().int()` for `FLBewerbungKaderPayloadSchema`'s reason: `z.int()` would answer an
     // emptied box and a typed fraction alike.
     stufengroesse: z
-      .number({ error: "Bitte gib an, wie viele Schülerinnen und Schüler in Deiner Stufe sind." })
+      // „Abi-Jahrgang" rather than the label's „Stufe": a refusal stands alone, where the hint that
+      // settles the label's unit is not beside it to be read.
+      .number({ error: "Bitte gib an, wie viele Schülerinnen und Schüler in Deinem Abi-Jahrgang sind." })
       .int({ error: "Bitte gib eine ganze Zahl ein." })
       .min(1, { error: "Bitte gib eine Zahl ab 1 ein." })
       .max(BEWERBUNG_STUFENGROESSE_MAX, { error: `Bitte gib höchstens ${String(BEWERBUNG_STUFENGROESSE_MAX)} an.` }),
