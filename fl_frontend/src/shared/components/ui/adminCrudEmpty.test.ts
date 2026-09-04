@@ -24,7 +24,9 @@ const ACTIONS_WIDTH: Record<number, string> = { 1: "w-32", 2: "w-36", 3: "w-48",
  */
 const TABLES = [
   { file: "features/aktionen/components/collections/AdminAktionenTable.tsx", controls: 2, alternates: 0, freeText: 224 },
-  { file: "features/bewerbungen/components/collections/AdminBewerbungenTable.tsx", controls: 1, alternates: 0, freeText: 256 },
+  // Its free-text column is the Ansprechperson, a name over an address: the club beside it is
+  // declared, so the width above the floor lands on the pair that goes on reading longer.
+  { file: "features/bewerbungen/components/collections/AdminBewerbungenTable.tsx", controls: 1, alternates: 0, freeText: 160 },
   { file: "features/teams/components/collections/AdminKontakteTable.tsx", controls: 2, alternates: 0, freeText: 256 },
   { file: "features/saisons/components/collections/AdminSaisonsTable.tsx", controls: 3, alternates: 0, freeText: 304 },
   { file: "features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx", controls: 4, alternates: 1, freeText: 176 },

@@ -9,18 +9,18 @@ consulting one; every other ruling is mine, taken on 2026-09-01 in a review of e
 and refined on 2026-09-02, and each stands open to a qualified reviewer's correction. Where today's
 behaviour differs from a ruling, the entry says so.
 
-| Section                                                                                                    | Answers                                                      |
-| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| [1. Responsibility and the request route](#1-responsibility-and-the-request-route)                         | Who the controller is, which authority, where a request goes |
-| [2. Consent comes from the person, from 16](#2-consent-comes-from-the-person-from-16)                      | The sign-up flow every ruling on consent assumes             |
-| [3. The current pupil records are reset once](#3-the-current-pupil-records-are-reset-once)                 | What happens to the backfilled consents                      |
-| [4. What is published, and on what basis](#4-what-is-published-and-on-what-basis)                          | Addresses, names, the team page, crawlers, the notice        |
-| [5. Erasure reaches everyone who asks](#5-erasure-reaches-everyone-who-asks)                               | Who can be erased, what erasure reaches, what it does not    |
-| [6. Retention is bounded where a bound was chosen](#6-retention-is-bounded-where-a-bound-was-chosen)       | The action log, applications, contacts, access logs          |
-| [7. Processors and third parties](#7-processors-and-third-parties)                                         | Who receives data, under which agreement, and the gaps       |
-| [9. A local copy of production expires](#9-a-local-copy-of-production-expires)                             | The development practice the rulings bound                   |
-| [10. Adjacent decisions were accepted as recommended](#10-adjacent-decisions-were-accepted-as-recommended) | Roadmap items that needed no expert                          |
-| [11. Open, and owed a decision](#11-open-and-owed-a-decision)                                              | What the rulings above do not settle                         |
+| Section                                                                                                    | Answers                                                   |
+| ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| [1. Responsibility and the request route](#1-responsibility-and-the-request-route)                         | Who the controller is, and where a request goes           |
+| [2. Consent comes from the person, from 16](#2-consent-comes-from-the-person-from-16)                      | The sign-up flow every ruling on consent assumes          |
+| [3. The current pupil records are reset once](#3-the-current-pupil-records-are-reset-once)                 | What happens to the backfilled consents                   |
+| [4. What is published, and on what basis](#4-what-is-published-and-on-what-basis)                          | Addresses, names, the team page, crawlers, the notice     |
+| [5. Erasure reaches everyone who asks](#5-erasure-reaches-everyone-who-asks)                               | Who can be erased, what erasure reaches, what it does not |
+| [6. Retention is bounded where a bound was chosen](#6-retention-is-bounded-where-a-bound-was-chosen)       | The action log, applications, contacts, access logs       |
+| [7. Processors and third parties](#7-processors-and-third-parties)                                         | Who receives data, under which agreement, and the gaps    |
+| [9. A local copy of production expires](#9-a-local-copy-of-production-expires)                             | The development practice the rulings bound                |
+| [10. Adjacent decisions were accepted as recommended](#10-adjacent-decisions-were-accepted-as-recommended) | Roadmap items that needed no expert                       |
+| [11. Open, and owed a decision](#11-open-and-owed-a-decision)                                              | What the rulings above do not settle                      |
 
 ## 1. Responsibility and the request route
 
@@ -112,7 +112,12 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   repeated and nobody is told a person's details are gone while they stand.
 - **An erasure keyed on an email address warns first.** Colleagues sharing a school inbox are one
   subject to the match, so the matched names are shown for confirmation before the write. A
-  person id across seasons is not introduced: contact persons are season-scoped by design.
+  person id across seasons is not introduced: contact persons are season-scoped by design. Today
+  the confirmation names the person whose panel it was opened from and states the reach as a class
+  rather than listing whom the address matches
+  (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`),
+  so an administrator confirms a write whose subjects they have not seen
+  (`docs/_roadmap/items.md :: k3g7-cqx7`).
 - **The administrator's own email on every log row stays, outside every redaction.** The log
   exists to say who did what; the asymmetry is deliberate and is stated at the invariant once it
   leaves here (`docs/backend/spec.md :: I42` is the redaction it sits beside, and `:: I48` what a

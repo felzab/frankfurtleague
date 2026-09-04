@@ -123,7 +123,22 @@ describe("a seat an erasure emptied", () => {
     });
 
     assert.equal(zusageHindernis(staendeOf(ERASED), TEAM), zusageHindernis(staendeOf(declined), TEAM));
-    assert.equal(zusageHindernis(staendeOf(ERASED), TEAM), "Wo für eine Rolle niemand mehr in der Bewerbung steht, bleibt nur die Absage.");
+    assert.equal(
+      zusageHindernis(staendeOf(ERASED), TEAM),
+      "Eine Kontaktperson hat widersprochen oder ihren Eintrag löschen lassen. Diese Bewerbung kann nur noch abgelehnt werden.",
+    );
+  });
+
+  /* The reader meets this sentence under a row calling the seat a Widerspruch or an Eintrag
+     gelöscht, and a third wording would read as a third state. Roots rather than the chips' forms:
+     the sentence says who did what. */
+  it("states the cause in the words its own rows use", () => {
+    const satz = zusageHindernis(staendeOf(ERASED), TEAM) ?? "";
+
+    for (const wurzel of ["widerspr", "Eintrag", "lösch"]) {
+      assert.ok(satz.includes(wurzel), `the reason drops „${wurzel}“, which is the root the row above it uses`);
+    }
+    assert.equal(satz.split(". ").length, 2, "the reason is one long sentence again, which is what made the last one unreadable");
   });
 });
 

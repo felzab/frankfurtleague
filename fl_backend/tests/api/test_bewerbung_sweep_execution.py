@@ -39,6 +39,7 @@ NEXT_SAISON_ID = "2027"
 OTHER_SAISON_ID = "2025"
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
+TOMORROW = "2026-04-02"
 MAILED_ON_THE_MARK = "2026-03-29"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 REDACTED_AT = "2026-04-01T10:30:00+00:00"
@@ -507,6 +508,34 @@ class TestTheFourteenDayClock:
 
         assert geloescht == 0
         assert document is not None
+
+    def test_an_announced_candidate_whose_deadline_moved_is_skipped_rather_than_erased(self, mongo_replica_set_url: str):
+        """The stamp says a notice went out, never that the application is still due.
+
+        A re-send restarts `bestaetigungsfrist`, so erasing on the stamp alone would destroy an
+        application whose people are holding a live link.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await announce(database, client, [DELETE_OID])
+            # What a re-send does to this row, written directly: the deadline restarts and the
+            # application stops being a deletion candidate while its stamp stays where it is.
+            await patch_one_in_db(
+                collection=database[Collection.BEWERBUNGEN],
+                db_filter={"_id": DELETE_OID},
+                update={"$set": {"bestaetigungsfrist": TOMORROW}},
+            )
+            response = await erase(database, client, [DELETE_OID])
+
+            return response.geloescht, await stored(database, DELETE_OID)
+
+        geloescht, document = on_a_league(mongo_replica_set_url, body)
+
+        assert geloescht == 0
+        assert document is not None
+        # The stamp survives: the notice really did go out, and a later pass past the new deadline
+        # erases without mailing a second one.
+        assert document["loeschung_angekuendigt_am"] == TODAY
 
     def test_a_failed_erasure_does_not_send_the_notice_a_second_time(self, mongo_replica_set_url: str):
         """Without the stamp the hourly pass mails „wird gelöscht“ again every hour until the erasure finally goes through."""

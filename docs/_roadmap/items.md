@@ -98,6 +98,7 @@ deliverable.
 | `ggng-8m7v` | The confirmation link's two anonymous endpoints read a whole application unprojected                                        | BE, DB, Docs, bewerbungen                                                   | Open     |
 | `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                               | BE, Docs, spiele, teams                                                     | Open     |
 | `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                 | FE, Docs                                                                    | Decided  |
+| `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                             | FE, BE, DB, Docs, kontakte                                                  | Open     |
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                          | FE, BE, admin, spieler                                                      | Open     |
 | `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                                | FE, BE, Docs, spieler                                                       | Open     |
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                        | FE, Docs                                                                    | Open     |
@@ -115,6 +116,7 @@ deliverable.
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                      | FE, BE, DB, admin, bewerbungen                                              | Standing |
 | `rtn3-sq85` | A state chip can be neutral gray, and the shared badge carries shape without tone                                           | FE, Docs, bewerbungen                                                       | Open     |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                  | FE, BE, Docs, tests, saisons                                                | Open     |
+| `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject             | FE, Docs, tests                                                             | Open     |
 | `txef-hz2b` | Two referees reduced to one published name are one option in the fixture facet                                              | FE, BE, spiele                                                              | Open     |
 | `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                           | FE, Docs                                                                    | Standing |
 | `vyr6-uk2p` | The open-window read filters into arrays and subscripts whatever comes back                                                 | FE, BE, tests, bewerbungen                                                  | Open     |
@@ -154,10 +156,12 @@ deliverable.
 | `crwn-qfp7` | The opening comment block of every file read as a shell script is measured by neither bound                                 | Ops, Docs, gate                                                             | Open     |
 | `d5j8-js4n` | A real file in an unaccepted spelling reads as a missing file                                                               | Ops, gate                                                                   | Open     |
 | `db2a-9qu3` | The local edge claims to mirror production, unchecked                                                                       | Ops, Docs, gate, edge                                                       | Open     |
+| `efnu-cq79` | A case asserts that its own fixture minted a usable hash, so hash luck decides the run                                      | Ops, Docs, gate, tests                                                      | Open     |
 | `eg48-8863` | Two db-tier runs at once fail in a way that names nothing                                                                   | BE, Ops, gate, ci, tests                                                    | Open     |
 | `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing           | FE, Docs, tests                                                             | Open     |
 | `f4uf-jape` | A copy test pins what its own author wrote                                                                                  | FE, BE, Docs, tests, saisons, teams                                         | Open     |
 | `fha5-k95h` | A projection's coupling is guarded in one direction only                                                                    | BE, tests, saisons                                                          | Open     |
+| `frxr-w4j2` | A citation naming a root-level file resolves to no path, so the tag derivation reading one cannot fire                      | Ops, Docs, gate, tests                                                      | Open     |
 | `g98z-k4cp` | Two hook watchdogs sit under a registration in another file, and nothing compares the pair                                  | Ops, Docs, gate                                                             | Open     |
 | `gbjj-9wfh` | A test fixture asserts the type nothing else checks                                                                         | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
 | `gkp4-q3q9` | The unique-index test pairs by ordinal position                                                                             | BE, DB, tests                                                               | Open     |
@@ -612,11 +616,12 @@ its floor past that step is scrolled sideways for every width between the two. T
 is deliberate as a last resort and says so at the line, deliberately keeping its bar visible — which
 is the right behaviour for a table that overflows and the wrong outcome for a table that should not.
 
-**The repair is a shared budget, not eight local trims.** Each table's floor is the sum of decisions
+**The repair is a shared budget, not a trim per table.** Each table's floor is the sum of decisions
 taken in that table — how many controls a row offers, how much room a free-text column is owed — so
-narrowing one is a product decision about that list, and doing it eight times by hand leaves the
-ninth table free to reintroduce the defect. What holds is a width no table may exceed, derived from
-the step its layout starts at, with the per-table sums measured against it.
+narrowing one is a product decision about that list, and narrowing every member of the roster by
+hand still leaves the table added after it free to reintroduce the defect. What holds is a width no
+table may exceed, derived from the step its layout starts at, with the per-table sums measured
+against it.
 
 **Done when** no admin table declares a floor wider than the narrowest viewport its table layout is
 shown at, and a check refuses one that does — extending the roster's existing sums rather than
@@ -1237,6 +1242,39 @@ vendored selectors overridden in the same file, and no clause governs them. §1.
 spec sheet is what governs both cases, and it already asks a stylesheet rule to name the HeroUI
 version it was written against.
 
+### `k3g7-cqx7` · An erasure is confirmed without naming whom the address matches
+
+| Tags                       | Status | Depends on |
+| -------------------------- | ------ | ---------- |
+| FE, BE, DB, Docs, kontakte | Open   | —          |
+
+**Ruled: an erasure keyed on an email address shows the matched names for confirmation before the
+write** (`docs/datenschutz.md :: 5. Erasure reaches everyone who asks`). The code is the regression,
+and the ruling stands.
+
+**The confirmation names one person and describes the rest as a class.**
+`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx` is
+opened from inside one seat's own panel, names that seat's person, and says the write reaches them
+everywhere rather than only here. Everyone else the address holds is left to the administrator's
+memory, and the counts saying how far the write actually went arrive in the result afterwards.
+
+**A shared school inbox is the case the ruling was made for, and it is the case that reads best.**
+The panel names a real person, the sentence is plainly worded, and nothing on screen suggests
+anything is missing — so the confirmation is most convincing exactly where it is least complete, and
+an administrator clearing one departing Trainer can empty two colleagues' seats across every season
+that inbox appears in.
+
+**Nothing on the backend answers the question either.**
+`fl_backend/app/api/kontakte/admin_router.py` publishes the erasure and no read beside it, so what an
+address matches is knowable only by performing the write. Whatever renders the names needs a read
+that does not exist yet, and that read is the part to design first: it serves contact records to an
+administrator, so it is admin-tier and carries the same withholding every other read of the block
+does.
+
+**Done when** the confirm reveal lists every person the address matches, by name and by the season
+each seat sits in, before the write — read from a route added for it rather than inferred on the
+client, with a case pinning that a second matched person appears in the reveal.
+
 ### `kwfu-48sm` · Two surfaces offer a squad-row return the season's cap will refuse
 
 | Tags                   | Status | Depends on |
@@ -1841,10 +1879,12 @@ choice is made rather than defaulted into, and it covers the archive as well as 
 **Ruled: no chip or badge is neutral gray, and a state chip wears the tone its meaning dictates.**
 
 **The shared badge is shape alone, so every tone is a slice's own string.**
-`fl_frontend/src/shared/components/ui/badges.ts :: LABEL_BADGE` sets the pill — its size, radius and
-weight — and says at the line that colour stays the caller's, so a tone arrives as a second class
-string written beside it. Per-slice maps supply those strings, and nothing holds them to one
-vocabulary or refuses a member of it. The state that is neutral today is
+`fl_frontend/src/shared/components/ui/badges.ts :: LABEL_BADGE` sets the pill — its size, radius,
+weight and its refusal to wrap — and names no colour at all, so a tone arrives as a second class
+string written beside it at the call site. That colour is the caller's is stated once on this
+module, at `fl_frontend/src/shared/components/ui/badges.ts :: COUNT_BADGE`, and it holds for both
+recipes. Per-slice maps supply the strings, and nothing holds them to one vocabulary or refuses a
+member of it. The state that is neutral today is
 `fl_frontend/src/features/bewerbungen/constants.ts :: BEWERBUNG_STATUS_TINT`'s `abgelehnt`, and the
 comment above that map argues for the choice in as many words: a decline is a decision the league
 took rather than a fault anybody has to act on. **The ruling overrides that argument**, so whoever
@@ -1909,6 +1949,43 @@ group shape guessed wrong — true in the planning window it was written for, an
 **The German is a hand-written second copy** (`fl_frontend/src/features/saisons/actions.ts`, its
 `REQ-RULES-011` arm), so a repair that stops at the backend leaves an admin reading the old
 instruction.
+
+### `t3xf-s5hy` · The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject
+
+| Tags            | Status | Depends on |
+| --------------- | ------ | ---------- |
+| FE, Docs, tests | Open   | —          |
+
+**The roster is discovered rather than typed, and discovered by the property the cases go on to
+assert.** `fl_frontend/src/shared/components/ui/confirmPanel.test.ts :: panelsUnder` walks the
+feature tree and keeps a `.tsx` file whose source contains a call to
+`fl_frontend/src/shared/hooks/useTwoPressConfirm.ts :: useTwoPressConfirm`; every case then holds
+that roster to the shared reveal, the shared armed fill and the shared rows. A panel that escalates
+a press from state it arms itself matches no case, because it is not in the population the cases
+read — it drops out of the listing rather than failing it, which is the failure
+`docs/_standard/standard.md :: PRE-4` names when a check derives its subjects from the property it
+asserts.
+
+**The defence the file already carries answers the other half of the problem.** Its own note says a
+roster counted against its own length can never report an omission, and that is right: a floor over
+the roster's size is what discovery replaces. What discovery does not buy is independence, and the
+two listings the sweep requires to agree are both filtered out of that same roster, so they agree by
+construction wherever the discriminator is what went missing.
+
+**What a second route would have to key on is the panel, not the hook.** A confirm panel is a
+component that renders a destructive or confirming control behind a press the reader has to repeat —
+a shape reachable from the control and its copy rather than from an import, so a file that reaches
+the same behaviour another way is a subject that fails rather than a subject that is absent. Naming
+that shape is the work; keeping the hook as a discriminator beside it is what makes the pair
+independent rather than a rename.
+
+**Done when** the roster comes from what a panel is rather than from what it imports, with a case
+proving that a panel arming its own state is refused — planted in its real position and driven red
+before it is relied on.
+
+**What is read and what is not** (COR-9). The discovery, the discriminator and the cases that consume
+the roster were read off the file. No planted panel was driven against the sweep, so that a
+hand-rolled one passes silently is derived from the roster's construction rather than observed.
 
 ### `txef-hz2b` · Two referees reduced to one published name are one option in the fixture facet
 
@@ -3350,6 +3427,41 @@ targets, the `add_header` set — built against the same kernel the other checke
 parses and proves nothing about the pair. Both are worth having, and that one is the half that could
 ship on its own.
 
+### `efnu-cq79` · A case asserts that its own fixture minted a usable hash, so hash luck decides the run
+
+| Tags                   | Status | Depends on |
+| ---------------------- | ------ | ---------- |
+| Ops, Docs, gate, tests | Open   | —          |
+
+**The case needs a real commit whose short form carries both a digit and a letter, and it looks for
+one rather than making one.**
+`scripts/tests/test_branch_checks.py :: test_a_prose_sha_reports_every_mixed_hex_run_resolvable_or_not`
+proves that `scripts/checks/docs_gate/branch.py`'s sha finding fires on a resolvable prefix as well
+as a dangling one, so it needs a hash the fixture repository actually holds. It walks that
+repository's own commits for a prefix that is mixed, and asserts one was found. Whether any is
+depends on what the hashes happen to spell.
+
+**Two things decide that, and neither is the property under test.** The fixture is built with a
+single commit and the scenarios that add one add it for their own reasons, so how many candidates
+this case sees depends on which scenarios ran before it in the same process — and each candidate is
+mixed or not by luck. The run therefore has a verdict that its own arrangement and the hashes it
+drew decide, which is why it passes alone, passes under the gate's per-file distribution, and can
+fail where the modules are ordered differently.
+
+**A failure here reports nothing about the branch under it.** The guard's own message says as much —
+it says the case proves nothing — but it is an assertion, so the section goes red, and it goes red on
+a tree that touched neither the checker nor the test. That is the signal
+`docs/_standard/standard.md :: CUR-8` asks about from the other side: a check that fails when it
+should not is what teaches people to re-run a red gate rather than read it.
+
+**The fixture can mint what the case needs instead of hoping for it.** A commit whose message is
+changed until its short form is mixed costs a retry loop and no realism — the hash is an input to the
+assertion, not part of what is asserted — and it turns the guard into a fact the fixture establishes
+rather than a condition it checks for.
+
+**Done when** the case obtains a mixed short form by construction, so it proves what it claims on
+every run and its remaining assertions are the only way it can fail.
+
 ### `eg48-8863` · Two db-tier runs at once fail in a way that names nothing
 
 | Tags                     | Status | Depends on |
@@ -3537,6 +3649,38 @@ from the guards around it.
 covered by name, and every key `fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact` and
 `:: _a_side_is_off_the_draw` read today is fetched by the projection. What is missing is anything
 holding them to it.
+
+### `frxr-w4j2` · A citation naming a root-level file resolves to no path, so the tag derivation reading one cannot fire
+
+| Tags                   | Status | Depends on |
+| ---------------------- | ------ | ---------- |
+| Ops, Docs, gate, tests | Open   | —          |
+
+**`scripts/checks/docs_gate/kernel.py :: repo_path` answers only for a token under a directory prefix
+or a package root.** A token starting with one of the prefixes resolves where the file exists; a
+token carrying a slash is retried under each package root; a bare filename returns nothing. Every
+tracked file at the repository root is therefore a path the resolver declines, and the compose files
+are the ones a document has reason to cite.
+
+**One branch of the roadmap's tag derivation is unreachable because of it.**
+`scripts/checks/docs_gate/checks.py :: _derived_tags` takes the basenames of the paths an entry
+resolved and adds `Ops` and `edge` where one of them is in
+`scripts/checks/docs_gate/checks.py :: COMPOSE_FILENAMES`. Since a compose file never resolves, that
+membership is never true, and an entry whose subject is a compose override earns neither tag — while
+`scripts/checks/docs_gate/checks.py :: _check_derived_tags` fails the row that carries them anyway,
+as unearned. The author's only passing move is to drop the two tags that describe the entry
+correctly. The `Dockerfile` branch beside it is reachable, both Dockerfiles sitting inside package
+roots, which is why this reads as a resolver gap rather than as a rule about compose files.
+
+**The repair is in the resolver rather than in the derivation.** Adding compose filenames to the
+prefix list answers this one pair and leaves the next root-level file — a lockfile, a manifest, an
+ignore file — in the same position, and `docs/_standard/standard.md :: COR-6` makes a bare backticked
+repository path a citation form wherever the file sits. A resolver that answers for any tracked path
+at the root is the shape that closes the class.
+
+**Done when** a citation naming a tracked root-level file resolves, the derivation reading its
+basename fires, and a case in `scripts/tests/` pins both — the tag that an entry citing a compose
+file earns, and that the resolver answers for a root-level path at all.
 
 ### `g98z-k4cp` · Two hook watchdogs sit under a registration in another file, and nothing compares the pair
 

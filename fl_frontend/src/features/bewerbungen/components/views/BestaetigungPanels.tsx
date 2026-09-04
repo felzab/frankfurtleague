@@ -43,6 +43,14 @@ export function BestaetigungAbschnitt({ titel, children }: { titel: string; chil
 }
 
 /**
+ * The label-over-value pair the admin application page sets its stored facts in
+ * (`fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx :: Angabe`),
+ * spelled once so the banner and the receipt cannot drift into two type scales.
+ */
+const ANGABE_LABEL = "fluid-xxs text-foreground-muted font-bold";
+const ANGABE_WERT = "fluid-sm";
+
+/**
  * The mails' own fact panel in the page's tokens
  * (`fl_frontend/src/core/bewerbungEmail.ts :: renderFakten`). **A row at every width**: three facts
  * stacked down a phone are its whole first screen.
@@ -55,11 +63,32 @@ export function FaktenBanner({ zeilen }: { zeilen: readonly { label: string; wer
         <div
           key={label}
           className="flex min-w-0 flex-1 flex-col gap-y-0.5">
-          <dt className="fluid-xxs text-foreground-muted truncate font-bold">{label}</dt>
+          <dt className={`${ANGABE_LABEL} truncate`}>{label}</dt>
           {/* The row never wraps, so a school name the cell cannot seat is readable nowhere else. */}
           <dd
-            className="fluid-sm truncate"
+            className={`${ANGABE_WERT} truncate`}
             title={wert}>
+            <Wert>{wert}</Wert>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/**
+ * **Sized to its content and never to the width**: two cells spread across a panel put the second
+ * alone at the far edge, which reads as a column that lost its table rather than as a pair.
+ */
+export function GespeicherteAngaben({ zeilen }: { zeilen: readonly { label: string; wert: string }[] }) {
+  return (
+    <dl className="flex flex-wrap gap-x-8 gap-y-3 text-left">
+      {zeilen.map(({ label, wert }) => (
+        <div
+          key={label}
+          className="flex flex-col gap-y-0.5">
+          <dt className={ANGABE_LABEL}>{label}</dt>
+          <dd className={ANGABE_WERT}>
             <Wert>{wert}</Wert>
           </dd>
         </div>

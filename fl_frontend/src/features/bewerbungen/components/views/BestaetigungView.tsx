@@ -11,7 +11,7 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { BestaetigungFormPanel } from "./BestaetigungFormPanel";
-import { ABSATZ, BestaetigungErgebnis, FaktenBanner, Wert } from "./BestaetigungPanels";
+import { ABSATZ, BestaetigungErgebnis, FaktenBanner, GespeicherteAngaben, Wert } from "./BestaetigungPanels";
 
 import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
 import type { KontaktRolle } from "@/features/teams/constants";
@@ -123,10 +123,10 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           <p className={ABSATZ}>
             Danke, <Wert>{stand.ansicht.vorname}</Wert>. Dein Eintrag für die Schule <Wert>{stand.ansicht.schule}</Wert> ist bestätigt.
           </p>
-          {/* Echoed so the person sees what was recorded, in the press's own answer and nowhere fetchable. */}
-          <FaktenBanner
+          {/* What the press stored and nothing the reader already knows: the school, the season and
+              the seat are what they just confirmed, and the heading above says they did. */}
+          <GespeicherteAngaben
             zeilen={[
-              { label: "Rolle", wert: rollenLangform(stand.ansicht.rolle) },
               { label: "Geburtsdatum", wert: formatSpielDatum(stand.geburtsdatum) },
               { label: "WhatsApp", wert: stand.whatsapp ? "erlaubt" : "nicht erlaubt" },
             ]}

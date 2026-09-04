@@ -298,10 +298,20 @@ reading before you save: a club rename fans out into the matches of every season
 ([`../glossary.md`](../glossary.md#spiel--one-match)), and a referee rename fans out into every
 season's matches, a referee not being season-scoped.
 
-**A withdrawal is an erasure unless the person is a contact seat on an application still standing**,
-in which case the decline link on their own confirmation mail empties their seat at once and tells
-the submitter (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`). After
-a decision, the route is `POST /kontakte/erasure` like any other.
+**A withdrawal is an erasure, and a contact seat has one case where it is not.** Which of the three
+you are in is decided by that seat's own link, not by the person's role:
+
+- **The seat is unanswered and its link still works.** Their own Widerspruch, on the confirmation
+  page the link opens, empties the seat at once and tells the submitter so the school can name
+  somebody else (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`).
+  Send them the link again rather than erasing for them; the record then says the person refused
+  rather than that an administrator removed them.
+- **The seat has already answered, or the link is over.** A seat that has confirmed or already
+  contradicted takes no second answer (`REQ-BEWERBUNG-011`), and a link whose deadline has passed or
+  whose application has been decided takes none either (`REQ-BEWERBUNG-010`) — both are refusals the
+  person meets on the page, not something to talk them through. The route is `POST /kontakte/erasure`
+  like any other.
+- **The application has been decided.** `POST /kontakte/erasure`, as above.
 
 **Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is

@@ -189,9 +189,12 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
               aria-label="Tabelle aller Bewerbungen"
               className="min-w-7xl table-fixed text-left">
               <Table.Header>
+                {/* DECLARED, so the spare width above the floor goes to Ansprechperson: a club's
+                    name stops at a length, where a name and an address beside each other read
+                    longer the more room they get. */}
                 <Table.Column
                   isRowHeader
-                  className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  className="bg-muted text-foreground-muted fluid-xs border-border w-64 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Team
                 </Table.Column>
                 {/* PINNED to the widest PILL each carries rather than to its heading, which may
@@ -208,7 +211,9 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Eingereicht
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-40 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                {/* UNDECLARED, the one column that grows: every pixel above the floor lands here,
+                    and the pair below it truncates only once the table is at its minimum. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Ansprechperson
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-6 py-4 font-bold tracking-wider uppercase">

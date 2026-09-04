@@ -162,7 +162,11 @@ export function zusageHindernis(staende: readonly SitzBestaetigung[] | null, tea
 
   if (offen.length === 0) return null;
 
-  if (offen.some(istEndgueltig)) return "Wo für eine Rolle niemand mehr in der Bewerbung steht, bleibt nur die Absage.";
+  // The cause in the words the seat's own row uses, then the one decision left: „löschen lassen“
+  // rather than „gelöscht“, because the erasure is the league's act on the person's request.
+  if (offen.some(istEndgueltig)) {
+    return "Eine Kontaktperson hat widersprochen oder ihren Eintrag löschen lassen. Diese Bewerbung kann nur noch abgelehnt werden.";
+  }
 
   // The rule rather than who is outstanding today: the strip above names every seat and its state,
   // so a second list here is the same fact from the other side (my wording, 2026-09-04).

@@ -39,7 +39,7 @@ const { ABLEHNEN_LABEL, BESTAETIGUNG_FELDER, BestaetigungAngaben, BestaetigungEn
   await import("./components/views/BestaetigungFormPanel.tsx");
 const { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, WiderspruchFolge } =
   await import("./components/views/BestaetigungHinweise.tsx");
-const { FaktenBanner } = await import("./components/views/BestaetigungPanels.tsx");
+const { FaktenBanner, GespeicherteAngaben } = await import("./components/views/BestaetigungPanels.tsx");
 const { BestaetigungView } = await import("./components/views/BestaetigungView.tsx");
 
 const FRONTEND_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -520,6 +520,37 @@ describe("what stands in for a session on the session-less routes", () => {
     ["the undo spine", UNDO_ROUTE],
   ] as const;
 
+  /** Every name Next reads as a route handler, so a method nobody anticipated is caught by the set rather than by a list. */
+  const HTTP_METHODS: readonly string[] = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
+
+  // Every export form a handler can take, `export { GET }` included: a reader keyed on
+  // `export async function` alone passes over the two spellings that are not one.
+  const exportierteNamen = (quelle: string): string[] => [
+    ...[...quelle.matchAll(/^export (?:async )?(?:function|const|let|var) (\w+)/gm)].map((treffer) => treffer[1] ?? ""),
+    ...[...quelle.matchAll(/^export \{([^}]*)\}/gm)].flatMap((treffer) =>
+      (treffer[1] ?? "").split(",").map((eintrag) => (eintrag.split(" as ").pop() ?? "").trim()),
+    ),
+  ];
+
+  /* Both files say „POST alone, and no GET“ in prose and nothing held them to it: a `GET` added
+     later ships green, and a mail scanner fetching every link in a message would spend the token it
+     fetched. */
+  it("answers one method on each write, and that method is POST", () => {
+    for (const [wer, quelle] of [
+      ["the application submit", POST_ROUTE],
+      ["the confirmation write", CONFIRM_ROUTE],
+    ] as const) {
+      const namen = exportierteNamen(quelle);
+
+      assert.ok(namen.length > 0, `${wer} exports nothing this case can read, so the assertion below compares nothing`);
+      assert.deepEqual(
+        namen.filter((name) => HTTP_METHODS.includes(name)),
+        ["POST"],
+        `${wer} answers a second method, which a mail scanner reaches with a fetch nobody made`,
+      );
+    }
+  });
+
   /* The guard compared WHOLE, not searched: every weakening leaves the words a search looks for
      standing. A deleted `return` is invisible to `tsc` and to ESLint at --max-warnings 0, a bare
      call being a side effect. */
@@ -823,7 +854,9 @@ describe("which of the confirmation page's words its stamped version covers", ()
       beschrieben.some((id) => {
         const anfang = FORMULAR.indexOf(`id="${id}"`);
 
-        return anfang !== -1 && FORMULAR.slice(anfang).split("</div>")[0]?.includes(gestempelt("klickIdentitaet")) === true;
+        // As text: the reader's own values inside the points wear the emphasis, which splits the
+        // stored sentence into runs of markup.
+        return anfang !== -1 && textOf(FORMULAR.slice(anfang).split("</div>")[0] ?? "").includes(gestempelt("klickIdentitaet"));
       }),
       "no described element holds the stamped points, so the button promises something written nowhere",
     );
@@ -911,11 +944,13 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     return tiefste;
   }
 
+  /** Every passage a render puts on the page, whoever's words they are. */
+  const allePassagen = (html: string): string[] =>
+    [...html.matchAll(/<(p|li|dd|h1|h2|h3|button|a)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((treffer) => treffer[2] ?? "");
+
   /** What the page says in its own words: the passages it draws, less the ones the stamped version owns. */
   function eigenePassagen(html: string): string[] {
-    const gezogen = [...html.matchAll(/<(p|li|dd|h1|h2|h3|button|a)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((treffer) => treffer[2] ?? "");
-
-    return gezogen.filter((passage) => !GESTEMPELT.has(textOf(passage).trim()));
+    return allePassagen(html).filter((passage) => !GESTEMPELT.has(textOf(passage).trim()));
   }
 
   const ohneHervorhebung = (passage: string): string => passage.replace(/<strong class="text-foreground font-bold">[\s\S]*?<\/strong>/g, "");
@@ -937,22 +972,22 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     }
   });
 
-  /* The emails set a reader's own name in bold, and a page that leaves it in the run of the sentence
-     reads as a form letter. Never in the stamped paragraphs, which are the stored text unmarked. */
+  /* A page leaving a reader's own name in the run of the sentence reads as a form letter, where the
+     emails set it in bold. **The stamped paragraphs too**: their slots are filled at the render site. */
   it("gives every value of the reader's own the page's one emphasis", () => {
-    const passagen = eigenePassagen(GUELTIG);
+    const passagen = allePassagen(GUELTIG);
 
-    assert.ok(passagen.length > 0, "the page renders no words of its own, so this case compares nothing");
+    assert.ok(eigenePassagen(GUELTIG).length > 0, "the page renders no words of its own, so this case compares nothing");
     assert.ok(
       passagen.some((passage) => EIGENE_WERTE.some((wert) => textOf(passage).includes(wert))),
-      "no passage of the page's own names this reader at all",
+      "no passage on the page names this reader at all",
     );
 
     for (const passage of passagen) {
       const nackt = textOf(ohneHervorhebung(passage));
 
       for (const wert of EIGENE_WERTE) {
-        assert.ok(!nackt.includes(wert), `„${wert}“ stands in the page's own prose with nothing making it stand out: ${textOf(passage)}`);
+        assert.ok(!nackt.includes(wert), `„${wert}“ stands in the page's prose with nothing making it stand out: ${textOf(passage)}`);
       }
     }
   });
@@ -997,6 +1032,24 @@ describe("how the confirmation page banners the facts a reader arrived with", ()
     for (const [index, attribute] of werte.entries()) {
       assert.match(attribute, /(^|\s|")truncate(\s|")/, `value ${String(index)} carries no truncation`);
       assert.ok(attribute.includes(`title="${ZEILEN[index]?.wert ?? ""}"`), `value ${String(index)} keeps its whole text nowhere`);
+    }
+  });
+
+  /* Sized to the two values it reads back: spread across the panel, the second sits alone at the
+     far edge and reads as a column that lost its table. */
+  it("sizes the receipt's stored values to their content", () => {
+    const gespeichert = renderMarkup(GespeicherteAngaben, {
+      zeilen: [
+        { label: "Geburtsdatum", wert: "01.09.2008" },
+        { label: "WhatsApp", wert: "erlaubt" },
+      ],
+    });
+    const wurzel = /class="([^"]*)"/.exec(gespeichert)?.[1] ?? "";
+
+    assert.doesNotMatch(wurzel, /justify-between|w-full/, "the stored values are spread across the panel rather than sized to themselves");
+    assert.doesNotMatch(gespeichert, /flex-1/, "a stored value takes an equal share of the width rather than its own");
+    for (const wert of ["01.09.2008", "erlaubt"]) {
+      assert.ok(gespeichert.includes(`<strong class="text-foreground font-bold">${wert}</strong>`), `${wert} wears no emphasis`);
     }
   });
 });

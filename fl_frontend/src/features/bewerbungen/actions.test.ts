@@ -75,6 +75,28 @@ const ERNEUT_SENDER = sliceBetween(ACTIONS, "async function sendeBestaetigungErn
 /* The re-send is the last declaration in the module, so its slice runs to the end of the file. */
 const ERNEUT_ACTION = sliceBetween(ACTIONS, "export async function einwilligungErneutSendenAction", null);
 
+/**
+ * Parsed rather than matched: a regex has to guess where a call ends, and the shape it guesses at is
+ * the multi-line one — a one-line call then reaches the stream unread by anything below.
+ */
+function loggerCalls(): { level: string; argument: string }[] {
+  const source = ts.createSourceFile(path.resolve(import.meta.dirname, "actions.ts"), ACTIONS, ts.ScriptTarget.Latest, true);
+  const found: { level: string; argument: string }[] = [];
+
+  source.forEachChild(function walk(node: ts.Node): void {
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+      const callee = node.expression;
+
+      if (ts.isIdentifier(callee.expression) && callee.expression.text === "logger") {
+        for (const argument of node.arguments) found.push({ level: callee.name.text, argument: argument.getText(source) });
+      }
+    }
+    node.forEachChild(walk);
+  });
+
+  return found;
+}
+
 /** Every code the re-send answers, read off its own switch rather than the triage's. */
 const erneutCodes = [...ERNEUT_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
 
@@ -787,8 +809,16 @@ describe("the re-sent confirmation link", () => {
     assert.ok(ACTIONS.includes(link), "the confirmation link is no longer built where this case reads it");
     assert.ok(!ACTIONS.includes("${token}"), "the minted token is spelled into a string of this module's own");
 
-    for (const [aufruf] of `${ERNEUT_SENDER}${ERNEUT_ACTION}`.matchAll(/logger\.\w+\([\s\S]*?\n\s{4}\}\);/g)) {
-      assert.ok(!aufruf.includes("token"), "a log line on the re-send's path names the token");
+    const gelogt = loggerCalls();
+
+    // The module logs, so a walk that found nothing is this sweep broken rather than a clean module.
+    assert.ok(gelogt.length > 0, "no logger call was found at all, so nothing below was judged");
+
+    for (const { level, argument } of gelogt) {
+      // Every call in the module and every argument of it, never the re-send's slice: a line moved
+      // one function along is the same credential on the same stream.
+      assert.doesNotMatch(argument, /\btoken\b/, `logger.${level} names the token in \`${argument}\``);
+      assert.ok(!argument.includes(link), `logger.${level} names the confirmation link in \`${argument}\``);
     }
   });
 
