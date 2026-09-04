@@ -64,7 +64,8 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `= /api/client-error`      | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/spec.md`](../logging/spec.md))                                                     |
 | `= /api/bewerbung`         | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
 | `= /api/bewerbung/kuerzel` | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
-| the four `/` twins         | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones — the `bewerbung` twin its `64k` cap too                                                                |
+| `= /api/bestaetigung`      | `frontend:3000` | Next route handler, the confirmation link's write — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                                 |
+| the five `/` twins         | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
 | `/api/admin/`              | `frontend:3000` | The page-owned editors' undo handlers                                                                                                                                                                |
 | `= /api/v0/system/is_live` | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
 | `= /signin`                | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
@@ -97,7 +98,7 @@ reaches only that route: an address from a range published after the fetch falls
 both copies, so keeping the list current stays the only answer there.
 
 **Every zone is keyed on a POST map, the two Kürzel zones excepted** — an empty key is exempt from
-`limit_req`, so `signin`, `clienterr` and `bewerbung` limit no GET on their paths. The Kürzel check
+`limit_req`, so `signin`, `clienterr`, `bewerbung` and `bestaetigung` limit no GET on their paths. The Kürzel check
 IS a GET, so keyed there it would read as limited and be unlimited; its zones key on the network
 maps unconditionally, at a rate well above the submission's.
 
@@ -137,8 +138,9 @@ makes one directive count differently in the two files**: `nginx/local.conf` ser
 the byte-identical line bounds whole connections locally, and nothing compares the pair (§4,
 db2a-9qu3).
 
-**The public write caps its body at `64k` against the server block's `20M`.** Measured 2026-08-30:
-a 100,049-byte POST is refused `413` at the edge, while a 4,049-byte POST reaches the handler.
+**Two public writes cap their bodies against the server block's `20M`** — the application form's at
+`64k`, the confirmation link's at `8k`. The `64k` cap alone is measured, 2026-08-30: a
+100,049-byte POST is refused `413` at the edge, while a 4,049-byte POST reaches the handler.
 
 **A zone has been observed refusing, and what that establishes is the MECHANISM, not the numbers.**
 A burst at the Kürzel check was refused past the burst as `429` (not nginx's `503` default), the
