@@ -55,6 +55,18 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
               className="fluid-xs text-foreground-muted hover:text-brand transition-colors">
               Kontakt
             </Link>
+            <Link
+              href="/impressum"
+              prefetch={false}
+              className="fluid-xs text-foreground-muted hover:text-brand transition-colors">
+              Impressum
+            </Link>
+            <Link
+              href="/datenschutz"
+              prefetch={false}
+              className="fluid-xs text-foreground-muted hover:text-brand transition-colors">
+              Datenschutz
+            </Link>
           </nav>
         </div>
 
@@ -99,19 +111,6 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
               <span
                 aria-hidden="true"
                 className="bg-foreground inline-block size-6 mask-[url('/icons/footer/instagram/instagram_logo_black.svg')] mask-contain mask-center mask-no-repeat"
-              />
-            </Link>
-
-            <Link
-              href="https://whatsapp.com"
-              prefetch={false}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="WhatsApp-Kanal"
-              className="transition-opacity hover:opacity-80">
-              <span
-                aria-hidden="true"
-                className="bg-foreground inline-block size-6 mask-[url('/icons/footer/whatsapp/whatsapp_logo_black.svg')] mask-contain mask-center mask-no-repeat"
               />
             </Link>
           </div>

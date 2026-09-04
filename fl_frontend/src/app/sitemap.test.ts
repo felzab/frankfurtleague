@@ -10,7 +10,7 @@ import sitemap from "./sitemap.ts";
 const APP_DIR = import.meta.dirname;
 
 /**
- * The one public page the list withholds, for a reason no walk of the tree can see. `/admin` is
+ * The public pages the list withholds, each for a reason no walk of the tree can see. `/admin` is
  * withheld too and needs no entry here: `robots.ts` disallows the whole prefix.
  */
 const WITHHELD = ["/signin"];
@@ -25,9 +25,13 @@ const isDynamic = (segment: string): boolean => segment.startsWith("[");
  * Every static route holding a page, read off the tree rather than listed here: a page added tomorrow
  * is compared against the sitemap on the day it lands, without anybody remembering to name it.
  */
-function staticRoutes(dir: string, segments: readonly string[] = []): string[] {
+function staticRoutes(dir: string, segments: readonly string[] = []): { route: string; file: string }[] {
   const entries = readdirSync(dir, { withFileTypes: true });
-  const own = entries.some((entry) => entry.isFile() && entry.name === "page.tsx") ? [`/${segments.join("/")}`] : [];
+  // The file travels with the route it serves: a route group names no path segment, so neither of
+  // the two can be rebuilt from the other.
+  const own = entries.some((entry) => entry.isFile() && entry.name === "page.tsx")
+    ? [{ route: `/${segments.join("/")}`, file: path.join(dir, "page.tsx") }]
+    : [];
 
   return entries
     .filter((entry) => entry.isDirectory() && !isDynamic(entry.name))
@@ -35,7 +39,9 @@ function staticRoutes(dir: string, segments: readonly string[] = []): string[] {
     .concat(own);
 }
 
-const PUBLIC_ROUTES = staticRoutes(APP_DIR)
+const FOUND = staticRoutes(APP_DIR);
+
+const PUBLIC_ROUTES = FOUND.map((page) => page.route)
   .filter((route) => !route.startsWith("/admin") && !WITHHELD.includes(route))
   .sort();
 
@@ -68,12 +74,19 @@ describe("what the sitemap hands a crawler", () => {
     }
   });
 
-  /* The withheld page keeps its own reason on itself. Dropped there, `/signin` is indexed and linked
-     from nowhere in this list, which is the shape that reads as a page nobody meant to publish. */
-  it("leaves out the public page that is noindexed, which still says so itself", () => {
-    const signin = readFileSync(path.join(APP_DIR, "(public)", "signin", "page.tsx"), "utf8");
+  /* A withheld page keeps its own reason on itself. Dropped there, it is indexed and linked from
+     nowhere in this list, which is the shape that reads as a page nobody meant to publish. */
+  it("leaves out every public page that is noindexed, each of which still says so itself", () => {
+    for (const route of WITHHELD) {
+      const withheld = FOUND.find((page) => page.route === route);
 
-    assert.ok(!LISTED.includes(`${SITE_URL}/signin`), "the sitemap sends a crawler to the sign-in page");
-    assert.match(signin, /robots: \{ index: false, follow: false \}/, "the sign-in page is withheld here and indexable anyway");
+      assert.ok(withheld, `${route} is withheld from the sitemap and no page under app/ serves it`);
+      assert.ok(!LISTED.includes(`${SITE_URL}${route}`), `the sitemap sends a crawler to ${route}`);
+      assert.match(
+        readFileSync(withheld.file, "utf8"),
+        /robots: \{ index: false, follow: false \}/,
+        `${route} is withheld here and indexable anyway`,
+      );
+    }
   });
 });

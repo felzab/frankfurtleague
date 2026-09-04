@@ -26,7 +26,7 @@ behaviour differs from a ruling, the entry says so.
 ## 1. Responsibility and the request route
 
 - **The controller is the association.** Wherever the privacy notice lands it names
-  "Frankfurtleague e. V. i. G." until the register entry exists, and drops the suffix the day it
+  "Frankfurt League e. V. i. G." until the register entry exists, and drops the suffix the day it
   does. No school and no individual is the controller; the league is run by its pupils as an
   association, and a school-law basis is unavailable.
 - **The supervisory authority is Der Hessische Beauftragte für Datenschutz und
@@ -113,9 +113,6 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   repository, which records that it exists and is deliberate.
 - **The free-text fields on public pages stay public** — a fixture's note and a withdrawal's
   reason — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`).
-- **The privacy notice becomes a static route in this repository**, linked from the footer and
-  from the application form, and it is live before the self-signup flow opens, because that flow
-  is the moment people consent to a document they must be able to read.
 
 ## 5. Erasure reaches everyone who asks
 
