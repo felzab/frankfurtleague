@@ -1520,6 +1520,11 @@ and fans it into every match the referee officiated** — the embedded copy is
 again, on the row and on every past fixture, and the administrator making that edit is told a rename
 succeeded.
 
+**The rename reaches every season, where a club's stops.** A referee is not season-scoped
+(`docs/glossary.md :: Schiedsrichter`), so the fan-out carries no `past` bound of the kind a club's
+has (`docs/backend/spec.md :: I13`): one unrefused rename puts the name back on the fixtures of
+closed seasons, which are the copies nobody edits again and so the ones that keep it.
+
 **The erasure's own guard does not reach it.** `REQ-ANONYMISE-001` refuses a re-entry landing WHILE
 an anonymisation runs, judged from a read taken outside the session
 (`docs/backend/spec.md :: I118`); a rename a week later meets nothing at all.
@@ -1527,7 +1532,7 @@ an anonymisation runs, judged from a read taken outside the session
 **A refusal on the PATCH is not obviously the answer, which is why this is an entry rather than a
 fix.** A referee anonymised by mistake has no other way back, and an erasure the administration
 cannot undo at all is a different complaint from the one above. What the entry buys is that the
-choice is made rather than defaulted into.
+choice is made rather than defaulted into, and it covers the archive as well as the current season.
 
 ### `skyx-nrgh` · A refusal composes a repair the product refuses to perform
 

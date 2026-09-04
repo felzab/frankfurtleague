@@ -15,6 +15,7 @@ from app.api.schiedsrichter.services import (
     ANONYMISED_NAME,
     ANONYMISED_SCHIEDSRICHTER,
     KONTAKT_RE_ENTERED_MID_ANONYMISATION,
+    holds_an_anonymisable_value,
 )
 from app.api.spiele.schemas import FLSpielSchiedsrichterField, FLSpielSchiedsrichterFieldPublic
 from app.core.collections import Collection
@@ -52,6 +53,10 @@ KONTAKT = {
     SCHIEDSRICHTER_OID: {"telefon": "+49 69 1234567", "email": "koerner.anna@example.com"},
     OTHER_SCHIEDSRICHTER_OID: {"telefon": "+49 69 2223334", "email": "kraus.bernd@example.com"},
 }
+
+# Read off the model, so a contact member added later is cleared here too and the guard's cases stay
+# about the name alone.
+A_CLEARED_KONTAKT: dict[str, None] = {field: None for field in FLKontakt.model_fields}
 
 # Injected through `get_germany_now`, and in summer, so the conversion below moves the clock.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
@@ -163,6 +168,22 @@ class TestTheUpdateNamesTheMembersAndNeverTheBlock:
         booking = {"schiedsrichter_id": SCHIEDSRICHTER_OID, "name": ANONYMISED_NAME}
 
         assert FLSpielSchiedsrichterFieldPublic.model_validate(booking).name == ANONYMISED_NAME
+
+
+class TestTheGuardWeighsTheNameBesideTheDetails:
+    """The name half of the guard, on the predicate itself.
+
+    The write runs whatever the guard answers, and the refusal it gates needs a second read to
+    agree, so this weighing has no separate answer at the endpoint.
+    """
+
+    def test_a_name_standing_over_an_empty_contact_block_is_work_to_do(self):
+        assert holds_an_anonymisable_value({"kontakt": A_CLEARED_KONTAKT, "name": REFEREE_NAMES[SCHIEDSRICHTER_OID]})
+
+    def test_the_label_over_the_same_block_is_not(self):
+        """The control: a predicate answering `True` for every row would pass the case above."""
+
+        assert not holds_an_anonymisable_value({"kontakt": A_CLEARED_KONTAKT, "name": ANONYMISED_NAME})
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -360,7 +381,7 @@ def test_the_booking_and_the_fee_survive_beside_the_label(mongo_replica_set_url:
 
 @pytest.mark.db
 def test_a_referee_whose_contact_block_is_already_empty_is_not_a_no_op(mongo_replica_set_url: str):
-    """The name half of the guard. Weighed on the contact block alone, this call refuses as a no-op and leaves the name on every match."""
+    """A row cleared of its details but still named is the state the erasure exists for: the name is the copy every match carries."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER_OID}, {"$set": dict(ANONYMISED_KONTAKT)})
@@ -503,7 +524,7 @@ def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
 
 @pytest.mark.db
 def test_the_redaction_filter_reads_the_target_index(mongo_replica_set_url: str):
-    """Kills a filter shape that scans: the log is the one collection that only grows, so a scan degrades forever."""
+    """Kills a filter shape that scans: the log holds a year of recorded writes, so a scan reads every one of them."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         plan = await database.command(

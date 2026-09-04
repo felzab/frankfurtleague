@@ -102,8 +102,14 @@ export const FLSpielSchiedsrichterFieldPublicSchema = z.object({
 });
 export type FLSpielSchiedsrichterFieldPublic = z.infer<typeof FLSpielSchiedsrichterFieldPublicSchema>;
 
-/** The referee as the admin editor reads it back, extending the served shape for `FLSpielOrtField`'s reason. */
-export const FLSpielSchiedsrichterFieldSchema = FLSpielSchiedsrichterFieldPublicSchema.extend({
+/**
+ * The referee as the admin editor reads it back. Not the served shape plus a fee, where the venue
+ * pair is: the base tier reduces the surname, so the two differ in the name as well
+ * (`fl_backend/app/api/spiele/schemas.py :: public_referee_name`).
+ */
+export const FLSpielSchiedsrichterFieldSchema = z.object({
+  schiedsrichter_id: CustomObjectIdStringSchema,
+  name: z.string().nonempty(),
   payment: FLSpielSchiedsrichterFieldPayloadSchema.shape.payment,
 });
 export type FLSpielSchiedsrichterField = z.infer<typeof FLSpielSchiedsrichterFieldSchema>;

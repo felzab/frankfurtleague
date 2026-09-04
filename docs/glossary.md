@@ -235,7 +235,7 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 ### `payment` · `default_payment` — referee fee, `Honorar` on screen
 
 **Is:** the same split as `mietpreis` — `payment` is what one fixture paid its referee, `default_payment` the referee's own current fee. Both are an `int` with `ge=0`.\
-**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPayload` carries `payment`, and the stored `:: FLSpielSchiedsrichterField` declares it again over `:: FLSpielSchiedsrichterFieldPublic`, the base-tier read shape without it; `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichter` carries `default_payment`; that German is spelt at each field rather than read from a table, there being one label and not a closed set of them (`fl_frontend/src/features/schiedsrichter/schiedsrichterDraftStatus.ts :: FLSchiedsrichterFieldGroup`).\
+**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPayload` carries `payment`, and the stored `:: FLSpielSchiedsrichterField` declares it again over the private `:: _SpielSchiedsrichterBooked`, which the base-tier `:: FLSpielSchiedsrichterFieldPublic` extends without a fee; `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichter` carries `default_payment`; that German is spelt at each field rather than read from a table, there being one label and not a closed set of them (`fl_frontend/src/features/schiedsrichter/schiedsrichterDraftStatus.ts :: FLSchiedsrichterFieldGroup`).\
 **Trap:** no default on either, no fan-out, `payment` stays on the match payload while the `name` beside it is composed, and the base tier is served without it — every one of them for `mietpreis`'s reasons.\
 **See:** backend spec I6.
 
