@@ -3,32 +3,22 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { getGermanTodayStr } from "@/shared/utils/date";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
 import { FLBewerbungTrikotFarbenResponseSchema, FLPostBewerbungPayloadSchema } from "./schemas.ts";
-import { bewerbungPayload, buildEmptyBewerbungDraft, geburtsdatumSpanne } from "./utils.ts";
+import { bewerbungPayload, buildEmptyBewerbungDraft } from "./utils.ts";
 
 import type { BewerbungFormDraft, BewerbungKontaktpersonDraft, BewerbungSchuleDraft } from "./types.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 
-/* Derived from the same clock the schema reads rather than pinned to a date: a fixture spelling the
-   bounds out would pass today and refuse itself tomorrow. */
-const HEUTE = getGermanTodayStr();
-const { frueheste, spaeteste } = geburtsdatumSpanne(HEUTE);
-
-/**
- * A whole person, so every case below fails for the one rule it names. The birthdate is the LATEST
- * the span admits, which is what makes the boundary cases beneath it read as boundaries.
- */
+/** A whole person, so every case below fails for the one rule it names and no other. */
 const person = (vorname: string, overrides: Partial<BewerbungKontaktpersonDraft> = {}): BewerbungKontaktpersonDraft => ({
   vorname: vorname,
   nachname: "Mustermann",
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: `069 ${vorname.length}234567`,
-  geburtsdatum: "1990-01-01",
   einwilligung: { text_version: "2026-08", erteilt: true },
   ...overrides,
 });
@@ -93,7 +83,9 @@ describe("the three people have to be tellable apart", () => {
       kontakte: { ...draft.kontakte, ansprechperson: person("Erika", { telefon: draft.kontakte.trainer.telefon }) },
     });
 
-    assert.deepEqual(refusedPaths(geteilt), ["kontakte.ansprechperson.telefon"]);
+    // The TRAINER's box, although the Ansprechperson's is the one that was changed: the Trainer's
+    // panel is the later of the two, so it is the one still on screen when the message appears.
+    assert.deepEqual(refusedPaths(geteilt), ["kontakte.trainer.telefon"]);
   });
 
   /* Case is not a second person: byte for byte, `ERIKA@…` beside `erika@…` passes here and is then
@@ -123,6 +115,9 @@ describe("the three people have to be tellable apart", () => {
 
   /* The exception is scoped to the pair the claim names. Widened to the whole block, a school could
      submit three identical people and the league would find that out after accepting them. */
+  /* Two seats are marked and one is on screen: the claim collapses the Trainer's boxes, so its two
+     paths reach no control, and `focusFirstRefusal` moves to the Stellvertretung's — the panel the
+     applicant can act on. */
   /* The WHOLE refused set, never `length > 0`: that shape passes on any refusal at all, so a fixture
      that later trips an unrelated rule keeps the case green while it stops testing this one. */
   it("still separates the seat the claim does not name", () => {
@@ -135,7 +130,12 @@ describe("the three people have to be tellable apart", () => {
       },
     });
 
-    assert.deepEqual(refusedPaths(geteilt), ["kontakte.stellvertretung.email", "kontakte.stellvertretung.telefon"]);
+    assert.deepEqual(refusedPaths(geteilt), [
+      "kontakte.stellvertretung.email",
+      "kontakte.stellvertretung.telefon",
+      "kontakte.trainer.email",
+      "kontakte.trainer.telefon",
+    ]);
   });
 
   /* Only a drifted client reaches this: `bewerbungPayload` fills the claimed seat FROM the Trainer,
@@ -215,46 +215,6 @@ describe("two spellings of one telephone number are one number", () => {
   it("leaves two genuinely different numbers standing", () => {
     assert.deepEqual(refusedPaths(geteilteNummer("0170 1234567", "0170 1234568")), []);
     assert.deepEqual(refusedPaths(geteilteNummer("+49 170 1234567", "+49 171 1234567")), []);
-  });
-});
-
-describe("a contact person's birthdate", () => {
-  const mitDatum = (geburtsdatum: string) =>
-    gueltig({ kontakte: { ...gueltig().kontakte, ansprechperson: person("Erika", { geburtsdatum: geburtsdatum }) } });
-
-  /* Both ends inclusive, and the schema reads the same `geburtsdatumSpanne` the picker's bounds come
-     from: judged a day apart, a date the picker offered would come back refused. */
-  it("is accepted at both ends of the span", () => {
-    assert.deepEqual(refusedPaths(mitDatum(spaeteste)), []);
-    assert.deepEqual(refusedPaths(mitDatum(frueheste)), []);
-  });
-
-  it("is refused outside either end", () => {
-    // Born today, so inside the span by no margin at all — the one case an off-by-one would admit.
-    assert.deepEqual(refusedPaths(mitDatum(HEUTE)), ["kontakte.ansprechperson.geburtsdatum"]);
-    assert.deepEqual(refusedPaths(mitDatum("1800-01-01")), ["kontakte.ansprechperson.geburtsdatum"]);
-  });
-
-  /* ONE message answers both ends, so it has to describe both. Named for the floor alone, a mistyped
-     year read back as „muss mindestens 16 Jahre alt sein“, which is a different fault from the one
-     the reader has and points at the wrong end of the box. */
-  it("names both bounds, whichever end the date fell outside", () => {
-    const antwort = (geburtsdatum: string) => {
-      const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(mitDatum(geburtsdatum)));
-
-      return parsed.success ? "" : (toFieldErrors(parsed.error)["kontakte.ansprechperson.geburtsdatum"] ?? "");
-    };
-
-    for (const datum of [HEUTE, "1800-01-01"]) {
-      assert.match(antwort(datum), /mindestens/, `a date at ${datum} names no lower bound`);
-      assert.match(antwort(datum), /höchstens/, `a date at ${datum} names no upper bound`);
-    }
-  });
-
-  /* An empty box is a date nobody entered, which the picker shows as empty. Accepted here, a person
-     with no birthdate would reach the league's records through a field nobody filled. */
-  it("is refused where nobody entered one", () => {
-    assert.deepEqual(refusedPaths(mitDatum("")), ["kontakte.ansprechperson.geburtsdatum"]);
   });
 });
 

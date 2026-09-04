@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from itertools import combinations, product
 from typing import AbstractSet, Any, Callable, Iterable, Mapping, Sequence, get_args
 
+from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_COUNTED_AS_ABSAGE,
@@ -754,6 +755,52 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
         },
         {"$sort": {"name": 1}},
     ]
+
+
+# What a seat holds until its person confirms it (`docs/backend/spec.md :: I142`).
+UNCONFIRMED_HERKUNFT: Mapping[str, Any] = {"erteilt_von": "administrativ", "bestaetigt_am": None}
+
+
+def _confirmation_held_by(stored_slot: Any, *, email: Any) -> Mapping[str, Any] | None:
+    """The stored provenance where this slot holds a confirmation from the address being written, else `None`."""
+
+    if not isinstance(stored_slot, Mapping) or not isinstance(einwilligung := stored_slot.get("einwilligung"), Mapping):
+        return None
+
+    if einwilligung.get("bestaetigt_am") is None:
+        return None
+
+    # The mailbox and never the seat, on the erasure's case-insensitive terms
+    # (`app/api/kontakte/services.py :: find_matching_slots`): a confirmation is what one address's
+    # owner clicked, so a seat handed to another address starts unconfirmed.
+    if str(stored_slot.get("email") or "").casefold() != str(email or "").casefold():
+        return None
+
+    return {"erteilt_von": einwilligung["erteilt_von"], "bestaetigt_am": einwilligung["bestaetigt_am"]}
+
+
+def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, Any] | None:
+    """Each seat's provenance, composed here and taken from no payload (`docs/backend/spec.md :: I142`).
+
+    A confirmed seat keeps its stamp through an edit; every other seat is recorded as entered on
+    somebody's behalf.
+    """
+
+    if kontakte is None:
+        return None
+
+    stored_block = stored if isinstance(stored, Mapping) else {}
+    composed = dict(kontakte)
+
+    for slot in KONTAKT_SLOTS:
+        seat = kontakte.get(slot)
+        if not isinstance(seat, Mapping):
+            continue
+
+        herkunft = _confirmation_held_by(stored_block.get(slot), email=seat.get("email")) or UNCONFIRMED_HERKUNFT
+        composed[slot] = {**seat, "einwilligung": {**seat["einwilligung"], **herkunft}}
+
+    return composed
 
 
 # What every code below refuses is `docs/logging/error-codes.md`.

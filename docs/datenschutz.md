@@ -37,10 +37,11 @@ behaviour differs from a ruling, the entry says so.
   and not a ruling; it is here because
   [section 8](#8-two-procedures-still-to-be-written)'s breach procedure needs it.
 - **Every request — withdrawal of a consent, access, rectification, erasure, objection — goes to
-  kontakt@frankfurtleague.de** until people can act for themselves. The consent text
-  (`fl_frontend/src/core/einwilligung.ts`) promises withdrawal at any time and today names no
-  route; it names this address from its next version. Self-service comes with the account tiers
-  planned for teams, players and referees, and the deletion route lives there once they exist.
+  kontakt@frankfurtleague.de** until people can act for themselves. The form's own text
+  (`fl_frontend/src/core/einwilligung.ts :: LIGA_EINWILLIGUNG`) sends a reader to the
+  Datenschutzerklärung rather than spelling a route, so that page is where this address has to
+  stand. Self-service comes with the account tiers planned for teams, players and referees, and the
+  deletion route lives there once they exist.
 
 ## 2. Consent comes from the person, from 16
 
@@ -71,13 +72,12 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   squad lists meanwhile. The predicate is written into
   [`backend/spec.md`](backend/spec.md#17-read-rules) before any code. Today no read consults the
   stored consent.
-- **Every version of a consent text is retained**, so a stored consent's version label resolves
-  to the words the person agreed to from the running application, not from git history.
 - **An application names three people and one person ticks for all of them.** The two who were
   not asked are recorded as entered on their behalf, never as having consented themselves, and
-  each receives their own link to give the consent. The vocabulary exists:
-  `fl_backend/app/api/teams/schemas.py :: FLKontaktEinwilligung` distinguishes `person` from
-  `administrativ`; today the public form composes `person` for all three.
+  each receives their own link to give the consent. The recording half has reached the code:
+  `fl_backend/app/api/bewerbungen/services.py :: compose_einwilligung` writes `administrativ` for
+  all three at submission, and `fl_backend/app/api/teams/schemas.py :: FLKontaktEinwilligung`
+  carries the `bestaetigt_am` the link will stamp; the link itself is not built.
 - **Referees get a consent record** on the same terms as contact persons. A referee is a pupil
   whose phone, email and school are stored, and today no consent field exists for them.
 

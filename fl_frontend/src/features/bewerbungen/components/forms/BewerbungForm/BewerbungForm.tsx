@@ -15,7 +15,6 @@ import {
   KUERZEL_UNGEPRUEFT,
   KUERZEL_VERGEBEN,
   kuerzelHinweis,
-  mirrorBewerbungTrainer,
 } from "@/features/bewerbungen/utils";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
@@ -24,7 +23,7 @@ import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 
-import { FormKontaktpersonenSection } from "./FormKontaktpersonenSection";
+import { FormEinwilligungSection, FormKontaktpersonenSection } from "./FormKontaktpersonenSection";
 import { FormSchuleSection } from "./FormSchuleSection";
 import { FormTeamSection } from "./FormTeamSection";
 
@@ -103,6 +102,12 @@ export function BewerbungForm({
 
   const [draft, setDraft] = useState<BewerbungFormDraft>(() => buildEmptyBewerbungDraft(saisonId));
   const [isEingereicht, setIsEingereicht] = useState(false);
+  /**
+   * The wire has no spelling for „not answered“ — `trainer_ist_zugleich: null` is the answer „Eine
+   * andere Person“ — so the picker's own state sits beside the draft, written by `pickTrainerWahl`
+   * and by nothing else.
+   */
+  const [trainerWahl, setTrainerWahl] = useState<FLTrainerZugleich | null | undefined>(undefined);
   /** Set on the first edit and never cleared: what it guards is the browser's own unload prompt. */
   const [hasTyped, setHasTyped] = useState(false);
   /** The last blur-time answer about a Kürzel, kept WITH the value it judged (see `mergedErrors`). */
@@ -155,9 +160,10 @@ export function BewerbungForm({
    * The whole of the at-most-one rule: one field holds the claim, so pointing it at a seat
    * necessarily takes it off the other. No press can put it on both.
    */
-  const pickZugleich = (seat: FLTrainerZugleich | null) => {
+  const pickTrainerWahl = (seat: FLTrainerZugleich | null) => {
     const next: BewerbungFormDraft = { ...draft, kontakte: { ...draft.kontakte, trainer_ist_zugleich: seat } };
 
+    setTrainerWahl(seat);
     applyDraft(next);
     // Every seat, because the mirror moves two of them at once and a verdict left on the seat it
     // stopped feeding would judge a value nobody can reach any more.
@@ -167,9 +173,26 @@ export function BewerbungForm({
         `kontakte.${value}.nachname`,
         `kontakte.${value}.email`,
         `kontakte.${value}.telefon`,
-        `kontakte.${value}.geburtsdatum`,
         `kontakte.${value}.einwilligung.erteilt`,
       ]),
+      next,
+    );
+  };
+
+  /**
+   * One press answers for all three seats: the applicant confirms once that the three people know
+   * of their entry, and the wire keeps a record per seat because each person confirms their own.
+   */
+  const pickEinwilligung = (erteilt: boolean) => {
+    const kontakte = BEWERBUNG_SEATS.reduce<BewerbungKontakteDraft>(
+      (block, { value }) => ({ ...block, [value]: { ...block[value], einwilligung: { ...block[value].einwilligung, erteilt } } }),
+      draft.kontakte,
+    );
+    const next: BewerbungFormDraft = { ...draft, kontakte: kontakte };
+
+    applyDraft(next);
+    validatePicked(
+      BEWERBUNG_SEATS.map(({ value }) => `kontakte.${value}.einwilligung.erteilt`),
       next,
     );
   };
@@ -307,27 +330,26 @@ export function BewerbungForm({
         isSchulenLesbar={isSchulenLesbar}
       />
 
-      {BEWERBUNG_SEATS.map(({ value, label }) => (
+      {BEWERBUNG_SEATS.map(({ value, label }, index) => (
         <FormKontaktpersonenSection
           key={value}
           seat={value}
           label={label}
-          person={value === "trainer" ? mirrorBewerbungTrainer(draft.kontakte).trainer : draft.kontakte[value]}
-          istZugleichTrainer={mirroredSeat === value}
-          // Only the Trainer seat reads out: it is the one the claim points AT, and the person is
-          // edited where it was entered.
-          isMirrored={value === "trainer" && mirroredSeat !== null}
+          person={draft.kontakte[value]}
+          // On the first panel alone: the rule holds for all three, and a reader meets it before
+          // they name anybody rather than after the third.
+          zeigtAltersHinweis={index === 0}
+          trainerWahl={value === "trainer" ? trainerWahl : undefined}
+          onTrainerWahl={value === "trainer" ? pickTrainerWahl : undefined}
           onChange={(person) => applyPerson(value, person)}
-          onZugleichToggled={value === "trainer" ? undefined : (on) => pickZugleich(on ? value : null)}
           onFieldLeft={validateFields}
-          onPersonPicked={(paths, person) => {
-            const next: BewerbungFormDraft = { ...draft, kontakte: { ...draft.kontakte, [value]: person } };
-
-            applyDraft(next);
-            validatePicked(paths, next);
-          }}
         />
       ))}
+
+      <FormEinwilligungSection
+        erteilt={draft.kontakte.ansprechperson.einwilligung.erteilt}
+        onErteiltPicked={pickEinwilligung}
+      />
 
       <FormTeamSection
         trikot={draft.trikot}
@@ -348,6 +370,10 @@ export function BewerbungForm({
           validatePicked(paths, next);
         }}
       />
+
+      {/* Repeated at the press, not only in the lead: this form scrolls the lead away long before
+          the button, and what the press sets in motion is three emails rather than a decision. */}
+      <p className="muted-hint">Mit dem Abschicken bekommt jede Kontaktperson eine E-Mail mit einem Link zur Bestätigung.</p>
 
       <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
         <Button

@@ -26,18 +26,14 @@ import {
   PersonNameSchema,
   PHONE_REGEX,
 } from "@/shared/schemas";
-import { getGermanTodayStr } from "@/shared/utils/date";
 
 import {
   BEWERBUNG_GRUND_MAX_LENGTH,
   BEWERBUNG_KADER_GROESSE_MAX,
-  BEWERBUNG_MAX_ALTER,
-  BEWERBUNG_MIN_ALTER,
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
   BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
   KUERZEL_LAENGE,
 } from "./constants";
-import { geburtsdatumSpanne } from "./utils";
 
 /**
  * Mirrors `FLBewerbungStatus`. `eingereicht` is the only state a submission arrives in; the other two
@@ -263,7 +259,7 @@ export const FLBewerbungEinwilligungPayloadSchema = z.object({
     }),
   // `true` alone, never a boolean: an unticked box is a consent nobody gave, and a payload carrying
   // `false` would record the absence as an answer.
-  erteilt: z.literal(true, { error: "Ohne Einwilligung dürfen wir die Daten dieser Person nicht speichern." }),
+  erteilt: z.literal(true, { error: "Ohne diese Bestätigung können wir die Bewerbung nicht annehmen." }),
 });
 export type FLBewerbungEinwilligungPayload = z.infer<typeof FLBewerbungEinwilligungPayloadSchema>;
 
@@ -271,8 +267,8 @@ const NAME_ZU_LANG = `Der Name darf höchstens ${String(KONTAKT_NAME_MAX_LENGTH)
 const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MAX)} Spieler an.`;
 
 /**
- * Mirrors `FLBewerbungKontaktpersonPayload` — `FLKontaktpersonPayload` with the agreement the public
- * form gathers and the one date bound on this payload alone.
+ * Mirrors `FLBewerbungKontaktpersonPayload` — the four fields the applicant types, with the
+ * confirmation the form gathers for all three seats at once.
  */
 export const FLBewerbungKontaktpersonPayloadSchema = z.object({
   vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
@@ -281,20 +277,8 @@ export const FLBewerbungKontaktpersonPayloadSchema = z.object({
     .email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." })
     .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
   telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
-  geburtsdatum: CustomDateStringSchema.refine(
-    (value) => {
-      const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr());
-
-      return value >= frueheste && value <= spaeteste;
-    },
-    // Both bounds, because the refine holds both: named for the floor alone, a mistyped year answers
-    // a 190-year-old date with „muss mindestens 16 Jahre alt sein“, which is a different fault.
-    {
-      error:
-        `Eine Kontaktperson ist mindestens ${String(BEWERBUNG_MIN_ALTER)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt. ` +
-        `Prüfe das Geburtsdatum.`,
-    },
-  ),
+  // No birthdate: each contact enters their own on the confirmation page, and the key is undeclared
+  // here so the API refuses one an older client still sends rather than storing an unchecked date.
   einwilligung: FLBewerbungEinwilligungPayloadSchema,
 });
 export type FLBewerbungKontaktpersonPayload = z.infer<typeof FLBewerbungKontaktpersonPayloadSchema>;
@@ -304,9 +288,9 @@ export type FLBewerbungKontaktpersonPayload = z.infer<typeof FLBewerbungKontaktp
  * on the SECOND of each pair: it is the field the applicant reaches next, and the one to change.
  */
 const KONTAKT_PAARE = [
-  ["trainer", "ansprechperson"],
-  ["trainer", "stellvertretung"],
   ["ansprechperson", "stellvertretung"],
+  ["ansprechperson", "trainer"],
+  ["stellvertretung", "trainer"],
 ] as const;
 
 /** A person retyping their own address is the same person, whatever the case and the surrounding space. */
@@ -365,7 +349,7 @@ export const FLBewerbungKontaktePayloadSchema = z
     for (const [erste, zweite] of KONTAKT_PAARE) {
       // The declared pair IS one person and shares everything by construction. Every other pair is
       // two people the league has to be able to tell apart when one of them stops answering.
-      if (erste === "trainer" && zweite === kontakte.trainer_ist_zugleich) continue;
+      if (zweite === "trainer" && erste === kontakte.trainer_ist_zugleich) continue;
 
       if (gleicheAdresse(kontakte[erste].email, kontakte[zweite].email)) {
         ctx.addIssue({

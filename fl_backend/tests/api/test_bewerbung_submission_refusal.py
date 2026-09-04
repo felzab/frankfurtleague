@@ -1,5 +1,4 @@
 import asyncio
-from datetime import date, timedelta
 from typing import Any, Mapping, cast, get_args
 
 import pytest
@@ -37,14 +36,11 @@ from app.api.bewerbungen.services import (
     find_window_refusal,
     window_is_running,
 )
-from app.api.teams.schemas import FLKontaktperson, FLPostTeamPayload, FLTeam, FLTeamRecord, FLTrikotFarbe
-from app.core.dependencies import get_german_date_str, get_germany_now
+from app.api.teams.schemas import FLKontaktperson, FLKontaktpersonPayload, FLPostTeamPayload, FLTeam, FLTeamRecord, FLTrikotFarbe
 from app.core.exceptions import DocumentNotFoundException
 from app.shared.schemas.addresses import FLAddressPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_GROESSE_MAX,
-    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
-    BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
     KONTAKT_NAME_MAX_LENGTH,
@@ -84,18 +80,6 @@ REFUSED_CHARACTERS = [
 TRIMMED_CHARACTERS = [case for case in REFUSED_CHARACTERS if case.id != "NUL"]
 
 
-def _today() -> date:
-    """The day the age bound is judged against, read the one way the application reads it."""
-
-    return date.fromisoformat(get_german_date_str(get_germany_now()))
-
-
-def _aged(years: int) -> str:
-    """A birth date comfortably inside `years` -- never on the boundary, which `TestWholeYears` pins clock-free."""
-
-    return (_today() - timedelta(days=round(years * 365.25))).isoformat()
-
-
 ADDRESS: Mapping[str, Any] = {
     "strasse": "Hanauer Landstraße",
     "hausnummer": "12a",
@@ -113,7 +97,6 @@ def person(**overrides: Any) -> dict[str, Any]:
         "nachname": "Brackenmoor",
         "email": "quillhilde@example.com",
         "telefon": "+49 170 1234567",
-        "geburtsdatum": _aged(40),
         "einwilligung": {"text_version": "v3", "erteilt": True},
         **overrides,
     }
@@ -427,46 +410,53 @@ class TestTheAgeJudgementAgainstAFixedDay:
             refuse_age_outside_the_bounds(geburtsdatum=born, today=TODAY)
 
 
-class TestTheAgeBound:
-    """The bound the public payload carries and no other date field does. Dates are relative, so the case survives the year turning."""
+# A date no living contact person could carry: born after the bound's floor whatever `today` is.
+A_CHILDS_BIRTHDATE = "2018-01-01"
 
-    def test_an_adult_of_forty_is_accepted(self):
-        """The floor: without it every refusal below would pass on a validator that refuses everything."""
+# What the junction's own editor sends for one person's consent: the source and the stamp are on no
+# payload (`docs/backend/spec.md :: I142`).
+JUNCTION_EINWILLIGUNG: Mapping[str, Any] = {"umfang": "kontaktdaten", "text_version": "v3", "datum": TODAY}
 
-        assert FLBewerbungKontaktpersonPayload.model_validate(person()).geburtsdatum == person()["geburtsdatum"]
 
-    @pytest.mark.parametrize(
-        "years",
-        [
-            pytest.param(BEWERBUNG_KONTAKT_MIN_AGE_YEARS - 6, id="a child"),
-            pytest.param(BEWERBUNG_KONTAKT_MAX_AGE_YEARS + 10, id="a year mistyped by a century"),
-        ],
-    )
-    def test_an_age_outside_the_bounds_is_refused(self, years: int, assert_rejects):
-        failure = assert_rejects(FLBewerbungKontaktpersonPayload, person(geburtsdatum=_aged(years)), "geburtsdatum")
+class TestNoBirthdateOnThePublicPayload:
+    """`docs/backend/spec.md :: I141`: the public form asks for no birthdate, so the key itself is refused, in any form."""
 
-        # German, because it surfaces as a 422 on a public form rather than in an admin tool.
-        assert "Jahre" in str(failure)
+    @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
+    def test_a_submission_naming_a_birthdate_on_any_seat_is_refused_outright(self, seat: str):
+        block = kontakte(**{seat: person(geburtsdatum="1984-05-09")})
 
-    def test_a_date_in_the_future_is_refused(self):
-        """Not a bound of its own: an unborn contact person is younger than the floor, which is what refuses them."""
+        with pytest.raises(ValidationError) as failure:
+            FLPostBewerbungPayload.model_validate(submission(kontakte=block))
 
-        unborn = (_today() + timedelta(days=1)).isoformat()
+        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "geburtsdatum")]
 
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktpersonPayload.model_validate(person(geburtsdatum=unborn))
+    def test_a_null_birthdate_is_refused_rather_than_accepted_as_absent(self):
+        """The rejected shape: a `geburtsdatum: None` override would take the key as an explicit null, where the form asks nothing."""
+
+        with pytest.raises(ValidationError) as failure:
+            FLBewerbungKontaktpersonPayload.model_validate(person(geburtsdatum=None))
+
+        assert [entry["type"] for entry in failure.value.errors()] == ["extra_forbidden"]
 
     def test_the_junction_payload_carries_no_such_bound(self):
-        """The bound is the PUBLIC form's alone: an administrator's own edit answers to nobody's age."""
+        """The date is the junction editor's to collect, and an administrator's own edit answers to nobody's age."""
 
-        from app.api.teams.schemas import FLKontaktpersonPayload
+        junction_person = {**person(), "geburtsdatum": A_CHILDS_BIRTHDATE, "einwilligung": dict(JUNCTION_EINWILLIGUNG)}
 
-        junction_person = {
-            **person(geburtsdatum=_aged(BEWERBUNG_KONTAKT_MIN_AGE_YEARS - 6)),
-            "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "administrativ", "text_version": "v3", "datum": TODAY},
-        }
+        assert FLKontaktpersonPayload.model_validate(junction_person).geburtsdatum == A_CHILDS_BIRTHDATE
 
-        assert FLKontaktpersonPayload.model_validate(junction_person).geburtsdatum is not None
+    def test_the_junction_payload_still_requires_the_date(self, assert_rejects):
+        """Nullable on the stored shape and required here: the editor collects a whole person."""
+
+        assert_rejects(FLKontaktpersonPayload, {**person(), "einwilligung": dict(JUNCTION_EINWILLIGUNG)}, "geburtsdatum")
+
+    @pytest.mark.parametrize("stored", [pytest.param({}, id="no key"), pytest.param({"geburtsdatum": None}, id="a null")])
+    def test_a_stored_contact_with_no_date_still_reads(self, stored: Mapping[str, Any]):
+        """A seat is stored without one until its person confirms, so a required field here would 500 the triage over one."""
+
+        record = {**person(), **stored, "einwilligung": {**JUNCTION_EINWILLIGUNG, "erteilt_von": "administrativ"}}
+
+        assert FLKontaktperson.model_validate(record).geburtsdatum is None
 
 
 class TestOneNumberHasOneSpelling:
@@ -603,17 +593,35 @@ class TestTheThreeSeatsAreThreePeople:
 class TestWhatTheServerComposes:
     """The fields a client is offered none of, so nothing submitted can claim them."""
 
-    def test_a_consent_records_the_person_and_the_day_it_arrived(self):
+    def test_a_consent_records_an_entry_on_the_persons_behalf_and_the_day_it_arrived(self):
+        """One person ticked for three, so every seat is `administrativ` until its own confirmation writes `person`."""
+
         composed = compose_einwilligung(text_version="v3", today=TODAY)
 
-        assert composed == {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v3", "datum": TODAY}
+        assert composed == {
+            "umfang": "kontaktdaten",
+            "erteilt_von": "administrativ",
+            "text_version": "v3",
+            "datum": TODAY,
+            "bestaetigt_am": None,
+        }
 
     def test_the_composed_block_stores_no_field_the_payload_carried_beside_the_wording(self):
         """`erteilt` is the form's tickbox, not a stored field: the record IS the consent, and `False` is a body this endpoint refuses."""
 
         composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
 
-        assert set(composed["trainer"]["einwilligung"]) == {"umfang", "erteilt_von", "text_version", "datum"}
+        assert set(composed["trainer"]["einwilligung"]) == {"umfang", "erteilt_von", "text_version", "datum", "bestaetigt_am"}
+
+    @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
+    def test_no_seat_carries_a_confirmation_or_a_birthdate_at_submission(self, seat: str):
+        """Both keys are written null rather than left off, as `wunschgegner` is: each marks what the confirmation fills in."""
+
+        composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
+
+        assert composed[seat]["einwilligung"]["erteilt_von"] == "administrativ"
+        assert "bestaetigt_am" in composed[seat]["einwilligung"] and composed[seat]["einwilligung"]["bestaetigt_am"] is None
+        assert "geburtsdatum" in composed[seat] and composed[seat]["geburtsdatum"] is None
 
     def test_every_seat_and_the_flag_survive_the_composition(self):
         """The control for the case above: a composer dropping a seat would satisfy it and store two people."""
@@ -631,9 +639,9 @@ class TestWhatTheServerComposes:
         with pytest.raises(ValidationError):
             FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"text_version": "v3", "erteilt": False}))
 
-    @pytest.mark.parametrize("field", ["umfang", "erteilt_von", "datum"])
+    @pytest.mark.parametrize("field", ["umfang", "erteilt_von", "datum", "bestaetigt_am"])
     def test_a_client_may_not_name_a_field_the_server_composes(self, field: str):
-        """`extra="forbid"`: a body naming one of these could claim an administrative transcription or backdate a consent."""
+        """`extra="forbid"`: a body naming one of these could claim a person's own consent, or backdate or pre-confirm one."""
 
         with pytest.raises(ValidationError):
             FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"text_version": "v3", "erteilt": True, field: "x"}))

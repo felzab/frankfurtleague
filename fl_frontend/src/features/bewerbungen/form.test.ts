@@ -114,7 +114,9 @@ describe("the public application form", () => {
   it("judges a typed field on blur and a picked one on the press", () => {
     assert.match(SEATS, /onBlur=\{\(\) => onFieldLeft\(\[path\("vorname"\)\]\)\}/, "a typed seat field is judged elsewhere");
     assert.ok(!/onChange=\{\(next\) => \{[^}]*onFieldLeft/.test(SEATS), "a change handler judges a seat's field between keystrokes");
-    assert.match(SEATS, /onPersonPicked\(\[path\("einwilligung\.erteilt"\)\], next\)/, "the picked consent is judged elsewhere");
+    // One press answers for all three seats, so `BewerbungForm` judges the three paths it wrote;
+    // what this panel owes is that the press is what reports it at all.
+    assert.match(SEATS, /onChange=\{onErteiltPicked\}/, "the confirmation is judged on something other than the press");
   });
 
   /* `FieldLabel` reads a `DraftStatusProvider` this page has none of, and `fieldLabelPaths.test.ts`
@@ -137,38 +139,44 @@ describe("the public application form", () => {
     }
   });
 
-  /* The Trainer first: it is the seat a school fills in first when it thinks about who is coming,
-     and the two contacts follow from it. The school before all three, the team after them. */
-  it("asks for the Trainer first, ahead of the two seats that can claim to be one", () => {
+  /* The Trainer LAST, so the claim on its panel names a seat already typed
+     (`fl_frontend/src/features/teams/constants.ts :: KONTAKT_ROLLEN`). The confirmation block
+     carries no heading of its own, which is why five headings answer for six sections. */
+  it("asks for the Trainer last, behind the two seats its claim can name", () => {
     assert.deepEqual(
       [...FORMULAR.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((treffer) => treffer[1]),
-      ["Schule", "Trainerin oder Trainer", "Ansprechperson", "Stellvertretung", "Team"],
-      "the form no longer asks the Trainer first, or renamed a panel",
+      ["Schule", "Ansprechperson", "Stellvertretung", "Trainerin oder Trainer", "Team"],
+      "the form no longer asks the Trainer last, or renamed a panel",
     );
     // The payload's own keys in the same order, so a renamed panel heading cannot hide a reordering.
     assert.deepEqual(
       [...FORMULAR.matchAll(/name="kontakte\.(\w+)\.vorname"/g)].map((treffer) => treffer[1]),
-      ["trainer", "ansprechperson", "stellvertretung"],
+      ["ansprechperson", "stellvertretung", "trainer"],
       "the seats are rendered in an order their headings do not show",
     );
   });
 
   /* One control, one payload field: two independent ticks would let a submission say that two
      different people are both the coach, which `trainer_ist_zugleich` cannot express. */
-  it("makes the claim through the one nullable field, so no press can put it on two seats", () => {
-    const zugleich = schalter(FORMULAR).filter((control) => control.name.endsWith("trainer_ist_zugleich"));
+  it("makes the claim through one control, on the Trainer's panel alone", () => {
+    const anspruch = benannteControls(FORMULAR).filter((control) => control.name === "kontakte.trainer_ist_zugleich");
 
-    assert.equal(zugleich.length, 2, "the claim is offered on a number of seats other than the two that can make it");
-    assert.equal(new Set(zugleich.map((control) => control.name)).size, 1, "the two seats write the claim into two different fields");
-    // The Trainer seat is the one the claim points AT, so it offers no way to point it at itself.
-    const trainerPanel = FORMULAR.slice(FORMULAR.indexOf("Trainerin oder Trainer"), FORMULAR.indexOf("Ansprechperson"));
-    assert.doesNotMatch(trainerPanel, /name="kontakte\.trainer_ist_zugleich"/, "the Trainer seat can claim to be its own coach");
+    assert.equal(anspruch.length, 1, "the claim is offered on a number of panels other than the Trainer's own");
+    // The two seats the claim POINTS AT stand above it and offer none: the question is answered
+    // where the Trainer is asked for, about people the applicant has already typed.
+    const vorDemTrainer = FORMULAR.slice(0, FORMULAR.indexOf(">Trainerin oder Trainer<"));
+
+    assert.notEqual(vorDemTrainer.length, FORMULAR.length, "the Trainer panel's heading is gone, so this case compares nothing");
+    assert.doesNotMatch(vorDemTrainer, /name="kontakte\.trainer_ist_zugleich"/, "a seat the claim can name offers the claim itself");
   });
 
-  /* Off clears the field rather than leaving the last seat standing, which is what makes the switch
-     a nullable claim rather than a latch. A handler's argument reaches no markup. */
-  it("clears the claim when the press turns it off", () => {
-    assert.match(FORM, /pickZugleich\(on \? value : null\)/, "turning the claim off leaves it pointing at the seat that made it");
+  /* The group has no off: „Eine andere Person" is an ANSWER, so the claim is re-pointed and the
+     `null` it writes is what the wire stores. Which handler a panel is given reaches no markup. */
+  it("writes the pressed answer, and offers the question on the Trainer seat alone", () => {
+    assert.match(FORM, /onTrainerWahl=\{value === "trainer" \? pickTrainerWahl : undefined\}/, "a second panel can answer the claim");
+    // Both writes, because „not answered yet" has no spelling on the wire: without the second, a
+    // pressed „Eine andere Person" would leave the group looking as though nobody had answered.
+    assert.match(FORM, /setTrainerWahl\(seat\);/, "the press moves the draft without moving what the picker shows");
   });
 });
 
@@ -179,7 +187,9 @@ describe("what a refusal on a switch has to land on", () => {
   it("gives every switch on this form a control a refusal can reach", () => {
     const alle = schalter(FORMULAR);
 
-    assert.ok(alle.length >= 2, "the form renders no switches, so this case compares nothing");
+    // A floor of ONE: the confirmation is the only switch left, the claim having become a toggle
+    // group and the three per-seat consents one press.
+    assert.ok(alle.length >= 1, "the form renders no switches, so this case compares nothing");
     for (const control of alle) {
       assert.notEqual(control.name, "", "a switch carries no name, so a refusal on its path reaches no control");
       // Required-ness only where the schema demands it: the zugleich claim is one a school may leave alone.
@@ -305,15 +315,6 @@ describe("what the form says about itself to a reader who cannot see it", () => 
 
       assert.ok(benannt > 0, `${wo} resolves no accessible name at all, so the loop above compared nothing`);
     }
-  });
-
-  /* Every answer the schema demands says so, or it carries no asterisk, no `aria-required` and no
-     mark of any kind — and the applicant meets the requirement only when the submit refuses it. */
-  it("marks every birthdate required, as the schema's own span rule demands", () => {
-    const picker = [...FORMULAR.matchAll(/<div ([^>]*data-slot="date-picker"[^>]*)>/g)].map((treffer) => treffer[1] ?? "");
-
-    assert.equal(picker.length, 3, "the form no longer renders one birthdate per seat");
-    for (const attrs of picker) assert.match(attrs, /data-required="true"/, "a birthdate the schema refuses asks for nothing");
   });
 
   /* The receipt replaces the form under the pressed button, so without these the caret falls to

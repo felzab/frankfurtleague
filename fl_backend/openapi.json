@@ -2920,7 +2920,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
       "patch": {
         "summary": "Rewrite a team's season contacts, and nothing else on the row",
-        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. It refuses\nnothing: a `past` season's contacts stay correctable.",
+        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. It refuses\nnothing: a `past` season's contacts stay correctable. Each seat's `erteilt_von` and\n`bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other\nseat is stored as entered administratively.",
         "operationId": "patch_saison_team_kontakte_api_v0_teams__team_id__saisons__saison_id__kontakte_patch",
         "security": [
           {
@@ -5542,11 +5542,6 @@
             "pattern": "^([+]?[ 0-9\\-().]{3,20})$",
             "title": "Telefon"
           },
-          "geburtsdatum": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Geburtsdatum"
-          },
           "einwilligung": {
             "$ref": "#/components/schemas/FLBewerbungEinwilligungPayload"
           }
@@ -5558,11 +5553,10 @@
           "nachname",
           "email",
           "telefon",
-          "geburtsdatum",
           "einwilligung"
         ],
         "title": "FLBewerbungKontaktpersonPayload",
-        "description": "One of the three people, as a member of the public submits them.\n\nThe junction payload plus the two things only a public form needs: a bounded age, and a consent\nthe person gives themselves."
+        "description": "One of the three people, as a member of the public submits them.\n\nNo birthdate: each types their own on the confirmation page (`docs/backend/spec.md :: I141`), so\nthe key is refused outright rather than accepted as a null."
       },
       "FLBewerbungKuerzelResponse": {
         "properties": {
@@ -6425,14 +6419,6 @@
             "const": "kontaktdaten",
             "title": "Umfang"
           },
-          "erteilt_von": {
-            "type": "string",
-            "enum": [
-              "person",
-              "administrativ"
-            ],
-            "title": "Erteilt Von"
-          },
           "text_version": {
             "type": "string",
             "title": "Text Version"
@@ -6441,14 +6427,34 @@
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Datum"
+          },
+          "erteilt_von": {
+            "type": "string",
+            "enum": [
+              "person",
+              "administrativ"
+            ],
+            "title": "Erteilt Von"
+          },
+          "bestaetigt_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Am"
           }
         },
         "type": "object",
         "required": [
           "umfang",
-          "erteilt_von",
           "text_version",
-          "datum"
+          "datum",
+          "erteilt_von"
         ],
         "title": "FLKontaktEinwilligung",
         "description": "What this person agreed to, and which wording they agreed to.\n\nNOT `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, which records what may be\nPUBLISHED about a pupil, is written once, and has an open Datenschutz question in front of it."
@@ -6459,14 +6465,6 @@
             "type": "string",
             "const": "kontaktdaten",
             "title": "Umfang"
-          },
-          "erteilt_von": {
-            "type": "string",
-            "enum": [
-              "person",
-              "administrativ"
-            ],
-            "title": "Erteilt Von"
           },
           "text_version": {
             "type": "string",
@@ -6484,7 +6482,6 @@
         "type": "object",
         "required": [
           "umfang",
-          "erteilt_von",
           "text_version",
           "datum"
         ],
@@ -6570,8 +6567,15 @@
             "title": "Telefon"
           },
           "geburtsdatum": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Geburtsdatum"
           },
           "einwilligung": {
@@ -6584,7 +6588,6 @@
           "nachname",
           "email",
           "telefon",
-          "geburtsdatum",
           "einwilligung"
         ],
         "title": "FLKontaktperson",

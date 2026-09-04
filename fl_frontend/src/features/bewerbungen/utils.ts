@@ -85,10 +85,8 @@ export function describeAufnahme({ createdTeam, gruppe, saisonId }: { createdTea
 }
 
 /**
- * The window a contact person's birthdate has to fall in, as its two `YYYY-MM-DD` bounds.
- *
- * Bounds rather than an age: the picker needs a `minValue` and the schema a string comparison, so
- * one derivation serves both and neither can drift.
+ * Bounds rather than an age: a date control takes a `minValue` and a schema a string comparison, so
+ * one derivation serves both.
  */
 export function geburtsdatumSpanne(today: string): { frueheste: string; spaeteste: string } {
   const [jahr = "1970", rest = "01-01"] = [today.slice(0, 4), today.slice(5)];
@@ -186,7 +184,6 @@ export const buildEmptyBewerbungKontaktperson = (): BewerbungKontaktpersonDraft 
   nachname: "",
   email: "",
   telefon: "",
-  geburtsdatum: "",
   // Stamped as the form opens, so what a record cites is the wording its reader was shown.
   einwilligung: { text_version: LIGA_EINWILLIGUNG.textVersion, erteilt: false },
 });
@@ -219,10 +216,8 @@ export const buildEmptyBewerbungDraft = (saisonId: string): BewerbungFormDraft =
 });
 
 /**
- * The Trainer seat, filled from the seat that declared itself the coach.
- *
- * **Seat to Trainer**: the question is asked where the person is entered, so that seat is the source
- * and the coach's boxes the reading.
+ * **Seat to Trainer**: the claim is answered on the Trainer's panel, last of the three, so the seat
+ * it names holds a person already typed.
  */
 export function mirrorBewerbungTrainer(kontakte: BewerbungKontakteDraft): BewerbungKontakteDraft {
   return mirrorTrainerSeat(kontakte);
@@ -251,8 +246,8 @@ export function bewerbungPayload(draft: BewerbungFormDraft) {
     saison_id: draft.saison_id,
     team_id: neu ? null : draft.auswahl,
     schule: neu ? draft.schule : null,
-    // Mirrored on the way OUT rather than into state: the seat that declared itself the coach stays
-    // the one place the person is edited, so nothing can drift between the two copies.
+    // Mirrored on the way OUT rather than into state: the seat the claim names stays the one place
+    // the person is edited, so nothing can drift between the two copies.
     kontakte: mirrorBewerbungTrainer(draft.kontakte),
     trikot: draft.trikot,
     kader: draft.kader,
@@ -264,7 +259,7 @@ export function bewerbungPayload(draft: BewerbungFormDraft) {
 }
 
 /**
- * The paths one judgement covers. While the mirror stands, the Trainer seat holds the named seat's
+ * The paths one judgement covers. While the claim stands, the Trainer seat holds the named seat's
  * person, so judging that seat's field alone leaves the copy's verdict over a value it never saw.
  */
 export function bewerbungJudgedPaths(paths: readonly string[], mirroredSeat: FLTrainerZugleich | null): readonly string[] {

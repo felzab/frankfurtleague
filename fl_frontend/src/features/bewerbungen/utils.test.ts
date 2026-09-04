@@ -218,7 +218,6 @@ describe("the public form's coach mirror", () => {
     nachname: "Mustermann",
     email: `${vorname.toLowerCase()}@beispiel.de`,
     telefon: "069 1234567",
-    geburtsdatum: "1990-01-01",
     einwilligung: { text_version: "2026-08", erteilt: true },
   });
 
@@ -263,9 +262,9 @@ describe("which paths one judgement covers in the public form", () => {
       "kontakte.ansprechperson.email",
       "kontakte.trainer.email",
     ]);
-    assert.deepEqual(bewerbungJudgedPaths(["kontakte.stellvertretung.geburtsdatum"], "stellvertretung"), [
-      "kontakte.stellvertretung.geburtsdatum",
-      "kontakte.trainer.geburtsdatum",
+    assert.deepEqual(bewerbungJudgedPaths(["kontakte.stellvertretung.telefon"], "stellvertretung"), [
+      "kontakte.stellvertretung.telefon",
+      "kontakte.trainer.telefon",
     ]);
   });
 

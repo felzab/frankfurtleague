@@ -240,6 +240,13 @@ const RECORD_ITSELF = "the record's own path: refusable only on a shape the type
 /** One member, so the panel writes it from `EINWILLIGUNG_UMFANG` rather than asking a question with one answer. */
 const ONE_SCOPE = "the agreement's only scope, written by the panel rather than picked";
 
+/**
+ * Sound because the three cannot be refused apart: one press writes all three, so the named control
+ * is on screen whenever any of them is refused.
+ */
+const ONE_SWITCH_FOR_THREE_SEATS =
+  "one switch confirms all three seats and is named for `kontakte.ansprechperson.einwilligung.erteilt`, which every refusal on this path arrives beside";
+
 /** The create dialog offers no control over the window, so the null it sends is the only value it can produce. */
 const WINDOW_OPENS_LATER = "the create draft sends the null the field allows; the window is opened in the season editor";
 
@@ -289,6 +296,8 @@ const EXEMPT: Record<string, Record<string, string>> = {
     "kontakte.trainer.einwilligung.text_version": WRITTEN_NOT_PICKED,
     "kontakte.ansprechperson.einwilligung.text_version": WRITTEN_NOT_PICKED,
     "kontakte.stellvertretung.einwilligung.text_version": WRITTEN_NOT_PICKED,
+    "kontakte.trainer.einwilligung.erteilt": ONE_SWITCH_FOR_THREE_SEATS,
+    "kontakte.stellvertretung.einwilligung.erteilt": ONE_SWITCH_FOR_THREE_SEATS,
   },
 
   FLPostSaisonPayloadSchema: {

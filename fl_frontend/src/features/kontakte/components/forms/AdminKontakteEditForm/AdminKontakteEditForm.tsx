@@ -31,9 +31,26 @@ import { FormKontakteSection } from "./FormKontakteSection";
 
 import type { FLPatchSaisonTeamKontaktePayload } from "@/features/kontakte/schemas";
 import type { SaisonTeamKontaktePayloadDraft } from "@/features/kontakte/types";
+import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
+
+/** The stored block as a payload can spell it, seat by seat. */
+const replayableKontakte = (kontakte: FLSaisonTeamKontakte | null) =>
+  kontakte === null
+    ? null
+    : {
+        ...kontakte,
+        trainer: datierterSitz(kontakte.trainer),
+        ansprechperson: datierterSitz(kontakte.ansprechperson),
+        stellvertretung: datierterSitz(kontakte.stellvertretung),
+      };
+
+// A null `geburtsdatum` marks a seat whose contact has not confirmed. The editor never invents a
+// date for another person, so the empty string it maps to is refused at the save rather than
+// guessed at.
+const datierterSitz = (person: FLKontaktperson | null) => (person === null ? null : { ...person, geburtsdatum: person.geburtsdatum ?? "" });
 
 /**
  * **One save bar over one endpoint.** `PATCH /teams/{team_id}/saisons/{saison_id}/kontakte` writes the
@@ -55,7 +72,9 @@ export function AdminKontakteEditForm({
   const [isPending, startTransition] = useTransition();
 
   const storedMembership = saison.membership;
-  const storedKontakte = storedMembership?.kontakte ?? null;
+  // Mapped ONCE, so the seed, the change list's stored half and the undo body cannot disagree about
+  // what the season holds.
+  const storedKontakte = replayableKontakte(storedMembership?.kontakte ?? null);
 
   const [kontakte, setKontakte] = useState<SaisonTeamKontakteDraft | null>(storedKontakte);
 
@@ -137,7 +156,10 @@ export function AdminKontakteEditForm({
     startTransition(async () => {
       // Read before the write: `saison` is this render's prop and still holds the pre-save block, and
       // the toast that replays it outlives this component.
-      const undoPayload: FLPatchSaisonTeamKontaktePayload = { team_id: teamId, saison_id: saison.saisonId, kontakte: storedKontakte };
+      const wiederherstellbar = { team_id: teamId, saison_id: saison.saisonId, kontakte: storedKontakte };
+      // The same value seen as the endpoint's own payload, so what the toast replays is held to the
+      // shape the undo route parses.
+      const undoPayload: FLPatchSaisonTeamKontaktePayload = wiederherstellbar;
 
       const payload = buildPayload();
       const res = await patchSaisonTeamKontakteAction(payload);
@@ -159,7 +181,7 @@ export function AdminKontakteEditForm({
         // Judged here and not left to the undo route: backend I36 (`docs/backend/spec.md`) admits a
         // malformed address on read, that row is no legal write, and the shared spine can only
         // answer such a body with a reload nothing would change.
-        unrestorable: describeUnrestorableKontakte(undoPayload),
+        unrestorable: describeUnrestorableKontakte(wiederherstellbar),
         router,
       });
 

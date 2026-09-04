@@ -9,16 +9,12 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Fie
 # no model in `teams` imports this slice.
 from app.api.teams.schemas import (
     FLGruppenNames,
-    FLKontaktpersonPayload,
     FLSaisonTeamKontakte,
     FLSaisonTeamKontaktePayload,
     FLSchulform,
     FLTrikotFarbe,
+    _KontaktpersonWritablePayload,
 )
-
-# `app/core/` imports no slice, so this is acyclic. Imported rather than restated so the public
-# payload's "today" is the one every endpoint of this application already means.
-from app.core.dependencies import get_german_date_str, get_germany_now
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     ADDRESS_STADTTEIL_MAX_LENGTH,
@@ -238,7 +234,7 @@ def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str) -> None:
     """Refuse a contact person the league would not hold details for, in whole years against `today`.
 
     A PARAMETER, as `refuse_reversed_span`'s span is, so both boundaries are pinnable without a
-    clock. German, because it surfaces as a 422.
+    clock. German, because the person who typed the date reads it.
     """
 
     age = _whole_years_between(born=geburtsdatum, today=today)
@@ -249,22 +245,6 @@ def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str) -> None:
     if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
         raise ValueError(f"Ein Geburtsdatum, das auf ein Alter über {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} Jahre führt, ist kein gültiges Datum.")
 
-
-def _judge_age_against_the_german_day(value: str) -> str:
-    """The clock, and nothing else: a field validator takes no dependency, so this is where one is read.
-
-    Overriding `get_germany_now` does NOT move the day this judges against. Pin the bound through
-    `refuse_age_outside_the_bounds`, which takes `today`.
-    """
-
-    refuse_age_outside_the_bounds(geburtsdatum=value, today=get_german_date_str(get_germany_now()))
-
-    return value
-
-
-# On the PUBLIC payload alone, which is why it is not `CustomDateString` itself: a stored date is
-# read back by the triage whatever it holds, and an administrator's own edit answers to nobody's age.
-CustomBewerbungGeburtsdatum = Annotated[CustomDateString, AfterValidator(_judge_age_against_the_german_day)]
 
 # Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
 # start with `49` -- so the order carries nothing.
@@ -307,16 +287,13 @@ class FLBewerbungEinwilligungPayload(BaseModel):
     erteilt: Literal[True]
 
 
-class FLBewerbungKontaktpersonPayload(FLKontaktpersonPayload):
+class FLBewerbungKontaktpersonPayload(_KontaktpersonWritablePayload):
     """One of the three people, as a member of the public submits them.
 
-    The junction payload plus the two things only a public form needs: a bounded age, and a consent
-    the person gives themselves.
+    No birthdate: each types their own on the confirmation page (`docs/backend/spec.md :: I141`), so
+    the key is refused outright rather than accepted as a null.
     """
 
-    # Bounded HERE and on no other date field in the application: this is the one a stranger types
-    # about themselves, unreviewed.
-    geburtsdatum: CustomBewerbungGeburtsdatum
     einwilligung: FLBewerbungEinwilligungPayload
 
 

@@ -238,16 +238,16 @@ def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
 
 
 def compose_einwilligung(*, text_version: str, today: str) -> dict[str, Any]:
-    """The consent record the server writes, from the one field the applicant supplies.
+    """The consent record the server writes.
 
-    `erteilt_von` is `person` and never `administrativ`: a client allowed to name the source could
-    dress an administrator's transcription as a signature.
+    `administrativ` on every seat: one person ticked for three, and only a seat's own confirmation
+    writes `person`. Named by no client, who could otherwise dress a transcription as a signature.
     """
 
-    return {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": text_version, "datum": today}
+    return {"umfang": "kontaktdaten", "erteilt_von": "administrativ", "text_version": text_version, "datum": today, "bestaetigt_am": None}
 
 
-# The three seats, in the order the form asks for them.
+# The three seats, in the order `FLSaisonTeamKontakte` declares them; nothing reads one by position.
 KONTAKT_SEATS = ("trainer", "ansprechperson", "stellvertretung")
 
 
@@ -261,6 +261,9 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
     composed: dict[str, Any] = {
         seat: {
             **{field: value for field, value in kontakte[seat].items() if field != "einwilligung"},
+            # Written null rather than left off, as `wunschgegner` is: the key marks a date not yet
+            # entered, and the confirmation fills it (`docs/backend/spec.md :: I141`).
+            "geburtsdatum": None,
             "einwilligung": compose_einwilligung(text_version=kontakte[seat]["einwilligung"]["text_version"], today=today),
         }
         for seat in KONTAKT_SEATS

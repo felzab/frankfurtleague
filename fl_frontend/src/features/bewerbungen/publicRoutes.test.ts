@@ -154,6 +154,21 @@ describe("the window state the application page renders", () => {
     );
   });
 
+  /* Two sites for one sentence: the lead has scrolled away by the time anybody reaches the button,
+     and a reader who never learns the press mails three people reads the silence afterwards as a
+     failed submission. */
+  it("says at the top and again above the submit what the press sets in motion", () => {
+    for (const satz of [
+      "Nach dem Abschicken bekommt jede Kontaktperson eine E-Mail",
+      "Mit dem Abschicken bekommt jede Kontaktperson eine E-Mail",
+    ]) {
+      assert.ok(LAEUFT.includes(satz), `the running state never says „${satz}…“`);
+    }
+    // One noun for one link across all three sites, the E-Mail fields' own hint included: „Link zur
+    // Einwilligung“ beside „Link zur Bestätigung“ reads as two different links.
+    assert.doesNotMatch(LAEUFT, /Link zur Einwilligung/, "the two sites name the link differently from the field hint");
+  });
+
   /* A closed window renders the page rather than a 404, so every closed state owes the reader a
      sentence of its own — an empty body reads as a page that failed to load. */
   it("answers every closed state with a heading of its own", () => {

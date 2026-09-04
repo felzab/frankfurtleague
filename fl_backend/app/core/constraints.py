@@ -149,19 +149,24 @@ _KONTAKT_EINWILLIGUNG = _object(
         "erteilt_von": {"bsonType": "string", "enum": _KONTAKT_EINWILLIGUNG_QUELLEN},
         "text_version": {"bsonType": "string"},
         "datum": {"bsonType": "string"},
+        # Out of `required` for `wunschgegner`'s reason: every record stored before the field lacks
+        # the key, and a decision re-validates the whole document.
+        "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
     },
 )
 
 # Required TOGETHER, as `_EINWILLIGUNG` is: a person the league cannot reach is not a contact, and a
 # set of details carrying no consent is one nobody agreed to be held.
 _KONTAKTPERSON = _object(
-    required=("vorname", "nachname", "email", "telefon", "geburtsdatum", "einwilligung"),
+    required=("vorname", "nachname", "email", "telefon", "einwilligung"),
     properties={
         "vorname": {"bsonType": "string"},
         "nachname": {"bsonType": "string"},
         "email": {"bsonType": "string"},
         "telefon": {"bsonType": "string"},
-        "geburtsdatum": {"bsonType": "string"},
+        # Nullable and out of `required`: the date arrives with the confirmation, and "required once
+        # confirmed" is no type or enum (`docs/backend/spec.md :: I141`), so nothing here says it.
+        "geburtsdatum": {"bsonType": _STRING_OR_NULL},
         "einwilligung": _KONTAKT_EINWILLIGUNG,
     },
 )

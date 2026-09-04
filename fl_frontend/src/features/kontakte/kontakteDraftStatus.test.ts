@@ -15,7 +15,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "2025-08", datum: "2025-09-01" },
+  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" },
   ...overrides,
 });
 
@@ -114,12 +114,14 @@ describe("deriveKontakteDraftStatus", () => {
   it("finds an unpicked agreement under the agreement's row, and renders it as still open", () => {
     const status = deriveKontakteDraftStatus({
       stored: EMPTY,
-      draft: block({ trainer: person({ einwilligung: { umfang: "kontaktdaten", erteilt_von: null, text_version: "", datum: "" } }) }),
-      fieldErrors: { "kontakte.trainer.einwilligung.erteilt_von": "Bitte wähle, wer die Einwilligung erteilt hat." },
+      draft: block({
+        trainer: person({ einwilligung: { umfang: "kontaktdaten", erteilt_von: null, text_version: "", datum: "", bestaetigt_am: null } }),
+      }),
+      fieldErrors: { "kontakte.trainer.einwilligung.datum": "Bitte gib an, wann die Einwilligung erteilt wurde." },
     });
 
     const row = status.byPath.get("kontakte.trainer.einwilligung");
-    assert.equal(row?.error, "Bitte wähle, wer die Einwilligung erteilt hat.");
+    assert.equal(row?.error, "Bitte gib an, wann die Einwilligung erteilt wurde.");
     // All three fallbacks render rather than hiding: they are the mid-edit states the schema rejects
     // on save, and the change list is where the admin sees what is still missing.
     assert.equal(row?.draftText, "Noch offen, ohne Fassung (ohne Datum)");
@@ -150,14 +152,27 @@ describe("deriveKontakteDraftStatus", () => {
     assert.deepEqual(
       status.fields.map((field) => [field.group, field.label]),
       [
-        ["Trainer", "Person"],
-        ["Trainer", "Einwilligung"],
         ["Ansprechperson", "Person"],
         ["Ansprechperson", "Einwilligung"],
         ["Stellvertretung", "Person"],
         ["Stellvertretung", "Einwilligung"],
+        ["Trainer", "Person"],
+        ["Trainer", "Einwilligung"],
         ["Kontakte", TRAINER_ZUGLEICH_FRAGE],
       ],
+    );
+  });
+
+  /* The rail and the editor's panels both map `KONTAKT_ROLLEN`; a rail keeping its own sequence
+     would send an admin to the third card for a change the first one made. */
+  it("lists the seats in the order the panels stand in", () => {
+    const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block(), fieldErrors: {} });
+    const sitze = [...new Set(status.fields.map((field) => field.group))].filter((gruppe) => gruppe !== "Kontakte");
+
+    assert.deepEqual(
+      sitze,
+      KONTAKT_ROLLEN.map(({ label }) => label),
+      "the rail reads the seats in an order the panels do not",
     );
   });
 });
@@ -171,7 +186,6 @@ const candidatePaths = (rolle: KontaktRolle): string[] => [
   `kontakte.${rolle}.telefon`,
   `kontakte.${rolle}.geburtsdatum`,
   `kontakte.${rolle}.einwilligung`,
-  `kontakte.${rolle}.einwilligung.erteilt_von`,
   `kontakte.${rolle}.einwilligung.text_version`,
   `kontakte.${rolle}.einwilligung.datum`,
 ];
@@ -199,7 +213,6 @@ describe("kontaktSeatPaths", () => {
       "kontakte.trainer",
       "kontakte.trainer.einwilligung",
       "kontakte.trainer.einwilligung.datum",
-      "kontakte.trainer.einwilligung.erteilt_von",
       "kontakte.trainer.einwilligung.text_version",
       "kontakte.trainer.email",
       "kontakte.trainer.geburtsdatum",

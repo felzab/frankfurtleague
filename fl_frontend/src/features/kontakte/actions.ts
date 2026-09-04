@@ -59,8 +59,9 @@ export async function eraseKontaktpersonAction(rawPayload: FLKontaktErasurePaylo
  * different page.
  */
 export async function patchSaisonTeamKontakteAction(
-  // The DRAFT shape: an unpicked Einwilligung submits `erteilt_von: null`, and the schema below is
-  // what turns that into a field error rather than a type error.
+  // The DRAFT shape, which carries `erteilt_von` and `bestaetigt_am` for the editor to display. The
+  // payload declares neither, so the parse below strips both — which is why `validated.data` and
+  // never `rawPayload` is what the write is handed.
   rawPayload: SaisonTeamKontaktePayloadDraft,
 ): Promise<ActionResult<{ saison_team?: FLPatchSaisonTeamKontakteResponse }>> {
   return runAdminMutation("patchSaisonTeamKontakteAction", async () => {

@@ -12,7 +12,7 @@ import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.s
 
 import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
-import { TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
+import { einwilligungHerkunftLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners, resolveRailBanners } from "@/shared/components/ui/railBanner";
@@ -66,7 +66,7 @@ const ADA: FLKontaktperson = {
   email: "ada@example.org",
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "1", datum: "2026-03-12" },
+  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
 };
 
 /** One list seat. `person: null` is what an erasure leaves, which is the state these cases are about. */
@@ -407,11 +407,9 @@ describe("the editor's shape", () => {
   it("judges a typed field on blur and a picked one on the press", () => {
     assert.match(SECTION, /onBlur=\{\(\) => onFieldLeft\(\[`kontakte\.\$\{rolle\}\.vorname`\]\)\}/, "a typed seat field is judged elsewhere");
     assert.ok(!/onChange=\{\(next\) => \{[^}]*onFieldLeft/.test(SECTION_SOURCE), "a change handler judges a seat's field between keystrokes");
-    assert.match(
-      SECTION,
-      /onValidateSelection\(mirroredJudgedPaths\(\[`kontakte\.\$\{rolle\}\.einwilligung\.erteilt_von`\], mirroredSeat\)/,
-      "the picked agreement is judged elsewhere",
-    );
+    // The claim is the one pick this panel still offers: the agreement's origin is the server's to
+    // compose, so nothing here judges it.
+    assert.match(SECTION, /if \(revalidate\) revalidateSeats\(next\);/, "a pick that resolves what a seat holds is judged elsewhere");
   });
 
   /* The claim is honoured at the ONE compose site. Written into the draft it overwrites whichever of
@@ -546,7 +544,7 @@ describe("the editor's shape", () => {
   it("sends the pre-save block, captured before the write that replaces it", () => {
     assert.match(
       SUBMIT,
-      /const undoPayload: FLPatchSaisonTeamKontaktePayload = \{ team_id: teamId, saison_id: saison\.saisonId, kontakte: storedKontakte \};/,
+      /const wiederherstellbar = \{ team_id: teamId, saison_id: saison\.saisonId, kontakte: storedKontakte \};/,
       "the undo replays something other than the pre-save block",
     );
     const capturedAt = SUBMIT.indexOf("const undoPayload");
@@ -563,7 +561,7 @@ describe("what the undo says when it cannot run", () => {
      holds the payload and the reason — diagnoses first. */
   // The diagnosis itself: `fl_frontend/src/features/kontakte/utils.test.ts :: describeUnrestorableKontakte`.
   it("diagnoses an unrestorable block itself rather than dispatching it", () => {
-    assert.match(OFFER_UNDO, /unrestorable: describeUnrestorableKontakte\(undoPayload\),/, "the offer no longer judges its own payload");
+    assert.match(OFFER_UNDO, /unrestorable: describeUnrestorableKontakte\(wiederherstellbar\),/, "the offer no longer judges its own payload");
     const judgedAt = DISPATCH.indexOf("if (unrestorable !== null)");
     const dispatchedAt = DISPATCH.indexOf("postUndo(endpoint, body)");
     assert.ok(judgedAt !== -1 && dispatchedAt !== -1 && judgedAt < dispatchedAt, "the payload is judged after the dispatch it would spare");
@@ -796,11 +794,31 @@ describe("how the editor asks which person the Trainer is", () => {
 
     assert.deepEqual(
       seatCards(seiten).map((card) => card.body.includes(TRAINER_ZUGLEICH_FRAGE)),
-      [true, false, false],
+      [false, false, true],
       "the picker is not bound to the Trainer seat",
     );
     // The control the answer is written into, which one press may claim for one seat only.
     assert.equal(seiten.split('name="kontakte.trainer_ist_zugleich"').length - 1, 1, "the picker renders more than once");
+  });
+});
+
+describe("what the editor says about a consent it may not write", () => {
+  /* The server composes both fields. A control offering either would let an administrator record a
+     consent as the person's own, or overwrite the stamp a confirmation wrote — which no rendered
+     surface would show afterwards. */
+  it("renders the origin and the confirmation stamp, and offers a control for neither", () => {
+    const seiten = sectionMarkup(BLOCK);
+
+    assert.match(seiten, />Erteilt</, "the agreement's origin is no longer shown at all");
+    assert.match(seiten, />Bestätigt am</, "the confirmation stamp is no longer shown at all");
+    assert.ok(seiten.includes(einwilligungHerkunftLabel("person")), "the origin renders as its stored slug rather than its label");
+    assert.ok(seiten.includes("14.03.2026"), "the stamp renders no date, or renders it as the stored string");
+
+    for (const feld of ["erteilt_von", "bestaetigt_am"]) {
+      assert.ok(!seiten.includes(`einwilligung.${feld}"`), `${feld} is still a named field, so a save can carry it`);
+    }
+    // The chips themselves, because a disabled group would still read as a question with an answer.
+    assert.ok(!seiten.includes(einwilligungHerkunftLabel("administrativ")), "the origin is still offered as a pick");
   });
 });
 
@@ -811,7 +829,9 @@ describe("which consent wording a record cites", () => {
     // That the two are one object is this file's type error; what no type can say is that neither
     // half is a placeholder.
     assert.notEqual(LIGA_EINWILLIGUNG.textVersion, "", "the version is empty, so every record cites nothing");
-    assert.notEqual(LIGA_EINWILLIGUNG.text, "", "the version names no wording");
+    assert.ok(LIGA_EINWILLIGUNG.absaetze.length > 0, "the version names no wording at all");
+    for (const absatz of LIGA_EINWILLIGUNG.absaetze) assert.notEqual(absatz, "", "the wording carries an empty paragraph");
+    assert.notEqual(LIGA_EINWILLIGUNG.schalter, "", "the wording carries no sentence for the switch to agree to");
   });
 
   /* Both surfaces gather the SAME consent, so a copy per feature is two texts that drift and two
@@ -882,7 +902,7 @@ describe("how the editor divides one person from the next", () => {
     // heading here, whatever it is called.
     assert.deepEqual(
       headings(sectionMarkup(BLOCK), "h2"),
-      ["Trainer", "Ansprechperson", "Stellvertretung"],
+      ["Ansprechperson", "Stellvertretung", "Trainer"],
       "a panel above the seats is back, or a seat lost its own",
     );
   });

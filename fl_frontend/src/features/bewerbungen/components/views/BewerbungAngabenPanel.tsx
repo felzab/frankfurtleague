@@ -128,7 +128,9 @@ export function BewerbungAngabenPanel({ bewerbung, teamName }: { bewerbung: FLBe
                 ) : (
                   <dl className={ANGABEN_GRID}>
                     <Angabe label="Name">{`${person.vorname} ${person.nachname}`}</Angabe>
-                    <Angabe label="Geburtsdatum">{formatSpielDatum(person.geburtsdatum)}</Angabe>
+                    {/* Null until that seat's contact has confirmed and entered it themselves, so an
+                        empty one is a step still outstanding rather than a school's omission. */}
+                    <Angabe label="Geburtsdatum">{person.geburtsdatum === null ? <Leer /> : formatSpielDatum(person.geburtsdatum)}</Angabe>
                     <Angabe label="E-Mail">{person.email === "" ? <Leer /> : person.email}</Angabe>
                     <Angabe label="Telefon">{person.telefon === "" ? <Leer /> : person.telefon}</Angabe>
                     <Angabe label="Einwilligung">

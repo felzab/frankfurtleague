@@ -12,6 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.public_router import post_bewerbung
+from app.api.bewerbungen.router import get_bewerbung_by_id
 from app.api.bewerbungen.schemas import FLBewerbung, FLPostBewerbungPayload
 from app.api.bewerbungen.services import (
     BEWERBUNG_FENSTER_GESCHLOSSEN,
@@ -81,14 +82,13 @@ ADDRESS: Mapping[str, Any] = {
 
 
 def person(vorname: str, *, telefon: str, email: str | None = None) -> dict[str, Any]:
-    """One contact person as the PUBLIC form submits them: a consent of two fields, and no stored scope or date."""
+    """One contact person as the PUBLIC form submits them: a consent of two fields, no stored scope or date, and no birthdate."""
 
     return {
         "vorname": vorname,
         "nachname": f"{vorname}-Mustermann",
         "email": email or f"{vorname.lower()}@example.com",
         "telefon": telefon,
-        "geburtsdatum": "1980-05-04",
         "einwilligung": {"text_version": "v3", "erteilt": True},
     }
 
@@ -230,7 +230,10 @@ class TestWhatASubmissionStores:
         assert stored["schule"]["shorthand"] == NEW_SCHOOL_SHORTHAND
 
     def test_each_consent_is_the_one_the_server_composed(self, mongo_replica_set_url: str):
-        """The applicant supplied a wording version and a tick; the scope, the source and the day are the league's."""
+        """The applicant supplied a wording version and a tick; the scope, the source, the day and the empty stamp are the league's.
+
+        `administrativ` on every seat, the shipped validator accepting it: nobody has confirmed yet.
+        """
 
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             response = await submit(database)
@@ -244,10 +247,13 @@ class TestWhatASubmissionStores:
         for seat in ("trainer", "ansprechperson", "stellvertretung"):
             assert stored["kontakte"][seat]["einwilligung"] == {
                 "umfang": "kontaktdaten",
-                "erteilt_von": "person",
+                "erteilt_von": "administrativ",
                 "text_version": "v3",
                 "datum": TODAY,
+                "bestaetigt_am": None,
             }
+            # The key is present and null, as `wunschgegner`'s is: the confirmation fills it.
+            assert "geburtsdatum" in stored["kontakte"][seat] and stored["kontakte"][seat]["geburtsdatum"] is None
 
     def test_the_named_opponent_is_stored_as_the_school_wrote_it(self, mongo_replica_set_url: str):
         """A free string and never a reference: nothing resolves it against a club, at the write or afterwards."""
@@ -744,6 +750,60 @@ class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheOpponentField:
 
         async def body(database: AsyncDatabase) -> str:
             created = await database[Collection.BEWERBUNGEN].insert_one(_application_without_a_wish())
+            try:
+                await database[Collection.BEWERBUNGEN].update_one(
+                    {"_id": created.inserted_id},
+                    {"$set": {"status": "abgelehnt", "entscheidung": {"getroffen_am": TODAY, "von": "admin", "grund": "kein Platz"}}},
+                )
+            except OperationFailure as failure:
+                assert failure.code == DOCUMENT_VALIDATION_FAILED, f"expected a validation failure, got {failure.code}"
+                return "rejected"
+            return "accepted"
+
+        assert on_a_league(mongo_replica_set_url, body) == "accepted"
+
+
+def _application_before_the_confirmation_fields() -> dict[str, Any]:
+    """One application with no birthdate key and no stamp key on any seat.
+
+    Wider than what the old form left, a date on every seat, so a read surviving this survives that.
+    """
+
+    document = _application_without_a_wish()
+
+    for seat in ("trainer", "ansprechperson", "stellvertretung"):
+        del document["kontakte"][seat]["geburtsdatum"]
+        del document["kontakte"][seat]["einwilligung"]["bestaetigt_am"]
+
+    return document
+
+
+class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheConfirmationFields:
+    """`geburtsdatum` and `bestaetigt_am` are outside the validator's `required`, and every stored application depends on it.
+
+    The `wunschgegner` precedent, and the `.claude/rules/backend.md` trap in the other direction: a
+    model widened where its hand-written copy was not.
+    """
+
+    def test_a_document_carrying_neither_key_is_accepted_and_the_admin_read_answers_it(self, mongo_replica_set_url: str):
+        """Through the endpoint rather than the raw document: the read is where a required field would 500 the whole triage."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            created = await database[Collection.BEWERBUNGEN].insert_one(_application_before_the_confirmation_fields())
+            response = await get_bewerbung_by_id(bewerbung_id=created.inserted_id, bewerbungen_collection=database[Collection.BEWERBUNGEN])
+
+            return response.bewerbung.kontakte.trainer
+
+        trainer = on_a_league(mongo_replica_set_url, body)
+
+        assert trainer is not None
+        assert (trainer.geburtsdatum, trainer.einwilligung.bestaetigt_am) == (None, None)
+
+    def test_a_decision_on_one_is_still_accepted(self, mongo_replica_set_url: str):
+        """The failure that would ship silently: a decision re-validates the whole document, keys it never wrote included."""
+
+        async def body(database: AsyncDatabase) -> str:
+            created = await database[Collection.BEWERBUNGEN].insert_one(_application_before_the_confirmation_fields())
             try:
                 await database[Collection.BEWERBUNGEN].update_one(
                     {"_id": created.inserted_id},

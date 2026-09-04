@@ -5,17 +5,12 @@ import Link from "next/link";
 
 import { parseDate } from "@internationalized/date";
 
-import { Calendar, DateField, DatePicker, FieldError, Input, Switch, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { Calendar, DateField, DatePicker, FieldError, Input, Switch, TextField } from "@heroui/react";
 
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
-import {
-  EINWILLIGUNG_HERKUNFT_OPTIONS,
-  KONTAKT_NAME_MAX_LENGTH,
-  KONTAKT_ROLLEN,
-  TRAINER_ZUGLEICH_FRAGE,
-  TRAINER_ZUGLEICH_OPTIONS,
-} from "@/features/teams/constants";
+import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
+import { einwilligungHerkunftLabel, KONTAKT_NAME_MAX_LENGTH, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {
@@ -27,32 +22,35 @@ import {
   FIELD_INPUT,
   FIELD_PAIR,
   FORM_SECTION_HEADING,
-  TOGGLE_GROUP_ALIGN,
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
+import { formatSpielDatum } from "@/shared/utils/format";
 
 import { FormKontaktErasure } from "./FormKontaktErasure";
 
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLKontaktEinwilligung, FLTrainerZugleich } from "@/features/teams/schemas";
+import type { FLTrainerZugleich } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
-import type { Key } from "@heroui/react";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
 import type { KontakteBanner } from "./banners";
+
+/**
+ * What the two read-only consent facts say where the record holds neither yet. Spelled here rather
+ * than left blank: an empty box on a read-only field reads as a value that failed to load.
+ */
+const NOCH_OFFEN = "Noch offen";
+const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";
 
 /** The empty string is a date nobody has entered yet, which the picker has to show as empty rather than refuse. */
 function toCalendarDate(stored: string): CalendarDate | null {
   return stored === "" ? null : parseDate(stored);
 }
-
-/** Every path the three seats report under. Module scope: the set is the same on every render. */
 
 /**
  * The three seats a season holds for one club, each with the agreement its details are kept under.
@@ -116,17 +114,6 @@ export function FormKontakteSection({
     if (revalidate) revalidateSeats(next);
   };
 
-  /** Judged on the pick, as every picked field is, and on the value `mirrorKontakte` would store. */
-  const pickHerkunft = (rolle: KontaktRolle, erteilt_von: FLKontaktEinwilligung["erteilt_von"]) => {
-    const seat = basis[rolle];
-    if (seat === null) return;
-    const person = { ...seat, einwilligung: { ...seat.einwilligung, erteilt_von } };
-    const next = { ...basis, [rolle]: person };
-
-    onChange(next);
-    onValidateSelection(mirroredJudgedPaths([`kontakte.${rolle}.einwilligung.erteilt_von`], mirroredSeat), { kontakte: next });
-  };
-
   /**
    * The TRAINER reads out, never the seat the claim names: the named seat is where the person is
    * entered, and `fl_frontend/src/features/kontakte/utils.ts :: mirrorKontakte` composes the Trainer
@@ -179,6 +166,7 @@ export function FormKontakteSection({
                 <TrainerZugleichPicker
                   value={basis.trainer_ist_zugleich}
                   onPick={pickSharedSeat}
+                  labelSlot={<FieldLabel path="kontakte.trainer_ist_zugleich">{TRAINER_ZUGLEICH_FRAGE}</FieldLabel>}
                 />
               ) : null
             }
@@ -186,7 +174,6 @@ export function FormKontakteSection({
             onPresenceChange={(present) => setPresence(rolle, present)}
             onChange={(person) => applyPerson(rolle, person)}
             onFieldLeft={judgeFieldsLeft}
-            onHerkunftPicked={(erteilt_von) => pickHerkunft(rolle, erteilt_von)}
           />
         ))}
     </>
@@ -224,57 +211,6 @@ const SEAT_HINT: Record<KontaktRolle, ReactNode> = {
 };
 
 /**
- * Which OTHER seat the Trainer also holds, as one question with three answers. A closed set rather
- * than a tick per seat: one person cannot hold both, and a control offering that asks for a block
- * `FLSaisonTeamKontaktePayload` has no way to spell.
- */
-function TrainerZugleichPicker({ value, onPick }: { value: FLTrainerZugleich | null; onPick: (seat: FLTrainerZugleich | null) => void }) {
-  // `ToggleButtonGroup` takes no `name`, so the proxy field below is what names it; the id names the
-  // group without pulling the changed-field marker into that name.
-  const labelId = "kontakte-trainer-ist-zugleich";
-
-  return (
-    <TextField
-      name="kontakte.trainer_ist_zugleich"
-      value={value ?? ""}
-      onChange={() => undefined}
-      className="flex w-full flex-col gap-y-1">
-      {/* A `Label` and not a plain span: it names the enclosing `TextField`, which carries no
-          `aria-label`, so `useLabel` would warn without it. */}
-      <FieldLabel path="kontakte.trainer_ist_zugleich">
-        <span id={labelId}>{TRAINER_ZUGLEICH_FRAGE}</span>
-      </FieldLabel>
-      <ToggleButtonGroup
-        aria-labelledby={labelId}
-        size="sm"
-        isDetached
-        selectionMode="single"
-        // „Eine eigene Person“ is an answer rather than the absence of one, so the group always holds a
-        // selection and the empty state below is unreachable after the first render.
-        disallowEmptySelection
-        selectedKeys={[TRAINER_ZUGLEICH_OPTIONS.find((option) => option.value === value)?.key ?? "niemand"]}
-        onSelectionChange={(keys: Set<Key>) => {
-          const [picked] = [...keys].map(String);
-          const option = TRAINER_ZUGLEICH_OPTIONS.find((candidate) => candidate.key === picked);
-          if (option !== undefined) onPick(option.value);
-        }}
-        className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
-        {TRAINER_ZUGLEICH_OPTIONS.map((option) => (
-          <ToggleButton
-            key={option.key}
-            id={option.key}
-            className={OPTION_CHIP}>
-            {option.label}
-          </ToggleButton>
-        ))}
-      </ToggleButtonGroup>
-
-      <Input className="hidden" />
-    </TextField>
-  );
-}
-
-/**
  * One seat: its own switch, and beneath it the person and the agreement, or nothing. Empty renders as
  * the switch alone — the record says a seat holds nobody, never why, so no wording here may either.
  */
@@ -288,7 +224,6 @@ function KontaktpersonFields({
   onPresenceChange,
   onChange,
   onFieldLeft,
-  onHerkunftPicked,
 }: {
   rolle: KontaktRolle;
   label: string;
@@ -302,7 +237,6 @@ function KontaktpersonFields({
   onPresenceChange: (present: boolean) => void;
   onChange: (next: KontaktpersonDraft) => void;
   onFieldLeft: (paths: readonly string[]) => void;
-  onHerkunftPicked: (erteilt_von: FLKontaktEinwilligung["erteilt_von"]) => void;
 }) {
   const panel = formPanel();
 
@@ -341,7 +275,6 @@ function KontaktpersonFields({
             isMirrored={isMirrored}
             onChange={onChange}
             onFieldLeft={onFieldLeft}
-            onHerkunftPicked={onHerkunftPicked}
           />
         )}
 
@@ -367,7 +300,6 @@ function KontaktpersonInputs({
   isMirrored,
   onChange,
   onFieldLeft,
-  onHerkunftPicked,
 }: {
   rolle: KontaktRolle;
   label: string;
@@ -375,12 +307,7 @@ function KontaktpersonInputs({
   isMirrored: boolean;
   onChange: (next: KontaktpersonDraft) => void;
   onFieldLeft: (paths: readonly string[]) => void;
-  onHerkunftPicked: (erteilt_von: FLKontaktEinwilligung["erteilt_von"]) => void;
 }) {
-  // `ToggleButtonGroup` takes no `name`, so the proxy field below is what carries its refusal; the id
-  // names the group without pulling the changed-field marker into that name.
-  const herkunftLabelId = `kontakte-${rolle}-einwilligung-herkunft`;
-
   const setEinwilligung = (patch: Partial<KontaktpersonDraft["einwilligung"]>) => {
     onChange({ ...person, einwilligung: { ...person.einwilligung, ...patch } });
   };
@@ -456,7 +383,7 @@ function KontaktpersonInputs({
           isReadOnly={isMirrored}
           label="Geburtsdatum"
           calendarLabel={`${label}: Geburtsdatum auswählen`}
-          value={person.geburtsdatum}
+          value={person.geburtsdatum ?? ""}
           onChange={(next) => onChange({ ...person, geburtsdatum: next })}
           onFieldLeft={onFieldLeft}
         />
@@ -465,44 +392,25 @@ function KontaktpersonInputs({
       <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
         <h4 className={FORM_SECTION_HEADING}>Einwilligung</h4>
 
-        <TextField
-          name={`kontakte.${rolle}.einwilligung.erteilt_von`}
-          value={person.einwilligung.erteilt_von ?? ""}
-          onChange={() => undefined}
-          className="flex w-full flex-col gap-y-1">
-          {/* A `Label` and not a plain span: it names the enclosing `TextField`, which carries no
-              `aria-label`, so `useLabel` would warn without it. */}
-          <FieldLabel path={`kontakte.${rolle}.einwilligung`}>
-            <span id={herkunftLabelId}>Erteilt</span>
-          </FieldLabel>
-          <ToggleButtonGroup
-            isDisabled={isMirrored}
-            aria-labelledby={herkunftLabelId}
-            size="sm"
-            isDetached
-            selectionMode="single"
-            // Empty is reachable only before the first press, which is the state the schema refuses;
-            // afterwards the admin swaps it rather than clearing it.
-            disallowEmptySelection
-            selectedKeys={person.einwilligung.erteilt_von === null ? [] : [person.einwilligung.erteilt_von]}
-            onSelectionChange={(keys: Set<Key>) => {
-              const [picked] = [...keys].map(String);
-              if (picked !== undefined) onHerkunftPicked(picked as FLKontaktEinwilligung["erteilt_von"]);
-            }}
-            className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
-            {EINWILLIGUNG_HERKUNFT_OPTIONS.map((option) => (
-              <ToggleButton
-                key={option.value}
-                id={option.value}
-                className={OPTION_CHIP}>
-                {option.label}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
+        <div className={FIELD_PAIR}>
+          {/* Read out and never picked: an administrator may not record a consent as the person's own,
+              and the server preserves whatever a confirmation wrote here. */}
+          <TextField
+            isReadOnly
+            value={person.einwilligung.erteilt_von === null ? NOCH_OFFEN : einwilligungHerkunftLabel(person.einwilligung.erteilt_von)}
+            onChange={() => undefined}>
+            <FieldLabel path={`kontakte.${rolle}.einwilligung`}>Erteilt</FieldLabel>
+            <Input className={FIELD_INPUT} />
+          </TextField>
 
-          <Input className="hidden" />
-          <FieldError className={FIELD_ERROR} />
-        </TextField>
+          <TextField
+            isReadOnly
+            value={formatSpielDatum(person.einwilligung.bestaetigt_am, NOCH_NICHT_BESTAETIGT)}
+            onChange={() => undefined}>
+            <FieldLabel path={`kontakte.${rolle}.einwilligung`}>Bestätigt am</FieldLabel>
+            <Input className={FIELD_INPUT} />
+          </TextField>
+        </div>
 
         <div className={FIELD_PAIR}>
           <TextField

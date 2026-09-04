@@ -21,7 +21,7 @@ const person = (vorname: string): FLKontaktperson => ({
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "2026-08", datum: "2026-08-01" },
+  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: "2026-08-02" },
 });
 
 const club = (id: string, name: string, kontakte: FLSaisonTeamKontakte): FLTeamWithMemberships =>
