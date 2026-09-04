@@ -599,7 +599,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
             "email": "a.koerner@example.de",
             "telefon": "+49 170 1234567",
             "geburtsdatum": "1984-05-09",
-            "einwilligung": {"umfang": "kontaktdaten", "erteilt_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+            "einwilligung": {"umfang": "kontaktdaten", "text_version": "v1", "datum": "2026-01-15"},
         }
         saison_team = {
             "gruppe": "A",

@@ -9,12 +9,16 @@ from bson import ObjectId
 from app.api.bewerbungen.schemas import FLBewerbungSchule
 from app.api.bewerbungen.services import (
     BEWERBUNG_ALREADY_DECIDED,
+    BEWERBUNG_KONTAKTE_UNCONFIRMED,
     BEWERBUNG_SCHULE_UNUSABLE,
     BEWERBUNG_SUBJECT_UNRESOLVED,
+    compose_bestaetigungen,
     compose_new_club,
     find_acceptance_subject_refusal,
     find_new_club_refusal,
     find_triage_refusal,
+    find_unconfirmed_kontakte_refusal,
+    hash_token,
 )
 from app.core.exception_handlers import base_api_exception_handler
 from app.core.exceptions import DocumentConflictException
@@ -89,6 +93,74 @@ class TestWhatAcceptanceWouldEnter:
         assert "both an existing club and a new school" in both.message
         assert "neither an existing club nor a new school" in neither.message
         assert both.message != neither.message
+
+
+def seat(vorname: str, *, bestaetigt_am: str | None) -> dict[str, Any]:
+    """One contact seat, confirmed or not: the refusal reads the stamp and nothing else about the person."""
+
+    return {
+        "vorname": vorname,
+        "nachname": "Brackenmoor",
+        "email": f"{vorname.lower()}@example.com",
+        "telefon": "+49 170 1234567",
+        "geburtsdatum": None if bestaetigt_am is None else "1984-05-09",
+        "einwilligung": {
+            "umfang": "kontaktdaten",
+            "erteilt_von": "administrativ",
+            "text_version": "v3",
+            "datum": "2026-03-20",
+            "bestaetigt_am": bestaetigt_am,
+        },
+    }
+
+
+def seats(**stamps: str | None) -> dict[str, Any]:
+    return {
+        "trainer": seat("Quillhilde", bestaetigt_am=stamps.get("trainer")),
+        "ansprechperson": seat("Ansgar", bestaetigt_am=stamps.get("ansprechperson")),
+        "stellvertretung": seat("Stellan", bestaetigt_am=stamps.get("stellvertretung")),
+        "trainer_ist_zugleich": None,
+    }
+
+
+BESTAETIGUNGEN = compose_bestaetigungen(
+    hashes={name: hash_token(name) for name in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-03-20"
+)
+
+
+class TestEverySeatIsConfirmedBeforeAcceptance:
+    """`REQ-BEWERBUNG-013`: the block copied into the junction row must carry every person's own date and stamp."""
+
+    def test_an_application_stored_before_the_flow_is_not_held_to_it(self):
+        """The carve-out: without it every application in the queue becomes unacceptable in the deploy that ships this."""
+
+        assert find_unconfirmed_kontakte_refusal(kontakte=seats(), bestaetigungen=None) is None
+
+    def test_every_seat_confirmed_passes(self):
+        stamped = seats(trainer="2026-03-21", ansprechperson="2026-03-22", stellvertretung="2026-03-23")
+
+        assert find_unconfirmed_kontakte_refusal(kontakte=stamped, bestaetigungen=BESTAETIGUNGEN) is None
+
+    @pytest.mark.parametrize(
+        ("kontakte", "outstanding"),
+        [
+            pytest.param(seats(), "trainer, ansprechperson, stellvertretung", id="nobody has confirmed"),
+            pytest.param(seats(trainer="2026-03-21", stellvertretung="2026-03-23"), "ansprechperson", id="one seat open"),
+            pytest.param(
+                {**seats(trainer="2026-03-21", ansprechperson="2026-03-22"), "stellvertretung": None},
+                "stellvertretung",
+                id="a seat emptied by a decline or an erasure",
+            ),
+        ],
+    )
+    def test_a_seat_without_its_persons_stamp_refuses_and_is_named(self, kontakte: Mapping[str, Any], outstanding: str):
+        """Named, so the administrator knows whom to wait for or re-send to."""
+
+        refusal = find_unconfirmed_kontakte_refusal(kontakte=kontakte, bestaetigungen=BESTAETIGUNGEN)
+
+        assert refusal is not None
+        assert refusal.error_code == BEWERBUNG_KONTAKTE_UNCONFIRMED
+        assert refusal.message.endswith(outstanding)
 
 
 ADDRESS: Mapping[str, Any] = {

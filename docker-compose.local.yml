@@ -11,11 +11,11 @@
 #  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────
 #
 #   • Mirrors docker-compose.yml except where the difference is deliberate: it BUILDS rather than
-#     pulls, overrides API_URL, AUTH_URL, LOG_FORMAT and MONGODB_URI, runs its own mongo and waits
-#     on it, keeps that mongo's data in a named volume, serves the edge on 3000:80 rather than
-#     80:80 and 443:443, mounts nginx/local.conf and no ./certs, and sets no resource limits. A
-#     difference beyond those is a difference production will not have caught, and every port
-#     either file publishes is held to `docs/ops/spec.md :: I1` by
+#     pulls, overrides API_URL, AUTH_URL, BEWERBUNG_SWEEP, LOG_FORMAT and MONGODB_URI, runs its own
+#     mongo and waits on it, keeps that mongo's data in a named volume, serves the edge on 3000:80
+#     rather than 80:80 and 443:443, mounts nginx/local.conf and no ./certs, and sets no resource
+#     limits. A difference beyond those is a difference production will not have caught, and every
+#     port either file publishes is held to `docs/ops/spec.md :: I1` by
 #     `scripts/checks/check_compose_mirror.py :: off_host_ports`.
 #   • `AUTH_URL` must stay on loopback -- the constraint is written at the line that sets it.
 #   • The mongo service is local-only ON PURPOSE and production must never gain one: the server's
@@ -52,6 +52,10 @@ services:
       # Auth.js keeps its session store in the same cluster, so leaving this one alone would sign
       # the local stack in against production while every other read came from the container below.
       - MONGODB_URI=mongodb://mongo:27017/?directConnection=true
+      # This stack runs the production build, so nothing but this line holds the sweep off. An armed
+      # sweep here mails the league's real contact people: the database below can hold a production
+      # dump, and .env carries the real AUTH_RESEND_KEY.
+      - BEWERBUNG_SWEEP=off
     restart: unless-stopped
     networks:
       - frankfurtleague-net

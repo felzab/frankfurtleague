@@ -108,10 +108,11 @@ BODY_MODELS = _body_models()
 # Everything a request body reaches, the nested blocks included.
 PAYLOAD_SIDE = _closure(BODY_MODELS)
 
-# The bases a payload is composed from. Out of the read side below, and covered anyway: `extra` is
-# inherited, so config put on one shows up on every descendant that IS a read.
+# The bases a payload is composed from, the nested blocks' bases included. Out of the read side
+# below, and covered anyway: `extra` is inherited, so config put on one shows up on every
+# descendant that IS a read.
 PAYLOAD_ANCESTORS = {
-    ancestor for model in BODY_MODELS for ancestor in model.__mro__ if isinstance(ancestor, type) and issubclass(ancestor, BaseModel)
+    ancestor for model in PAYLOAD_SIDE for ancestor in model.__mro__ if isinstance(ancestor, type) and issubclass(ancestor, BaseModel)
 }
 
 READ_SIDE = _closure(model for model in _declared_models() if model not in PAYLOAD_SIDE and model not in PAYLOAD_ANCESTORS)

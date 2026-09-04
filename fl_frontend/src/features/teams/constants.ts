@@ -147,12 +147,10 @@ type EinwilligungHerkunftOption = {
   readonly label: string;
 };
 
-/**
- * How the agreement reached the league, in the editor's order. **Neither label may name a giver other
- * than the person**: the second is a transcription, and a label naming the school would record the
- * school as having consented for somebody.
- */
+/** In the order the contacts facet offers them as filters — no form picks between the two. */
 export const EINWILLIGUNG_HERKUNFT_OPTIONS: readonly EinwilligungHerkunftOption[] = [
+  // Neither label may name a giver other than the person: the second is a transcription, and a label
+  // naming the school would record the school as having consented for somebody.
   { value: "person", label: "Von der Person selbst" },
   { value: "administrativ", label: "Von der Verwaltung übertragen" },
 ];
@@ -176,9 +174,11 @@ export const WEBSITE_URL_SCHEME = "https://";
  * the long form. Both live here, so no two surfaces name a seat differently.
  */
 export const KONTAKT_ROLLEN = [
-  { value: "trainer", label: "Trainer", langform: "Trainerin oder Trainer" },
+  // The Ansprechperson leads and the Trainer closes: the coach claim is answered on the Trainer's
+  // own panel, and it names a seat the reader has already typed.
   { value: "ansprechperson", label: "Ansprechperson", langform: "Ansprechperson" },
   { value: "stellvertretung", label: "Stellvertretung", langform: "Stellvertretung" },
+  { value: "trainer", label: "Trainer", langform: "Trainerin oder Trainer" },
 ] as const;
 
 export type KontaktRolle = (typeof KONTAKT_ROLLEN)[number]["value"];
@@ -197,9 +197,11 @@ type TrainerZugleichOption = {
  * One closed set, never two ticks: a person cannot hold both of the other seats.
  */
 export const TRAINER_ZUGLEICH_OPTIONS: readonly TrainerZugleichOption[] = [
-  { key: "niemand", value: null, label: "Eine eigene Person" },
   { key: "ansprechperson", value: "ansprechperson", label: "Die Ansprechperson" },
   { key: "stellvertretung", value: "stellvertretung", label: "Die Stellvertretung" },
+  // Last, because it is the one answer that opens six further boxes below the picker: the two seat
+  // answers collapse them, and a chip that reveals belongs beside what it reveals.
+  { key: "niemand", value: null, label: "Eine andere Person" },
 ];
 
 /** The question the three answer, spelled once so the picker and the draft rail cannot ask it differently. */

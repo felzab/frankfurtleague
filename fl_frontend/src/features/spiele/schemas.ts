@@ -102,8 +102,14 @@ export const FLSpielSchiedsrichterFieldPublicSchema = z.object({
 });
 export type FLSpielSchiedsrichterFieldPublic = z.infer<typeof FLSpielSchiedsrichterFieldPublicSchema>;
 
-/** The referee as the admin editor reads it back, extending the served shape for `FLSpielOrtField`'s reason. */
-export const FLSpielSchiedsrichterFieldSchema = FLSpielSchiedsrichterFieldPublicSchema.extend({
+/**
+ * The referee as the admin editor reads it back. Not the served shape plus a fee, where the venue
+ * pair is: the base tier reduces the surname, so the two differ in the name as well
+ * (`fl_backend/app/api/spiele/schemas.py :: public_referee_name`).
+ */
+export const FLSpielSchiedsrichterFieldSchema = z.object({
+  schiedsrichter_id: CustomObjectIdStringSchema,
+  name: z.string().nonempty(),
   payment: FLSpielSchiedsrichterFieldPayloadSchema.shape.payment,
 });
 export type FLSpielSchiedsrichterField = z.infer<typeof FLSpielSchiedsrichterFieldSchema>;
@@ -252,6 +258,16 @@ export const FLSpieleListResponseSchema = BaseAPIResponseSchema.extend({
   spiele: z.array(FLSpielSchema),
 });
 export type FLSpieleListResponse = z.infer<typeof FLSpieleListResponseSchema>;
+
+/**
+ * What the admin surfaces list. A second schema rather than the base one, because the base tier
+ * reduces a referee's surname to an initial and the fixture search matches a typed surname against
+ * whatever this parse kept.
+ */
+export const FLSpieleAdminListResponseSchema = BaseAPIResponseSchema.extend({
+  spiele: z.array(FLSpielAdminSchema),
+});
+export type FLSpieleAdminListResponse = z.infer<typeof FLSpieleAdminListResponseSchema>;
 
 /**
  * What the match editor loads. The page is addressed by match id alone, so this read is also what
@@ -456,7 +472,9 @@ export type FLPatchSpielDataResponse = z.infer<typeof FLPatchSpielDataResponseSc
  * seasons this route spans.
  */
 export const FLSpieleActionRequiredResponseSchema = BaseAPIResponseSchema.extend({
-  spiele: z.array(FLSpielSchema),
+  // The ADMIN fixture, not the base tier's: a card on this page opens the modal that prints the
+  // referee's name, which the base tier serves reduced.
+  spiele: z.array(FLSpielAdminSchema),
   bracket_faults: z.array(FLBracketFaultSchema),
 });
 

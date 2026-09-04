@@ -1,13 +1,24 @@
-import { buildBewerbungEingangEmail } from "@/core/bewerbungEmail";
+import { buildBewerbungBestaetigungEmail, buildBewerbungEingangOffenEmail } from "@/core/bewerbungEmail";
+import { bestaetigungsLink } from "@/features/bewerbungen/bestaetigungLink";
+import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
 import { postBewerbung } from "@/features/bewerbungen/mutations";
-import { collectBewerbungEingangEmpfaenger, sendBewerbungMail } from "@/features/bewerbungen/notifications";
+import {
+  collectBewerbungEingangEmpfaenger,
+  rollenText,
+  seatsByMailbox,
+  sendBewerbungLinkMail,
+  sendBewerbungMail,
+} from "@/features/bewerbungen/notifications";
+import { getBewerbungSchulen } from "@/features/bewerbungen/queries";
 import { FLPostBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
-import { mapBewerbungSubmitRefusal } from "@/features/bewerbungen/utils";
+import { empfangsSitze, mapBewerbungSubmitRefusal } from "@/features/bewerbungen/utils";
 import { VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
+import type { BewerbungSeat } from "@/core/bewerbungEmail";
 import type { NextRequest } from "next/server";
 
 /** The record's own id stays off the page. */
@@ -49,14 +60,66 @@ export async function POST(request: NextRequest) {
       // No cache to move: no public read holds an application, and both triage reads are uncached
       // (`docs/frontend/spec.md :: I14` leaves the undo handlers the only route-handler invalidators).
 
-      // After the write and never before it: the receipt says the application arrived, and
-      // `sendBewerbungMail` settles every address, so nobody's refusal costs the others theirs.
+      const { kontakte } = parsed.data;
+      const fristText = formatSpielDatum(eingang.bestaetigungsfrist);
+      const seats = eingang.bestaetigungen;
+
+      // Read rather than taken from the payload, which names a picked club by id alone. Empty on a
+      // failed read: a message naming no school still beats no message at all.
+      const schule =
+        parsed.data.schule?.team_name ??
+        (await getBewerbungSchulen()
+          .then(({ schulen }) => schulen.find((option) => option.id === parsed.data.team_id)?.name ?? "")
+          .catch(() => ""));
+
+      const imEmpfang = empfangsSitze(kontakte.trainer_ist_zugleich);
+
+      const verlinkt = seatsByMailbox(
+        kontakte,
+        Object.fromEntries(
+          BEWERBUNG_SEATS.filter((seat) => !imEmpfang.includes(seat.value)).map((seat) => [seat.value, bestaetigungsLink(seats[seat.value])]),
+        ),
+      );
+
+      // After the write and never before it, and settled per address, so nobody's refusal costs the
+      // others theirs. The raw token reaches these two calls and no log line.
+      await sendBewerbungLinkMail({
+        operation: "postBewerbung",
+        recipients: verlinkt,
+        buildMail: (seats) =>
+          buildBewerbungBestaetigungEmail({
+            saisonId: eingang.saison_id,
+            schule: schule,
+            seats: seats,
+            fristText: fristText,
+          }),
+      });
+
+      // The same set the links were withheld for: a mirrored seat listed here would send the reader
+      // chasing themselves for a press their own link already makes.
+      const zugleich = kontakte.trainer_ist_zugleich;
+      const ausstehend: BewerbungSeat[] = BEWERBUNG_SEATS.filter(
+        (seat) => !imEmpfang.includes(seat.value) && (seat.value !== "trainer" || zugleich === null),
+      ).map((seat) => ({
+        vorname: kontakte[seat.value].vorname,
+        // Folded as `notifications.ts :: seatsByMailbox` folds it, one press answering both seats of
+        // a mirrored pair: two rows would name one person as two people still to be chased.
+        rolleText: seat.value === zugleich ? rollenText([seat.value, "trainer"]) : seat.label,
+      }));
+
       await sendBewerbungMail({
         operation: "postBewerbung",
-        // The Ansprechperson alone, never the fan-out the two decisions use: this receipt is sent
-        // before anybody has confirmed an address, and one address is the smaller exposure.
-        recipients: collectBewerbungEingangEmpfaenger(parsed.data.kontakte),
-        buildMail: (rollenText) => buildBewerbungEingangEmail({ saisonId: eingang.saison_id, rollenText: rollenText }),
+        // The Ansprechperson alone: this message names every seat still outstanding, and the
+        // submitter is the one person who can ask a colleague in the corridor.
+        recipients: collectBewerbungEingangEmpfaenger(kontakte),
+        buildMail: (rollenText) =>
+          buildBewerbungEingangOffenEmail({
+            saisonId: eingang.saison_id,
+            rollenText: rollenText,
+            ausstehend: ausstehend,
+            fristText: fristText,
+            link: bestaetigungsLink(seats.ansprechperson),
+          }),
       });
 
       return { success: true as const, message: EINGEGANGEN };

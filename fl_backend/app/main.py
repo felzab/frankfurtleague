@@ -4,8 +4,10 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.aktionen.admin_router import router as aktionen_admin_router
 from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
+from app.api.bewerbungen.einwilligung_router import router as bewerbungen_einwilligung_router
 from app.api.bewerbungen.public_router import router as bewerbungen_public_router
 from app.api.bewerbungen.router import router as bewerbungen_router
+from app.api.bewerbungen.sweep_router import router as bewerbungen_sweep_router
 from app.api.kontakte.admin_router import router as kontakte_admin_router
 from app.api.saisons.admin_router import router as saisons_admin_router
 from app.api.saisons.router import router as saisons_router
@@ -55,7 +57,10 @@ WRITE_ROUTERS = (
 )
 # Its own group because it belongs to neither: base-tier and mixed read/write, so either tuple's
 # comment would go false about the tier or the methods.
-PUBLIC_ROUTERS = (bewerbungen_public_router,)
+PUBLIC_ROUTERS = (bewerbungen_public_router, bewerbungen_einwilligung_router)
+# Its own group for the same reason: system-tier writes, made by the application to itself, which
+# neither tuple above describes.
+SYSTEM_WRITE_ROUTERS = (bewerbungen_sweep_router,)
 
 
 def create_app(config: BackendConfig | None = None) -> FastAPI:
@@ -86,7 +91,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     app.add_middleware(CorrelationIdMiddleware)
 
     app.include_router(system_router)
-    for router in (*READ_ROUTERS, *WRITE_ROUTERS, *PUBLIC_ROUTERS):
+    for router in (*READ_ROUTERS, *WRITE_ROUTERS, *PUBLIC_ROUTERS, *SYSTEM_WRITE_ROUTERS):
         app.include_router(router)
 
     # The published prose is the decorator's rather than the docstring's: a docstring cannot

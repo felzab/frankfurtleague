@@ -99,21 +99,33 @@ def strip_austritt_grund(value: Any) -> Any:
     return value
 
 
-class FLKontaktEinwilligung(BaseModel):
+# Private for `_TeamWritable`'s reason. The two provenance fields are NOT here: the server composes
+# both on every write path, and a payload declaring either is a route to a consent nobody gave
+# (`docs/backend/spec.md :: I142`).
+class _KontaktEinwilligungWritable(BaseModel):
+    umfang: Literal["kontaktdaten"]
+    # The version of the text they were shown. The text lives in the frontend and is versioned
+    # there, so a later rewording never changes what a stored record claims.
+    text_version: str
+    datum: CustomDateString
+
+
+class FLKontaktEinwilligung(_KontaktEinwilligungWritable):
     """What this person agreed to, and which wording they agreed to.
 
     NOT `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, which records what may be
     PUBLISHED about a pupil, is written once, and has an open Datenschutz question in front of it.
     """
 
-    umfang: Literal["kontaktdaten"]
+    # Widened on the READ model alone: the WhatsApp scope is what a person ticks on their own
+    # confirmation page, and a payload offering it would let an administrator transcribe one.
+    umfang: Literal["kontaktdaten", "kontaktdaten_whatsapp"]
     # Distinguishing the two is what stops an admin's transcription reading as a person's own
-    # consent.
+    # consent. `person` is the confirmation link's to write and nobody else's.
     erteilt_von: Literal["person", "administrativ"]
-    # The version of the text they were shown. The text lives in the frontend and is versioned
-    # there, so a later rewording never changes what a stored record claims.
-    text_version: str
-    datum: CustomDateString
+    # The day this person confirmed the seat themselves; null until they do. Defaulted for
+    # `FLTeam.schulform`'s reason: a record stored before the field carries no key.
+    bestaetigt_am: CustomOptionalDateString = None
 
 
 class FLKontaktperson(BaseModel):
@@ -122,10 +134,13 @@ class FLKontaktperson(BaseModel):
     vorname: CustomNonEmptyString
     nachname: CustomNonEmptyString
     email: str
-    # Reachable on WhatsApp, which the consent text states: the league's whole channel to a team is
-    # this number.
+    # The league's whole channel to a team is this number. Whether it may be reached on WhatsApp
+    # rests on the optional consent the person gives on their own confirmation page, never on the
+    # form's wording.
     telefon: str
-    geburtsdatum: CustomDateString
+    # Null until the person types it on their own confirmation page, so the public form never asks
+    # for it (`docs/backend/spec.md :: I141`). Defaulted for `FLTeam.schulform`'s reason.
+    geburtsdatum: CustomOptionalDateString = None
     einwilligung: FLKontaktEinwilligung
 
 
@@ -150,7 +165,7 @@ class FLSaisonTeamKontakte(BaseModel):
 # The ceilings are here and not on the read models above for `FLAddressPayload`'s reason: refusing a
 # stored value on read answers 500 for a whole list over one row, and locks out the write that would
 # repair it.
-class FLKontaktEinwilligungPayload(FLKontaktEinwilligung):
+class FLKontaktEinwilligungPayload(_KontaktEinwilligungWritable):
     model_config = ConfigDict(extra="forbid")
 
     # Stripped before the floor counts it, as the names below are: a record whose wording version is
@@ -158,7 +173,9 @@ class FLKontaktEinwilligungPayload(FLKontaktEinwilligung):
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
 
 
-class FLKontaktpersonPayload(FLKontaktperson):
+# Private for `_TeamWritable`'s reason, and a base rather than `FLKontaktperson` itself because
+# Pydantic cannot un-inherit a field: the application's payload takes no birthdate, so none is here.
+class _KontaktpersonWritablePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     # Tightened on the WRITE side alone, as a referee's name is (`docs/backend/spec.md :: I36`), and
@@ -175,6 +192,12 @@ class FLKontaktpersonPayload(FLKontaktperson):
     # Here rather than beside the format: the pattern caps the length inside itself, which makes it
     # a ceiling.
     telefon: str = Field(pattern=PHONE_REGEX)
+
+
+class FLKontaktpersonPayload(_KontaktpersonWritablePayload):
+    # Required where the stored shape is nullable: the editor collects a whole person, and the one
+    # payload that takes no date is the application's (`docs/backend/spec.md :: I141`).
+    geburtsdatum: CustomDateString
     einwilligung: FLKontaktEinwilligungPayload
 
 

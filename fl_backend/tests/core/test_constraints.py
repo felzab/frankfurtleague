@@ -60,7 +60,16 @@ from app.api.teams.schemas import (
     FLTrikotFarbe,
 )
 from app.core.collections import Collection
-from app.core.constraints import _AKTION_OPERATIONS, _AKTOR_KINDS, COLLECTION_VALIDATORS, UNIQUE_INDEXES, _apply_concurrently, diagnose_failure
+from app.core.constraints import (
+    _AKTION_OPERATIONS,
+    _AKTOR_KINDS,
+    COLLECTION_VALIDATORS,
+    SUPPORT_INDEXES,
+    TTL_INDEXES,
+    UNIQUE_INDEXES,
+    _apply_concurrently,
+    diagnose_failure,
+)
 from app.core.recording import Actor, Operation
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.kontakt import FLKontakt
@@ -359,6 +368,35 @@ def test_only_the_saison_teams_junction_is_unmirrored():
     assert set(COLLECTION_VALIDATORS) - mirrored_rows == MODELLESS_COLLECTIONS
 
 
+# (collection, path) -> fields a row STORES that no read model serves, so the mirror below compares
+# what actually reaches the wire.
+STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str]] = {
+    # `at` is the instant the log page orders, ranges and displays; a second spelling of it on the
+    # wire would be a second clock for a reader to reconcile.
+    (Collection.AKTIONEN, ()): frozenset({"at_date"}),
+    # The retention sweep's own bookkeeping, read by the sweep endpoints and by nothing a person
+    # opens: the triage renders an application's state from `bestaetigungen`, and a second date
+    # beside it would be one an administrator can act on nowhere.
+    (Collection.BEWERBUNGEN, ()): frozenset({"loeschung_angekuendigt_am"}),
+}
+
+
+def unserved_at(collection: Collection, path: tuple[str, ...]) -> frozenset[str]:
+    return STORED_BUT_NOT_SERVED.get((collection, path), frozenset())
+
+
+def test_every_unserved_field_is_declared_and_really_unserved():
+    """The exemption above suppresses the drift check for a field, so a stale one reads exactly like a live one."""
+
+    for (collection, path), unserved in STORED_BUT_NOT_SERVED.items():
+        declared = set(properties_at(collection, path))
+        served = set[str]().union(*(document_keys(model) for c, p, model, _ in MIRRORED_MODELS if (c, p) == (collection, path)))
+
+        where = ".".join((collection, *path))
+        assert unserved <= declared, f"{where} exempts {sorted(unserved - declared)}, which its validator does not declare"
+        assert not unserved & served, f"{where} exempts {sorted(unserved & served)}, which a read model does serve"
+
+
 @pytest.mark.parametrize(("collection", "path", "model", "not_stored"), MIRRORED_MODELS)
 def test_every_mirrored_model_matches_its_validator(
     collection: Collection,
@@ -368,7 +406,7 @@ def test_every_mirrored_model_matches_its_validator(
 ):
     """Fails in the default tier naming the field, rather than in production as a hand-edit the validator refuses."""
     expected = document_keys(model) - not_stored
-    declared = set(properties_at(collection, path))
+    declared = set(properties_at(collection, path)) - unserved_at(collection, path)
 
     where = ".".join((collection, *path))
     names = " | ".join(m.__name__ for m in (model if isinstance(model, tuple) else (model,)))
@@ -389,8 +427,12 @@ def test_every_required_field_is_required_on_its_model(
 
     fields = stored_fields(model)
     where = ".".join((collection, *path))
+    unserved = unserved_at(collection, path)
 
     for key in required_at(collection, path):
+        if key in unserved:
+            continue
+
         declaring = fields.get(key, [])
         assert declaring, f"{where} requires {key!r}, which no model in MIRRORED_MODELS declares"
 
@@ -602,10 +644,36 @@ def test_a_driver_failure_is_diagnosed_rather_than_traced(code: int, errmsg: str
     assert "mongodb" not in diagnosis and "@" not in diagnosis
 
 
-def test_unique_index_names_are_distinct():
-    """Two indexes sharing a name is the second one silently never being built."""
-    names = [f"{index.collection}.{index.name}" for index in UNIQUE_INDEXES]
+def test_no_two_declared_indexes_share_a_name():
+    """Two indexes sharing a name is the second one silently never being built.
+
+    All three kinds at once, because a name is claimed on the collection rather than within a kind.
+    """
+    names = [
+        *(f"{index.collection}.{index.name}" for index in UNIQUE_INDEXES),
+        *(f"{support.collection}.{support.name}" for support in SUPPORT_INDEXES),
+        *(f"{ttl.collection}.{ttl.name}" for ttl in TTL_INDEXES),
+    ]
     assert len(names) == len(set(names))
+
+
+@pytest.mark.parametrize("ttl", TTL_INDEXES, ids=lambda ttl: ttl.name)
+def test_every_ttl_index_expires_on_a_date_field_the_validator_declares(ttl):
+    """A TTL index over a string builds, serves reads and expires nothing, reporting neither the type nor the silence."""
+    declared = properties_at(ttl.collection, ()).get(ttl.key)
+
+    assert declared is not None, f"{ttl.name} expires on {ttl.key!r}, which {ttl.collection} has no field for"
+    assert declared.get("bsonType") == "date", f"{ttl.name} expires on {ttl.key!r}, declared as {declared.get('bsonType')!r}"
+
+
+@pytest.mark.parametrize("ttl", TTL_INDEXES, ids=lambda ttl: ttl.name)
+def test_no_ttl_index_key_is_required_of_a_row(ttl):
+    """Required, the key invalidates every row the collection already held, and strict validation validates an UPDATE of one too.
+
+    What the retention costs instead is that those rows are never expired
+    (`fl_backend/tests/core/test_aktionen_validator_execution.py :: test_a_row_stored_before_the_retention_stamp_is_still_redactable`).
+    """
+    assert ttl.key not in required_at(ttl.collection, ())
 
 
 @pytest.mark.parametrize("index", UNIQUE_INDEXES, ids=lambda index: index.name)

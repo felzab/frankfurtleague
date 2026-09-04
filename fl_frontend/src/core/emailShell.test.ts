@@ -4,19 +4,54 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import type * as EmailShell from "./emailShell.ts";
+
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+
+/** The query that separates the hostile instance of the shell below from the one every other case renders through. */
+const GIFT_MARKE = "gift-marke";
+/** A controller line carrying every character `escapeHtml` covers, which the real address does not. */
+const GIFT_VEREIN = "Verein & Co.";
+const GIFT_ANSCHRIFT = `c/o <Haus> "Süd", 60311 Frankfurt`;
+const GIFT_VERANTWORTLICH = `${GIFT_VEREIN}, ${GIFT_ANSCHRIFT}`;
+/** Its escaping written out rather than computed, so the expectation cannot follow the escaper it holds to account. */
+const GIFT_VERANTWORTLICH_HTML = "Verein &amp; Co., c/o &lt;Haus&gt; &quot;Süd&quot;, 60311 Frankfurt";
+
+/* The controller line reaches the card from a module constant, so a hostile one arrives only by
+   replacing the brand module — the route that leaves production code with no test-only opening. */
+const MARKE_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(
+  [
+    `export const KONTAKT_EMAIL = "kontakt@beispiel.de";`,
+    `export const SITE_URL = "https://beispiel.de";`,
+    `export const VEREIN_NAME = ${JSON.stringify(GIFT_VEREIN)};`,
+    `export const VEREIN_ANSCHRIFT = ${JSON.stringify(GIFT_ANSCHRIFT)};`,
+  ].join("\n"),
+)}`;
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
+    // The parent decides, so the double reaches the hostile instance alone and every other case
+    // still renders against the real brand.
+    if (specifier === "./brand" && (context.parentURL ?? "").includes(GIFT_MARKE)) return { url: MARKE_DOUBLE_URL, shortCircuit: true };
     return nextResolve(specifier, context);
   },
 });
 
-const { buildBewerbungAbsageEmail, buildBewerbungEingangEmail, buildBewerbungZusageEmail } = await import("./bewerbungEmail.ts");
+const {
+  buildBewerbungAblehnungEmail,
+  buildBewerbungAbsageEmail,
+  buildBewerbungBestaetigungEmail,
+  buildBewerbungEingangOffenEmail,
+  buildBewerbungErinnerungEmail,
+  buildBewerbungGeloeschtEmail,
+  buildBewerbungVollstaendigEmail,
+  buildBewerbungZusageEmail,
+} = await import("./bewerbungEmail.ts");
 const { buildMagicLinkEmail } = await import("./authEmail.ts");
-const { renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
+const { escapeHtml, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
+const { SITE_URL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
 
 /** The shell as text, for the claims about its own shape that no return value carries. */
 const SHELL_SOURCE = readFileSync(path.resolve(import.meta.dirname, "emailShell.ts"), "utf8");
@@ -53,34 +88,86 @@ function steuerBereich(html: string): string {
 }
 
 /**
- * Every message the app sends, so a design claim is checked against all of them rather than against
- * the three that happen to share a builder.
+ * Every builder the two mail modules export, read off the module namespace rather than matched in
+ * their source: a name no pattern anticipates would drop out of both sides of the register at once.
  */
-const NACHRICHTEN = [
-  {
-    name: "Zusage",
-    mail: buildBewerbungZusageEmail({
+const GEBAUTE_NACHRICHTEN = [...Object.keys(await import("./bewerbungEmail.ts")), ...Object.keys(await import("./authEmail.ts"))]
+  .filter((name) => name.startsWith("build"))
+  .sort();
+
+/** One fixture per builder, keyed by the name the walk finds, carrying the least its signature needs. */
+const FIXTUREN: Record<string, () => { html: string; text: string }> = {
+  buildBewerbungZusageEmail: () =>
+    buildBewerbungZusageEmail({
       teamName: "Ernst-Reuter-Schule",
       saisonId: "2627",
       rollenText: "Ansprechperson",
       gruppe: "B",
       trikotFarbeLabel: "Hellgrün",
     }),
-  },
-  {
-    name: "Absage",
-    mail: buildBewerbungAbsageEmail({
+  buildBewerbungAbsageEmail: () =>
+    buildBewerbungAbsageEmail({
       teamName: "Ernst-Reuter-Schule",
       saisonId: "2627",
       rollenText: "Stellvertretung",
       grund: "Die Saison ist voll.",
     }),
-  },
-  { name: "Eingang", mail: buildBewerbungEingangEmail({ saisonId: "2627", rollenText: "Ansprechperson" }) },
-  { name: "Anmeldung", mail: buildMagicLinkEmail("https://frankfurtleague.de/api/auth/callback/resend?token=abc&email=a%40b.de") },
-] as const;
+  buildBewerbungBestaetigungEmail: () =>
+    buildBewerbungBestaetigungEmail({
+      saisonId: "2627",
+      schule: "Ernst-Reuter-Schule",
+      seats: [{ vorname: "Erika", rolleText: "Ansprechperson", link: `${SITE_URL}/bestaetigung?token=beispiel-eins` }],
+      fristText: "18.09.2026",
+    }),
+  buildBewerbungErinnerungEmail: () =>
+    buildBewerbungErinnerungEmail({
+      saisonId: "2627",
+      schule: "Ernst-Reuter-Schule",
+      // Two seats on one address, which is the shape the single-seat fixture above cannot reach.
+      seats: [
+        { vorname: "Erika", rolleText: "Ansprechperson", link: `${SITE_URL}/bestaetigung?token=beispiel-zwei` },
+        { vorname: "Jonas", rolleText: "Trainerin oder Trainer", link: `${SITE_URL}/bestaetigung?token=beispiel-drei` },
+      ],
+      fristText: "18.09.2026",
+    }),
+  buildBewerbungEingangOffenEmail: () =>
+    buildBewerbungEingangOffenEmail({
+      saisonId: "2627",
+      rollenText: "Ansprechperson",
+      ausstehend: [{ vorname: "Jonas", rolleText: "Trainerin oder Trainer" }],
+      fristText: "18.09.2026",
+      link: `${SITE_URL}/bestaetigung?token=beispiel-vier`,
+    }),
+  buildBewerbungVollstaendigEmail: () => buildBewerbungVollstaendigEmail({ saisonId: "2627", rollenText: "Ansprechperson" }),
+  buildBewerbungGeloeschtEmail: () =>
+    buildBewerbungGeloeschtEmail({
+      saisonId: "2627",
+      rollenText: "Ansprechperson",
+      ausstehend: [{ vorname: "Jonas", rolleText: "Trainerin oder Trainer" }],
+    }),
+  buildBewerbungAblehnungEmail: () =>
+    buildBewerbungAblehnungEmail({
+      saisonId: "2627",
+      rollenText: "Ansprechperson",
+      abgelehnt: { vorname: "Jonas", rolleText: "Trainerin oder Trainer" },
+      fristText: "18.09.2026",
+    }),
+  buildMagicLinkEmail: () => buildMagicLinkEmail("https://frankfurtleague.de/api/auth/callback/resend?token=abc&email=a%40b.de"),
+};
+
+/** Every message the two mail modules build, so a design claim is checked against all of them rather than against one. */
+const NACHRICHTEN = Object.entries(FIXTUREN).map(([name, bauen]) => ({ name, mail: bauen() }));
 
 describe("the shared email shell", () => {
+  /* Both directions, so neither side can be satisfied by the other shrinking: a builder with no
+     fixture fails here rather than dropping out of every sweep, and a stale fixture fails too. */
+  it("sweeps every message builder the mail modules export", () => {
+    // The sign-in link, the two decisions and the confirmation workflow's six. A walk finding fewer
+    // has stopped reading the modules, and every sweep below then runs over nothing.
+    assert.ok(GEBAUTE_NACHRICHTEN.length >= 9, `expected at least 9 message builders, found ${String(GEBAUTE_NACHRICHTEN.length)}`);
+    assert.deepEqual(GEBAUTE_NACHRICHTEN, Object.keys(FIXTUREN).sort(), "a message builder has no fixture, or a fixture names no builder");
+  });
+
   it("draws every message as a complete standalone document with no external stylesheet or image", () => {
     for (const { name, mail } of NACHRICHTEN) {
       assert.ok(mail.html.startsWith("<!doctype html>"), `${name} is not a whole document`);
@@ -187,7 +274,7 @@ describe("the shared email shell", () => {
       for (const regel of regeln) assert.ok(SHELL_SOURCE.includes(`"${regel}"`) || regel === "fl-actions", `.${regel} is spelled nowhere`);
     }
 
-    const regeln = new Set([...stylesheet(NACHRICHTEN[0].mail.html).matchAll(/\.(fl-[a-z-]+)/g)].map((treffer) => treffer[1] ?? ""));
+    const regeln = new Set([...stylesheet(NACHRICHTEN[0]?.mail.html ?? "").matchAll(/\.(fl-[a-z-]+)/g)].map((treffer) => treffer[1] ?? ""));
     for (const regel of regeln) assert.ok(alleKlassen.has(regel), `.${regel} is styled and no message carries it`);
   });
 
@@ -296,7 +383,9 @@ describe("the shared email shell", () => {
   /* `bg-brand-solid` with `shadow-md`, and `bg-transparent` with `border-border`: the outline grade
      rests on the card, so it declares no fill of its own and needs no second dark rule to follow it. */
   it("grades a pair as ctaButton grades one, filled first and outlined beside it", () => {
-    const paar = knoepfe(NACHRICHTEN[0]?.mail.html ?? "");
+    // Found by its pair rather than by an index into the walked population, whose order is a
+    // directory listing's and moves when a builder is renamed.
+    const paar = NACHRICHTEN.map(({ mail }) => knoepfe(mail.html)).find((knopfe) => knopfe.length === 2) ?? [];
 
     assert.equal(paar.length, 2, "the application messages no longer offer a pair, so this test proves nothing");
     assert.ok(paar[0]?.zelle.includes(`background-color:${constant("BRAND_SOLID_COLOR")};`), "the primary control lost its fill");
@@ -335,6 +424,65 @@ describe("the shared email shell", () => {
       assert.match(stylesheet(mail.html), /\.fl-actions[^}]*display: block !important/, `${name}'s stack rule does not stack`);
       for (const { zelle } of knoepfe(mail.html)) assert.ok(zelle.includes("fl-action"), `${name} has a control the stack rule cannot reach`);
     }
+  });
+
+  it("closes every message on both legal pages and the controller, in both branches", () => {
+    const verantwortlich = `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`;
+    const seiten = [
+      { label: "Datenschutzerklärung", href: `${SITE_URL}/datenschutz` },
+      { label: "Impressum", href: `${SITE_URL}/impressum` },
+    ];
+    const textSchluss = [...seiten.map(({ label, href }) => `${label}: ${href}`), verantwortlich].join("\n");
+
+    for (const { name, mail } of NACHRICHTEN) {
+      const schluss = mail.html.slice(mail.html.lastIndexOf("<hr"));
+
+      for (const { label, href } of seiten) {
+        assert.ok(schluss.includes(`href="${href}"`), `${name}'s close does not link ${label}`);
+        // The label as the anchor's own text: a URL a reader has to read to know where it goes is
+        // the thing the link exists to replace.
+        assert.ok(schluss.includes(`>${label}</a>`), `${name}'s close links ${href} under some other name`);
+      }
+      assert.ok(schluss.includes(verantwortlich), `${name}'s close does not name the controller`);
+      assert.ok(mail.text.endsWith(`\n${textSchluss}`), `${name}'s text branch does not close on the legal lines, in order`);
+    }
+  });
+
+  /* The controller line is the close's one interpolation with no caller to escape it and no helper
+     in its path; the address is replaced by hand, where a c/o line carrying `&` is ordinary. */
+  it("carries the controller line into both branches of every message", () => {
+    const verantwortlich = `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`;
+
+    for (const { name, mail } of NACHRICHTEN) {
+      assert.ok(mail.html.includes(escapeHtml(verantwortlich)), `${name}'s card does not carry the controller escaped`);
+      assert.ok(mail.text.endsWith(verantwortlich), `${name}'s text branch does not close on the controller raw`);
+    }
+  });
+
+  /* Today's address escapes to itself, so the sweep above passes an unescaped card too. Held here
+     against an address carrying markup, which is what a c/o line and an „&“ in a name produce. */
+  it("escapes a controller line carrying markup, and leaves the text branch raw", async () => {
+    const shell = (await import(`./emailShell.ts?${GIFT_MARKE}`)) as typeof EmailShell;
+    const karte = shell.renderKarte({
+      titel: "Anmeldung",
+      ueberschrift: "Anmeldung",
+      bloecke: [],
+      aktionen: [],
+      fuss: "Antworten liest niemand.",
+    });
+    const schluss = karte.slice(karte.lastIndexOf("<hr"));
+
+    assert.ok(schluss.includes(GIFT_VERANTWORTLICH_HTML), "the card carries a controller line the escaper did not reach");
+    assert.ok(!schluss.includes(GIFT_ANSCHRIFT), "the card carries the address raw, which a „<“ in it makes markup");
+    // The text branch takes the address as typed: no client parses it, and an escaped „&“ there
+    // reaches the reader as five characters.
+    assert.deepEqual(shell.textFooter([]), [
+      "",
+      "-- ",
+      `Datenschutzerklärung: https://beispiel.de/datenschutz`,
+      `Impressum: https://beispiel.de/impressum`,
+      GIFT_VERANTWORTLICH,
+    ]);
   });
 
   /* The end-of-body branch, which no builder reaches: every body closes on fixed copy. Read through

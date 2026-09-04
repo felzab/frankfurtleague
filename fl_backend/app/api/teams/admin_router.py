@@ -33,6 +33,7 @@ from app.api.teams.services import (
     build_gruppen,
     build_team_memberships_pipeline,
     build_team_pipeline,
+    compose_kontakte_herkunft,
     find_club_entry_refusal,
     find_entry_refusal,
     find_gruppe_move_refusal,
@@ -469,16 +470,27 @@ async def patch_saison_team_kontakte(
     Rewrite the three people this team is reached through for one season. Null clears the block.
 
     Its own endpoint so the contacts editor and the club editor cannot clobber one row. It refuses
-    nothing: a `past` season's contacts stay correctable.
+    nothing: a `past` season's contacts stay correctable. Each seat's `erteilt_von` and
+    `bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other
+    seat is stored as entered administratively.
     """
+
+    db_filter = {"team_id": team_id, "saison_id": saison_id}
+
+    # Read first, outside any transaction. The block's other writer is the erasure
+    # (`app/api/kontakte/admin_router.py :: erase_kontaktperson`), which nulls one slot; the window
+    # is the editor's whole-block replace rather than this read.
+    stored = await pull_one_from_db(collection=saison_teams_collection, db_filter=db_filter, projection=["kontakte"])
+
+    kontakte = compose_kontakte_herkunft(kontakte=kontakte_data.model_dump(mode="json")["kontakte"], stored=stored.get("kontakte"))
 
     updated_raw = await patch_one_in_db(
         collection=saison_teams_collection,
-        db_filter={"team_id": team_id, "saison_id": saison_id},
+        db_filter=db_filter,
         # The one path, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
         # `trikot_farbe` belong to the junction PATCH, and a `$set` carrying them would reinstate
         # whatever this caller last read.
-        update={"$set": {"kontakte": kontakte_data.model_dump(mode="json")["kontakte"]}},
+        update={"$set": {"kontakte": kontakte}},
     )
 
     return FLPatchSaisonTeamKontakteResponse(

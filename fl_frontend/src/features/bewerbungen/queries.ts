@@ -4,6 +4,7 @@ import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
 import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
 
+import { postEinwilligungAnsicht } from "./mutations";
 import {
   FLBewerbungenListResponseSchema,
   FLBewerbungFensterResponseSchema,
@@ -12,6 +13,7 @@ import {
   FLBewerbungSingleResponseSchema,
   FLBewerbungTrikotFarbenResponseSchema,
 } from "./schemas";
+import { mapEinwilligungAnsichtRefusal } from "./utils";
 
 import type {
   FLBewerbungenListResponse,
@@ -21,7 +23,7 @@ import type {
   FLBewerbungSingleResponse,
   FLBewerbungTrikotFarbenResponse,
 } from "./schemas";
-import type { FLBewerbungenFilterParams } from "./types";
+import type { EinwilligungAnsicht, FLBewerbungenFilterParams } from "./types";
 
 /**
  * Every application, newest first, narrowable by season and by status.
@@ -108,6 +110,32 @@ export async function getBewerbungTrikotfarben(saisonId: string): Promise<FLBewe
       `/bewerbungen/trikotfarben/${encodeURIComponent(saisonId)}`,
       FLBewerbungTrikotFarbenResponseSchema,
       { authType: "base" },
+    ),
+  );
+}
+
+/**
+ * One link's standing, read on every open and stored nowhere: a GET records nothing, not even a
+ * visit, because mail scanners fetch every link in a message.
+ */
+export async function getEinwilligungAnsicht(token: string): Promise<EinwilligungAnsicht> {
+  return runWithIncomingCorrelationId(() =>
+    postEinwilligungAnsicht({ token: token }).then(
+      // Narrowed here and never at the page, which would carry the name in its payload regardless:
+      // a dead link's panel names nobody, and an open link with no name left has nobody to name.
+      (ansicht) =>
+        ansicht.zustand === "gueltig"
+          ? ansicht.vorname === null
+            ? { zustand: "ungueltig" as const }
+            : { zustand: "gueltig" as const, ansicht: { ...ansicht, vorname: ansicht.vorname } }
+          : { zustand: ansicht.zustand },
+      (error: unknown) => {
+        // Anything but a refusal is a failed read, which is the page's own state rather than a panel
+        // calling a live link void.
+        const zustand = mapEinwilligungAnsichtRefusal(error);
+        if (zustand !== null) return { zustand: zustand };
+        throw error;
+      },
     ),
   );
 }

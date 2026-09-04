@@ -212,7 +212,15 @@ export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
   geburtsdatum: "",
   // Stamped, never typed: the version names the wording this person is being asked to agree to, and
   // an admin transcribing a version number is a value nobody decided stored as though they had.
-  einwilligung: { umfang: EINWILLIGUNG_UMFANG, erteilt_von: null, text_version: LIGA_EINWILLIGUNG.textVersion, datum: "" },
+  einwilligung: {
+    umfang: EINWILLIGUNG_UMFANG,
+    erteilt_von: null,
+    text_version: LIGA_EINWILLIGUNG.textVersion,
+    datum: "",
+    // A confirmation link is the only writer of this stamp, so a seat an administrator opened here
+    // has none and the blank is the truth rather than a value still to be filled in.
+    bestaetigt_am: null,
+  },
 });
 
 /**

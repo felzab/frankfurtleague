@@ -63,11 +63,25 @@ export const BEWERBUNG_KADER_GROESSE_MAX = 200;
 export const BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH = 120;
 
 /**
- * The span a contact person's birthdate has to fall in, bound on the PUBLIC payload alone: a date
- * outside it is a typo rather than a person, and no other date in an application gains a bound.
+ * The span a contact person's birthdate has to fall in, mirrored from
+ * `fl_backend/app/shared/schemas/bounds.py`. The ceiling refuses a mistyped century rather than a
+ * real age, and no other date in an application gains a bound.
  */
 export const BEWERBUNG_MIN_ALTER = 16;
 export const BEWERBUNG_MAX_ALTER = 120;
+
+// Named for the floor alone, a mistyped year answers a 190-year-old date with „mindestens 16“, which
+// is a different fault. Here rather than at the schema, so the mapper needs no import from it.
+export const ALTER_AUSSERHALB =
+  `Eine Kontaktperson ist mindestens ${String(BEWERBUNG_MIN_ALTER)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt. ` +
+  `Prüfe das Geburtsdatum.`;
+
+/**
+ * The two clocks a confirmation link runs on, mirrored from `fl_backend/app/shared/schemas/bounds.py`
+ * so the page states the deadline the sweep deletes on rather than a literal of its own.
+ */
+export const BEWERBUNG_BESTAETIGUNG_FRIST_TAGE = 14;
+export const BEWERBUNG_ERINNERUNG_TAGE = 3;
 
 /**
  * The picker key standing for „meine Schule ist nicht dabei“.

@@ -310,6 +310,10 @@ class TestAContactRecordReadsBackHoweverItWasStored:
         **REFUSED,
     }
 
+    # The same person as the editor SENDS them: the consent's source is the server's and on no
+    # payload (`docs/backend/spec.md :: I142`), so a body carrying it would fail on that key too.
+    SENT = {**STORED, "einwilligung": {"umfang": "kontaktdaten", "text_version": "v1", "datum": "2026-01-15"}}
+
     def test_the_read_model_takes_every_one_of_them(self):
         parsed = FLKontaktperson.model_validate(self.STORED)
 
@@ -319,7 +323,7 @@ class TestAContactRecordReadsBackHoweverItWasStored:
     def test_the_payload_refuses_it(self, field):
         """Non-vacuity: without this the case above would pass just as well over a payload that had stopped checking."""
 
-        body = {**self.STORED, **self.ACCEPTED, field: self.REFUSED[field]}
+        body = {**self.SENT, **self.ACCEPTED, field: self.REFUSED[field]}
 
         with pytest.raises(ValidationError) as failure:
             FLKontaktpersonPayload.model_validate(body)

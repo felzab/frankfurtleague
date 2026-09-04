@@ -21,7 +21,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "2025-08", datum: "2025-09-01" },
+  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" },
   ...overrides,
 });
 
@@ -215,7 +215,7 @@ describe("emptiedSeatLabels", () => {
   });
 
   it("names every seat the block took with it, in the panel's own order", () => {
-    assert.deepEqual(emptiedSeatLabels(block(), null), ["Trainer", "Ansprechperson", "Stellvertretung"]);
+    assert.deepEqual(emptiedSeatLabels(block(), null), ["Ansprechperson", "Stellvertretung", "Trainer"]);
   });
 
   /* The seat the shared-seat claim empties has its own control pressed by nobody, which is why the
@@ -300,7 +300,7 @@ describe("describeUnrestorableKontakte", () => {
       payload(block({ trainer: person({ telefon: "!!!" }), stellvertretung: person({ email: "auch-nicht" }) })),
     );
 
-    assert.match(report ?? "", /\(Trainer, Stellvertretung\)/);
+    assert.match(report ?? "", /\(Stellvertretung, Trainer\)/);
   });
 });
 

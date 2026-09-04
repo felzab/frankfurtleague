@@ -33,7 +33,8 @@ async def get_aktionen(
     """
 
     # One row past what is served, `get_bewerbungen`'s shape (`docs/backend/spec.md :: I45`): the
-    # log only grows, so the cap arrives by ordinary use, and a short page must say so.
+    # log holds twelve months of recorded writes, and whether that reaches the cap is what the
+    # extra row answers.
     read = await pull_many_from_db(
         collection=aktionen_collection,
         db_filter=build_query(

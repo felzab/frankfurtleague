@@ -10,7 +10,14 @@ from pymongo.errors import OperationFailure
 
 from app.api.schiedsrichter.admin_router import anonymise_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterWriteResponse
-from app.api.schiedsrichter.services import ANONYMISED_KONTAKT, KONTAKT_RE_ENTERED_MID_ANONYMISATION
+from app.api.schiedsrichter.services import (
+    ANONYMISED_KONTAKT,
+    ANONYMISED_NAME,
+    ANONYMISED_SCHIEDSRICHTER,
+    KONTAKT_RE_ENTERED_MID_ANONYMISATION,
+    holds_an_anonymisable_value,
+)
+from app.api.spiele.schemas import FLSpielSchiedsrichterField, FLSpielSchiedsrichterFieldPublic
 from app.core.collections import Collection
 from app.core.constraints import SUPPORT_INDEXES
 from app.core.exceptions import DocumentConflictException
@@ -47,6 +54,10 @@ KONTAKT = {
     OTHER_SCHIEDSRICHTER_OID: {"telefon": "+49 69 2223334", "email": "kraus.bernd@example.com"},
 }
 
+# Read off the model, so a contact member added later is cleared here too and the guard's cases stay
+# about the name alone.
+A_CLEARED_KONTAKT: dict[str, None] = {field: None for field in FLKontakt.model_fields}
+
 # Injected through `get_germany_now`, and in summer, so the conversion below moves the clock.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
@@ -55,6 +66,17 @@ REDACTED_AT = "2026-04-01T10:30:00+00:00"
 
 # Read off the declaration rather than typed here, so renaming the index fails at its one source.
 TARGET_INDEX = next(index for index in SUPPORT_INDEXES if index.collection == Collection.AKTIONEN and "document_id" in dict(index.keys))
+
+
+# Two fixtures for the erased referee, so a fan-out stopping at the first row fails, and one for the
+# other, so a fan-out ignoring its filter fails too.
+SPIEL_OIDS: dict[ObjectId, tuple[ObjectId, ...]] = {
+    SCHIEDSRICHTER_OID: (ObjectId("6890a1b2c3d4e5f607800011"), ObjectId("6890a1b2c3d4e5f607800012")),
+    OTHER_SCHIEDSRICHTER_OID: (ObjectId("6890a1b2c3d4e5f607800013"),),
+}
+
+SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6078000a1")
+SAISON_ID = "2026"
 
 
 def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
@@ -68,6 +90,46 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         "kontakt": dict(FORMER_KONTAKT[schiedsrichter_id]),
         "inactive_since": None,
     }
+
+
+def fixture_document(schiedsrichter_id: ObjectId, spiel_id: ObjectId, spiel_nr: int) -> dict[str, Any]:
+    """A PLAYED fixture: a stored result is what makes it a match no reassignment can take the name off.
+
+    Every field `app/core/constraints.py :: COLLECTION_VALIDATORS` requires of `spiele`, since this
+    module seeds against the real validators.
+    """
+
+    return {
+        "_id": spiel_id,
+        "spiel_nr": spiel_nr,
+        "saison_id": SAISON_ID,
+        "saison_phase": "gruppenphase",
+        "spieltag_id": SPIELTAG_OID,
+        "team1": None,
+        "team2": None,
+        "team1_quelle": None,
+        "team2_quelle": None,
+        "datum": "2026-03-15",
+        "uhrzeit": "14:00:00",
+        "ort": None,
+        "schiedsrichter": {
+            "schiedsrichter_id": schiedsrichter_id,
+            "name": REFEREE_NAMES[schiedsrichter_id],
+            "payment": DEFAULT_PAYMENT,
+        },
+        "ergebnis": "2:1",
+        "elfmeterschiessen": None,
+        "sonderereignis": None,
+    }
+
+
+def fixture_documents() -> list[dict[str, Any]]:
+    return [
+        fixture_document(schiedsrichter_id, spiel_id, spiel_nr)
+        for spiel_nr, (schiedsrichter_id, spiel_id) in enumerate(
+            ((referee, spiel_id) for referee, spiel_ids in SPIEL_OIDS.items() for spiel_id in spiel_ids), start=1
+        )
+    ]
 
 
 class TestTheUpdateNamesTheMembersAndNeverTheBlock:
@@ -91,6 +153,37 @@ class TestTheUpdateNamesTheMembersAndNeverTheBlock:
         cleared = FLKontakt.model_validate({field: None for field in FLKontakt.model_fields})
 
         assert all(value is None for value in cleared.model_dump().values())
+
+    def test_the_name_rides_in_the_same_mapping_as_the_details(self):
+        """Two `$set`s could land apart, and a transaction retrying between them is what leaves a person named."""
+
+        assert ANONYMISED_SCHIEDSRICHTER == {**ANONYMISED_KONTAKT, "name": ANONYMISED_NAME}
+
+    def test_the_label_survives_the_base_tiers_reduction(self):
+        """A two-word label would reach a fixture card as a forename and an initial, which reads as somebody's name.
+
+        So the label is chosen against `READ-REFEREE-001`'s read rather than against the stored row.
+        """
+
+        booking = {"schiedsrichter_id": SCHIEDSRICHTER_OID, "name": ANONYMISED_NAME}
+
+        assert FLSpielSchiedsrichterFieldPublic.model_validate(booking).name == ANONYMISED_NAME
+
+
+class TestTheGuardWeighsTheNameBesideTheDetails:
+    """The name half of the guard, on the predicate itself.
+
+    The write runs whatever the guard answers, and the refusal it gates needs a second read to
+    agree, so this weighing has no separate answer at the endpoint.
+    """
+
+    def test_a_name_standing_over_an_empty_contact_block_is_work_to_do(self):
+        assert holds_an_anonymisable_value({"kontakt": A_CLEARED_KONTAKT, "name": REFEREE_NAMES[SCHIEDSRICHTER_OID]})
+
+    def test_the_label_over_the_same_block_is_not(self):
+        """The control: a predicate answering `True` for every row would pass the case above."""
+
+        assert not holds_an_anonymisable_value({"kontakt": A_CLEARED_KONTAKT, "name": ANONYMISED_NAME})
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -126,6 +219,7 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.SCHIEDSRICHTER].insert_many([referee_document(oid) for oid in REFEREE_NAMES])
+            await database[Collection.SPIELE].insert_many(fixture_documents())
             for oid in REFEREE_NAMES:
                 await a_referee_with_a_history(database, client, oid)
 
@@ -138,10 +232,17 @@ async def call_anonymisation(database: AsyncDatabase, client: AsyncMongoClient) 
     return await anonymise_schiedsrichter(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spiele_collection=database[Collection.SPIELE],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         germany_now=NOW,
     )
+
+
+async def stored_fixtures(database: AsyncDatabase) -> dict[Any, Mapping[str, Any]]:
+    """Keyed by `_id`, so a failing assertion names the fixture rather than a list position."""
+
+    return {row["_id"]: row for row in await database[Collection.SPIELE].find().to_list(length=None)}
 
 
 async def stored_referees(database: AsyncDatabase) -> dict[Any, Mapping[str, Any]]:
@@ -226,14 +327,83 @@ def test_nulling_the_whole_block_is_what_the_validator_refuses(mongo_replica_set
 
 
 @pytest.mark.db
-def test_the_referee_keeps_their_name_and_every_other_field(mongo_replica_set_url: str):
-    """Kills widening the write past `kontakt`: `spiele` embeds the name on every fixture they officiated."""
+def test_the_referees_name_becomes_the_label_and_every_other_field_survives(mongo_replica_set_url: str):
+    """Kills a write that stops at `kontakt`, and one that widens past the name onto the school or the fee."""
 
     _, referees, _ = after_anonymising(mongo_replica_set_url)
     stored = referees[SCHIEDSRICHTER_OID]
 
-    assert stored["name"] == REFEREE_NAMES[SCHIEDSRICHTER_OID]
+    assert stored["name"] == ANONYMISED_NAME
     assert (stored["schule"], stored["default_payment"], stored["inactive_since"]) == (SCHULE, DEFAULT_PAYMENT, None)
+
+
+def fixtures_after_anonymising(url: str) -> dict[Any, Mapping[str, Any]]:
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await call_anonymisation(database, client)
+
+        return await stored_fixtures(database)
+
+    return on_a_league(url, body)
+
+
+@pytest.mark.db
+def test_every_fixture_they_officiated_carries_the_label(mongo_replica_set_url: str):
+    """Kills a label reaching the row alone: a fixture stores its own copy of the name.
+
+    Both of their fixtures, so a fan-out modifying one row and stopping fails here rather than
+    passing on whichever row it reached.
+    """
+
+    fixtures = fixtures_after_anonymising(mongo_replica_set_url)
+
+    assert [fixtures[spiel_id]["schiedsrichter"]["name"] for spiel_id in SPIEL_OIDS[SCHIEDSRICHTER_OID]] == [ANONYMISED_NAME] * 2
+
+
+@pytest.mark.db
+def test_the_other_referees_fixture_keeps_their_name(mongo_replica_set_url: str):
+    """Kills a fan-out ignoring its filter, which the case above passes for."""
+
+    fixtures = fixtures_after_anonymising(mongo_replica_set_url)
+    (other_spiel_id,) = SPIEL_OIDS[OTHER_SCHIEDSRICHTER_OID]
+
+    assert fixtures[other_spiel_id]["schiedsrichter"]["name"] == REFEREE_NAMES[OTHER_SCHIEDSRICHTER_OID]
+
+
+@pytest.mark.db
+def test_the_booking_and_the_fee_survive_beside_the_label(mongo_replica_set_url: str):
+    """Kills a fan-out that `$set`s the whole `schiedsrichter` block: the reference is what makes the fixture resolvable."""
+
+    fixtures = fixtures_after_anonymising(mongo_replica_set_url)
+    booking = fixtures[SPIEL_OIDS[SCHIEDSRICHTER_OID][0]]["schiedsrichter"]
+
+    assert (booking["schiedsrichter_id"], booking["payment"]) == (SCHIEDSRICHTER_OID, DEFAULT_PAYMENT)
+
+
+@pytest.mark.db
+def test_a_referee_whose_contact_block_is_already_empty_is_not_a_no_op(mongo_replica_set_url: str):
+    """A row cleared of its details but still named is the state the erasure exists for: the name is the copy every match carries."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER_OID}, {"$set": dict(ANONYMISED_KONTAKT)})
+        response = await call_anonymisation(database, client)
+
+        return response.updated_document.name, await stored_fixtures(database)
+
+    echoed, fixtures = on_a_league(mongo_replica_set_url, body)
+
+    assert echoed == ANONYMISED_NAME
+    assert [fixtures[spiel_id]["schiedsrichter"]["name"] for spiel_id in SPIEL_OIDS[SCHIEDSRICHTER_OID]] == [ANONYMISED_NAME] * 2
+
+
+@pytest.mark.db
+def test_the_written_fixture_reads_as_the_label_at_both_tiers(mongo_replica_set_url: str):
+    """The stored row through the two models a fixture read answers with, so nothing between the write and the wire restores a name."""
+
+    fixtures = fixtures_after_anonymising(mongo_replica_set_url)
+    booking = fixtures[SPIEL_OIDS[SCHIEDSRICHTER_OID][0]]["schiedsrichter"]
+
+    assert FLSpielSchiedsrichterFieldPublic.model_validate(booking).name == ANONYMISED_NAME
+    assert FLSpielSchiedsrichterField.model_validate(booking).name == ANONYMISED_NAME
 
 
 @pytest.mark.db
@@ -253,7 +423,7 @@ def test_the_echo_carries_the_referee_as_they_now_stand(mongo_replica_set_url: s
     referee = response.updated_document
 
     assert referee.id == SCHIEDSRICHTER_OID
-    assert referee.name == REFEREE_NAMES[SCHIEDSRICHTER_OID]
+    assert referee.name == ANONYMISED_NAME
     assert (referee.kontakt.telefon, referee.kontakt.email) == (None, None)
 
 
@@ -333,7 +503,7 @@ def test_the_other_referees_log_rows_keep_their_images(mongo_replica_set_url: st
 def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
     """Kills removing `record_write`'s early return on the log: the redaction would record a copy of what it cleared.
 
-    Exactly one row is added, the patch's own, and none of them names the log.
+    Two rows are added -- the referee patch's and the fan-out's -- and none of them names the log.
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -348,13 +518,13 @@ def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
 
     before_count, after_count, self_recorded = on_a_league(mongo_replica_set_url, body)
 
-    assert after_count == before_count + 1
+    assert after_count == before_count + 2
     assert self_recorded == 0
 
 
 @pytest.mark.db
 def test_the_redaction_filter_reads_the_target_index(mongo_replica_set_url: str):
-    """Kills a filter shape that scans: the log is the one collection that only grows, so a scan degrades forever."""
+    """Kills a filter shape that scans: the log holds a year of recorded writes, so a scan reads every one of them."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         plan = await database.command(
@@ -437,6 +607,7 @@ async def anonymise_under(database: AsyncDatabase, client: AsyncMongoClient, hoo
     return await anonymise_schiedsrichter(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spiele_collection=database[Collection.SPIELE],
         aktionen_collection=aktionen,
         db=client,
         germany_now=NOW,

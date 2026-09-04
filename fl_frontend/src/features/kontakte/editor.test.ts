@@ -12,7 +12,7 @@ import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.s
 
 import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
-import { TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
+import { einwilligungHerkunftLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners, resolveRailBanners } from "@/shared/components/ui/railBanner";
@@ -21,7 +21,8 @@ import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
 import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 import { buildKontakteBanners } from "./components/forms/AdminKontakteEditForm/banners.ts";
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
-import { teamPageHref } from "./utils.ts";
+import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
+import { describeUnrestorableKontakte, teamPageHref, toKontaktePayload } from "./utils.ts";
 
 import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types";
@@ -66,7 +67,7 @@ const ADA: FLKontaktperson = {
   email: "ada@example.org",
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "1", datum: "2026-03-12" },
+  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
 };
 
 /** One list seat. `person: null` is what an erasure leaves, which is the state these cases are about. */
@@ -407,11 +408,9 @@ describe("the editor's shape", () => {
   it("judges a typed field on blur and a picked one on the press", () => {
     assert.match(SECTION, /onBlur=\{\(\) => onFieldLeft\(\[`kontakte\.\$\{rolle\}\.vorname`\]\)\}/, "a typed seat field is judged elsewhere");
     assert.ok(!/onChange=\{\(next\) => \{[^}]*onFieldLeft/.test(SECTION_SOURCE), "a change handler judges a seat's field between keystrokes");
-    assert.match(
-      SECTION,
-      /onValidateSelection\(mirroredJudgedPaths\(\[`kontakte\.\$\{rolle\}\.einwilligung\.erteilt_von`\], mirroredSeat\)/,
-      "the picked agreement is judged elsewhere",
-    );
+    // The claim is the one pick this panel still offers: the agreement's origin is the server's to
+    // compose, so nothing here judges it.
+    assert.match(SECTION, /if \(revalidate\) revalidateSeats\(next\);/, "a pick that resolves what a seat holds is judged elsewhere");
   });
 
   /* The claim is honoured at the ONE compose site. Written into the draft it overwrites whichever of
@@ -420,7 +419,7 @@ describe("the editor's shape", () => {
   it("honours the claim when the payload is composed, and never in the draft", () => {
     assert.match(
       FORM_SOURCE,
-      /kontakte: kontakte === null \? null : mirrorKontakte\(kontakte\)/,
+      /kontakte: toKontaktePayload\(kontakte === null \? null : mirrorKontakte\(kontakte\)\)/,
       "the payload no longer composes the claim, so the editor saves whatever the draft happens to hold",
     );
     assert.doesNotMatch(SECTION, /onChange\(\s*mirror/, "the section writes the mirror into the draft");
@@ -546,7 +545,7 @@ describe("the editor's shape", () => {
   it("sends the pre-save block, captured before the write that replaces it", () => {
     assert.match(
       SUBMIT,
-      /const undoPayload: FLPatchSaisonTeamKontaktePayload = \{ team_id: teamId, saison_id: saison\.saisonId, kontakte: storedKontakte \};/,
+      /const wiederherstellbar = \{ team_id: teamId, saison_id: saison\.saisonId, kontakte: toKontaktePayload\(storedKontakte\) \};/,
       "the undo replays something other than the pre-save block",
     );
     const capturedAt = SUBMIT.indexOf("const undoPayload");
@@ -554,6 +553,25 @@ describe("the editor's shape", () => {
     assert.ok(capturedAt !== -1 && writtenAt !== -1 && capturedAt < writtenAt, "the undo payload is captured after the write that moves it");
     // Unconditional: a ratified decision keeps the offer on the save the confirmation dialog gated too.
     assert.match(SUBMIT, /offerUndo\(\{/, "the undo offer is scoped to some saves rather than every one");
+  });
+
+  /* A seat the person confirmed for WhatsApp reaches the editor on the read and is spelled by no
+     payload, so it is the block where the replay and the route's own parse can disagree. */
+  it("replays a confirmed seat at the scope an administrator may write", () => {
+    const bestaetigt: FLKontaktperson = { ...ADA, einwilligung: { ...ADA.einwilligung, umfang: "kontaktdaten_whatsapp" } };
+    const wiederherstellbar = {
+      team_id: "507f1f77bcf86cd799439011",
+      saison_id: "2526",
+      kontakte: toKontaktePayload({ ...BLOCK, trainer: bestaetigt }),
+    };
+    const parsed = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(wiederherstellbar);
+
+    assert.ok(parsed.success, "the undo route refuses the block a confirmed seat leaves");
+    assert.equal(parsed.data.kontakte?.trainer?.einwilligung.umfang, "kontaktdaten");
+    assert.deepEqual(Object.keys(wiederherstellbar.kontakte?.trainer?.einwilligung ?? {}).sort(), ["datum", "text_version", "umfang"]);
+    // The offer's own verdict, over the body it hands on: a withheld undo sends the admin to re-enter
+    // three people by hand.
+    assert.equal(describeUnrestorableKontakte(wiederherstellbar), null, "the offer withholds an undo the endpoint would take");
   });
 });
 
@@ -563,7 +581,7 @@ describe("what the undo says when it cannot run", () => {
      holds the payload and the reason — diagnoses first. */
   // The diagnosis itself: `fl_frontend/src/features/kontakte/utils.test.ts :: describeUnrestorableKontakte`.
   it("diagnoses an unrestorable block itself rather than dispatching it", () => {
-    assert.match(OFFER_UNDO, /unrestorable: describeUnrestorableKontakte\(undoPayload\),/, "the offer no longer judges its own payload");
+    assert.match(OFFER_UNDO, /unrestorable: describeUnrestorableKontakte\(wiederherstellbar\),/, "the offer no longer judges its own payload");
     const judgedAt = DISPATCH.indexOf("if (unrestorable !== null)");
     const dispatchedAt = DISPATCH.indexOf("postUndo(endpoint, body)");
     assert.ok(judgedAt !== -1 && dispatchedAt !== -1 && judgedAt < dispatchedAt, "the payload is judged after the dispatch it would spare");
@@ -796,11 +814,31 @@ describe("how the editor asks which person the Trainer is", () => {
 
     assert.deepEqual(
       seatCards(seiten).map((card) => card.body.includes(TRAINER_ZUGLEICH_FRAGE)),
-      [true, false, false],
+      [false, false, true],
       "the picker is not bound to the Trainer seat",
     );
     // The control the answer is written into, which one press may claim for one seat only.
     assert.equal(seiten.split('name="kontakte.trainer_ist_zugleich"').length - 1, 1, "the picker renders more than once");
+  });
+});
+
+describe("what the editor says about a consent it may not write", () => {
+  /* The server composes both fields. A control offering either would let an administrator record a
+     consent as the person's own, or overwrite the stamp a confirmation wrote — which no rendered
+     surface would show afterwards. */
+  it("renders the origin and the confirmation stamp, and offers a control for neither", () => {
+    const seiten = sectionMarkup(BLOCK);
+
+    assert.match(seiten, />Erteilt</, "the agreement's origin is no longer shown at all");
+    assert.match(seiten, />Bestätigt am</, "the confirmation stamp is no longer shown at all");
+    assert.ok(seiten.includes(einwilligungHerkunftLabel("person")), "the origin renders as its stored slug rather than its label");
+    assert.ok(seiten.includes("14.03.2026"), "the stamp renders no date, or renders it as the stored string");
+
+    for (const feld of ["erteilt_von", "bestaetigt_am"]) {
+      assert.ok(!seiten.includes(`einwilligung.${feld}"`), `${feld} is still a named field, so a save can carry it`);
+    }
+    // The chips themselves, because a disabled group would still read as a question with an answer.
+    assert.ok(!seiten.includes(einwilligungHerkunftLabel("administrativ")), "the origin is still offered as a pick");
   });
 });
 
@@ -811,7 +849,9 @@ describe("which consent wording a record cites", () => {
     // That the two are one object is this file's type error; what no type can say is that neither
     // half is a placeholder.
     assert.notEqual(LIGA_EINWILLIGUNG.textVersion, "", "the version is empty, so every record cites nothing");
-    assert.notEqual(LIGA_EINWILLIGUNG.text, "", "the version names no wording");
+    assert.ok(LIGA_EINWILLIGUNG.absaetze.length > 0, "the version names no wording at all");
+    for (const absatz of LIGA_EINWILLIGUNG.absaetze) assert.notEqual(absatz, "", "the wording carries an empty paragraph");
+    assert.notEqual(LIGA_EINWILLIGUNG.schalter, "", "the wording carries no sentence for the switch to agree to");
   });
 
   /* Both surfaces gather the SAME consent, so a copy per feature is two texts that drift and two
@@ -827,8 +867,9 @@ describe("which consent wording a record cites", () => {
     for (const [name, file] of [
       ["the public form", path.resolve(SRC, "features", "bewerbungen", "utils.ts")],
       ["the admin editor", path.resolve(SRC, "features", "teams", "utils.ts")],
+      ["the confirmation page", path.resolve(SRC, "features", "bewerbungen", "components", "views", "BestaetigungFormPanel.tsx")],
     ] as const) {
-      assert.match(readFileSync(file, "utf8"), /LIGA_EINWILLIGUNG/, `${name} spells the version rather than reading it`);
+      assert.match(readFileSync(file, "utf8"), /(LIGA|BESTAETIGUNG)_EINWILLIGUNG/, `${name} spells the version rather than reading it`);
     }
   });
 
@@ -882,7 +923,7 @@ describe("how the editor divides one person from the next", () => {
     // heading here, whatever it is called.
     assert.deepEqual(
       headings(sectionMarkup(BLOCK), "h2"),
-      ["Trainer", "Ansprechperson", "Stellvertretung"],
+      ["Ansprechperson", "Stellvertretung", "Trainer"],
       "a panel above the seats is back, or a seat lost its own",
     );
   });
@@ -1006,7 +1047,7 @@ describe("which way the claim runs, at every site that reads it", () => {
   it("judges a pick against the block the save would write", () => {
     assert.match(
       FORM_SOURCE,
-      /kontakte: selected\.kontakte === null \? null : mirrorKontakte\(selected\.kontakte\)/,
+      /kontakte: toKontaktePayload\(selected\.kontakte === null \? null : mirrorKontakte\(selected\.kontakte\)\)/,
       "a pick is judged against the raw draft while a blur is judged against the composed block",
     );
   });

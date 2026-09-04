@@ -21,12 +21,11 @@ from app.api.spiele.schemas import (
     FLSpiel,
     FLSpielBookingListAdapter,
     FLSpieleActionRequiredResponse,
+    FLSpieleAdminListResponse,
     FLSpieleAdminSingleResponse,
     FLSpieleFilterParams,
-    FLSpieleListResponse,
-    FLSpielJoined,
     FLSpielJoinedAdmin,
-    FLSpielJoinedListAdapter,
+    FLSpielJoinedAdminListAdapter,
     FLSpielListAdapter,
 )
 from app.api.spiele.services import (
@@ -74,18 +73,19 @@ router = APIRouter(
 
 # Two static segments, matching `GET /saisons/list/admin`. Declared before `{spiel_id}/admin`, whose
 # only separation from this path is the `objectid` convertor (`docs/backend/spec.md :: I37`).
-@router.get("/list/admin", response_model=FLSpieleListResponse, summary="Spiele for the admin surfaces")
+@router.get("/list/admin", response_model=FLSpieleAdminListResponse, summary="Spiele for the admin surfaces")
 async def get_spiele_for_admin(
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     filters: FLSpieleFilterParams = Depends(),
     today: str = Depends(get_german_date_str),
-) -> FLSpieleListResponse:
+) -> FLSpieleAdminListResponse:
     """
     List a season's Spiele for the admin surfaces, a `future` season's included.
 
-    Same filters and shape as `GET /spiele`, without its season gate -- which lists a planned season
-    as empty, so every admin surface counting fixtures reads zero.
+    Same filters as `GET /spiele`, without its season gate -- which lists a planned season as empty,
+    so every admin surface counting fixtures reads zero. The admin fixture shape, so the referee
+    carries their whole name and the two figures ride along (`READ-MONEY-001`, `READ-REFEREE-001`).
     """
 
     # Mirrors `app/api/spiele/router.py :: get_spiele`, which cannot be called here: the gate is
@@ -104,7 +104,7 @@ async def get_spiele_for_admin(
         limit=filters.limit,
     )
 
-    return FLSpieleListResponse(spiele=FLSpielJoinedListAdapter.validate_python(spiele_raw))
+    return FLSpieleAdminListResponse(spiele=FLSpielJoinedAdminListAdapter.validate_python(spiele_raw))
 
 
 @router.get("/action_required", response_model=FLSpieleActionRequiredResponse, summary="Spiele needing attention")
@@ -148,7 +148,7 @@ async def get_spiele_action_required(
             }
         ),
     )
-    spiele = FLSpielJoinedListAdapter.validate_python(spiele_raw)
+    spiele = FLSpielJoinedAdminListAdapter.validate_python(spiele_raw)
 
     # The SAME scope as the read above: a fault is unioned into that list, so a fault swept from a
     # season the list does not cover would surface a fixture the admin did not ask about.
@@ -161,7 +161,7 @@ async def get_spiele_action_required(
 
     # Keyed by id, not `spiel_nr`, which repeats across seasons -- and this route still spans them
     # when no `saison_id` is named.
-    by_id: dict[CustomObjectId, FLSpielJoined] = {spiel.id: spiel for spiel in spiele}
+    by_id: dict[CustomObjectId, FLSpielJoinedAdmin] = {spiel.id: spiel for spiel in spiele}
     for spiel in faulted_spiele:
         by_id.setdefault(spiel.id, spiel)
 

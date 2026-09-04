@@ -6,6 +6,7 @@ import { textLink } from "@/shared/components/ui/textLink";
 import { ExternalUrlSchema } from "@/shared/schemas";
 import { formatAddressFull, formatSpielDatum } from "@/shared/utils/format";
 
+import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { FLBewerbung } from "@/features/bewerbungen/schemas";
 import type { ReactNode } from "react";
 
@@ -76,7 +77,16 @@ const ANGABEN_GRID = "grid w-full grid-cols-1 gap-4 sm:grid-cols-2";
  * Everything one school submitted, read-only. **Nothing here is editable**: an application is the
  * form three people filled in, and a decision moves `status`, `entscheidung` and `team_id` alone.
  */
-export function BewerbungAngabenPanel({ bewerbung, teamName }: { bewerbung: FLBewerbung; teamName: string | null }) {
+export function BewerbungAngabenPanel({
+  bewerbung,
+  teamName,
+  staende,
+}: {
+  bewerbung: FLBewerbung;
+  teamName: string | null;
+  /** `null` for an application submitted before the workflow, whose seats reached no per-seat state. */
+  staende: readonly SitzBestaetigung[] | null;
+}) {
   const { schule, kontakte, trikot, kader, wunschgegner, entscheidung } = bewerbung;
 
   return (
@@ -109,13 +119,16 @@ export function BewerbungAngabenPanel({ bewerbung, teamName }: { bewerbung: FLBe
         <div className="flex w-full flex-col gap-y-5">
           {KONTAKT_ROLLEN.map(({ value, label }) => {
             const person = kontakte[value];
+            const stand = staende?.find((sitz) => sitz.rolle === value) ?? null;
 
             return (
               <div
                 key={value}
                 className="flex w-full flex-col gap-y-2">
                 <div className="flex flex-row flex-wrap items-center gap-2">
-                  <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>{label}</span>
+                  {/* Named rather than muted, as the strip tints the same seat: a grey chip reads as
+                      a disabled one (my rule, 2026-09-04). */}
+                  <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>{label}</span>
                   {/* Stored rather than derived by comparing the two blocks: what the school
                       asserted is not the same claim as what happens to match. */}
                   {kontakte.trainer_ist_zugleich === value && (
@@ -128,13 +141,25 @@ export function BewerbungAngabenPanel({ bewerbung, teamName }: { bewerbung: FLBe
                 ) : (
                   <dl className={ANGABEN_GRID}>
                     <Angabe label="Name">{`${person.vorname} ${person.nachname}`}</Angabe>
-                    <Angabe label="Geburtsdatum">{formatSpielDatum(person.geburtsdatum)}</Angabe>
+                    {/* Null until that seat's contact has confirmed and entered it themselves, so an
+                        empty one is a step still outstanding rather than a school's omission. */}
+                    <Angabe label="Geburtsdatum">{person.geburtsdatum === null ? <Leer /> : formatSpielDatum(person.geburtsdatum)}</Angabe>
                     <Angabe label="E-Mail">{person.email === "" ? <Leer /> : person.email}</Angabe>
                     <Angabe label="Telefon">{person.telefon === "" ? <Leer /> : person.telefon}</Angabe>
+                    {/* One record, one fact, and no `Leer`: an outstanding seat has a state rather
+                        than a gap. An application from before the workflow reaches no state at all,
+                        and its stored record is then the whole truth about that seat. */}
                     <Angabe label="Einwilligung">
-                      {`${einwilligungHerkunftLabel(person.einwilligung.erteilt_von)}, ${formatSpielDatum(person.einwilligung.datum)}`}
+                      {stand === null
+                        ? `${einwilligungHerkunftLabel(person.einwilligung.erteilt_von)}, ${formatSpielDatum(person.einwilligung.datum)}`
+                        : stand.satz}
+                      {/* Over a consent that has been given and no other: the version an
+                          outstanding seat stores is the wording the SUBMITTER agreed to, which
+                          naming here would file against the person who has not answered yet. */}
+                      {(stand === null || stand.stand.art === "bestaetigt") &&
+                        person.einwilligung.text_version !== "" &&
+                        ` (Fassung ${person.einwilligung.text_version})`}
                     </Angabe>
-                    <Angabe label="Fassung">{person.einwilligung.text_version === "" ? <Leer /> : person.einwilligung.text_version}</Angabe>
                   </dl>
                 )}
               </div>

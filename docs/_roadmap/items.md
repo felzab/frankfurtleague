@@ -76,114 +76,131 @@ deliverable.
 
 ## The items at a glance
 
-| Token       | Item                                                                                                                 | Tags                                                                        | Status   |
-| ----------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
-| `2qae-xcut` | A rule declared multi-document reads only the row its own endpoint writes                                            | BE, spiele                                                                  | Open     |
-| `2rz3-a754` | Deciding an application does not drain the queue, and duplicates are marked only across one read's rows              | FE, BE, Ops, Docs, edge, admin, bewerbungen                                 | Open     |
-| `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                  | FE, BE, DB, Docs, spiele                                                    | Open     |
-| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                        | BE, Docs, spieler                                                           | Blocked  |
-| `8y7c-rstr` | No birthdate is stored, and every age rule guesses from `stufe`                                                      | FE, BE, DB, Docs, spieler                                                   | Blocked  |
-| `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                  | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
-| `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                             | FE, BE, Docs, admin, spiele                                                 | Open     |
-| `cu59-4gqt` | Nothing announces that a season rollover is due                                                                      | Ops, Docs, ci                                                               | Standing |
-| `ex2m-qjkg` | The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
-| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                      | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
-| `fau5-jtph` | The action log's page narrows one capped read, and a toast promises more than search can show                        | FE, BE, Docs, admin, aktionen                                               | Open     |
-| `fs48-z652` | A serving referee is published in full where a pupil beside them is reduced to an initial                            | BE, DB, Docs, spiele, spieler                                               | Open     |
-| `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                     | BE, DB, Docs, saisons                                                       | Standing |
-| `gc4a-duuh` | An erased referee's name stays on every past fixture the anonymisation does not reach                                | BE, DB, Docs, tests, schiedsrichter, spiele                                 | Open     |
-| `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                        | BE, Docs, spiele, teams                                                     | Open     |
-| `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                          | FE, Docs                                                                    | Decided  |
-| `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                   | FE, BE, admin, spieler                                                      | Open     |
-| `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                         | FE, BE, Docs, spieler                                                       | Open     |
-| `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                 | FE, Docs                                                                    | Open     |
-| `n56q-zu6n` | `Team` names a club and the people who run the league, and the public site renders both                              | FE, Docs, meta, teams                                                       | Open     |
-| `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                    | FE, auth, spiele, spielorte, teams                                          | Open     |
-| `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                          | FE, Docs                                                                    | Open     |
-| `nr85-vwnj` | A rule declares whether it reads a second document, and nothing resolves the claim                                   | BE, Docs, tests, bewerbungen, saisons                                       | Open     |
-| `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                    | FE, BE, spiele                                                              | Open     |
-| `q7jv-hskm` | The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep           | BE, DB, tests, saisons                                                      | Standing |
-| `qp88-3t35` | A cached read's backend call joins to no render, and telemetry has nowhere to go                                     | FE, BE, Ops, Docs, versions                                                 | Open     |
-| `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                        | FE, BE, Docs, admin, spiele                                                 | Open     |
-| `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                               | FE, BE, DB, admin, bewerbungen                                              | Standing |
-| `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                           | FE, BE, Docs, tests, saisons                                                | Open     |
-| `vyr6-uk2p` | The open-window read filters into arrays and subscripts whatever comes back                                          | FE, BE, tests, bewerbungen                                                  | Open     |
-| `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                | FE, tests, spieler                                                          | Open     |
-| `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
-| `x7pk-g4bh` | Three entry refusals are rendered twice, and nothing holds either half to the other                                  | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
-| `xe5b-v4nu` | A fourth rendering of the retired-club refusal sits outside the helper that grades the other three                   | FE, tests, bewerbungen, teams                                               | Open     |
-| `yjsf-uc2y` | Acceptance copies a school's postal address into the club, where an anonymous read serves it                         | FE, BE, DB, Docs, bewerbungen, teams                                        | Decided  |
-| `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                        | BE, Docs, versions                                                          | Decided  |
-| `zp46-yt3p` | The certainty walk gives up in a group of six or more                                                                | BE, teams                                                                   | Standing |
-| `zr2y-4uwj` | A tie-break that provably cannot fire is what stops the index being walked                                           | BE, DB, tests, bewerbungen, saisons, spiele, spieltage                      | Standing |
-| `2d76-kydk` | A citation is resolved by asking the filesystem, so a mis-cased path fails only on the runner                        | Ops, Docs, gate, ci                                                         | Open     |
-| `2eec-8qa9` | The hook fixture's builder writes into a directory it never creates, and reports success                             | Ops, Docs, gate                                                             | Open     |
-| `2pqm-yxyu` | The origin trusts every source inside Cloudflare's ranges                                                            | Ops, Docs, edge                                                             | Open     |
-| `2zah-pvu2` | The gate's binding unit costs more inside a run than it does alone                                                   | Ops, gate, tests                                                            | Open     |
-| `3gag-st7h` | Invariant numbers are permanent per sheet and allocated as though one namespace held all three                       | Ops, Docs, gate                                                             | Open     |
-| `3hdg-3r59` | The replace and the undraw each write the season's clearing, and each is proved separately                           | BE, DB, Docs, tests, saisons                                                | Open     |
-| `3s6w-kndn` | The gate saturates the machine, then idles through its tail                                                          | BE, Ops, gate, tests                                                        | Open     |
-| `54yr-fgun` | A changed citation target puts no page in front of the session                                                       | Ops, Docs, gate                                                             | Open     |
-| `5h9m-nntd` | A formatter reshapes a comment before INC-9 measures it                                                              | BE, Ops, Docs, gate, teams                                                  | Open     |
-| `5qzd-ubrg` | A test's name counts the cases beside it, and the table has outgrown the count                                       | Ops, gate, tests                                                            | Open     |
-| `5tnp-5uff` | A python constant's closing quotes open a comment run                                                                | Ops, Docs, gate, tests                                                      | Open     |
-| `645h-nj9q` | The linter runs a version past its end of life                                                                       | FE, Docs, versions                                                          | Standing |
-| `6zuv-9tkx` | No check can render a Server Component, so the render-prop rule is unenforced                                        | FE, Docs, tests                                                             | Open     |
-| `79y5-vdpq` | Two gate functions are rewritten in miniature inside the test that drives them                                       | Ops, gate, tests                                                            | Open     |
-| `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                           | FE, tests, saisons, spiele, teams                                           | Open     |
-| `9r6p-z26g` | Five fixture repositories are copied out of a live directory                                                         | Ops, gate, tests                                                            | Open     |
-| `aee2-vxqc` | A deprecated test-client dependency will end four modules' collection                                                | BE, ci, tests, versions                                                     | Open     |
-| `b3c5-avuj` | One uv version is pinned twice and compared by nothing                                                               | BE, Ops, gate, ci, versions                                                 | Open     |
-| `b732-rpvp` | Most of the database tier runs unconstrained                                                                         | BE, DB, tests                                                               | Open     |
-| `bfs4-ax6a` | The fixtures' drift guard cannot see a database view                                                                 | BE, DB, tests                                                               | Open     |
-| `bpve-vhag` | The fork exemption's ceiling is charged per block, and nothing caps the blocks one ancestor excuses                  | Ops, Docs, gate, tests                                                      | Open     |
-| `c8rx-gqun` | An invariant citation resolves to a string, not to a definition                                                      | Ops, Docs, gate                                                             | Open     |
-| `cckv-edvy` | The published document's drift check fails with the command that accepts the drift                                   | FE, BE, Ops, Docs, gate, tests                                              | Open     |
-| `ckf7-7w58` | The frontend mirrors the backend's payload bounds by hand, and one of them is swept                                  | FE, BE, tests, bewerbungen, spiele, teams                                   | Open     |
-| `crwn-qfp7` | The opening comment block of every file read as a shell script is measured by neither bound                          | Ops, Docs, gate                                                             | Open     |
-| `d5j8-js4n` | A real file in an unaccepted spelling reads as a missing file                                                        | Ops, gate                                                                   | Open     |
-| `db2a-9qu3` | The local edge claims to mirror production, unchecked                                                                | Ops, Docs, gate, edge                                                       | Open     |
-| `eg48-8863` | Two db-tier runs at once fail in a way that names nothing                                                            | BE, Ops, gate, ci, tests                                                    | Open     |
-| `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing    | FE, Docs, tests                                                             | Open     |
-| `f4uf-jape` | A copy test pins what its own author wrote                                                                           | FE, BE, Docs, tests, saisons, teams                                         | Open     |
-| `fha5-k95h` | A projection's coupling is guarded in one direction only                                                             | BE, tests, saisons                                                          | Open     |
-| `g98z-k4cp` | Two hook watchdogs sit under a registration in another file, and nothing compares the pair                           | Ops, Docs, gate                                                             | Open     |
-| `gbjj-9wfh` | A test fixture asserts the type nothing else checks                                                                  | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
-| `gkp4-q3q9` | The unique-index test pairs by ordinal position                                                                      | BE, DB, tests                                                               | Open     |
-| `gvyr-3nws` | Stylesheet comment blocks stand over INC-9's bound, quiet only while nobody lengthens one                            | FE, Ops, Docs, gate                                                         | Standing |
-| `h4wq-p7ct` | A block carried into a file the fork does not hold is charged to the branch                                          | Ops, Docs, gate, tests                                                      | Open     |
-| `hnx7-zbb9` | One field list is drift-guarded on one side only                                                                     | FE, BE, tests, saisons                                                      | Open     |
-| `ja32-9rpv` | A call site's key tier is held to its route by nothing                                                               | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
-| `jcpc-dee5` | Two routes on one path and method collapse to one                                                                    | BE, tests                                                                   | Open     |
-| `jcs8-4ste` | An in-transaction read's session argument is untested                                                                | BE, tests, saisons                                                          | Open     |
-| `jky6-k3te` | The refusal-code table is held to the backend by nothing                                                             | BE, Ops, Docs, gate                                                         | Open     |
-| `kpkb-y5d8` | A refusal's meaning is written three times, unresolved                                                               | FE, BE, Docs, tests, bewerbungen                                            | Open     |
-| `nce5-j467` | A comment claims two files hold one pattern, unchecked                                                               | FE, BE, tests                                                               | Open     |
-| `p2y9-p9za` | Four helpers every script calls are checked by nothing                                                               | Ops, Docs, gate                                                             | Open     |
-| `q2de-43qd` | A declared-permitted state's reason is checked by nothing                                                            | BE, Ops, gate, tests                                                        | Open     |
-| `qbzd-xrcu` | A scope sweep asserts against a rebuilt predicate rather than the gate's own                                         | Ops, Docs, gate, tests                                                      | Open     |
-| `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                            | FE, Docs, tests                                                             | Open     |
-| `qw6j-scru` | The CSP's style directive is wider than it needs to be                                                               | FE, Ops, Docs, edge                                                         | Open     |
-| `r5xm-ac7m` | A hook probe reads the status only where the verdict was empty                                                       | Ops, Docs, gate                                                             | Open     |
-| `s28h-m39z` | A moved vocabulary table is reported on the wrong branch                                                             | Ops, Docs, gate, ci, tests                                                  | Open     |
-| `spq6-zy2d` | A renamed file's comment blocks are never measured                                                                   | Ops, gate                                                                   | Open     |
-| `sqwz-xyxg` | An enforcement claim is resolved in one direction only                                                               | Ops, gate                                                                   | Open     |
-| `srbc-6buy` | An allowlist row naming an absent file is passed over, not reported                                                  | Ops, Docs, gate, tests                                                      | Open     |
-| `srec-8jxj` | Naming the image build's culprits costs a process per file                                                           | Ops, Docs, gate                                                             | Open     |
-| `suuz-dged` | Process-wide test hooks close the runner's one-process mode                                                          | FE, tests, versions                                                         | Open     |
-| `tc3c-nudr` | Nothing validates the contents of a restored `.env`                                                                  | FE, BE, Ops, Docs, edge                                                     | Standing |
-| `tnvw-4cqz` | One bash guard runs its twin's scan with no watchdog under it                                                        | Docs                                                                        | Open     |
-| `ua29-4s7q` | COR-6's checks read one spelling of a citation and one of a SHA, and the rule reaches past both                      | Ops, gate                                                                   | Open     |
-| `uayf-u7g4` | Crawler policy split between robots.txt and Cloudflare                                                               | FE, Ops, Docs, edge                                                         | Standing |
-| `v48b-waa5` | A rule pattern reaches less than the rule it enforces                                                                | Ops, gate                                                                   | Standing |
-| `vspa-r35v` | One commit imports a module the commit after it adds                                                                 | FE, Docs, ci, tests, saisons                                                | Standing |
-| `vy6b-ftj4` | The backend, db and frontend jobs have stepped up in wall clock                                                      | Ops, gate, ci                                                               | Open     |
-| `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                 | FE, tests, saisons                                                          | Open     |
-| `y2bd-s7bf` | A width share floored at one worker sits below both measured widths                                                  | Ops, gate, ci, tests                                                        | Open     |
-| `y3jf-vwrs` | No check enters the gate's serial or streaming run form                                                              | Ops, Docs, gate, ci, tests                                                  | Open     |
-| `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                | FE, BE, tests                                                               | Open     |
-| `z9gx-tekp` | A README enumerates a suite's subjects, and the tree has moved past the list                                         | Ops, tests                                                                  | Open     |
-| `zp4w-tg6x` | No check selects by the trees the In-code Scope names, and its register stands on its tests alone                    | Ops, Docs, gate, ci, tests                                                  | Standing |
+| Token       | Item                                                                                                                        | Tags                                                                        | Status   |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
+| `2qae-xcut` | A rule declared multi-document reads only the row its own endpoint writes                                                   | BE, spiele                                                                  | Open     |
+| `2rz3-a754` | Deciding an application does not drain the queue, and duplicates are marked only across one read's rows                     | FE, BE, Ops, Docs, edge, admin, bewerbungen                                 | Open     |
+| `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                         | FE, BE, DB, Docs, spiele                                                    | Open     |
+| `4enu-5xx9` | The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied                        | BE, DB, Docs, bewerbungen, kontakte, teams                                  | Open     |
+| `6mch-qx2c` | A retention sweep that never runs looks exactly like one that found nothing                                                 | FE, Docs, bewerbungen                                                       | Open     |
+| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                               | FE, BE, Docs, meta, spieler                                                 | Blocked  |
+| `8y7c-rstr` | No birthdate is stored, and every age rule guesses from `stufe`                                                             | FE, BE, DB, Docs, spieler                                                   | Blocked  |
+| `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                         | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
+| `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                    | FE, BE, Docs, admin, spiele                                                 | Open     |
+| `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                         | FE, Docs, tests                                                             | Open     |
+| `cu59-4gqt` | Nothing announces that a season rollover is due                                                                             | Ops, Docs, ci                                                               | Standing |
+| `duhh-xcsh` | Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von` | FE, BE, Docs, bewerbungen, teams                                            | Standing |
+| `ewf2-e2f3` | A confirmation or reminder link that bounces is written to the log and told to nobody                                       | FE, Docs, bewerbungen                                                       | Open     |
+| `ex2m-qjkg` | The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range        | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
+| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                             | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
+| `fau5-jtph` | The action log's page narrows one capped read, and a toast promises more than search can show                               | FE, BE, Docs, admin, aktionen                                               | Open     |
+| `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                            | BE, DB, Docs, saisons                                                       | Standing |
+| `ggng-8m7v` | The confirmation link's two anonymous endpoints read a whole application unprojected                                        | BE, DB, Docs, bewerbungen                                                   | Open     |
+| `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                               | BE, Docs, spiele, teams                                                     | Open     |
+| `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                 | FE, Docs                                                                    | Decided  |
+| `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                             | FE, BE, DB, Docs, kontakte                                                  | Open     |
+| `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                          | FE, BE, admin, spieler                                                      | Open     |
+| `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                                | FE, BE, Docs, spieler                                                       | Open     |
+| `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                        | FE, Docs                                                                    | Open     |
+| `n56q-zu6n` | `Team` names a club and the people who run the league, and the public site renders both                                     | FE, Docs, meta, teams                                                       | Open     |
+| `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                           | FE, auth, spiele, spielorte, teams                                          | Open     |
+| `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                                 | FE, Docs                                                                    | Open     |
+| `nr85-vwnj` | A rule declares whether it reads a second document, and nothing resolves the claim                                          | BE, Docs, tests, bewerbungen, saisons                                       | Open     |
+| `pa6f-ksu4` | A season id that is no year is refused nowhere, and first noticed by an hourly sweep failure                                | BE, DB, Docs, bewerbungen, saisons                                          | Open     |
+| `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                           | FE, BE, spiele                                                              | Open     |
+| `pt4h-b6tf` | Renaming an anonymised referee undoes the erasure, and nothing refuses it                                                   | BE, DB, Docs, schiedsrichter, spiele                                        | Open     |
+| `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                 | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
+| `q7jv-hskm` | The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep                  | BE, DB, tests, saisons                                                      | Standing |
+| `qp88-3t35` | A cached read's backend call joins to no render, and telemetry has nowhere to go                                            | FE, BE, Ops, Docs, versions                                                 | Open     |
+| `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                               | FE, BE, Docs, admin, spiele                                                 | Open     |
+| `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                      | FE, BE, DB, admin, bewerbungen                                              | Standing |
+| `rtn3-sq85` | A state chip can be neutral gray, and the shared badge carries shape without tone                                           | FE, Docs, bewerbungen                                                       | Open     |
+| `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                  | FE, BE, Docs, tests, saisons                                                | Open     |
+| `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject             | FE, Docs, tests                                                             | Open     |
+| `txef-hz2b` | Two referees reduced to one published name are one option in the fixture facet                                              | FE, BE, spiele                                                              | Open     |
+| `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                           | FE, Docs                                                                    | Standing |
+| `vyr6-uk2p` | The open-window read filters into arrays and subscripts whatever comes back                                                 | FE, BE, tests, bewerbungen                                                  | Open     |
+| `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                       | FE, tests, spieler                                                          | Open     |
+| `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                       | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
+| `x7pk-g4bh` | Three entry refusals are rendered twice, and nothing holds either half to the other                                         | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
+| `xe5b-v4nu` | A fourth rendering of the retired-club refusal sits outside the helper that grades the other three                          | FE, tests, bewerbungen, teams                                               | Open     |
+| `yjsf-uc2y` | Acceptance copies a school's postal address into the club, where an anonymous read serves it                                | FE, BE, DB, Docs, bewerbungen, teams                                        | Decided  |
+| `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                               | BE, Docs, versions                                                          | Decided  |
+| `zp46-yt3p` | The certainty walk gives up in a group of six or more                                                                       | BE, teams                                                                   | Standing |
+| `zr2y-4uwj` | A tie-break that provably cannot fire is what stops the index being walked                                                  | BE, DB, tests, bewerbungen, saisons, spiele, spieltage                      | Standing |
+| `2d76-kydk` | A citation is resolved by asking the filesystem, so a mis-cased path fails only on the runner                               | Ops, Docs, gate, ci                                                         | Open     |
+| `2eec-8qa9` | The hook fixture's builder writes into a directory it never creates, and reports success                                    | Ops, Docs, gate                                                             | Open     |
+| `2pqm-yxyu` | The origin trusts every source inside Cloudflare's ranges                                                                   | Ops, Docs, edge                                                             | Open     |
+| `2zah-pvu2` | The gate's binding unit costs more inside a run than it does alone                                                          | Ops, gate, tests                                                            | Open     |
+| `3gag-st7h` | Invariant numbers are permanent per sheet and allocated as though one namespace held all three                              | Ops, Docs, gate                                                             | Open     |
+| `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                        | FE, Ops, gate, tests, saisons                                               | Open     |
+| `3hdg-3r59` | The replace and the undraw each write the season's clearing, and each is proved separately                                  | BE, DB, Docs, tests, saisons                                                | Open     |
+| `3s6w-kndn` | The gate saturates the machine, then idles through its tail                                                                 | BE, Ops, gate, tests                                                        | Open     |
+| `54yr-fgun` | A changed citation target puts no page in front of the session                                                              | Ops, Docs, gate                                                             | Open     |
+| `5h9m-nntd` | A formatter reshapes a comment before INC-9 measures it                                                                     | BE, Ops, Docs, gate, teams                                                  | Open     |
+| `5qzd-ubrg` | A test's name counts the cases beside it, and the table has outgrown the count                                              | Ops, gate, tests                                                            | Open     |
+| `5tnp-5uff` | A python constant's closing quotes open a comment run                                                                       | Ops, Docs, gate, tests                                                      | Open     |
+| `645h-nj9q` | The linter runs a version past its end of life                                                                              | FE, Docs, versions                                                          | Standing |
+| `6zuv-9tkx` | No check can render a Server Component, so the render-prop rule is unenforced                                               | FE, Docs, tests                                                             | Open     |
+| `79y5-vdpq` | Two gate functions are rewritten in miniature inside the test that drives them                                              | Ops, gate, tests                                                            | Open     |
+| `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                  | FE, tests, saisons, spiele, teams                                           | Open     |
+| `9r6p-z26g` | Five fixture repositories are copied out of a live directory                                                                | Ops, gate, tests                                                            | Open     |
+| `aee2-vxqc` | A deprecated test-client dependency will end four modules' collection                                                       | BE, ci, tests, versions                                                     | Open     |
+| `b3c5-avuj` | One uv version is pinned twice and compared by nothing                                                                      | BE, Ops, gate, ci, versions                                                 | Open     |
+| `b732-rpvp` | Most of the database tier runs unconstrained                                                                                | BE, DB, tests                                                               | Open     |
+| `bfs4-ax6a` | The fixtures' drift guard cannot see a database view                                                                        | BE, DB, tests                                                               | Open     |
+| `bpve-vhag` | The fork exemption's ceiling is charged per block, and nothing caps the blocks one ancestor excuses                         | Ops, Docs, gate, tests                                                      | Open     |
+| `c8rx-gqun` | An invariant citation resolves to a string, not to a definition                                                             | Ops, Docs, gate                                                             | Open     |
+| `cckv-edvy` | The published document's drift check fails with the command that accepts the drift                                          | FE, BE, Ops, Docs, gate, tests                                              | Open     |
+| `ckf7-7w58` | The frontend mirrors the backend's payload bounds by hand, and one of them is swept                                         | FE, BE, tests, bewerbungen, spiele, teams                                   | Open     |
+| `crwn-qfp7` | The opening comment block of every file read as a shell script is measured by neither bound                                 | Ops, Docs, gate                                                             | Open     |
+| `d5j8-js4n` | A real file in an unaccepted spelling reads as a missing file                                                               | Ops, gate                                                                   | Open     |
+| `db2a-9qu3` | The local edge claims to mirror production, unchecked                                                                       | Ops, Docs, gate, edge                                                       | Open     |
+| `efnu-cq79` | A case asserts that its own fixture minted a usable hash, so hash luck decides the run                                      | Ops, Docs, gate, tests                                                      | Open     |
+| `eg48-8863` | Two db-tier runs at once fail in a way that names nothing                                                                   | BE, Ops, gate, ci, tests                                                    | Open     |
+| `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing           | FE, Docs, tests                                                             | Open     |
+| `f4uf-jape` | A copy test pins what its own author wrote                                                                                  | FE, BE, Docs, tests, saisons, teams                                         | Open     |
+| `fha5-k95h` | A projection's coupling is guarded in one direction only                                                                    | BE, tests, saisons                                                          | Open     |
+| `frxr-w4j2` | A citation naming a root-level file resolves to no path, so the tag derivation reading one cannot fire                      | Ops, Docs, gate, tests                                                      | Open     |
+| `g98z-k4cp` | Two hook watchdogs sit under a registration in another file, and nothing compares the pair                                  | Ops, Docs, gate                                                             | Open     |
+| `gbjj-9wfh` | A test fixture asserts the type nothing else checks                                                                         | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
+| `gkp4-q3q9` | The unique-index test pairs by ordinal position                                                                             | BE, DB, tests                                                               | Open     |
+| `gm9c-2du4` | Every link the local stack mails points at production                                                                       | FE, Docs, bewerbungen                                                       | Open     |
+| `gvyr-3nws` | Stylesheet comment blocks stand over INC-9's bound, quiet only while nobody lengthens one                                   | FE, Ops, Docs, gate                                                         | Standing |
+| `h4wq-p7ct` | A block carried into a file the fork does not hold is charged to the branch                                                 | Ops, Docs, gate, tests                                                      | Open     |
+| `hnx7-zbb9` | One field list is drift-guarded on one side only                                                                            | FE, BE, tests, saisons                                                      | Open     |
+| `ja32-9rpv` | A call site's key tier is held to its route by nothing                                                                      | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
+| `jcpc-dee5` | Two routes on one path and method collapse to one                                                                           | BE, tests                                                                   | Open     |
+| `jcs8-4ste` | An in-transaction read's session argument is untested                                                                       | BE, tests, saisons                                                          | Open     |
+| `jky6-k3te` | The refusal-code table is held to the backend by nothing                                                                    | BE, Ops, Docs, gate                                                         | Open     |
+| `kpkb-y5d8` | A refusal's meaning is written three times, unresolved                                                                      | FE, BE, Docs, tests, bewerbungen                                            | Open     |
+| `mmcv-aa6g` | The comment-citation check reads two shapes of outside reference and INC-6 bars more                                        | Ops, Docs, gate, tests                                                      | Open     |
+| `nce5-j467` | A comment claims two files hold one pattern, unchecked                                                                      | FE, BE, tests                                                               | Open     |
+| `p2y9-p9za` | Four helpers every script calls are checked by nothing                                                                      | Ops, Docs, gate                                                             | Open     |
+| `q2de-43qd` | A declared-permitted state's reason is checked by nothing                                                                   | BE, Ops, gate, tests                                                        | Open     |
+| `qbzd-xrcu` | A scope sweep asserts against a rebuilt predicate rather than the gate's own                                                | Ops, Docs, gate, tests                                                      | Open     |
+| `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                                   | FE, Docs, tests                                                             | Open     |
+| `qw6j-scru` | The CSP's style directive is wider than it needs to be                                                                      | FE, Ops, Docs, edge                                                         | Open     |
+| `r5xm-ac7m` | A hook probe reads the status only where the verdict was empty                                                              | Ops, Docs, gate                                                             | Open     |
+| `s28h-m39z` | A moved vocabulary table is reported on the wrong branch                                                                    | Ops, Docs, gate, ci, tests                                                  | Open     |
+| `spq6-zy2d` | A renamed file's comment blocks are never measured                                                                          | Ops, gate                                                                   | Open     |
+| `sqwz-xyxg` | An enforcement claim is resolved in one direction only                                                                      | Ops, gate                                                                   | Open     |
+| `srbc-6buy` | An allowlist row naming an absent file is passed over, not reported                                                         | Ops, Docs, gate, tests                                                      | Open     |
+| `srec-8jxj` | Naming the image build's culprits costs a process per file                                                                  | Ops, Docs, gate                                                             | Open     |
+| `suuz-dged` | Process-wide test hooks close the runner's one-process mode                                                                 | FE, tests, versions                                                         | Open     |
+| `tc3c-nudr` | Nothing validates the contents of a restored `.env`                                                                         | FE, BE, Ops, Docs, edge                                                     | Standing |
+| `tnvw-4cqz` | One bash guard runs its twin's scan with no watchdog under it                                                               | Docs                                                                        | Open     |
+| `ua29-4s7q` | COR-6's checks read one spelling of a citation and one of a SHA, and the rule reaches past both                             | Ops, gate                                                                   | Open     |
+| `uayf-u7g4` | Crawler policy split between robots.txt and Cloudflare                                                                      | FE, Ops, Docs, edge                                                         | Standing |
+| `v48b-waa5` | A rule pattern reaches less than the rule it enforces                                                                       | Ops, gate                                                                   | Standing |
+| `vspa-r35v` | One commit imports a module the commit after it adds                                                                        | FE, Docs, ci, tests, saisons                                                | Standing |
+| `vy6b-ftj4` | The backend, db and frontend jobs have stepped up in wall clock                                                             | Ops, gate, ci                                                               | Open     |
+| `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                        | FE, tests, saisons                                                          | Open     |
+| `y2bd-s7bf` | A width share floored at one worker sits below both measured widths                                                         | Ops, gate, ci, tests                                                        | Open     |
+| `y3jf-vwrs` | No check enters the gate's serial or streaming run form                                                                     | Ops, Docs, gate, ci, tests                                                  | Open     |
+| `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                       | FE, BE, tests                                                               | Open     |
+| `z9gx-tekp` | A README enumerates a suite's subjects, and the tree has moved past the list                                                | Ops, tests                                                                  | Open     |
+| `zp4w-tg6x` | No check selects by the trees the In-code Scope names, and its register stands on its tests alone                           | Ops, Docs, gate, ci, tests                                                  | Standing |
 
 ## The items
 
@@ -312,12 +329,10 @@ page-owned editor and refuses one for a row control, and a restore on a log row 
 Whether Next's E592 reproduces on a page that stays mounted is what decides between a server action
 and a route handler of its own, and nobody has measured it.
 
-**Retention is ruled and the bound is not built.** `docs/datenschutz.md` §6 rules the log to a twelve-month
-TTL on the row's timestamp, reversing the indefinite retention `docs/backend/spec.md :: I119` states;
-until it lands no row is dropped. Either way a restore reaches a write only while its row stands,
-so the retention bound is the restore's reach. Erasing a person reaches the log as `redacted_at`, emptied and
-stamped in place (`:: I42`) — the values leave, the rows stay, and a restore over an emptied row replays
-nothing.
+**Retention is built, and it is this entry's reach.** `docs/backend/spec.md :: I119` expires a stamped
+log row twelve months after the write it recorded, and a restore reaches a write only while its row
+stands, so the retention bound is the restore's reach. A row carrying no stamp is expired by
+nothing, and its values leave at the once-only reset in `docs/datenschutz.md :: 3` instead.
 
 **Two kinds of write sit outside what any restore could replay — a pupil's erasure, and taking a
 season's draw away — and for different reasons.** The erasure keeps no image at all, the values
@@ -330,6 +345,69 @@ work inside it.
 **How far the log page can reach past its one read is not this entry's** — the filters it sends, the
 client-side search and facets over the loaded rows, and the copy toast that promises more than
 either can give are `fau5-jtph`.
+
+### `4enu-5xx9` · The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied
+
+| Tags                                       | Status | Depends on |
+| ------------------------------------------ | ------ | ---------- |
+| BE, DB, Docs, bewerbungen, kontakte, teams | Open   | —          |
+
+**The contacts editor reads the stored block, composes a new one from it, and writes the block
+whole.** `fl_backend/app/api/teams/admin_router.py :: patch_saison_team_kontakte` reads the row's
+`kontakte` through `fl_backend/app/core/crud.py :: pull_one_from_db` outside any transaction, so that
+a seat which has confirmed keeps its provenance, then `$set`s the composed block over the stored one.
+`fl_backend/app/api/kontakte/admin_router.py :: erase_kontaktperson` is the other writer of that
+block, and nulls every slot one address holds. An erasure landing between the editor's read and its
+write is undone by the write: the person who asked to be forgotten is back on the row, and the action
+log records an ordinary edit.
+
+**The window is the whole-block `$set` and not the read, and narrowing the payload is not the
+repair.** The editor sends all three slots because a payload accepting fewer would let an edit drop a
+seat in silence, and every slot it sends is a claim about that seat rather than a field somebody
+happened to touch. So the block the admin rendered is the block the endpoint stores, and any seat
+changed underneath it is overwritten by definition.
+
+**The confirmation write is the shape that closes it, in this same tree.**
+`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung` judges and writes inside
+one session, reading the document it is about in-session so that a retry re-judges it, and its update
+names field paths under one seat instead of replacing a block. Either half would answer here: the
+editor's read moved inside the transaction that writes, or the update reduced to the paths the editor
+actually changed.
+
+**Done when** a concurrent erasure cannot be undone by a save — with the guarantee stated where a
+reader with no code open meets it (`docs/backend/spec.md`), and a test that fails on the interleaving
+rather than on the shape of the update.
+
+### `6mch-qx2c` · A retention sweep that never runs looks exactly like one that found nothing
+
+| Tags                  | Status | Depends on |
+| --------------------- | ------ | ---------- |
+| FE, Docs, bewerbungen | Open   | —          |
+
+**The sweep writes a line only where a pass fails.**
+`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep` walks the seasons, and
+`fl_frontend/src/features/bewerbungen/sweep.ts :: logSweepFailure` is the only thing on that path
+which reaches the log at all (`FE-SWEEP-001`). A pass that reminds nobody and deletes nothing writes
+nothing, and that is the ordinary case — so silence is what a healthy sweep and an absent one both
+produce, and no operator can tell them apart.
+
+**Three ways it can be absent, and none of them shows.** `fl_frontend/src/core/config.ts` reads
+`BEWERBUNG_SWEEP`, so a server setting it off arms no timer at all;
+`fl_frontend/src/instrumentation.ts :: register` is what arms it, so a deployment where that hook
+does not run arms nothing; and the timer lives in the process that serves the site
+(`docs/ops/spec.md :: I149`), so a process restarting before its first pass restarts the delay with
+it. Each is a deadline nobody chases and an unconfirmed application nobody deletes, found when a
+school asks why it heard nothing.
+
+**Two answers, weighed and neither taken.** One info line per completed pass, carrying what the pass
+did, makes the absence visible in the stream the failure already uses, at the cost of a line an hour
+in production whose only reader is somebody already suspicious. An observable the system tier answers
+on demand — when the last pass completed — costs a route and a caller, and is read only by somebody
+who thinks to ask. The choice is which of those two costs is worth paying, not whether the gap is
+real.
+
+**Done when** an operator can tell a sweep that ran and did nothing from a sweep that did not run,
+without reading the container's environment.
 
 ### `8wd7-ff49` · The consent field has a schema and a ruled writer, and no flow that writes it
 
@@ -364,8 +442,10 @@ publication is gated on nothing — and the predicate is written into `docs/back
 read-rules table before any code.
 
 **Done** is the sign-up flow writing a person's own consent, `registration_einwilligung` and its
-caller gone with it, the vocabulary narrowed to what stays expressible, and the publication gate
-reading what the flow stores.
+caller gone with it, the vocabulary narrowed to what stays expressible, the publication gate reading
+what the flow stores, and the notice's squad and referee publication rows
+(`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) moved off the legitimate
+interest they rest on to the consent the flow collects.
 
 ### `8y7c-rstr` · No birthdate is stored, and every age rule guesses from `stufe`
 
@@ -512,6 +592,42 @@ today, so the window is a single administrator's page visit; a second writer arr
 plan this year (confirmed 2026-08-12), which is what turns that window into a shape two people can
 meet inside.
 
+### `ceqd-e4aq` · An admin table's declared floor can be wider than the viewport its layout starts at
+
+| Tags            | Status | Depends on |
+| --------------- | ------ | ---------- |
+| FE, Docs, tests | Open   | —          |
+
+**Ruled: an admin table is never scrolled sideways to be read.**
+
+**A table's floor is computed rather than chosen, and nothing compares it to the width it has.**
+`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts :: TABLES` is the roster — the admin
+lists whose rows sit in a react-aria table — and for each one the test adds the widths its columns
+declare to a free-text allowance per undeclared column, then requires the table's single `min-w-`
+floor to equal that sum exactly. The controls column has its own derivation,
+`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts :: ACTIONS_WIDTH`, which grows with the
+most controls one row can hold. Both are checks that the floor matches what the columns asked for.
+Neither asks whether the viewport can give it.
+
+**Below the floor the reader gets a scroll container, and the busiest table is the one it reaches
+first.** Each table renders cards below Tailwind's `md` step and the table layout from it up, so the
+narrowest viewport that shows a table is that step; a table whose controls and free-text columns push
+its floor past that step is scrolled sideways for every width between the two. The scroll container
+is deliberate as a last resort and says so at the line, deliberately keeping its bar visible — which
+is the right behaviour for a table that overflows and the wrong outcome for a table that should not.
+
+**The repair is a shared budget, not a trim per table.** Each table's floor is the sum of decisions
+taken in that table — how many controls a row offers, how much room a free-text column is owed — so
+narrowing one is a product decision about that list, and narrowing every member of the roster by
+hand still leaves the table added after it free to reintroduce the defect. What holds is a width no
+table may exceed, derived from the step its layout starts at, with the per-table sums measured
+against it.
+
+**Done when** no admin table declares a floor wider than the narrowest viewport its table layout is
+shown at, and a check refuses one that does — extending the roster's existing sums rather than
+adding a second reader of the same markup, with the bound recorded where a session adding a column
+meets it (`docs/frontend/spec.md`).
+
 ### `cu59-4gqt` · Nothing announces that a season rollover is due
 
 | Tags          | Status   | Depends on |
@@ -551,6 +667,80 @@ message, is the actual scope.
 - **What it says.** The value is the checklist, not the alarm: a reminder naming which steps are
   already done is a different message from one saying a date passed, and only the first is worth
   reading twice.
+
+### `duhh-xcsh` · Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`
+
+| Tags                             | Status   | Depends on |
+| -------------------------------- | -------- | ---------- |
+| FE, BE, Docs, bewerbungen, teams | Standing | —          |
+
+**The product says confirmation and the schema says consent, about one record.** A contact person
+opens their own link, the application carries `bestaetigungsfrist` and a `bestaetigungen` block, and
+the seat is stamped `bestaetigt_am` — while the record holding that stamp is
+`fl_backend/app/api/teams/schemas.py :: FLKontaktEinwilligung`, the wording it cites is
+`fl_frontend/src/core/einwilligung.ts :: LIGA_EINWILLIGUNG`, and the field saying how it was obtained
+is `erteilt_von`, written `administrativ` by
+`fl_backend/app/api/bewerbungen/services.py :: compose_einwilligung` and `person` by the endpoint
+that seat's own link reaches.
+
+**Why it is not cosmetic.** `erteilt_von` is a stored key on two collections and on every image the
+action log holds of them, so a rename is a migration rather than an edit, and it travels through a
+`$jsonSchema` validator, a Zod mirror and `fl_backend/openapi.json`. A reader meeting `Einwilligung`
+on a screen headed „Bestätigung“ reaches for the pupil vocabulary instead, where `erteilt_von`
+answers an entirely different question (`docs/glossary.md :: Einwilligung`).
+
+**The trigger is the legal basis, and it is not ours to pick.** The basis for holding a contact
+person's details is with the Datenschutzexperte (`docs/datenschutz.md` §11). Ruled as consent, the
+three names are right as they stand. Ruled as necessary processing, `bestaetigt_am` becomes an
+address-verification stamp, `erteilt_von` says who acknowledged a notice, and consent proper narrows
+to the optional WhatsApp channel — at which point the three describe the wrong thing on every screen
+that reads them. **No field here is named for a legal category**, which is what lets one schema
+survive either ruling and is the reason to rename nothing before the ruling lands.
+
+**Done when** the basis is ruled and the three names are settled against it: recorded as correct
+where the next reader meets them, or renamed together with the validator, the Zod mirror, the
+published document and the stored keys, in one migration rather than three edits.
+
+### `ewf2-e2f3` · A confirmation or reminder link that bounces is written to the log and told to nobody
+
+| Tags                  | Status | Depends on |
+| --------------------- | ------ | ---------- |
+| FE, Docs, bewerbungen | Open   | —          |
+
+**A refused send leaves a line that names no address, deliberately.**
+`fl_frontend/src/features/bewerbungen/notifications.ts :: settleFanOut` settles every recipient and
+writes `FE-MAIL-002` per failure carrying the operation and the error's name alone, because
+`docs/logging/spec.md :: L9` keeps a submitted value off the stream. The address is meant to reach a
+person by the other route:
+`fl_frontend/src/features/bewerbungen/notifications.ts :: describeBewerbungMail` names who was not
+reached, in the sentence an admin action appends to its report.
+
+**The link messages have nobody standing at that route.** The submission's links go out from
+`fl_frontend/src/app/api/bewerbung/route.ts` to a member of the public, the confirmation's two from
+`fl_frontend/src/app/api/bestaetigung/route.ts` to a contact person, and the reminder from
+`fl_frontend/src/features/bewerbungen/sweep.ts :: mailErinnerung`, which returns nothing at all. Each
+discards the outcome, so a seat whose mailbox refuses its link stays outstanding for the whole span
+and is then deleted with the application it belongs to — and the first anyone hears of it is a school
+asking why nothing arrived.
+
+**A reminder is spent whether or not it arrives.** `docs/backend/spec.md :: I152` stamps
+`erinnert_am` and mints the fresh link before the caller mails, deliberately: mailing first would
+re-send to a refusing address every day the sweep runs. The cost that ordering accepts is one person
+one reminder — and because
+`fl_frontend/src/features/bewerbungen/sweep.ts :: mailErinnerung` answers `void`, that cost is
+uncountable as well as unreported. The clock will not chase that seat again, the seat is outstanding
+still, and the deadline deletes the application on time.
+
+**The counter-example is in the same file.**
+`fl_frontend/src/features/bewerbungen/sweep.ts :: mailLoeschung` reads whether the deletion notice
+was delivered and withholds the erasure where it was not, because erasing somebody who was never told
+is the failure that clock exists to prevent. Nothing weighs a link mail the same way, and a seat
+nobody can reach is the same kind of loss one step earlier.
+
+**Done when** two things hold: an unreachable contact address reaches an administrator, the
+application's own admin page being where the triage already stands; and a reminder whose send was
+refused does not count as the one chase that seat gets. Neither is answerable by a log line, which
+L9 forbids naming the address in.
 
 ### `ex2m-qjkg` · The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range
 
@@ -725,10 +915,12 @@ structural half is therefore the flow that collects the rules, not a second writ
 endpoint that removes a matchday removes that season's fixtures in the same transaction, so the
 reference cannot dangle (`fl_backend/app/core/domain.py :: REFERENCES`).
 
-**A public write into application data has one precedent, and it inserts no person into the
+**A public write into application data has two precedents, and neither inserts a person into the
 league.** The application form's `POST /bewerbungen` is base-tier and stores what a school
 submitted, decided by nobody until the triage reaches it
-([`docs/backend/spec.md`](../backend/spec.md) §1.1). Every other write that touches the league's own
+([`docs/backend/spec.md`](../backend/spec.md) §1.1); the confirmation page's
+`POST /bewerbungen/einwilligung` writes one named contact person's own answer into that stored
+application, authorised by an emailed token rather than by a session. Every other write that touches the league's own
 data sits behind `verify_access_admin`, declared at router level and inherited by the endpoints
 under it; the browser side of that is an email allowlist checked at sign-in and re-derived on every
 session read (`fl_frontend/src/core/auth.ts`). The remaining public unauthenticated writes touch no
@@ -854,10 +1046,12 @@ rows straddle the cut is one that search cannot show whole, and the toast is unc
 warning above it is not — so the instruction is given at the moment nothing is saying it may not
 hold.
 
-**What makes this grow rather than sit.** Every admin write appends a row, and no row is dropped
-today; `docs/datenschutz.md` §6 rules a twelve-month bound that is not built, and until it lands the
-share of the log this page can reach only falls. `get_aktionen`'s own comment states the
-consequence: the cap arrives by ordinary use.
+**Whether this grows or sits rests on a count nobody has taken.** Every admin write appends a row and
+`docs/backend/spec.md :: I119` expires a stamped one twelve months later, so the log settles at a
+year's recorded writes rather than climbing without end. Whether a year's writes pass
+`fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT` decides whether this page's reach
+falls at all, and nobody has counted them. `get_aktionen`'s own comment rests on the same premise:
+the extra row it reads is what answers whether the cap was reached.
 
 **Done** is the three terms the endpoint already takes being sent, and the facet counts coming from
 the server rather than from the rows one read returned — the same collision `2rz3-a754` meets on the
@@ -868,50 +1062,6 @@ second time.
 measured: the request the page composes, the terms the endpoint accepts, the two client-side
 narrowings, and the toast's copy. **Nothing was driven against a log past the cap**, and how many
 rows the collection holds today was not counted, so how soon the state arrives is unknown.
-
-### `fs48-z652` · A serving referee is published in full where a pupil beside them is reduced to an initial
-
-| Tags                          | Status | Depends on |
-| ----------------------------- | ------ | ---------- |
-| BE, DB, Docs, spiele, spieler | Open   | —          |
-
-**`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPublic` carries the referee's
-`name` as a required non-empty string, and its own docstring says it is the model a BASE-TIER read
-serves** — so an anonymous visitor reading a fixture is served the referee's full name. A squad
-pupil on the same site is reduced to a forename and a surname initial. **The consent architecture
-therefore covers the less-exposing publication and not the more-exposing one, and the same pupil can
-appear under both rules**: a referee here is a pupil too.
-
-**Ruled 2026-09-02: a serving referee is published as a forename and a surname initial, like a squad pupil**
-(`docs/datenschutz.md` §4). It is a response-model change rather than a data migration — the stored document
-keeps the full name, which is what `fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterField` is
-for.
-
-**The function the ruling names is one half of a pair, and the fixture read needs the other half.**
-`fl_backend/app/api/spieler/services.py :: public_initial` reduces a surname where a `find` serves
-the read, and `:: PUBLIC_NACHNAME` is the same rule written as a Mongo expression; the docstring at
-the function states in terms that the two are one rule, so anything the aggregation answers `None`
-for has to answer `None` in the function rather than raise. **The public fixture read is an
-aggregation** — `fl_backend/app/api/spiele/crud.py` reaches it through `aggregate_many_from_db` over
-`build_spiele_pipeline` — so the reduction lands in `PUBLIC_NACHNAME`'s form and not in the
-function's, and a change that moves only the function reduces nothing on this route.
-
-**The type does not fit the reducer, and that is the first thing the work meets.** `public_initial`
-answers `str | None`, and `FLSpielSchiedsrichterFieldPublic.name` is `str` with `min_length=1`. A
-referee whose stored name is absent or not a string therefore has no expressible reduced form on
-this model, so the work decides between widening the field to nullable and answering the missing
-case some other way. **Widening it is not free**: the field being non-optional is what lets every
-card render a referee without a null check.
-
-**The reduction is over an embedded copy, not a join.** A fixture stores the referee's name beside
-the reference — `fl_backend/app/api/spiele/services.py` composes it from the booking, and
-`fl_backend/app/api/spiele/crud.py` reads `name` off the `schiedsrichter` row when a booking is
-made — so the pipeline reduces a field the `spiele` document already holds, and no `$lookup` is
-involved.
-
-**No read rule governs a referee's name today**, where a pupil's is `READ-PUPIL-001`. Done is the
-reduced public model, the rule in `docs/backend/spec.md`'s read-rules table beside the pupil's, and
-the aggregation and the function moved together.
 
 ### `g7hr-c8bn` · The replace and the undraw judge their window from a capped read
 
@@ -950,52 +1100,35 @@ match**, because both call sites want the rows as well as the count: they projec
 nothing at all until a season arrives from outside the draw. What the entry buys today is that the
 guarantee is written down as resting on a bound in one file rather than on the read being safe.
 
-### `gc4a-duuh` · An erased referee's name stays on every past fixture the anonymisation does not reach
+### `ggng-8m7v` · The confirmation link's two anonymous endpoints read a whole application unprojected
 
-| Tags                                        | Status | Depends on |
-| ------------------------------------------- | ------ | ---------- |
-| BE, DB, Docs, tests, schiedsrichter, spiele | Open   | —          |
+| Tags                      | Status | Depends on |
+| ------------------------- | ------ | ---------- |
+| BE, DB, Docs, bewerbungen | Open   | —          |
 
-**`fl_backend/app/api/schiedsrichter/services.py :: ANONYMISED_KONTAKT` clears the contact block and
-nothing else**, and the referee's name is not in it: the mapping is built from `FLKontakt`'s own
-fields, so it resolves to `kontakt.telefon` and `kontakt.email`, which
-`fl_backend/tests/api/test_schiedsrichter_anonymisierung.py` pins in both directions. Every past
-fixture keeps the referee's name, because a fixture stores its own copy
-(`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterField`) rather than a reference the
-anonymisation could redirect. **So a person who asks to be erased is erased from the referee row and
-stays named on every match they officiated.**
+**Both endpoints load the document and answer with a closed handful of its fields.**
+`fl_backend/app/api/bewerbungen/einwilligung_router.py :: get_einwilligung_ansicht` finds the
+application through `fl_backend/app/api/bewerbungen/services.py :: build_token_filter` and answers a
+state, a season, a school, a role, a first name and a wording label
+(`docs/backend/spec.md :: READ-BEWERBUNG-002`);
+`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung` reads the same way
+inside its transaction. Both are base-tier, and the document they load carries three people's email
+addresses and telephone numbers, each seat's `token_hash`, and which schools were turned down.
 
-**Ruled 2026-09-02: the name on a past fixture is replaced by a neutral label spelled "anonym"**
-(`docs/datenschutz.md` §4). **Two alternatives are rejected there and neither is to be proposed
-again**: a first name, because a first name with a date and a club still identifies one person in a
-league this size; and the word "Schiedsrichter", because it reads oddly in a column already headed
-with it.
+**Nothing is served that should not be, and that is the whole of the guarantee.** The response models
+declare their fields and no others, so this is depth rather than a leak. What it costs is that the
+guarantee rests on the response model alone: a field added to a model, a debug line, or an error path
+that renders what was loaded turns an unprojected read into a disclosure, on the one tier that
+authenticates nobody.
 
-**Clearing the field is not among the options, which is why a label was needed at all.**
-`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPublic` requires `name` to be a
-non-empty string, so a null or an empty string is unrepresentable on every read of a fixture.
+**The projection habit exists here already, in the opposite shape.**
+`fl_backend/app/api/bewerbungen/services.py :: WITHOUT_TOKEN_HASHES` keeps the hashes off the wire
+for the admin reads, and is an exclusion because an inclusion list there would have to restate every
+field an application holds. These two endpoints are the case that argues the other way: what they
+answer with is a short closed list, and everything else on the document is what they must not carry.
 
-**The write has to widen, and two guards at the endpoint are written for the narrow version.**
-`fl_backend/app/api/schiedsrichter/admin_router.py` performs the anonymisation as one transaction
-over two writes, and both arms assume the contact block is the whole subject:
-
-- **The log redaction is scoped to the referee's own rows.** It runs `build_redaction_filter` over
-  `Collection.SCHIEDSRICHTER` alone, and the comment above it states the ordering the arm depends
-  on — the redaction runs AFTER the patch so that it reaches the row that patch itself just wrote,
-  because redacting first would leave exactly that copy behind. A widened anonymisation writes
-  fixture rows too, every one of them recorded with its prior document through
-  `fl_backend/app/core/crud.py`, so **the redaction filter has to reach those rows in the same
-  transaction or the names it just removed survive in the log** — the failure the transaction was
-  built to prevent, arriving through a collection the filter does not name.
-- **The no-op refusal changes meaning.** The endpoint snapshots `a_kontakt_value_stands` before the
-  write and refuses where the call rewrites nothing, because a `$set` rewriting nothing joins no
-  write set and a concurrent re-entry of the details would raise no conflict to retry on. Once the
-  name on a fixture is part of what an anonymisation clears, a referee whose contact block is
-  already empty but whose name still stands on past fixtures **is not a no-op**, and the guard as
-  written refuses a call that has work to do.
-
-**Done** is the label written across every fixture naming the person, inside the same transaction,
-with the log redaction and the no-op guard widened to the set the write now touches.
+**Done when** each anonymous read names the fields it needs, and a case fails where a field outside
+that list reaches the handler.
 
 ### `hstg-rnqj` · The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing
 
@@ -1108,6 +1241,39 @@ enumerating the selectors its `toast.css` declares:**
 vendored selectors overridden in the same file, and no clause governs them. §1.11 of the frontend
 spec sheet is what governs both cases, and it already asks a stylesheet rule to name the HeroUI
 version it was written against.
+
+### `k3g7-cqx7` · An erasure is confirmed without naming whom the address matches
+
+| Tags                       | Status | Depends on |
+| -------------------------- | ------ | ---------- |
+| FE, BE, DB, Docs, kontakte | Open   | —          |
+
+**Ruled: an erasure keyed on an email address shows the matched names for confirmation before the
+write** (`docs/datenschutz.md :: 5. Erasure reaches everyone who asks`). The code is the regression,
+and the ruling stands.
+
+**The confirmation names one person and describes the rest as a class.**
+`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx` is
+opened from inside one seat's own panel, names that seat's person, and says the write reaches them
+everywhere rather than only here. Everyone else the address holds is left to the administrator's
+memory, and the counts saying how far the write actually went arrive in the result afterwards.
+
+**A shared school inbox is the case the ruling was made for, and it is the case that reads best.**
+The panel names a real person, the sentence is plainly worded, and nothing on screen suggests
+anything is missing — so the confirmation is most convincing exactly where it is least complete, and
+an administrator clearing one departing Trainer can empty two colleagues' seats across every season
+that inbox appears in.
+
+**Nothing on the backend answers the question either.**
+`fl_backend/app/api/kontakte/admin_router.py` publishes the erasure and no read beside it, so what an
+address matches is knowable only by performing the write. Whatever renders the names needs a read
+that does not exist yet, and that read is the part to design first: it serves contact records to an
+administrator, so it is admin-tier and carries the same withholding every other read of the block
+does.
+
+**Done when** the confirm reveal lists every person the address matches, by name and by the season
+each seat sits in, before the write — read from a route added for it rather than inferred on the
+client, with a case pinning that a second matched person appears in the reveal.
 
 ### `kwfu-48sm` · Two surfaces offer a squad-row return the season's cap will refuse
 
@@ -1388,6 +1554,44 @@ of the table.
 from `fl_backend/app/api` source, states in its own docstring which rules it does not reach and what
 that makes permanent, and has been driven red against a row flipped in place.
 
+### `pa6f-ksu4` · A season id that is no year is refused nowhere, and first noticed by an hourly sweep failure
+
+| Tags                               | Status | Depends on |
+| ---------------------------------- | ------ | ---------- |
+| BE, DB, Docs, bewerbungen, saisons | Open   | —          |
+
+**The id a season is created with is held to a width and never to a shape.**
+`fl_backend/app/api/saisons/schemas.py :: FLPostSaisonPayload` is the one create payload carrying an
+id, stripped and bounded to `fl_backend/app/shared/schemas/bounds.py :: SAISON_ID_LENGTH` characters
+— which is a count of characters and not of digits — and
+`fl_backend/app/api/saisons/admin_router.py :: post_saison` stores what that payload accepts.
+`docs/backend/spec.md :: I5` states that width and nothing narrower, and the `saisons` validator in
+`fl_backend/app/core/constraints.py` declares `_id` a bare string with neither length nor pattern. A
+label that is not a year therefore reaches the collection by the front door, and every reader needing
+a year from it has to cope.
+
+**The retention sweep is where such an id is noticed, hourly and long after it was typed.**
+`fl_backend/app/api/bewerbungen/services.py :: next_saison_id` reads a season id as a year to name
+the season following it, which the accepted-application erasure and the contact block's clock both
+depend on; an id it cannot read is refused rather than answered, so
+`fl_backend/app/api/bewerbungen/sweep_router.py`'s pass for that season fails and the caller records
+`FE-SWEEP-001` (`docs/logging/error-codes.md`), leaving the other seasons to run and retrying next
+pass. That is the right thing for a sweep to do with an id it cannot trust, and the wrong place to
+learn of it: whoever typed the id is long gone, the failure repeats every pass until somebody reads a
+log, and the two clocks that season owes stand still meanwhile.
+
+**The refusal that suggests itself first is already refused.**
+`.claude/rules/backend.md :: widen one past types and enums` bars taking a `$jsonSchema` validator
+past types and enums, so a pattern on `saisons._id` is not available and naming it as the fix sends
+the next reader at a ratified clause. The write path is where a shape rule can live: the create
+payload already strips the value and measures it, and a season id is read as a year everywhere it is
+read at all.
+
+**Done when** `fl_backend/app/api/saisons/admin_router.py :: post_saison` refuses an id that is no
+year, declared on `fl_backend/app/api/saisons/schemas.py :: FLPostSaisonPayload` where the width
+already sits, with a case pinning that refusal — `.claude/rules/backend.md`'s `db` clause read first,
+so the repair is not looked for in the validator.
+
 ### `pb66-krbw` · A fixture carries one date, and a play window cannot be expressed
 
 | Tags           | Status | Depends on |
@@ -1411,6 +1615,47 @@ the Spielsuche; and the `ausstehend` semantics, **where a filter selects and a l
 range makes the ausstehend/heute/vergangen ternary genuinely harder, and the intent (a fixture whose
 play window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives both definitions under ranges.
+
+### `pw5c-zps5` · A referee gets no consent record, where a contact person confirms their own
+
+| Tags                                                   | Status | Depends on |
+| ------------------------------------------------------ | ------ | ---------- |
+| FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams | Open   | —          |
+
+**A referee's row holds a contact block and a school, and no record of anybody agreeing to either.**
+`fl_backend/app/api/schiedsrichter/schemas.py :: _SchiedsrichterWritable` declares `kontakt` and
+`schule` and no consent field, and the `schiedsrichter` collection's validator declares none either;
+a referee is entered by an administrator through
+`fl_frontend/src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx`
+and is asked nothing. A team's contact person holds the opposite: a record on
+`fl_backend/app/api/teams/schemas.py :: FLKontaktEinwilligung` that only that person's own emailed
+link can stamp.
+
+**Ruled: referees get a consent record on the same terms as contact persons**
+(`docs/datenschutz.md` §2). The two roles hold the same categories about the same pupils — a
+telephone number, an email address and a school — so the asymmetry is in the mechanism rather than in
+the sensitivity.
+
+**Why it matters.** The privacy notice describes one rule for how the league obtains permission to
+hold contact details, and that rule is true of a contact seat and false of a referee, with no field
+on the referee to say which. `READ-CONTACT-001` keeps the block admin-tier, so nothing is published:
+what is missing is the record, not a guard.
+
+**Three things that shape the work.** The confirmation flow is built on an application — a token
+block on the `bewerbungen` collection, a public router that resolves it, and a mail fan-out over
+three seats — so reaching a referee is a second collection, a second write path and a second message
+rather than a parameter, which is why this is an entry and not a fold-in. The vocabulary is a choice
+between the two that exist and never a third: `FLKontaktEinwilligung` says only that details may be
+held and used, `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` says what may be published,
+and a referee is a pupil whose name is published on every fixture they officiate. And a referee's
+removal is an anonymisation rather than a deletion, so whoever adds the record decides whether it
+survives one.
+
+**Done when** a referee has a consent record they gave themselves, its validator copy moved in the
+same commit as the model, the admin editor rendering that record rather than offering it, and the
+notice's referee publication row moved off the legitimate interest it rests on
+(`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) to the consent the flow
+collects.
 
 ### `q7jv-hskm` · The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep
 
@@ -1598,6 +1843,71 @@ from unreachable into the ordinary path and makes the plan above the one an admi
 collection does not hold. That no caller sends `sort_by` was read off the page and the absence of
 another consumer rather than proven by instrumenting the endpoint.
 
+### `pt4h-b6tf` · Renaming an anonymised referee undoes the erasure, and nothing refuses it
+
+| Tags                                 | Status | Depends on |
+| ------------------------------------ | ------ | ---------- |
+| BE, DB, Docs, schiedsrichter, spiele | Open   | —          |
+
+**`fl_backend/app/api/schiedsrichter/admin_router.py :: patch_schiedsrichter` takes a whole `name`
+and fans it into every match the referee officiated** — the embedded copy is
+`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterField` on the `spiele` collection
+(`docs/backend/spec.md :: I13`) — and it weighs nothing about what the row holds now. An anonymised referee whose row reads the label is one PATCH away from carrying a person's name
+again, on the row and on every past fixture, and the administrator making that edit is told a rename
+succeeded.
+
+**The rename reaches every season, where a club's stops.** A referee is not season-scoped
+(`docs/glossary.md :: Schiedsrichter`), so the fan-out carries no `past` bound of the kind a club's
+has (`docs/backend/spec.md :: I13`): one unrefused rename puts the name back on the fixtures of
+closed seasons, which are the copies nobody edits again and so the ones that keep it.
+
+**The erasure's own guard does not reach it.** `REQ-ANONYMISE-001` refuses a re-entry landing WHILE
+an anonymisation runs, judged from a read taken outside the session
+(`docs/backend/spec.md :: I118`); a rename a week later meets nothing at all.
+
+**A refusal on the PATCH is not obviously the answer, which is why this is an entry rather than a
+fix.** A referee anonymised by mistake has no other way back, and an erasure the administration
+cannot undo at all is a different complaint from the one above. What the entry buys is that the
+choice is made rather than defaulted into, and it covers the archive as well as the current season.
+
+### `rtn3-sq85` · A state chip can be neutral gray, and the shared badge carries shape without tone
+
+| Tags                  | Status | Depends on |
+| --------------------- | ------ | ---------- |
+| FE, Docs, bewerbungen | Open   | —          |
+
+**Ruled: no chip or badge is neutral gray, and a state chip wears the tone its meaning dictates.**
+
+**The shared badge is shape alone, so every tone is a slice's own string.**
+`fl_frontend/src/shared/components/ui/badges.ts :: LABEL_BADGE` sets the pill — its size, radius,
+weight and its refusal to wrap — and names no colour at all, so a tone arrives as a second class
+string written beside it at the call site. That colour is the caller's is stated once on this
+module, at `fl_frontend/src/shared/components/ui/badges.ts :: COUNT_BADGE`, and it holds for both
+recipes. Per-slice maps supply the strings, and nothing holds them to one vocabulary or refuses a
+member of it. The state that is neutral today is
+`fl_frontend/src/features/bewerbungen/constants.ts :: BEWERBUNG_STATUS_TINT`'s `abgelehnt`, and the
+comment above that map argues for the choice in as many words: a decline is a decision the league
+took rather than a fault anybody has to act on. **The ruling overrides that argument**, so whoever
+tones the chip rewrites the comment in the same commit, or leaves a reason standing for a colour the
+file does not carry (CUR-2).
+
+**The sites are named by a selector, and the obvious selector is too wide.** What the ruling reaches
+is a `LABEL_BADGE` pill whose tone class is `bg-muted text-foreground-muted`. A bare `bg-muted` sweep
+across the tree also returns the admin tables' `Table.Column` headers, which are chrome rather than
+chips and stay exactly as they are — so reading the ruling off that sweep rather than off the pill is
+how a table loses its header treatment to a rule about state.
+
+**What the ruling does not settle is met on the first file.** A pill naming a state and a pill naming
+a category are the same `LABEL_BADGE`: a season number, a collection name, a seat's role and
+„Bestehendes Team“ carry no state for a tone to follow, while „Stand gesichert“ reads as one. A tone
+set obliged to answer for every pill ends up assigning colours to nouns. Which pills are state chips
+is the question to settle before the variants are named, and this entry does not answer it.
+
+**Done when** tone is a named variant of the shared badge rather than a string each slice writes —
+one set whose members mean what they say — with every state chip taking one and a check refusing a
+neutral tone on a state chip; the boundary above settled first, and `docs/frontend/spec.md` carrying
+whichever rule that check enforces.
+
 ### `skyx-nrgh` · A refusal composes a repair the product refuses to perform
 
 | Tags                         | Status | Depends on |
@@ -1639,6 +1949,95 @@ group shape guessed wrong — true in the planning window it was written for, an
 **The German is a hand-written second copy** (`fl_frontend/src/features/saisons/actions.ts`, its
 `REQ-RULES-011` arm), so a repair that stops at the backend leaves an admin reading the old
 instruction.
+
+### `t3xf-s5hy` · The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject
+
+| Tags            | Status | Depends on |
+| --------------- | ------ | ---------- |
+| FE, Docs, tests | Open   | —          |
+
+**The roster is discovered rather than typed, and discovered by the property the cases go on to
+assert.** `fl_frontend/src/shared/components/ui/confirmPanel.test.ts :: panelsUnder` walks the
+feature tree and keeps a `.tsx` file whose source contains a call to
+`fl_frontend/src/shared/hooks/useTwoPressConfirm.ts :: useTwoPressConfirm`; every case then holds
+that roster to the shared reveal, the shared armed fill and the shared rows. A panel that escalates
+a press from state it arms itself matches no case, because it is not in the population the cases
+read — it drops out of the listing rather than failing it, which is the failure
+`docs/_standard/standard.md :: PRE-4` names when a check derives its subjects from the property it
+asserts.
+
+**The defence the file already carries answers the other half of the problem.** Its own note says a
+roster counted against its own length can never report an omission, and that is right: a floor over
+the roster's size is what discovery replaces. What discovery does not buy is independence, and the
+two listings the sweep requires to agree are both filtered out of that same roster, so they agree by
+construction wherever the discriminator is what went missing.
+
+**What a second route would have to key on is the panel, not the hook.** A confirm panel is a
+component that renders a destructive or confirming control behind a press the reader has to repeat —
+a shape reachable from the control and its copy rather than from an import, so a file that reaches
+the same behaviour another way is a subject that fails rather than a subject that is absent. Naming
+that shape is the work; keeping the hook as a discriminator beside it is what makes the pair
+independent rather than a rename.
+
+**Done when** the roster comes from what a panel is rather than from what it imports, with a case
+proving that a panel arming its own state is refused — planted in its real position and driven red
+before it is relied on.
+
+**What is read and what is not** (COR-9). The discovery, the discriminator and the cases that consume
+the roster were read off the file. No planted panel was driven against the sweep, so that a
+hand-rolled one passes silently is derived from the roster's construction rather than observed.
+
+### `txef-hz2b` · Two referees reduced to one published name are one option in the fixture facet
+
+| Tags           | Status | Depends on |
+| -------------- | ------ | ---------- |
+| FE, BE, spiele | Open   | —          |
+
+**`fl_frontend/src/features/spiele/facets.ts` labels a referee option with the name the read served
+and keys it on `schiedsrichter_id`**, so two referees the base tier reduces to one string give a
+public visitor two options reading alike. The keys differ, so both filter correctly; only the label
+is ambiguous, and a visitor cannot tell which is which.
+
+**An anonymised referee makes it certain rather than unlikely.** Every one of them publishes the same
+label, so a season with two reads as two identical options on every public fixture page.
+
+**Widening the reduction is refused here**: `fl_backend/app/api/spiele/schemas.py :: public_referee_name`
+exists to keep the surname off the base tier (`READ-REFEREE-001`), and a disambiguator built from
+the surname publishes what the rule withholds.
+Done is a facet whose options are distinguishable without it.
+
+### `vgk8-btxt` · What decides whether a module belongs in `core` or in `shared` is written nowhere
+
+| Tags     | Status   | Depends on |
+| -------- | -------- | ---------- |
+| FE, Docs | Standing | —          |
+
+**One rule holds the two folders apart, and it is a direction rather than a membership test.**
+`docs/frontend/spec.md :: I9` and `docs/frontend/overview.md :: How it is organised` fix that
+`fl_frontend/src/core` imports neither `fl_frontend/src/shared` nor `fl_frontend/src/features`, and
+that `fl_frontend/src/shared` does not import `fl_frontend/src/features`, enforced by ESLint. Every
+module importing nothing above it satisfies both readings, so which of the two folders a new module
+goes in is settled by whoever writes it.
+
+**The two have drifted apart in kind while the rule stayed a direction.**
+`fl_frontend/src/core/einwilligung.ts`, `fl_frontend/src/core/mail.ts` and
+`fl_frontend/src/core/logging.ts` sit beside `fl_frontend/src/shared/utils/refusal.ts` and
+`fl_frontend/src/shared/components/ui/ConfirmReveal.tsx` — one set is what the server process does,
+the other what a rendered page is built from. That distinction is real and is stated on neither page,
+so a reader deriving the rule from the import direction alone arrives somewhere else.
+
+**A reorganisation is its own pull request, and is bounded before it starts.**
+`.claude/CLAUDE.md :: structure` refuses a barrel file, an unrequired default export and a second
+nesting level, so grouping either folder into subfolders is not the cheap half of this; and every
+module moved is an import path rewritten at each call site, which makes the diff wide and the review
+shallow exactly where a mistake is a runtime failure. **Naming the rule is separable from acting on
+it**, and is the half worth doing first: a rule that answers where a module goes stops the drift
+without moving a file.
+
+**Done when** the rule says what belongs in each folder rather than only what may import what,
+written where a session adding a module reads it —
+`docs/frontend/overview.md :: How it is organised` — with `docs/frontend/spec.md :: I9` keeping the
+direction it already holds.
 
 ### `vyr6-uk2p` · The open-window read filters into arrays and subscripts whatever comes back
 
@@ -2035,12 +2434,13 @@ in-memory sort is over a set with a ceiling on it, and nothing in the product mo
 a sort chains a tie-break onto its leading key: the chained key is what puts the sort outside the
 index written for that read. `aktionen`, `spiele`, `spieltage` and `bewerbungen` each build one, and
 each was answered differently. `aktionen` got an index whose key is the read's whole sort, `at` then
-`_id`, because `fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` states at the line that it is
-the collection which only ever grows and so cannot be left to a scan. `bewerbungen` got neither an
+`_id`, because `fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` states at the line that the log
+holds twelve months of writes and so cannot be left to a scan. `bewerbungen` got neither an
 index nor a removal: `fl_backend/app/api/bewerbungen/services.py :: build_bewerbungen_sort` turns
 the tie-break to follow the request, so the pair is the existing index's key or its exact inverse.
 `spiele` and `spieltage` got nothing, and are this entry. **So the discriminator is not whether the
-sort blocks — it is whether anything bounds the collection**, and a reader who finds a blocking sort
+sort blocks — it is how much the bound on the collection admits**, and a reader who finds a blocking
+sort
 and asks only the first question will either panic at this one or dismiss the next `aktionen`.
 
 **Trigger to revisit:** the season narrowing in `fl_backend/app/api/spiele/router.py` being removed,
@@ -2256,6 +2656,40 @@ allocator reading three files.
 
 **Done when** one convention is stated where somebody adding a row will read it, and the next free
 number is derived rather than counted off three pages by hand.
+
+### `3hb2-3d9q` · One test file dies under the gate's parallel load and names no cause
+
+| Tags                          | Status | Depends on |
+| ----------------------------- | ------ | ---------- |
+| FE, Ops, gate, tests, saisons | Open   | —          |
+
+**A file the branch does not touch can fail the frontend section of `scripts/gate/verify.sh` at file
+level, with no case named under it.**
+`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/undrawSpielplan.test.ts` is
+the file it has happened to. Run on its own it passes, repeatedly; the whole suite run beside it
+passes with every case green; and a second full gate run is green. What separates the failing run
+from the passing ones is the load the section runs its suite under.
+
+**A file-level failure is the shape that hides the cause.** `node --test` reports a file whose
+process exits non-zero as a single failing test named for the path, so a worker killed under memory
+pressure, a module that never loaded and a case that never reported all arrive as one line with the
+same text. Nothing in the output tells them apart, which leaves another full gate run as the only
+available diagnosis — the most expensive one there is, and green more often than not.
+
+**Which half this is has not been established.** Whether it is this file interacting with the load —
+the frontend section runs the suite beside a type check, a lint and a formatter — or a runner-level
+fault that would land on whichever file was unlucky is unknown, and treating it as either is a guess.
+The entry is filed against the diagnostic rather than against the file for that reason: whichever
+half it turns out to be, the run that produces it has to say so.
+
+**Done when** a file-level failure in the frontend section carries something a reader can act on —
+the worker's exit status and its stderr, or the runner's own diagnosis — so the next occurrence is
+read off the run that produced it rather than off a rerun.
+
+**What is read and what is not** (COR-9). The passes are runs: the file alone, and the whole suite
+after it. The failure is one gate run's report, not reproduced since. Nothing was instrumented, no
+worker's exit status was captured, and no second file has been seen to fail this way, so the
+population this reaches is unmeasured.
 
 ### `3hdg-3r59` · The replace and the undraw each write the season's clearing, and each is proved separately
 
@@ -2993,6 +3427,41 @@ targets, the `add_header` set — built against the same kernel the other checke
 parses and proves nothing about the pair. Both are worth having, and that one is the half that could
 ship on its own.
 
+### `efnu-cq79` · A case asserts that its own fixture minted a usable hash, so hash luck decides the run
+
+| Tags                   | Status | Depends on |
+| ---------------------- | ------ | ---------- |
+| Ops, Docs, gate, tests | Open   | —          |
+
+**The case needs a real commit whose short form carries both a digit and a letter, and it looks for
+one rather than making one.**
+`scripts/tests/test_branch_checks.py :: test_a_prose_sha_reports_every_mixed_hex_run_resolvable_or_not`
+proves that `scripts/checks/docs_gate/branch.py`'s sha finding fires on a resolvable prefix as well
+as a dangling one, so it needs a hash the fixture repository actually holds. It walks that
+repository's own commits for a prefix that is mixed, and asserts one was found. Whether any is
+depends on what the hashes happen to spell.
+
+**Two things decide that, and neither is the property under test.** The fixture is built with a
+single commit and the scenarios that add one add it for their own reasons, so how many candidates
+this case sees depends on which scenarios ran before it in the same process — and each candidate is
+mixed or not by luck. The run therefore has a verdict that its own arrangement and the hashes it
+drew decide, which is why it passes alone, passes under the gate's per-file distribution, and can
+fail where the modules are ordered differently.
+
+**A failure here reports nothing about the branch under it.** The guard's own message says as much —
+it says the case proves nothing — but it is an assertion, so the section goes red, and it goes red on
+a tree that touched neither the checker nor the test. That is the signal
+`docs/_standard/standard.md :: CUR-8` asks about from the other side: a check that fails when it
+should not is what teaches people to re-run a red gate rather than read it.
+
+**The fixture can mint what the case needs instead of hoping for it.** A commit whose message is
+changed until its short form is mixed costs a retry loop and no realism — the hash is an input to the
+assertion, not part of what is asserted — and it turns the guard into a fact the fixture establishes
+rather than a condition it checks for.
+
+**Done when** the case obtains a mixed short form by construction, so it proves what it claims on
+every run and its remaining assertions are the only way it can fail.
+
 ### `eg48-8863` · Two db-tier runs at once fail in a way that names nothing
 
 | Tags                     | Status | Depends on |
@@ -3181,6 +3650,38 @@ covered by name, and every key `fl_backend/app/api/saisons/services.py :: holds_
 `:: _a_side_is_off_the_draw` read today is fetched by the projection. What is missing is anything
 holding them to it.
 
+### `frxr-w4j2` · A citation naming a root-level file resolves to no path, so the tag derivation reading one cannot fire
+
+| Tags                   | Status | Depends on |
+| ---------------------- | ------ | ---------- |
+| Ops, Docs, gate, tests | Open   | —          |
+
+**`scripts/checks/docs_gate/kernel.py :: repo_path` answers only for a token under a directory prefix
+or a package root.** A token starting with one of the prefixes resolves where the file exists; a
+token carrying a slash is retried under each package root; a bare filename returns nothing. Every
+tracked file at the repository root is therefore a path the resolver declines, and the compose files
+are the ones a document has reason to cite.
+
+**One branch of the roadmap's tag derivation is unreachable because of it.**
+`scripts/checks/docs_gate/checks.py :: _derived_tags` takes the basenames of the paths an entry
+resolved and adds `Ops` and `edge` where one of them is in
+`scripts/checks/docs_gate/checks.py :: COMPOSE_FILENAMES`. Since a compose file never resolves, that
+membership is never true, and an entry whose subject is a compose override earns neither tag — while
+`scripts/checks/docs_gate/checks.py :: _check_derived_tags` fails the row that carries them anyway,
+as unearned. The author's only passing move is to drop the two tags that describe the entry
+correctly. The `Dockerfile` branch beside it is reachable, both Dockerfiles sitting inside package
+roots, which is why this reads as a resolver gap rather than as a rule about compose files.
+
+**The repair is in the resolver rather than in the derivation.** Adding compose filenames to the
+prefix list answers this one pair and leaves the next root-level file — a lockfile, a manifest, an
+ignore file — in the same position, and `docs/_standard/standard.md :: COR-6` makes a bare backticked
+repository path a citation form wherever the file sits. A resolver that answers for any tracked path
+at the root is the shape that closes the class.
+
+**Done when** a citation naming a tracked root-level file resolves, the derivation reading its
+basename fires, and a case in `scripts/tests/` pins both — the tag that an entry citing a compose
+file earns, and that the resolver answers for a root-level path at all.
+
 ### `g98z-k4cp` · Two hook watchdogs sit under a registration in another file, and nothing compares the pair
 
 | Tags            | Status | Depends on |
@@ -3292,6 +3793,37 @@ nobody — two sibling tests happening to cover two of those cases are not a gen
 reorder is inert, and the id is derived from the same value the case is. The precedent is one file
 away — `fl_backend/tests/api/test_rules_refusal.py` asserts its own case list against the imported
 field tuple at module level, so an unpaired field fails at import.
+
+### `gm9c-2du4` · Every link the local stack mails points at production
+
+| Tags                  | Status | Depends on |
+| --------------------- | ------ | ---------- |
+| FE, Docs, bewerbungen | Open   | —          |
+
+**`fl_frontend/src/core/brand.ts :: SITE_URL` is a module constant, and every absolute link is built
+from it.** `fl_frontend/src/app/api/bewerbung/route.ts` and
+`fl_frontend/src/features/bewerbungen/sweep.ts` each spell a confirmation link from it, and
+`fl_frontend/src/app/layout.tsx`, `fl_frontend/src/app/robots.ts` and
+`fl_frontend/src/app/sitemap.ts` build the site's own absolute URLs the same way. The origin that
+does move is `AUTH_URL`, which `fl_frontend/src/core/config.ts` validates at startup and
+`docker-compose.local.yml` points at loopback — so the local stack answers on one origin and mails
+links on another.
+
+**What it costs is the browser pass.** Every confirmation, reminder and deletion notice the local
+stack sends carries a link to the live site, so exercising the flow end to end means lifting each
+token out of a message and putting it on localhost by hand, once per seat and again per re-send.
+That is the one part of this flow nobody can walk through as its reader would.
+
+**The two origins are not one setting, which is what makes this a decision rather than an edit.**
+`AUTH_URL` is validated as the public origin and refused unless it is https or loopback, while
+`SITE_URL` is also what `metadataBase`, the crawl policy and the sitemap publish — and a published
+origin read from the environment is one a misconfigured deploy can put in front of a crawler. Making
+the mail links follow the serving origin while the published metadata stays fixed, and making both
+follow one variable, are different changes with different blast radii.
+
+**Done when** a link a message carries points at the stack that sent it, with whatever holds the
+published metadata to the real origin written where a deploy would otherwise break it
+(`docs/frontend/spec.md :: 1.7 Environment`).
 
 ### `gvyr-3nws` · Stylesheet comment blocks stand over INC-9's bound, quiet only while nobody lengthens one
 
@@ -3590,6 +4122,39 @@ between two enumerations: complete, mechanical, and an afternoon. This one has n
 decides whether a German sentence states the fact a predicate tests. Under one id the cheap half
 would close the entry and the half that matters would leave with it. Taken in that order, a check
 written for that one enumerates the codes this one needs.
+
+### `mmcv-aa6g` · The comment-citation check reads two shapes of outside reference and INC-6 bars more
+
+| Tags                   | Status | Depends on |
+| ---------------------- | ------ | ---------- |
+| Ops, Docs, gate, tests | Open   | —          |
+
+**`scripts/checks/docs_gate/branch.py :: check_added_citations` refuses exactly two shapes, and a
+pointer to a numbered ruling or to a session register's own label is neither.**
+`scripts/checks/docs_gate/branch.py :: REVIEW_REF_RE` matches a session named by position — this,
+last, previous or earlier, and an ordinal before review, sweep or session — while
+`scripts/checks/docs_gate/branch.py :: LOOSE_ID_RE` matches a roadmap token's shape and then resolves
+it against the roadmap's own table. A comment closing on a decision's number, or on the label a
+programme filed it under, matches neither, passes the docs scope, and reaches a reader with no way to
+resolve it.
+
+**`docs/_standard/standard.md :: INC-6` is wider than what is caught.** It bars an audit id, a ledger
+row, a roadmap id, a session and an issue number alike, on the ground that the tracker sits outside
+this repository's history — and a ruling number and a register label are that same thing under other
+names. Two of those members are enforced and the rest are review's, which is exactly the pair of
+questions `docs/_standard/standard.md :: CUR-8` asks of the machinery: who enforces it where the gate
+cannot, and when that last happened.
+
+**A list of vocabularies is the wrong shape for the repair.** Each programme invents its own label,
+so a pattern per vocabulary is a list somebody has to keep current, and the property every such
+reference actually shares is that it resolves to nothing in the repository. Reading that instead — an
+authority offered for a decision with no path, symbol or rule id beside it — is a population derived
+independently of the property asserted, which is what `docs/_standard/standard.md :: PRE-4` asks of a
+new check.
+
+**Done when** an added comment offering an unresolvable reference as its authority fails the gate,
+the check proven first against a violation planted in its real position, with its own case in
+`scripts/tests/test_branch_checks.py`.
 
 ### `nce5-j467` · A comment claims two files hold the same pattern, and nothing holds them to it
 

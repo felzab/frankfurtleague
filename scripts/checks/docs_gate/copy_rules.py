@@ -1,7 +1,7 @@
 """SCRIPTS · the copy rules, over the German a reader actually sees.
 
-`docs/frontend/spec.md` §1.12 held these rules with nothing enforcing them and three spaced em
-dashes shipped past a green gate. The corpus is every string literal and JSX element of
+This is what enforces `docs/frontend/spec.md` §1.12 for the rules a scan can hold; the rest of that
+section is review's. The corpus is every string literal and JSX element of
 `fl_frontend/src`, comments and tests excluded, and it is scanned rather than parsed: the
 documentation scope degrades around node and never needs it. What no scan reaches is the inside
 of an interpolated value, one opaque `HOLE` here whose words, spacing and even its presence on

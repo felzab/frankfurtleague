@@ -125,15 +125,16 @@ class FLAktionenFilterParams(BaseModel):
     document_id: str | None = None
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    # Newest first, and no `sort_by`: every other order over an append-only log is a report rather
-    # than a page, and one of them would have to be the default anyway.
+    # Newest first, and no `sort_by`: every other order over a log of recorded writes is a report
+    # rather than a page, and one of them would have to be the default anyway.
     order: Literal["asc", "desc"] = Field(default="desc")
 
 
 class FLAktionenListResponse(BaseAPIResponse):
     aktionen: list[FLAktion]
     # German for `FLBewerbungenListResponse.vollstaendig`'s reason, and load-bearing here too: the
-    # log only grows and nothing removes a row, so this read reaches the cap by ordinary use.
+    # log takes a row per recorded write and keeps it twelve months, so this read reaches the cap
+    # by ordinary use.
     vollstaendig: bool
 
 

@@ -31,4 +31,12 @@ export async function register() {
     const { installConsoleShim } = await import("./core/consoleShim");
     installConsoleShim();
   }
+
+  // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
+  // and the league's real people. Compared to "on" rather than "off": a skipped validation leaves it
+  // undefined, where a negated test would arm.
+  if (process.env.NODE_ENV === "production" && frontend_config.BEWERBUNG_SWEEP === "on") {
+    const { armBewerbungSweep } = await import("./features/bewerbungen/sweep");
+    armBewerbungSweep();
+  }
 }

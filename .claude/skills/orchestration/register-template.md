@@ -63,13 +63,15 @@ standing line here rather than somebody's file.>
 
 ## Commits -- the ownership map's other half, drawn with it
 
-| Commit subject | Files | Message drafted by | Lands after | Audit dispatched to | Landed |
-| -------------- | ----- | ------------------ | ----------- | ------------------- | ------ |
+| Commit subject | Files | Lands after | Audit dispatched to | Landed |
+| -------------- | ----- | ----------- | ------------------- | ------ |
 
 A leaf's commit lands in the turn its agent's report is judged, a hub's in the turn its owner's
 is. "Lands after" holds the ordering constraints (`SKILL.md` §5) -- a citation's target, a
 workflow's manifest -- never prose elsewhere. "Audit dispatched to" is filled in the same edit as
-"Landed", and a landed row with it empty is committed work nobody is auditing.
+"Landed", and a landed row with it empty is committed work nobody is auditing. No column records
+who drafted the message: every one is mine, assembled in minutes from the agents' scratch
+paragraphs and never dispatched (`SKILL.md` §4, §5).
 
 **Stage a file that must execute with its mode, and read it back with `git ls-files -s`.**
 `core.fileMode` is false here, so a new file lands 100644 whatever the filesystem says, and a hook
@@ -89,15 +91,21 @@ besides, but only once the commit exists -- so run it in the turn the commit lan
 
 ## The cycle, per slice -- decided here, before any finding exists
 
-| Slice | Rounds | Lightened? Reason, or "no" |
-| ----- | ------ | -------------------------- |
+| Slice | Rounds | Critical -- is a wrong result SILENT? Reason |
+| ----- | ------ | ------------------------------------------- |
 
-At a handful of slices the full two rounds are the default and a lightening is the exception. Past
-that, the exception becomes the rule: two rounds cost two agents a slice, so fifteen slices is
-thirty audit agents spent before a finding exists. Give the full cycle to the few slices every
-other one is judged against -- a defect there propagates into all the rest before anyone sees it --
-and one audit and one fix to everything whose blast radius is its own file group. Every row still
-carries its reason, and the reason is written before any finding exists either way.
+**The discriminator is the owner's, at the standing-instructions path** (`SKILL.md` §6), and the
+allocation it yields is one audit and one fix for everything whose failure is loud: two rounds cost
+two agents a slice, so fifteen slices is thirty audit agents spent before a finding exists. The
+full cycle goes to the few slices every other one is judged against -- a defect there propagates
+into all the rest before anyone sees it. Every row carries its reason, written before any finding
+exists either way, and a lightened slice's single fix is walked by the next driving re-auditor
+rather than by a re-audit of its own (`SKILL.md` §6).
+
+**A slice whose output a person looks at carries its browser pass in this table beside its rounds**
+(`SKILL.md` §6). A cold read cannot see a layout, so that pass is the slice's audit and not an
+extra: the owner runs it over the served build as soon as the slice is up, and its findings enter
+the slice's fix round rather than a round of their own after the audits have closed.
 
 **Where the session BUILDS a mechanism meant to change what people write** -- a rule set, a prompt,
 a card delivered before every edit, a linter -- one of its slices is an A/B rather than an audit:
@@ -128,12 +136,13 @@ mentioned the failure under "what I could not verify".>
 
 ## Live agents
 
-| Agent name | The question it settles | Owns | Cycle | Last write to an owned file | Status |
-| ---------- | ----------------------- | ---- | ----- | --------------------------- | ------ |
+| Agent name and id | The question it settles | Owns | Cycle | Last write to an owned file | Status |
+| ----------------- | ----------------------- | ---- | ----- | --------------------------- | ------ |
 
-The agent name is the name it was dispatched under, and it is one value doing three jobs: its
-scratch subdirectory is named for it, its brief calls it `<your agent name>`, and it is the address
-a resume is sent to. Record it at dispatch; a resume has nothing to aim at otherwise.
+The name is the one it was dispatched under: its scratch subdirectory is named for it and its brief
+calls it `<your agent name>`. **The address a resume or a follow-up is sent to is the id the Agent
+tool returned, never the name** -- the owner's standing instructions record a send by name failing.
+Record both at dispatch; a resume has nothing to aim at otherwise.
 
 Cycle is one of: implement, audit, fix, re-audit, fix, done.
 
@@ -184,6 +193,10 @@ violation.>
 - **Keep every row short enough that adding one is cheaper than skipping it.** Under load a
   coordinator dispatched first and recorded later twice, then rewrote the table wholesale hours
   after the fact — the cost of a wide row is paid every time the fleet is busiest.
+- **One write to this file per message.** Two edits sent in one tool batch each read the file,
+  append and write it back, so the later silently drops the earlier's paragraphs: an audit's whole
+  banked verdict and three of the owner's rulings went that way, and were noticed only because a
+  later agent found the rows missing.
 - **Close a status in the same edit that banks the verdict, never in batches.** Eight rows read
   RUNNING for agents that had finished, and the coordinator spent that stretch tracking eleven live
   agents against a register describing a different fleet. A stale register is worse than none,

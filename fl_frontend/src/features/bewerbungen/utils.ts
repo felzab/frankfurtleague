@@ -1,10 +1,13 @@
-import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
+import { parseDate } from "@internationalized/date";
+
+import { BESTAETIGUNG_EINWILLIGUNG, LIGA_EINWILLIGUNG } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
-import { BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
+import { ALTER_AUSSERHALB, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
 
+import type { KontaktRolle } from "@/features/teams/constants";
 import type { FLTrainerZugleich } from "@/features/teams/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas";
@@ -16,6 +19,7 @@ import type {
   BewerbungSchuleDraft,
   FensterZustand,
   KuerzelVerdikt,
+  LinkZustand,
   NamedTeam,
 } from "./types";
 
@@ -85,17 +89,22 @@ export function describeAufnahme({ createdTeam, gruppe, saisonId }: { createdTea
 }
 
 /**
- * The window a contact person's birthdate has to fall in, as its two `YYYY-MM-DD` bounds.
- *
- * Bounds rather than an age: the picker needs a `minValue` and the schema a string comparison, so
- * one derivation serves both and neither can drift.
+ * Bounds rather than an age: a date control takes a `minValue` and a schema a string comparison, so
+ * one derivation serves both.
  */
 export function geburtsdatumSpanne(today: string): { frueheste: string; spaeteste: string } {
-  const [jahr = "1970", rest = "01-01"] = [today.slice(0, 4), today.slice(5)];
-  const verschoben = (jahre: number) => `${String(Number(jahr) - jahre).padStart(4, "0")}-${rest}`;
+  const heute = parseDate(today);
 
-  // Both bounds are multiples of four years, so a 29 February lands on a leap year either way.
-  return { frueheste: verschoben(BEWERBUNG_MAX_ALTER), spaeteste: verschoben(BEWERBUNG_MIN_ALTER) };
+  // The day AFTER one year past the ceiling: `_whole_years_between` in
+  // `fl_backend/app/api/bewerbungen/schemas.py` accepts a birthday not yet reached this year, and a
+  // calendar subtraction clamps 29 February onto the day before 1 March where that year has none.
+  return {
+    frueheste: heute
+      .subtract({ years: BEWERBUNG_MAX_ALTER + 1 })
+      .add({ days: 1 })
+      .toString(),
+    spaeteste: heute.subtract({ years: BEWERBUNG_MIN_ALTER }).toString(),
+  };
 }
 
 /**
@@ -154,6 +163,68 @@ export function mapBewerbungSubmitRefusal(error: unknown): { error?: string; fie
 }
 
 /**
+ * The label a stored answer cites, written here rather than taken from the request.
+ *
+ * Which words the page rendered is not a claim a browser may make; the field stays on the payload
+ * because the endpoint's shape requires it.
+ */
+// Takes an unjudged body, not the parsed payload: stamped after the parse, a body carrying no label
+// is refused on a path no control renders, and the refusal reaches the reader as nothing at all.
+export function stampEinwilligungFassung<T extends object>(payload: T): T & { text_version: string } {
+  return { ...payload, text_version: BESTAETIGUNG_EINWILLIGUNG.textVersion };
+}
+
+/** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */
+export type EinwilligungRefusal = { error?: string; fieldErrors?: FieldErrors; zustand?: LinkZustand; nachlesen?: true };
+
+/** A confirmation 409 as what the page should show, or `null` where the code is none of these. */
+export function mapEinwilligungRefusal(error: unknown): EinwilligungRefusal | null {
+  if (!(error instanceof APIBadStatusError)) return null;
+
+  // The body shape is mirrored, so reaching this means a drifted client, which a reload replaces.
+  if (error.statusCode === 422) {
+    return {
+      error: buildRefusal({ reason: "Deine Antwort konnten wir nicht übernehmen", repair: "Lade die Seite neu und versuche es noch einmal" }),
+    };
+  }
+
+  if (error.statusCode !== 409) return null;
+
+  switch (error.serverErrorCode) {
+    case "REQ-BEWERBUNG-009":
+      return { zustand: "ungueltig" };
+    case "REQ-BEWERBUNG-010":
+      return { zustand: "abgelaufen" };
+    // One code covers both answers, so „bestätigt“ here would tell a seat declined in another window
+    // that it confirmed. Which way it went is the read's to say.
+    case "REQ-BEWERBUNG-011":
+      return { nachlesen: true };
+    // The one refusal that spends no token, so it lands on the field and the typed date survives it;
+    // a `zustand` here would swap a live form for a dead-link panel.
+    case "REQ-BEWERBUNG-012":
+      return { fieldErrors: { geburtsdatum: ALTER_AUSSERHALB } };
+    default:
+      return null;
+  }
+}
+
+/** A refused confirmation read as the panel it renders, or `null` where the read failed instead. */
+export function mapEinwilligungAnsichtRefusal(error: unknown): LinkZustand | null {
+  if (!(error instanceof APIBadStatusError)) return null;
+
+  // A token the backend will not parse matches no record, so the page calls the link void rather
+  // than offering a reload that cannot succeed. `docs/frontend/spec.md` §4 accepts that the two
+  // tiers bound its length apart.
+  if (error.statusCode === 422) return "ungueltig";
+
+  if (error.statusCode !== 409) return null;
+
+  // Every 409 alike: a spent link answers its own `zustand` in a 200, so a refusal is a token nothing
+  // could place, and a code nobody planned reads the same way.
+  return "ungueltig";
+}
+
+/**
  * Which state a season's window puts the page in.
  *
  * `laeuft` is the server's whole judgement and is never re-derived here. The four closed answers are
@@ -186,7 +257,6 @@ export const buildEmptyBewerbungKontaktperson = (): BewerbungKontaktpersonDraft 
   nachname: "",
   email: "",
   telefon: "",
-  geburtsdatum: "",
   // Stamped as the form opens, so what a record cites is the wording its reader was shown.
   einwilligung: { text_version: LIGA_EINWILLIGUNG.textVersion, erteilt: false },
 });
@@ -219,13 +289,21 @@ export const buildEmptyBewerbungDraft = (saisonId: string): BewerbungFormDraft =
 });
 
 /**
- * The Trainer seat, filled from the seat that declared itself the coach.
- *
- * **Seat to Trainer**: the question is asked where the person is entered, so that seat is the source
- * and the coach's boxes the reading.
+ * **Seat to Trainer**: the claim is answered on the Trainer's panel, last of the three, so the seat
+ * it names holds a person already typed.
  */
 export function mirrorBewerbungTrainer(kontakte: BewerbungKontakteDraft): BewerbungKontakteDraft {
   return mirrorTrainerSeat(kontakte);
+}
+
+/**
+ * The seats the submission's receipt answers for, so the link fan-out withholds them.
+ *
+ * The submitter's own, and the seat `trainer_ist_zugleich` mirrors onto it: the backend's
+ * `paired_seat` lets either press answer both, so a second message asks one reader twice.
+ */
+export function empfangsSitze(trainerIstZugleich: FLTrainerZugleich | null): readonly KontaktRolle[] {
+  return trainerIstZugleich === "ansprechperson" ? ["ansprechperson", "trainer"] : ["ansprechperson"];
 }
 
 /**
@@ -251,8 +329,8 @@ export function bewerbungPayload(draft: BewerbungFormDraft) {
     saison_id: draft.saison_id,
     team_id: neu ? null : draft.auswahl,
     schule: neu ? draft.schule : null,
-    // Mirrored on the way OUT rather than into state: the seat that declared itself the coach stays
-    // the one place the person is edited, so nothing can drift between the two copies.
+    // Mirrored on the way OUT rather than into state: the seat the claim names stays the one place
+    // the person is edited, so nothing can drift between the two copies.
     kontakte: mirrorBewerbungTrainer(draft.kontakte),
     trikot: draft.trikot,
     kader: draft.kader,
@@ -264,7 +342,7 @@ export function bewerbungPayload(draft: BewerbungFormDraft) {
 }
 
 /**
- * The paths one judgement covers. While the mirror stands, the Trainer seat holds the named seat's
+ * The paths one judgement covers. While the claim stands, the Trainer seat holds the named seat's
  * person, so judging that seat's field alone leaves the copy's verdict over a value it never saw.
  */
 export function bewerbungJudgedPaths(paths: readonly string[], mirroredSeat: FLTrainerZugleich | null): readonly string[] {

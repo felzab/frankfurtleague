@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
 from app.api.teams.schemas import FLAustritt, FLAustrittType, FLGruppenNames
 from app.shared.schemas.bounds import (
@@ -189,9 +189,31 @@ class FLSpielOrtField(FLSpielOrtFieldPublic):
     mietpreis: int = Field(ge=0)
 
 
+def public_referee_name(name: str) -> str:
+    """`READ-REFEREE-001`, over the one free-text field a referee's name is.
+
+    Partitioned on the FIRST space rather than the last: `Ada van der Berg` would otherwise serve as
+    `Ada van der B.`, publishing the particle.
+    """
+
+    vorname, separator, nachname = name.partition(" ")
+
+    if not separator:
+        return name
+
+    # Sliced on a `str`, which is by code point as `$substrCP` is: a byte slice halves `Öztürk`.
+    return f"{vorname} {nachname[:1]}."
+
+
 # The venue booking's twin, and private for its reason.
 class _SpielSchiedsrichterBooking(BaseModel):
     schiedsrichter_id: CustomObjectId
+
+
+# The name sits on a shared private base rather than on the served shape, so the stored shape below
+# can carry it without inheriting the reduction the served one applies.
+class _SpielSchiedsrichterBooked(_SpielSchiedsrichterBooking):
+    name: str = Field(min_length=1)
 
 
 class FLSpielSchiedsrichterFieldPayload(_SpielSchiedsrichterBooking):
@@ -202,13 +224,21 @@ class FLSpielSchiedsrichterFieldPayload(_SpielSchiedsrichterBooking):
     payment: int = Field(ge=0)
 
 
-class FLSpielSchiedsrichterFieldPublic(_SpielSchiedsrichterBooking):
-    """The referee as a BASE-TIER read serves it. `payment` is withheld for `mietpreis`' reason."""
+class FLSpielSchiedsrichterFieldPublic(_SpielSchiedsrichterBooked):
+    """The referee as a BASE-TIER read serves it: a forename and a surname initial (`READ-REFEREE-001`).
 
-    name: str = Field(min_length=1)
+    `payment` is withheld for `mietpreis`' reason.
+    """
+
+    @field_validator("name", mode="after")
+    @classmethod
+    def _reduce_the_surname(cls, name: str) -> str:
+        # On the model and not in the pipeline: one aggregation feeds both tiers, so a stage
+        # reducing there would reduce the admin editor's read with it.
+        return public_referee_name(name)
 
 
-class FLSpielSchiedsrichterField(FLSpielSchiedsrichterFieldPublic):
+class FLSpielSchiedsrichterField(_SpielSchiedsrichterBooked):
     """The referee as the DOCUMENT holds it, and as the admin editor reads it back."""
 
     payment: int = Field(ge=0)
@@ -467,8 +497,12 @@ class FLSpielJoinedAdmin(FLSpielJoined):
     schiedsrichter: FLSpielSchiedsrichterField | None
 
 
-class FLSpielJoinedInternal(FLSpielJoined):
-    """The base-tier fixture with each side's record behind its type; on no endpoint, for `FLSpielTeamFieldJoinedInternal`'s reason."""
+class FLSpielJoinedInternal(FLSpielJoinedAdmin):
+    """The fixture with each side's record behind its type; on no endpoint, for `FLSpielTeamFieldJoinedInternal`'s reason.
+
+    On the ADMIN shape because its one reader hands the faulted matches to
+    `GET /spiele/action_required`, whose cards print the referee's name.
+    """
 
     team1: FLSpielTeamFieldJoinedInternal | None
     team2: FLSpielTeamFieldJoinedInternal | None
@@ -476,6 +510,7 @@ class FLSpielJoinedInternal(FLSpielJoined):
 
 FLSpielListAdapter = TypeAdapter(list[FLSpiel])
 FLSpielJoinedListAdapter = TypeAdapter(list[FLSpielJoined])
+FLSpielJoinedAdminListAdapter = TypeAdapter(list[FLSpielJoinedAdmin])
 FLSpielJoinedInternalListAdapter = TypeAdapter(list[FLSpielJoinedInternal])
 
 
@@ -492,6 +527,16 @@ class FLSpieleFilterParams(BaseModel):
 
 class FLSpieleListResponse(BaseAPIResponse):
     spiele: list[FLSpielJoined]
+
+
+class FLSpieleAdminListResponse(BaseAPIResponse):
+    """The admin surfaces' fixture list.
+
+    The base tier reduces a referee's surname to an initial (`READ-REFEREE-001`) and the admin
+    fixture search matches on that name, so a surname typed there would find nothing.
+    """
+
+    spiele: list[FLSpielJoinedAdmin]
 
 
 class FLSpieleSingleResponse(BaseAPIResponse):
@@ -511,7 +556,9 @@ class FLSpieleActionRequiredResponse(BaseAPIResponse):
     route spans. `spiele` carries every match a fault names.
     """
 
-    spiele: list[FLSpielJoined]
+    # The ADMIN shape, not the base tier's: a card on this page opens the modal that prints the
+    # referee's name, which the base tier serves reduced (`READ-REFEREE-001`).
+    spiele: list[FLSpielJoinedAdmin]
     bracket_faults: list[FLBracketFault] = Field(default_factory=list)
 
 

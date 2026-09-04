@@ -29,7 +29,7 @@ def _same_address(email: str) -> Mapping[str, Any]:
 
 
 def build_matching_rows_pipeline(email: str) -> list[Mapping[str, Any]]:
-    """Every row naming this address in a slot, projected to the addresses alone.
+    """Every row naming this address in a slot, projected to those addresses and `bestaetigungen`.
 
     Case-insensitive: `EmailStr` keeps the local part's case, and `bewerbungen` has no payload to
     normalise through, so equality leaves `Wiltrudis@` standing and reports it gone.
@@ -37,15 +37,18 @@ def build_matching_rows_pipeline(email: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": {"$or": [{f"kontakte.{slot}.email": _same_address(email)} for slot in KONTAKT_SLOTS]}},
-        {"$project": {f"kontakte.{slot}.email": 1 for slot in KONTAKT_SLOTS}},
+        # The bookkeeping block's PRESENCE rides along: the clearing nulls its seat only where the
+        # block exists, since a dotted `$set` into an absent one creates a block short of its keys.
+        {"$project": {**{f"kontakte.{slot}.email": 1 for slot in KONTAKT_SLOTS}, "bestaetigungen": 1}},
     ]
 
 
 def build_orphaned_image_filter(email: str) -> Mapping[str, Any]:
-    """Every log row still HOLDING this person, whatever document it happens to name.
+    """Every log row still HOLDING this person, whatever document it names.
 
-    A swap moves the address out of its row, so the pre-image carrying it out belongs to a document
-    `build_redaction_filter`'s ids never reach, and nothing ages the log out.
+    A swap orphans the pre-image carrying the address out, past `build_redaction_filter`'s ids; the
+    log's retention (`app/core/constraints.py :: TTL_INDEXES`) expires a row long after the erasure
+    is owed.
     """
 
     return {
@@ -71,11 +74,18 @@ def find_matching_slots(row: Mapping[str, Any], email: str) -> tuple[str, ...]:
     return tuple(slot for slot in KONTAKT_SLOTS if str((kontakte.get(slot) or {}).get("email") or "").casefold() == wanted)
 
 
-def build_clearing_update(slots: Sequence[str]) -> Mapping[str, Any]:
-    """Null the named slots and nothing else.
+def build_clearing_update(slots: Sequence[str], *, bestaetigungen: bool = False) -> Mapping[str, Any]:
+    """Null the named slots, and their confirmation bookkeeping where the caller found a block.
 
     Dotted keys, so the block itself survives: `app/core/constraints.py :: _KONTAKTE_REQUIRED` names
     all four members required, and on an application the block is non-nullable outright.
     """
 
-    return {"$set": {f"kontakte.{slot}": None for slot in slots}}
+    cleared: dict[str, Any] = {f"kontakte.{slot}": None for slot in slots}
+
+    # The seat's confirmation bookkeeping goes with the person: a live link would otherwise
+    # outlive the erasure and confirm a slot that names nobody.
+    if bestaetigungen:
+        cleared.update({f"bestaetigungen.{slot}": None for slot in slots})
+
+    return {"$set": cleared}

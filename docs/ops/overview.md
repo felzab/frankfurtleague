@@ -84,9 +84,9 @@ documentation is a development and in-network tool.
 [`spec.md`](spec.md) §1.4, and I3's `default_server` rejecting an unknown `Host` at TLS time.
 
 **The published unauthenticated writes are rate-limited at the edge**: the sign-in POST, whose action
-id ships in a client chunk, the client-error ingest, and the public application form's submit, which
-alone among them writes league data. The zones, their pairing and what carries no zone at all are
-[`spec.md`](spec.md) §1.3.
+id ships in a client chunk, the client-error ingest, the public application form's submit, and the
+confirmation link's answer, the last two being the ones that write league data. The zones, their
+pairing and what carries no zone at all are [`spec.md`](spec.md) §1.3.
 
 ## Images and deployment
 

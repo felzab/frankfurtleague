@@ -1,6 +1,6 @@
 import "server-only";
 
-import { KONTAKT_EMAIL } from "./brand";
+import { KONTAKT_EMAIL, SITE_URL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "./brand";
 
 /** The league's name as every message spells it, in one place so no two messages can spell it apart. */
 export const BRAND_NAME = "Frankfurt-League";
@@ -157,9 +157,27 @@ export function brandPhrase(inner: string): string {
 }
 
 /** One no-reply sender carries every message (`fl_frontend/src/core/mail.ts :: MAIL_FROM`), so every close says so. */
-const ANTWORT_VOR = "Antworten an die Absenderadresse liest niemand. Schreibe uns an ";
+const ANTWORT_VOR = "Antworten an die Absenderadresse liest niemand; unsere Adresse ist ";
 export const ANTWORT_SATZ_TEXT = `${ANTWORT_VOR}${KONTAKT_EMAIL}.`;
 export const ANTWORT_SATZ_HTML = `${ANTWORT_VOR}${link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)}.`;
+
+const DATENSCHUTZ = { label: "Datenschutzerklärung", href: `${SITE_URL}/datenschutz` } as const;
+const IMPRESSUM = { label: "Impressum", href: `${SITE_URL}/impressum` } as const;
+const VERANTWORTLICH = `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`;
+/* The one value the card interpolates that reaches it from neither a caller nor an escaping helper:
+   the address is replaced by hand, and an `&` in a c/o line would invalidate the document silently. */
+const VERANTWORTLICH_HTML = escapeHtml(VERANTWORTLICH);
+
+/**
+ * Every message carries both legal pages and the controller: a reader who was mailed without ever
+ * visiting the site has no footer to reach them from. In the shell, so no message can ship without
+ * them.
+ */
+const RECHTSZEILEN_TEXT: readonly string[] = [
+  `${DATENSCHUTZ.label}: ${DATENSCHUTZ.href}`,
+  `${IMPRESSUM.label}: ${IMPRESSUM.href}`,
+  VERANTWORTLICH,
+];
 
 /** One control. `ton` picks the pair's two grades, which are the landing page's own primary and outline. */
 export interface Aktion {
@@ -245,6 +263,12 @@ export function renderKarte({ titel, ueberschrift, bloecke, aktionen, fuss }: Ka
                 <p class="${TEXT_CLASS}" style="margin:0;${FOOTER_TEXT}">
                   ${fuss}
                 </p>
+                <p class="${TEXT_CLASS}" style="margin:8px 0 0;${FOOTER_TEXT}">
+                  ${link(DATENSCHUTZ.href, DATENSCHUTZ.label)} · ${link(IMPRESSUM.href, IMPRESSUM.label)}
+                </p>
+                <p class="${TEXT_CLASS}" style="margin:4px 0 0;${FOOTER_TEXT}">
+                  ${VERANTWORTLICH_HTML}
+                </p>
               </td>
             </tr>
           </table>
@@ -270,5 +294,5 @@ export function stuffSignatureDelimiter(value: string): string {
 
 /** The plain-text close, matching the card's rule and note. RFC 3676 §4.3: without the trailing space no client folds it. */
 export function textFooter(saetze: readonly string[]): readonly string[] {
-  return ["", "-- ", ...saetze];
+  return ["", "-- ", ...saetze, ...RECHTSZEILEN_TEXT];
 }

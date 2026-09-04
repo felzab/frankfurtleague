@@ -7,9 +7,9 @@ import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
+import { bestaetigungsStand, zusageHindernis } from "@/features/bewerbungen/bestaetigungStand";
 import { BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
-import { Callout } from "@/shared/components/ui/Callout";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -17,6 +17,7 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { AdminBewerbungAblehnenSection } from "../forms/AdminBewerbungAblehnenSection";
 import { AdminBewerbungAnnehmenSection } from "../forms/AdminBewerbungAnnehmenSection";
 import { BewerbungAngabenPanel } from "./BewerbungAngabenPanel";
+import { BewerbungBestaetigungStrip } from "./BewerbungBestaetigungStrip";
 
 import type { FLBewerbung } from "@/features/bewerbungen/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
@@ -44,6 +45,11 @@ export function AdminBewerbungView({
   const [isLeaving, startLeaving] = useTransition();
 
   const isOpen = bewerbung.status === "eingereicht";
+
+  // `null` for an application submitted before the workflow: it carries no per-seat state, and the
+  // acceptance is not closed against one.
+  const staende = bestaetigungsStand(bewerbung);
+  const hindernis = zusageHindernis(staende, teamName);
 
   const leavePage = () => {
     // Blur first: react-aria's focus attribute survives a kept-alive tree.
@@ -78,30 +84,34 @@ export function AdminBewerbungView({
         </header>
 
         <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 xl:mx-0 xl:max-w-none">
+          {staende !== null && (
+            <BewerbungBestaetigungStrip
+              bewerbungId={bewerbung.id}
+              staende={staende}
+              frist={bewerbung.bestaetigungsfrist}
+              isOpen={isOpen}
+            />
+          )}
+
           <BewerbungAngabenPanel
             bewerbung={bewerbung}
             teamName={teamName}
+            staende={staende}
           />
 
-          {isOpen &&
-            (teamName === null ? (
-              // `REQ-BEWERBUNG-002` refuses exactly this row, so the panel that would offer the
-              // acceptance is absent rather than shown and then refused.
-              <Callout
-                severity="warning"
-                title="Diese Bewerbung nennt kein Team">
-                Ohne eine neue Schule und ohne ein bestehendes Team steht nicht fest, wer aufgenommen würde. Bleibt nur die Absage.
-              </Callout>
-            ) : (
-              <AdminBewerbungAnnehmenSection
-                bewerbungId={bewerbung.id}
-                teamName={teamName}
-                createsTeam={bewerbung.schule !== null}
-                saisonId={bewerbung.saison_id}
-                saisonStatus={saisonStatus}
-                gruppeOffer={gruppeOffer}
-              />
-            ))}
+          {/* Standing whatever the endpoint would refuse, its own control closed with the reason
+              instead: a section that comes and goes hides the decision the page is for. */}
+          {isOpen && (
+            <AdminBewerbungAnnehmenSection
+              bewerbungId={bewerbung.id}
+              teamName={teamName}
+              createsTeam={bewerbung.schule !== null}
+              saisonId={bewerbung.saison_id}
+              saisonStatus={saisonStatus}
+              gruppeOffer={gruppeOffer}
+              hindernis={hindernis}
+            />
+          )}
 
           {isOpen && (
             <AdminBewerbungAblehnenSection

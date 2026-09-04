@@ -432,7 +432,7 @@ class TestNoPurgeReachesARetiredRow:
     """That a removal reaches the driver from `app/core/crud.py` alone, and that none selects on an age.
 
     Deletion is that module's removal helpers and `inactive_since`, so a purge built later is
-    logged by construction, and no retention sweep stands here.
+    logged by construction.
     """
 
     def test_a_removal_reaches_the_driver_from_one_module_alone(self):
@@ -461,9 +461,9 @@ class TestNoPurgeReachesARetiredRow:
         # nothing and pass the assertion below over any application, retention sweep included.
         assert selected_on
 
-        # The shape a retention sweep would select by. The erasure names a person and the replace a
-        # season, so a new caller of either helper is free -- selecting on an AGE is what is refused.
-        assert RETIREMENT_FIELD not in selected_on, f"a removal selects on {RETIREMENT_FIELD}, which is the retention sweep nothing here builds"
+        # The shape an age-based purge would select by. The erasure names a person, the replace and the
+        # application clocks a season, so a new caller of either helper is free -- an AGE is what is refused.
+        assert RETIREMENT_FIELD not in selected_on, f"a removal selects on {RETIREMENT_FIELD}, the age-based purge nothing here builds"
 
 
 class TestAGroupPhaseEveryClubLeaves:

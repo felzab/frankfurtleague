@@ -5,6 +5,7 @@ from typing import Final, NamedTuple
 
 import pytest
 
+from app.api.bewerbungen import schemas as bewerbungen_schemas
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN
 from app.shared.schemas.custom import PHONE_REGEX
@@ -38,6 +39,8 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_MIN_ALTER", "BEWERBUNG_KONTAKT_MIN_AGE_YEARS"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_MAX_ALTER", "BEWERBUNG_KONTAKT_MAX_AGE_YEARS"),
     Mirror("features/bewerbungen/constants.ts", "KUERZEL_LAENGE", "TEAM_SHORTHAND_LENGTH"),
+    Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_BESTAETIGUNG_FRIST_TAGE", "BEWERBUNG_BESTAETIGUNG_FRIST_TAGE"),
+    Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_ERINNERUNG_TAGE", "BEWERBUNG_ERINNERUNG_TAGE"),
     Mirror("features/teams/constants.ts", "DESCRIPTION_MAX_LENGTH", "TEAM_DESCRIPTION_MAX_LENGTH"),
     Mirror("features/teams/constants.ts", "TEAM_NAME_MAX_LENGTH", "TEAM_NAME_MAX_LENGTH"),
     Mirror("features/teams/constants.ts", "TEAM_FULL_NAME_MAX_LENGTH", "TEAM_FULL_NAME_MAX_LENGTH"),
@@ -213,3 +216,56 @@ def test_each_declared_pattern_pair_accepts_the_same_values(pattern: Pattern):
     assert accepted, f"{pattern.python} accepts none of {len(probes)} probes, so agreeing with it proves nothing"
     assert len(accepted) < len(probes), f"{pattern.python} accepts every probe, so agreeing with it proves nothing"
     assert accepted == _accepted(typescript, probes), f"{pattern.typescript} and {pattern.python} accept different values"
+
+
+ANSWER_PAYLOAD: Final = Path(bewerbungen_schemas.__file__)
+
+VALUE_ERROR: Final = re.compile(r'raise ValueError\("([^"]+)"\)')
+
+# A person meets whichever tier judged their body first, so two wordings of one rule read as two
+# rules. `None` marks a refusal the frontend deliberately words its own way.
+ANSWER_REFUSALS: Final[dict[str, str | None]] = {
+    # Not mirrored: the page renders a control for the date, so the missing value is asked for there
+    # rather than explained, and the two tiers refuse the same body for the same reason.
+    "Zur Einwilligung gehört das eigene Geburtsdatum.": None,
+    "Ein Widerspruch speichert kein Geburtsdatum.": "features/bewerbungen/schemas.ts",
+    "Ein Widerspruch speichert keine WhatsApp-Einwilligung.": "features/bewerbungen/schemas.ts",
+}
+
+MIRRORED_REFUSALS: Final = tuple(message for message, module in ANSWER_REFUSALS.items() if module is not None)
+UNMIRRORED_REFUSALS: Final = tuple(message for message, module in ANSWER_REFUSALS.items() if module is None)
+
+
+def _answer_payload_refusals() -> set[str]:
+    """Read off the class's own text: a validator yields its message only by being handed the one shape that trips it."""
+
+    source = ANSWER_PAYLOAD.read_text(encoding="utf-8")
+    block = source[source.index("class FLBewerbungEinwilligungAntwortPayload(BaseModel):") :]
+    ends = block.find("\nclass ")
+
+    return set(VALUE_ERROR.findall(block if ends == -1 else block[:ends]))
+
+
+def test_the_register_holds_every_refusal_the_answer_payload_raises():
+    """Both directions, so a reworded message fails here rather than in the frontend half, and an entry whose message is gone fails too."""
+
+    raised = _answer_payload_refusals()
+
+    assert raised, "no refusal was attributed to the answer payload, so every case below passes over nothing"
+    assert raised == set(ANSWER_REFUSALS)
+
+
+@pytest.mark.parametrize("message", MIRRORED_REFUSALS)
+def test_each_mirrored_refusal_is_spelled_the_same_way_on_the_frontend(message: str):
+    module = ANSWER_REFUSALS[message]
+
+    assert module is not None
+    assert message in _source(module), f"{module} no longer spells this refusal the way the endpoint raises it"
+
+
+@pytest.mark.parametrize("message", UNMIRRORED_REFUSALS)
+def test_each_unmirrored_refusal_is_still_spelled_only_here(message: str):
+    """A message that grew a mirror pairs up in the register rather than being compared by nothing."""
+
+    for module in {module for module in ANSWER_REFUSALS.values() if module is not None}:
+        assert message not in _source(module), f"{module} mirrors this refusal now, so the register has to pair the two"

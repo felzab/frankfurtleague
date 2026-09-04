@@ -1,3 +1,5 @@
+import { KONTAKT_EMAIL } from "@/core/brand";
+
 import type { KontaktChannel, QaQuestion, TeamMember } from "./types";
 
 // Content in code and not data: no database backing and no admin surface, so a change here is a
@@ -38,11 +40,10 @@ export const KONTAKT_CHANNELS: KontaktChannel[] = [
   {
     id: "email",
     name: "E-Mail",
-    // Its own address rather than `KONTAKT_EMAIL`, and shown and linked as the same one: this channel
-    // is the inbox the league actually reads, and a value a press does not honour sends a visitor
-    // somewhere nobody is.
-    value: "frankfurt.league@gmail.com",
-    action: "mailto:frankfurt.league@gmail.com",
+    // Shown and linked as the one address the legal pages publish: a value a press does not honour
+    // sends a visitor somewhere nobody is.
+    value: KONTAKT_EMAIL,
+    action: `mailto:${KONTAKT_EMAIL}`,
   },
   {
     id: "instagram",
@@ -51,12 +52,6 @@ export const KONTAKT_CHANNELS: KontaktChannel[] = [
     action: "https://instagram.com/frankfurt.league",
   },
   { id: "threads", name: "Threads", value: "@frankfurt.league", action: "https://www.threads.com/@frankfurt.league" },
-  {
-    id: "whatsapp",
-    name: "WhatsApp",
-    value: "Noch nicht verfügbar",
-    action: "https://wa.me",
-  },
 ];
 
 export const QA_QUESTIONS: QaQuestion[] = [

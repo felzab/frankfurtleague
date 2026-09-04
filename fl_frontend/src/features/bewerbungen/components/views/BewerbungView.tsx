@@ -71,7 +71,7 @@ export function BewerbungView({
         <p className="muted-hint max-w-xl">
           Die Frankfurt-League ist das Fußballturnier der Frankfurter Oberstufen.{" "}
           {zustand === "laeuft"
-            ? "Trag Dein Team hier ein. Wir schauen uns Deine Bewerbung an und melden uns danach bei allen Kontaktpersonen, die Du angibst."
+            ? "Trag Dein Team hier ein. Nach dem Abschicken bekommt jede Kontaktperson eine E-Mail mit einem Link, über den sie ihren Eintrag bestätigt."
             : "Auf dieser Seite melden Schulen ihr Team für eine Saison an."}
         </p>
 

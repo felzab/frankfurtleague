@@ -4,7 +4,7 @@ import type { MetadataRoute } from "next";
 
 // A live `new Date()` is a dynamic read under cacheComponents, which would make this a dynamic
 // route. Bump it by hand when the page content changes.
-const CONTENT_LAST_MODIFIED = new Date("2026-07-01");
+const CONTENT_LAST_MODIFIED = new Date("2026-09-04");
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
@@ -68,6 +68,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.4,
     },
-    // /admin and /signin stay out: robots.ts disallows one and the other is noindexed.
+    {
+      url: `${SITE_URL}/impressum`,
+      lastModified: CONTENT_LAST_MODIFIED,
+      changeFrequency: "monthly",
+      priority: 0.2,
+    },
+    {
+      url: `${SITE_URL}/datenschutz`,
+      lastModified: CONTENT_LAST_MODIFIED,
+      changeFrequency: "monthly",
+      priority: 0.2,
+    },
+    // /admin, /signin and /bestaetigung stay out: robots.ts disallows the first, and the other two noindex themselves.
   ];
 }

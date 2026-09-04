@@ -9,38 +9,31 @@ consulting one; every other ruling is mine, taken on 2026-09-01 in a review of e
 and refined on 2026-09-02, and each stands open to a qualified reviewer's correction. Where today's
 behaviour differs from a ruling, the entry says so.
 
-| Section                                                                                                    | Answers                                                      |
-| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| [1. Responsibility and the request route](#1-responsibility-and-the-request-route)                         | Who the controller is, which authority, where a request goes |
-| [2. Consent comes from the person, from 16](#2-consent-comes-from-the-person-from-16)                      | The sign-up flow every ruling on consent assumes             |
-| [3. The current pupil records are reset once](#3-the-current-pupil-records-are-reset-once)                 | What happens to the backfilled consents                      |
-| [4. What is published, and on what basis](#4-what-is-published-and-on-what-basis)                          | Addresses, names, the team page, crawlers, the notice        |
-| [5. Erasure reaches everyone who asks](#5-erasure-reaches-everyone-who-asks)                               | Who can be erased, what erasure reaches, what it does not    |
-| [6. Retention is bounded where a bound was chosen](#6-retention-is-bounded-where-a-bound-was-chosen)       | The action log, applications, contacts, access logs          |
-| [7. Processors and third parties](#7-processors-and-third-parties)                                         | Who receives data, under which agreement, and the gaps       |
-| [8. Two procedures still to be written](#8-two-procedures-still-to-be-written)                             | Rights requests and breaches                                 |
-| [9. A local copy of production expires](#9-a-local-copy-of-production-expires)                             | The development practice the rulings bound                   |
-| [10. Adjacent decisions were accepted as recommended](#10-adjacent-decisions-were-accepted-as-recommended) | Roadmap items that needed no expert                          |
-| [11. Open, and owed a decision](#11-open-and-owed-a-decision)                                              | What the rulings above do not settle                         |
+| Section                                                                                                    | Answers                                                   |
+| ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| [1. Responsibility and the request route](#1-responsibility-and-the-request-route)                         | Who the controller is, and where a request goes           |
+| [2. Consent comes from the person, from 16](#2-consent-comes-from-the-person-from-16)                      | The sign-up flow every ruling on consent assumes          |
+| [3. The current pupil records are reset once](#3-the-current-pupil-records-are-reset-once)                 | What happens to the backfilled consents                   |
+| [4. What is published, and on what basis](#4-what-is-published-and-on-what-basis)                          | Addresses, names, the team page, crawlers, the notice     |
+| [5. Erasure reaches everyone who asks](#5-erasure-reaches-everyone-who-asks)                               | Who can be erased, what erasure reaches, what it does not |
+| [6. Retention is bounded where a bound was chosen](#6-retention-is-bounded-where-a-bound-was-chosen)       | The action log, applications, contacts, access logs       |
+| [7. Processors and third parties](#7-processors-and-third-parties)                                         | Who receives data, under which agreement, and the gaps    |
+| [9. A local copy of production expires](#9-a-local-copy-of-production-expires)                             | The development practice the rulings bound                |
+| [10. Adjacent decisions were accepted as recommended](#10-adjacent-decisions-were-accepted-as-recommended) | Roadmap items that needed no expert                       |
+| [11. Open, and owed a decision](#11-open-and-owed-a-decision)                                              | What the rulings above do not settle                      |
 
 ## 1. Responsibility and the request route
 
 - **The controller is the association.** Wherever the privacy notice lands it names
-  "Frankfurtleague e. V. i. G." until the register entry exists, and drops the suffix the day it
+  "Frankfurt League e. V. i. G." until the register entry exists, and drops the suffix the day it
   does. No school and no individual is the controller; the league is run by its pupils as an
   association, and a school-law basis is unavailable.
-- **The supervisory authority is Der Hessische Beauftragte für Datenschutz und
-  Informationsfreiheit** in Wiesbaden, reached at datenschutz.hessen.de, which supervises
-  associations seated in Hesse. A personal-data breach is reported through its Art. 33 form within
-  72 hours of becoming aware of it; requesting the upload link does not stop that clock. That is a
-  fact mirrored from the authority's own pages, which move without us and were read on 2026-09-02,
-  and not a ruling; it is here because
-  [section 8](#8-two-procedures-still-to-be-written)'s breach procedure needs it.
 - **Every request — withdrawal of a consent, access, rectification, erasure, objection — goes to
-  kontakt@frankfurtleague.de** until people can act for themselves. The consent text
-  (`fl_frontend/src/core/einwilligung.ts`) promises withdrawal at any time and today names no
-  route; it names this address from its next version. Self-service comes with the account tiers
-  planned for teams, players and referees, and the deletion route lives there once they exist.
+  kontakt@frankfurtleague.de** until people can act for themselves. The application form's text
+  (`fl_frontend/src/core/einwilligung.ts :: LIGA_EINWILLIGUNG`) and the confirmation page's
+  (`:: BESTAETIGUNG_EINWILLIGUNG`) both send a reader to the Datenschutzerklärung rather than
+  spelling a route, so that page is where this address has to stand. Self-service comes with the account tiers planned for teams, players and referees, and the
+  deletion route lives there once they exist.
 
 ## 2. Consent comes from the person, from 16
 
@@ -71,13 +64,6 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   squad lists meanwhile. The predicate is written into
   [`backend/spec.md`](backend/spec.md#17-read-rules) before any code. Today no read consults the
   stored consent.
-- **Every version of a consent text is retained**, so a stored consent's version label resolves
-  to the words the person agreed to from the running application, not from git history.
-- **An application names three people and one person ticks for all of them.** The two who were
-  not asked are recorded as entered on their behalf, never as having consented themselves, and
-  each receives their own link to give the consent. The vocabulary exists:
-  `fl_backend/app/api/teams/schemas.py :: FLKontaktEinwilligung` distinguishes `person` from
-  `administrativ`; today the public form composes `person` for all three.
 - **Referees get a consent record** on the same terms as contact persons. A referee is a pupil
   whose phone, email and school are stored, and today no consent field exists for them.
 
@@ -111,37 +97,27 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   `fl_frontend/src/app/robots.ts` disallows named crawlers, which is a request; the edge's
   crawler block enforces it, and that setting lives in the hosting dashboard rather than in this
   repository, which records that it exists and is deliberate.
-- **An erased referee's name on a past fixture is to be replaced by a neutral label spelled
-  "anonym"** — not by a first name, and not by the word "Schiedsrichter", which would read oddly
-  in a column already headed with it. A first name with a date and a club still identifies one
-  person in a league this size. Today the anonymisation clears the contact block only
-  (`fl_backend/app/api/schiedsrichter/services.py :: ANONYMISED_KONTAKT`) and the name stays on
-  every past fixture.
-- **A serving referee is published as a forename and a surname initial, like a squad pupil.**
-  Today the fixture read serves the referee's full name to anonymous visitors while a squad pupil
-  is reduced, so the consent architecture covers the less-exposing publication and not the more-
-  exposing one, and the same pupil can appear under both rules. The reduction is a response-model
-  change rather than a data migration: `fl_backend/app/api/spieler/services.py :: public_initial`
-  is the function the squad read already uses. Ruled 2026-09-02.
 - **The free-text fields on public pages stay public** — a fixture's note and a withdrawal's
   reason — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`).
-- **The privacy notice becomes a static route in this repository**, linked from the footer and
-  from the application form, and it is live before the self-signup flow opens, because that flow
-  is the moment people consent to a document they must be able to read.
 
 ## 5. Erasure reaches everyone who asks
 
 - **Anyone — player, referee, contact person, administrator — can have their data deleted, with
   the least asymmetry between roles.** The mechanisms today are
   `DELETE /spieler/{spieler_id}/erasure`, `POST /kontakte/erasure` and
-  `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`; what the referee path is to leave on
-  past fixtures is [section 4](#4-what-is-published-and-on-what-basis)'s label. Details re-entered
+  `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`; what the referee path leaves on past
+  fixtures is `docs/backend/spec.md :: 1.1`'s anonymisation row. Details re-entered
   while an anonymisation runs refuse it (`REQ-ANONYMISE-001`,
   `docs/backend/spec.md :: I118`) rather than answering a success it did not achieve, so the run is
   repeated and nobody is told a person's details are gone while they stand.
 - **An erasure keyed on an email address warns first.** Colleagues sharing a school inbox are one
   subject to the match, so the matched names are shown for confirmation before the write. A
-  person id across seasons is not introduced: contact persons are season-scoped by design.
+  person id across seasons is not introduced: contact persons are season-scoped by design. Today
+  the confirmation names the person whose panel it was opened from and states the reach as a class
+  rather than listing whom the address matches
+  (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`),
+  so an administrator confirms a write whose subjects they have not seen
+  (`docs/_roadmap/items.md :: k3g7-cqx7`).
 - **The administrator's own email on every log row stays, outside every redaction.** The log
   exists to say who did what; the asymmetry is deliberate and is stated at the invariant once it
   leaves here (`docs/backend/spec.md :: I42` is the redaction it sits beside, and `:: I48` what a
@@ -164,25 +140,23 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 
 ## 6. Retention is bounded where a bound was chosen
 
-- **The action log keeps a row for twelve months after it is written, then the row is deleted.**
-  The mechanism is a TTL index on the row's timestamp, which the database applies without a
-  sweep. This reverses the indefinite retention `docs/backend/spec.md :: I119` states — no row
-  is dropped today, and none is until that index exists.
 - **The log keeps storing the full prior document on every write, person-bearing rows included.**
   That copy is what a restore over the log replays, which is the log's purpose, and the
-  twelve-month bound above is what answers the accumulation. Dropping the copies would remove the
+  twelve-month bound `docs/backend/spec.md :: I119` states is what answers the accumulation. Dropping the copies would remove the
   log's value exactly where writes matter most. A person who asks for erasure still has their log
   rows emptied and stamped inside the transaction that removes them
   (`docs/backend/spec.md :: I42`); what the bound answers is the copies of everyone who never
   asked. Ruled 2026-09-02.
 - **A declined application is kept for one month after the decision, its three people's contact
   details included, then deleted. An accepted application is kept for the season it was accepted
-  for and the season after it, then deleted.** The application's own privacy text states both
-  periods once it exists. This bounds the permanent record that `docs/glossary.md :: Bewerbung` and
-  `docs/backend/spec.md :: a decided application stays listed` describe.
+  for and the season after it, then deleted.** The retention sweep runs both clocks
+  (`docs/backend/spec.md :: I153` and `:: I154`), and the application's own privacy text states
+  both periods once it exists. This bounds the permanent record that `docs/glossary.md :: Bewerbung`
+  and `docs/backend/spec.md :: a decided application stays listed` describe. Ruled 2026-09-02.
 - **A season's contact persons follow the accepted application's clock**: their contact block is
   cleared when the season after the one they were collected for ends. The consent text scopes
-  itself to one season, and the clearing mechanism the erasure uses already exists.
+  itself to one season, and the clearing uses the mechanism the erasure already had. Ruled
+  2026-09-02.
 - **Access logs stay on the host and are bounded by age as well as by size: eight days.** The
   host's own nginx log carries the visitor's address, user agent and referer and survives a
   deploy, so the only bound today is the container runtime's size rotation
@@ -199,14 +173,14 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 Every row mirrors that provider's own legal pages, which move without us and were read on
 2026-09-02.
 
-| Processor                      | What reaches them                                                              | Agreement                                                                                               | Where the data is                                                                                                       |
-| ------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Resend                         | Applicants' and administrators' email addresses, every decision email in full  | Standard Art. 28 addendum, in force for every account on sign-up; an executed copy is downloadable      | United States for all stored data; the EU region changes only where mail is dispatched from; transfer rests on the SCCs |
-| Cloudflare                     | Every request in plaintext at the edge: addresses, URLs, headers, form bodies  | Standard addendum incorporated by reference into the self-serve agreement                               | Edge processing worldwide; content not stored for the core services; region pinning is an enterprise-only add-on        |
-| MongoDB Atlas                  | Both databases and their backup snapshots                                      | Standard addendum incorporated into the cloud terms, accepted by creating the account                   | The chosen deployment region; single-region snapshots stay in the cluster's region                                      |
-| Proton (the league's mailbox)  | Every request and reply, correspondence with referees, contacts and applicants | **None on the personal plan in use.** Proton for Business carries one; the upgrade is the fix           | Switzerland                                                                                                             |
-| Gmail, via members' forwarding | Whatever league mail a member opens in a personal Gmail account                | **None — a consumer Gmail account has no processing agreement.** Accepted for now, as a known gap       | Not committed                                                                                                           |
-| WhatsApp (consumer app)        | Phone numbers and messages of anyone who contacts the league that way          | **None for the consumer app**; the consent text discloses the channel. Accepted for now, as a known gap | Not committed                                                                                                           |
+| Processor                      | What reaches them                                                                                                                                                                                                       | Agreement                                                                                               | Where the data is                                                                                                       |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Resend                         | Applicants' and administrators' email addresses, and every message the league sends in full — the two decisions, the submission's receipt and the confirmation links, a confirmation link being a single-use credential | Standard Art. 28 addendum, in force for every account on sign-up; an executed copy is downloadable      | United States for all stored data; the EU region changes only where mail is dispatched from; transfer rests on the SCCs |
+| Cloudflare                     | Every request in plaintext at the edge: addresses, URLs, headers, form bodies                                                                                                                                           | Standard addendum incorporated by reference into the self-serve agreement                               | Edge processing worldwide; content not stored for the core services; region pinning is an enterprise-only add-on        |
+| MongoDB Atlas                  | Both databases and their backup snapshots                                                                                                                                                                               | Standard addendum incorporated into the cloud terms, accepted by creating the account                   | The chosen deployment region; single-region snapshots stay in the cluster's region                                      |
+| Proton (the league's mailbox)  | Every request and reply, correspondence with referees, contacts and applicants                                                                                                                                          | **None on the personal plan in use.** Proton for Business carries one; the upgrade is the fix           | Switzerland                                                                                                             |
+| Gmail, via members' forwarding | Whatever league mail a member opens in a personal Gmail account                                                                                                                                                         | **None — a consumer Gmail account has no processing agreement.** Accepted for now, as a known gap       | Not committed                                                                                                           |
+| WhatsApp (consumer app)        | Phone numbers and messages of anyone who contacts the league that way                                                                                                                                                   | **None for the consumer app**; the consent text discloses the channel. Accepted for now, as a known gap | Not committed                                                                                                           |
 
 **Nothing is left to sign for Resend, Cloudflare and MongoDB Atlas.** Ruled 2026-09-02. What is
 owed:
@@ -214,16 +188,6 @@ owed:
 - Keep the dated agreement pages, and Resend's executed copy with the account's acceptance date.
 - Record Resend's United States storage as a transfer.
 - Leave the gaps in bold accepted, and named so the notice can tell the truth about them.
-
-## 8. Two procedures still to be written
-
-- **Rights beyond erasure get one runbook section, not six features.** Access, rectification,
-  objection, portability, restriction and withdrawal have no route and no documented handling
-  today; at this scale a documented human procedure — who handles a request, what they do, how
-  long it may take — answers all of them. It lands in `docs/ops/runbooks.md`.
-- **A personal-data breach gets one runbook section**, written before it is needed: the
-  authority's form, the 72-hour window, and what can and cannot be established from logs that
-  rotate. It lands beside the first.
 
 ## 9. A local copy of production expires
 
@@ -250,8 +214,9 @@ still to do is that entry's own `Status` in [`_roadmap/items.md`](_roadmap/items
 ## 11. Open, and owed a decision
 
 - **No Datenschutzexperte has seen the rulings this page does not mark as consulted**, and the
-  privacy notice they feed is still a draft. The two together are the gate on everything in
-  [section 8](#8-two-procedures-still-to-be-written).
+  privacy notice they feed is still a draft. Both stand over the request and the breach procedures
+  in [`ops/runbooks.md`](ops/runbooks.md), which answer a person on the strength of the rulings
+  above.
 - **The access-log bound is not yet configured at Cloudflare's own edge.**
   [Section 6](#6-retention-is-bounded-where-a-bound-was-chosen) is meant to reach the edge log
   (`docs/logging/spec.md :: Cloudflare logs the request line`) as well as the host's; Cloudflare's

@@ -36,7 +36,9 @@ const readPerson = (rolle: KontaktRolle) => (source: FLKontakteDraftFields) => {
     name === "" ? "Ohne Namen" : name,
     emptyAsNull(person.email) ?? "Keine E-Mail",
     emptyAsNull(person.telefon) ?? "Keine Telefonnummer",
-    person.geburtsdatum === "" ? "Kein Geburtsdatum" : `geboren am ${formatSpielDatum(person.geburtsdatum)}`,
+    // Null on a seat copied from an application whose contact has not confirmed yet; `""` on a seat
+    // an administrator opened and has not dated.
+    person.geburtsdatum ? `geboren am ${formatSpielDatum(person.geburtsdatum)}` : "Kein Geburtsdatum",
   ].join(", ");
 };
 
@@ -60,7 +62,7 @@ const personErrorPaths = (path: string): string[] => [
   `${path}.geburtsdatum`,
 ];
 
-const einwilligungErrorPaths = (path: string): string[] => [path, `${path}.erteilt_von`, `${path}.text_version`, `${path}.datum`];
+const einwilligungErrorPaths = (path: string): string[] => [path, `${path}.text_version`, `${path}.datum`];
 
 /**
  * Every path one seat's failures land under. Exported because the editor re-judges exactly this set
@@ -76,24 +78,13 @@ export const ALL_SEAT_PATHS: readonly string[] = KONTAKT_ROLLEN.flatMap(({ value
 
 // Each path is spelled here rather than composed from the seat's key: `fieldLabelPaths.test.ts`
 // reads a literal, and a composed one would leave the Geändert marker silently unwired.
+
+// The SEQUENCE is `KONTAKT_ROLLEN`'s: the rail and the editor's panels both map it, so a reader
+// meets the three seats in one order.
 const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLKontakteDraftFields, FLKontakteFieldGroup>[] = [
   {
-    path: "kontakte.trainer",
-    // The seat names the section, so the row inside it says which half of the seat moved.
-    label: "Person",
-    group: "Trainer",
-    read: readPerson("trainer"),
-    errorPaths: personErrorPaths("kontakte.trainer"),
-  },
-  {
-    path: "kontakte.trainer.einwilligung",
-    label: "Einwilligung",
-    group: "Trainer",
-    read: readEinwilligung("trainer"),
-    errorPaths: einwilligungErrorPaths("kontakte.trainer.einwilligung"),
-  },
-  {
     path: "kontakte.ansprechperson",
+    // The seat names the section, so the row inside it says which half of the seat moved.
     label: "Person",
     group: "Ansprechperson",
     read: readPerson("ansprechperson"),
@@ -119,6 +110,20 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLKontakteDraftFields, FLKon
     group: "Stellvertretung",
     read: readEinwilligung("stellvertretung"),
     errorPaths: einwilligungErrorPaths("kontakte.stellvertretung.einwilligung"),
+  },
+  {
+    path: "kontakte.trainer",
+    label: "Person",
+    group: "Trainer",
+    read: readPerson("trainer"),
+    errorPaths: personErrorPaths("kontakte.trainer"),
+  },
+  {
+    path: "kontakte.trainer.einwilligung",
+    label: "Einwilligung",
+    group: "Trainer",
+    read: readEinwilligung("trainer"),
+    errorPaths: einwilligungErrorPaths("kontakte.trainer.einwilligung"),
   },
   {
     path: "kontakte.trainer_ist_zugleich",

@@ -63,8 +63,10 @@ registerHooks({
   },
 });
 
-const { collectBewerbungEingangEmpfaenger, collectBewerbungEmpfaenger, describeBewerbungMail, sendBewerbungMail } =
+const { collectBewerbungEingangEmpfaenger, collectBewerbungEmpfaenger, describeBewerbungMail, rolleText, seatsByMailbox, sendBewerbungMail } =
   await import("./notifications.ts");
+const { buildBewerbungBestaetigungEmail } = await import("../../core/bewerbungEmail.ts");
+const { bestaetigungsLink } = await import("./bestaetigungLink.ts");
 
 /** One message composed per recipient, its per-reader half interpolated: two readers handed one text is what this proves against. */
 const buildMail = (rollenText: string) => ({
@@ -84,8 +86,13 @@ function person(email: string): FLKontaktperson {
     email: email,
     telefon: "0151 12345678",
     geburtsdatum: "1990-04-01",
-    einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "v1", datum: "2026-04-01" },
+    einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "v1", datum: "2026-04-01", bestaetigt_am: "2026-04-02" },
   };
+}
+
+/** One contact person under a chosen forename: a link message names it beside the seat's role. */
+function benannt(email: string, vorname: string): FLKontaktperson {
+  return { ...person(email), vorname: vorname };
 }
 
 const seats = (trainer: string | null, ansprechperson: string | null, stellvertretung: string | null): BewerbungSeats => ({
@@ -99,6 +106,24 @@ function reset(): void {
   logged.length = 0;
   refused.clear();
 }
+
+describe("how one seat is named to somebody who is not sitting in it", () => {
+  /* The submission's receipt, the retention notice and the objection notice each name a seat this
+     way, so a wording answered here differently from `rollenText` would put one seat under two
+     names in messages a single reader gets. */
+  it("gives every seat the long form the joined phrase gives it", () => {
+    assert.deepEqual((["ansprechperson", "stellvertretung", "trainer"] as const).map(rolleText), [
+      "Ansprechperson",
+      "Stellvertretung",
+      "Trainerin oder Trainer",
+    ]);
+    assert.deepEqual(
+      collectBewerbungEmpfaenger(seats("t@schule.de", null, null)).map(({ rollenText }) => rollenText),
+      [rolleText("trainer")],
+      "a fan-out names a lone seat differently from the helper every message reads",
+    );
+  });
+});
 
 describe("who a decision is sent to", () => {
   /* First, so a double that never ran fails here rather than under every assertion below. */
@@ -117,7 +142,7 @@ describe("who a decision is sent to", () => {
      a perfectly ordinary application. */
   it("mails a person holding two seats once, naming both seats", () => {
     assert.deepEqual(collectBewerbungEmpfaenger(seats("trainer@schule.de", "trainer@schule.de", "vertretung@schule.de")), [
-      { address: "trainer@schule.de", rollenText: "Trainerin oder Trainer und Ansprechperson" },
+      { address: "trainer@schule.de", rollenText: "Ansprechperson und Trainerin oder Trainer" },
       { address: "vertretung@schule.de", rollenText: "Stellvertretung" },
     ]);
   });
@@ -126,9 +151,9 @@ describe("who a decision is sent to", () => {
      send three people one text about somebody else's place in the season. */
   it("names each of the three the seat they hold", () => {
     assert.deepEqual(collectBewerbungEmpfaenger(seats("t@schule.de", "a@schule.de", "s@schule.de")), [
-      { address: "t@schule.de", rollenText: "Trainerin oder Trainer" },
       { address: "a@schule.de", rollenText: "Ansprechperson" },
       { address: "s@schule.de", rollenText: "Stellvertretung" },
+      { address: "t@schule.de", rollenText: "Trainerin oder Trainer" },
     ]);
   });
 
@@ -151,7 +176,7 @@ describe("who a decision is sent to", () => {
      mailbox, which would otherwise receive the decision twice. */
   it("mails one mailbox spelled with two domain cases once", () => {
     assert.deepEqual(collectBewerbungEmpfaenger(seats("trainer@Schule.de", "trainer@schule.de", null)), [
-      { address: "trainer@Schule.de", rollenText: "Trainerin oder Trainer und Ansprechperson" },
+      { address: "trainer@schule.de", rollenText: "Ansprechperson und Trainerin oder Trainer" },
     ]);
   });
 
@@ -159,8 +184,8 @@ describe("who a decision is sent to", () => {
      dropping either would leave a person unnotified over an assumption nobody here may make. */
   it("keeps two local parts differing only in case apart", () => {
     assert.deepEqual(collectBewerbungEmpfaenger(seats("Trainer@schule.de", "trainer@schule.de", null)), [
-      { address: "Trainer@schule.de", rollenText: "Trainerin oder Trainer" },
       { address: "trainer@schule.de", rollenText: "Ansprechperson" },
+      { address: "Trainer@schule.de", rollenText: "Trainerin oder Trainer" },
     ]);
   });
 
@@ -176,14 +201,14 @@ describe("who a decision is sent to", () => {
 
     assert.deepEqual(
       sent.map((mail) => mail.text),
-      ["Zusage für Trainerin oder Trainer", "Zusage für Ansprechperson", "Zusage für Stellvertretung"],
+      ["Zusage für Ansprechperson", "Zusage für Stellvertretung", "Zusage für Trainerin oder Trainer"],
     );
   });
 });
 
-describe("who the receipt is sent to", () => {
-  /* Sent before anybody has confirmed an address, so it goes to the one seat that asked to be
-     written to rather than to all three — the smallest fan-out that still answers the applicant. */
+describe("who the workflow's messages to the submitter are sent to", () => {
+  /* No seat records who submitted, and the Ansprechperson is the submitter by convention, so every
+     message the workflow addresses to them takes this fan-out rather than the decisions' own. */
   it("reaches the Ansprechperson and nobody else", () => {
     assert.deepEqual(collectBewerbungEingangEmpfaenger(seats("trainer@schule.de", "kontakt@schule.de", "vertretung@schule.de")), [
       { address: "kontakt@schule.de", rollenText: "Ansprechperson" },
@@ -194,13 +219,158 @@ describe("who the receipt is sent to", () => {
      gets the one message their mailbox is owed, naming both seats rather than one of them. */
   it("names both seats where the Ansprechperson is also the Trainer", () => {
     assert.deepEqual(collectBewerbungEingangEmpfaenger(seats("kontakt@schule.de", "kontakt@schule.de", "vertretung@schule.de")), [
-      { address: "kontakt@schule.de", rollenText: "Trainerin oder Trainer und Ansprechperson" },
+      { address: "kontakt@schule.de", rollenText: "Ansprechperson und Trainerin oder Trainer" },
     ]);
   });
 
   it("goes nowhere where that seat carries no address", () => {
     assert.deepEqual(collectBewerbungEingangEmpfaenger(seats("trainer@schule.de", null, "vertretung@schule.de")), []);
     assert.deepEqual(collectBewerbungEingangEmpfaenger(seats("trainer@schule.de", " ", "vertretung@schule.de")), []);
+  });
+});
+
+describe("which mailbox is sent which link", () => {
+  /* Two different people on a school inbox are the case a fan-out keyed on the person rather than
+     the address splits into two messages, each showing the reader somebody else's link as well. */
+  it("gives a shared inbox one message carrying a link for each seat on it", () => {
+    const kontakte = {
+      trainer: benannt("info@schule.de", "Jonas"),
+      ansprechperson: benannt("info@schule.de", "Erika"),
+      stellvertretung: benannt("mira@schule.de", "Mira"),
+    };
+
+    assert.deepEqual(seatsByMailbox(kontakte, { ansprechperson: "L-A", stellvertretung: "L-S", trainer: "L-T" }), [
+      {
+        address: "info@schule.de",
+        seats: [
+          { vorname: "Erika", rolleText: "Ansprechperson", link: "L-A" },
+          { vorname: "Jonas", rolleText: "Trainerin oder Trainer", link: "L-T" },
+        ],
+      },
+      { address: "mira@schule.de", seats: [{ vorname: "Mira", rolleText: "Stellvertretung", link: "L-S" }] },
+    ]);
+  });
+
+  /* `trainer_ist_zugleich` is ONE person holding two seats. Where the caller answers both with one
+     token the message offers one control naming both roles: two buttons to a single URL would read
+     as two things to do. */
+  it("merges two seats a single link answers for into one entry naming both", () => {
+    const kontakte = {
+      trainer: benannt("erika@schule.de", "Erika"),
+      ansprechperson: benannt("erika@schule.de", "Erika"),
+      stellvertretung: benannt("mira@schule.de", "Mira"),
+    };
+
+    assert.deepEqual(seatsByMailbox(kontakte, { ansprechperson: "L-A", trainer: "L-A", stellvertretung: "L-S" }), [
+      { address: "erika@schule.de", seats: [{ vorname: "Erika", rolleText: "Ansprechperson und Trainerin oder Trainer", link: "L-A" }] },
+      { address: "mira@schule.de", seats: [{ vorname: "Mira", rolleText: "Stellvertretung", link: "L-S" }] },
+    ]);
+  });
+
+  /* The pair the workflow mints two tokens for: the backend answers both seats from either press
+     (`fl_backend/app/api/bewerbungen/services.py :: paired_seat`), so the second link would put two
+     buttons in front of one reader over one decision. */
+  it("offers a mirrored Trainer one link, under both the seats it answers for", () => {
+    const kontakte = {
+      trainer: benannt("mira@schule.de", "Mira"),
+      ansprechperson: benannt("erika@schule.de", "Erika"),
+      stellvertretung: benannt("mira@schule.de", "Mira"),
+      trainer_ist_zugleich: "stellvertretung" as const,
+    };
+    const eigener = bestaetigungsLink("erste");
+    const gespiegelter = bestaetigungsLink("zweite");
+
+    const verlinkt = seatsByMailbox(kontakte, { ansprechperson: "L-A", stellvertretung: eigener, trainer: gespiegelter });
+    const gepaart = verlinkt.find((mailbox) => mailbox.address === "mira@schule.de");
+
+    assert.deepEqual(gepaart?.seats, [{ vorname: "Mira", rolleText: "Stellvertretung und Trainerin oder Trainer", link: eigener }]);
+
+    const mail = buildBewerbungBestaetigungEmail({
+      saisonId: "2627",
+      schule: "Lessing-Kolleg",
+      seats: gepaart?.seats ?? [{ vorname: "Mira", rolleText: "Stellvertretung", link: eigener }],
+      fristText: "30.09.2026",
+    });
+
+    // Both branches: a reader whose client draws no HTML meets the same one link in the text.
+    for (const teil of [mail.html, mail.text]) {
+      const adressen = new Set(
+        [...teil.matchAll(/https?:\/\/[^"'<\s]+/g)].map((treffer) => treffer[0]).filter((url) => url.includes("bestaetigung")),
+      );
+
+      assert.deepEqual([...adressen], [eigener], "the message offers a second link for the seat the first one already answers");
+      assert.match(teil, /Stellvertretung/, "the message no longer names the seat the person was entered under");
+      assert.match(teil, /Trainerin oder Trainer/, "the message no longer names the seat the Trainer claim mirrors");
+    }
+  });
+
+  /* One person on two seats is what `trainer_ist_zugleich` declares, and nothing else: two seats on
+     one inbox that it does not pair are two readers, each owed the link addressed to them. */
+  it("keeps two seats apart where each carries its own link", () => {
+    const kontakte = {
+      trainer: benannt("erika@schule.de", "Erika"),
+      ansprechperson: benannt("erika@schule.de", "Erika"),
+      stellvertretung: null,
+    };
+
+    assert.deepEqual(seatsByMailbox(kontakte, { ansprechperson: "L-A", trainer: "L-T" }), [
+      {
+        address: "erika@schule.de",
+        seats: [
+          { vorname: "Erika", rolleText: "Ansprechperson", link: "L-A" },
+          { vorname: "Erika", rolleText: "Trainerin oder Trainer", link: "L-T" },
+        ],
+      },
+    ]);
+  });
+
+  /* The reminder's own shape: a seat that has answered carries no link, and the mailbox left with
+     nothing to press drops out rather than being sent a message with no control on it. */
+  it("leaves out a seat with no link, and a mailbox left holding none", () => {
+    const kontakte = {
+      trainer: benannt("jonas@schule.de", "Jonas"),
+      ansprechperson: benannt("erika@schule.de", "Erika"),
+      stellvertretung: benannt("erika@schule.de", "Mira"),
+    };
+
+    assert.deepEqual(seatsByMailbox(kontakte, { stellvertretung: "L-S" }), [
+      { address: "erika@schule.de", seats: [{ vorname: "Mira", rolleText: "Stellvertretung", link: "L-S" }] },
+    ]);
+    assert.deepEqual(seatsByMailbox(kontakte, {}), []);
+  });
+
+  /* The dedupe is `collectSeats`'s, unchanged: the local part byte for byte under a domain compared
+     without case. A grouping of its own would answer differently for exactly these two. */
+  it("groups by the mailbox rule the decision fan-out already uses", () => {
+    const geteilt = {
+      trainer: benannt("Info@SCHULE.de", "Jonas"),
+      ansprechperson: benannt("Info@schule.de", "Erika"),
+      stellvertretung: null,
+    };
+    const getrennt = {
+      trainer: benannt("INFO@schule.de", "Jonas"),
+      ansprechperson: benannt("info@schule.de", "Erika"),
+      stellvertretung: null,
+    };
+
+    // One domain in two cases is one mailbox; the local part's case is two people.
+    assert.equal(seatsByMailbox(geteilt, { ansprechperson: "L-A", trainer: "L-T" }).length, 1);
+    assert.equal(seatsByMailbox(getrennt, { ansprechperson: "L-A", trainer: "L-T" }).length, 2);
+  });
+
+  /* The seats come back in `KONTAKT_ROLLEN`'s order, which is the order `joinUnd` builds a German
+     phrase in and the order the message lays its controls out in. */
+  it("orders a mailbox's seats as the seat table declares them", () => {
+    const kontakte = {
+      trainer: benannt("info@schule.de", "Jonas"),
+      ansprechperson: benannt("info@schule.de", "Erika"),
+      stellvertretung: benannt("info@schule.de", "Mira"),
+    };
+
+    assert.deepEqual(
+      seatsByMailbox(kontakte, { ansprechperson: "L-A", stellvertretung: "L-S", trainer: "L-T" })[0]?.seats.map((seat) => seat.rolleText),
+      ["Ansprechperson", "Stellvertretung", "Trainerin oder Trainer"],
+    );
   });
 });
 

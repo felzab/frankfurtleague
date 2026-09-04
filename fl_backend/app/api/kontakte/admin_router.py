@@ -35,7 +35,8 @@ async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, A
     cleared = 0
     for row in rows:
         slots = find_matching_slots(row, email)
-        await patch_one_in_db(collection=collection, db_filter={"_id": row["_id"]}, update=build_clearing_update(slots), session=session)
+        update = build_clearing_update(slots, bestaetigungen=isinstance(row.get("bestaetigungen"), Mapping))
+        await patch_one_in_db(collection=collection, db_filter={"_id": row["_id"]}, update=update, session=session)
         cleared += len(slots)
 
     return cleared

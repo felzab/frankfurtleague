@@ -43,14 +43,6 @@ export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
             className="bg-field-fg inline-block size-8 mask-[url('/icons/footer/threads/threads_logo_black.svg')] mask-contain mask-center mask-no-repeat"
           />
         );
-      case "whatsapp":
-        return (
-          <span
-            aria-hidden="true"
-            title="Whatsapp by Icon Mafia"
-            className="bg-field-fg inline-block size-8 mask-[url('/icons/footer/whatsapp/whatsapp_logo_black.svg')] mask-contain mask-center mask-no-repeat"
-          />
-        );
       default:
         return null;
     }

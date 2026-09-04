@@ -11,6 +11,9 @@ from pymongo import AsyncMongoClient, MongoClient
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spiele.schemas import (
     FLSpiel,
+    FLSpieleActionRequiredResponse,
+    FLSpieleAdminListResponse,
+    FLSpieleListResponse,
     FLSpielJoined,
     FLSpielJoinedAdmin,
     FLSpielJoinedInternal,
@@ -20,6 +23,7 @@ from app.api.spiele.schemas import (
     FLSpielSchiedsrichterFieldPublic,
     FLSpielTeamFieldJoined,
     FLSpielTeamFieldJoinedInternal,
+    public_referee_name,
 )
 from app.api.teams.schemas import FLTeam
 from app.core.collections import Collection
@@ -63,11 +67,17 @@ MIETPREIS = 80
 PAYMENT = 30
 
 SPIELORT_NAME = "Sportplatz Ost"
-SCHIEDSRICHTER_NAME = "Ada Kern"
+
+# Written out rather than composed from the pair, so a reducer agreeing with any spelling of the
+# rule -- the whole surname, or the initial without its dot -- fails these cases (`READ-REFEREE-001`).
+SCHIEDSRICHTER_SURNAME = "Kern"
+SCHIEDSRICHTER_NAME = f"Ada {SCHIEDSRICHTER_SURNAME}"
+PUBLIC_SCHIEDSRICHTER_NAME = "Ada K."
 
 LIST_PATH = f"/api/v{API_VERSION}/spiele"
 SINGLE_PATH = f"{LIST_PATH}/{SPIEL_ID}"
 ADMIN_PATH = f"{SINGLE_PATH}/admin"
+ADMIN_LIST_PATH = f"{LIST_PATH}/list/admin?saison_id={SAISON_ID}"
 
 # Ample for a container already accepting connections. The short timeout belongs to the refusal
 # paths in `fl_backend/tests/api/test_spiele_admin_read.py`, which never reach a database.
@@ -218,7 +228,8 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
 
 # The whole membership of each base-tier embedded shape, so a field added to one is named here or
-# fails. The admin twin inherits it, which is why a relation between the two cannot stand in.
+# fails. The venue's money-bearing twin extends this shape, so a relation between the two cannot
+# stand in.
 PUBLIC_EMBEDDED_FIELDS = [
     pytest.param(FLSpielOrtFieldPublic, frozenset({"spielort_id", "name", "maps_link"}), id="the venue"),
     pytest.param(FLSpielSchiedsrichterFieldPublic, frozenset({"schiedsrichter_id", "name"}), id="the referee"),
@@ -250,7 +261,7 @@ BASE_TIER_FIXTURE_FIELDS = frozenset(
     }
 )
 
-# (the base-tier shape, the money-bearing shape it is narrowed from, the figure separating the two).
+# (the base-tier shape, the shape carrying the figure it withholds, that figure).
 EMBEDDED_PAIRS = [
     pytest.param(FLSpielOrtFieldPublic, FLSpielOrtField, MIETPREIS_KEY, id="the venue"),
     pytest.param(FLSpielSchiedsrichterFieldPublic, FLSpielSchiedsrichterField, PAYMENT_KEY, id="the referee"),
@@ -276,8 +287,8 @@ class TestTheEmbeddedShapes:
     def test_the_base_tier_shape_declares_exactly_these_fields(self, public_model: type[BaseModel], public_fields: frozenset[str]):
         """An allow-list is one only while its whole membership is pinned.
 
-        A subset relation against the admin model cannot do it: that model inherits this one, so a
-        field added here propagates there and the relation survives unchanged.
+        A subset relation against the money-bearing twin cannot do it: the venue's twin extends this
+        shape, so a field added here propagates there and the relation survives unchanged.
         """
 
         assert set(public_model.model_fields) == public_fields
@@ -336,6 +347,26 @@ class TestTheFixtureShapes:
         parsed = FLSpielJoined.model_validate(joined_document())
 
         assert parsed.ort is not None and parsed.ort.name == SPIELORT_NAME
+        assert parsed.schiedsrichter is not None and parsed.schiedsrichter.name == PUBLIC_SCHIEDSRICHTER_NAME
+
+    def test_the_base_tier_fixture_cuts_the_referees_surname(self):
+        """`READ-REFEREE-001`, on the shape a base-tier read answers with rather than on the reducer alone.
+
+        The stored document carries the surname in full, so a model that stopped reducing would
+        serve it and the case above would still pass.
+        """
+
+        parsed = FLSpielJoined.model_validate(joined_document())
+
+        assert parsed.schiedsrichter is not None
+        assert parsed.schiedsrichter.name == PUBLIC_SCHIEDSRICHTER_NAME
+        assert SCHIEDSRICHTER_SURNAME not in parsed.model_dump_json()
+
+    def test_the_admin_fixture_keeps_the_referees_whole_name(self):
+        """The other end of the split, and the reason the stored shape extends no model carrying the reduction."""
+
+        parsed = FLSpielJoinedAdmin.model_validate(joined_document())
+
         assert parsed.schiedsrichter is not None and parsed.schiedsrichter.name == SCHIEDSRICHTER_NAME
 
     def test_the_admin_fixture_keeps_both(self):
@@ -390,6 +421,64 @@ class TestTheFixtureShapes:
 
         assert parsed.team2 is not None and parsed.team2.austritt is not None
         assert (parsed.team2.austritt.grund, parsed.team2.austritt.datum) == (AUSTRITT["grund"], AUSTRITT["datum"])
+
+
+class TestTheTwoListShapes:
+    """Which fixture model each list response carries, read off the declaration rather than off a request.
+
+    The lists split as the single reads already do, so a tier decides the referee's name as it
+    decides the figures.
+    """
+
+    def test_the_base_tier_list_reduces_the_referees_surname(self):
+        response = FLSpieleListResponse.model_validate({"spiele": [joined_document()]})
+
+        assert response.spiele[0].schiedsrichter is not None
+        assert response.spiele[0].schiedsrichter.name == PUBLIC_SCHIEDSRICHTER_NAME
+
+    def test_the_admin_list_keeps_it_whole(self):
+        """Without this the admin fixture search matches a surname against an initial and finds nothing."""
+
+        response = FLSpieleAdminListResponse.model_validate({"spiele": [joined_document()]})
+
+        assert response.spiele[0].schiedsrichter is not None
+        assert response.spiele[0].schiedsrichter.name == SCHIEDSRICHTER_NAME
+
+    def test_the_action_required_list_keeps_it_whole_too(self):
+        """The other admin list, whose cards open a modal printing the referee's name."""
+
+        response = FLSpieleActionRequiredResponse.model_validate({"spiele": [joined_document()], "bracket_faults": []})
+
+        assert response.spiele[0].schiedsrichter is not None
+        assert response.spiele[0].schiedsrichter.name == SCHIEDSRICHTER_NAME
+
+
+# (stored, what the base tier serves). The surname is everything after the FIRST space, so a
+# particle and a double surname reduce whole rather than leaking their front half.
+REFEREE_NAME_CASES = [
+    pytest.param(SCHIEDSRICHTER_NAME, PUBLIC_SCHIEDSRICHTER_NAME, id="one surname"),
+    pytest.param("Ada van der Berg", "Ada v.", id="a particle"),
+    pytest.param("Anna Müller Schmidt", "Anna M.", id="a double surname"),
+    pytest.param("Prince", "Prince", id="no surname at all"),
+]
+
+
+class TestTheSurnameReduction:
+    """`READ-REFEREE-001` over the shapes of name a referee's one free-text field holds.
+
+    A rule taking the LAST word would serve `Ada van der B.` and `Anna Müller S.`, publishing a
+    particle or half a double surname.
+    """
+
+    @pytest.mark.parametrize(("stored", "served"), REFEREE_NAME_CASES)
+    def test_the_rule_answers_a_forename_and_one_initial(self, stored: str, served: str):
+        assert public_referee_name(stored) == served
+
+    @pytest.mark.parametrize(("stored", "served"), REFEREE_NAME_CASES)
+    def test_the_base_tier_shape_applies_it(self, stored: str, served: str):
+        """The rule reaches a caller through the model, so a reducer nothing calls would pass the case above."""
+
+        assert FLSpielSchiedsrichterFieldPublic.model_validate({"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": stored}).name == served
 
 
 class TestThePageThatPublishesTheWithdrawal:
@@ -485,6 +574,23 @@ def test_no_base_tier_body_carries_a_withdrawal_reason_or_day_at_any_depth(seede
 
 
 @pytest.mark.db
+@pytest.mark.parametrize("path", BASE_TIER_CASES)
+def test_no_base_tier_body_carries_the_referees_surname(seeded_url: str, path: str):
+    """The serialised answer to a real request, which is the only thing the wire is actually bound by.
+
+    Searched as text rather than under `name`: a surname reaches the caller whatever key carries it,
+    and the reduction is a value rather than a shape.
+    """
+
+    response = answered(seeded_url, path, BASE_AUTH)
+
+    assert response.status_code == 200
+    assert SCHIEDSRICHTER_SURNAME not in response.text
+    # Non-vacuous: the referee is served, reduced rather than dropped.
+    assert PUBLIC_SCHIEDSRICHTER_NAME in response.text
+
+
+@pytest.mark.db
 def test_the_admin_body_carries_both_figures(seeded_url: str):
     """The control for the pair above, on the same seeded document: the figures are withheld by tier, never absent from the data."""
 
@@ -492,3 +598,17 @@ def test_the_admin_body_carries_both_figures(seeded_url: str):
 
     assert response.status_code == 200
     assert MONEY_KEYS <= keys_anywhere(response.json())
+
+
+@pytest.mark.db
+@pytest.mark.parametrize("path", [pytest.param(ADMIN_PATH, id="one fixture"), pytest.param(ADMIN_LIST_PATH, id="the list")])
+def test_the_admin_body_carries_the_referees_whole_name(seeded_url: str, path: str):
+    """The control for the case above, on the same seeded document: the surname is withheld by tier, never absent from the data.
+
+    The list too, since the fixture search matches a typed surname against what the list served it.
+    """
+
+    response = answered(seeded_url, path, ADMIN_AUTH)
+
+    assert response.status_code == 200
+    assert SCHIEDSRICHTER_NAME in response.text

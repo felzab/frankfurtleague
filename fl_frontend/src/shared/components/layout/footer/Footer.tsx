@@ -21,12 +21,57 @@ function FooterSlotSkeleton({ width, label }: { width: string; label: string }) 
   );
 }
 
+const NAVIGATION_LINKS = [
+  { href: "/about", label: "About" },
+  { href: "/team", label: "Team" },
+  { href: "/kontakt", label: "Kontakt" },
+] as const;
+
+// A column of their own rather than the tail of Navigation: these two are reached because a reader
+// went looking for them, and the pages the site is about are not.
+const RECHTLICHES_LINKS = [
+  { href: "/impressum", label: "Impressum" },
+  { href: "/datenschutz", label: "Datenschutz" },
+] as const;
+
+/**
+ * A titled column of links. Both of them render through this rather than side by side as markup, so
+ * the second cannot drift from the first; `aria-label` because two `<nav>`s in one landmark are told
+ * apart by name alone.
+ */
+function FooterNavColumn({ title, links }: { title: string; links: readonly { href: string; label: string }[] }) {
+  return (
+    <div className="flex flex-col gap-y-3">
+      <h3 className="fluid-xs text-foreground font-semibold tracking-wider uppercase">{title}</h3>
+      <nav
+        aria-label={title}
+        className="flex flex-col gap-y-2">
+        {links.map(({ href, label }) => (
+          <Link
+            key={href}
+            href={href}
+            prefetch={false}
+            className="fluid-xs text-foreground-muted hover:text-brand transition-colors">
+            {label}
+          </Link>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
 // `serverStatusSlot` is injected by the composition root rather than imported, so this layout primitive
 // keeps zero feature dependencies — the same technique as `Sidemenu`'s `saisonMetadataDisplay`.
 export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNode }) {
   return (
-    <footer className="max-w-page mx-auto flex h-full w-full flex-col justify-between px-4 pt-2 pb-6 sm:px-6">
-      <div className="border-border grid grid-cols-1 gap-8 border-b py-6 md:grid-cols-4">
+    // `grow`, never `flex-1`: the wrapper's height is its content's, and a zero flex basis would
+    // make it ask this box for a height this box is asking it for.
+
+    // `pb-2`, not `pb-6`: the old fixed box overflowed and left eight pixels under the copyright
+    // row; the floor keeps that look by stating it.
+    <footer className="max-w-page mx-auto flex w-full grow flex-col justify-between px-4 pt-2 pb-2 sm:px-6">
+      {/* Five tracks for four columns: the brand takes two, so each list keeps a track of its own. */}
+      <div className="border-border grid grid-cols-1 gap-8 border-b py-6 md:grid-cols-5">
         <div className="flex flex-col items-start gap-y-3 md:col-span-2">
           <BrandLink />
           <p className="fluid-xs text-foreground-muted max-w-sm">
@@ -34,29 +79,15 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
           </p>
         </div>
 
-        <div className="flex flex-col gap-y-3">
-          <h3 className="fluid-xs text-foreground font-semibold tracking-wider uppercase">Navigation</h3>
-          <nav className="flex flex-col gap-y-2">
-            <Link
-              href="/about"
-              prefetch={false}
-              className="fluid-xs text-foreground-muted hover:text-brand transition-colors">
-              About
-            </Link>
-            <Link
-              href="/team"
-              prefetch={false}
-              className="fluid-xs text-foreground-muted hover:text-brand transition-colors">
-              Team
-            </Link>
-            <Link
-              href="/kontakt"
-              prefetch={false}
-              className="fluid-xs text-foreground-muted hover:text-brand transition-colors">
-              Kontakt
-            </Link>
-          </nav>
-        </div>
+        <FooterNavColumn
+          title="Navigation"
+          links={NAVIGATION_LINKS}
+        />
+
+        <FooterNavColumn
+          title="Rechtliches"
+          links={RECHTLICHES_LINKS}
+        />
 
         <div className="flex flex-col gap-y-3">
           <h3 className="fluid-xs text-foreground font-semibold tracking-wider uppercase">Socials</h3>
@@ -99,19 +130,6 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
               <span
                 aria-hidden="true"
                 className="bg-foreground inline-block size-6 mask-[url('/icons/footer/instagram/instagram_logo_black.svg')] mask-contain mask-center mask-no-repeat"
-              />
-            </Link>
-
-            <Link
-              href="https://whatsapp.com"
-              prefetch={false}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="WhatsApp-Kanal"
-              className="transition-opacity hover:opacity-80">
-              <span
-                aria-hidden="true"
-                className="bg-foreground inline-block size-6 mask-[url('/icons/footer/whatsapp/whatsapp_logo_black.svg')] mask-contain mask-center mask-no-repeat"
               />
             </Link>
           </div>

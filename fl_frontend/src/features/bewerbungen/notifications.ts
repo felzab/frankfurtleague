@@ -1,11 +1,12 @@
 import "server-only";
 
+import { joinUnd } from "@/core/bewerbungEmail";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
 
 import { BEWERBUNG_SEATS } from "./constants";
 
-import type { BewerbungEmail } from "@/core/bewerbungEmail";
+import type { BewerbungBestaetigungData, BewerbungEmail, BewerbungLinkSeat } from "@/core/bewerbungEmail";
 
 /**
  * The three seats, narrowed to the one field a fan-out reads. Both a stored block and a submitted
@@ -39,16 +40,23 @@ export type BewerbungMailOutcome = {
  */
 export type BewerbungBetreff = "Zusage" | "Absage";
 
-/** What one seat is called, in the wording the form asked for it under. */
-function rolleLabel(rolle: BewerbungRolle): string {
-  return BEWERBUNG_SEATS.find((seat) => seat.value === rolle)?.label ?? "";
+/**
+ * The seats one reader holds, as the phrase a message addresses them by. Reached by every composer
+ * rather than joined per call site, where two spellings would name one reader differently in two
+ * messages.
+ */
+export function rollenText(rollen: readonly BewerbungRolle[]): string {
+  // `BEWERBUNG_SEATS`' order rather than the argument's: a person holding two seats then reads one
+  // phrase whichever answer or record the roles were collected from.
+  return joinUnd(BEWERBUNG_SEATS.filter((seat) => rollen.includes(seat.value)).map((seat) => seat.label));
 }
 
-/** German lists nothing with a comma before its last item: „A, B und C“. */
-function joinUnd(labels: readonly string[]): string {
-  if (labels.length < 2) return labels[0] ?? "";
-
-  return `${labels.slice(0, -1).join(", ")} und ${labels[labels.length - 1]!}`;
+/**
+ * The one-role case of the phrase above rather than a lookup of its own, so a role the table does
+ * not hold is answered in one place.
+ */
+export function rolleText(rolle: BewerbungRolle): string {
+  return rollenText([rolle]);
 }
 
 /**
@@ -82,7 +90,7 @@ function collectSeats(kontakte: BewerbungSeats): { address: string; rollen: Bewe
 }
 
 function toEmpfaenger({ address, rollen }: { address: string; rollen: readonly BewerbungRolle[] }): BewerbungEmpfaenger {
-  return { address: address, rollenText: joinUnd(rollen.map(rolleLabel)) };
+  return { address: address, rollenText: rollenText(rollen) };
 }
 
 /** Every distinct address the application names — who a decision the league has taken goes to. */
@@ -91,9 +99,9 @@ export function collectBewerbungEmpfaenger(kontakte: BewerbungSeats): BewerbungE
 }
 
 /**
- * The Ansprechperson's mailbox alone, and every seat that mailbox holds. **One address rather than
- * three**: the receipt goes out before anybody has confirmed the address, so it takes the narrowest
- * fan-out that still answers the applicant.
+ * The Ansprechperson's mailbox alone, and every seat it holds. **Every message addressed to the
+ * submitter goes here**: no seat records who submitted, and the Ansprechperson is the submitter by
+ * convention. Confirming an address is the link's job, not this fan-out's.
  */
 export function collectBewerbungEingangEmpfaenger(kontakte: BewerbungSeats): BewerbungEmpfaenger[] {
   // Collected over all three seats and narrowed afterwards, never read off the one seat: a person
@@ -101,6 +109,81 @@ export function collectBewerbungEingangEmpfaenger(kontakte: BewerbungSeats): Bew
   return collectSeats(kontakte)
     .filter((mailbox) => mailbox.rollen.includes("ansprechperson"))
     .map(toEmpfaenger);
+}
+
+/**
+ * The three seats with the first name a confirmation message states beside a link. Assignable to
+ * `BewerbungSeats`, so the dedupe reads one block whichever fan-out asked for it.
+ */
+export type BewerbungLinkSeats = {
+  trainer: { email: string; vorname: string } | null;
+  ansprechperson: { email: string; vorname: string } | null;
+  stellvertretung: { email: string; vorname: string } | null;
+  /**
+   * Which seat the Trainer is at the same time, where one person holds both. Optional, so a caller
+   * whose record answers it passes the block whole and one that cannot answer it passes none.
+   */
+  trainer_ist_zugleich?: BewerbungRolle | null;
+};
+
+/** One mailbox and every link it is sent, which is one message's worth. */
+export type BewerbungLinkEmpfaenger = { address: string; seats: BewerbungBestaetigungData["seats"] };
+
+/**
+ * `fl_backend/app/api/bewerbungen/services.py :: paired_seat` answers both seats from either press,
+ * so a mirrored Trainer's own link would ask one reader twice over one decision. It stands only
+ * where the seat it mirrors was left without one.
+ */
+function paarLink(
+  linkBySeat: Partial<Record<BewerbungRolle, string>>,
+  rolle: BewerbungRolle,
+  zugleich: BewerbungRolle | null,
+): string | undefined {
+  if (rolle !== "trainer" || zugleich === null) return linkBySeat[rolle];
+
+  const anker = linkBySeat[zugleich];
+
+  return anker === undefined || anker === "" ? linkBySeat[rolle] : anker;
+}
+
+/** The one place the emptiness is decided, so what the message's type demands is what the filter proves. */
+function hatLink(empfaenger: { address: string; seats: readonly BewerbungLinkSeat[] }): empfaenger is BewerbungLinkEmpfaenger {
+  return empfaenger.seats.length > 0;
+}
+
+/**
+ * One message per mailbox, carrying one link for each seat that mailbox holds. Two people on a
+ * school inbox are two entries under one address.
+ */
+export function seatsByMailbox(
+  kontakte: BewerbungLinkSeats,
+  /** A seat the caller left out gets no link, and a mailbox left with none gets no message: that is what keeps a reminder off an answered seat. */
+  linkBySeat: Partial<Record<BewerbungRolle, string>>,
+): BewerbungLinkEmpfaenger[] {
+  const gruppiert: { address: string; seats: readonly BewerbungLinkSeat[] }[] = collectSeats(kontakte).map(({ address, rollen }) => {
+    // Keyed by link rather than by person: two seats one press answers are one thing to do, and a
+    // shared inbox holding two readers is two, which no other key here tells apart.
+    const proLink = new Map<string, { vorname: string; rollen: BewerbungRolle[] }>();
+
+    for (const rolle of rollen) {
+      const seatLink = paarLink(linkBySeat, rolle, kontakte.trainer_ist_zugleich ?? null);
+      if (seatLink === undefined || seatLink === "") continue;
+
+      const bekannt = proLink.get(seatLink) ?? { vorname: kontakte[rolle]?.vorname ?? "", rollen: [] };
+      bekannt.rollen.push(rolle);
+      proLink.set(seatLink, bekannt);
+    }
+
+    const seats = [...proLink].map(([seatLink, { vorname, rollen: gehalten }]) => ({
+      vorname: vorname,
+      rolleText: rollenText(gehalten),
+      link: seatLink,
+    }));
+
+    return { address: address, seats: seats };
+  });
+
+  return gruppiert.filter(hatLink);
 }
 
 /**
@@ -118,14 +201,41 @@ export async function sendBewerbungMail({
   /** Composed per recipient, because each is told the seat they hold; the rest of the message is one text. */
   buildMail: (rollenText: string) => BewerbungEmail;
 }): Promise<BewerbungMailOutcome> {
+  return settleFanOut(operation, recipients, ({ rollenText }) => buildMail(rollenText));
+}
+
+/**
+ * One message per mailbox, each carrying that mailbox's own links.
+ *
+ * Its own entry point rather than a widened `sendBewerbungMail`, whose `rollenText` would then mean
+ * something different in each of the two.
+ */
+export async function sendBewerbungLinkMail({
+  operation,
+  recipients,
+  buildMail,
+}: {
+  operation: string;
+  recipients: readonly BewerbungLinkEmpfaenger[];
+  buildMail: (seats: BewerbungLinkEmpfaenger["seats"]) => BewerbungEmail;
+}): Promise<BewerbungMailOutcome> {
+  return settleFanOut(operation, recipients, ({ seats }) => buildMail(seats));
+}
+
+/** Settles every address, whatever the message was composed from. */
+async function settleFanOut<T extends { address: string }>(
+  operation: string,
+  recipients: readonly T[],
+  buildMail: (recipient: T) => BewerbungEmail,
+): Promise<BewerbungMailOutcome> {
   const settled = await Promise.allSettled(
     // `async`, so a compose that throws is inside the settled boundary too: without it the throw
     // escapes `.map()` before `allSettled` wraps anything and rejects the whole fan-out, reporting a
     // failure for a written decision (`docs/frontend/spec.md :: I39`).
-    recipients.map(async ({ address, rollenText }) => {
-      const mail = buildMail(rollenText);
+    recipients.map(async (recipient) => {
+      const mail = buildMail(recipient);
 
-      return sendMail({ to: address, subject: mail.subject, html: mail.html, text: mail.text });
+      return sendMail({ to: recipient.address, subject: mail.subject, html: mail.html, text: mail.text });
     }),
   );
 

@@ -3,25 +3,29 @@
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
-import { buildBewerbungAbsageEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
+import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
+import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { ablehnenBewerbung, annehmenBewerbung } from "./mutations";
-import { collectBewerbungEmpfaenger, describeBewerbungMail, sendBewerbungMail } from "./notifications";
-import { FLAblehnenBewerbungPayloadSchema, FLAnnehmenBewerbungPayloadSchema } from "./schemas";
+import { bestaetigungsLink } from "./bestaetigungLink";
+import { gepaarteSitze } from "./bestaetigungStand";
+import { ablehnenBewerbung, annehmenBewerbung, erneutSendenEinwilligung } from "./mutations";
+import { collectBewerbungEmpfaenger, describeBewerbungMail, rollenText, sendBewerbungMail } from "./notifications";
+import { getBewerbungById } from "./queries";
+import { FLAblehnenBewerbungPayloadSchema, FLAnnehmenBewerbungPayloadSchema, FLEinwilligungErneutPayloadSchema } from "./schemas";
 import { bewerbungTeamName, describeAufnahme } from "./utils";
 
 import type { BewerbungEmail } from "@/core/bewerbungEmail";
 import type { ActionResult } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { BewerbungBetreff } from "./notifications";
-import type { FLAblehnenBewerbungPayload, FLAnnehmenBewerbungPayload, FLBewerbung } from "./schemas";
+import type { FLAblehnenBewerbungPayload, FLAnnehmenBewerbungPayload, FLBewerbung, FLEinwilligungErneutPayload } from "./schemas";
 
 /** Where a club is created and reactivated, named as the sidemenu entry reads. */
 const TEAMS_PAGE = "Teams";
@@ -66,6 +70,16 @@ function mapTriageRefusal(error: unknown): { error?: string; fieldErrors?: Field
             "Die Angaben dieser Schule ergeben kein gültiges Team: Team-Name, vollständiger Name, Kürzel, Adresse oder Website passen nicht in die Form, die ein Team haben muss",
           repair: { before: "Lehne die Bewerbung ab und lege das Team", after: "mit korrigierten Angaben selbst an" },
           where: TEAMS_PAGE,
+        }),
+      };
+    // Reachable from a page that was open while a seat's state moved: the view closes the acceptance
+    // while a seat is outstanding, so the reload is what puts the current state in front of the
+    // administrator, seat by seat.
+    case "REQ-BEWERBUNG-013":
+      return {
+        error: buildRefusal({
+          reason: "Nicht jede Kontaktperson dieser Bewerbung hat ihre Einwilligung bestätigt",
+          repair: "Lade die Seite neu",
         }),
       };
     case "REQ-ENTER-001":
@@ -307,5 +321,178 @@ export async function ablehnenBewerbungAction(
       updated_document: absageOperation.updated_document,
       message: `Die Bewerbung ist abgelehnt. ${zustellung}`,
     };
+  });
+}
+
+/** A re-send 409 as the message it should render, or `null` when the code is none of these. */
+function mapEinwilligungErneutRefusal(error: unknown): { error?: string } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  switch (error.serverErrorCode) {
+    // The code the two decisions answer, given the re-send's own words: a link minted against a
+    // decided application would ask somebody to confirm a seat nothing is waiting for.
+    case "REQ-BEWERBUNG-001":
+      return {
+        error: buildRefusal({
+          reason: "Über diese Bewerbung ist schon entschieden worden, und ein neuer Link wäre nicht mehr zu beantworten",
+          repair: "Lade die Seite neu",
+        }),
+      };
+    // Answered, declined, or a seat an application from before the workflow holds: one sentence for
+    // all three, because the control is offered from a page whose state has since moved.
+    case "REQ-BEWERBUNG-011":
+      return {
+        error: buildRefusal({
+          reason: "Für diese Rolle steht keine Bestätigung mehr aus",
+          repair: "Lade die Seite neu",
+        }),
+      };
+    default:
+      return null;
+  }
+}
+
+/** The queue holds an application the retention sweep can have taken since the page was drawn. */
+const BEWERBUNG_WEG = buildRefusal({ reason: "Diese Bewerbung gibt es nicht mehr", repair: "Lade die Seite neu" });
+
+/** A seat with nobody in it shows no control at all, so a press reaching this came off a page whose state has moved. */
+const SITZ_LEER = buildRefusal({ reason: "Für diese Rolle steht niemand mehr in der Bewerbung", repair: "Lade die Seite neu" });
+
+/** No repair, because the administration has none: an application is what three people submitted, and nothing edits it. */
+const KEINE_ADRESSE = "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Ein Link kann an niemanden gehen.";
+
+/** A confirmation asks somebody to confirm for a named school, and `REQ-BEWERBUNG-002` refuses to accept this row anyway. */
+const KEIN_TEAM = buildRefusal({ reason: "Diese Bewerbung nennt kein Team", repair: "Lehne die Bewerbung ab" });
+
+/** What the press cost where no message went out: the mint voided the seat's previous link on its way. */
+const KEIN_LINK_VERSCHICKT = buildRefusal({
+  reason: "Der alte Link gilt nicht mehr, und die E-Mail mit dem neuen ging nicht raus",
+  repair: "Versuche es noch einmal",
+});
+
+/**
+ * The token is minted and the deadline moved by the time this runs, so every arm reports a write
+ * that stands: a refused send is a message to try again rather than a write that did not happen.
+ */
+async function sendeBestaetigungErneut({
+  bewerbungId,
+  saisonId,
+  person,
+  benanntesTeam,
+  sitzeText,
+  token,
+}: {
+  bewerbungId: string;
+  saisonId: string;
+  person: { vorname: string; email: string };
+  benanntesTeam: string;
+  /** Every seat this one link answers for, already one German phrase. */
+  sitzeText: string;
+  token: string;
+}): Promise<{ verschickt: true; message: string } | { verschickt: false; error: string }> {
+  let frist: string | null;
+
+  try {
+    // Read AFTER the write: the deadline this message states is the one the re-send just set, and a
+    // frontend clock reckoning fourteen days itself would disagree with the server across midnight.
+    const gelesen = await getBewerbungById(bewerbungId);
+    if (gelesen === null) return { verschickt: false, error: KEIN_LINK_VERSCHICKT };
+
+    frist = gelesen.bewerbung.bestaetigungsfrist;
+  } catch (error) {
+    // Name only, never the error, and never the token (`docs/logging/spec.md :: L9`).
+    logger.error("bewerbung.mail_failed", undefined, {
+      name: error instanceof Error ? error.name : undefined,
+      error_code: "FE-MAIL-002",
+      operation: "einwilligungErneutSendenAction",
+    });
+
+    return { verschickt: false, error: KEIN_LINK_VERSCHICKT };
+  }
+
+  // Thrown rather than refused: the endpoint writes this deadline in the same update that mints the
+  // token, so an application answering none afterwards is a broken contract and not a state an
+  // administrator has anything to do about.
+  if (frist === null) throw new Error("the re-send answered no Bestätigungsfrist for the application it had just written");
+
+  const fristText = formatSpielDatum(frist);
+
+  const outcome = await sendBewerbungMail({
+    operation: "einwilligungErneutSendenAction",
+    recipients: [{ address: person.email, rollenText: sitzeText }],
+    buildMail: () =>
+      buildBewerbungBestaetigungEmail({
+        saisonId: saisonId,
+        schule: benanntesTeam,
+        // One link whatever it answers for: a person holding two seats reads one control, and the
+        // role text beside it is what tells them the answer covers both.
+        seats: [{ vorname: person.vorname, rolleText: sitzeText, link: bestaetigungsLink(token) }],
+        fristText: fristText,
+      }),
+  });
+
+  return outcome.unreachable.length === 0
+    ? { verschickt: true, message: `Der neue Link ging an ${person.email}.` }
+    : { verschickt: false, error: KEIN_LINK_VERSCHICKT };
+}
+
+/**
+ * No confirmation step: a second link is undone by ignoring it, and the seat's own answer is what
+ * the league acts on either way.
+ */
+export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungErneutPayload): Promise<ActionResult> {
+  return runAdminMutation("einwilligungErneutSendenAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: ADMIN_FORBIDDEN };
+    }
+
+    const validated = FLEinwilligungErneutPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    // Unguarded, and BEFORE the mint: nothing has been written yet, so a throw here is a failure to
+    // report rather than the seat's live link spent on a message this press could never compose.
+    const gelesen = await getBewerbungById(validated.data.id);
+
+    if (gelesen === null) return { success: false, error: BEWERBUNG_WEG };
+
+    const { bewerbung } = gelesen;
+    const person = bewerbung.kontakte[validated.data.rolle];
+
+    if (person === null) return { success: false, error: SITZ_LEER };
+    if (person.email === "") return { success: false, error: KEINE_ADRESSE };
+
+    const benanntesTeam = await resolveBewerbungTeamName(bewerbung);
+
+    if (benanntesTeam === null) return { success: false, error: KEIN_TEAM };
+
+    let erneutOperation;
+    try {
+      erneutOperation = await erneutSendenEinwilligung(validated.data);
+    } catch (error) {
+      const refusal = mapEinwilligungErneutRefusal(error);
+      if (refusal) return { success: false, ...refusal };
+      throw error;
+    }
+
+    if (!erneutOperation.acknowledged) {
+      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht neu verschickt", repair: "Versuche es erneut" }) };
+    }
+
+    // Nothing to invalidate, as on the decline: this moves the application's own confirmation block
+    // and its deadline, and no cached read holds an application — both triage reads are uncached.
+
+    const zustellung = await sendeBestaetigungErneut({
+      bewerbungId: validated.data.id,
+      saisonId: bewerbung.saison_id,
+      person: person,
+      benanntesTeam: benanntesTeam,
+      sitzeText: rollenText(gepaarteSitze(bewerbung, validated.data.rolle)),
+      token: erneutOperation.token,
+    });
+
+    return zustellung.verschickt ? { success: true, message: zustellung.message } : { success: false, error: zustellung.error };
   });
 }

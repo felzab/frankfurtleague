@@ -1,4 +1,4 @@
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+import { EINWILLIGUNG_UMFANG, KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
@@ -7,9 +7,9 @@ import { toFieldErrors } from "@/shared/utils/validation";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLTeamMembership, FLTrainerZugleich } from "@/features/teams/schemas";
+import type { FLKontaktpersonPayload, FLSaisonTeamKontaktePayload, FLTeamMembership, FLTrainerZugleich } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
-import type { FLKontaktErasureResponse } from "./schemas";
+import type { FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from "./schemas";
 import type { SaisonTeamKontaktePayloadDraft } from "./types";
 
 /** One count as German reads it, with a word for none and a word for one. */
@@ -162,12 +162,46 @@ export function resolveTeamSaisonMembership(
   };
 }
 
+/** One seat as the write side spells it: the provenance is the server's own (`docs/backend/spec.md :: I142`). */
+const kontaktpersonPayload = (person: KontaktpersonDraft | null): FLKontaktpersonPayload | null =>
+  person === null
+    ? null
+    : {
+        vorname: person.vorname,
+        nachname: person.nachname,
+        email: person.email,
+        telefon: person.telefon,
+        // A date nobody entered stays the empty string the parse refuses, never one invented here.
+        geburtsdatum: person.geburtsdatum ?? "",
+        einwilligung: {
+          umfang: EINWILLIGUNG_UMFANG,
+          text_version: person.einwilligung.text_version,
+          datum: person.einwilligung.datum,
+        },
+      };
+
+/**
+ * The stored block as the endpoint's own payload. The narrow scope is deliberate: the backend
+ * restores a confirmed seat's wider consent from the confirmation (`docs/backend/spec.md :: I142`),
+ * so a replay must never name it.
+ */
+export function toKontaktePayload(kontakte: SaisonTeamKontakteDraft | null): FLSaisonTeamKontaktePayload | null {
+  if (kontakte === null) return null;
+
+  return {
+    trainer: kontaktpersonPayload(kontakte.trainer),
+    ansprechperson: kontaktpersonPayload(kontakte.ansprechperson),
+    stellvertretung: kontaktpersonPayload(kontakte.stellvertretung),
+    trainer_ist_zugleich: kontakte.trainer_ist_zugleich,
+  };
+}
+
 /**
  * The alphabet, email and telephone bounds sit on the payload and not the read model, decided at
  * each field (`docs/backend/spec.md :: I104`), so a stored block can be no legal write — and no
  * reload makes it one.
  */
-export function describeUnrestorableKontakte(payload: SaisonTeamKontaktePayloadDraft): string | null {
+export function describeUnrestorableKontakte(payload: SaisonTeamKontaktePayloadDraft | FLPatchSaisonTeamKontaktePayload): string | null {
   const parsed = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(payload);
   if (parsed.success) return null;
 

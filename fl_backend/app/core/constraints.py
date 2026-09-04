@@ -9,6 +9,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
+from app.shared.schemas.bounds import AKTION_RETENTION_SECONDS
 
 # Handled rather than re-raised: creating the collection with the validator attached reaches the
 # same end state.
@@ -71,7 +72,8 @@ _TRIKOT_FARBEN = [
     "bordeaux",
     "grau",
 ]
-_KONTAKT_EINWILLIGUNG_UMFANG = ["kontaktdaten"]
+# The second member is the person's own tick on their confirmation page: no payload offers it.
+_KONTAKT_EINWILLIGUNG_UMFANG = ["kontaktdaten", "kontaktdaten_whatsapp"]
 _KONTAKT_EINWILLIGUNG_QUELLEN = ["person", "administrativ"]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 
@@ -149,19 +151,24 @@ _KONTAKT_EINWILLIGUNG = _object(
         "erteilt_von": {"bsonType": "string", "enum": _KONTAKT_EINWILLIGUNG_QUELLEN},
         "text_version": {"bsonType": "string"},
         "datum": {"bsonType": "string"},
+        # Out of `required` for `wunschgegner`'s reason: every record stored before the field lacks
+        # the key, and a decision re-validates the whole document.
+        "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
     },
 )
 
 # Required TOGETHER, as `_EINWILLIGUNG` is: a person the league cannot reach is not a contact, and a
 # set of details carrying no consent is one nobody agreed to be held.
 _KONTAKTPERSON = _object(
-    required=("vorname", "nachname", "email", "telefon", "geburtsdatum", "einwilligung"),
+    required=("vorname", "nachname", "email", "telefon", "einwilligung"),
     properties={
         "vorname": {"bsonType": "string"},
         "nachname": {"bsonType": "string"},
         "email": {"bsonType": "string"},
         "telefon": {"bsonType": "string"},
-        "geburtsdatum": {"bsonType": "string"},
+        # Nullable and out of `required`: the date arrives with the confirmation, and "required once
+        # confirmed" is no type or enum (`docs/backend/spec.md :: I141`), so nothing here says it.
+        "geburtsdatum": {"bsonType": _STRING_OR_NULL},
         "einwilligung": _KONTAKT_EINWILLIGUNG,
     },
 )
@@ -189,6 +196,35 @@ _KONTAKTE_PROPERTIES = {
 _SAISON_TEAM_KONTAKTE = _object(nullable=True, required=_KONTAKTE_REQUIRED, properties=_KONTAKTE_PROPERTIES)
 
 _BEWERBUNG_KONTAKTE = _object(required=_KONTAKTE_REQUIRED, properties=_KONTAKTE_PROPERTIES)
+
+# One seat's confirmation bookkeeping. `token_hash` is here and on NO model: a raw document key the
+# confirm query alone reads. Nullable per seat, as the slot beside it is: an erasure empties the one
+# naming the person.
+_BEWERBUNG_BESTAETIGUNG = _object(
+    nullable=True,
+    required=("token_hash", "verschickt_am", "erinnert_am", "abgelehnt_am"),
+    properties={
+        "token_hash": {"bsonType": "string"},
+        # The reminder's second hash: it mints a fresh link and keeps the one already in somebody's
+        # inbox valid. Out of `required` because the first mint writes only `token_hash`.
+        "token_hash_zuvor": {"bsonType": _STRING_OR_NULL},
+        "verschickt_am": {"bsonType": "string"},
+        "erinnert_am": {"bsonType": _STRING_OR_NULL},
+        "abgelehnt_am": {"bsonType": _STRING_OR_NULL},
+    },
+)
+
+# The block mirrors `kontakte`'s three slots and stays OUTSIDE it: acceptance copies `kontakte`
+# whole into `saison_teams`, and a hash inside a slot would live there for a season.
+_BEWERBUNG_BESTAETIGUNGEN = _object(
+    nullable=True,
+    required=("trainer", "ansprechperson", "stellvertretung"),
+    properties={
+        "trainer": _BEWERBUNG_BESTAETIGUNG,
+        "ansprechperson": _BEWERBUNG_BESTAETIGUNG,
+        "stellvertretung": _BEWERBUNG_BESTAETIGUNG,
+    },
+)
 
 _SAISON_BEWERBUNG = _object(
     nullable=True,
@@ -588,6 +624,14 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # `required` for `saisons.spielplan`'s reason.
                 "wunschgegner": {"bsonType": _STRING_OR_NULL},
                 "entscheidung": _BEWERBUNG_ENTSCHEIDUNG,
+                # Both out of `required` for `wunschgegner`'s reason. An application with no
+                # `bestaetigungen` block is one the confirmation flow does not apply to.
+                "bestaetigungsfrist": {"bsonType": _STRING_OR_NULL},
+                "bestaetigungen": _BEWERBUNG_BESTAETIGUNGEN,
+                # The day the deletion notice was settled -- delivered, or the seat that would read
+                # it emptied. The erasure's second condition: without it a failed erasure mails
+                # again every hour. Out of `required` for `wunschgegner`'s reason.
+                "loeschung_angekuendigt_am": {"bsonType": _STRING_OR_NULL},
             },
         )
     },
@@ -610,6 +654,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             properties={
                 "_id": {"bsonType": "objectId"},
                 "at": {"bsonType": "string"},
+                # Out of `required`: the rows the log already holds carry none, and strict
+                # validation refuses an erasure's `$set` over an invalid row. `record_write` stamps
+                # every row it builds, so those are the only ones outside the retention.
+                "at_date": {"bsonType": "date"},
                 "actor": _AKTOR,
                 "correlation_id": {"bsonType": "string"},
                 "request": _AKTION_REQUEST,
@@ -673,7 +721,7 @@ class SupportIndex:
 
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # `_id` is in the key because the read SORTS by it: with `at` alone MongoDB cannot walk this
-    # index and scans the whole log instead -- measured, on a collection that only ever grows
+    # index and scans the whole log instead -- measured, and the log holds twelve months of writes
     # (`app/api/aktionen/admin_router.py :: get_aktionen`).
     SupportIndex(
         Collection.AKTIONEN,
@@ -729,12 +777,44 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
 
 
 @dataclass(frozen=True)
+class TTLIndex:
+    """One collection's retention, applied by the database rather than by a sweep in this codebase.
+
+    Separate from `SupportIndex` because dropping one of these costs retention, not speed and not
+    correctness: every row stays, and nothing anywhere reports that it did.
+    """
+
+    collection: str
+    name: str
+    # ONE field, and a date one: MongoDB's manual documents a compound index as ignoring
+    # `expireAfterSeconds` outright and a non-date value as never expiring, each in silence. Mirrored
+    # from https://www.mongodb.com/docs/manual/core/index-ttl/, which moves without us; read 2026-09-04.
+    key: str
+    seconds: int
+    rule: str
+
+
+TTL_INDEXES: Sequence[TTLIndex] = (
+    # Not `at`, though it names the same instant: it is a string, which this index would accept and
+    # then expire nothing under, for as long as anyone left it there.
+    TTLIndex(
+        Collection.AKTIONEN,
+        "aktionen_retention",
+        "at_date",
+        AKTION_RETENTION_SECONDS,
+        "a log row is kept for twelve months after the write it recorded",
+    ),
+)
+
+
+@dataclass(frozen=True)
 class ConstraintSummary:
     validators: int
     # Counted apart because they are applied differently: a validator is replaced, an index is only
     # ever added. One number for both is what let a deploy report six indexes as "unique".
     unique_indexes: int
     support_indexes: int
+    ttl_indexes: int
 
 
 async def _apply_validator(db: AsyncDatabase, collection_name: str, validator: Mapping[str, Any]) -> None:
@@ -767,6 +847,13 @@ async def _apply_support_index(db: AsyncDatabase, support: SupportIndex) -> None
         await db[support.collection].create_index(list(support.keys), name=support.name)
     except OperationFailure as failure:
         raise RuntimeError(f"Could not build support index '{support.collection}.{support.name}' ({support.rule}): {failure}") from failure
+
+
+async def _apply_ttl_index(db: AsyncDatabase, ttl: TTLIndex) -> None:
+    try:
+        await db[ttl.collection].create_index([(ttl.key, ASCENDING)], name=ttl.name, expireAfterSeconds=ttl.seconds)
+    except OperationFailure as failure:
+        raise RuntimeError(f"Could not build TTL index '{ttl.collection}.{ttl.name}' ({ttl.rule}): {failure}") from failure
 
 
 # One declared operation, not yet started: a coroutine built for a lane that stops early would be
@@ -834,10 +921,16 @@ async def apply_constraints(db: AsyncDatabase) -> ConstraintSummary:
         [
             *((index.collection, partial(_apply_unique_index, db, index)) for index in UNIQUE_INDEXES),
             *((support.collection, partial(_apply_support_index, db, support)) for support in SUPPORT_INDEXES),
+            *((ttl.collection, partial(_apply_ttl_index, db, ttl)) for ttl in TTL_INDEXES),
         ]
     )
 
-    return ConstraintSummary(validators=len(COLLECTION_VALIDATORS), unique_indexes=len(UNIQUE_INDEXES), support_indexes=len(SUPPORT_INDEXES))
+    return ConstraintSummary(
+        validators=len(COLLECTION_VALIDATORS),
+        unique_indexes=len(UNIQUE_INDEXES),
+        support_indexes=len(SUPPORT_INDEXES),
+        ttl_indexes=len(TTL_INDEXES),
+    )
 
 
 @dataclass(frozen=True)
@@ -1091,8 +1184,9 @@ async def _run(check: bool) -> int:
         if not check:
             summary = await apply_constraints(database)
             print(
-                f"Applied {summary.validators} validators, {summary.unique_indexes} unique and "
-                f"{summary.support_indexes} support indexes to '{get_config().db_base_name}'."
+                f"Applied {summary.validators} validators, {summary.unique_indexes} unique, "
+                f"{summary.support_indexes} support and {summary.ttl_indexes} TTL indexes "
+                f"to '{get_config().db_base_name}'."
             )
             return 0
 
@@ -1159,7 +1253,7 @@ def _main() -> int:
         description="Report or apply the database constraints declared in this module.",
     )
     parser.add_argument("--check", action="store_true", help="report violations and the collMod privilege; writes nothing")
-    parser.add_argument("--apply", action="store_true", help="apply every validator and unique index, exactly as startup does")
+    parser.add_argument("--apply", action="store_true", help="apply every validator and every index, exactly as startup does")
     arguments = parser.parse_args()
 
     if arguments.check == arguments.apply:

@@ -6,6 +6,15 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 [`spec.md`](spec.md); the pipeline a change travels from a branch to a deploy is
 [`../_git/spec.md`](../_git/spec.md) §1.1.
 
+| Section                                                                                                                       | Answers                                                       |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [1. The server](#1-the-server)                                                                                                | What a deploy does, and what a failed one leaves running      |
+| [2. Before deploying a change to the database's constraints](#2-before-deploying-a-change-to-the-databases-constraints)       | The one check to run before a constraint reaches production   |
+| [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                  | Who can sign in, and what revoking actually ends              |
+| [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                              | What the triage page still shows, and what stops new rows     |
+| [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) | Where each role's data is read, and how a request is answered |
+| [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                              | The authority, the clock, and what the logs can establish     |
+
 ---
 
 ## 1. The server
@@ -114,6 +123,22 @@ serves), then `--check` again.
 evidence it landed: those indexes constrain nothing, so no stored document can be in breach of one
 (`fl_backend/app/core/constraints.py :: SupportIndex`). `--apply` or the next boot is what builds it, and
 either fails loudly if it cannot.
+
+**A changed RETENTION bound is the one index change that stops the deploy.** `create_index` refuses a
+name already held at different options rather than moving it, so `apply_constraints` raises and
+`fl_backend/app/core/db.py :: lifespan` fails the boot — the old bound still serving, which the
+refusal does not say. Move it at the keyboard first, from the same shell the `--check` above runs in:
+
+```javascript
+db.runCommand({ collMod: "aktionen", index: { name: "aktionen_retention", expireAfterSeconds: <new> } })
+```
+
+Dropping the index instead also works, the next boot rebuilding it at the declared bound; `collMod`
+is the smaller window, no read losing the index in between. `<new>` must equal
+`fl_backend/app/shared/schemas/bounds.py :: AKTION_RETENTION_SECONDS` in the checkout about to
+deploy, or the boot raises on the difference that is left. Mirrored from
+https://www.mongodb.com/docs/manual/reference/command/collMod/, which moves without us; read
+2026-09-04.
 
 **When `every junction row names a club that exists (saison_teams)` reports a group**, it has found a
 `saison_teams` row whose `team_id` matches no `teams` document. Nothing on the API produces one now — entry
@@ -228,3 +253,122 @@ others), which puts filling the list from a single /48 at roughly three hours of
 minutes. It does nothing about a flood spread across many allocations, and `limit_conn 50` on the catch-all
 is the only ceiling on concurrency — a backstop rather than a per-visitor control, and the one figure in that
 section never exercised against a real page load.
+
+## 5. When somebody asks for their data, or asks us to change it
+
+Access, rectification, objection, restriction, portability and the withdrawal of a consent all
+arrive the same way and are answered by one person by hand. Erasure has its own three mechanisms and
+is [`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s; everything else is
+this section.
+
+**Every request arrives at the league's mailbox**
+(`fl_frontend/src/core/brand.ts :: KONTAKT_EMAIL`, the address the notice and every message send a
+reader to), and the answer goes back from it. There is no ticket system: the mail thread is the
+record, and the action log records the writes you make rather than the request that asked for them.
+
+**Establish who is asking and in which role, because the data sits somewhere different for each.**
+One person can hold several — a referee is a pupil, and a contact person can be both.
+
+| Role           | Where their data is read                                                                                                            |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                 |
+| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                           |
+| Contact person | `/admin/kontakte/{team_id}` for the season's block, and `/admin/bewerbungen/{bewerbung_id}` for the application it was collected on |
+| Administrator  | The sign-in store — the second database, holding the address, the sessions and the sign-in tokens                                   |
+
+`/admin/aktionen` answers what was written about them and by whom, and is the only place that
+question is answered at all. A row past the log's own expiry is gone
+(`docs/backend/spec.md :: I119`), so establish the window before promising a period.
+
+**There is no export route, so an access request is answered by composing what those pages show.**
+Send the categories, the values, where each came from, who receives them
+([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)'s processor table), how long
+they are kept, and the address for a complaint to the supervisory authority. Point at the published
+notice (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) for the standing text
+rather than restating it in the mail.
+
+**How long a record is kept is answered by its own clock rather than by hand.** A declined
+application, an accepted one and a season's contact block are each removed by the retention sweep
+(`docs/backend/spec.md :: I150`); an application nobody confirmed is deleted after its deadline, its
+submitter told first (`docs/backend/spec.md :: I151`); and a log row stamped with its write date
+expires on I119's bound.
+
+**A rectification is the ordinary admin edit**, made on the page above. Two carry a trap worth
+reading before you save: a club rename fans out into the matches of every season that is not `past`
+([`../glossary.md`](../glossary.md#spiel--one-match)), and a referee rename fans out into every
+season's matches, a referee not being season-scoped.
+
+**A withdrawal is an erasure, and a contact seat has one case where it is not.** Which of the three
+you are in is decided by that seat's own link, not by the person's role:
+
+- **The seat is unanswered and its link still works.** Their own Widerspruch, on the confirmation
+  page the link opens, empties the seat at once and tells the submitter so the school can name
+  somebody else (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`).
+  Send them the link again rather than erasing for them; the record then says the person refused
+  rather than that an administrator removed them.
+- **The seat has already answered, or the link is over.** A seat that has confirmed or already
+  contradicted takes no second answer (`REQ-BEWERBUNG-011`), and a link whose deadline has passed or
+  whose application has been decided takes none either (`REQ-BEWERBUNG-010`) — both are refusals the
+  person meets on the page, not something to talk them through. The route is `POST /kontakte/erasure`
+  like any other.
+- **The application has been decided.** `POST /kontakte/erasure`, as above.
+
+**Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
+person in writing: say what is held, on what basis, and what you have done. Where a restriction is
+agreed, the only reliable form it can take here is removing the data, which is the erasure route.
+
+**Two things belong in every answer that touches a deletion.** Backups outlive it by the snapshot
+window and the person is told so
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); and an erasure is
+keyed on an email address, so it clears every seat that address holds, in every season and both
+collections. The confirmation names the person whose panel you started from and lists nothing else
+the address matches
+(`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`),
+so establish yourself whether a school inbox is shared before pressing, and read the counts the
+result reports afterwards — they are what say how far the write reached.
+
+**Answer as soon as what you need is gathered, and where it will take longer say so in the first
+reply rather than after it.** Where the answer needs the Datenschutzexperte, the person is told that
+in the same reply.
+
+## 6. When personal data has been exposed
+
+A personal-data breach is reported to **Der Hessische Beauftragte für Datenschutz und
+Informationsfreiheit** in Wiesbaden, through its Art. 33 form at datenschutz.hessen.de, **within 72
+hours of becoming aware of it** — requesting the upload link does not stop that clock. That is
+mirrored from the authority's own pages, which move without us and were read on 2026-09-02.
+
+The clock starts when a person becomes aware, and nothing here raises an alert, so the first minutes
+are yours to spend on the two steps below rather than on looking for one.
+
+**Copy the container logs off the server before you deploy anything, the fix included.** The
+application services' logs live inside their containers and every deploy recreates both
+([`../logging/spec.md`](../logging/spec.md) §1.2), so a deploy destroys the evidence you are about to
+be asked for. nginx is not recreated by a deploy and carries its own across it. On the server:
+
+```bash
+docker compose logs --no-color --timestamps backend > backend-$(date +%F).log
+docker compose logs --no-color --timestamps frontend > frontend-$(date +%F).log
+```
+
+**What those logs can and cannot answer.** Retention is the container runtime's size rotation
+(`docs/logging/spec.md :: Retention is Docker's`), so a busy period rotates its own oldest lines away
+and the window is set by traffic rather than chosen. The edge's access line carries the visitor's
+address, user agent and referer with the credential arms redacted
+(`docs/logging/spec.md :: L11`), so neither a sign-in token nor a confirmation token is in it; the
+same request line reached Cloudflare unredacted, and what Cloudflare keeps is settled in its
+dashboard rather than here.
+
+**The durable answer to "what was changed, and by whom" is the action log rather than a container
+log.** Every recorded write appends a row carrying the actor, the route, the collection, the
+operation and the image of what the write replaced or removed
+([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)), read
+at `/admin/aktionen`. A row whose values an erasure destroyed is emptied in place and stamped
+(`docs/backend/spec.md :: I42`), so what survives an erasure is that the write happened and not what
+it held.
+
+**Then, in this order:** contain it; establish which people and which categories are affected, from
+the two records above; report inside the 72 hours with what is established and what is not — a report
+may be completed later, and a late one may not; and tell the people affected wherever the risk to
+them is high. Write down what you established and when you established it: the authority asks, and
+the container logs will not be there to reconstruct it from.

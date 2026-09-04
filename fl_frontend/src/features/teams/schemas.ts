@@ -101,15 +101,19 @@ export type FLTrikotFarbe = z.infer<typeof FLTrikotFarbeSchema>;
 
 /**
  * Mirrors `FLKontaktEinwilligung` — what a contact person agreed to, and on whose word it is held.
- * `umfang` is a one-member set: a second scope is a second agreement, never a widened one.
+ * The wider `umfang` is written by the person's own confirmation alone, so the payload below keeps
+ * the one-member literal.
  */
 export const FLKontaktEinwilligungSchema = z.object({
-  umfang: z.literal("kontaktdaten", { error: "Die Einwilligung gilt ausschließlich für Kontaktdaten." }),
+  umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Einwilligung gilt für Kontaktdaten, mit oder ohne WhatsApp." }),
   erteilt_von: z.enum(["person", "administrativ"]),
   // Unbounded on the read side, as every ceiling in this file is: a stored value over one of them
   // must still parse, or a single row fails a whole list.
   text_version: z.string(),
   datum: CustomDateStringSchema,
+  // Null until the person has answered their own confirmation link. It is the one field separating
+  // a consent the person gave from one the league recorded on their behalf.
+  bestaetigt_am: CustomDateStringSchema.nullable(),
 });
 export type FLKontaktEinwilligung = z.infer<typeof FLKontaktEinwilligungSchema>;
 
@@ -118,7 +122,8 @@ export const FLKontaktEinwilligungPayloadSchema = z.object({
   // Written by the form from `EINWILLIGUNG_UMFANG` rather than picked: one scope exists, so a control
   // offering it would ask a question with one answer.
   umfang: z.literal("kontaktdaten", { error: "Die Einwilligung gilt ausschließlich für Kontaktdaten." }),
-  erteilt_von: z.enum(["person", "administrativ"], { error: "Bitte wähle, wer die Einwilligung erteilt hat." }),
+  // No `erteilt_von` and no `bestaetigt_am`: both are the server's to compose, and a payload that
+  // could name either would let an administrator record a consent as the person's own.
   text_version: z
     .string()
     .nonempty({ error: "Bitte gib an, welche Fassung unterschrieben wurde." })
@@ -139,7 +144,9 @@ export const FLKontaktpersonSchema = z.object({
   nachname: z.string().nonempty(),
   email: z.string(),
   telefon: z.string(),
-  geburtsdatum: CustomDateStringSchema,
+  // Null until the person enters it on their confirmation page. Refused on read, one unconfirmed
+  // seat would answer 500 for a whole triage list — `FLBewerbungSchule.website_url`'s failure.
+  geburtsdatum: CustomDateStringSchema.nullable(),
   einwilligung: FLKontaktEinwilligungSchema,
 });
 export type FLKontaktperson = z.infer<typeof FLKontaktpersonSchema>;

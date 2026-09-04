@@ -13,7 +13,15 @@ from pymongo.errors import OperationFailure
 from app.api.bewerbungen.admin_router import ablehnen_bewerbung, annehmen_bewerbung
 from app.api.bewerbungen.router import get_bewerbungen
 from app.api.bewerbungen.schemas import FLAblehnenBewerbungPayload, FLAnnehmenBewerbungPayload, FLBewerbungenFilterParams
-from app.api.bewerbungen.services import BEWERBUNG_ALREADY_DECIDED, BEWERBUNG_SCHULE_UNUSABLE, BEWERBUNG_SUBJECT_UNRESOLVED, compose_new_club
+from app.api.bewerbungen.services import (
+    BEWERBUNG_ALREADY_DECIDED,
+    BEWERBUNG_KONTAKTE_UNCONFIRMED,
+    BEWERBUNG_SCHULE_UNUSABLE,
+    BEWERBUNG_SUBJECT_UNRESOLVED,
+    compose_bestaetigungen,
+    compose_new_club,
+    hash_token,
+)
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
 from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON_NOT_FUTURE
@@ -149,8 +157,14 @@ def schule_block(team_name: str, shorthand: str) -> dict[str, Any]:
     }
 
 
-def bewerbung_document(bewerbung_id: ObjectId, *, team_id: ObjectId | None = None, schule: dict[str, Any] | None = None) -> dict[str, Any]:
-    """One submitted application, undecided. Every field the validator requires, and nothing the triage writes."""
+def bewerbung_document(
+    bewerbung_id: ObjectId, *, team_id: ObjectId | None = None, schule: dict[str, Any] | None = None, **overrides: Any
+) -> dict[str, Any]:
+    """One submitted application, undecided. Every field the validator requires, and nothing the triage writes.
+
+    No `bestaetigungen` block unless a case adds one: the seeded corpus is an application stored
+    before the confirmation flow, which acceptance is not held to.
+    """
 
     return {
         "_id": bewerbung_id,
@@ -163,6 +177,7 @@ def bewerbung_document(bewerbung_id: ObjectId, *, team_id: ObjectId | None = Non
         "trikot": {"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
         "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
         "entscheidung": None,
+        **overrides,
     }
 
 
@@ -531,6 +546,87 @@ class TestAnApplicationResolvingToNoOneClub:
 
         assert code == BEWERBUNG_SUBJECT_UNRESOLVED
         assert (clubs, rows, status) == (SEEDED_CLUBS, [], "eingereicht")
+
+
+UNCONFIRMED_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920008")
+CONFIRMED_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920009")
+
+BESTAETIGUNGEN = compose_bestaetigungen(
+    hashes={name: hash_token(name) for name in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
+)
+
+
+def confirmed_kontakte(*, open_seat: str | None) -> dict[str, Any]:
+    """The seeded people with every seat confirmed by its own person, or one of them left open."""
+
+    block = {slot: dict(person) if isinstance(person, dict) else person for slot, person in KONTAKTE.items()}
+    for slot in ("trainer", "ansprechperson", "stellvertretung"):
+        stamped = slot != open_seat
+        block[slot]["geburtsdatum"] = "1980-05-04" if stamped else None
+        block[slot]["einwilligung"] = {
+            **block[slot]["einwilligung"],
+            "erteilt_von": "person" if stamped else "administrativ",
+            "bestaetigt_am": "2026-02-10" if stamped else None,
+        }
+
+    return block
+
+
+class TestAcceptanceWaitsForEverySeat:
+    """`REQ-BEWERBUNG-013` reaching the acceptance, inside its transaction."""
+
+    def test_an_open_seat_refuses_before_anything_is_written(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(
+                bewerbung_document(
+                    UNCONFIRMED_BEWERBUNG,
+                    team_id=EXISTING_OID,
+                    kontakte=confirmed_kontakte(open_seat="ansprechperson"),
+                    bestaetigungen=BESTAETIGUNGEN,
+                    bestaetigungsfrist="2026-02-15",
+                )
+            )
+
+            with pytest.raises(DocumentConflictException) as conflict:
+                await accept(database, client, UNCONFIRMED_BEWERBUNG)
+
+            return (
+                conflict.value.error_code,
+                conflict.value.detail,
+                await junction_rows(database),
+                (await stored_bewerbung(database, UNCONFIRMED_BEWERBUNG))["status"],
+            )
+
+        code, detail, rows, status = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_KONTAKTE_UNCONFIRMED
+        assert "ansprechperson" in str(detail)
+        assert (rows, status) == ([], "eingereicht")
+
+    def test_every_seat_confirmed_is_accepted_and_the_junction_row_carries_the_stamps(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(
+                bewerbung_document(
+                    CONFIRMED_BEWERBUNG,
+                    team_id=EXISTING_OID,
+                    kontakte=confirmed_kontakte(open_seat=None),
+                    bestaetigungen=BESTAETIGUNGEN,
+                    bestaetigungsfrist="2026-02-15",
+                )
+            )
+            response = await accept(database, client, CONFIRMED_BEWERBUNG)
+
+            return response, await junction_rows(database, team_id=EXISTING_OID)
+
+        response, rows = on_a_league(mongo_replica_set_url, body)
+
+        assert response.team_id == EXISTING_OID
+        assert len(rows) == 1
+        for slot in ("trainer", "ansprechperson", "stellvertretung"):
+            assert rows[0]["kontakte"][slot]["einwilligung"]["bestaetigt_am"] == "2026-02-10"
+            assert rows[0]["kontakte"][slot]["geburtsdatum"] == "1980-05-04"
+        # The bookkeeping block stays on the application: a hash copied into the junction would live there for a season.
+        assert "bestaetigungen" not in rows[0]
 
 
 async def seed_the_unusable_school(database: AsyncDatabase) -> Mapping[str, Any]:

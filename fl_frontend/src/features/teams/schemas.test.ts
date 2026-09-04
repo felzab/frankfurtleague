@@ -160,7 +160,7 @@ const kontaktpersonPayload = (overrides: Record<string, unknown> = {}) => ({
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "2025-08", datum: "2025-09-01" },
+  einwilligung: { umfang: "kontaktdaten", text_version: "2025-08", datum: "2025-09-01" },
   ...overrides,
 });
 

@@ -5,9 +5,9 @@ import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
 import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
 
-import { FLSpieleAdminSingleResponseSchema, FLSpieleListResponseSchema } from "./schemas";
+import { FLSpieleAdminListResponseSchema, FLSpieleAdminSingleResponseSchema, FLSpieleListResponseSchema } from "./schemas";
 
-import type { FLSpieleAdminSingleResponse, FLSpieleListResponse } from "./schemas";
+import type { FLSpieleAdminListResponse, FLSpieleAdminSingleResponse, FLSpieleListResponse } from "./schemas";
 import type { FLSpieleFilterParams } from "./types";
 
 export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSpieleListResponse> {
@@ -26,13 +26,13 @@ export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLS
 }
 
 /** One in-flight admin fixture read per filter set, held for the length of one render pass. */
-const adminSpieleInFlight = cache((): Map<string, Promise<FLSpieleListResponse>> => new Map());
+const adminSpieleInFlight = cache((): Map<string, Promise<FLSpieleAdminListResponse>> => new Map());
 
 /**
  * A season's fixtures for the admin surfaces, a planned season's included — `getSpiele` lists that
  * season as empty. **Uncached, and it stays uncached**: `docs/frontend/spec.md` §1.2.
  */
-export function getAdminSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSpieleListResponse> {
+export function getAdminSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSpieleAdminListResponse> {
   // Keyed on the filters SERIALIZED, never on the object: React's `cache` compares an argument by
   // identity, so a literal written at the call site would miss every time and memoize nothing.
   const key = JSON.stringify(filters, Object.keys(filters).sort());
@@ -40,7 +40,7 @@ export function getAdminSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSp
   if (held !== undefined) return held;
 
   const started = runWithIncomingCorrelationId(() =>
-    apiClient("/spiele/list/admin", FLSpieleListResponseSchema, { authType: "admin", params: filters }),
+    apiClient("/spiele/list/admin", FLSpieleAdminListResponseSchema, { authType: "admin", params: filters }),
   );
   adminSpieleInFlight().set(key, started);
 

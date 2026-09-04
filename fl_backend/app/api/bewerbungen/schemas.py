@@ -9,16 +9,12 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Fie
 # no model in `teams` imports this slice.
 from app.api.teams.schemas import (
     FLGruppenNames,
-    FLKontaktpersonPayload,
     FLSaisonTeamKontakte,
     FLSaisonTeamKontaktePayload,
     FLSchulform,
     FLTrikotFarbe,
+    _KontaktpersonWritablePayload,
 )
-
-# `app/core/` imports no slice, so this is acyclic. Imported rather than restated so the public
-# payload's "today" is the one every endpoint of this application already means.
-from app.core.dependencies import get_german_date_str, get_germany_now
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     ADDRESS_STADTTEIL_MAX_LENGTH,
@@ -26,6 +22,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_GROESSE_MAX,
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
+    BEWERBUNG_TOKEN_MAX_LENGTH,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
@@ -42,6 +39,7 @@ from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
     CustomObjectId,
+    CustomOptionalDateString,
     parse_empty_string_to_none,
     validate_external_url,
 )
@@ -52,6 +50,33 @@ from app.shared.schemas.responses import BaseAPIResponse
 FLBewerbungStatus = Literal["eingereicht", "angenommen", "abgelehnt"]
 
 FLBewerbungenSortOptions = Literal["eingereicht_am", "saison_id"]
+
+# The three seats as a closed set, for the wire: `app/api/kontakte/services.py :: KONTAKT_SLOTS`
+# derives the same three from the model, and a test holds the two spellings equal.
+FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
+
+
+class FLBewerbungBestaetigung(BaseModel):
+    """One seat's confirmation bookkeeping as the triage reads it -- and NO `token_hash`.
+
+    The hash is a raw document key the confirm query alone reads; a model declaring it would serve
+    it through every admin read.
+    """
+
+    # The day the link was last mailed; a re-send moves it.
+    verschickt_am: CustomDateString
+    erinnert_am: CustomOptionalDateString
+    # Beside the slot rather than inside it: a decline EMPTIES the person's slot, and a marker in
+    # there would go with it.
+    abgelehnt_am: CustomOptionalDateString
+
+
+class FLBewerbungBestaetigungen(BaseModel):
+    """The three seats' bookkeeping, mirroring `kontakte`'s slots. Nullable per SEAT: an erasure empties the one naming the person."""
+
+    trainer: FLBewerbungBestaetigung | None
+    ansprechperson: FLBewerbungBestaetigung | None
+    stellvertretung: FLBewerbungBestaetigung | None
 
 
 class FLBewerbungSchule(BaseModel):
@@ -133,6 +158,13 @@ class FLBewerbung(BaseModel):
     # Defaulted for `app/api/teams/schemas.py :: FLTeam`'s reason.
     wunschgegner: str | None = None
     entscheidung: FLBewerbungEntscheidung | None
+    # The day an unconfirmed application is deleted and its links expire. NOT the season's
+    # `Bewerbungsfrist`, which is the window the form is open in. Defaulted for `wunschgegner`'s
+    # reason, as is the block below.
+    bestaetigungsfrist: CustomOptionalDateString = None
+    # Absent on every application stored before the confirmation flow, which every predicate reads
+    # as "nothing to confirm": without that carve-out shipping makes each of them unacceptable.
+    bestaetigungen: FLBewerbungBestaetigungen | None = None
 
 
 FLBewerbungListAdapter = TypeAdapter(list[FLBewerbung])
@@ -238,7 +270,7 @@ def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str) -> None:
     """Refuse a contact person the league would not hold details for, in whole years against `today`.
 
     A PARAMETER, as `refuse_reversed_span`'s span is, so both boundaries are pinnable without a
-    clock. German, because it surfaces as a 422.
+    clock. German, because the person who typed the date reads it.
     """
 
     age = _whole_years_between(born=geburtsdatum, today=today)
@@ -249,22 +281,6 @@ def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str) -> None:
     if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
         raise ValueError(f"Ein Geburtsdatum, das auf ein Alter über {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} Jahre führt, ist kein gültiges Datum.")
 
-
-def _judge_age_against_the_german_day(value: str) -> str:
-    """The clock, and nothing else: a field validator takes no dependency, so this is where one is read.
-
-    Overriding `get_germany_now` does NOT move the day this judges against. Pin the bound through
-    `refuse_age_outside_the_bounds`, which takes `today`.
-    """
-
-    refuse_age_outside_the_bounds(geburtsdatum=value, today=get_german_date_str(get_germany_now()))
-
-    return value
-
-
-# On the PUBLIC payload alone, which is why it is not `CustomDateString` itself: a stored date is
-# read back by the triage whatever it holds, and an administrator's own edit answers to nobody's age.
-CustomBewerbungGeburtsdatum = Annotated[CustomDateString, AfterValidator(_judge_age_against_the_german_day)]
 
 # Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
 # start with `49` -- so the order carries nothing.
@@ -307,16 +323,13 @@ class FLBewerbungEinwilligungPayload(BaseModel):
     erteilt: Literal[True]
 
 
-class FLBewerbungKontaktpersonPayload(FLKontaktpersonPayload):
+class FLBewerbungKontaktpersonPayload(_KontaktpersonWritablePayload):
     """One of the three people, as a member of the public submits them.
 
-    The junction payload plus the two things only a public form needs: a bounded age, and a consent
-    the person gives themselves.
+    No birthdate: each types their own on the confirmation page (`docs/backend/spec.md :: I141`), so
+    the key is refused outright rather than accepted as a null.
     """
 
-    # Bounded HERE and on no other date field in the application: this is the one a stranger types
-    # about themselves, unreviewed.
-    geburtsdatum: CustomBewerbungGeburtsdatum
     einwilligung: FLBewerbungEinwilligungPayload
 
 
@@ -559,6 +572,18 @@ class FLBewerbungTrikotFarbenResponse(BaseAPIResponse):
     vergeben: list[FLTrikotFarbe]
 
 
+class FLBewerbungBestaetigungTokens(BaseModel):
+    """The three RAW tokens the create minted, one per seat.
+
+    This response and the inboxes are the only places a raw token exists: the database holds
+    hashes, the insert logs no image, no read model declares one.
+    """
+
+    trainer: str
+    ansprechperson: str
+    stellvertretung: str
+
+
 class FLPostBewerbungResponse(BaseAPIResponse):
     """What the submission wrote, and nothing the submission carried.
 
@@ -569,3 +594,220 @@ class FLPostBewerbungResponse(BaseAPIResponse):
     created_id: CustomObjectId
     saison_id: str
     eingereicht_am: CustomDateString
+    bestaetigungen: FLBewerbungBestaetigungTokens
+    # Echoed so the mail the handler sends names the day the links stop working.
+    bestaetigungsfrist: CustomDateString
+
+
+# --- The CONFIRMATION. The token is the whole credential, as it is for a sign-in link, so both
+# endpoints are base-tier and every payload forbids an undeclared key.
+
+# Stripped, a token pasted from a mail client arriving with a trailing space more often than not.
+CustomBewerbungToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
+
+# What a reopened link shows. `abgelaufen` covers the deadline having passed AND the application
+# having been decided: either way the link is spent, and the page says so in one way.
+FLBewerbungEinwilligungZustand = Literal["gueltig", "bestaetigt", "abgelehnt", "abgelaufen"]
+
+
+class FLBewerbungEinwilligungAnsichtPayload(BaseModel):
+    """A POST that reads: the token travels in a body, never in a second URL."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: CustomBewerbungToken
+
+
+class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
+    """What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).
+
+    A leaked link's holder learns nothing its mail did not already say: a first name, a school, a
+    season, a role and a wording's version.
+    """
+
+    zustand: FLBewerbungEinwilligungZustand
+    saison_id: str
+    # The school's name as submitted, or the picked club's.
+    schule: str
+    rolle: FLKontaktRolle
+    # Null exactly where the seat is empty -- declined or erased -- and the record went with it.
+    vorname: str | None
+    text_version: str | None
+
+
+class FLBewerbungEinwilligungAntwortPayload(BaseModel):
+    """One person's answer for one seat: the consent, or a decline that empties their slot."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: CustomBewerbungToken
+    antwort: Literal["erteilt", "abgelehnt"]
+    # Required as a KEY and null on a decline: the date is the consent's, and a decline stores no
+    # person at all. Unbounded here -- the age is a 409 with its own German, never a 422.
+    geburtsdatum: CustomOptionalDateString
+    whatsapp: bool
+    # The wording the CONFIRMING person saw, which is what a confirmed seat then cites: the label
+    # the applicant ticked for them may be an older one.
+    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+
+    @model_validator(mode="after")
+    def the_date_comes_with_the_consent_and_never_with_a_decline(self) -> Self:
+        """A 422, like every shape rule about the body: the person answered, and one of the two fields contradicts the answer."""
+
+        if self.antwort == "erteilt" and self.geburtsdatum is None:
+            raise ValueError("Zur Einwilligung gehört das eigene Geburtsdatum.")
+
+        if self.antwort == "abgelehnt" and self.geburtsdatum is not None:
+            raise ValueError("Ein Widerspruch speichert kein Geburtsdatum.")
+
+        return self
+
+    @model_validator(mode="after")
+    def the_whatsapp_consent_comes_with_the_consent_too(self) -> Self:
+        """A decline empties the slot, so a `True` here would echo a scope back to the page that no seat records."""
+
+        if self.antwort == "abgelehnt" and self.whatsapp:
+            raise ValueError("Ein Widerspruch speichert keine WhatsApp-Einwilligung.")
+
+        return self
+
+
+class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
+    """What the answer did, and which seats are still open -- the whole application's, not this person's.
+
+    Widened rather than given a read: one field of an admin-tier document would be a new surface to
+    withhold the rest at.
+    """
+
+    ergebnis: Literal["bestaetigt", "abgelehnt"]
+    # In `FLSaisonTeamKontakte`'s declaration order. A declined seat stays listed: the application
+    # cannot complete without it.
+    ausstehend: list[FLKontaktRolle]
+    geburtsdatum: CustomOptionalDateString
+    whatsapp: bool
+
+    # The five below compose the two outbound messages and are the frontend SERVER's alone; its
+    # route handler answers the browser the four above.
+    saison_id: str
+    # The seat the TOKEN opened, never the pair a `trainer_ist_zugleich` answer wrote alongside it.
+    rolle: FLKontaktRolle
+    # Read before the write: a decline empties the slot, so nothing afterwards can name the person
+    # whose refusal the message reports.
+    vorname: str
+    bestaetigungsfrist: CustomDateString
+    # As that seat stands AFTER the write, so an Ansprechperson who has just declined addresses
+    # nobody at all.
+    ansprechperson_email: str | None
+    # Every seat that one mailbox holds, so a person holding two is told both in the message it gets.
+    ansprechperson_rollen: list[FLKontaktRolle]
+
+
+class FLBewerbungEinwilligungErneutResponse(BaseAPIResponse):
+    """A fresh link for one seat, RAW, for the admin action to mail; the old one then opens nothing."""
+
+    token: str
+    rolle: FLKontaktRolle
+    bestaetigungsfrist: CustomDateString
+
+
+# --- The retention SWEEP, system tier. The backend decides and prepares, the frontend mails: what
+# leaves here is what a mail needs and nothing a person's record holds beyond it (`READ-BEWERBUNG-004`).
+
+
+class FLBewerbungSweepSeat(BaseModel):
+    """One LINK a reminder carries: the RAW fresh token, which exists here and in the mail alone."""
+
+    # Every seat one press of this link answers, which is two for a mirrored Trainer
+    # (`docs/backend/spec.md :: I157`).
+    rollen: list[FLKontaktRolle]
+    vorname: str
+    token: str
+
+
+class FLBewerbungSweepErinnerung(BaseModel):
+    """One reminder to send: one MAILBOX of one application, every seat it holds due today.
+
+    Grouped as the first mail groups (`fl_frontend/src/features/bewerbungen/notifications.ts`), so
+    one person holding two seats gets one message and two people on one inbox get two.
+    """
+
+    bewerbung_id: CustomObjectId
+    saison_id: str
+    schule: str
+    # Unchanged by a reminder, and moved only by an administrator's re-send
+    # (`docs/backend/spec.md :: I152`). The message names it as the day by which a seat must answer.
+    bestaetigungsfrist: CustomDateString
+    email: str
+    seats: list[FLBewerbungSweepSeat]
+
+
+class FLBewerbungSweepAusstehend(BaseModel):
+    """A seat the deletion notice lists as never confirmed. `vorname` is null where the slot was emptied by a decline or an erasure."""
+
+    rolle: FLKontaktRolle
+    vorname: str | None
+
+
+class FLBewerbungSweepLoeschung(BaseModel):
+    """One application past its deadline, still standing: the notice goes out first, the erasure follows in a second call."""
+
+    bewerbung_id: CustomObjectId
+    saison_id: str
+    schule: str
+    bestaetigungsfrist: CustomDateString
+    # The submitter's mailbox: the form asks that seat for the person who submits. Null where the
+    # slot is empty -- nobody can be told, and the caller erases rather than keeping the application
+    # for ever.
+    ansprechperson_email: str | None
+    # Every seat that same mailbox holds, so a submitter who is also the Trainer is addressed by
+    # both rather than by one the message then contradicts.
+    ansprechperson_rollen: list[FLKontaktRolle]
+    ausstehend: list[FLBewerbungSweepAusstehend]
+    # Whether the notice has already gone out. The caller mails only where this is false and erases
+    # wherever it is true, so an erasure that failed after a delivery repeats no message.
+    angekuendigt: bool
+
+
+class FLBewerbungSweepResponse(BaseAPIResponse):
+    """One season's pass: the reminders already stamped, the deletions still to notify, and the three silent clocks' counts."""
+
+    saison_id: str
+    erinnerungen: list[FLBewerbungSweepErinnerung]
+    loeschungen: list[FLBewerbungSweepLoeschung]
+    abgelehnte_geloescht: int
+    angenommene_geloescht: int
+    kontaktbloecke_geleert: int
+    redigierte_aktionen: int
+
+
+class FLBewerbungSweepAngekuendigtPayload(BaseModel):
+    """Which candidates' notices the caller delivered. The backend re-judges them: an id that has stopped qualifying is skipped."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bewerbung_ids: list[CustomObjectId]
+
+
+class FLBewerbungSweepAngekuendigtResponse(BaseAPIResponse):
+    saison_id: str
+    angekuendigt: int
+
+
+class FLBewerbungSweepLoeschenPayload(BaseModel):
+    """Which candidates to erase. The backend re-selects them: an id that has stopped qualifying, or that was never announced, is skipped."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bewerbung_ids: list[CustomObjectId]
+
+
+class FLBewerbungSweepLoeschenResponse(BaseAPIResponse):
+    saison_id: str
+    geloescht: int
+    redigierte_aktionen: int
+
+
+class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):
+    """Every season's id, for the caller to sweep one by one: `docs/backend/spec.md :: I47` keeps a `future` one off the base tier."""
+
+    saison_ids: list[str]

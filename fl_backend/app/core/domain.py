@@ -469,10 +469,33 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     FieldPolicy(
         Collection.BEWERBUNGEN,
         "kontakte",
-        Editability.IMMUTABLE,
-        "on no payload the triage serves: an application is the form three people filled in, and a decision moves "
-        "`status`, `entscheidung` and `team_id` alone. An erasure empties the slot naming one of them, which is a "
-        "removal rather than an edit",
+        Editability.CONDITIONAL,
+        "written whole at submission, and afterwards by the seat's own person alone, through "
+        "`POST /bewerbungen/einwilligung`: a consent fills `geburtsdatum` and the consent record's stamp, source, "
+        "wording and scope on every seat that person holds, a decline nulls those slots, and both are refused once "
+        "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). An erasure empties the "
+        "slot naming one of them. On no payload the TRIAGE serves: a decision moves `status`, `entscheidung` and "
+        "`team_id` alone",
+        "app.api.bewerbungen.services.find_already_answered_refusal",
+    ),
+    FieldPolicy(
+        Collection.BEWERBUNGEN,
+        "bestaetigungen",
+        Editability.CONTROL_ONLY,
+        "no payload carries the block: `POST /bewerbungen` mints one entry per seat, a decline through "
+        "`POST /bewerbungen/einwilligung` stamps `abgelehnt_am` where the emptied slot cannot reach, the re-send "
+        "replaces the entry of every seat that person holds with one fresh hash, the reminder sweep stamps "
+        "`erinnert_am` and mints a fresh hash beside "
+        "the first, and an erasure nulls the entry beside the slot. A client able to name a `token_hash` is a client "
+        "able to mint its own link",
+    ),
+    FieldPolicy(
+        Collection.BEWERBUNGEN,
+        "bestaetigungsfrist",
+        Editability.CONTROL_ONLY,
+        "no payload carries it either: `POST /bewerbungen` counts it from the day it mints the links and the re-send "
+        "restarts it from the day it mints a fresh one, so the deadline is derived from the mint rather than named "
+        "beside it",
     ),
     FieldPolicy(Collection.SAISONS, "id", Editability.IMMUTABLE, "chosen at create; every `saison_id` in the database references this value"),
     FieldPolicy(
@@ -1429,9 +1452,12 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-001",
-        operation="POST /bewerbungen/{bewerbung_id}/annehmen · POST /bewerbungen/{bewerbung_id}/ablehnen",
+        operation=(
+            "POST /bewerbungen/{bewerbung_id}/annehmen · POST /bewerbungen/{bewerbung_id}/ablehnen"
+            " · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut"
+        ),
         aggregate="Bewerbung",
-        summary="an application already decided is neither accepted nor declined a second time",
+        summary="an application already decided is neither accepted nor declined a second time, and gets no new confirmation link",
         implemented_by="app.api.bewerbungen.services.find_triage_refusal",
         tested_by="tests/api/test_bewerbung_triage_refusal.py::TestADecisionIsTakenOnce",
     ),
@@ -1494,6 +1520,46 @@ RULES: tuple[Rule, ...] = (
         implemented_by="app.api.bewerbungen.services.find_shorthand_refusal",
         tested_by="tests/api/test_bewerbung_submission_refusal.py::TestTheProposedKuerzel",
         multi_document=True,
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-009",
+        operation="POST /bewerbungen/einwilligung/ansicht · POST /bewerbungen/einwilligung",
+        aggregate="Bewerbung",
+        summary="a token no seat of any application holds opens nothing, whether unknown, replaced or deleted with its application",
+        implemented_by="app.api.bewerbungen.services.find_unknown_token_refusal",
+        tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestATokenNoSeatHolds",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-010",
+        operation="POST /bewerbungen/einwilligung",
+        aggregate="Bewerbung",
+        summary="a seat is not answered once the application's confirmation deadline has passed or the application has been decided",
+        implemented_by="app.api.bewerbungen.services.find_expired_token_refusal",
+        tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestALinkWhoseTimeIsOver",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-011",
+        operation="POST /bewerbungen/einwilligung · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut",
+        aggregate="Bewerbung",
+        summary="a seat already confirmed or declined, or with nothing left to confirm, takes no second answer and no new link",
+        implemented_by="app.api.bewerbungen.services.find_already_answered_refusal",
+        tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestASeatAlreadyAnswered",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-012",
+        operation="POST /bewerbungen/einwilligung",
+        aggregate="Bewerbung",
+        summary="a contact person confirms with a date of birth inside the league's age span, judged before anything is written",
+        implemented_by="app.api.bewerbungen.services.find_alter_refusal",
+        tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestTheAgeAtConfirmation",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-013",
+        operation="POST /bewerbungen/{bewerbung_id}/annehmen",
+        aggregate="Bewerbung",
+        summary="an application carrying a confirmation block is accepted only once every seat carries its person's own stamp",
+        implemented_by="app.api.bewerbungen.services.find_unconfirmed_kontakte_refusal",
+        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestEverySeatIsConfirmedBeforeAcceptance",
     ),
     Rule(
         code="REQ-PURGE-001",
@@ -1580,7 +1646,10 @@ UNENFORCED: tuple[Unenforced, ...] = (
         subject="a retired row kept indefinitely",
         reason=(
             "Decided 2026-08, Datenschutzexperte consulted: a retired row is never purged on its age, so there is no "
-            "RETENTION sweep to build and none may be added. The one removal is a pupil's own erasure request, which "
+            "RETENTION sweep to build and none may be added. The application clocks in "
+            "`app/api/bewerbungen/sweep_router.py` are a different subject: they select on a season and a deadline, "
+            "never on `inactive_since`, and remove applications rather than retired rows (`docs/backend/spec.md :: "
+            "I150`). The one removal is a pupil's own erasure request, which "
             "selects a subject, never an age, and `REQ-PURGE-001` makes retirement its precondition rather than its "
             "trigger. `inactive_since` stays a date (`docs/backend/spec.md :: I12`): it records WHEN a row retired, "
             "not when a sweep may take it. What the proof reaches is a removal through `app/core/crud.py`'s two "

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
+    FLBewerbungBestaetigungTokens,
     FLBewerbungFensterResponse,
     FLBewerbungKuerzelResponse,
     FLBewerbungSchulenResponse,
@@ -13,13 +14,17 @@ from app.api.bewerbungen.schemas import (
     FLPostBewerbungResponse,
 )
 from app.api.bewerbungen.services import (
+    KONTAKT_SEATS,
     assigned_trikot_farben,
+    bestaetigungsfrist_from,
+    compose_bestaetigungen,
     compose_kontakte,
     find_already_entered_refusal,
     find_picked_club_refusal,
     find_shorthand_refusal,
     find_submission_subject_refusal,
     find_window_refusal,
+    mint_token,
     recorded_window,
     window_is_running,
 )
@@ -213,10 +218,12 @@ async def post_bewerbung(
     today: str = Depends(get_german_date_str),
 ) -> FLPostBewerbungResponse:
     """
-    Store one school's application to play one season, exactly as it was submitted.
+    Store one school's application to play one season as submitted, and mint one confirmation link per contact person.
 
     Everything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's
-    scope, source and date -- is written here and never taken off the payload.
+    scope, source and date -- is written here and never taken off the payload. The three raw tokens are answered
+    for the caller to mail and stored only as hashes; the response is the one place outside the recipients' inboxes
+    they ever exist.
     """
 
     # The season first, so a submission arriving after the deadline is refused before anything about
@@ -250,6 +257,11 @@ async def post_bewerbung(
         )
         refuse(find_already_entered_refusal(entered=entered > 0))
 
+    # Minted here rather than in the document literal below, so the raw half reaches the response
+    # and the hashed half the database, and the two never sit in one structure.
+    tokens = {seat: mint_token() for seat in KONTAKT_SEATS}
+    bestaetigungsfrist = bestaetigungsfrist_from(today=today)
+
     # Every refusal is behind us, so the write follows with nothing left to judge. No transaction:
     # one insert into one collection, and the uniqueness the checks narrow is held at acceptance.
     created = await post_one_to_db(
@@ -271,7 +283,17 @@ async def post_bewerbung(
             "wunschgegner": bewerbung_data.wunschgegner,
             # Null until the triage decides, which is what `status == "eingereicht"` claims.
             "entscheidung": None,
+            # The deadline and the three hashes, so the sweep and the links have something to
+            # judge; every application stored before this key carries none and is exempt from both.
+            "bestaetigungsfrist": bestaetigungsfrist,
+            "bestaetigungen": compose_bestaetigungen(hashes={seat: token_hash for seat, (_, token_hash) in tokens.items()}, today=today),
         },
     )
 
-    return FLPostBewerbungResponse(created_id=created.inserted_id, saison_id=bewerbung_data.saison_id, eingereicht_am=today)
+    return FLPostBewerbungResponse(
+        created_id=created.inserted_id,
+        saison_id=bewerbung_data.saison_id,
+        eingereicht_am=today,
+        bestaetigungen=FLBewerbungBestaetigungTokens(**{seat: raw for seat, (raw, _) in tokens.items()}),
+        bestaetigungsfrist=bestaetigungsfrist,
+    )

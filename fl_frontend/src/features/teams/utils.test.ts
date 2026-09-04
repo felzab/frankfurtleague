@@ -332,7 +332,7 @@ const kontaktperson = (vorname: string): FLKontaktperson => ({
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "2025-08", datum: "2025-09-01" },
+  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" },
 });
 
 const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => ({
@@ -368,12 +368,12 @@ describe("buildKontaktRows", () => {
     assert.equal(rows[0]?.id, rows[0]?.teamId, "the row is keyed by something other than the club it stands for");
     assert.deepEqual(
       rows[0]?.seats.map((seat) => seat.rolle),
-      ["trainer", "ansprechperson", "stellvertretung"],
+      ["ansprechperson", "stellvertretung", "trainer"],
       "the seats are not the three the editor asks for, in its order",
     );
     // Null and not five empty strings: a seat holds a whole person or none, never a half of one.
-    assert.equal(rows[0]?.seats[0]?.person, null);
-    assert.equal(rows[0]?.seats[1]?.person?.vorname, "Erika");
+    assert.equal(rows[0]?.seats[2]?.person, null);
+    assert.equal(rows[0]?.seats[0]?.person?.vorname, "Erika");
   });
 
   /* What the completeness badge reads. Counted off the seats rather than stored beside them, so it
@@ -435,8 +435,8 @@ describe("buildKontaktRows", () => {
       SAISON,
     );
 
-    assert.equal(rows[0]?.seats[1]?.istTrainerZugleich, false, "the badge stayed on the seat the claim does not name");
-    assert.equal(rows[0]?.seats[2]?.istTrainerZugleich, true);
+    assert.equal(rows[0]?.seats[0]?.istTrainerZugleich, false, "the badge stayed on the seat the claim does not name");
+    assert.equal(rows[0]?.seats[1]?.istTrainerZugleich, true);
   });
 
   it("contributes no row at all for a club with nothing on file", () => {

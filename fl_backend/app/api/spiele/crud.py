@@ -9,7 +9,7 @@ from app.api.spiele.schemas import (
     FLSpiel,
     FLSpielAdvancement,
     FLSpielCommon,
-    FLSpielJoined,
+    FLSpielJoinedAdmin,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
     FLSpielQuelleGruppe,
@@ -91,7 +91,7 @@ async def find_bracket_faults(
     teams_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
     saison_id: str | None = None,
-) -> tuple[list[FLBracketFault], list[FLSpielJoined]]:
+) -> tuple[list[FLBracketFault], list[FLSpielJoinedAdmin]]:
     """Every derived fault in one season and the fixtures they name; every season without one.
 
     The season read asks one over the cap, so an archive too large for one pass is DETECTED rather
@@ -107,7 +107,7 @@ async def find_bracket_faults(
     saisons_filter: Mapping[str, Any] = {} if saison_id is None else {"_id": saison_id}
 
     # The INTERNAL fixture: `find_departed_occupants` orders a fault on the DAY a club left, which
-    # no served side carries. The declared return is the base-tier shape the caller answers with.
+    # no served side carries. The declared return is the admin shape the caller answers with.
     spiele = FLSpielJoinedInternalListAdapter.validate_python(
         await aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter=spiele_filter))
     )
@@ -154,7 +154,7 @@ async def find_bracket_faults(
     faults.extend(double_entries)
     faulted_ids.update(fault.spiel_id for fault in double_entries)
 
-    faulted_spiele: list[FLSpielJoined] = [spiel for spiel in spiele if spiel.id in faulted_ids]
+    faulted_spiele: list[FLSpielJoinedAdmin] = [spiel for spiel in spiele if spiel.id in faulted_ids]
 
     return faults, faulted_spiele
 

@@ -37,6 +37,24 @@ application services' only** — `nginx` declares neither, which is recorded in 
 assumed to be deliberate. `nginx` declares `depends_on` both services with
 `condition: service_healthy`.
 
+**The frontend container is also what runs the retention sweep.**
+`fl_frontend/src/instrumentation.ts :: register` arms
+`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep` under a production build with
+`BEWERBUNG_SWEEP` on, and it then runs one pass a minute
+after start and then hourly. Each pass lists the seasons at `GET /bewerbungen/sweep`, calls
+`POST /bewerbungen/sweep/{saison_id}` per season and, for the applications whose deletion notice was
+delivered, the `angekuendigt` and `loeschen` calls beside it in
+`fl_frontend/src/features/bewerbungen/mutations.ts`, so every retention clock — the reminder, the
+deletion of an unconfirmed application, the two erasure clocks and the contact block's — runs in the
+process that serves the site and stops when it stops. Production declares no replicas, so one process
+arms one timer (I149), and a tick finding the previous pass still running skips with one line rather
+than overlapping it. The four clocks that write inside the pass select on dates and are idempotent,
+so a redeploy, a restart and a double-arm each cost nothing; the deletion notice is idempotent to one
+floor, a crash between a delivery and its stamp repeating that one notice once
+([`docs/backend/spec.md`](../backend/spec.md) I156). `BEWERBUNG_SWEEP` is what turns it off on a
+production build (§1.5); a `next dev` process arms nothing whatever that switch says, its default
+being on.
+
 **Note:** `API_VERSION` is a constant of the code rather than a setting
 ([`docs/backend/spec.md`](../backend/spec.md) §1.5), so bumping it is a code change — and the
 version is spelled again outside the code, at sites a commit does not all reach. §4 names the sites
@@ -64,7 +82,8 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `= /api/client-error`      | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/spec.md`](../logging/spec.md))                                                     |
 | `= /api/bewerbung`         | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
 | `= /api/bewerbung/kuerzel` | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
-| the four `/` twins         | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones — the `bewerbung` twin its `64k` cap too                                                                |
+| `= /api/bestaetigung`      | `frontend:3000` | Next route handler, the confirmation link's write — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                                 |
+| the five `/` twins         | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
 | `/api/admin/`              | `frontend:3000` | The page-owned editors' undo handlers                                                                                                                                                                |
 | `= /api/v0/system/is_live` | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
 | `= /signin`                | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
@@ -97,7 +116,7 @@ reaches only that route: an address from a range published after the fetch falls
 both copies, so keeping the list current stays the only answer there.
 
 **Every zone is keyed on a POST map, the two Kürzel zones excepted** — an empty key is exempt from
-`limit_req`, so `signin`, `clienterr` and `bewerbung` limit no GET on their paths. The Kürzel check
+`limit_req`, so `signin`, `clienterr`, `bewerbung` and `bestaetigung` limit no GET on their paths. The Kürzel check
 IS a GET, so keyed there it would read as limited and be unlimited; its zones key on the network
 maps unconditionally, at a rate well above the submission's.
 
@@ -137,8 +156,9 @@ makes one directive count differently in the two files**: `nginx/local.conf` ser
 the byte-identical line bounds whole connections locally, and nothing compares the pair (§4,
 db2a-9qu3).
 
-**The public write caps its body at `64k` against the server block's `20M`.** Measured 2026-08-30:
-a 100,049-byte POST is refused `413` at the edge, while a 4,049-byte POST reaches the handler.
+**Two public writes cap their bodies against the server block's `20M`** — the application form's at
+`64k`, the confirmation link's at `8k`. The `64k` cap alone is measured, 2026-08-30: a
+100,049-byte POST is refused `413` at the edge, while a 4,049-byte POST reaches the handler.
 
 **A zone has been observed refusing, and what that establishes is the MECHANISM, not the numbers.**
 A burst at the Kürzel check was refused past the burst as `429` (not nginx's `503` default), the
@@ -211,7 +231,10 @@ platform.
 
 **The local stack points both application services at its own database through compose's
 `environment`**, so no `.env` is edited and no run is left aimed at the wrong cluster
-(`docker-compose.local.yml`, whose invariant block holds the argument for each override).
+(`docker-compose.local.yml`, whose invariant block holds the argument for each override). The same
+block sets `BEWERBUNG_SWEEP` off, because the database is a copy of production and
+`fl_frontend/.env` holds the real `AUTH_RESEND_KEY`: an armed sweep here mails the league's actual
+contact people, and one checked-in line is what a developer flips to exercise it (§1.1).
 
 **`./scripts/ops/local.sh --seed` fills it from production**, through two containers of which only
 one is handed the production credentials — a discipline rather than a boundary, its costs written
@@ -723,6 +746,7 @@ its human-readable line on stderr, where it cannot reach the outputs.
 | I18  | A rate-limit key is the visitor's own network, never the Cloudflare edge, and no prefix splits across two keys (§1.3)                                                         | `nginx/prod.conf :: map $remote_addr $client_net`, `:: map $remote_addr $client_net48`, `:: set_real_ip_from` and `:: real_ip_header`; unenforced by the gate, on §1.3's one-off measurement alone |
 | I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/prod.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                 |
 | I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/prod.conf` names no `/docs` location, and nothing checks either                                                     |
+| I149 | One `frontend` service per compose file and no replica count is what lets the retention sweep hold one timer per process with no lease                                        | unenforced — `docker-compose.yml` and `docker-compose.local.yml` each declare the service once, and nothing refuses a second or a `deploy.replicas`                                                |
 
 ## 3. Violation → remedy
 

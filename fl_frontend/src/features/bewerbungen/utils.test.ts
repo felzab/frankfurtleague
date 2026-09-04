@@ -3,15 +3,20 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { parseDate } from "@internationalized/date";
+
+import { BESTAETIGUNG_EINWILLIGUNG } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 
 import { declaredCodes } from "../../core/refusalRegister.ts";
+import { ALTER_AUSSERHALB, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER } from "./constants.ts";
 import {
   abiJahrgang,
   bewerbungJudgedPaths,
   bewerbungTeamName,
   buildBewerbungRows,
   describeAufnahme,
+  empfangsSitze,
   fensterZustand,
   geburtsdatumSpanne,
   KUERZEL_PRUEFUNG,
@@ -20,8 +25,11 @@ import {
   kuerzelHinweis,
   leserichtungHref,
   mapBewerbungSubmitRefusal,
+  mapEinwilligungAnsichtRefusal,
+  mapEinwilligungRefusal,
   mirrorBewerbungTrainer,
   parseLeserichtung,
+  stampEinwilligungFassung,
 } from "./utils.ts";
 
 import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas.ts";
@@ -105,6 +113,8 @@ function bewerbung(id: string, saisonId: string): FLBewerbung {
     kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
     wunschgegner: null,
     entscheidung: null,
+    bestaetigungen: null,
+    bestaetigungsfrist: null,
   };
 }
 
@@ -199,16 +209,54 @@ describe("the Abi-Jahrgang a season fields", () => {
 });
 
 describe("the birthdate window a contact person's date has to fall in", () => {
+  /* The endpoint's own rule restated rather than its result quoted, so both bounds are judged
+     against what it accepts: whole years, a birthday not yet reached this year not having happened
+     (`fl_backend/app/api/bewerbungen/schemas.py :: _whole_years_between`). */
+  function ganzeJahre(geboren: string, heute: string): number {
+    const [gJahr = 0, gMonat = 0, gTag = 0] = geboren.split("-").map(Number);
+    const [hJahr = 0, hMonat = 0, hTag = 0] = heute.split("-").map(Number);
+
+    return hJahr - gJahr - (hMonat < gMonat || (hMonat === gMonat && hTag < gTag) ? 1 : 0);
+  }
+
+  const naechsterTag = (tag: string): string => parseDate(tag).add({ days: 1 }).toString();
+  const vorherigerTag = (tag: string): string => parseDate(tag).subtract({ days: 1 }).toString();
+
   /* Bounds and not an age: the picker needs a `minValue` and a `maxValue`, the schema needs a string
      comparison, and one derivation serving both is what stops the two drifting apart. */
   it("spans both bounds off today, and both ends are inclusive", () => {
-    assert.deepEqual(geburtsdatumSpanne("2026-08-29"), { frueheste: "1906-08-29", spaeteste: "2010-08-29" });
+    assert.deepEqual(geburtsdatumSpanne("2026-08-29"), { frueheste: "1905-08-30", spaeteste: "2010-08-29" });
   });
 
-  /* Both bounds are multiples of four years, so a 29 February lands on a leap year either way — a
-     date arithmetic that produced 30 February would be refused by the picker's own parse. */
-  it("lands a leap day on a leap year at both ends", () => {
-    assert.deepEqual(geburtsdatumSpanne("2024-02-29"), { frueheste: "1904-02-29", spaeteste: "2008-02-29" });
+  /* A 29 February has no counterpart in a year that is not a leap year, 1903 and 2100 among them, so
+     an arithmetic that kept the day would hand the picker a date its own parse refuses. */
+  it("clamps a leap day onto the end of February where the target year has none", () => {
+    assert.deepEqual(geburtsdatumSpanne("2024-02-29"), { frueheste: "1903-03-01", spaeteste: "2008-02-29" });
+    assert.equal(geburtsdatumSpanne("2116-02-29").spaeteste, "2100-02-28");
+  });
+
+  /* Both tiers refuse the same set. A band the page turns away and the endpoint accepts is a
+     contact person told to correct a date that was right. */
+  it("ends both bounds exactly where the endpoint's whole-year count does", () => {
+    for (const heute of ["2026-09-04", "2024-02-29", "2027-03-01", "2116-02-29"]) {
+      const { frueheste, spaeteste } = geburtsdatumSpanne(heute);
+
+      assert.equal(ganzeJahre(frueheste, heute), BEWERBUNG_MAX_ALTER, `${heute}: the earliest date offered is not the oldest accepted`);
+      assert.equal(ganzeJahre(vorherigerTag(frueheste), heute), BEWERBUNG_MAX_ALTER + 1, `${heute}: the day before it is accepted too`);
+      assert.equal(ganzeJahre(spaeteste, heute), BEWERBUNG_MIN_ALTER, `${heute}: the latest date offered is not the youngest accepted`);
+      assert.equal(ganzeJahre(naechsterTag(spaeteste), heute), BEWERBUNG_MIN_ALTER - 1, `${heute}: the day after it is accepted too`);
+    }
+  });
+});
+
+describe("which seats the submission's receipt answers for", () => {
+  /* The mirrored seat is the same person on the same mailbox, and `paired_seat` lets either press
+     answer both, so a link message for it asks one reader twice; the receipt that mailbox gets names
+     both roles (`fl_frontend/src/features/bewerbungen/notifications.test.ts`). */
+  it("withholds the Trainer seat only where it mirrors the Ansprechperson", () => {
+    assert.deepEqual(empfangsSitze("ansprechperson"), ["ansprechperson", "trainer"]);
+    assert.deepEqual(empfangsSitze("stellvertretung"), ["ansprechperson"]);
+    assert.deepEqual(empfangsSitze(null), ["ansprechperson"]);
   });
 });
 
@@ -218,7 +266,6 @@ describe("the public form's coach mirror", () => {
     nachname: "Mustermann",
     email: `${vorname.toLowerCase()}@beispiel.de`,
     telefon: "069 1234567",
-    geburtsdatum: "1990-01-01",
     einwilligung: { text_version: "2026-08", erteilt: true },
   });
 
@@ -263,9 +310,9 @@ describe("which paths one judgement covers in the public form", () => {
       "kontakte.ansprechperson.email",
       "kontakte.trainer.email",
     ]);
-    assert.deepEqual(bewerbungJudgedPaths(["kontakte.stellvertretung.geburtsdatum"], "stellvertretung"), [
-      "kontakte.stellvertretung.geburtsdatum",
-      "kontakte.trainer.geburtsdatum",
+    assert.deepEqual(bewerbungJudgedPaths(["kontakte.stellvertretung.telefon"], "stellvertretung"), [
+      "kontakte.stellvertretung.telefon",
+      "kontakte.trainer.telefon",
     ]);
   });
 
@@ -278,6 +325,7 @@ describe("which paths one judgement covers in the public form", () => {
 
 /** The public write, spelled as `fl_backend/app/core/domain.py` spells the operation it declares. */
 const SUBMIT_OPERATION = "POST /bewerbungen";
+const CONFIRM_OPERATION = "POST /bewerbungen/einwilligung";
 
 /** One refusal as the client sees it: a 409 carrying the code, which is the whole of what it maps on. */
 const badStatus = (statusCode: number, serverErrorCode: string) =>
@@ -459,6 +507,111 @@ describe("parseLeserichtung", () => {
       assert.equal(parseLeserichtung(params), "desc");
     }
     assert.equal(parseLeserichtung({ order: "asc" }), "asc");
+  });
+});
+
+describe("the confirmation's refusals against the backend's register", () => {
+  /* As above: a loop over an operation the register does not name runs zero times and proves
+     nothing. */
+  it("finds rules declared against the confirmation at all", () => {
+    assert.ok(declaredCodes(CONFIRM_OPERATION).length > 0, `no rule is declared against ${CONFIRM_OPERATION}`);
+  });
+
+  /* A declared code this maps nowhere reaches the contact person as a bare „Speichern fehlgeschlagen“
+     toast, which names neither the field to fix nor the panel that would explain the dead link. */
+  it("maps every code the confirmation declares", () => {
+    const mapped = declaredCodes(CONFIRM_OPERATION).filter((code) => mapEinwilligungRefusal(refusalFor(code)) !== null);
+
+    assert.deepEqual(mapped, declaredCodes(CONFIRM_OPERATION));
+  });
+
+  /* Each code names a different thing: three dead-link panels and one field. Two sharing an answer
+     is a reader sent to the wrong one of the two, with no way to tell. */
+  it("gives each code its own answer", () => {
+    const answers = declaredCodes(CONFIRM_OPERATION).map((code) => JSON.stringify(mapEinwilligungRefusal(refusalFor(code))));
+
+    assert.equal(new Set(answers).size, answers.length, "two codes are answered with the same panel or sentence");
+  });
+
+  /* One code covers a confirmation and a decline alike, so a state picked here tells a seat that
+     declined in another window that it confirmed. Which way it went is the ansicht read's to say. */
+  it("asks its caller to read the already-answered link rather than naming a state", () => {
+    const antwort = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-011"));
+
+    assert.equal(antwort?.nachlesen, true, "the already-answered refusal no longer asks for the read");
+    assert.equal(antwort?.zustand, undefined, "one code picked a panel it has no way to tell from the other");
+    assert.equal(antwort?.fieldErrors, undefined, "a refusal that spends the token landed on the form's one field");
+  });
+
+  /* The age refusal spends no token, so it has to land on the one field the page renders: a `zustand`
+     here would replace a live form with a dead-link panel and lose the date the person typed. */
+  it("answers the age refusal at the field and never as a state", () => {
+    const antwort = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-012"));
+
+    assert.equal(antwort?.zustand, undefined, "a refusal the token survives closed the form anyway");
+    assert.equal(antwort?.fieldErrors?.geburtsdatum, ALTER_AUSSERHALB);
+  });
+
+  /* A drifted client, since every body rule the panel can break is mirrored. The remedy is the
+     reload, and the answer names no box: nothing here knows which one broke. */
+  it("answers a body refusal without pointing at the one field", () => {
+    const antwort = mapEinwilligungRefusal(badStatus(422, "REQ-VAL-001"));
+
+    assert.notEqual(antwort, null, "a 422 falls through to the shared handler");
+    assert.equal(antwort?.fieldErrors, undefined, "a refusal naming no field landed on one anyway");
+    assert.doesNotMatch(antwort?.error ?? "", /Geburtsdatum/);
+  });
+});
+
+describe("which consent wording an answer is stored under", () => {
+  const FREMD = {
+    token: "kein-echtes-token",
+    antwort: "erteilt" as const,
+    geburtsdatum: "1984-05-09",
+    whatsapp: false,
+    text_version: "2019-01-erfunden",
+  };
+
+  /* The label names which words were on screen, and only this server knows that. Taken from the
+     body, a caller could file a record under a retired wording, or under one nobody ever wrote. */
+  it("replaces whatever label the request carried with the registry's own", () => {
+    assert.equal(stampEinwilligungFassung(FREMD).text_version, BESTAETIGUNG_EINWILLIGUNG.textVersion);
+    assert.notEqual(
+      FREMD.text_version,
+      BESTAETIGUNG_EINWILLIGUNG.textVersion,
+      "the fixture already carries the label, so this compares nothing",
+    );
+  });
+
+  /* Only that one field: the answer, the date and the scope are the person's own, and a stamp that
+     rewrote any of them would record something nobody pressed. */
+  it("moves nothing else the person answered", () => {
+    const { text_version: _fassung, ...gesendet } = FREMD;
+    const { text_version: _gestempelt, ...bewahrt } = stampEinwilligungFassung(FREMD);
+
+    assert.deepEqual(bewahrt, gesendet);
+  });
+});
+
+describe("mapEinwilligungAnsichtRefusal", () => {
+  /* The read refuses an unknown token alone; a spent, declined or expired link answers its own
+     `zustand` in a 200. Fail-closed, so a code nobody planned still renders the panel naming nobody. */
+  it("reads every refusal as the panel that names nobody", () => {
+    assert.equal(mapEinwilligungAnsichtRefusal(refusalFor("REQ-BEWERBUNG-009")), "ungueltig");
+    assert.equal(mapEinwilligungAnsichtRefusal(refusalFor("REQ-SOMETHING-NEW")), "ungueltig");
+  });
+
+  /* A token past `CustomBewerbungToken`'s length, or malformed, never reaches a record, so the read
+     is answered by the dead-link panel rather than by the state inviting a reload that cannot work. */
+  it("reads a token the backend will not parse as a link nothing matches", () => {
+    assert.equal(mapEinwilligungAnsichtRefusal(badStatus(422, "REQ-VAL-001")), "ungueltig");
+  });
+
+  /* A failed read is the page's own state: answering „ungueltig“ on a 500 would call a live link
+     void on a day the backend was unreachable. */
+  it("leaves anything that is not a refusal to the caller", () => {
+    assert.equal(mapEinwilligungAnsichtRefusal(badStatus(500, "")), null);
+    assert.equal(mapEinwilligungAnsichtRefusal(new Error("socket hang up")), null);
   });
 });
 

@@ -80,8 +80,8 @@ export type AustrittDraft = Omit<FLAustritt, "type"> & {
 };
 
 /**
- * The agreement mid-edit, with its origin widened to `null` so a freshly opened block claims nobody's
- * word until somebody says whose it is. The schema refuses the null, as it refuses an unpicked route.
+ * The origin is widened to `null` for DISPLAY: the editor reads a stored one and never sends one, so
+ * a seat nobody has confirmed has none to show.
  */
 type KontaktEinwilligungDraft = Omit<FLKontaktEinwilligung, "erteilt_von"> & {
   erteilt_von: FLKontaktEinwilligung["erteilt_von"] | null;
