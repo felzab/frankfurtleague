@@ -95,3 +95,8 @@ SAISON_ID_LENGTH: Final = 4
 # gets by asking for nothing. Collapsing them would let a raised ceiling raise every page as well.
 LIST_LIMIT_DEFAULT: Final = 1024
 LIST_LIMIT_MAX: Final = 1024
+
+# How long the action log keeps a row, counted from the write it recorded. Seconds because that is
+# the unit `create_index(expireAfterSeconds=)` takes, and a plain year because the database counts
+# no calendar months.
+AKTION_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60

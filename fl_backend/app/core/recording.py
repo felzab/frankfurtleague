@@ -68,7 +68,7 @@ request_var: ContextVar[tuple[str, str] | None] = ContextVar("request", default=
 
 
 def log_stamp(moment: datetime) -> str:
-    """A log row's instant, spelled the one way both of its time fields are.
+    """A log row's instant, spelled the one way both its string stamps are.
 
     UTC with an offset, never German local time: `at` orders and ranges the page, and a local-time
     string carrying no offset sorts October's two identical clock hours the wrong way.
@@ -101,8 +101,14 @@ async def record_write(
     actor = actor_var.get()
     request = request_var.get()
 
+    # One instant for both stamps: read twice, a row's two clocks straddle a second boundary.
+    moment = datetime.now(timezone.utc)
+
     row: dict[str, Any] = {
-        "at": log_stamp(datetime.now(timezone.utc)),
+        "at": log_stamp(moment),
+        # A BSON date because a TTL index expires on one alone, skipping a string in silence, which
+        # is why `at` cannot carry the retention (`app/core/constraints.py :: TTL_INDEXES`).
+        "at_date": moment,
         "actor": actor.as_document(),
         # The request's own id, so a fan-out's rows and the write that caused them are one action on
         # the page instead of forty.

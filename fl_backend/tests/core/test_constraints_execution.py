@@ -1,4 +1,5 @@
 import secrets
+from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Mapping
 
 import pytest
@@ -13,6 +14,7 @@ from app.core.constraints import (
     ABSENT_COLLECTION_NAME,
     COLLECTION_VALIDATORS,
     SUPPORT_INDEXES,
+    TTL_INDEXES,
     UNIQUE_INDEXES,
     apply_constraints,
     probe_collmod_privilege,
@@ -57,6 +59,9 @@ JUNCTION_CLUB_RULE = "every junction row names a club that exists (saison_teams)
 
 # One declared support index, planted under different keys so its build is the one that fails.
 CONFLICTING_SUPPORT_INDEX = "saisons_status"
+# The same planting for the TTL kind, over `at`: the name is claimed and the keys disagree, which is
+# also the shape of the mistake this index exists against.
+CONFLICTING_TTL_INDEX = "aktionen_retention"
 
 # Enough junction rows that the unique build over them outlasts the two-document build beside it.
 SLOW_BUILD_DOCUMENTS = 4000
@@ -211,6 +216,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         "aktionen": {
             "_id": AKTION_OID,
             "at": "2026-03-15T09:30:00+00:00",
+            "at_date": datetime(2026, 3, 15, 9, 30, 0, tzinfo=timezone.utc),
             "actor": {"kind": "admin_session", "email": "admin@example.invalid"},
             "correlation_id": secrets.token_hex(16),
             "request": {"method": "PATCH", "path": "/api/v0/teams/{team_id}"},
@@ -520,6 +526,20 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mon
     assert on_a_database(mongo_url, body) == "raised"
 
 
+def test_the_startup_apply_fails_rather_than_skipping_a_broken_ttl_index(mongo_url: str):
+    """The third kind, and the one whose absence shows in nothing: a log that keeps every row reads exactly like a log being expired."""
+
+    async def body(database: AsyncDatabase) -> str:
+        await database.aktionen.create_index([("at", ASCENDING)], name=CONFLICTING_TTL_INDEX)
+        try:
+            await apply_constraints(database)
+        except RuntimeError as failure:
+            return "raised" if CONFLICTING_TTL_INDEX in str(failure) else f"raised the wrong thing: {failure}"
+        return "carried on"
+
+    assert on_a_database(mongo_url, body) == "raised"
+
+
 def test_the_apply_reports_the_index_declared_first_when_two_of_them_fail(mongo_url: str):
     """The same rule on the shipped path, where arrival must not pick the failure.
 
@@ -742,6 +762,23 @@ def test_every_declared_support_index_is_built(mongo_url: str):
     assert on_the_shipped_schema(mongo_url, body) == len(SUPPORT_INDEXES)
 
 
+def test_every_declared_ttl_index_is_built_over_its_key_with_its_bound(mongo_url: str):
+    """`expireAfterSeconds` is what makes it a TTL index at all, and one built without it serves reads and expires nothing."""
+
+    async def body(database: AsyncDatabase) -> list[tuple[str, Any, Any]]:
+        read_back = []
+        for ttl in TTL_INDEXES:
+            built = {index["name"]: index async for index in await database[ttl.collection].list_indexes()}
+            assert ttl.name in built, f"{ttl.name} missing from {ttl.collection}: {sorted(built)}"
+            read_back.append((ttl.name, built[ttl.name].get("expireAfterSeconds"), dict(built[ttl.name]["key"])))
+        return read_back
+
+    # Read back rather than assumed: an index is only ever ADDED
+    # (`app/core/constraints.py :: apply_constraints`), so a changed bound reaches the declaration
+    # and never a database that already holds the name.
+    assert on_the_shipped_schema(mongo_url, body) == [(ttl.name, ttl.seconds, {ttl.key: 1}) for ttl in TTL_INDEXES]
+
+
 @pytest.mark.parametrize(("db_filter", "order"), index_reads(BEWERBUNGEN_QUEUE_FILTERS))
 def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str, db_filter: dict[str, Any], order: str):
     """The property, not the key list: naming keys passes for an index this endpoint's own sort cannot use.
@@ -780,7 +817,7 @@ def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str
 
 @pytest.mark.parametrize(("db_filter", "order"), index_reads(AKTIONEN_QUEUE_FILTERS))
 def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str, db_filter: dict[str, Any], order: str):
-    """The log is the one collection that only ever grows, so a scan here worsens for as long as the site runs.
+    """The log takes a row for every recorded write and keeps it twelve months, so a scan here reads them all.
 
     `correlation_id` is left out: it selects one write's fan-out, which the planner sorts in memory
     over a handful of rows.

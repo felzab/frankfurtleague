@@ -143,13 +143,9 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 
 ## 6. Retention is bounded where a bound was chosen
 
-- **The action log keeps a row for twelve months after it is written, then the row is deleted.**
-  The mechanism is a TTL index on the row's timestamp, which the database applies without a
-  sweep. This reverses the indefinite retention `docs/backend/spec.md :: I119` states — no row
-  is dropped today, and none is until that index exists.
 - **The log keeps storing the full prior document on every write, person-bearing rows included.**
   That copy is what a restore over the log replays, which is the log's purpose, and the
-  twelve-month bound above is what answers the accumulation. Dropping the copies would remove the
+  twelve-month bound `docs/backend/spec.md :: I119` states is what answers the accumulation. Dropping the copies would remove the
   log's value exactly where writes matter most. A person who asks for erasure still has their log
   rows emptied and stamped inside the transaction that removes them
   (`docs/backend/spec.md :: I42`); what the bound answers is the copies of everyone who never

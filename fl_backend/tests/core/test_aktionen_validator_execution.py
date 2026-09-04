@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, get_args
 
 import pytest
@@ -9,7 +10,7 @@ from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
-from app.core.recording import Operation, build_redaction_filter, build_redaction_update
+from app.core.recording import Operation, build_redaction_filter, build_redaction_update, log_stamp
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -30,6 +31,9 @@ STADT = "Frankfurt am Main"
 
 ACTOR = "admin@example.com"
 RECORDED_AT = "2026-03-15T18:00:00+00:00"
+# The same instant a real row holds twice, so the pair below is what `record_write` builds rather
+# than two stamps that merely both parse.
+RECORDED_AT_DATE = datetime(2026, 3, 15, 18, 0, 0, tzinfo=timezone.utc)
 
 
 def team_document() -> dict[str, Any]:
@@ -58,6 +62,7 @@ def recorded_row(**overrides: Any) -> dict[str, Any]:
 
     return {
         "at": RECORDED_AT,
+        "at_date": RECORDED_AT_DATE,
         "actor": {"kind": "admin_session", "email": ACTOR},
         "correlation_id": "0123456789abcdef0123456789abcdef",
         "request": {"method": "PATCH", "path": "/api/v0/teams/{team_id}"},
@@ -146,6 +151,11 @@ def test_the_rows_every_real_write_builds_are_all_accepted(mongo_replica_set_url
     assert [row["operation"] for row in rows] == ["insert", "patch_one", "patch_many", "insert_many", "delete_many", "erase_many"]
     assert {row["operation"] for row in rows} == set(get_args(Operation))
 
+    # Typed rather than merely present: a TTL index over a string builds and then expires nothing.
+    # The driver reads a BSON date back naive, so UTC is attached for the comparison against `at`.
+    assert all(isinstance(row["at_date"], datetime) for row in rows)
+    assert [log_stamp(row["at_date"].replace(tzinfo=timezone.utc)) for row in rows] == [row["at"] for row in rows]
+
     assert rows[0]["document_id"] == TEAM_OID
     # The image the write replaced, which is the whole of what a restore would replay.
     assert rows[1]["before"]["name"] == SEEDED_NAME
@@ -221,6 +231,10 @@ def test_the_base_row_every_rejection_below_deviates_from_is_accepted(mongo_url:
         (recorded_row(actor={"email": ACTOR}), "an actor missing half its shape"),
         ({key: value for key, value in recorded_row().items() if key != "before"}, "a row carrying no `before` key at all"),
         (recorded_row(at=20260315), "a timestamp stored as a number"),
+        # The defect the date stamp exists against: a TTL index over a string builds and expires
+        # nothing, so the validator is what refuses the row rather than the index.
+        (recorded_row(at_date=RECORDED_AT), "the retention stamp stored as the text `at` already holds"),
+        ({key: value for key, value in recorded_row().items() if key != "at_date"}, "a row carrying no retention stamp at all"),
         (recorded_row(modified_count="40"), "a count stored as a string"),
         (recorded_row(request={"method": "PATCH"}), "a request missing the path half of the pair"),
     ],

@@ -432,7 +432,7 @@ class TestNoPurgeReachesARetiredRow:
     """That a removal reaches the driver from `app/core/crud.py` alone, and that none selects on an age.
 
     Deletion is that module's removal helpers and `inactive_since`, so a purge built later is
-    logged by construction, and no retention sweep stands here.
+    logged by construction.
     """
 
     def test_a_removal_reaches_the_driver_from_one_module_alone(self):

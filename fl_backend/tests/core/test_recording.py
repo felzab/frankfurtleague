@@ -14,7 +14,7 @@ from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
 from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import correlation_id_var
-from app.core.recording import Actor, _stringify_filter, actor_var, record_write, request_var
+from app.core.recording import Actor, _stringify_filter, actor_var, log_stamp, record_write, request_var
 
 # Fixed rather than generated, so a failing test names the same document every run.
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607500001")
@@ -295,6 +295,19 @@ class TestWhoAndWhenARowIsAttributedTo:
         asyncio.run(record_write(collection=as_collection(target), operation="insert", document_id=TEAM_OID))
 
         assert datetime.fromisoformat(log.inserted[0]["at"]).utcoffset() == timedelta(0)
+
+    def test_the_same_instant_is_stored_again_as_a_date(self):
+        """A TTL index expires on a BSON date alone, so on `at`'s string it would expire nothing and report nothing."""
+        target, log = build()
+
+        asyncio.run(record_write(collection=as_collection(target), operation="insert", document_id=TEAM_OID))
+
+        stamped = log.inserted[0]["at_date"]
+        assert isinstance(stamped, datetime)
+        assert stamped.utcoffset() == timedelta(0)
+        # Compared rather than merely typed: read from the clock twice the two stamps straddle a
+        # second, and the row then says the write happened at two instants.
+        assert log_stamp(stamped) == log.inserted[0]["at"]
 
     def test_a_fresh_row_is_not_yet_redacted(self):
         """Null means the row still holds what it recorded, and an absent key would read the same as a redaction to nothing."""

@@ -9,6 +9,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
+from app.shared.schemas.bounds import AKTION_RETENTION_SECONDS
 
 # Handled rather than re-raised: creating the collection with the validator attached reaches the
 # same end state.
@@ -632,6 +633,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             required=(
                 "_id",
                 "at",
+                "at_date",
                 "actor",
                 "correlation_id",
                 "request",
@@ -646,6 +648,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             properties={
                 "_id": {"bsonType": "objectId"},
                 "at": {"bsonType": "string"},
+                # Required rather than merely typed: a TTL index never expires a document missing
+                # its key, so a row admitted without this one would sit in the log for ever.
+                "at_date": {"bsonType": "date"},
                 "actor": _AKTOR,
                 "correlation_id": {"bsonType": "string"},
                 "request": _AKTION_REQUEST,
@@ -709,7 +714,7 @@ class SupportIndex:
 
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # `_id` is in the key because the read SORTS by it: with `at` alone MongoDB cannot walk this
-    # index and scans the whole log instead -- measured, on a collection that only ever grows
+    # index and scans the whole log instead -- measured, on a collection a year of writes fills
     # (`app/api/aktionen/admin_router.py :: get_aktionen`).
     SupportIndex(
         Collection.AKTIONEN,
@@ -765,12 +770,44 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
 
 
 @dataclass(frozen=True)
+class TTLIndex:
+    """One collection's retention, applied by the database rather than by a sweep in this codebase.
+
+    Separate from `SupportIndex` because dropping one of these costs retention, not speed and not
+    correctness: every row stays, and nothing anywhere reports that it did.
+    """
+
+    collection: str
+    name: str
+    # ONE field, and a date one: MongoDB's manual documents a compound index as ignoring
+    # `expireAfterSeconds` outright and a non-date value as never expiring, each in silence. Mirrored
+    # from https://www.mongodb.com/docs/manual/core/index-ttl/, which moves without us; read 2026-09-04.
+    key: str
+    seconds: int
+    rule: str
+
+
+TTL_INDEXES: Sequence[TTLIndex] = (
+    # Not `at`, though it names the same instant: it is a string, which this index would accept and
+    # then expire nothing under, for as long as anyone left it there.
+    TTLIndex(
+        Collection.AKTIONEN,
+        "aktionen_retention",
+        "at_date",
+        AKTION_RETENTION_SECONDS,
+        "a log row is kept for twelve months after the write it recorded",
+    ),
+)
+
+
+@dataclass(frozen=True)
 class ConstraintSummary:
     validators: int
     # Counted apart because they are applied differently: a validator is replaced, an index is only
     # ever added. One number for both is what let a deploy report six indexes as "unique".
     unique_indexes: int
     support_indexes: int
+    ttl_indexes: int
 
 
 async def _apply_validator(db: AsyncDatabase, collection_name: str, validator: Mapping[str, Any]) -> None:
@@ -803,6 +840,13 @@ async def _apply_support_index(db: AsyncDatabase, support: SupportIndex) -> None
         await db[support.collection].create_index(list(support.keys), name=support.name)
     except OperationFailure as failure:
         raise RuntimeError(f"Could not build support index '{support.collection}.{support.name}' ({support.rule}): {failure}") from failure
+
+
+async def _apply_ttl_index(db: AsyncDatabase, ttl: TTLIndex) -> None:
+    try:
+        await db[ttl.collection].create_index([(ttl.key, ASCENDING)], name=ttl.name, expireAfterSeconds=ttl.seconds)
+    except OperationFailure as failure:
+        raise RuntimeError(f"Could not build TTL index '{ttl.collection}.{ttl.name}' ({ttl.rule}): {failure}") from failure
 
 
 # One declared operation, not yet started: a coroutine built for a lane that stops early would be
@@ -870,10 +914,16 @@ async def apply_constraints(db: AsyncDatabase) -> ConstraintSummary:
         [
             *((index.collection, partial(_apply_unique_index, db, index)) for index in UNIQUE_INDEXES),
             *((support.collection, partial(_apply_support_index, db, support)) for support in SUPPORT_INDEXES),
+            *((ttl.collection, partial(_apply_ttl_index, db, ttl)) for ttl in TTL_INDEXES),
         ]
     )
 
-    return ConstraintSummary(validators=len(COLLECTION_VALIDATORS), unique_indexes=len(UNIQUE_INDEXES), support_indexes=len(SUPPORT_INDEXES))
+    return ConstraintSummary(
+        validators=len(COLLECTION_VALIDATORS),
+        unique_indexes=len(UNIQUE_INDEXES),
+        support_indexes=len(SUPPORT_INDEXES),
+        ttl_indexes=len(TTL_INDEXES),
+    )
 
 
 @dataclass(frozen=True)
@@ -1127,8 +1177,9 @@ async def _run(check: bool) -> int:
         if not check:
             summary = await apply_constraints(database)
             print(
-                f"Applied {summary.validators} validators, {summary.unique_indexes} unique and "
-                f"{summary.support_indexes} support indexes to '{get_config().db_base_name}'."
+                f"Applied {summary.validators} validators, {summary.unique_indexes} unique, "
+                f"{summary.support_indexes} support and {summary.ttl_indexes} TTL indexes "
+                f"to '{get_config().db_base_name}'."
             )
             return 0
 

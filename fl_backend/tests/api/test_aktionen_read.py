@@ -183,7 +183,7 @@ def run_list(collection: _LogCollection, **filters: Any) -> Any:
 
 
 class TestATruncatedPageSaysSo:
-    """The log only grows and nothing removes a row, so this read reaches the cap by ordinary use.
+    """The log takes a row per recorded write and keeps it twelve months, so this read reaches the cap by ordinary use.
 
     The probe-row shape is `get_bewerbungen`'s (`docs/backend/spec.md :: I45`); the boundary
     cases mirror `test_bewerbungen_read.py`'s.
