@@ -6,7 +6,7 @@ import { CircleCheck } from "@gravity-ui/icons";
 
 import { Button, Form } from "@heroui/react";
 
-import { BEWERBUNG_SEATS, KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_SEATS, KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { FLPostBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
 import {
   bewerbungJudgedPaths,
@@ -290,12 +290,13 @@ export function BewerbungForm({
         className="border-success/40 bg-success/10 flex w-full flex-col items-center gap-y-3 rounded-2xl border p-8 text-center outline-none">
         <CircleCheck className="text-success-strong size-10" />
         <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Deine Bewerbung ist eingegangen</h2>
-        {/* The seat is NAMED because only that one is written to: told „allen drei“, the two who get
-            nothing read the silence as a failed submission and send the second application this
-            receipt exists to make unnecessary. */}
+        {/* No seat is named, each holding a link of its own: the reader is the one person who can
+            chase the other two, which is why the panel asks rather than reassures. */}
         <p className="muted-hint max-w-md">
-          Die Bestätigung haben wir an die Ansprechperson geschickt. Sobald wir entschieden haben, melden wir uns bei allen drei
-          Kontaktpersonen. Du musst nichts weiter tun.
+          Jede Kontaktperson hat eine E-Mail mit einem eigenen Link zur Bestätigung bekommen. Vollständig ist Deine Bewerbung, sobald alle drei
+          bestätigt haben; dann schauen wir sie uns an und melden uns bei allen drei Kontaktpersonen. Fehlt nach{" "}
+          {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen eine Bestätigung, löschen wir die Bewerbung mit allen Angaben und sagen Dir
+          Bescheid. Sag den anderen am besten selbst Bescheid, dann geht es schneller.
         </p>
       </section>
     );
@@ -370,10 +371,6 @@ export function BewerbungForm({
           validatePicked(paths, next);
         }}
       />
-
-      {/* Repeated at the press, not only in the lead: this form scrolls the lead away long before
-          the button, and what the press sets in motion is three emails rather than a decision. */}
-      <p className="muted-hint">Mit dem Abschicken bekommt jede Kontaktperson eine E-Mail mit einem Link zur Bestätigung.</p>
 
       <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
         <Button

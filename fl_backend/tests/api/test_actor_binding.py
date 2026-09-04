@@ -237,6 +237,7 @@ PUBLIC_WRITES = [
 # exists to name an administrator, and `SYSTEM` is the truthful actor rather than a fallback.
 SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/sweep/{saison_id}", "POST"),
+    ("/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt", "POST"),
     ("/api/v0/bewerbungen/sweep/{saison_id}/loeschen", "POST"),
 ]
 

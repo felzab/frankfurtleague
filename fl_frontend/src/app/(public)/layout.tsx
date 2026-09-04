@@ -14,13 +14,17 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         <TopNav />
       </header>
 
+      {/* The floor puts the footer's top edge past the fold on a short page, where `flex-1` alone
+          would park it at the bottom of the first screen. Same token the header's height reads. */}
       <main
         id="main-content"
-        className="flex w-full flex-1 flex-col items-center justify-start">
+        className="flex min-h-[calc(100dvh-var(--navbar-height))] w-full flex-1 flex-col items-center justify-start">
         {children}
       </main>
 
-      <footer className="bg-surface border-border z-10 h-auto w-full shrink-0 border-t lg:h-[220px]">
+      {/* A floor, never a height: a fixed one is left behind by a column gaining a link, and the
+          fill stops where the separator and the copyright row are still being drawn. */}
+      <footer className="bg-surface border-border z-10 flex w-full shrink-0 flex-col border-t lg:min-h-[220px]">
         <Footer serverStatusSlot={<ServerIsLive />} />
       </footer>
     </>

@@ -150,6 +150,16 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   rows emptied and stamped inside the transaction that removes them
   (`docs/backend/spec.md :: I42`); what the bound answers is the copies of everyone who never
   asked. Ruled 2026-09-02.
+- **A declined application is kept for one month after the decision, its three people's contact
+  details included, then deleted. An accepted application is kept for the season it was accepted
+  for and the season after it, then deleted.** The retention sweep runs both clocks
+  (`docs/backend/spec.md :: I153` and `:: I154`), and the application's own privacy text states
+  both periods once it exists. This bounds the permanent record that `docs/glossary.md :: Bewerbung`
+  and `docs/backend/spec.md :: a decided application stays listed` describe. Ruled 2026-09-02.
+- **A season's contact persons follow the accepted application's clock**: their contact block is
+  cleared when the season after the one they were collected for ends. The consent text scopes
+  itself to one season, and the clearing uses the mechanism the erasure already had. Ruled
+  2026-09-02.
 - **Access logs stay on the host and are bounded by age as well as by size: eight days.** The
   host's own nginx log carries the visitor's address, user agent and referer and survives a
   deploy, so the only bound today is the container runtime's size rotation

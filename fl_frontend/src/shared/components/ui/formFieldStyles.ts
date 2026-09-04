@@ -63,6 +63,13 @@ export const TAB_INDICATOR = "bg-brand-solid rounded-lg shadow-sm";
 export const FIELD_ERROR = "fluid-xxs text-danger mt-1 font-bold";
 
 /**
+ * A field error under a `Switch`. HeroUI reserves the track's width ahead of it, for a label written
+ * after the track; `formPanel`'s switches put the label first, so that reservation indents the error
+ * past the label it belongs under.
+ */
+export const FIELD_ERROR_SWITCH = `${FIELD_ERROR} ps-1`;
+
+/**
  * A sub-group inside a panel; `text-foreground-muted` is what separates it from `FIELD_LABEL`, otherwise the same
  * recipe uppercased. A group whose first field label already names it gets no heading.
  */

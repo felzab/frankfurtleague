@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -15,6 +16,16 @@ import {
 const DOCUMENT_PATH = path.resolve(import.meta.dirname, "..", "..", "..", "fl_backend", "openapi.json");
 const REGENERATE = "cd fl_backend && python -m tests.openapi_document --write";
 
+// Frozen when a label is minted and never updated afterwards: a changed digest means the stored
+// words moved, and moved words are a NEW label rather than a new number here.
+const ABSATZ_DIGESTS: Readonly<Record<string, string>> = {
+  "2026-08": "d1e56ea29e00f2d6b76ccd47694f86b268e06024817ed24f7b457c4e22879edd",
+  "2026-09-bestaetigung": "b503d29ff41e70cdf5b129b43e0f95568a2849fd0b88d01443b367d07a12d818",
+  "2026-09-bestaetigungsseite": "b913bf96900ddcb9bf19d94822f550b5efa0fdd1c1ca4b9a0baaf366f6dff72e",
+};
+
+const absaetzeDigest = (absaetze: readonly string[]): string => createHash("sha256").update(absaetze.join("\n"), "utf8").digest("hex");
+
 /** The bound the API publishes, so the label is judged against the tier that stores it rather than a copy of the number. */
 function publishedVersionMaxLength(): number {
   const document = JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as {
@@ -30,6 +41,26 @@ describe("LIGA_EINWILLIGUNGEN", () => {
   it("answers each label it holds with that label's own paragraphs and switch", () => {
     for (const [textVersion, fassung] of Object.entries(LIGA_EINWILLIGUNGEN)) {
       assert.deepEqual(einwilligungFassung(textVersion), fassung, `${textVersion} resolves to another version's wording`);
+    }
+  });
+
+  /* The registry's one purpose, held mechanically rather than by reading: every other case here
+     compares a label against the very expression that defines it, and a rewording moves both. */
+  it("still holds, label by label, the words each label's digest was minted over", () => {
+    // Both directions: a new label fails until its own digest is minted, and a digest whose label
+    // is gone fails rather than standing over nothing.
+    assert.deepEqual(
+      Object.keys(ABSATZ_DIGESTS).sort(),
+      Object.keys(LIGA_EINWILLIGUNGEN).sort(),
+      "a label has no frozen digest, or the reverse",
+    );
+
+    for (const [textVersion, fassung] of Object.entries(LIGA_EINWILLIGUNGEN)) {
+      assert.equal(
+        absaetzeDigest(fassung.absaetze),
+        ABSATZ_DIGESTS[textVersion],
+        `${textVersion} no longer holds the words its records cite — mint a new label, never a new digest here`,
+      );
     }
   });
 

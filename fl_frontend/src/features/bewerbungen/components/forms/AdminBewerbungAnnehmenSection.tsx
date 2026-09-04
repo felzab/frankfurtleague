@@ -45,10 +45,11 @@ export function AdminBewerbungAnnehmenSection({
   saisonId,
   saisonStatus,
   gruppeOffer,
+  hindernis,
 }: {
   bewerbungId: string;
-  /** The club this acceptance would enter, named as the readout has to name it. */
-  teamName: string;
+  /** The club this acceptance would enter, or `null` where the application names none. */
+  teamName: string | null;
   /** Whether the club is created by this press, which is the difference the readout states. */
   createsTeam: boolean;
   saisonId: string;
@@ -56,6 +57,12 @@ export function AdminBewerbungAnnehmenSection({
   saisonStatus: "past" | "active" | "future" | null;
   /** The season's groups with occupancy, from `buildGruppeOffer` — what the picker may offer. */
   gruppeOffer: readonly GruppeOffer[];
+  /**
+   * Why the write would be refused, or `null`. The panel stays and closes its own control on it: a
+   * section that vanishes leaves the reader hunting a decision the page still holds (my rule,
+   * 2026-09-04).
+   */
+  hindernis: string | null;
 }) {
   const router = useRouter();
   const { isConfirming, isPending: isAccepting, press, cancel } = useTwoPressConfirm();
@@ -70,10 +77,14 @@ export function AdminBewerbungAnnehmenSection({
 
   const panel = formPanel();
 
+  // The reason under the control, in the order the endpoint judges them: what the page already knows
+  // is refused first, and the group is the one thing left for the administrator to supply.
+  const grund = hindernis ?? (gruppe === null ? "Wähle zuerst eine Gruppe." : null);
+
   const handleAccept = () => {
     // Ahead of `press`, so an unchosen group neither arms nor writes.
     const chosen = gruppe;
-    if (chosen === null) return;
+    if (chosen === null || hindernis !== null) return;
 
     press(async () => {
       const res = await annehmenBewerbungAction({ id: bewerbungId, gruppe: chosen, trikot_farbe: trikotFarbe });
@@ -133,17 +144,21 @@ export function AdminBewerbungAnnehmenSection({
           </Callout>
         ) : (
           <>
-            <p className="muted-hint">
-              {createsTeam ? (
-                <>
-                  Mit der Zusage wird <strong>{teamName}</strong> als Team angelegt und in die Saison {saisonId} aufgenommen.
-                </>
-              ) : (
-                <>
-                  Mit der Zusage wird <strong>{teamName}</strong> in die Saison {saisonId} aufgenommen.
-                </>
-              )}
-            </p>
+            {/* Absent where the application names no club: this sentence is built around that name,
+                and „wer aufgenommen würde“ is exactly what such a row leaves open. */}
+            {teamName !== null && (
+              <p className="muted-hint">
+                {createsTeam ? (
+                  <>
+                    Mit der Zusage wird <strong>{teamName}</strong> als Team angelegt und in die Saison {saisonId} aufgenommen.
+                  </>
+                ) : (
+                  <>
+                    Mit der Zusage wird <strong>{teamName}</strong> in die Saison {saisonId} aufgenommen.
+                  </>
+                )}
+              </p>
+            )}
 
             <div className={FIELD_PAIR}>
               <GruppeSelect
@@ -168,7 +183,7 @@ export function AdminBewerbungAnnehmenSection({
               />
             </div>
 
-            {isConfirming && gruppe !== null && (
+            {isConfirming && gruppe !== null && teamName !== null && (
               <ConfirmReveal>
                 <div className="flex w-full flex-col gap-y-1">
                   <h3 className={FORM_SECTION_HEADING}>{createsTeam ? "Was dabei angelegt wird" : "Was dabei eingetragen wird"}</h3>
@@ -205,8 +220,8 @@ export function AdminBewerbungAnnehmenSection({
                 <Button
                   type="button"
                   variant="primary"
-                  aria-describedby={!isAccepting && gruppe === null ? ZUSAGE_BUTTON_HINT_ID : undefined}
-                  isDisabled={isAccepting || gruppe === null}
+                  aria-describedby={!isAccepting && grund !== null ? ZUSAGE_BUTTON_HINT_ID : undefined}
+                  isDisabled={isAccepting || grund !== null}
                   onPress={handleAccept}
                   className={confirmButton(isConfirming)}>
                   {!isConfirming && (
@@ -224,11 +239,11 @@ export function AdminBewerbungAnnehmenSection({
 
               {/* Adjacent to the control it describes and pointed at by `aria-describedby`, the app's
                   treatment for a control disabled for a reason already on screen. */}
-              {!isAccepting && gruppe === null && (
+              {!isAccepting && grund !== null && (
                 <Hint
                   mode="inline"
                   describes={ZUSAGE_BUTTON_HINT_ID}
-                  text="Wähle zuerst eine Gruppe."
+                  text={grund}
                 />
               )}
             </div>

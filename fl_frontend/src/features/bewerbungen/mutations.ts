@@ -6,6 +6,7 @@ import {
   FLBewerbungEinwilligungAnsichtResponseSchema,
   FLBewerbungEinwilligungAntwortResponseSchema,
   FLBewerbungEinwilligungErneutResponseSchema,
+  FLBewerbungSweepAngekuendigtResponseSchema,
   FLBewerbungSweepLoeschenResponseSchema,
   FLBewerbungSweepResponseSchema,
   FLBewerbungSweepSaisonsResponseSchema,
@@ -22,6 +23,8 @@ import type {
   FLBewerbungEinwilligungAntwortPayload,
   FLBewerbungEinwilligungAntwortResponse,
   FLBewerbungEinwilligungErneutResponse,
+  FLBewerbungSweepAngekuendigtPayload,
+  FLBewerbungSweepAngekuendigtResponse,
   FLBewerbungSweepLoeschenPayload,
   FLBewerbungSweepLoeschenResponse,
   FLBewerbungSweepResponse,
@@ -93,8 +96,8 @@ export async function postEinwilligung(payload: FLBewerbungEinwilligungAntwortPa
 
 /**
  * The token is ANSWERED rather than mailed by the backend: every message this app sends is composed
- * on this side, and a second mailer would spell the league's wording twice. The deletion deadline
- * moves out with the link (ruling 61).
+ * here, and a second mailer would spell the league's wording twice. The deadline moves out with the
+ * link (`fl_backend/app/api/bewerbungen/services.py :: compose_erneut_update`).
  */
 export async function erneutSendenEinwilligung({ id, rolle }: FLEinwilligungErneutPayload): Promise<FLBewerbungEinwilligungErneutResponse> {
   return apiClient<FLBewerbungEinwilligungErneutResponse>(
@@ -132,7 +135,28 @@ export async function postBewerbungSweep(saisonId: string): Promise<FLBewerbungS
   });
 }
 
-/** Erases the candidates whose notice was delivered. The backend re-selects them, so a stale id is skipped rather than refused. */
+/**
+ * Records that the deletion notice reached these applications, before anything is erased.
+ *
+ * Without the stamp a run that mailed and then failed to erase would mail the same people again on
+ * every tick after it.
+ */
+export async function postBewerbungSweepAngekuendigt(
+  saisonId: string,
+  payload: FLBewerbungSweepAngekuendigtPayload,
+): Promise<FLBewerbungSweepAngekuendigtResponse> {
+  return apiClient<FLBewerbungSweepAngekuendigtResponse>(
+    `/bewerbungen/sweep/${saisonId}/angekuendigt`,
+    FLBewerbungSweepAngekuendigtResponseSchema,
+    {
+      method: "POST",
+      authType: "system",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+/** Erases the announced candidates. The backend re-selects them, so a stale or unannounced id is skipped rather than refused. */
 export async function postBewerbungSweepLoeschen(
   saisonId: string,
   payload: FLBewerbungSweepLoeschenPayload,

@@ -59,7 +59,7 @@ const IGNORIER_SATZ_EINTRAG = `${IGNORIER_VOR}: Deine Angaben werden nach 14 Tag
    message carries, and the reader cannot tell which of them is being offered. */
 const IGNORIER_SATZ_EINTRAG_MEHRERE = `Weiß hier niemand von einer Bewerbung bei der ${BRAND_NAME}? Dann ignoriert diese E-Mail einfach. Für Euch ist nichts zu tun: Eure Angaben werden nach 14 Tagen gelöscht. Oder lehnt über die Links ab, dann entfernen wir sie sofort.`;
 const IGNORIER_SATZ_BEWERBUNG = `${IGNORIER_VOR}: die Bewerbung wird nach 14 Tagen gelöscht.`;
-const IGNORIER_SATZ_GELOESCHT = `${IGNORIER_VOR}: die Bewerbung wurde gelöscht.`;
+const IGNORIER_SATZ_GELOESCHT = `${IGNORIER_VOR}: die Bewerbung wird jetzt gelöscht.`;
 
 /**
  * Who a message reached, in the words its close states it in. Per message and not one line for all
@@ -564,7 +564,7 @@ export function buildBewerbungBestaetigungEmail({ saisonId, schule, seats, frist
 export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristText }: BewerbungBestaetigungData): BewerbungEmail {
   const mehrere = seats.length > 1;
   const schuleText = einzeilig(schule);
-  const loeschung = einzeilig(fristText);
+  const frist = einzeilig(fristText);
   const rollen = einzeilig(seats[0].rolleText);
   const offen = joinUnd(seats.map(seatName));
 
@@ -576,9 +576,10 @@ export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristTe
       { label: "Schule", value: schuleText },
       { label: "Saison", value: saisonId, akzent: true },
       ...seatFakten(seats),
-      // The date the first message gave as the link's own: named here by what happens on it, since
-      // a reader who has let one deadline pass is not moved by a second one about validity.
-      { label: "Bewerbung wird gelöscht am", value: loeschung },
+      // The deadline the first message gave. The erasure runs the day AFTER it
+      // (`fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`), so a label naming a
+      // deletion date would name a day the clock does not act on.
+      { label: "Bestätigen bis", value: frist },
     ],
     // Fresh links, minted beside the first ones rather than in place of them: a reminder that voided
     // the link somebody is still looking at would punish the reader it is chasing.
@@ -600,8 +601,8 @@ export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristTe
     ),
     paragraph(
       mehrere
-        ? `Klickt auf die Buttons, gebt Euer Geburtsdatum ein und bestätigt die Einträge, oder lehnt sie ab. Ohne Eure Antwort löschen wir die Bewerbung am ${strong(escapeHtml(loeschung))} mit allen Angaben.`
-        : `Klicke auf den Button, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder lehne ihn ab. Ohne Deine Antwort löschen wir die Bewerbung am ${strong(escapeHtml(loeschung))} mit allen Angaben.`,
+        ? `Klickt auf die Buttons, gebt Euer Geburtsdatum ein und bestätigt die Einträge, oder lehnt sie ab. Ist die Bewerbung am ${strong(escapeHtml(frist))} noch unvollständig, löschen wir sie mit allen Angaben.`
+        : `Klicke auf den Button, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder lehne ihn ab. Ist die Bewerbung am ${strong(escapeHtml(frist))} noch unvollständig, löschen wir sie mit allen Angaben.`,
     ),
     ...fallbackBloecke(seatFallbacks(seats), mehrere ? FALLBACK_SATZ_MEHRERE : FALLBACK_SATZ),
   ]);
@@ -616,9 +617,7 @@ export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristTe
     mehrere
       ? "Öffnet diese Links, gebt Euer Geburtsdatum ein und bestätigt die Einträge, oder lehnt sie ab."
       : "Öffne diesen Link, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder lehne ihn ab.",
-    mehrere
-      ? `Ohne Eure Antwort löschen wir die Bewerbung am ${loeschung} mit allen Angaben.`
-      : `Ohne Deine Antwort löschen wir die Bewerbung am ${loeschung} mit allen Angaben.`,
+    `Ist die Bewerbung am ${frist} noch unvollständig, löschen wir sie mit allen Angaben.`,
     "",
     ...fallbackZeilen(seatFallbacks(seats)),
   ]);
@@ -768,8 +767,8 @@ export function buildBewerbungVollstaendigEmail({ saisonId, rollenText }: Bewerb
 }
 
 /**
- * What the submitter is told once the application is gone. `ausstehend` is composed before the
- * delete, the names it carries being in the document the run removes.
+ * What the submitter is told as the application is deleted. The message goes out BEFORE the erasure
+ * and is worded in the present for that reason, `ausstehend` naming seats the document still holds.
  */
 export interface BewerbungGeloeschtData {
   saisonId: string;
@@ -782,11 +781,11 @@ export function buildBewerbungGeloeschtEmail({ saisonId, rollenText, ausstehend 
   const offen = offeneListe(ausstehend);
 
   const nachricht: Nachricht = {
-    headingVor: "Gelöscht: Bewerbung für die",
+    headingVor: "Wir löschen die Bewerbung für die",
     saisonId: saisonId,
     empfaenger: "einreichende",
     fakten: [
-      { label: "Status", value: "Gelöscht, nicht vollständig geworden" },
+      { label: "Status", value: "Wird gelöscht, nicht vollständig geworden" },
       { label: "Saison", value: saisonId, akzent: true },
       { label: "Eingetragen als", value: rollenText },
       // The one thing a school needs before applying again: told only that the application lapsed,
@@ -800,7 +799,7 @@ export function buildBewerbungGeloeschtEmail({ saisonId, rollenText, ausstehend 
 
   const html = renderHtml(nachricht, [
     paragraph(
-      `14 Tage lang haben nicht alle Kontaktpersonen ihren Eintrag bestätigt. Deshalb haben wir Deine Bewerbung für die ${saisonPhrase(saisonId)} ${strong("mit allen Angaben gelöscht")}, wie angekündigt.`,
+      `14 Tage lang haben nicht alle Kontaktpersonen ihren Eintrag bestätigt. Deshalb löschen wir Deine Bewerbung für die ${saisonPhrase(saisonId)} jetzt ${strong("mit allen Angaben")}, wie angekündigt.`,
     ),
     paragraph(
       "Solange die Bewerbungsfrist läuft, kann sich Deine Schule neu bewerben. Frag die Kontaktpersonen am besten vorher, dann klappt es beim zweiten Mal schneller.",
@@ -809,13 +808,13 @@ export function buildBewerbungGeloeschtEmail({ saisonId, rollenText, ausstehend 
 
   const text = renderText(nachricht, [
     "14 Tage lang haben nicht alle Kontaktpersonen ihren Eintrag bestätigt.",
-    `Deshalb haben wir Deine Bewerbung für die Saison ${saisonId} mit allen Angaben gelöscht, wie angekündigt.`,
+    `Deshalb löschen wir Deine Bewerbung für die Saison ${saisonId} jetzt mit allen Angaben, wie angekündigt.`,
     "",
     "Solange die Bewerbungsfrist läuft, kann sich Deine Schule neu bewerben.",
     "Frag die Kontaktpersonen am besten vorher, dann klappt es beim zweiten Mal schneller.",
   ]);
 
-  return { subject: `Bewerbung gelöscht: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
+  return { subject: `Bewerbung wird gelöscht: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
 /**

@@ -32,10 +32,10 @@ export async function register() {
     installConsoleShim();
   }
 
-  // Compared to "on" rather than to "off": `SKIP_ENV_VALIDATION` skips the default with the rest of
-  // the parse, so the value is undefined wherever the gate stands down and a negated test would arm
-  // the sweep there.
-  if (frontend_config.BEWERBUNG_SWEEP === "on") {
+  // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
+  // and the league's real people. Compared to "on" rather than "off": a skipped validation leaves it
+  // undefined, where a negated test would arm.
+  if (process.env.NODE_ENV === "production" && frontend_config.BEWERBUNG_SWEEP === "on") {
     const { armBewerbungSweep } = await import("./features/bewerbungen/sweep");
     armBewerbungSweep();
   }

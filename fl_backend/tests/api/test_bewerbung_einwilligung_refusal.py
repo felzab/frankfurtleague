@@ -37,6 +37,7 @@ from app.api.bewerbungen.services import (
     zustand_of,
 )
 from app.api.kontakte.services import KONTAKT_SLOTS
+from app.core.constraints import _BEWERBUNG_BESTAETIGUNG
 from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_TOKEN_MAX_LENGTH
 
 TODAY = "2026-04-01"
@@ -130,9 +131,16 @@ class TestTheTokenAndItsHash:
         assert db_filter == {"$or": [{f"bestaetigungen.{seat}.{field}": "abc"} for seat in KONTAKT_SEATS for field in TOKEN_HASH_FIELDS]}
 
     def test_the_projection_names_every_seats_hash_and_excludes_it(self):
-        """The first exclusion projection in the tree: `0` per key, so a fourth field added to the block still reaches the read."""
+        """Read off the validator rather than off `TOKEN_HASH_FIELDS` alone.
 
-        assert WITHOUT_TOKEN_HASHES == {f"bestaetigungen.{seat}.token_hash": 0 for seat in KONTAKT_SEATS}
+        A third hash field declared there and forgotten in the tuple fails here; `0` per key, so any
+        other field added to the block still reaches the read.
+        """
+
+        declared = sorted(field for field in _BEWERBUNG_BESTAETIGUNG["properties"] if field.startswith("token_hash"))
+
+        assert declared == sorted(TOKEN_HASH_FIELDS)
+        assert WITHOUT_TOKEN_HASHES == {f"bestaetigungen.{seat}.{field}": 0 for seat in KONTAKT_SEATS for field in declared}
 
 
 class TestTheDeadline:

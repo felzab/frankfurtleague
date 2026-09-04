@@ -1,3 +1,5 @@
+import { parseDate } from "@internationalized/date";
+
 import { BESTAETIGUNG_EINWILLIGUNG, LIGA_EINWILLIGUNG } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { buildRefusal } from "@/shared/utils/refusal";
@@ -5,9 +7,10 @@ import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
 import { ALTER_AUSSERHALB, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
 
+import type { KontaktRolle } from "@/features/teams/constants";
 import type { FLTrainerZugleich } from "@/features/teams/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLBewerbung, FLBewerbungEinwilligungAntwortPayload, FLBewerbungFensterResponse } from "./schemas";
+import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas";
 import type {
   AdminBewerbungRow,
   BewerbungFormDraft,
@@ -90,11 +93,18 @@ export function describeAufnahme({ createdTeam, gruppe, saisonId }: { createdTea
  * one derivation serves both.
  */
 export function geburtsdatumSpanne(today: string): { frueheste: string; spaeteste: string } {
-  const [jahr = "1970", rest = "01-01"] = [today.slice(0, 4), today.slice(5)];
-  const verschoben = (jahre: number) => `${String(Number(jahr) - jahre).padStart(4, "0")}-${rest}`;
+  const heute = parseDate(today);
 
-  // Both bounds are multiples of four years, so a 29 February lands on a leap year either way.
-  return { frueheste: verschoben(BEWERBUNG_MAX_ALTER), spaeteste: verschoben(BEWERBUNG_MIN_ALTER) };
+  // The day AFTER one year past the ceiling: `_whole_years_between` in
+  // `fl_backend/app/api/bewerbungen/schemas.py` accepts a birthday not yet reached this year, and a
+  // calendar subtraction clamps 29 February onto the day before 1 March where that year has none.
+  return {
+    frueheste: heute
+      .subtract({ years: BEWERBUNG_MAX_ALTER + 1 })
+      .add({ days: 1 })
+      .toString(),
+    spaeteste: heute.subtract({ years: BEWERBUNG_MIN_ALTER }).toString(),
+  };
 }
 
 /**
@@ -158,7 +168,9 @@ export function mapBewerbungSubmitRefusal(error: unknown): { error?: string; fie
  * Which words the page rendered is not a claim a browser may make; the field stays on the payload
  * because the endpoint's shape requires it.
  */
-export function stampEinwilligungFassung(payload: FLBewerbungEinwilligungAntwortPayload): FLBewerbungEinwilligungAntwortPayload {
+// Takes an unjudged body, not the parsed payload: stamped after the parse, a body carrying no label
+// is refused on a path no control renders, and the refusal reaches the reader as nothing at all.
+export function stampEinwilligungFassung<T extends object>(payload: T): T & { text_version: string } {
   return { ...payload, text_version: BESTAETIGUNG_EINWILLIGUNG.textVersion };
 }
 
@@ -198,7 +210,14 @@ export function mapEinwilligungRefusal(error: unknown): EinwilligungRefusal | nu
 
 /** A refused confirmation read as the panel it renders, or `null` where the read failed instead. */
 export function mapEinwilligungAnsichtRefusal(error: unknown): LinkZustand | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (!(error instanceof APIBadStatusError)) return null;
+
+  // A token the backend will not parse matches no record, so the page calls the link void rather
+  // than offering a reload that cannot succeed. `docs/frontend/spec.md` §4 accepts that the two
+  // tiers bound its length apart.
+  if (error.statusCode === 422) return "ungueltig";
+
+  if (error.statusCode !== 409) return null;
 
   // Every 409 alike: a spent link answers its own `zustand` in a 200, so a refusal is a token nothing
   // could place, and a code nobody planned reads the same way.
@@ -275,6 +294,16 @@ export const buildEmptyBewerbungDraft = (saisonId: string): BewerbungFormDraft =
  */
 export function mirrorBewerbungTrainer(kontakte: BewerbungKontakteDraft): BewerbungKontakteDraft {
   return mirrorTrainerSeat(kontakte);
+}
+
+/**
+ * The seats the submission's receipt answers for, so the link fan-out withholds them.
+ *
+ * The submitter's own, and the seat `trainer_ist_zugleich` mirrors onto it: the backend's
+ * `paired_seat` lets either press answer both, so a second message asks one reader twice.
+ */
+export function empfangsSitze(trainerIstZugleich: FLTrainerZugleich | null): readonly KontaktRolle[] {
+  return trainerIstZugleich === "ansprechperson" ? ["ansprechperson", "trainer"] : ["ansprechperson"];
 }
 
 /**

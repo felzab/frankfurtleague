@@ -71,6 +71,7 @@ PUBLIC_WRITES = [
 # and no person, so the admin guard would have nothing to check and `bind_actor` would refuse.
 SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/sweep/{saison_id}", "post"),
+    ("/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt", "post"),
     ("/api/v0/bewerbungen/sweep/{saison_id}/loeschen", "post"),
 ]
 

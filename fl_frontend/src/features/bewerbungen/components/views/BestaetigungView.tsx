@@ -1,24 +1,22 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-
-import { CircleCheck, TriangleExclamation } from "@gravity-ui/icons";
 
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/constants";
+import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
-import { FLLogo } from "@/shared/components/ui/FLLogo";
 import { ctaButton } from "@/shared/components/ui/formButtons";
-import { formPanel } from "@/shared/components/ui/formPanel";
 import { textLink } from "@/shared/components/ui/textLink";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { BestaetigungFormPanel } from "./BestaetigungFormPanel";
+import { BestaetigungErgebnis, Fakten, Wert } from "./BestaetigungPanels";
 
 import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { ReactNode, RefObject } from "react";
+import type { ReactNode } from "react";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
 
 /**
@@ -30,13 +28,13 @@ export type BestaetigungStart = { zustand: "gueltig"; ansicht: EinwilligungGeoef
 type Stand =
   | BestaetigungStart
   | { zustand: "erfolg"; ansicht: EinwilligungGeoeffnet; geburtsdatum: string | null; whatsapp: boolean }
-  | { zustand: "abgelehnt-neu"; ansicht: EinwilligungGeoeffnet };
+  | { zustand: "widersprochen-neu"; ansicht: EinwilligungGeoeffnet };
 
-/** One heading per state, uppercased by the card rather than typed so, as the sign-in card does it. */
+/** One heading per state, uppercased by the page rather than typed so, as the application page does it. */
 const TITEL: Record<Stand["zustand"], string> = {
   gueltig: "Eintrag bestätigen",
   erfolg: "Eintrag bestätigt",
-  "abgelehnt-neu": "Eintrag abgelehnt",
+  "widersprochen-neu": "Widerspruch gespeichert",
   bestaetigt: "Schon erledigt",
   abgelehnt: "Schon erledigt",
   abgelaufen: "Link ungültig",
@@ -44,20 +42,28 @@ const TITEL: Record<Stand["zustand"], string> = {
   unlesbar: "Link nicht geprüft",
 };
 
-const ABSATZ = "muted-hint max-w-md text-pretty";
+/** The application page's own column, so the two ends of the workflow are one page wide. */
+const SEITE = "max-w-meta flex w-full flex-col gap-5 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
+
+const ABSATZ = "fluid-sm text-foreground max-w-2xl leading-relaxed font-medium text-pretty";
 
 const rollenLangform = (rolle: KontaktRolle): string => KONTAKT_ROLLEN.find((eintrag) => eintrag.value === rolle)?.langform ?? "";
 
 /** The press's answer folded into the page's state, carrying the read that the panel still names the person from. */
 function nachAntwort(abschluss: BestaetigungAbschluss, ansicht: EinwilligungGeoeffnet): Stand {
   if (abschluss.zustand === "erfolg") return { ...abschluss, ansicht: ansicht };
-  if (abschluss.zustand === "abgelehnt-neu") return { zustand: "abgelehnt-neu", ansicht: ansicht };
+  if (abschluss.zustand === "widersprochen-neu") return { zustand: "widersprochen-neu", ansicht: ansicht };
 
   return abschluss;
 }
 
+/** Which states know a season, and so may wear the chip the public pages head a season's page with. */
+function saisonVon(stand: Stand): string | null {
+  return stand.zustand === "gueltig" || stand.zustand === "erfolg" || stand.zustand === "widersprochen-neu" ? stand.ansicht.saison_id : null;
+}
+
 /**
- * One card for every state a link can be in, framed by the site's own navbar and footer: a contact
+ * One page for every state a link can be in, framed by the site's own navbar and footer: a contact
  * opening the link on a phone lands on the site the email named.
  */
 export function BestaetigungView({ start }: { start: BestaetigungStart }) {
@@ -78,198 +84,179 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
     if (hatGeantwortet) ergebnisRef.current?.focus();
   }, [hatGeantwortet]);
 
+  const saison = saisonVon(stand);
+
   return (
-    <div className="flex w-full justify-center px-4 py-8 sm:py-12">
-      {/* The form's own panel shell rather than the sign-in's blurred card: this page has no backdrop. */}
-      <div className={`${formPanel().root()} max-w-[460px] gap-y-6 p-6 sm:p-10`}>
-        <header className="border-border flex flex-col items-center gap-y-3 border-b pb-5 text-center">
-          <FLLogo className="size-10" />
-          <h1 className="fluid-2xl text-foreground font-black tracking-tight uppercase">{TITEL[stand.zustand]}</h1>
-        </header>
+    <section className={SEITE}>
+      <header className="flex w-full flex-col gap-3">
+        {saison !== null && <SaisonChip>Saison {saison}</SaisonChip>}
+        <h1 className="fluid-3xl text-foreground font-black tracking-tight uppercase">{TITEL[stand.zustand]}</h1>
 
         {stand.zustand === "gueltig" && (
-          <BestaetigungFormPanel
-            token={stand.token}
-            vorname={stand.ansicht.vorname}
-            schule={stand.ansicht.schule}
-            saison={stand.ansicht.saison_id}
-            rolle={rollenLangform(stand.ansicht.rolle)}
-            onAbschluss={(abschluss) => {
-              setHatGeantwortet(true);
-              setStand(nachAntwort(abschluss, stand.ansicht));
-            }}
-          />
-        )}
-
-        {stand.zustand === "erfolg" && (
-          <ErgebnisPanel
-            panelRef={ergebnisRef}
-            tone="erfolg">
+          <>
             <p className={ABSATZ}>
-              <strong className="text-foreground font-bold">Danke, {stand.ansicht.vorname}.</strong> Dein Eintrag ist bestätigt:{" "}
-              {stand.ansicht.schule}, Saison {stand.ansicht.saison_id}.
+              Hallo <Wert>{stand.ansicht.vorname}</Wert>, Du bist in der Bewerbung der Schule <Wert>{stand.ansicht.schule}</Wert> zur Saison{" "}
+              <Wert>{stand.ansicht.saison_id}</Wert> als <Wert>{rollenLangform(stand.ansicht.rolle)}</Wert> eingetragen. Bitte bestätige, dass
+              das stimmt und dass diese E-Mail-Adresse Deine ist.
             </p>
-            {/* Echoed so the person sees what was recorded, in the press's own answer and nowhere fetchable. */}
             <Fakten
               zeilen={[
-                { label: "Rolle", wert: rollenLangform(stand.ansicht.rolle) },
-                { label: "Geburtsdatum", wert: formatSpielDatum(stand.geburtsdatum) },
-                { label: "WhatsApp", wert: stand.whatsapp ? "erlaubt" : "nicht erlaubt" },
+                { label: "Schule", wert: stand.ansicht.schule },
+                { label: "Saison", wert: stand.ansicht.saison_id },
+                { label: "Deine Rolle", wert: rollenLangform(stand.ansicht.rolle) },
               ]}
             />
-            <p className={ABSATZ}>
-              Sobald alle Kontaktpersonen bestätigt haben, ist die Bewerbung vollständig, und die Person, die sie eingereicht hat, bekommt eine
-              E-Mail. <strong className="text-foreground font-bold">Du musst nichts weiter tun.</strong>
-            </p>
-            <p className={ABSATZ}>Fragen, Löschung und Widerspruch jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
-            <ZurLiga />
-          </ErgebnisPanel>
+          </>
         )}
+      </header>
 
-        {stand.zustand === "abgelehnt-neu" && (
-          <ErgebnisPanel
-            panelRef={ergebnisRef}
-            tone="hinweis">
-            <p className={ABSATZ}>
-              Danke für Deine Antwort, {stand.ansicht.vorname}. Deine Angaben haben wir aus der Bewerbung entfernt und der Person Bescheid
-              gesagt, die sie eingereicht hat.
-            </p>
-            <p className={ABSATZ}>
-              Falls Du es Dir anders überlegst, kann Deine Schule Dich in einer neuen Bewerbung wieder eintragen. Du bekommst dann eine neue
-              E-Mail.
-            </p>
-            <ZurLiga />
-          </ErgebnisPanel>
-        )}
+      {stand.zustand === "gueltig" && (
+        <BestaetigungFormPanel
+          token={stand.token}
+          vorname={stand.ansicht.vorname}
+          schule={stand.ansicht.schule}
+          saison={stand.ansicht.saison_id}
+          rolle={rollenLangform(stand.ansicht.rolle)}
+          onAbschluss={(abschluss) => {
+            setHatGeantwortet(true);
+            setStand(nachAntwort(abschluss, stand.ansicht));
+          }}
+        />
+      )}
 
-        {/* No name and no school from here on: a consumed or dead link may have been forwarded, and a
-            dead link identifies nobody. */}
-        {stand.zustand === "bestaetigt" && (
-          <ErgebnisPanel
-            panelRef={ergebnisRef}
-            tone="hinweis">
-            <p className={ABSATZ}>Dieser Eintrag ist schon bestätigt. Du musst nichts weiter tun.</p>
-            <p className={ABSATZ}>Fragen, Löschung und Widerspruch jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
-            <ZurLiga />
-          </ErgebnisPanel>
-        )}
+      {stand.zustand === "erfolg" && (
+        <BestaetigungErgebnis
+          panelRef={ergebnisRef}
+          tone="erfolg">
+          <p className={ABSATZ}>
+            Danke, <Wert>{stand.ansicht.vorname}</Wert>. Dein Eintrag für die Schule <Wert>{stand.ansicht.schule}</Wert> ist bestätigt.
+          </p>
+          {/* Echoed so the person sees what was recorded, in the press's own answer and nowhere fetchable. */}
+          <Fakten
+            zeilen={[
+              { label: "Rolle", wert: rollenLangform(stand.ansicht.rolle) },
+              { label: "Geburtsdatum", wert: formatSpielDatum(stand.geburtsdatum) },
+              { label: "WhatsApp", wert: stand.whatsapp ? "erlaubt" : "nicht erlaubt" },
+            ]}
+          />
+          <p className={ABSATZ}>
+            Sobald alle Kontaktpersonen bestätigt haben, ist die Bewerbung vollständig, und die Person, die sie eingereicht hat, bekommt eine
+            E-Mail. Du musst nichts weiter tun.
+          </p>
+          <p className={ABSATZ}>Fragen, Löschung und Widerspruch jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <ZurLiga />
+        </BestaetigungErgebnis>
+      )}
 
-        {stand.zustand === "abgelehnt" && (
-          <ErgebnisPanel
-            panelRef={ergebnisRef}
-            tone="hinweis">
-            <p className={ABSATZ}>
-              Über diesen Link wurde der Eintrag schon abgelehnt. Die Angaben sind aus der Bewerbung entfernt, und Du musst nichts weiter tun.
-            </p>
-            <ZurLiga />
-          </ErgebnisPanel>
-        )}
+      {stand.zustand === "widersprochen-neu" && (
+        <BestaetigungErgebnis
+          panelRef={ergebnisRef}
+          tone="erfolg">
+          <p className={ABSATZ}>
+            Danke für Deine Antwort, <Wert>{stand.ansicht.vorname}</Wert>. Deine Angaben haben wir aus der Bewerbung entfernt und der Person
+            Bescheid gesagt, die sie eingereicht hat.
+          </p>
+          <p className={ABSATZ}>
+            Falls Du es Dir anders überlegst, kann Deine Schule Dich in einer neuen Bewerbung wieder eintragen. Du bekommst dann eine neue
+            E-Mail.
+          </p>
+          <ZurLiga />
+        </BestaetigungErgebnis>
+      )}
 
-        {/* One wording for both: after the deletion the record is gone and the two cannot be told
-            apart, and telling them apart would tell a guessed link that a record once existed. */}
-        {(stand.zustand === "abgelaufen" || stand.zustand === "ungueltig") && (
-          <ErgebnisPanel
-            panelRef={ergebnisRef}
-            tone="hinweis">
-            <p className={ABSATZ}>
-              <strong className="text-foreground font-bold">Dieser Link ist ungültig oder abgelaufen.</strong> Ein Link gilt{" "}
-              {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tage. Eine Bewerbung, die bis dahin nicht alle Bestätigungen hat, löschen wir mit
-              allen Angaben.
-            </p>
-            <p className={ABSATZ}>
-              Wird Deine Schule neu eingetragen, bekommst Du eine neue E-Mail mit einem neuen Link. Bei Fragen schreib uns.
-            </p>
-            <FrageStellen />
-          </ErgebnisPanel>
-        )}
+      {/* No name and no school from here on: a consumed or dead link may have been forwarded, and a
+          dead link identifies nobody. */}
+      {stand.zustand === "bestaetigt" && (
+        <BestaetigungErgebnis
+          panelRef={ergebnisRef}
+          tone="erfolg">
+          <p className={ABSATZ}>Dieser Eintrag ist schon bestätigt. Du musst nichts weiter tun.</p>
+          <p className={ABSATZ}>Fragen, Löschung und Widerspruch jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <ZurLiga />
+        </BestaetigungErgebnis>
+      )}
 
-        {/* Says that it does not know, and nothing else: folded into the dead-link panel, this arm
-            would call a live link void on a day the backend was merely unreachable. */}
-        {stand.zustand === "unlesbar" && (
-          <ErgebnisPanel
-            panelRef={ergebnisRef}
-            tone="hinweis">
-            <p className={ABSATZ}>Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.</p>
-            <FrageStellen />
-          </ErgebnisPanel>
-        )}
+      {stand.zustand === "abgelehnt" && (
+        <BestaetigungErgebnis
+          panelRef={ergebnisRef}
+          tone="erfolg">
+          <p className={ABSATZ}>
+            Über diesen Link wurde dem Eintrag schon widersprochen. Die Angaben sind aus der Bewerbung entfernt, und Du musst nichts weiter tun.
+          </p>
+          <ZurLiga />
+        </BestaetigungErgebnis>
+      )}
 
-        <KartenFuss zustand={stand.zustand} />
-      </div>
-    </div>
-  );
-}
+      {/* One wording for both: after the deletion the record is gone and the two cannot be told
+          apart, and telling them apart would tell a guessed link that a record once existed. */}
+      {(stand.zustand === "abgelaufen" || stand.zustand === "ungueltig") && (
+        <BestaetigungErgebnis
+          panelRef={ergebnisRef}
+          tone="hinweis">
+          <p className={ABSATZ}>
+            Dieser Link ist ungültig oder abgelaufen. Ein Link gilt {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tage. Eine Bewerbung, die bis
+            dahin nicht alle Bestätigungen hat, löschen wir mit allen Angaben.
+          </p>
+          <p className={ABSATZ}>Wird Deine Schule neu eingetragen, bekommst Du eine neue E-Mail mit einem neuen Link.</p>
+          <FrageStellen />
+        </BestaetigungErgebnis>
+      )}
 
-/** The success shape the application form already uses, so a contact meets one design for „erledigt“ across the site. */
-function ErgebnisPanel({
-  panelRef,
-  tone,
-  children,
-}: {
-  panelRef: RefObject<HTMLElement | null>;
-  tone: "erfolg" | "hinweis";
-  children: ReactNode;
-}) {
-  const Icon = tone === "erfolg" ? CircleCheck : TriangleExclamation;
+      {/* Says that it does not know, and nothing else: folded into the dead-link panel, this arm
+          would call a live link void on a day the backend was merely unreachable. */}
+      {stand.zustand === "unlesbar" && (
+        <BestaetigungErgebnis
+          panelRef={ergebnisRef}
+          tone="hinweis">
+          <p className={ABSATZ}>Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.</p>
+          <FrageStellen />
+        </BestaetigungErgebnis>
+      )}
 
-  return (
-    <section
-      ref={panelRef}
-      role="status"
-      tabIndex={-1}
-      className="flex w-full flex-col items-center gap-y-3 text-center outline-none">
-      <Icon
-        aria-hidden="true"
-        className={tone === "erfolg" ? "text-success-strong size-10" : "text-warning-strong size-10"}
-      />
-      {children}
+      <SeitenFuss zustand={stand.zustand} />
     </section>
   );
 }
 
-function Fakten({ zeilen }: { zeilen: readonly { label: string; wert: string }[] }) {
-  return (
-    <dl className="bg-background border-border fluid-sm grid w-full grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-xl border px-4 py-3 text-left">
-      {zeilen.map(({ label, wert }) => (
-        <Fragment key={label}>
-          <dt className="text-foreground-muted font-medium">{label}</dt>
-          <dd className="text-foreground font-bold">{wert}</dd>
-        </Fragment>
-      ))}
-    </dl>
-  );
+/** The two actions this page offers, in the width the panel gives them rather than the page's. */
+function Aktion({ children }: { children: ReactNode }) {
+  return <div className="mt-2 flex w-full max-w-xs flex-col">{children}</div>;
 }
 
 function ZurLiga() {
   return (
-    <Link
-      href="/"
-      prefetch={false}
-      className={`${ctaButton({ intent: "outline", hover: "css" })} mt-2 w-full`}>
-      Zur Frankfurt League
-    </Link>
+    <Aktion>
+      <Link
+        href="/"
+        prefetch={false}
+        className={ctaButton({ intent: "outline", hover: "css" })}>
+        Zur Frankfurt League
+      </Link>
+    </Aktion>
   );
 }
 
 function FrageStellen() {
   return (
-    <a
-      href={`mailto:${KONTAKT_EMAIL}`}
-      className={`${ctaButton({ intent: "primary", hover: "css" })} mt-2 w-full`}>
-      Frage stellen
-    </a>
+    <Aktion>
+      <a
+        href={`mailto:${KONTAKT_EMAIL}`}
+        className={ctaButton({ intent: "primary", hover: "css" })}>
+        Frage stellen
+      </a>
+    </Aktion>
   );
 }
 
 /**
- * The legal links and the controller in every state, inside the card: the site's own footer under it
- * carries the links again, and a card reached from an email has to stand on its own.
+ * The legal links and the controller in every state: the site's own footer under this one carries
+ * the links again, and a page reached from an email has to stand on its own.
  */
-function KartenFuss({ zustand }: { zustand: Stand["zustand"] }) {
+function SeitenFuss({ zustand }: { zustand: Stand["zustand"] }) {
   const linkKlasse = textLink({ tone: "muted" });
 
   return (
-    <footer className="border-border muted-meta flex flex-col items-center gap-y-1 border-t pt-4 text-center">
+    <footer className="border-border muted-meta flex flex-col items-center gap-y-1 border-t pt-5 text-center">
       {zustand === "gueltig" && (
         <p>
           Fragen, Löschung und Widerspruch:{" "}

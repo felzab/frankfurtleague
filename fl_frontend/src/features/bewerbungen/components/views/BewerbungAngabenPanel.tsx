@@ -6,9 +6,9 @@ import { textLink } from "@/shared/components/ui/textLink";
 import { ExternalUrlSchema } from "@/shared/schemas";
 import { formatAddressFull, formatSpielDatum } from "@/shared/utils/format";
 
+import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { FLBewerbung } from "@/features/bewerbungen/schemas";
 import type { ReactNode } from "react";
-import type { SitzBestaetigung } from "./BewerbungBestaetigungStrip";
 
 /** What an unanswered field reads as — the school left it empty, which is not the same as a zero. */
 const NOT_RECORDED = "Nicht angegeben";
@@ -126,7 +126,9 @@ export function BewerbungAngabenPanel({
                 key={value}
                 className="flex w-full flex-col gap-y-2">
                 <div className="flex flex-row flex-wrap items-center gap-2">
-                  <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>{label}</span>
+                  {/* Named rather than muted, as the strip tints the same seat: a grey chip reads as
+                      a disabled one (my rule, 2026-09-04). */}
+                  <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>{label}</span>
                   {/* Stored rather than derived by comparing the two blocks: what the school
                       asserted is not the same claim as what happens to match. */}
                   {kontakte.trainer_ist_zugleich === value && (
@@ -151,7 +153,12 @@ export function BewerbungAngabenPanel({
                       {stand === null
                         ? `${einwilligungHerkunftLabel(person.einwilligung.erteilt_von)}, ${formatSpielDatum(person.einwilligung.datum)}`
                         : stand.satz}
-                      {person.einwilligung.text_version !== "" && ` (Fassung ${person.einwilligung.text_version})`}
+                      {/* Over a consent that has been given and no other: the version an
+                          outstanding seat stores is the wording the SUBMITTER agreed to, which
+                          naming here would file against the person who has not answered yet. */}
+                      {(stand === null || stand.stand.art === "bestaetigt") &&
+                        person.einwilligung.text_version !== "" &&
+                        ` (Fassung ${person.einwilligung.text_version})`}
                     </Angabe>
                   </dl>
                 )}

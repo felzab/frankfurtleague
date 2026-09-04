@@ -52,9 +52,9 @@ services:
       # Auth.js keeps its session store in the same cluster, so leaving this one alone would sign
       # the local stack in against production while every other read came from the container below.
       - MONGODB_URI=mongodb://mongo:27017/?directConnection=true
-      # The database below can hold a production dump and .env carries the real AUTH_RESEND_KEY, so
-      # an armed retention sweep here mails the league's own contact people. This line is what a
-      # developer flips to exercise the sweep.
+      # This stack runs the production build, so nothing but this line holds the sweep off. An armed
+      # sweep here mails the league's real contact people: the database below can hold a production
+      # dump, and .env carries the real AUTH_RESEND_KEY.
       - BEWERBUNG_SWEEP=off
     restart: unless-stopped
     networks:

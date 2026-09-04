@@ -4664,7 +4664,7 @@
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's retention clocks",
-        "description": "Run the five retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. The fourteen-day clock only\nLISTS its candidates here -- the caller mails the notice and erases the delivered ones through `/loeschen`. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.",
+        "description": "Run the five retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the three clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.",
         "operationId": "sweep_saison_api_v0_bewerbungen_sweep__saison_id__post",
         "security": [
           {
@@ -4706,10 +4706,65 @@
         }
       }
     },
+    "/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt": {
+      "post": {
+        "summary": "Stamp the candidates whose notice was delivered",
+        "description": "Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is stamped, and one\nalready carrying a stamp keeps the day it has. 404 where no season has the id. An empty list answers zero.",
+        "operationId": "angekuendigt_bewerbungen_api_v0_bewerbungen_sweep__saison_id__angekuendigt_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBewerbungSweepAngekuendigtPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungSweepAngekuendigtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v0/bewerbungen/sweep/{saison_id}/loeschen": {
       "post": {
         "summary": "Erase the notified deletion candidates",
-        "description": "Erase the applications whose deletion notice the caller delivered, and redact every log row naming them.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is\nerased, so an application confirmed and accepted between the two calls survives, and an id from another season\nis skipped. 404 where no season has the id. An empty list answers zeros.",
+        "description": "Erase the applications whose deletion notice went out, and redact every log row naming them.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline, with a seat outstanding AND carrying the\nannouncement stamp is erased, so an application confirmed and accepted between the calls survives, and an id from another\nseason or one nobody was told about is skipped rather than refused. 404 where no season has the id. An empty list answers zeros.",
         "operationId": "loeschen_bewerbungen_api_v0_bewerbungen_sweep__saison_id__loeschen_post",
         "security": [
           {
@@ -6463,6 +6518,51 @@
         ],
         "title": "FLBewerbungSingleResponse"
       },
+      "FLBewerbungSweepAngekuendigtPayload": {
+        "properties": {
+          "bewerbung_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Bewerbung Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bewerbung_ids"
+        ],
+        "title": "FLBewerbungSweepAngekuendigtPayload",
+        "description": "Which candidates' notices the caller delivered. The backend re-judges them: an id that has stopped qualifying is skipped."
+      },
+      "FLBewerbungSweepAngekuendigtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "angekuendigt": {
+            "type": "integer",
+            "title": "Angekuendigt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "angekuendigt"
+        ],
+        "title": "FLBewerbungSweepAngekuendigtResponse"
+      },
       "FLBewerbungSweepAusstehend": {
         "properties": {
           "rolle": {
@@ -6553,7 +6653,7 @@
           "bewerbung_ids"
         ],
         "title": "FLBewerbungSweepLoeschenPayload",
-        "description": "Which candidates' notices were delivered. The backend re-selects them: an id that has stopped qualifying is skipped, never erased."
+        "description": "Which candidates to erase. The backend re-selects them: an id that has stopped qualifying, or that was never announced, is skipped."
       },
       "FLBewerbungSweepLoeschenResponse": {
         "properties": {
@@ -6617,12 +6717,28 @@
             ],
             "title": "Ansprechperson Email"
           },
+          "ansprechperson_rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Ansprechperson Rollen"
+          },
           "ausstehend": {
             "items": {
               "$ref": "#/components/schemas/FLBewerbungSweepAusstehend"
             },
             "type": "array",
             "title": "Ausstehend"
+          },
+          "angekuendigt": {
+            "type": "boolean",
+            "title": "Angekuendigt"
           }
         },
         "type": "object",
@@ -6632,7 +6748,9 @@
           "schule",
           "bestaetigungsfrist",
           "ansprechperson_email",
-          "ausstehend"
+          "ansprechperson_rollen",
+          "ausstehend",
+          "angekuendigt"
         ],
         "title": "FLBewerbungSweepLoeschung",
         "description": "One application past its deadline, still standing: the notice goes out first, the erasure follows in a second call."

@@ -6,7 +6,7 @@ import { ArrowRightFromSquare, GraduationCap, Persons } from "@gravity-ui/icons"
 
 import { Table } from "@heroui/react";
 
-import { bestaetigungsStand, istOffen } from "@/features/bewerbungen/components/views/BewerbungBestaetigungStrip";
+import { bestaetigungsStand, endstand, istOffen } from "@/features/bewerbungen/bestaetigungStand";
 import { BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
 import { BEWERBUNG_DUBLETTE_LABEL, BEWERBUNG_DUBLETTE_TINT } from "@/features/bewerbungen/duplicates";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
@@ -66,15 +66,17 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
     const person = bewerbung.kontakte.ansprechperson ?? bewerbung.kontakte.trainer;
 
     return (
-      <div className="flex flex-col gap-0.5">
-        <span className="fluid-sm text-foreground">
+      // Truncated rather than allowed to spill: fixed layout will not widen this column for a long
+      // address, and an overflowing one draws itself across the column beside it.
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="fluid-sm text-foreground min-w-0 truncate">
           {person === null ? (
             <span className="text-foreground-muted/50 italic">Keine Kontaktperson</span>
           ) : (
             `${person.vorname} ${person.nachname}`
           )}
         </span>
-        <span className="fluid-xs text-foreground-muted">
+        <span className="fluid-xs text-foreground-muted min-w-0 truncate">
           {person === null || person.email === "" ? <span className="text-foreground-muted/50 italic">Keine E-Mail</span> : person.email}
         </span>
       </div>
@@ -109,8 +111,12 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
     // 3“ over one would send an administrator hunting for links that were never sent.
     if (staende === null) return null;
 
-    if (staende.some((sitz) => sitz.stand.art === "abgelehnt")) {
-      return <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>Ablehnung</span>;
+    // Ahead of the count, which would read „2 von 3“ over a row no answer can complete and send an
+    // administrator waiting for a third that is never coming.
+    const endgueltig = endstand(staende);
+
+    if (endgueltig !== null) {
+      return <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>{endgueltig}</span>;
     }
 
     const bestaetigt = staende.filter((sitz) => !istOffen(sitz)).length;
@@ -149,7 +155,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
           <div
             key={bewerbung.id}
             className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
-            <div className="flex w-full flex-row items-center gap-3">
+            <div className="flex w-full min-w-0 flex-row items-center gap-3">
               <GraduationCap
                 className="text-brand shrink-0"
                 width={18}
@@ -180,7 +186,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                 width plus a floor for the name, under which the name gets nothing. */}
             <Table.Content
               aria-label="Tabelle aller Bewerbungen"
-              className="min-w-364 table-fixed">
+              className="min-w-7xl table-fixed">
               <Table.Header>
                 <Table.Column
                   isRowHeader
@@ -188,16 +194,16 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                   Team
                 </Table.Column>
                 {/* PINNED to their content's width, so the leftover all goes to the name column. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-32 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Herkunft
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-28 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Saison
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-40 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-32 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Eingereicht
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-72 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-56 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Ansprechperson
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-6 py-4 font-bold tracking-wider uppercase">
@@ -223,7 +229,9 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                     id={bewerbung.id}
                     className="border-border/50 border-b last:border-b-0">
                     <Table.Cell className="px-6 py-4">
-                      <div className="flex items-center gap-3">
+                      {/* `min-w-0` on the row too: a flex item floors at its content's width by
+                          default, and the `truncate` two levels down then never engages. */}
+                      <div className="flex min-w-0 items-center gap-3">
                         <Persons
                           className="text-brand shrink-0"
                           width={18}
@@ -250,7 +258,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                     </Table.Cell>
 
                     <Table.Cell className="px-6 py-4">
-                      <span className="fluid-sm text-foreground">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
+                      <span className="fluid-sm text-foreground block min-w-0 truncate">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
                     </Table.Cell>
 
                     <Table.Cell className="px-6 py-4">{renderKontakt(bewerbung)}</Table.Cell>

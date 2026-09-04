@@ -374,6 +374,10 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # `at` is the instant the log page orders, ranges and displays; a second spelling of it on the
     # wire would be a second clock for a reader to reconcile.
     (Collection.AKTIONEN, ()): frozenset({"at_date"}),
+    # The retention sweep's own bookkeeping, read by the sweep endpoints and by nothing a person
+    # opens: the triage renders an application's state from `bestaetigungen`, and a second date
+    # beside it would be one an administrator can act on nowhere.
+    (Collection.BEWERBUNGEN, ()): frozenset({"loeschung_angekuendigt_am"}),
 }
 
 

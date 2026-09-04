@@ -631,16 +631,16 @@ export const FLBewerbungEinwilligungAntwortPayloadSchema = z
   })
   .superRefine((payload, ctx) => {
     if (payload.antwort !== "erteilt") {
-      // Mirrored because the endpoint refuses it: a decline carrying a date would record one for a
-      // seat that refused to be recorded at all.
+      // Mirrored because the endpoint refuses it: an objection carrying a date would record one for
+      // a seat that refused to be recorded at all.
       if (payload.geburtsdatum !== null) {
-        ctx.addIssue({ code: "custom", message: "Eine Ablehnung speichert kein Geburtsdatum.", path: ["geburtsdatum"] });
+        ctx.addIssue({ code: "custom", message: "Ein Widerspruch speichert kein Geburtsdatum.", path: ["geburtsdatum"] });
       }
 
-      // Mirrored for the date's reason: a decline empties the slot, so a scope sent with one is a
+      // Mirrored for the date's reason: an objection empties the slot, so a scope sent with one is a
       // permission no record holds and the echo would report it back as stored.
       if (payload.whatsapp) {
-        ctx.addIssue({ code: "custom", message: "Eine Ablehnung speichert keine WhatsApp-Einwilligung.", path: ["whatsapp"] });
+        ctx.addIssue({ code: "custom", message: "Ein Widerspruch speichert keine WhatsApp-Einwilligung.", path: ["whatsapp"] });
       }
       return;
     }
@@ -704,7 +704,8 @@ export const FLBewerbungSweepErinnerungSchema = z.object({
   bewerbung_id: CustomObjectIdStringSchema,
   saison_id: z.string(),
   schule: z.string(),
-  // The day the application is deleted, which a reminder does not move (ruling 61).
+  // The seats' own deadline, which a reminder does not move; only an administrator's re-send does
+  // (`docs/backend/spec.md :: I152`).
   bestaetigungsfrist: CustomDateStringSchema,
   email: z.string(),
   seats: z.array(FLBewerbungSweepSeatSchema),
@@ -724,10 +725,15 @@ export const FLBewerbungSweepLoeschungSchema = z.object({
   saison_id: z.string(),
   schule: z.string(),
   bestaetigungsfrist: CustomDateStringSchema,
-  // Null where that seat is empty: nobody can be told, and the caller erases rather than keeping an
-  // application nobody can complete (ruling 65 makes the Ansprechperson the submitter).
+  // The submitter's mailbox: the form asks that seat for the person who submits. Null where the slot
+  // is empty, and the caller then erases rather than keeping an application nobody can complete.
   ansprechperson_email: z.string().nullable(),
+  // Every seat that same mailbox holds, so a submitter who is also the Trainer is addressed by both.
+  ansprechperson_rollen: z.array(FLKontaktRolleSchema),
   ausstehend: z.array(FLBewerbungSweepAusstehendSchema),
+  // Whether the notice has already gone out. The caller mails only where this is false and erases
+  // wherever it is true, so an erasure that failed after a delivery repeats no message.
+  angekuendigt: z.boolean(),
 });
 export type FLBewerbungSweepLoeschung = z.infer<typeof FLBewerbungSweepLoeschungSchema>;
 
@@ -743,7 +749,19 @@ export const FLBewerbungSweepResponseSchema = BaseAPIResponseSchema.extend({
 });
 export type FLBewerbungSweepResponse = z.infer<typeof FLBewerbungSweepResponseSchema>;
 
-/** Which candidates' notices were delivered. The backend re-selects them, so an id that has stopped qualifying is skipped. */
+/** Which candidates' notices the caller delivered. The backend re-judges them, so an id that has stopped qualifying is skipped. */
+export const FLBewerbungSweepAngekuendigtPayloadSchema = z.object({
+  bewerbung_ids: z.array(CustomObjectIdStringSchema),
+});
+export type FLBewerbungSweepAngekuendigtPayload = z.infer<typeof FLBewerbungSweepAngekuendigtPayloadSchema>;
+
+export const FLBewerbungSweepAngekuendigtResponseSchema = BaseAPIResponseSchema.extend({
+  saison_id: z.string(),
+  angekuendigt: z.int().nonnegative(),
+});
+export type FLBewerbungSweepAngekuendigtResponse = z.infer<typeof FLBewerbungSweepAngekuendigtResponseSchema>;
+
+/** Which candidates to erase. The backend re-selects them, so an id that has stopped qualifying, or that was never announced, is skipped. */
 export const FLBewerbungSweepLoeschenPayloadSchema = z.object({
   bewerbung_ids: z.array(CustomObjectIdStringSchema),
 });

@@ -628,6 +628,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # `bestaetigungen` block is one the confirmation flow does not apply to.
                 "bestaetigungsfrist": {"bsonType": _STRING_OR_NULL},
                 "bestaetigungen": _BEWERBUNG_BESTAETIGUNGEN,
+                # The day the deletion notice was settled -- delivered, or the seat that would read
+                # it emptied. The erasure's second condition: without it a failed erasure mails
+                # again every hour. Out of `required` for `wunschgegner`'s reason.
+                "loeschung_angekuendigt_am": {"bsonType": _STRING_OR_NULL},
             },
         )
     },

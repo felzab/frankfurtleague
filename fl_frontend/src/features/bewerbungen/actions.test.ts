@@ -30,6 +30,9 @@ const PANELS = ["AdminBewerbungAnnehmenSection", "AdminBewerbungAblehnenSection"
   source: readFileSync(path.resolve(import.meta.dirname, "components", "forms", `${name}.tsx`), "utf8").replace(/\s+/g, " "),
 }));
 
+/** The page holding both decisions, which is what decides whether either panel is on screen at all. */
+const VIEW = readFileSync(path.resolve(import.meta.dirname, "components", "views", "AdminBewerbungView.tsx"), "utf8").replace(/\s+/g, " ");
+
 /** The club editor's own mapper, which answers `REQ-ENTER-005` about the same stored state this one does. */
 const TEAMS_ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "teams", "actions.ts"), "utf8");
 
@@ -57,7 +60,9 @@ const ABLEHNEN_ACTION = sliceBetween(ACTIONS, "export async function ablehnenBew
 /** Everything both decisions run AFTER their write has committed. */
 const NOTIFY = sliceBetween(ACTIONS, "async function notifyBewerbung", "export async function annehmenBewerbungAction");
 
-const ERNEUT_MAPPER = sliceBetween(ACTIONS, "function mapEinwilligungErneutRefusal", "const KEIN_LINK_VERSCHICKT");
+const ERNEUT_MAPPER = sliceBetween(ACTIONS, "function mapEinwilligungErneutRefusal", "const BEWERBUNG_WEG");
+/** Every sentence the re-send answers with instead of a link, read as its declaration writes it. */
+const erneutSatz = (name: string): string => new RegExp(String.raw`const ` + name + String.raw` =([\s\S]*?);\n`).exec(ACTIONS)?.[1] ?? "";
 /** What the re-send runs after its own write, which is where the minted token is spent. */
 const ERNEUT_SENDER = sliceBetween(ACTIONS, "async function sendeBestaetigungErneut", "export async function einwilligungErneutSendenAction");
 /* The re-send is the last declaration in the module, so its slice runs to the end of the file. */
@@ -90,6 +95,7 @@ describe("the slices these assertions read", () => {
   it("cuts the re-send's mapper, its send and its action apart", () => {
     assert.ok(ERNEUT_MAPPER.includes("error.serverErrorCode"), "the re-send mapper's switch is outside its slice");
     assert.ok(!ERNEUT_MAPPER.includes("sendBewerbungMail("), "the re-send mapper's slice reaches the send");
+    assert.ok(erneutSatz("KEIN_LINK_VERSCHICKT") !== "", "the re-send's own sentences are no longer where this file reads them");
 
     assert.ok(ERNEUT_SENDER.includes("await sendBewerbungMail("), "the re-send's send is outside its slice");
     assert.ok(!ERNEUT_SENDER.includes("erneutSendenEinwilligung("), "the send's slice reaches the write it reports");
@@ -445,6 +451,38 @@ describe("the decline's bound", () => {
   });
 });
 
+describe("the Zusage where the write would be refused", () => {
+  /* Withheld, the section sent the administrator looking for a decision the page still held. It
+     stands and closes its own control instead (my rule, 2026-09-04). */
+  it("stands whatever would refuse it, rather than being replaced by a closure", () => {
+    assert.match(
+      VIEW,
+      /\{isOpen && \( <AdminBewerbungAnnehmenSection/,
+      "the acceptance is offered on some narrower condition than an open application",
+    );
+    assert.ok(!VIEW.includes("<Callout"), "the page still puts a closure where the acceptance belongs");
+    assert.ok(VIEW.includes("hindernis={hindernis}"), "the panel is handed no reason, so its control cannot say why it is closed");
+  });
+
+  /* The reason is readable without a pointer: a control closed by a tooltip alone is closed for
+     reasons only a mouse can read. */
+  it("closes its control on that reason and renders the reason beside it", () => {
+    const panel = PANELS.find((candidate) => candidate.name === "AdminBewerbungAnnehmenSection");
+
+    assert.ok(panel, "the acceptance panel is no longer where this case reads it");
+    assert.ok(panel.source.includes("isDisabled={isAccepting || grund !== null}"), "the acceptance arms over a state its endpoint refuses");
+    assert.match(
+      panel.source,
+      /<Hint mode="inline" describes=\{ZUSAGE_BUTTON_HINT_ID\} text=\{grund\} \/>/,
+      "the reason no longer reaches the page as text under the control",
+    );
+    assert.ok(
+      panel.source.includes("aria-describedby={!isAccepting && grund !== null ? ZUSAGE_BUTTON_HINT_ID : undefined}"),
+      "the closed control points at no sentence, so a screen reader meets a disabled button with no reason",
+    );
+  });
+});
+
 describe("which irreversibility the triage claims", () => {
   /* `docs/frontend/spec.md` §1.3 splits the two sentences on one mechanical test: the second belongs
      to a write whose transaction empties the log rows it filed. Neither decision redacts, so the
@@ -464,32 +502,44 @@ describe("which irreversibility the triage claims", () => {
 });
 
 describe("a message that cannot be sent", () => {
-  /* The club's name is read AFTER the write commits. Thrown out of the action, that read turns a
-     write that stands into a reported failure, and the retry it invites is refused as already
-     taken (`REQ-BEWERBUNG-001`). */
-  it("reads the club's name where a failure cannot reach the write's result", () => {
+  /* Thrown out of a decision, a read AFTER its write turns one that stands into a reported failure,
+     and the retry it invites is refused as already taken (`REQ-BEWERBUNG-001`). Thrown BEFORE the
+     re-send's mint, the same read has cost nothing. */
+  it("guards the club-name read that follows a write, and lets the one preceding a mint throw", () => {
     const file = path.resolve(import.meta.dirname, "actions.ts");
     const source = ts.createSourceFile(file, ACTIONS, ts.ScriptTarget.Latest, true);
-    let reads = 0;
-    let guarded = 0;
+    const reads: { holder: string; guarded: boolean; at: number }[] = [];
 
     source.forEachChild(function walk(node: ts.Node): void {
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "resolveBewerbungTeamName") {
-        reads += 1;
+        let guarded = false;
+        let holder = "";
+
         for (let ancestor: ts.Node | undefined = node; ancestor?.parent; ancestor = ancestor.parent) {
-          const holder: ts.Node = ancestor.parent;
+          const parent: ts.Node = ancestor.parent;
 
           // The TRY block specifically: the same call standing in the catch would be unguarded again.
-          if (ts.isTryStatement(holder) && holder.tryBlock === ancestor && holder.catchClause) guarded += 1;
+          if (ts.isTryStatement(parent) && parent.tryBlock === ancestor && parent.catchClause) guarded = true;
+          if (holder === "" && ts.isFunctionDeclaration(parent) && parent.name !== undefined) holder = parent.name.text;
         }
+        reads.push({ holder: holder, guarded: guarded, at: node.getStart(source) });
       }
       node.forEachChild(walk);
     });
 
-    // Every reader, never one: the count grows with each write that composes a message, and a
-    // reader landing outside a try is this defect again. A rename empties both counts, hence a floor.
-    assert.ok(reads >= 2, `expected every message-composing write to read the club's name, found ${String(reads)} readers`);
-    assert.equal(guarded, reads, "a failed club read reports a committed write as one that did not happen");
+    // The exact count rather than a floor: each of the two is judged by its own rule below, and a
+    // third reader is a path whose side of the write nobody has decided.
+    assert.equal(reads.length, 2, `expected two club-name readers, found ${String(reads.length)}`);
+
+    const nachDemSchreiben = reads.find((read) => read.holder === "notifyBewerbung");
+    assert.ok(nachDemSchreiben?.guarded, "a failed club read reports a committed decision as one that did not happen");
+
+    const vorDemMint = reads.find((read) => read.holder === "einwilligungErneutSendenAction");
+    assert.ok(vorDemMint, "the re-send reads the club's name outside the action that mints, where a throw costs a link");
+    assert.ok(
+      vorDemMint.at < ACTIONS.indexOf("await erneutSendenEinwilligung("),
+      "the re-send reads the club's name after spending the seat's link on a message it may not be able to compose",
+    );
   });
 
   /* What the administrator is left with: the decision is taken, nobody was written to, and the only
@@ -577,21 +627,92 @@ describe("the re-sent confirmation link", () => {
     assert.ok(ERNEUT_SENDER.includes("await getBewerbungById("), "the message is composed without re-reading the deadline the write moved");
   });
 
-  it("reports the write as done whatever the mail did", () => {
+  /* Judged before the mint, because `compose_erneut_update` replaces the seat's entry whole: a press
+     that could never compose a message would otherwise void the link that seat is holding. */
+  it("refuses what it could not send before it spends the seat's link", () => {
+    const mint = ERNEUT_ACTION.indexOf("await erneutSendenEinwilligung(");
+
+    assert.notEqual(mint, -1, "the re-send no longer calls the write these cases are about");
+
+    for (const [pruefung, satz] of [
+      ["gelesen === null", "BEWERBUNG_WEG"],
+      ["person === null", "SITZ_LEER"],
+      ['person.email === ""', "KEINE_ADRESSE"],
+      ["benanntesTeam === null", "KEIN_TEAM"],
+    ] as const) {
+      const at = ERNEUT_ACTION.indexOf(pruefung);
+
+      assert.notEqual(at, -1, `the re-send no longer judges \`${pruefung}\``);
+      assert.ok(at < mint, `the re-send judges \`${pruefung}\` after a mint that has already voided the seat's link`);
+      assert.ok(ERNEUT_ACTION.slice(at, mint).includes(`error: ${satz}`), `\`${pruefung}\` no longer answers with ${satz}`);
+    }
+  });
+
+  /* One sentence for four states told an administrator the seat had no address where the application
+     named no club at all, and the repair each of them offers is a different one. */
+  it("gives each of those states a sentence of its own", () => {
+    // Punctuation dropped: a refusal built from a reason and a repair carries the stops `buildRefusal`
+    // writes, and comparing them would call two identical answers different.
+    const gelesen = (name: string): string =>
+      sentencesOf(erneutSatz(name))
+        .join(" ")
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, " ")
+        .trim();
+
+    const saetze = ["BEWERBUNG_WEG", "SITZ_LEER", "KEINE_ADRESSE", "KEIN_TEAM", "KEIN_LINK_VERSCHICKT"].map(gelesen);
+
+    assert.ok(
+      saetze.every((satz) => satz !== ""),
+      `a re-send sentence reaches no literal at all: ${saetze.join(" | ")}`,
+    );
+    assert.equal(new Set(saetze).size, saetze.length, "two of the re-send's answers say the same thing");
+  });
+
+  /* A success title over a message that never went out leaves an administrator waiting on an answer
+     to a link that reached nobody, while the seat's previous one is spent. */
+  it("answers a message that did not go out as a failure, naming what the press cost", () => {
     const notified = ERNEUT_ACTION.indexOf("await sendeBestaetigungErneut(");
 
-    assert.ok(!ERNEUT_ACTION.slice(notified).includes("success: false"), "the re-send fails the whole write over a message it could not send");
-    assert.ok(!ERNEUT_SENDER.includes("throw"), "the send throws again, so the committed write still reports a failure");
+    assert.notEqual(notified, -1, "the re-send sends no message at all");
+    assert.match(
+      ERNEUT_ACTION.slice(notified),
+      /zustellung\.verschickt \? \{ success: true/,
+      "the send's own verdict no longer decides the answer",
+    );
+    assert.match(
+      ERNEUT_ACTION.slice(notified),
+      /success: false, error: zustellung\.error/,
+      "a refused send is still reported as a link on its way",
+    );
     assert.match(ERNEUT_ACTION.slice(notified), /message: /, "the re-send drops the delivery report out of what it returns");
+
+    const kosten = erneutSatz("KEIN_LINK_VERSCHICKT");
+
+    assert.match(kosten, /Der alte Link gilt nicht mehr/, "the failure does not say the previous link is spent");
+    assert.match(kosten, /Versuche es noch einmal/, "the failure names no way out");
+  });
+
+  /* The endpoint writes the deadline in the same update that mints the token, so an application
+     answering none afterwards is a contract broken rather than a state to word for an administrator. */
+  it("throws where the write it has just made answers no deadline", () => {
+    const at = ERNEUT_SENDER.indexOf("frist === null");
+
+    assert.notEqual(at, -1, "the send no longer judges the deadline the write moved");
+    assert.match(
+      ERNEUT_SENDER.slice(at),
+      /^frist === null\) throw new Error\(/,
+      "a missing deadline is worded for an administrator rather than thrown",
+    );
   });
 
   /* The one thing on this path that must not reach a second reader. A toast, a log line or a returned
      sentence carrying it hands the seat's credential to whoever can see the screen or the stream. */
   it("spells the minted token into the link and into nothing else", () => {
-    const link = "`${SITE_URL}/bestaetigung?token=${encodeURIComponent(token)}`";
+    const link = "bestaetigungsLink(token)";
 
     assert.ok(ACTIONS.includes(link), "the confirmation link is no longer built where this case reads it");
-    assert.ok(!ACTIONS.replace(link, "").includes("${token}"), "the minted token is spelled into a second string");
+    assert.ok(!ACTIONS.includes("${token}"), "the minted token is spelled into a string of this module's own");
 
     for (const [aufruf] of `${ERNEUT_SENDER}${ERNEUT_ACTION}`.matchAll(/logger\.\w+\([\s\S]*?\n\s{4}\}\);/g)) {
       assert.ok(!aufruf.includes("token"), "a log line on the re-send's path names the token");

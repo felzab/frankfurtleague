@@ -5,6 +5,8 @@ from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import (
+    FLBewerbungSweepAngekuendigtPayload,
+    FLBewerbungSweepAngekuendigtResponse,
     FLBewerbungSweepAusstehend,
     FLBewerbungSweepErinnerung,
     FLBewerbungSweepLoeschenPayload,
@@ -16,11 +18,13 @@ from app.api.bewerbungen.schemas import (
 )
 from app.api.bewerbungen.services import (
     acceptance_erasure_is_due,
-    ansprechperson_email,
+    ansprechperson_mailbox,
     ausstehende_seats,
+    compose_ankuendigung_update,
     compose_erinnerung_update,
     decline_erasure_is_due,
     deletion_is_due,
+    deletion_was_announced,
     group_seats_by_mailbox,
     mint_token,
     next_saison_id,
@@ -121,15 +125,19 @@ async def sweep_saison(
 
     The reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one
     person one reminder and never a repeat; the first link stays valid beside the fresh one. The fourteen-day clock only
-    LISTS its candidates here -- the caller mails the notice and erases the delivered ones through `/loeschen`. The
+    LISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the
+    delivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. The
     declined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.
     404 where no season has the id. Idempotent per day: a second run finds nothing left to do.
+
+    A season whose id is not a four-digit year fails the whole pass rather than running the three clocks that do not need a
+    successor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly
+    would leave both stopped for ever with nothing anywhere saying so.
     """
 
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
-    naechste = next_saison_id(saison_id)
-    naechste_raw = await saisons_collection.find_one({"_id": naechste}, {"status": 1}) if naechste is not None else None
+    naechste_raw = await saisons_collection.find_one({"_id": next_saison_id(saison_id)}, {"status": 1})
     next_saison_status = naechste_raw.get("status") if naechste_raw is not None else None
 
     stamp = log_stamp(germany_now)
@@ -257,20 +265,26 @@ async def sweep_saison(
     )
     due = [row for row in candidates if deletion_is_due(bewerbung_raw=row, today=today)]
     club_names = await _club_names(teams_collection=teams_collection, rows=due, session=None) if due else {}
-    loeschungen = [
-        FLBewerbungSweepLoeschung(
-            bewerbung_id=row["_id"],
-            saison_id=saison_id,
-            schule=schule_name(bewerbung_raw=row, club_names=club_names),
-            bestaetigungsfrist=str(row["bestaetigungsfrist"]),
-            ansprechperson_email=ansprechperson_email(kontakte=row.get("kontakte")),
-            ausstehend=[
-                FLBewerbungSweepAusstehend(rolle=seat, vorname=vorname_of(kontakte=row.get("kontakte"), seat=seat))
-                for seat in ausstehende_seats(kontakte=row.get("kontakte"))
-            ],
+    loeschungen: list[FLBewerbungSweepLoeschung] = []
+    for row in due:
+        # The mailbox and every seat it holds, from the helper the confirm router addresses its own
+        # message with: one person on two seats reads one phrase naming both, in both messages.
+        empfaenger, rollen = ansprechperson_mailbox(kontakte=row.get("kontakte"))
+        loeschungen.append(
+            FLBewerbungSweepLoeschung(
+                bewerbung_id=row["_id"],
+                saison_id=saison_id,
+                schule=schule_name(bewerbung_raw=row, club_names=club_names),
+                bestaetigungsfrist=str(row["bestaetigungsfrist"]),
+                ansprechperson_email=empfaenger,
+                ansprechperson_rollen=rollen,
+                ausstehend=[
+                    FLBewerbungSweepAusstehend(rolle=seat, vorname=vorname_of(kontakte=row.get("kontakte"), seat=seat))
+                    for seat in ausstehende_seats(kontakte=row.get("kontakte"))
+                ],
+                angekuendigt=deletion_was_announced(bewerbung_raw=row),
+            )
         )
-        for row in due
-    ]
 
     async with db.start_session() as session:
         abgelehnte, redacted_declined = await session.with_transaction(erase_declined)
@@ -291,6 +305,58 @@ async def sweep_saison(
     )
 
 
+@router.post(
+    "/{saison_id}/angekuendigt", response_model=FLBewerbungSweepAngekuendigtResponse, summary="Stamp the candidates whose notice was delivered"
+)
+async def angekuendigt_bewerbungen(
+    saison_id: str,
+    angekuendigt_data: Annotated[FLBewerbungSweepAngekuendigtPayload, Body()],
+    bewerbungen_collection: BewerbungenCollection,
+    saisons_collection: SaisonsCollection,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+) -> FLBewerbungSweepAngekuendigtResponse:
+    """
+    Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.
+
+    The ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is stamped, and one
+    already carrying a stamp keeps the day it has. 404 where no season has the id. An empty list answers zero.
+    """
+
+    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
+
+    async def stamp_the_notified(session: AsyncClientSession) -> int:
+        """Judge and stamp in one transaction. Everything judged is read in-session, so a retry re-judges it."""
+
+        rows = await pull_many_from_db(
+            collection=bewerbungen_collection,
+            db_filter={"saison_id": saison_id, "_id": {"$in": list(angekuendigt_data.bewerbung_ids)}, "status": "eingereicht"},
+            limit=LIST_LIMIT_MAX,
+            session=session,
+        )
+
+        stamped = 0
+        for row in rows:
+            if not deletion_is_due(bewerbung_raw=row, today=today) or deletion_was_announced(bewerbung_raw=row):
+                continue
+            # `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`:
+            # the erasure that follows names these ids, and its log rows have to be findable by them.
+            await patch_one_in_db(
+                collection=bewerbungen_collection,
+                db_filter={"_id": row["_id"]},
+                update=compose_ankuendigung_update(today=today),
+                session=session,
+            )
+            stamped += 1
+
+        return stamped
+
+    async with db.start_session() as session:
+        angekuendigt = await session.with_transaction(stamp_the_notified)
+
+    return FLBewerbungSweepAngekuendigtResponse(saison_id=saison_id, angekuendigt=angekuendigt)
+
+
 @router.post("/{saison_id}/loeschen", response_model=FLBewerbungSweepLoeschenResponse, summary="Erase the notified deletion candidates")
 async def loeschen_bewerbungen(
     saison_id: str,
@@ -303,11 +369,11 @@ async def loeschen_bewerbungen(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungSweepLoeschenResponse:
     """
-    Erase the applications whose deletion notice the caller delivered, and redact every log row naming them.
+    Erase the applications whose deletion notice went out, and redact every log row naming them.
 
-    The ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is
-    erased, so an application confirmed and accepted between the two calls survives, and an id from another season
-    is skipped. 404 where no season has the id. An empty list answers zeros.
+    The ids are re-judged in-session: only one still submitted, past its deadline, with a seat outstanding AND carrying the
+    announcement stamp is erased, so an application confirmed and accepted between the calls survives, and an id from another
+    season or one nobody was told about is skipped rather than refused. 404 where no season has the id. An empty list answers zeros.
     """
 
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
@@ -321,7 +387,9 @@ async def loeschen_bewerbungen(
             limit=LIST_LIMIT_MAX,
             session=session,
         )
-        ids = [row["_id"] for row in rows if deletion_is_due(bewerbung_raw=row, today=today)]
+        # Announced as well as due: an unannounced id here is a caller that skipped the stamp, and
+        # erasing it would destroy an application whose people were never told.
+        ids = [row["_id"] for row in rows if deletion_is_due(bewerbung_raw=row, today=today) and deletion_was_announced(bewerbung_raw=row)]
         if not ids:
             return 0, 0
 

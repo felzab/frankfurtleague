@@ -1,25 +1,29 @@
 import "server-only";
 
 import { buildBewerbungErinnerungEmail, buildBewerbungGeloeschtEmail } from "@/core/bewerbungEmail";
-import { SITE_URL } from "@/core/brand";
 import { logger } from "@/core/logging";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import { bestaetigungsLink } from "./bestaetigungLink";
 import { BEWERBUNG_SEATS } from "./constants";
-import { getBewerbungSweepSaisons, postBewerbungSweep, postBewerbungSweepLoeschen } from "./mutations";
-import { sendBewerbungLinkMail, sendBewerbungMail } from "./notifications";
+import { getBewerbungSweepSaisons, postBewerbungSweep, postBewerbungSweepAngekuendigt, postBewerbungSweepLoeschen } from "./mutations";
+import { rollenText, sendBewerbungLinkMail, sendBewerbungMail } from "./notifications";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
 import type { BewerbungEmpfaenger, BewerbungLinkEmpfaenger } from "./notifications";
 import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung, FLKontaktRolle } from "./schemas";
 
 /**
- * One hour (ruling 64). Every clock selects on a date, so the interval decides only how late in the
- * day a deadline is acted on, and a shorter one buys a punctuality nobody has asked for.
+ * One hour. Every clock selects on a date, so the interval decides only how late in the day a
+ * deadline is acted on, and a shorter one buys a punctuality nobody has asked for.
  */
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 
-/** Ruling S1-ai. The argument is at the line that uses it. */
+/**
+ * A minute after start rather than at once: a deploy recreates this container before the backend
+ * answers, so an immediate pass would log a failure for nothing. The first tick alone would skip a
+ * container recreated daily.
+ */
 const SWEEP_START_DELAY_MS = 60 * 1000;
 
 /** The action the mail fan-out logs a refused address under. */
@@ -27,9 +31,6 @@ const SWEEP_OPERATION = "bewerbungSweep";
 
 /** What a message calls a seat whose person is gone — declined or erased, and outstanding either way. */
 const SEAT_OHNE_NAMEN = "Ohne Namen";
-
-/** The one place a confirmation link is spelled, as `fl_frontend/src/app/api/bewerbung/route.ts` spells it. */
-const bestaetigungsLink = (token: string): string => `${SITE_URL}/bestaetigung?token=${token}`;
 
 /** How a seat is named to somebody who is not sitting in it, in the wording the form asked for it under. */
 const rolleText = (rolle: FLKontaktRolle): string => BEWERBUNG_SEATS.find((seat) => seat.value === rolle)?.label ?? "";
@@ -41,9 +42,6 @@ const rolleText = (rolle: FLKontaktRolle): string => BEWERBUNG_SEATS.find((seat)
  * is built; a second `frontend` service or a replica count would end that.
  */
 export function armBewerbungSweep(): void {
-  // A minute after start rather than at once (ruling S1-ai): a deploy recreates this container
-  // before the backend answers, so an immediate pass logs a failure for nothing. The first tick
-  // alone would skip a container recreated daily.
   const erster = setTimeout(() => void runBewerbungSweep(), SWEEP_START_DELAY_MS);
   const handle = setInterval(() => void runBewerbungSweep(), SWEEP_INTERVAL_MS);
 
@@ -53,13 +51,32 @@ export function armBewerbungSweep(): void {
   handle.unref();
 }
 
+/** Whether a pass is still running. Module state, which is per process, and one process holds the timer. */
+let laeuft = false;
+
 /**
- * One pass over every season, which is what the clocks are (`docs/datenschutz.md` §6).
+ * One pass over every season, which is what the clocks are (`docs/datenschutz.md :: 6`).
  *
  * Settles rather than throws: nothing awaits this, so a rejection would surface as an unhandled one
  * an hour after the tick that caused it.
  */
 export async function runBewerbungSweep(): Promise<void> {
+  if (laeuft) {
+    // A pass slower than the hour would otherwise run beside itself over the same rows, mailing one
+    // person twice before either half reached its stamp. No application and no address is named.
+    logger.info("bewerbung.sweep_skipped");
+    return;
+  }
+
+  laeuft = true;
+  try {
+    await sweepAlleSaisons();
+  } finally {
+    laeuft = false;
+  }
+}
+
+async function sweepAlleSaisons(): Promise<void> {
   let saisonIds: readonly string[];
 
   try {
@@ -80,7 +97,7 @@ export async function runBewerbungSweep(): Promise<void> {
   }
 }
 
-/** One season: the endpoint takes one because an erasure's filter names one (`docs/backend/spec.md :: I48`). */
+/** One season: the endpoint takes one because a retention removal's filter names one (`docs/backend/spec.md :: I150`). */
 async function sweepSaison(saisonId: string): Promise<void> {
   const { erinnerungen, loeschungen } = await postBewerbungSweep(saisonId);
 
@@ -90,16 +107,23 @@ async function sweepSaison(saisonId: string): Promise<void> {
     await mailErinnerung(erinnerung);
   }
 
-  const geloescht: string[] = [];
-  for (const loeschung of loeschungen) {
-    // Mailed BEFORE the erasure and erased only where it arrived: an application standing a day past
-    // its deadline harms nobody, and a person never told is the failure the ruling is about.
-    if (await mailLoeschung(loeschung)) geloescht.push(loeschung.bewerbung_id);
+  // Mailed BEFORE the erasure and only to whoever has not been told: an application standing a day
+  // past its deadline harms nobody, where a person never told is the failure the notice exists for.
+  const zugestellt: string[] = [];
+  for (const loeschung of loeschungen.filter((kandidat) => !kandidat.angekuendigt)) {
+    if (await mailLoeschung(loeschung)) zugestellt.push(loeschung.bewerbung_id);
   }
 
-  if (geloescht.length === 0) return;
+  // Mail, then stamp: the floor is one notice repeated once, where stamping first would erase an
+  // application nobody was told about. That is the worse failure, so the order is this way round.
+  if (zugestellt.length > 0) await postBewerbungSweepAngekuendigt(saisonId, { bewerbung_ids: zugestellt });
 
-  await postBewerbungSweepLoeschen(saisonId, { bewerbung_ids: geloescht });
+  // Everything announced: the ids just stamped, and those a previous pass announced and then failed
+  // to erase. The endpoint re-judges each, so one that has stopped qualifying is skipped.
+  const angekuendigt = [...loeschungen.filter((kandidat) => kandidat.angekuendigt).map((kandidat) => kandidat.bewerbung_id), ...zugestellt];
+  if (angekuendigt.length === 0) return;
+
+  await postBewerbungSweepLoeschen(saisonId, { bewerbung_ids: angekuendigt });
 }
 
 /** One message to one mailbox, carrying one link per seat of this application that mailbox holds. */
@@ -124,7 +148,7 @@ async function mailErinnerung(erinnerung: FLBewerbungSweepErinnerung): Promise<v
         saisonId: erinnerung.saison_id,
         schule: erinnerung.schule,
         seats: seats,
-        // The deadline the first message gave, which the reminder does not move (ruling 61).
+        // The deadline the first message gave; a reminder does not move it (`docs/backend/spec.md :: I152`).
         fristText: formatSpielDatum(erinnerung.bestaetigungsfrist),
       }),
   });
@@ -141,14 +165,17 @@ async function mailLoeschung(loeschung: FLBewerbungSweepLoeschung): Promise<bool
     rolleText: rolleText(seat.rolle),
   }));
 
-  // The submitter is the Ansprechperson by convention (ruling 65), so that is the seat this message
-  // names its reader by.
-  const empfaenger: BewerbungEmpfaenger = { address: loeschung.ansprechperson_email, rollenText: rolleText("ansprechperson") };
+  // Every seat this mailbox holds, not the Ansprechperson alone: a submitter who is also the Trainer
+  // is named by both, and the notice then lists a seat it has already told them they hold.
+  const empfaenger: BewerbungEmpfaenger = {
+    address: loeschung.ansprechperson_email,
+    rollenText: rollenText(loeschung.ansprechperson_rollen),
+  };
 
   const { delivered } = await sendBewerbungMail({
     operation: SWEEP_OPERATION,
     recipients: [empfaenger],
-    buildMail: (rollenText) => buildBewerbungGeloeschtEmail({ saisonId: loeschung.saison_id, rollenText: rollenText, ausstehend: ausstehend }),
+    buildMail: (rollen) => buildBewerbungGeloeschtEmail({ saisonId: loeschung.saison_id, rollenText: rollen, ausstehend: ausstehend }),
   });
 
   return delivered.length > 0;

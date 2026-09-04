@@ -155,9 +155,9 @@ def _imported_modules(tree: ast.Module) -> Iterator[str]:
 
 
 class TestWhatARemovalFilterMayName:
-    """That a removal's filter is what BOUNDS it, and that each one names enough -- and only what it may.
+    """That a removal's filter is what BOUNDS it, that each names enough and only what it may, and which helper takes an application.
 
-    Three clauses over one sweep, and each fails its own way -- the method below it names which.
+    Four clauses over one sweep, each failing its own way -- the method below names which.
     """
 
     def test_the_sweep_reads_every_removal_and_places_every_collection(self):
@@ -194,6 +194,21 @@ class TestWhatARemovalFilterMayName:
         ]
 
         assert unscoped == []
+
+    def test_every_removal_from_bewerbungen_is_an_erasure(self):
+        """Swap one sweep call to `delete_many_from_db` and this fails.
+
+        That helper logs a pre-image of exactly what the retention clocks destroy, and the filter
+        clauses above pass either way: an erasure and a delete take the same arguments.
+        """
+
+        kept = [
+            f"{removal.collection} is removed by {removal.helper}"
+            for removal in removals()
+            if removal.collection == str(Collection.BEWERBUNGEN) and removal.helper != ERASURE_HELPER
+        ]
+
+        assert kept == []
 
     def test_an_erasure_names_identities_and_nothing_else(self):
         """Add `nachname` beside the id and this fails: the log stores a filter's values as text, so it would outlive the erasure.

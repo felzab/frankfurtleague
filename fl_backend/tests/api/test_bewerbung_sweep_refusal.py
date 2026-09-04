@@ -8,7 +8,7 @@ from app.api.bewerbungen.services import (
     KONTAKT_SEATS,
     TOKEN_HASH_FIELDS,
     acceptance_erasure_is_due,
-    ansprechperson_email,
+    ansprechperson_mailbox,
     build_token_filter,
     compose_bestaetigungen,
     compose_erinnerung_update,
@@ -89,9 +89,16 @@ def application(**overrides: Any) -> dict[str, Any]:
 
 
 class TestTheSeasonAfter:
-    @pytest.mark.parametrize(("saison_id", "expected"), [("2026", "2027"), ("2099", "2100"), ("abcd", None), ("26", None), ("", None)])
-    def test_ids_are_years_and_only_a_year_has_a_successor(self, saison_id: str, expected: str | None):
+    @pytest.mark.parametrize(("saison_id", "expected"), [("2026", "2027"), ("2099", "2100")])
+    def test_ids_are_years_and_a_year_has_a_successor(self, saison_id: str, expected: str):
         assert next_saison_id(saison_id) == expected
+
+    @pytest.mark.parametrize("saison_id", ["abcd", "26", "", "20261"])
+    def test_an_id_that_is_no_year_stops_the_pass_rather_than_answering_nothing(self, saison_id: str):
+        """Answering `None` here left the accepted clock and the contact block silently stopped for ever; the raise is what a log can see."""
+
+        with pytest.raises(ValueError):
+            next_saison_id(saison_id)
 
     @pytest.mark.parametrize(("status", "ended"), [("past", True), ("active", False), ("future", False), (None, False)])
     def test_only_a_past_successor_ends_the_clock(self, status: str | None, ended: bool):
@@ -112,13 +119,16 @@ class TestOneMonth:
         ],
     )
     def test_the_same_day_next_month_clamped(self, day: str, expected: str):
-        """The ruling says a month, not thirty days; the clamp is what keeps the 31st from skipping a month."""
+        """A calendar month, not thirty days; the clamp is what keeps the 31st from skipping a month."""
 
         assert one_month_after(day=day) == expected
 
 
 class TestTheReminderMark:
-    """Ruling 26's three days, on the seat: the day before, the day, the day after."""
+    """The three-day mark, on the seat: the day before, the day, the day after.
+
+    The bound is `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_ERINNERUNG_TAGE`.
+    """
 
     @pytest.mark.parametrize(
         ("verschickt_am", "due"),
@@ -152,7 +162,7 @@ class TestTheReminderMark:
         ],
     )
     def test_a_seat_that_has_spoken_been_reminded_or_been_emptied_is_not_reminded(self, kontakte_block: Any, bookkeeping: Any, why: str):
-        """Ruling 55's "one reminder": whatever the mail did after the stamp, the seat is never reminded twice."""
+        """One reminder per seat: whatever the mail did after the stamp, the seat is never reminded twice (`docs/backend/spec.md :: I152`)."""
 
         assert not seat_reminder_is_due(kontakte=kontakte_block, bestaetigungen=bookkeeping, seat="trainer", today=TODAY), why
 
@@ -179,7 +189,10 @@ class TestTheReminderMark:
 
 
 class TestOneMessagePerMailbox:
-    """Ruling 55: grouped as the first mail groups -- the local part byte for byte, the domain without case."""
+    """Grouped as the first mail groups: the local part byte for byte, the domain without case.
+
+    The keying is `fl_frontend/src/features/bewerbungen/notifications.ts :: collectSeats`.
+    """
 
     def test_one_person_holding_two_seats_gets_one_message_with_both(self):
         block = kontakte(trainer=person("Ida"), ansprechperson=person("Ida"), trainer_ist_zugleich="ansprechperson")
@@ -215,7 +228,10 @@ class TestOneMessagePerMailbox:
 
 
 class TestWhatAReminderWrites:
-    """Ruling S1-ah and 61: the stamp and a fresh hash, the first hash kept beside it, the deadline and `verschickt_am` untouched."""
+    """The stamp and a fresh hash, the first hash kept beside it.
+
+    The deadline and `verschickt_am` are untouched (`docs/backend/spec.md :: I152`).
+    """
 
     def test_the_stamp_the_fresh_hash_and_the_kept_hash_and_nothing_else(self):
         update = compose_erinnerung_update(hashes={"trainer": "fresh"}, bestaetigungen=bestaetigungen(), today=TODAY)
@@ -288,7 +304,7 @@ class TestTheOneMonthClock:
             pytest.param("2026-02-15", True, id="past the month"),
         ],
     )
-    def test_each_boundary_falls_where_the_ruling_says(self, getroffen_am: str, due: bool):
+    def test_each_boundary_falls_a_calendar_month_after_the_decision(self, getroffen_am: str, due: bool):
         declined = application(status="abgelehnt", entscheidung={"getroffen_am": getroffen_am, "von": "admin", "grund": "kein Platz"})
 
         assert decline_erasure_is_due(bewerbung_raw=declined, today=TODAY) == due
@@ -315,9 +331,12 @@ class TestWhatTheNoticesNeed:
         assert schule_name(bewerbung_raw=application(schule=None, team_id="club-1"), club_names={"club-1": "Adler"}) == "Adler"
         assert schule_name(bewerbung_raw=application(schule=None, team_id="club-9"), club_names={}) == ""
 
-    def test_the_submitter_is_the_ansprechperson_and_an_emptied_slot_is_nobody(self):
-        assert ansprechperson_email(kontakte=kontakte()) == "ansgar@example.com"
-        assert ansprechperson_email(kontakte=kontakte(ansprechperson=None)) is None
+    def test_the_submitter_is_the_ansprechperson_and_the_notice_names_every_seat_that_mailbox_holds(self):
+        """The double-seated case is the one the single-seat spelling gets wrong: it names one seat to a reader holding two."""
+
+        assert ansprechperson_mailbox(kontakte=kontakte()) == ("ansgar@example.com", ["ansprechperson"])
+        assert ansprechperson_mailbox(kontakte=kontakte(trainer=person("Ansgar"))) == ("ansgar@example.com", ["trainer", "ansprechperson"])
+        assert ansprechperson_mailbox(kontakte=kontakte(ansprechperson=None)) == (None, [])
 
     def test_a_first_name_reads_off_the_slot_and_an_emptied_slot_has_none(self):
         assert vorname_of(kontakte=kontakte(), seat="stellvertretung") == "Stellan"

@@ -4,7 +4,6 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
-import { SITE_URL } from "@/core/brand";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { trikotFarbeLabel } from "@/features/teams/constants";
@@ -14,15 +13,15 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { BEWERBUNG_SEATS } from "./constants";
+import { bestaetigungsLink } from "./bestaetigungLink";
+import { gepaarteSitze } from "./bestaetigungStand";
 import { ablehnenBewerbung, annehmenBewerbung, erneutSendenEinwilligung } from "./mutations";
-import { collectBewerbungEmpfaenger, describeBewerbungMail, sendBewerbungMail } from "./notifications";
+import { collectBewerbungEmpfaenger, describeBewerbungMail, rollenText, sendBewerbungMail } from "./notifications";
 import { getBewerbungById } from "./queries";
 import { FLAblehnenBewerbungPayloadSchema, FLAnnehmenBewerbungPayloadSchema, FLEinwilligungErneutPayloadSchema } from "./schemas";
 import { bewerbungTeamName, describeAufnahme } from "./utils";
 
 import type { BewerbungEmail } from "@/core/bewerbungEmail";
-import type { KontaktRolle } from "@/features/teams/constants";
 import type { ActionResult } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { BewerbungBetreff } from "./notifications";
@@ -73,9 +72,9 @@ function mapTriageRefusal(error: unknown): { error?: string; fieldErrors?: Field
           where: TEAMS_PAGE,
         }),
       };
-    // Reachable from a page that was open while a seat's state moved: the view withholds the
-    // acceptance while a seat is outstanding, so the reload is what puts the current state in front
-    // of the administrator, seat by seat.
+    // Reachable from a page that was open while a seat's state moved: the view closes the acceptance
+    // while a seat is outstanding, so the reload is what puts the current state in front of the
+    // administrator, seat by seat.
     case "REQ-BEWERBUNG-013":
       return {
         error: buildRefusal({
@@ -353,43 +352,53 @@ function mapEinwilligungErneutRefusal(error: unknown): { error?: string } | null
   }
 }
 
-/** What the administrator is left with where nobody could be written to. Both arms report a committed write. */
-const KEIN_LINK_VERSCHICKT = "Die E-Mail ging nicht raus. Versuche es noch einmal.";
-const KEINE_ADRESSE = "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung, deshalb ging der Link an niemanden raus.";
+/** The queue holds an application the retention sweep can have taken since the page was drawn. */
+const BEWERBUNG_WEG = buildRefusal({ reason: "Diese Bewerbung gibt es nicht mehr", repair: "Lade die Seite neu" });
+
+/** A seat with nobody in it shows no control at all, so a press reaching this came off a page whose state has moved. */
+const SITZ_LEER = buildRefusal({ reason: "Für diese Rolle steht niemand mehr in der Bewerbung", repair: "Lade die Seite neu" });
+
+/** No repair, because the administration has none: an application is what three people submitted, and nothing edits it. */
+const KEINE_ADRESSE = "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Ein Link kann an niemanden gehen.";
+
+/** A confirmation asks somebody to confirm for a named school, and `REQ-BEWERBUNG-002` refuses to accept this row anyway. */
+const KEIN_TEAM = buildRefusal({ reason: "Diese Bewerbung nennt kein Team", repair: "Lehne die Bewerbung ab" });
+
+/** What the press cost where no message went out: the mint voided the seat's previous link on its way. */
+const KEIN_LINK_VERSCHICKT = buildRefusal({
+  reason: "Der alte Link gilt nicht mehr, und die E-Mail mit dem neuen ging nicht raus",
+  repair: "Versuche es noch einmal",
+});
 
 /**
- * Spelled `token` in the query and nowhere else in the URL: `nginx/prod.conf :: map $request_uri
- * $credential_free_uri` matches that parameter NAME, so any other spelling writes the credential
- * whole into the access line and into the referer.
- */
-function bestaetigungsLink(token: string): string {
-  return `${SITE_URL}/bestaetigung?token=${encodeURIComponent(token)}`;
-}
-
-/**
- * **Never throws**: the token is minted and the deadline moved by the time this runs, so a failure
- * here is a message to send again rather than a write that did not happen.
+ * The token is minted and the deadline moved by the time this runs, so every arm reports a write
+ * that stands: a refused send is a message to try again rather than a write that did not happen.
  */
 async function sendeBestaetigungErneut({
   bewerbungId,
-  rolle,
+  saisonId,
+  person,
+  benanntesTeam,
+  sitzeText,
   token,
 }: {
   bewerbungId: string;
-  rolle: KontaktRolle;
+  saisonId: string;
+  person: { vorname: string; email: string };
+  benanntesTeam: string;
+  /** Every seat this one link answers for, already one German phrase. */
+  sitzeText: string;
   token: string;
-}): Promise<string> {
-  let bewerbung: FLBewerbung;
-  let teamName: string | null;
+}): Promise<{ verschickt: true; message: string } | { verschickt: false; error: string }> {
+  let frist: string | null;
 
   try {
     // Read AFTER the write: the deadline this message states is the one the re-send just set, and a
     // frontend clock reckoning fourteen days itself would disagree with the server across midnight.
     const gelesen = await getBewerbungById(bewerbungId);
-    if (gelesen === null) return KEIN_LINK_VERSCHICKT;
+    if (gelesen === null) return { verschickt: false, error: KEIN_LINK_VERSCHICKT };
 
-    bewerbung = gelesen.bewerbung;
-    teamName = await resolveBewerbungTeamName(bewerbung);
+    frist = gelesen.bewerbung.bestaetigungsfrist;
   } catch (error) {
     // Name only, never the error, and never the token (`docs/logging/spec.md :: L9`).
     logger.error("bewerbung.mail_failed", undefined, {
@@ -398,32 +407,33 @@ async function sendeBestaetigungErneut({
       operation: "einwilligungErneutSendenAction",
     });
 
-    return KEIN_LINK_VERSCHICKT;
+    return { verschickt: false, error: KEIN_LINK_VERSCHICKT };
   }
 
-  const person = bewerbung.kontakte[rolle];
-  const frist = bewerbung.bestaetigungsfrist;
-  const benanntesTeam = teamName;
+  // Thrown rather than refused: the endpoint writes this deadline in the same update that mints the
+  // token, so an application answering none afterwards is a broken contract and not a state an
+  // administrator has anything to do about.
+  if (frist === null) throw new Error("the re-send answered no Bestätigungsfrist for the application it had just written");
 
-  if (person === null || person.email === "" || benanntesTeam === null || frist === null) return KEINE_ADRESSE;
+  const fristText = formatSpielDatum(frist);
 
   const outcome = await sendBewerbungMail({
     operation: "einwilligungErneutSendenAction",
-    recipients: [{ address: person.email, rollenText: BEWERBUNG_SEATS.find((seat) => seat.value === rolle)?.label ?? "" }],
-    buildMail: (rollenText) =>
+    recipients: [{ address: person.email, rollenText: sitzeText }],
+    buildMail: () =>
       buildBewerbungBestaetigungEmail({
-        saisonId: bewerbung.saison_id,
+        saisonId: saisonId,
         schule: benanntesTeam,
-        // One seat and one link: a person holding two seats is mirrored by the endpoint, which mints
-        // for the seat this press named.
-        seats: [{ vorname: person.vorname, rolleText: rollenText, link: bestaetigungsLink(token) }],
-        fristText: formatSpielDatum(frist),
+        // One link whatever it answers for: a person holding two seats reads one control, and the
+        // role text beside it is what tells them the answer covers both.
+        seats: [{ vorname: person.vorname, rolleText: sitzeText, link: bestaetigungsLink(token) }],
+        fristText: fristText,
       }),
   });
 
   return outcome.unreachable.length === 0
-    ? `Der neue Link ging an ${person.email}.`
-    : `Der neue Link ging an niemanden raus. Melde Dich selbst bei ${person.email}.`;
+    ? { verschickt: true, message: `Der neue Link ging an ${person.email}.` }
+    : { verschickt: false, error: KEIN_LINK_VERSCHICKT };
 }
 
 /**
@@ -441,6 +451,22 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
     if (!validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
+
+    // Unguarded, and BEFORE the mint: nothing has been written yet, so a throw here is a failure to
+    // report rather than the seat's live link spent on a message this press could never compose.
+    const gelesen = await getBewerbungById(validated.data.id);
+
+    if (gelesen === null) return { success: false, error: BEWERBUNG_WEG };
+
+    const { bewerbung } = gelesen;
+    const person = bewerbung.kontakte[validated.data.rolle];
+
+    if (person === null) return { success: false, error: SITZ_LEER };
+    if (person.email === "") return { success: false, error: KEINE_ADRESSE };
+
+    const benanntesTeam = await resolveBewerbungTeamName(bewerbung);
+
+    if (benanntesTeam === null) return { success: false, error: KEIN_TEAM };
 
     let erneutOperation;
     try {
@@ -460,10 +486,13 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
 
     const zustellung = await sendeBestaetigungErneut({
       bewerbungId: validated.data.id,
-      rolle: validated.data.rolle,
+      saisonId: bewerbung.saison_id,
+      person: person,
+      benanntesTeam: benanntesTeam,
+      sitzeText: rollenText(gepaarteSitze(bewerbung, validated.data.rolle)),
       token: erneutOperation.token,
     });
 
-    return { success: true, message: zustellung };
+    return zustellung.verschickt ? { success: true, message: zustellung.message } : { success: false, error: zustellung.error };
   });
 }

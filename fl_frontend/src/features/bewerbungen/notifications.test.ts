@@ -65,6 +65,8 @@ registerHooks({
 
 const { collectBewerbungEingangEmpfaenger, collectBewerbungEmpfaenger, describeBewerbungMail, seatsByMailbox, sendBewerbungMail } =
   await import("./notifications.ts");
+const { buildBewerbungBestaetigungEmail } = await import("../../core/bewerbungEmail.ts");
+const { bestaetigungsLink } = await import("./bestaetigungLink.ts");
 
 /** One message composed per recipient, its per-reader half interpolated: two readers handed one text is what this proves against. */
 const buildMail = (rollenText: string) => ({
@@ -247,8 +249,45 @@ describe("which mailbox is sent which link", () => {
     ]);
   });
 
-  /* Two tokens for the same person is the other reading of a double seat, and it renders as two
-     controls under one name. Which the workflow mints is the caller's; the grouping serves both. */
+  /* The pair the workflow mints two tokens for: the backend answers both seats from either press
+     (`fl_backend/app/api/bewerbungen/services.py :: paired_seat`), so the second link would put two
+     buttons in front of one reader over one decision. */
+  it("offers a mirrored Trainer one link, under both the seats it answers for", () => {
+    const kontakte = {
+      trainer: benannt("mira@schule.de", "Mira"),
+      ansprechperson: benannt("erika@schule.de", "Erika"),
+      stellvertretung: benannt("mira@schule.de", "Mira"),
+      trainer_ist_zugleich: "stellvertretung" as const,
+    };
+    const eigener = bestaetigungsLink("erste");
+    const gespiegelter = bestaetigungsLink("zweite");
+
+    const verlinkt = seatsByMailbox(kontakte, { ansprechperson: "L-A", stellvertretung: eigener, trainer: gespiegelter });
+    const gepaart = verlinkt.find((mailbox) => mailbox.address === "mira@schule.de");
+
+    assert.deepEqual(gepaart?.seats, [{ vorname: "Mira", rolleText: "Stellvertretung und Trainerin oder Trainer", link: eigener }]);
+
+    const mail = buildBewerbungBestaetigungEmail({
+      saisonId: "2627",
+      schule: "Lessing-Kolleg",
+      seats: gepaart?.seats ?? [{ vorname: "Mira", rolleText: "Stellvertretung", link: eigener }],
+      fristText: "30.09.2026",
+    });
+
+    // Both branches: a reader whose client draws no HTML meets the same one link in the text.
+    for (const teil of [mail.html, mail.text]) {
+      const adressen = new Set(
+        [...teil.matchAll(/https?:\/\/[^"'<\s]+/g)].map((treffer) => treffer[0]).filter((url) => url.includes("bestaetigung")),
+      );
+
+      assert.deepEqual([...adressen], [eigener], "the message offers a second link for the seat the first one already answers");
+      assert.match(teil, /Stellvertretung/, "the message no longer names the seat the person was entered under");
+      assert.match(teil, /Trainerin oder Trainer/, "the message no longer names the seat the Trainer claim mirrors");
+    }
+  });
+
+  /* One person on two seats is what `trainer_ist_zugleich` declares, and nothing else: two seats on
+     one inbox that it does not pair are two readers, each owed the link addressed to them. */
   it("keeps two seats apart where each carries its own link", () => {
     const kontakte = {
       trainer: benannt("erika@schule.de", "Erika"),

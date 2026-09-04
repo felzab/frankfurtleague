@@ -17,6 +17,9 @@ const { FormSchuleSection } = await import("./components/forms/BewerbungForm/For
 const { FieldLabel } = await import("@/shared/components/ui/FieldLabel.tsx");
 const { SCHULE_NICHT_IN_LISTE } = await import("./constants.ts");
 const { buildEmptyBewerbungSchule } = await import("./utils.ts");
+const { LIGA_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
+const { formPanel } = await import("@/shared/components/ui/formPanel.ts");
+const { FIELD_ERROR, FIELD_ERROR_SWITCH } = await import("@/shared/components/ui/formFieldStyles.ts");
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 
@@ -140,12 +143,11 @@ describe("the public application form", () => {
   });
 
   /* The Trainer LAST, so the claim on its panel names a seat already typed
-     (`fl_frontend/src/features/teams/constants.ts :: KONTAKT_ROLLEN`). The confirmation block
-     carries no heading of its own, which is why five headings answer for six sections. */
+     (`fl_frontend/src/features/teams/constants.ts :: KONTAKT_ROLLEN`). */
   it("asks for the Trainer last, behind the two seats its claim can name", () => {
     assert.deepEqual(
       [...FORMULAR.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((treffer) => treffer[1]),
-      ["Schule", "Ansprechperson", "Stellvertretung", "Trainerin oder Trainer", "Team"],
+      ["Schule", "Ansprechperson", "Stellvertretung", "Trainerin oder Trainer", "Bestätigung", "Team"],
       "the form no longer asks the Trainer last, or renamed a panel",
     );
     // The payload's own keys in the same order, so a renamed panel heading cannot hide a reordering.
@@ -211,6 +213,40 @@ describe("what a refusal on a switch has to land on", () => {
       benannteControls(FORMULAR).some((control) => control.name === pfad),
       `no control on this form is named ${pfad ?? ""}`,
     );
+  });
+});
+
+describe("how the consent panel sits among the sections around it", () => {
+  /* A panel titled below its siblings' level reads as a group inside the one before it, which is
+     where an applicant looked for their consent and found the Trainer's fields. */
+  it("wears the frame and the heading level every other section wears", () => {
+    const panel = formPanel();
+    const kopf = new RegExp(`<div class="${panel.header()}"><div><h2 class="${panel.heading()} inline">([^<]*)</h2>`, "g");
+    const titel = [...FORMULAR.matchAll(kopf)].map((treffer) => treffer[1] ?? "");
+
+    assert.ok(titel.includes("Bestätigung"), "the consent panel titles itself some other way than its siblings do");
+    assert.equal(titel.length, 6, `the form frames ${String(titel.length)} sections rather than its six`);
+  });
+
+  /* The wording is stamped and may not be shortened, so the type step it is set at is the only lever
+     left on how long the block reads. */
+  it("sets the stamped wording at the muted caption step, one recipe for all of it", () => {
+    assert.equal(
+      [...FORMULAR.matchAll(/<p class="muted-meta">/g)].length,
+      LIGA_EINWILLIGUNG.absaetze.length,
+      "a stamped paragraph is set in something other than the panel's own muted recipe",
+    );
+  });
+
+  /* Read as source because a `FieldError` with nothing to say renders no element, so the class it
+     would wear reaches no markup this suite can make. */
+  it("starts the switch's refusal on the label's own edge", () => {
+    const block = /<Switch\b[\s\S]*?<\/Switch>/.exec(SEATS)?.[0] ?? "";
+
+    assert.notEqual(block, "", "the consent section renders no switch, so this case compares nothing");
+    assert.match(block, /<FieldError className=\{FIELD_ERROR_SWITCH\} \/>/, "the switch's message wears a text field's recipe");
+    assert.ok(FIELD_ERROR_SWITCH.startsWith(FIELD_ERROR), "the switch recipe is no longer the field recipe with a start added");
+    assert.match(FIELD_ERROR_SWITCH, /\bps-\d/, "the switch recipe writes no start of its own, so HeroUI's reservation stands");
   });
 });
 

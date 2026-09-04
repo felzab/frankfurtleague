@@ -78,8 +78,12 @@ export const formButton = tv({
     // `size` beside it does not shorten the control: `tv` resolves by declaration order, so `h-10` replaces
     // `h-auto` while `min-h-12` still floors the box, and the wrap is clipped. No call site pairs them.
     stacks: { true: "h-auto min-h-12 w-full py-2 text-center whitespace-normal sm:w-auto" },
-    /** Height alone, so page chrome stays under the action bar's without becoming a second fill. */
-    size: { sm: "h-10" },
+    /**
+     * Height alone, so page chrome stays under the action bar's — except `xs`, which takes the
+     * badge's type step too: it stands in a row of `LABEL_BADGE` chips, where a taller control is
+     * what makes the row read as ragged.
+     */
+    size: { sm: "h-10", xs: "fluid-xxs h-7 px-3" },
   },
   defaultVariants: { intent: "submit" },
 });

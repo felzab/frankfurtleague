@@ -1,8 +1,8 @@
-import { buildBewerbungAblehnungEmail, buildBewerbungVollstaendigEmail, joinUnd } from "@/core/bewerbungEmail";
+import { buildBewerbungAblehnungEmail, buildBewerbungVollstaendigEmail } from "@/core/bewerbungEmail";
 import { logger } from "@/core/logging";
 import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
-import { sendBewerbungMail } from "@/features/bewerbungen/notifications";
+import { rollenText, sendBewerbungMail } from "@/features/bewerbungen/notifications";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
 import { FLBewerbungEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
 import { mapEinwilligungRefusal, stampEinwilligungFassung } from "@/features/bewerbungen/utils";
@@ -22,16 +22,6 @@ async function beantworteterZustand(token: string): Promise<LinkZustand> {
   // `gueltig` is the write's refusal and this read disagreeing, and the panel naming nobody is the
   // one answer that claims nothing about a record.
   return zustand === "gueltig" ? "ungueltig" : zustand;
-}
-
-/**
- * The seats one mailbox holds, as one German phrase.
- *
- * Walked in `BEWERBUNG_SEATS`' order rather than the answer's, so the phrase a person holding two
- * seats reads here is the one the submission's own message already gave them.
- */
-function mailboxRollen(rollen: readonly FLKontaktRolle[]): string {
-  return joinUnd(BEWERBUNG_SEATS.filter((seat) => rollen.includes(seat.value)).map((seat) => seat.label));
 }
 
 /** What one seat is called where a message names it to somebody else. */
@@ -58,13 +48,13 @@ async function notifyAnsprechperson(antwort: FLBewerbungEinwilligungAntwortRespo
 
   await sendBewerbungMail({
     operation: "postEinwilligung",
-    recipients: [{ address: antwort.ansprechperson_email, rollenText: mailboxRollen(antwort.ansprechperson_rollen) }],
-    buildMail: (rollenText) =>
+    recipients: [{ address: antwort.ansprechperson_email, rollenText: rollenText(antwort.ansprechperson_rollen) }],
+    buildMail: (rollen) =>
       vollstaendig
-        ? buildBewerbungVollstaendigEmail({ saisonId: antwort.saison_id, rollenText: rollenText })
+        ? buildBewerbungVollstaendigEmail({ saisonId: antwort.saison_id, rollenText: rollen })
         : buildBewerbungAblehnungEmail({
             saisonId: antwort.saison_id,
-            rollenText: rollenText,
+            rollenText: rollen,
             // Named off the answer rather than a second read: the decline emptied the slot this
             // came from, and nothing left in the record can say whose entry was refused.
             abgelehnt: { vorname: antwort.vorname, rolleText: seatLabel(antwort.rolle) },
@@ -83,7 +73,11 @@ export async function POST(request: NextRequest) {
     routeName: "postEinwilligung",
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
-      const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(body);
+
+      // Stamped BEFORE the parse: the label is this server's to write, so judging the browser's own
+      // would refuse a body on `text_version`, which no control renders and no reader would see.
+      const gestempelt = typeof body === "object" && body !== null ? stampEinwilligungFassung(body) : body;
+      const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(gestempelt);
 
       if (!parsed.success) {
         return { success: false as const, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(parsed.error) };
@@ -91,7 +85,7 @@ export async function POST(request: NextRequest) {
 
       let antwort;
       try {
-        antwort = await postEinwilligung(stampEinwilligungFassung(parsed.data));
+        antwort = await postEinwilligung(parsed.data);
       } catch (error) {
         // The refusal belongs under the field or on the dead-link panel, not on the error page.
         const refusal = mapEinwilligungRefusal(error);

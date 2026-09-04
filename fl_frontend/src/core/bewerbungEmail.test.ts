@@ -1033,7 +1033,9 @@ describe("buildBewerbungBestaetigungEmail", () => {
 });
 
 describe("buildBewerbungErinnerungEmail", () => {
-  it("names the deletion date rather than the link's validity, and carries the first message's link", () => {
+  /* The clock erases the day AFTER the deadline, so a row reading „gelöscht am“ names a day nothing
+     happens on. What the reader must do by it is exact. */
+  it("names the deadline by what the reader owes on it, and carries the first message's link", () => {
     const mail = buildBewerbungErinnerungEmail(BESTAETIGUNG);
 
     assert.equal(mail.subject, `Erinnerung: Frankfurt-League, Saison ${BESTAETIGUNG.saisonId}`);
@@ -1041,7 +1043,7 @@ describe("buildBewerbungErinnerungEmail", () => {
       ["Schule", BESTAETIGUNG.schule],
       ["Saison", BESTAETIGUNG.saisonId],
       ["Eingetragen als", ERIKA.rolleText],
-      ["Bewerbung wird gelöscht am", FRIST],
+      ["Bestätigen bis", FRIST],
     ]);
     assert.deepEqual(steuerung(mail.html), [{ href: LINK_EINS, label: "Eintrag bestätigen" }]);
   });
@@ -1053,7 +1055,7 @@ describe("buildBewerbungErinnerungEmail", () => {
       "Vor drei Tagen haben wir Dich gebeten, Deinen Eintrag zu bestätigen:",
       `In der Bewerbung der Schule ${BESTAETIGUNG.schule} zur Saison ${BESTAETIGUNG.saisonId} bist Du als ${ERIKA.rolleText} eingetragen.`,
       "Bis jetzt fehlt Deine Antwort.",
-      `Ohne Deine Antwort löschen wir die Bewerbung am ${FRIST} mit allen Angaben.`,
+      `Ist die Bewerbung am ${FRIST} noch unvollständig, löschen wir sie mit allen Angaben.`,
       LINK_EINS,
     ]) {
       assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
@@ -1088,7 +1090,7 @@ describe("buildBewerbungErinnerungEmail", () => {
       "Vor drei Tagen haben wir Euch gebeten, Eure Einträge zu bestätigen:",
       `sind mit dieser E-Mail-Adresse ${beide} eingetragen.`,
       "Bis jetzt fehlt Eure Antwort.",
-      `Ohne Eure Antwort löschen wir die Bewerbung am ${FRIST} mit allen Angaben.`,
+      `Ist die Bewerbung am ${FRIST} noch unvollständig, löschen wir sie mit allen Angaben.`,
       "Für Euch ist nichts zu tun: Eure Angaben werden nach 14 Tagen gelöscht. Oder lehnt über die Links ab",
     ]) {
       assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
@@ -1200,12 +1202,14 @@ describe("buildBewerbungVollstaendigEmail", () => {
 });
 
 describe("buildBewerbungGeloeschtEmail", () => {
+  /* The present tense throughout: this message goes out BEFORE the erasure and the erasure runs only
+     where it was delivered, so a past tense would report a deletion that had not happened yet. */
   it("names who did not confirm and offers the way to start again", () => {
     const mail = buildBewerbungGeloeschtEmail(GELOESCHT);
 
-    assert.equal(mail.subject, `Bewerbung gelöscht: Frankfurt-League, Saison ${GELOESCHT.saisonId}`);
+    assert.equal(mail.subject, `Bewerbung wird gelöscht: Frankfurt-League, Saison ${GELOESCHT.saisonId}`);
     assert.deepEqual(faktListe(mail.html), [
-      ["Status", "Gelöscht, nicht vollständig geworden"],
+      ["Status", "Wird gelöscht, nicht vollständig geworden"],
       ["Saison", GELOESCHT.saisonId],
       ["Eingetragen als", GELOESCHT.rollenText],
       // Named, because a school told only that the application lapsed collects the same people again.
@@ -1221,9 +1225,9 @@ describe("buildBewerbungGeloeschtEmail", () => {
     const mail = buildBewerbungGeloeschtEmail(GELOESCHT);
 
     for (const satz of [
-      `Gelöscht: Bewerbung für die Saison ${GELOESCHT.saisonId}`,
+      `Wir löschen die Bewerbung für die Saison ${GELOESCHT.saisonId}`,
       "14 Tage lang haben nicht alle Kontaktpersonen ihren Eintrag bestätigt.",
-      `Deshalb haben wir Deine Bewerbung für die Saison ${GELOESCHT.saisonId} mit allen Angaben gelöscht, wie angekündigt.`,
+      `Deshalb löschen wir Deine Bewerbung für die Saison ${GELOESCHT.saisonId} jetzt mit allen Angaben, wie angekündigt.`,
       "Solange die Bewerbungsfrist läuft, kann sich Deine Schule neu bewerben.",
       "Frag die Kontaktpersonen am besten vorher, dann klappt es beim zweiten Mal schneller.",
       OFFEN_LISTE,
@@ -1311,7 +1315,7 @@ describe("the confirmation workflow's messages", () => {
       "Erinnerung (Postfach)": eintragMehrere,
       "Eingang offen": `${auftakt}: die Bewerbung wird nach 14 Tagen gelöscht.`,
       Vollständig: `${auftakt}.`,
-      Gelöscht: `${auftakt}: die Bewerbung wurde gelöscht.`,
+      Gelöscht: `${auftakt}: die Bewerbung wird jetzt gelöscht.`,
       Ablehnung: `${auftakt}: die Bewerbung wird nach 14 Tagen gelöscht.`,
     };
 

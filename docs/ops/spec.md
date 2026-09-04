@@ -38,16 +38,22 @@ assumed to be deliberate. `nginx` declares `depends_on` both services with
 `condition: service_healthy`.
 
 **The frontend container is also what runs the retention sweep.**
-`fl_frontend/src/instrumentation.ts :: register` reads `BEWERBUNG_SWEEP` at startup and arms
-`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, which runs one pass a minute
+`fl_frontend/src/instrumentation.ts :: register` arms
+`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep` under a production build with
+`BEWERBUNG_SWEEP` on, and it then runs one pass a minute
 after start and then hourly. Each pass lists the seasons at `GET /bewerbungen/sweep`, calls
-`POST /bewerbungen/sweep/{saison_id}` per season and the `loeschen` call beside it in
-`fl_frontend/src/features/bewerbungen/mutations.ts` for the applications whose
-deletion notice was delivered, so every retention clock — the reminder, the deletion of an
-unconfirmed application, the two erasure clocks and the contact block's — runs in the process that
-serves the site and stops when it stops. Production declares no replicas, so one process arms one
-timer (I149); the sweep selects on dates and is idempotent, so a redeploy, a restart and a double-arm
-each cost nothing. `BEWERBUNG_SWEEP` is what turns it off (§1.5).
+`POST /bewerbungen/sweep/{saison_id}` per season and, for the applications whose deletion notice was
+delivered, the `angekuendigt` and `loeschen` calls beside it in
+`fl_frontend/src/features/bewerbungen/mutations.ts`, so every retention clock — the reminder, the
+deletion of an unconfirmed application, the two erasure clocks and the contact block's — runs in the
+process that serves the site and stops when it stops. Production declares no replicas, so one process
+arms one timer (I149), and a tick finding the previous pass still running skips with one line rather
+than overlapping it. The four clocks that write inside the pass select on dates and are idempotent,
+so a redeploy, a restart and a double-arm each cost nothing; the deletion notice is idempotent to one
+floor, a crash between a delivery and its stamp repeating that one notice once
+([`docs/backend/spec.md`](../backend/spec.md) I156). `BEWERBUNG_SWEEP` is what turns it off on a
+production build (§1.5); a `next dev` process arms nothing whatever that switch says, its default
+being on.
 
 **Note:** `API_VERSION` is a constant of the code rather than a setting
 ([`docs/backend/spec.md`](../backend/spec.md) §1.5), so bumping it is a code change — and the

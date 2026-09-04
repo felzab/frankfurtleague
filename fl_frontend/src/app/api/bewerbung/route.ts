@@ -1,5 +1,5 @@
 import { buildBewerbungBestaetigungEmail, buildBewerbungEingangOffenEmail } from "@/core/bewerbungEmail";
-import { SITE_URL } from "@/core/brand";
+import { bestaetigungsLink } from "@/features/bewerbungen/bestaetigungLink";
 import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
 import { postBewerbung } from "@/features/bewerbungen/mutations";
 import {
@@ -10,7 +10,7 @@ import {
 } from "@/features/bewerbungen/notifications";
 import { getBewerbungSchulen } from "@/features/bewerbungen/queries";
 import { FLPostBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
-import { mapBewerbungSubmitRefusal } from "@/features/bewerbungen/utils";
+import { empfangsSitze, mapBewerbungSubmitRefusal } from "@/features/bewerbungen/utils";
 import { VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
@@ -22,13 +22,6 @@ import type { NextRequest } from "next/server";
 
 /** The record's own id stays off the page. */
 const EINGEGANGEN = "Deine Bewerbung ist bei uns eingegangen.";
-
-/**
- * The one place a link is spelled. The parameter is `token` because that is what
- * `nginx/prod.conf`'s `map $request_uri $credential_free_uri` strips from the access line and the
- * referer, and a second spelling would be a credential the edge does not redact.
- */
-const bestaetigungsLink = (token: string): string => `${SITE_URL}/bestaetigung?token=${token}`;
 
 /**
  * One school's application, submitted by a visitor with no session.
@@ -78,12 +71,13 @@ export async function POST(request: NextRequest) {
           .then(({ schulen }) => schulen.find((option) => option.id === parsed.data.team_id)?.name ?? "")
           .catch(() => ""));
 
-      // Every seat but the submitter's, whose own link travels in the message below instead: one
-      // mailbox sent both would be asked twice for the same press.
-      const { ansprechperson: _eigener, ...andere } = seats;
+      const imEmpfang = empfangsSitze(kontakte.trainer_ist_zugleich);
+
       const verlinkt = seatsByMailbox(
         kontakte,
-        Object.fromEntries(Object.entries(andere).map(([rolle, token]) => [rolle, bestaetigungsLink(token)])),
+        Object.fromEntries(
+          BEWERBUNG_SEATS.filter((seat) => !imEmpfang.includes(seat.value)).map((seat) => [seat.value, bestaetigungsLink(seats[seat.value])]),
+        ),
       );
 
       // After the write and never before it, and settled per address, so nobody's refusal costs the
@@ -100,15 +94,17 @@ export async function POST(request: NextRequest) {
           }),
       });
 
-      const ausstehend: BewerbungSeat[] = BEWERBUNG_SEATS.filter((seat) => seat.value !== "ansprechperson").map((seat) => ({
+      // The same set the links were withheld for: a mirrored seat listed here would send the reader
+      // chasing themselves for a press their own link already makes.
+      const ausstehend: BewerbungSeat[] = BEWERBUNG_SEATS.filter((seat) => !imEmpfang.includes(seat.value)).map((seat) => ({
         vorname: kontakte[seat.value].vorname,
         rolleText: seat.label,
       }));
 
       await sendBewerbungMail({
         operation: "postBewerbung",
-        // The Ansprechperson alone: this message names the other two seats, and the submitter is the
-        // one person who can ask a colleague in the corridor.
+        // The Ansprechperson alone: this message names every seat still outstanding, and the
+        // submitter is the one person who can ask a colleague in the corridor.
         recipients: collectBewerbungEingangEmpfaenger(kontakte),
         buildMail: (rollenText) =>
           buildBewerbungEingangOffenEmail({

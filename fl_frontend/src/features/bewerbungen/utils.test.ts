@@ -3,17 +3,20 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { parseDate } from "@internationalized/date";
+
 import { BESTAETIGUNG_EINWILLIGUNG } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 
 import { declaredCodes } from "../../core/refusalRegister.ts";
-import { ALTER_AUSSERHALB } from "./constants.ts";
+import { ALTER_AUSSERHALB, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER } from "./constants.ts";
 import {
   abiJahrgang,
   bewerbungJudgedPaths,
   bewerbungTeamName,
   buildBewerbungRows,
   describeAufnahme,
+  empfangsSitze,
   fensterZustand,
   geburtsdatumSpanne,
   KUERZEL_PRUEFUNG,
@@ -206,16 +209,54 @@ describe("the Abi-Jahrgang a season fields", () => {
 });
 
 describe("the birthdate window a contact person's date has to fall in", () => {
+  /* The endpoint's own rule restated rather than its result quoted, so both bounds are judged
+     against what it accepts: whole years, a birthday not yet reached this year not having happened
+     (`fl_backend/app/api/bewerbungen/schemas.py :: _whole_years_between`). */
+  function ganzeJahre(geboren: string, heute: string): number {
+    const [gJahr = 0, gMonat = 0, gTag = 0] = geboren.split("-").map(Number);
+    const [hJahr = 0, hMonat = 0, hTag = 0] = heute.split("-").map(Number);
+
+    return hJahr - gJahr - (hMonat < gMonat || (hMonat === gMonat && hTag < gTag) ? 1 : 0);
+  }
+
+  const naechsterTag = (tag: string): string => parseDate(tag).add({ days: 1 }).toString();
+  const vorherigerTag = (tag: string): string => parseDate(tag).subtract({ days: 1 }).toString();
+
   /* Bounds and not an age: the picker needs a `minValue` and a `maxValue`, the schema needs a string
      comparison, and one derivation serving both is what stops the two drifting apart. */
   it("spans both bounds off today, and both ends are inclusive", () => {
-    assert.deepEqual(geburtsdatumSpanne("2026-08-29"), { frueheste: "1906-08-29", spaeteste: "2010-08-29" });
+    assert.deepEqual(geburtsdatumSpanne("2026-08-29"), { frueheste: "1905-08-30", spaeteste: "2010-08-29" });
   });
 
-  /* Both bounds are multiples of four years, so a 29 February lands on a leap year either way — a
-     date arithmetic that produced 30 February would be refused by the picker's own parse. */
-  it("lands a leap day on a leap year at both ends", () => {
-    assert.deepEqual(geburtsdatumSpanne("2024-02-29"), { frueheste: "1904-02-29", spaeteste: "2008-02-29" });
+  /* A 29 February has no counterpart in a year that is not a leap year, 1903 and 2100 among them, so
+     an arithmetic that kept the day would hand the picker a date its own parse refuses. */
+  it("clamps a leap day onto the end of February where the target year has none", () => {
+    assert.deepEqual(geburtsdatumSpanne("2024-02-29"), { frueheste: "1903-03-01", spaeteste: "2008-02-29" });
+    assert.equal(geburtsdatumSpanne("2116-02-29").spaeteste, "2100-02-28");
+  });
+
+  /* Both tiers refuse the same set. A band the page turns away and the endpoint accepts is a
+     contact person told to correct a date that was right. */
+  it("ends both bounds exactly where the endpoint's whole-year count does", () => {
+    for (const heute of ["2026-09-04", "2024-02-29", "2027-03-01", "2116-02-29"]) {
+      const { frueheste, spaeteste } = geburtsdatumSpanne(heute);
+
+      assert.equal(ganzeJahre(frueheste, heute), BEWERBUNG_MAX_ALTER, `${heute}: the earliest date offered is not the oldest accepted`);
+      assert.equal(ganzeJahre(vorherigerTag(frueheste), heute), BEWERBUNG_MAX_ALTER + 1, `${heute}: the day before it is accepted too`);
+      assert.equal(ganzeJahre(spaeteste, heute), BEWERBUNG_MIN_ALTER, `${heute}: the latest date offered is not the youngest accepted`);
+      assert.equal(ganzeJahre(naechsterTag(spaeteste), heute), BEWERBUNG_MIN_ALTER - 1, `${heute}: the day after it is accepted too`);
+    }
+  });
+});
+
+describe("which seats the submission's receipt answers for", () => {
+  /* The mirrored seat is the same person on the same mailbox, and `paired_seat` lets either press
+     answer both, so a link message for it asks one reader twice; the receipt that mailbox gets names
+     both roles (`fl_frontend/src/features/bewerbungen/notifications.test.ts`). */
+  it("withholds the Trainer seat only where it mirrors the Ansprechperson", () => {
+    assert.deepEqual(empfangsSitze("ansprechperson"), ["ansprechperson", "trainer"]);
+    assert.deepEqual(empfangsSitze("stellvertretung"), ["ansprechperson"]);
+    assert.deepEqual(empfangsSitze(null), ["ansprechperson"]);
   });
 });
 
@@ -558,6 +599,12 @@ describe("mapEinwilligungAnsichtRefusal", () => {
   it("reads every refusal as the panel that names nobody", () => {
     assert.equal(mapEinwilligungAnsichtRefusal(refusalFor("REQ-BEWERBUNG-009")), "ungueltig");
     assert.equal(mapEinwilligungAnsichtRefusal(refusalFor("REQ-SOMETHING-NEW")), "ungueltig");
+  });
+
+  /* A token past `CustomBewerbungToken`'s length, or malformed, never reaches a record, so the read
+     is answered by the dead-link panel rather than by the state inviting a reload that cannot work. */
+  it("reads a token the backend will not parse as a link nothing matches", () => {
+    assert.equal(mapEinwilligungAnsichtRefusal(badStatus(422, "REQ-VAL-001")), "ungueltig");
   });
 
   /* A failed read is the page's own state: answering „ungueltig“ on a 500 would call a live link

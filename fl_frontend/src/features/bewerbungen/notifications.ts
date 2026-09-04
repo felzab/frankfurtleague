@@ -40,9 +40,15 @@ export type BewerbungMailOutcome = {
  */
 export type BewerbungBetreff = "Zusage" | "Absage";
 
-/** What one seat is called, in the wording the form asked for it under. */
-function rolleLabel(rolle: BewerbungRolle): string {
-  return BEWERBUNG_SEATS.find((seat) => seat.value === rolle)?.label ?? "";
+/**
+ * The seats one reader holds, as the phrase a message addresses them by. Reached by every composer
+ * rather than joined per call site, where two spellings would name one reader differently in two
+ * messages.
+ */
+export function rollenText(rollen: readonly BewerbungRolle[]): string {
+  // `BEWERBUNG_SEATS`' order rather than the argument's: a person holding two seats then reads one
+  // phrase whichever answer or record the roles were collected from.
+  return joinUnd(BEWERBUNG_SEATS.filter((seat) => rollen.includes(seat.value)).map((seat) => seat.label));
 }
 
 /**
@@ -76,7 +82,7 @@ function collectSeats(kontakte: BewerbungSeats): { address: string; rollen: Bewe
 }
 
 function toEmpfaenger({ address, rollen }: { address: string; rollen: readonly BewerbungRolle[] }): BewerbungEmpfaenger {
-  return { address: address, rollenText: joinUnd(rollen.map(rolleLabel)) };
+  return { address: address, rollenText: rollenText(rollen) };
 }
 
 /** Every distinct address the application names — who a decision the league has taken goes to. */
@@ -105,10 +111,32 @@ export type BewerbungLinkSeats = {
   trainer: { email: string; vorname: string } | null;
   ansprechperson: { email: string; vorname: string } | null;
   stellvertretung: { email: string; vorname: string } | null;
+  /**
+   * Which seat the Trainer is at the same time, where one person holds both. Optional, so a caller
+   * whose record answers it passes the block whole and one that cannot answer it passes none.
+   */
+  trainer_ist_zugleich?: BewerbungRolle | null;
 };
 
 /** One mailbox and every link it is sent, which is one message's worth. */
 export type BewerbungLinkEmpfaenger = { address: string; seats: BewerbungBestaetigungData["seats"] };
+
+/**
+ * `fl_backend/app/api/bewerbungen/services.py :: paired_seat` answers both seats from either press,
+ * so a mirrored Trainer's own link would ask one reader twice over one decision. It stands only
+ * where the seat it mirrors was left without one.
+ */
+function paarLink(
+  linkBySeat: Partial<Record<BewerbungRolle, string>>,
+  rolle: BewerbungRolle,
+  zugleich: BewerbungRolle | null,
+): string | undefined {
+  if (rolle !== "trainer" || zugleich === null) return linkBySeat[rolle];
+
+  const anker = linkBySeat[zugleich];
+
+  return anker === undefined || anker === "" ? linkBySeat[rolle] : anker;
+}
 
 /** The one place the emptiness is decided, so what the message's type demands is what the filter proves. */
 function hatLink(empfaenger: { address: string; seats: readonly BewerbungLinkSeat[] }): empfaenger is BewerbungLinkEmpfaenger {
@@ -125,12 +153,12 @@ export function seatsByMailbox(
   linkBySeat: Partial<Record<BewerbungRolle, string>>,
 ): BewerbungLinkEmpfaenger[] {
   const gruppiert: { address: string; seats: readonly BewerbungLinkSeat[] }[] = collectSeats(kontakte).map(({ address, rollen }) => {
-    // Keyed by link rather than by person: one token answering two seats is what the message has to
-    // offer once, and nothing else here can tell those two seats are the same reader.
+    // Keyed by link rather than by person: two seats one press answers are one thing to do, and a
+    // shared inbox holding two readers is two, which no other key here tells apart.
     const proLink = new Map<string, { vorname: string; rollen: BewerbungRolle[] }>();
 
     for (const rolle of rollen) {
-      const seatLink = linkBySeat[rolle];
+      const seatLink = paarLink(linkBySeat, rolle, kontakte.trainer_ist_zugleich ?? null);
       if (seatLink === undefined || seatLink === "") continue;
 
       const bekannt = proLink.get(seatLink) ?? { vorname: kontakte[rolle]?.vorname ?? "", rollen: [] };
@@ -140,7 +168,7 @@ export function seatsByMailbox(
 
     const seats = [...proLink].map(([seatLink, { vorname, rollen: gehalten }]) => ({
       vorname: vorname,
-      rolleText: joinUnd(gehalten.map(rolleLabel)),
+      rolleText: rollenText(gehalten),
       link: seatLink,
     }));
 

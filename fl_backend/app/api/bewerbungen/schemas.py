@@ -732,8 +732,8 @@ class FLBewerbungSweepErinnerung(BaseModel):
     bewerbung_id: CustomObjectId
     saison_id: str
     schule: str
-    # Unchanged by a reminder (ruling 61: only a re-send moves it); the notice names it as the day
-    # the application is deleted.
+    # Unchanged by a reminder, and moved only by an administrator's re-send
+    # (`docs/backend/spec.md :: I152`). The message names it as the day by which a seat must answer.
     bestaetigungsfrist: CustomDateString
     email: str
     seats: list[FLBewerbungSweepSeat]
@@ -753,10 +753,17 @@ class FLBewerbungSweepLoeschung(BaseModel):
     saison_id: str
     schule: str
     bestaetigungsfrist: CustomDateString
-    # The submitter, by convention (ruling 65). Null where that slot is empty: nobody can be told,
-    # and the caller treats the notice as delivered rather than keeping the application for ever.
+    # The submitter's mailbox: the form asks that seat for the person who submits. Null where the
+    # slot is empty -- nobody can be told, and the caller erases rather than keeping the application
+    # for ever.
     ansprechperson_email: str | None
+    # Every seat that same mailbox holds, so a submitter who is also the Trainer is addressed by
+    # both rather than by one the message then contradicts.
+    ansprechperson_rollen: list[FLKontaktRolle]
     ausstehend: list[FLBewerbungSweepAusstehend]
+    # Whether the notice has already gone out. The caller mails only where this is false and erases
+    # wherever it is true, so an erasure that failed after a delivery repeats no message.
+    angekuendigt: bool
 
 
 class FLBewerbungSweepResponse(BaseAPIResponse):
@@ -771,8 +778,21 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
     redigierte_aktionen: int
 
 
+class FLBewerbungSweepAngekuendigtPayload(BaseModel):
+    """Which candidates' notices the caller delivered. The backend re-judges them: an id that has stopped qualifying is skipped."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bewerbung_ids: list[CustomObjectId]
+
+
+class FLBewerbungSweepAngekuendigtResponse(BaseAPIResponse):
+    saison_id: str
+    angekuendigt: int
+
+
 class FLBewerbungSweepLoeschenPayload(BaseModel):
-    """Which candidates' notices were delivered. The backend re-selects them: an id that has stopped qualifying is skipped, never erased."""
+    """Which candidates to erase. The backend re-selects them: an id that has stopped qualifying, or that was never announced, is skipped."""
 
     model_config = ConfigDict(extra="forbid")
 

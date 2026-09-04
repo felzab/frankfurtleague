@@ -431,19 +431,26 @@ class TestWhatTheAnswerHandsTheMailer:
 class TestNoHashReachesAnAdminRead:
     """The plan's evidence line: the projection keeps the hash off the wire where the model alone would drop it after."""
 
-    def test_neither_admin_read_serves_a_hash_while_the_document_holds_three(self, mongo_replica_set_url: str):
+    def test_neither_admin_read_serves_a_hash_while_the_document_holds_four(self, mongo_replica_set_url: str):
+        # A reminded seat holds the first mail's hash beside the fresh one, and both open the link:
+        # a fixture without one leaves the second field untested on both reads.
+        erinnert_hash = hash_token("the-first-link-this-seat-was-mailed")
+        reminded = bewerbung_document()
+        reminded["bestaetigungen"]["trainer"] |= {"token_hash_zuvor": erinnert_hash, "erinnert_am": TODAY}
+
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             one = await get_bewerbung_by_id(bewerbung_id=BEWERBUNG_OID, bewerbungen_collection=database[Collection.BEWERBUNGEN])
             many = await get_bewerbungen(bewerbungen_collection=database[Collection.BEWERBUNGEN], filters=FLBewerbungenFilterParams())
 
             return one.model_dump_json(), many.model_dump_json(), await stored(database)
 
-        one, many, document = on_a_league(mongo_replica_set_url, body)
+        one, many, document = on_a_league(mongo_replica_set_url, body, documents=[reminded])
 
         assert all(document["bestaetigungen"][seat]["token_hash"] == HASHES[seat] for seat in KONTAKT_SEATS)
+        assert document["bestaetigungen"]["trainer"]["token_hash_zuvor"] == erinnert_hash
         for rendered in (one, many):
             assert "token_hash" not in rendered
-            assert not any(token_hash in rendered for token_hash in HASHES.values())
+            assert not any(token_hash in rendered for token_hash in (*HASHES.values(), erinnert_hash))
             # The rest of the block still reaches the triage, which renders the per-seat facts off it.
             assert "verschickt_am" in rendered
 

@@ -31,6 +31,7 @@ const VARIANTS: { name: string; classes: ReadonlySet<string> }[] = [
   // The list above pairs every intent with `fullWidth`. `size` and `stacks` are further axes and only
   // some intents take either, so every combination that reaches a real element is spelled out below.
   { name: "formButton nav sm", classes: classesOf(formButton({ intent: "nav", size: "sm" })) },
+  { name: "formButton nav xs", classes: classesOf(formButton({ intent: "nav", size: "xs" })) },
   // The two-press control's own list, which is the one whose height is a floor rather than the base's
   // fixed step, and so the one that would fall back to the vendored height if the floor were all of it.
   { name: "confirmButton armed", classes: classesOf(confirmButton(true)) },
@@ -114,6 +115,19 @@ function buttonRules(root: Root, prop: string): { selector: string; value: strin
 
   return found;
 }
+
+describe("the step that stands in a row of chips", () => {
+  /* The base's `h-12` next to a `LABEL_BADGE` is what makes such a row read as ragged, and the two
+     heights are one decision: the strip's chips are pinned to the same step. */
+  it("takes the chips' own height rather than the base's", async () => {
+    const inline = classesOf(formButton({ intent: "nav", size: "xs" }));
+    const strip = await readFile(path.join(SRC, "features", "bewerbungen", "components", "views", "BewerbungBestaetigungStrip.tsx"), "utf8");
+
+    assert.ok(inline.has("h-7"), "the inline step declares no height of the chip row's own");
+    assert.ok(!inline.has("h-12"), "the base height survives the inline step, so the control towers over the chips beside it");
+    assert.match(strip, /const STRIP_CHIP = `\$\{LABEL_BADGE\} h-7/, "the chips this step is measured against no longer stand at it");
+  });
+});
 
 describe("the height HeroUI fixes and the recipe has to restate", () => {
   it("still finds `.button` declaring one", async () => {

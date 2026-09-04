@@ -8,7 +8,7 @@ const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("expor
 /** One thing that happened, in the order it happened: the two orderings this slice owes are orderings between the two kinds. */
 type SweepEvent =
   | { kind: "api"; endpoint: string; method: string; authType?: string; params?: Record<string, string>; body?: string }
-  | { kind: "mail"; to: string; subject: string };
+  | { kind: "mail"; to: string; subject: string; text: string };
 
 const events: SweepEvent[] = [];
 /** Addresses the doubled provider refuses, so a deletion notice can fail for one application alone. */
@@ -31,7 +31,7 @@ const API_DOUBLE = `export const apiClient = async (endpoint, schema, options = 
 };`;
 
 const MAIL_DOUBLE = `export const sendMail = async (mail) => {
-  globalThis.__flSweepEvents.push({ kind: "mail", to: mail.to, subject: mail.subject });
+  globalThis.__flSweepEvents.push({ kind: "mail", to: mail.to, subject: mail.subject, text: mail.text });
   if (globalThis.__flSweepRefused.has(mail.to)) throw new Error("the provider refused the message");
 };`;
 
@@ -76,8 +76,12 @@ const apiCalls = (): ApiEvent[] => events.filter((event): event is ApiEvent => e
 /** The season a call addresses, which the contract puts in the path rather than in a parameter. */
 const saisonOf = (call: ApiEvent): string => call.endpoint.split("/")[3] ?? "";
 
+/** The season pass alone: the stamp and the erasure sit under the same prefix and would count as one. */
 const seasonPasses = (): ApiEvent[] =>
-  apiCalls().filter((call) => call.method === "POST" && !call.endpoint.endsWith("/loeschen") && saisonOf(call) !== "");
+  apiCalls().filter(
+    (call) =>
+      call.method === "POST" && !call.endpoint.endsWith("/loeschen") && !call.endpoint.endsWith("/angekuendigt") && saisonOf(call) !== "",
+  );
 
 function answerWith(answer: (call: ApiEvent) => unknown): void {
   recorders.__flSweepAnswer = answer;
@@ -96,6 +100,7 @@ function sweepAnswers({
   answerWith((call) => {
     const saisonId = saisonOf(call);
     if (call.method === "GET") return { acknowledged: 1, saison_ids: saisonIds };
+    if (call.endpoint.endsWith("/angekuendigt")) return { acknowledged: 1, saison_id: saisonId, angekuendigt: 1 };
     if (call.endpoint.endsWith("/loeschen")) return { acknowledged: 1, saison_id: saisonId, geloescht: 1, redigierte_aktionen: 1 };
 
     return {
@@ -116,13 +121,15 @@ const ID_ERREICHT = `${"a".repeat(23)}1`;
 const ID_STUMM = `${"b".repeat(23)}2`;
 const ID_NIEMAND = `${"c".repeat(23)}3`;
 
-/** One deletion candidate; a null address is the seat the erasure emptied, which the notice cannot reach. */
-const loeschung = (bewerbungId: string, address: string | null) => ({
+/** One deletion candidate nobody has been told about yet; a null address is the seat the erasure emptied. */
+const loeschung = (bewerbungId: string, address: string | null, rollen: string[] = ["ansprechperson"]) => ({
+  angekuendigt: false,
   bewerbung_id: bewerbungId,
   saison_id: "2627",
   schule: "Goetheschule",
   bestaetigungsfrist: "2026-09-04",
   ansprechperson_email: address,
+  ansprechperson_rollen: address === null ? [] : rollen,
   // A seat with no name is the shape that reaches this clock most often: an erased seat counts as
   // outstanding, and the notice still has to name what was never confirmed.
   ausstehend: [{ rolle: "trainer", vorname: null }],
@@ -190,56 +197,91 @@ describe("the switch the retention sweep is armed by", () => {
 });
 
 describe("what register arms", () => {
-  it("arms nothing where the switch is off", async () => {
-    recorders.__flSweepSwitch = "off";
+  // Next declares `NODE_ENV` read-only, which is true of the value a build inlines and not of this
+  // process's own environment: the arm under test is exactly the one only a test can move.
+  const env = process.env as Record<string, string | undefined>;
+
+  // One process holds one environment, so a case that left NODE_ENV where it put it would decide
+  // every case after it.
+  function underNodeEnv(value: string): () => void {
+    const before = env.NODE_ENV;
+    env.NODE_ENV = value;
+
+    return () => {
+      if (before === undefined) delete env.NODE_ENV;
+      else env.NODE_ENV = before;
+    };
+  }
+
+  /** One arming and three hours of ticks: every case below asks only whether anything reached the backend at all. */
+  async function armAndTick(nodeEnv: string, sweep: string | undefined): Promise<void> {
+    const restore = underNodeEnv(nodeEnv);
+    recorders.__flSweepSwitch = sweep;
     mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
 
-    await register();
-    await settle();
-    mock.timers.tick(HOUR_MS * 3);
-    await settle();
-    mock.timers.reset();
+    try {
+      await register();
+      await settle();
+      mock.timers.tick(HOUR_MS * 3);
+      await settle();
+    } finally {
+      mock.timers.reset();
+      restore();
+    }
+  }
+
+  /* The switch defaults to on and the `dev` script in `fl_frontend/package.json` sets nothing, so
+     without this arm a `pnpm dev` drives the sweep against whatever backend and transport the
+     developer's own environment names — the league's real people among them. */
+  it("arms nothing under a development build, whatever the switch says", async () => {
+    await armAndTick("development", "on");
+
+    assert.deepEqual(events, []);
+  });
+
+  it("arms nothing where the switch is off", async () => {
+    await armAndTick("production", "off");
 
     assert.deepEqual(events, []);
   });
 
   it("arms nothing where the value is missing, which is what a skipped validation leaves", async () => {
-    recorders.__flSweepSwitch = undefined;
-    mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
-
-    await register();
-    await settle();
-    mock.timers.tick(HOUR_MS * 3);
-    await settle();
-    mock.timers.reset();
+    await armAndTick("production", undefined);
 
     assert.deepEqual(events, []);
   });
 
+  /* The fourth arm — a server setting nothing at all — is this case and the parse above it together:
+     the default reads "on", and "on" under a production build is what arms. */
   it("runs one pass a minute after start and one an hour after arming", async () => {
+    const restore = underNodeEnv("production");
     mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
 
-    await register();
-    await settle();
-    const atOnce = apiCalls().length;
+    try {
+      await register();
+      await settle();
+      const atOnce = apiCalls().length;
 
-    mock.timers.tick(MINUTE_MS);
-    await settle();
-    const afterTheMinute = apiCalls().length;
+      mock.timers.tick(MINUTE_MS);
+      await settle();
+      const afterTheMinute = apiCalls().length;
 
-    mock.timers.tick(HOUR_MS - MINUTE_MS - 1000);
-    await settle();
-    const beforeTheHour = apiCalls().length;
+      mock.timers.tick(HOUR_MS - MINUTE_MS - 1000);
+      await settle();
+      const beforeTheHour = apiCalls().length;
 
-    mock.timers.tick(1000);
-    await settle();
-    const afterTheHour = apiCalls().length;
-    mock.timers.reset();
+      mock.timers.tick(1000);
+      await settle();
+      const afterTheHour = apiCalls().length;
 
-    assert.equal(atOnce, 0, "nothing runs at arming: the backend may not answer yet after a deploy");
-    assert.equal(afterTheMinute, 1, "the first pass runs a minute in, a container recreated daily never reaching the first tick");
-    assert.equal(beforeTheHour, 1, "nothing runs between the first pass and the hour");
-    assert.equal(afterTheHour, 2, "the interval is one hour, measured from arming");
+      assert.equal(atOnce, 0, "nothing runs at arming: the backend may not answer yet after a deploy");
+      assert.equal(afterTheMinute, 1, "the first pass runs a minute in, a container recreated daily never reaching the first tick");
+      assert.equal(beforeTheHour, 1, "nothing runs between the first pass and the hour");
+      assert.equal(afterTheHour, 2, "the interval is one hour, measured from arming");
+    } finally {
+      mock.timers.reset();
+      restore();
+    }
   });
 });
 
@@ -278,7 +320,7 @@ describe("one pass of the sweep", () => {
     );
   });
 
-  it("mails the deletion notice before the erasure, and erases only where it arrived", async () => {
+  it("mails the deletion notice, stamps what was delivered, and erases only that", async () => {
     refused.add("stumm@schule.de");
     sweepAnswers({
       saisonIds: ["2627"],
@@ -289,14 +331,60 @@ describe("one pass of the sweep", () => {
 
     await runBewerbungSweep();
 
-    const erasure = apiCalls().at(-1);
-    assert.equal(erasure?.endpoint, "/bewerbungen/sweep/2627/loeschen");
+    const [stamp, erasure] = apiCalls().slice(-2);
     assert.deepEqual(
       events.map((event) => event.kind),
-      ["api", "api", "mail", "mail", "api"],
-      "both notices go out before anything is erased",
+      ["api", "api", "mail", "mail", "api", "api"],
+      "both notices go out before anything is stamped or erased",
     );
+    assert.equal(stamp?.endpoint, "/bewerbungen/sweep/2627/angekuendigt");
+    assert.deepEqual(JSON.parse(stamp?.body ?? "{}"), { bewerbung_ids: [ID_ERREICHT] });
+    assert.equal(erasure?.endpoint, "/bewerbungen/sweep/2627/loeschen");
     assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_ERREICHT] });
+  });
+
+  /* The pass after an erasure that failed: the candidate is listed again, already announced. Mailing
+     it a second time is what the stamp exists to stop, and the erasure is retried on its own. */
+  it("mails nothing for a candidate already announced, and erases it without a second stamp", async () => {
+    sweepAnswers({
+      saisonIds: ["2627"],
+      loeschungen: { "2627": [{ ...loeschung(ID_ERREICHT, "erika@schule.de"), angekuendigt: true }] },
+    });
+
+    await runBewerbungSweep();
+
+    const erasure = apiCalls().at(-1);
+    assert.deepEqual(
+      events.map((event) => event.kind),
+      ["api", "api", "api"],
+      "an announced candidate was mailed or stamped again",
+    );
+    assert.equal(erasure?.endpoint, "/bewerbungen/sweep/2627/loeschen");
+    assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_ERREICHT] });
+  });
+
+  /* Two ticks over one pass would compose the same notice twice, neither having reached its stamp.
+     One process holds one timer, so this refuses an overlap rather than a second container. */
+  it("skips a tick that finds the previous pass still running", async () => {
+    sweepAnswers({ saisonIds: ["2526", "2627"] });
+
+    await Promise.all([runBewerbungSweep(), runBewerbungSweep()]);
+
+    assert.deepEqual(seasonPasses().map(saisonOf), ["2526", "2627"]);
+  });
+
+  /* The submitter who is also the Trainer reads „Eingetragen als“ and has to recognise themselves in
+     it; the Ansprechperson alone reads as somebody else's message about their own application. */
+  it("names the notice's reader by every seat that one mailbox holds", async () => {
+    sweepAnswers({
+      saisonIds: ["2627"],
+      loeschungen: { "2627": [loeschung(ID_ERREICHT, "erika@schule.de", ["trainer", "ansprechperson"])] },
+    });
+
+    await runBewerbungSweep();
+
+    const notiz = events.find((event) => event.kind === "mail");
+    assert.ok(notiz?.text.includes("Ansprechperson und Trainerin oder Trainer"), "the notice names one of the two seats its reader holds");
   });
 
   it("erases a candidate whose Ansprechperson seat is empty, there being nobody left to tell", async () => {
@@ -307,7 +395,7 @@ describe("one pass of the sweep", () => {
     const erasure = apiCalls().at(-1);
     assert.deepEqual(
       events.map((event) => event.kind),
-      ["api", "api", "api"],
+      ["api", "api", "api", "api"],
       "no message is composed for a candidate with no address",
     );
     assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_NIEMAND] });

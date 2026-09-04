@@ -8,112 +8,41 @@ import { CircleCheck, CircleXmark, Clock, PaperPlane } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 
 import { einwilligungErneutSendenAction } from "@/features/bewerbungen/actions";
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+import { istOffen, linkAngebot } from "@/features/bewerbungen/bestaetigungStand";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
-import type { FLBewerbung } from "@/features/bewerbungen/schemas";
+import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { KontaktRolle } from "@/features/teams/constants";
 
-/** What one seat's confirmation has reached. A seat that has answered carries the day it answered on. */
-type Stand =
-  | { art: "bestaetigt"; am: string }
-  | { art: "abgelehnt"; am: string }
-  // `verschicktAm` is null where an erasure took the seat's block with the person it belonged to, so
-  // the row has a state to show and no day to show it on.
-  | { art: "ausstehend"; verschicktAm: string | null; erinnertAm: string | null };
-
-export type SitzBestaetigung = {
-  rolle: KontaktRolle;
-  label: string;
-  /** Null where a decline or an erasure emptied the slot; an erasure clears the seat's block beside it. */
-  name: string | null;
-  zugleichTrainer: boolean;
-  stand: Stand;
-  /** Rendered here rather than by each surface: the strip and the fact panel say one thing about one seat. */
-  satz: string;
-};
-
 /**
- * `null` where the application predates the workflow. An absent block is what keeps such an
- * application acceptable, so it answers "no such state" rather than three outstanding seats, which
- * would close the Zusage on every queued application.
+ * One height for every chip on this readout and for the control beside them, so a row carrying a
+ * button does not stand taller than the rows that do not. `formButton`'s `xs` step is the other half.
  */
-export function bestaetigungsStand(bewerbung: Pick<FLBewerbung, "bestaetigungen" | "kontakte">): SitzBestaetigung[] | null {
-  const { bestaetigungen, kontakte } = bewerbung;
+const STRIP_CHIP = `${LABEL_BADGE} h-7 shrink-0`;
 
-  if (bestaetigungen === null) return null;
+/** Named rather than muted: a grey chip on a coloured row reads as disabled (my rule, 2026-09-04). */
+const ROLLEN_TINT = "bg-info/15 text-info-strong";
 
-  // `KONTAKT_ROLLEN` and never a list of this file's own: the seat order is the label table's
-  // (`.claude/rules/frontend.md` **admin**).
-  return KONTAKT_ROLLEN.map(({ value, label }) => {
-    const person = kontakte[value];
-    const verlauf = bestaetigungen[value];
-    const bestaetigtAm = person?.einwilligung.bestaetigt_am ?? null;
-    const abgelehntAm = verlauf?.abgelehnt_am ?? null;
-
-    // The stamp on the record wins over the block: a seat confirms once, and the block goes on
-    // carrying the day its link went out.
-    const stand: Stand =
-      bestaetigtAm !== null
-        ? { art: "bestaetigt", am: bestaetigtAm }
-        : abgelehntAm !== null
-          ? { art: "abgelehnt", am: abgelehntAm }
-          : { art: "ausstehend", verschicktAm: verlauf?.verschickt_am ?? null, erinnertAm: verlauf?.erinnert_am ?? null };
-
-    return {
-      rolle: value,
-      label: label,
-      name: person === null ? null : `${person.vorname} ${person.nachname}`,
-      zugleichTrainer: kontakte.trainer_ist_zugleich === value,
-      stand: stand,
-      satz: standSatz(stand),
-    };
-  });
-}
-
-/** A seat the acceptance is still waiting on. A decline blocks it too: the emptied slot carries no confirmation. */
-export function istOffen({ stand }: SitzBestaetigung): boolean {
-  return stand.art !== "bestaetigt";
-}
-
-/**
- * German lists nothing with a comma before its last item. Spelled here rather than imported from
- * `fl_frontend/src/core/bewerbungEmail.ts :: joinUnd`, which is `server-only` and so out of reach of
- * a component the browser runs.
- */
-export function nenneUnd(teile: readonly string[]): string {
-  if (teile.length < 2) return teile[0] ?? "";
-
-  return `${teile.slice(0, -1).join(", ")} und ${teile[teile.length - 1]!}`;
-}
-
-/** One seat's state as a sentence. A reminded seat names the reminder: that is the day the person last heard from the league. */
-function standSatz(stand: Stand): string {
-  if (stand.art === "bestaetigt") return `Bestätigt am ${formatSpielDatum(stand.am)}`;
-  if (stand.art === "abgelehnt") return `Abgelehnt am ${formatSpielDatum(stand.am)}`;
-
-  if (stand.erinnertAm !== null) return `Ausstehend, erinnert am ${formatSpielDatum(stand.erinnertAm)}`;
-
-  return stand.verschicktAm === null
-    ? "Ausstehend, kein Link unterwegs"
-    : `Ausstehend, Link gesendet am ${formatSpielDatum(stand.verschicktAm)}`;
-}
-
-const STAND_TINT: Record<Stand["art"], string> = {
+const STAND_TINT: Record<SitzBestaetigung["stand"]["art"], string> = {
   bestaetigt: "bg-success/15 text-success-strong",
   ausstehend: "bg-warning/15 text-warning-strong",
   abgelehnt: "bg-danger/15 text-danger-strong",
+  // A decline's grade for a seat that ends the same way: neither can be confirmed, and both leave
+  // the Absage as the one decision the application still takes.
+  geloescht: "bg-danger/15 text-danger-strong",
 };
 
 const STAND_ICON = {
   bestaetigt: CircleCheck,
   ausstehend: Clock,
   abgelehnt: CircleXmark,
+  geloescht: CircleXmark,
 } as const;
 
 /**
@@ -140,6 +69,7 @@ export function BewerbungBestaetigungStrip({
   const panel = formPanel();
   const bestaetigt = staende.filter((sitz) => !istOffen(sitz)).length;
   const offen = staende.filter(istOffen);
+  const angebot = linkAngebot(staende);
 
   const sendeErneut = async (sitz: SitzBestaetigung) => {
     setSendendeRolle(sitz.rolle);
@@ -148,25 +78,32 @@ export function BewerbungBestaetigungStrip({
 
     setSendendeRolle(null);
 
+    // Before the toast either way: the failure arm reports a write that committed, so the readout
+    // beneath it is stale on exactly the press that says so.
+    router.refresh();
+
     if (!res.success) {
       appToast.danger("Link nicht erneut gesendet", { description: res.error ?? UNKNOWN_REFUSAL });
       return;
     }
 
     appToast.success("Link erneut gesendet", { description: res.message });
-    // The deadline and the seat's own stamp both moved, and this readout renders them.
-    router.refresh();
   };
 
   return (
     <section className={panel.root()}>
+      <div className={panel.header()}>
+        <PanelHeading
+          className={panel.heading()}
+          title="Einwilligungen"
+        />
+      </div>
+
       <div className={panel.body()}>
-        <div className="flex w-full flex-row flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="fluid-xxs text-foreground-muted font-bold tracking-wider uppercase">Einwilligungen</span>
-          <span className="fluid-sm text-foreground font-semibold">
-            {String(bestaetigt)} von {String(staende.length)} bestätigt
-          </span>
-        </div>
+        <span
+          className={`${STRIP_CHIP} ${bestaetigt === staende.length ? "bg-success/15 text-success-strong" : "bg-warning/15 text-warning-strong"} w-fit`}>
+          {String(bestaetigt)} von {String(staende.length)} bestätigt
+        </span>
 
         <div className="flex w-full flex-col gap-y-3">
           {staende.map((sitz) => {
@@ -177,14 +114,14 @@ export function BewerbungBestaetigungStrip({
               <div
                 key={sitz.rolle}
                 className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1.5">
-                <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>{sitz.label}</span>
-                {sitz.zugleichTrainer && <span className={`${LABEL_BADGE} bg-brand/10 text-brand-solid`}>Zugleich Trainer</span>}
+                <span className={`${STRIP_CHIP} ${ROLLEN_TINT}`}>{sitz.label}</span>
+                {sitz.zugleichTrainer && <span className={`${STRIP_CHIP} bg-brand/10 text-brand-solid`}>Zugleich Trainer</span>}
 
                 <span className="fluid-sm text-foreground min-w-0 font-medium">
-                  {sitz.name ?? <span className="text-foreground-muted/50 italic">Niemand mehr in der Bewerbung</span>}
+                  {sitz.name === null ? <span className="text-foreground-muted italic">{sitz.nameSatz}</span> : sitz.nameSatz}
                 </span>
 
-                <span className={`${LABEL_BADGE} ${STAND_TINT[sitz.stand.art]} ml-auto gap-x-1`}>
+                <span className={`${STRIP_CHIP} ${STAND_TINT[sitz.stand.art]} ml-auto gap-x-1`}>
                   <Glyph
                     aria-hidden="true"
                     width={14}
@@ -193,7 +130,7 @@ export function BewerbungBestaetigungStrip({
                   {sitz.satz}
                 </span>
 
-                {isOpen && sitz.stand.art === "ausstehend" && (
+                {isOpen && angebot.has(sitz.rolle) && (
                   <Button
                     type="button"
                     isDisabled={sendet}
@@ -201,13 +138,13 @@ export function BewerbungBestaetigungStrip({
                     onPress={() => {
                       void sendeErneut(sitz);
                     }}
-                    className={`${formButton({ intent: "nav", size: "sm" })} gap-x-2`}>
+                    className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
                     <PaperPlane
                       aria-hidden="true"
-                      width={16}
-                      height={16}
+                      width={14}
+                      height={14}
                     />
-                    <span>{sendet ? "Sendet..." : "Link erneut senden"}</span>
+                    <span>{sendet ? "Wird gesendet..." : "Link erneut senden"}</span>
                   </Button>
                 )}
               </div>
@@ -215,8 +152,8 @@ export function BewerbungBestaetigungStrip({
           })}
         </div>
 
-        {/* The deletion date stands here and nowhere else on the page: the acceptance's own closure
-            says what is missing, and this says what happens if it stays missing. */}
+        {/* The deletion date stands here and nowhere else on the page: the reason under the closed
+            Zusage says what is missing, and this says what happens if it stays missing. */}
         {offen.length > 0 && frist !== null && (
           <p className="muted-hint">Bleibt eine Bestätigung bis zum {formatSpielDatum(frist)} aus, wird die Bewerbung gelöscht.</p>
         )}

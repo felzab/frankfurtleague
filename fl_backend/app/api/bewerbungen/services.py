@@ -329,14 +329,16 @@ def compose_bestaetigungen(*, hashes: Mapping[str, str], today: str) -> dict[str
     return {seat: compose_bestaetigung(token_hash=hashes[seat], today=today) for seat in KONTAKT_SEATS}
 
 
-# The admin reads' projection, and the FIRST exclusion projection in this tree: an inclusion list
-# would have to restate every field an application holds, and the one to keep off the wire is one.
-WITHOUT_TOKEN_HASHES: Mapping[str, int] = {f"bestaetigungen.{seat}.token_hash": 0 for seat in KONTAKT_SEATS}
-
-
 # A reminder's fresh hash and the first mail's, both live: a reader still looking at the first
-# message is not punished by the chase, and only an administrator's re-send voids (ruling 61).
+# message is not punished by the chase, and only an administrator's re-send voids
+# (`docs/backend/spec.md :: I152`).
 TOKEN_HASH_FIELDS = ("token_hash", "token_hash_zuvor")
+
+
+# The admin reads' projection, and the FIRST exclusion projection in this tree: an inclusion list
+# would have to restate every field an application holds. Derived from the pair above, so a third
+# hash field cannot reach a read.
+WITHOUT_TOKEN_HASHES: Mapping[str, int] = {f"bestaetigungen.{seat}.{field}": 0 for seat in KONTAKT_SEATS for field in TOKEN_HASH_FIELDS}
 
 
 def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
@@ -606,20 +608,28 @@ def compose_erneut_update(*, seat: str, token_hash: str, today: str, bestaetigun
 
 
 # --- The retention SWEEP. Five clocks, each a pure predicate over one document and `today`, so
-# every boundary is pinned without a container. Dates, never instants (ruling 64).
+# every boundary is pinned without a container. Dates, never instants: an instant would move the
+# boundary with the hour a pass happens to run.
 
 
-def next_saison_id(saison_id: str) -> str | None:
-    """The season after this one, ids being years; `None` where the id is no year."""
+def next_saison_id(saison_id: str) -> str:
+    """The season after this one, ids being years.
+
+    Raises rather than answering nothing: the accepted clock and the contact block both hang off the
+    successor, so an absent one stops both for ever with nothing in any log.
+    """
 
     if not (saison_id.isdigit() and len(saison_id) == SAISON_ID_LENGTH):
-        return None
+        raise ValueError(f"the retention sweep needs a season id of {SAISON_ID_LENGTH} digits, and this season's is not one")
 
     return f"{int(saison_id) + 1:0{SAISON_ID_LENGTH}d}"
 
 
 def one_month_after(*, day: str) -> str:
-    """The same day of the next month, clamped to that month's end: "one month" is the ruling's word, and thirty days is not it."""
+    """The same day of the next month, clamped to that month's end.
+
+    The bound is one calendar month, and thirty days is not that (`docs/backend/spec.md :: I153`).
+    """
 
     start = date.fromisoformat(day)
     year, month = (start.year + 1, 1) if start.month == 12 else (start.year, start.month + 1)
@@ -686,7 +696,7 @@ def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple
 def compose_erinnerung_update(*, hashes: Mapping[str, str], bestaetigungen: Any, today: str) -> Mapping[str, Any]:
     """The reminder's ONE `$set`: the stamp and the fresh hash per seat, the first hash kept beside it.
 
-    `verschickt_am` and the deadline stay: a reminder is not a re-send (ruling 61).
+    `verschickt_am` and the deadline stay: a reminder is not a re-send (`docs/backend/spec.md :: I152`).
     """
 
     written: dict[str, Any] = {}
@@ -714,6 +724,22 @@ def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
         return False
 
     return bool(ausstehende_seats(kontakte=bewerbung_raw.get("kontakte")))
+
+
+def deletion_was_announced(*, bewerbung_raw: Mapping[str, Any]) -> bool:
+    """Whether this application's deletion notice is behind it.
+
+    The erasure's second condition beside the deadline: without it a run that mailed and then failed
+    to erase would mail again every hour until it went through.
+    """
+
+    return isinstance(bewerbung_raw.get("loeschung_angekuendigt_am"), str)
+
+
+def compose_ankuendigung_update(*, today: str) -> Mapping[str, Any]:
+    """The stamp the deletion notice earns, written only where none stands: an existing one is the day that notice was settled."""
+
+    return {"$set": {"loeschung_angekuendigt_am": today}}
 
 
 def decline_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
@@ -750,15 +776,6 @@ def schule_name(*, bewerbung_raw: Mapping[str, Any], club_names: Mapping[Any, st
         return str(schule.get("team_name") or "")
 
     return club_names.get(bewerbung_raw.get("team_id"), "")
-
-
-def ansprechperson_email(*, kontakte: Any) -> str | None:
-    """The submitter's mailbox by convention (ruling 65), or `None` where that slot was emptied."""
-
-    slot = kontakte.get("ansprechperson") if isinstance(kontakte, Mapping) else None
-    email = str(slot.get("email") or "").strip() if isinstance(slot, Mapping) else ""
-
-    return email or None
 
 
 def vorname_of(*, kontakte: Any, seat: str) -> str | None:

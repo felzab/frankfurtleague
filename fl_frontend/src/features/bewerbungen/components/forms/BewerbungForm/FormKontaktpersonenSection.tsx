@@ -8,7 +8,7 @@ import { FieldError, Input, Label, Switch, TextField } from "@heroui/react";
 import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
 import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_ERROR_SWITCH, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -246,15 +246,22 @@ export function FormEinwilligungSection({
 
   return (
     <section className={panel.root()}>
-      <div className={panel.body()}>
-        {/* No `PanelHeading`: the panel headings are the three seats, and a fourth `<h2>` would read
-            as a fourth person. */}
-        <h3 className={FORM_SECTION_HEADING}>Bestätigung</h3>
+      <div className={panel.header()}>
+        {/* The heading level follows the frame: this is a section of the form like the five around
+            it, so it is announced at the level they are rather than as a group inside one of them. */}
+        <PanelHeading
+          className={panel.heading()}
+          title="Bestätigung"
+        />
+      </div>
 
+      <div className={panel.body()}>
+        {/* `muted-meta` rather than `muted-hint`: the wording is stamped and cannot be shortened, so
+            the type step it is set at is the only lever on how long the block reads. */}
         {LIGA_EINWILLIGUNG.absaetze.map((absatz) => (
           <p
             key={absatz}
-            className="fluid-xs text-foreground-muted leading-relaxed font-medium text-pretty">
+            className="muted-meta">
             {mitDatenschutzLink(absatz)}
           </p>
         ))}
@@ -275,7 +282,7 @@ export function FormEinwilligungSection({
               <Switch.Thumb />
             </Switch.Control>
           </Switch.Content>
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR_SWITCH} />
         </Switch>
       </div>
     </section>

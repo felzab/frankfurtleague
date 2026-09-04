@@ -7,6 +7,9 @@ export type EinwilligungFassung = {
   readonly schalter: string;
 };
 
+// A record cites its label alone, and every entry below stands inside „2026-09-bestaetigungsseite“,
+// so a polish here rewords what a stored record claims its reader saw. Different words mean a new
+// label, never an edit here.
 /**
  * The confirmation page's standing text. A reader's own facts are `{slots}` rather than sentence
  * halves: a record stores those beside the label, so the two together reproduce the screen its
@@ -46,6 +49,9 @@ export const BESTAETIGUNG_ABSAETZE = {
     "Du musst nicht bestätigen. Wenn Du nicht möchtest, dass wir Deine Daten haben, sag uns das über den Link „{ablehnen}“ oder " +
     "mit einer E-Mail an {kontakt}; wir löschen Deinen Eintrag dann und sagen der Person Bescheid, die die Bewerbung eingereicht " +
     "hat, damit sie jemand anderen benennen kann.",
+  // The armed decline shows this, so a record citing this label has to reproduce it. A paragraph
+  // may still join a label no record cites yet.
+  ablehnenFolge: "Wir entfernen Deine Angaben sofort aus der Bewerbung und sagen der Person Bescheid, die sie eingereicht hat.",
   widerruf:
     "Auch nach einer Bestätigung kannst Du jederzeit die Löschung Deiner Daten verlangen (Art. 17 DSGVO) und der Verarbeitung " +
     "widersprechen (Art. 21 DSGVO). Eine Einwilligung, die man widerrufen müsste, gibt es hier nicht, außer der freiwilligen für " +
