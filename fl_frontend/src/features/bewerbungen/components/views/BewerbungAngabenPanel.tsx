@@ -1,10 +1,14 @@
+import Link from "next/link";
+
 import { einwilligungHerkunftLabel, KONTAKT_ROLLEN, schulformLabel, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { formPanel } from "@/shared/components/ui/formPanel";
+import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
 import { ExternalUrlSchema } from "@/shared/schemas";
 import { formatAddressFull, formatSpielDatum } from "@/shared/utils/format";
+import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { FLBewerbung } from "@/features/bewerbungen/schemas";
@@ -54,7 +58,7 @@ function Website({ url }: { url: string | null }) {
 }
 
 /** The panel shell every block below takes, so no two of them drift apart. */
-function Panel({ title, children }: { title: string; children: ReactNode }) {
+function Panel({ title, hinweis, children }: { title: string; hinweis?: ReactNode; children: ReactNode }) {
   const panel = formPanel();
 
   return (
@@ -62,8 +66,9 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
-          title={title}
-        />
+          title={title}>
+          {hinweis}
+        </PanelHeading>
       </div>
       <div className={panel.body()}>{children}</div>
     </section>
@@ -93,9 +98,27 @@ export function BewerbungAngabenPanel({
     <>
       <Panel title={schule === null ? "Bestehendes Team" : "Neue Schule"}>
         <dl className={ANGABEN_GRID}>
-          <Angabe label="Team">{teamName ?? <Leer />}</Angabe>
+          <Angabe label="Team">
+            {teamName === null ? (
+              <Leer />
+            ) : bewerbung.team_id === null ? (
+              teamName
+            ) : (
+              // Guarded on the id and never on the arm below: a new school's application carries a
+              // name before it carries a club (`docs/glossary.md :: Bewerbung`). The season is the
+              // application's own, this page's URL carrying none.
+              <Link
+                href={withSaisonId(`/admin/teams/${bewerbung.team_id}`, bewerbung.saison_id)}
+                className={textLink()}>
+                {teamName}
+              </Link>
+            )}
+          </Angabe>
           <Angabe label="Saison">{bewerbung.saison_id}</Angabe>
           <Angabe label="Eingereicht am">{formatSpielDatum(bewerbung.eingereicht_am)}</Angabe>
+          {/* `Leer` where „Voraussichtliche Kadergröße“ takes none: this field is null on every
+              application stored before it existed, which is not a school leaving a box empty. */}
+          <Angabe label="Größe der Stufe">{bewerbung.stufengroesse === null ? <Leer /> : String(bewerbung.stufengroesse)}</Angabe>
 
           {schule === null ? (
             // The club already exists, so its own page carries everything else about it. Nothing is
@@ -144,8 +167,35 @@ export function BewerbungAngabenPanel({
                     {/* Null until that seat's contact has confirmed and entered it themselves, so an
                         empty one is a step still outstanding rather than a school's omission. */}
                     <Angabe label="Geburtsdatum">{person.geburtsdatum === null ? <Leer /> : formatSpielDatum(person.geburtsdatum)}</Angabe>
-                    <Angabe label="E-Mail">{person.email === "" ? <Leer /> : person.email}</Angabe>
-                    <Angabe label="Telefon">{person.telefon === "" ? <Leer /> : person.telefon}</Angabe>
+                    {/* The scheme is a literal prefix here, so neither stored value can steer the href
+                        the way `Website`'s can, and neither needs that field's validator. */}
+                    {/* Both rows guard the TRIMMED value: `PHONE_REGEX` admits the space character, the read
+                        model checks neither field, and a link whose text is blank is a tab stop with no
+                        accessible name. */}
+                    <Angabe label="E-Mail">
+                      {person.email.trim() === "" ? (
+                        <Leer />
+                      ) : (
+                        <a
+                          href={`mailto:${person.email}`}
+                          className={textLink()}>
+                          {person.email}
+                        </a>
+                      )}
+                    </Angabe>
+                    {/* Off the STORED number rather than the normalised one: normalising exists to
+                        compare two seats, and a dialler takes the spaces and punctuation a school typed. */}
+                    <Angabe label="Telefon">
+                      {person.telefon.trim() === "" ? (
+                        <Leer />
+                      ) : (
+                        <a
+                          href={`tel:${person.telefon.replace(/\s/g, "")}`}
+                          className={textLink()}>
+                          {person.telefon}
+                        </a>
+                      )}
+                    </Angabe>
                     {/* One record, one fact, and no `Leer`: an outstanding seat has a state rather
                         than a gap. An application from before the workflow reaches no state at all,
                         and its stored record is then the whole truth about that seat. */}
@@ -168,9 +218,23 @@ export function BewerbungAngabenPanel({
         </div>
       </Panel>
 
-      <Panel title="Trikot, Kader und Wunschgegner">
+      <Panel
+        title="Trikot, Kader und Wunschgegner"
+        hinweis={
+          <Hint
+            mode="reveal"
+            label="Hinweis zu Trikot, Kader und Wunschgegner"
+            body={{
+              lead: "Was die Schule sich wünscht und welche Zahlen sie schätzt.",
+              points: [
+                { term: "Die Wunschfarbe", text: "bindet Dich zu nichts; die Trikotfarbe des Teams legst Du bei der Zusage fest." },
+                { term: "Der Wunschgegner", text: "ist frei eingetragen und muss keine Schule sein, die die Liga führt." },
+              ],
+            }}
+          />
+        }>
         <dl className={ANGABEN_GRID}>
-          <Angabe label="Vorhandener Trikotsatz">{trikot.vorhandener_satz === "" ? <Leer /> : trikot.vorhandener_satz}</Angabe>
+          <Angabe label="Vorhandene Trikotsätze">{trikot.vorhandener_satz === "" ? <Leer /> : trikot.vorhandener_satz}</Angabe>
           <Angabe label="Wunschfarbe">
             {trikot.wunschfarbe === null ? (
               <Leer />
@@ -188,17 +252,14 @@ export function BewerbungAngabenPanel({
             )}
           </Angabe>
           <Angabe label="Voraussichtliche Kadergröße">{String(kader.voraussichtliche_groesse)}</Angabe>
-          <Angabe label="Davon starke Spieler">{kader.gute_spieler === null ? <Leer /> : String(kader.gute_spieler)}</Angabe>
+          <Angabe label="Davon im Verein aktiv (mind. Verbandsliga)">
+            {kader.gute_spieler === null ? <Leer /> : String(kader.gute_spieler)}
+          </Angabe>
           {/* The school's own words, rendered as TEXT and resolved against no club: it may name a
               school the league does not hold, and an applicant-controlled value is never markup. An
               empty string reaches here as readily as the `null` the write path produces. */}
           <Angabe label="Wunschgegner">{wunschgegner === null || wunschgegner.trim() === "" ? <Leer /> : wunschgegner}</Angabe>
         </dl>
-
-        <p className="muted-hint">
-          Die Wunschfarbe ist ein Wunsch. Die Trikotfarbe des Teams legst Du bei der Zusage fest, und die Kaderzahlen sind die Schätzung der
-          Schule. Der Wunschgegner ist frei eingetragen und muss keine Schule sein, die die Liga führt.
-        </p>
       </Panel>
 
       {entscheidung !== null && (

@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
+import { BEWERBUNG_STUFENGROESSE_MAX, BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
 import { FLBewerbungTrikotFarbenResponseSchema, FLPostBewerbungPayloadSchema } from "./schemas.ts";
 import { bewerbungPayload, buildEmptyBewerbungDraft } from "./utils.ts";
 
@@ -47,6 +47,7 @@ const gueltig = (overrides: Partial<BewerbungFormDraft> = {}): BewerbungFormDraf
   },
   trikot: { vorhandener_satz: "15 rote", wunschfarbe: "rot" },
   kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
+  stufengroesse: 90,
   ...overrides,
 });
 
@@ -477,6 +478,64 @@ describe("the squad the school estimates", () => {
 
   it("refuses a negative count of active players", () => {
     assert.deepEqual(refusedPaths(gueltig({ kader: { voraussichtliche_groesse: 14, gute_spieler: -1 } })), ["kader.gute_spieler"]);
+  });
+
+  /* A fraction is not an unanswered box, and `z.int()` collapsed the two into one `invalid_type`: both
+     counts told a school that typed `1.5` to say how many players it expects. */
+  const kaderRefusal = (feld: "voraussichtliche_groesse" | "gute_spieler", wert: number): string => {
+    const kader = { voraussichtliche_groesse: 14, gute_spieler: 3, [feld]: wert };
+    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(gueltig({ kader })));
+
+    return parsed.success ? "" : (parsed.error.issues.find((issue) => issue.path.join(".") === `kader.${feld}`)?.message ?? "");
+  };
+
+  it("tells each count apart from its own empty box when a fraction is typed", () => {
+    assert.equal(kaderRefusal("voraussichtliche_groesse", 1.5), "Ein Kader zählt keine halben Spieler.");
+    assert.equal(kaderRefusal("gute_spieler", 1.5), "Bitte gib eine ganze Zahl an Spielern ein.");
+  });
+
+  /* The half these sit beside: the empty box keeps the message that names what the field is FOR, which
+     is the one a school reads most often. */
+  it("keeps each count's own empty-box message", () => {
+    assert.match(kaderRefusal("voraussichtliche_groesse", NaN), /^Bitte gib an, mit wie vielen Spielern/);
+    assert.match(kaderRefusal("gute_spieler", NaN), /Verbandsliga/);
+  });
+});
+
+describe("the Abi-Jahrgang the school states", () => {
+  /* The message this one box draws, rather than the refused path: four different entries land on
+     `stufengroesse`, and a case comparing paths alone would pass on any of the four. */
+  const stufenRefusal = (stufengroesse: number | null): string => {
+    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(gueltig({ stufengroesse })));
+
+    return parsed.success ? "" : (parsed.error.issues.find((issue) => issue.path.join(".") === "stufengroesse")?.message ?? "");
+  };
+
+  /* An emptied box records `null` rather than a number nobody typed, and `z.int()` answers `null` and
+     a fraction alike — which is why the mirror spells this one `z.number().int()`. */
+  it("asks for the count where the box is empty, and for a whole number where it holds a fraction", () => {
+    assert.equal(stufenRefusal(null), "Bitte gib an, wie viele Schülerinnen und Schüler in Deiner Stufe sind.");
+    assert.equal(stufenRefusal(1.5), "Bitte gib eine ganze Zahl ein.");
+  });
+
+  /* Unreachable through the control, which `react-stately` clamps to `minValue` and `maxValue` on
+     commit. Kept for the openapi sweep and for a body that never came from the control at all. */
+  it("names each end of the span the backend publishes", () => {
+    assert.equal(stufenRefusal(0), "Bitte gib eine Zahl ab 1 ein.");
+    assert.equal(stufenRefusal(BEWERBUNG_STUFENGROESSE_MAX + 1), `Bitte gib höchstens ${String(BEWERBUNG_STUFENGROESSE_MAX)} an.`);
+  });
+
+  /* Both ends accepted, so each refusal above is the bound's own rather than a shape the case never
+     named. A school of one pupil is a school. */
+  it("takes an Abi-Jahrgang at either end of that span", () => {
+    assert.deepEqual(refusedPaths(gueltig({ stufengroesse: 1 })), []);
+    assert.deepEqual(refusedPaths(gueltig({ stufengroesse: BEWERBUNG_STUFENGROESSE_MAX })), []);
+  });
+
+  /* Asked of every applicant, not only of one entering a new school: the picked-club arm submits this
+     payload too, so a form hiding the box there would compose a body nothing accepts. */
+  it("asks it of an application naming a club the league already holds", () => {
+    assert.deepEqual(refusedPaths(gueltig({ auswahl: "6890a1b2c3d4e5f607190001", stufengroesse: null })), ["stufengroesse"]);
   });
 });
 

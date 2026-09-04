@@ -258,7 +258,9 @@ export function DatenschutzView() {
               Angaben zur Schule: Kurzname des Teams, vollständiger Name der Schule, zweistelliges Kürzel, Schulform, Straßenanschrift und,
               falls vorhanden, die Website der Schule.
             </li>
-            <li className={ABSATZ}>Angaben zum Trikotsatz und zur voraussichtlichen Kadergröße.</li>
+            <li className={ABSATZ}>
+              Angaben zum Trikotsatz, zur voraussichtlichen Kadergröße und zur Größe des Abi-Jahrgangs, aus dem das Team kommt.
+            </li>
             <li className={ABSATZ}>Ein freies Feld für einen Wunschgegner.</li>
             <li className={ABSATZ}>
               Drei Kontaktpersonen, nämlich Ansprechperson, Stellvertretung und Trainer, jeweils mit Vorname, Nachname, E-Mail-Adresse und
@@ -417,9 +419,9 @@ export function DatenschutzView() {
             einzuwilligen gibt.
           </p>
           <p className={ABSATZ}>
-            Die Symbole zu Instagram, Threads und GitHub im Fußbereich sind gewöhnliche Links. Von diesen Anbietern wird nichts in unsere Seiten
-            eingebettet und nichts nachgeladen. Erst wenn Du auf einen dieser Links klickst, erfährt der jeweilige Anbieter davon, und ab dann
-            gilt dessen Datenschutzerklärung.
+            Verweise auf Instagram, Threads und GitHub sind gewöhnliche Links und übertragen von sich aus nichts an diese Anbieter. Von diesen
+            Anbietern wird nichts in unsere Seiten eingebettet und nichts nachgeladen. Erst wenn Du auf einen dieser Links klickst, erfährt der
+            jeweilige Anbieter davon, und ab dann gilt dessen Datenschutzerklärung.
           </p>
         </Abschnitt>
 

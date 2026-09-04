@@ -88,6 +88,10 @@ KONTAKT_NAME_MAX_LENGTH: Final = 80
 # application is held true against nothing of.
 BEWERBUNG_KADER_GROESSE_MAX: Final = 200
 
+# How many pupils one Abi-Jahrgang holds, the ones who never play included. A ceiling that is a
+# COHORT rather than `int32`: no German school graduates a thousand pupils in one year.
+BEWERBUNG_STUFENGROESSE_MAX: Final = 999
+
 TEAM_SHORTHAND_LENGTH: Final = 2
 
 SAISON_ID_LENGTH: Final = 4

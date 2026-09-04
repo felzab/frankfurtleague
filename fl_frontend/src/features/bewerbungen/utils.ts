@@ -285,6 +285,7 @@ export const buildEmptyBewerbungDraft = (saisonId: string): BewerbungFormDraft =
   },
   trikot: { vorhandener_satz: "", wunschfarbe: null },
   kader: { voraussichtliche_groesse: null, gute_spieler: null },
+  stufengroesse: null,
   wunschgegner: "",
 });
 
@@ -334,6 +335,7 @@ export function bewerbungPayload(draft: BewerbungFormDraft) {
     kontakte: mirrorBewerbungTrainer(draft.kontakte),
     trikot: draft.trikot,
     kader: draft.kader,
+    stufengroesse: draft.stufengroesse,
     // Judged on the TRIMMED value and sent untrimmed, as every other name here is: the backend
     // strips before it stores, and „   “ is no more a wish than `""`. `null` is the one spelling of
     // „kein Wunsch“ the product writes.

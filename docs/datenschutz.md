@@ -85,9 +85,11 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 
 - **A club's street address is public and the application form says so** (`READ-ADDRESS-002`).
   **Datenschutzexperte consulted.** Ruled 2026-08.
-- **The application form's address sentence also belongs on the acceptance screen**, where the
-  administrator takes the action that publishes it and which
-  `docs/backend/spec.md :: Acceptance publishes a school's address as the club's` already names;
+- **The address sentence stands on the acceptance screen as well as on the application form.** The
+  acceptance screen is where the administrator takes the action that publishes it, which
+  `docs/backend/spec.md :: Acceptance publishes a school's address as the club's` names; the
+  sentence sits on the arm that creates the club
+  (`fl_frontend/src/features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx`), and
   the admin club forms need none. Ruled 2026-09-01.
 - **The organisers named on the public team page each fully agreed to be listed**, having confirmed
   it to me directly on 2026-09-02. Their names are source code in a public repository, so removal is

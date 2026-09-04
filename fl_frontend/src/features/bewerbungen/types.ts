@@ -74,6 +74,9 @@ export type BewerbungFormDraft = {
   kontakte: BewerbungKontakteDraft;
   trikot: { vorhandener_satz: string; wunschfarbe: FLTrikotFarbe | null };
   kader: { voraussichtliche_groesse: number | null; gute_spieler: number | null };
+  // The head count of the Abi-Jahrgang the team comes from, never the whole school. Beside `kader`
+  // rather than inside it: it counts a cohort, and the squad is drawn from that cohort.
+  stufengroesse: number | null;
   // A STRING mid-entry where the payload's is `string | null`: `""` is a box nobody filled in, and
   // `bewerbungPayload` is the one place that turns it into null. Normalising per keystroke would
   // eat a space as it was typed.

@@ -34,22 +34,34 @@ const SCHULEN = [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }];
 /** The form as the applicant meets it, composed by the component the page renders rather than here. */
 const FORMULAR = renderMarkup(BewerbungForm, { saisonId: "2026", schulen: SCHULEN, isSchulenLesbar: true, vergebeneFarben: [] });
 
-/**
- * The new-school arm, which the form above never reaches: it opens on the picker's sentinel, and a
- * fresh draft has picked nothing.
- */
-const NEUE_SCHULE = renderMarkup(FormSchuleSection, {
+/** Everything the panel needs but the picked key, which is the one thing the two arms differ by. */
+const SCHULE_PROPS = {
   schulen: SCHULEN,
   auswahl: SCHULE_NICHT_IN_LISTE,
   schule: buildEmptyBewerbungSchule(),
+  stufengroesse: null,
   onAuswahlPicked: () => undefined,
   onSchuleChange: () => undefined,
+  onStufengroesseChange: () => undefined,
   onFieldLeft: () => undefined,
   onSchulformPicked: () => undefined,
   onKuerzelLeft: () => undefined,
   kuerzelHinweis: null,
   isSchulenLesbar: true,
-});
+};
+
+/**
+ * The new-school arm, which the form above never reaches: it opens on the picker's sentinel, and a
+ * fresh draft has picked nothing.
+ */
+const NEUE_SCHULE = renderMarkup(FormSchuleSection, SCHULE_PROPS);
+
+/**
+ * The other arm, where the new-school block does not render. The arm above cannot tell the two
+ * placements apart: everything the panel owns renders there, whichever side of the `istNeueSchule`
+ * guard it sits on.
+ */
+const BESTEHENDE_SCHULE = renderMarkup(FormSchuleSection, { ...SCHULE_PROPS, auswahl: SCHULEN[0]!.id });
 
 /** Every element a submitted value is read off, with the attributes that decide what it announces. */
 function benannteControls(html: string): { name: string; attrs: string }[] {
@@ -155,6 +167,19 @@ describe("the public application form", () => {
       [...FORMULAR.matchAll(/name="kontakte\.(\w+)\.vorname"/g)].map((treffer) => treffer[1]),
       ["ansprechperson", "stellvertretung", "trainer"],
       "the seats are rendered in an order their headings do not show",
+    );
+  });
+
+  /* Inside the guard, a school picking a club the league already holds is never asked, and submits a
+     body the payload refuses under a 422 naming no field. */
+  it("asks the Abi-Jahrgang of an applicant who picked a club the league already holds", () => {
+    // The control: without it a picked-club arm that had started rendering the new-school block would
+    // leave the assertion below true for the wrong reason.
+    assert.doesNotMatch(BESTEHENDE_SCHULE, /name="schule\.team_name"/, "the new-school block renders in the picked-club arm too");
+
+    assert.ok(
+      benannteControls(BESTEHENDE_SCHULE).some((control) => control.name === "stufengroesse"),
+      "the Abi-Jahrgang box sits behind the new-school guard, so this applicant is never asked",
     );
   });
 
@@ -351,6 +376,20 @@ describe("what the form says about itself to a reader who cannot see it", () => 
 
       assert.ok(benannt > 0, `${wo} resolves no accessible name at all, so the loop above compared nothing`);
     }
+  });
+
+  /* Without HeroUI forwarding `aria-describedby` to its own input, this hint would describe nothing,
+     and the picker's `<p id>` pattern would be the only way to reach a reader who cannot see it. */
+  it("describes the Abi-Jahrgang box by the hint sitting under it", () => {
+    const hinweis = /<p id="([^"]*)"[^>]*>Alle Schülerinnen und Schüler/.exec(NEUE_SCHULE)?.[1] ?? "";
+
+    assert.notEqual(hinweis, "", "the school panel renders no Abi-Jahrgang hint, so this case compares nothing");
+
+    const beschrieben = [...NEUE_SCHULE.matchAll(/<input\b([^>]*)>/g)]
+      .map((treffer) => /\baria-describedby="([^"]*)"/.exec(treffer[1] ?? "")?.[1] ?? "")
+      .filter((wert) => wert.split(" ").includes(hinweis));
+
+    assert.equal(beschrieben.length, 1, "the Abi-Jahrgang hint reaches no input, so a screen reader never meets the sentence");
   });
 
   /* The receipt replaces the form under the pressed button, so without these the caret falls to

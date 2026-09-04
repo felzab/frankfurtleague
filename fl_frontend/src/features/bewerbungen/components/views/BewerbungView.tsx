@@ -3,6 +3,7 @@ import Link from "next/link";
 import { At, CircleInfo, Eye } from "@gravity-ui/icons";
 
 import { BewerbungForm } from "@/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm";
+import { BewerbungInstagramBand } from "@/features/bewerbungen/components/ui/BewerbungInstagramBand";
 import { abiJahrgang, fensterZustand } from "@/features/bewerbungen/utils";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { ctaButton } from "@/shared/components/ui/formButtons";
@@ -113,6 +114,9 @@ export function BewerbungView({
           schulen={schulen}
           isSchulenLesbar={isSchulenLesbar}
           vergebeneFarben={vergebeneFarben}
+          // Seated INSIDE the form so the two of them share one condition: a strip the page held
+          // would stand a second time beside the receipt the form swaps itself for.
+          hinweisSlot={<BewerbungInstagramBand />}
         />
       )}
 

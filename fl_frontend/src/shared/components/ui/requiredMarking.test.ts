@@ -99,7 +99,7 @@ describe("what an opt-in required prop actually reaches", () => {
   });
 });
 
-describe("the two stylesheet rules that decide whether the asterisk is drawn", () => {
+describe("the stylesheet rules that decide whether the asterisk is drawn and what colour it takes", () => {
   const compiled = (async () => {
     const from = path.join(import.meta.dirname, "..", "..", "..", "app", "globals.css");
     return postcss([tailwind()]).process(await readFile(from, "utf8"), { from });
@@ -135,5 +135,23 @@ describe("the two stylesheet rules that decide whether the asterisk is drawn", (
     assert.ok(SHARED_SHAPE.test(optOut[0]!.selector), `the opt-out no longer matches what HeroUI draws: ${optOut[0]!.selector}`);
     // Layer order beats specificity, and HeroUI declares the asterisk in `@layer components`.
     assert.ok(optOut[0]!.unlayered, "the opt-out has fallen into a cascade layer and can no longer win");
+  });
+
+  it("still finds the opt-in drawing the mark muted, from outside the layer that draws it danger", async () => {
+    const { root } = await compiled;
+    const override: { selector: string; unlayered: boolean; muted: boolean }[] = [];
+
+    root.walkRules((rule) => {
+      if (!rule.selector.includes('form[data-required-marks="on"]')) return;
+      const muted = rule.some((node) => node.type === "decl" && node.prop === "color" && node.value === "var(--fg-muted)");
+      override.push({ selector: rule.selector, unlayered: rule.parent?.type === "root", muted });
+    });
+
+    assert.equal(override.length, 1, `expected exactly one colour override; got ${JSON.stringify(override)}`);
+    assert.ok(SHARED_SHAPE.test(override[0]!.selector), `the override no longer matches what HeroUI draws: ${override[0]!.selector}`);
+    // Red is what a refused field looks like, so the mark taking any other grade is the regression.
+    assert.ok(override[0]!.muted, "the required mark is drawn in something other than the muted grade");
+    // HeroUI's selector is the more specific of the two, so nothing but layer order carries this rule.
+    assert.ok(override[0]!.unlayered, "the colour override has fallen into a cascade layer and can no longer win");
   });
 });

@@ -620,6 +620,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "kontakte": _BEWERBUNG_KONTAKTE,
                 "trikot": _BEWERBUNG_TRIKOT,
                 "kader": _BEWERBUNG_KADER,
+                # How many pupils the school's whole Abi-Jahrgang holds. Out of `required` for
+                # `wunschgegner`'s reason.
+                "stufengroesse": {"bsonType": _INT_OR_NULL},
                 # Free text, a school being free to name an opponent that has not applied. Out of
                 # `required` for `saisons.spielplan`'s reason.
                 "wunschgegner": {"bsonType": _STRING_OR_NULL},

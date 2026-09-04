@@ -253,8 +253,9 @@ attributes its facts to a different concept — and the hit count looks convinci
 
 - `spiel` is a match, and it sits inside `spieler`, `spielort`, `spieltag` and `spielplan` — a person, a
   venue, a matchday and a season's whole draw, four different things.
-- `stufe` is the school year a squad row records, and it sits inside `oberstufengymnasium`, a `schulform`
-  value describing the school rather than any pupil in it.
+- `stufe` is a level on a squad row, and it sits inside `oberstufengymnasium` and `stufengroesse` —
+  a `schulform` value describing the school rather than any pupil in it, and an application's count
+  of one whole Abi-Jahrgang, two different things.
 
 **Search for the whole word, and classify every hit by the whole word around it.** A count of substring
 matches is evidence about nothing.

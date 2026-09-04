@@ -35,6 +35,7 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_GRUND_MAX_LENGTH", "BEWERBUNG_GRUND_MAX_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH", "BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_KADER_GROESSE_MAX", "BEWERBUNG_KADER_GROESSE_MAX"),
+    Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_STUFENGROESSE_MAX", "BEWERBUNG_STUFENGROESSE_MAX"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH", "BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_MIN_ALTER", "BEWERBUNG_KONTAKT_MIN_AGE_YEARS"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_MAX_ALTER", "BEWERBUNG_KONTAKT_MAX_AGE_YEARS"),

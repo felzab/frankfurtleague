@@ -150,11 +150,14 @@ export function missingVerdicts<TSchema extends string>({
 
 export const BLOCKED_SUBMIT_TITLE = "Noch nicht abgeschickt";
 
-/** Spelled per count rather than interpolated: `1` and the rest need their own German. */
+/**
+ * Spelled per count rather than interpolated: `1` and the rest need their own German. It names no
+ * direction: every editor shares this hook, and `focusFirstRefusal` moves the caret to the mark anyway.
+ */
 export const blockedSubmitDetail = (refused: number): string =>
   refused === 1
-    ? "Ein Feld braucht noch eine Angabe. Es ist unten markiert."
-    : `${String(refused)} Felder brauchen noch eine Angabe. Sie sind unten markiert.`;
+    ? "Ein Feld braucht noch eine Angabe. Es ist markiert."
+    : `${String(refused)} Felder brauchen noch eine Angabe. Alle sind markiert.`;
 
 /**
  * Whether one press may write, and what it must say instead. A UNION, so a caller cannot read the answer without

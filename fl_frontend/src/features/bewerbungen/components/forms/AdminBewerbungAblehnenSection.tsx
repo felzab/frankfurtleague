@@ -118,7 +118,7 @@ export function AdminBewerbungAblehnenSection({
           <Label className={FIELD_LABEL}>Grund für die Absage</Label>
           <TextArea
             fullWidth
-            placeholder="z.B. Für die Saison 2627 sind alle Plätze vergeben."
+            placeholder="z.B. Für die Saison 2027 sind alle Plätze vergeben."
             className="border-border bg-surface text-foreground fluid-sm min-h-24 rounded-lg border px-3 py-2 transition-colors outline-none"
           />
           <FieldError className={FIELD_ERROR}>{error}</FieldError>

@@ -5,7 +5,7 @@
  */
 export function enteredNumber(next: number | undefined): number | null {
   // `NaN` is how react-aria reports a cleared box, `undefined` the state before the first commit. A `null`
-  // left in the draft is refused at submit: the payload schemas keep `z.int()`, whose type-check message
-  // is the German for an empty field.
+  // left in the draft is refused at submit: every payload schema words its own type check, so the empty
+  // box draws German.
   return next === undefined || Number.isNaN(next) ? null : next;
 }

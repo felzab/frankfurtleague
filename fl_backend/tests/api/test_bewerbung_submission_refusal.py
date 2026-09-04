@@ -39,6 +39,7 @@ from app.core.exceptions import DocumentNotFoundException
 from app.shared.schemas.addresses import FLAddressPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_GROESSE_MAX,
+    BEWERBUNG_STUFENGROESSE_MAX,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
     KONTAKT_NAME_MAX_LENGTH,
@@ -122,6 +123,7 @@ def submission(**overrides: Any) -> dict[str, Any]:
         "kontakte": kontakte(),
         "trikot": {"vorhandener_satz": "12 rote Trikots", "wunschfarbe": "blau"},
         "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 4},
+        "stufengroesse": 90,
         **overrides,
     }
 
@@ -819,6 +821,39 @@ class TestTheSquadEstimateIsBoundedAsASquad:
         past_int32 = {**self.AT_THE_SQUAD_CEILING, field: 2**31}
 
         assert_rejects(FLPostBewerbungPayload, submission(kader=past_int32), field)
+
+
+class TestTheYearGroupIsBoundedAsAYearGroup:
+    """Required and floored where `wunschgegner` is neither: a school leaves no "unbeantwortet" answer about its own Abi-Jahrgang."""
+
+    def test_a_size_over_the_ceiling_is_refused(self, assert_rejects):
+        """An anonymous caller writes it and `bsonType: "int"` stores it, which is the pair a bound is earned on."""
+
+        assert_rejects(FLPostBewerbungPayload, submission(stufengroesse=BEWERBUNG_STUFENGROESSE_MAX + 1), "stufengroesse")
+
+    def test_a_size_at_the_ceiling_is_accepted(self):
+        """The control: without it every case here would pass on a field that refuses everything."""
+
+        at_the_bound = submission(stufengroesse=BEWERBUNG_STUFENGROESSE_MAX)
+
+        assert FLPostBewerbungPayload.model_validate(at_the_bound).stufengroesse == BEWERBUNG_STUFENGROESSE_MAX
+
+    def test_a_year_group_of_nobody_is_refused(self, assert_rejects):
+        """The floor `gute_spieler` does not take: zero strong players is an answer and zero pupils is not."""
+
+        assert_rejects(FLPostBewerbungPayload, submission(stufengroesse=0), "stufengroesse")
+
+    def test_an_omitted_size_is_refused_rather_than_read_as_a_null(self, assert_rejects):
+        """The whole difference from `wunschgegner`: a form that stopped sending this key is a 422 and never a silent null."""
+
+        without = {key: value for key, value in submission().items() if key != "stufengroesse"}
+
+        assert_rejects(FLPostBewerbungPayload, without, "stufengroesse")
+
+    def test_an_application_stored_before_the_field_still_reads(self):
+        """Stored rows predate the key, and `FLBewerbung` defaulting it is the whole of what keeps the triage list readable."""
+
+        assert FLBewerbung.model_validate(stored_application()).stufengroesse is None
 
 
 class TestNoCeilingReachesTheReadSide:

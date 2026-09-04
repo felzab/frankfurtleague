@@ -1,4 +1,4 @@
-import { KONTAKT_EMAIL } from "@/core/brand";
+import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand";
 
 import type { KontaktChannel, QaQuestion, TeamMember } from "./types";
 
@@ -48,8 +48,8 @@ export const KONTAKT_CHANNELS: KontaktChannel[] = [
   {
     id: "instagram",
     name: "Instagram",
-    value: "@frankfurt.league",
-    action: "https://instagram.com/frankfurt.league",
+    value: INSTAGRAM_HANDLE,
+    action: INSTAGRAM_URL,
   },
   { id: "threads", name: "Threads", value: "@frankfurt.league", action: "https://www.threads.com/@frankfurt.league" },
 ];

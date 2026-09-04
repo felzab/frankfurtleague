@@ -749,7 +749,15 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
 
 - **The reader is `Du` — informal, and capitalised everywhere** (my rule, 2026-08-04): `Du`,
   `Dein`, `Dir`, `Dich`, and never `Sie` or `Ihr`. When auditing, a sentence-initial `Du` is
-  capitalised whatever the convention holds, so it is evidence of nothing.
+  capitalised whatever the convention holds, so it is evidence of nothing. **One sentence takes the
+  plural `ihr` instead** (my rule, 2026-09-04), the Instagram invitation at
+  `fl_frontend/src/features/bewerbungen/components/ui/BewerbungInstagramBand.tsx`: the post it asks
+  for is one a school's players make together, and `Du` asks a single reader for it. Nothing
+  mechanical keeps the exception to that file, and the hole is wider than this one sentence:
+  `scripts/checks/docs_gate/copy_rules.py :: FORMAL_RE` matches `Sie` and the `Ihr` family alike, and
+  `:: _formal_findings` drops either wherever `:: SENTENCE_OPENER_RE` puts it at the head of a span,
+  `:: INFORMAL_RE` reading the `Du` family alone — so a formal address opening a sentence is
+  review's, this exception with it.
 - **One German word per concept, and a club is a `Team`** (my rule, 2026-08-21): never
   `Mannschaft`. `Team` is neuter, and the word that has to agree often sits in the NEXT sentence,
   which no grep for the noun will find; `sideLabel` also numbers a fixture's two seats `Team`, so a

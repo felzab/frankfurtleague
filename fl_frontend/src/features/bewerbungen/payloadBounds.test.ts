@@ -142,6 +142,9 @@ const readForm = (file: string) => readFileSync(path.join(FORM_DIR, file), "utf8
 const CAPPED_CONTROLS: Record<string, { file: string; boxes: number }> = {
   TEAM_NAME_MAX_LENGTH: { file: "FormSchuleSection.tsx", boxes: 1 },
   TEAM_FULL_NAME_MAX_LENGTH: { file: "FormSchuleSection.tsx", boxes: 1 },
+  // The one constant here that is an exact length and not a ceiling: the box refuses a third
+  // character rather than letting the schema report one.
+  KUERZEL_LAENGE: { file: "FormSchuleSection.tsx", boxes: 1 },
   // Two boxes each: both name fields, and both counts. A presence check is satisfied by either alone.
   KONTAKT_NAME_MAX_LENGTH: { file: "FormKontaktpersonenSection.tsx", boxes: 2 },
   // Its box holds the URL WITHOUT the scheme, so the cap is composed rather than the constant alone.
@@ -151,6 +154,9 @@ const CAPPED_CONTROLS: Record<string, { file: string; boxes: number }> = {
   // One box: the strong-player box takes its ceiling from `strongPlayerCeiling`, which the cases
   // below compare against the schema by parsing rather than by counting a constant in the JSX.
   BEWERBUNG_KADER_GROESSE_MAX: { file: "FormTeamSection.tsx", boxes: 1 },
+  // On the school's panel and not the team's: the number counts the Abi-Jahrgang the team comes from
+  // rather than the squad, and every applicant answers it whichever arm of the picker they are in.
+  BEWERBUNG_STUFENGROESSE_MAX: { file: "FormSchuleSection.tsx", boxes: 1 },
 };
 
 describe("where a ceiling reaches the box the applicant types in", () => {
