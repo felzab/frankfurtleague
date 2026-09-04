@@ -469,10 +469,31 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     FieldPolicy(
         Collection.BEWERBUNGEN,
         "kontakte",
-        Editability.IMMUTABLE,
-        "on no payload the triage serves: an application is the form three people filled in, and a decision moves "
-        "`status`, `entscheidung` and `team_id` alone. An erasure empties the slot naming one of them, which is a "
-        "removal rather than an edit",
+        Editability.CONDITIONAL,
+        "written whole at submission, and afterwards by the seat's own person alone, through "
+        "`POST /bewerbungen/einwilligung`: a consent fills `geburtsdatum` and the consent record's stamp, source, "
+        "wording and scope on every seat that person holds, a decline nulls those slots, and both are refused once "
+        "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). An erasure empties the "
+        "slot naming one of them. On no payload the TRIAGE serves: a decision moves `status`, `entscheidung` and "
+        "`team_id` alone",
+        "app.api.bewerbungen.services.find_already_answered_refusal",
+    ),
+    FieldPolicy(
+        Collection.BEWERBUNGEN,
+        "bestaetigungen",
+        Editability.CONTROL_ONLY,
+        "no payload carries the block: `POST /bewerbungen` mints one entry per seat, a decline through "
+        "`POST /bewerbungen/einwilligung` stamps `abgelehnt_am` where the emptied slot cannot reach, the re-send "
+        "replaces one entry with a fresh hash, and an erasure nulls the entry beside the slot. A client able to name "
+        "a `token_hash` is a client able to mint its own link",
+    ),
+    FieldPolicy(
+        Collection.BEWERBUNGEN,
+        "bestaetigungsfrist",
+        Editability.CONTROL_ONLY,
+        "no payload carries it either: `POST /bewerbungen` counts it from the day it mints the links and the re-send "
+        "restarts it from the day it mints a fresh one, so the deadline is derived from the mint rather than named "
+        "beside it",
     ),
     FieldPolicy(Collection.SAISONS, "id", Editability.IMMUTABLE, "chosen at create; every `saison_id` in the database references this value"),
     FieldPolicy(

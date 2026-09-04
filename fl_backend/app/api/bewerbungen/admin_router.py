@@ -287,11 +287,20 @@ async def erneut_einwilligung(
     bestaetigungsfrist = bestaetigungsfrist_from(today=today)
 
     # The status is in the FILTER, as the decline's is: a decision landing between the read and this
-    # write leaves the row untouched and answers the miss.
-    await patch_one_in_db(
-        collection=bewerbungen_collection,
-        db_filter={**db_filter, "status": "eingereicht"},
-        update=compose_erneut_update(seat=rolle, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist),
-    )
+    # write leaves the row untouched, and the re-read below is what tells that from a row that is gone.
+    try:
+        await patch_one_in_db(
+            collection=bewerbungen_collection,
+            db_filter={**db_filter, "status": "eingereicht"},
+            update=compose_erneut_update(seat=rolle, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist),
+        )
+    except DocumentNotFoundException:
+        # `REQ-BEWERBUNG-001` rather than a 404, as the decline answers a race here
+        # (`app/api/bewerbungen/admin_router.py :: ablehnen_bewerbung`): a link is re-sent or refused
+        # for the reason it is refused, and only an application no document names keeps the miss.
+        raced_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=["status"])
+        refuse(find_triage_refusal(status=str(raced_raw["status"])))
+
+        raise
 
     return FLBewerbungEinwilligungErneutResponse(token=raw, rolle=rolle, bestaetigungsfrist=bestaetigungsfrist)

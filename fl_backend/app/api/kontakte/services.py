@@ -29,7 +29,7 @@ def _same_address(email: str) -> Mapping[str, Any]:
 
 
 def build_matching_rows_pipeline(email: str) -> list[Mapping[str, Any]]:
-    """Every row naming this address in a slot, projected to the addresses alone.
+    """Every row naming this address in a slot, projected to those addresses and `bestaetigungen`.
 
     Case-insensitive: `EmailStr` keeps the local part's case, and `bewerbungen` has no payload to
     normalise through, so equality leaves `Wiltrudis@` standing and reports it gone.
@@ -44,10 +44,11 @@ def build_matching_rows_pipeline(email: str) -> list[Mapping[str, Any]]:
 
 
 def build_orphaned_image_filter(email: str) -> Mapping[str, Any]:
-    """Every log row still HOLDING this person, whatever document it happens to name.
+    """Every log row still HOLDING this person, whatever document it names.
 
-    A swap moves the address out of its row, so the pre-image carrying it out belongs to a document
-    `build_redaction_filter`'s ids never reach, and nothing ages the log out.
+    A swap orphans the pre-image carrying the address out, past `build_redaction_filter`'s ids; the
+    log's retention (`app/core/constraints.py :: TTL_INDEXES`) expires a row long after the erasure
+    is owed.
     """
 
     return {
@@ -74,7 +75,7 @@ def find_matching_slots(row: Mapping[str, Any], email: str) -> tuple[str, ...]:
 
 
 def build_clearing_update(slots: Sequence[str], *, bestaetigungen: bool = False) -> Mapping[str, Any]:
-    """Null the named slots and nothing else.
+    """Null the named slots, and their confirmation bookkeeping where the caller found a block.
 
     Dotted keys, so the block itself survives: `app/core/constraints.py :: _KONTAKTE_REQUIRED` names
     all four members required, and on an application the block is non-nullable outright.
