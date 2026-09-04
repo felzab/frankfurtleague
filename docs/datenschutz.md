@@ -111,18 +111,6 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   `fl_frontend/src/app/robots.ts` disallows named crawlers, which is a request; the edge's
   crawler block enforces it, and that setting lives in the hosting dashboard rather than in this
   repository, which records that it exists and is deliberate.
-- **An erased referee's name on a past fixture is to be replaced by a neutral label spelled
-  "anonym"** — not by a first name, and not by the word "Schiedsrichter", which would read oddly
-  in a column already headed with it. A first name with a date and a club still identifies one
-  person in a league this size. Today the anonymisation clears the contact block only
-  (`fl_backend/app/api/schiedsrichter/services.py :: ANONYMISED_KONTAKT`) and the name stays on
-  every past fixture.
-- **A serving referee is published as a forename and a surname initial, like a squad pupil.**
-  Today the fixture read serves the referee's full name to anonymous visitors while a squad pupil
-  is reduced, so the consent architecture covers the less-exposing publication and not the more-
-  exposing one, and the same pupil can appear under both rules. The reduction is a response-model
-  change rather than a data migration: `fl_backend/app/api/spieler/services.py :: public_initial`
-  is the function the squad read already uses. Ruled 2026-09-02.
 - **The free-text fields on public pages stay public** — a fixture's note and a withdrawal's
   reason — with the input saying so (`READ-FREETEXT-001`, `READ-FREETEXT-002`).
 - **The privacy notice becomes a static route in this repository**, linked from the footer and
@@ -134,8 +122,8 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 - **Anyone — player, referee, contact person, administrator — can have their data deleted, with
   the least asymmetry between roles.** The mechanisms today are
   `DELETE /spieler/{spieler_id}/erasure`, `POST /kontakte/erasure` and
-  `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`; what the referee path is to leave on
-  past fixtures is [section 4](#4-what-is-published-and-on-what-basis)'s label. Details re-entered
+  `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`; what the referee path leaves on past
+  fixtures is `docs/backend/spec.md :: 1.1`'s anonymisation row. Details re-entered
   while an anonymisation runs refuse it (`REQ-ANONYMISE-001`,
   `docs/backend/spec.md :: I118`) rather than answering a success it did not achieve, so the run is
   repeated and nobody is told a person's details are gone while they stand.

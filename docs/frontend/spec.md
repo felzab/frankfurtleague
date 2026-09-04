@@ -215,49 +215,49 @@ the club editor's single picker, share one write and grade a pair through
 `fl_frontend/src/features/saisons/utils.ts :: findSwapPartnerRefusal`, so neither can offer a pair
 the other refuses.
 
-| Action                           | Slice          | Invalidates                                                                                         |
-| -------------------------------- | -------------- | --------------------------------------------------------------------------------------------------- |
-| `patchAdminSpielDataAction`      | spiele         | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                                |
-| `previewAdminSpielDataAction`    | spiele         | **nothing** — it writes nothing (`dry_run=true`)                                                    |
-| `readAdminSpielBookingsAction`   | spiele         | **nothing** — it reads the bookings a save moved, so the undo can restore each one whole            |
-| `postSpielortAction`             | spielorte      | **nothing** — no cached read holds a venue                                                          |
-| `patchSpielortAction`            | spielorte      | `spiele`                                                                                            |
-| `deleteSpielortAction`           | spielorte      | **nothing**                                                                                         |
-| `reactivateSpielortAction`       | spielorte      | **nothing**                                                                                         |
-| `postSchiedsrichterAction`       | schiedsrichter | **nothing** — no cached read holds a referee                                                        |
-| `patchSchiedsrichterAction`      | schiedsrichter | `spiele`                                                                                            |
-| `deleteSchiedsrichterAction`     | schiedsrichter | **nothing**                                                                                         |
-| `reactivateSchiedsrichterAction` | schiedsrichter | **nothing**                                                                                         |
-| `anonymiseSchiedsrichterAction`  | schiedsrichter | **nothing** — the referee list is uncached, a fixture embeds only the name, and the log is uncached |
-| `postTeamAction`                 | teams          | `teams`, + `teams:saison_id:{id}`                                                                   |
-| `patchTeamAction`                | teams          | `teams`, `spiele`                                                                                   |
-| `deleteTeamAction`               | teams          | `teams`                                                                                             |
-| `reactivateTeamAction`           | teams          | `teams`                                                                                             |
-| `postSaisonTeamAction`           | teams          | `teams`, + `teams:saison_id:{id}`                                                                   |
-| `patchSaisonTeamAction`          | teams          | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                                |
-| `replaceSaisonTeamAction`        | teams          | `spiele`, `teams`, `spieler`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                     |
-| `postSpielerAction`              | spieler        | `spieler`                                                                                           |
-| `patchSpielerAction`             | spieler        | `spieler`                                                                                           |
-| `deleteSpielerAction`            | spieler        | `spieler`                                                                                           |
-| `eraseSpielerAction`             | spieler        | `spieler`                                                                                           |
-| `reactivateSpielerAction`        | spieler        | `spieler`                                                                                           |
-| `postSaisonSpielerAction`        | spieler        | `spieler`                                                                                           |
-| `patchSaisonSpielerAction`       | spieler        | `spieler`                                                                                           |
-| `deleteSaisonSpielerAction`      | spieler        | `spieler`                                                                                           |
-| `reactivateSaisonSpielerAction`  | spieler        | `spieler`                                                                                           |
-| `postSaisonAction`               | saisons        | `saisons`                                                                                           |
-| `patchSaisonAction`              | saisons        | `saisons`, `teams`                                                                                  |
-| `activateSaisonAction`           | saisons        | `saisons`, `spiele`, `spieltage`, `teams`                                                           |
-| `swapGruppenAction`              | saisons        | `teams`, `spiele`, + both `:saison_id:{id}`                                                         |
-| `generateSpielplanAction`        | saisons        | `saisons`, `spieltage`, `spiele`, `teams`, + both `:saison_id:{id}`                                 |
-| `undrawSpielplanAction`          | saisons        | `saisons`, `spieltage`, `spiele`, `teams`, + both `:saison_id:{id}`                                 |
-| `patchSpieltagAction`            | spieltage      | `spieltage`                                                                                         |
-| `annehmenBewerbungAction`        | bewerbungen    | `teams`, + `teams:saison_id:{id}`                                                                   |
-| `ablehnenBewerbungAction`        | bewerbungen    | **nothing** — a decline moves this application's own row, which no cached read holds                |
-| `patchSaisonTeamKontakteAction`  | kontakte       | **nothing** — the only read carrying the block is `getTeamMemberships`, which is React `cache`      |
-| `eraseKontaktpersonAction`       | kontakte       | **nothing** — no cached read holds a contact person                                                 |
-| `handleSignIn`                   | auth           | —                                                                                                   |
-| `signOutAction`                  | auth           | —                                                                                                   |
+| Action                           | Slice          | Invalidates                                                                                    |
+| -------------------------------- | -------------- | ---------------------------------------------------------------------------------------------- |
+| `patchAdminSpielDataAction`      | spiele         | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                           |
+| `previewAdminSpielDataAction`    | spiele         | **nothing** — it writes nothing (`dry_run=true`)                                               |
+| `readAdminSpielBookingsAction`   | spiele         | **nothing** — it reads the bookings a save moved, so the undo can restore each one whole       |
+| `postSpielortAction`             | spielorte      | **nothing** — no cached read holds a venue                                                     |
+| `patchSpielortAction`            | spielorte      | `spiele`                                                                                       |
+| `deleteSpielortAction`           | spielorte      | **nothing**                                                                                    |
+| `reactivateSpielortAction`       | spielorte      | **nothing**                                                                                    |
+| `postSchiedsrichterAction`       | schiedsrichter | **nothing** — no cached read holds a referee                                                   |
+| `patchSchiedsrichterAction`      | schiedsrichter | `spiele`                                                                                       |
+| `deleteSchiedsrichterAction`     | schiedsrichter | **nothing**                                                                                    |
+| `reactivateSchiedsrichterAction` | schiedsrichter | **nothing**                                                                                    |
+| `anonymiseSchiedsrichterAction`  | schiedsrichter | `spiele` — the label lands on every fixture the referee officiated, as a rename does           |
+| `postTeamAction`                 | teams          | `teams`, + `teams:saison_id:{id}`                                                              |
+| `patchTeamAction`                | teams          | `teams`, `spiele`                                                                              |
+| `deleteTeamAction`               | teams          | `teams`                                                                                        |
+| `reactivateTeamAction`           | teams          | `teams`                                                                                        |
+| `postSaisonTeamAction`           | teams          | `teams`, + `teams:saison_id:{id}`                                                              |
+| `patchSaisonTeamAction`          | teams          | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                           |
+| `replaceSaisonTeamAction`        | teams          | `spiele`, `teams`, `spieler`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                |
+| `postSpielerAction`              | spieler        | `spieler`                                                                                      |
+| `patchSpielerAction`             | spieler        | `spieler`                                                                                      |
+| `deleteSpielerAction`            | spieler        | `spieler`                                                                                      |
+| `eraseSpielerAction`             | spieler        | `spieler`                                                                                      |
+| `reactivateSpielerAction`        | spieler        | `spieler`                                                                                      |
+| `postSaisonSpielerAction`        | spieler        | `spieler`                                                                                      |
+| `patchSaisonSpielerAction`       | spieler        | `spieler`                                                                                      |
+| `deleteSaisonSpielerAction`      | spieler        | `spieler`                                                                                      |
+| `reactivateSaisonSpielerAction`  | spieler        | `spieler`                                                                                      |
+| `postSaisonAction`               | saisons        | `saisons`                                                                                      |
+| `patchSaisonAction`              | saisons        | `saisons`, `teams`                                                                             |
+| `activateSaisonAction`           | saisons        | `saisons`, `spiele`, `spieltage`, `teams`                                                      |
+| `swapGruppenAction`              | saisons        | `teams`, `spiele`, + both `:saison_id:{id}`                                                    |
+| `generateSpielplanAction`        | saisons        | `saisons`, `spieltage`, `spiele`, `teams`, + both `:saison_id:{id}`                            |
+| `undrawSpielplanAction`          | saisons        | `saisons`, `spieltage`, `spiele`, `teams`, + both `:saison_id:{id}`                            |
+| `patchSpieltagAction`            | spieltage      | `spieltage`                                                                                    |
+| `annehmenBewerbungAction`        | bewerbungen    | `teams`, + `teams:saison_id:{id}`                                                              |
+| `ablehnenBewerbungAction`        | bewerbungen    | **nothing** — a decline moves this application's own row, which no cached read holds           |
+| `patchSaisonTeamKontakteAction`  | kontakte       | **nothing** — the only read carrying the block is `getTeamMemberships`, which is React `cache` |
+| `eraseKontaktpersonAction`       | kontakte       | **nothing** — no cached read holds a contact person                                            |
+| `handleSignIn`                   | auth           | —                                                                                              |
+| `signOutAction`                  | auth           | —                                                                                              |
 
 What the table cannot carry:
 

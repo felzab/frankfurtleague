@@ -124,7 +124,7 @@ freeze is absolute on the patch and is not a dead end, and which route leads bac
 | `REQ-RETIRE-001`      | 409    | A club entered in an `active` or `future` season was asked to retire                                                                                   |
 | `REQ-RETIRE-003`      | 409    | A venue still booked for an unplayed fixture was asked to retire                                                                                       |
 | `REQ-RETIRE-004`      | 409    | A referee still assigned to an unplayed fixture was asked to retire                                                                                    |
-| `REQ-ANONYMISE-001`   | 409    | A referee's contact details were entered again while an anonymisation of them ran, so it cleared nothing                                               |
+| `REQ-ANONYMISE-001`   | 409    | A referee's name or contact details were entered again while an anonymisation of them ran, so it cleared nothing                                       |
 | `REQ-PURGE-001`       | 409    | A player still in the league was asked to be erased; the erasure needs them retired first                                                              |
 | `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved                                                                          |
 | `REQ-BOOKING-001`     | 409    | A venue or a referee NEWLY assigned to a fixture is unknown or retired — one already stored survives its target's retirement                           |

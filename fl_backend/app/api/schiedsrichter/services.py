@@ -11,21 +11,40 @@ REFEREE_STILL_ASSIGNED = "REQ-RETIRE-004"
 # cleared rather than silently left behind.
 ANONYMISED_KONTAKT: dict[str, None] = {f"kontakt.{field}": None for field in FLKontakt.model_fields}
 
+# Not a first name, which beside a date and a club still identifies one person in a league this
+# size, and not „Schiedsrichter", which reads oddly in a column already headed with it.
+ANONYMISED_NAME = "anonym"
+
+# One mapping, so nothing can clear the details while leaving the person named
+# (`docs/backend/spec.md :: 1.1`, the anonymisation's row).
+ANONYMISED_SCHIEDSRICHTER: dict[str, Any] = {**ANONYMISED_KONTAKT, "name": ANONYMISED_NAME}
+
 # An erasure beats the last writer: a detail re-entered mid-anonymisation is a person's data
 # the answer would report gone, and clearing it again is one more click.
 KONTAKT_RE_ENTERED_MID_ANONYMISATION = "REQ-ANONYMISE-001"
 
 
-def holds_a_kontakt_value(schiedsrichter: Mapping[str, Any]) -> bool:
-    """Whether any field `ANONYMISED_KONTAKT` clears still carries a value.
+def _stored_at(schiedsrichter: Mapping[str, Any], path: str) -> Any:
+    """The value a dotted key of `ANONYMISED_SCHIEDSRICHTER` addresses, or `None` where a segment is missing."""
 
-    Read off that mapping rather than off `FLKontakt` again, so what the erasure clears and
-    what this weighs cannot become two lists.
+    found: Any = schiedsrichter
+
+    for segment in path.split("."):
+        if not isinstance(found, Mapping):
+            return None
+        found = found.get(segment)
+
+    return found
+
+
+def holds_an_anonymisable_value(schiedsrichter: Mapping[str, Any]) -> bool:
+    """Whether anything `ANONYMISED_SCHIEDSRICHTER` writes still stands as something else.
+
+    Read off that mapping rather than off the models again, so what the erasure writes and what
+    this weighs cannot become two lists.
     """
 
-    kontakt = schiedsrichter.get("kontakt") or {}
-
-    return any(kontakt.get(path.partition(".")[2]) is not None for path in ANONYMISED_KONTAKT)
+    return any(_stored_at(schiedsrichter, path) != value for path, value in ANONYMISED_SCHIEDSRICHTER.items())
 
 
 def find_anonymisation_refusal(*, re_entered: bool) -> WriteRefusal | None:
@@ -41,8 +60,8 @@ def find_anonymisation_refusal(*, re_entered: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=KONTAKT_RE_ENTERED_MID_ANONYMISATION,
         message=(
-            "the referee's contact details were entered again while this anonymisation ran, so it cleared nothing "
-            "and left them standing; run it again to remove what is there now"
+            "the referee's name or contact details were entered again while this anonymisation ran, so it cleared "
+            "nothing and left them standing; run it again to remove what is there now"
         ),
     )
 

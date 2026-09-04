@@ -52,7 +52,7 @@ function mapAnonymiseRefusal(error: unknown): { error?: string; fieldErrors?: Fi
   if (error.serverErrorCode === "REQ-ANONYMISE-001") {
     return {
       error: buildRefusal({
-        reason: "Die Kontaktdaten waren schon gelöscht und wurden inzwischen neu eingetragen",
+        reason: "Die Daten waren schon gelöscht und Name oder Kontaktdaten wurden inzwischen neu eingetragen",
         repair: "Lösche sie erneut, damit auch der neue Stand verschwindet",
       }),
     };
@@ -206,9 +206,9 @@ export async function reactivateSchiedsrichterAction(
 }
 
 /**
- * Clears the telephone number and email address on the row, and every log row's whole saved
- * pre-image. **Permanent, with no undo.** It refuses `REQ-ANONYMISE-001` alone, and the row survives
- * so every fixture naming the referee resolves.
+ * Labels the name on the row and on every match, clears the two contact fields, and empties every
+ * log row's saved pre-image. **Permanent, with no undo.** It refuses `REQ-ANONYMISE-001` alone, and
+ * the row survives so every fixture booking still resolves.
  */
 export async function anonymiseSchiedsrichterAction(
   rawPayload: FLAnonymiseSchiedsrichterPayload,
@@ -239,19 +239,19 @@ export async function anonymiseSchiedsrichterAction(
     }
 
     if (!anonymiseOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Kontaktdaten wurden nicht gelöscht", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Daten wurden nicht gelöscht", repair: "Versuche es erneut" }) };
     }
 
-    // Nothing to invalidate, as the reactivate has nothing: this moves `kontakt` alone. The referee
-    // list is uncached, a Spiel embeds only the name and the fee, and the log is uncached too, so no
-    // cached read holds a contact detail.
+    // The label fans into every match as a rename does, so the same one cached read is stale here.
+    // The referee list and the log are uncached.
+    updateTag("spiele");
 
     return {
       success: true,
       updated_document: anonymiseOperation.updated_document,
       message:
-        "E-Mail und Telefonnummer sind gelöscht. Im Änderungsprotokoll ist der gesicherte Stand jeder Zeile gelöscht, " +
-        "die diesen Schiedsrichter betrifft.",
+        "Name, E-Mail und Telefonnummer sind gelöscht; auf jedem Spiel steht jetzt „anonym“. Im Änderungsprotokoll ist " +
+        "der gesicherte Stand jeder Zeile gelöscht, die diesen Schiedsrichter betrifft.",
     };
   });
 }

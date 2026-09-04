@@ -39,6 +39,13 @@ const RETIRE_ACTION = sliceBetween(
   "export async function deleteSchiedsrichterAction",
   "export async function reactivateSchiedsrichterAction",
 );
+/* Sliced for the retire's reason, and for a second: the anonymisation carries the same `updateTag`
+   call, so a search over the whole file passes whichever of the two happens to hold it. */
+const RENAME_ACTION = sliceBetween(
+  ACTIONS,
+  "export async function patchSchiedsrichterAction",
+  "export async function deleteSchiedsrichterAction",
+);
 
 describe("the anonymisation against the backend's refusal register", () => {
   /* First, so a boundary that stopped matching fails here (`fl_frontend/src/core/refusalRegister.ts :: sliceBetween`). */
@@ -49,6 +56,9 @@ describe("the anonymisation against the backend's refusal register", () => {
     assert.ok(ANONYMISE_ACTION.includes("anonymiseSchiedsrichter(validated.data)"), "the anonymisation's call is outside its slice");
     assert.ok(!ANONYMISE_ACTION.includes("deleteSchiedsrichter("), "the anonymisation's slice reaches the retire");
     assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire's slice no longer holds its mapper call");
+
+    assert.ok(RENAME_ACTION.includes("patchSchiedsrichter(validated.data)"), "the rename's call is outside its slice");
+    assert.ok(!RENAME_ACTION.includes("anonymiseSchiedsrichter("), "the rename's slice reaches the anonymisation");
   });
 
   /* A re-entry landing mid-anonymisation is the one refusal here, and it needs a sentence: the write
@@ -75,11 +85,11 @@ describe("the anonymisation against the backend's refusal register", () => {
 });
 
 describe("what the anonymisation moves", () => {
-  /* Nothing cached carries a referee's contact details: the referee list is admin-tier and uncached,
-     a Spiel embeds only the name and the fee, and the log is uncached too. */
-  it("invalidates nothing", () => {
-    assert.ok(!ANONYMISE_ACTION.includes("updateTag("), "the anonymisation clears a cached read its endpoint does not move");
-    assert.ok(ACTIONS.includes('updateTag("spiele")'), "the rename stopped invalidating the one read a referee write does move");
+  /* The one cached read it moves: the label fans into every Spiel as a rename does, and without the
+     tag the erased name keeps being served from cache. The referee list and the log are uncached. */
+  it("invalidates the fixture reads, as the rename does", () => {
+    assert.ok(ANONYMISE_ACTION.includes('updateTag("spiele")'), "the anonymisation leaves the erased name in the fixture cache");
+    assert.ok(RENAME_ACTION.includes('updateTag("spiele")'), "the rename stopped invalidating the one read a referee write does move");
   });
 
   /* A POST to `/anonymisieren`, never the DELETE beside it: that one stamps `inactive_since` and
@@ -95,20 +105,21 @@ describe("what the anonymisation moves", () => {
 });
 
 describe("the anonymisation's copy", () => {
-  it("says the contact details go, in the row and in the log", () => {
+  it("says the name and the contact details go, in the row and in the log", () => {
     assert.match(PANEL, /E-Mail und Telefonnummer/, "the confirmation does not name what is deleted");
     assert.match(PANEL, /Änderungsprotokoll/, "the confirmation does not say the log is reached");
     assert.match(PANEL, /Zurückholen lässt sich das nicht/, "the confirmation does not refuse an undo in words");
     assert.ok(!PANEL.includes("Rückgängig"), "the panel offers an undo, and no endpoint can honour one");
   });
 
-  /* The row and the name survive deliberately — every fixture embeds both. Copy claiming otherwise
-     would describe an operation the backend refuses to perform. */
-  it("never claims the referee or their name is removed", () => {
+  /* The name is replaced on every match and the ROW survives — every fixture embeds the id. Copy
+     saying the row goes, or that the name stays, describes an operation the backend does not run. */
+  it("says the name becomes the label on every match, and the referee survives", () => {
+    assert.match(PANEL, /auf jedem Spiel/, "the confirmation does not say the matches are reached");
+    assert.match(PANEL, /anonym/, "the confirmation does not name the label the referee is published under");
     assert.match(PANEL, /bleibt als Schiedsrichter bestehen/, "the confirmation does not say the referee survives");
-    assert.match(PANEL, /mit Namen und mit allen Spielen/, "the confirmation does not say the name and the fixtures survive");
     assert.ok(!/Schiedsrichter\s+(endgültig\s+)?löschen<\/|Schiedsrichter wird gelöscht/.test(PANEL), "the copy claims the referee is deleted");
-    assert.ok(!PANEL.includes("Name wird gelöscht"), "the copy claims the name is removed");
+    assert.ok(!PANEL.includes("mit Namen"), "the copy still promises the name survives");
     assert.ok(!PANEL.includes("stillgelegt"), "the copy confuses the deletion with a retirement");
   });
 
@@ -157,7 +168,11 @@ describe("the refresh that lands the cleared record", () => {
   /* Both halves or neither: without the key the refresh remounts nothing, and without the refresh
      the boxes keep the deleted values and the next save writes them back. */
   it("refreshes after the write, onto a view the page keys on the record", () => {
-    assert.match(PANEL, /appToast\.success\("Kontaktdaten gelöscht"[\s\S]*?router\.refresh\(\);/, "the cleared record never reaches the form");
+    assert.match(
+      PANEL,
+      /appToast\.success\("Schiedsrichterdaten gelöscht"[\s\S]*?router\.refresh\(\);/,
+      "the cleared record never reaches the form",
+    );
     assert.match(PAGE, /key=\{JSON\.stringify\(schiedsrichter\)\}/, "the view no longer remounts when the record changes");
   });
 

@@ -13,10 +13,11 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterWriteResponse,
 )
 from app.api.schiedsrichter.services import (
-    ANONYMISED_KONTAKT,
+    ANONYMISED_NAME,
+    ANONYMISED_SCHIEDSRICHTER,
     find_anonymisation_refusal,
     find_referee_retire_refusal,
-    holds_a_kontakt_value,
+    holds_an_anonymisable_value,
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.core.collections import Collection
@@ -152,51 +153,66 @@ async def reactivate_schiedsrichter(
 @router.post(
     f"{by_id('schiedsrichter_id')}/anonymisieren",
     response_model=FLSchiedsrichterWriteResponse,
-    summary="Clear a Schiedsrichter's contact details",
+    summary="Anonymise a Schiedsrichter",
 )
 async def anonymise_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
+    spiele_collection: SpieleCollection,
     aktionen_collection: AktionenCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterWriteResponse:
-    """Null the referee's telephone number and email address, in the row and in the log.
+    """Replace the referee's name with a neutral label and null their telephone number and email address.
 
-    The row and its `name` stay: every Spiel embeds both, so a removal would strand copies. A
-    re-entry under it is refused (`REQ-ANONYMISE-001`). No precondition on officiating: the details
-    may go while the referee still takes fixtures.
+    Written to the row, to every Spiel they officiated and to the log, in one transaction. The row
+    itself stays: every Spiel embeds its id, so a removal would strand references. A re-entry under
+    the erasure is refused (`REQ-ANONYMISE-001`). No precondition on officiating: the details may go
+    while the referee still takes fixtures.
     """
 
     async def clear_the_details_and_the_record(session: AsyncClientSession) -> FLSchiedsrichterWriteResponse:
-        async def a_kontakt_value_stands(kontakt_session: AsyncClientSession | None) -> bool:
-            """Whether the row still carries a contact value, read either through the transaction or outside it.
+        async def an_anonymisable_value_stands(read_session: AsyncClientSession | None) -> bool:
+            """Whether the row still carries anything the erasure writes over, read either through the transaction or outside it.
 
             A `schiedsrichter_id` naming nobody raises the 404 here, before anything is written.
             """
 
-            return holds_a_kontakt_value(
+            return holds_an_anonymisable_value(
                 await pull_one_from_db(
                     collection=schiedsrichter_collection,
                     db_filter={"_id": schiedsrichter_id},
-                    projection={"kontakt": 1},
-                    session=kontakt_session,
+                    projection={"kontakt": 1, "name": 1},
+                    session=read_session,
                 )
             )
 
         # BEFORE the write, which is what makes the guard below reachable: a row this snapshot reads
         # as cleared already is `$set` to what it holds.
-        rewrites_nothing = not await a_kontakt_value_stands(session)
+        rewrites_nothing = not await an_anonymisable_value_stands(session)
 
         updated_document_raw = await patch_one_in_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
-            update={"$set": ANONYMISED_KONTAKT},
+            update={"$set": ANONYMISED_SCHIEDSRICHTER},
             session=session,
         )
 
-        # AFTER the patch, so it reaches the row that patch itself just wrote -- the one holding the
-        # values being cleared. Redacting first would leave exactly that copy behind.
+        # The embedded copies, in this same transaction: a fixture stores the name rather than a
+        # reference the row could redirect, so a label reaching the row alone leaves the person
+        # named on every match they officiated.
+        await patch_many_in_db(
+            collection=spiele_collection,
+            db_filter={"schiedsrichter.schiedsrichter_id": schiedsrichter_id},
+            update={"$set": {"schiedsrichter.name": ANONYMISED_NAME}},
+            session=session,
+        )
+
+        # The fan-out above needs no arm of its own: `patch_many_in_db` records a filter and a count
+        # and no pre-image, so its row names nobody (`docs/backend/spec.md :: I40`).
+
+        # AFTER the referee patch, so it reaches the row that patch itself just wrote -- the one
+        # holding the values being cleared. Redacting first would leave exactly that copy behind.
         await patch_many_in_db(
             collection=aktionen_collection,
             db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [schiedsrichter_id])]),
@@ -208,7 +224,7 @@ async def anonymise_schiedsrichter(
         # no conflict to retry on. Re-read OUTSIDE the session, where that PATCH is visible and this
         # write is not (I53) -- hence only on the no-op path.
         if rewrites_nothing:
-            refuse(find_anonymisation_refusal(re_entered=await a_kontakt_value_stands(None)))
+            refuse(find_anonymisation_refusal(re_entered=await an_anonymisable_value_stands(None)))
 
         return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
 

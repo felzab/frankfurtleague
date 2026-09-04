@@ -2273,7 +2273,7 @@
     "/api/v0/spiele/list/admin": {
       "get": {
         "summary": "Spiele for the admin surfaces",
-        "description": "List a season's Spiele for the admin surfaces, a `future` season's included.\n\nSame filters and shape as `GET /spiele`, without its season gate -- which lists a planned season\nas empty, so every admin surface counting fixtures reads zero.",
+        "description": "List a season's Spiele for the admin surfaces, a `future` season's included.\n\nSame filters as `GET /spiele`, without its season gate -- which lists a planned season as empty,\nso every admin surface counting fixtures reads zero. The admin fixture shape, so the referee\ncarries their whole name and the two figures ride along (`READ-MONEY-001`, `READ-REFEREE-001`).",
         "operationId": "get_spiele_for_admin_api_v0_spiele_list_admin_get",
         "security": [
           {
@@ -2412,7 +2412,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpieleListResponse"
+                  "$ref": "#/components/schemas/FLSpieleAdminListResponse"
                 }
               }
             }
@@ -3936,8 +3936,8 @@
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren": {
       "post": {
-        "summary": "Clear a Schiedsrichter's contact details",
-        "description": "Null the referee's telephone number and email address, in the row and in the log.\n\nThe row and its `name` stay: every Spiel embeds both, so a removal would strand copies. A\nre-entry under it is refused (`REQ-ANONYMISE-001`). No precondition on officiating: the details\nmay go while the referee still takes fixtures.",
+        "summary": "Anonymise a Schiedsrichter",
+        "description": "Replace the referee's name with a neutral label and null their telephone number and email address.\n\nWritten to the row, to every Spiel they officiated and to the log, in one transaction. The row\nitself stays: every Spiel embeds its id, so a removal would strand references. A re-entry under\nthe erasure is refused (`REQ-ANONYMISE-001`). No precondition on officiating: the details may go\nwhile the referee still takes fixtures.",
         "operationId": "anonymise_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__anonymisieren_post",
         "security": [
           {
@@ -9623,7 +9623,7 @@
           "name"
         ],
         "title": "FLSpielSchiedsrichterFieldPublic",
-        "description": "The referee as a BASE-TIER read serves it. `payment` is withheld for `mietpreis`' reason."
+        "description": "The referee as a BASE-TIER read serves it: a forename and a surname initial (`READ-REFEREE-001`).\n\n`payment` is withheld for `mietpreis`' reason."
       },
       "FLSpielTeamFieldJoined": {
         "properties": {
@@ -9721,7 +9721,7 @@
           },
           "spiele": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielJoined"
+              "$ref": "#/components/schemas/FLSpielJoinedAdmin"
             },
             "type": "array",
             "title": "Spiele"
@@ -9768,6 +9768,32 @@
         ],
         "title": "FLSpieleActionRequiredResponse",
         "description": "The matches needing attention, and why the bracket ones do.\n\nA fault joins its match by `spiel_id`, never `spiel_nr`, which repeats across the seasons this\nroute spans. `spiele` carries every match a fault names."
+      },
+      "FLSpieleAdminListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spiele": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielJoinedAdmin"
+            },
+            "type": "array",
+            "title": "Spiele"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiele"
+        ],
+        "title": "FLSpieleAdminListResponse",
+        "description": "The admin surfaces' fixture list.\n\nThe base tier reduces a referee's surname to an initial (`READ-REFEREE-001`) and the admin\nfixture search matches on that name, so a surname typed there would find nothing."
       },
       "FLSpieleAdminSingleResponse": {
         "properties": {

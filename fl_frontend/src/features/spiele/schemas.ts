@@ -254,6 +254,16 @@ export const FLSpieleListResponseSchema = BaseAPIResponseSchema.extend({
 export type FLSpieleListResponse = z.infer<typeof FLSpieleListResponseSchema>;
 
 /**
+ * What the admin surfaces list. A second schema rather than the base one, because the base tier
+ * reduces a referee's surname to an initial and the fixture search matches a typed surname against
+ * whatever this parse kept.
+ */
+export const FLSpieleAdminListResponseSchema = BaseAPIResponseSchema.extend({
+  spiele: z.array(FLSpielAdminSchema),
+});
+export type FLSpieleAdminListResponse = z.infer<typeof FLSpieleAdminListResponseSchema>;
+
+/**
  * What the match editor loads. The page is addressed by match id alone, so this read is also what
  * tells it which season's lookup lists to load — a list read cannot, needing that same season to
  * filter by.
@@ -456,7 +466,9 @@ export type FLPatchSpielDataResponse = z.infer<typeof FLPatchSpielDataResponseSc
  * seasons this route spans.
  */
 export const FLSpieleActionRequiredResponseSchema = BaseAPIResponseSchema.extend({
-  spiele: z.array(FLSpielSchema),
+  // The ADMIN fixture, not the base tier's: a card on this page opens the modal that prints the
+  // referee's name, which the base tier serves reduced.
+  spiele: z.array(FLSpielAdminSchema),
   bracket_faults: z.array(FLBracketFaultSchema),
 });
 

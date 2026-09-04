@@ -55,9 +55,9 @@ season-independent · `"playoffs"` is not a stored value · a no-show still coun
 
 ### `Schiedsrichter` — referee
 
-**Is:** a referee, embedded on a match as `{schiedsrichter_id, name, payment}` — the shape the DOCUMENT stores, which the match payload does not mirror and which a base-tier fixture read serves without the `payment`.\
+**Is:** a referee, embedded on a match as `{schiedsrichter_id, name, payment}` — the shape the DOCUMENT stores, which the match payload does not mirror and which a base-tier fixture read serves without the `payment` and with the surname cut to an initial.\
 **In code:** the `schiedsrichter` collection — `fl_backend/app/core/collections.py :: Collection`; the embedded copy is `fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterField`, narrowed to `:: FLSpielSchiedsrichterFieldPublic` for the base tier.\
-**Trap:** deletion is soft and stays soft under a privacy request — every match embeds the referee's name and id, so an anonymisation nulls the members of `kontakt` in place while the row and its name stand, where a pupil, whom no match embeds, is erased outright; a rename must fan out into the embedded copy on every match carrying it — every season's, unlike a club's, because a referee is not season-scoped; and the collection's own read is admin-tier, a referee being a pupil whose `kontakt` and `schule` are private (`READ-CONTACT-001`) beside a `default_payment` that is money (`READ-MONEY-001`).\
+**Trap:** deletion is soft and stays soft under a privacy request — every match embeds the referee's name and id, so an anonymisation nulls the members of `kontakt` and writes a neutral label over the name, on the row and on every match, where a pupil, whom no match embeds, is erased outright; a rename must fan out into the embedded copy on every match carrying it — every season's, unlike a club's, because a referee is not season-scoped; and the collection's own read is admin-tier, a referee being a pupil whose `kontakt` and `schule` are private (`READ-CONTACT-001`) beside a `default_payment` that is money (`READ-MONEY-001`).\
 **See:** backend spec I13 for the fan-out, I3 for what the match payload carries instead.
 
 ### `Spielort` — venue, playing location

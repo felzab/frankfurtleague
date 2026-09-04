@@ -89,9 +89,7 @@ deliverable.
 | `ex2m-qjkg` | The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                      | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
 | `fau5-jtph` | The action log's page narrows one capped read, and a toast promises more than search can show                        | FE, BE, Docs, admin, aktionen                                               | Open     |
-| `fs48-z652` | A serving referee is published in full where a pupil beside them is reduced to an initial                            | BE, DB, Docs, spiele, spieler                                               | Open     |
 | `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                     | BE, DB, Docs, saisons                                                       | Standing |
-| `gc4a-duuh` | An erased referee's name stays on every past fixture the anonymisation does not reach                                | BE, DB, Docs, tests, schiedsrichter, spiele                                 | Open     |
 | `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                        | BE, Docs, spiele, teams                                                     | Open     |
 | `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                          | FE, Docs                                                                    | Decided  |
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                   | FE, BE, admin, spieler                                                      | Open     |
@@ -102,11 +100,13 @@ deliverable.
 | `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                          | FE, Docs                                                                    | Open     |
 | `nr85-vwnj` | A rule declares whether it reads a second document, and nothing resolves the claim                                   | BE, Docs, tests, bewerbungen, saisons                                       | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                    | FE, BE, spiele                                                              | Open     |
+| `pt4h-b6tf` | Renaming an anonymised referee undoes the erasure, and nothing refuses it                                            | BE, DB, Docs, schiedsrichter, spiele                                        | Open     |
 | `q7jv-hskm` | The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep           | BE, DB, tests, saisons                                                      | Standing |
 | `qp88-3t35` | A cached read's backend call joins to no render, and telemetry has nowhere to go                                     | FE, BE, Ops, Docs, versions                                                 | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                        | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                               | FE, BE, DB, admin, bewerbungen                                              | Standing |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                           | FE, BE, Docs, tests, saisons                                                | Open     |
+| `txef-hz2b` | Two referees reduced to one published name are one option in the fixture facet                                       | FE, BE, spiele                                                              | Open     |
 | `vyr6-uk2p` | The open-window read filters into arrays and subscripts whatever comes back                                          | FE, BE, tests, bewerbungen                                                  | Open     |
 | `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                | FE, tests, spieler                                                          | Open     |
 | `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
@@ -869,50 +869,6 @@ measured: the request the page composes, the terms the endpoint accepts, the two
 narrowings, and the toast's copy. **Nothing was driven against a log past the cap**, and how many
 rows the collection holds today was not counted, so how soon the state arrives is unknown.
 
-### `fs48-z652` · A serving referee is published in full where a pupil beside them is reduced to an initial
-
-| Tags                          | Status | Depends on |
-| ----------------------------- | ------ | ---------- |
-| BE, DB, Docs, spiele, spieler | Open   | —          |
-
-**`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPublic` carries the referee's
-`name` as a required non-empty string, and its own docstring says it is the model a BASE-TIER read
-serves** — so an anonymous visitor reading a fixture is served the referee's full name. A squad
-pupil on the same site is reduced to a forename and a surname initial. **The consent architecture
-therefore covers the less-exposing publication and not the more-exposing one, and the same pupil can
-appear under both rules**: a referee here is a pupil too.
-
-**Ruled 2026-09-02: a serving referee is published as a forename and a surname initial, like a squad pupil**
-(`docs/datenschutz.md` §4). It is a response-model change rather than a data migration — the stored document
-keeps the full name, which is what `fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterField` is
-for.
-
-**The function the ruling names is one half of a pair, and the fixture read needs the other half.**
-`fl_backend/app/api/spieler/services.py :: public_initial` reduces a surname where a `find` serves
-the read, and `:: PUBLIC_NACHNAME` is the same rule written as a Mongo expression; the docstring at
-the function states in terms that the two are one rule, so anything the aggregation answers `None`
-for has to answer `None` in the function rather than raise. **The public fixture read is an
-aggregation** — `fl_backend/app/api/spiele/crud.py` reaches it through `aggregate_many_from_db` over
-`build_spiele_pipeline` — so the reduction lands in `PUBLIC_NACHNAME`'s form and not in the
-function's, and a change that moves only the function reduces nothing on this route.
-
-**The type does not fit the reducer, and that is the first thing the work meets.** `public_initial`
-answers `str | None`, and `FLSpielSchiedsrichterFieldPublic.name` is `str` with `min_length=1`. A
-referee whose stored name is absent or not a string therefore has no expressible reduced form on
-this model, so the work decides between widening the field to nullable and answering the missing
-case some other way. **Widening it is not free**: the field being non-optional is what lets every
-card render a referee without a null check.
-
-**The reduction is over an embedded copy, not a join.** A fixture stores the referee's name beside
-the reference — `fl_backend/app/api/spiele/services.py` composes it from the booking, and
-`fl_backend/app/api/spiele/crud.py` reads `name` off the `schiedsrichter` row when a booking is
-made — so the pipeline reduces a field the `spiele` document already holds, and no `$lookup` is
-involved.
-
-**No read rule governs a referee's name today**, where a pupil's is `READ-PUPIL-001`. Done is the
-reduced public model, the rule in `docs/backend/spec.md`'s read-rules table beside the pupil's, and
-the aggregation and the function moved together.
-
 ### `g7hr-c8bn` · The replace and the undraw judge their window from a capped read
 
 | Tags                  | Status   | Depends on |
@@ -949,53 +905,6 @@ match**, because both call sites want the rows as well as the count: they projec
 **Why it stands rather than being open.** Fixing it costs almost nothing, and leaving it costs
 nothing at all until a season arrives from outside the draw. What the entry buys today is that the
 guarantee is written down as resting on a bound in one file rather than on the read being safe.
-
-### `gc4a-duuh` · An erased referee's name stays on every past fixture the anonymisation does not reach
-
-| Tags                                        | Status | Depends on |
-| ------------------------------------------- | ------ | ---------- |
-| BE, DB, Docs, tests, schiedsrichter, spiele | Open   | —          |
-
-**`fl_backend/app/api/schiedsrichter/services.py :: ANONYMISED_KONTAKT` clears the contact block and
-nothing else**, and the referee's name is not in it: the mapping is built from `FLKontakt`'s own
-fields, so it resolves to `kontakt.telefon` and `kontakt.email`, which
-`fl_backend/tests/api/test_schiedsrichter_anonymisierung.py` pins in both directions. Every past
-fixture keeps the referee's name, because a fixture stores its own copy
-(`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterField`) rather than a reference the
-anonymisation could redirect. **So a person who asks to be erased is erased from the referee row and
-stays named on every match they officiated.**
-
-**Ruled 2026-09-02: the name on a past fixture is replaced by a neutral label spelled "anonym"**
-(`docs/datenschutz.md` §4). **Two alternatives are rejected there and neither is to be proposed
-again**: a first name, because a first name with a date and a club still identifies one person in a
-league this size; and the word "Schiedsrichter", because it reads oddly in a column already headed
-with it.
-
-**Clearing the field is not among the options, which is why a label was needed at all.**
-`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPublic` requires `name` to be a
-non-empty string, so a null or an empty string is unrepresentable on every read of a fixture.
-
-**The write has to widen, and two guards at the endpoint are written for the narrow version.**
-`fl_backend/app/api/schiedsrichter/admin_router.py` performs the anonymisation as one transaction
-over two writes, and both arms assume the contact block is the whole subject:
-
-- **The log redaction is scoped to the referee's own rows.** It runs `build_redaction_filter` over
-  `Collection.SCHIEDSRICHTER` alone, and the comment above it states the ordering the arm depends
-  on — the redaction runs AFTER the patch so that it reaches the row that patch itself just wrote,
-  because redacting first would leave exactly that copy behind. A widened anonymisation writes
-  fixture rows too, every one of them recorded with its prior document through
-  `fl_backend/app/core/crud.py`, so **the redaction filter has to reach those rows in the same
-  transaction or the names it just removed survive in the log** — the failure the transaction was
-  built to prevent, arriving through a collection the filter does not name.
-- **The no-op refusal changes meaning.** The endpoint snapshots `a_kontakt_value_stands` before the
-  write and refuses where the call rewrites nothing, because a `$set` rewriting nothing joins no
-  write set and a concurrent re-entry of the details would raise no conflict to retry on. Once the
-  name on a fixture is part of what an anonymisation clears, a referee whose contact block is
-  already empty but whose name still stands on past fixtures **is not a no-op**, and the guard as
-  written refuses a call that has work to do.
-
-**Done** is the label written across every fixture naming the person, inside the same transaction,
-with the log redaction and the no-op guard widened to the set the write now touches.
 
 ### `hstg-rnqj` · The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing
 
@@ -1598,6 +1507,28 @@ from unreachable into the ordinary path and makes the plan above the one an admi
 collection does not hold. That no caller sends `sort_by` was read off the page and the absence of
 another consumer rather than proven by instrumenting the endpoint.
 
+### `pt4h-b6tf` · Renaming an anonymised referee undoes the erasure, and nothing refuses it
+
+| Tags                                 | Status | Depends on |
+| ------------------------------------ | ------ | ---------- |
+| BE, DB, Docs, schiedsrichter, spiele | Open   | —          |
+
+**`fl_backend/app/api/schiedsrichter/admin_router.py :: patch_schiedsrichter` takes a whole `name`
+and fans it into every match the referee officiated** — the embedded copy is
+`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterField` on the `spiele` collection
+(`docs/backend/spec.md :: I13`) — and it weighs nothing about what the row holds now. An anonymised referee whose row reads the label is one PATCH away from carrying a person's name
+again, on the row and on every past fixture, and the administrator making that edit is told a rename
+succeeded.
+
+**The erasure's own guard does not reach it.** `REQ-ANONYMISE-001` refuses a re-entry landing WHILE
+an anonymisation runs, judged from a read taken outside the session
+(`docs/backend/spec.md :: I118`); a rename a week later meets nothing at all.
+
+**A refusal on the PATCH is not obviously the answer, which is why this is an entry rather than a
+fix.** A referee anonymised by mistake has no other way back, and an erasure the administration
+cannot undo at all is a different complaint from the one above. What the entry buys is that the
+choice is made rather than defaulted into.
+
 ### `skyx-nrgh` · A refusal composes a repair the product refuses to perform
 
 | Tags                         | Status | Depends on |
@@ -1639,6 +1570,25 @@ group shape guessed wrong — true in the planning window it was written for, an
 **The German is a hand-written second copy** (`fl_frontend/src/features/saisons/actions.ts`, its
 `REQ-RULES-011` arm), so a repair that stops at the backend leaves an admin reading the old
 instruction.
+
+### `txef-hz2b` · Two referees reduced to one published name are one option in the fixture facet
+
+| Tags           | Status | Depends on |
+| -------------- | ------ | ---------- |
+| FE, BE, spiele | Open   | —          |
+
+**`fl_frontend/src/features/spiele/facets.ts` labels a referee option with the name the read served
+and keys it on `schiedsrichter_id`**, so two referees the base tier reduces to one string give a
+public visitor two options reading alike. The keys differ, so both filter correctly; only the label
+is ambiguous, and a visitor cannot tell which is which.
+
+**An anonymised referee makes it certain rather than unlikely.** Every one of them publishes the same
+label, so a season with two reads as two identical options on every public fixture page.
+
+**Widening the reduction is refused here**: `fl_backend/app/api/spiele/schemas.py :: public_referee_name`
+exists to keep the surname off the base tier (`READ-REFEREE-001`), and a disambiguator built from
+the surname publishes what the rule withholds.
+Done is a facet whose options are distinguishable without it.
 
 ### `vyr6-uk2p` · The open-window read filters into arrays and subscripts whatever comes back
 
