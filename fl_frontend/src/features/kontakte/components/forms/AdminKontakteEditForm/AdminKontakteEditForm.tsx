@@ -8,7 +8,7 @@ import { Form } from "@heroui/react";
 import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
 import { deriveKontakteDraftStatus } from "@/features/kontakte/kontakteDraftStatus";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
-import { describeUnrestorableKontakte, emptiedSeatLabels, mirrorKontakte, teamPageHref } from "@/features/kontakte/utils";
+import { describeUnrestorableKontakte, emptiedSeatLabels, mirrorKontakte, teamPageHref, toKontaktePayload } from "@/features/kontakte/utils";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
@@ -30,7 +30,6 @@ import { FormKontakteLoeschenSection } from "./FormKontakteLoeschenSection";
 import { FormKontakteSection } from "./FormKontakteSection";
 
 import type { FLPatchSaisonTeamKontaktePayload } from "@/features/kontakte/schemas";
-import type { SaisonTeamKontaktePayloadDraft } from "@/features/kontakte/types";
 import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
@@ -86,12 +85,13 @@ export function AdminKontakteEditForm({
   });
 
   // Both ids ride in the request path, so neither is a field an input renders or a refusal can name.
-  const buildPayload = (): SaisonTeamKontaktePayloadDraft => ({
+  const buildPayload = (): FLPatchSaisonTeamKontaktePayload => ({
     team_id: teamId,
     saison_id: saison.saisonId,
     // The claim is honoured HERE and nowhere earlier
-    // (`fl_frontend/src/features/kontakte/utils.ts :: mirrorKontakte`).
-    kontakte: kontakte === null ? null : mirrorKontakte(kontakte),
+    // (`fl_frontend/src/features/kontakte/utils.ts :: mirrorKontakte`), and the write shape composed
+    // with it: the guard refuses whatever body it is handed, at paths no control renders.
+    kontakte: toKontaktePayload(kontakte === null ? null : mirrorKontakte(kontakte)),
   });
 
   const status = deriveKontakteDraftStatus({ stored: { kontakte: storedKontakte }, draft: { kontakte }, fieldErrors });
@@ -111,7 +111,11 @@ export function AdminKontakteEditForm({
   const validateSelection = (paths: readonly string[], selected: { kontakte: SaisonTeamKontakteDraft | null }) =>
     // Mirrored like every other judgement: spread raw, a pick was judged against the unmirrored draft
     // while a blur was judged against the composed one, so the two disagreed about the Trainer.
-    validatePaths("kontakte", { ...buildPayload(), kontakte: selected.kontakte === null ? null : mirrorKontakte(selected.kontakte) }, paths);
+    validatePaths(
+      "kontakte",
+      { ...buildPayload(), kontakte: toKontaktePayload(selected.kontakte === null ? null : mirrorKontakte(selected.kontakte)) },
+      paths,
+    );
 
   const banners = buildKontakteBanners({
     saisonId: saison.saisonId,
@@ -156,7 +160,7 @@ export function AdminKontakteEditForm({
     startTransition(async () => {
       // Read before the write: `saison` is this render's prop and still holds the pre-save block, and
       // the toast that replays it outlives this component.
-      const wiederherstellbar = { team_id: teamId, saison_id: saison.saisonId, kontakte: storedKontakte };
+      const wiederherstellbar = { team_id: teamId, saison_id: saison.saisonId, kontakte: toKontaktePayload(storedKontakte) };
       // The same value seen as the endpoint's own payload, so what the toast replays is held to the
       // shape the undo route parses.
       const undoPayload: FLPatchSaisonTeamKontaktePayload = wiederherstellbar;

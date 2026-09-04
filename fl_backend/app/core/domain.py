@@ -1429,9 +1429,12 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-BEWERBUNG-001",
-        operation="POST /bewerbungen/{bewerbung_id}/annehmen · POST /bewerbungen/{bewerbung_id}/ablehnen",
+        operation=(
+            "POST /bewerbungen/{bewerbung_id}/annehmen · POST /bewerbungen/{bewerbung_id}/ablehnen"
+            " · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut"
+        ),
         aggregate="Bewerbung",
-        summary="an application already decided is neither accepted nor declined a second time",
+        summary="an application already decided is neither accepted nor declined a second time, and gets no new confirmation link",
         implemented_by="app.api.bewerbungen.services.find_triage_refusal",
         tested_by="tests/api/test_bewerbung_triage_refusal.py::TestADecisionIsTakenOnce",
     ),
@@ -1494,6 +1497,46 @@ RULES: tuple[Rule, ...] = (
         implemented_by="app.api.bewerbungen.services.find_shorthand_refusal",
         tested_by="tests/api/test_bewerbung_submission_refusal.py::TestTheProposedKuerzel",
         multi_document=True,
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-009",
+        operation="POST /bewerbungen/einwilligung/ansicht · POST /bewerbungen/einwilligung",
+        aggregate="Bewerbung",
+        summary="a token no seat of any application holds opens nothing, whether unknown, replaced or deleted with its application",
+        implemented_by="app.api.bewerbungen.services.find_unknown_token_refusal",
+        tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestATokenNoSeatHolds",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-010",
+        operation="POST /bewerbungen/einwilligung",
+        aggregate="Bewerbung",
+        summary="a seat is not answered once the application's confirmation deadline has passed or the application has been decided",
+        implemented_by="app.api.bewerbungen.services.find_expired_token_refusal",
+        tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestALinkWhoseTimeIsOver",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-011",
+        operation="POST /bewerbungen/einwilligung · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut",
+        aggregate="Bewerbung",
+        summary="a seat already confirmed or declined, or with nothing left to confirm, takes no second answer and no new link",
+        implemented_by="app.api.bewerbungen.services.find_already_answered_refusal",
+        tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestASeatAlreadyAnswered",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-012",
+        operation="POST /bewerbungen/einwilligung",
+        aggregate="Bewerbung",
+        summary="a contact person confirms with a date of birth inside the league's age span, judged before anything is written",
+        implemented_by="app.api.bewerbungen.services.find_alter_refusal",
+        tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestTheAgeAtConfirmation",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-013",
+        operation="POST /bewerbungen/{bewerbung_id}/annehmen",
+        aggregate="Bewerbung",
+        summary="an application carrying a confirmation block is accepted only once every seat carries its person's own stamp",
+        implemented_by="app.api.bewerbungen.services.find_unconfirmed_kontakte_refusal",
+        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestEverySeatIsConfirmedBeforeAcceptance",
     ),
     Rule(
         code="REQ-PURGE-001",

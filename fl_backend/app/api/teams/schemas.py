@@ -117,6 +117,9 @@ class FLKontaktEinwilligung(_KontaktEinwilligungWritable):
     PUBLISHED about a pupil, is written once, and has an open Datenschutz question in front of it.
     """
 
+    # Widened on the READ model alone: the WhatsApp scope is what a person ticks on their own
+    # confirmation page, and a payload offering it would let an administrator transcribe one.
+    umfang: Literal["kontaktdaten", "kontaktdaten_whatsapp"]
     # Distinguishing the two is what stops an admin's transcription reading as a person's own
     # consent. `person` is the confirmation link's to write and nobody else's.
     erteilt_von: Literal["person", "administrativ"]

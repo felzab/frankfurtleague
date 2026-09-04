@@ -9,13 +9,20 @@ from app.api.bewerbungen.schemas import (
     FLAnnehmenBewerbungPayload,
     FLAnnehmenBewerbungResponse,
     FLBewerbung,
+    FLBewerbungEinwilligungErneutResponse,
 )
 from app.api.bewerbungen.services import (
+    bestaetigungsfrist_from,
+    compose_erneut_update,
     compose_new_club,
     find_acceptance_subject_refusal,
+    find_already_answered_refusal,
     find_new_club_refusal,
     find_triage_refusal,
+    find_unconfirmed_kontakte_refusal,
+    mint_token,
     parse_new_club,
+    seat_named,
 )
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.services import find_club_entry_refusal, find_entry_refusal
@@ -29,7 +36,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -66,7 +73,9 @@ async def annehmen_bewerbung(
     Accept an application, creating the school's club where the applicant proposed a new one.
 
     IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
-    `austritt`, which is a public record carrying a stated reason.
+    `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
+    confirm their own seat (`REQ-BEWERBUNG-013`); an application stored before the confirmation flow carries no
+    confirmation block and is not held to it.
     """
 
     async def accept_and_enter_the_school(session: AsyncClientSession) -> FLAnnehmenBewerbungResponse:
@@ -82,6 +91,10 @@ async def annehmen_bewerbung(
         schule = bewerbung_raw.get("schule")
         picked_team_id = bewerbung_raw.get("team_id")
         refuse(find_acceptance_subject_refusal(team_id=picked_team_id, schule=schule))
+        # In-session, as everything judged here is: a confirmation landing mid-request is judged by
+        # the retry rather than lost, and the block copied into `saison_teams` below then carries
+        # every person's own date and stamp.
+        refuse(find_unconfirmed_kontakte_refusal(kontakte=bewerbung_raw.get("kontakte"), bestaetigungen=bewerbung_raw.get("bestaetigungen")))
 
         saison_id = str(bewerbung_raw["saison_id"])
         # In-session, as the season's own patch reads it: `activate_saison` moves `status` in a
@@ -233,3 +246,52 @@ async def ablehnen_bewerbung(
         raise
 
     return FLAblehnenBewerbungResponse(updated_document=FLBewerbung(**updated_raw))
+
+
+@router.post(
+    f"{by_id('bewerbung_id')}/einwilligung/{{seat}}/erneut",
+    response_model=FLBewerbungEinwilligungErneutResponse,
+    summary="Re-send one seat's confirmation link",
+)
+async def erneut_einwilligung(
+    bewerbung_id: CustomRouteObjectId,
+    seat: str,
+    bewerbungen_collection: BewerbungenCollection,
+    today: str = Depends(get_german_date_str),
+) -> FLBewerbungEinwilligungErneutResponse:
+    """
+    Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.
+
+    The application's confirmation deadline restarts from today and the seat's reminder is owed again. Refused on an
+    application already decided (`REQ-BEWERBUNG-001`) and on a seat already confirmed or declined, or one an
+    application stored before the confirmation flow holds (`REQ-BEWERBUNG-011`). A path naming no seat is a 404.
+    """
+
+    db_filter = {"_id": bewerbung_id}
+    bewerbung_raw = await pull_one_from_db(
+        collection=bewerbungen_collection, db_filter=db_filter, projection=["status", "kontakte", "bestaetigungen"]
+    )
+
+    # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any
+    # application has, which is a miss and not a body fault.
+    rolle = seat_named(seat)
+    if rolle is None:
+        raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=DOCUMENT_NOT_FOUND)
+
+    refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))
+    refuse(
+        find_already_answered_refusal(kontakte=bewerbung_raw.get("kontakte"), bestaetigungen=bewerbung_raw.get("bestaetigungen"), seat=rolle)
+    )
+
+    raw, token_hash = mint_token()
+    bestaetigungsfrist = bestaetigungsfrist_from(today=today)
+
+    # The status is in the FILTER, as the decline's is: a decision landing between the read and this
+    # write leaves the row untouched and answers the miss.
+    await patch_one_in_db(
+        collection=bewerbungen_collection,
+        db_filter={**db_filter, "status": "eingereicht"},
+        update=compose_erneut_update(seat=rolle, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist),
+    )
+
+    return FLBewerbungEinwilligungErneutResponse(token=raw, rolle=rolle, bestaetigungsfrist=bestaetigungsfrist)

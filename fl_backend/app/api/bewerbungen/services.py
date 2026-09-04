@@ -1,10 +1,15 @@
-from typing import Any, Mapping, Sequence, get_args
+import hashlib
+import secrets
+from datetime import date, timedelta
+from typing import Any, Mapping, Sequence, cast, get_args
 
 from pydantic import ValidationError
 
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLKontaktRolle, refuse_age_outside_the_bounds
 from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
+from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
 
 # What every code below refuses is `docs/logging/error-codes.md`.
 BEWERBUNG_ALREADY_DECIDED = "REQ-BEWERBUNG-001"
@@ -15,6 +20,11 @@ BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED = "REQ-BEWERBUNG-005"
 BEWERBUNG_PICKED_CLUB_UNUSABLE = "REQ-BEWERBUNG-006"
 BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED = "REQ-BEWERBUNG-007"
 BEWERBUNG_SHORTHAND_TAKEN = "REQ-BEWERBUNG-008"
+BEWERBUNG_TOKEN_UNKNOWN = "REQ-BEWERBUNG-009"
+BEWERBUNG_TOKEN_EXPIRED = "REQ-BEWERBUNG-010"
+BEWERBUNG_SEAT_ALREADY_ANSWERED = "REQ-BEWERBUNG-011"
+BEWERBUNG_KONTAKT_ALTER = "REQ-BEWERBUNG-012"
+BEWERBUNG_KONTAKTE_UNCONFIRMED = "REQ-BEWERBUNG-013"
 
 # `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
 # defaults).
@@ -271,6 +281,265 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
     composed["trainer_ist_zugleich"] = kontakte["trainer_ist_zugleich"]
 
     return composed
+
+
+# --- The CONFIRMATION. Every predicate below reads a missing `bestaetigungen` block as "nothing to
+# confirm": an application stored before the flow shipped is neither refused nor swept.
+
+KONTAKT_UMFANG = "kontaktdaten"
+KONTAKT_UMFANG_WHATSAPP = "kontaktdaten_whatsapp"
+
+
+def hash_token(raw: str) -> str:
+    """The form the database holds a token in.
+
+    UNKEYED, unlike Auth.js's `createHash(token + secret)`: 256 random bits have no dictionary to
+    search, and a pepper would cost a backend environment name reaching the server, CI and the
+    local stack.
+    """
+
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def mint_token() -> tuple[str, str]:
+    """A raw token and its hash. The raw one goes to the response and the inbox, and nowhere else."""
+
+    raw = secrets.token_urlsafe(32)
+
+    return raw, hash_token(raw)
+
+
+def days_after(*, day: str, days: int) -> str:
+    return (date.fromisoformat(day) + timedelta(days=days)).isoformat()
+
+
+def bestaetigungsfrist_from(*, today: str) -> str:
+    """The day the links stop working and the application is deleted, counted from the mint -- a re-send restarts it."""
+
+    return days_after(day=today, days=BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)
+
+
+def compose_bestaetigung(*, token_hash: str, today: str) -> dict[str, Any]:
+    """One seat's bookkeeping as the create and the re-send write it: a live hash, mailed today, nobody reminded, nobody declined."""
+
+    return {"token_hash": token_hash, "verschickt_am": today, "erinnert_am": None, "abgelehnt_am": None}
+
+
+def compose_bestaetigungen(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
+    return {seat: compose_bestaetigung(token_hash=hashes[seat], today=today) for seat in KONTAKT_SEATS}
+
+
+# The admin reads' projection, and the FIRST exclusion projection in this tree: an inclusion list
+# would have to restate every field an application holds, and the one to keep off the wire is one.
+WITHOUT_TOKEN_HASHES: Mapping[str, int] = {f"bestaetigungen.{seat}.token_hash": 0 for seat in KONTAKT_SEATS}
+
+
+def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
+    """Every seat path, so the hash alone finds the application and the seat. No status term: a reopened link shows its own state."""
+
+    return {"$or": [{f"bestaetigungen.{seat}.token_hash": token_hash} for seat in KONTAKT_SEATS]}
+
+
+def seat_named(value: Any) -> FLKontaktRolle | None:
+    """The seat this value names, or `None`: a path segment and a stored key are both only as trustworthy as whatever wrote them."""
+
+    return cast(FLKontaktRolle, value) if value in get_args(FLKontaktRolle) else None
+
+
+def seat_holding(*, bewerbung_raw: Mapping[str, Any], token_hash: str) -> FLKontaktRolle | None:
+    """Which seat's hash this is, read off the document the filter found rather than off a second query."""
+
+    block = bewerbung_raw.get("bestaetigungen")
+    if not isinstance(block, Mapping):
+        return None
+
+    for seat in KONTAKT_SEATS:
+        entry = block.get(seat)
+        if isinstance(entry, Mapping) and entry.get("token_hash") == token_hash:
+            return seat_named(seat)
+
+    return None
+
+
+def find_unknown_token_refusal(*, seat: FLKontaktRolle | None) -> WriteRefusal | None:
+    """Why this token opens nothing, or `None`.
+
+    ONE answer for unknown, voided by a re-send, and deleted with the application: nothing
+    distinguishes them from a stranger's guess, and naming which would say more than the guess knew.
+    """
+
+    if seat is None:
+        return WriteRefusal(
+            error_code=BEWERBUNG_TOKEN_UNKNOWN,
+            message="this link opens no seat of any application; it may have been replaced by a newer one, or the application is gone",
+        )
+
+    return None
+
+
+def link_is_over(*, bestaetigungsfrist: Any, status: Any, today: str) -> bool:
+    """Whether the link is over: the deadline has passed, or the application was decided while the seat stood open."""
+
+    if status != "eingereicht":
+        return True
+
+    return isinstance(bestaetigungsfrist, str) and bestaetigungsfrist < today
+
+
+def find_expired_token_refusal(*, bestaetigungsfrist: Any, status: Any, today: str) -> WriteRefusal | None:
+    """Why this link is over, or `None`. Judged before the seat: a seat on a decided application is never answered again."""
+
+    if link_is_over(bestaetigungsfrist=bestaetigungsfrist, status=status, today=today):
+        return WriteRefusal(
+            error_code=BEWERBUNG_TOKEN_EXPIRED,
+            message="this link has expired: the application's confirmation deadline has passed, or the application has been decided",
+        )
+
+    return None
+
+
+def _stamp_of(kontakte: Any, seat: str) -> Any:
+    slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
+    einwilligung = slot.get("einwilligung") if isinstance(slot, Mapping) else None
+
+    return einwilligung.get("bestaetigt_am") if isinstance(einwilligung, Mapping) else None
+
+
+def _declined_on(bestaetigungen: Any, seat: str) -> Any:
+    entry = bestaetigungen.get(seat) if isinstance(bestaetigungen, Mapping) else None
+
+    return entry.get("abgelehnt_am") if isinstance(entry, Mapping) else None
+
+
+def seat_is_answered(*, kontakte: Any, bestaetigungen: Any, seat: str) -> bool:
+    """Whether this seat's person has spoken: a stamp on the slot, a decline beside it, or no bookkeeping.
+
+    No bookkeeping is an application stored before the flow, or a seat an erasure emptied; neither
+    has anything left to answer.
+    """
+
+    if _stamp_of(kontakte, seat) is not None or _declined_on(bestaetigungen, seat) is not None:
+        return True
+
+    return not isinstance(bestaetigungen, Mapping) or not isinstance(bestaetigungen.get(seat), Mapping)
+
+
+def find_already_answered_refusal(*, kontakte: Any, bestaetigungen: Any, seat: str) -> WriteRefusal | None:
+    """Why this seat takes no second answer, or `None`. The single use: the stamps are what spend a link, never a nulled hash."""
+
+    if seat_is_answered(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=seat):
+        return WriteRefusal(
+            error_code=BEWERBUNG_SEAT_ALREADY_ANSWERED,
+            message=f"the seat '{seat}' has already been answered, or has nothing left to confirm; an answer is given once",
+        )
+
+    return None
+
+
+def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
+    """Why the typed date is refused, or `None`.
+
+    A 409 with `refuse_age_outside_the_bounds`'s own German rather than a bare `REQ-VAL-001`, which
+    lets the page mark its one field. Judged BEFORE any write, so a mistyped year spends nothing.
+    """
+
+    try:
+        refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=today)
+    except ValueError as too_young_or_too_old:
+        return WriteRefusal(error_code=BEWERBUNG_KONTAKT_ALTER, message=str(too_young_or_too_old))
+
+    return None
+
+
+def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FLBewerbungEinwilligungZustand:
+    """What a reopened link shows. A stamp outranks everything: a confirmed seat on an accepted application reads as confirmed."""
+
+    if _stamp_of(bewerbung_raw.get("kontakte"), seat) is not None:
+        return "bestaetigt"
+
+    if _declined_on(bewerbung_raw.get("bestaetigungen"), seat) is not None:
+        return "abgelehnt"
+
+    if link_is_over(bestaetigungsfrist=bewerbung_raw.get("bestaetigungsfrist"), status=bewerbung_raw.get("status"), today=today):
+        return "abgelaufen"
+
+    return "gueltig"
+
+
+def ausstehende_seats(*, kontakte: Any) -> list[FLKontaktRolle]:
+    """Every seat without a stamp, in declaration order. An emptied slot counts: the application cannot complete without it."""
+
+    return [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in KONTAKT_SEATS if _stamp_of(kontakte, seat) is None]
+
+
+def find_unconfirmed_kontakte_refusal(*, kontakte: Any, bestaetigungen: Any) -> WriteRefusal | None:
+    """Why this application is not yet one the league may accept, or `None`.
+
+    An application with NO `bestaetigungen` block passes: every one stored before the flow shipped
+    would otherwise become unacceptable in the same deploy.
+    """
+
+    if not isinstance(bestaetigungen, Mapping):
+        return None
+
+    outstanding = ausstehende_seats(kontakte=kontakte)
+    if outstanding:
+        return WriteRefusal(
+            error_code=BEWERBUNG_KONTAKTE_UNCONFIRMED,
+            message=f"acceptance waits for every contact person to confirm their own seat; still outstanding: {', '.join(outstanding)}",
+        )
+
+    return None
+
+
+def paired_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
+    """The other seat the same person holds, or `None`: one click answers for the person, not for one of their two seats."""
+
+    zugleich = kontakte.get("trainer_ist_zugleich") if isinstance(kontakte, Mapping) else None
+    if zugleich is None:
+        return None
+
+    if seat == "trainer":
+        return seat_named(zugleich)
+
+    return cast(FLKontaktRolle, "trainer") if seat == zugleich else None
+
+
+def compose_confirmation_update(*, seats: Sequence[str], geburtsdatum: str, today: str, text_version: str, whatsapp: bool) -> Mapping[str, Any]:
+    """The ONE `$set` a confirmation is, on every seat the person holds.
+
+    `docs/backend/spec.md :: I141` rests on the date and the stamp landing together, which is why
+    this is one update and never two.
+    """
+
+    written: dict[str, Any] = {}
+    for seat in seats:
+        written[f"kontakte.{seat}.geburtsdatum"] = geburtsdatum
+        written[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = today
+        written[f"kontakte.{seat}.einwilligung.erteilt_von"] = "person"
+        written[f"kontakte.{seat}.einwilligung.text_version"] = text_version
+        written[f"kontakte.{seat}.einwilligung.umfang"] = KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG
+
+    return {"$set": written}
+
+
+def compose_decline_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:
+    """A decline empties the person's slot and records the day beside it, where the emptying cannot reach."""
+
+    written: dict[str, Any] = {}
+    for seat in seats:
+        written[f"kontakte.{seat}"] = None
+        written[f"bestaetigungen.{seat}.abgelehnt_am"] = today
+
+    return {"$set": written}
+
+
+def compose_erneut_update(*, seat: str, token_hash: str, today: str, bestaetigungsfrist: str) -> Mapping[str, Any]:
+    """A re-send: a fresh hash voids the old one, the mailing day moves, the reminder is owed again, and the deadline restarts."""
+
+    return {
+        "$set": {f"bestaetigungen.{seat}": compose_bestaetigung(token_hash=token_hash, today=today), "bestaetigungsfrist": bestaetigungsfrist}
+    }
 
 
 def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:

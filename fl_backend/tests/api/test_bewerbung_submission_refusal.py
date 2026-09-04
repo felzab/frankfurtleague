@@ -16,9 +16,7 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungSchulePayload,
     FLBewerbungTrikot,
     FLPostBewerbungPayload,
-    _whole_years_between,
     normalise_telefon,
-    refuse_age_outside_the_bounds,
 )
 from app.api.bewerbungen.services import (
     BEWERBUNG_FENSTER_GESCHLOSSEN,
@@ -345,69 +343,6 @@ class TestTheProposedKuerzel:
 
         assert refusal is not None
         assert refusal.error_code == BEWERBUNG_SHORTHAND_TAKEN
-
-
-class TestWholeYears:
-    """The age arithmetic, pinned against a fixed pair of dates so the boundary is provable without a clock."""
-
-    @pytest.mark.parametrize(
-        ("born", "today", "years"),
-        [
-            pytest.param("2010-06-01", "2026-06-01", 16, id="the birthday itself"),
-            pytest.param("2010-06-02", "2026-06-01", 15, id="the day before the birthday"),
-            pytest.param("2010-05-31", "2026-06-01", 16, id="the day after"),
-            pytest.param("2008-02-29", "2026-02-28", 17, id="a leap birthday, the year's 28th"),
-            pytest.param("2008-02-29", "2026-03-01", 18, id="a leap birthday, the following day"),
-        ],
-    )
-    def test_a_birthday_not_yet_reached_this_year_has_not_counted(self, born: str, today: str, years: int):
-        """Off by one here and every applicant born in the second half of the year is judged a year older."""
-
-        assert _whole_years_between(born=born, today=today) == years
-
-
-# Exact ages against a fixed day, so both boundaries are pinned without a clock. Against `TODAY`,
-# `2010-04-01` is 16 to the day and `1905-04-02` is the last date that is still 120.
-AGE_BOUNDARIES = [
-    pytest.param("2010-04-02", True, id="a day short of the floor, at 15"),
-    pytest.param("2010-04-01", False, id="the floor, to the day"),
-    pytest.param("2010-03-31", False, id="a day inside the floor"),
-    pytest.param("1905-04-02", False, id="the ceiling, on its last day at 120"),
-    pytest.param("1905-04-01", True, id="a day past the ceiling, at 121"),
-]
-
-
-class TestTheAgeJudgementAgainstAFixedDay:
-    """The bound itself, with `today` passed in. Both boundaries are inclusive, and neither is provable against a wall clock."""
-
-    @pytest.mark.parametrize(("geburtsdatum", "refused"), AGE_BOUNDARIES)
-    def test_each_boundary_falls_where_the_bound_says(self, geburtsdatum: str, refused: bool):
-        """Move either comparison by one and a case here goes red; the clock-reading wrapper cannot show that."""
-
-        if not refused:
-            assert refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=TODAY) is None
-            return
-
-        with pytest.raises(ValueError):
-            refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=TODAY)
-
-    def test_a_leap_birthday_reaches_the_floor_on_the_day_the_calendar_does(self):
-        """Someone born on 29 February turns 16 the moment the date arrives, and is 15 the day before."""
-
-        with pytest.raises(ValueError):
-            refuse_age_outside_the_bounds(geburtsdatum="2012-02-29", today="2028-02-28")
-
-        assert refuse_age_outside_the_bounds(geburtsdatum="2012-02-29", today="2028-02-29") is None
-        assert refuse_age_outside_the_bounds(geburtsdatum="2012-02-29", today="2028-03-01") is None
-
-    @pytest.mark.parametrize("bound", ["mindestens", "über"])
-    def test_each_refusal_is_German(self, bound: str):
-        """It surfaces as a 422 on a public form, so the message is what the applicant reads."""
-
-        born = "2020-01-01" if bound == "mindestens" else "1800-01-01"
-
-        with pytest.raises(ValueError, match=bound):
-            refuse_age_outside_the_bounds(geburtsdatum=born, today=TODAY)
 
 
 # A date no living contact person could carry: born after the bound's floor whatever `today` is.

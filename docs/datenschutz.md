@@ -72,12 +72,6 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   squad lists meanwhile. The predicate is written into
   [`backend/spec.md`](backend/spec.md#17-read-rules) before any code. Today no read consults the
   stored consent.
-- **An application names three people and one person ticks for all of them.** The two who were
-  not asked are recorded as entered on their behalf, never as having consented themselves, and
-  each receives their own link to give the consent. The recording half has reached the code:
-  `fl_backend/app/api/bewerbungen/services.py :: compose_einwilligung` writes `administrativ` for
-  all three at submission, and `fl_backend/app/api/teams/schemas.py :: FLKontaktEinwilligung`
-  carries the `bestaetigt_am` the link will stamp; the link itself is not built.
 - **Referees get a consent record** on the same terms as contact persons. A referee is a pupil
   whose phone, email and school are stored, and today no consent field exists for them.
 

@@ -71,7 +71,8 @@ _TRIKOT_FARBEN = [
     "bordeaux",
     "grau",
 ]
-_KONTAKT_EINWILLIGUNG_UMFANG = ["kontaktdaten"]
+# The second member is the person's own tick on their confirmation page: no payload offers it.
+_KONTAKT_EINWILLIGUNG_UMFANG = ["kontaktdaten", "kontaktdaten_whatsapp"]
 _KONTAKT_EINWILLIGUNG_QUELLEN = ["person", "administrativ"]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 
@@ -194,6 +195,32 @@ _KONTAKTE_PROPERTIES = {
 _SAISON_TEAM_KONTAKTE = _object(nullable=True, required=_KONTAKTE_REQUIRED, properties=_KONTAKTE_PROPERTIES)
 
 _BEWERBUNG_KONTAKTE = _object(required=_KONTAKTE_REQUIRED, properties=_KONTAKTE_PROPERTIES)
+
+# One seat's confirmation bookkeeping. `token_hash` is here and on NO model: a raw document key the
+# confirm query alone reads. Nullable per seat, as the slot beside it is: an erasure empties the one
+# naming the person.
+_BEWERBUNG_BESTAETIGUNG = _object(
+    nullable=True,
+    required=("token_hash", "verschickt_am", "erinnert_am", "abgelehnt_am"),
+    properties={
+        "token_hash": {"bsonType": "string"},
+        "verschickt_am": {"bsonType": "string"},
+        "erinnert_am": {"bsonType": _STRING_OR_NULL},
+        "abgelehnt_am": {"bsonType": _STRING_OR_NULL},
+    },
+)
+
+# The block mirrors `kontakte`'s three slots and stays OUTSIDE it: acceptance copies `kontakte`
+# whole into `saison_teams`, and a hash inside a slot would live there for a season.
+_BEWERBUNG_BESTAETIGUNGEN = _object(
+    nullable=True,
+    required=("trainer", "ansprechperson", "stellvertretung"),
+    properties={
+        "trainer": _BEWERBUNG_BESTAETIGUNG,
+        "ansprechperson": _BEWERBUNG_BESTAETIGUNG,
+        "stellvertretung": _BEWERBUNG_BESTAETIGUNG,
+    },
+)
 
 _SAISON_BEWERBUNG = _object(
     nullable=True,
@@ -593,6 +620,10 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # `required` for `saisons.spielplan`'s reason.
                 "wunschgegner": {"bsonType": _STRING_OR_NULL},
                 "entscheidung": _BEWERBUNG_ENTSCHEIDUNG,
+                # Both out of `required` for `wunschgegner`'s reason. An application with no
+                # `bestaetigungen` block is one the confirmation flow does not apply to.
+                "bestaetigungsfrist": {"bsonType": _STRING_OR_NULL},
+                "bestaetigungen": _BEWERBUNG_BESTAETIGUNGEN,
             },
         )
     },

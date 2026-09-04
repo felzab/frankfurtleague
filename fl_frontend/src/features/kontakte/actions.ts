@@ -10,8 +10,7 @@ import { FLKontaktErasurePayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema }
 import { describeKontaktErasureUmfang } from "./utils";
 
 import type { ActionResult } from "@/shared/types/types";
-import type { FLKontaktErasurePayload, FLPatchSaisonTeamKontakteResponse } from "./schemas";
-import type { SaisonTeamKontaktePayloadDraft } from "./types";
+import type { FLKontaktErasurePayload, FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamKontakteResponse } from "./schemas";
 
 /**
  * Clears one contact person from every season's junction row, every application, and the log's saved
@@ -59,10 +58,9 @@ export async function eraseKontaktpersonAction(rawPayload: FLKontaktErasurePaylo
  * different page.
  */
 export async function patchSaisonTeamKontakteAction(
-  // The DRAFT shape, which carries `erteilt_von` and `bestaetigt_am` for the editor to display. The
-  // payload declares neither, so the parse below strips both — which is why `validated.data` and
-  // never `rawPayload` is what the write is handed.
-  rawPayload: SaisonTeamKontaktePayloadDraft,
+  // Composed by the caller: the editor's own guard refuses a body before this is reached, and a
+  // field no control renders is a block with no repair.
+  rawPayload: FLPatchSaisonTeamKontaktePayload,
 ): Promise<ActionResult<{ saison_team?: FLPatchSaisonTeamKontakteResponse }>> {
   return runAdminMutation("patchSaisonTeamKontakteAction", async () => {
     if (!(await getAdminSession())) {
@@ -79,6 +77,7 @@ export async function patchSaisonTeamKontakteAction(
       };
     }
 
+    // `validated.data` and never `rawPayload`, whose type is a promise the wire does not keep.
     const saisonTeam = await patchSaisonTeamKontakte(validated.data);
     if (!saisonTeam.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Die Kontakte wurden nicht gespeichert", repair: "Versuche es erneut" }) };

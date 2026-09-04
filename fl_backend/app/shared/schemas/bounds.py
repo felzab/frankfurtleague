@@ -45,6 +45,18 @@ BEWERBUNG_GRUND_MAX_LENGTH: Final = 1000
 BEWERBUNG_KONTAKT_MIN_AGE_YEARS: Final = 16
 BEWERBUNG_KONTAKT_MAX_AGE_YEARS: Final = 120
 
+# How long an application's three people have to confirm their own seats before it is deleted; a
+# re-send restarts the clock. Days rather than a date, so the deadline is derived from the mint and
+# never stored twice.
+BEWERBUNG_BESTAETIGUNG_FRIST_TAGE: Final = 14
+# When the one reminder goes out, counted from the mint: early enough that a week is left after it.
+BEWERBUNG_ERINNERUNG_TAGE: Final = 3
+
+# The raw confirmation token as it arrives on the two public consent endpoints. Wide over the 43
+# characters `secrets.token_urlsafe(32)` mints, and a ceiling all the same: an anonymous caller
+# posts it.
+BEWERBUNG_TOKEN_MAX_LENGTH: Final = 128
+
 # What kit the school already owns, in its own words. Bounded on the pair that earns
 # `BEWERBUNG_GRUND_MAX_LENGTH` its own: an anonymous caller writes it, and it is stored. Lower,
 # because a colour, a count and a size need nothing like a page.

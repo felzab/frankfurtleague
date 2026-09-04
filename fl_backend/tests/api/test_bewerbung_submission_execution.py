@@ -1,6 +1,6 @@
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Awaitable, Callable, Mapping
 from zoneinfo import ZoneInfo
 
@@ -21,6 +21,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_SHORTHAND_TAKEN,
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
     compose_kontakte,
+    hash_token,
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -29,6 +30,7 @@ from app.core.exceptions import DocumentConflictException, DocumentNotFoundExcep
 from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
+from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
 from tests.config import TEST_BASE_URL, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.worker import worker_database
@@ -286,7 +288,61 @@ class TestWhatASubmissionStores:
 
         response = on_a_league(mongo_replica_set_url, lambda database: submit(database))
 
-        assert set(response.model_dump()) == {"acknowledged", "created_id", "saison_id", "eingereicht_am"}
+        assert set(response.model_dump()) == {
+            "acknowledged",
+            "created_id",
+            "saison_id",
+            "eingereicht_am",
+            "bestaetigungen",
+            "bestaetigungsfrist",
+        }
+
+
+class TestWhatTheCreateMints:
+    """Three links, stored as hashes and answered raw: the response and the inboxes are the only two places a raw token exists."""
+
+    def test_three_hashes_are_stored_and_three_raw_tokens_answered_that_are_not_the_hashes(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> Any:
+            response = await submit(database)
+            document = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
+
+            assert document is not None
+            return response, document
+
+        response, document = on_a_league(mongo_replica_set_url, body)
+
+        tokens = response.bestaetigungen.model_dump()
+        assert len(set(tokens.values())) == 3
+        for seat, raw in tokens.items():
+            entry = document["bestaetigungen"][seat]
+            assert raw != entry["token_hash"]
+            assert hash_token(raw) == entry["token_hash"]
+            assert (entry["verschickt_am"], entry["erinnert_am"], entry["abgelehnt_am"]) == (TODAY, None, None)
+
+    def test_the_deadline_is_the_bound_counted_from_today_and_written_beside_the_block(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> Any:
+            response = await submit(database)
+            document = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
+
+            assert document is not None
+            return response.bestaetigungsfrist, document["bestaetigungsfrist"]
+
+        answered, written = on_a_league(mongo_replica_set_url, body)
+
+        assert answered == written == (date.fromisoformat(TODAY) + timedelta(days=BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)).isoformat()
+
+    def test_no_raw_token_reaches_the_log(self, mongo_replica_set_url: str):
+        """The insert files no image, and the row is searched as text so a token carried in under any key would show."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            response = await submit(database)
+            rows = await database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)}).to_list(length=None)
+
+            return list(response.bestaetigungen.model_dump().values()), str(rows)
+
+        tokens, rendered = on_a_league(mongo_replica_set_url, body)
+
+        assert not any(raw in rendered for raw in tokens)
 
 
 class TestWhatTheLogRecords:

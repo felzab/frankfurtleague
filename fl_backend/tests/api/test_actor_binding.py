@@ -228,6 +228,8 @@ ROUTES_BY_OPERATION = {(route.path, method): route for route in api_routes() for
 # `bind_public_actor` replaces it, and the write is recorded under an actor naming the public.
 PUBLIC_WRITES = [
     ("/api/v0/bewerbungen", "POST"),
+    ("/api/v0/bewerbungen/einwilligung/ansicht", "POST"),
+    ("/api/v0/bewerbungen/einwilligung", "POST"),
 ]
 
 # Split by the constant the guard itself reads, so a method moved between the two tiers moves here too.

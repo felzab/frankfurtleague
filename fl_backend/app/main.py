@@ -4,6 +4,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.aktionen.admin_router import router as aktionen_admin_router
 from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
+from app.api.bewerbungen.einwilligung_router import router as bewerbungen_einwilligung_router
 from app.api.bewerbungen.public_router import router as bewerbungen_public_router
 from app.api.bewerbungen.router import router as bewerbungen_router
 from app.api.kontakte.admin_router import router as kontakte_admin_router
@@ -55,7 +56,7 @@ WRITE_ROUTERS = (
 )
 # Its own group because it belongs to neither: base-tier and mixed read/write, so either tuple's
 # comment would go false about the tier or the methods.
-PUBLIC_ROUTERS = (bewerbungen_public_router,)
+PUBLIC_ROUTERS = (bewerbungen_public_router, bewerbungen_einwilligung_router)
 
 
 def create_app(config: BackendConfig | None = None) -> FastAPI:

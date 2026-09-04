@@ -10,11 +10,13 @@ import { createElement as h } from "react";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
+import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
 import { renderTree } from "@/shared/testing/renderTest";
 
 import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
-import { describeKontaktErasureUmfang } from "./utils.ts";
+import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
+import { describeKontaktErasureUmfang, mirrorKontakte, toKontaktePayload } from "./utils.ts";
 
 import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { FLKontaktErasureResponse } from "./schemas.ts";
@@ -58,7 +60,7 @@ const person = (vorname: string, nachname: string, email: string): FLKontaktpers
   email,
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "1", datum: "2026-03-12" },
+  einwilligung: { umfang: "kontaktdaten", erteilt_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
 });
 
 /** Three seats, each holding a different person, so an offer on the wrong one names the wrong name. */
@@ -312,7 +314,7 @@ describe("where the control stands", () => {
     // One offer per seat, each naming the person that seat holds and no other.
     assert.deepEqual(
       seatPanels(sectionMarkup(BLOCK)).map((seat) => /<strong>([^<]*)<\/strong>/.exec(seat)?.[1] ?? ""),
-      ["Ada Byron", "Grace Hopper", "Alan Turing"],
+      ["Grace Hopper", "Alan Turing", "Ada Byron"],
       "a seat offers the erasure of somebody it does not hold, or offers none",
     );
     // The ADDRESS is the key the write travels with, and nothing paints a value the markup never shows.
@@ -334,7 +336,7 @@ describe("where the control stands", () => {
     // The Trainer IS the named seat's person here, so a second offer would erase somebody already gone.
     assert.deepEqual(
       offers({ ...BLOCK, trainer_ist_zugleich: "ansprechperson" }),
-      [false, true, true],
+      [true, true, false],
       "the mirrored seat offers its own erasure",
     );
     // The address is the whole key, so a seat holding none can offer nothing to erase.
@@ -363,5 +365,29 @@ describe("where the control stands", () => {
       "await connection();",
       "the data component no longer opens with await connection()",
     );
+  });
+});
+
+describe("what the save hands the write", () => {
+  /* Sent as the read model spells it, a seat the person widened for WhatsApp blocks the editor's own
+     guard at a path no control renders, so the row stops being editable at all. */
+  it("takes a seat the person widened and writes it at the scope an administrator may spell", () => {
+    const trainer = person("Ada", "Byron", "ada@example.org");
+    const gespeichert: FLSaisonTeamKontakte = {
+      ...BLOCK,
+      trainer: { ...trainer, einwilligung: { ...trainer.einwilligung, umfang: "kontaktdaten_whatsapp" } },
+    };
+    // Composed exactly as the editor composes it
+    // (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx :: buildPayload`).
+    const payload = { team_id: "507f1f77bcf86cd799439011", saison_id: "2526", kontakte: toKontaktePayload(mirrorKontakte(gespeichert)) };
+
+    const decision = submitDecision({ payloads: { kontakte: payload }, schemas: { kontakte: FLPatchSaisonTeamKontaktePayloadSchema } });
+    assert.equal(decision.blocked, false, "the editor's own guard refuses a block the season already holds");
+
+    // The action's own parse, so what this reads is what `patchSaisonTeamKontakte` is handed.
+    const validated = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(payload);
+    assert.ok(validated.success, "the write refuses the block a confirmed seat leaves");
+    assert.equal(validated.data.kontakte?.trainer?.einwilligung.umfang, "kontaktdaten", "an administrative save asserts the person's own tick");
+    assert.equal(validated.data.kontakte?.ansprechperson?.einwilligung.umfang, "kontaktdaten");
   });
 });

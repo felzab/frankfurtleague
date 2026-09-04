@@ -2184,7 +2184,7 @@
       },
       "post": {
         "summary": "Submit a Bewerbung",
-        "description": "Store one school's application to play one season, exactly as it was submitted.\n\nEverything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's\nscope, source and date -- is written here and never taken off the payload.",
+        "description": "Store one school's application to play one season as submitted, and mint one confirmation link per contact person.\n\nEverything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's\nscope, source and date -- is written here and never taken off the payload. The three raw tokens are answered\nfor the caller to mail and stored only as hashes; the response is the one place outside the recipients' inboxes\nthey ever exist.",
         "operationId": "post_bewerbung_api_v0_bewerbungen_post",
         "security": [
           {
@@ -4161,7 +4161,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/annehmen": {
       "post": {
         "summary": "Accept a Bewerbung and enter the school into the season",
-        "description": "Accept an application, creating the school's club where the applicant proposed a new one.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason.",
+        "description": "Accept an application, creating the school's club where the applicant proposed a new one.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`REQ-BEWERBUNG-013`); an application stored before the confirmation flow carries no\nconfirmation block and is not held to it.",
         "operationId": "annehmen_bewerbung_api_v0_bewerbungen__bewerbung_id__annehmen_post",
         "security": [
           {
@@ -4251,6 +4251,60 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FLAblehnenBewerbungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut": {
+      "post": {
+        "summary": "Re-send one seat's confirmation link",
+        "description": "Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.\n\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. Refused on an\napplication already decided (`REQ-BEWERBUNG-001`) and on a seat already confirmed or declined, or one an\napplication stored before the confirmation flow holds (`REQ-BEWERBUNG-011`). A path naming no seat is a 404.",
+        "operationId": "erneut_einwilligung_api_v0_bewerbungen__bewerbung_id__einwilligung__seat__erneut_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bewerbung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bewerbung Id"
+            }
+          },
+          {
+            "name": "seat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Seat"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungEinwilligungErneutResponse"
                 }
               }
             }
@@ -4493,6 +4547,94 @@
             }
           }
         }
+      }
+    },
+    "/api/v0/bewerbungen/einwilligung/ansicht": {
+      "post": {
+        "summary": "What one confirmation link opens",
+        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it.",
+        "operationId": "get_einwilligung_ansicht_api_v0_bewerbungen_einwilligung_ansicht_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBewerbungEinwilligungAnsichtPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungEinwilligungAnsichtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v0/bewerbungen/einwilligung": {
+      "post": {
+        "summary": "Confirm or decline one seat of a Bewerbung",
+        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;\na decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:\na token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided\n(`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), and an age outside the league's span\n(`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year spends nothing.",
+        "operationId": "post_einwilligung_api_v0_bewerbungen_einwilligung_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBewerbungEinwilligungAntwortPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungEinwilligungAntwortResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/": {
@@ -5273,6 +5415,28 @@
                 "type": "null"
               }
             ]
+          },
+          "bestaetigungsfrist": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigungsfrist"
+          },
+          "bestaetigungen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungBestaetigungen"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -5334,6 +5498,351 @@
         ],
         "title": "FLBewerbungAddressPayload",
         "description": "The school's address, with the Stadtteil REQUIRED.\n\nIts own subclass rather than a change to `FLAddressPayload`, which an admin address shares: a\nvenue can genuinely lack a district, and a Frankfurt school does not."
+      },
+      "FLBewerbungBestaetigung": {
+        "properties": {
+          "verschickt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Verschickt Am"
+          },
+          "erinnert_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erinnert Am"
+          },
+          "abgelehnt_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abgelehnt Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verschickt_am",
+          "erinnert_am",
+          "abgelehnt_am"
+        ],
+        "title": "FLBewerbungBestaetigung",
+        "description": "One seat's confirmation bookkeeping as the triage reads it -- and NO `token_hash`.\n\nThe hash is a raw document key the confirm query alone reads; a model declaring it would serve\nit through every admin read."
+      },
+      "FLBewerbungBestaetigungTokens": {
+        "properties": {
+          "trainer": {
+            "type": "string",
+            "title": "Trainer"
+          },
+          "ansprechperson": {
+            "type": "string",
+            "title": "Ansprechperson"
+          },
+          "stellvertretung": {
+            "type": "string",
+            "title": "Stellvertretung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trainer",
+          "ansprechperson",
+          "stellvertretung"
+        ],
+        "title": "FLBewerbungBestaetigungTokens",
+        "description": "The three RAW tokens the create minted, one per seat.\n\nThis response and the inboxes are the only places a raw token exists: the database holds\nhashes, the insert logs no image, no read model declares one."
+      },
+      "FLBewerbungBestaetigungen": {
+        "properties": {
+          "trainer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungBestaetigung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ansprechperson": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungBestaetigung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stellvertretung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungBestaetigung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "trainer",
+          "ansprechperson",
+          "stellvertretung"
+        ],
+        "title": "FLBewerbungBestaetigungen",
+        "description": "The three seats' bookkeeping, mirroring `kontakte`'s slots. Nullable per SEAT: an erasure empties the one naming the person."
+      },
+      "FLBewerbungEinwilligungAnsichtPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "FLBewerbungEinwilligungAnsichtPayload",
+        "description": "A POST that reads: the token travels in a body, never in a second URL."
+      },
+      "FLBewerbungEinwilligungAnsichtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "gueltig",
+              "bestaetigt",
+              "abgelehnt",
+              "abgelaufen"
+            ],
+            "title": "Zustand"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "schule": {
+            "type": "string",
+            "title": "Schule"
+          },
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "vorname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorname"
+          },
+          "text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "zustand",
+          "saison_id",
+          "schule",
+          "rolle",
+          "vorname",
+          "text_version"
+        ],
+        "title": "FLBewerbungEinwilligungAnsichtResponse",
+        "description": "What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).\n\nA leaked link's holder learns nothing its mail did not already say: a first name, a school, a\nseason, a role and a wording's version."
+      },
+      "FLBewerbungEinwilligungAntwortPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          },
+          "antwort": {
+            "type": "string",
+            "enum": [
+              "erteilt",
+              "abgelehnt"
+            ],
+            "title": "Antwort"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
+          },
+          "whatsapp": {
+            "type": "boolean",
+            "title": "Whatsapp"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "antwort",
+          "geburtsdatum",
+          "whatsapp",
+          "text_version"
+        ],
+        "title": "FLBewerbungEinwilligungAntwortPayload",
+        "description": "One person's answer for one seat: the consent, or a decline that empties their slot."
+      },
+      "FLBewerbungEinwilligungAntwortResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "ergebnis": {
+            "type": "string",
+            "enum": [
+              "bestaetigt",
+              "abgelehnt"
+            ],
+            "title": "Ergebnis"
+          },
+          "ausstehend": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Ausstehend"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
+          },
+          "whatsapp": {
+            "type": "boolean",
+            "title": "Whatsapp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ergebnis",
+          "ausstehend",
+          "geburtsdatum",
+          "whatsapp"
+        ],
+        "title": "FLBewerbungEinwilligungAntwortResponse",
+        "description": "What the answer did, and which seats are still open -- the whole application's, not this person's."
+      },
+      "FLBewerbungEinwilligungErneutResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "bestaetigungsfrist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bestaetigungsfrist"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "rolle",
+          "bestaetigungsfrist"
+        ],
+        "title": "FLBewerbungEinwilligungErneutResponse",
+        "description": "A fresh link for one seat, RAW, for the admin action to mail; the old one then opens nothing."
       },
       "FLBewerbungEinwilligungPayload": {
         "properties": {
@@ -6416,7 +6925,10 @@
         "properties": {
           "umfang": {
             "type": "string",
-            "const": "kontaktdaten",
+            "enum": [
+              "kontaktdaten",
+              "kontaktdaten_whatsapp"
+            ],
             "title": "Umfang"
           },
           "text_version": {
@@ -7504,13 +8016,23 @@
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Eingereicht Am"
+          },
+          "bestaetigungen": {
+            "$ref": "#/components/schemas/FLBewerbungBestaetigungTokens"
+          },
+          "bestaetigungsfrist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bestaetigungsfrist"
           }
         },
         "type": "object",
         "required": [
           "created_id",
           "saison_id",
-          "eingereicht_am"
+          "eingereicht_am",
+          "bestaetigungen",
+          "bestaetigungsfrist"
         ],
         "title": "FLPostBewerbungResponse",
         "description": "What the submission wrote, and nothing the submission carried.\n\nThe three people's details went one way, and a body repeating them is a copy in a browser's\ncache and in every proxy between."

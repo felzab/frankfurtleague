@@ -776,7 +776,9 @@ def _confirmation_held_by(stored_slot: Any, *, email: Any) -> Mapping[str, Any] 
     if str(stored_slot.get("email") or "").casefold() != str(email or "").casefold():
         return None
 
-    return {"erteilt_von": einwilligung["erteilt_von"], "bestaetigt_am": einwilligung["bestaetigt_am"]}
+    # `umfang` too: the WhatsApp scope is the person's own tick, and the payload can only spell the
+    # narrower one.
+    return {"umfang": einwilligung["umfang"], "erteilt_von": einwilligung["erteilt_von"], "bestaetigt_am": einwilligung["bestaetigt_am"]}
 
 
 def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, Any] | None:

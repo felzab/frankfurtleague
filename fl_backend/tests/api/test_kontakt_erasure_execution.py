@@ -8,9 +8,10 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
+from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.kontakte.admin_router import erase_kontaktperson
 from app.api.kontakte.schemas import FLKontaktErasurePayload, FLKontaktErasureResponse
-from app.api.kontakte.services import KONTAKT_SLOTS
+from app.api.kontakte.services import KONTAKT_SLOTS, build_clearing_update
 from app.api.teams.schemas import FLSaisonTeamKontakte
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
@@ -186,6 +187,10 @@ def saison_team_document(row_id: ObjectId, saison_id: str, team_id: ObjectId) ->
     }
 
 
+# The three live links every seeded application carries, so an erasure has bookkeeping to reach.
+BESTAETIGUNGEN = compose_bestaetigungen(hashes={slot: hash_token(f"link-{slot}") for slot in KONTAKT_SLOTS}, today="2026-01-05")
+
+
 def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:
     """The same, for `Collection.BEWERBUNGEN`, whose `kontakte` is a REQUIRED, non-nullable block."""
 
@@ -200,6 +205,8 @@ def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:
         "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
         "kader": {"voraussichtliche_groesse": 12, "gute_spieler": 3},
         "entscheidung": None,
+        "bestaetigungsfrist": "2026-01-19",
+        "bestaetigungen": {slot: dict(entry) for slot, entry in BESTAETIGUNGEN.items()},
     }
 
 
@@ -452,6 +459,35 @@ def test_the_application_is_cleared_as_well_as_the_junction(mongo_replica_set_ur
     _, rows, _ = after_erasing(mongo_replica_set_url)
 
     assert rows[BEWERBUNG_OID]["kontakte"]["ansprechperson"] is None
+
+
+@pytest.mark.db
+def test_the_erased_seats_link_goes_with_the_person_and_no_other_seats_does(mongo_replica_set_url: str):
+    """Kills an erasure stopping at `kontakte`: a live link would outlive the person and confirm a slot naming nobody."""
+
+    _, rows, _ = after_erasing(mongo_replica_set_url)
+    block = rows[BEWERBUNG_OID]["bestaetigungen"]
+
+    assert block["ansprechperson"] is None
+    assert block["trainer"] == BESTAETIGUNGEN["trainer"]
+    assert block["stellvertretung"] == BESTAETIGUNGEN["stellvertretung"]
+    assert rows[OTHER_BEWERBUNG_OID]["bestaetigungen"] == BESTAETIGUNGEN
+
+
+@pytest.mark.db
+def test_a_junction_row_gains_no_bookkeeping_block(mongo_replica_set_url: str):
+    """Kills a clearing that nulls the seat's bookkeeping unconditionally: a dotted `$set` into an absent block creates one."""
+
+    _, rows, _ = after_erasing(mongo_replica_set_url)
+
+    assert all("bestaetigungen" not in rows[row_id] for row_id in SAISON_TEAM_OIDS)
+
+
+def test_the_clearing_names_the_bookkeeping_only_where_told_to():
+    """The pure half: a row holding no block, an application stored before the flow among them, gets no key created."""
+
+    assert build_clearing_update(("trainer",)) == {"$set": {"kontakte.trainer": None}}
+    assert build_clearing_update(("trainer",), bestaetigungen=True) == {"$set": {"kontakte.trainer": None, "bestaetigungen.trainer": None}}
 
 
 @pytest.mark.db

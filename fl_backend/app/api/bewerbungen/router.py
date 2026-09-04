@@ -7,7 +7,7 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungListAdapter,
     FLBewerbungSingleResponse,
 )
-from app.api.bewerbungen.services import build_bewerbungen_sort
+from app.api.bewerbungen.services import WITHOUT_TOKEN_HASHES, build_bewerbungen_sort
 from app.core.config import API_VERSION
 from app.core.crud import build_query, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import BewerbungenCollection
@@ -40,11 +40,15 @@ async def get_bewerbungen(
 
     # One row over what is served, and the extra never is: it answers whether the list is whole
     # without a count, and counting the filtered set is the unbounded work this read must not do.
+
+    # The projection keeps the token hashes from crossing the wire at all, where the read model
+    # would drop them only after they had (`app/api/bewerbungen/public_router.py :: get_schulen`).
     read = await pull_many_from_db(
         collection=bewerbungen_collection,
         db_filter=build_query(filters, terms={"saison_id", "status"}),
         limit=filters.limit + 1,
         sort_by=build_bewerbungen_sort(sort_by=filters.sort_by, order=filters.order),
+        projection=WITHOUT_TOKEN_HASHES,
     )
 
     # Sliced before validation, so the probe row is never parsed and never reaches the wire.
@@ -66,6 +70,6 @@ async def get_bewerbung_by_id(
 ) -> FLBewerbungSingleResponse:
     """One application in full, which is what the triage decides against."""
 
-    bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id})
+    bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
 
     return FLBewerbungSingleResponse(bewerbung=FLBewerbung(**bewerbung_raw))

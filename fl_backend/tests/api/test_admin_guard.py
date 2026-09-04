@@ -63,6 +63,8 @@ PUBLISHED_OPERATIONS = sorted(
 # no other key. The two cases below assert what takes the guard's place.
 PUBLIC_WRITES = [
     ("/api/v0/bewerbungen", "post"),
+    ("/api/v0/bewerbungen/einwilligung/ansicht", "post"),
+    ("/api/v0/bewerbungen/einwilligung", "post"),
 ]
 
 MUTATIONS = [(path, method) for path, method in PUBLISHED_OPERATIONS if method != "get" and (path, method) not in PUBLIC_WRITES]

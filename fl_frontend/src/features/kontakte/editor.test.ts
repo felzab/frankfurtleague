@@ -21,7 +21,8 @@ import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
 import { declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
 import { buildKontakteBanners } from "./components/forms/AdminKontakteEditForm/banners.ts";
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
-import { teamPageHref } from "./utils.ts";
+import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
+import { describeUnrestorableKontakte, teamPageHref, toKontaktePayload } from "./utils.ts";
 
 import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types";
@@ -418,7 +419,7 @@ describe("the editor's shape", () => {
   it("honours the claim when the payload is composed, and never in the draft", () => {
     assert.match(
       FORM_SOURCE,
-      /kontakte: kontakte === null \? null : mirrorKontakte\(kontakte\)/,
+      /kontakte: toKontaktePayload\(kontakte === null \? null : mirrorKontakte\(kontakte\)\)/,
       "the payload no longer composes the claim, so the editor saves whatever the draft happens to hold",
     );
     assert.doesNotMatch(SECTION, /onChange\(\s*mirror/, "the section writes the mirror into the draft");
@@ -544,7 +545,7 @@ describe("the editor's shape", () => {
   it("sends the pre-save block, captured before the write that replaces it", () => {
     assert.match(
       SUBMIT,
-      /const wiederherstellbar = \{ team_id: teamId, saison_id: saison\.saisonId, kontakte: storedKontakte \};/,
+      /const wiederherstellbar = \{ team_id: teamId, saison_id: saison\.saisonId, kontakte: toKontaktePayload\(storedKontakte\) \};/,
       "the undo replays something other than the pre-save block",
     );
     const capturedAt = SUBMIT.indexOf("const undoPayload");
@@ -552,6 +553,25 @@ describe("the editor's shape", () => {
     assert.ok(capturedAt !== -1 && writtenAt !== -1 && capturedAt < writtenAt, "the undo payload is captured after the write that moves it");
     // Unconditional: a ratified decision keeps the offer on the save the confirmation dialog gated too.
     assert.match(SUBMIT, /offerUndo\(\{/, "the undo offer is scoped to some saves rather than every one");
+  });
+
+  /* A seat the person confirmed for WhatsApp reaches the editor on the read and is spelled by no
+     payload, so it is the block where the replay and the route's own parse can disagree. */
+  it("replays a confirmed seat at the scope an administrator may write", () => {
+    const bestaetigt: FLKontaktperson = { ...ADA, einwilligung: { ...ADA.einwilligung, umfang: "kontaktdaten_whatsapp" } };
+    const wiederherstellbar = {
+      team_id: "507f1f77bcf86cd799439011",
+      saison_id: "2526",
+      kontakte: toKontaktePayload({ ...BLOCK, trainer: bestaetigt }),
+    };
+    const parsed = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(wiederherstellbar);
+
+    assert.ok(parsed.success, "the undo route refuses the block a confirmed seat leaves");
+    assert.equal(parsed.data.kontakte?.trainer?.einwilligung.umfang, "kontaktdaten");
+    assert.deepEqual(Object.keys(wiederherstellbar.kontakte?.trainer?.einwilligung ?? {}).sort(), ["datum", "text_version", "umfang"]);
+    // The offer's own verdict, over the body it hands on: a withheld undo sends the admin to re-enter
+    // three people by hand.
+    assert.equal(describeUnrestorableKontakte(wiederherstellbar), null, "the offer withholds an undo the endpoint would take");
   });
 });
 
@@ -1026,7 +1046,7 @@ describe("which way the claim runs, at every site that reads it", () => {
   it("judges a pick against the block the save would write", () => {
     assert.match(
       FORM_SOURCE,
-      /kontakte: selected\.kontakte === null \? null : mirrorKontakte\(selected\.kontakte\)/,
+      /kontakte: toKontaktePayload\(selected\.kontakte === null \? null : mirrorKontakte\(selected\.kontakte\)\)/,
       "a pick is judged against the raw draft while a blur is judged against the composed block",
     );
   });

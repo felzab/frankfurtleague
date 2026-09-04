@@ -101,10 +101,11 @@ export type FLTrikotFarbe = z.infer<typeof FLTrikotFarbeSchema>;
 
 /**
  * Mirrors `FLKontaktEinwilligung` — what a contact person agreed to, and on whose word it is held.
- * `umfang` is a one-member set: a second scope is a second agreement, never a widened one.
+ * The wider `umfang` is written by the person's own confirmation alone, so the payload below keeps
+ * the one-member literal.
  */
 export const FLKontaktEinwilligungSchema = z.object({
-  umfang: z.literal("kontaktdaten", { error: "Die Einwilligung gilt ausschließlich für Kontaktdaten." }),
+  umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Einwilligung gilt für Kontaktdaten, mit oder ohne WhatsApp." }),
   erteilt_von: z.enum(["person", "administrativ"]),
   // Unbounded on the read side, as every ceiling in this file is: a stored value over one of them
   // must still parse, or a single row fails a whole list.

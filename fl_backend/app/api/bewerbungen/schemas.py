@@ -22,6 +22,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_GROESSE_MAX,
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
+    BEWERBUNG_TOKEN_MAX_LENGTH,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
@@ -38,6 +39,7 @@ from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
     CustomObjectId,
+    CustomOptionalDateString,
     parse_empty_string_to_none,
     validate_external_url,
 )
@@ -48,6 +50,33 @@ from app.shared.schemas.responses import BaseAPIResponse
 FLBewerbungStatus = Literal["eingereicht", "angenommen", "abgelehnt"]
 
 FLBewerbungenSortOptions = Literal["eingereicht_am", "saison_id"]
+
+# The three seats as a closed set, for the wire: `app/api/kontakte/services.py :: KONTAKT_SLOTS`
+# derives the same three from the model, and a test holds the two spellings equal.
+FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
+
+
+class FLBewerbungBestaetigung(BaseModel):
+    """One seat's confirmation bookkeeping as the triage reads it -- and NO `token_hash`.
+
+    The hash is a raw document key the confirm query alone reads; a model declaring it would serve
+    it through every admin read.
+    """
+
+    # The day the link was last mailed; a re-send moves it.
+    verschickt_am: CustomDateString
+    erinnert_am: CustomOptionalDateString
+    # Beside the slot rather than inside it: a decline EMPTIES the person's slot, and a marker in
+    # there would go with it.
+    abgelehnt_am: CustomOptionalDateString
+
+
+class FLBewerbungBestaetigungen(BaseModel):
+    """The three seats' bookkeeping, mirroring `kontakte`'s slots. Nullable per SEAT: an erasure empties the one naming the person."""
+
+    trainer: FLBewerbungBestaetigung | None
+    ansprechperson: FLBewerbungBestaetigung | None
+    stellvertretung: FLBewerbungBestaetigung | None
 
 
 class FLBewerbungSchule(BaseModel):
@@ -129,6 +158,13 @@ class FLBewerbung(BaseModel):
     # Defaulted for `app/api/teams/schemas.py :: FLTeam`'s reason.
     wunschgegner: str | None = None
     entscheidung: FLBewerbungEntscheidung | None
+    # The day an unconfirmed application is deleted and its links expire. NOT the season's
+    # `Bewerbungsfrist`, which is the window the form is open in. Defaulted for `wunschgegner`'s
+    # reason, as is the block below.
+    bestaetigungsfrist: CustomOptionalDateString = None
+    # Absent on every application stored before the confirmation flow, which every predicate reads
+    # as "nothing to confirm": without that carve-out shipping makes each of them unacceptable.
+    bestaetigungen: FLBewerbungBestaetigungen | None = None
 
 
 FLBewerbungListAdapter = TypeAdapter(list[FLBewerbung])
@@ -536,6 +572,18 @@ class FLBewerbungTrikotFarbenResponse(BaseAPIResponse):
     vergeben: list[FLTrikotFarbe]
 
 
+class FLBewerbungBestaetigungTokens(BaseModel):
+    """The three RAW tokens the create minted, one per seat.
+
+    This response and the inboxes are the only places a raw token exists: the database holds
+    hashes, the insert logs no image, no read model declares one.
+    """
+
+    trainer: str
+    ansprechperson: str
+    stellvertretung: str
+
+
 class FLPostBewerbungResponse(BaseAPIResponse):
     """What the submission wrote, and nothing the submission carried.
 
@@ -546,3 +594,89 @@ class FLPostBewerbungResponse(BaseAPIResponse):
     created_id: CustomObjectId
     saison_id: str
     eingereicht_am: CustomDateString
+    bestaetigungen: FLBewerbungBestaetigungTokens
+    # Echoed so the mail the handler sends names the day the links stop working.
+    bestaetigungsfrist: CustomDateString
+
+
+# --- The CONFIRMATION. The token is the whole credential, as it is for a sign-in link, so both
+# endpoints are base-tier and every payload forbids an undeclared key.
+
+# Stripped, a token pasted from a mail client arriving with a trailing space more often than not.
+CustomBewerbungToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
+
+# What a reopened link shows. `abgelaufen` covers the deadline having passed AND the application
+# having been decided: either way the link is spent, and the page says so in one way.
+FLBewerbungEinwilligungZustand = Literal["gueltig", "bestaetigt", "abgelehnt", "abgelaufen"]
+
+
+class FLBewerbungEinwilligungAnsichtPayload(BaseModel):
+    """A POST that reads: the token travels in a body, never in a second URL."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: CustomBewerbungToken
+
+
+class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
+    """What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).
+
+    A leaked link's holder learns nothing its mail did not already say: a first name, a school, a
+    season, a role and a wording's version.
+    """
+
+    zustand: FLBewerbungEinwilligungZustand
+    saison_id: str
+    # The school's name as submitted, or the picked club's.
+    schule: str
+    rolle: FLKontaktRolle
+    # Null exactly where the seat is empty -- declined or erased -- and the record went with it.
+    vorname: str | None
+    text_version: str | None
+
+
+class FLBewerbungEinwilligungAntwortPayload(BaseModel):
+    """One person's answer for one seat: the consent, or a decline that empties their slot."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: CustomBewerbungToken
+    antwort: Literal["erteilt", "abgelehnt"]
+    # Required as a KEY and null on a decline: the date is the consent's, and a decline stores no
+    # person at all. Unbounded here -- the age is a 409 with its own German, never a 422.
+    geburtsdatum: CustomOptionalDateString
+    whatsapp: bool
+    # The wording the CONFIRMING person saw, which is what a confirmed seat then cites: the label
+    # the applicant ticked for them may be an older one.
+    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+
+    @model_validator(mode="after")
+    def the_date_comes_with_the_consent_and_never_with_a_decline(self) -> Self:
+        """A 422, like every shape rule about the body: the person answered, and one of the two fields contradicts the answer."""
+
+        if self.antwort == "erteilt" and self.geburtsdatum is None:
+            raise ValueError("Zur Einwilligung gehört das eigene Geburtsdatum.")
+
+        if self.antwort == "abgelehnt" and self.geburtsdatum is not None:
+            raise ValueError("Bei einer Ablehnung wird kein Geburtsdatum gespeichert.")
+
+        return self
+
+
+class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
+    """What the answer did, and which seats are still open -- the whole application's, not this person's."""
+
+    ergebnis: Literal["bestaetigt", "abgelehnt"]
+    # In `FLSaisonTeamKontakte`'s declaration order. A declined seat stays listed: the application
+    # cannot complete without it.
+    ausstehend: list[FLKontaktRolle]
+    geburtsdatum: CustomOptionalDateString
+    whatsapp: bool
+
+
+class FLBewerbungEinwilligungErneutResponse(BaseAPIResponse):
+    """A fresh link for one seat, RAW, for the admin action to mail; the old one then opens nothing."""
+
+    token: str
+    rolle: FLKontaktRolle
+    bestaetigungsfrist: CustomDateString
