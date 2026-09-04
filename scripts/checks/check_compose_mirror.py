@@ -60,7 +60,7 @@ DECLARED_DELTAS: Final[tuple[Delta, ...]] = (
     Delta("services.backend.build", ABSENT, ANY, "the local stack builds from source"),
     Delta("services.frontend.image", ANY, ABSENT, "production pulls a published image and never builds"),
     Delta("services.backend.image", ANY, ABSENT, "production pulls a published image and never builds"),
-    Delta("services.frontend.environment", ABSENT, ANY, "the API_URL, AUTH_URL, LOG_FORMAT and MONGODB_URI overrides"),
+    Delta("services.frontend.environment", ABSENT, ANY, "the API_URL, AUTH_URL, BEWERBUNG_SWEEP, LOG_FORMAT and MONGODB_URI overrides"),
     Delta("services.backend.environment", ABSENT, ANY, "the LOG_FORMAT and MONGODB_URI overrides"),
     Delta("services.mongo", ABSENT, ANY, "the local stack runs its own database; production's is a managed cluster"),
     Delta("services.frontend.depends_on", ABSENT, ANY, "only the local stack has a database to wait on"),

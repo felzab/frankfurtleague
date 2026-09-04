@@ -11,7 +11,9 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/admin/"],
+        // `/bestaetigung` noindexes itself; this turns back a crawler that learnt a link some other
+        // way before it fetches one, a fetch being a token spent on nobody.
+        disallow: ["/api/", "/admin/", "/bestaetigung"],
       },
       ...aiBots.map((bot) => ({
         userAgent: bot,

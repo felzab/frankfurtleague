@@ -4596,7 +4596,7 @@
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
         "summary": "Confirm or decline one seat of a Bewerbung",
-        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;\na decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:\na token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided\n(`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), and an age outside the league's span\n(`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year spends nothing.",
+        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;\na decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:\na token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided\n(`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), and an age outside the league's span\n(`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year spends nothing.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.",
         "operationId": "post_einwilligung_api_v0_bewerbungen_einwilligung_post",
         "requestBody": {
           "content": {
@@ -4635,6 +4635,130 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/v0/bewerbungen/sweep": {
+      "get": {
+        "summary": "Every season the sweep has to visit",
+        "description": "Answer every season's id, oldest first, so the caller runs the clocks one season at a time.\n\nSystem tier rather than the base one: a season taking applications is `future`, which the base tier is never served,\nand the two clocks that matter run over exactly those seasons.",
+        "operationId": "get_sweep_saisons_api_v0_bewerbungen_sweep_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungSweepSaisonsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v0/bewerbungen/sweep/{saison_id}": {
+      "post": {
+        "summary": "Run one season's retention clocks",
+        "description": "Run the five retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. The fourteen-day clock only\nLISTS its candidates here -- the caller mails the notice and erases the delivered ones through `/loeschen`. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n404 where no season has the id. Idempotent per day: a second run finds nothing left to do.",
+        "operationId": "sweep_saison_api_v0_bewerbungen_sweep__saison_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungSweepResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/bewerbungen/sweep/{saison_id}/loeschen": {
+      "post": {
+        "summary": "Erase the notified deletion candidates",
+        "description": "Erase the applications whose deletion notice the caller delivered, and redact every log row naming them.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is\nerased, so an application confirmed and accepted between the two calls survives, and an id from another season\nis skipped. 404 where no season has the id. An empty list answers zeros.",
+        "operationId": "loeschen_bewerbungen_api_v0_bewerbungen_sweep__saison_id__loeschen_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBewerbungSweepLoeschenPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungSweepLoeschenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/": {
@@ -5793,6 +5917,51 @@
           "whatsapp": {
             "type": "boolean",
             "title": "Whatsapp"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "bestaetigungsfrist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bestaetigungsfrist"
+          },
+          "ansprechperson_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ansprechperson Email"
+          },
+          "ansprechperson_rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Ansprechperson Rollen"
           }
         },
         "type": "object",
@@ -5800,10 +5969,16 @@
           "ergebnis",
           "ausstehend",
           "geburtsdatum",
-          "whatsapp"
+          "whatsapp",
+          "saison_id",
+          "rolle",
+          "vorname",
+          "bestaetigungsfrist",
+          "ansprechperson_email",
+          "ansprechperson_rollen"
         ],
         "title": "FLBewerbungEinwilligungAntwortResponse",
-        "description": "What the answer did, and which seats are still open -- the whole application's, not this person's."
+        "description": "What the answer did, and which seats are still open -- the whole application's, not this person's.\n\nWidened rather than given a read: one field of an admin-tier document would be a new surface to\nwithhold the rest at."
       },
       "FLBewerbungEinwilligungErneutResponse": {
         "properties": {
@@ -6287,6 +6462,294 @@
           "bewerbung"
         ],
         "title": "FLBewerbungSingleResponse"
+      },
+      "FLBewerbungSweepAusstehend": {
+        "properties": {
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "vorname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rolle",
+          "vorname"
+        ],
+        "title": "FLBewerbungSweepAusstehend",
+        "description": "A seat the deletion notice lists as never confirmed. `vorname` is null where the slot was emptied by a decline or an erasure."
+      },
+      "FLBewerbungSweepErinnerung": {
+        "properties": {
+          "bewerbung_id": {
+            "type": "string",
+            "title": "Bewerbung Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "schule": {
+            "type": "string",
+            "title": "Schule"
+          },
+          "bestaetigungsfrist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bestaetigungsfrist"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/FLBewerbungSweepSeat"
+            },
+            "type": "array",
+            "title": "Seats"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bewerbung_id",
+          "saison_id",
+          "schule",
+          "bestaetigungsfrist",
+          "email",
+          "seats"
+        ],
+        "title": "FLBewerbungSweepErinnerung",
+        "description": "One reminder to send: one MAILBOX of one application, every seat it holds due today.\n\nGrouped as the first mail groups (`fl_frontend/src/features/bewerbungen/notifications.ts`), so\none person holding two seats gets one message and two people on one inbox get two."
+      },
+      "FLBewerbungSweepLoeschenPayload": {
+        "properties": {
+          "bewerbung_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Bewerbung Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bewerbung_ids"
+        ],
+        "title": "FLBewerbungSweepLoeschenPayload",
+        "description": "Which candidates' notices were delivered. The backend re-selects them: an id that has stopped qualifying is skipped, never erased."
+      },
+      "FLBewerbungSweepLoeschenResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "geloescht": {
+            "type": "integer",
+            "title": "Geloescht"
+          },
+          "redigierte_aktionen": {
+            "type": "integer",
+            "title": "Redigierte Aktionen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "geloescht",
+          "redigierte_aktionen"
+        ],
+        "title": "FLBewerbungSweepLoeschenResponse"
+      },
+      "FLBewerbungSweepLoeschung": {
+        "properties": {
+          "bewerbung_id": {
+            "type": "string",
+            "title": "Bewerbung Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "schule": {
+            "type": "string",
+            "title": "Schule"
+          },
+          "bestaetigungsfrist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Bestaetigungsfrist"
+          },
+          "ansprechperson_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ansprechperson Email"
+          },
+          "ausstehend": {
+            "items": {
+              "$ref": "#/components/schemas/FLBewerbungSweepAusstehend"
+            },
+            "type": "array",
+            "title": "Ausstehend"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bewerbung_id",
+          "saison_id",
+          "schule",
+          "bestaetigungsfrist",
+          "ansprechperson_email",
+          "ausstehend"
+        ],
+        "title": "FLBewerbungSweepLoeschung",
+        "description": "One application past its deadline, still standing: the notice goes out first, the erasure follows in a second call."
+      },
+      "FLBewerbungSweepResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "erinnerungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLBewerbungSweepErinnerung"
+            },
+            "type": "array",
+            "title": "Erinnerungen"
+          },
+          "loeschungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLBewerbungSweepLoeschung"
+            },
+            "type": "array",
+            "title": "Loeschungen"
+          },
+          "abgelehnte_geloescht": {
+            "type": "integer",
+            "title": "Abgelehnte Geloescht"
+          },
+          "angenommene_geloescht": {
+            "type": "integer",
+            "title": "Angenommene Geloescht"
+          },
+          "kontaktbloecke_geleert": {
+            "type": "integer",
+            "title": "Kontaktbloecke Geleert"
+          },
+          "redigierte_aktionen": {
+            "type": "integer",
+            "title": "Redigierte Aktionen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "erinnerungen",
+          "loeschungen",
+          "abgelehnte_geloescht",
+          "angenommene_geloescht",
+          "kontaktbloecke_geleert",
+          "redigierte_aktionen"
+        ],
+        "title": "FLBewerbungSweepResponse",
+        "description": "One season's pass: the reminders already stamped, the deletions still to notify, and the three silent clocks' counts."
+      },
+      "FLBewerbungSweepSaisonsResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Saison Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_ids"
+        ],
+        "title": "FLBewerbungSweepSaisonsResponse",
+        "description": "Every season's id, for the caller to sweep one by one: `docs/backend/spec.md :: I47` keeps a `future` one off the base tier."
+      },
+      "FLBewerbungSweepSeat": {
+        "properties": {
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rolle",
+          "vorname",
+          "token"
+        ],
+        "title": "FLBewerbungSweepSeat",
+        "description": "One seat a reminder carries: the RAW fresh token, which exists here and in the mail alone."
       },
       "FLBewerbungTrikot": {
         "properties": {

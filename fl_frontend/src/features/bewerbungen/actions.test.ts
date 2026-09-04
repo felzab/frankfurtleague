@@ -41,6 +41,7 @@ const EMAIL = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "core",
 
 const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
 const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
+const ERNEUT_OPERATION = "POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut";
 /** Where the entry rules acceptance REUSES are declared: they belong to the season's boundary, not the triage's. */
 const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 
@@ -52,10 +53,18 @@ const REUSED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "
 
 const MAPPER = sliceBetween(ACTIONS, "function mapTriageRefusal", "async function resolveBewerbungTeamName");
 const ANNEHMEN_ACTION = sliceBetween(ACTIONS, "export async function annehmenBewerbungAction", "export async function ablehnenBewerbungAction");
-/* The decline is the last declaration in the module, so its slice runs to the end of the file. */
-const ABLEHNEN_ACTION = sliceBetween(ACTIONS, "export async function ablehnenBewerbungAction", null);
+const ABLEHNEN_ACTION = sliceBetween(ACTIONS, "export async function ablehnenBewerbungAction", "function mapEinwilligungErneutRefusal");
 /** Everything both decisions run AFTER their write has committed. */
 const NOTIFY = sliceBetween(ACTIONS, "async function notifyBewerbung", "export async function annehmenBewerbungAction");
+
+const ERNEUT_MAPPER = sliceBetween(ACTIONS, "function mapEinwilligungErneutRefusal", "const KEIN_LINK_VERSCHICKT");
+/** What the re-send runs after its own write, which is where the minted token is spent. */
+const ERNEUT_SENDER = sliceBetween(ACTIONS, "async function sendeBestaetigungErneut", "export async function einwilligungErneutSendenAction");
+/* The re-send is the last declaration in the module, so its slice runs to the end of the file. */
+const ERNEUT_ACTION = sliceBetween(ACTIONS, "export async function einwilligungErneutSendenAction", null);
+
+/** Every code the re-send answers, read off its own switch rather than the triage's. */
+const erneutCodes = [...ERNEUT_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
 
 /** Every code the mapper answers, read off its switch. */
 const mappedCodes = [...MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
@@ -76,6 +85,19 @@ describe("the slices these assertions read", () => {
     assert.ok(!NOTIFY.includes("annehmenBewerbung("), "the notification's slice reaches the acceptance");
 
     assert.ok(mappedCodes.length > 0, "no refusal code could be read out of the mapper at all");
+  });
+
+  it("cuts the re-send's mapper, its send and its action apart", () => {
+    assert.ok(ERNEUT_MAPPER.includes("error.serverErrorCode"), "the re-send mapper's switch is outside its slice");
+    assert.ok(!ERNEUT_MAPPER.includes("sendBewerbungMail("), "the re-send mapper's slice reaches the send");
+
+    assert.ok(ERNEUT_SENDER.includes("await sendBewerbungMail("), "the re-send's send is outside its slice");
+    assert.ok(!ERNEUT_SENDER.includes("erneutSendenEinwilligung("), "the send's slice reaches the write it reports");
+
+    assert.ok(ERNEUT_ACTION.includes("erneutSendenEinwilligung(validated.data)"), "the re-send's call is outside its slice");
+    assert.ok(!ERNEUT_ACTION.includes("ablehnenBewerbung("), "the re-send's slice reaches the decline");
+
+    assert.ok(erneutCodes.length > 0, "no refusal code could be read out of the re-send's mapper at all");
   });
 });
 
@@ -146,6 +168,16 @@ describe("the triage's refusals against the backend's register", () => {
       "the refusal names no field an administrator could look at",
     );
     assert.match(MAPPER, /Lehne die Bewerbung ab und lege das Team/, "the refusal offers no route the admin surface actually has");
+  });
+
+  /* Found through the SERVICE rather than by its number, which is the backend's to assign. A code
+     the mapper misses falls through to the 409 fallback (`.claude/rules/cross-surface.md`). */
+  it("answers the acceptance's refusal over an unconfirmed seat", () => {
+    const rule = DECLARED_RULES.find((declared) => declared.source.includes("find_unconfirmed_kontakte_refusal"));
+
+    assert.ok(rule, "no rule is implemented by find_unconfirmed_kontakte_refusal");
+    assert.ok(rule.operations.includes(ANNEHMEN_OPERATION), `${rule.code} is not declared against the acceptance`);
+    assert.ok(mappedCodes.includes(rule.code), `${rule.code} refuses an acceptance over an unconfirmed seat and the mapper does not answer it`);
   });
 
   it("maps no code the backend does not declare at all", () => {
@@ -432,10 +464,10 @@ describe("which irreversibility the triage claims", () => {
 });
 
 describe("a message that cannot be sent", () => {
-  /* The club's name is read AFTER the write commits and the tags are set. Thrown out of the action,
-     that read turns a decision that stands into a reported failure, and the retry it invites is
-     refused as already taken (`REQ-BEWERBUNG-001`). */
-  it("reads the club's name where a failure cannot reach the decision's result", () => {
+  /* The club's name is read AFTER the write commits. Thrown out of the action, that read turns a
+     write that stands into a reported failure, and the retry it invites is refused as already
+     taken (`REQ-BEWERBUNG-001`). */
+  it("reads the club's name where a failure cannot reach the write's result", () => {
     const file = path.resolve(import.meta.dirname, "actions.ts");
     const source = ts.createSourceFile(file, ACTIONS, ts.ScriptTarget.Latest, true);
     let reads = 0;
@@ -454,8 +486,10 @@ describe("a message that cannot be sent", () => {
       node.forEachChild(walk);
     });
 
-    assert.equal(reads, 1, "the club's name is read somewhere other than the one place this test reads");
-    assert.equal(guarded, 1, "a failed club read reports a committed decision as a write that did not happen");
+    // Every reader, never one: the count grows with each write that composes a message, and a
+    // reader landing outside a try is this defect again. A rename empties both counts, hence a floor.
+    assert.ok(reads >= 2, `expected every message-composing write to read the club's name, found ${String(reads)} readers`);
+    assert.equal(guarded, reads, "a failed club read reports a committed write as one that did not happen");
   });
 
   /* What the administrator is left with: the decision is taken, nobody was written to, and the only
@@ -496,5 +530,78 @@ describe("what each decision message is told", () => {
       .sort();
 
     assert.deepEqual(ungefuellt, [], `these declared message fields reach no call site: ${ungefuellt.join(", ")}`);
+  });
+});
+
+describe("the re-sent confirmation link", () => {
+  /* Before the comparison below: a test looping over an empty declared list maps nothing and stays
+     green, and this endpoint's operation string is the backend's to spell. */
+  it("finds rules declared against the endpoint it addresses", () => {
+    assert.ok(declaredCodes(ERNEUT_OPERATION).length > 0, `no rule is declared against ${ERNEUT_OPERATION}`);
+  });
+
+  it("maps every code the re-send declares", () => {
+    for (const code of declaredCodes(ERNEUT_OPERATION)) {
+      assert.ok(erneutCodes.includes(code), `${code} is declared against the re-send and reaches the admin unmapped`);
+    }
+  });
+
+  it("maps no code the backend does not declare at all", () => {
+    for (const code of erneutCodes) {
+      assert.ok(
+        DECLARED_RULES.some((rule) => rule.code === code),
+        `${code} is mapped by the re-send and declared by no rule`,
+      );
+    }
+  });
+
+  /* Both the application and the seat travel in the path, and the tier is `admin`: over-declaring a
+     tier fails loudly, while under-declaring one sends an admin write out unattributed. */
+  it("addresses its own endpoint, with the seat in the path", () => {
+    assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/einwilligung\/\$\{rolle\}\/erneut`/, "the re-send no longer addresses its own endpoint");
+    assert.match(
+      MUTATIONS,
+      /erneut`,\s*FLBewerbungEinwilligungErneutResponseSchema,\s*\{\s*method: "POST",\s*authType: "admin",/,
+      "the re-send is sent as something other than an admin-tier POST",
+    );
+  });
+
+  /* The token is minted and the deadline moved by the time the message is composed, so the read that
+     carries the new deadline has to come after the write rather than from the page's own copy. */
+  it("mails only after the API write has answered", () => {
+    const wrote = ERNEUT_ACTION.indexOf("erneutSendenEinwilligung(validated.data)");
+    const notified = ERNEUT_ACTION.indexOf("await sendeBestaetigungErneut(");
+
+    assert.notEqual(notified, -1, "the re-send sends no message at all");
+    assert.ok(wrote < notified, "the re-send sends its message before the write that mints the token");
+    assert.ok(ERNEUT_SENDER.includes("await getBewerbungById("), "the message is composed without re-reading the deadline the write moved");
+  });
+
+  it("reports the write as done whatever the mail did", () => {
+    const notified = ERNEUT_ACTION.indexOf("await sendeBestaetigungErneut(");
+
+    assert.ok(!ERNEUT_ACTION.slice(notified).includes("success: false"), "the re-send fails the whole write over a message it could not send");
+    assert.ok(!ERNEUT_SENDER.includes("throw"), "the send throws again, so the committed write still reports a failure");
+    assert.match(ERNEUT_ACTION.slice(notified), /message: /, "the re-send drops the delivery report out of what it returns");
+  });
+
+  /* The one thing on this path that must not reach a second reader. A toast, a log line or a returned
+     sentence carrying it hands the seat's credential to whoever can see the screen or the stream. */
+  it("spells the minted token into the link and into nothing else", () => {
+    const link = "`${SITE_URL}/bestaetigung?token=${encodeURIComponent(token)}`";
+
+    assert.ok(ACTIONS.includes(link), "the confirmation link is no longer built where this case reads it");
+    assert.ok(!ACTIONS.replace(link, "").includes("${token}"), "the minted token is spelled into a second string");
+
+    for (const [aufruf] of `${ERNEUT_SENDER}${ERNEUT_ACTION}`.matchAll(/logger\.\w+\([\s\S]*?\n\s{4}\}\);/g)) {
+      assert.ok(!aufruf.includes("token"), "a log line on the re-send's path names the token");
+    }
+  });
+
+  /* This moves the application's own confirmation block and its deadline, and no cached read holds an
+     application: both triage reads are uncached because an application is personal data. */
+  it("invalidates nothing, and says why", () => {
+    assert.ok(!ERNEUT_ACTION.includes("updateTag("), "the re-send clears a cached read its endpoint does not move");
+    assert.match(ERNEUT_ACTION, /Nothing to invalidate/, "the re-send no longer says why it invalidates nothing");
   });
 });

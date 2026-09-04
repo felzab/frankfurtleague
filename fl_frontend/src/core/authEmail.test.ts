@@ -41,7 +41,7 @@ const URL_ = "https://frankfurtleague.de/api/auth/callback/resend?callbackUrl=%2
 /** The one interpolated value, carrying every character `escapeHtml` covers. An address is typed by hand. */
 const HOSTILE_URL = `https://frankfurtleague.de/x?email=a"<script>&b='c'`;
 
-const FUSS_SATZ = `Antworten an die Absenderadresse liest niemand. Schreibe uns an ${KONTAKT_EMAIL}.`;
+const FUSS_SATZ = `Antworten an die Absenderadresse liest niemand; unsere Adresse ist ${KONTAKT_EMAIL}.`;
 const IGNORIER_SATZ = "Du hast diese Anmeldung nicht angefordert? Dann ignoriere diese E-Mail einfach. Ohne den Link passiert nichts.";
 
 /** The shell's close as this branch ends on it: the block a folded delimiter line would swallow whole. */

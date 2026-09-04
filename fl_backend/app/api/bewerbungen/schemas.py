@@ -662,9 +662,22 @@ class FLBewerbungEinwilligungAntwortPayload(BaseModel):
 
         return self
 
+    @model_validator(mode="after")
+    def the_whatsapp_consent_comes_with_the_consent_too(self) -> Self:
+        """A decline empties the slot, so a `True` here would echo a scope back to the page that no seat records."""
+
+        if self.antwort == "abgelehnt" and self.whatsapp:
+            raise ValueError("Bei einer Ablehnung wird keine WhatsApp-Einwilligung gespeichert.")
+
+        return self
+
 
 class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
-    """What the answer did, and which seats are still open -- the whole application's, not this person's."""
+    """What the answer did, and which seats are still open -- the whole application's, not this person's.
+
+    Widened rather than given a read: one field of an admin-tier document would be a new surface to
+    withhold the rest at.
+    """
 
     ergebnis: Literal["bestaetigt", "abgelehnt"]
     # In `FLSaisonTeamKontakte`'s declaration order. A declined seat stays listed: the application
@@ -673,6 +686,21 @@ class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
     geburtsdatum: CustomOptionalDateString
     whatsapp: bool
 
+    # The five below compose the two outbound messages and are the frontend SERVER's alone; its
+    # route handler answers the browser the four above.
+    saison_id: str
+    # The seat the TOKEN opened, never the pair a `trainer_ist_zugleich` answer wrote alongside it.
+    rolle: FLKontaktRolle
+    # Read before the write: a decline empties the slot, so nothing afterwards can name the person
+    # whose refusal the message reports.
+    vorname: str
+    bestaetigungsfrist: CustomDateString
+    # As that seat stands AFTER the write, so an Ansprechperson who has just declined addresses
+    # nobody at all.
+    ansprechperson_email: str | None
+    # Every seat that one mailbox holds, so a person holding two is told both in the message it gets.
+    ansprechperson_rollen: list[FLKontaktRolle]
+
 
 class FLBewerbungEinwilligungErneutResponse(BaseAPIResponse):
     """A fresh link for one seat, RAW, for the admin action to mail; the old one then opens nothing."""
@@ -680,3 +708,84 @@ class FLBewerbungEinwilligungErneutResponse(BaseAPIResponse):
     token: str
     rolle: FLKontaktRolle
     bestaetigungsfrist: CustomDateString
+
+
+# --- The retention SWEEP, system tier. The backend decides and prepares, the frontend mails: what
+# leaves here is what a mail needs and nothing a person's record holds beyond it (`READ-BEWERBUNG-004`).
+
+
+class FLBewerbungSweepSeat(BaseModel):
+    """One seat a reminder carries: the RAW fresh token, which exists here and in the mail alone."""
+
+    rolle: FLKontaktRolle
+    vorname: str
+    token: str
+
+
+class FLBewerbungSweepErinnerung(BaseModel):
+    """One reminder to send: one MAILBOX of one application, every seat it holds due today.
+
+    Grouped as the first mail groups (`fl_frontend/src/features/bewerbungen/notifications.ts`), so
+    one person holding two seats gets one message and two people on one inbox get two.
+    """
+
+    bewerbung_id: CustomObjectId
+    saison_id: str
+    schule: str
+    # Unchanged by a reminder (ruling 61: only a re-send moves it); the notice names it as the day
+    # the application is deleted.
+    bestaetigungsfrist: CustomDateString
+    email: str
+    seats: list[FLBewerbungSweepSeat]
+
+
+class FLBewerbungSweepAusstehend(BaseModel):
+    """A seat the deletion notice lists as never confirmed. `vorname` is null where the slot was emptied by a decline or an erasure."""
+
+    rolle: FLKontaktRolle
+    vorname: str | None
+
+
+class FLBewerbungSweepLoeschung(BaseModel):
+    """One application past its deadline, still standing: the notice goes out first, the erasure follows in a second call."""
+
+    bewerbung_id: CustomObjectId
+    saison_id: str
+    schule: str
+    bestaetigungsfrist: CustomDateString
+    # The submitter, by convention (ruling 65). Null where that slot is empty: nobody can be told,
+    # and the caller treats the notice as delivered rather than keeping the application for ever.
+    ansprechperson_email: str | None
+    ausstehend: list[FLBewerbungSweepAusstehend]
+
+
+class FLBewerbungSweepResponse(BaseAPIResponse):
+    """One season's pass: the reminders already stamped, the deletions still to notify, and the three silent clocks' counts."""
+
+    saison_id: str
+    erinnerungen: list[FLBewerbungSweepErinnerung]
+    loeschungen: list[FLBewerbungSweepLoeschung]
+    abgelehnte_geloescht: int
+    angenommene_geloescht: int
+    kontaktbloecke_geleert: int
+    redigierte_aktionen: int
+
+
+class FLBewerbungSweepLoeschenPayload(BaseModel):
+    """Which candidates' notices were delivered. The backend re-selects them: an id that has stopped qualifying is skipped, never erased."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bewerbung_ids: list[CustomObjectId]
+
+
+class FLBewerbungSweepLoeschenResponse(BaseAPIResponse):
+    saison_id: str
+    geloescht: int
+    redigierte_aktionen: int
+
+
+class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):
+    """Every season's id, for the caller to sweep one by one: `docs/backend/spec.md :: I47` keeps a `future` one off the base tier."""
+
+    saison_ids: list[str]

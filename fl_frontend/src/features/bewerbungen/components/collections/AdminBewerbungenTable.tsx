@@ -6,6 +6,7 @@ import { ArrowRightFromSquare, GraduationCap, Persons } from "@gravity-ui/icons"
 
 import { Table } from "@heroui/react";
 
+import { bestaetigungsStand, istOffen } from "@/features/bewerbungen/components/views/BewerbungBestaetigungStrip";
 import { BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
 import { BEWERBUNG_DUBLETTE_LABEL, BEWERBUNG_DUBLETTE_TINT } from "@/features/bewerbungen/duplicates";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
@@ -99,6 +100,29 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
     return <span className={`${LABEL_BADGE} ${BEWERBUNG_DUBLETTE_TINT}`}>{BEWERBUNG_DUBLETTE_LABEL[art]}</span>;
   };
 
+  // The count and never a fourth `status` value: an application waits on its contacts inside
+  // `eingereicht`, and a filter over this would partition the queue on something no decision moves.
+  const renderBestaetigung = (bewerbung: AdminBewerbungRow) => {
+    const staende = bestaetigungsStand(bewerbung);
+
+    // An application submitted before the workflow has no per-seat state, and a badge reading „0 von
+    // 3“ over one would send an administrator hunting for links that were never sent.
+    if (staende === null) return null;
+
+    if (staende.some((sitz) => sitz.stand.art === "abgelehnt")) {
+      return <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>Ablehnung</span>;
+    }
+
+    const bestaetigt = staende.filter((sitz) => !istOffen(sitz)).length;
+    const tint = bestaetigt === staende.length ? "bg-success/15 text-success-strong" : "bg-warning/15 text-warning-strong";
+
+    return (
+      <span className={`${LABEL_BADGE} ${tint}`}>
+        {String(bestaetigt)} von {String(staende.length)} bestätigt
+      </span>
+    );
+  };
+
   const renderActions = (bewerbung: AdminBewerbungRow) => (
     <RowActions>
       {/* A link and not a press: the decision is taken on a page of its own, where the whole
@@ -137,6 +161,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
             <div className="flex flex-row flex-wrap items-center gap-2">
               {renderHerkunft(bewerbung)}
               {renderDublette(bewerbung)}
+              {renderBestaetigung(bewerbung)}
               <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Saison {bewerbung.saison_id}</span>
               <span className="fluid-xs text-foreground-muted">Eingereicht {formatSpielDatum(bewerbung.eingereicht_am)}</span>
             </div>
@@ -155,7 +180,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                 width plus a floor for the name, under which the name gets nothing. */}
             <Table.Content
               aria-label="Tabelle aller Bewerbungen"
-              className="min-w-7xl table-fixed">
+              className="min-w-364 table-fixed">
               <Table.Header>
                 <Table.Column
                   isRowHeader
@@ -174,6 +199,9 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-72 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Ansprechperson
+                </Table.Column>
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  Einwilligungen
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-32 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Status
@@ -226,6 +254,8 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                     </Table.Cell>
 
                     <Table.Cell className="px-6 py-4">{renderKontakt(bewerbung)}</Table.Cell>
+
+                    <Table.Cell className="px-6 py-4">{renderBestaetigung(bewerbung)}</Table.Cell>
 
                     <Table.Cell className="px-6 py-4">{renderStatus(bewerbung)}</Table.Cell>
 

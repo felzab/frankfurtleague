@@ -11,6 +11,7 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAntwortResponse,
 )
 from app.api.bewerbungen.services import (
+    ansprechperson_mailbox,
     ausstehende_seats,
     build_token_filter,
     compose_confirmation_update,
@@ -22,6 +23,7 @@ from app.api.bewerbungen.services import (
     hash_token,
     paired_seat,
     seat_holding,
+    seat_vorname,
     zustand_of,
 )
 from app.core.collections import Collection
@@ -107,6 +109,10 @@ async def post_einwilligung(
     a token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided
     (`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), and an age outside the league's span
     (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year spends nothing.
+
+    The answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own
+    mailbox among it: this is a server-to-server response, and a caller putting it in front of a browser
+    would hand one contact person another's address.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -133,8 +139,16 @@ async def post_einwilligung(
 
         # Both seats one person holds, so one click answers for the person rather than for one of
         # their two seats, and the equality the submission asserted survives the write.
-        other = paired_seat(kontakte=kontakte, seat=seat)
+        other = paired_seat(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=seat)
         seats = (seat,) if other is None else (seat, other)
+
+        # Read before either branch writes: a decline empties this slot, and the message reporting
+        # it is the one thing that has to name the person who refused.
+        vorname = seat_vorname(kontakte=kontakte, seat=seat)
+        # Present wherever a token is: the submission writes the deadline and the tokens in one
+        # insert, and a re-send moves both (`app/api/bewerbungen/services.py :: compose_erneut_update`).
+        bestaetigungsfrist = str(bewerbung_raw["bestaetigungsfrist"])
+        saison_id = str(bewerbung_raw["saison_id"])
 
         if antwort_data.antwort == "erteilt":
             geburtsdatum = antwort_data.geburtsdatum
@@ -150,11 +164,19 @@ async def post_einwilligung(
                 session=session,
             )
 
+            bestaetigt_email, bestaetigt_rollen = ansprechperson_mailbox(kontakte=updated_raw.get("kontakte"))
+
             return FLBewerbungEinwilligungAntwortResponse(
                 ergebnis="bestaetigt",
                 ausstehend=ausstehende_seats(kontakte=updated_raw.get("kontakte")),
                 geburtsdatum=geburtsdatum,
                 whatsapp=antwort_data.whatsapp,
+                saison_id=saison_id,
+                rolle=seat,
+                vorname=vorname,
+                bestaetigungsfrist=bestaetigungsfrist,
+                ansprechperson_email=bestaetigt_email,
+                ansprechperson_rollen=bestaetigt_rollen,
             )
 
         updated_raw = await patch_one_in_db(
@@ -173,11 +195,21 @@ async def post_einwilligung(
             session=session,
         )
 
+        # Off the UPDATED document, so an Ansprechperson who has just declined leaves this null and
+        # the message their decline would have gone to is not composed at all.
+        abgelehnt_email, abgelehnt_rollen = ansprechperson_mailbox(kontakte=updated_raw.get("kontakte"))
+
         return FLBewerbungEinwilligungAntwortResponse(
             ergebnis="abgelehnt",
             ausstehend=ausstehende_seats(kontakte=updated_raw.get("kontakte")),
             geburtsdatum=None,
             whatsapp=antwort_data.whatsapp,
+            saison_id=saison_id,
+            rolle=seat,
+            vorname=vorname,
+            bestaetigungsfrist=bestaetigungsfrist,
+            ansprechperson_email=abgelehnt_email,
+            ansprechperson_rollen=abgelehnt_rollen,
         )
 
     async with db.start_session() as session:

@@ -300,6 +300,17 @@ const EXEMPT: Record<string, Record<string, string>> = {
     "kontakte.stellvertretung.einwilligung.erteilt": ONE_SWITCH_FOR_THREE_SEATS,
   },
 
+  // The confirmation page. Its own two answers are a press rather than a field: the token rides in
+  // the link, and which button was pressed is what the payload's `antwort` records.
+  FLBewerbungEinwilligungAntwortPayloadSchema: {
+    token: "handed in from the link's query, so no control offers it and no refusal can land on one",
+    antwort: "which of the two buttons was pressed; a press is no input, and either answer sends a whole payload",
+    text_version: WRITTEN_NOT_PICKED,
+  },
+
+  // The re-send names its seat in the path and sends no body; the strip's control carries both.
+  FLEinwilligungErneutPayloadSchema: { id: IN_THE_PATH, rolle: IN_THE_PATH },
+
   FLPostSaisonPayloadSchema: {
     "rules.erlaubte_stufen.0": A_STUFE_ROW,
     bewerbung: WINDOW_OPENS_LATER,
@@ -387,6 +398,10 @@ const ROUTE_FORMS: Record<string, { slice: string; form: string }> = {
   FLPostBewerbungPayloadSchema: {
     slice: "bewerbungen",
     form: "features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx",
+  },
+  FLBewerbungEinwilligungAntwortPayloadSchema: {
+    slice: "bewerbungen",
+    form: "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
   },
 };
 

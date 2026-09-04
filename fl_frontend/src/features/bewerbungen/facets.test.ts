@@ -32,6 +32,8 @@ function row(id: string, inSelectedSaison: boolean): AdminBewerbungRow {
     kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
     wunschgegner: null,
     entscheidung: null,
+    bestaetigungen: null,
+    bestaetigungsfrist: null,
     teamName: null,
     inSelectedSaison,
   };

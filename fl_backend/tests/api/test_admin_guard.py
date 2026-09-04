@@ -67,7 +67,18 @@ PUBLIC_WRITES = [
     ("/api/v0/bewerbungen/einwilligung", "post"),
 ]
 
-MUTATIONS = [(path, method) for path, method in PUBLISHED_OPERATIONS if method != "get" and (path, method) not in PUBLIC_WRITES]
+# The retention sweep's writes, made by the application to itself on the SYSTEM key: no session
+# and no person, so the admin guard would have nothing to check and `bind_actor` would refuse.
+SYSTEM_WRITES = [
+    ("/api/v0/bewerbungen/sweep/{saison_id}", "post"),
+    ("/api/v0/bewerbungen/sweep/{saison_id}/loeschen", "post"),
+]
+
+MUTATIONS = [
+    (path, method)
+    for path, method in PUBLISHED_OPERATIONS
+    if method != "get" and (path, method) not in PUBLIC_WRITES and (path, method) not in SYSTEM_WRITES
+]
 
 # A floor rather than the exact count: an endpoint added is covered by the parametrisation below
 # without editing this file, so pinning the number would ask for a bump and prove nothing.
@@ -168,6 +179,39 @@ def test_a_public_write_is_unreachable_without_the_base_key(path: str, method: s
 
     assert response.status_code == 401
     assert response.json()["error_code"] == MISSING_BEARER_TOKEN
+
+
+# The sweep's one read, listing every season for the caller: system tier because
+# `docs/backend/spec.md :: I47` keeps a `future` season off the base one, and the seasons taking
+# applications are exactly those.
+SYSTEM_READS = [("/api/v0/bewerbungen/sweep", "get")]
+
+
+@pytest.mark.parametrize(("path", "method"), [*SYSTEM_WRITES, *SYSTEM_READS], ids=lambda value: value)
+def test_a_system_write_is_system_tier(path: str, method: str):
+    """An equality, as the public exemption's is: a sweep endpoint that fell to the base key would erase applications for anyone."""
+
+    assert (path, method) in ROUTES_BY_OPERATION, f"{method.upper()} {path} is not mounted -- SYSTEM_WRITES names a route that moved"
+
+    assert guards_of(ROUTES_BY_OPERATION[(path, method)]) == {verify_access_system}, f"{method.upper()} {path} is not system-tier"
+
+
+@pytest.mark.parametrize(("path", "method"), [*SYSTEM_WRITES, *SYSTEM_READS], ids=lambda value: value)
+def test_a_system_write_is_unreachable_without_the_system_key(path: str, method: str):
+    response = TestClient(APP, raise_server_exceptions=False).request(method, path.replace("{saison_id}", "2026"), json={})
+
+    assert response.status_code == 401
+    assert response.json()["error_code"] == MISSING_BEARER_TOKEN
+
+
+def test_the_system_writes_are_published_and_exempt_from_nothing_else():
+    """`test_the_public_writes_are_published_and_exempt_from_nothing_else`'s floor, for the second exemption."""
+
+    assert SYSTEM_WRITES, "the exemption is empty, so the two comparisons below hold of nothing"
+
+    assert set(SYSTEM_WRITES) <= set(PUBLISHED_OPERATIONS), f"{sorted(set(SYSTEM_WRITES) - set(PUBLISHED_OPERATIONS))} is not published"
+
+    assert set(SYSTEM_WRITES) & set(MUTATIONS) == set()
 
 
 def test_the_public_writes_are_published_and_exempt_from_nothing_else():

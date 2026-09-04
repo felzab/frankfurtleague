@@ -38,6 +38,8 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_MIN_ALTER", "BEWERBUNG_KONTAKT_MIN_AGE_YEARS"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_MAX_ALTER", "BEWERBUNG_KONTAKT_MAX_AGE_YEARS"),
     Mirror("features/bewerbungen/constants.ts", "KUERZEL_LAENGE", "TEAM_SHORTHAND_LENGTH"),
+    Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_BESTAETIGUNG_FRIST_TAGE", "BEWERBUNG_BESTAETIGUNG_FRIST_TAGE"),
+    Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_ERINNERUNG_TAGE", "BEWERBUNG_ERINNERUNG_TAGE"),
     Mirror("features/teams/constants.ts", "DESCRIPTION_MAX_LENGTH", "TEAM_DESCRIPTION_MAX_LENGTH"),
     Mirror("features/teams/constants.ts", "TEAM_NAME_MAX_LENGTH", "TEAM_NAME_MAX_LENGTH"),
     Mirror("features/teams/constants.ts", "TEAM_FULL_NAME_MAX_LENGTH", "TEAM_FULL_NAME_MAX_LENGTH"),

@@ -37,6 +37,18 @@ application services' only** — `nginx` declares neither, which is recorded in 
 assumed to be deliberate. `nginx` declares `depends_on` both services with
 `condition: service_healthy`.
 
+**The frontend container is also what runs the retention sweep.**
+`fl_frontend/src/instrumentation.ts :: register` reads `BEWERBUNG_SWEEP` at startup and arms
+`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, which runs one pass a minute
+after start and then hourly. Each pass lists the seasons at `GET /bewerbungen/sweep`, calls
+`POST /bewerbungen/sweep/{saison_id}` per season and the `loeschen` call beside it in
+`fl_frontend/src/features/bewerbungen/mutations.ts` for the applications whose
+deletion notice was delivered, so every retention clock — the reminder, the deletion of an
+unconfirmed application, the two erasure clocks and the contact block's — runs in the process that
+serves the site and stops when it stops. Production declares no replicas, so one process arms one
+timer (I149); the sweep selects on dates and is idempotent, so a redeploy, a restart and a double-arm
+each cost nothing. `BEWERBUNG_SWEEP` is what turns it off (§1.5).
+
 **Note:** `API_VERSION` is a constant of the code rather than a setting
 ([`docs/backend/spec.md`](../backend/spec.md) §1.5), so bumping it is a code change — and the
 version is spelled again outside the code, at sites a commit does not all reach. §4 names the sites
@@ -213,7 +225,10 @@ platform.
 
 **The local stack points both application services at its own database through compose's
 `environment`**, so no `.env` is edited and no run is left aimed at the wrong cluster
-(`docker-compose.local.yml`, whose invariant block holds the argument for each override).
+(`docker-compose.local.yml`, whose invariant block holds the argument for each override). The same
+block sets `BEWERBUNG_SWEEP` off, because the database is a copy of production and
+`fl_frontend/.env` holds the real `AUTH_RESEND_KEY`: an armed sweep here mails the league's actual
+contact people, and one checked-in line is what a developer flips to exercise it (§1.1).
 
 **`./scripts/ops/local.sh --seed` fills it from production**, through two containers of which only
 one is handed the production credentials — a discipline rather than a boundary, its costs written
@@ -725,6 +740,7 @@ its human-readable line on stderr, where it cannot reach the outputs.
 | I18  | A rate-limit key is the visitor's own network, never the Cloudflare edge, and no prefix splits across two keys (§1.3)                                                         | `nginx/prod.conf :: map $remote_addr $client_net`, `:: map $remote_addr $client_net48`, `:: set_real_ip_from` and `:: real_ip_header`; unenforced by the gate, on §1.3's one-off measurement alone |
 | I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/prod.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                 |
 | I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/prod.conf` names no `/docs` location, and nothing checks either                                                     |
+| I149 | One `frontend` service per compose file and no replica count is what lets the retention sweep hold one timer per process with no lease                                        | unenforced — `docker-compose.yml` and `docker-compose.local.yml` each declare the service once, and nothing refuses a second or a `deploy.replicas`                                                |
 
 ## 3. Violation → remedy
 

@@ -580,8 +580,8 @@ export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristTe
       // a reader who has let one deadline pass is not moved by a second one about validity.
       { label: "Bewerbung wird gelöscht am", value: loeschung },
     ],
-    // The links the first message carried, never fresh ones: a reminder that voided the link
-    // somebody is still looking at would punish the reader it is chasing.
+    // Fresh links, minted beside the first ones rather than in place of them: a reminder that voided
+    // the link somebody is still looking at would punish the reader it is chasing.
     aktionen: seatAktionen(seats),
     textAktionen: [],
     ignorierSatz: mehrere ? IGNORIER_SATZ_EINTRAG_MEHRERE : IGNORIER_SATZ_EINTRAG,

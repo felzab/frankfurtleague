@@ -1,13 +1,13 @@
-import { LIGA_EINWILLIGUNG } from "@/core/einwilligung";
+import { BESTAETIGUNG_EINWILLIGUNG, LIGA_EINWILLIGUNG } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
-import { BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
+import { ALTER_AUSSERHALB, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
 
 import type { FLTrainerZugleich } from "@/features/teams/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas";
+import type { FLBewerbung, FLBewerbungEinwilligungAntwortPayload, FLBewerbungFensterResponse } from "./schemas";
 import type {
   AdminBewerbungRow,
   BewerbungFormDraft,
@@ -16,6 +16,7 @@ import type {
   BewerbungSchuleDraft,
   FensterZustand,
   KuerzelVerdikt,
+  LinkZustand,
   NamedTeam,
 } from "./types";
 
@@ -149,6 +150,59 @@ export function mapBewerbungSubmitRefusal(error: unknown): { error?: string; fie
     default:
       return null;
   }
+}
+
+/**
+ * The label a stored answer cites, written here rather than taken from the request.
+ *
+ * Which words the page rendered is not a claim a browser may make; the field stays on the payload
+ * because the endpoint's shape requires it.
+ */
+export function stampEinwilligungFassung(payload: FLBewerbungEinwilligungAntwortPayload): FLBewerbungEinwilligungAntwortPayload {
+  return { ...payload, text_version: BESTAETIGUNG_EINWILLIGUNG.textVersion };
+}
+
+/** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */
+export type EinwilligungRefusal = { error?: string; fieldErrors?: FieldErrors; zustand?: LinkZustand; nachlesen?: true };
+
+/** A confirmation 409 as what the page should show, or `null` where the code is none of these. */
+export function mapEinwilligungRefusal(error: unknown): EinwilligungRefusal | null {
+  if (!(error instanceof APIBadStatusError)) return null;
+
+  // The body shape is mirrored, so reaching this means a drifted client, which a reload replaces.
+  if (error.statusCode === 422) {
+    return {
+      error: buildRefusal({ reason: "Deine Antwort konnten wir nicht übernehmen", repair: "Lade die Seite neu und versuche es noch einmal" }),
+    };
+  }
+
+  if (error.statusCode !== 409) return null;
+
+  switch (error.serverErrorCode) {
+    case "REQ-BEWERBUNG-009":
+      return { zustand: "ungueltig" };
+    case "REQ-BEWERBUNG-010":
+      return { zustand: "abgelaufen" };
+    // One code covers both answers, so „bestätigt“ here would tell a seat declined in another window
+    // that it confirmed. Which way it went is the read's to say.
+    case "REQ-BEWERBUNG-011":
+      return { nachlesen: true };
+    // The one refusal that spends no token, so it lands on the field and the typed date survives it;
+    // a `zustand` here would swap a live form for a dead-link panel.
+    case "REQ-BEWERBUNG-012":
+      return { fieldErrors: { geburtsdatum: ALTER_AUSSERHALB } };
+    default:
+      return null;
+  }
+}
+
+/** A refused confirmation read as the panel it renders, or `null` where the read failed instead. */
+export function mapEinwilligungAnsichtRefusal(error: unknown): LinkZustand | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  // Every 409 alike: a spent link answers its own `zustand` in a 200, so a refusal is a token nothing
+  // could place, and a code nobody planned reads the same way.
+  return "ungueltig";
 }
 
 /**

@@ -37,10 +37,10 @@ behaviour differs from a ruling, the entry says so.
   and not a ruling; it is here because
   [section 8](#8-two-procedures-still-to-be-written)'s breach procedure needs it.
 - **Every request — withdrawal of a consent, access, rectification, erasure, objection — goes to
-  kontakt@frankfurtleague.de** until people can act for themselves. The form's own text
-  (`fl_frontend/src/core/einwilligung.ts :: LIGA_EINWILLIGUNG`) sends a reader to the
-  Datenschutzerklärung rather than spelling a route, so that page is where this address has to
-  stand. Self-service comes with the account tiers planned for teams, players and referees, and the
+  kontakt@frankfurtleague.de** until people can act for themselves. The application form's text
+  (`fl_frontend/src/core/einwilligung.ts :: LIGA_EINWILLIGUNG`) and the confirmation page's
+  (`:: BESTAETIGUNG_EINWILLIGUNG`) both send a reader to the Datenschutzerklärung rather than
+  spelling a route, so that page is where this address has to stand. Self-service comes with the account tiers planned for teams, players and referees, and the
   deletion route lives there once they exist.
 
 ## 2. Consent comes from the person, from 16
@@ -150,14 +150,6 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   rows emptied and stamped inside the transaction that removes them
   (`docs/backend/spec.md :: I42`); what the bound answers is the copies of everyone who never
   asked. Ruled 2026-09-02.
-- **A declined application is kept for one month after the decision, its three people's contact
-  details included, then deleted. An accepted application is kept for the season it was accepted
-  for and the season after it, then deleted.** The application's own privacy text states both
-  periods once it exists. This bounds the permanent record that `docs/glossary.md :: Bewerbung` and
-  `docs/backend/spec.md :: a decided application stays listed` describe.
-- **A season's contact persons follow the accepted application's clock**: their contact block is
-  cleared when the season after the one they were collected for ends. The consent text scopes
-  itself to one season, and the clearing mechanism the erasure uses already exists.
 - **Access logs stay on the host and are bounded by age as well as by size: eight days.** The
   host's own nginx log carries the visitor's address, user agent and referer and survives a
   deploy, so the only bound today is the container runtime's size rotation
@@ -174,14 +166,14 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
 Every row mirrors that provider's own legal pages, which move without us and were read on
 2026-09-02.
 
-| Processor                      | What reaches them                                                              | Agreement                                                                                               | Where the data is                                                                                                       |
-| ------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Resend                         | Applicants' and administrators' email addresses, every decision email in full  | Standard Art. 28 addendum, in force for every account on sign-up; an executed copy is downloadable      | United States for all stored data; the EU region changes only where mail is dispatched from; transfer rests on the SCCs |
-| Cloudflare                     | Every request in plaintext at the edge: addresses, URLs, headers, form bodies  | Standard addendum incorporated by reference into the self-serve agreement                               | Edge processing worldwide; content not stored for the core services; region pinning is an enterprise-only add-on        |
-| MongoDB Atlas                  | Both databases and their backup snapshots                                      | Standard addendum incorporated into the cloud terms, accepted by creating the account                   | The chosen deployment region; single-region snapshots stay in the cluster's region                                      |
-| Proton (the league's mailbox)  | Every request and reply, correspondence with referees, contacts and applicants | **None on the personal plan in use.** Proton for Business carries one; the upgrade is the fix           | Switzerland                                                                                                             |
-| Gmail, via members' forwarding | Whatever league mail a member opens in a personal Gmail account                | **None — a consumer Gmail account has no processing agreement.** Accepted for now, as a known gap       | Not committed                                                                                                           |
-| WhatsApp (consumer app)        | Phone numbers and messages of anyone who contacts the league that way          | **None for the consumer app**; the consent text discloses the channel. Accepted for now, as a known gap | Not committed                                                                                                           |
+| Processor                      | What reaches them                                                                                                                                                                                                       | Agreement                                                                                               | Where the data is                                                                                                       |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Resend                         | Applicants' and administrators' email addresses, and every message the league sends in full — the two decisions, the submission's receipt and the confirmation links, a confirmation link being a single-use credential | Standard Art. 28 addendum, in force for every account on sign-up; an executed copy is downloadable      | United States for all stored data; the EU region changes only where mail is dispatched from; transfer rests on the SCCs |
+| Cloudflare                     | Every request in plaintext at the edge: addresses, URLs, headers, form bodies                                                                                                                                           | Standard addendum incorporated by reference into the self-serve agreement                               | Edge processing worldwide; content not stored for the core services; region pinning is an enterprise-only add-on        |
+| MongoDB Atlas                  | Both databases and their backup snapshots                                                                                                                                                                               | Standard addendum incorporated into the cloud terms, accepted by creating the account                   | The chosen deployment region; single-region snapshots stay in the cluster's region                                      |
+| Proton (the league's mailbox)  | Every request and reply, correspondence with referees, contacts and applicants                                                                                                                                          | **None on the personal plan in use.** Proton for Business carries one; the upgrade is the fix           | Switzerland                                                                                                             |
+| Gmail, via members' forwarding | Whatever league mail a member opens in a personal Gmail account                                                                                                                                                         | **None — a consumer Gmail account has no processing agreement.** Accepted for now, as a known gap       | Not committed                                                                                                           |
+| WhatsApp (consumer app)        | Phone numbers and messages of anyone who contacts the league that way                                                                                                                                                   | **None for the consumer app**; the consent text discloses the channel. Accepted for now, as a known gap | Not committed                                                                                                           |
 
 **Nothing is left to sign for Resend, Cloudflare and MongoDB Atlas.** Ruled 2026-09-02. What is
 owed:

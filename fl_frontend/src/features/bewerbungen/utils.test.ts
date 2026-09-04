@@ -3,9 +3,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { BESTAETIGUNG_EINWILLIGUNG } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 
 import { declaredCodes } from "../../core/refusalRegister.ts";
+import { ALTER_AUSSERHALB } from "./constants.ts";
 import {
   abiJahrgang,
   bewerbungJudgedPaths,
@@ -20,8 +22,11 @@ import {
   kuerzelHinweis,
   leserichtungHref,
   mapBewerbungSubmitRefusal,
+  mapEinwilligungAnsichtRefusal,
+  mapEinwilligungRefusal,
   mirrorBewerbungTrainer,
   parseLeserichtung,
+  stampEinwilligungFassung,
 } from "./utils.ts";
 
 import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas.ts";
@@ -105,6 +110,8 @@ function bewerbung(id: string, saisonId: string): FLBewerbung {
     kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
     wunschgegner: null,
     entscheidung: null,
+    bestaetigungen: null,
+    bestaetigungsfrist: null,
   };
 }
 
@@ -277,6 +284,7 @@ describe("which paths one judgement covers in the public form", () => {
 
 /** The public write, spelled as `fl_backend/app/core/domain.py` spells the operation it declares. */
 const SUBMIT_OPERATION = "POST /bewerbungen";
+const CONFIRM_OPERATION = "POST /bewerbungen/einwilligung";
 
 /** One refusal as the client sees it: a 409 carrying the code, which is the whole of what it maps on. */
 const badStatus = (statusCode: number, serverErrorCode: string) =>
@@ -458,6 +466,105 @@ describe("parseLeserichtung", () => {
       assert.equal(parseLeserichtung(params), "desc");
     }
     assert.equal(parseLeserichtung({ order: "asc" }), "asc");
+  });
+});
+
+describe("the confirmation's refusals against the backend's register", () => {
+  /* As above: a loop over an operation the register does not name runs zero times and proves
+     nothing. */
+  it("finds rules declared against the confirmation at all", () => {
+    assert.ok(declaredCodes(CONFIRM_OPERATION).length > 0, `no rule is declared against ${CONFIRM_OPERATION}`);
+  });
+
+  /* A declared code this maps nowhere reaches the contact person as a bare „Speichern fehlgeschlagen“
+     toast, which names neither the field to fix nor the panel that would explain the dead link. */
+  it("maps every code the confirmation declares", () => {
+    const mapped = declaredCodes(CONFIRM_OPERATION).filter((code) => mapEinwilligungRefusal(refusalFor(code)) !== null);
+
+    assert.deepEqual(mapped, declaredCodes(CONFIRM_OPERATION));
+  });
+
+  /* Each code names a different thing: three dead-link panels and one field. Two sharing an answer
+     is a reader sent to the wrong one of the two, with no way to tell. */
+  it("gives each code its own answer", () => {
+    const answers = declaredCodes(CONFIRM_OPERATION).map((code) => JSON.stringify(mapEinwilligungRefusal(refusalFor(code))));
+
+    assert.equal(new Set(answers).size, answers.length, "two codes are answered with the same panel or sentence");
+  });
+
+  /* One code covers a confirmation and a decline alike, so a state picked here tells a seat that
+     declined in another window that it confirmed. Which way it went is the ansicht read's to say. */
+  it("asks its caller to read the already-answered link rather than naming a state", () => {
+    const antwort = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-011"));
+
+    assert.equal(antwort?.nachlesen, true, "the already-answered refusal no longer asks for the read");
+    assert.equal(antwort?.zustand, undefined, "one code picked a panel it has no way to tell from the other");
+    assert.equal(antwort?.fieldErrors, undefined, "a refusal that spends the token landed on the form's one field");
+  });
+
+  /* The age refusal spends no token, so it has to land on the one field the page renders: a `zustand`
+     here would replace a live form with a dead-link panel and lose the date the person typed. */
+  it("answers the age refusal at the field and never as a state", () => {
+    const antwort = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-012"));
+
+    assert.equal(antwort?.zustand, undefined, "a refusal the token survives closed the form anyway");
+    assert.equal(antwort?.fieldErrors?.geburtsdatum, ALTER_AUSSERHALB);
+  });
+
+  /* A drifted client, since every body rule the panel can break is mirrored. The remedy is the
+     reload, and the answer names no box: nothing here knows which one broke. */
+  it("answers a body refusal without pointing at the one field", () => {
+    const antwort = mapEinwilligungRefusal(badStatus(422, "REQ-VAL-001"));
+
+    assert.notEqual(antwort, null, "a 422 falls through to the shared handler");
+    assert.equal(antwort?.fieldErrors, undefined, "a refusal naming no field landed on one anyway");
+    assert.doesNotMatch(antwort?.error ?? "", /Geburtsdatum/);
+  });
+});
+
+describe("which consent wording an answer is stored under", () => {
+  const FREMD = {
+    token: "kein-echtes-token",
+    antwort: "erteilt" as const,
+    geburtsdatum: "1984-05-09",
+    whatsapp: false,
+    text_version: "2019-01-erfunden",
+  };
+
+  /* The label names which words were on screen, and only this server knows that. Taken from the
+     body, a caller could file a record under a retired wording, or under one nobody ever wrote. */
+  it("replaces whatever label the request carried with the registry's own", () => {
+    assert.equal(stampEinwilligungFassung(FREMD).text_version, BESTAETIGUNG_EINWILLIGUNG.textVersion);
+    assert.notEqual(
+      FREMD.text_version,
+      BESTAETIGUNG_EINWILLIGUNG.textVersion,
+      "the fixture already carries the label, so this compares nothing",
+    );
+  });
+
+  /* Only that one field: the answer, the date and the scope are the person's own, and a stamp that
+     rewrote any of them would record something nobody pressed. */
+  it("moves nothing else the person answered", () => {
+    const { text_version: _fassung, ...gesendet } = FREMD;
+    const { text_version: _gestempelt, ...bewahrt } = stampEinwilligungFassung(FREMD);
+
+    assert.deepEqual(bewahrt, gesendet);
+  });
+});
+
+describe("mapEinwilligungAnsichtRefusal", () => {
+  /* The read refuses an unknown token alone; a spent, declined or expired link answers its own
+     `zustand` in a 200. Fail-closed, so a code nobody planned still renders the panel naming nobody. */
+  it("reads every refusal as the panel that names nobody", () => {
+    assert.equal(mapEinwilligungAnsichtRefusal(refusalFor("REQ-BEWERBUNG-009")), "ungueltig");
+    assert.equal(mapEinwilligungAnsichtRefusal(refusalFor("REQ-SOMETHING-NEW")), "ungueltig");
+  });
+
+  /* A failed read is the page's own state: answering „ungueltig“ on a 500 would call a live link
+     void on a day the backend was unreachable. */
+  it("leaves anything that is not a refusal to the caller", () => {
+    assert.equal(mapEinwilligungAnsichtRefusal(badStatus(500, "")), null);
+    assert.equal(mapEinwilligungAnsichtRefusal(new Error("socket hang up")), null);
   });
 });
 

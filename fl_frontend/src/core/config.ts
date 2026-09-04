@@ -41,6 +41,15 @@ export const frontend_config = createEnv({
       .string()
       .transform((value) => value.toLowerCase())
       .pipe(z.enum(["console", "json"])),
+
+    // Defaulted so no server .env is touched to arm the retention sweep, and an enum rather than
+    // `z.coerce.boolean()`, which reads the string "false" as true and settles before a default
+    // could apply.
+    BEWERBUNG_SWEEP: z
+      .string()
+      .transform((value) => value.toLowerCase())
+      .pipe(z.enum(["on", "off"]))
+      .default("on"),
   },
 
   client: {},
@@ -71,5 +80,6 @@ export const frontend_config = createEnv({
     ALLOWED_ADMIN_EMAILS: process.env.ALLOWED_ADMIN_EMAILS,
 
     LOG_FORMAT: process.env.LOG_FORMAT,
+    BEWERBUNG_SWEEP: process.env.BEWERBUNG_SWEEP,
   },
 });

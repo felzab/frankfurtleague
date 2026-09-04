@@ -157,7 +157,7 @@ export function brandPhrase(inner: string): string {
 }
 
 /** One no-reply sender carries every message (`fl_frontend/src/core/mail.ts :: MAIL_FROM`), so every close says so. */
-const ANTWORT_VOR = "Antworten an die Absenderadresse liest niemand. Schreibe uns an ";
+const ANTWORT_VOR = "Antworten an die Absenderadresse liest niemand; unsere Adresse ist ";
 export const ANTWORT_SATZ_TEXT = `${ANTWORT_VOR}${KONTAKT_EMAIL}.`;
 export const ANTWORT_SATZ_HTML = `${ANTWORT_VOR}${link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)}.`;
 

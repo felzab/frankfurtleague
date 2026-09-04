@@ -200,7 +200,7 @@ const EMPFAENGER_SATZ = {
 };
 
 /** The closing sentences of a message that reached all three seats, which is either decision. */
-const FOOTER_SENTENCES = [EMPFAENGER_SATZ.kontaktpersonen, "Antworten an die Absenderadresse liest niemand."];
+const FOOTER_SENTENCES = [EMPFAENGER_SATZ.kontaktpersonen, "Antworten an die Absenderadresse liest niemand;"];
 
 /** Spelled out here for the reason above: copy checked against its own source moves with it. */
 const IGNORIER_SATZ =
@@ -211,7 +211,7 @@ const textFooter = (empfaenger: keyof typeof EMPFAENGER_SATZ): string =>
   [
     "-- ",
     EMPFAENGER_SATZ[empfaenger],
-    `Antworten an die Absenderadresse liest niemand. Schreibe uns an ${KONTAKT_EMAIL}.`,
+    `Antworten an die Absenderadresse liest niemand; unsere Adresse ist ${KONTAKT_EMAIL}.`,
     `Datenschutzerklärung: ${SITE_URL}/datenschutz`,
     `Impressum: ${SITE_URL}/impressum`,
     `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`,
@@ -855,7 +855,7 @@ const BESTAETIGUNG_POSTFACH = { ...BESTAETIGUNG, seats: [ERIKA, JONAS] } satisfi
 
 /* The two registers, as whole words: a message half in one and half in the other tells two readers
    sharing an inbox about „den Button“ and „Deine Bestätigung“, of which each has two. */
-const DU_FORMEN = /\b(Du|Dein|Deine|Deinen|Deinem|Deiner|Deines|Dir|Dich)\b/;
+const DU_FORMEN = /\b(Du|Dein|Deine|Deinen|Deinem|Deiner|Deines|Dir|Dich|Schreibe|Klicke|Öffne|Frag|gib|lehne|bestätige|ignoriere)\b/;
 const EUCH_FORMEN = /\b(Euch|Euer|Eure|Euren|Eurem|Eurer|Eures)\b/;
 
 /** The plural sentence for the button and the address it stands over: „der Button“ and „diese Adresse“ each count. */

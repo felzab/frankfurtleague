@@ -76,6 +76,11 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLTrainerZugleich: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLTrikotFarbe: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLBewerbungStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLKontaktRolle: "a Pydantic Literal alias, inlined as an enum at each use site",
+
+  // Both fields are path segments of `POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut`,
+  // so the request carries no body for FastAPI to describe.
+  FLEinwilligungErneutPayload: "the re-send addresses its seat entirely in the path and sends no body",
   // The only alias here whose sole use site is a QUERY PARAMETER: no stored field carries the
   // status, so the use-site test below and `apiRequests.test.ts` are together what pin its members.
   FLSpielStatus: "a Pydantic Literal alias, published inline on the spiel_status query parameter and on no component field",
@@ -328,7 +333,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 145;
+const EXPECTED_PAIRS = 161;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

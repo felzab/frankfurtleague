@@ -867,8 +867,9 @@ describe("which consent wording a record cites", () => {
     for (const [name, file] of [
       ["the public form", path.resolve(SRC, "features", "bewerbungen", "utils.ts")],
       ["the admin editor", path.resolve(SRC, "features", "teams", "utils.ts")],
+      ["the confirmation page", path.resolve(SRC, "features", "bewerbungen", "components", "views", "BestaetigungFormPanel.tsx")],
     ] as const) {
-      assert.match(readFileSync(file, "utf8"), /LIGA_EINWILLIGUNG/, `${name} spells the version rather than reading it`);
+      assert.match(readFileSync(file, "utf8"), /(LIGA|BESTAETIGUNG)_EINWILLIGUNG/, `${name} spells the version rather than reading it`);
     }
   });
 

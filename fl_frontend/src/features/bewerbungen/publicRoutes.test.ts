@@ -5,12 +5,15 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { KONTAKT_EMAIL } from "@/core/brand.ts";
+import { BESTAETIGUNG_ABSAETZE, BESTAETIGUNG_EINWILLIGUNG, fuelleFassung } from "@/core/einwilligung.ts";
 import { FIELD_LABEL } from "@/shared/components/ui/formFieldStyles.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 
-import { BEWERBUNG_SEATS } from "./constants.ts";
+import { BEWERBUNG_MIN_ALTER, BEWERBUNG_SEATS } from "./constants.ts";
 
 import type { FLBewerbungFensterResponse } from "./schemas.ts";
+import type { LinkZustand } from "./types.ts";
 
 /*
  Every module below is reached AFTER the harness above has evaluated, because that is when the JSX
@@ -29,7 +32,11 @@ const { BewerbungBandSkeleton } = await import("./components/ui/BewerbungBandSke
 const { ctaButton } = await import("@/shared/components/ui/formButtons.ts");
 const { formPanel } = await import("@/shared/components/ui/formPanel.ts");
 const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
-const { fensterZustand } = await import("./utils.ts");
+const { fensterZustand, stampEinwilligungFassung } = await import("./utils.ts");
+const { FLBewerbungEinwilligungAntwortPayloadSchema } = await import("./schemas.ts");
+const { ABLEHNEN_LABEL, BestaetigungFormPanel } = await import("./components/views/BestaetigungFormPanel.tsx");
+const { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis } = await import("./components/views/BestaetigungHinweise.tsx");
+const { BestaetigungView } = await import("./components/views/BestaetigungView.tsx");
 
 const FRONTEND_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 const SRC_DIR = path.join(FRONTEND_DIR, "src");
@@ -44,6 +51,7 @@ const BAND = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "compone
 const SKELETON = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungBandSkeleton.tsx"), "utf8");
 const KONTAKT_PAGE = readFileSync(path.join(APP_DIR, "(public)", "(meta)", "kontakt", "page.tsx"), "utf8");
 const POST_ROUTE = readFileSync(path.join(APP_DIR, "api", "bewerbung", "route.ts"), "utf8");
+const CONFIRM_ROUTE = readFileSync(path.join(APP_DIR, "api", "bestaetigung", "route.ts"), "utf8");
 const PUBLIC_ROUTE = readFileSync(path.join(SRC_DIR, "shared", "utils", "publicRoute.ts"), "utf8");
 const UNDO_ROUTE = readFileSync(path.join(SRC_DIR, "shared", "utils", "undoRoute.ts"), "utf8");
 const FORM = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "forms", "BewerbungForm", "BewerbungForm.tsx"), "utf8");
@@ -405,8 +413,25 @@ describe("who the submission's receipt is addressed to", () => {
      Swapped for the decision fan-out, the receipt reaches three addresses nobody has confirmed yet,
      and every test in this suite goes on passing. */
   it("collects the Ansprechperson's mailbox alone, never the decision fan-out", () => {
-    assert.match(POST_ROUTE, /collectBewerbungEingangEmpfaenger\(parsed\.data\.kontakte\)/, "the receipt uses another collector");
+    assert.match(POST_ROUTE, /collectBewerbungEingangEmpfaenger\(kontakte\)/, "the receipt uses another collector");
     assert.doesNotMatch(POST_ROUTE, /collectBewerbungEmpfaenger\(/, "the receipt fans out the way a committed decision does");
+  });
+
+  /* One link message per mailbox, and the submitter's own seat left out of it: their link travels in
+     the receipt, and a second message asks one reader twice for one press. */
+  it("sends the link messages per mailbox, without the seat the receipt already carries", () => {
+    assert.match(POST_ROUTE, /sendBewerbungLinkMail\(/, "the links are fanned out through the per-recipient sender");
+    assert.match(POST_ROUTE, /const \{ ansprechperson: _eigener, \.\.\.andere \} = seats/, "every seat is sent a link message");
+    assert.match(POST_ROUTE, /link: bestaetigungsLink\(seats\.ansprechperson\)/, "the receipt carries no link of its own");
+  });
+
+  /* The token rides in a parameter spelled `token`, which is what the edge's redaction maps strip.
+     Spelled once, so no second spelling can reach a log line the maps do not cover. */
+  it("spells every link the one way the edge redacts", () => {
+    const links = [...POST_ROUTE.matchAll(/\$\{SITE_URL\}\/bestaetigung\?(\w+)=/g)].map((match) => match[1]);
+
+    assert.deepEqual(links, ["token"], "a link is spelled with another parameter, or with none");
+    assert.doesNotMatch(POST_ROUTE, /console\.|logger\./, "the handler writes a line of its own, which the raw token could reach");
   });
 
   /* The panel and the message state the same fan-out, or the two who got nothing read the silence
@@ -677,5 +702,192 @@ describe("which kit colours the wish picker leaves out", () => {
 
     assert.notEqual(zweig, "", "the page no longer awaits the read this assertion is about");
     assert.match(zweig.slice(0, zweig.indexOf(";")), /\(\) => \[\]/, "an unreadable answer no longer offers the whole palette");
+  });
+});
+
+describe("which of the confirmation page's words its stamped version covers", () => {
+  const SLOTS = {
+    schule: "Lessing-Kolleg",
+    saison: "2026",
+    rolle: "Ansprechperson",
+    vorname: "Mira",
+    ablehnen: ABLEHNEN_LABEL,
+    minAlter: String(BEWERBUNG_MIN_ALTER),
+    kontakt: KONTAKT_EMAIL,
+    // The slot renders as a link, whose own words are what a reader sees in the sentence.
+    datenschutz: "Datenschutzerklärung",
+  };
+
+  type Absatz = keyof typeof BESTAETIGUNG_ABSAETZE;
+
+  const gestempelt = (schluessel: Absatz): string => fuelleFassung(BESTAETIGUNG_ABSAETZE[schluessel], SLOTS);
+
+  /** Every paragraph and list item a render puts on the page, as a reader reads it. */
+  const absaetzeVon = (html: string): string[] =>
+    [...html.matchAll(/<(p|li)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((treffer) => textOf(treffer[2] ?? "").trim());
+
+  const HINWEISE = [
+    renderMarkup(BestaetigungHinweise, { schule: SLOTS.schule, saison: SLOTS.saison, rolle: SLOTS.rolle, ablehnenLabel: ABLEHNEN_LABEL }),
+    renderMarkup(WhatsappHinweis, {}),
+    renderMarkup(KlickBestaetigung, { vorname: SLOTS.vorname, schule: SLOTS.schule, rolle: SLOTS.rolle }),
+  ].join("");
+
+  const FORMULAR = renderMarkup(BestaetigungFormPanel, {
+    token: "kein-echtes-token",
+    vorname: SLOTS.vorname,
+    schule: SLOTS.schule,
+    saison: SLOTS.saison,
+    rolle: SLOTS.rolle,
+    onAbschluss: () => undefined,
+  });
+
+  /* A record cites its label alone, so a paragraph the page spells for itself leaves that record
+     claiming words its reader was never shown -- which is the whole of what the label is for. */
+  it("renders no paragraph of its own beside the ones the version holds", () => {
+    const version = new Set((Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).map(gestempelt));
+    const gerendert = absaetzeVon(HINWEISE);
+
+    assert.ok(gerendert.length > 0, "the information text rendered nothing, so this case compares nothing");
+    for (const absatz of gerendert) assert.ok(version.has(absatz), `the page renders a paragraph the stamp does not cover: ${absatz}`);
+  });
+
+  /* The other direction, which the case above cannot see: a paragraph nothing renders leaves the
+     record citing more than its reader read. `klickSatz` is the form's own and is asserted below. */
+  it("renders every paragraph the version holds", () => {
+    const gerendert = new Set(absaetzeVon(HINWEISE));
+
+    for (const schluessel of Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]) {
+      if (schluessel === "klickSatz") continue;
+      assert.ok(gerendert.has(gestempelt(schluessel)), `the version holds ${schluessel}, which the page renders nowhere`);
+    }
+  });
+
+  /* The two the form renders itself. The sentence under the button is what the press records, and
+     the switch label is the one thing on the page that is consented to rather than confirmed. */
+  it("takes the sentence beside the button and the switch's label off that same version", () => {
+    const text = textOf(FORMULAR);
+
+    assert.ok(text.includes(gestempelt("klickSatz")), "the sentence the button describes itself by is not the stamped one");
+    assert.ok(text.includes(BESTAETIGUNG_EINWILLIGUNG.schalter), "the switch says something the stamped version does not hold");
+  });
+});
+
+describe("where a link answered in another window lands", () => {
+  const panelText = (zustand: LinkZustand): string => textOf(renderMarkup(BestaetigungView, { start: { zustand: zustand } }));
+
+  /* The two answers have to read differently, which is the whole of what the second read buys: told
+     „bestätigt“, a person who declined believes the entry they refused is standing. */
+  it("gives a confirmed seat and a declined one different words", () => {
+    const bestaetigt = panelText("bestaetigt");
+    const abgelehnt = panelText("abgelehnt");
+
+    assert.notEqual(bestaetigt, abgelehnt, "both answers render one panel, so the read has nothing to distinguish");
+    assert.match(abgelehnt, /abgelehnt/, "the declined panel no longer says the entry was refused");
+    assert.doesNotMatch(bestaetigt, /abgelehnt/, "the confirmed panel talks about a decline");
+  });
+
+  /*
+   Read rather than rendered, for the reason the session-less block above gives: this is the
+   handler's control flow, and the state it picks reaches the browser as JSON.
+  */
+  it("reads the link's standing instead of naming a state the refusal cannot tell apart", () => {
+    assert.match(CONFIRM_ROUTE, /getEinwilligungAnsicht\(token\)/, "the handler answers a state it guessed from the refusal code");
+    assert.match(CONFIRM_ROUTE, /nachlesen === true/, "the handler no longer branches on the refusal that asks for the read");
+  });
+
+  /* Destructured out, never spread with the rest: `nachlesen` is this handler's own instruction, and
+     the page has no arm for it. */
+  it("keeps that instruction out of what the browser is answered", () => {
+    assert.match(CONFIRM_ROUTE, /const \{ nachlesen, \.\.\.panel \} = refusal;/, "the refusal reaches the answer whole");
+    assert.doesNotMatch(CONFIRM_ROUTE, /\.\.\.refusal/, "the refusal is spread into the answer, its instruction with it");
+  });
+});
+
+/*
+ Read rather than rendered, for the reason the session-less block above gives: a route handler
+ composes a message and an answer, and neither becomes markup a renderer could be pointed at.
+*/
+describe("what one answered seat sets the confirmation route sending", () => {
+  /* The LAST seat, never any confirmation: told „vollständig“ while two seats are open, a submitter
+     stops chasing the people the application is still waiting for. */
+  it("calls the application complete only where the answer leaves no seat outstanding", () => {
+    assert.match(
+      CONFIRM_ROUTE,
+      /antwort\.ergebnis === "bestaetigt" && antwort\.ausstehend\.length === 0/,
+      "the completeness message is sent on a condition that is not the last seat landing",
+    );
+  });
+
+  /* `Absage` is the league's own rejection of a whole application and carries an administrator's
+     stated reason; a seat's refusal is `Ablehnung`, and the two read as different decisions. */
+  it("sends the seat's own decline notice rather than the league's rejection", () => {
+    assert.match(CONFIRM_ROUTE, /buildBewerbungAblehnungEmail/, "the decline no longer composes the message written for it");
+    assert.doesNotMatch(CONFIRM_ROUTE, /buildBewerbungAbsageEmail/, "a seat's refusal is reported as the league turning the school down");
+  });
+
+  /* The one branch with nowhere to send: the seat that would have been addressed is the seat that
+     just emptied itself, and any substitute recipient is a third party. */
+  it("sends nothing where the Ansprechperson seat is empty, and logs neither address nor token", () => {
+    const zweig = CONFIRM_ROUTE.slice(CONFIRM_ROUTE.indexOf("ansprechperson_email === null"));
+    const bis = zweig.slice(0, zweig.indexOf("await sendBewerbungMail"));
+    // The call's own arguments, which is what reaches the stream; the comment above it is prose.
+    const zeile = /logger\.info\(([\s\S]*?)\);/.exec(bis)?.[1] ?? "";
+
+    assert.notEqual(zweig, "", "the handler no longer answers an empty Ansprechperson seat at all");
+    assert.match(bis, /return;/, "the empty branch falls through into the send");
+    assert.notEqual(zeile, "", "the empty seat passes without a line saying the message went nowhere");
+    assert.doesNotMatch(zeile, /ansprechperson_email|token|vorname/, "the line carries an address, a token or a person");
+  });
+
+  /* The label names which words the confirming person read, so a body's own value is a claim no
+     browser may make: a caller could otherwise file a record under a retired wording, or one
+     nobody ever wrote. */
+  it("stamps the registry's own label over whatever label the body carried", () => {
+    const fremd = {
+      token: "kein-echtes-token",
+      antwort: "erteilt",
+      geburtsdatum: "1984-05-09",
+      whatsapp: false,
+      text_version: "2019-01-erfunden",
+    };
+    // The handler's own two steps, in its order: what the schema admits is what the stamp rewrites.
+    const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.parse(fremd);
+
+    assert.equal(stampEinwilligungFassung(parsed).text_version, BESTAETIGUNG_EINWILLIGUNG.textVersion);
+    assert.match(CONFIRM_ROUTE, /postEinwilligung\(stampEinwilligungFassung\(parsed\.data\)\)/, "the body's own label reaches the endpoint");
+  });
+
+  /* The switch is hidden while a decline is armed, so a `true` here is a drifted client rather than
+     a press: taken, the echo would report a scope the emptied slot records nowhere. */
+  it("refuses a decline that carries the WhatsApp consent, at the shape both tiers judge", () => {
+    const abgelehnt = {
+      token: "kein-echtes-token",
+      antwort: "abgelehnt",
+      geburtsdatum: null,
+      text_version: BESTAETIGUNG_EINWILLIGUNG.textVersion,
+    };
+    const refused = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...abgelehnt, whatsapp: true });
+
+    assert.equal(refused.success, false, "a decline carrying a consent is admitted");
+    assert.deepEqual(
+      refused.error?.issues.map((issue) => issue.path.join(".")),
+      ["whatsapp"],
+      "the refusal lands somewhere other than the switch",
+    );
+    assert.equal(FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...abgelehnt, whatsapp: false }).success, true);
+  });
+
+  /* The address exists on this tier and must not leave it: the answer is composed key by key so a
+     later field on the response cannot ride out to the browser by being spread. */
+  it("answers the browser four named fields and no part of the mail", () => {
+    const antwort = /return \{ success: true as const,([^}]*)\}/.exec(CONFIRM_ROUTE)?.[1] ?? "";
+
+    assert.notEqual(antwort, "", "the success answer is no longer a literal this can read");
+    assert.deepEqual(
+      [...antwort.matchAll(/(\w+):/g)].map((treffer) => treffer[1]),
+      ["ergebnis", "geburtsdatum", "whatsapp"],
+      "the browser is answered something other than the seat's own three fields",
+    );
+    assert.doesNotMatch(antwort, /\.\.\./, "the answer spreads the response, so every server-only field travels with it");
   });
 });

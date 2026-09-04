@@ -1,5 +1,11 @@
 import type { FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "@/features/teams/schemas";
-import type { FLBewerbung, FLBewerbungKontaktpersonPayload, FLBewerbungSchulePayload, FLBewerbungStatus } from "./schemas";
+import type {
+  FLBewerbung,
+  FLBewerbungEinwilligungAnsichtResponse,
+  FLBewerbungKontaktpersonPayload,
+  FLBewerbungSchulePayload,
+  FLBewerbungStatus,
+} from "./schemas";
 
 /** A club as the triage needs to know it, so any read carrying the two fields answers. */
 export type NamedTeam = { id: string; name: string };
@@ -85,3 +91,14 @@ export type FensterZustand = "laeuft" | "noch-nicht" | "geschlossen" | "vorbei" 
  * a refusal about `GG` says nothing about the `GY` the box holds a keystroke later.
  */
 export type KuerzelVerdikt = { shorthand: string; vergeben: boolean };
+
+/**
+ * What a link is once the backend has looked it up. `abgelaufen` and `ungueltig` render one wording:
+ * telling them apart would tell a guessed link that a record once existed.
+ */
+export type LinkZustand = "bestaetigt" | "abgelehnt" | "abgelaufen" | "ungueltig";
+
+/** A link still open, and so a seat that still holds the person the page is about to name. */
+export type EinwilligungGeoeffnet = FLBewerbungEinwilligungAnsichtResponse & { vorname: string };
+
+export type EinwilligungAnsicht = { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet } | { zustand: LinkZustand };

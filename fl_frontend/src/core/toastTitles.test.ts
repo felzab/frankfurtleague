@@ -360,6 +360,8 @@ const TOAST_TITLES: Record<string, RegisteredTitle> = {
   "Kontaktperson nicht gelöscht": { variant: "danger", identifies: "one site" },
   "Kopieren nicht möglich": { variant: "danger", identifies: "its description" },
   "Kürzel noch nicht geprüft": { variant: "warning", identifies: "one site" },
+  "Link erneut gesendet": { variant: "success", identifies: "one site" },
+  "Link nicht erneut gesendet": { variant: "danger", identifies: "one site" },
   "Mit Folgen gespeichert": { variant: "warning", identifies: "one site" },
   "Nichts gefunden": { variant: "warning", identifies: "one site" },
   "Noch nicht abgeschickt": { variant: "danger", identifies: "one site" },

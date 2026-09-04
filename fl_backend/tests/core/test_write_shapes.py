@@ -169,8 +169,8 @@ class TestWhatARemovalFilterMayName:
         assert {removal.helper for removal in found} == REMOVAL_HELPERS
 
         # Derived, so it needs no editing -- and pinned, so a derivation that silently empties is
-        # caught rather than passing the season clause over nothing. `bewerbungen` is in the set and
-        # contributes nothing to the clause below, no endpoint removing an application at all.
+        # caught rather than passing the season clause over nothing. `bewerbungen` is in the set, and
+        # the retention sweep's erasures are what the clause below holds to one season.
         assert SEASON_PARTITIONED_ROOTS == {str(Collection.SPIELE), str(Collection.SPIELTAGE), str(Collection.BEWERBUNGEN)}
 
     def test_every_removal_is_keyed_on_a_field_compared_to_a_value(self):

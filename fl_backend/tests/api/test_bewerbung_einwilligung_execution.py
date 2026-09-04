@@ -341,7 +341,7 @@ class TestADecline:
 
     def test_the_slot_is_emptied_the_day_recorded_beside_it_and_the_seat_still_outstanding(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None)
+            response = await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
 
             return response, await stored(database), await ansicht(database, RAW["stellvertretung"])
 
@@ -357,7 +357,7 @@ class TestADecline:
         """The clearing patch files the pre-image, so the redaction has to reach the row it just wrote."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None)
+            await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
 
             return await log_rows(database)
 
@@ -368,7 +368,7 @@ class TestADecline:
 
     def test_a_declined_seat_takes_no_second_answer(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None)
+            await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
 
             with pytest.raises(DocumentConflictException) as conflict:
                 await answer(database, client, RAW["stellvertretung"])
@@ -376,6 +376,56 @@ class TestADecline:
             return conflict.value.error_code
 
         assert on_a_league(mongo_replica_set_url, body) == BEWERBUNG_SEAT_ALREADY_ANSWERED
+
+
+class TestWhatTheAnswerHandsTheMailer:
+    """The five fields the frontend server composes its two messages from, none of which reaches a browser."""
+
+    def test_a_confirmation_names_the_season_the_seat_the_person_the_deadline_and_the_mailbox(self, mongo_replica_set_url: str):
+        response = on_a_league(mongo_replica_set_url, lambda database, client: answer(database, client, RAW["stellvertretung"]))
+
+        assert (response.saison_id, response.rolle, response.vorname) == (SAISON_ID, "stellvertretung", "Bramblewick")
+        assert response.bestaetigungsfrist == "2026-04-03"
+        assert (response.ansprechperson_email, response.ansprechperson_rollen) == ("quillhilde@example.com", ["ansprechperson"])
+
+    def test_one_mailbox_holding_two_seats_is_answered_with_both(self, mongo_replica_set_url: str):
+        """`rollenText` is the mailbox's, not the seat's: told one seat, a person holding two reads a message about somebody else."""
+
+        double = bewerbung_document(kontakte=kontakte(trainer_ist_zugleich="ansprechperson"))
+
+        response = on_a_league(
+            mongo_replica_set_url, lambda database, client: answer(database, client, RAW["stellvertretung"]), documents=[double]
+        )
+
+        assert response.ansprechperson_rollen == ["trainer", "ansprechperson"]
+
+    def test_the_ansprechpersons_own_decline_leaves_no_mailbox_and_still_names_who_declined(self, mongo_replica_set_url: str):
+        """The two halves this response exists for: the seat it would address is the seat that just emptied itself."""
+
+        response = on_a_league(
+            mongo_replica_set_url,
+            lambda database, client: answer(database, client, RAW["ansprechperson"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False),
+        )
+
+        assert (response.ansprechperson_email, response.ansprechperson_rollen) == (None, [])
+        # Off the pre-image: the clearing update ran before this was read, so a re-read would answer nobody.
+        assert (response.rolle, response.vorname) == ("ansprechperson", "Quillhilde")
+
+    def test_another_seats_decline_still_reaches_the_ansprechperson(self, mongo_replica_set_url: str):
+        response = on_a_league(
+            mongo_replica_set_url,
+            lambda database, client: answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False),
+        )
+
+        assert (response.ansprechperson_email, response.vorname) == ("quillhilde@example.com", "Bramblewick")
+
+    def test_no_other_seats_address_travels(self, mongo_replica_set_url: str):
+        """One mailbox and no more: this response is the mailer's, and a second address is one nothing here would send to."""
+
+        rendered = on_a_league(mongo_replica_set_url, lambda database, client: answer(database, client, RAW["trainer"])).model_dump_json()
+
+        assert "bramblewick@example.com" not in rendered and "wraxlington@example.com" not in rendered
+        assert "Mustermann" not in rendered and "1234567" not in rendered
 
 
 class TestNoHashReachesAnAdminRead:

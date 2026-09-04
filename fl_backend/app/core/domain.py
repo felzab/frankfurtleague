@@ -484,8 +484,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONTROL_ONLY,
         "no payload carries the block: `POST /bewerbungen` mints one entry per seat, a decline through "
         "`POST /bewerbungen/einwilligung` stamps `abgelehnt_am` where the emptied slot cannot reach, the re-send "
-        "replaces one entry with a fresh hash, and an erasure nulls the entry beside the slot. A client able to name "
-        "a `token_hash` is a client able to mint its own link",
+        "replaces one entry with a fresh hash, the reminder sweep stamps `erinnert_am` and mints a fresh hash beside "
+        "the first, and an erasure nulls the entry beside the slot. A client able to name a `token_hash` is a client "
+        "able to mint its own link",
     ),
     FieldPolicy(
         Collection.BEWERBUNGEN,

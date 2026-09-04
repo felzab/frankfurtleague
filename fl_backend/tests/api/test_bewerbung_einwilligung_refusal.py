@@ -16,6 +16,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_TOKEN_EXPIRED,
     BEWERBUNG_TOKEN_UNKNOWN,
     KONTAKT_SEATS,
+    TOKEN_HASH_FIELDS,
     WITHOUT_TOKEN_HASHES,
     ausstehende_seats,
     bestaetigungsfrist_from,
@@ -45,6 +46,7 @@ TOMORROW = "2026-04-02"
 # Fixed rather than minted, so a case names the same hash every run; the raw values are never
 # needed here, only what the database would hold.
 HASHES: Mapping[str, str] = {seat: hash_token(f"raw-{seat}") for seat in KONTAKT_SEATS}
+BESTAETIGUNGEN: Mapping[str, Any] = compose_bestaetigungen(hashes=HASHES, today=TODAY)
 
 
 def person(vorname: str, *, bestaetigt_am: str | None = None) -> dict[str, Any]:
@@ -118,11 +120,14 @@ class TestTheTokenAndItsHash:
         assert len(mint_token()[0]) <= BEWERBUNG_TOKEN_MAX_LENGTH
 
     def test_the_lookup_asks_every_seat_and_no_status(self):
-        """No status term: a reopened link on a decided application shows its state rather than reading as unknown."""
+        """Both hash fields per seat, so a reminder's fresh link and the first one it replaced each still open the seat.
+
+        No status term: a reopened link on a decided application shows its state rather than reading as unknown.
+        """
 
         db_filter = build_token_filter(token_hash="abc")
 
-        assert db_filter == {"$or": [{f"bestaetigungen.{seat}.token_hash": "abc"} for seat in KONTAKT_SEATS]}
+        assert db_filter == {"$or": [{f"bestaetigungen.{seat}.{field}": "abc"} for seat in KONTAKT_SEATS for field in TOKEN_HASH_FIELDS]}
 
     def test_the_projection_names_every_seats_hash_and_excludes_it(self):
         """The first exclusion projection in the tree: `0` per key, so a fourth field added to the block still reaches the read."""
@@ -363,17 +368,19 @@ class TestThePairedSeat:
     """The double-seated Trainer: one click answers for the person, whichever of their two links they opened."""
 
     def test_no_pairing_where_the_form_named_none(self):
-        assert paired_seat(kontakte=kontakte(), seat="trainer") is None
+        assert paired_seat(kontakte=kontakte(), bestaetigungen=BESTAETIGUNGEN, seat="trainer") is None
 
     @pytest.mark.parametrize("zugleich", ["ansprechperson", "stellvertretung"])
     def test_the_pairing_reads_in_both_directions(self, zugleich: str):
         block = kontakte(trainer_ist_zugleich=zugleich)
 
-        assert paired_seat(kontakte=block, seat="trainer") == zugleich
-        assert paired_seat(kontakte=block, seat=zugleich) == "trainer"
+        assert paired_seat(kontakte=block, bestaetigungen=BESTAETIGUNGEN, seat="trainer") == zugleich
+        assert paired_seat(kontakte=block, bestaetigungen=BESTAETIGUNGEN, seat=zugleich) == "trainer"
 
     def test_the_third_seat_is_nobodys_pair(self):
-        assert paired_seat(kontakte=kontakte(trainer_ist_zugleich="ansprechperson"), seat="stellvertretung") is None
+        block = kontakte(trainer_ist_zugleich="ansprechperson")
+
+        assert paired_seat(kontakte=block, bestaetigungen=BESTAETIGUNGEN, seat="stellvertretung") is None
 
 
 class TestWhatAConfirmationWrites:
@@ -441,6 +448,19 @@ class TestWhatTheAnswerPayloadRefuses:
 
         with pytest.raises(ValidationError, match="Ablehnung"):
             FLBewerbungEinwilligungAntwortPayload.model_validate(antwort(antwort="abgelehnt"))
+
+    def test_a_decline_carrying_a_whatsapp_consent_is_refused(self):
+        """Taken, it would echo a scope back to the page that the emptied slot records nowhere."""
+
+        with pytest.raises(ValidationError, match="WhatsApp"):
+            FLBewerbungEinwilligungAntwortPayload.model_validate(antwort(antwort="abgelehnt", geburtsdatum=None, whatsapp=True))
+
+    def test_a_decline_refusing_the_switch_is_taken(self):
+        """The pair above only means something beside this: a rule refusing both answers refuses the decline outright."""
+
+        payload = FLBewerbungEinwilligungAntwortPayload.model_validate(antwort(antwort="abgelehnt", geburtsdatum=None, whatsapp=False))
+
+        assert (payload.antwort, payload.whatsapp) == ("abgelehnt", False)
 
     @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "text_version", "antwort"])
     def test_every_field_is_required(self, field: str, assert_rejects):

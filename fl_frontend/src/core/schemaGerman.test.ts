@@ -4,6 +4,8 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import z from "zod";
+
 import { filesUnder } from "@/core/treeWalk.ts";
 
 /**
@@ -70,8 +72,8 @@ function emptyFor(schema: unknown): unknown {
 }
 
 /**
- * One graded probe. A union member and an array element carry their OWN root: a value under a discriminator is
- * unreachable by setting one path on the outer object, the discriminator failing first.
+ * One graded probe. A union member carries its OWN root: a value under a discriminator is unreachable by
+ * setting one path on the outer object, the discriminator failing first.
  */
 type Probe = { root: unknown; rootId: string; path: string; wrong: unknown };
 
@@ -103,7 +105,9 @@ function leafPaths(schema: unknown, prefix = "", root: unknown = schema, rootId 
     ];
   }
 
-  if (def?.type === "array" && def.element !== undefined) return leafPaths(def.element, "", def.element, `${rootId}${prefix}[]`);
+  // The element keeps the array's path with an index under it: an array of SCALARS carries no field
+  // name of its own, so a path restarted here leaves that payload judged by nothing.
+  if (def?.type === "array" && def.element !== undefined) return leafPaths(def.element, prefix === "" ? "0" : `${prefix}.0`, root, rootId);
 
   return prefix === "" ? [] : [{ root, rootId, path: prefix, wrong: emptyFor(inner) }];
 }
@@ -115,9 +119,26 @@ function setAt(target: Record<string, unknown>, path: string[], value: unknown):
     target[head] = value;
     return;
   }
-  target[head] = (target[head] as Record<string, unknown>) ?? {};
+  // An array wherever the next segment is an index: an object standing in for one fails the type
+  // check first, and the element's own message is never reached.
+  target[head] ??= /^\d+$/.test(rest[0] ?? "") ? [] : {};
   setAt(target[head] as Record<string, unknown>, rest, value);
 }
+
+describe("what the walker reads off a schema", () => {
+  it("keeps the array's path under an index, so an array of scalars still yields a leaf", () => {
+    const probes = leafPaths(z.object({ bewerbung_ids: z.array(z.string()) }));
+
+    assert.deepEqual(
+      probes.map((probe) => probe.path),
+      ["bewerbung_ids.0"],
+    );
+  });
+
+  it("finds nothing where a schema carries no field, which is the state the floor below refuses", () => {
+    assert.deepEqual(leafPaths(z.object({})), []);
+  });
+});
 
 describe("what a bound schema says when a field is emptied", () => {
   for (const [name, schema] of Object.entries(BOUND)) {

@@ -3,7 +3,14 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { einwilligungFassung, LIGA_EINWILLIGUNG, LIGA_EINWILLIGUNGEN } from "./einwilligung.ts";
+import {
+  BESTAETIGUNG_ABSAETZE,
+  BESTAETIGUNG_EINWILLIGUNG,
+  einwilligungFassung,
+  fuelleFassung,
+  LIGA_EINWILLIGUNG,
+  LIGA_EINWILLIGUNGEN,
+} from "./einwilligung.ts";
 
 const DOCUMENT_PATH = path.resolve(import.meta.dirname, "..", "..", "..", "fl_backend", "openapi.json");
 const REGENERATE = "cd fl_backend && python -m tests.openapi_document --write";
@@ -63,6 +70,25 @@ describe("LIGA_EINWILLIGUNGEN", () => {
     }
   });
 
+  /* The submission form's label is stamped on a record the applicant made and on one the admin
+     editor made, and neither of those readers saw a word of the confirmation page. */
+  it("gives the confirmation page a label of its own, sharing no paragraph with the submitted one", () => {
+    const eingereicht: readonly string[] = LIGA_EINWILLIGUNG.absaetze;
+
+    assert.notEqual(BESTAETIGUNG_EINWILLIGUNG.textVersion, LIGA_EINWILLIGUNG.textVersion, "both surfaces stamp one label");
+    assert.deepEqual(
+      BESTAETIGUNG_EINWILLIGUNG.absaetze.filter((absatz) => eingereicht.includes(absatz)),
+      [],
+      "a paragraph answers under both labels, so one of the two records cites words nobody read",
+    );
+  });
+
+  /* The page reads its paragraphs by name and stamps the label beside them; resolved apart, the
+     record would cite a version whose words the page had stopped rendering. */
+  it("resolves the confirmation label to the very paragraphs the page reads", () => {
+    assert.deepEqual(einwilligungFassung(BESTAETIGUNG_EINWILLIGUNG.textVersion)?.absaetze, Object.values(BESTAETIGUNG_ABSAETZE));
+  });
+
   it("labels every version within the length the API accepts for a stored one", () => {
     const bound = publishedVersionMaxLength();
 
@@ -72,5 +98,20 @@ describe("LIGA_EINWILLIGUNGEN", () => {
         `"${textVersion}" is ${String(textVersion.length)} characters, past the ${String(bound)} a record may cite`,
       );
     }
+  });
+});
+
+describe("fuelleFassung", () => {
+  it("puts the reader's own facts in the slots the stored wording leaves for them", () => {
+    assert.equal(
+      fuelleFassung("Du bist als {rolle} für {schule} eingetragen.", { rolle: "Ansprechperson", schule: "Lessing-Kolleg" }),
+      "Du bist als Ansprechperson für Lessing-Kolleg eingetragen.",
+    );
+  });
+
+  /* Blanked, the sentence reads as finished and the stored label answers a wording with a hole
+     nobody can see; left standing, the slot names the fact that never arrived. */
+  it("leaves a slot no record filled standing", () => {
+    assert.equal(fuelleFassung("{rolle} für {schule}", { schule: "Lessing-Kolleg" }), "{rolle} für Lessing-Kolleg");
   });
 });

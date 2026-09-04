@@ -17,6 +17,7 @@ from app.core.security import (
     WELL_FORMED_ACTOR,
     bind_actor,
     bind_public_actor,
+    bind_system_actor,
 )
 from app.main import create_app
 from tests.config import build_test_config
@@ -232,8 +233,19 @@ PUBLIC_WRITES = [
     ("/api/v0/bewerbungen/einwilligung", "POST"),
 ]
 
+# The retention sweep's writes, which the application makes to itself on the system key: no session
+# exists to name an administrator, and `SYSTEM` is the truthful actor rather than a fallback.
+SYSTEM_WRITES = [
+    ("/api/v0/bewerbungen/sweep/{saison_id}", "POST"),
+    ("/api/v0/bewerbungen/sweep/{saison_id}/loeschen", "POST"),
+]
+
 # Split by the constant the guard itself reads, so a method moved between the two tiers moves here too.
-MUTATIONS = sorted(operation for operation in ROUTES_BY_OPERATION if operation[1] not in SAFE_METHODS and operation not in PUBLIC_WRITES)
+MUTATIONS = sorted(
+    operation
+    for operation in ROUTES_BY_OPERATION
+    if operation[1] not in SAFE_METHODS and operation not in PUBLIC_WRITES and operation not in SYSTEM_WRITES
+)
 
 # A floor rather than the exact count: an endpoint added is covered by the parametrisation without
 # editing this file, so pinning the number would ask for a bump and prove nothing.
@@ -279,6 +291,18 @@ def test_a_public_write_binds_the_public_actor(path: str, method: str):
     dependencies = ROUTES_BY_OPERATION[(path, method)].dependant.dependencies
 
     assert any(dependency.call is bind_public_actor for dependency in dependencies), f"{method} {path} binds no actor at all"
+    assert not any(dependency.call is bind_actor for dependency in dependencies), f"{method} {path} binds the admin actor too"
+
+
+@pytest.mark.parametrize(("path", "method"), SYSTEM_WRITES, ids=lambda value: value)
+def test_a_system_write_binds_the_system_actor(path: str, method: str):
+    """Declared rather than defaulted: a route binding nothing also records as `SYSTEM`, and the two must not be told apart by luck."""
+
+    assert (path, method) in ROUTES_BY_OPERATION, f"{method} {path} is not mounted -- SYSTEM_WRITES names a route that moved"
+
+    dependencies = ROUTES_BY_OPERATION[(path, method)].dependant.dependencies
+
+    assert any(dependency.call is bind_system_actor for dependency in dependencies), f"{method} {path} binds no actor at all"
     assert not any(dependency.call is bind_actor for dependency in dependencies), f"{method} {path} binds the admin actor too"
 
 

@@ -8,6 +8,7 @@ import { formatAddressFull, formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLBewerbung } from "@/features/bewerbungen/schemas";
 import type { ReactNode } from "react";
+import type { SitzBestaetigung } from "./BewerbungBestaetigungStrip";
 
 /** What an unanswered field reads as — the school left it empty, which is not the same as a zero. */
 const NOT_RECORDED = "Nicht angegeben";
@@ -76,7 +77,16 @@ const ANGABEN_GRID = "grid w-full grid-cols-1 gap-4 sm:grid-cols-2";
  * Everything one school submitted, read-only. **Nothing here is editable**: an application is the
  * form three people filled in, and a decision moves `status`, `entscheidung` and `team_id` alone.
  */
-export function BewerbungAngabenPanel({ bewerbung, teamName }: { bewerbung: FLBewerbung; teamName: string | null }) {
+export function BewerbungAngabenPanel({
+  bewerbung,
+  teamName,
+  staende,
+}: {
+  bewerbung: FLBewerbung;
+  teamName: string | null;
+  /** `null` for an application submitted before the workflow, whose seats reached no per-seat state. */
+  staende: readonly SitzBestaetigung[] | null;
+}) {
   const { schule, kontakte, trikot, kader, wunschgegner, entscheidung } = bewerbung;
 
   return (
@@ -109,6 +119,7 @@ export function BewerbungAngabenPanel({ bewerbung, teamName }: { bewerbung: FLBe
         <div className="flex w-full flex-col gap-y-5">
           {KONTAKT_ROLLEN.map(({ value, label }) => {
             const person = kontakte[value];
+            const stand = staende?.find((sitz) => sitz.rolle === value) ?? null;
 
             return (
               <div
@@ -133,10 +144,15 @@ export function BewerbungAngabenPanel({ bewerbung, teamName }: { bewerbung: FLBe
                     <Angabe label="Geburtsdatum">{person.geburtsdatum === null ? <Leer /> : formatSpielDatum(person.geburtsdatum)}</Angabe>
                     <Angabe label="E-Mail">{person.email === "" ? <Leer /> : person.email}</Angabe>
                     <Angabe label="Telefon">{person.telefon === "" ? <Leer /> : person.telefon}</Angabe>
+                    {/* One record, one fact, and no `Leer`: an outstanding seat has a state rather
+                        than a gap. An application from before the workflow reaches no state at all,
+                        and its stored record is then the whole truth about that seat. */}
                     <Angabe label="Einwilligung">
-                      {`${einwilligungHerkunftLabel(person.einwilligung.erteilt_von)}, ${formatSpielDatum(person.einwilligung.datum)}`}
+                      {stand === null
+                        ? `${einwilligungHerkunftLabel(person.einwilligung.erteilt_von)}, ${formatSpielDatum(person.einwilligung.datum)}`
+                        : stand.satz}
+                      {person.einwilligung.text_version !== "" && ` (Fassung ${person.einwilligung.text_version})`}
                     </Angabe>
-                    <Angabe label="Fassung">{person.einwilligung.text_version === "" ? <Leer /> : person.einwilligung.text_version}</Angabe>
                   </dl>
                 )}
               </div>

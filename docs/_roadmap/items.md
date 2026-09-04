@@ -723,10 +723,12 @@ structural half is therefore the flow that collects the rules, not a second writ
 endpoint that removes a matchday removes that season's fixtures in the same transaction, so the
 reference cannot dangle (`fl_backend/app/core/domain.py :: REFERENCES`).
 
-**A public write into application data has one precedent, and it inserts no person into the
+**A public write into application data has two precedents, and neither inserts a person into the
 league.** The application form's `POST /bewerbungen` is base-tier and stores what a school
 submitted, decided by nobody until the triage reaches it
-([`docs/backend/spec.md`](../backend/spec.md) §1.1). Every other write that touches the league's own
+([`docs/backend/spec.md`](../backend/spec.md) §1.1); the confirmation page's
+`POST /bewerbungen/einwilligung` writes one named contact person's own answer into that stored
+application, authorised by an emailed token rather than by a session. Every other write that touches the league's own
 data sits behind `verify_access_admin`, declared at router level and inherited by the endpoints
 under it; the browser side of that is an email allowlist checked at sign-in and re-derived on every
 session read (`fl_frontend/src/core/auth.ts`). The remaining public unauthenticated writes touch no
