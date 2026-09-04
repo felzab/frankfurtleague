@@ -66,7 +66,10 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
   return (
     // `grow`, never `flex-1`: the wrapper's height is its content's, and a zero flex basis would
     // make it ask this box for a height this box is asking it for.
-    <footer className="max-w-page mx-auto flex w-full grow flex-col justify-between px-4 pt-2 pb-6 sm:px-6">
+
+    // `pb-2`, not `pb-6`: the old fixed box overflowed and left eight pixels under the copyright
+    // row; the floor keeps that look by stating it.
+    <footer className="max-w-page mx-auto flex w-full grow flex-col justify-between px-4 pt-2 pb-2 sm:px-6">
       {/* Five tracks for four columns: the brand takes two, so each list keeps a track of its own. */}
       <div className="border-border grid grid-cols-1 gap-8 border-b py-6 md:grid-cols-5">
         <div className="flex flex-col items-start gap-y-3 md:col-span-2">
