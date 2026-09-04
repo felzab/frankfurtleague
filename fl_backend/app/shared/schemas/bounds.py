@@ -49,7 +49,8 @@ BEWERBUNG_KONTAKT_MAX_AGE_YEARS: Final = 120
 # re-send restarts the clock. Days rather than a date, so the deadline is derived from the mint and
 # never stored twice.
 BEWERBUNG_BESTAETIGUNG_FRIST_TAGE: Final = 14
-# When the one reminder goes out, counted from the mint: early enough that a week is left after it.
+# The age at which one seat's link is due its single reminder, counted from the mint and set more
+# than a week inside `BEWERBUNG_BESTAETIGUNG_FRIST_TAGE`, so a person reminded still has time to answer.
 BEWERBUNG_ERINNERUNG_TAGE: Final = 3
 
 # The raw confirmation token as it arrives on the two public consent endpoints. Wide over the 43

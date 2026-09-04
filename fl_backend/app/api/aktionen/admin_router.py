@@ -32,8 +32,9 @@ async def get_aktionen(
     with data from every collection at once, public or not.
     """
 
-    # One row past what is served, `get_bewerbungen`'s shape (`docs/backend/spec.md :: I45`): a
-    # year of recorded writes passes the cap by ordinary use, and a short page must say so.
+    # One row past what is served, `get_bewerbungen`'s shape (`docs/backend/spec.md :: I45`): the
+    # log holds twelve months of recorded writes, and whether that reaches the cap is what the
+    # extra row answers.
     read = await pull_many_from_db(
         collection=aktionen_collection,
         db_filter=build_query(

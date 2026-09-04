@@ -205,6 +205,9 @@ _BEWERBUNG_BESTAETIGUNG = _object(
     required=("token_hash", "verschickt_am", "erinnert_am", "abgelehnt_am"),
     properties={
         "token_hash": {"bsonType": "string"},
+        # The reminder's second hash: it mints a fresh link and keeps the one already in somebody's
+        # inbox valid. Out of `required` because the first mint writes only `token_hash`.
+        "token_hash_zuvor": {"bsonType": _STRING_OR_NULL},
         "verschickt_am": {"bsonType": "string"},
         "erinnert_am": {"bsonType": _STRING_OR_NULL},
         "abgelehnt_am": {"bsonType": _STRING_OR_NULL},
@@ -633,7 +636,6 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             required=(
                 "_id",
                 "at",
-                "at_date",
                 "actor",
                 "correlation_id",
                 "request",
@@ -648,8 +650,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             properties={
                 "_id": {"bsonType": "objectId"},
                 "at": {"bsonType": "string"},
-                # Required rather than merely typed: a TTL index never expires a document missing
-                # its key, so a row admitted without this one would sit in the log for ever.
+                # Out of `required`: the rows the log already holds carry none, and strict
+                # validation refuses an erasure's `$set` over an invalid row. `record_write` stamps
+                # every row it builds, so those are the only ones outside the retention.
                 "at_date": {"bsonType": "date"},
                 "actor": _AKTOR,
                 "correlation_id": {"bsonType": "string"},
@@ -714,7 +717,7 @@ class SupportIndex:
 
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # `_id` is in the key because the read SORTS by it: with `at` alone MongoDB cannot walk this
-    # index and scans the whole log instead -- measured, on a collection a year of writes fills
+    # index and scans the whole log instead -- measured, and the log holds twelve months of writes
     # (`app/api/aktionen/admin_router.py :: get_aktionen`).
     SupportIndex(
         Collection.AKTIONEN,
@@ -1246,7 +1249,7 @@ def _main() -> int:
         description="Report or apply the database constraints declared in this module.",
     )
     parser.add_argument("--check", action="store_true", help="report violations and the collMod privilege; writes nothing")
-    parser.add_argument("--apply", action="store_true", help="apply every validator and unique index, exactly as startup does")
+    parser.add_argument("--apply", action="store_true", help="apply every validator and every index, exactly as startup does")
     arguments = parser.parse_args()
 
     if arguments.check == arguments.apply:

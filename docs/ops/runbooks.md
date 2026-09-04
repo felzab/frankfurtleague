@@ -115,6 +115,22 @@ evidence it landed: those indexes constrain nothing, so no stored document can b
 (`fl_backend/app/core/constraints.py :: SupportIndex`). `--apply` or the next boot is what builds it, and
 either fails loudly if it cannot.
 
+**A changed RETENTION bound is the one index change that stops the deploy.** `create_index` refuses a
+name already held at different options rather than moving it, so `apply_constraints` raises and
+`fl_backend/app/core/db.py :: lifespan` fails the boot — the old bound still serving, which the
+refusal does not say. Move it at the keyboard first, from the same shell the `--check` above runs in:
+
+```javascript
+db.runCommand({ collMod: "aktionen", index: { name: "aktionen_retention", expireAfterSeconds: <new> } })
+```
+
+Dropping the index instead also works, the next boot rebuilding it at the declared bound; `collMod`
+is the smaller window, no read losing the index in between. `<new>` must equal
+`fl_backend/app/shared/schemas/bounds.py :: AKTION_RETENTION_SECONDS` in the checkout about to
+deploy, or the boot raises on the difference that is left. Mirrored from
+https://www.mongodb.com/docs/manual/reference/command/collMod/, which moves without us; read
+2026-09-04.
+
 **When `every junction row names a club that exists (saison_teams)` reports a group**, it has found a
 `saison_teams` row whose `team_id` matches no `teams` document. Nothing on the API produces one now — entry
 reads the club and answers 404 for an id `teams` does not hold

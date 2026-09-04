@@ -319,14 +319,20 @@ class TestWhoAndWhenARowIsAttributedTo:
 
 
 class TestTheRowAndTheValidatorAgree:
-    def test_a_recorded_row_carries_exactly_the_fields_the_validator_requires(self):
+    def test_a_recorded_row_carries_every_required_field_and_nothing_undeclared(self):
         """Row and `$jsonSchema` are hand-written from one shape, so without this a row short of a field is refused first in production."""
         target, log = build()
 
         asyncio.run(record_write(collection=as_collection(target), operation="insert", document_id=TEAM_OID))
 
+        schema = COLLECTION_VALIDATORS[Collection.AKTIONEN]["$jsonSchema"]
+        written = set(log.inserted[0])
+
         # `_id` is the driver's to add, and the one required field no row arrives carrying.
-        assert set(log.inserted[0]) | {"_id"} == set(COLLECTION_VALIDATORS[Collection.AKTIONEN]["$jsonSchema"]["required"])
+        assert set(schema["required"]) - {"_id"} <= written
+        # Containment rather than equality: `at_date` is written and out of `required`, the rows
+        # already in the log carrying none.
+        assert written <= set(schema["properties"])
 
     def test_the_recorded_collection_name_is_one_the_validator_admits(self):
         target, log = build()

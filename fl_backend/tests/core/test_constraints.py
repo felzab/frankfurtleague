@@ -663,9 +663,13 @@ def test_every_ttl_index_expires_on_a_date_field_the_validator_declares(ttl):
 
 
 @pytest.mark.parametrize("ttl", TTL_INDEXES, ids=lambda ttl: ttl.name)
-def test_every_ttl_index_key_is_required_of_every_row(ttl):
-    """MongoDB never expires a document missing the indexed field, so an optional key is a retention that stops for the rows that omit it."""
-    assert ttl.key in required_at(ttl.collection, ())
+def test_no_ttl_index_key_is_required_of_a_row(ttl):
+    """Required, the key invalidates every row the collection already held, and strict validation validates an UPDATE of one too.
+
+    What the retention costs instead is that those rows are never expired
+    (`fl_backend/tests/core/test_aktionen_validator_execution.py :: test_a_row_stored_before_the_retention_stamp_is_still_redactable`).
+    """
+    assert ttl.key not in required_at(ttl.collection, ())
 
 
 @pytest.mark.parametrize("index", UNIQUE_INDEXES, ids=lambda index: index.name)

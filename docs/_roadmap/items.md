@@ -312,12 +312,10 @@ page-owned editor and refuses one for a row control, and a restore on a log row 
 Whether Next's E592 reproduces on a page that stays mounted is what decides between a server action
 and a route handler of its own, and nobody has measured it.
 
-**Retention is ruled and the bound is not built.** `docs/datenschutz.md` §6 rules the log to a twelve-month
-TTL on the row's timestamp, reversing the indefinite retention `docs/backend/spec.md :: I119` states;
-until it lands no row is dropped. Either way a restore reaches a write only while its row stands,
-so the retention bound is the restore's reach. Erasing a person reaches the log as `redacted_at`, emptied and
-stamped in place (`:: I42`) — the values leave, the rows stay, and a restore over an emptied row replays
-nothing.
+**Retention is built, and it is this entry's reach.** `docs/backend/spec.md :: I119` expires a stamped
+log row twelve months after the write it recorded, and a restore reaches a write only while its row
+stands, so the retention bound is the restore's reach. A row carrying no stamp is expired by
+nothing, and its values leave at the once-only reset in `docs/datenschutz.md :: 3` instead.
 
 **Two kinds of write sit outside what any restore could replay — a pupil's erasure, and taking a
 season's draw away — and for different reasons.** The erasure keeps no image at all, the values
@@ -854,10 +852,12 @@ rows straddle the cut is one that search cannot show whole, and the toast is unc
 warning above it is not — so the instruction is given at the moment nothing is saying it may not
 hold.
 
-**What makes this grow rather than sit.** Every admin write appends a row, and no row is dropped
-today; `docs/datenschutz.md` §6 rules a twelve-month bound that is not built, and until it lands the
-share of the log this page can reach only falls. `get_aktionen`'s own comment states the
-consequence: the cap arrives by ordinary use.
+**Whether this grows or sits rests on a count nobody has taken.** Every admin write appends a row and
+`docs/backend/spec.md :: I119` expires a stamped one twelve months later, so the log settles at a
+year's recorded writes rather than climbing without end. Whether a year's writes pass
+`fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT` decides whether this page's reach
+falls at all, and nobody has counted them. `get_aktionen`'s own comment rests on the same premise:
+the extra row it reads is what answers whether the cap was reached.
 
 **Done** is the three terms the endpoint already takes being sent, and the facet counts coming from
 the server rather than from the rows one read returned — the same collision `2rz3-a754` meets on the
@@ -1990,12 +1990,13 @@ in-memory sort is over a set with a ceiling on it, and nothing in the product mo
 a sort chains a tie-break onto its leading key: the chained key is what puts the sort outside the
 index written for that read. `aktionen`, `spiele`, `spieltage` and `bewerbungen` each build one, and
 each was answered differently. `aktionen` got an index whose key is the read's whole sort, `at` then
-`_id`, because `fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` states at the line that it is
-the collection which only ever grows and so cannot be left to a scan. `bewerbungen` got neither an
+`_id`, because `fl_backend/app/core/constraints.py :: SUPPORT_INDEXES` states at the line that the log
+holds twelve months of writes and so cannot be left to a scan. `bewerbungen` got neither an
 index nor a removal: `fl_backend/app/api/bewerbungen/services.py :: build_bewerbungen_sort` turns
 the tie-break to follow the request, so the pair is the existing index's key or its exact inverse.
 `spiele` and `spieltage` got nothing, and are this entry. **So the discriminator is not whether the
-sort blocks — it is whether anything bounds the collection**, and a reader who finds a blocking sort
+sort blocks — it is how much the bound on the collection admits**, and a reader who finds a blocking
+sort
 and asks only the first question will either panic at this one or dismiss the next `aktionen`.
 
 **Trigger to revisit:** the season narrowing in `fl_backend/app/api/spiele/router.py` being removed,

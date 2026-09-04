@@ -62,6 +62,9 @@ CONFLICTING_SUPPORT_INDEX = "saisons_status"
 # The same planting for the TTL kind, over `at`: the name is claimed and the keys disagree, which is
 # also the shape of the mistake this index exists against.
 CONFLICTING_TTL_INDEX = "aktionen_retention"
+# A bound no declaration carries, planted so the apply beside it is asked to MOVE one rather than
+# build one.
+STALE_RETENTION_SECONDS = 60
 
 # Enough junction rows that the unique build over them outlasts the two-document build beside it.
 SLOW_BUILD_DOCUMENTS = 4000
@@ -779,6 +782,33 @@ def test_every_declared_ttl_index_is_built_over_its_key_with_its_bound(mongo_url
     assert on_the_shipped_schema(mongo_url, body) == [(ttl.name, ttl.seconds, {ttl.key: 1}) for ttl in TTL_INDEXES]
 
 
+@pytest.mark.parametrize("ttl", TTL_INDEXES, ids=lambda ttl: ttl.name)
+def test_an_apply_refuses_a_retention_bound_already_built_at_another_number(mongo_url: str, ttl: Any):
+    """`create_index` refuses a name held at different options rather than moving it, and startup runs this same apply.
+
+    A raised bound therefore fails the boot until the built index is dropped or `collMod`-ed by hand
+    (`docs/ops/runbooks.md :: 2`).
+    """
+
+    async def body(database: AsyncDatabase) -> tuple[str, Any]:
+        await database[ttl.collection].create_index([(ttl.key, ASCENDING)], name=ttl.name, expireAfterSeconds=STALE_RETENTION_SECONDS)
+        try:
+            await apply_constraints(database)
+            outcome = "carried on"
+        except RuntimeError as failure:
+            outcome = f"raised: {failure}"
+
+        built = {index["name"]: index async for index in await database[ttl.collection].list_indexes()}
+        return outcome, built[ttl.name].get("expireAfterSeconds")
+
+    outcome, bound = on_a_database(mongo_url, body)
+
+    assert outcome.startswith(f"raised: Could not build TTL index '{ttl.collection}.{ttl.name}'"), outcome
+    # Read back as well as caught: the refusal says nothing about what is still serving, and a
+    # retention left at the old number reads exactly like one at the new one.
+    assert bound == STALE_RETENTION_SECONDS
+
+
 @pytest.mark.parametrize(("db_filter", "order"), index_reads(BEWERBUNGEN_QUEUE_FILTERS))
 def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str, db_filter: dict[str, Any], order: str):
     """The property, not the key list: naming keys passes for an index this endpoint's own sort cannot use.
@@ -817,7 +847,7 @@ def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str
 
 @pytest.mark.parametrize(("db_filter", "order"), index_reads(AKTIONEN_QUEUE_FILTERS))
 def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str, db_filter: dict[str, Any], order: str):
-    """The log takes a row for every recorded write and keeps it twelve months, so a scan here reads them all.
+    """The log holds twelve months of recorded writes, so a read that cannot walk an index scans them all.
 
     `correlation_id` is left out: it selects one write's fan-out, which the planner sorts in memory
     over a handful of rows.
