@@ -18,7 +18,6 @@ behaviour differs from a ruling, the entry says so.
 | [5. Erasure reaches everyone who asks](#5-erasure-reaches-everyone-who-asks)                               | Who can be erased, what erasure reaches, what it does not    |
 | [6. Retention is bounded where a bound was chosen](#6-retention-is-bounded-where-a-bound-was-chosen)       | The action log, applications, contacts, access logs          |
 | [7. Processors and third parties](#7-processors-and-third-parties)                                         | Who receives data, under which agreement, and the gaps       |
-| [8. Two procedures still to be written](#8-two-procedures-still-to-be-written)                             | Rights requests and breaches                                 |
 | [9. A local copy of production expires](#9-a-local-copy-of-production-expires)                             | The development practice the rulings bound                   |
 | [10. Adjacent decisions were accepted as recommended](#10-adjacent-decisions-were-accepted-as-recommended) | Roadmap items that needed no expert                          |
 | [11. Open, and owed a decision](#11-open-and-owed-a-decision)                                              | What the rulings above do not settle                         |
@@ -29,13 +28,6 @@ behaviour differs from a ruling, the entry says so.
   "Frankfurt League e. V. i. G." until the register entry exists, and drops the suffix the day it
   does. No school and no individual is the controller; the league is run by its pupils as an
   association, and a school-law basis is unavailable.
-- **The supervisory authority is Der Hessische Beauftragte für Datenschutz und
-  Informationsfreiheit** in Wiesbaden, reached at datenschutz.hessen.de, which supervises
-  associations seated in Hesse. A personal-data breach is reported through its Art. 33 form within
-  72 hours of becoming aware of it; requesting the upload link does not stop that clock. That is a
-  fact mirrored from the authority's own pages, which move without us and were read on 2026-09-02,
-  and not a ruling; it is here because
-  [section 8](#8-two-procedures-still-to-be-written)'s breach procedure needs it.
 - **Every request — withdrawal of a consent, access, rectification, erasure, objection — goes to
   kontakt@frankfurtleague.de** until people can act for themselves. The application form's text
   (`fl_frontend/src/core/einwilligung.ts :: LIGA_EINWILLIGUNG`) and the confirmation page's
@@ -192,16 +184,6 @@ owed:
 - Record Resend's United States storage as a transfer.
 - Leave the gaps in bold accepted, and named so the notice can tell the truth about them.
 
-## 8. Two procedures still to be written
-
-- **Rights beyond erasure get one runbook section, not six features.** Access, rectification,
-  objection, portability, restriction and withdrawal have no route and no documented handling
-  today; at this scale a documented human procedure — who handles a request, what they do, how
-  long it may take — answers all of them. It lands in `docs/ops/runbooks.md`.
-- **A personal-data breach gets one runbook section**, written before it is needed: the
-  authority's form, the 72-hour window, and what can and cannot be established from logs that
-  rotate. It lands beside the first.
-
 ## 9. A local copy of production expires
 
 - **A local copy of production refuses to be reused after seven days.** `./scripts/ops/local.sh --seed`
@@ -227,8 +209,9 @@ still to do is that entry's own `Status` in [`_roadmap/items.md`](_roadmap/items
 ## 11. Open, and owed a decision
 
 - **No Datenschutzexperte has seen the rulings this page does not mark as consulted**, and the
-  privacy notice they feed is still a draft. The two together are the gate on everything in
-  [section 8](#8-two-procedures-still-to-be-written).
+  privacy notice they feed is still a draft. Both stand over the request and the breach procedures
+  in [`ops/runbooks.md`](ops/runbooks.md), which answer a person on the strength of the rulings
+  above.
 - **The access-log bound is not yet configured at Cloudflare's own edge.**
   [Section 6](#6-retention-is-bounded-where-a-bound-was-chosen) is meant to reach the edge log
   (`docs/logging/spec.md :: Cloudflare logs the request line`) as well as the host's; Cloudflare's

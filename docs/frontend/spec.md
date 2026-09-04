@@ -777,6 +777,11 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   a number range (`von 2 bis 16`), not a scoreline, not `format.ts :: PLACEHOLDER`'s digit masks —
   and licenses no parenthetical and no substitute for a colon or a comma. A range not named here is
   a question to ask, never an analogy to extend.
+- **A quotation inside a rendered string takes the German pair `„ … “`** — never a straight `"`,
+  and never the English `“ … ”`. The scope above already leaves a comment and a test's own message
+  out, and a comment quoting a rendered string tracks it;
+  `scripts/checks/docs_gate/copy_rules.py` reads dashes, register and terms and not quotation marks,
+  so this one is held by review alone.
 - **An interpolated noun must read correctly for every value it can take** (my rule, 2026-08-13):
   its article, its plural, and any pronoun agreeing with it. **Recast rather than adding a gender
   map beside the label map** — a tag lead, a readout, or a sentence per count — because two
