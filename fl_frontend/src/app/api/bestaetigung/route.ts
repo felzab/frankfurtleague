@@ -1,8 +1,7 @@
 import { buildBewerbungAblehnungEmail, buildBewerbungVollstaendigEmail } from "@/core/bewerbungEmail";
 import { logger } from "@/core/logging";
-import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
-import { rollenText, sendBewerbungMail } from "@/features/bewerbungen/notifications";
+import { rollenText, rolleText, sendBewerbungMail } from "@/features/bewerbungen/notifications";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
 import { FLBewerbungEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
 import { mapEinwilligungRefusal, stampEinwilligungFassung } from "@/features/bewerbungen/utils";
@@ -11,7 +10,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import type { FLBewerbungEinwilligungAntwortResponse, FLKontaktRolle } from "@/features/bewerbungen/schemas";
+import type { FLBewerbungEinwilligungAntwortResponse } from "@/features/bewerbungen/schemas";
 import type { LinkZustand } from "@/features/bewerbungen/types";
 import type { NextRequest } from "next/server";
 
@@ -22,11 +21,6 @@ async function beantworteterZustand(token: string): Promise<LinkZustand> {
   // `gueltig` is the write's refusal and this read disagreeing, and the panel naming nobody is the
   // one answer that claims nothing about a record.
   return zustand === "gueltig" ? "ungueltig" : zustand;
-}
-
-/** What one seat is called where a message names it to somebody else. */
-function seatLabel(rolle: FLKontaktRolle): string {
-  return BEWERBUNG_SEATS.find((seat) => seat.value === rolle)?.label ?? "";
 }
 
 /**
@@ -57,7 +51,7 @@ async function notifyAnsprechperson(antwort: FLBewerbungEinwilligungAntwortRespo
             rollenText: rollen,
             // Named off the answer rather than a second read: the decline emptied the slot this
             // came from, and nothing left in the record can say whose entry was refused.
-            abgelehnt: { vorname: antwort.vorname, rolleText: seatLabel(antwort.rolle) },
+            abgelehnt: { vorname: antwort.vorname, rolleText: rolleText(antwort.rolle) },
             fristText: formatSpielDatum(antwort.bestaetigungsfrist),
           }),
   });

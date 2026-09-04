@@ -7,14 +7,14 @@ import { parseDate } from "@internationalized/date";
 
 import { Button, Calendar, DateField, DatePicker, FieldError, Form, Label, Switch } from "@heroui/react";
 
-import { BESTAETIGUNG_ABSAETZE, BESTAETIGUNG_EINWILLIGUNG, fuelleFassung } from "@/core/einwilligung";
+import { BESTAETIGUNG_EINWILLIGUNG } from "@/core/einwilligung";
 import { BEWERBUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
 import { FLBewerbungEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { confirmButton } from "@/shared/components/ui/formButtons";
+import { confirmButton, formButton } from "@/shared/components/ui/formButtons";
 import {
   DATE_PICKER_CALENDAR,
   DATE_PICKER_PLACEMENT,
@@ -29,7 +29,6 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
-import { textLink } from "@/shared/components/ui/textLink";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
@@ -75,6 +74,8 @@ const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es er
  */
 const RATE_LIMIT_STATUS = 429;
 const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann noch einmal.";
+
+const GEBURTSDATUM_HINWEIS = `Kontaktperson kann sein, wer mindestens ${String(BEWERBUNG_MIN_ALTER)} ist. Das Datum wird mit Deinem Eintrag gespeichert.`;
 
 /** The date mid-entry is a string, `""` being the empty picker; the judged shape is the payload's. */
 type Entwurf = { geburtsdatum: string; whatsapp: boolean };
@@ -122,7 +123,195 @@ async function sendeAntwort(payload: FLBewerbungEinwilligungAntwortPayload): Pro
 }
 
 /**
- * **The acknowledgement is the press, not a switch**: the sentence above the button says what the
+ * **Rendered in both states and only ever disabled**: withdrawing these two under the armed
+ * objection is the reflow that walked the buttons out from under the pointer that had just armed
+ * them.
+ */
+export function BestaetigungAngaben({
+  entwurf,
+  onEntwurf,
+  onGeburtsdatumVerlassen,
+  isDisabled,
+  hinweisId,
+}: {
+  entwurf: Entwurf;
+  onEntwurf: (entwurf: Entwurf) => void;
+  onGeburtsdatumVerlassen: () => void;
+  isDisabled: boolean;
+  hinweisId: string;
+}) {
+  const panel = formPanel();
+  const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr());
+
+  return (
+    <>
+      <section className="flex flex-col gap-y-3">
+        <h3 className={FORM_SECTION_HEADING}>Deine Angaben</h3>
+
+        {/* The form's own field grid, so one box on a wide page stands in a column rather than
+            stretching the segments across it. */}
+        <div className={FIELD_PAIR}>
+          <div className="flex flex-col gap-y-2">
+            <DatePicker
+              isRequired
+              isDisabled={isDisabled}
+              name="geburtsdatum"
+              value={toCalendarDate(entwurf.geburtsdatum)}
+              onChange={(next) => onEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
+              onBlur={onGeburtsdatumVerlassen}
+              aria-describedby={hinweisId}
+              className="w-full">
+              <Label className={FIELD_LABEL}>Dein Geburtsdatum</Label>
+              <DateField.Group
+                fullWidth
+                className={FIELD_GROUP}>
+                <DateField.Input className="fluid-sm">
+                  {(segment) => (
+                    <DateField.Segment
+                      segment={segment}
+                      className="data-[type=literal]:text-foreground-muted"
+                    />
+                  )}
+                </DateField.Input>
+                <DateField.Suffix>
+                  <DatePicker.Trigger>
+                    <DatePicker.TriggerIndicator />
+                  </DatePicker.Trigger>
+                </DateField.Suffix>
+              </DateField.Group>
+              <FieldError className={FIELD_ERROR} />
+              <DatePicker.Popover
+                className={DATE_PICKER_POPOVER}
+                placement={DATE_PICKER_PLACEMENT}>
+                {/* The span greys days out where dates are OFFERED, never on the field, which judges: a
+                    bound there paints a message on each keystroke of a half-typed year. */}
+                <Calendar
+                  aria-label="Geburtsdatum auswählen"
+                  minValue={parseDate(frueheste)}
+                  maxValue={parseDate(spaeteste)}
+                  className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>
+                  <Calendar.Header className="bg-transparent">
+                    <Calendar.YearPickerTrigger>
+                      <Calendar.YearPickerTriggerHeading />
+                      <Calendar.YearPickerTriggerIndicator />
+                    </Calendar.YearPickerTrigger>
+                    <Calendar.NavButton slot="previous" />
+                    <Calendar.NavButton slot="next" />
+                  </Calendar.Header>
+                  <Calendar.Grid>
+                    <Calendar.GridHeader>{(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}</Calendar.GridHeader>
+                    <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
+                  </Calendar.Grid>
+                  <Calendar.YearPickerGrid>
+                    <Calendar.YearPickerGridBody>{({ year }) => <Calendar.YearPickerCell year={year} />}</Calendar.YearPickerGridBody>
+                  </Calendar.YearPickerGrid>
+                </Calendar>
+              </DatePicker.Popover>
+            </DatePicker>
+            {/* One wording in both states: a hint that rewrote itself on arming would move every
+                control under it, which is the shift this section exists to avoid. */}
+            <Hint
+              mode="inline"
+              describes={hinweisId}
+              text={GEBURTSDATUM_HINWEIS}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-y-3">
+        <h3 className={FORM_SECTION_HEADING}>Freiwillig</h3>
+        {/* Off on first paint and switched by nothing but a press: a pre-ticked consent records nothing. */}
+        <Switch
+          className="flex w-full flex-col gap-y-1"
+          name="whatsapp"
+          isDisabled={isDisabled}
+          isSelected={entwurf.whatsapp}
+          onChange={(whatsapp) => onEntwurf({ ...entwurf, whatsapp: whatsapp })}>
+          <Switch.Content className={panel.switchContent()}>
+            {BESTAETIGUNG_EINWILLIGUNG.schalter}
+            <Switch.Control className={panel.switchControl()}>
+              <Switch.Thumb />
+            </Switch.Control>
+          </Switch.Content>
+        </Switch>
+        <WhatsappHinweis />
+      </section>
+    </>
+  );
+}
+
+/**
+ * **The row's shape does not change when the objection arms**: the cancel takes the slot the
+ * objection stood in, so no new control lands under a finger already on the first.
+ */
+export function BestaetigungEntscheidung({
+  isConfirming,
+  isPending,
+  isDeclining,
+  beschreibtId,
+  onWiderspruch,
+  onCancel,
+}: {
+  isConfirming: boolean;
+  /** The confirmation's own flight, which the objection's `isDeclining` is graded apart from. */
+  isPending: boolean;
+  isDeclining: boolean;
+  beschreibtId: string;
+  onWiderspruch: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex w-full flex-col gap-y-3">
+      <ConfirmActionRow
+        isConfirming={isConfirming}
+        isPending={isDeclining}
+        onCancel={onCancel}>
+        {/* The fill grades the press on offer: the armed objection wears `destructive`, the confirmation the submit fill. */}
+        <Button
+          type="submit"
+          isPending={isPending || isDeclining}
+          isDisabled={isPending || isDeclining}
+          aria-describedby={isConfirming ? undefined : beschreibtId}
+          className={confirmButton(isConfirming)}>
+          {!isConfirming && (
+            <CircleCheck
+              aria-hidden="true"
+              width={18}
+              height={18}
+            />
+          )}
+          {isConfirming ? (isDeclining ? "Wird gesendet..." : WIDERSPRUCH_SENDEN) : isPending ? "Wird gespeichert..." : "Eintrag bestätigen"}
+        </Button>
+
+        {!isConfirming && (
+          <Button
+            type="button"
+            variant="secondary"
+            isDisabled={isPending}
+            onPress={onWiderspruch}
+            className={formButton({ intent: "cancel", stacks: true })}>
+            {ABLEHNEN_LABEL}
+          </Button>
+        )}
+      </ConfirmActionRow>
+
+      {/* Under the row rather than over it: opening the alert above the buttons is what walked them
+          down the page between the two presses it takes to send. */}
+      {isConfirming && (
+        <ConfirmReveal>
+          <p className="fluid-xxs text-foreground leading-normal font-medium">
+            Ohne Deine Bestätigung kann die Bewerbung nicht vollständig werden. Deine Angaben oben brauchen wir für einen Widerspruch nicht.
+          </p>
+          <WiderspruchFolge />
+        </ConfirmReveal>
+      )}
+    </div>
+  );
+}
+
+/**
+ * **The acknowledgement is the press, not a switch**: the four points above the button say what the
  * press records, and a required „gelesen“ switch would be a second act recording the same thing.
  */
 export function BestaetigungFormPanel({
@@ -141,13 +330,12 @@ export function BestaetigungFormPanel({
   rolle: string;
   onAbschluss: (abschluss: BestaetigungAbschluss) => void;
 }) {
-  const panel = formPanel();
   const [isPending, startTransition] = useTransition();
   const [entwurf, setEntwurf] = useState<Entwurf>({ geburtsdatum: "", whatsapp: false });
   const { isConfirming, isPending: isDeclining, press, cancel } = useTwoPressConfirm();
 
   const geburtsdatumHinweisId = useId();
-  const bestaetigungSatzId = useId();
+  const klickPunkteId = useId();
 
   // The payload the write is judged by, judging the draft too: a second schema here would be the
   // page refusing at numbers the endpoint does not, on the day the two disagree.
@@ -157,7 +345,7 @@ export function BestaetigungFormPanel({
 
   useForgiveFixed({ einwilligung: antwortPayload(token, entwurf, isConfirming) });
 
-  const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr());
+  const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr());
 
   // The floor's alone, never the ceiling's: a date past the ceiling is a mistyped century, and
   // sending a 190-year-old to the submitter for a replacement is the wrong repair.
@@ -239,172 +427,40 @@ export function BestaetigungFormPanel({
       />
 
       <BestaetigungAbschnitt titel="Deine Antwort">
-        {/* Both hidden while the objection is armed: an objection asks for no date, and a consent
-            beside a refusal is a contradiction the page must not be able to send. */}
-        {!isConfirming && (
-          <>
-            <section className="flex flex-col gap-y-3">
-              <h3 className={FORM_SECTION_HEADING}>Freiwillig</h3>
-              {/* Off on first paint and switched by nothing but a press: a pre-ticked consent records nothing. */}
-              <Switch
-                className="flex w-full flex-col gap-y-1"
-                name="whatsapp"
-                isSelected={entwurf.whatsapp}
-                onChange={(whatsapp) => setEntwurf({ ...entwurf, whatsapp: whatsapp })}>
-                <Switch.Content className={panel.switchContent()}>
-                  {BESTAETIGUNG_EINWILLIGUNG.schalter}
-                  <Switch.Control className={panel.switchControl()}>
-                    <Switch.Thumb />
-                  </Switch.Control>
-                </Switch.Content>
-              </Switch>
-              <WhatsappHinweis />
-            </section>
+        <KlickBestaetigung
+          id={klickPunkteId}
+          vorname={vorname}
+          schule={schule}
+          rolle={rolle}
+        />
 
-            {/* The form's own field grid, so one box on a wide page stands in a column rather than
-                stretching the segments across it. */}
-            <div className={FIELD_PAIR}>
-              <div className="flex flex-col gap-y-2">
-                <DatePicker
-                  isRequired
-                  name="geburtsdatum"
-                  value={toCalendarDate(entwurf.geburtsdatum)}
-                  onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
-                  onBlur={() => validatePaths("einwilligung", antwortPayload(token, entwurf, false), ["geburtsdatum"])}
-                  aria-describedby={geburtsdatumHinweisId}
-                  className="w-full">
-                  <Label className={FIELD_LABEL}>Dein Geburtsdatum</Label>
-                  <DateField.Group
-                    fullWidth
-                    className={FIELD_GROUP}>
-                    <DateField.Input className="fluid-sm">
-                      {(segment) => (
-                        <DateField.Segment
-                          segment={segment}
-                          className="data-[type=literal]:text-foreground-muted"
-                        />
-                      )}
-                    </DateField.Input>
-                    <DateField.Suffix>
-                      <DatePicker.Trigger>
-                        <DatePicker.TriggerIndicator />
-                      </DatePicker.Trigger>
-                    </DateField.Suffix>
-                  </DateField.Group>
-                  <FieldError className={FIELD_ERROR} />
-                  <DatePicker.Popover
-                    className={DATE_PICKER_POPOVER}
-                    placement={DATE_PICKER_PLACEMENT}>
-                    {/* The span greys days out where dates are OFFERED, never on the field, which judges: a
-                        bound there paints a message on each keystroke of a half-typed year. */}
-                    <Calendar
-                      aria-label="Geburtsdatum auswählen"
-                      minValue={parseDate(frueheste)}
-                      maxValue={parseDate(spaeteste)}
-                      className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>
-                      <Calendar.Header className="bg-transparent">
-                        <Calendar.YearPickerTrigger>
-                          <Calendar.YearPickerTriggerHeading />
-                          <Calendar.YearPickerTriggerIndicator />
-                        </Calendar.YearPickerTrigger>
-                        <Calendar.NavButton slot="previous" />
-                        <Calendar.NavButton slot="next" />
-                      </Calendar.Header>
-                      <Calendar.Grid>
-                        <Calendar.GridHeader>{(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}</Calendar.GridHeader>
-                        <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
-                      </Calendar.Grid>
-                      <Calendar.YearPickerGrid>
-                        <Calendar.YearPickerGridBody>{({ year }) => <Calendar.YearPickerCell year={year} />}</Calendar.YearPickerGridBody>
-                      </Calendar.YearPickerGrid>
-                    </Calendar>
-                  </DatePicker.Popover>
-                </DatePicker>
-                <Hint
-                  mode="inline"
-                  describes={geburtsdatumHinweisId}
-                  text={`Kontaktperson kann sein, wer mindestens ${String(BEWERBUNG_MIN_ALTER)} ist. Das Datum wird mit Deinem Eintrag gespeichert.`}
-                />
-              </div>
-            </div>
+        <BestaetigungAngaben
+          entwurf={entwurf}
+          onEntwurf={setEntwurf}
+          onGeburtsdatumVerlassen={() => validatePaths("einwilligung", antwortPayload(token, entwurf, false), ["geburtsdatum"])}
+          isDisabled={isConfirming}
+          hinweisId={geburtsdatumHinweisId}
+        />
 
-            {istZuJung && (
-              <Callout
-                severity="warning"
-                isAnnounced
-                title="Mit diesem Geburtsdatum kannst Du keine Kontaktperson sein.">
-                Hast Du Dich vertippt? Dann korrigiere das Datum. Stimmt es, sag der Person Bescheid, die die Bewerbung eingereicht hat: Diese
-                Person braucht jemanden ab {String(BEWERBUNG_MIN_ALTER)} in Deiner Rolle. Du kannst dem Eintrag auch widersprechen, dann
-                entfernen wir Deine Angaben.
-              </Callout>
-            )}
-
-            <KlickBestaetigung
-              vorname={vorname}
-              schule={schule}
-              rolle={rolle}
-            />
-          </>
+        {istZuJung && (
+          <Callout
+            severity="warning"
+            isAnnounced
+            title="Mit diesem Geburtsdatum kannst Du keine Kontaktperson sein.">
+            Hast Du Dich vertippt? Dann korrigiere das Datum. Stimmt es, sag der Person Bescheid, die die Bewerbung eingereicht hat: Diese
+            Person braucht jemanden ab {String(BEWERBUNG_MIN_ALTER)} in Deiner Rolle. Du kannst dem Eintrag auch widersprechen, dann entfernen
+            wir Deine Angaben.
+          </Callout>
         )}
 
-        {isConfirming && (
-          <ConfirmReveal>
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
-              Ohne Deine Bestätigung kann die Bewerbung nicht vollständig werden.
-            </p>
-            <WiderspruchFolge />
-          </ConfirmReveal>
-        )}
-
-        <div className="flex flex-col items-stretch gap-y-3">
-          {!isConfirming && (
-            <p
-              id={bestaetigungSatzId}
-              className="muted-meta max-w-2xl text-pretty">
-              {fuelleFassung(BESTAETIGUNG_ABSAETZE.klickSatz, { vorname: vorname, rolle: rolle })}
-            </p>
-          )}
-
-          {/* The fill grades the press on offer: the armed objection wears `destructive`, the confirmation the submit fill. */}
-          <ConfirmActionRow
-            isConfirming={isConfirming}
-            isPending={isDeclining}
-            onCancel={cancel}>
-            <Button
-              type="submit"
-              isPending={isPending || isDeclining}
-              isDisabled={isPending || isDeclining}
-              aria-describedby={isConfirming ? undefined : bestaetigungSatzId}
-              className={confirmButton(isConfirming)}>
-              {!isConfirming && (
-                <CircleCheck
-                  aria-hidden="true"
-                  width={18}
-                  height={18}
-                />
-              )}
-              {isConfirming
-                ? isDeclining
-                  ? "Wird gesendet..."
-                  : WIDERSPRUCH_SENDEN
-                : isPending
-                  ? "Wird gespeichert..."
-                  : "Eintrag bestätigen"}
-            </Button>
-          </ConfirmActionRow>
-
-          {/* Dressed as the text link it reads as (`docs/frontend/spec.md :: I78`), though it is a control that navigates nowhere. */}
-          {!isConfirming && (
-            <Button
-              type="button"
-              variant="ghost"
-              isDisabled={isPending}
-              onPress={() => press(sendeWiderspruch)}
-              className={`${textLink({ tone: "muted" })} fluid-xs cursor-pointer self-start font-bold`}>
-              {ABLEHNEN_LABEL}
-            </Button>
-          )}
-        </div>
+        <BestaetigungEntscheidung
+          isConfirming={isConfirming}
+          isPending={isPending}
+          isDeclining={isDeclining}
+          beschreibtId={klickPunkteId}
+          onWiderspruch={() => press(sendeWiderspruch)}
+          onCancel={cancel}
+        />
       </BestaetigungAbschnitt>
     </Form>
   );

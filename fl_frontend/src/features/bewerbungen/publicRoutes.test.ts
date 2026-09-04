@@ -35,10 +35,11 @@ const { formPanel } = await import("@/shared/components/ui/formPanel.ts");
 const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
 const { fensterZustand, stampEinwilligungFassung } = await import("./utils.ts");
 const { FLBewerbungEinwilligungAntwortPayloadSchema } = await import("./schemas.ts");
-const { ABLEHNEN_LABEL, BESTAETIGUNG_FELDER, BestaetigungFormPanel, WIDERSPRUCH_SENDEN } =
+const { ABLEHNEN_LABEL, BESTAETIGUNG_FELDER, BestaetigungAngaben, BestaetigungEntscheidung, BestaetigungFormPanel, WIDERSPRUCH_SENDEN } =
   await import("./components/views/BestaetigungFormPanel.tsx");
 const { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, WiderspruchFolge } =
   await import("./components/views/BestaetigungHinweise.tsx");
+const { FaktenBanner } = await import("./components/views/BestaetigungPanels.tsx");
 const { BestaetigungView } = await import("./components/views/BestaetigungView.tsx");
 
 const FRONTEND_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -440,6 +441,14 @@ describe("who the submission's receipt is addressed to", () => {
     assert.match(POST_ROUTE, /link: bestaetigungsLink\(seats\.ansprechperson\)/, "the receipt carries no link of its own");
   });
 
+  /* A handler answers a request rather than rendering, so this is read: one person holding two seats
+     is one press, and a receipt listing both rows sends the submitter chasing a colleague the other
+     row already reached. */
+  it("folds a mirrored pair into one outstanding entry, as the link fan-out folds it", () => {
+    assert.match(POST_ROUTE, /seat\.value !== "trainer" \|\| zugleich === null/, "the outstanding list keeps the mirrored Trainer row");
+    assert.match(POST_ROUTE, /rollenText\(\[seat\.value, "trainer"\]\)/, "the surviving row does not name both seats that person holds");
+  });
+
   /* The token rides in a parameter spelled `token`, which is what the edge's redaction maps strip.
      One module spells it, so a rename cannot leave a second spelling the maps do not cover. */
   it("spells every link the one way the edge redacts", () => {
@@ -767,7 +776,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
   const HINWEISE = [
     renderMarkup(BestaetigungHinweise, { schule: SLOTS.schule, saison: SLOTS.saison, rolle: SLOTS.rolle, ablehnenLabel: ABLEHNEN_LABEL }),
     renderMarkup(WhatsappHinweis, {}),
-    renderMarkup(KlickBestaetigung, { vorname: SLOTS.vorname, schule: SLOTS.schule, rolle: SLOTS.rolle }),
+    renderMarkup(KlickBestaetigung, { id: "klick-punkte", vorname: SLOTS.vorname, schule: SLOTS.schule, rolle: SLOTS.rolle }),
     renderMarkup(WiderspruchFolge, {}),
   ].join("");
 
@@ -791,23 +800,33 @@ describe("which of the confirmation page's words its stamped version covers", ()
   });
 
   /* The other direction, which the case above cannot see: a paragraph nothing renders leaves the
-     record citing more than its reader read. `klickSatz` is the form's own and is asserted below. */
+     record citing more than its reader read. */
   it("renders every paragraph the version holds", () => {
     const gerendert = new Set(absaetzeVon(HINWEISE));
 
     for (const schluessel of Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]) {
-      if (schluessel === "klickSatz") continue;
       assert.ok(gerendert.has(gestempelt(schluessel)), `the version holds ${schluessel}, which the page renders nowhere`);
     }
   });
 
-  /* The two the form renders itself. The sentence under the button is what the press records, and
-     the switch label is the one thing on the page that is consented to rather than confirmed. */
-  it("takes the sentence beside the button and the switch's label off that same version", () => {
+  /* The switch is the one thing consented to rather than confirmed, and the button describes itself
+     by the stamped points rather than a summary beside them, which read as a second promise. */
+  it("takes the switch's label off that same version, and points the button at the stamped four", () => {
     const text = textOf(FORMULAR);
+    const beschrieben = [...FORMULAR.matchAll(/aria-describedby="([^"]*)"/g)].flatMap((treffer) => (treffer[1] ?? "").split(" "));
 
-    assert.ok(text.includes(gestempelt("klickSatz")), "the sentence the button describes itself by is not the stamped one");
     assert.ok(text.includes(BESTAETIGUNG_EINWILLIGUNG.schalter), "the switch says something the stamped version does not hold");
+    assert.ok(beschrieben.length > 0, "no control on the form describes itself by anything at all");
+    assert.ok(
+      // Cut at the first close, which is this block's: the four points stand in a list, and no
+      // element between the id and them opens a `div` of its own.
+      beschrieben.some((id) => {
+        const anfang = FORMULAR.indexOf(`id="${id}"`);
+
+        return anfang !== -1 && FORMULAR.slice(anfang).split("</div>")[0]?.includes(gestempelt("klickIdentitaet")) === true;
+      }),
+      "no described element holds the stamped points, so the button promises something written nowhere",
+    );
   });
 
   /* A stamped sentence copied into the panel's own prose leaves two wordings of one paragraph free
@@ -948,6 +967,81 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
         assert.doesNotMatch(textOf(passage), /ablehn/i, `${zustand} calls the act by the retired word: ${textOf(passage)}`);
       }
     }
+  });
+});
+
+describe("how the confirmation page banners the facts a reader arrived with", () => {
+  const ZEILEN = [
+    { label: "Schule", wert: "Gymnasium an einer sehr langen Straße im Frankfurter Norden" },
+    { label: "Saison", wert: "2026" },
+    { label: "Deine Rolle", wert: "Ansprechperson" },
+  ];
+  const BANNER = renderMarkup(FaktenBanner, { zeilen: ZEILEN });
+
+  /* The mails panel these same facts in a row, and a page that stacks them on a phone spends its
+     whole first screen on three facts the reader already met in the mail. */
+  it("keeps every fact on one row, at every width", () => {
+    const wurzel = /class="([^"]*)"/.exec(BANNER)?.[1] ?? "";
+
+    assert.match(wurzel, /(^| )flex-row( |$)/, "the banner is not a row to begin with");
+    assert.doesNotMatch(wurzel, /flex-wrap|flex-col|grid/, "the banner may break out of one row");
+    assert.doesNotMatch(BANNER, /:flex-col|:flex-wrap|:grid/, "the banner takes another shape at some width");
+  });
+
+  /* A row that never wraps has one way left to fail: a school name pushing the season off the
+     screen. The ellipsis is what stops it, and `title` is where the whole name is then read. */
+  it("truncates every value and keeps the whole of it in reach", () => {
+    const werte = [...BANNER.matchAll(/<dd([^>]*)>/g)].map((treffer) => treffer[1] ?? "");
+
+    assert.equal(werte.length, ZEILEN.length, "the banner rendered a different number of values than it was handed");
+    for (const [index, attribute] of werte.entries()) {
+      assert.match(attribute, /(^|\s|")truncate(\s|")/, `value ${String(index)} carries no truncation`);
+      assert.ok(attribute.includes(`title="${ZEILEN[index]?.wert ?? ""}"`), `value ${String(index)} keeps its whole text nowhere`);
+    }
+  });
+});
+
+describe("what arming the objection is allowed to move on the confirmation page", () => {
+  const angaben = (isDisabled: boolean): string =>
+    renderMarkup(BestaetigungAngaben, {
+      entwurf: { geburtsdatum: "", whatsapp: false },
+      onEntwurf: () => undefined,
+      onGeburtsdatumVerlassen: () => undefined,
+      isDisabled: isDisabled,
+      hinweisId: "geburtsdatum-hinweis",
+    });
+
+  const entscheidung = (isConfirming: boolean): string =>
+    renderMarkup(BestaetigungEntscheidung, {
+      isConfirming: isConfirming,
+      isPending: false,
+      isDeclining: false,
+      beschreibtId: "klick-punkte",
+      onWiderspruch: () => undefined,
+      onCancel: () => undefined,
+    });
+
+  // Deduplicated: the date picker publishes its name on both the group it submits from and the
+  // field a browser autofills into, and neither is a second thing being asked for.
+  const feldNamen = (html: string): string[] => [...new Set([...html.matchAll(/\sname="([^"]*)"/g)].map((treffer) => treffer[1] ?? ""))].sort();
+  const knopfZahl = (html: string): number => [...html.matchAll(/<button\b/g)].length;
+
+  /* Withdrawing the two controls is what walked the button row up the page under the pointer that
+     had just armed it; disabled, they hold their place and still say the objection wants neither. */
+  it("asks for the same fields armed as unarmed", () => {
+    assert.deepEqual(feldNamen(angaben(false)), [...BESTAETIGUNG_FELDER].sort(), "the form renders a control for another set of paths");
+    assert.deepEqual(feldNamen(angaben(true)), feldNamen(angaben(false)), "arming the objection takes a field off the page");
+  });
+
+  /* The cancel takes the objection's slot rather than joining it: a third control appearing in the
+     row moves the press the reader is aiming at. */
+  it("leaves the row the same number of buttons to seat", () => {
+    assert.equal(knopfZahl(entscheidung(false)), 2, "the unarmed row offers something other than the two presses");
+    assert.equal(
+      knopfZahl(entscheidung(true)),
+      knopfZahl(entscheidung(false)),
+      "arming the objection changes how many buttons stand in the row",
+    );
   });
 });
 

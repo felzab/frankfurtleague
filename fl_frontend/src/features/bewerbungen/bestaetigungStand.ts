@@ -96,17 +96,6 @@ export function endstand(staende: readonly SitzBestaetigung[]): string | null {
 }
 
 /**
- * German lists nothing with a comma before its last item. Spelled here rather than imported from
- * `fl_frontend/src/core/bewerbungEmail.ts :: joinUnd`, which is `server-only` and so out of reach of
- * a component the browser runs.
- */
-function nenneUnd(teile: readonly string[]): string {
-  if (teile.length < 2) return teile[0] ?? "";
-
-  return `${teile.slice(0, -1).join(", ")} und ${teile[teile.length - 1]!}`;
-}
-
-/**
  * What stands where a name would. The two ways a seat empties read differently because the league
  * did different things: a person declined their own entry, or asked to be forgotten
  * (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`).
@@ -118,7 +107,9 @@ function leerSatz(stand: Stand): string {
 /** One seat's state as a sentence. A reminded seat names the reminder: that is the day the person last heard from the league. */
 function standSatz(stand: Stand): string {
   if (stand.art === "bestaetigt") return `Bestätigt am ${formatSpielDatum(stand.am)}`;
-  if (stand.art === "abgelehnt") return `Abgelehnt am ${formatSpielDatum(stand.am)}`;
+  // The queue's badge word in its participle: „Abgelehnt“ is the APPLICATION's own status, and one
+  // root for a seat's refusal and the league's decision puts two facts about one row under one word.
+  if (stand.art === "abgelehnt") return `Widersprochen am ${formatSpielDatum(stand.am)}`;
   if (stand.art === "geloescht") return "Keine Bestätigung mehr möglich";
 
   if (stand.erinnertAm !== null) return `Ausstehend, erinnert am ${formatSpielDatum(stand.erinnertAm)}`;
@@ -173,9 +164,7 @@ export function zusageHindernis(staende: readonly SitzBestaetigung[] | null, tea
 
   if (offen.some(istEndgueltig)) return "Wo für eine Rolle niemand mehr in der Bewerbung steht, bleibt nur die Absage.";
 
-  // A seat that is `ausstehend` holds a person, which is what the derivation above guarantees, and
-  // one person on two seats is named once.
-  const namen = [...new Set(offen.map((sitz) => sitz.name).filter((name) => name !== null))];
-
-  return `Die Zusage wartet auf die Bestätigung von ${nenneUnd(namen)}.`;
+  // The rule rather than who is outstanding today: the strip above names every seat and its state,
+  // so a second list here is the same fact from the other side (my wording, 2026-09-04).
+  return "Eine Zusage ist ohne alle Einwilligungen nicht möglich.";
 }

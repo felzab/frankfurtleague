@@ -932,7 +932,7 @@ describe("buildBewerbungBestaetigungEmail", () => {
       `Darin bist Du als ${ERIKA.rolleText} eingetragen.`,
       "Bitte bestätige, dass das stimmt: Erst dann führt die Liga Dich als Kontaktperson.",
       "Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist.",
-      "Du kannst den Eintrag bestätigen oder ablehnen.",
+      "Du kannst dem Eintrag auch widersprechen.",
       `Der Link ist bis zum ${FRIST} gültig und funktioniert nur einmal.`,
       "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig.",
       "Nach drei Tagen erinnern wir Dich einmal; ist die Bewerbung nach 14 Tagen noch unvollständig, löschen wir sie mit allen Angaben.",
@@ -998,10 +998,10 @@ describe("buildBewerbungBestaetigungEmail", () => {
       `Eure Einträge für die Saison ${BESTAETIGUNG.saisonId}`,
       `Mit dieser E-Mail-Adresse sind darin ${beide} eingetragen.`,
       "Bitte bestätigt jeden Eintrag einzeln: Erst dann führt die Liga Euch als Kontaktpersonen.",
-      "Kontaktperson kann sein, wer mindestens 16 ist. Jeder Eintrag lässt sich bestätigen oder ablehnen.",
+      "Kontaktperson kann sein, wer mindestens 16 ist. Jedem Eintrag lässt sich auch widersprechen.",
       `Jeder Link ist bis zum ${FRIST} gültig und funktioniert nur einmal.`,
       "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal;",
-      "Für Euch ist nichts zu tun: Eure Angaben werden nach 14 Tagen gelöscht. Oder lehnt über die Links ab",
+      "Für Euch ist nichts zu tun: Eure Angaben werden nach 14 Tagen gelöscht. Oder widersprecht den Einträgen über die Links",
       EMPFAENGER_SATZ.postfach,
     ]) {
       assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
@@ -1091,7 +1091,7 @@ describe("buildBewerbungErinnerungEmail", () => {
       `sind mit dieser E-Mail-Adresse ${beide} eingetragen.`,
       "Bis jetzt fehlt Eure Antwort.",
       `Ist die Bewerbung am ${FRIST} noch unvollständig, löschen wir sie mit allen Angaben.`,
-      "Für Euch ist nichts zu tun: Eure Angaben werden nach 14 Tagen gelöscht. Oder lehnt über die Links ab",
+      "Für Euch ist nichts zu tun: Eure Angaben werden nach 14 Tagen gelöscht. Oder widersprecht den Einträgen über die Links",
     ]) {
       assert.ok(flat(readable(mail.html)).includes(satz), `the HTML branch lost „${satz}“`);
       assert.ok(flat(mail.text).includes(satz), `the text branch lost „${satz}“`);
@@ -1245,15 +1245,15 @@ describe("buildBewerbungAblehnungEmail", () => {
     const mail = buildBewerbungAblehnungEmail(ABLEHNUNG);
     const wer = `${ABLEHNUNG.abgelehnt.vorname} (${ABLEHNUNG.abgelehnt.rolleText})`;
 
-    assert.equal(mail.subject, `Eintrag abgelehnt: Frankfurt-League, Saison ${ABLEHNUNG.saisonId}`);
+    assert.equal(mail.subject, `Widerspruch zum Eintrag: Frankfurt-League, Saison ${ABLEHNUNG.saisonId}`);
     assert.deepEqual(faktListe(mail.html), [
       ["Status", "Nicht vollständig, eine Bestätigung fehlt"],
       ["Saison", ABLEHNUNG.saisonId],
       ["Eingetragen als", ABLEHNUNG.rollenText],
-      ["Abgelehnt von", wer],
+      ["Widerspruch von", wer],
     ]);
     for (const satz of [
-      `${wer} hat den Eintrag als Kontaktperson abgelehnt.`,
+      `${wer} hat dem Eintrag als Kontaktperson widersprochen.`,
       // „Diese Angaben“ stands where „seine“ or „ihre“ would, so the sentence reads for every name.
       "Diese Angaben haben wir aus der Bewerbung entfernt.",
       `So kann die Bewerbung nicht vollständig werden; am ${FRIST} löschen wir sie.`,
@@ -1306,8 +1306,8 @@ describe("the confirmation workflow's messages", () => {
       "Du weißt nichts von einer Bewerbung bei der Frankfurt-League? Dann ignoriere diese E-Mail einfach. Für Dich ist nichts zu tun";
     const auftaktMehrere =
       "Weiß hier niemand von einer Bewerbung bei der Frankfurt-League? Dann ignoriert diese E-Mail einfach. Für Euch ist nichts zu tun";
-    const eintrag = `${auftakt}: Deine Angaben werden nach 14 Tagen gelöscht. Oder lehne über den Link ab, dann entfernen wir sie sofort.`;
-    const eintragMehrere = `${auftaktMehrere}: Eure Angaben werden nach 14 Tagen gelöscht. Oder lehnt über die Links ab, dann entfernen wir sie sofort.`;
+    const eintrag = `${auftakt}: Deine Angaben werden nach 14 Tagen gelöscht. Oder widersprich dem Eintrag über den Link, dann entfernen wir sie sofort.`;
+    const eintragMehrere = `${auftaktMehrere}: Eure Angaben werden nach 14 Tagen gelöscht. Oder widersprecht den Einträgen über die Links, dann entfernen wir sie sofort.`;
     const NOTIZ: Record<string, string> = {
       Bestätigung: eintrag,
       "Bestätigung (Postfach)": eintragMehrere,

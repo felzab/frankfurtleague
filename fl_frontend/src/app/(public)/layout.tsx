@@ -14,11 +14,12 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         <TopNav />
       </header>
 
-      {/* The floor puts the footer's top edge past the fold on a short page, where `flex-1` alone
-          would park it at the bottom of the first screen. Same token the header's height reads. */}
+      {/* The floor keeps the footer off the first screen, where `flex-1` alone would park it at the
+          bottom of one. Less the border `box-content` puts outside the token, which the floor
+          would otherwise overshoot the screen by. */}
       <main
         id="main-content"
-        className="flex min-h-[calc(100dvh-var(--navbar-height))] w-full flex-1 flex-col items-center justify-start">
+        className="flex min-h-[calc(100dvh-var(--navbar-height)-1px)] w-full flex-1 flex-col items-center justify-start">
         {children}
       </main>
 

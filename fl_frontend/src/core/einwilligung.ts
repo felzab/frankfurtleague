@@ -70,9 +70,6 @@ export const BESTAETIGUNG_ABSAETZE = {
   keineEinwilligung:
     "Eine Einwilligung ist das nicht, und wir holen hier auch keine ein. Du bestätigst, was in der Bewerbung steht, und ergänzt " +
     "Dein Geburtsdatum; die Grundlage dafür steht oben.",
-  klickSatz:
-    "Mit dem Klick bestätigst Du, dass Du {vorname} bist, als {rolle} eingetragen, dass Dein Geburtsdatum stimmt und dass Du die " +
-    "Datenschutzerklärung zur Kenntnis genommen hast.",
 } as const;
 
 // A stored record cites its label alone, so an entry here is never reworded or removed: either

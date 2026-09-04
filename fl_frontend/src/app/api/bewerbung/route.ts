@@ -4,6 +4,7 @@ import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
 import { postBewerbung } from "@/features/bewerbungen/mutations";
 import {
   collectBewerbungEingangEmpfaenger,
+  rollenText,
   seatsByMailbox,
   sendBewerbungLinkMail,
   sendBewerbungMail,
@@ -96,9 +97,14 @@ export async function POST(request: NextRequest) {
 
       // The same set the links were withheld for: a mirrored seat listed here would send the reader
       // chasing themselves for a press their own link already makes.
-      const ausstehend: BewerbungSeat[] = BEWERBUNG_SEATS.filter((seat) => !imEmpfang.includes(seat.value)).map((seat) => ({
+      const zugleich = kontakte.trainer_ist_zugleich;
+      const ausstehend: BewerbungSeat[] = BEWERBUNG_SEATS.filter(
+        (seat) => !imEmpfang.includes(seat.value) && (seat.value !== "trainer" || zugleich === null),
+      ).map((seat) => ({
         vorname: kontakte[seat.value].vorname,
-        rolleText: seat.label,
+        // Folded as `notifications.ts :: seatsByMailbox` folds it, one press answering both seats of
+        // a mirrored pair: two rows would name one person as two people still to be chased.
+        rolleText: seat.value === zugleich ? rollenText([seat.value, "trainer"]) : seat.label,
       }));
 
       await sendBewerbungMail({

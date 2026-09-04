@@ -21,6 +21,7 @@ from app.api.bewerbungen.services import (
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
     mint_token,
+    paired_seat,
     parse_new_club,
     seat_named,
 )
@@ -262,6 +263,7 @@ async def erneut_einwilligung(
     """
     Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.
 
+    Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
     The application's confirmation deadline restarts from today and the seat's reminder is owed again. Refused on an
     application already decided (`REQ-BEWERBUNG-001`) and on a seat already confirmed or declined, or one an
     application stored before the confirmation flow holds (`REQ-BEWERBUNG-011`). A path naming no seat is a 404.
@@ -286,13 +288,18 @@ async def erneut_einwilligung(
     raw, token_hash = mint_token()
     bestaetigungsfrist = bestaetigungsfrist_from(today=today)
 
+    # Both seats one person holds, as the confirmation answers both: a re-send is the administrator
+    # replacing an address, and one entry left standing would keep its link alive.
+    other = paired_seat(kontakte=bewerbung_raw.get("kontakte"), bestaetigungen=bewerbung_raw.get("bestaetigungen"), seat=rolle)
+    seats = (rolle,) if other is None else (rolle, other)
+
     # The status is in the FILTER, as the decline's is: a decision landing between the read and this
     # write leaves the row untouched, and the re-read below is what tells that from a row that is gone.
     try:
         await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter={**db_filter, "status": "eingereicht"},
-            update=compose_erneut_update(seat=rolle, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist),
+            update=compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist),
         )
     except DocumentNotFoundException:
         # `REQ-BEWERBUNG-001` rather than a 404, as the decline answers a race here

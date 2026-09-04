@@ -52,6 +52,14 @@ export function rollenText(rollen: readonly BewerbungRolle[]): string {
 }
 
 /**
+ * The one-role case of the phrase above rather than a lookup of its own, so a role the table does
+ * not hold is answered in one place.
+ */
+export function rolleText(rolle: BewerbungRolle): string {
+  return rollenText([rolle]);
+}
+
+/**
  * **Distinct, because one person can hold two seats**: where `trainer_ist_zugleich` names one, the
  * same record is stored twice. Two are one mailbox when their local parts match byte for byte under
  * a domain compared without case (RFC 5321 §2.4).

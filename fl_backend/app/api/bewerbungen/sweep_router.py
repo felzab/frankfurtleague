@@ -28,6 +28,7 @@ from app.api.bewerbungen.services import (
     group_seats_by_mailbox,
     mint_token,
     next_saison_id,
+    reminder_link_groups,
     reminder_seats,
     schule_name,
     season_after_has_ended,
@@ -157,18 +158,28 @@ async def sweep_saison(
 
         erinnerungen: list[FLBewerbungSweepErinnerung] = []
         for row, seats in due:
-            minted = {seat: mint_token() for seat in seats}
+            per_mailbox = [
+                (email, reminder_link_groups(kontakte=row.get("kontakte"), bestaetigungen=row.get("bestaetigungen"), seats=held))
+                for email, held in group_seats_by_mailbox(kontakte=row.get("kontakte"), seats=seats)
+            ]
+            gruppen_alle = [gruppe for _, gruppen in per_mailbox for gruppe in gruppen]
+            # Minted per LINK rather than per seat: a token for a seat riding another's link is a
+            # credential nobody is sent, live on the wire and in the document until the deadline.
+            minted = {gruppe[0]: mint_token() for gruppe in gruppen_alle}
+
             # The stamp lands before the caller can mail: a crash between the two costs one reminder,
             # where the other order would repeat it every day until the address works.
             await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter={"_id": row["_id"]},
                 update=compose_erinnerung_update(
-                    hashes={seat: token_hash for seat, (_, token_hash) in minted.items()}, bestaetigungen=row.get("bestaetigungen"), today=today
+                    hashes={seat: minted[gruppe[0]][1] for gruppe in gruppen_alle for seat in gruppe},
+                    bestaetigungen=row.get("bestaetigungen"),
+                    today=today,
                 ),
                 session=session,
             )
-            for email, held in group_seats_by_mailbox(kontakte=row.get("kontakte"), seats=seats):
+            for email, gruppen in per_mailbox:
                 erinnerungen.append(
                     FLBewerbungSweepErinnerung(
                         bewerbung_id=row["_id"],
@@ -178,9 +189,11 @@ async def sweep_saison(
                         email=email,
                         seats=[
                             FLBewerbungSweepSeat(
-                                rolle=seat, vorname=vorname_of(kontakte=row.get("kontakte"), seat=seat) or "", token=minted[seat][0]
+                                rollen=list(gruppe),
+                                vorname=vorname_of(kontakte=row.get("kontakte"), seat=gruppe[0]) or "",
+                                token=minted[gruppe[0]][0],
                             )
-                            for seat in held
+                            for gruppe in gruppen
                         ],
                     )
                 )

@@ -294,9 +294,12 @@ class TestTheReminderClock:
 
         assert document is not None
         reminders = [entry for entry in response.erinnerungen if entry.bewerbung_id == REMIND_OID]
-        assert [(entry.email, [seat.rolle for seat in entry.seats]) for entry in reminders] == [
-            ("wraxlington@example.com", ["trainer", "ansprechperson"]),
-            ("bramblewick@example.com", ["stellvertretung"]),
+        # ONE link for the double-seated person, naming both seats: a second one would ask one reader
+        # twice over a decision `paired_seat` settles from either press, and mint a token nobody is
+        # sent (`docs/backend/spec.md :: I157`).
+        assert [(entry.email, [seat.rollen for seat in entry.seats]) for entry in reminders] == [
+            ("wraxlington@example.com", [["trainer", "ansprechperson"]]),
+            ("bramblewick@example.com", [["stellvertretung"]]),
         ]
         assert reminders[0].schule == SCHOOL_NAME and reminders[0].bestaetigungsfrist == "2026-04-12"
         assert reminders[0].seats[0].vorname == "Wraxlington"
@@ -304,16 +307,24 @@ class TestTheReminderClock:
         first = first_hashes(str(REMIND_OID))
         for entry in reminders:
             for seat in entry.seats:
-                bookkeeping = document["bestaetigungen"][seat.rolle]
-                assert bookkeeping["token_hash"] == hash_token(seat.token)
-                assert bookkeeping["token_hash_zuvor"] == first[seat.rolle]
-                assert (bookkeeping["erinnert_am"], bookkeeping["verschickt_am"]) == (TODAY, MAILED_ON_THE_MARK)
+                # Every seat the link answers carries it, so the stamp and the fresh hash reach both
+                # halves of the pair and neither is reminded again.
+                for rolle in seat.rollen:
+                    bookkeeping = document["bestaetigungen"][rolle]
+                    assert bookkeeping["token_hash"] == hash_token(seat.token)
+                    assert bookkeeping["token_hash_zuvor"] == first[rolle]
+                    assert (bookkeeping["erinnert_am"], bookkeeping["verschickt_am"]) == (TODAY, MAILED_ON_THE_MARK)
         assert document["bestaetigungsfrist"] == "2026-04-12"
 
-    def test_a_resend_after_a_reminder_voids_both_the_links_the_reminder_left_open(self, mongo_replica_set_url: str):
-        """A re-send is the administrator saying the address was wrong, so BOTH hashes have to go; keeping the second leaves a live link.
+        # One mint for the pair, not two: the second was a live credential with no reader.
+        minted = {seat.token for entry in reminders for seat in entry.seats}
+        assert len(minted) == 2
 
-        Reached only through a reminded seat, which the re-send suite's own fixture never has.
+    def test_a_resend_after_a_reminder_voids_every_link_on_both_seats_the_person_holds(self, mongo_replica_set_url: str):
+        """A re-send replaces the address, so nothing it replaces may still open the seat.
+
+        Reached only through a reminded pair: the re-send suite's fixture has no second hash, and a
+        seat nobody mirrors has no second entry at all.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -323,29 +334,51 @@ class TestTheReminderClock:
                 for entry in response.erinnerungen
                 if entry.bewerbung_id == REMIND_OID
                 for seat in entry.seats
-                if seat.rolle == "trainer"
+                if "trainer" in seat.rollen
             )
             frisch = await erneut_einwilligung(
                 bewerbung_id=REMIND_OID, seat="trainer", bewerbungen_collection=database[Collection.BEWERBUNGEN], today=TODAY
             )
 
-            with pytest.raises(DocumentConflictException) as conflict:
-                await ansicht(database, erinnert)
+            # The reminder's shared link and BOTH first links, one of which is the mirrored seat's
+            # own copy -- the one a re-send writing a single entry leaves open.
+            tot = []
+            for gone in (erinnert, f"{REMIND_OID}-trainer", f"{REMIND_OID}-ansprechperson"):
+                with pytest.raises(DocumentConflictException) as conflict:
+                    await ansicht(database, gone)
+                tot.append(conflict.value.error_code)
 
-            return conflict.value.error_code, (await ansicht(database, frisch.token)).zustand, frisch.token, await stored(database, REMIND_OID)
+            # The Stellvertretung is nobody's pair, so its own reminder link is untouched.
+            fremd = next(
+                seat.token
+                for entry in response.erinnerungen
+                if entry.bewerbung_id == REMIND_OID
+                for seat in entry.seats
+                if "stellvertretung" in seat.rollen
+            )
 
-        code, zustand, frisch_token, document = on_a_league(mongo_replica_set_url, body)
+            return (
+                tot,
+                (await ansicht(database, frisch.token)).zustand,
+                (await ansicht(database, fremd)).zustand,
+                frisch.token,
+                await stored(database, REMIND_OID),
+            )
 
-        assert (code, zustand) == (BEWERBUNG_TOKEN_UNKNOWN, "gueltig")
+        tot, zustand, fremd_zustand, frisch_token, document = on_a_league(mongo_replica_set_url, body)
+
+        assert tot == [BEWERBUNG_TOKEN_UNKNOWN] * 3
+        assert (zustand, fremd_zustand) == ("gueltig", "gueltig")
         assert document is not None
-        # Written back as the first mint writes it: `token_hash` alone, with no `token_hash_zuvor`
-        # beside it, so neither of the two links the reminder left open opens the seat.
-        assert document["bestaetigungen"]["trainer"] == {
-            "token_hash": hash_token(frisch_token),
-            "verschickt_am": TODAY,
-            "erinnert_am": None,
-            "abgelehnt_am": None,
-        }
+        # One mint answering both, each entry written back as the first mint writes it: `token_hash`
+        # alone, no `token_hash_zuvor` beside it, and the reminder owed again.
+        for rolle in ("trainer", "ansprechperson"):
+            assert document["bestaetigungen"][rolle] == {
+                "token_hash": hash_token(frisch_token),
+                "verschickt_am": TODAY,
+                "erinnert_am": None,
+                "abgelehnt_am": None,
+            }
 
     def test_both_links_open_the_seat_afterwards(self, mongo_replica_set_url: str):
         """The reader still looking at the first email is not punished by the chase."""
@@ -357,7 +390,7 @@ class TestTheReminderClock:
                 for entry in response.erinnerungen
                 if entry.bewerbung_id == REMIND_OID
                 for seat in entry.seats
-                if seat.rolle == "trainer"
+                if "trainer" in seat.rollen
             )
 
             return await ansicht(database, f"{REMIND_OID}-trainer"), await ansicht(database, fresh)

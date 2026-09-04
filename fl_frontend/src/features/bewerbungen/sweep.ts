@@ -5,13 +5,12 @@ import { logger } from "@/core/logging";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { bestaetigungsLink } from "./bestaetigungLink";
-import { BEWERBUNG_SEATS } from "./constants";
 import { getBewerbungSweepSaisons, postBewerbungSweep, postBewerbungSweepAngekuendigt, postBewerbungSweepLoeschen } from "./mutations";
-import { rollenText, sendBewerbungLinkMail, sendBewerbungMail } from "./notifications";
+import { rollenText, rolleText, sendBewerbungLinkMail, sendBewerbungMail } from "./notifications";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
 import type { BewerbungEmpfaenger, BewerbungLinkEmpfaenger } from "./notifications";
-import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung, FLKontaktRolle } from "./schemas";
+import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung } from "./schemas";
 
 /**
  * One hour. Every clock selects on a date, so the interval decides only how late in the day a
@@ -31,9 +30,6 @@ const SWEEP_OPERATION = "bewerbungSweep";
 
 /** What a message calls a seat whose person is gone — declined or erased, and outstanding either way. */
 const SEAT_OHNE_NAMEN = "Ohne Namen";
-
-/** How a seat is named to somebody who is not sitting in it, in the wording the form asked for it under. */
-const rolleText = (rolle: FLKontaktRolle): string => BEWERBUNG_SEATS.find((seat) => seat.value === rolle)?.label ?? "";
 
 /**
  * Arms the retention sweep for the life of this process.
@@ -126,11 +122,11 @@ async function sweepSaison(saisonId: string): Promise<void> {
   await postBewerbungSweepLoeschen(saisonId, { bewerbung_ids: angekuendigt });
 }
 
-/** One message to one mailbox, carrying one link per seat of this application that mailbox holds. */
+/** One message to one mailbox, carrying one link per PERSON it holds -- a mirrored pair is one link naming both seats. */
 async function mailErinnerung(erinnerung: FLBewerbungSweepErinnerung): Promise<void> {
   const [erster, ...weitere] = erinnerung.seats.map((seat) => ({
     vorname: seat.vorname,
-    rolleText: rolleText(seat.rolle),
+    rolleText: rollenText(seat.rollen),
     link: bestaetigungsLink(seat.token),
   }));
 

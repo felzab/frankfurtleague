@@ -6,18 +6,10 @@ import { BEWERBUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { textLink } from "@/shared/components/ui/textLink";
 
-import { BestaetigungAbschnitt } from "./BestaetigungPanels";
+import { ABSATZ, BestaetigungAbschnitt } from "./BestaetigungPanels";
 
-// One step larger than the form's copy of its consent text: here the words are the page's subject
-// rather than a footnote under a switch.
-const ABSATZ = "fluid-sm text-foreground max-w-xl leading-relaxed font-medium text-pretty";
 const LISTE = `${ABSATZ} flex list-disc flex-col gap-y-1 pl-5`;
 const ABSCHNITT = "flex flex-col gap-y-2";
-const ABSCHNITT_TITEL = "fluid-xs text-foreground font-bold";
-
-/* Two columns from `lg` and one below it: the panel is as wide as the page, and a stamped paragraph
-   set across the whole of it runs past the measure a reader can follow. */
-const BLOECKE = "grid w-full grid-cols-1 items-start gap-x-8 gap-y-5 lg:grid-cols-2";
 
 /** What fills a slot for every reader alike; the rest come off the record the page was opened with. */
 const KONSTANTEN = { minAlter: String(BEWERBUNG_MIN_ALTER), kontakt: KONTAKT_EMAIL } as const;
@@ -55,8 +47,9 @@ function WiderrufAbsatz({ werte }: { werte: Slots }) {
 }
 
 /**
- * The information text, rendered in the order a reader meets it rather than the order the legal
- * draft declares it in: the WhatsApp paragraph sits at its switch and the four points at the button.
+ * Rendered in the order a reader meets it rather than the legal draft's order: the WhatsApp
+ * paragraph sits at its switch, the four points at the button. **One column**: two give a page two
+ * places to have stopped in.
  */
 export function BestaetigungHinweise({
   schule,
@@ -74,39 +67,37 @@ export function BestaetigungHinweise({
 
   return (
     <BestaetigungAbschnitt titel="Was das bedeutet">
-      <div className={BLOECKE}>
-        <section className={ABSCHNITT}>
-          <h3 className={ABSCHNITT_TITEL}>Worum es geht</h3>
-          <p className={ABSATZ}>{absatz("worum", werte)}</p>
-        </section>
+      <section className={ABSCHNITT}>
+        <h3 className={FORM_SECTION_HEADING}>Worum es geht</h3>
+        <p className={ABSATZ}>{absatz("worum", werte)}</p>
+      </section>
 
-        <section className={ABSCHNITT}>
-          <h3 className={ABSCHNITT_TITEL}>Was gespeichert ist und wozu</h3>
-          <p className={ABSATZ}>{absatz("gespeichert", werte)}</p>
-          <p className={ABSATZ}>{absatz("geburtsdatum", werte)}</p>
-          <p className={ABSATZ}>{absatz("rechtsgrundlage", werte)}</p>
-        </section>
+      <section className={ABSCHNITT}>
+        <h3 className={FORM_SECTION_HEADING}>Was gespeichert ist und wozu</h3>
+        <p className={ABSATZ}>{absatz("gespeichert", werte)}</p>
+        <p className={ABSATZ}>{absatz("geburtsdatum", werte)}</p>
+        <p className={ABSATZ}>{absatz("rechtsgrundlage", werte)}</p>
+      </section>
 
-        <section className={ABSCHNITT}>
-          <h3 className={ABSCHNITT_TITEL}>Was nicht passiert</h3>
-          <p className={ABSATZ}>{absatz("nichtOeffentlich", werte)}</p>
-        </section>
+      <section className={ABSCHNITT}>
+        <h3 className={FORM_SECTION_HEADING}>Was nicht passiert</h3>
+        <p className={ABSATZ}>{absatz("nichtOeffentlich", werte)}</p>
+      </section>
 
-        <section className={ABSCHNITT}>
-          <h3 className={ABSCHNITT_TITEL}>Wie lange wir sie behalten</h3>
-          <ul className={LISTE}>
-            <li>{absatz("fristAbgelehnt", werte)}</li>
-            <li>{absatz("fristAngenommen", werte)}</li>
-            <li>{absatz("fristUnvollstaendig", werte)}</li>
-          </ul>
-        </section>
+      <section className={ABSCHNITT}>
+        <h3 className={FORM_SECTION_HEADING}>Wie lange wir sie behalten</h3>
+        <ul className={LISTE}>
+          <li>{absatz("fristAbgelehnt", werte)}</li>
+          <li>{absatz("fristAngenommen", werte)}</li>
+          <li>{absatz("fristUnvollstaendig", werte)}</li>
+        </ul>
+      </section>
 
-        <section className={ABSCHNITT}>
-          <h3 className={ABSCHNITT_TITEL}>Wenn Du nicht einverstanden bist</h3>
-          <p className={ABSATZ}>{absatz("ablehnen", werte)}</p>
-          <WiderrufAbsatz werte={werte} />
-        </section>
-      </div>
+      <section className={ABSCHNITT}>
+        <h3 className={FORM_SECTION_HEADING}>Wenn Du nicht einverstanden bist</h3>
+        <p className={ABSATZ}>{absatz("ablehnen", werte)}</p>
+        <WiderrufAbsatz werte={werte} />
+      </section>
     </BestaetigungAbschnitt>
   );
 }
@@ -126,12 +117,28 @@ export function WhatsappHinweis() {
   return <p className={ABSATZ}>{absatz("whatsapp", KONSTANTEN)}</p>;
 }
 
-/** The four points directly above the button whose press records them, so the list and the act are one screen apart at most. */
-export function KlickBestaetigung({ vorname, schule, rolle }: { vorname: string; schule: string; rolle: string }) {
+/**
+ * **The one wording of the four points**: the button describes itself by this block's `id` rather
+ * than by a summary sentence beside it, which is how a reader met the same promise twice.
+ */
+export function KlickBestaetigung({
+  id,
+  vorname,
+  schule,
+  rolle,
+}: {
+  /** Published for the submit button's `aria-describedby`, so the points reach a reader who cannot see them. */
+  id: string;
+  vorname: string;
+  schule: string;
+  rolle: string;
+}) {
   const werte = { ...KONSTANTEN, vorname: vorname, schule: schule, rolle: rolle };
 
   return (
-    <div className="flex flex-col gap-y-3">
+    <div
+      id={id}
+      className="flex flex-col gap-y-3">
       <h3 className={FORM_SECTION_HEADING}>Was Du mit dem Klick bestätigst</h3>
       <ul className={LISTE}>
         <li>{absatz("klickIdentitaet", werte)}</li>

@@ -63,7 +63,7 @@ registerHooks({
   },
 });
 
-const { collectBewerbungEingangEmpfaenger, collectBewerbungEmpfaenger, describeBewerbungMail, seatsByMailbox, sendBewerbungMail } =
+const { collectBewerbungEingangEmpfaenger, collectBewerbungEmpfaenger, describeBewerbungMail, rolleText, seatsByMailbox, sendBewerbungMail } =
   await import("./notifications.ts");
 const { buildBewerbungBestaetigungEmail } = await import("../../core/bewerbungEmail.ts");
 const { bestaetigungsLink } = await import("./bestaetigungLink.ts");
@@ -106,6 +106,24 @@ function reset(): void {
   logged.length = 0;
   refused.clear();
 }
+
+describe("how one seat is named to somebody who is not sitting in it", () => {
+  /* The submission's receipt, the retention notice and the objection notice each name a seat this
+     way, so a wording answered here differently from `rollenText` would put one seat under two
+     names in messages a single reader gets. */
+  it("gives every seat the long form the joined phrase gives it", () => {
+    assert.deepEqual((["ansprechperson", "stellvertretung", "trainer"] as const).map(rolleText), [
+      "Ansprechperson",
+      "Stellvertretung",
+      "Trainerin oder Trainer",
+    ]);
+    assert.deepEqual(
+      collectBewerbungEmpfaenger(seats("t@schule.de", null, null)).map(({ rollenText }) => rollenText),
+      [rolleText("trainer")],
+      "a fan-out names a lone seat differently from the helper every message reads",
+    );
+  });
+});
 
 describe("who a decision is sent to", () => {
   /* First, so a double that never ran fails here rather than under every assertion below. */

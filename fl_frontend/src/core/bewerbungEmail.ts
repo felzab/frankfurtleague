@@ -54,10 +54,10 @@ const IGNORIER_SATZ = `${IGNORIER_VOR}.`;
 /* What ignoring costs: a contact can end their seat through the link, the submitter can only wait,
    and after the deletion nothing is left to promise. One wording for all three offers a route
    somebody has not got. */
-const IGNORIER_SATZ_EINTRAG = `${IGNORIER_VOR}: Deine Angaben werden nach 14 Tagen gelöscht. Oder lehne über den Link ab, dann entfernen wir sie sofort.`;
+const IGNORIER_SATZ_EINTRAG = `${IGNORIER_VOR}: Deine Angaben werden nach 14 Tagen gelöscht. Oder widersprich dem Eintrag über den Link, dann entfernen wir sie sofort.`;
 /* Its own wording rather than the singular one over two links: „den Link“ names one of the two the
    message carries, and the reader cannot tell which of them is being offered. */
-const IGNORIER_SATZ_EINTRAG_MEHRERE = `Weiß hier niemand von einer Bewerbung bei der ${BRAND_NAME}? Dann ignoriert diese E-Mail einfach. Für Euch ist nichts zu tun: Eure Angaben werden nach 14 Tagen gelöscht. Oder lehnt über die Links ab, dann entfernen wir sie sofort.`;
+const IGNORIER_SATZ_EINTRAG_MEHRERE = `Weiß hier niemand von einer Bewerbung bei der ${BRAND_NAME}? Dann ignoriert diese E-Mail einfach. Für Euch ist nichts zu tun: Eure Angaben werden nach 14 Tagen gelöscht. Oder widersprecht den Einträgen über die Links, dann entfernen wir sie sofort.`;
 const IGNORIER_SATZ_BEWERBUNG = `${IGNORIER_VOR}: die Bewerbung wird nach 14 Tagen gelöscht.`;
 const IGNORIER_SATZ_GELOESCHT = `${IGNORIER_VOR}: die Bewerbung wird jetzt gelöscht.`;
 
@@ -524,8 +524,8 @@ export function buildBewerbungBestaetigungEmail({ saisonId, schule, seats, frist
     ),
     paragraph(
       mehrere
-        ? `Klickt auf die Buttons und gebt dort nur Euer Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Jeder Eintrag lässt sich bestätigen oder ablehnen. Jeder Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal.`
-        : `Klicke auf den Button. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Du kannst den Eintrag bestätigen oder ablehnen. Der Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal.`,
+        ? `Klickt auf die Buttons und gebt dort nur Euer Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Jedem Eintrag lässt sich auch widersprechen. Jeder Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal.`
+        : `Klicke auf den Button. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Du kannst dem Eintrag auch widersprechen. Der Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal.`,
     ),
     paragraph(
       mehrere
@@ -543,8 +543,8 @@ export function buildBewerbungBestaetigungEmail({ saisonId, schule, seats, frist
       : "Bitte bestätige, dass das stimmt: Erst dann führt die Liga Dich als Kontaktperson.",
     "",
     mehrere
-      ? "Öffnet diese Links und gebt dort nur Euer Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Jeder Eintrag lässt sich bestätigen oder ablehnen."
-      : "Öffne diesen Link. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Du kannst den Eintrag bestätigen oder ablehnen.",
+      ? "Öffnet diese Links und gebt dort nur Euer Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Jedem Eintrag lässt sich auch widersprechen."
+      : "Öffne diesen Link. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist. Du kannst dem Eintrag auch widersprechen.",
     mehrere
       ? `Jeder Link ist bis zum ${frist} gültig und funktioniert nur einmal.`
       : `Der Link ist bis zum ${frist} gültig und funktioniert nur einmal.`,
@@ -601,8 +601,8 @@ export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristTe
     ),
     paragraph(
       mehrere
-        ? `Klickt auf die Buttons, gebt Euer Geburtsdatum ein und bestätigt die Einträge, oder lehnt sie ab. Ist die Bewerbung am ${strong(escapeHtml(frist))} noch unvollständig, löschen wir sie mit allen Angaben.`
-        : `Klicke auf den Button, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder lehne ihn ab. Ist die Bewerbung am ${strong(escapeHtml(frist))} noch unvollständig, löschen wir sie mit allen Angaben.`,
+        ? `Klickt auf die Buttons, gebt Euer Geburtsdatum ein und bestätigt die Einträge, oder widersprecht ihnen. Ist die Bewerbung am ${strong(escapeHtml(frist))} noch unvollständig, löschen wir sie mit allen Angaben.`
+        : `Klicke auf den Button, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder widersprich ihm. Ist die Bewerbung am ${strong(escapeHtml(frist))} noch unvollständig, löschen wir sie mit allen Angaben.`,
     ),
     ...fallbackBloecke(seatFallbacks(seats), mehrere ? FALLBACK_SATZ_MEHRERE : FALLBACK_SATZ),
   ]);
@@ -615,8 +615,8 @@ export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristTe
     fehlt,
     "",
     mehrere
-      ? "Öffnet diese Links, gebt Euer Geburtsdatum ein und bestätigt die Einträge, oder lehnt sie ab."
-      : "Öffne diesen Link, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder lehne ihn ab.",
+      ? "Öffnet diese Links, gebt Euer Geburtsdatum ein und bestätigt die Einträge, oder widersprecht ihnen."
+      : "Öffne diesen Link, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder widersprich ihm.",
     `Ist die Bewerbung am ${frist} noch unvollständig, löschen wir sie mit allen Angaben.`,
     "",
     ...fallbackZeilen(seatFallbacks(seats)),
@@ -834,14 +834,14 @@ export function buildBewerbungAblehnungEmail({ saisonId, rollenText, abgelehnt, 
   const wer = seatName(abgelehnt);
 
   const nachricht: Nachricht = {
-    headingVor: "Abgelehnt: Eintrag für die",
+    headingVor: "Widerspruch: Eintrag für die",
     saisonId: saisonId,
     empfaenger: "einreichende",
     fakten: [
       { label: "Status", value: "Nicht vollständig, eine Bestätigung fehlt" },
       { label: "Saison", value: saisonId, akzent: true },
       { label: "Eingetragen als", value: rollenText },
-      { label: "Abgelehnt von", value: wer },
+      { label: "Widerspruch von", value: wer },
     ],
     aktionen: neuBewerbenAktionen(saisonId),
     textAktionen: neuBewerbenZeilen(saisonId),
@@ -852,7 +852,7 @@ export function buildBewerbungAblehnungEmail({ saisonId, rollenText, abgelehnt, 
     // No pronoun, and „Diese Angaben“ where „seine“ or „ihre“ would stand: both read correctly for
     // every name (`docs/frontend/spec.md :: 1.12`).
     paragraph(
-      `${strong(`${escapeHtml(wer)} hat den Eintrag als Kontaktperson abgelehnt.`)} Diese Angaben haben wir aus der Bewerbung entfernt.`,
+      `${strong(`${escapeHtml(wer)} hat dem Eintrag als Kontaktperson widersprochen.`)} Diese Angaben haben wir aus der Bewerbung entfernt.`,
     ),
     paragraph(
       `So kann die Bewerbung nicht vollständig werden; am ${strong(escapeHtml(frist))} löschen wir sie. Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person in dieser Rolle. Frag sie vorher.`,
@@ -860,11 +860,11 @@ export function buildBewerbungAblehnungEmail({ saisonId, rollenText, abgelehnt, 
   ]);
 
   const text = renderText(nachricht, [
-    `${wer} hat den Eintrag als Kontaktperson abgelehnt. Diese Angaben haben wir aus der Bewerbung entfernt.`,
+    `${wer} hat dem Eintrag als Kontaktperson widersprochen. Diese Angaben haben wir aus der Bewerbung entfernt.`,
     "",
     `So kann die Bewerbung nicht vollständig werden; am ${frist} löschen wir sie.`,
     "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person in dieser Rolle. Frag sie vorher.",
   ]);
 
-  return { subject: `Eintrag abgelehnt: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
+  return { subject: `Widerspruch zum Eintrag: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }

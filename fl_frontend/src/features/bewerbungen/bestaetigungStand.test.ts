@@ -127,6 +127,29 @@ describe("a seat an erasure emptied", () => {
   });
 });
 
+describe("what a seat's own refusal is called", () => {
+  const DECLINED = sitze({
+    ansprechperson: null,
+    bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
+  });
+
+  /* „Abgelehnt am …“ beside the status „Abgelehnt“ put a seat's refusal and the league's own
+     decision on the queue under one root, which is the pair the Widerspruch ruling separates. */
+  it("names it with the queue badge's word rather than the application status's", () => {
+    const sitz = sitzOf(staendeOf(DECLINED), "ansprechperson");
+
+    assert.equal(sitz.satz, "Widersprochen am 04.09.2026");
+    assert.ok(!sitz.satz.includes("Abgelehnt"), "a seat's refusal is called what the league calls its own decision");
+  });
+
+  /* The strip's row and the queue's chip are one word in two positions, the participle where a day
+     follows it and the noun where the chip stands alone; two roots would read as two states. */
+  it("shares that word with the chip the queue shows for the same row", () => {
+    assert.equal(endstand(staendeOf(DECLINED)), "Widerspruch");
+    assert.match(sitzOf(staendeOf(DECLINED), "ansprechperson").satz, /^Widerspr/);
+  });
+});
+
 describe("what the queue says of an application no answer can complete", () => {
   const DECLINED = sitze({
     ansprechperson: null,
@@ -170,21 +193,24 @@ describe("what the queue says of an application no answer can complete", () => {
 });
 
 describe("the reason the Zusage is closed", () => {
-  /* „die Bestätigung von Ansprechperson“ was the defect: the hole took a name OR a role label, and
-     a bare role noun needs an article this sentence cannot supply for all three. */
-  it("names people and never a role, whatever the seats hold", () => {
+  /* The rule and not today's list: the strip above names every seat and its state, so a second
+     reading of the same rows is one fact from two sides. */
+  it("states the rule rather than naming who is outstanding", () => {
     const staende = staendeOf(sitze({ stellvertretung: person("Bernd", "2026-09-03") }));
+    const satz = zusageHindernis(staende, TEAM);
 
-    assert.equal(zusageHindernis(staende, TEAM), "Die Zusage wartet auf die Bestätigung von Anna Meier und Clara Meier.");
+    assert.equal(satz, "Eine Zusage ist ohne alle Einwilligungen nicht möglich.");
+    // A name in it would move with the seats, which is what makes it a list rather than a rule.
+    assert.ok(!satz.includes("Meier"), "the reason names a person, so it reads as a list of today's outstanding seats");
   });
 
-  /* One person on two seats is one person to wait for. Naming them once per seat would ask the
-     administrator to chase a second answer that a single click already gives. */
-  it("names a person holding two seats once", () => {
+  /* One person on two seats, and a seat whose person has answered: neither moves the sentence, which
+     is the whole of what „the rule rather than the situation“ buys. */
+  it("says the same thing whichever seats are outstanding", () => {
     const doppelt = person("Anna", null);
-    const staende = staendeOf(sitze({ ansprechperson: doppelt, trainer: doppelt, zugleich: "ansprechperson" }));
+    const paar = staendeOf(sitze({ ansprechperson: doppelt, trainer: doppelt, zugleich: "ansprechperson" }));
 
-    assert.match(zusageHindernis(staende, TEAM) ?? "", /Anna Meier und Bernd Meier\.$/);
+    assert.equal(zusageHindernis(paar, TEAM), zusageHindernis(staendeOf(sitze()), TEAM));
   });
 
   /* `REQ-BEWERBUNG-002` is judged before `REQ-BEWERBUNG-013`, so the reason under the control is

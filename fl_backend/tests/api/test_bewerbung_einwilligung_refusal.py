@@ -425,15 +425,14 @@ class TestWhatAConfirmationWrites:
             "$set": {"kontakte.trainer": None, "bestaetigungen.trainer.abgelehnt_am": TODAY}
         }
 
-    def test_a_resend_replaces_the_seats_bookkeeping_whole_and_restarts_the_deadline(self):
-        update = compose_erneut_update(seat="trainer", token_hash="fresh", today=TODAY, bestaetigungsfrist="2026-04-15")
+    @pytest.mark.parametrize("seats", [("trainer",), ("trainer", "ansprechperson")])
+    def test_a_resend_replaces_the_bookkeeping_of_every_seat_it_is_given_and_restarts_the_deadline(self, seats: tuple[str, ...]):
+        """The pair is the case that matters: one entry left standing would keep the replaced address's link alive on that seat."""
 
-        assert update == {
-            "$set": {
-                "bestaetigungen.trainer": {"token_hash": "fresh", "verschickt_am": TODAY, "erinnert_am": None, "abgelehnt_am": None},
-                "bestaetigungsfrist": "2026-04-15",
-            }
-        }
+        update = compose_erneut_update(seats=seats, token_hash="fresh", today=TODAY, bestaetigungsfrist="2026-04-15")
+
+        frisch = {"token_hash": "fresh", "verschickt_am": TODAY, "erinnert_am": None, "abgelehnt_am": None}
+        assert update == {"$set": {**{f"bestaetigungen.{seat}": frisch for seat in seats}, "bestaetigungsfrist": "2026-04-15"}}
 
 
 def antwort(**overrides: Any) -> dict[str, Any]:
@@ -454,7 +453,7 @@ class TestWhatTheAnswerPayloadRefuses:
     def test_a_decline_carrying_a_date_is_refused(self):
         """A decline stores no person, so a date sent with one would be a value nothing writes and nobody asked for."""
 
-        with pytest.raises(ValidationError, match="Ablehnung"):
+        with pytest.raises(ValidationError, match="Widerspruch"):
             FLBewerbungEinwilligungAntwortPayload.model_validate(antwort(antwort="abgelehnt"))
 
     def test_a_decline_carrying_a_whatsapp_consent_is_refused(self):

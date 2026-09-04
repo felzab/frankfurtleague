@@ -691,9 +691,11 @@ export const FLBewerbungEinwilligungErneutResponseSchema = BaseAPIResponseSchema
 });
 export type FLBewerbungEinwilligungErneutResponse = z.infer<typeof FLBewerbungEinwilligungErneutResponseSchema>;
 
-/** One seat a reminder carries. The token is raw and lives in that response and the message alone. */
+/** One LINK a reminder carries. The token is raw and lives in that response and the message alone. */
 export const FLBewerbungSweepSeatSchema = z.object({
-  rolle: FLKontaktRolleSchema,
+  // Every seat one press of this link answers, which is two for a mirrored Trainer
+  // (`docs/backend/spec.md :: I157`).
+  rollen: z.array(FLKontaktRolleSchema),
   vorname: z.string(),
   token: z.string(),
 });

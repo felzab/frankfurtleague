@@ -599,12 +599,16 @@ def compose_decline_update(*, seats: Sequence[str], today: str) -> Mapping[str, 
     return {"$set": written}
 
 
-def compose_erneut_update(*, seat: str, token_hash: str, today: str, bestaetigungsfrist: str) -> Mapping[str, Any]:
-    """A re-send: a fresh hash voids the old one, the mailing day moves, the reminder is owed again, and the deadline restarts."""
+def compose_erneut_update(*, seats: Sequence[str], token_hash: str, today: str, bestaetigungsfrist: str) -> Mapping[str, Any]:
+    """A re-send: one fresh entry per seat this person holds, and the deadline restarts.
 
-    return {
-        "$set": {f"bestaetigungen.{seat}": compose_bestaetigung(token_hash=token_hash, today=today), "bestaetigungsfrist": bestaetigungsfrist}
-    }
+    Both seats one person holds, as the confirmation writes both: one entry left standing would keep
+    the replaced address's link alive through `paired_seat`.
+    """
+
+    written: dict[str, Any] = {f"bestaetigungen.{seat}": compose_bestaetigung(token_hash=token_hash, today=today) for seat in seats}
+
+    return {"$set": {**written, "bestaetigungsfrist": bestaetigungsfrist}}
 
 
 # --- The retention SWEEP. Five clocks, each a pure predicate over one document and `today`, so
@@ -691,6 +695,24 @@ def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple
         held.append(seat_named(seat) or cast(FLKontaktRolle, seat))
 
     return list(grouped.values())
+
+
+def reminder_link_groups(*, kontakte: Any, bestaetigungen: Any, seats: Sequence[str]) -> list[list[FLKontaktRolle]]:
+    """The Trainer rides the link of the seat it mirrors (`docs/backend/spec.md :: I157`).
+
+    `paired_seat` answers both from either press, so a second link asks one reader twice; it keeps
+    its own only where that seat is not reminded here.
+    """
+
+    held: list[FLKontaktRolle] = [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in seats]
+    groups: dict[FLKontaktRolle, list[FLKontaktRolle]] = {}
+
+    for seat in held:
+        partner = paired_seat(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=seat)
+        anchor = partner if seat == "trainer" and partner is not None and partner in held else seat
+        groups.setdefault(anchor, []).append(seat)
+
+    return list(groups.values())
 
 
 def compose_erinnerung_update(*, hashes: Mapping[str, str], bestaetigungen: Any, today: str) -> Mapping[str, Any]:

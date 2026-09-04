@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 
 import { DECLARED_RULES, declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
+import { LABEL_BADGE } from "../../shared/components/ui/badges.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH } from "./constants.ts";
 import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
 
@@ -32,6 +33,12 @@ const PANELS = ["AdminBewerbungAnnehmenSection", "AdminBewerbungAblehnenSection"
 
 /** The page holding both decisions, which is what decides whether either panel is on screen at all. */
 const VIEW = readFileSync(path.resolve(import.meta.dirname, "components", "views", "AdminBewerbungView.tsx"), "utf8").replace(/\s+/g, " ");
+
+/** The queue, whose columns are allocated rather than measured: fixed layout gives back nothing a cell overruns. */
+const TABLE = readFileSync(path.resolve(import.meta.dirname, "components", "collections", "AdminBewerbungenTable.tsx"), "utf8");
+
+/** The readout, whose own `useRouter` is why its header is read rather than rendered. */
+const STRIP = readFileSync(path.resolve(import.meta.dirname, "components", "views", "BewerbungBestaetigungStrip.tsx"), "utf8");
 
 /** The club editor's own mapper, which answers `REQ-ENTER-005` about the same stored state this one does. */
 const TEAMS_ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "teams", "actions.ts"), "utf8");
@@ -448,6 +455,72 @@ describe("the decline's bound", () => {
       panel.source.includes("Diese Begründung geht so an die Kontaktpersonen: „{trimmedGrund}“"),
       "the confirmation previews a reason other than the one that goes out",
     );
+  });
+});
+
+describe("the readout's count", () => {
+  const kopf = sliceBetween(STRIP, "panel.header()", "panel.body()");
+
+  /* In the header beside the heading rather than at the top of the body, where it read as the first
+     of the seat rows below it. */
+  it("stands in the section's header", () => {
+    assert.ok(kopf !== "", "the strip's header is no longer where this case cuts it");
+    assert.match(kopf, /von \{String\(staende\.length\)\} bestätigt/, "the count is no longer beside the heading");
+    assert.ok(!sliceBetween(STRIP, "panel.body()", "muted-hint").includes("bestätigt"), "the body carries a second count");
+  });
+
+  /* One tone for the summary and another for what it summarises: at `warning` it was the same chip
+     as an outstanding SEAT, three rows of which sit directly beneath it. */
+  it("is toned apart from an outstanding seat's own chip", () => {
+    const ausstehend = /ausstehend: "([^"]*)"/.exec(STRIP)?.[1] ?? "";
+    // Read back from the count's own text rather than out of the header, so moving the chip cannot
+    // leave this case judging an empty slice.
+    const gezogen = STRIP.lastIndexOf("className=", STRIP.indexOf("{String(bestaetigt)} von"));
+    const chip = STRIP.slice(gezogen, STRIP.indexOf("{String(bestaetigt)} von"));
+
+    assert.notEqual(ausstehend, "", "the seat tints are no longer where this case reads them");
+    assert.notEqual(gezogen, -1, "the count is no longer rendered where this case reads it");
+    assert.ok(!chip.includes(ausstehend), `the count wears an outstanding seat's own tint, ${ausstehend}`);
+    // The table as well as the literal: reaching into the seats' own tints is how the two come back
+    // together under a rename that leaves this file's regex above still matching.
+    assert.ok(!chip.includes("STAND_TINT"), "the count is tinted out of the seat rows' own table");
+    assert.match(chip, /ZAEHLER_TINT/, "the count no longer takes a tone of its own");
+    assert.match(STRIP, /ZAEHLER_TINT = \{ offen: "bg-brand\/10/, "the count no longer takes the brand's tone while seats are outstanding");
+  });
+});
+
+describe("the queue's columns", () => {
+  /* One rule on the table rather than a class per cell: HeroUI's `Table.Column` takes no alignment
+     prop, so nothing else makes eight columns read from one edge. */
+  it("reads from one edge, with the controls the single exception", () => {
+    assert.match(
+      TABLE,
+      /className="min-w-7xl table-fixed text-left"/,
+      "the table declares no alignment, so each cell keeps whatever it inherits",
+    );
+
+    const geendet = [...TABLE.matchAll(/text-right/g)];
+
+    assert.equal(geendet.length, 1, `expected the Aktionen column alone to end right, found ${String(geendet.length)}`);
+    assert.match(TABLE.slice(geendet[0]!.index), /^text-right[\s\S]{0,120}Aktionen/, "a column other than Aktionen is ended right");
+  });
+
+  /* A pill that cannot break overruns a column too narrow for it instead of wrapping inside it, so
+     the widths are read off the pills rather than off the headings, which may wrap. */
+  it("never lets a pill break across two lines", () => {
+    assert.match(LABEL_BADGE, /\bwhitespace-nowrap\b/, "a pill breaks across two lines, where it reads as two pills");
+  });
+
+  /* A calendar date is fixed-format: its column is sized to it, and a clipped one is another date.
+     Truncating it was the repair for a column too narrow, which is the wrong end of the problem. */
+  it("truncates the names and never the date", () => {
+    // The LAST rendering: the phone card above the table draws the same date, and it is the table's
+    // fixed column that a truncation would be hiding.
+    const eingereicht = TABLE.lastIndexOf("{formatSpielDatum(bewerbung.eingereicht_am)}");
+
+    assert.notEqual(eingereicht, -1, "the queue no longer renders the submission date where this case reads it");
+    assert.doesNotMatch(TABLE.slice(eingereicht - 120, eingereicht), /truncate/, "the submission date is clipped rather than given its width");
+    assert.match(TABLE, /min-w-0 truncate[^"]*">\{bewerbung\.schule\.full_name\}/, "the school's full name no longer truncates at its column");
   });
 });
 

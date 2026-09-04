@@ -183,33 +183,38 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
               way to reach the columns it cannot fit, and a hidden bar says it is not. */}
           <Table.ScrollContainer>
             {/* Fixed layout holds the columns when the rows go. The minimum is every pinned column's
-                width plus a floor for the name, under which the name gets nothing. */}
+                width plus a floor for the name, under which the name gets nothing. `text-left` here
+                because `Table.Column` takes no alignment prop. */}
             <Table.Content
               aria-label="Tabelle aller Bewerbungen"
-              className="min-w-7xl table-fixed">
+              className="min-w-7xl table-fixed text-left">
               <Table.Header>
                 <Table.Column
                   isRowHeader
                   className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Team
                 </Table.Column>
-                {/* PINNED to their content's width, so the leftover all goes to the name column. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-32 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                {/* PINNED to the widest PILL each carries rather than to its heading, which may
+                    wrap: `LABEL_BADGE` holds one line, so a column under its pill's width pushes
+                    the pill across the one beside it. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Herkunft
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-28 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-24 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Saison
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-32 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                {/* A calendar date is fixed-format, so this width is a measurement rather than a
+                    guess, and the cell never truncates: a clipped year is a different date. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Eingereicht
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-56 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-40 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Ansprechperson
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Einwilligungen
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-32 border-b px-6 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Status
                 </Table.Column>
                 {/* One control — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` holds
@@ -237,7 +242,10 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                           width={18}
                           height={18}
                         />
-                        <div className="flex min-w-0 flex-col items-start gap-1">
+                        {/* Stretched rather than `items-start`: a column item sized to its own
+                            content has no width for an ellipsis to sit at, and the two names below
+                            are the one thing in this table long enough to need one. */}
+                        <div className="flex min-w-0 flex-col gap-1">
                           {renderName(bewerbung)}
                           {bewerbung.schule !== null && (
                             <span className="fluid-xs text-foreground-muted min-w-0 truncate">{bewerbung.schule.full_name}</span>
@@ -258,7 +266,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                     </Table.Cell>
 
                     <Table.Cell className="px-6 py-4">
-                      <span className="fluid-sm text-foreground block min-w-0 truncate">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
+                      <span className="fluid-sm text-foreground">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
                     </Table.Cell>
 
                     <Table.Cell className="px-6 py-4">{renderKontakt(bewerbung)}</Table.Cell>

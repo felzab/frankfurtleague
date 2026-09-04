@@ -3,16 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
-import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
+import { KONTAKT_EMAIL } from "@/core/brand";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/constants";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { ctaButton } from "@/shared/components/ui/formButtons";
-import { textLink } from "@/shared/components/ui/textLink";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { BestaetigungFormPanel } from "./BestaetigungFormPanel";
-import { BestaetigungErgebnis, Fakten, Wert } from "./BestaetigungPanels";
+import { ABSATZ, BestaetigungErgebnis, FaktenBanner, Wert } from "./BestaetigungPanels";
 
 import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
 import type { KontaktRolle } from "@/features/teams/constants";
@@ -44,8 +43,6 @@ const TITEL: Record<Stand["zustand"], string> = {
 
 /** The application page's own column, so the two ends of the workflow are one page wide. */
 const SEITE = "max-w-meta flex w-full flex-col gap-5 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
-
-const ABSATZ = "fluid-sm text-foreground max-w-2xl leading-relaxed font-medium text-pretty";
 
 const rollenLangform = (rolle: KontaktRolle): string => KONTAKT_ROLLEN.find((eintrag) => eintrag.value === rolle)?.langform ?? "";
 
@@ -90,23 +87,18 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
     <section className={SEITE}>
       <header className="flex w-full flex-col gap-3">
         {saison !== null && <SaisonChip>Saison {saison}</SaisonChip>}
-        <h1 className="fluid-3xl text-foreground font-black tracking-tight uppercase">{TITEL[stand.zustand]}</h1>
+        <h1 className="fluid-3xl font-black tracking-tight uppercase">{TITEL[stand.zustand]}</h1>
 
+        {/* The facts the mail led with, in the mail's own panel: standing in a sentence under the
+            heading they were what a reader skimmed past on the way to the button. */}
         {stand.zustand === "gueltig" && (
-          <>
-            <p className={ABSATZ}>
-              Hallo <Wert>{stand.ansicht.vorname}</Wert>, Du bist in der Bewerbung der Schule <Wert>{stand.ansicht.schule}</Wert> zur Saison{" "}
-              <Wert>{stand.ansicht.saison_id}</Wert> als <Wert>{rollenLangform(stand.ansicht.rolle)}</Wert> eingetragen. Bitte bestätige, dass
-              das stimmt und dass diese E-Mail-Adresse Deine ist.
-            </p>
-            <Fakten
-              zeilen={[
-                { label: "Schule", wert: stand.ansicht.schule },
-                { label: "Saison", wert: stand.ansicht.saison_id },
-                { label: "Deine Rolle", wert: rollenLangform(stand.ansicht.rolle) },
-              ]}
-            />
-          </>
+          <FaktenBanner
+            zeilen={[
+              { label: "Schule", wert: stand.ansicht.schule },
+              { label: "Saison", wert: stand.ansicht.saison_id },
+              { label: "Deine Rolle", wert: rollenLangform(stand.ansicht.rolle) },
+            ]}
+          />
         )}
       </header>
 
@@ -132,7 +124,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
             Danke, <Wert>{stand.ansicht.vorname}</Wert>. Dein Eintrag für die Schule <Wert>{stand.ansicht.schule}</Wert> ist bestätigt.
           </p>
           {/* Echoed so the person sees what was recorded, in the press's own answer and nowhere fetchable. */}
-          <Fakten
+          <FaktenBanner
             zeilen={[
               { label: "Rolle", wert: rollenLangform(stand.ansicht.rolle) },
               { label: "Geburtsdatum", wert: formatSpielDatum(stand.geburtsdatum) },
@@ -212,8 +204,6 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
-
-      <SeitenFuss zustand={stand.zustand} />
     </section>
   );
 }
@@ -245,56 +235,5 @@ function FrageStellen() {
         Frage stellen
       </a>
     </Aktion>
-  );
-}
-
-/**
- * The legal links and the controller in every state: the site's own footer under this one carries
- * the links again, and a page reached from an email has to stand on its own.
- */
-function SeitenFuss({ zustand }: { zustand: Stand["zustand"] }) {
-  const linkKlasse = textLink({ tone: "muted" });
-
-  return (
-    <footer className="border-border muted-meta flex flex-col items-center gap-y-1 border-t pt-5 text-center">
-      {zustand === "gueltig" && (
-        <p>
-          Fragen, Löschung und Widerspruch:{" "}
-          <a
-            href={`mailto:${KONTAKT_EMAIL}`}
-            className={linkKlasse}>
-            {KONTAKT_EMAIL}
-          </a>
-        </p>
-      )}
-      {zustand === "erfolg" && <p>Diesen Link kannst Du jetzt vergessen: er funktioniert nur einmal.</p>}
-      {(zustand === "abgelaufen" || zustand === "ungueltig" || zustand === "unlesbar") && (
-        <p>
-          <a
-            href={`mailto:${KONTAKT_EMAIL}`}
-            className={linkKlasse}>
-            {KONTAKT_EMAIL}
-          </a>
-        </p>
-      )}
-      <p>
-        <Link
-          href="/datenschutz"
-          prefetch={false}
-          className={linkKlasse}>
-          Datenschutzerklärung
-        </Link>
-        {" · "}
-        <Link
-          href="/impressum"
-          prefetch={false}
-          className={linkKlasse}>
-          Impressum
-        </Link>
-      </p>
-      <p>
-        Verantwortlich: {VEREIN_NAME}, {VEREIN_ANSCHRIFT}
-      </p>
-    </footer>
   );
 }

@@ -658,7 +658,7 @@ class FLBewerbungEinwilligungAntwortPayload(BaseModel):
             raise ValueError("Zur Einwilligung gehört das eigene Geburtsdatum.")
 
         if self.antwort == "abgelehnt" and self.geburtsdatum is not None:
-            raise ValueError("Bei einer Ablehnung wird kein Geburtsdatum gespeichert.")
+            raise ValueError("Ein Widerspruch speichert kein Geburtsdatum.")
 
         return self
 
@@ -667,7 +667,7 @@ class FLBewerbungEinwilligungAntwortPayload(BaseModel):
         """A decline empties the slot, so a `True` here would echo a scope back to the page that no seat records."""
 
         if self.antwort == "abgelehnt" and self.whatsapp:
-            raise ValueError("Bei einer Ablehnung wird keine WhatsApp-Einwilligung gespeichert.")
+            raise ValueError("Ein Widerspruch speichert keine WhatsApp-Einwilligung.")
 
         return self
 
@@ -715,9 +715,11 @@ class FLBewerbungEinwilligungErneutResponse(BaseAPIResponse):
 
 
 class FLBewerbungSweepSeat(BaseModel):
-    """One seat a reminder carries: the RAW fresh token, which exists here and in the mail alone."""
+    """One LINK a reminder carries: the RAW fresh token, which exists here and in the mail alone."""
 
-    rolle: FLKontaktRolle
+    # Every seat one press of this link answers, which is two for a mirrored Trainer
+    # (`docs/backend/spec.md :: I157`).
+    rollen: list[FLKontaktRolle]
     vorname: str
     token: str
 

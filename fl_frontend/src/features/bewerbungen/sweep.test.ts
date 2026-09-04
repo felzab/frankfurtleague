@@ -306,7 +306,7 @@ describe("one pass of the sweep", () => {
             schule: "Goetheschule",
             bestaetigungsfrist: "2026-09-18",
             email: "erika@schule.de",
-            seats: [{ rolle: "ansprechperson", vorname: "Erika", token: "token-a" }],
+            seats: [{ rollen: ["ansprechperson"], vorname: "Erika", token: "token-a" }],
           },
         ],
       },
@@ -318,6 +318,32 @@ describe("one pass of the sweep", () => {
       events.map((event) => event.kind),
       ["api", "api", "mail"],
     );
+  });
+
+  /* One press answers the pair, so a second link asks one reader twice over one decision. The
+     backend mints per link for that reason, and this is the half a reader actually receives. */
+  it("carries one link and both role names where one person holds two seats", async () => {
+    sweepAnswers({
+      saisonIds: ["2627"],
+      erinnerungen: {
+        "2627": [
+          {
+            bewerbung_id: ID_ERREICHT,
+            saison_id: "2627",
+            schule: "Goetheschule",
+            bestaetigungsfrist: "2026-09-18",
+            email: "erika@schule.de",
+            seats: [{ rollen: ["trainer", "ansprechperson"], vorname: "Erika", token: "token-paar" }],
+          },
+        ],
+      },
+    });
+
+    await runBewerbungSweep();
+
+    const erinnerung = events.find((event) => event.kind === "mail");
+    assert.equal(erinnerung?.text.match(/\/bestaetigung\?token=/g)?.length, 1, "the paired mailbox was sent a second link");
+    assert.ok(erinnerung?.text.includes("Ansprechperson und Trainerin oder Trainer"), "the one link names one of the two seats it answers");
   });
 
   it("mails the deletion notice, stamps what was delivered, and erases only that", async () => {

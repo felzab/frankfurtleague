@@ -29,6 +29,12 @@ const STRIP_CHIP = `${LABEL_BADGE} h-7 shrink-0`;
 /** Named rather than muted: a grey chip on a coloured row reads as disabled (my rule, 2026-09-04). */
 const ROLLEN_TINT = "bg-info/15 text-info-strong";
 
+/**
+ * Never `warning`, which is what the rows beneath give an outstanding SEAT: one tone for the summary
+ * and the thing it summarises reads as one state (my rule, 2026-09-04).
+ */
+const ZAEHLER_TINT = { offen: "bg-brand/10 text-brand-solid", vollstaendig: "bg-success/15 text-success-strong" };
+
 const STAND_TINT: Record<SitzBestaetigung["stand"]["art"], string> = {
   bestaetigt: "bg-success/15 text-success-strong",
   ausstehend: "bg-warning/15 text-warning-strong",
@@ -93,18 +99,22 @@ export function BewerbungBestaetigungStrip({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <PanelHeading
-          className={panel.heading()}
-          title="Einwilligungen"
-        />
+        {/* The count beside the heading, in the shape `AdminBewerbungView`'s own header gives a
+            status chip: `PanelHeading` has one slot and it belongs to the hint glyph. */}
+        <div className="flex w-full flex-row items-center gap-x-3">
+          <PanelHeading
+            className={panel.heading()}
+            title="Einwilligungen"
+          />
+          <span className="shrink-0">
+            <span className={`${STRIP_CHIP} ${bestaetigt === staende.length ? ZAEHLER_TINT.vollstaendig : ZAEHLER_TINT.offen}`}>
+              {String(bestaetigt)} von {String(staende.length)} bestätigt
+            </span>
+          </span>
+        </div>
       </div>
 
       <div className={panel.body()}>
-        <span
-          className={`${STRIP_CHIP} ${bestaetigt === staende.length ? "bg-success/15 text-success-strong" : "bg-warning/15 text-warning-strong"} w-fit`}>
-          {String(bestaetigt)} von {String(staende.length)} bestätigt
-        </span>
-
         <div className="flex w-full flex-col gap-y-3">
           {staende.map((sitz) => {
             const Glyph = STAND_ICON[sitz.stand.art];

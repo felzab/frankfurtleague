@@ -108,7 +108,7 @@ freeze is absolute on the patch and is not a dead end, and which route leads bac
 | `REQ-BEWERBUNG-008`   | 409    | A submission proposed a Kürzel a club already holds                                                                                                    |
 | `REQ-BEWERBUNG-009`   | 409    | A confirmation link opened no seat of any application — unknown, replaced by a re-send, or deleted with its application                                |
 | `REQ-BEWERBUNG-010`   | 409    | A seat was answered after the application's confirmation deadline, or after the application had been decided                                           |
-| `REQ-BEWERBUNG-011`   | 409    | A seat already confirmed or declined, or one with nothing left to confirm, was answered again or sent a new link                                       |
+| `REQ-BEWERBUNG-011`   | 409    | A seat already confirmed or answered with a `Widerspruch`, or one with nothing left to confirm, was answered again or sent a new link                  |
 | `REQ-BEWERBUNG-012`   | 409    | A contact person confirmed with a date of birth outside the league's age span; nothing was written                                                     |
 | `REQ-BEWERBUNG-013`   | 409    | Acceptance found a seat its person has not confirmed, on an application carrying a confirmation block                                                  |
 | `REQ-SPIELPLAN-001`   | 409    | A season already holding fixtures was asked to draw one, and the request confirmed no replace                                                          |

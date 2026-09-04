@@ -7,6 +7,12 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import type { ReactNode, RefObject } from "react";
 
 /**
+ * The one body step, stamped text and the page's own sentences alike: these are legal words a
+ * reader has to get through, so they take the paragraph grade rather than a caption's meta grade.
+ */
+export const ABSATZ = "fluid-sm text-foreground max-w-2xl leading-relaxed font-medium text-pretty";
+
+/**
  * The one emphasis a reader's own value wears here: a second spelling is how the name in one
  * sentence stops matching the name in the next. `fl_frontend/src/core/emailShell.ts :: strong` is
  * the mail's end of the same rule.
@@ -37,19 +43,23 @@ export function BestaetigungAbschnitt({ titel, children }: { titel: string; chil
 }
 
 /**
- * The stored facts a reader is shown back, in the admin application page's own grid
- * (`fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx :: Angabe`): a
- * label over its value, so no row needs a box of its own to be read as a pair.
+ * The mails' own fact panel in the page's tokens
+ * (`fl_frontend/src/core/bewerbungEmail.ts :: renderFakten`). **A row at every width**: three facts
+ * stacked down a phone are its whole first screen.
  */
-export function Fakten({ zeilen }: { zeilen: readonly { label: string; wert: string }[] }) {
+export function FaktenBanner({ zeilen }: { zeilen: readonly { label: string; wert: string }[] }) {
+  // The mail's 8px rather than a panel's arc, which the page's box count reads as `rounded-2xl`.
   return (
-    <dl className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <dl className="bg-surface border-border flex w-full flex-row items-start gap-x-4 rounded-lg border px-4 py-3 text-left sm:gap-x-6">
       {zeilen.map(({ label, wert }) => (
         <div
           key={label}
-          className="flex flex-col gap-y-0.5">
-          <dt className="fluid-xxs text-foreground-muted font-bold">{label}</dt>
-          <dd className="fluid-sm min-w-0 break-words">
+          className="flex min-w-0 flex-1 flex-col gap-y-0.5">
+          <dt className="fluid-xxs text-foreground-muted truncate font-bold">{label}</dt>
+          {/* The row never wraps, so a school name the cell cannot seat is readable nowhere else. */}
+          <dd
+            className="fluid-sm truncate"
+            title={wert}>
             <Wert>{wert}</Wert>
           </dd>
         </div>

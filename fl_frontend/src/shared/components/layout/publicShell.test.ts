@@ -24,9 +24,16 @@ describe("where the public shell puts its footer", () => {
   /* A page shorter than the screen would otherwise park the footer at the bottom of the first one,
      where it reads as the end of a page the reader has not started. */
   it("holds the footer off the first screen", () => {
+    assert.ok(PUBLIC_LAYOUT.includes("min-h-[calc(100dvh-var("), "the main region has no floor, so the footer rises into the first screen");
+  });
+
+  /* Every pixel the floor overshoots by is blank the reader scrolls past on a short page, and the
+     header's border is outside the token the floor reads: `box-content` puts it there. */
+  it("measures that floor against the header's whole box", () => {
+    assert.match(PUBLIC_LAYOUT, /box-content h-\(--navbar-height\)[^"]*border-b/, "the header no longer wears its border outside its height");
     assert.ok(
-      PUBLIC_LAYOUT.includes("min-h-[calc(100dvh-var(--navbar-height))]"),
-      "the main region has no floor, so the footer rises into the first screen",
+      PUBLIC_LAYOUT.includes("min-h-[calc(100dvh-var(--navbar-height)-1px)]"),
+      "the floor is read off the navbar token alone, so it overshoots the first screen by the header's border",
     );
   });
 
