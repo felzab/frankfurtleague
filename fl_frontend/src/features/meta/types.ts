@@ -3,6 +3,8 @@ export interface KontaktChannel {
   name: string;
   value: string;
   action: string;
+  /** The verb on the card's control, per channel: opening a profile is not contacting. */
+  cta: string;
 }
 
 export interface TeamMember {

@@ -2,8 +2,9 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 
+import { band } from "@/features/bewerbungen/components/ui/band";
 import { BewerbungBandSkeleton } from "@/features/bewerbungen/components/ui/BewerbungBandSkeleton";
-import { band, BewerbungOffenBand } from "@/features/bewerbungen/components/ui/BewerbungOffenBand";
+import { BewerbungOffenBand } from "@/features/bewerbungen/components/ui/BewerbungOffenBand";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { getCurrentSaison } from "@/features/saisons/queries";
 import {
@@ -11,6 +12,7 @@ import {
   RecentAndUpcomingSpieleGridSkeleton,
 } from "@/features/spiele/components/collections/RecentAndUpcomingSpieleGrid";
 import { card } from "@/shared/components/ui/card";
+import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 
 export default function LandingPage() {
@@ -29,12 +31,12 @@ export default function LandingPage() {
                 </Suspense>
               </SaisonChip>
 
-              <h1 className="fluid-3xl font-black tracking-tight uppercase">
+              <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>
                 Die Saison läuft! Wer holt sich den <span className="text-brand">Titel</span>?
               </h1>
 
               <p className="muted-hint max-w-xl">
-                Sehe alle wichtigen Daten der Frankfurt-League ein, verfolge Spieltage, Ergebnisse, Tabellen und mehr...
+                Sieh alle wichtigen Daten der Frankfurt League ein, verfolge Spieltage, Ergebnisse, Tabellen und mehr...
               </p>
             </div>
 
@@ -61,7 +63,7 @@ export default function LandingPage() {
               className={`${card({ interactive: true })} relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
                 <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Schulen & Kader</span>
-                <span className="fluid-sm text-foreground font-black">Alle Teams durchstöbern</span>
+                <span className="fluid-sm text-foreground font-extrabold">Alle Teams durchstöbern</span>
               </div>
               <span className="fluid-sm text-brand relative z-10 font-bold">→</span>
             </Link>
@@ -72,7 +74,7 @@ export default function LandingPage() {
               className={`${card({ interactive: true })} relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
                 <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Ranking</span>
-                <span className="fluid-sm text-foreground font-black">Tabellenstand & Platzierungen</span>
+                <span className="fluid-sm text-foreground font-extrabold">Tabellenstand & Platzierungen</span>
               </div>
               <span className="fluid-sm text-brand relative z-10 font-bold">→</span>
             </Link>
@@ -83,7 +85,7 @@ export default function LandingPage() {
               className={`${card({ interactive: true })} relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
                 <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Matchday</span>
-                <span className="fluid-sm text-foreground font-black">Ansetzungen & Ergebnisse</span>
+                <span className="fluid-sm text-foreground font-extrabold">Ansetzungen & Ergebnisse</span>
               </div>
               <span className="fluid-sm text-brand relative z-10 font-bold">→</span>
             </Link>

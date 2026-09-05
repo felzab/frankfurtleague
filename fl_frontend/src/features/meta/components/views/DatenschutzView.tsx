@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME, VERTRETUNGSBERECHTIGTE } from "@/core/brand";
 import { card } from "@/shared/components/ui/card";
+import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { textLink } from "@/shared/components/ui/textLink";
 
@@ -145,18 +146,16 @@ function MailLink() {
 
 export function DatenschutzView() {
   return (
-    <div className={`${PAGE_RISE} max-w-meta flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8`}>
-      <div className="flex flex-col items-center px-2 text-center">
-        <h1 className="fluid-2xl lg:fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">Datenschutzerklärung</h1>
-      </div>
+    <div className={`${PAGE_RISE} flex w-full flex-col gap-5`}>
+      <header className="flex w-full flex-col gap-3">
+        <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>Datenschutzerklärung</h1>
+      </header>
 
-      {/* Neutral rather than the green pitch card the sibling meta views wear: this is a page somebody
-          reads end to end, and the field foreground carries a paragraph badly at any length. */}
-      <article className={`${card()} flex w-full flex-col gap-y-6 p-5 shadow-xl sm:p-6 lg:gap-y-8 lg:p-8`}>
+      <article className={`${card()} flex w-full flex-col gap-y-6 p-4 sm:p-6 lg:gap-y-8 lg:p-8`}>
         <Abschnitt titel="Kurz gesagt">
           <ul className="flex list-disc flex-col gap-y-2 pl-5">
             <li className={ABSATZ}>
-              Für die Teilnahme an der Frankfurt-League brauchen wir ein paar Daten von Dir. Mehr als nötig fragen wir nicht ab.
+              Für die Teilnahme an der Frankfurt League brauchen wir ein paar Daten von Dir. Mehr als nötig fragen wir nicht ab.
             </li>
             <li className={ABSATZ}>Wenn Dein Name auf dieser Website steht, dann als Vorname und erster Buchstabe des Nachnamens.</li>
             <li className={ABSATZ}>Wer als Kontaktperson einer Bewerbung eingetragen wird, muss mindestens 16 Jahre alt sein.</li>
@@ -338,7 +337,7 @@ export function DatenschutzView() {
               <div
                 role="listitem"
                 key={empfaenger.name}
-                className="border-border flex flex-col gap-y-3 rounded-2xl border p-4">
+                className="border-border flex flex-col gap-y-3 rounded-xl border p-4">
                 <div className="fluid-sm text-foreground font-extrabold tracking-wide uppercase">{empfaenger.name}</div>
                 <dl className="flex flex-col gap-y-2">
                   <Angabe label="Rolle">{empfaenger.rolle}</Angabe>

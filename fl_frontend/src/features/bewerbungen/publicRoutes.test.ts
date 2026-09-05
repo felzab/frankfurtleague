@@ -24,6 +24,8 @@ const { ComboBox, Input, Label } = await import("@heroui/react");
 const { BewerbungView } = await import("./components/views/BewerbungView.tsx");
 const { FormTeamSection } = await import("./components/forms/BewerbungForm/FormTeamSection.tsx");
 const { KontaktView } = await import("@/features/meta/components/views/KontaktView.tsx");
+const { AboutView } = await import("@/features/meta/components/views/AboutView.tsx");
+const { QA_QUESTIONS } = await import("@/features/meta/constants.ts");
 const { ContentLoader } = await import("@/shared/components/ui/ContentLoader.tsx");
 const { default: BewerbungLoading } = await import("@/app/(public)/bewerbung/[saison_id]/loading.tsx");
 const { default: BewerbungPage } = await import("@/app/(public)/bewerbung/[saison_id]/page.tsx");
@@ -31,7 +33,7 @@ const { default: LandingPage } = await import("@/app/(public)/page.tsx");
 const { default: KontaktPage } = await import("@/app/(public)/(meta)/kontakt/page.tsx");
 const { BewerbungBandSkeleton } = await import("./components/ui/BewerbungBandSkeleton.tsx");
 const { BewerbungInstagramBand } = await import("./components/ui/BewerbungInstagramBand.tsx");
-const { band } = await import("./components/ui/BewerbungOffenBand.tsx");
+const { band } = await import("./components/ui/band.ts");
 const { ctaButton } = await import("@/shared/components/ui/formButtons.ts");
 const { textLink } = await import("@/shared/components/ui/textLink.ts");
 const { formPanel } = await import("@/shared/components/ui/formPanel.ts");
@@ -54,7 +56,8 @@ const LANDING = readFileSync(path.join(APP_DIR, "(public)", "page.tsx"), "utf8")
 const PAGE = readFileSync(path.join(ROUTE_DIR, "page.tsx"), "utf8");
 const VIEW = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "views", "BewerbungView.tsx"), "utf8");
 const NEXT_CONFIG = readFileSync(path.join(FRONTEND_DIR, "next.config.ts"), "utf8");
-const BAND = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungOffenBand.tsx"), "utf8");
+const BAND = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "band.ts"), "utf8");
+const BAND_COMPONENT = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungOffenBand.tsx"), "utf8");
 const SKELETON = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungBandSkeleton.tsx"), "utf8");
 const HINWEIS_QUELLE = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungInstagramBand.tsx"), "utf8");
 const KONTAKT_PAGE = readFileSync(path.join(APP_DIR, "(public)", "(meta)", "kontakt", "page.tsx"), "utf8");
@@ -71,14 +74,8 @@ const TEAM_SECTION = readFileSync(
   "utf8",
 );
 
-/**
- * The `saison` slot per ground, each cut out so an assertion reads that arm and nothing near it. The BASE is
- * shared, so a colour there reaches both pages; only the landing arm may name one.
- */
-const BASE_SAISON = /saison: "([^"]*)"/.exec(BAND)?.[1] ?? "";
-const SURFACE_SAISON = /surface: \{[^}]*saison: "([^"]*)"/.exec(BAND)?.[1] ?? "";
-const FIELD_ARM = /field: \{([^}]*)\}/.exec(BAND)?.[1] ?? "";
-const FIELD_SAISON = /saison: "([^"]*)"/.exec(FIELD_ARM)?.[1] ?? "";
+/** The `saison` slot, cut out so an assertion reads it and nothing near it. */
+const SAISON = /saison: "([^"]*)"/.exec(BAND)?.[1] ?? "";
 
 /** Names no school the placeholders already carry, so a hit is the list rather than a hint text. */
 const SCHULEN = [
@@ -123,6 +120,15 @@ const HINWEIS_SATZ =
 
 /** The outermost element's class list, which is where a recipe lands — read inside its own tag alone. */
 const wurzelKlasse = (html: string): string => /class="([^"]*)"/.exec(html.slice(0, html.indexOf(">")))?.[1] ?? "";
+
+/** The level of the heading a fragment is rendered inside: the last one opened above it. */
+function ueberschriftsEbene(html: string, text: string): number | null {
+  const stelle = html.indexOf(text);
+  if (stelle === -1) return null;
+  const zuletzt = [...html.slice(0, stelle).matchAll(/<h([1-6])\b/g)].at(-1);
+
+  return zuletzt === undefined ? null : Number(zuletzt[1]);
+}
 
 /** Every link the header renders, as a reader meets it: where it goes, how it is dressed, what it says. */
 function kopfLinks(html: string): { href: string; klassen: string; text: string; ikonen: string[] }[] {
@@ -322,7 +328,7 @@ describe("the links the application page's header offers", () => {
     assert.deepEqual(
       kopfLinks(LAEUFT).map((link) => link.href),
       ["/about", "/kontakt", "/dashboard"],
-      "the header no longer offers About, Kontakt and the dashboard",
+      "the header no longer offers Über die Liga, Kontakt and the dashboard",
     );
   });
 
@@ -433,36 +439,48 @@ describe("what the application page holds while it loads", () => {
 });
 
 /*
- Read rather than rendered: what is asserted is which arm of the band's recipe a colour sits in, and
- which page asks for which arm — a rendered class list is one flat string that names neither.
+ Read rather than rendered: what is asserted is which classes a recipe wrote and that no call site
+ asks the recipe for a second box — a rendered class list is one flat string that shows neither.
 */
 describe("how the band writes the season it is inviting applications for", () => {
-  /* Read from the LANDING arm, never the base: the base deliberately carries no colour, so an assertion
-     aimed there would be satisfied by a recipe that had dropped the brand altogether. */
+  /* The slot deliberately carries its colour in the recipe, so an assertion at a call site would be
+     satisfied by a recipe that had dropped the brand. */
   it("tints the season with the brand itself", () => {
-    assert.match(SURFACE_SAISON, /(^|\s)text-brand(\s|$)/, "the landing band no longer writes the season in the brand colour");
+    assert.match(SAISON, /(^|\s)text-brand(\s|$)/, "the band no longer writes the season in the brand colour");
   });
 
-  /* The pitch reads no brand at all — 1.32:1 light, 3.05:1 dark — so that ground names no colour and the
-     phrase takes the band's own foreground. Fill or text alike: both are a colour. */
-  it("puts no colour on the season on the pitch", () => {
-    assert.notEqual(FIELD_ARM, "", "the pitch ground moved, so the two assertions below read nothing");
-    assert.doesNotMatch(BASE_SAISON, /(^|\s)(text|bg)-/, "a colour on the shared slot reaches the pitch too");
-    assert.doesNotMatch(FIELD_SAISON, /(^|\s)(text|bg)-/, "the pitch band put a colour back on the season");
+  /* The other half of the pair above: a colour written beside the slot at the call site is the drift
+     one recipe for every band exists to stop. Fill or text alike, both are a colour. */
+  it("colours the season in the recipe and nowhere else", () => {
+    assert.doesNotMatch(BAND_COMPONENT, /styles\.saison\(\)\} [^"]*(text|bg)-/, "the call site writes a second colour onto the season");
   });
 
-  /* Two pages, two grounds: the landing card and the `(meta)` pitch. One forced ground is what put a
-     pale rectangle into the pitch, which is the thing this variant exists to stop. */
-  it("offers a ground for each page the slot appears on", () => {
-    assert.match(BAND, /ground: \{/, "the band forces one ground on both pages again");
-    assert.match(BAND, /surface: \{ root: "border-border bg-surface/, "the landing band lost its own card ground");
-    assert.match(BAND, /field: \{ root: "soccer-field-card-bg/, "the contact band no longer takes the pitch card's ground");
-    assert.match(BAND, /defaultVariants: \{ ground: "surface" \}/, "a band that names no ground stops defaulting to the landing card");
+  /* One box, because one ground is left to sit on. A second box is what cut a pale rectangle into a
+     page that had a card recipe of its own, and no page now needs one. */
+  it("offers one box and no second ground", () => {
+    assert.doesNotMatch(BAND, /variants:/i, "the recipe offers a call site a box to choose between again");
+    /* `\b` on both sides, or `text-foreground` in the `text` slot matches and the assertion can never
+       pass: a compound ending in the word is not the word. */
+    assert.doesNotMatch(BAND, /\bground\b/, "the recipe names a ground again");
+    assert.match(BAND, /root: "[^"]*\bbg-surface\b/, "the band lost the card box every page seats it in");
   });
 
-  /* The pitch ground is the contact page's, and only that page may ask for it. */
-  it("seats the contact page's band on the pitch ground", () => {
-    assert.match(KONTAKT_PAGE, /<BewerbungOffenBand ground="field" \/>/, "the contact band no longer asks for the pitch ground");
+  /* The one box is nobody's to ask for, so the contact page asks for nothing. */
+  it("seats the contact page's band on the one box, asking for nothing", () => {
+    assert.match(KONTAKT_PAGE, /<BewerbungOffenBand \/>/, "the contact page hands the band a prop it no longer takes");
+    assert.doesNotMatch(KONTAKT_PAGE, /\bground=/, "the contact band asks for a ground again");
+  });
+});
+
+/*
+ What a module imports reaches no markup. The stake is a client component importing the recipe out of
+ a module that pulls `server-only`, which fails at `next build` and nowhere earlier.
+*/
+describe("what the band's recipe is allowed to reach", () => {
+  it("stands in a module that imports no query", () => {
+    const importe = [...BAND.matchAll(/^import[^;]*from "([^"]*)";$/gm)].map((treffer) => treffer[1]);
+
+    assert.deepEqual(importe, ["tailwind-variants"], "the recipe's module reaches something besides its own dependency");
   });
 });
 
@@ -498,8 +516,11 @@ describe("what the landing page's one band slot holds", () => {
   /* The skeleton is built FROM the recipes it stands in for, so its height cannot drift from theirs.
      A skeleton that changes the layout on resolve is worse than no skeleton. */
   it("builds the skeleton from the band's own recipe rather than from copied classes", () => {
-    assert.match(SKELETON, /band\(\{ ground: ground \}\)/, "the skeleton restates the band's box instead of reading it");
+    // Anchored on the assignment, never on `band()` anywhere: the doc comment above names the recipe too.
+    assert.match(SKELETON, /= band\(\);/, "the skeleton restates the band's box instead of reading it");
     assert.match(SKELETON, /ctaButton\(\{/, "the skeleton restates the control's height instead of reading it");
+    // The placeholder's tone is the recipe's default, so no call site is in a position to pick one.
+    assert.doesNotMatch(SKELETON, /skeletonBlock\(\{/, "the skeleton picks a placeholder tone instead of taking the one default");
   });
 
   /* The contact page keeps `null`: its band renders nothing for most of the year, and a skeleton
@@ -517,19 +538,40 @@ describe("what the landing page's one band slot holds", () => {
 });
 
 describe("where the contact page seats the application band", () => {
-  /* Under the page's own heading and description, above everything else: a band below the opening
-     block is one a reader meets after they have already read past the reason to press it. */
-  it("renders the slot between the description and the first separator", () => {
+  /* Under the page's own opening block, above everything else: a band below the first section is one
+     a reader meets after they have already read past the reason to press it. */
+  it("renders the slot between the hero and the channels heading", () => {
     const html = renderMarkup(KontaktView, { bewerbungSlot: h("div", { "data-band": "" }, "BEWERBUNGSSLOT") });
     const slot = html.indexOf("BEWERBUNGSSLOT");
     const beschreibung = html.indexOf("offenes Ohr");
-    const trenner = html.indexOf("soccer-field-separator");
+    const kanaele = html.indexOf("<h2");
 
     assert.notEqual(slot, -1, "the view renders no band slot at all");
-    assert.notEqual(beschreibung, -1, "the view renders no description, so the bound below reads nothing");
-    assert.notEqual(trenner, -1, "the view renders no separator, so the bound below reads nothing");
-    assert.ok(slot > beschreibung, "the band sits above the heading and description");
-    assert.ok(slot < trenner, "the band sits below the opening block instead of under the description");
+    assert.notEqual(beschreibung, -1, "the view renders no lead, so the bound below reads nothing");
+    assert.notEqual(kanaele, -1, "the view renders no section heading, so the bound below reads nothing");
+    assert.match(
+      html.slice(kanaele, html.indexOf("</h2>", kanaele)),
+      /Kanäle/,
+      "the first heading is not the channels heading, so the bound below reads the wrong section",
+    );
+    assert.ok(slot > beschreibung, "the band sits above the hero");
+    assert.ok(slot < kanaele, "the band sits below the opening block instead of under the hero");
+  });
+});
+
+describe("where the about page's questions sit in the heading outline", () => {
+  /* `Accordion.Heading` sets no level: HeroUI hands it to react-aria's `Heading`, whose own default
+     is the only thing deciding it, so nothing short of a render says which element a question is in. */
+  it("renders every question one heading level under the section it is in", () => {
+    const html = renderMarkup(AboutView, {});
+    const abschnitt = ueberschriftsEbene(html, "Fragen und Antworten");
+
+    assert.notEqual(abschnitt, null, "the about page renders no section heading, so the comparison below reads nothing");
+    assert.deepEqual(
+      QA_QUESTIONS.map((frage) => ueberschriftsEbene(html, frage.q)),
+      QA_QUESTIONS.map(() => (abschnitt === null ? null : abschnitt + 1)),
+      "a question does not sit one heading level under the section it is in",
+    );
   });
 });
 

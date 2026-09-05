@@ -23,8 +23,8 @@ function FooterSlotSkeleton({ width, label }: { width: string; label: string }) 
 }
 
 const NAVIGATION_LINKS = [
-  { href: "/about", label: "About" },
-  { href: "/team", label: "Team" },
+  { href: "/about", label: "Über die Liga" },
+  { href: "/team", label: "Hinter den Kulissen" },
   { href: "/kontakt", label: "Kontakt" },
 ] as const;
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL } from "@/core/brand";
-import { band } from "@/features/bewerbungen/components/ui/BewerbungOffenBand";
+import { band } from "@/features/bewerbungen/components/ui/band";
 import { textLink } from "@/shared/components/ui/textLink";
 
 /**

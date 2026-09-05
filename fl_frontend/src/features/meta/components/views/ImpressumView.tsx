@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME, VERTRETUNGSBERECHTIGTE } from "@/core/brand";
 import { card } from "@/shared/components/ui/card";
+import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { textLink } from "@/shared/components/ui/textLink";
 
@@ -21,14 +22,12 @@ function Abschnitt({ titel, children }: { titel: string; children: ReactNode }) 
 
 export function ImpressumView() {
   return (
-    <div className={`${PAGE_RISE} max-w-meta flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8`}>
-      <div className="flex flex-col items-center px-2 text-center">
-        <h1 className="fluid-2xl lg:fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">Impressum</h1>
-      </div>
+    <div className={`${PAGE_RISE} flex w-full flex-col gap-5`}>
+      <header className="flex w-full flex-col gap-3">
+        <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>Impressum</h1>
+      </header>
 
-      {/* Neutral rather than the green pitch card the sibling meta views wear: this is a page somebody
-          reads end to end, and the field foreground carries a paragraph badly at any length. */}
-      <article className={`${card()} flex w-full flex-col gap-y-6 p-5 shadow-xl sm:p-6 lg:gap-y-8 lg:p-8`}>
+      <article className={`${card()} flex w-full flex-col gap-y-6 p-4 sm:p-6 lg:gap-y-8 lg:p-8`}>
         <Abschnitt titel="Angaben gemäß § 5 DDG">
           <p className={ABSATZ}>
             {VEREIN_NAME}

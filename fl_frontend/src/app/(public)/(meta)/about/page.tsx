@@ -4,8 +4,8 @@ import { openGraphFor } from "@/shared/utils/metadata";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "About",
-  description: "Was die Frankfurt-League ist, warum es sie gibt und nach welchen Regeln gespielt wird.",
+  title: "Über die Liga",
+  description: "Was die Frankfurt League ist, warum es sie gibt und nach welchen Regeln gespielt wird.",
   openGraph: openGraphFor("/about"),
   alternates: {
     canonical: "/about",

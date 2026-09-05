@@ -63,19 +63,19 @@ export function TopNav() {
           <Dropdown.Section aria-label="Allgemeine Links">
             <Dropdown.Item
               id="about"
-              textValue="About"
+              textValue="Über die Liga"
               href="/about"
               className="data-hovered:bg-muted flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
-              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">About</Label>
+              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Über die Liga</Label>
               <CircleInfo className="text-foreground-muted size-4" />
             </Dropdown.Item>
 
             <Dropdown.Item
               id="team"
-              textValue="Team"
+              textValue="Hinter den Kulissen"
               href="/team"
               className="data-hovered:bg-muted flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
-              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Team</Label>
+              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Hinter den Kulissen</Label>
               <Persons className="text-foreground-muted size-4" />
             </Dropdown.Item>
 

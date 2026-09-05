@@ -8,7 +8,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Kontakt",
-  description: "So erreichst Du die Frankfurt-League mit Fragen, Anregungen und allem Weiteren.",
+  description: "So erreichst Du die Frankfurt League mit Fragen, Anregungen und allem Weiteren.",
   openGraph: openGraphFor("/kontakt"),
   alternates: {
     canonical: "/kontakt",
@@ -22,7 +22,7 @@ export default function KontaktPage() {
       // heading and the channels is a fact about `KontaktView`, and only that component holds it.
       bewerbungSlot={
         <Suspense fallback={null}>
-          <BewerbungOffenBand ground="field" />
+          <BewerbungOffenBand />
         </Suspense>
       }
     />
