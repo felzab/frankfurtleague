@@ -19,9 +19,7 @@ const VISIBLE_OPTIONS = 5;
 
 /**
  * A picked row's whole fill, HeroUI shipping an empty selected block. Tint off `--accent-brand-solid`, never
- * `--accent-brand`: only the solid token holds one value in both themes. The row keeps its
- * text colour through hover at two variants, outranking the list's own one-variant
- * `data-hovered:text-brand`, which measures 3.31:1 on this fill.
+ * `--accent-brand`: only the solid token holds one value in both themes.
  */
 const OPTION_SELECTED =
   "data-[selected=true]:bg-brand-solid/20 data-[selected=true]:text-foreground data-[selected=true]:data-hovered:bg-brand-solid/30 data-[selected=true]:data-hovered:text-foreground";
@@ -149,7 +147,9 @@ function FacetCell<TItem>({
               textValue={option.label}
               // A picked option stays enabled at zero, or it could not be deselected.
               isDisabled={count === 0 && !isPicked}
-              // `bg-hover` is the token `globals.css`'s keyboard indicator paints, and the two must stay one colour.
+              // `bg-hover` is the token `globals.css`'s keyboard indicator paints, and the two must stay one
+              // colour. A selected row overrides the hover ink below at two variants, because brand ink on
+              // that fill measures 3.31:1.
               className={`${OPTION_SELECTED} fluid-sm data-hovered:bg-hover data-hovered:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-1.5 font-bold transition-colors duration-(--motion-fast) ${
                 count === 0 ? "text-foreground-muted" : "text-foreground"
               }`}>
