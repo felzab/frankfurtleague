@@ -172,6 +172,7 @@ deliverable.
 | `gvyr-3nws` | Stylesheet comment blocks stand over INC-9's bound, quiet only while nobody lengthens one                                   | FE, Ops, Docs, gate                                                         | Standing |
 | `h4wq-p7ct` | A block carried into a file the fork does not hold is charged to the branch                                                 | Ops, Docs, gate, tests                                                      | Open     |
 | `hnx7-zbb9` | One field list is drift-guarded on one side only                                                                            | FE, BE, tests, saisons                                                      | Open     |
+| `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                      | FE, tests                                                                   | Open     |
 | `ja32-9rpv` | A call site's key tier is held to its route by nothing                                                                      | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
 | `jcpc-dee5` | Two routes on one path and method collapse to one                                                                           | BE, tests                                                                   | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is untested                                                                       | BE, tests, saisons                                                          | Open     |
@@ -4087,6 +4088,30 @@ entry's German required to appear in the `REQ-RULES-011` arm — so a further fi
 suite the same day it fails nothing on the backend. **This is the concrete instance of `f4uf-jape`'s
 general case**, filed separately because its fix is one assertion and that one's is a convention;
 folding it in is a reasonable call and this is the half to fold.
+
+### `hq7d-2vnm` · The required-mark guard reads literal names only, so a shared field block is unguarded
+
+| Tags      | Status | Depends on |
+| --------- | ------ | ---------- |
+| FE, tests | Open   | —          |
+
+**`fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn` pairs every control marked
+`isRequired` with the schema path it writes, and fails where that schema accepts the emptiness the
+control produces.** It reads the path off `name="…"` as a literal, so a control naming itself by
+template literal is invisible to it and generates no case.
+
+**`fl_frontend/src/shared/components/ui/AddressFields.tsx` names all five of its controls that
+way**, from a `namePrefix` prop, so the address block six callers embed contributes nothing to the
+pairing. One of the five carried a mark its schema never enforced, and every suite stayed green.
+
+**Done looks like the five reaching the pairing**, proven by putting `isRequired` back on the
+Hausnummer control and watching the suite go red — that field's regex is spelled with `*` rather
+than `+`, so it is the one whose schema accepts what a mark would promise to refuse.
+
+The limitation is deliberate and its docstring says so: a computed name and a conditional
+`isRequired` both fail toward finding less. **A widened reader must keep that direction** — a name
+it cannot resolve is skipped rather than guessed at, because a false pairing fails a branch that
+touched neither the control nor the schema, which is the standing tax CUR-6 refuses.
 
 ### `ja32-9rpv` · A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches
 
