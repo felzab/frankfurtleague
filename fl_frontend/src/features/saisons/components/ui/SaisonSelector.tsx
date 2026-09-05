@@ -88,7 +88,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSele
             {/* Rendered from `activeSaisonId`, NOT from `Select.Value`, which resolves its label
                 out of the react-aria collection and shows HeroUI's English placeholder on a render
                 where the collection has not committed. */}
-            <span className="fluid-lg text-foreground font-black tracking-tight">{`Saison ${activeSaisonId}`}</span>
+            <span className="fluid-lg text-foreground font-extrabold tracking-tight">{`Saison ${activeSaisonId}`}</span>
             <Description className="fluid-xxs text-foreground-muted font-bold tracking-wider uppercase">{timespan}</Description>
           </div>
 

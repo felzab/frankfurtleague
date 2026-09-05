@@ -1,6 +1,6 @@
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import { LABEL_BADGE } from "./badges";
+import { labelBadge } from "./badges";
 
 /**
  * The day an ENTITY was retired, across the whole league. A squad row taken out of one season is
@@ -8,7 +8,8 @@ import { LABEL_BADGE } from "./badges";
  */
 export function RetiredBadge({ since }: { since: string | null }) {
   return (
-    <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>
+    // `danger` and not the squad row's `warning`: the verb pair orders the two, and this is the graver.
+    <span className={labelBadge("danger")}>
       Stillgelegt seit&nbsp;<span className="font-numeric tabular-nums">{formatSpielDatum(since)}</span>
     </span>
   );

@@ -1,3 +1,4 @@
+import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLBewerbung } from "./schemas";
 
 /**
@@ -17,8 +18,8 @@ export const BEWERBUNG_DUBLETTE_LABEL: Record<BewerbungDublette, string> = {
   kuerzel: "Kürzel doppelt",
 };
 
-/** One tint for both, in the grade the app gives a row that wants an eye rather than a fault. */
-export const BEWERBUNG_DUBLETTE_TINT = "bg-warning/15 text-warning-strong";
+/** One tone for both, the grade the app gives a row that wants an eye rather than a fault. */
+export const BEWERBUNG_DUBLETTE_TINT: PillTone = "warning";
 
 /** The fields the collision is decided on, so a stored application and a triage row both answer. */
 type Kandidat = Pick<FLBewerbung, "id" | "saison_id" | "status" | "team_id" | "schule">;

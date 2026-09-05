@@ -4,6 +4,7 @@ import { useTransition } from "react";
 
 import { reactivateTeamAction } from "@/features/teams/actions";
 import { AdminTeamEditForm } from "@/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm";
+import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { appToast } from "@/shared/utils/appToast";
@@ -62,7 +63,8 @@ export function AdminTeamEditView({
             <RetiredBadge since={team.inactive_since} />
           ) : (
             // The TeamCard's chip, so the Kürzel wears one colour everywhere.
-            <span className="bg-brand-solid text-brand-solid-foreground flex h-10 w-10 items-center justify-center rounded-xl font-extrabold shadow-sm">
+            <span
+              className={`${DISPLAY_HEADING} bg-brand-solid text-brand-solid-foreground flex h-10 w-10 items-center justify-center rounded-xl shadow-sm`}>
               {team.shorthand}
             </span>
           ),

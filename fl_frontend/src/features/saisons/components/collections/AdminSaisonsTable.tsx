@@ -49,8 +49,8 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
   );
 
   /**
-   * `font-numeric` beside `tabular-nums`: the utility asks the current face for tabular figures, and
-   * the page face has none, so dropping it leaves two rows' spans ragged with nothing reporting it.
+   * `tabular-nums` asks the face for tabular figures, so it needs `font-numeric` beside it
+   * (`fl_frontend/src/core/numericFigures.test.ts :: PAIR`).
    */
   const renderZeitraum = (saison: AdminSaisonRow) => (
     <span className="font-numeric flex flex-row items-baseline gap-x-1.5 tabular-nums">

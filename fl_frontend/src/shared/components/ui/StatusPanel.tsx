@@ -1,5 +1,7 @@
 import { tv } from "tailwind-variants";
 
+import { DISPLAY_HEADING } from "./displayType";
+
 import type { ReactNode } from "react";
 
 /**
@@ -13,7 +15,7 @@ const statusPanel = tv({
     panel: "border-border relative z-10 flex w-full flex-col items-center rounded-2xl border",
     badge: "bg-background border-border mb-6 flex items-center gap-2.5 rounded-full border px-3 py-1.5 shadow-sm",
     dot: "h-2 w-2 animate-pulse rounded-full",
-    badgeText: "text-foreground fluid-xxs sm:fluid-xs font-black tracking-widest uppercase",
+    badgeText: "text-foreground fluid-xxs sm:fluid-xs font-extrabold tracking-widest uppercase",
     message: "text-foreground-muted leading-relaxed font-medium",
     digest: "text-foreground-muted/60 fluid-xxs mt-4 font-mono tracking-wider",
   },
@@ -77,7 +79,12 @@ export function StatusPanel({
           <span className={styles.badgeText()}>{badgeLabel}</span>
         </div>
 
-        <Heading className={`${variant === "page" ? "fluid-2xl" : "fluid-lg"} text-foreground font-extrabold tracking-tight`}>
+        {/* Two strings rather than one with the step swapped: the page variant's fixed copy is the
+            display voice, and the inline variant sits below `fluid-xl`, where that voice starts. */}
+        <Heading
+          className={
+            variant === "page" ? `${DISPLAY_HEADING} fluid-2xl text-foreground` : "fluid-lg text-foreground font-extrabold tracking-tight"
+          }>
           {heading}
         </Heading>
 

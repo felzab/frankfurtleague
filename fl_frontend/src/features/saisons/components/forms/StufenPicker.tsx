@@ -15,11 +15,12 @@ import type { Key } from "@heroui/react";
  *
  * **No hover or press variant here**: HeroUI's own fills are `@layer components` and these
  * are utilities declared last, so each state's resting background is what suppresses them.
- * `globals.css` records the focus ring's departure from `--focus`.
  */
 export const STUFE_CHIP =
   "border-border bg-transparent text-foreground-muted " +
   "data-[selected=true]:border-brand-solid data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground " +
+  // Not `--focus`: this ring sits inset on the selected chip's own fill
+  // (`fl_frontend/src/app/schemes/2027.css :: --focus`).
   "data-[selected=true]:ring-brand-solid-foreground " +
   "fluid-xs h-9 min-w-16 rounded-lg border px-3 font-extrabold tracking-wide transition-colors";
 

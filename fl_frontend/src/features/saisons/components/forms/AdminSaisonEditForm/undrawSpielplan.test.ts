@@ -170,7 +170,7 @@ describe("the operation picker the two writes share", () => {
      "Kein Spielplan" over a control offering to replace one would be the panel contradicting itself. */
   it("states which of the two states the season is in, in the header", () => {
     assert.match(SOURCE, /const holdsADraw = spielplanHoldsADraw\(controlInput\);/);
-    assert.match(SOURCE, /\$\{LABEL_BADGE\}[^`]*`}>Spielplan steht</);
-    assert.match(SOURCE, /\$\{LABEL_BADGE\}[^`]*`}>Kein Spielplan</);
+    assert.match(SOURCE, /labelBadge\("success"\)}>Spielplan steht</);
+    assert.match(SOURCE, /labelBadge\("warning"\)}>Kein Spielplan</);
   });
 });

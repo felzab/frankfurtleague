@@ -10,7 +10,7 @@ import { Table } from "@heroui/react";
 import { KONTAKTE_CRUD_COPY } from "@/features/teams/constants";
 import { KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung } from "@/features/teams/facets";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { RowActionCopy, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
@@ -20,6 +20,7 @@ import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
+import type { PillTone } from "@/shared/components/ui/badges";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   searched: KONTAKTE_CRUD_COPY.emptyForQuery,
@@ -31,11 +32,14 @@ type Besetzung = ReturnType<typeof kontakteBesetzung>;
 
 const BESETZUNG_LABELS = Object.fromEntries(KONTAKTE_BESETZUNG_OPTIONS.map(({ value, label }) => [value, label])) as Record<Besetzung, string>;
 
-/** The badge grades the row's completeness, which is the one thing a reader scans this list for. */
-const BESETZUNG_TINT: Record<Besetzung, string> = {
-  vollstaendig: "bg-success/15 text-success-strong",
-  teilweise: "bg-warning/15 text-warning-strong",
-  leer: "bg-muted text-foreground-muted",
+/**
+ * The badge grades the row's completeness, which is the one thing a reader scans this list for.
+ * `leer` is the bottom of that grade rather than a missing value: nobody can reach the club at all.
+ */
+const BESETZUNG_TINT: Record<Besetzung, PillTone> = {
+  vollstaendig: "success",
+  teilweise: "warning",
+  leer: "danger",
 };
 
 /** What a seat holding nobody says, in the register the rest of the admin uses for an absent value. */
@@ -74,7 +78,7 @@ export const AdminKontakteTable = memo(function AdminKontakteTable({
       <div className="flex flex-row flex-wrap items-center gap-2">
         <span className="fluid-xxs text-foreground-muted font-extrabold tracking-widest uppercase">{seat.label}</span>
         {/* On the seat the claim POINTS AT: beside `Trainer` the badge would name that seat back at it. */}
-        {seat.istTrainerZugleich && <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Zugleich Trainer</span>}
+        {seat.istTrainerZugleich && <span className={labelBadge("info")}>Zugleich Trainer</span>}
       </div>
 
       {seat.person === null ? (
@@ -92,7 +96,7 @@ export const AdminKontakteTable = memo(function AdminKontakteTable({
   const renderBesetzung = (row: AdminKontakteRow) => {
     const stand = kontakteBesetzung(row.besetzt);
 
-    return <span className={`${LABEL_BADGE} ${BESETZUNG_TINT[stand]}`}>{BESETZUNG_LABELS[stand]}</span>;
+    return <span className={labelBadge(BESETZUNG_TINT[stand])}>{BESETZUNG_LABELS[stand]}</span>;
   };
 
   const renderActions = (row: AdminKontakteRow) => (

@@ -25,8 +25,9 @@ export const RULE_COLOR = "#d4d4d4";
 const ON_BRAND_COLOR = "#ffffff";
 
 /**
- * The scheme's `[data-theme="dark"]` block, token for token. `emailShell.test.ts` reads BOTH
- * palettes out of that file and compares them to these, so neither can drift from the site's.
+ * `fl_frontend/src/app/schemes/2027.css`'s `[data-theme="dark"]` block, token for token.
+ * `fl_frontend/src/core/emailShell.test.ts` reads BOTH palettes out of that file and compares them
+ * to these, so neither can drift from the site's.
  */
 const DARK_SURFACE_COLOR = "#121212";
 const DARK_CARD_COLOR = "#030303";

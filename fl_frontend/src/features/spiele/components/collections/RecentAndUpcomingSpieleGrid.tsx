@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 
+import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -15,7 +16,7 @@ function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <div className="mb-6 flex flex-col gap-1">
       <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">{eyebrow}</span>
-      <h2 className="fluid-2xl text-foreground font-black tracking-tight">{title}</h2>
+      <h2 className={`${DISPLAY_HEADING} fluid-2xl text-foreground`}>{title}</h2>
     </div>
   );
 }

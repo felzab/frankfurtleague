@@ -7,7 +7,7 @@ import { Table } from "@heroui/react";
 import { PHASE_TINTS } from "@/features/saisons/constants";
 import { adminSpielEditHref, deriveSlotHerkunft, formatQuelle, sideLabel } from "@/features/spiele/utils";
 import { spieltagLabels } from "@/features/spieltage/utils";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
@@ -18,6 +18,7 @@ import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLSlotHerkunft } from "@/features/spiele/utils";
 import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
+import type { PillTone } from "@/shared/components/ui/badges";
 
 /** The wiring review colours a group-fed slot apart from a match-fed one, so `quelle` splits here and stays whole in `FLSlotHerkunft`. */
 type FLSlotTintKey = Exclude<FLSlotHerkunft, "quelle"> | FLSpielQuelle["type"];
@@ -27,11 +28,11 @@ type FLSlotTintKey = Exclude<FLSlotHerkunft, "quelle"> | FLSpielQuelle["type"];
  * `PHASE_TINTS` rather than spelling the token; warm means the slot needs an admin, and `brand` is
  * excluded as a second deep red beside `danger`.
  */
-const HERKUNFT_TINTS: Record<FLSlotTintKey, string> = {
+const HERKUNFT_TINTS: Record<FLSlotTintKey, PillTone> = {
   gruppe: PHASE_TINTS.gruppenphase,
-  spiel: "bg-info/15 text-info-strong",
-  manuell: "bg-warning/15 text-warning-strong",
-  offen: "bg-danger/15 text-danger-strong",
+  spiel: "info",
+  manuell: "warning",
+  offen: "danger",
 };
 
 /** Source and occupant both, always — unlike a card, which drops the provenance once a winner arrives. */
@@ -49,7 +50,7 @@ function SlotWiring({
   const herkunft = deriveSlotHerkunft({ team, quelle });
 
   let label: string;
-  let tint: string;
+  let tint: PillTone;
 
   // Branching on `quelle` rather than on `herkunft`, which TypeScript cannot narrow to read `.type`.
   if (quelle !== null) {
@@ -77,9 +78,9 @@ function SlotWiring({
           colour nor the order. */}
       <span className="sr-only">{sideLabel(side)}</span>
 
-      {/* The app's own label pill plus a class string, never a HeroUI `color` or `variant`: those
-          resolve against HeroUI's palette, which this app maps none of. */}
-      <span className={`${LABEL_BADGE} ${tint} max-w-full`}>{label}</span>
+      {/* The app's own label pill, never a HeroUI `color` or `variant`: those resolve against
+          HeroUI's palette, which this app maps none of. */}
+      <span className={`${labelBadge(tint)} max-w-full`}>{label}</span>
 
       {/* `break-words` and not `truncate`: a review surface that hides half a club's name cannot be
           finished, and the row is free to grow. */}

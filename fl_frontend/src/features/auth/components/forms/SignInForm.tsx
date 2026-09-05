@@ -5,6 +5,7 @@ import { useActionState, useEffect, useState } from "react";
 import { Button, FieldError, Form, Input, Label, Tabs, TextField } from "@heroui/react";
 
 import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 import { runOnSubmit } from "@/shared/components/ui/formSubmit";
@@ -65,7 +66,7 @@ export function SignInForm() {
       <div className="border-border bg-surface/95 w-full max-w-[460px] rounded-3xl border p-8 shadow-2xl backdrop-blur-xl sm:p-10">
         <div className="flex flex-col items-center pb-6 text-center">
           <span className="mb-3 text-4xl sm:text-5xl">⚽</span>
-          <h1 className="fluid-2xl text-foreground font-black tracking-tight uppercase">Anmelden</h1>
+          <h1 className={`${DISPLAY_HEADING} fluid-2xl text-foreground`}>Anmelden</h1>
         </div>
 
         <div className="border-border mb-8 h-[1px] w-full" />
@@ -77,7 +78,7 @@ export function SignInForm() {
             role="status"
             className="flex flex-col items-center gap-y-3 py-6 text-center">
             <span className="text-4xl">📬</span>
-            <p className="fluid-lg text-foreground font-black tracking-tight">Prüfe Dein Postfach</p>
+            <p className="fluid-lg text-foreground font-extrabold tracking-tight">Prüfe Dein Postfach</p>
 
             {state?.submittedEmail && <p className="fluid-sm text-foreground font-bold break-all">{state.submittedEmail}</p>}
 

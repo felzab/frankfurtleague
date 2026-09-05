@@ -10,4 +10,4 @@ export const DISPLAY_HEADING = "font-heading font-normal tracking-display upperc
  * `fluid-xl`. `tracking-widest` is the label voice's value rather than a fifth tracking step, the
  * mark being a label-sized string of condensed capitals.
  */
-export const WORDMARK = "font-heading font-normal tracking-widest uppercase";
+export const WORDMARK = "font-heading font-normal tracking-wide uppercase";

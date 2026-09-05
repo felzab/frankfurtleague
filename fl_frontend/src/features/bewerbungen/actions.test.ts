@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 
 import { DECLARED_RULES, declaredCodes, sliceBetween } from "../../core/refusalRegister.ts";
-import { LABEL_BADGE } from "../../shared/components/ui/badges.ts";
+import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH } from "./constants.ts";
 import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
 
@@ -507,7 +507,7 @@ describe("the readout's count", () => {
     // together under a rename that leaves this file's regex above still matching.
     assert.ok(!chip.includes("STAND_TINT"), "the count is tinted out of the seat rows' own table");
     assert.match(chip, /ZAEHLER_TINT/, "the count no longer takes a tone of its own");
-    assert.match(STRIP, /ZAEHLER_TINT = \{ offen: "bg-brand\/10/, "the count no longer takes the brand's tone while seats are outstanding");
+    assert.match(STRIP, /ZAEHLER_TINT[^=]*= \{ offen: "brand"/, "the count no longer takes the brand's tone while seats are outstanding");
   });
 });
 
@@ -530,7 +530,7 @@ describe("the queue's columns", () => {
   /* A pill that cannot break overruns a column too narrow for it instead of wrapping inside it, so
      the widths are read off the pills rather than off the headings, which may wrap. */
   it("never lets a pill break across two lines", () => {
-    assert.match(LABEL_BADGE, /\bwhitespace-nowrap\b/, "a pill breaks across two lines, where it reads as two pills");
+    assert.match(labelBadge("info"), /\bwhitespace-nowrap\b/, "a pill breaks across two lines, where it reads as two pills");
   });
 
   /* A calendar date is fixed-format: its column is sized to it, and a clipped one is another date.

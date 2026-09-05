@@ -5,6 +5,7 @@
 import { Badge, Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
+import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { Hint } from "@/shared/components/ui/Hint";
 import { CARDS_CASCADE } from "@/shared/components/ui/motion";
@@ -71,7 +72,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
             className={`${card()} max-w-page mb-6 flex w-full flex-col items-start p-3 sm:p-6`}>
             <div className="flex flex-col gap-1 pb-6">
               <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Saisontabelle</span>
-              <h2 className="fluid-xl text-foreground font-black tracking-tight">Gruppe {gruppe}</h2>
+              <h2 className={`${DISPLAY_HEADING} fluid-xl text-foreground`}>Gruppe {gruppe}</h2>
               {/* Not decoration: a team's own page counts the playoffs too, so the two pages disagree
                   by design and only this line says why. */}
               <p className="fluid-xxs text-foreground-muted font-medium">Gewertet werden nur Spiele der Gruppenphase.</p>
@@ -121,7 +122,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                       {/* A left rule on this cell, so the marker reads as an annotation on the
                           POSITION rather than as a highlight on the club. */}
                       <Table.Cell
-                        className={`fluid-xs w-fit py-4 pl-2 font-bold lg:px-4 ${
+                        className={`font-numeric fluid-xs w-fit py-4 pl-2 font-bold tabular-nums lg:px-4 ${
                           qualifying.has(teamData.id) ? "border-brand border-l-4" : "border-l-4 border-l-transparent"
                         }`}>
                         {/* Colour is never the only carrier: a screen reader gets the same fact the
@@ -156,7 +157,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                         </TeamPopoverMenu>
                       </Table.Cell>
 
-                      <Table.Cell className="text-foreground-muted px-1 py-4 text-center font-medium lg:px-2">
+                      <Table.Cell className="font-numeric text-foreground-muted px-1 py-4 text-center font-medium tabular-nums lg:px-2">
                         {/* A flex row, not two inline nodes: a badge on the text baseline would drag
                             the number off the cell's centre. */}
                         <span className="inline-flex items-center justify-center gap-x-1">
@@ -167,17 +168,20 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                         </span>
                       </Table.Cell>
 
-                      {/* `-strong`, not the plain accents: at this size the fill-grade colours measure
-                          3.02 (success), 1.76 (warning) and 4.43 (danger) in the light theme. */}
-                      <Table.Cell className="fluid-xs px-1 py-4 text-center font-medium lg:px-2">
+                      {/* `-strong`, not the plain accents: a figure this size is text and answers to
+                          4.5:1, where each plain accent measures 3.03:1 on the card's ground in the
+                          light theme. */}
+                      <Table.Cell className="font-numeric fluid-xs px-1 py-4 text-center font-medium tabular-nums lg:px-2">
                         <span className="text-success-strong font-semibold">{teamData.statistik.siege}</span>-
                         <span className="text-warning-strong font-semibold">{teamData.statistik.unentschieden}</span>-
                         <span className="text-danger-strong font-semibold">{teamData.statistik.niederlagen}</span>
                       </Table.Cell>
 
-                      <Table.Cell className="muted-meta px-1 py-4 text-center lg:px-2">{teamData.statistik.tore_geschossen}</Table.Cell>
+                      <Table.Cell className="font-numeric muted-meta px-1 py-4 text-center tabular-nums lg:px-2">
+                        {teamData.statistik.tore_geschossen}
+                      </Table.Cell>
 
-                      <Table.Cell className="fluid-xs px-1 py-4 text-center font-bold lg:px-2">
+                      <Table.Cell className="font-numeric fluid-xs px-1 py-4 text-center font-bold tabular-nums lg:px-2">
                         {teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert > 0 ? (
                           <span className="text-success-strong">+{teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert}</span>
                         ) : (
@@ -185,7 +189,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                         )}
                       </Table.Cell>
 
-                      <Table.Cell className="fluid-sm text-foreground px-1 py-4 text-center font-extrabold lg:px-2">
+                      <Table.Cell className="font-numeric fluid-sm text-foreground px-1 py-4 text-center font-extrabold tabular-nums lg:px-2">
                         {teamData.statistik.punkte}
                       </Table.Cell>
                     </Table.Row>

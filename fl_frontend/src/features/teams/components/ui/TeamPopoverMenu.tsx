@@ -84,8 +84,8 @@ export function TeamPopoverMenu({
 
             <Popover.Heading className="fluid-base flex w-full flex-row items-center justify-between font-bold">
               <span className="truncate pr-2">{teamName}</span>
-              {/* `-strong` on the tint, as `SaisontabelleView`'s badge does: at this size the
-                  fill-grade accent measures 3.80:1 on this panel in light. */}
+              {/* `-strong` on the tint, as `SaisontabelleView`'s badge does: the
+                  plain accent measures 2.73:1 on this panel in light, failing at every size. */}
               {teamAustritt !== null && (
                 <span
                   aria-label={austrittZustand(teamAustritt)}

@@ -36,7 +36,9 @@ export function TeamSaisonStatistik({ statistik }: { statistik: FLTeamStatistik 
             className={`${card()} ${stat.isSummary ? "col-span-2 lg:col-span-1" : ""}`}>
             <Card.Content className="py-4 text-center">
               <p className="fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">{stat.label}</p>
-              <p className={`text-foreground font-extrabold ${stat.isSummary ? "fluid-xl" : "fluid-lg"}`}>{stat.value}</p>
+              <p className={`font-numeric text-foreground font-extrabold tabular-nums ${stat.isSummary ? "fluid-xl" : "fluid-lg"}`}>
+                {stat.value}
+              </p>
             </Card.Content>
           </Card>
         ))}

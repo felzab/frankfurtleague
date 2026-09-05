@@ -218,9 +218,7 @@ describe("the shared email shell", () => {
     }
   });
 
-  /* I asked for the site's dark mode rather than a dark mode of the email's own. Both palettes are
-     read from the season scheme so the two cannot drift: a token moved in the app and not here would
-     otherwise ship silently. */
+  /* I asked for the site's dark mode rather than a dark mode of the email's own. */
   it("draws both themes in the site's own tokens", () => {
     const hell = tokens("light");
     const dunkel = tokens("dark");

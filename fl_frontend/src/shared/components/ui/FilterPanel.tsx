@@ -19,10 +19,12 @@ const VISIBLE_OPTIONS = 5;
 
 /**
  * A picked row's whole fill, HeroUI shipping an empty selected block. Tint off `--accent-brand-solid`, never
- * `--accent-brand`: only the solid token holds one value in both themes, the flipping one measuring 1.81:1 in dark.
+ * `--accent-brand`: only the solid token holds one value in both themes. The row keeps its
+ * text colour through hover at two variants, outranking the list's own one-variant
+ * `data-hovered:text-brand`, which measures 3.31:1 on this fill.
  */
 const OPTION_SELECTED =
-  "data-[selected=true]:bg-brand-solid/20 data-[selected=true]:text-foreground data-[selected=true]:data-hovered:bg-brand-solid/30 data-[selected=true]:data-hovered:text-brand";
+  "data-[selected=true]:bg-brand-solid/20 data-[selected=true]:text-foreground data-[selected=true]:data-hovered:bg-brand-solid/30 data-[selected=true]:data-hovered:text-foreground";
 
 /** `40k + 46` for `k` = `VISIBLE_OPTIONS`: rows of 36px on 4px gaps, plus header, gap and padding. The `rem` form scales with the type. */
 const CELL_CAP = "max-h-[15.375rem]";
