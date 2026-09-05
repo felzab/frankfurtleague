@@ -36,8 +36,10 @@ export default function LandingPage() {
                 <CurrentSaisonChip />
               </Suspense>
 
+              {/* Season-independent, so the front door states nothing false between seasons. The chip
+                  above carries whether one is running, and its absence carries that none is. */}
               <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>
-                Die Saison läuft! Wer holt sich den <span className="text-brand">Titel</span>?
+                Frankfurts Oberstufenliga. Wer holt sich den <span className="text-brand">Titel</span>?
               </h1>
 
               <p className="muted-hint max-w-xl">
