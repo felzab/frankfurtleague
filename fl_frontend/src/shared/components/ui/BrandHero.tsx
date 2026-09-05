@@ -7,7 +7,7 @@ import { FLLogo } from "./FLLogo";
  */
 export function BrandHero({ title, lead }: { title: string; lead: string }) {
   return (
-    <header className="bg-brand-solid text-brand-solid-foreground border-brand-solid-foreground/15 relative flex w-full flex-row items-start gap-x-5 overflow-hidden rounded-3xl border px-4 py-6 shadow-sm sm:gap-x-8 sm:p-8 lg:items-center lg:p-10">
+    <header className="bg-brand-solid text-brand-solid-foreground border-brand-solid-foreground/15 relative flex w-full flex-row items-center gap-x-5 overflow-hidden rounded-3xl border px-4 py-6 shadow-sm sm:gap-x-8 sm:p-8 lg:p-10">
       <PitchTrace />
 
       <div className="relative flex min-w-0 flex-1 flex-col gap-y-3">
@@ -32,31 +32,35 @@ export function BrandHero({ title, lead }: { title: string; lead: string }) {
  */
 function PitchTrace() {
   return (
+    // Drawn at the block's own 2:1 and `slice`, so the motif is centred at every width rather than
+    // sized off its height. Every shape is symmetric about the midline, so a wide block crops empty
+    // grass rather than art.
     <svg
       aria-hidden="true"
-      viewBox="0 0 200 200"
+      viewBox="0 0 400 200"
+      preserveAspectRatio="xMidYMid slice"
       fill="none"
       stroke="currentColor"
       strokeOpacity={0.13}
       strokeWidth={2}
-      className="pointer-events-none absolute -top-[30%] -right-[4%] aspect-square h-[160%]">
+      className="pointer-events-none absolute inset-0 h-full w-full">
       {/* `non-scaling-stroke` on each shape, because the SVG is sized off the block: without it the
           stroke thickens with the hero's own height instead of staying a drawn line. */}
       <line
-        x1="60"
+        x1="10"
         y1="0"
-        x2="60"
+        x2="10"
         y2="200"
         vectorEffect="non-scaling-stroke"
       />
       <circle
-        cx="60"
+        cx="10"
         cy="100"
-        r="42"
+        r="46"
         vectorEffect="non-scaling-stroke"
       />
       <circle
-        cx="60"
+        cx="10"
         cy="100"
         r="2.5"
         fill="currentColor"
@@ -64,8 +68,20 @@ function PitchTrace() {
         stroke="none"
       />
       <path
-        d="M200 40H150V160H200"
+        d="M400 45H300V155H400"
         vectorEffect="non-scaling-stroke"
+      />
+      <path
+        d="M400 80H360V120H400"
+        vectorEffect="non-scaling-stroke"
+      />
+      <circle
+        cx="322"
+        cy="100"
+        r="2.5"
+        fill="currentColor"
+        fillOpacity={0.13}
+        stroke="none"
       />
     </svg>
   );

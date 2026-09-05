@@ -42,7 +42,9 @@ export function AboutView() {
       <MetaSection
         eyebrow="Warum es die Liga gibt"
         title="Unser Ziel">
-        <div className={`${card()} grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4 p-5 sm:p-6 lg:p-8`}>
+        {/* The tile drops out of the text's row below `sm`: beside it the paragraph measured 253px
+            of a 351px card, and a decorative glyph is not worth 28% of a phone's line length. */}
+        <div className={`${card()} grid grid-cols-1 gap-3 p-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start sm:gap-4 sm:p-6 lg:p-8`}>
           <span
             aria-hidden="true"
             className={TILE}>
