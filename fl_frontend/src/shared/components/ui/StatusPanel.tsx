@@ -71,7 +71,13 @@ export function StatusPanel({
 
   return (
     <div className={styles.root()}>
-      {watermark && <div className={styles.watermark()}>{watermark}</div>}
+      {watermark && (
+        <div
+          aria-hidden="true"
+          className={styles.watermark()}>
+          {watermark}
+        </div>
+      )}
 
       <div className={styles.panel()}>
         <div className={styles.badge()}>

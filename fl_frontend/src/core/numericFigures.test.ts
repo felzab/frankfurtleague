@@ -67,12 +67,17 @@ describe("the two utilities a fixed-width numeric readout wears", () => {
   /* A lone `tabular-nums` paints proportional digits into a column width measured against fixed
      ones, and compiles, lints and renders without reporting it. */
   it("pairs them in every class list the tree writes", () => {
+    let carrying = 0;
     const findings = filesUnder(SRC, isProduction, 400).flatMap((file) => {
-      const lonely = unpaired(writtenStrings(file, readFileSync(file, "utf8")));
+      const written = writtenStrings(file, readFileSync(file, "utf8"));
+      carrying += written.filter((one) => one.includes("font-numeric") || one.includes("tabular-nums")).length;
 
-      return lonely.map((one) => `${path.relative(SRC, file).split(path.sep).join("/")}: ${one.trim()}`);
+      return unpaired(written).map((one) => `${path.relative(SRC, file).split(path.sep).join("/")}: ${one.trim()}`);
     });
 
+    // The file floor above proves the walk ran; this proves it judged something. A tree spelling
+    // neither utility anywhere returns no findings and passes without having asserted anything.
+    assert.ok(carrying >= 20, `only ${String(carrying)} class lists spell either utility, so this sweep judged almost nothing`);
     assert.deepEqual(findings, [], `these spell one of the pair without the other:\n  ${findings.join("\n  ")}`);
   });
 });

@@ -6,7 +6,7 @@ import { ChevronsDownWide, StarFill } from "@gravity-ui/icons";
 import { Accordion, Chip } from "@heroui/react";
 
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
-import { getCurrentSaison } from "@/features/saisons/queries";
+import { getCurrentSaisonOrNull } from "@/features/saisons/queries";
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { getTeams } from "@/features/teams/queries";
 import { PILL_RADIUS } from "@/shared/components/ui/badges";
@@ -99,12 +99,15 @@ export function AboutView() {
         eyebrow="Wer dabei ist"
         title="Aktive Schulen"
         aside={
-          <SaisonChip>
-            {/* The fallback holds the label's exact box invisibly, so the year landing moves nothing. */}
-            <Suspense fallback={<span className="invisible">Saison 0000</span>}>
-              <AktuelleSaison />
-            </Suspense>
-          </SaisonChip>
+          <Suspense
+            fallback={
+              <SaisonChip>
+                {/* The label's exact box, held invisibly, so the year landing moves nothing. */}
+                <span className="invisible">Saison 0000</span>
+              </SaisonChip>
+            }>
+            <AktuelleSaison />
+          </Suspense>
         }>
         <div className={`${card()} p-5 sm:p-6 lg:p-8`}>
           <Suspense fallback={<TeamChipSkeleton />}>
@@ -118,9 +121,10 @@ export function AboutView() {
 
 async function AktuelleSaison() {
   await connection();
-  const { saison } = await getCurrentSaison();
+  const current = await getCurrentSaisonOrNull();
+  if (current === null) return null;
 
-  return <>Saison {saison.id}</>;
+  return <SaisonChip>Saison {current.saison.id}</SaisonChip>;
 }
 
 function TeamChipSkeleton() {
