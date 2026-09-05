@@ -4,9 +4,11 @@ import type { FLSaisonStatus } from "@/features/saisons/schemas";
 import type { PillTone } from "@/shared/components/ui/badges";
 
 // A record rather than a chain: `FLSaisonStatus` is a closed enum, so a fourth state fails to
-// compile here rather than falling through to `past`'s tone.
+// compile here rather than taking a live state's tone.
 const TINT: Record<FLSaisonStatus, PillTone> = {
-  active: "success",
+  // The running season wears the brand, as `fl_frontend/src/features/saisons/components/ui/SaisonChip.tsx`
+  // already does for that same season on the public pages. Never `success`, which `past` holds.
+  active: "brand",
   future: "info",
   // Done, as a played fixture is
   // (`fl_frontend/src/features/spiele/components/ui/SpielStatusChip.tsx :: STATUS_TINT`).
