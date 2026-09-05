@@ -20,14 +20,14 @@ const TEAM_MEMBERS: TeamMember[] = [
 /** Section heading per tag. Keyed by the union, so a new tag is a compile error here. */
 export const TAG_TITLES: Record<TeamMember["tag"], string> = {
   vorstand: "Vorstand",
-  orga: "Organisation",
+  orga: "Spielbetrieb",
   web: "Web, Design & Kommunikation",
 };
 
 /** The eyebrow over each section's heading, keyed by the union like `TAG_TITLES` and for the same reason. */
 export const TAG_EYEBROWS: Record<TeamMember["tag"], string> = {
   vorstand: "Ligaleitung",
-  orga: "Spielbetrieb",
+  orga: "Verwaltung",
   web: "Website und Auftritt",
 };
 
@@ -78,7 +78,7 @@ export const QA_QUESTIONS: QaQuestion[] = [
   {
     id: "organisation",
     q: "Wer organisiert die Liga?",
-    a: "Ehrenamtliche Schülerinnen, Schüler und Helfer. Wer dazugehört, steht auf der Seite „Hinter den Kulissen“.",
+    a: "Ehrenamtliche Schülerinnen, Schüler und Helfer. Wer dazugehört, steht auf der Seite „Organisation“.",
   },
   {
     id: "regeln",

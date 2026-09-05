@@ -1,17 +1,17 @@
-import { MetaTeamView } from "@/features/meta/components/views/MetaTeamView";
+import { MetaOrganisationView } from "@/features/meta/components/views/MetaOrganisationView";
 import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Hinter den Kulissen",
+  title: "Organisation",
   description: "Die Menschen hinter der Frankfurt League und wer bei uns was macht.",
-  openGraph: openGraphFor("/team"),
+  openGraph: openGraphFor("/organisation"),
   alternates: {
-    canonical: "/team",
+    canonical: "/organisation",
   },
 };
 
 export default function MetaTeamPage() {
-  return <MetaTeamView />;
+  return <MetaOrganisationView />;
 }

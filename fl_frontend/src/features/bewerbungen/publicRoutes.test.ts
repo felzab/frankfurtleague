@@ -328,7 +328,7 @@ describe("the links the application page's header offers", () => {
     assert.deepEqual(
       kopfLinks(LAEUFT).map((link) => link.href),
       ["/about", "/kontakt", "/dashboard"],
-      "the header no longer offers Über die Liga, Kontakt and the dashboard",
+      "the header no longer offers About, Kontakt and the dashboard",
     );
   });
 

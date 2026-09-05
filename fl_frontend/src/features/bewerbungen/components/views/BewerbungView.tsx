@@ -23,7 +23,7 @@ const ZUM_KONTAKT = { href: "/kontakt", label: "Zum Kontakt" };
  * season, not the nav's „Saisonübersicht“.
  */
 const KOPF_LINKS = [
-  { href: "/about", label: "Über die Liga", anlass: "Mehr erfahren", Icon: CircleInfo },
+  { href: "/about", label: "About", anlass: "Mehr erfahren", Icon: CircleInfo },
   { href: "/kontakt", label: "Kontakt", anlass: "Bei Fragen", Icon: At },
   { href: "/dashboard", label: "Laufende Saison", anlass: "Zum Mitfiebern", Icon: Eye },
 ] as const;

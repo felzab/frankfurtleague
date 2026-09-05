@@ -49,7 +49,7 @@ describe("what the footer offers a reader", () => {
   /* Both columns render through one component, so which links each table holds is the whole of what
      can differ between them. */
   it("keeps the legal pages in a column of their own", () => {
-    assert.deepEqual(linkTabelle("NAVIGATION_LINKS"), ["/about", "/team", "/kontakt"]);
+    assert.deepEqual(linkTabelle("NAVIGATION_LINKS"), ["/about", "/organisation", "/kontakt"]);
     assert.deepEqual(linkTabelle("RECHTLICHES_LINKS"), ["/impressum", "/datenschutz"]);
   });
 

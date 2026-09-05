@@ -35,7 +35,7 @@ export function AboutView() {
   return (
     <div className={`${PAGE_RISE} flex w-full flex-col gap-y-8 sm:gap-y-12`}>
       <BrandHero
-        title="Über die Liga"
+        title="About"
         lead="Alles auf dem Platz. Von Schülern, für Schüler."
       />
 

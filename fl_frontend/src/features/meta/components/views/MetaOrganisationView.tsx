@@ -9,11 +9,11 @@ import { MetaSection } from "../ui/MetaSection";
 
 const TILE = "bg-brand-solid text-brand-solid-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm";
 
-export function MetaTeamView() {
+export function MetaOrganisationView() {
   return (
     <div className={`${PAGE_RISE} flex w-full flex-col gap-y-8 sm:gap-y-12`}>
       <BrandHero
-        title="Hinter den Kulissen"
+        title="Organisation"
         lead="Alle hier sind Schülerinnen, Schüler und Helfer, die die Liga ehrenamtlich am Laufen halten."
       />
 
