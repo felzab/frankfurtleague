@@ -367,7 +367,8 @@ export function DatenschutzView() {
           </dl>
           <p className={ABSATZ}>
             Nicht veröffentlicht werden die Kontaktdaten der drei Kontaktpersonen einer Schule samt ihrem Geburtsdatum, die Kontaktdaten und die
-            Schule einer Schiedsrichterin oder eines Schiedsrichters und die Jahrgangsstufe einer Spielerin oder eines Spielers.
+            Schule einer Schiedsrichterin oder eines Schiedsrichters und die Stufe einer Spielerin oder eines Spielers, also das Halbjahr der
+            Oberstufe von E1 bis Q4.
           </p>
           <p className={ABSATZ}>
             Die beiden vollständigen Namen im Impressum stehen nicht auf der Grundlage aus dieser Aufstellung, sondern weil § 5 DDG und § 18
