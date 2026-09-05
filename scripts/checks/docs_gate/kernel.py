@@ -133,6 +133,7 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "roadmap-shape": frozenset({"fail"}),
     "rule-id": frozenset({"fail"}),
     "rule-shape": frozenset({"fail"}),
+    "scheme-token": frozenset({"fail"}),
     "segment-map": frozenset({"fail"}),
     "sha": frozenset({"fail"}),
     "spec-spine": frozenset({"fail"}),

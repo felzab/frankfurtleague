@@ -40,6 +40,16 @@
 # checks' own rather than the walk's. Their 1.06 s sits inside the 8% floor the docs row already
 # carries, so neither reference nor budget moves and neither takes a new stamp.
 #
+# `docs` gained a third check: `scheme-token` costs 0.03-0.04 s over the whole corpus, measured
+# locally on 2026-09-05 on a sixteen-core machine carrying fourteen agent sessions, an editor and a
+# browser, so that figure is an upper bound reading the contention as much as the check. The arm
+# alone with the file listing warmed spans 0.034-0.057 s over nine interleaved rounds. The second
+# method resolves nothing and says so: the delta between a whole run carrying the check and one
+# without falls inside that run's own 0.2 s spread, which is what a check this small looks like
+# against a job this size. It sits inside the 8% floor the docs row carries -- 2.8 s against a 35 s
+# reference -- so neither reference nor budget moves and neither takes a new stamp. The ceiling it
+# answers to is the docs row's 60 s budget, the total row carrying none behind it.
+#
 # `backend` gained a check: `check_test_estate.py` costs 1.90-1.96 s over six interleaved runs, each
 # returning exit 0, measured locally on 2026-09-03 on a sixteen-core machine carrying ten other
 # workloads, so both ends are upper bounds reading that contention as much as the check. It is
