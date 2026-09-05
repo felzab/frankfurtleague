@@ -206,8 +206,9 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-24 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Saison
                 </Table.Column>
-                {/* A calendar date is fixed-format, so this width is a measurement rather than a
-                    guess, and the cell never truncates: a clipped year is a different date. */}
+                {/* `font-numeric tabular-nums` is what makes a fixed-format date a fixed WIDTH under
+                    a proportional page face, so this measurement holds only while the pair stands.
+                    Never truncate: a clipped year is a different date. */}
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Eingereicht
                 </Table.Column>
@@ -267,11 +268,11 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                     </Table.Cell>
 
                     <Table.Cell className="px-6 py-4">
-                      <span className="fluid-sm text-foreground font-semibold">{bewerbung.saison_id}</span>
+                      <span className="font-numeric fluid-sm text-foreground font-semibold tabular-nums">{bewerbung.saison_id}</span>
                     </Table.Cell>
 
                     <Table.Cell className="px-6 py-4">
-                      <span className="fluid-sm text-foreground">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
+                      <span className="font-numeric fluid-sm text-foreground tabular-nums">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
                     </Table.Cell>
 
                     <Table.Cell className="px-6 py-4">{renderKontakt(bewerbung)}</Table.Cell>

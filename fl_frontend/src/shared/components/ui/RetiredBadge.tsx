@@ -7,5 +7,9 @@ import { LABEL_BADGE } from "./badges";
  * „ausgetragen“ instead and never wears this word (`docs/glossary.md :: inactive_since`).
  */
 export function RetiredBadge({ since }: { since: string | null }) {
-  return <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(since)}</span>;
+  return (
+    <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>
+      Stillgelegt seit&nbsp;<span className="font-numeric tabular-nums">{formatSpielDatum(since)}</span>
+    </span>
+  );
 }

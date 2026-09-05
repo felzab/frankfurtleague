@@ -49,11 +49,11 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
   );
 
   /**
-   * The span as two dates around a bis-Strich. `tabular-nums` keeps the digits in columns, so two
-   * rows' spans line up under each other.
+   * `font-numeric` beside `tabular-nums`: the utility asks the current face for tabular figures, and
+   * the page face has none, so dropping it leaves two rows' spans ragged with nothing reporting it.
    */
   const renderZeitraum = (saison: AdminSaisonRow) => (
-    <span className="flex flex-row items-baseline gap-x-1.5 tabular-nums">
+    <span className="font-numeric flex flex-row items-baseline gap-x-1.5 tabular-nums">
       <span className="fluid-sm text-foreground font-bold">{formatSpielDatum(saison.start_date)}</span>
       <span className="muted-meta">–</span>
       <span className="fluid-sm text-foreground font-bold">{formatSpielDatum(saison.end_date)}</span>
@@ -106,7 +106,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
             key={saison.id}
             className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
             <div className="flex w-full flex-row items-center gap-3">
-              <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex h-7 w-14 shrink-0 items-center justify-center rounded-md font-extrabold tracking-wide shadow-sm">
+              <span className="bg-brand-solid text-brand-solid-foreground font-numeric fluid-xs inline-flex h-7 w-14 shrink-0 items-center justify-center rounded-md font-extrabold tracking-wide tabular-nums shadow-sm">
                 {saison.id}
               </span>
               {renderStatusBadge(saison)}
@@ -157,7 +157,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                     <Table.Cell className="px-6 py-4">
                       {/* The season id wears the same chip fill a team's Kürzel does: both are the short
                           identifier a reader scans a column for. */}
-                      <span className="bg-brand-solid text-brand-solid-foreground fluid-xs inline-flex h-7 w-14 items-center justify-center rounded-md font-extrabold tracking-wide shadow-sm">
+                      <span className="bg-brand-solid text-brand-solid-foreground font-numeric fluid-xs inline-flex h-7 w-14 items-center justify-center rounded-md font-extrabold tracking-wide tabular-nums shadow-sm">
                         {saison.id}
                       </span>
                     </Table.Cell>

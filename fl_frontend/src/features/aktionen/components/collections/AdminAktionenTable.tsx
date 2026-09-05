@@ -69,7 +69,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     const { datum, uhrzeit } = formatAktionZeitpunkt(aktion.at);
 
     return (
-      <div className="flex flex-col gap-0.5 tabular-nums">
+      <div className="font-numeric flex flex-col gap-0.5 tabular-nums">
         <span className="fluid-sm text-foreground font-bold">{datum}</span>
         {uhrzeit !== null && <span className="muted-meta">{uhrzeit} Uhr</span>}
       </div>
@@ -147,7 +147,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
         {/* A readout rather than a sentence: "12 Datensätze" would have to agree with a count of one. */}
         {datensatz.betroffen !== null && (
           <span className="muted-meta">
-            Betroffen: <span className="text-foreground font-bold tabular-nums">{datensatz.betroffen}</span>
+            Betroffen: <span className="text-foreground font-numeric font-bold tabular-nums">{datensatz.betroffen}</span>
           </span>
         )}
       </div>

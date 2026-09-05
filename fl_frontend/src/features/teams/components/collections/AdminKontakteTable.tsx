@@ -12,6 +12,7 @@ import { KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung } from "@/features/teams/
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
+import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { RowActionCopy, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
@@ -82,7 +83,7 @@ export const AdminKontakteTable = memo(function AdminKontakteTable({
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="fluid-sm text-foreground truncate font-semibold">{`${seat.person.vorname} ${seat.person.nachname}`}</span>
           <span className="fluid-xs text-foreground-muted truncate">{seat.person.email}</span>
-          <span className="fluid-xs text-foreground-muted truncate">{seat.person.telefon}</span>
+          <span className="font-numeric fluid-xs text-foreground-muted truncate tabular-nums">{seat.person.telefon}</span>
         </div>
       )}
     </div>
@@ -136,7 +137,8 @@ export const AdminKontakteTable = memo(function AdminKontakteTable({
                 height={18}
               />
               <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{row.teamName}</span>
-              <span className="bg-brand-solid text-brand-solid-foreground fluid-xs ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-extrabold">
+              <span
+                className={`${DISPLAY_HEADING} bg-brand-solid text-brand-solid-foreground fluid-xs ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg`}>
                 {row.teamShorthand}
               </span>
             </div>

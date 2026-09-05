@@ -134,7 +134,7 @@ export function AdminBracketWiringView({ rounds, saisonId }: { rounds: FLSpielta
             role="listitem"
             key={round.id}
             className={`${card()} flex w-full flex-col items-start gap-4 p-3 sm:p-6`}>
-            <h2 className="fluid-lg text-foreground w-full font-black tracking-tight">{labels.get(round.id)?.label}</h2>
+            <h2 className="fluid-lg text-foreground w-full font-extrabold tracking-tight">{labels.get(round.id)?.label}</h2>
 
             {round.spiele.length === 0 ? (
               <EmptyState title="Noch keine Spiele in dieser Runde" />
@@ -174,7 +174,9 @@ export function AdminBracketWiringView({ rounds, saisonId }: { rounds: FLSpielta
                       .map((spiel) => (
                         <Table.Row key={spiel.id}>
                           {/* `spiel_nr`, because that is the number a `spiel` source cites. */}
-                          <Table.Cell className="fluid-sm py-4 pl-3 font-bold whitespace-nowrap lg:pl-4">{spiel.spiel_nr}</Table.Cell>
+                          <Table.Cell className="font-numeric fluid-sm py-4 pl-3 font-bold whitespace-nowrap tabular-nums lg:pl-4">
+                            {spiel.spiel_nr}
+                          </Table.Cell>
 
                           <Table.Cell className="px-2 py-4 align-top lg:px-4">
                             {/* No rule between the seats: the step from one seat to the next has to

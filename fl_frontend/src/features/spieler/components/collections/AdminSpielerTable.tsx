@@ -82,7 +82,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
       {spieler.selected === null && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Nicht im Kader</span>}
       {spieler.selected?.inactive_since != null && (
         <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong`}>
-          Ausgetragen seit {formatSpielDatum(spieler.selected.inactive_since)}
+          Ausgetragen seit&nbsp;<span className="font-numeric tabular-nums">{formatSpielDatum(spieler.selected.inactive_since)}</span>
         </span>
       )}
       {spieler.inactive_since === null && spieler.selected !== null && spieler.selected.inactive_since === null && (
@@ -200,7 +200,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
       aria-label={spieler.selected?.nummer ? undefined : "Keine Nummer"}
       // A fixed height rather than padding: `py-1.5` sizes the chip from its line box, and an empty
       // span has none, so the empty chip would collapse.
-      className={`fluid-xs inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-extrabold tracking-wide ${
+      className={`font-numeric fluid-xs inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-extrabold tracking-wide tabular-nums ${
         spieler.selected?.nummer ? "bg-muted text-foreground" : "bg-muted/50"
       }`}>
       {spieler.selected?.nummer ?? ""}

@@ -80,7 +80,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   const renderRetiredBadge = (ort: FLSpielort) => (ort.inactive_since === null ? null : <RetiredBadge since={ort.inactive_since} />);
 
   const renderMietpreis = (ort: FLSpielort) => (
-    <span className="bg-muted text-foreground fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">
+    <span className="bg-muted text-foreground font-numeric fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide tabular-nums">
       {formatEuro(ort.default_mietpreis)}
     </span>
   );
