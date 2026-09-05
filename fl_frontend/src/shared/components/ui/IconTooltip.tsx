@@ -42,7 +42,7 @@ export function IconTooltip({
       {/* The surface is shared with `Hint`'s refusal panel, so a reader cannot tell which mechanism drew the panel. */}
       <Tooltip.Content
         placement={placement}
-        className={`${HINT_SURFACE} ${tone === "danger" ? "text-danger" : "text-foreground"}`}>
+        className={`${HINT_SURFACE} ${tone === "danger" ? "text-danger-strong" : "text-foreground"}`}>
         {label}
       </Tooltip.Content>
     </Tooltip>

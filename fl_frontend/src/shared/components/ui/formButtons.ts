@@ -59,7 +59,7 @@ export const formButton = tv({
        */
       nav: "border-border bg-surface text-foreground data-hovered:bg-hover fluid-xs border px-4 font-bold shadow-sm",
       // `-solid` plus its paired foreground: `bg-danger` is a tint, and under `text-foreground` it falls
-      // to 3.09:1 in the dark theme, where this pair clears 4.5:1 in both.
+      // to 3.31:1 in the dark theme, where this pair clears 4.5:1 in both.
       destructive: "bg-danger-solid data-hovered:bg-danger-solid-hover text-danger-solid-foreground",
       /**
        * The CRUD header's create button. Its height mirrors `SearchBar`'s group at every breakpoint, since the

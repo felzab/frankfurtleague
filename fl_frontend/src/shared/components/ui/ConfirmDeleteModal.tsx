@@ -95,7 +95,7 @@ export function ConfirmDeleteModal({
       icon={
         <div className="bg-danger/15 flex size-10 shrink-0 items-center justify-center rounded-xl">
           <TrashBin
-            className="text-danger"
+            className="text-danger-strong"
             width={20}
             height={20}
           />
@@ -116,7 +116,7 @@ export function ConfirmDeleteModal({
           <div
             role="alert"
             className="bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm">
-            <div className="text-danger flex items-center gap-2 font-bold">
+            <div className="text-danger-strong flex items-center gap-2 font-bold">
               <TriangleExclamation
                 aria-hidden="true"
                 width={18}

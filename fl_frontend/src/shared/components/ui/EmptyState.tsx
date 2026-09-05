@@ -13,7 +13,7 @@ const emptyState = tv({
   variants: {
     tone: {
       neutral: { title: "text-foreground" },
-      positive: { title: "text-success" },
+      positive: { title: "text-success-strong" },
     },
   },
   defaultVariants: { tone: "neutral" },

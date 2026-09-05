@@ -35,7 +35,7 @@ const DARK_TEXT_COLOR = "#a3a3a3";
 const DARK_HEADING_COLOR = "#ffffff";
 const DARK_RULE_COLOR = "#333333";
 /** `--accent-brand`, lightened for a dark ground. The button fill is `BRAND_SOLID_COLOR`, which does not flip. */
-const DARK_BRAND_COLOR = "#8fc752";
+const DARK_BRAND_COLOR = "#8dbf6c";
 
 /**
  * Hooks for the one stylesheet. An inline style outranks a rule, so every dark declaration carries

@@ -33,7 +33,7 @@ export const PILL_TINT: Record<PillTone, string> = {
   danger: "bg-danger/15 text-danger-strong",
   info: "bg-info/15 text-info-strong",
   // `text-brand` and never the solid fill as ink: that fill does not flip per theme, so on this tint
-  // it measures 1.30:1 in the dark one.
+  // it measures 1.31:1 in the dark one.
   brand: "bg-brand/10 text-brand",
   // A badge of office rather than a grade. `fl_frontend/src/features/spieler/shorthandChip.ts` draws
   // the phone layout's twin of the one chip wearing it, so the two boxes have to match.
