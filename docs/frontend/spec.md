@@ -2,26 +2,30 @@
 
 **Scope:** `fl_frontend/src/`
 
-| Section                                                                                               | Answers                                                |
-| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| [1.1 Slice inventory](#11-slice-inventory)                                                            | Which slices exist and which modules each holds        |
-| [1.2 Cached reads](#12-cached-reads)                                                                  | What is cached, for how long, under which tags         |
-| [1.3 Admin mutations](#13-admin-mutations)                                                            | Which writes exist and what each invalidates           |
-| [1.4 The cache tag design](#14-the-cache-tag-design)                                                  | Why exactly two granular tags, and what may not be one |
-| [1.5 Out-of-band invalidation](#15-out-of-band-invalidation)                                          | What a hand edit in MongoDB costs                      |
-| [1.6 Deliberate duplication: the three match cards](#16-deliberate-duplication-the-three-match-cards) | Why three near-identical cards stay separate           |
-| [1.7 Environment](#17-environment)                                                                    | Which variables are validated, and against what        |
-| [1.8 Lint rules that encode a decision](#18-lint-rules-that-encode-a-decision)                        | Which lint rules are load-bearing                      |
-| [1.9 The test suite](#19-the-test-suite)                                                              | What the runner is and what is covered                 |
-| [1.10 The match editor's structural properties](#110-the-match-editors-structural-properties)         | Why the editor is built the way it is                  |
-| [1.11 Adding a HeroUI component](#111-adding-a-heroui-component)                                      | What a new component needs beyond its TSX import       |
-| [1.12 The copy rules](#112-the-copy-rules)                                                            | How the site addresses its reader, and where           |
-| [1.13 Metadata and indexing](#113-metadata-and-indexing)                                              | What each route sets, and what an unset value claims   |
-| [1.14 The shared editor surface](#114-the-shared-editor-surface)                                      | What every entity editor shares, and what a slice owns |
-| [1.15 The document root](#115-the-document-root)                                                      | What the document root may never carry                 |
-| [2. Invariants](#2-invariants)                                                                        | The rules that must hold                               |
-| [3. Violation → remedy](#3-violation--remedy)                                                         | A symptom, its cause, and what to do about it          |
-| [4. Known-open](#4-known-open)                                                                        | The accepted gaps                                      |
+| Section                                                                                               | Answers                                                                |
+| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [1.1 Slice inventory](#11-slice-inventory)                                                            | Which slices exist and which modules each holds                        |
+| [1.2 Cached reads](#12-cached-reads)                                                                  | What is cached, for how long, under which tags                         |
+| [1.3 Admin mutations](#13-admin-mutations)                                                            | Which writes exist and what each invalidates                           |
+| [1.4 The cache tag design](#14-the-cache-tag-design)                                                  | Why exactly two granular tags, and what may not be one                 |
+| [1.5 Out-of-band invalidation](#15-out-of-band-invalidation)                                          | What a hand edit in MongoDB costs                                      |
+| [1.6 Deliberate duplication: the three match cards](#16-deliberate-duplication-the-three-match-cards) | Why three near-identical cards stay separate                           |
+| [1.7 Environment](#17-environment)                                                                    | Which variables are validated, and against what                        |
+| [1.8 Lint rules that encode a decision](#18-lint-rules-that-encode-a-decision)                        | Which lint rules are load-bearing                                      |
+| [1.9 The test suite](#19-the-test-suite)                                                              | What the runner is and what is covered                                 |
+| [1.10 The match editor's structural properties](#110-the-match-editors-structural-properties)         | Why the editor is built the way it is                                  |
+| [1.11 Adding a HeroUI component](#111-adding-a-heroui-component)                                      | What a new component needs beyond its TSX import                       |
+| [1.12 The copy rules](#112-the-copy-rules)                                                            | How the site addresses its reader, and where                           |
+| [1.13 Metadata and indexing](#113-metadata-and-indexing)                                              | What each route sets, and what an unset value claims                   |
+| [1.14 The shared editor surface](#114-the-shared-editor-surface)                                      | What every entity editor shares, and what a slice owns                 |
+| [1.15 The document root](#115-the-document-root)                                                      | What the document root may never carry                                 |
+| [1.16 The three faces](#116-the-three-faces)                                                          | Which face and which step an element takes, and what decides a new one |
+| [1.17 Colour roles and the brand budget](#117-colour-roles-and-the-brand-budget)                      | Where each grade may be spent, and how much brand a screen carries     |
+| [1.18 The box](#118-the-box)                                                                          | What every box wears, and which corner and shadow a nesting takes      |
+| [1.19 The component grammar](#119-the-component-grammar)                                              | The shape a heading, a hint, a pill, a strip or a glyph keeps          |
+| [2. Invariants](#2-invariants)                                                                        | The rules that must hold                                               |
+| [3. Violation → remedy](#3-violation--remedy)                                                         | A symptom, its cause, and what to do about it                          |
+| [4. Known-open](#4-known-open)                                                                        | The accepted gaps                                                      |
 
 ---
 
@@ -1012,6 +1016,176 @@ out rather than left to be recognised at the line somebody adds one:
 **The set is CSS's own and grows without us**, so a property missing from it is unchecked rather than
 permitted: a declaration on either root is read against the current specification first.
 
+### 1.16 The three faces
+
+**Anton sets the site's own words as a title at `fluid-xl` or above, and the wordmark; everything a
+person reads, and every value that comes from the record, is Raleway; a number that has to column is
+Inter, through `font-numeric`.** Three tests decide a site the table below does not name:
+
+- **Copy or value?** A heading fixed in source, or a token as short as a group letter, is Anton. A
+  heading carrying a name from the record — a school, a person, a team — is Raleway, because a name
+  is not a slogan and a poster face shouts it.
+- **At `fluid-xl` or above?** Below that step the condensed face is a smear. The wordmark
+  (`fl_frontend/src/shared/components/ui/BrandLink.tsx`) is the one site under it: the logo's own
+  letterform as live text rather than a heading.
+- **Does it column?** Digits a reader scans vertically take `font-numeric` beside `tabular-nums`,
+  never one alone: Raleway carries no tabular figures, so the utility without the face delivers
+  nothing (`fl_frontend/src/core/numericFigures.test.ts`).
+
+**An Anton element spells no weight utility, no `italic` and no `tracking-tight`** (I159). The face
+ships one weight, so a utility on it — or a weight inherited from a bold ancestor — is synthesised by
+the browser, which smears the caps and reports nothing; it is drawn to set nearly solid, so a negative
+tracking collides them. Uppercase comes from the utility and never from the source string, or a
+screen reader reads the title out as an initialism (I160).
+
+**Which step an element takes:**
+
+| Step         | Takes                                                                                                         |
+| ------------ | ------------------------------------------------------------------------------------------------------------- |
+| `fluid-4xl`  | The `<h1>` inside `fl_frontend/src/shared/components/ui/BrandHero.tsx :: BrandHero`, and nothing else         |
+| `fluid-3xl`  | The `<h1>` of every other public page, in Anton; never a two-step `lg:` pair                                  |
+| `fluid-2xl`  | A dashboard or meta section title and the sign-in `<h1>`, in Anton; an admin sheet's title `<h2>`, in Raleway |
+| `fluid-xl`   | A dashboard view's `<h2>`: Anton where it is copy, Raleway where it carries a name. The display face's floor  |
+| `fluid-lg`   | A result or closed-state `<h2>`, a modal heading, the value of an entry-condition fact; the wordmark          |
+| `fluid-base` | The anchor step: a panel heading, an empty state's title, a statement paragraph                               |
+| `fluid-sm`   | The reading grade: every paragraph, every input and trigger, a button's label, a fact's value                 |
+| `fluid-xs`   | The label grade: a field label, a caption, a table header, a footer link, a callout's title                   |
+| `fluid-xxs`  | The smallest: an eyebrow, a sub-group heading, a `<dt>`, an inline hint, a field error, every pill            |
+
+**Raleway keeps four rungs, and `font-black` is not one of them**: at reading size 900 is not
+tellable from 800, and a rung nobody can tell from its neighbour exists only to be misapplied. Inter
+keeps whatever weight a numeric site spells.
+
+| Rung             | Means                                                                                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- |
+| `font-extrabold` | The loudest the text face goes: a Raleway heading, an eyebrow, an option chip, a value set as a fact       |
+| `font-bold`      | A label — a field label, a pill, a button, a `<dt>`, a switch label, a strapline, a reader's own value     |
+| `font-semibold`  | A label ranked below its neighbours: a footer column title, a compact readout's value, the `cancel` button |
+| `font-medium`    | Every run of prose; a bold run is a label or a one-liner and never a paragraph (I167)                      |
+
+**Uppercase is a label voice or the display voice, and never a value, a hint or a paragraph.** The
+label voice is Raleway tracked wide — `fl_frontend/src/shared/components/ui/formFieldStyles.ts ::
+FORM_SECTION_HEADING`, an eyebrow, a table header, a footer column title; the display voice is Anton
+at the display step.
+
+### 1.17 Colour roles and the brand budget
+
+**Every colour a component names is a token with a grade, and the grade says where it may go.** Why a
+value is what it is, and the pair it is measured on, is the comment at its declaration in
+`fl_frontend/src/app/schemes/2027.css`; `fl_frontend/src/app/globals.css :: @theme` bridges each to
+its utility. What no declaration can say is which surface may spend it:
+
+| Grade                                                       | Spent on                                                                                                           | Never on                                                                                   |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `brand` — flips per theme                                   | One accent word in a title, an eyebrow, an inline link, a focus or hover border, the `/10` tint under its own text | A fill behind text; a run longer than one word                                             |
+| `brand-solid` with `-foreground` — one value per theme pair | The primary control, a selected chip or day, the entry-condition block, a tile, a dot ornament, the hero           | Text on any surface: unflipped, it sinks into its own tint in the dark theme               |
+| `brand-solid-accent` — one value per theme pair             | The wordmark and the mark on the brand fill                                                                        | Any other ground; on a light one it fails as text                                          |
+| `surface` / `muted`                                         | A box's ground / a recessed track — a tab strip, a table header, a neutral pill                                    | `muted` as a panel's ground                                                                |
+| `border`                                                    | Every neutral box and field, at an alpha for a divider inside one                                                  | A tinted box, whose edge is its own tone                                                   |
+| `{tone}` plain                                              | A dot, a bar, a border, the ground of a tint                                                                       | Text: it is tuned for a fill and fails on its own tint                                     |
+| `{tone}-strong`                                             | Text on a tint or on `muted`                                                                                       | A fill                                                                                     |
+| `{tone}-solid` with `-foreground`                           | A fill that must read as one — the destructive button, a result badge — under its paired on-colour                 | A tint, or text                                                                            |
+| `hover*`                                                    | Every hover, one declared token per family                                                                         | An alpha at a call site, which composites against its ground and lands differently on each |
+| `--focus`                                                   | Every ring HeroUI does not draw itself, as the foreground                                                          | HeroUI's `--accent`, which the scheme declares for a `Switch`'s fill and a picker's day    |
+| `phase-*`                                                   | A phase badge and its `/10` tint                                                                                   | A state: the sequence is an order, not a meaning                                           |
+
+Which tone a message takes is fixed at `fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`,
+and a state chip reads the same mapping
+(`fl_frontend/src/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx :: STAND_TINT`).
+
+**The brand budget is a ceiling per screen denominated in salience, never a count to reach** (I164).
+The same number of brand spends reads as a different page under a different palette — the dark
+theme's brand text is far lighter than the light theme's, so one spend carries more there — and a
+page that reads calmer than it could is the ruling that brand colours are accents (mine, 2026-09-04)
+arriving, not a deficit to fill:
+
+- **One `bg-brand-solid` block per screen.** `BrandHero.tsx :: BrandHero` is that block on a meta
+  page and `fl_frontend/src/features/bewerbungen/components/views/BewerbungView.tsx :: FensterFakten`
+  on the application page; a stripe, a tile and a button are not blocks, and the landing page has
+  none. A legal page has no brand block at all: a title over one neutral card is the reading surface
+  those pages are.
+- **One `text-brand` word inside a title, never a run.** In the display face a word is a solid mass
+  of caps and carries more than it does as text.
+- **The free spends stay free, and their count does not grow to compensate for a quieter theme**: an
+  eyebrow, the season chip, the focus border, an inline link, the primary control, a dot ornament, a
+  row marker's hover.
+- **Nothing is spent in the dark theme that the light theme does not spend.** The tokens flip; the
+  counts never do.
+
+### 1.18 The box
+
+**Every box has an edge and a shadow, and the edge names the tone** (I165). A neutral box is
+`border-border` under `shadow-sm` (`fl_frontend/src/shared/components/ui/formPanel.ts :: formPanel`,
+`fl_frontend/src/shared/components/ui/card.ts :: card`), or `shadow-xs` on a band; a tinted box's edge
+is its own tone at an alpha (`fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`, the
+`danger` variant of `formPanel`). Never a borderless card, never a neutral edge on a tinted box: in
+the dark theme the hairline is what parts a box from a near-black page. Depth is one of four grades —
+`shadow-xs` a band, `shadow-sm` a box on the page, `shadow-md` the brand fill, `shadow-lg` a floating
+surface alone (`fl_frontend/src/shared/components/ui/overlayPanel.ts :: overlayPanel`,
+`fl_frontend/src/shared/components/ui/hintSurface.ts :: HINT_SURFACE`) — and no box wears blur or
+translucency: on a neutral ground there is nothing for a card to float over.
+
+**The corner ladder steps down one rung per nesting** (I166), so a box beside a panel in the page
+column is `2xl` and a box inside one is `xl` or lower; two boxes at one rung never nest:
+
+- `rounded-3xl` — the hero (`BrandHero.tsx :: BrandHero`), and nothing else
+- `rounded-2xl` — a box in the page column: a panel, a card, a band, an empty state, a result panel
+- `rounded-xl` — a box inside one: a callout, a confirmation reveal, a button, a tab track, a tile,
+  an overlay
+- `rounded-lg` — a field, a trigger, a list option, a tab item
+- `rounded-md` — a pill (`fl_frontend/src/shared/components/ui/badges.ts :: PILL_RADIUS`)
+- `rounded-full` — a dot, the season chip, a swatch
+
+**A block in a page column takes the column's gap and never a margin of its own**, so the rhythm
+holds whether a conditional block renders or not
+(`fl_frontend/src/features/meta/components/views/KontaktView.tsx :: bewerbungSlot`).
+
+### 1.19 The component grammar
+
+- **One `<h1>` per public page, in the display face.** Under the admin shell the top bar owns the
+  `<h1>` (the `admin` clause of `.claude/rules/frontend.md`) and a page titles itself with a Raleway
+  `<h2>` carrying the entity's name.
+- **Every panel title renders through `PanelHeading`** (I44, I80, I81), and a panel's standing rule
+  is the reveal hint beside its title rather than a sentence closing its body
+  (`fl_frontend/src/shared/components/ui/formPanel.ts :: heading`); what a body sentence may then say
+  is §1.12's.
+- **A hint rides in its control's own cell**, so a two-up row keeps each sentence under its own box
+  and the neighbour may carry none.
+- **A link inside text is `textLink`** (I43, I78, I79). A standalone action is a `ctaButton` link
+  (`fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton`, whose `hover` says which host
+  it sits on), never a text link; a whole box is pressable only as `card({ interactive: true })`
+  (`fl_frontend/src/shared/components/ui/card.ts :: card`).
+- **One pill** (`fl_frontend/src/shared/components/ui/badges.ts :: LABEL_BADGE`): a tone at `/15`
+  under its `-strong` text, brand at `/10` under `text-brand`
+  (`fl_frontend/src/features/saisons/components/ui/SaisonChip.tsx`), neutral `bg-muted` under
+  `text-foreground-muted`; a row of pills shares one height with the `xs` button. A HeroUI `Chip`
+  takes `PILL_RADIUS` and the app's classes, never `variant` or `color`
+  (`fl_frontend/src/features/teams/components/ui/TeamCard.tsx :: STAT_CHIP_CLASSES`).
+- **A strip is for a way somewhere else; a message about the page's state is a panel with a
+  heading.** The band (`fl_frontend/src/features/bewerbungen/components/ui/band.ts :: band`) exists
+  to be pressed, one per slot, its skeleton built from the same recipe; a callout
+  (`Callout.tsx :: Callout`) is tinted feedback and never content; a closed state is the form's own
+  panel (`BewerbungView.tsx :: ZustandPanel`), never a callout.
+- **A decorative glyph never stands alone** (I169). It is `aria-hidden` beside the words carrying the
+  fact, coloured by the text beside it or by the `-strong` grade of its box's tone; an icon-only
+  element is a labelled control. Brand on a glyph is a row marker's hover
+  (`fl_frontend/src/shared/components/ui/RowActions.tsx :: ACTION_LINK_CLASS`) and the
+  `bg-brand-solid` dot ornaments, and nothing else.
+- **A social mark wears the foreground of the ground it sits on, never brand** (I168): `bg-foreground`
+  on `surface` (`fl_frontend/src/shared/components/layout/footer/Footer.tsx`,
+  `fl_frontend/src/features/bewerbungen/components/ui/BewerbungInstagramBand.tsx`),
+  `bg-brand-solid-foreground` on a brand tile
+  (`fl_frontend/src/features/meta/components/views/KontaktView.tsx`).
+- **Empty is muted italic**
+  (`fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx :: Leer`): a
+  value nobody recorded, an absent name, a result not yet stored. An outstanding step is a state and
+  never a gap.
+- **A required mark appears only on a form that creates something**; the rule at
+  `fl_frontend/src/app/globals.css :: data-required-marks` carries why.
+- **Every field-shaped control resolves to one height**
+  (`fl_frontend/src/shared/components/ui/formFieldStyles.ts :: FIELD_HEIGHT`), and focus and refusal
+  are both borders told apart by hue (`fl_frontend/src/app/globals.css :: data-invalid`).
+
 ## 2. Invariants
 
 | #    | Invariant                                                                                                                                                                                                                                  | Enforced by                                                                                                                                                                                                                                                                                     |
@@ -1112,6 +1286,19 @@ permitted: a declaration on either root is read against the current specificatio
 | I140 | **The privacy notice and the imprint are linked from every public page's footer and from the public application form**                                                                                                                     | `fl_frontend/src/shared/components/layout/footer/Footer.tsx`, `fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection.tsx`; unenforced, no test asserts either link, review holds it                                                                    |
 | I147 | **The confirmation page renders every standing paragraph from the version it stamps**; the age warning, the armed alert and the answered states are its own                                                                                | `fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`, rendered by `fl_frontend/src/features/bewerbungen/components/views/BestaetigungHinweise.tsx`; `fl_frontend/src/features/bewerbungen/publicRoutes.test.ts :: renders every paragraph the version holds` and the cases beside it |
 | I148 | **The confirmation page's stored wording label is the registry's, stamped by the route handler**: a label the browser sends is read and dropped                                                                                            | `fl_frontend/src/features/bewerbungen/utils.ts :: stampEinwilligungFassung`, called by `fl_frontend/src/app/api/bestaetigung/route.ts`; `fl_frontend/src/features/bewerbungen/utils.test.ts :: replaces whatever label the request carried with the registry's own`                             |
+| I159 | **In the display face, no weight utility, no `italic`, no `tracking-tight`**: the face ships one weight, and a utility on it is synthesised silently                                                                                       | review — `fl_frontend/src/app/layout.tsx :: anton` loads the one weight, so a stray utility is faked rather than refused                                                                                                                                                                        |
+| I160 | **Uppercase comes from the utility and never from the source string**: an all-caps string is read out as an initialism                                                                                                                     | review — `fl_frontend/src/features/bewerbungen/components/views/BestaetigungView.tsx :: TITEL` states it at one site                                                                                                                                                                            |
+| I161 | **`brand-solid-accent` paints on the brand fill and nowhere else**: a dark-surface colour, it fails as text on a light ground                                                                                                              | review — `fl_frontend/src/app/schemes/2027.css :: --accent-on-brand`                                                                                                                                                                                                                            |
+| I162 | **A hover is a declared token, never an alpha at a call site**: an alpha composites against its ground and lands differently on every surface                                                                                              | review — `fl_frontend/src/app/globals.css :: --color-hover` names the tokens                                                                                                                                                                                                                    |
+| I163 | **A focus ring is the foreground, never HeroUI's `--accent`**, which the scheme declares for a `Switch`'s fill and a picker's selected day                                                                                                 | `fl_frontend/src/app/schemes/2027.css :: --focus`; review for a ring drawn past it                                                                                                                                                                                                              |
+| I164 | **One `bg-brand-solid` block per screen, one `text-brand` word inside a title**: brand colours are accents, and the budget is salience rather than count                                                                                   | review                                                                                                                                                                                                                                                                                          |
+| I165 | **Every box has an edge and a shadow, and the edge names the tone**: `border` when neutral, its own tone when tinted                                                                                                                       | review — `fl_frontend/src/shared/components/ui/formPanel.ts :: formPanel`, `fl_frontend/src/shared/components/ui/card.ts :: card`, `fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`                                                                                                |
+| I166 | **The corner ladder steps down one rung per nesting, and `rounded-3xl` is the hero's alone**                                                                                                                                               | review — `fl_frontend/src/shared/components/ui/badges.ts :: PILL_RADIUS` is the bottom rung                                                                                                                                                                                                     |
+| I167 | **Prose is `font-medium`; a bold run is a label or a one-liner and never a paragraph**                                                                                                                                                     | review — `fl_frontend/src/app/globals.css :: muted-hint` and `:: muted-meta` carry the grade                                                                                                                                                                                                    |
+| I168 | **A social mark wears the foreground of its ground, never brand**: a green Instagram glyph is a mark wearing the wrong brand                                                                                                               | review — `fl_frontend/src/shared/components/layout/footer/Footer.tsx`, `fl_frontend/src/features/bewerbungen/components/ui/BewerbungInstagramBand.tsx`                                                                                                                                          |
+| I169 | **A decorative glyph is `aria-hidden` beside the words carrying the fact, and an icon-only element is a labelled control**                                                                                                                 | review                                                                                                                                                                                                                                                                                          |
+| I170 | **A label pill names its tone from `fl_frontend/src/shared/components/ui/badges.ts :: PillTone`, a closed set with no neutral member**                                                                                                     | The type, at every `labelBadge` call; `fl_frontend/src/shared/components/ui/badges.test.ts` for the HeroUI `Chip` route, which no type reaches                                                                                                                                                  |
+| I171 | **The five phase hues are one ordered arc; a collision with a feedback hue is not a reason to move one off it**                                                                                                                            | Review, against `fl_frontend/src/app/schemes/`; the contrast rows in `scripts/checks/docs_gate/scheme.py :: PAIRS` hold each phase pair readable, never separated                                                                                                                               |
 
 ## 3. Violation → remedy
 
@@ -1158,3 +1345,5 @@ permitted: a declaration on either root is read against the current specificatio
 | Revocation is out of band, never the session lifetime; `fl_frontend/src/features/auth/actions.ts :: signOutAction` is the admin's own sign-out       | Accepted — an operator revokes by removing the address from `ALLOWED_ADMIN_EMAILS`, which the `session` callback re-reads on every request                                                  |
 | Next injects a polyfill bundle `browserslist` cannot cut                                                                                             | Accepted — `next/dist/build/polyfills/polyfill-module.js` ships unconditionally and no supported way to drop it exists; PageSpeed reports it under "Legacy JavaScript" in an unscored audit |
 | The rules §1.8 records are enforced by a linter past end of life, whose current documentation describes a major version this repository does not run | Open — `fl_frontend/package.json` holds eslint at a 9.x line taking no further fix, so §1.8's decisions and I9's boundary rest on an unrepairable tool                                      |
+| A display-face title looks bolder or smeared beside the wordmark                                                                                     | A weight utility on an Anton element, or a weight inherited from a bold ancestor, which the browser synthesises                                                                             | I159 — drop the utility; the face has one weight |
+| A hover reads differently on a card than on the page                                                                                                 | An alpha hover at the call site, compositing against each ground                                                                                                                            | I162 — one of the `hover*` tokens                |

@@ -9,7 +9,7 @@ DELIVERABLE: every performance finding carries its number (bytes gzipped, elemen
 milliseconds) and how it was measured; every contrast finding carries its ratio pair in both themes.
 A claim without its measurement is filed INFO and labelled unmeasured.
 
-CONTEXT — derive, do not assume: Tailwind is CSS-first (`globals.css` owns the token layer and
+CONTEXT — derive, do not assume: Tailwind is CSS-first (`globals.css` bridges the token layer a season scheme declares, and
 `@theme` exports); the shared recipes (`card`, `formButton`, `ctaButton`, the tab, field and label
 constants, `overlayPanel`, `StatusPanel`) are the styling system's enforcement layer;
 `no-unknown-classes` runs at `error`. Two hard rules for this lens: **verify library and CSS

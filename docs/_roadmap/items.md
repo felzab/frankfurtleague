@@ -103,7 +103,6 @@ deliverable.
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                          | FE, BE, admin, spieler                                                      | Open     |
 | `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                                | FE, BE, Docs, spieler                                                       | Open     |
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                        | FE, Docs                                                                    | Open     |
-| `n56q-zu6n` | `Team` names a club and the people who run the league, and the public site renders both                                     | FE, Docs, meta, teams                                                       | Open     |
 | `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                           | FE, auth, spiele, spielorte, teams                                          | Open     |
 | `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                            | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
 | `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                                 | FE, Docs                                                                    | Open     |
@@ -116,7 +115,6 @@ deliverable.
 | `qp88-3t35` | A cached read's backend call joins to no render, and telemetry has nowhere to go                                            | FE, BE, Ops, Docs, versions                                                 | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                               | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                      | FE, BE, DB, admin, bewerbungen                                              | Standing |
-| `rtn3-sq85` | A state chip can be neutral gray, and the shared badge carries shape without tone                                           | FE, Docs, bewerbungen                                                       | Open     |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                  | FE, BE, Docs, tests, saisons                                                | Open     |
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject             | FE, Docs, tests                                                             | Open     |
 | `txef-hz2b` | Two referees reduced to one published name are one option in the fixture facet                                              | FE, BE, spiele                                                              | Open     |
@@ -151,7 +149,6 @@ deliverable.
 | `aee2-vxqc` | A deprecated test-client dependency will end four modules' collection                                                       | BE, ci, tests, versions                                                     | Open     |
 | `b3c5-avuj` | One uv version is pinned twice and compared by nothing                                                                      | BE, Ops, gate, ci, versions                                                 | Open     |
 | `b732-rpvp` | Most of the database tier runs unconstrained                                                                                | BE, DB, tests                                                               | Open     |
-| `bfbz-mvhx` | A shared style recipe and a server-only query share one module, so no client component may import the recipe                | FE, bewerbungen                                                             | Open     |
 | `bfs4-ax6a` | The fixtures' drift guard cannot see a database view                                                                        | BE, DB, tests                                                               | Open     |
 | `bpve-vhag` | The fork exemption's ceiling is charged per block, and nothing caps the blocks one ancestor excuses                         | Ops, Docs, gate, tests                                                      | Open     |
 | `c8rx-gqun` | An invariant citation resolves to a string, not to a definition                                                             | Ops, Docs, gate                                                             | Open     |
@@ -1442,43 +1439,6 @@ breakpoint and the space the shell actually gets are different numbers.
 [`docs/_auditing/lessons.md`](../_auditing/lessons.md) §6 records that a session cannot sign in, so
 the honest scope is a look at one editor past 96rem, in a real browser, by somebody who can.
 
-### `n56q-zu6n` · `Team` names a club and the people who run the league, and the public site renders both
-
-| Tags                  | Status | Depends on |
-| --------------------- | ------ | ---------- |
-| FE, Docs, meta, teams | Open   | —          |
-
-**[`docs/glossary.md`](../glossary.md) defines `Team` as a club, and `/team` is a page about the
-people who run the league.** Its heading is `Frankfurt-League Team`
-(`fl_frontend/src/features/meta/components/views/MetaTeamView.tsx :: MetaTeamView`), its metadata
-title is the bare word, and the navigation renders it twice more — in
-`fl_frontend/src/shared/components/layout/topnav/TopNav.tsx :: TopNav` and in
-`fl_frontend/src/shared/components/layout/footer/Footer.tsx :: Footer`. The same navigation offers
-`Saisonübersicht` beside it, and everything under that — the league table's column, the popover and
-every fixture card — calls a club a `Team`.
-
-**§1.12 of [`docs/frontend/spec.md`](../frontend/spec.md) states the rule from the other side** —
-one German word per concept, and a club is a `Team`, never `Mannschaft`. That polices two words for
-one concept. This is one word for two, which nothing can check: both senses are ordinary German, and
-neither is a misspelling of the other. Leaving it undecided is what makes the next public string
-naming either sense a coin toss.
-
-**A season's squad is not a third sense**, which is what keeps this decidable. The squad is `Kader` everywhere
-it is rendered — the public squad page's heading and metadata, and the entry beside `Team-Details` in
-`fl_frontend/src/features/teams/components/ui/TeamPopoverMenu.tsx :: TeamPopoverMenu`. So the collision is
-exactly two senses, and only one of them is the domain entity.
-
-**Ruled: relabel the league's own people's page and keep its route** (`docs/datenschutz.md` §10,
-2026-09-02). That is four strings — the heading, the metadata title and the two navigation links —
-and nothing else. **Renaming the route was the alternative and it is not taken**: a published
-address also moves `fl_frontend/src/app/sitemap.ts` and the page's own canonical, and that half is a
-redirect and an indexed URL rather than a copy edit.
-
-**Where the answer goes.** The glossary's `Team` entry is the club's, so the second sense belongs
-either as a trap on that entry or as a row in the same page's `Terms that are not domain vocabulary`
-table, which already holds the words that only look like domain vocabulary. Nothing under `docs/`
-cites the route, so the corpus cost is the glossary line alone.
-
 ### `nadg-bnjb` · Every admin write states its success twice, and the second sentence cannot render
 
 | Tags                               | Status | Depends on |
@@ -1976,44 +1936,6 @@ from unreachable into the ordinary path and makes the plan above the one an admi
 **What was measured and what was not** (COR-9). The plans were measured, at a row count the
 collection does not hold. That no caller sends `sort_by` was read off the page and the absence of
 another consumer rather than proven by instrumenting the endpoint.
-
-### `rtn3-sq85` · A state chip can be neutral gray, and the shared badge carries shape without tone
-
-| Tags                  | Status | Depends on |
-| --------------------- | ------ | ---------- |
-| FE, Docs, bewerbungen | Open   | —          |
-
-**Ruled: no chip or badge is neutral gray, and a state chip wears the tone its meaning dictates.**
-
-**The shared badge is shape alone, so every tone is a slice's own string.**
-`fl_frontend/src/shared/components/ui/badges.ts :: LABEL_BADGE` sets the pill — its size, radius,
-weight and its refusal to wrap — and names no colour at all, so a tone arrives as a second class
-string written beside it at the call site. That colour is the caller's is stated once on this
-module, at `fl_frontend/src/shared/components/ui/badges.ts :: COUNT_BADGE`, and it holds for both
-recipes. Per-slice maps supply the strings, and nothing holds them to one vocabulary or refuses a
-member of it. The state that is neutral today is
-`fl_frontend/src/features/bewerbungen/constants.ts :: BEWERBUNG_STATUS_TINT`'s `abgelehnt`, and the
-comment above that map argues for the choice in as many words: a decline is a decision the league
-took rather than a fault anybody has to act on. **The ruling overrides that argument**, so whoever
-tones the chip rewrites the comment in the same commit, or leaves a reason standing for a colour the
-file does not carry (CUR-2).
-
-**The sites are named by a selector, and the obvious selector is too wide.** What the ruling reaches
-is a `LABEL_BADGE` pill whose tone class is `bg-muted text-foreground-muted`. A bare `bg-muted` sweep
-across the tree also returns the admin tables' `Table.Column` headers, which are chrome rather than
-chips and stay exactly as they are — so reading the ruling off that sweep rather than off the pill is
-how a table loses its header treatment to a rule about state.
-
-**What the ruling does not settle is met on the first file.** A pill naming a state and a pill naming
-a category are the same `LABEL_BADGE`: a season number, a collection name, a seat's role and
-„Bestehendes Team“ carry no state for a tone to follow, while „Stand gesichert“ reads as one. A tone
-set obliged to answer for every pill ends up assigning colours to nouns. Which pills are state chips
-is the question to settle before the variants are named, and this entry does not answer it.
-
-**Done when** tone is a named variant of the shared badge rather than a string each slice writes —
-one set whose members mean what they say — with every state chip taking one and a check refusing a
-neutral tone on a state chip; the boundary above settled first, and `docs/frontend/spec.md` carrying
-whichever rule that check enforces.
 
 ### `skyx-nrgh` · A refusal composes a repair the product refuses to perform
 
@@ -3314,35 +3236,6 @@ a seed written against no validator omits fields the shipped one requires, and *
 corrects is a seed that was quietly describing a document the product cannot hold**. What it buys is
 that the database tier stops being able to prove behaviour over impossible data, which is the one
 thing that tier exists for.
-
-### `bfbz-mvhx` · A shared style recipe and a server-only query share one module, so no client component may import the recipe
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| FE, bewerbungen | Open   | —          |
-
-**`fl_frontend/src/features/bewerbungen/components/ui/BewerbungOffenBand.tsx` exports the `band`
-recipe out of the same module as a component that reads the season's application window.** That read
-reaches `fl_frontend/src/features/bewerbungen/queries.ts` and on to `fl_frontend/src/core/api.ts`,
-whose first line is `import "server-only"` — a package whose client-condition entry point is a bare
-throw. A client component importing `band` for its own markup therefore fails at `next build` and
-nowhere earlier: the type check, the lint and the whole suite pass, the test harness resolving that
-package under `react-server` by design.
-
-**Every consumer is a server component, which is what keeps it latent rather than fixed.**
-`fl_frontend/src/features/bewerbungen/components/ui/BewerbungInstagramBand.tsx` wears the recipe and
-is built server-side into a slot —
-`fl_frontend/src/features/bewerbungen/components/views/BewerbungView.tsx` hands
-`hinweisSlot={<BewerbungInstagramBand />}` to the client form — so the element crosses the boundary
-already rendered and the recipe never crosses it at all.
-
-**That slot is the right shape for one strip and not a rule the next author will know.** Someone
-styling a band inside a client component reaches for `band`, and the failure names the `server-only`
-package rather than the module split that caused it, on the one command a session is least likely to
-have run.
-
-**Done when** the recipe stands in a module that imports no query, so a client component may wear the
-band and importing it pulls no `server-only` package.
 
 ### `bfs4-ax6a` · The database fixtures' drift guard cannot see a view, so a body that creates one has a safety net that is not there
 
