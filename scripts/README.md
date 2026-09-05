@@ -1,7 +1,7 @@
 # Scripts
 
-**Folder purpose:** the operational scripts for building, testing, running and deploying
-Frankfurt-League, plus the checkers the verification gate runs.
+**Folder purpose:** the operational scripts for building, testing, running and deploying this
+project, plus the checkers the verification gate runs.
 
 ## Folder overview
 

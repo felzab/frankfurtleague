@@ -63,7 +63,7 @@ describe("buildMagicLinkEmail", () => {
       assert.ok(flat(readable(mail.html)).includes(fakt), `the HTML branch lost „${fakt}“`);
       assert.ok(flat(mail.text).includes(fakt), `the text branch lost „${fakt}“`);
     }
-    assert.equal(mail.subject, "Anmeldelink für Frankfurt-League");
+    assert.equal(mail.subject, "Anmeldelink für Frankfurt League");
   });
 
   /* The validity the message states is copy, and the TTL that enforces it is Auth.js's. A reader told

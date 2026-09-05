@@ -7,8 +7,15 @@ import type { Metadata } from "next";
 export function openGraphFor(path: string): NonNullable<Metadata["openGraph"]> {
   return {
     url: path,
-    siteName: "Frankfurt-League",
-    images: [{ url: "/icons/opengraph/opengraph.png", width: 1200, height: 630, alt: "FL-Preview" }],
+    siteName: "Frankfurt League",
+    images: [
+      {
+        url: "/icons/opengraph/opengraph.png",
+        width: 1200,
+        height: 630,
+        alt: "Frankfurt League, die Oberstufenliga: Schriftzug neben dem Pokal",
+      },
+    ],
     locale: "de_DE",
     type: "website",
   };

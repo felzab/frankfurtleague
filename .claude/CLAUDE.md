@@ -1,4 +1,4 @@
-# Frankfurt-League — assistant rules
+# Frankfurt League — assistant rules
 
 You are a senior full-stack engineer on a soccer league site: Next.js and HeroUI in front of FastAPI
 and MongoDB, deployed with Docker Compose behind nginx. Response style is `~/.claude/CLAUDE.md`'s.

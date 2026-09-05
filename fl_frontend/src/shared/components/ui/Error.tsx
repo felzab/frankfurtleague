@@ -8,6 +8,7 @@ import { Button } from "@heroui/react";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 
+import { DISPLAY_HEADING } from "./displayType";
 import { ctaButton } from "./formButtons";
 import { StatusPanel } from "./StatusPanel";
 import { textLink } from "./textLink";
@@ -24,7 +25,7 @@ export function Error({ error, reset }: { error: Error & { digest?: string }; re
   // the route and the time narrow it to one entry. A client crash has no digest, and saying so is the pointer.
   const reportSubject = `Fehlerbericht: ${error.digest ?? "Client-Fehler"} auf ${pathname}`;
   const reportBody = [
-    "Hallo Frankfurt-League-Team,",
+    "Hallo Team der Frankfurt League,",
     "",
     "[Beschreibe hier kurz, was Du gerade tun wolltest und was stattdessen passiert ist.]",
     "",
@@ -60,7 +61,8 @@ export function Error({ error, reset }: { error: Error & { digest?: string }; re
       watermark={
         /* `motion-safe:` rather than the global shortening: a glyph this large pulsing behind text
            must stop entirely, not run fast. */
-        <span className="text-foreground/20 sm:text-foreground/5 text-[5.5rem] leading-none font-black tracking-tighter motion-safe:animate-pulse sm:text-[10rem] md:text-[18rem] lg:text-[25rem]">
+        <span
+          className={`${DISPLAY_HEADING} text-foreground/20 sm:text-foreground/5 text-[5.5rem] leading-none motion-safe:animate-pulse sm:text-[10rem] md:text-[18rem] lg:text-[25rem]`}>
           ERROR
         </span>
       }>

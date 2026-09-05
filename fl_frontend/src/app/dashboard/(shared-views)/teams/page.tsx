@@ -10,7 +10,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Teams",
-  description: "Alle Teams, die in der laufenden Saison der Frankfurt-League spielen.",
+  description: "Alle Teams, die in der laufenden Saison der Frankfurt League spielen.",
   openGraph: openGraphFor("/dashboard/teams"),
   alternates: {
     canonical: "/dashboard/teams",

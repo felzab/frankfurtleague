@@ -11,7 +11,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Spielsuche",
-  description: "Die Spielsuche findet alle Spiele der Frankfurt-League. Erfahre, wann und wo die Spiele Deines Teams stattfinden.",
+  description: "Die Spielsuche findet alle Spiele der Frankfurt League. Erfahre, wann und wo die Spiele Deines Teams stattfinden.",
   openGraph: openGraphFor("/dashboard/spielsuche"),
   alternates: {
     canonical: "/dashboard/spielsuche",

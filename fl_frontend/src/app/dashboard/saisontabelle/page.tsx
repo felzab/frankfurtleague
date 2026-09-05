@@ -10,7 +10,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Saisontabelle",
-  description: "Der Tabellenstand jedes Teams in seiner Gruppe in der laufenden Saison der Frankfurt-League.",
+  description: "Der Tabellenstand jedes Teams in seiner Gruppe in der laufenden Saison der Frankfurt League.",
   openGraph: openGraphFor("/dashboard/saisontabelle"),
   alternates: {
     canonical: "/dashboard/saisontabelle",

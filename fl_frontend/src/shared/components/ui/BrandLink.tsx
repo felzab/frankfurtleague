@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { WORDMARK } from "./displayType";
 import { FLLogo } from "./FLLogo";
 
 /**
@@ -27,11 +28,11 @@ export function BrandLink({
       href="/"
       title={title}
       onNavigate={onNavigate}
-      className={`fluid-lg text-foreground flex items-center font-bold tracking-tight transition-opacity hover:opacity-80 ${
-        hideName ? "justify-center" : "gap-2"
-      } ${className}`}>
-      <FLLogo />
-      {!hideName && <span>Frankfurt-League</span>}
+      className={`text-foreground flex items-center transition-opacity hover:opacity-80 ${hideName ? "justify-center" : "gap-2"} ${className}`}>
+      <FLLogo className="text-brand-solid dark:text-brand h-8 w-auto" />
+
+      {/* The capitals are CSS, so a copy sweep finds the name as the league spells it. */}
+      {!hideName && <span className={`${WORDMARK} fluid-lg`}>Frankfurt League</span>}
     </Link>
   );
 }

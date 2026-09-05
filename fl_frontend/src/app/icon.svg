@@ -1,1 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><rect width="512" height="512" rx="112" fill="#82181a"/><g transform="translate(256 256) scale(1) translate(-256 -256)"><g transform="skewX(-12) translate(52 0)"><g fill="#4d0e10"><rect x="93.71999999999997" y="152" width="61.02" height="226"/><rect x="93.71999999999997" y="152" width="167.24" height="61.02"/><rect x="93.71999999999997" y="241.27" width="135.6" height="61.02"/><rect x="292.59999999999997" y="152" width="61.02" height="226"/><rect x="292.59999999999997" y="316.98" width="153.68" height="61.02"/></g><g fill="#ffffff"><rect x="79.71999999999997" y="138" width="61.02" height="226"/><rect x="79.71999999999997" y="138" width="167.24" height="61.02"/><rect x="79.71999999999997" y="227.27" width="135.6" height="61.02"/><rect x="278.59999999999997" y="138" width="61.02" height="226"/><rect x="278.59999999999997" y="302.98" width="153.68" height="61.02"/></g></g></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<rect width="512" height="512" rx="112" fill="#033f11"/>
+<g fill="#8fc752">
+<path id="h" d="M256.5 46L256 46C200 46 128 60 128 96L88 96Q64 96 64 120Q64 144 88 144L128 144L224 329L224 386Q224 400 180 406L160 406L160 416L136 416Q128 416 128 424L128 458Q128 466 136 466L256.5 466Z"/>
+<use href="#h" transform="matrix(-1 0 0 1 512 0)"/>
+<circle cx="256" cy="365.5" r="50"/>
+</g>
+</svg>

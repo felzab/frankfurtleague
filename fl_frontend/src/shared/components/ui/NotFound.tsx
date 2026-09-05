@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { Button } from "@heroui/react";
 
+import { DISPLAY_HEADING } from "./displayType";
 import { ctaButton } from "./formButtons";
 import { StatusPanel } from "./StatusPanel";
 
@@ -20,7 +21,8 @@ export function NotFound() {
       message="Nach Überprüfung der Bilder steht fest: Die gesuchte Seite befindet sich im Abseits oder wurde vom Platz gestellt."
       watermark={
         /* `motion-safe:` rather than the global shortening, for `fl_frontend/src/shared/components/ui/Error.tsx`'s reason. */
-        <span className="text-foreground/20 sm:text-foreground/5 text-[7rem] leading-none font-black tracking-tighter motion-safe:animate-pulse sm:text-[15rem] md:text-[25rem] lg:text-[35rem]">
+        <span
+          className={`${DISPLAY_HEADING} text-foreground/20 sm:text-foreground/5 text-[7rem] leading-none motion-safe:animate-pulse sm:text-[15rem] md:text-[25rem] lg:text-[35rem]`}>
           404
         </span>
       }>

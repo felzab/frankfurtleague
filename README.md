@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="fl_frontend/public/icons/manifest/icon-512.png" alt="Frankfurt-League" width="104" height="104">
+<img src="fl_frontend/public/icons/manifest/icon-512.png" alt="Frankfurt League" width="104" height="104">
 
-# Frankfurt-League
+# Frankfurt League
 
 **Die Oberstufenliga der Frankfurter Schulen** — fixtures, results, tables and playoffs for a school
 football league, at [frankfurtleague.de](https://frankfurtleague.de).

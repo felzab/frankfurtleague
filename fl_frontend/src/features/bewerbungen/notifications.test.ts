@@ -70,7 +70,7 @@ const { bestaetigungsLink } = await import("./bestaetigungLink.ts");
 
 /** One message composed per recipient, its per-reader half interpolated: two readers handed one text is what this proves against. */
 const buildMail = (rollenText: string) => ({
-  subject: "Zusage: Frankfurt-League, Saison 2627",
+  subject: "Zusage: Frankfurt League, Saison 2627",
   html: `<p>${rollenText}</p>`,
   text: `Zusage für ${rollenText}`,
 });
