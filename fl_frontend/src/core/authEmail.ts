@@ -45,7 +45,7 @@ function renderHtml(url: string): string {
     ueberschrift: escapeHtml(UEBERSCHRIFT),
     bloecke: [
       paragraph(
-        `Klicke auf den Button, um Dich bei der ${BRAND_NAME}-Verwaltung anzumelden. Der Link ist ${strong(LINK_VALIDITY_TEXT)} gültig und kann nur einmal verwendet werden. Ist er abgelaufen, fordere auf der Anmeldeseite einfach einen neuen an.`,
+        `Klicke auf den Button, um Dich bei der Verwaltung der ${BRAND_NAME} anzumelden. Der Link ist ${strong(LINK_VALIDITY_TEXT)} gültig und kann nur einmal verwendet werden. Ist er abgelaufen, fordere auf der Anmeldeseite einfach einen neuen an.`,
       ),
       paragraph(FALLBACK_SATZ, "0 0 8px", ASIDE_TEXT),
       /* The signed URL runs past the card's width, so this one paragraph breaks inside a word.
@@ -62,7 +62,7 @@ function renderText(url: string): string {
   const oben = [
     `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     "",
-    `Öffne diesen Link, um Dich bei der ${BRAND_NAME}-Verwaltung anzumelden.`,
+    `Öffne diesen Link, um Dich bei der Verwaltung der ${BRAND_NAME} anzumelden.`,
     `Er ist ${LINK_VALIDITY_TEXT} gültig und kann nur einmal verwendet werden.`,
     "",
     "Ist er abgelaufen, fordere auf der Anmeldeseite einfach einen neuen an.",

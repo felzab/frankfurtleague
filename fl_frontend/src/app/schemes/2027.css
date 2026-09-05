@@ -1,0 +1,147 @@
+/* One season's colours. A scheme carries no HeroUI import (`docs/frontend/spec.md :: 1.11 Adding a
+   HeroUI component`) and no selector reaching the document root (`:: I29`). */
+
+@layer base {
+  :root,
+  [data-theme="light"] {
+    --bg-base: #ffffff;
+    --bg-surface: #f5f5f5;
+    --bg-muted: #e5e5e5;
+    --fg-base: #0a0a0a;
+    --fg-muted: #525252;
+    /* Paired foreground for --accent-brand-solid. --fg-base cannot serve: it is near-black here,
+       which measures 1.62:1 on that fill. Re-check the pair if the fill ever moves. */
+    --fg-on-brand: #ffffff;
+    --border-base: #d4d4d4;
+
+    /* THE HOVER FILLS. One declared colour per family, 6.7 OKLab L points off the
+       page's own lightness. Never an alpha — it composites against what is behind,
+       so the same class lands differently on every surface. */
+    --bg-hover: #dfdfdf;
+    /* For a control resting on --bg-muted, not the page. --bg-hover sits BETWEEN the
+       two, so from --bg-muted it moves 1.83 points — under the floor, and the wrong
+       way in the dark theme. */
+    --bg-hover-muted: #cfcfcf;
+    --bg-hover-danger: #f2d9d2;
+    /* One value for both themes, because the fills they answer to do not flip either. */
+    --accent-brand-solid-hover: #1b5123;
+    /* 4.88:1 against the white it carries — re-measure if either half moves. */
+    --accent-danger-solid-hover: #c74434;
+
+    /* Lifted off the fill's own lightness to 3.06:1 against --fg-base (WCAG G183), so an accent
+       word and a link separate from the sentence around them; neither is underlined here. */
+    --accent-brand: #216c2d;
+
+    /* THE focus colour. A ring departs from it only where it sits INSET on the
+       control's own fill and that fill fails WCAG 1.4.11 — `StufenPicker.tsx ::
+       STUFE_CHIP` selected is the one bearer. */
+    --focus: var(--fg-base);
+    /* Solid fills behind --fg-on-brand. Deliberately does NOT flip -- 12.19:1 in both themes --
+       while --accent-brand does, for foreground use on dark surfaces. */
+    --accent-brand-solid: #033f11;
+    /* Lindengrün on the brand fill alone, 6.07:1 on it — `BrandHero.tsx :: BrandHero` sets its
+       wordmark and its mark in it. Unflipped like the fill; on a page ground it is 2.01:1 in
+       light and never text there. */
+    --accent-on-brand: #8fc752;
+    --accent-warn: #ad8900;
+    --accent-danger: #e16a4c;
+    --accent-success: #00a085;
+    --accent-info: #466fbd;
+
+    /* Text grade for the four feedback accents, which are tuned for fills:
+       `text-warning` measures 2.61:1 on its /15 tint against this grade's 4.76:1.
+       Each is solved on --bg-muted, the darkest ground a badge rests on. */
+    --accent-success-strong: #006a58;
+    --accent-info-strong: #3560b3;
+    --accent-warn-strong: #855b00;
+    --accent-danger-strong: #b02d1f;
+
+    /* Fill grade: one value per family that does NOT flip, each carrying the on-colour paired to
+       it, so the pair holds in both themes — white on the plain warning accent is 1.59:1 dark. */
+    --accent-success-solid: #007864;
+    --accent-warn-solid: #f2c94c;
+    --accent-danger-solid: #b02d1f;
+    --fg-on-success: #ffffff;
+    /* Near-black, alone among the three, and a literal because an on-colour does not flip: white
+       on this fill measures 1.59:1, and a gold dark enough to carry white reads as another colour. */
+    --fg-on-warn: #0a0a0a;
+    --fg-on-danger: #ffffff;
+
+    /* Tournament rounds are an ordered sequence, not a semantic state, so no feedback accent
+       fits. A hue arc from 205° to 5°, through the cool half no feedback family occupies, so
+       they run in hue order with the phases. */
+    --accent-phase-gruppenphase: #00717a;
+    --accent-phase-achtelfinale: #006a9e;
+    --accent-phase-viertelfinale: #5d53ae;
+    --accent-phase-halbfinale: #8a428e;
+    --accent-phase-finale: #a13958;
+
+    /* One value per theme rather than a shared alpha: the sweep has to out-lighten the
+       `--bg-muted` block under it in both. */
+    --skeleton-sweep: color-mix(in srgb, #ffffff 55%, transparent);
+
+    /* HeroUI's --accent is a blue, and it fills every checked `Switch` and a date picker's
+       selected day. Taken as a token because a CSS rule may not reach past a toast's shell. */
+    --accent: #466fbd;
+    --accent-foreground: #ffffff;
+  }
+
+  [data-theme="dark"] {
+    --bg-base: #030303;
+    --bg-surface: #121212;
+    --bg-muted: #262626;
+    --fg-base: #ffffff;
+    --fg-muted: #a3a3a3;
+    /* Same value as the light theme: the fill it sits on does not flip either. */
+    --fg-on-brand: #ffffff;
+    --border-base: #333333;
+
+    /* The same 6.7-point step in the other direction, so a hover reads identically in both themes. */
+    --bg-hover: #212121;
+    /* LIGHTER than --bg-hover above, and has to be: the rest fill it answers to is lighter than the
+       page here too. */
+    --bg-hover-muted: #373737;
+    --bg-hover-danger: #321a14;
+    --accent-brand-solid-hover: #1b5123;
+    --accent-danger-solid-hover: #c74434;
+
+    /* Lightened for dark surfaces: the light value is 2.90:1 on --bg-surface, this is 9.33:1. */
+    --accent-brand: #8fc752;
+    --accent-brand-solid: #033f11;
+    --accent-on-brand: #8fc752;
+    --accent-warn: #f2c94c;
+    --accent-danger: #e76f51;
+    --accent-success: #02c0a0;
+    --accent-info: #719def;
+
+    /* On dark surfaces the relationship inverts: the text variant is LIGHTER than the fill accent. */
+    --accent-success-strong: #01d5b2;
+    --accent-info-strong: #90b7ff;
+    --accent-warn-strong: #fbd76e;
+    --accent-danger-strong: #f89177;
+
+    /* Unflipped, like --accent-brand-solid: each is a fill carrying the on-colour paired to it, and
+       flipping one would break the pair it exists to hold. */
+    --accent-success-solid: #007864;
+    --accent-warn-solid: #f2c94c;
+    --accent-danger-solid: #b02d1f;
+    --fg-on-success: #ffffff;
+    --fg-on-warn: #0a0a0a;
+    --fg-on-danger: #ffffff;
+
+    /* The same arc, lifted for the dark surface. */
+    --accent-phase-gruppenphase: #00c1d1;
+    --accent-phase-achtelfinale: #47b5fa;
+    --accent-phase-viertelfinale: #a29dff;
+    --accent-phase-halbfinale: #d78adb;
+    --accent-phase-finale: #f3829f;
+
+    /* Far lower alpha than the light theme: the same 55% would read as a white bar, not a sheen. */
+    --skeleton-sweep: color-mix(in srgb, #ffffff 9%, transparent);
+
+    /* The foreground flips although the app's own on-colours do not: white on this lighter blue
+       measures 2.70:1 and near-black 7.33:1, and a date picker sets its selected day in it. */
+    --accent: #719def;
+    --accent-foreground: #0a0a0a;
+  }
+}
