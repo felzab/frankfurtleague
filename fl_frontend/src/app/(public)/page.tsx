@@ -6,7 +6,7 @@ import { band } from "@/features/bewerbungen/components/ui/band";
 import { BewerbungBandSkeleton } from "@/features/bewerbungen/components/ui/BewerbungBandSkeleton";
 import { BewerbungOffenBand } from "@/features/bewerbungen/components/ui/BewerbungOffenBand";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
-import { getCurrentSaison } from "@/features/saisons/queries";
+import { getCurrentSaisonOrNull } from "@/features/saisons/queries";
 import {
   RecentAndUpcomingSpieleGrid,
   RecentAndUpcomingSpieleGridSkeleton,
@@ -24,12 +24,17 @@ export default function LandingPage() {
             <div className="bg-brand-solid absolute top-0 left-0 z-10 h-1.5 w-full" />
 
             <div className="relative z-10 flex flex-col gap-4">
-              <SaisonChip>
-                {/* The fallback holds the label's exact box invisibly, so the year landing moves nothing. */}
-                <Suspense fallback={<span className="invisible">Saison 0000</span>}>
-                  <CurrentSaisonLabel />
-                </Suspense>
-              </SaisonChip>
+              {/* The chip is inside the boundary rather than around it: between seasons there is no
+                  year to name, and a chip holding nothing reads as a value that failed to load. */}
+              <Suspense
+                fallback={
+                  <SaisonChip>
+                    {/* The label's exact box, held invisibly, so the year landing moves nothing. */}
+                    <span className="invisible">Saison 0000</span>
+                  </SaisonChip>
+                }>
+                <CurrentSaisonChip />
+              </Suspense>
 
               <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>
                 Die Saison läuft! Wer holt sich den <span className="text-brand">Titel</span>?
@@ -112,14 +117,16 @@ export default function LandingPage() {
 }
 
 /**
- * Reads the same daily `saisons` cache as the fixtures below, so a rollover moves the badge and
- * them together.
+ * Reads the same `saisons` cache as the fixtures below, so a rollover moves the badge and them
+ * together. Absent between seasons, which the backend answers with a 404, so the chip goes rather
+ * than the page.
  */
-async function CurrentSaisonLabel() {
+async function CurrentSaisonChip() {
   await connection();
-  const { saison } = await getCurrentSaison();
+  const current = await getCurrentSaisonOrNull();
+  if (current === null) return null;
 
-  return <>Saison {saison.id}</>;
+  return <SaisonChip>Saison {current.saison.id}</SaisonChip>;
 }
 
 /**

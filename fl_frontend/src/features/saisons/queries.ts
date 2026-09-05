@@ -2,6 +2,7 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
+import { APIBadStatusError } from "@/core/errors";
 import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
 
 import { FLSaisonsListResponseSchema, FLSaisonsSingleResponseSchema } from "./schemas";
@@ -39,4 +40,18 @@ export async function getCurrentSaison(): Promise<FLSaisonsSingleResponse> {
   cacheLife("days");
 
   return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema);
+}
+
+/**
+ * `null` where no season is marked active: the backend answers that with a 404 rather than an
+ * empty body (`fl_backend/app/api/saisons/crud.py :: pull_current_saison`).
+ * Outside the cached read, so an absence is never what the day-long entry holds.
+ */
+export async function getCurrentSaisonOrNull(): Promise<FLSaisonsSingleResponse | null> {
+  try {
+    return await getCurrentSaison();
+  } catch (error) {
+    if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+    throw error;
+  }
 }
