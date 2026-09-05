@@ -140,6 +140,7 @@ def payload(**overrides: Any) -> dict[str, Any]:
         "kontakte": {seat: dict(value) if isinstance(value, dict) else value for seat, value in KONTAKTE.items()},
         "trikot": {"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
         "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+        "stufengroesse": 90,
         **overrides,
     }
 
@@ -282,6 +283,18 @@ class TestWhatASubmissionStores:
         stored = on_a_league(mongo_replica_set_url, body)
 
         assert "wunschgegner" in stored and stored["wunschgegner"] is None
+
+    def test_the_year_group_the_school_named_is_stored(self, mongo_replica_set_url: str):
+        """The write is the only thing putting this key in the document, the validator not requiring it."""
+
+        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
+            response = await submit(database, stufengroesse=118)
+            stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
+
+            assert stored is not None
+            return stored
+
+        assert on_a_league(mongo_replica_set_url, body)["stufengroesse"] == 118
 
     def test_the_response_echoes_nothing_of_the_submission(self, mongo_replica_set_url: str):
         """The three people's details went one way; a body repeating them is a copy in every proxy between."""
@@ -805,7 +818,51 @@ class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheOpponentField:
         """The failure that would ship silently: nothing writes `wunschgegner`, and the whole document is re-validated."""
 
         async def body(database: AsyncDatabase) -> str:
-            created = await database[Collection.BEWERBUNGEN].insert_one(_application_without_a_wish())
+            # Past the validator: the row this class is about predates the key, so a `required` gaining
+            # it would fail the setup insert and report the case above's finding rather than this one's.
+            created = await database[Collection.BEWERBUNGEN].insert_one(_application_without_a_wish(), bypass_document_validation=True)
+            try:
+                await database[Collection.BEWERBUNGEN].update_one(
+                    {"_id": created.inserted_id},
+                    {"$set": {"status": "abgelehnt", "entscheidung": {"getroffen_am": TODAY, "von": "admin", "grund": "kein Platz"}}},
+                )
+            except OperationFailure as failure:
+                assert failure.code == DOCUMENT_VALIDATION_FAILED, f"expected a validation failure, got {failure.code}"
+                return "rejected"
+            return "accepted"
+
+        assert on_a_league(mongo_replica_set_url, body) == "accepted"
+
+
+def _application_before_the_year_group() -> dict[str, Any]:
+    """One application carrying the opponent key and no `stufengroesse`, so only this field's carve-out is under test."""
+
+    return _application_without_a_wish() | {"wunschgegner": None}
+
+
+class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheYearGroup:
+    """The `wunschgegner` carve-out again, re-proved: a required key here would refuse every decision on a stored application."""
+
+    def test_a_document_carrying_no_key_at_all_is_accepted(self, mongo_replica_set_url: str):
+        """The insert and the parse both: a validator requiring the key refuses one, and a model without a default refuses the other."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            created = await database[Collection.BEWERBUNGEN].insert_one(_application_before_the_year_group())
+            stored = await database[Collection.BEWERBUNGEN].find_one({"_id": created.inserted_id})
+
+            assert stored is not None
+            return FLBewerbung(**stored).stufengroesse
+
+        assert on_a_league(mongo_replica_set_url, body) is None
+
+    def test_a_decision_on_one_is_still_accepted(self, mongo_replica_set_url: str):
+        """A decision touches `status` and `entscheidung` alone, and MongoDB re-validates the whole row it lands on."""
+
+        async def body(database: AsyncDatabase) -> str:
+            # Past the validator, for the reason at
+            # `TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheOpponentField :: test_a_decision_on_one_is_still_accepted`:
+            # without it the setup insert fails before the update this case is named for is reached.
+            created = await database[Collection.BEWERBUNGEN].insert_one(_application_before_the_year_group(), bypass_document_validation=True)
             try:
                 await database[Collection.BEWERBUNGEN].update_one(
                     {"_id": created.inserted_id},
@@ -859,7 +916,12 @@ class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheConfirmationFields:
         """The failure that would ship silently: a decision re-validates the whole document, keys it never wrote included."""
 
         async def body(database: AsyncDatabase) -> str:
-            created = await database[Collection.BEWERBUNGEN].insert_one(_application_before_the_confirmation_fields())
+            # Past the validator, for the reason at
+            # `TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheOpponentField :: test_a_decision_on_one_is_still_accepted`:
+            # without it the setup insert fails before the update this case is named for is reached.
+            created = await database[Collection.BEWERBUNGEN].insert_one(
+                _application_before_the_confirmation_fields(), bypass_document_validation=True
+            )
             try:
                 await database[Collection.BEWERBUNGEN].update_one(
                     {"_id": created.inserted_id},

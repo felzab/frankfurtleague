@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 
+import { INSTAGRAM_URL } from "@/core/brand";
 import { BrandLink } from "@/shared/components/ui/BrandLink";
 import { skeletonBlock } from "@/shared/components/ui/skeleton";
 
@@ -121,7 +122,7 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
             </Link>
 
             <Link
-              href="https://www.instagram.com/frankfurt.league/"
+              href={INSTAGRAM_URL}
               prefetch={false}
               target="_blank"
               rel="noopener noreferrer"

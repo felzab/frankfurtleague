@@ -99,13 +99,15 @@ deliverable.
 | `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                               | BE, Docs, spiele, teams                                                     | Open     |
 | `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                 | FE, Docs                                                                    | Decided  |
 | `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                             | FE, BE, DB, Docs, kontakte                                                  | Open     |
+| `kajk-z7nu` | A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it                              | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                          | FE, BE, admin, spieler                                                      | Open     |
 | `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                                | FE, BE, Docs, spieler                                                       | Open     |
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                        | FE, Docs                                                                    | Open     |
 | `n56q-zu6n` | `Team` names a club and the people who run the league, and the public site renders both                                     | FE, Docs, meta, teams                                                       | Open     |
 | `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                           | FE, auth, spiele, spielorte, teams                                          | Open     |
+| `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                            | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
 | `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                                 | FE, Docs                                                                    | Open     |
-| `nr85-vwnj` | A rule declares whether it reads a second document, and nothing resolves the claim                                          | BE, Docs, tests, bewerbungen, saisons                                       | Open     |
+| `nr85-vwnj` | A rule declares whether it reads a second document, and nothing resolves the claim                                          | BE, Docs, tests, bewerbungen, saisons                                       | Blocked  |
 | `pa6f-ksu4` | A season id that is no year is refused nowhere, and first noticed by an hourly sweep failure                                | BE, DB, Docs, bewerbungen, saisons                                          | Open     |
 | `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                           | FE, BE, spiele                                                              | Open     |
 | `pt4h-b6tf` | Renaming an anonymised referee undoes the erasure, and nothing refuses it                                                   | BE, DB, Docs, schiedsrichter, spiele                                        | Open     |
@@ -118,7 +120,7 @@ deliverable.
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                  | FE, BE, Docs, tests, saisons                                                | Open     |
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject             | FE, Docs, tests                                                             | Open     |
 | `txef-hz2b` | Two referees reduced to one published name are one option in the fixture facet                                              | FE, BE, spiele                                                              | Open     |
-| `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                           | FE, Docs                                                                    | Standing |
+| `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                           | FE, Docs                                                                    | Open     |
 | `vyr6-uk2p` | The open-window read filters into arrays and subscripts whatever comes back                                                 | FE, BE, tests, bewerbungen                                                  | Open     |
 | `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                       | FE, tests, spieler                                                          | Open     |
 | `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                       | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
@@ -137,6 +139,7 @@ deliverable.
 | `3hdg-3r59` | The replace and the undraw each write the season's clearing, and each is proved separately                                  | BE, DB, Docs, tests, saisons                                                | Open     |
 | `3s6w-kndn` | The gate saturates the machine, then idles through its tail                                                                 | BE, Ops, gate, tests                                                        | Open     |
 | `54yr-fgun` | A changed citation target puts no page in front of the session                                                              | Ops, Docs, gate                                                             | Open     |
+| `556b-nxen` | The roadmap states each entry twice, and the check comparing the two listings' tags reads no other cell                     | Ops, Docs, gate                                                             | Open     |
 | `5h9m-nntd` | A formatter reshapes a comment before INC-9 measures it                                                                     | BE, Ops, Docs, gate, teams                                                  | Open     |
 | `5qzd-ubrg` | A test's name counts the cases beside it, and the table has outgrown the count                                              | Ops, gate, tests                                                            | Open     |
 | `5tnp-5uff` | A python constant's closing quotes open a comment run                                                                       | Ops, Docs, gate, tests                                                      | Open     |
@@ -148,11 +151,11 @@ deliverable.
 | `aee2-vxqc` | A deprecated test-client dependency will end four modules' collection                                                       | BE, ci, tests, versions                                                     | Open     |
 | `b3c5-avuj` | One uv version is pinned twice and compared by nothing                                                                      | BE, Ops, gate, ci, versions                                                 | Open     |
 | `b732-rpvp` | Most of the database tier runs unconstrained                                                                                | BE, DB, tests                                                               | Open     |
+| `bfbz-mvhx` | A shared style recipe and a server-only query share one module, so no client component may import the recipe                | FE, bewerbungen                                                             | Open     |
 | `bfs4-ax6a` | The fixtures' drift guard cannot see a database view                                                                        | BE, DB, tests                                                               | Open     |
 | `bpve-vhag` | The fork exemption's ceiling is charged per block, and nothing caps the blocks one ancestor excuses                         | Ops, Docs, gate, tests                                                      | Open     |
 | `c8rx-gqun` | An invariant citation resolves to a string, not to a definition                                                             | Ops, Docs, gate                                                             | Open     |
 | `cckv-edvy` | The published document's drift check fails with the command that accepts the drift                                          | FE, BE, Ops, Docs, gate, tests                                              | Open     |
-| `ckf7-7w58` | The frontend mirrors the backend's payload bounds by hand, and one of them is swept                                         | FE, BE, tests, bewerbungen, spiele, teams                                   | Open     |
 | `crwn-qfp7` | The opening comment block of every file read as a shell script is measured by neither bound                                 | Ops, Docs, gate                                                             | Open     |
 | `d5j8-js4n` | A real file in an unaccepted spelling reads as a missing file                                                               | Ops, gate                                                                   | Open     |
 | `db2a-9qu3` | The local edge claims to mirror production, unchecked                                                                       | Ops, Docs, gate, edge                                                       | Open     |
@@ -169,10 +172,12 @@ deliverable.
 | `gvyr-3nws` | Stylesheet comment blocks stand over INC-9's bound, quiet only while nobody lengthens one                                   | FE, Ops, Docs, gate                                                         | Standing |
 | `h4wq-p7ct` | A block carried into a file the fork does not hold is charged to the branch                                                 | Ops, Docs, gate, tests                                                      | Open     |
 | `hnx7-zbb9` | One field list is drift-guarded on one side only                                                                            | FE, BE, tests, saisons                                                      | Open     |
+| `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                      | FE, tests                                                                   | Open     |
 | `ja32-9rpv` | A call site's key tier is held to its route by nothing                                                                      | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
 | `jcpc-dee5` | Two routes on one path and method collapse to one                                                                           | BE, tests                                                                   | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is untested                                                                       | BE, tests, saisons                                                          | Open     |
 | `jky6-k3te` | The refusal-code table is held to the backend by nothing                                                                    | BE, Ops, Docs, gate                                                         | Open     |
+| `knku-4fr2` | The commit checker reads a hyphenless trailer as prose, so the name rule it enforces has a hole                             | Ops, Docs, gate, tests                                                      | Open     |
 | `kpkb-y5d8` | A refusal's meaning is written three times, unresolved                                                                      | FE, BE, Docs, tests, bewerbungen                                            | Open     |
 | `mmcv-aa6g` | The comment-citation check reads two shapes of outside reference and INC-6 bars more                                        | Ops, Docs, gate, tests                                                      | Open     |
 | `nce5-j467` | A comment claims two files hold one pattern, unchecked                                                                      | FE, BE, tests                                                               | Open     |
@@ -193,6 +198,7 @@ deliverable.
 | `ua29-4s7q` | COR-6's checks read one spelling of a citation and one of a SHA, and the rule reaches past both                             | Ops, gate                                                                   | Open     |
 | `uayf-u7g4` | Crawler policy split between robots.txt and Cloudflare                                                                      | FE, Ops, Docs, edge                                                         | Standing |
 | `v48b-waa5` | A rule pattern reaches less than the rule it enforces                                                                       | Ops, gate                                                                   | Standing |
+| `v7bs-d859` | The frontend keeps a visual system that no document states                                                                  | FE, Docs                                                                    | Open     |
 | `vspa-r35v` | One commit imports a module the commit after it adds                                                                        | FE, Docs, ci, tests, saisons                                                | Standing |
 | `vy6b-ftj4` | The backend, db and frontend jobs have stepped up in wall clock                                                             | Ops, gate, ci                                                               | Open     |
 | `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                        | FE, tests, saisons                                                          | Open     |
@@ -411,9 +417,9 @@ without reading the container's environment.
 
 ### `8wd7-ff49` · The consent field has a schema and a ruled writer, and no flow that writes it
 
-| Tags              | Status  | Depends on  |
-| ----------------- | ------- | ----------- |
-| BE, Docs, spieler | Blocked | `f3ar-m4qf` |
+| Tags                        | Status  | Depends on  |
+| --------------------------- | ------- | ----------- |
+| FE, BE, Docs, meta, spieler | Blocked | `f3ar-m4qf` |
 
 Lands with: `8y7c-rstr`
 
@@ -456,7 +462,7 @@ interest they rest on to the consent the flow collects.
 Lands with: `8wd7-ff49`
 
 **No `spieler` document carries a birthdate, so nothing can judge a pupil's age.** `stufe` is the
-only signal and it is a proxy: it says which grade a pupil attends, not how old they are.
+only signal and it is a proxy: it says which Halbjahr a pupil is in, not how old they are.
 
 **Ruled: the birthdate is required at sign-up and stored** (`docs/datenschutz.md` §2). The minimum
 age is 16 for everyone — the age at which a person consents for themselves under Art. 8 GDPR in
@@ -1275,6 +1281,65 @@ does.
 each seat sits in, before the write — read from a route added for it rather than inferred on the
 client, with a case pinning that a second matched person appears in the reveal.
 
+### `kajk-z7nu` · A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it
+
+| Tags                                    | Status | Depends on |
+| --------------------------------------- | ------ | ---------- |
+| FE, BE, Docs, tests, bewerbungen, teams | Open   | —          |
+
+**`fl_frontend/src/features/bewerbungen/payloadBounds.test.ts :: CAPPED_CONTROLS` maps a constant to
+a form module and a box count, and the loop under it turns each row into one case.** The register is
+named in that file and in no other, so its rows are the whole population it is judged over: a bound
+absent from it generates no case, and the suite is as green with the row as without it.
+
+**Nothing marks a bound as belonging here.**
+`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx` caps the
+Kürzel box with `KUERZEL_LAENGE`, which
+`fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS` pairs against the backend's own
+length; the register carries its row, and would read exactly as complete without it. The prose
+declares one bound deliberately outside — `KONTAKT_EMAIL_MAX_LENGTH`, which bounds schemas and binds
+no input anywhere — and that is the only stated exception, so a row nobody wrote and a row nobody
+wanted are indistinguishable by reading.
+
+**Severity is low and worth stating rather than inflating.** The Zod mirror still refuses an
+over-long Kürzel, so an uncapped box costs the applicant a refusal at the submit rather than a stop
+at the keystroke, which is the whole of what a cap on the control buys. What makes it worth an entry
+is that the rule the register enforces — each ceiling reaches the control as well as the schema — is
+enforced over the rows somebody remembered.
+
+**The same file refuses a hand-kept list for its other register.**
+`fl_frontend/src/features/bewerbungen/payloadBounds.test.ts :: MIRRORS` takes its ceilings off
+`fl_backend/openapi.json` rather than naming them, on the stated ground that a ceiling a test file
+names is one somebody remembered, and a floor over what that read finds stops an empty discovery
+passing. `CAPPED_CONTROLS` is the half kept by hand.
+
+**The repair's shape is next door.** `fl_backend/tests/shared/test_frontend_mirrors.py` keeps a
+register of this kind and closes it from both ends —
+`:: test_every_module_claiming_a_mirror_is_one_this_register_covers` and
+`:: test_every_constant_a_module_says_it_mirrors_is_declared_here` — which is why a row taken out of
+that one fails.
+
+**Done when** every constant a module under
+`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/` applies to a box is one
+`CAPPED_CONTROLS` names, or when the claim leaves the source text and the register with it. **The
+second route is the one `.claude/rules/frontend.md`'s tests clause points at**, and it is available
+in this slice already: `fl_frontend/src/features/bewerbungen/form.test.ts` renders
+`FormSchuleSection` through `fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup`, and a cap
+asserted against the rendered control takes its population from the boxes that came back rather than
+from a list somebody keeps. **Either route still declares what is deliberately uncapped**, the
+register's email bound being one such.
+
+**Three shapes in that directory refuse a sweep keyed on a bare identifier:**
+
+- the website box caps at `TEAM_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME.length`, so one match
+  yields two names
+- the strong-player box caps at `strongPlayerCeiling`, a function the cases under the register hold
+  to the schema by parsing instead
+- the caps the form applies are declared across
+  `fl_frontend/src/features/bewerbungen/constants.ts` and
+  `fl_frontend/src/features/teams/constants.ts` alike, so a reader rooted at one slice sees half of
+  them
+
 ### `kwfu-48sm` · Two surfaces offer a squad-row return the season's cap will refuse
 
 | Tags                   | Status | Depends on |
@@ -1475,6 +1540,48 @@ or stops existing.
 `message` the entity editors pass is `undefined` on an ordinary save, so there the fallback is the
 ordinary case. **Reading the `??` alone does not separate the two.**
 
+### `nbcn-zvdk` · The panel a triage decision is taken from is rendered by no test
+
+| Tags                                    | Status  | Depends on |
+| --------------------------------------- | ------- | ---------- |
+| FE, BE, Docs, tests, admin, bewerbungen | Decided | —          |
+
+**`fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx` renders
+everything one school submitted, and no case anywhere renders it.**
+`fl_frontend/src/features/bewerbungen/components/views/AdminBewerbungView.tsx` is its one importer,
+and `fl_frontend/src/app/admin/bewerbungen/[bewerbung_id]/page.tsx` serves that. The single test file
+touching the panel, `fl_frontend/src/features/bewerbungen/routes.test.ts`, reads it as source text
+through the TypeScript syntax tree, and everything it asks is about where the applicant's wished
+opponent lands and whether the file writes raw markup.
+
+**How a component is held is settled, and this panel is inside what that reaches.**
+`docs/frontend/spec.md` §1.9 puts
+a claim about what a component renders against the markup it renders, and
+`.claude/rules/frontend.md`'s **tests** clause refuses asserting over source text what a render can
+show. The panel is none of the shapes that section lists as beyond a render, so what is open here is
+the work rather than the question.
+
+**Three branches the panel takes on stored data are held by nothing.**
+
+- **The club link is guarded on `bewerbung.team_id` and never on the school arm beside it.** An
+  acceptance writes that id onto the application
+  (`fl_backend/app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school`), so a decided
+  new-school application carries a school and a club at once, and a guard reading the arm drops the
+  link on exactly the applications that have one to offer. The constraint stands as a comment at the
+  line.
+- **The `mailto:` and `tel:` hrefs**, the second built off the stored telephone with its whitespace
+  stripped, so the dialler takes the number and the text keeps the punctuation a school typed.
+- **A fact row's empty value**, where a `null` is a school that answered nothing rather than one that
+  answered zero, and takes the panel's one empty grade.
+
+**Done when** the panel is rendered through
+`fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup` and each of those three is asserted
+against the markup that comes back. **The entry is the panel's absent render coverage and not any one
+of the three**: each is what a first pass covers, and filing them one at a time buys a case per
+branch and leaves the next one unheld. **Its `Hint` renders as a popover**, so the wording behind
+that press is one of §1.9's overlay bodies and out of reach; every other block here stands in the
+resting markup.
+
 ### `njhn-pmtn` · Every call site writes a fallback for a failure message that always arrives
 
 | Tags     | Status | Depends on |
@@ -1522,9 +1629,9 @@ is whether retrying can help.
 
 ### `nr85-vwnj` · A rule declares whether it reads a second document, and nothing resolves the claim
 
-| Tags                                  | Status | Depends on  |
-| ------------------------------------- | ------ | ----------- |
-| BE, Docs, tests, bewerbungen, saisons | Open   | `2qae-xcut` |
+| Tags                                  | Status  | Depends on  |
+| ------------------------------------- | ------- | ----------- |
+| BE, Docs, tests, bewerbungen, saisons | Blocked | `2qae-xcut` |
 
 **`fl_backend/app/core/domain.py :: Rule.multi_document` is read by no code in the repository.** The
 identifier appears in that module and in no other — no application code, no test. Every sibling
@@ -1615,6 +1722,33 @@ the Spielsuche; and the `ausstehend` semantics, **where a filter selects and a l
 range makes the ausstehend/heute/vergangen ternary genuinely harder, and the intent (a fixture whose
 play window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives both definitions under ranges.
+
+### `pt4h-b6tf` · Renaming an anonymised referee undoes the erasure, and nothing refuses it
+
+| Tags                                 | Status | Depends on |
+| ------------------------------------ | ------ | ---------- |
+| BE, DB, Docs, schiedsrichter, spiele | Open   | —          |
+
+**`fl_backend/app/api/schiedsrichter/admin_router.py :: patch_schiedsrichter` takes a whole `name`
+and fans it into every match the referee officiated** — the embedded copy is
+`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterField` on the `spiele` collection
+(`docs/backend/spec.md :: I13`) — and it weighs nothing about what the row holds now. An anonymised referee whose row reads the label is one PATCH away from carrying a person's name
+again, on the row and on every past fixture, and the administrator making that edit is told a rename
+succeeded.
+
+**The rename reaches every season, where a club's stops.** A referee is not season-scoped
+(`docs/glossary.md :: Schiedsrichter`), so the fan-out carries no `past` bound of the kind a club's
+has (`docs/backend/spec.md :: I13`): one unrefused rename puts the name back on the fixtures of
+closed seasons, which are the copies nobody edits again and so the ones that keep it.
+
+**The erasure's own guard does not reach it.** `REQ-ANONYMISE-001` refuses a re-entry landing WHILE
+an anonymisation runs, judged from a read taken outside the session
+(`docs/backend/spec.md :: I118`); a rename a week later meets nothing at all.
+
+**A refusal on the PATCH is not obviously the answer, which is why this is an entry rather than a
+fix.** A referee anonymised by mistake has no other way back, and an erasure the administration
+cannot undo at all is a different complaint from the one above. What the entry buys is that the
+choice is made rather than defaulted into, and it covers the archive as well as the current season.
 
 ### `pw5c-zps5` · A referee gets no consent record, where a contact person confirms their own
 
@@ -1843,33 +1977,6 @@ from unreachable into the ordinary path and makes the plan above the one an admi
 collection does not hold. That no caller sends `sort_by` was read off the page and the absence of
 another consumer rather than proven by instrumenting the endpoint.
 
-### `pt4h-b6tf` · Renaming an anonymised referee undoes the erasure, and nothing refuses it
-
-| Tags                                 | Status | Depends on |
-| ------------------------------------ | ------ | ---------- |
-| BE, DB, Docs, schiedsrichter, spiele | Open   | —          |
-
-**`fl_backend/app/api/schiedsrichter/admin_router.py :: patch_schiedsrichter` takes a whole `name`
-and fans it into every match the referee officiated** — the embedded copy is
-`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterField` on the `spiele` collection
-(`docs/backend/spec.md :: I13`) — and it weighs nothing about what the row holds now. An anonymised referee whose row reads the label is one PATCH away from carrying a person's name
-again, on the row and on every past fixture, and the administrator making that edit is told a rename
-succeeded.
-
-**The rename reaches every season, where a club's stops.** A referee is not season-scoped
-(`docs/glossary.md :: Schiedsrichter`), so the fan-out carries no `past` bound of the kind a club's
-has (`docs/backend/spec.md :: I13`): one unrefused rename puts the name back on the fixtures of
-closed seasons, which are the copies nobody edits again and so the ones that keep it.
-
-**The erasure's own guard does not reach it.** `REQ-ANONYMISE-001` refuses a re-entry landing WHILE
-an anonymisation runs, judged from a read taken outside the session
-(`docs/backend/spec.md :: I118`); a rename a week later meets nothing at all.
-
-**A refusal on the PATCH is not obviously the answer, which is why this is an entry rather than a
-fix.** A referee anonymised by mistake has no other way back, and an erasure the administration
-cannot undo at all is a different complaint from the one above. What the entry buys is that the
-choice is made rather than defaulted into, and it covers the archive as well as the current season.
-
 ### `rtn3-sq85` · A state chip can be neutral gray, and the shared badge carries shape without tone
 
 | Tags                  | Status | Depends on |
@@ -2008,9 +2115,9 @@ Done is a facet whose options are distinguishable without it.
 
 ### `vgk8-btxt` · What decides whether a module belongs in `core` or in `shared` is written nowhere
 
-| Tags     | Status   | Depends on |
-| -------- | -------- | ---------- |
-| FE, Docs | Standing | —          |
+| Tags     | Status | Depends on |
+| -------- | ------ | ---------- |
+| FE, Docs | Open   | —          |
 
 **One rule holds the two folders apart, and it is a direction rather than a membership test.**
 `docs/frontend/spec.md :: I9` and `docs/frontend/overview.md :: How it is organised` fix that
@@ -2311,20 +2418,23 @@ it is asked for** (`docs/datenschutz.md` §4). The rule stands at the read that 
 address block that the address will stand on the public team page
 (`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx`), and
 `docs/backend/spec.md`'s known-open row records the crossing as accepted. **The alternatives —
-narrowing the public model, or not copying the field at acceptance — are rejected by that decision**,
-so neither is to be proposed again without overturning it.
+narrowing the public model, or not copying the field at acceptance — are rejected by that
+decision**, so neither is to be proposed again without overturning it.
 
-**What remains is the crossing itself, and a second place the sentence belongs.** The read registry
-answers for both ends: `READ-CONTACT-001` withholds the application that carries the school's
-address, and `READ-ADDRESS-002` declares a club's public. Each governs ONE read and the acceptance
-sits between them, so whether a school's correspondence address is the league's to copy into a club
-is a question about the write, which no read rule can answer — and the registry holds no write rule
-that says. The same sentence also belongs on the acceptance screen, where the administrator takes
-the action that publishes it (`docs/datenschutz.md` §4, ruled 2026-09-01); the admin club forms need
-none.
+**Ruled 2026-09-01: the acceptance screen carries that sentence too**, where the administrator
+takes the action that publishes it
+(`fl_frontend/src/features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx`, on the
+arm that creates the club); the admin club forms need none.
 
-**Done** is a write rule in the registry saying the acceptance may copy the field, and the sentence
-on the acceptance screen. Nothing in it reopens the decision.
+**What remains is the crossing itself.** The read registry answers for both ends: `READ-CONTACT-001`
+withholds the application that carries the school's address, and `READ-ADDRESS-002` declares a club's
+public. Each governs ONE read and the acceptance sits between them, so whether a school's
+correspondence address is the league's to copy into a club is a question about the write, which no
+read rule can answer — and the registry runs to `READ-` rules alone, so there is no write family to
+put the answer in.
+
+**Done** is a write rule in the registry saying the acceptance may copy the field. Nothing in it
+reopens the decision.
 
 ### `z8nf-7nzd` · `typing` imports instead of `collections.abc`
 
@@ -2693,9 +2803,9 @@ population this reaches is unmeasured.
 
 ### `3hdg-3r59` · The replace and the undraw each write the season's clearing, and each is proved separately
 
-| Tags                         | Status | Depends on  |
-| ---------------------------- | ------ | ----------- |
-| BE, DB, Docs, tests, saisons | Open   | `q7jv-hskm` |
+| Tags                         | Status | Depends on |
+| ---------------------------- | ------ | ---------- |
+| BE, DB, Docs, tests, saisons | Open   | —          |
 
 **Two endpoints spell one removal.**
 `fl_backend/app/api/saisons/admin_router.py :: generate_spielplan` clears the season inside its
@@ -2808,6 +2918,53 @@ it once it exists.
 **Done when** that list is produced and proven against a planted violation first (PRE-4): a fixture
 page citing a fixture source file, the source materially edited on the branch, the page named in the
 report — together with the negative, a comment-only edit to the cited file arming nothing.
+
+### `556b-nxen` · The roadmap states each entry twice, and the check comparing the two listings' tags reads no other cell
+
+| Tags            | Status | Depends on |
+| --------------- | ------ | ---------- |
+| Ops, Docs, gate | Open   | —          |
+
+**Every entry here is written twice** — an index row carrying its claim, its tags and its status, and
+the entry itself carrying that claim as its heading and that status in its own table.
+`docs/_roadmap/protocol.md` §4 derives a single status from a closed set whose first match wins, so
+the two listings carry the same word or one of them is wrong.
+
+**`scripts/checks/docs_gate/checks.py :: _check_roadmap_page` holds one cell of that pair to the
+other.** It pairs the ids in both directions, holds the run flat, resolves every token a batching
+line names, refuses the transient status in either listing (`:: _check_transient_status`), and holds
+the row's tags to the tags the entry's own paths derive (`:: _check_derived_tags`). The claim and the
+status sit in that same row, either side of the tags, and neither is read.
+
+**An index row set to a status its own entry's table contradicts returns no finding, and the
+transient value in that same cell returns one.** The pass is therefore the comparison's absence
+rather than a reader stopping short of the row.
+
+**The status cell carries no vocabulary past that one refusal.** A word outside §4's closed set
+stands in both listings unreported, a lower-cased `open` among them, and so does a `Blocked` whose
+`Depends on` is an em dash — which §4 names as the failure that rule exists to catch.
+
+**A status goes wrong on rows nobody edited.** `Blocked` is a claim about another entry, so a closure
+re-derives every row rather than the row it touched, and a value repaired in one listing and left in
+the other tells a reader filtering the index one thing and a reader who opened the entry another.
+
+**The two cells are in opposite conditions, and that decides how each is closed.** Every status
+agrees across the listings today, every value is one of §4's four, and every `Blocked` sits beside a
+`Depends on` naming a live entry — so a check over that cell fails nothing and lands in one commit.
+The claim cell splits by run: every row in the page's first run repeats its heading, and the rows in
+the second run are routinely a shortened rewrite of it instead. **Some of those rewrites have drifted
+past shortening** — one drops the clause carrying its finding's point, and one pair names two
+different rules across its two listings — **and nothing mechanical separates a shortening from a
+drift**, which is what makes this half a decision rather than a check to write.
+
+**Done when** the status cells are held to §4's four words and to each other, with `Blocked` required
+to name a live entry in the `Depends on` beside it in both directions; and when the claim cell is
+either held to one sentence in both listings or declared free, a comparison landing in the commit
+that clears the second run rather than taxing every later branch (CUR-6). **A check compares here and
+never derives the rest**: §4's second and third rules turn on whether a finding carries a trigger and
+on where an argument is recorded, neither of which is mechanical, so agreement between two listings
+reached by different routes is the whole of what one can hold past the vocabulary — which is also
+what keeps its population independent of the property it asserts (PRE-4).
 
 ### `5h9m-nntd` · The formatter rewrites a comment between the author and the checker, so the shape INC-9 measures is not the shape anyone wrote
 
@@ -3158,6 +3315,35 @@ corrects is a seed that was quietly describing a document the product cannot hol
 that the database tier stops being able to prove behaviour over impossible data, which is the one
 thing that tier exists for.
 
+### `bfbz-mvhx` · A shared style recipe and a server-only query share one module, so no client component may import the recipe
+
+| Tags            | Status | Depends on |
+| --------------- | ------ | ---------- |
+| FE, bewerbungen | Open   | —          |
+
+**`fl_frontend/src/features/bewerbungen/components/ui/BewerbungOffenBand.tsx` exports the `band`
+recipe out of the same module as a component that reads the season's application window.** That read
+reaches `fl_frontend/src/features/bewerbungen/queries.ts` and on to `fl_frontend/src/core/api.ts`,
+whose first line is `import "server-only"` — a package whose client-condition entry point is a bare
+throw. A client component importing `band` for its own markup therefore fails at `next build` and
+nowhere earlier: the type check, the lint and the whole suite pass, the test harness resolving that
+package under `react-server` by design.
+
+**Every consumer is a server component, which is what keeps it latent rather than fixed.**
+`fl_frontend/src/features/bewerbungen/components/ui/BewerbungInstagramBand.tsx` wears the recipe and
+is built server-side into a slot —
+`fl_frontend/src/features/bewerbungen/components/views/BewerbungView.tsx` hands
+`hinweisSlot={<BewerbungInstagramBand />}` to the client form — so the element crosses the boundary
+already rendered and the recipe never crosses it at all.
+
+**That slot is the right shape for one strip and not a rule the next author will know.** Someone
+styling a band inside a client component reaches for `band`, and the failure names the `server-only`
+package rather than the module split that caused it, on the one command a session is least likely to
+have run.
+
+**Done when** the recipe stands in a module that imports no query, so a client component may wear the
+band and importing it pulls no `server-only` package.
+
 ### `bfs4-ax6a` · The database fixtures' drift guard cannot see a view, so a body that creates one has a safety net that is not there
 
 | Tags          | Status | Depends on |
@@ -3295,37 +3481,6 @@ nullable, type and enum, so a narrowed pattern is not that comparison's to catch
 **Done when** the failure separates the two readings it now collapses — naming the field whose value
 moved rather than reporting that one did, and offering the rewrite for a change the session meant
 while saying that the repair for one it did not mean is in the models.
-
-### `ckf7-7w58` · The frontend mirrors the backend's payload bounds by hand, and one of them is swept
-
-| Tags                                      | Status | Depends on |
-| ----------------------------------------- | ------ | ---------- |
-| FE, BE, tests, bewerbungen, spiele, teams | Open   | —          |
-
-**Four frontend modules declare themselves mirrored from `fl_backend/app/shared/schemas/bounds.py`,
-and one number in one of them is compared to its source.**
-`fl_frontend/src/features/bewerbungen/actions.test.ts` reads that file as text and matches
-`BEWERBUNG_GRUND_MAX_LENGTH` on both sides. Every other mirror —
-`fl_frontend/src/features/bewerbungen/constants.ts`'s kit, squad, preferred-opponent and contact-age
-bounds, `fl_frontend/src/features/teams/constants.ts`'s club fields,
-`fl_frontend/src/features/spiele/constants.ts`'s note ceiling, and
-`fl_frontend/src/shared/schemas.ts`'s address and email ceilings — is held to its source by a comment
-saying that it mirrors one.
-
-**The numbers agree today (2026-09-03)**, so what is missing is the guard rather than a repair to make.
-What the guard buys is written at the sites themselves: past the backend's ceiling the API answers a
-bare `REQ-VAL-001` carrying no field detail, so a frontend bound set too high marks no box and the
-person filling the form is told nothing at all.
-
-**A sweep keyed on the identifier would pass while skipping the pairs that most need it.** The contact
-age span, the fixture note, the club description and the club's short code each carry one name on the
-frontend and another in `fl_backend/app/shared/schemas/bounds.py`, so a reader matching by name
-reports green over exactly the pairs whose drift nothing else would show. The pairing has to be
-declared somewhere a checker reads it.
-
-**Done when** every constant a frontend module says it mirrors is compared to
-`fl_backend/app/shared/schemas/bounds.py`, the pairing is declared rather than inferred from a name,
-and a mirror the declaration does not name fails rather than passing unread.
 
 ### `crwn-qfp7` · The opening comment block of every file read as a shell script is measured by neither bound
 
@@ -3934,6 +4089,30 @@ suite the same day it fails nothing on the backend. **This is the concrete insta
 general case**, filed separately because its fix is one assertion and that one's is a convention;
 folding it in is a reasonable call and this is the half to fold.
 
+### `hq7d-2vnm` · The required-mark guard reads literal names only, so a shared field block is unguarded
+
+| Tags      | Status | Depends on |
+| --------- | ------ | ---------- |
+| FE, tests | Open   | —          |
+
+**`fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn` pairs every control marked
+`isRequired` with the schema path it writes, and fails where that schema accepts the emptiness the
+control produces.** It reads the path off `name="…"` as a literal, so a control naming itself by
+template literal is invisible to it and generates no case.
+
+**`fl_frontend/src/shared/components/ui/AddressFields.tsx` names all five of its controls that
+way**, from a `namePrefix` prop, so the address block six callers embed contributes nothing to the
+pairing. One of the five carried a mark its schema never enforced, and every suite stayed green.
+
+**Done looks like the five reaching the pairing**, proven by putting `isRequired` back on the
+Hausnummer control and watching the suite go red — that field's regex is spelled with `*` rather
+than `+`, so it is the one whose schema accepts what a mark would promise to refuse.
+
+The limitation is deliberate and its docstring says so: a computed name and a conditional
+`isRequired` both fail toward finding less. **A widened reader must keep that direction** — a name
+it cannot resolve is skipped rather than guessed at, because a false pairing fails a branch that
+touched neither the control nor the schema, which is the standing tax CUR-6 refuses.
+
 ### `ja32-9rpv` · A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches
 
 | Tags                                                  | Status | Depends on |
@@ -4075,6 +4254,30 @@ no tolerance for a partly-spelled code; what a check reading the backend by SHAP
 declaration would have to tolerate is a glob in prose — `fl_backend/app/core/domain.py` writes
 `REQ-STATE-*` inside an `Unenforced` reason, naming the pair rather than a code the table could carry
 a row for.
+
+### `knku-4fr2` · The commit checker reads a hyphenless trailer as prose, so the name rule it enforces has a hole
+
+| Tags                   | Status | Depends on |
+| ---------------------- | ------ | ---------- |
+| Ops, Docs, gate, tests | Open   | —          |
+
+**`docs/_git/templates.md` says every trailer name but `Closes` is refused, and
+`scripts/checks/check_commits.py :: TRAILER_EVIDENCE_RE` reads a closing paragraph as trailers only
+where a name carries a hyphen or spells `Closes`.** So a last paragraph of `Refs: something` is read
+as prose and passes unread, while `Refs-Issue: something` is read as trailers and reaches the refusal
+in `:: check_message`. Both are the thing the template says is refused; one of them is.
+
+**The hole is what makes the rest of the rule usable.** The same test is what lets a body close on a
+`Verified: ... exit 0.` line, which is a sentence wearing a colon rather than a trailer, so narrowing
+the pattern to a bare `Name:` would refuse that closing line on every commit carrying one.
+
+**The repair is a choice and not a fix.** Either the checker parts a trailer from a sentence by
+something other than the hyphen, or `docs/_git/templates.md` stops claiming a reach the checker does
+not have and names which spellings it actually refuses. Choosing the first without a second
+discriminator costs every body its closing evidence line.
+
+**Done when** the checker and `docs/_git/templates.md` agree on which trailer names are refused, and
+a case in `scripts/tests/test_message_gates.py` fails if the two come apart again.
 
 ### `kpkb-y5d8` · A refusal code's meaning is written three times in prose, and nothing resolves any pair of them
 
@@ -4763,6 +4966,39 @@ prose.
 
 **Trigger to revisit:** a rule family added to the standard under a prefix the patterns do not carry,
 or the first page that needs a metadata block indented.
+
+### `v7bs-d859` · The frontend keeps a visual system that no document states
+
+| Tags     | Status | Depends on |
+| -------- | ------ | ---------- |
+| FE, Docs | Open   | —          |
+
+**`docs/frontend/spec.md` states no type scale, no colour role and no spacing rhythm.** The system
+lives in `fl_frontend/src/app/globals.css` and the recipes under
+`fl_frontend/src/shared/components/ui/`, so a session designing anything learns it by reading them or
+does not learn it. What that sheet does state on this surface — `:: I43`, `:: I44`, `:: I78`,
+`:: I79`, `:: I81` and `:: 1.12 The copy rules` — are the copy and link rules, and they match the
+files.
+
+**The visual conventions are kept by imitation and read by nothing.** Prose is `font-medium` and a
+bold run is a label, a pill, a button, a `<dt>` or a reader's own value; a decorative glyph is
+`aria-hidden` beside the words carrying the fact and never stands alone
+(`fl_frontend/src/shared/components/ui/Callout.tsx`); a panel's standing rule is a reveal hint beside
+its heading rather than a paragraph closing its body
+(`fl_frontend/src/shared/components/ui/formPanel.ts :: heading`); the corner ladder steps down one
+level per nesting, 3xl hero to md pill (`fl_frontend/src/shared/components/ui/badges.ts`); the social
+marks wear the ground's foreground and never brand
+(`fl_frontend/src/shared/components/layout/footer/Footer.tsx`). Each holds across at least three
+files, no gate reads any of them, and a design approved against none of them breaks one without
+anybody seeing it.
+
+**Writing the page against today's palette would date it before it is read**, the colour roles being
+the half most likely to move. That is what the work waits on, rather than a reason to leave the
+conventions underived.
+
+**Done when** a page a session meets before it designs anything carries the type scale, the weight
+rule, the spacing and radius ladders, the colour roles and the component grammar, and the conventions
+above are stated there rather than kept by imitation.
 
 ### `vspa-r35v` · One commit imports a frontend module the commit after it adds
 

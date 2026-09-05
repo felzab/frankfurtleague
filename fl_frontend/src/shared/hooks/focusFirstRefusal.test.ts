@@ -290,6 +290,16 @@ describe("what a blocked submit announces", () => {
     assert.match(blockedSubmitDetail(2), /markiert/);
   });
 
+  it("sends the reader in no direction, on either count", () => {
+    // Every editor on the site shares this sentence, and on the public application form the marked field
+    // stands above the button that raised it. `focusFirstRefusal` moves the caret to the mark regardless.
+    const richtung = /\bunten\b|\boben\b|darunter|darüber/i;
+    const gesagt = "the toast names a place only some of the forms sharing it put the mark";
+
+    assert.doesNotMatch(blockedSubmitDetail(1), richtung, gesagt);
+    assert.doesNotMatch(blockedSubmitDetail(4), richtung, gesagt);
+  });
+
   it("says the save did not happen, in a title distinct from every other refusal", () => {
     assert.equal(BLOCKED_SUBMIT_TITLE, "Noch nicht abgeschickt");
   });

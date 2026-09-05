@@ -2,7 +2,7 @@ import type { FLSaisonPhase, FLSaisonTiebreakOrder } from "./schemas";
 
 export const SAISONS_CRUD_COPY = {
   searchLabel: "Saison suchen",
-  searchPlaceholder: "z.B. 2526",
+  searchPlaceholder: "z.B. 2027",
 } as const;
 
 /**

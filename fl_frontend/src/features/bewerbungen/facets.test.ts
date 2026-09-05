@@ -30,6 +30,7 @@ function row(id: string, inSelectedSaison: boolean): AdminBewerbungRow {
     kontakte: { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
     trikot: { vorhandener_satz: "", wunschfarbe: null },
     kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
+    stufengroesse: null,
     wunschgegner: null,
     entscheidung: null,
     bestaetigungen: null,

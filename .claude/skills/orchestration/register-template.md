@@ -25,9 +25,11 @@ nothing outlives the turn except what I put here.
 
 Repository state at the start of this fleet: <branch, tip subject, tree clean or not, what is
 being written to the repository while the fleet runs>.
-Concurrency budget: <cap>, helpers included. Useful implement parallelism peaked at eight to
-twelve agents in one programme, and the cap bound only in read-only audit waves. Sub-agent cap
-per agent: zero, always -- a fresh agent is a second dispatch of mine.
+Concurrency budget: <cap>, helpers included -- the owner's number, which paces quota; it is read
+from their file at its latest value, never inferred, raised or exceeded. Beneath it sits a lower
+ceiling, what quality bears, which is learned by watching quality rather than taken from a figure
+some earlier session remembered. Sub-agent cap per agent: zero, always -- a fresh agent is a second
+dispatch of mine.
 Scratch path: <one directory, outside the repository, a subdirectory per agent, named in every
 brief>.
 Starter prompt: <path>. Previous handoff: <path, or none>. Owner's standing instructions: <path>.
@@ -118,13 +120,13 @@ agent to report where it shaped its prose to satisfy a checker.
 
 **A check reading the whole corpus rather than a branch's diff is run against the real tree before
 it is wired into anything, and its findings are CLASSIFIED rather than counted.** A plant proves a
-check can fail and says nothing about what it fails on: one such check returned 286 findings that
-were every one a genuine defect, and another returned 179 of which none was the defect its rule
-forbids -- the rule's own mandated repair having pushed the shared text past the check's word floor,
-a floor being an accidental exemption wherever the rule refuses shortness as a reason. From outside
-the two are the same thing, a new check with a three-figure backlog, and only the classification
-separates a migration worth doing from a check that must not ship. A suite of 301 passing fixtures
-stood beside 181 corpus failures the same night.
+check can fail and says nothing about what it fails on: one such check returned a large backlog that
+was every one a genuine defect, and another returned a comparable backlog of which none was the
+defect its rule forbids -- the rule's own mandated repair having pushed the shared text past the
+check's word floor, a floor being an accidental exemption wherever the rule refuses shortness as a
+reason. From outside the two are the same thing, and only the classification separates a migration
+worth doing from a check that must not ship. Read the fixtures and the corpus as separate
+questions: a green fixture suite has stood beside a red corpus the same night.
 
 ## Tree health -- re-established at every wave boundary, not assumed
 
@@ -148,24 +150,39 @@ Cycle is one of: implement, audit, fix, re-audit, fix, done.
 
 ## Plant-and-restore windows currently open
 
-| Agent | Files it may break | Declared at | Restore confirmed |
-| ----- | ------------------ | ----------- | ----------------- |
+| Agent | Files it may break | Dispatched at | Restore confirmed |
+| ----- | ------------------ | ------------- | ----------------- |
 
 ## Standing actions -- queued work and the condition that releases each
 
 | Trigger | The whole brief, written out now | Dispatched? |
 | ------- | -------------------------------- | ----------- |
 
+## The schedule -- rewritten at every wave boundary, and read back before it is acted on
+
+| Block | Wall clock | Measured or estimated | Waiting on |
+| ----- | ---------- | --------------------- | ---------- |
+
+One row per block of remaining work rather than per agent, and the third column is what stops a
+guess hardening into a plan on its second reading. What the read-back is for, and what it looks
+for, is `SKILL.md` §4.
+
 ## The ending -- enumerated before the last wave goes out
 
-<Assembly of the last wave; the gate at <scope>; the draft pull request; the `verify` run's
-conclusion; the handoff and its independent audit; the starter prompt. Once one wave plus this
-list is what remains, dispatch nothing new.>
+<Assembly of the last wave; the audit its last commit dispatches in the same action, and the fix
+round that audit feeds, neither of which belongs to the wave and both of which the ending owes;
+the gate at <scope>; the draft pull request; the `verify` run's conclusion; the handoff and its
+independent audit; the starter prompt. Once one wave plus this list is what remains, dispatch
+nothing new.>
 
 ## Decisions taken by the owner, and where each was routed
 
 | # | Question | Ruling | Routed to |
 | - | -------- | ------ | --------- |
+
+"Routed to" names a live agent or my own next action, never an artefact. A ruling routed to "the
+commit" is owed by nobody: no brief carried it, no agent's file list held it, and a cold auditor
+found it undone with the commit's trailer already written against it.
 
 ## Open, awaiting the owner
 
@@ -191,35 +208,43 @@ violation.>
 ## What makes a row trustworthy
 
 - **Keep every row short enough that adding one is cheaper than skipping it.** Under load a
-  coordinator dispatched first and recorded later twice, then rewrote the table wholesale hours
-  after the fact — the cost of a wide row is paid every time the fleet is busiest.
+  coordinator dispatched first and recorded later, then rewrote the table wholesale long after the
+  fact — the cost of a wide row is paid every time the fleet is busiest.
 - **One write to this file per message.** Two edits sent in one tool batch each read the file,
   append and write it back, so the later silently drops the earlier's paragraphs: an audit's whole
-  banked verdict and three of the owner's rulings went that way, and were noticed only because a
+  banked verdict and several of the owner's rulings went that way, and were noticed only because a
   later agent found the rows missing.
-- **Close a status in the same edit that banks the verdict, never in batches.** Eight rows read
-  RUNNING for agents that had finished, and the coordinator spent that stretch tracking eleven live
-  agents against a register describing a different fleet. A stale register is worse than none,
-  because it is trusted.
+- **Close a status in the same edit that banks the verdict, never in batches.** Rows read RUNNING
+  for agents that had finished, and the coordinator spent that stretch driving a live fleet against
+  a register describing a different one. A stale register is worse than none, because it is trusted.
 - **The live-agent column is the question the agent settles, not its subject.** Two agents were sent
   to prove one negative under two different subject headings; file ownership catches nothing when
   both write different files or none. The converse costs more: **a dispatch you hold in mind by its
   task is one whose paths you never diff**, and two briefs of different verbs and concerns — rewrite
   this page, reconcile that derivation — can name one destination without ever sounding alike. Two
-  agents held one file for three minutes that way, and nothing mechanical noticed: `git status`
+  agents held one file that way, and nothing mechanical noticed: `git status`
   shows a modified file, never two owners.
 - **Fill "last write to an owned file" from the file's timestamp**, never from the agent's status
-  label. Two agents stalled silently for over an hour behind a live-looking label, while another
-  looked stalled for 45 minutes because only its notes file was being watched.
-- **Open a plant-and-restore row before the agent plants and close it when the restore is
-  confirmed.** The open row is what an unrelated red is attributed to (`SKILL.md` §4), so one
-  opened after the fact attributes nothing.
+  label, and take the timestamp across every file the agent owns rather than one of them: agents
+  have stalled silently behind a live-looking label, and one read as stalled while only its notes
+  file was being watched.
+- **An agent owns every path in its brief until its report lands, never only the paths it happens
+  to be writing.** "Owns" is the column a dispatch is diffed against (`SKILL.md` §3.2); "last write
+  to an owned file" answers whether an agent has stalled and answers nothing about scope. Reading
+  the second as the first cleared a re-auditor to plant in a live agent's backend file whose
+  remaining work had moved to documentation, and what caught the write was a test that agent had
+  written earlier rather than any row here.
+- **Open a plant-and-restore row at dispatch, for every agent whose brief permits planting, and
+  close it when the restore is confirmed.** The open row is what an unrelated red is attributed to
+  (`SKILL.md` §4), so one opened after the fact attributes nothing — and an agent cannot announce a
+  plant before its report ([agent-brief-template.md](agent-brief-template.md) section 8), so its
+  file list is the whole of the warning you get.
 - **Write the standing action's whole brief when you queue it**, not a note to write one, and tick
   it only against evidence that it went out. A queued brief recovered from memory later is a
   different brief; one recorded correctly here was never dispatched, and only the end-of-session
   handoff caught it.
 - **Name a cross-agent hand-over's path in both briefs.** One named in one brief is written and
-  never collected, or waited for twenty minutes and never written.
+  never collected, or waited for and never written.
 
 ## Running unattended
 

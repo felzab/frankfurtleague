@@ -277,6 +277,8 @@ async def post_bewerbung(
             "kontakte": compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today),
             "trikot": bewerbung_data.trikot.model_dump(mode="json"),
             "kader": bewerbung_data.kader.model_dump(mode="json"),
+            # Written explicitly for `wunschgegner`'s reason.
+            "stufengroesse": bewerbung_data.stufengroesse,
             # Written even where the applicant named nobody, though the validator does not require
             # it: every application this endpoint creates then carries the key, and only the ones
             # stored before the field lack it.

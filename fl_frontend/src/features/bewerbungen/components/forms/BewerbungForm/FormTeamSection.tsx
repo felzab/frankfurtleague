@@ -106,7 +106,7 @@ export function FormTeamSection({
 
         <TrikotFarbeSelect
           isRequired
-          label="Trikotfarbe-Wunsch"
+          label="Wunschfarbe (Trikot)"
           name="trikot.wunschfarbe"
           // Read off `saison_teams.trikot_farbe` — colours an administrator ASSIGNED — and never off
           // another application's wish, which would carry one school's submission into this form.

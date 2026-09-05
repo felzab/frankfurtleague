@@ -45,8 +45,10 @@ export const BESTAETIGUNG_ABSAETZE = {
     "Für Dein Geburtsdatum gilt dieselbe Frist, gerechnet ab dem Tag, an dem Du es hier einträgst.",
   fristUnvollstaendig:
     "Bestätigen nicht alle eingetragenen Personen innerhalb von vierzehn Tagen, löschen wir die ganze Bewerbung samt allen Kontaktdaten.",
+  // Named without a noun: the control is a button, and „Link“ on this page is the emailed
+  // one that opened it.
   ablehnen:
-    "Du musst nicht bestätigen. Wenn Du nicht möchtest, dass wir Deine Daten haben, sag uns das über den Link „{ablehnen}“ oder " +
+    "Du musst nicht bestätigen. Wenn Du nicht möchtest, dass wir Deine Daten haben, sag uns das über „{ablehnen}“ oder " +
     "mit einer E-Mail an {kontakt}; wir löschen Deinen Eintrag dann und sagen der Person Bescheid, die die Bewerbung eingereicht " +
     "hat, damit sie jemand anderen benennen kann.",
   // The armed decline shows this, so a record citing this label has to reproduce it. A paragraph
@@ -71,6 +73,28 @@ export const BESTAETIGUNG_ABSAETZE = {
     "Eine Einwilligung ist das nicht, und wir holen hier auch keine ein. Du bestätigst, was in der Bewerbung steht, und ergänzt " +
     "Dein Geburtsdatum; die Grundlage dafür steht oben.",
 } as const;
+
+// Spelled out rather than read from the map: the map is what the page renders, so a label
+// reading it would follow the next rewording and stop answering what its own records cite.
+const BESTAETIGUNGSSEITE_ABSAETZE_2026_09 = [
+  "Für die Schule {schule} wurde eine Bewerbung um die Teilnahme an der Saison {saison} der Frankfurt League eingereicht. Darin bist Du als {rolle} eingetragen. Die Person, die die Bewerbung abgeschickt hat, hat dabei Deinen Namen, Deine E-Mail-Adresse und Deine Telefonnummer angegeben. Den Link zu dieser Seite hast Du bekommen, weil wir das nicht einfach so stehen lassen wollen, sondern von Dir selbst hören möchten, dass es stimmt.",
+  "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse und Deine Telefonnummer. Wir brauchen sie, um das Team dieser Schule während der Saison zu erreichen, also für Spielansetzungen, Absagen, Rückfragen und die Entscheidung über die Bewerbung.",
+  "Dein Geburtsdatum steht nicht in der Bewerbung. Du trägst es gleich hier selbst ein, und wir prüfen damit, ob Du mindestens {minAlter} Jahre alt bist; unter {minAlter} kann bei uns niemand mitmachen. Vorher hatte es niemand, und niemand hat es für Dich angegeben.",
+  "Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO, wenn Du selbst an der Liga teilnimmst, sonst Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist, ein Team über die von ihm selbst benannten Personen erreichen zu können, statt eine ganze Saison an einer einzigen Adresse hängen zu lassen. Dass Deine Daten dabei nicht untergehen, sichern wir so ab: Du erfährst von Deinem Eintrag sofort, nämlich jetzt; nichts davon wird veröffentlicht; und Du kannst jederzeit verlangen, dass wir alles löschen.",
+  "Deine Kontaktdaten werden nirgends veröffentlicht. Sie erscheinen weder auf der Teamseite noch im Spielplan noch sonst irgendwo auf der Website, und sie werden nicht an andere Teams, andere Schulen oder Dritte weitergegeben. Sie bleiben in der Verwaltung der Liga, und dort sehen sie nur die Administratorinnen und Administratoren.",
+  "Wird die Bewerbung abgelehnt, löschen wir sie mit allen Kontaktdaten einen Monat nach der Entscheidung.",
+  "Wird sie angenommen, behalten wir sie bis zum Ende der Saison, die auf {saison} folgt, und löschen Deine Kontaktdaten dann. Für Dein Geburtsdatum gilt dieselbe Frist, gerechnet ab dem Tag, an dem Du es hier einträgst.",
+  "Bestätigen nicht alle eingetragenen Personen innerhalb von vierzehn Tagen, löschen wir die ganze Bewerbung samt allen Kontaktdaten.",
+  "Du musst nicht bestätigen. Wenn Du nicht möchtest, dass wir Deine Daten haben, sag uns das über den Link „{ablehnen}“ oder mit einer E-Mail an {kontakt}; wir löschen Deinen Eintrag dann und sagen der Person Bescheid, die die Bewerbung eingereicht hat, damit sie jemand anderen benennen kann.",
+  "Wir entfernen Deine Angaben sofort aus der Bewerbung und sagen der Person Bescheid, die sie eingereicht hat.",
+  "Auch nach einer Bestätigung kannst Du jederzeit die Löschung Deiner Daten verlangen (Art. 17 DSGVO) und der Verarbeitung widersprechen (Art. 21 DSGVO). Eine Einwilligung, die man widerrufen müsste, gibt es hier nicht, außer der freiwilligen für WhatsApp. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}. Für alles genügt eine formlose E-Mail an {kontakt}.",
+  "Dieser Schalter ist freiwillig und hat mit der Bestätigung oben nichts zu tun. Lässt Du ihn aus, erreichen wir Dich per E-Mail und, wenn es eilt, telefonisch, und es entsteht Dir kein Nachteil. Schaltest Du ihn ein, gelangen Deine Telefonnummer und die Nachrichten, die wir Dir schreiben, zu WhatsApp; wir nutzen dort die gewöhnliche App, für die kein Auftragsverarbeitungsvertrag besteht. Du kannst diese Einwilligung jederzeit zurücknehmen, formlos mit einer E-Mail an {kontakt}. Was bis dahin geschah, bleibt rechtmäßig.",
+  "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
+  "dass Du von Deinem Eintrag als {rolle} für {schule} weißt und er richtig ist,",
+  "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
+  "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest.",
+  "Eine Einwilligung ist das nicht, und wir holen hier auch keine ein. Du bestätigst, was in der Bewerbung steht, und ergänzt Dein Geburtsdatum; die Grundlage dafür steht oben.",
+] as const;
 
 // A stored record cites its label alone, so an entry here is never reworded or removed: either
 // leaves a record claiming words nobody was shown. Spelling the league's name is not a rewording:
@@ -102,13 +126,19 @@ export const LIGA_EINWILLIGUNGEN = {
   // A label of its own, never a second block in the entry above: that entry is stamped on the
   // applicant's and the admin editor's records, and neither reader saw a word of the page below.
   "2026-09-bestaetigungsseite": {
+    absaetze: BESTAETIGUNGSSEITE_ABSAETZE_2026_09,
+    schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
+  },
+  // A label of its own because the words moved: every record already stamped keeps the ones it
+  // was given.
+  "2026-09-bestaetigungsseite-2": {
     absaetze: Object.values(BESTAETIGUNG_ABSAETZE),
     schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
   },
 } as const satisfies Readonly<Record<string, EinwilligungFassung>>;
 
 const AKTUELLE_FASSUNG = "2026-09-bestaetigung";
-const AKTUELLE_BESTAETIGUNG = "2026-09-bestaetigungsseite";
+const AKTUELLE_BESTAETIGUNG = "2026-09-bestaetigungsseite-2";
 
 // Read off the record rather than spelled again, so a new wording and the bump that names it cannot
 // land in separate edits.

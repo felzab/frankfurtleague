@@ -5574,6 +5574,17 @@
           "kader": {
             "$ref": "#/components/schemas/FLBewerbungKader"
           },
+          "stufengroesse": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufengroesse"
+          },
           "wunschgegner": {
             "anyOf": [
               {
@@ -8550,6 +8561,12 @@
           "kader": {
             "$ref": "#/components/schemas/FLBewerbungKaderPayload"
           },
+          "stufengroesse": {
+            "type": "integer",
+            "maximum": 999.0,
+            "minimum": 1.0,
+            "title": "Stufengroesse"
+          },
           "wunschgegner": {
             "anyOf": [
               {
@@ -8572,7 +8589,8 @@
           "schule",
           "kontakte",
           "trikot",
-          "kader"
+          "kader",
+          "stufengroesse"
         ],
         "title": "FLPostBewerbungPayload",
         "description": "One school's application, as the public form submits it.\n\n`status`, `eingereicht_am` and `entscheidung` are on no payload: the server sets all three, so a\nclient can neither arrive already accepted nor backdate its own submission."

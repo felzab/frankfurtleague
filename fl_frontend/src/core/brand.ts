@@ -13,3 +13,9 @@ export const VERTRETUNGSBERECHTIGTE = ["David Wilbers", "Maria-Lucia Uribe"] as 
  * no-reply mail carries it as its only route back.
  */
 export const SITE_URL = "https://frankfurtleague.de";
+
+/** One spelling: the footer's mark, the contact page's channel row and the application page's invitation all press through to this. */
+export const INSTAGRAM_URL = "https://www.instagram.com/frankfurt.league/";
+
+/** What a reader sees where the profile is named rather than worn as a mark. */
+export const INSTAGRAM_HANDLE = "@frankfurt.league";

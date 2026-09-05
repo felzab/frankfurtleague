@@ -77,8 +77,10 @@ export function AddressFields({
           <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.strasse`]}</FieldError>
         </TextField>
+        {/* `HAUSNUMMER_REGEX` is spelled with `*` rather than `+`, so an empty number passes: a sports
+            ground can genuinely lack one. Marking this field required promises a refusal no schema
+            makes. */}
         <TextField
-          isRequired
           name={`${namePrefix}.hausnummer`}
           aria-describedby={describedById}
           value={value.hausnummer}

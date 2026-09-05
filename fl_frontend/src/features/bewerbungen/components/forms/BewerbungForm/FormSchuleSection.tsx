@@ -2,10 +2,27 @@
 
 import { useId, useState } from "react";
 
-import { Autocomplete, FieldError, Input, Label, ListBox, SearchField, Select, Separator, TextField, useFilter } from "@heroui/react";
+import {
+  Autocomplete,
+  FieldError,
+  Input,
+  Label,
+  ListBox,
+  NumberField,
+  SearchField,
+  Select,
+  Separator,
+  TextField,
+  useFilter,
+} from "@heroui/react";
 
 import { dismissControl } from "@/core/dismissControl";
-import { KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE, SCHULE_NICHT_IN_LISTE_LABEL } from "@/features/bewerbungen/constants";
+import {
+  BEWERBUNG_STUFENGROESSE_MAX,
+  KUERZEL_LAENGE,
+  SCHULE_NICHT_IN_LISTE,
+  SCHULE_NICHT_IN_LISTE_LABEL,
+} from "@/features/bewerbungen/constants";
 import { istNeueSchule } from "@/features/bewerbungen/utils";
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
 import {
@@ -17,11 +34,21 @@ import {
   WEBSITE_URL_SCHEME,
 } from "@/features/teams/constants";
 import { AddressFields } from "@/shared/components/ui/AddressFields";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_COUNT_INPUT,
+  FIELD_ERROR,
+  FIELD_GROUP,
+  FIELD_INPUT,
+  FIELD_LABEL,
+  FIELD_PAIR,
+  FIELD_TRIGGER,
+  FORM_SECTION_HEADING,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { enteredNumber } from "@/shared/utils/numberField";
 
 import type { BewerbungSchuleDraft } from "@/features/bewerbungen/types";
 import type { FLSchulform } from "@/features/teams/schemas";
@@ -55,8 +82,10 @@ export function FormSchuleSection({
   schulen,
   auswahl,
   schule,
+  stufengroesse,
   onAuswahlPicked,
   onSchuleChange,
+  onStufengroesseChange,
   onFieldLeft,
   onSchulformPicked,
   onKuerzelLeft,
@@ -68,8 +97,11 @@ export function FormSchuleSection({
   /** The picked key: a club id, the sentinel, or nothing picked yet. */
   auswahl: string | null;
   schule: BewerbungSchuleDraft;
+  /** The head count of the Abi-Jahrgang the team comes from. `null` is a box nobody has answered, never a cohort of none. */
+  stufengroesse: number | null;
   onAuswahlPicked: (auswahl: string | null) => void;
   onSchuleChange: (next: BewerbungSchuleDraft) => void;
+  onStufengroesseChange: (next: number | null) => void;
   onFieldLeft: (paths: readonly string[]) => void;
   /** Judged with the school type the event carried, because state has not committed yet. */
   onSchulformPicked: (paths: readonly string[], next: BewerbungSchuleDraft) => void;
@@ -106,6 +138,9 @@ export function FormSchuleSection({
   const listeHinweisId = useId();
   const kuerzelHinweisId = useId();
   const adressHinweisId = useId();
+  const stufenHinweisId = useId();
+  const teamNameHinweisId = useId();
+  const kuerzelErklaerungId = useId();
   const listeHinweis = !isSchulenLesbar ? LISTE_UNLESBAR : schulen.length === 0 ? LISTE_LEER : null;
 
   return (
@@ -126,94 +161,128 @@ export function FormSchuleSection({
       </div>
 
       <div className={panel.body()}>
-        <div className="flex w-full flex-col">
-          {/* `name="team_id"`, because that is the path the payload and every server refusal spell the
-              picked club under — including the two that arrive as a whole-record rule. */}
-          <Autocomplete
-            isRequired
-            name="team_id"
-            aria-describedby={listeHinweis !== null ? listeHinweisId : undefined}
-            className="w-full"
-            placeholder="Schule auswählen..."
-            selectionMode="single"
-            value={auswahl}
-            isOpen={isOpen}
-            onOpenChange={setIsOpen}
-            onChange={(key: Key | null) => onAuswahlPicked(key === null ? null : key.toString())}>
-            <Label className={FIELD_LABEL}>Deine Schule</Label>
-            <Autocomplete.Trigger className={FIELD_TRIGGER}>
-              <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
-              {/* `ms-2` rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
-                  truncated name ends against this button (`docs/frontend/spec.md` I61). `hover: "css"`
-                  because HeroUI renders this as a plain `<button>`. */}
-              <Autocomplete.ClearButton
-                type="button"
-                {...dismissControl({ label: "Schulauswahl aufheben", hover: "css", className: "ms-2" })}
-              />
-              <Autocomplete.Indicator />
-            </Autocomplete.Trigger>
-            <FieldError className={FIELD_ERROR} />
+        {/* OUTSIDE the new-school branch below: a school picking a club it already holds answers this
+            too, and a box behind that branch submits a body the payload refuses under a 422 marking
+            no field. */}
+        <div className={FIELD_PAIR}>
+          <div className="flex w-full flex-col">
+            {/* `name="team_id"`, because that is the path the payload and every server refusal spell the
+                picked club under — including the two that arrive as a whole-record rule. */}
+            <Autocomplete
+              isRequired
+              name="team_id"
+              aria-describedby={listeHinweis !== null ? listeHinweisId : undefined}
+              className="w-full"
+              placeholder="Schule auswählen..."
+              selectionMode="single"
+              value={auswahl}
+              isOpen={isOpen}
+              onOpenChange={setIsOpen}
+              onChange={(key: Key | null) => onAuswahlPicked(key === null ? null : key.toString())}>
+              <Label className={FIELD_LABEL}>Deine Schule</Label>
+              <Autocomplete.Trigger className={FIELD_TRIGGER}>
+                <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
+                {/* `ms-2` rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
+                    truncated name ends against this button (`docs/frontend/spec.md` I61). `hover: "css"`
+                    because HeroUI renders this as a plain `<button>`. */}
+                <Autocomplete.ClearButton
+                  type="button"
+                  {...dismissControl({ label: "Schulauswahl aufheben", hover: "css", className: "ms-2" })}
+                />
+                <Autocomplete.Indicator />
+              </Autocomplete.Trigger>
+              <FieldError className={FIELD_ERROR} />
 
-            <Autocomplete.Popover className={overlayPanel()}>
-              <Autocomplete.Filter filter={filter}>
-                <SearchField
-                  variant="secondary"
-                  aria-label="Schule suchen"
-                  className="p-2">
-                  <SearchField.Group className="border-border bg-muted rounded-lg border px-2 py-1.5 transition-colors duration-200">
-                    <SearchField.SearchIcon />
-                    <SearchField.Input
-                      placeholder="Schule finden..."
-                      className="bg-transparent outline-none"
-                    />
-                    <SearchField.ClearButton {...dismissControl({ label: "Schulsuche zurücksetzen" })} />
-                  </SearchField.Group>
-                </SearchField>
+              <Autocomplete.Popover className={overlayPanel()}>
+                <Autocomplete.Filter filter={filter}>
+                  <SearchField
+                    variant="secondary"
+                    aria-label="Schule suchen"
+                    className="p-2">
+                    <SearchField.Group className="border-border bg-muted rounded-lg border px-2 py-1.5 transition-colors duration-200">
+                      <SearchField.SearchIcon />
+                      <SearchField.Input
+                        placeholder="Schule finden..."
+                        className="bg-transparent outline-none"
+                      />
+                      <SearchField.ClearButton {...dismissControl({ label: "Schulsuche zurücksetzen" })} />
+                    </SearchField.Group>
+                  </SearchField>
 
-                <ListBox
-                  aria-label="Schulen"
-                  className="p-1">
-                  {/* First, and outside the map: it is the answer a school gives when none of the rows
-                      below is it, so it has to be reachable before they are read. */}
-                  <ListBox.Item
-                    id={SCHULE_NICHT_IN_LISTE}
-                    textValue={SCHULE_NICHT_IN_LISTE_LABEL}
-                    className={NICHT_IN_LISTE_ITEM}>
-                    {SCHULE_NICHT_IN_LISTE_LABEL}
-                    {/* As every school row carries: without it, picking this option is the one
-                        selection in the list that leaves no mark on the row it was made on. */}
-                    <ListBox.ItemIndicator />
-                  </ListBox.Item>
-
-                  {/* A real element between the two, never an edge on either. `ListBox` hands its
-                      subtree a `SeparatorContext` of `elementType: "div"`, so this is valid inside a
-                      collection and the builder skips it for keyboard navigation and selection. */}
-                  <Separator className="my-1" />
-
-                  {schulen.map((eintrag) => (
+                  <ListBox
+                    aria-label="Schulen"
+                    className="p-1">
+                    {/* First, and outside the map: it is the answer a school gives when none of the rows
+                        below is it, so it has to be reachable before they are read. */}
                     <ListBox.Item
-                      key={eintrag.id}
-                      id={eintrag.id}
-                      textValue={eintrag.name}
-                      className={SCHULE_ITEM}>
-                      {eintrag.name}
+                      id={SCHULE_NICHT_IN_LISTE}
+                      textValue={SCHULE_NICHT_IN_LISTE_LABEL}
+                      className={NICHT_IN_LISTE_ITEM}>
+                      {SCHULE_NICHT_IN_LISTE_LABEL}
+                      {/* As every school row carries: without it, picking this option is the one
+                          selection in the list that leaves no mark on the row it was made on. */}
                       <ListBox.ItemIndicator />
                     </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Autocomplete.Filter>
-            </Autocomplete.Popover>
-          </Autocomplete>
 
-          {/* Under the picker rather than in its empty state: the sentinel keeps that list non-empty,
+                    {/* A real element between the two, never an edge on either. `ListBox` hands its
+                        subtree a `SeparatorContext` of `elementType: "div"`, so this is valid inside a
+                        collection and the builder skips it for keyboard navigation and selection. */}
+                    <Separator className="my-1" />
+
+                    {schulen.map((eintrag) => (
+                      <ListBox.Item
+                        key={eintrag.id}
+                        id={eintrag.id}
+                        textValue={eintrag.name}
+                        className={SCHULE_ITEM}>
+                        {eintrag.name}
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    ))}
+                  </ListBox>
+                </Autocomplete.Filter>
+              </Autocomplete.Popover>
+            </Autocomplete>
+
+            {/* Under the picker rather than in its empty state: the sentinel keeps that list non-empty,
               so an empty state would never render and the reason would reach nobody. */}
-          {listeHinweis !== null && (
-            <p
-              id={listeHinweisId}
-              className="fluid-xxs text-foreground-muted mt-1 font-medium">
-              {listeHinweis}
-            </p>
-          )}
+            {listeHinweis !== null && (
+              <p
+                id={listeHinweisId}
+                className="fluid-xxs text-foreground-muted mt-1 font-medium">
+                {listeHinweis}
+              </p>
+            )}
+          </div>
+
+          {/* The hint rides in the same grid cell as its box, so it stays under that box rather than
+              under the picker beside it. */}
+          <div className="flex w-full flex-col gap-y-1">
+            {/* The payload's own two numbers and never a second judgement: `.claude/rules/cross-surface.md`,
+                never offer in the form what the write path refuses. */}
+            <NumberField
+              isRequired
+              name="stufengroesse"
+              aria-describedby={stufenHinweisId}
+              minValue={1}
+              maxValue={BEWERBUNG_STUFENGROESSE_MAX}
+              value={stufengroesse ?? NaN}
+              onChange={(next) => onStufengroesseChange(enteredNumber(next))}
+              onBlur={() => onFieldLeft(["stufengroesse"])}>
+              <Label className={FIELD_LABEL}>Größe der Stufe</Label>
+              <NumberField.Group className={FIELD_GROUP}>
+                <NumberField.DecrementButton />
+                <NumberField.Input className={FIELD_COUNT_INPUT} />
+                <NumberField.IncrementButton />
+              </NumberField.Group>
+              <FieldError className={FIELD_ERROR} />
+            </NumberField>
+            <Hint
+              mode="inline"
+              describes={stufenHinweisId}
+              text="Alle Schülerinnen und Schüler Deines Abi-Jahrgangs, nicht nur die, die mitspielen."
+            />
+          </div>
         </div>
 
         {istNeueSchule(auswahl) && (
@@ -221,20 +290,31 @@ export function FormSchuleSection({
             <h3 className={FORM_SECTION_HEADING}>Neue Schule</h3>
 
             <div className={FIELD_PAIR}>
-              <TextField
-                isRequired
-                name="schule.team_name"
-                value={schule.team_name}
-                onChange={(next) => setSchuleFeld({ team_name: next })}
-                onBlur={() => onFieldLeft(["schule.team_name"])}
-                maxLength={TEAM_NAME_MAX_LENGTH}>
-                <Label className={FIELD_LABEL}>Teamname</Label>
-                <Input
-                  placeholder="z.B. Goethe-Gymnasium"
-                  className={FIELD_INPUT}
+              {/* At the box rather than in the panel's own hint: a school picking a club the league
+                  already holds never reaches this row, and a panel hint explaining it would answer a
+                  question that reader cannot see. */}
+              <div className="flex w-full flex-col gap-y-1">
+                <TextField
+                  isRequired
+                  name="schule.team_name"
+                  aria-describedby={teamNameHinweisId}
+                  value={schule.team_name}
+                  onChange={(next) => setSchuleFeld({ team_name: next })}
+                  onBlur={() => onFieldLeft(["schule.team_name"])}
+                  maxLength={TEAM_NAME_MAX_LENGTH}>
+                  <Label className={FIELD_LABEL}>Teamname</Label>
+                  <Input
+                    placeholder="z.B. Goethe-Gymnasium"
+                    className={FIELD_INPUT}
+                  />
+                  <FieldError className={FIELD_ERROR} />
+                </TextField>
+                <Hint
+                  mode="inline"
+                  describes={teamNameHinweisId}
+                  text="Die kurze Form, die in Tabelle und Spielplan steht."
                 />
-                <FieldError className={FIELD_ERROR} />
-              </TextField>
+              </div>
 
               <TextField
                 isRequired
@@ -255,35 +335,45 @@ export function FormSchuleSection({
             <div className={FIELD_PAIR}>
               {/* Uppercased as it is typed, as the club editor does it: the code is unique across every
                   club, retired ones included, so a case variant must not look like a different value. */}
-              <TextField
-                isRequired
-                name="schule.shorthand"
-                aria-describedby={kuerzelHinweis !== null ? kuerzelHinweisId : undefined}
-                value={schule.shorthand}
-                onChange={(next) => setSchuleFeld({ shorthand: next.toUpperCase() })}
-                onBlur={() => {
-                  onFieldLeft(["schule.shorthand"]);
-                  onKuerzelLeft(schule.shorthand);
-                }}>
-                {/* A WISH, like the shirt colour beside it: the league hands the code out, and the one
-                    it hands out is another one where this is taken. */}
-                <Label className={FIELD_LABEL}>Wunschkürzel</Label>
-                <Input
-                  placeholder="z.B. GG"
-                  maxLength={KUERZEL_LAENGE}
-                  className={FIELD_INPUT}
+              {/* Both ids while the check has something to say: the standing explanation and the
+                  verdict on this code are two different sentences, and naming one alone drops the
+                  other for a reader who cannot see either. */}
+              <div className="flex w-full flex-col gap-y-1">
+                <TextField
+                  isRequired
+                  name="schule.shorthand"
+                  aria-describedby={kuerzelHinweis === null ? kuerzelErklaerungId : `${kuerzelErklaerungId} ${kuerzelHinweisId}`}
+                  value={schule.shorthand}
+                  onChange={(next) => setSchuleFeld({ shorthand: next.toUpperCase() })}
+                  onBlur={() => {
+                    onFieldLeft(["schule.shorthand"]);
+                    onKuerzelLeft(schule.shorthand);
+                  }}>
+                  {/* A WISH, like the shirt colour beside it: the league hands the code out, and the one
+                      it hands out is another one where this is taken. */}
+                  <Label className={FIELD_LABEL}>Wunschkürzel</Label>
+                  <Input
+                    placeholder="z.B. GG"
+                    maxLength={KUERZEL_LAENGE}
+                    className={FIELD_INPUT}
+                  />
+                  <FieldError className={FIELD_ERROR} />
+                  {/* Under the box rather than beside it: the row is a two-up grid from `sm` up, and a
+                      line beside the field would push its neighbour out of the column. */}
+                  {kuerzelHinweis !== null && (
+                    <p
+                      id={kuerzelHinweisId}
+                      className="fluid-xxs text-foreground-muted mt-1 font-medium">
+                      {kuerzelHinweis}
+                    </p>
+                  )}
+                </TextField>
+                <Hint
+                  mode="inline"
+                  describes={kuerzelErklaerungId}
+                  text="Zwei Buchstaben, mit denen Tabelle und Spielplan Dein Team abkürzen."
                 />
-                <FieldError className={FIELD_ERROR} />
-                {/* Under the box rather than beside it: the row is a two-up grid from `sm` up, and a
-                    line beside the field would push its neighbour out of the column. */}
-                {kuerzelHinweis !== null && (
-                  <p
-                    id={kuerzelHinweisId}
-                    className="fluid-xxs text-foreground-muted mt-1 font-medium">
-                    {kuerzelHinweis}
-                  </p>
-                )}
-              </TextField>
+              </div>
 
               {/* Judged on CHANGE rather than on blur, as every picked field is: a selection is complete
                   the moment it is made. */}

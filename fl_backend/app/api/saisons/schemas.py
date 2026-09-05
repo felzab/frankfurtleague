@@ -57,7 +57,7 @@ class FLSaisonRules(BaseModel):
     forfeit_ergebnis: FLSaisonForfeitErgebnis
 
     # No validator holds `saison_spieler` to this: it bounds what the FORM offers, so narrowing it
-    # cannot invalidate a season already played.
+    # cannot invalidate a season already played. What a narrowing costs is `docs/backend/spec.md :: I158`.
     erlaubte_stufen: list[FLSpielerStufe] = Field(min_length=1)
 
 

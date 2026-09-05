@@ -13,6 +13,11 @@ did the reasonable thing in their absence.
 
 **The rules about writing one.**
 
+- **Nothing in a brief may ask for an answer mid-task.** A dispatched agent's only channel back is
+  its final report, so an instruction to tell you, announce something or wait for your reply is one
+  no agent can obey — agents have spent a paragraph each explaining why. Ask for it in the report,
+  or write
+  the instruction as _stop and report_, which is reachable and returns the task to you.
 - **Glob every path before the brief goes out.** A file list assembled from another agent's report
   inherits that report's errors, and the agent's rediscovery costs more than the check.
 - **Give every figure its provenance**, because a number acquires false authority in transit —
@@ -85,7 +90,7 @@ did the reasonable thing in their absence.
                 You run NO git command that writes and NO command that reaches the remote: no
                 add, commit, checkout, stash, reset, no push, and no `gh` at all -- not
                 `gh pr create`, not `gh pr ready`, not `gh pr merge`. A `git stash push` by one
-                agent emptied the shared tree under nine editors, and concurrent staging corrupts
+                agent emptied the shared tree under the whole fleet, and concurrent staging corrupts
                 the index. `git checkout -- <path>` is included: it restores from the INDEX, not
                 from the last commit, so in a shared tree it discards a colleague's unstaged work.
                 A backup you take by hand carries the same hazard and the same rule: it obliges you
@@ -96,7 +101,7 @@ did the reasonable thing in their absence.
                 changed and why -- and spend no more on it: I assemble and word every commit
                 message myself, and a polished draft is work neither of us keeps.
                 The gate is mine as well. `./scripts/gate/verify.sh` is a wave-boundary instrument and
-                a run over a tree a dozen agents are writing exits non-zero on somebody else's
+                a run over a tree the fleet is writing exits non-zero on somebody else's
                 half-written file, so drive your own checks by calling the underlying tool.
                 `.claude/CLAUDE.md` §2 defines a finished task as one whose branch is pushed and
                 whose draft pull request is open. That definition is addressed to me, not to you:
@@ -124,10 +129,13 @@ did the reasonable thing in their absence.
                 - Plant ONLY in a file you own. If proving a test's teeth needs breaking code you
                   were not given, that is the signal to drive against a scratch copy, never to
                   take a wider licence.
-                - Tell me BEFORE the first plant which files you will break, and confirm in your
-                  report that each was restored and verified byte-for-byte against its snapshot.
-                  Nothing in a working tree tells me a ten-second plant from an abandoned one, so
-                  an undeclared one costs a full stop on that file and a round trip.
+                - The files you may break are the ones section 1 lists and no others, so the
+                  window is already open in my register before you start: you have no channel to
+                  me between dispatch and your report (section 14), and no announcement is owed.
+                  Confirm in the report that each file was restored and verified byte-for-byte
+                  against its snapshot. Nothing in a working tree tells me a ten-second plant from
+                  an abandoned one, so a restore you leave unconfirmed costs a full stop on that
+                  file and a round trip.
                 - Snapshot the file immediately before each break, never once at the start of a
                   run; after each restore compare it against the snapshot and STOP if it differs
                   -- its owner edited it while you held the copy, and restoring over that reverts
@@ -141,7 +149,9 @@ did the reasonable thing in their absence.
                 - Never loop plant-and-restore against the shared tree to measure something. Every
                   run overlapping the loop fails for reasons unrelated to its own subject, and the
                   agents who see that red have no way to attribute it. Copy out of the tree, or
-                  ask me for an exclusive window and wait for it.
+                  STOP and report that the measurement needs an exclusive window -- I grant one by
+                  quiescing the fleet and dispatching again, which is the only shape waiting can
+                  take from where you sit.
 
 9  TRAPS.       Each of these returns a confident wrong answer with nothing failing.
                 - Bash masks a child exit code to a byte, so 2304 reads as 0.
@@ -176,15 +186,17 @@ did the reasonable thing in their absence.
 
 10 TELL ME.     Two things stop your work and come to me. Both are cheap for you to raise and
                 expensive for me to find afterwards.
-                - BEFORE you change a shared manifest, a guard or a hook registration, tell me
-                  and WAIT. Such a change alters what every other agent may DO, not only what it
-                  measures, so it needs an exclusive window -- and only you know it is coming, so
-                  reporting it afterwards is reporting damage. One added version pin made every
-                  other agent's gate invocation refuse, and four reported it as their own finding.
-                - A guard refusal is a rule arriving: comply with it and tell me. Reaching the
-                  same end through a different tool is a violation however good the reason, and
-                  so is rewording until it passes. An arm you honestly report as undriven costs
-                  nothing.
+                - BEFORE you change a shared manifest, a guard or a hook registration, STOP and
+                  report it instead of making the change. Such a change alters what every other
+                  agent may DO, not only what it measures, so it needs an exclusive window -- and
+                  your report is your only channel to me (section 14), so there is no telling me
+                  and waiting: the unfinished task comes back to me and I re-dispatch it into a
+                  quiesced fleet. One added version pin made every other agent's gate invocation
+                  refuse, and four reported it as their own finding.
+                - A guard refusal is a rule arriving: comply with it and report it under section
+                  14, which is the only route you have. Reaching the same end through a different
+                  tool is a violation however good the reason, and so is rewording until it
+                  passes. An arm you honestly report as undriven costs nothing.
 
 11 HAND-OVER.   Do not edit a shared document, or any file another agent owns. Write your hunk to
                 the scratch path, naming the file, the section anchor and the exact replacement
@@ -192,7 +204,7 @@ did the reasonable thing in their absence.
                 for another agent, that agent's brief names the same path.
 
 12 MEASURE.     Interleave the arms -- A, B, A, B in one window -- and report the ratio: two arms
-                measured minutes apart on a machine a dozen agents share measure the machine.
+                measured apart on a machine the fleet shares measure the machine.
                 Every figure is an upper bound. Report a spread and what else was running, never a
                 bare number, and never a comparison against a figure taken earlier in the session.
                 Where a whole exceeds the arithmetic of its parts, say so: that gap is a finding.
@@ -233,6 +245,14 @@ did the reasonable thing in their absence.
                 documentation-shaped write. `.claude/hooks/docs-standard.sh` puts the Spine and
                 the bounds in front of every such write, sliced out of the standard at runtime --
                 one section of it, and never a substitute for the read.
+                A GREEN TYPE-CHECKER, LINTER, FORMATTER AND TEST RUN ARE NOT A GREEN DOCS GATE.
+                Not one of the four reads a comment's bounds or resolves a citation, so every one
+                of them passes over an over-long block and a path that names nothing, and a report
+                saying "all checks green" on their evidence alone is wrong. Nothing you write is
+                green until `python scripts/checks/check_docs.py`, run from the repository root,
+                has come back clean: read its exit code from the command itself, never through a
+                pipe, and read its findings on stdout. It reads the whole corpus rather than your
+                diff, so findings naming files you do not own are somebody else's.
 ```
 
 **Section 15 names `docs/_standard/standard.md` and `docs/_standard/worked-examples.md` rather than copying either.**
@@ -250,8 +270,7 @@ length cap**, which is why none is set: they look less like findings than the fi
 
 **(e) is asked because agents do not volunteer it.** A wrong premise worked around in silence leaves
 the next brief carrying it, and the agent is the only party who can see it: one brief prescribed its
-own proof — run the backend suite, expect it to pass — against a suite that returned exit 1 with 155
-failures.
+own proof — run the backend suite, expect it to pass — against a suite that returned exit 1.
 
 ## The auditor variant
 

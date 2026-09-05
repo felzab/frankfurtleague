@@ -22,6 +22,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_GROESSE_MAX,
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
+    BEWERBUNG_STUFENGROESSE_MAX,
     BEWERBUNG_TOKEN_MAX_LENGTH,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
@@ -153,6 +154,9 @@ class FLBewerbung(BaseModel):
     kontakte: FLSaisonTeamKontakte
     trikot: FLBewerbungTrikot
     kader: FLBewerbungKader
+    # How many pupils the school's whole Abi-Jahrgang holds, which the applicant states and nothing
+    # later checks. Defaulted for `wunschgegner`'s reason.
+    stufengroesse: int | None = None
     # A FREE STRING, never a club reference: the school may name an applicant the league has not
     # accepted yet, and a picker over the accepted ones would give a LATER applicant the longer list.
     # Defaulted for `app/api/teams/schemas.py :: FLTeam`'s reason.
@@ -493,6 +497,9 @@ class FLPostBewerbungPayload(BaseModel):
     kontakte: FLBewerbungKontaktePayload
     trikot: FLBewerbungTrikotPayload
     kader: FLBewerbungKaderPayload
+    # Required where `wunschgegner` is defaulted: a wish has a null answer and a cohort's size has
+    # none, so an omitted key is a 422. `ge=1` -- a school with no Abi-Jahrgang fields no team.
+    stufengroesse: int = Field(ge=1, le=BEWERBUNG_STUFENGROESSE_MAX)
     # DEFAULTED where this payload's other nullable keys are required: `scripts/ops/deploy.sh` recreates
     # both packages at one pinned build, so the only form older than this field is a page already
     # open in a visitor's browser across a recreate.

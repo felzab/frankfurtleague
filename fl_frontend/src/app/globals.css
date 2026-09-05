@@ -713,6 +713,12 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   content: none;
 }
 
+/* Red is what a refused field looks like, and a column of stars in it reads as a form that has
+   already refused. Unlayered, so it outranks HeroUI's `after:text-danger`, which is more specific. */
+form[data-required-marks="on"] [data-required="true"] > .label::after {
+  color: var(--fg-muted);
+}
+
 /* Every HeroUI `Switch` opts out of rings: it rings off react-aria's global
    focus-visible modality, so a press following any earlier key press counted as
    keyboard focus. It turns its border brand instead, like every field here. */

@@ -36,6 +36,7 @@ import type {
 } from "@/features/bewerbungen/types";
 import type { FLTrainerZugleich, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
+import type { ReactNode } from "react";
 
 /** What the route answers. Always 200, so a non-2xx here is a genuine transport failure. */
 type BewerbungAntwort = { success: boolean; message?: string; error?: string; fieldErrors?: FieldErrors };
@@ -92,11 +93,17 @@ export function BewerbungForm({
   schulen,
   isSchulenLesbar,
   vergebeneFarben,
+  hinweisSlot,
 }: {
   saisonId: string;
   schulen: readonly { id: string; name: string }[];
   isSchulenLesbar: boolean;
   vergebeneFarben: readonly FLTrikotFarbe[];
+  /**
+   * The aside standing over the form and again under its receipt, handed in rather than imported:
+   * the band's recipe shares a module with a server query, which no client module may reach.
+   */
+  hinweisSlot?: ReactNode;
 }) {
   const [isPending, startTransition] = useTransition();
 
@@ -281,106 +288,120 @@ export function BewerbungForm({
 
   if (isEingereicht) {
     return (
-      /* The form unmounts from under the pressed button, so focus would fall to `<body>` with nothing
-         announced. `role="status"` reads the panel out, and the ref takes the caret it inherits. */
-      <section
-        ref={eingereichtRef}
-        role="status"
-        tabIndex={-1}
-        className="border-success/40 bg-success/10 flex w-full flex-col items-center gap-y-3 rounded-2xl border p-8 text-center outline-none">
-        <CircleCheck className="text-success-strong size-10" />
-        <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Deine Bewerbung ist eingegangen</h2>
-        {/* No seat is named, each holding a link of its own: the reader is the one person who can
-            chase the other two, which is why the panel asks rather than reassures. */}
-        <p className="muted-hint max-w-md">
-          Jede Kontaktperson hat eine E-Mail mit einem eigenen Link zur Bestätigung bekommen. Vollständig ist Deine Bewerbung, sobald alle drei
-          bestätigt haben; dann schauen wir sie uns an und melden uns bei allen drei Kontaktpersonen. Fehlt nach{" "}
-          {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen eine Bestätigung, löschen wir die Bewerbung mit allen Angaben und sagen Dir
-          Bescheid. Sag den anderen am besten selbst Bescheid, dann geht es schneller.
-        </p>
-      </section>
+      <>
+        {/* The form unmounts from under the pressed button, so focus would fall to `<body>` with nothing
+            announced. `role="status"` reads the panel out, and the ref takes the caret it inherits. */}
+        <section
+          ref={eingereichtRef}
+          role="status"
+          tabIndex={-1}
+          className="border-success/40 bg-success/10 flex w-full flex-col items-center gap-y-3 rounded-2xl border p-8 text-center outline-none">
+          <CircleCheck className="text-success-strong size-10" />
+          <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Deine Bewerbung ist eingegangen</h2>
+          {/* No seat is named, each holding a link of its own: the reader is the one person who can
+              chase the other two, which is why the panel asks rather than reassures. */}
+          <p className="muted-hint max-w-md">
+            Jede Kontaktperson hat eine E-Mail mit einem eigenen Link zur Bestätigung bekommen. Vollständig ist Deine Bewerbung, sobald alle
+            drei bestätigt haben; dann schauen wir sie uns an und melden uns bei allen drei Kontaktpersonen. Fehlt nach{" "}
+            {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen eine Bestätigung, löschen wir die Bewerbung mit allen Angaben und sagen Dir
+            Bescheid. Sag den anderen am besten selbst Bescheid, dann geht es schneller.
+          </p>
+        </section>
+
+        {/* Below the live region and never inside it: what the applicant pressed for is the receipt,
+            and an invitation read out with it buries the answer. */}
+        {hinweisSlot}
+      </>
     );
   }
 
   return (
-    <Form
-      ref={formRef}
-      // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-      validationBehavior="aria"
-      // A create form, so its required fields carry the asterisk every other create form marks them
-      // with: nearly every box here is required, and a stranger fills this in once.
-      data-required-marks="on"
-      validationErrors={mergedErrors}
-      className="flex w-full flex-col gap-5"
-      onSubmit={runOnSubmit(handleSubmit)}>
-      <FormSchuleSection
-        schulen={schulen}
-        auswahl={draft.auswahl}
-        schule={draft.schule}
-        onAuswahlPicked={pickAuswahl}
-        onSchuleChange={(schule: BewerbungSchuleDraft) => applyDraft((current) => ({ ...current, schule: schule }))}
-        onFieldLeft={validateFields}
-        onSchulformPicked={(paths, schule) => {
-          const next: BewerbungFormDraft = { ...draft, schule: schule };
+    <>
+      {/* Outside the `<Form>`, so the aside is neither a field nor part of what a submit reads. Its
+          own sibling here rather than the page's, for the reason the prop carries. */}
+      {hinweisSlot}
 
-          applyDraft(next);
-          validatePicked(paths, next);
-        }}
-        onKuerzelLeft={checkKuerzel}
-        kuerzelHinweis={kuerzelHinweis(draft.schule.shorthand, kuerzelVerdikt, isKuerzelPending)}
-        isSchulenLesbar={isSchulenLesbar}
-      />
-
-      {BEWERBUNG_SEATS.map(({ value, label }, index) => (
-        <FormKontaktpersonenSection
-          key={value}
-          seat={value}
-          label={label}
-          person={draft.kontakte[value]}
-          // On the first panel alone: the rule holds for all three, and a reader meets it before
-          // they name anybody rather than after the third.
-          zeigtAltersHinweis={index === 0}
-          trainerWahl={value === "trainer" ? trainerWahl : undefined}
-          onTrainerWahl={value === "trainer" ? pickTrainerWahl : undefined}
-          onChange={(person) => applyPerson(value, person)}
+      <Form
+        ref={formRef}
+        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
+        validationBehavior="aria"
+        // A create form, so its required fields carry the asterisk every other create form marks them
+        // with: nearly every box here is required, and a stranger fills this in once.
+        data-required-marks="on"
+        validationErrors={mergedErrors}
+        className="flex w-full flex-col gap-5"
+        onSubmit={runOnSubmit(handleSubmit)}>
+        <FormSchuleSection
+          schulen={schulen}
+          auswahl={draft.auswahl}
+          schule={draft.schule}
+          stufengroesse={draft.stufengroesse}
+          onAuswahlPicked={pickAuswahl}
+          onSchuleChange={(schule: BewerbungSchuleDraft) => applyDraft((current) => ({ ...current, schule: schule }))}
+          onStufengroesseChange={(stufengroesse) => applyDraft((current) => ({ ...current, stufengroesse: stufengroesse }))}
           onFieldLeft={validateFields}
+          onSchulformPicked={(paths, schule) => {
+            const next: BewerbungFormDraft = { ...draft, schule: schule };
+
+            applyDraft(next);
+            validatePicked(paths, next);
+          }}
+          onKuerzelLeft={checkKuerzel}
+          kuerzelHinweis={kuerzelHinweis(draft.schule.shorthand, kuerzelVerdikt, isKuerzelPending)}
+          isSchulenLesbar={isSchulenLesbar}
         />
-      ))}
 
-      <FormEinwilligungSection
-        erteilt={draft.kontakte.ansprechperson.einwilligung.erteilt}
-        onErteiltPicked={pickEinwilligung}
-      />
+        {BEWERBUNG_SEATS.map(({ value, label }, index) => (
+          <FormKontaktpersonenSection
+            key={value}
+            seat={value}
+            label={label}
+            person={draft.kontakte[value]}
+            // On the first panel alone: the rule holds for all three, and a reader meets it before
+            // they name anybody rather than after the third.
+            zeigtAltersHinweis={index === 0}
+            trainerWahl={value === "trainer" ? trainerWahl : undefined}
+            onTrainerWahl={value === "trainer" ? pickTrainerWahl : undefined}
+            onChange={(person) => applyPerson(value, person)}
+            onFieldLeft={validateFields}
+          />
+        ))}
 
-      <FormTeamSection
-        trikot={draft.trikot}
-        kader={draft.kader}
-        wunschgegner={draft.wunschgegner}
-        // The same list the school picker reads, offered as SUGGESTIONS rather than as a closed set:
-        // a school may wish to play a fellow applicant no list holds yet.
-        schulen={schulen}
-        vergebeneFarben={vergebeneFarben}
-        onTrikotChange={(trikot) => applyDraft((current) => ({ ...current, trikot: trikot }))}
-        onKaderChange={(kader) => applyDraft((current) => ({ ...current, kader: kader }))}
-        onWunschgegnerChange={(wunschgegner) => applyDraft((current) => ({ ...current, wunschgegner: wunschgegner }))}
-        onFieldLeft={validateFields}
-        onFarbePicked={(paths, trikot) => {
-          const next: BewerbungFormDraft = { ...draft, trikot: trikot };
+        <FormEinwilligungSection
+          erteilt={draft.kontakte.ansprechperson.einwilligung.erteilt}
+          onErteiltPicked={pickEinwilligung}
+        />
 
-          applyDraft(next);
-          validatePicked(paths, next);
-        }}
-      />
+        <FormTeamSection
+          trikot={draft.trikot}
+          kader={draft.kader}
+          wunschgegner={draft.wunschgegner}
+          // The same list the school picker reads, offered as SUGGESTIONS rather than as a closed set:
+          // a school may wish to play a fellow applicant no list holds yet.
+          schulen={schulen}
+          vergebeneFarben={vergebeneFarben}
+          onTrikotChange={(trikot) => applyDraft((current) => ({ ...current, trikot: trikot }))}
+          onKaderChange={(kader) => applyDraft((current) => ({ ...current, kader: kader }))}
+          onWunschgegnerChange={(wunschgegner) => applyDraft((current) => ({ ...current, wunschgegner: wunschgegner }))}
+          onFieldLeft={validateFields}
+          onFarbePicked={(paths, trikot) => {
+            const next: BewerbungFormDraft = { ...draft, trikot: trikot };
 
-      <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
-        <Button
-          type="submit"
-          isPending={isPending}
-          isDisabled={isPending}
-          className={formButton({ intent: "submit", fullWidth: true })}>
-          {isPending ? "Wird abgeschickt..." : "Bewerbung abschicken"}
-        </Button>
-      </div>
-    </Form>
+            applyDraft(next);
+            validatePicked(paths, next);
+          }}
+        />
+
+        <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
+          <Button
+            type="submit"
+            isPending={isPending}
+            isDisabled={isPending}
+            className={formButton({ intent: "submit", fullWidth: true })}>
+            {isPending ? "Wird abgeschickt..." : "Bewerbung abschicken"}
+          </Button>
+        </div>
+      </Form>
+    </>
   );
 }

@@ -32,6 +32,7 @@ import {
   ALTER_AUSSERHALB,
   BEWERBUNG_GRUND_MAX_LENGTH,
   BEWERBUNG_KADER_GROESSE_MAX,
+  BEWERBUNG_STUFENGROESSE_MAX,
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
   BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
   KUERZEL_LAENGE,
@@ -129,6 +130,9 @@ export const FLBewerbungSchema = z.object({
   kontakte: FLSaisonTeamKontakteSchema,
   trikot: FLBewerbungTrikotSchema,
   kader: FLBewerbungKaderSchema,
+  // Null on an application stored before the box shipped, as `bestaetigungen` is: an absent number
+  // is one nobody was asked for, where a zero would read as an Abi-Jahrgang with nobody in it.
+  stufengroesse: z.int().nullable(),
   // A FREE STRING and never a club id: a school may name an applicant the league has not accepted,
   // so nothing here resolves against the roster.
   wunschgegner: z.string().nullable(),
@@ -513,15 +517,19 @@ export type FLBewerbungTrikotPayload = z.infer<typeof FLBewerbungTrikotPayloadSc
 /** Mirrors `FLBewerbungKaderPayload` — the school's own estimate, which nothing later holds it to. */
 export const FLBewerbungKaderPayloadSchema = z
   .object({
+    // `z.number().int()` and never `z.int()`: that spelling answers `null` and `1.5` with one
+    // `invalid_type`, so an emptied box and a typed fraction would both draw the empty box's message.
     voraussichtliche_groesse: z
-      .int({ error: "Bitte gib an, mit wie vielen Spielern Du ungefähr rechnest." })
+      .number({ error: "Bitte gib an, mit wie vielen Spielern Du ungefähr rechnest." })
+      .int({ error: "Ein Kader zählt keine halben Spieler." })
       .min(1, { error: "Ein Kader hat mindestens einen Spieler." })
       .max(BEWERBUNG_KADER_GROESSE_MAX, { error: KADER_ZU_GROSS }),
     // Answered rather than nullable: a blank box leaves the league guessing whether the school means
     // none or has not looked. The refusal names the level the label names, „im Verein“ alone being
     // answered from breadth of membership, not from level.
     gute_spieler: z
-      .int({ error: "Bitte gib an, wie viele davon im Verein mindestens Verbandsliga spielen." })
+      .number({ error: "Bitte gib an, wie viele davon im Verein mindestens Verbandsliga spielen." })
+      .int({ error: "Bitte gib eine ganze Zahl an Spielern ein." })
       .nonnegative({ error: "Bitte gib eine Zahl ab 0 ein." })
       .max(BEWERBUNG_KADER_GROESSE_MAX, { error: KADER_ZU_GROSS }),
   })
@@ -546,6 +554,15 @@ export const FLPostBewerbungPayloadSchema = z
     kontakte: FLBewerbungKontaktePayloadSchema,
     trikot: FLBewerbungTrikotPayloadSchema,
     kader: FLBewerbungKaderPayloadSchema,
+    // `z.number().int()` for `FLBewerbungKaderPayloadSchema`'s reason: `z.int()` would answer an
+    // emptied box and a typed fraction alike.
+    stufengroesse: z
+      // „Abi-Jahrgang" rather than the label's „Stufe": a refusal stands alone, where the hint that
+      // settles the label's unit is not beside it to be read.
+      .number({ error: "Bitte gib an, wie viele Schülerinnen und Schüler in Deinem Abi-Jahrgang sind." })
+      .int({ error: "Bitte gib eine ganze Zahl ein." })
+      .min(1, { error: "Bitte gib eine Zahl ab 1 ein." })
+      .max(BEWERBUNG_STUFENGROESSE_MAX, { error: `Bitte gib höchstens ${String(BEWERBUNG_STUFENGROESSE_MAX)} an.` }),
     // The one OPTIONAL key on this payload, mirroring the backend's one default: a client that has
     // not asked yet omits it. Line-bounded like `schule.team_name` and for its reason
     // (`docs/frontend/spec.md :: I87`).

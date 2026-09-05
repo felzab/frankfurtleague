@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { KONTAKT_EMAIL } from "@/core/brand.ts";
+import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand.ts";
 import { BESTAETIGUNG_ABSAETZE, BESTAETIGUNG_EINWILLIGUNG, fuelleFassung } from "@/core/einwilligung.ts";
 import { FIELD_LABEL } from "@/shared/components/ui/formFieldStyles.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
@@ -30,7 +30,10 @@ const { default: BewerbungPage } = await import("@/app/(public)/bewerbung/[saiso
 const { default: LandingPage } = await import("@/app/(public)/page.tsx");
 const { default: KontaktPage } = await import("@/app/(public)/(meta)/kontakt/page.tsx");
 const { BewerbungBandSkeleton } = await import("./components/ui/BewerbungBandSkeleton.tsx");
+const { BewerbungInstagramBand } = await import("./components/ui/BewerbungInstagramBand.tsx");
+const { band } = await import("./components/ui/BewerbungOffenBand.tsx");
 const { ctaButton } = await import("@/shared/components/ui/formButtons.ts");
+const { textLink } = await import("@/shared/components/ui/textLink.ts");
 const { formPanel } = await import("@/shared/components/ui/formPanel.ts");
 const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
 const { fensterZustand, stampEinwilligungFassung } = await import("./utils.ts");
@@ -53,6 +56,7 @@ const VIEW = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "compone
 const NEXT_CONFIG = readFileSync(path.join(FRONTEND_DIR, "next.config.ts"), "utf8");
 const BAND = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungOffenBand.tsx"), "utf8");
 const SKELETON = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungBandSkeleton.tsx"), "utf8");
+const HINWEIS_QUELLE = readFileSync(path.join(SRC_DIR, "features", "bewerbungen", "components", "ui", "BewerbungInstagramBand.tsx"), "utf8");
 const KONTAKT_PAGE = readFileSync(path.join(APP_DIR, "(public)", "(meta)", "kontakt", "page.tsx"), "utf8");
 const POST_ROUTE = readFileSync(path.join(APP_DIR, "api", "bewerbung", "route.ts"), "utf8");
 const CONFIRM_ROUTE = readFileSync(path.join(APP_DIR, "api", "bestaetigung", "route.ts"), "utf8");
@@ -109,6 +113,13 @@ const ZUSTAENDE = [
 
 const LAEUFT = ZUSTAENDE.find((eintrag) => eintrag.zustand === "laeuft")?.html ?? "";
 const GESCHLOSSEN = ZUSTAENDE.find((eintrag) => eintrag.zustand === "geschlossen")?.html ?? "";
+
+/** The strip on its own, so a case reads the invitation rather than the page it is sitting on. */
+const HINWEIS = renderMarkup(BewerbungInstagramBand, {});
+
+/** The sentence a reader meets, spelled here so a re-polish of the rendered one fails rather than ships. */
+const HINWEIS_SATZ =
+  "Ihr wollt eure Chancen auf eine Zusage verbessern? Ladet einen Beitrag auf Instagram hoch, am besten ein Video, in dem ihr erzählt, warum ihr in die Liga wollt, und markiert @frankfurt.league.";
 
 /** The outermost element's class list, which is where a recipe lands — read inside its own tag alone. */
 const wurzelKlasse = (html: string): string => /class="([^"]*)"/.exec(html.slice(0, html.indexOf(">")))?.[1] ?? "";
@@ -192,6 +203,115 @@ describe("the window state the application page renders", () => {
       assert.notEqual(titel, "", `${geschlossen[index]?.zustand ?? ""} renders no answer at all`);
     }
     assert.equal(new Set(ueberschriften).size, ueberschriften.length, "two closed states give the reader the same answer");
+  });
+});
+
+describe("how the application page invites a post about the application", () => {
+  /* A school reading a closed page cannot apply, so a post tagging the league buys it nothing, and
+     the invitation and the form can drift onto different conditions. */
+  it("invites the post on the one state that takes an application", () => {
+    const eingeladen = ZUSTAENDE.filter(({ html }) => html.includes(INSTAGRAM_HANDLE));
+
+    assert.deepEqual(
+      eingeladen.map((eintrag) => eintrag.zustand),
+      ["laeuft"],
+      "a state that can take no application invites a post about one",
+    );
+  });
+
+  /* Pinned as one string because I dictated it: every other rule the page's copy keeps would produce
+     a different sentence, so a pass tidying the page toward them is what this case refuses. */
+  it("renders the sentence I dictated, whole", () => {
+    assert.equal(textOf(HINWEIS).replace(/\s+/g, " ").trim(), HINWEIS_SATZ, "the invitation was reworded");
+  });
+
+  it("reads its box off the band recipe rather than retyping it", () => {
+    assert.match(HINWEIS_QUELLE, /band\(\)/, "the strip hand-writes a box the season band already has a recipe for");
+    /* The ground token is the recipe's alone, so any hand copy of the box carries it whatever order
+       the formatter sorts the copy into, where a prefix of the spelling would miss a re-sorted one. */
+    assert.doesNotMatch(HINWEIS_QUELLE, /className="[^"]*\bbg-surface\b/, "a second spelling of the band box is back");
+    // Catches the OTHER half: a call that reaches the recipe and asks it for a different ground.
+    assert.equal(wurzelKlasse(HINWEIS), band().root(), "the strip renders a box other than the recipe's surface ground");
+  });
+
+  it("makes the handle the one tap target, and the strip itself none", () => {
+    const links = [...HINWEIS.matchAll(/<a ([^>]*)>([\s\S]*?)<\/a>/g)];
+    const attribute = links[0]?.[1] ?? "";
+
+    assert.equal(links.length, 1, "the strip offers a number of links other than the handle alone");
+    // A strip that is one large link takes a half-filled form off the screen on any stray press.
+    assert.match(HINWEIS.slice(0, HINWEIS.indexOf(">")), /^<div\b/, "the whole strip is pressable");
+    assert.equal(textOf(links[0]?.[2] ?? "").trim(), INSTAGRAM_HANDLE, "the link names something other than the handle");
+    assert.ok(attribute.includes(`href="${INSTAGRAM_URL}"`), "the handle points somewhere other than the profile");
+    assert.ok(attribute.includes(`class="${textLink()}"`), "the handle wears a treatment of its own");
+    // The form is half filled in behind it, and this tab is where the applicant has to come back to.
+    assert.match(attribute, /target="_blank"/, "the profile replaces the page the reader is filling in");
+    assert.match(attribute, /rel="noopener noreferrer"/, "the opened tab keeps a handle on this one");
+  });
+
+  it("carries the footer's own Instagram mark, neutral and hidden from a reader", () => {
+    const marke = [...HINWEIS.matchAll(/<span ([^>]*)>/g)].map(([, roh = ""]) => roh).find((roh) => roh.includes("instagram_logo_black.svg"));
+    const datei = path.join(FRONTEND_DIR, "public", "icons", "footer", "instagram", "instagram_logo_black.svg");
+
+    assert.notEqual(marke, undefined, "the strip masks no span with the footer's own Instagram file");
+    // A mask over a file the app does not serve renders a box of empty colour, and nothing else fails.
+    assert.ok(existsSync(datei), "the file the mask names is no longer served from `public/`");
+    assert.match(marke ?? "", /aria-hidden="true"/, "the mark is read out beside a sentence that already names Instagram");
+    // A third party's logo in our own red, under a header already carrying four brand accents.
+    assert.match(marke ?? "", /bg-foreground[\s"]/, "the mark is tinted, so the strip advertises rather than notes");
+    assert.match(marke ?? "", /size-5[\s"]/, "the mark is sized for a social row rather than for the paragraph beside it");
+  });
+
+  /* Two grades are refused here, one on each side: bold runs on this site are labels, pills, buttons
+     and one-line straplines, and `muted-meta` is the caption grade, a step under the lead paragraph
+     above it. */
+  it("sets the sentence at the page's own paragraph grade, neither bold nor the caption step", () => {
+    assert.equal(/<p class="([^"]*)"/.exec(HINWEIS)?.[1], "muted-hint", "the invitation is graded apart from the paragraphs around it");
+  });
+
+  /* The page's outline is the header's `<h1>` and one `<h2>` per panel, and this strip is neither a
+     panel nor a section of one. */
+  it("opens no heading of its own", () => {
+    assert.doesNotMatch(HINWEIS, /<h[1-6][\s>]/, "the strip spells a heading the page's outline does not account for");
+  });
+
+  it("stands once, between the page's opening block and the form element", () => {
+    const kopfEnde = LAEUFT.indexOf("</header>");
+    const einladung = LAEUFT.indexOf(INSTAGRAM_HANDLE);
+    const formular = LAEUFT.indexOf("<form");
+
+    assert.notEqual(kopfEnde, -1, "the running page closes no header, so the bounds below read nothing");
+    assert.notEqual(formular, -1, "the running page renders no form, so the bounds below read nothing");
+    assert.ok(einladung > kopfEnde, "the invitation cuts into the opening block");
+    // The `<form>` itself, not merely its first field: inside it the strip is part of what a submit reads.
+    assert.ok(einladung < formular, "the invitation stands inside the form the reader is filling in");
+    // The receipt swaps itself in for the form alone, so a second strip the PAGE held would stand
+    // beside the one under the receipt and the reader would meet the same invitation twice at once.
+    assert.equal((LAEUFT.match(/instagram_logo_black/g) ?? []).length, 1, "the running page draws the invitation other than once");
+  });
+
+  /* Read rather than rendered: the receipt replaces the form only after a submit has answered, which
+     is a state transition and no prop this suite can set. */
+  it("repeats the same strip under the receipt, outside the live region", () => {
+    // Comments blanked, so the panel's own prose about the live region is not read as the attribute.
+    const quelle = FORM.replace(/\/\*[\s\S]*?\*\//g, "");
+    const abLebend = quelle.slice(quelle.indexOf('role="status"'));
+    const lebendEnde = abLebend.indexOf("</section>");
+    assert.notEqual(lebendEnde, -1, "the receipt closes no section, so the bounds below read nothing");
+
+    // Cut at the `return` the filling state opens. Run to the end of the file instead and a slot
+    // deleted here is answered by the one above the `<Form>`, which follows this `</section>` too.
+    const branchEnde = abLebend.indexOf("return (", lebendEnde);
+    assert.notEqual(branchEnde, -1, "the filling state opens no return, so the branch below has no end");
+
+    const empfang = abLebend.slice(0, branchEnde);
+    const wiederholung = empfang.indexOf("{hinweisSlot}");
+
+    assert.equal((empfang.match(/\{hinweisSlot\}/g) ?? []).length, 1, "the receipt branch holds a number of invitations other than one");
+    assert.ok(wiederholung > lebendEnde, "the live region reads the invitation out along with the receipt");
+    // The same component at both sites, so one wording lives in one file; handed over as a node
+    // because the form is a client module and the band's recipe shares one with a server query.
+    assert.match(VIEW, /hinweisSlot=\{<BewerbungInstagramBand \/>\}/, "the form is handed something other than the page's own strip");
   });
 });
 

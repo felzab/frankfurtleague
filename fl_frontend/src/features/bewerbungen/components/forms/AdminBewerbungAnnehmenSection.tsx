@@ -203,6 +203,14 @@ export function AdminBewerbungAnnehmenSection({
                   </dl>
                 </div>
 
+                {/* Only where the press creates the club: this is the moment the address the school
+                    typed becomes public, and no other arm publishes anything (`docs/datenschutz.md` §4). */}
+                {createsTeam && (
+                  <p className="fluid-xxs text-foreground leading-normal font-medium">
+                    Die Adresse der Schule steht danach öffentlich auf der Teamseite.
+                  </p>
+                )}
+
                 {/* No undo is named on purpose: no endpoint takes an entry back, and the message to
                     the school goes out with the press. */}
                 <p className="fluid-xxs text-foreground leading-normal font-medium">

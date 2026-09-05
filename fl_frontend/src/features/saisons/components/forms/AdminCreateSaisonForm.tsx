@@ -72,17 +72,19 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
             maxLength={SAISON_ID_LENGTH}>
             <Label className={FIELD_LABEL}>Saison-ID</Label>
             <Input
-              placeholder="z.B. 2526"
+              placeholder="z.B. 2027"
               className={`${FIELD_INPUT} font-extrabold tracking-wider`}
             />
             <FieldError className={FIELD_ERROR} />
           </TextField>
 
-          {/* The one thing about the id a reader cannot work out from the field itself: there is no rename. */}
+          {/* Two things about the id the field itself cannot carry: it is a calendar year rather than
+              a school year (`fl_frontend/src/features/bewerbungen/utils.ts :: abiJahrgang`), and a
+              wrong one cannot be renamed away. */}
           <Callout
             severity="info"
             title="Die Saison-ID lässt sich später nicht ändern">
-            Üblich sind die beiden Jahreszahlen: 2526 steht für die Saison 2025/26.
+            Die ID ist das Kalenderjahr, in dem gespielt wird, und kein Schuljahr: Die Saison im Jahr 2027 bekommt die ID 2027.
           </Callout>
 
           <div className={FIELD_PAIR}>

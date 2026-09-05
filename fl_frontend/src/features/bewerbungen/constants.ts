@@ -63,6 +63,13 @@ export const BEWERBUNG_KADER_GROESSE_MAX = 200;
 export const BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH = 120;
 
 /**
+ * How many pupils one Abi-Jahrgang holds, the ones who never play included, mirrored from
+ * `fl_backend/app/shared/schemas/bounds.py`. A ceiling against a slipped digit rather than against a
+ * real cohort: no school in the league fields an Abi-Jahrgang this size.
+ */
+export const BEWERBUNG_STUFENGROESSE_MAX = 999;
+
+/**
  * The span a contact person's birthdate has to fall in, mirrored from
  * `fl_backend/app/shared/schemas/bounds.py`. The ceiling refuses a mistyped century rather than a
  * real age, and no other date in an application gains a bound.

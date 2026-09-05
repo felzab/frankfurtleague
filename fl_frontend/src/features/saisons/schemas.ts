@@ -198,7 +198,7 @@ const saisonPayloadFields = {
 export const FLPostSaisonPayloadSchema = z
   .object({
     // Chosen rather than generated, unlike every other create: `saisons._id` IS the referenced string.
-    id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen, z.B. 2526." }),
+    id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen, z.B. 2027." }),
     ...saisonPayloadFields,
   })
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
