@@ -85,6 +85,7 @@ deliverable.
 | `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                                                            | FE                                                                          | Open     |
 | `2zah-pvu2` | The unit that sets the gate's wall clock costs substantially more inside a full run than it costs alone, and nothing establishes why                              | Ops, gate, tests                                                            | Open     |
 | `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                                                               | FE, BE, DB, Docs, spiele                                                    | Open     |
+| `3ffa-s9dg` | A root-level directory outside the repository prefixes is a path the resolver cannot see                                                                          | Ops, gate, tests                                                            | Open     |
 | `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                                                              | FE, Ops, gate, tests, saisons                                               | Open     |
 | `3hdg-3r59` | The replace and the undraw each write the season's clearing, and each is proved separately                                                                        | BE, DB, Docs, tests, saisons                                                | Open     |
 | `3pb5-7qyc` | `--accent-info` has no `-solid` grade and no on-colour, and nothing records why                                                                                   | FE, Ops, Docs, gate                                                         | Open     |
@@ -98,7 +99,7 @@ deliverable.
 | `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                                                        | FE, tests, saisons, spiele, teams                                           | Open     |
 | `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                                                     | FE, BE, Docs, meta, spieler                                                 | Blocked  |
 | `8y7c-rstr` | No birthdate is stored, and every age rule guesses from `stufe`                                                                                                   | FE, BE, DB, Docs, spieler                                                   | Blocked  |
-| `9r6p-z26g` | Five fixture repositories are copied out of a live directory behind five hand-written denylists, and one of them already differs                                  | Ops, gate, tests                                                            | Open     |
+| `9r6p-z26g` | The shared fixture builder copies a live directory behind a hand-written denylist rather than git's own file set                                                  | Ops, gate, tests                                                            | Open     |
 | `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                                                                   | FE, Ops, gate, tests                                                        | Open     |
 | `aee2-vxqc` | Starlette has deprecated the httpx its test client is handed, and the four modules using that client stop collecting when the fallback goes                       | BE, ci, tests, versions                                                     | Open     |
 | `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                                                               | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
@@ -119,6 +120,7 @@ deliverable.
 | `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing                                                 | FE, Docs, tests                                                             | Open     |
 | `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                                                                   | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
 | `f4uf-jape` | A copy test compares source text against a literal its own author typed                                                                                           | FE, BE, Docs, tests, saisons, teams                                         | Open     |
+| `f86w-7nsp` | A markdown fence inside a fenced block flips both fence readers together                                                                                          | Ops, gate, tests                                                            | Open     |
 | `fau5-jtph` | The action log's page narrows one capped read, and a toast promises more than search can show                                                                     | FE, BE, Docs, admin, aktionen                                               | Open     |
 | `fha5-k95h` | A projection and the predicate reading it are coupled in one direction, and the open one fails quietly                                                            | BE, tests, saisons                                                          | Open     |
 | `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                                                                  | BE, DB, Docs, saisons                                                       | Standing |
@@ -130,7 +132,7 @@ deliverable.
 | `hnx7-zbb9` | One field list is drift-guarded on the backend and hand-written on the frontend                                                                                   | FE, BE, tests, saisons                                                      | Open     |
 | `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                                                            | FE, tests                                                                   | Open     |
 | `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                                                                     | BE, Docs, spiele, teams                                                     | Open     |
-| `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                                                       | FE, Docs                                                                    | Decided  |
+| `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                                                       | FE, Docs                                                                    | Open     |
 | `ja32-9rpv` | A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches                                                           | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
 | `jcpc-dee5` | Two routes sharing a path and a method collapse to one before the guard sweep reads them                                                                          | BE, tests                                                                   | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                                                       | BE, tests, saisons                                                          | Open     |
@@ -160,6 +162,7 @@ deliverable.
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                                                            | FE, BE, DB, admin, bewerbungen                                              | Standing |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                                                        | FE, BE, Docs, tests, saisons                                                | Open     |
 | `srec-8jxj` | Naming the files that required the image build costs a process per file                                                                                           | Ops, Docs, gate                                                             | Open     |
+| `sspn-uje4` | The worked examples' before passages still stand in the code they illustrate cutting                                                                              | BE, DB, Docs, tests                                                         | Open     |
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                                                    | FE, tests, versions                                                         | Open     |
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject                                                   | FE, Docs, tests                                                             | Open     |
 | `tbh5-u4c3` | The browser's own chrome takes no colour from the season scheme                                                                                                   | FE, tests                                                                   | Open     |
@@ -182,6 +185,7 @@ deliverable.
 | `xe5b-v4nu` | A fourth rendering of the retired-club refusal sits outside the helper that grades the other three                                                                | FE, tests, bewerbungen, teams                                               | Open     |
 | `y2bd-s7bf` | A consumer's share of the gate's concurrency is floored at one worker, so a machine smaller than the gate's demand is handed widths already measured to be slower | Ops, gate, ci, tests                                                        | Open     |
 | `y3jf-vwrs` | The run forms a failing gate is read through are entered by no check, so either can stop reaching a verdict while the page stays green                            | Ops, Docs, gate, ci, tests                                                  | Open     |
+| `yhbx-v974` | A markdown anchor resolves against any run of characters in the file                                                                                              | Ops, gate, tests                                                            | Open     |
 | `yjsf-uc2y` | Acceptance copies a school's postal address into the club, where an anonymous read serves it                                                                      | FE, BE, DB, Docs, bewerbungen, teams                                        | Decided  |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                                                             | FE, BE, tests                                                               | Open     |
 | `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                                                                     | BE, Docs, versions                                                          | Decided  |
@@ -189,6 +193,7 @@ deliverable.
 | `zeer-rnu5` | An unknown season answers a Bewerbung URL with 200 and a sentence about a missing deadline                                                                        | FE, BE, Docs, bewerbungen                                                   | Open     |
 | `zp46-yt3p` | The certainty walk gives up in a group of six or more                                                                                                             | BE, teams                                                                   | Standing |
 | `zr2y-4uwj` | A tie-break that provably cannot fire is what stops the index being walked                                                                                        | BE, DB, tests, bewerbungen, saisons, spiele, spieltage                      | Standing |
+| `zurr-kde5` | A source line carrying a comment marker inside a string is kept whole and read as prose                                                                           | Ops, gate, tests                                                            | Open     |
 
 ## The items
 
@@ -478,6 +483,28 @@ work inside it.
 **How far the log page can reach past its one read is not this entry's** — the filters it sends, the
 client-side search and facets over the loaded rows, and the copy toast that promises more than
 either can give are `fau5-jtph`.
+
+### `3ffa-s9dg` · A root-level directory outside the repository prefixes is a path the resolver cannot see
+
+| Tags             | Status | Depends on |
+| ---------------- | ------ | ---------- |
+| Ops, gate, tests | Open   | —          |
+
+**`scripts/checks/docs_gate/kernel.py :: repo_path` answers for a token under one of the repository
+prefixes, under a package root, or for a tracked file at the root, and for nothing else**, so a token
+carrying a slash that starts with a root-level directory outside `scripts/checks/docs_gate/kernel.py ::
+REPO_PREFIXES` falls through to the package arm and resolves to nothing. A file under such a directory
+still fails loudly through the spelling arm; the directory itself, written with its trailing slash, is
+silent on both routes, `scripts/checks/docs_gate/checks.py :: BARE_PATH_RE` being anchored on the same
+prefix tuple.
+
+**The bare-name half is a decision, not this entry.** A name with no slash is resolved by existence and a
+folder's name alone stays prose, which the comment at the resolver's bare-name arm records. What is not
+recorded anywhere is the slashed half above.
+
+**Done when** a slashed token naming a tracked root-level directory resolves as any other directory does,
+the prefix tuple derived from the tree's top level or the resolver asking git rather than a list, and a
+case in `scripts/tests/test_check_docs.py` plants a dead one and drives it red.
 
 ### `3hb2-3d9q` · One test file dies under the gate's parallel load and names no cause
 
@@ -908,40 +935,31 @@ the validator line in `fl_backend/app/core/constraints.py` and the Zod mirror in
 `fl_frontend/src/features/spieler/schemas.ts` — the sign-up form's input, and the refusal below 16.
 It is not a migration.
 
-### `9r6p-z26g` · Five fixture repositories are copied out of a live directory behind five hand-written denylists, and one of them already differs
+### `9r6p-z26g` · The shared fixture builder copies a live directory behind a hand-written denylist rather than git's own file set
 
 | Tags             | Status | Depends on |
 | ---------------- | ------ | ---------- |
 | Ops, gate, tests | Open   | —          |
 
-**Five modules build their fixture repository by copying `scripts/` into a temporary directory and
-importing the gate out of the copy**, each with its own `shutil.ignore_patterns` denylist beside the
-call: `scripts/tests/test_check_docs.py :: _load` is the original shape, and
-`scripts/tests/test_branch_checks.py`, `scripts/tests/test_kernel_gitignore.py`,
-`scripts/tests/test_platform_checks.py` and `scripts/tests/test_scope_decisions.py` each carry it
-again. **The copy is what makes the seam work** — the checker derives its repository root from its
-own location, so importing the copy is what points every check at the planted corpus rather than at
-this repository — and that part is right and asserted at the call. What is hand-written is which
-names the walk skips, and the five lists have already diverged: four name `__pycache__`, `tests`,
-`.ruff_cache`, `.pytest_cache` and `.mypy_cache`, and the one in
-`scripts/tests/test_scope_decisions.py` omits `.mypy_cache`. Nothing in this toolchain writes that
-directory, pyright being the type checker, so the difference costs nothing today — **and the next
-name added reaches four fixtures and not the fifth**.
+**Every module that builds a fixture repository copies `scripts/` into a temporary directory through
+`scripts/tests/conftest.py :: copy_scripts` and imports the gate out of the copy**, and the copy is what
+makes the seam work: the checker derives its repository root from its own location, so importing the copy
+points every check at the planted corpus rather than at this repository. The one denylist the helper
+carries, `scripts/tests/conftest.py :: IGNORED`, is hand-written: it names the cache directories the
+toolchain writes today, and the next name added reaches the walk only if somebody remembers the list.
 
-**The list is load-bearing because the directory is live while it is walked.** The scripts scope
-starts `selfcheck.sh`, `ruff`, `pyright` and the pytest suite together, and that suite distributes
-over `-n auto --dist loadfile`, so several copies walk `scripts/` at once while two other tools read
-it. `shutil.copytree` raises on a path that disappears between the directory listing and the copy, so
-the denylist is correct only while it enumerates every directory anything else writes under
-`scripts/`, and the run that meets a name nobody listed reports a `shutil` error against a temporary
-file, in a scope whose findings are otherwise about the corpus.
+**The list is load-bearing because the directory is live while it is walked.** The scripts scope starts
+`scripts/gate/selfcheck.sh`, ruff, pyright and the pytest suite together, and that suite distributes over
+`-n auto --dist loadfile`, so several copies walk `scripts/` at once while two other tools read it.
+`shutil.copytree` raises on a path that disappears between the directory listing and the copy, so the
+denylist is correct only while it enumerates every directory anything else writes under `scripts/`, and
+the run that meets a name nobody listed reports a `shutil` error against a temporary file, in a scope whose
+findings are otherwise about the corpus.
 
-**Done when** one helper builds every fixture repository in `scripts/tests/`, its file set comes from
-git rather than from a denylist written at each call, and the five modules take it.
-`scripts/checks/docs_gate/kernel.py :: gitignored` already answers a whole set of tokens in one batch
-and memoises the run, and a fixture built from git's own answer keeps an untracked new module the
-suite must still test. **A shared builder with one list is the smaller version** and closes the
-divergence without closing the class.
+**Done when** the helper's file set comes from git rather than from a denylist.
+`scripts/checks/docs_gate/kernel.py :: gitignored` already answers a whole set of tokens in one batch and
+memoises the run, and a fixture built from git's own answer keeps an untracked new module the suite must
+still test.
 
 ### `9s24-rvgc` · The email shell's token floor is a fixed number well under what its parse finds
 
@@ -1906,6 +1924,32 @@ held. **The line to draw is the authority, not the mechanism** — a sweep that 
 against something outside itself is sound, and one that compares it against a literal in the same
 commit is a note about intent wearing a test's clothes.
 
+### `f86w-7nsp` · A markdown fence inside a fenced block flips both fence readers together
+
+| Tags             | Status | Depends on |
+| ---------------- | ------ | ---------- |
+| Ops, gate, tests | Open   | —          |
+
+**`scripts/checks/docs_gate/kernel.py :: strip_fences` and `scripts/checks/docs_gate/checks.py ::
+check_diagrams` each track whether they are inside a fence with one boolean flipped by
+`scripts/checks/docs_gate/kernel.py :: FENCE_RE`**, and the comment at the second says the coupling is
+deliberate: the two open and close on the same lines. A page that fences a markdown sample containing a
+fence of its own has its inner opening read as the outer's close, so everything from there to the next
+fence line is read as prose that is really code, and everything after the outer close as code that is
+really prose.
+
+**Both halves fail in the direction that passes.** Prose read as fenced is blanked, so no rule reaches it
+and the page is green over text nobody checked; code read as prose is scanned for citations and paths, so a
+sample can draw a finding against a file it never claimed to name. Neither says which of the two happened.
+
+**The coupling is the property to keep.** Two readers disagreeing about where a block ends is worse than
+both being wrong the same way, which is why the fence test lives in one place; a repair belongs in that
+pattern's reader rather than in either caller.
+
+**Done when** a fence inside a fenced block closes only its own opener, the marker's length and character
+carried as CommonMark decides a close, and a case in `scripts/tests/test_check_docs.py` plants a mermaid
+fence inside a markdown one and proves the prose after the outer block is still read.
+
 ### `fau5-jtph` · The action log's page narrows one capped read, and a toast promises more than search can show
 
 | Tags                          | Status | Depends on |
@@ -2340,9 +2384,9 @@ rules `zp46-yt3p` records, only the placeability mechanism above is reachable.
 
 ### `huzh-hdfx` · A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more
 
-| Tags     | Status  | Depends on |
-| -------- | ------- | ---------- |
-| FE, Docs | Decided | —          |
+| Tags     | Status | Depends on |
+| -------- | ------ | ---------- |
+| FE, Docs | Open   | —          |
 
 **`.claude/rules/frontend.md` permits a toast to be styled from CSS at the shell and at the
 frontmost close button, and `fl_frontend/src/app/globals.css` styles a surface past both.** The
@@ -3502,6 +3546,28 @@ asked about.
 **Not measured:** what the spawn actually costs, and how much of a failing gate run is attributable
 to it. The mechanism above is read from the code; the magnitude is not.
 
+### `sspn-uje4` · The worked examples' before passages still stand in the code they illustrate cutting
+
+| Tags                | Status | Depends on |
+| ------------------- | ------ | ---------- |
+| BE, DB, Docs, tests | Open   | —          |
+
+**Four passages `docs/_standard/worked-examples.md` shows as the before of a cut are still the tree's
+text.** `fl_backend/app/core/crud.py :: patch_one_in_db` keeps the second docstring paragraph the COR-2
+example removes and the call-site comment the example rewrites;
+`fl_backend/tests/core/test_crud.py :: test_the_log_is_given_the_image_the_update_itself_replaced` keeps
+the docstring the example deletes; `.claude/commands/docs/audit-pr.md` keeps the orientation sentence
+the COR-15 example cuts; `fl_backend/app/shared/schemas/bounds.py` keeps the three-sentence block the
+INC-9 example moves.
+
+**The examples are exempt from the currency rule by their subject**, a before passage being a quotation
+of a defect, so nothing on the page is wrong. What is wrong is that the page promises real passages and
+the repairs it walks a reader through were never made, so a reader who checks the tree finds the defect
+standing beside the lesson.
+
+**Done when** each of the four sites carries the example's after, or a deliberate stay is recorded at the
+site with its reason, and the example that shows it says which.
+
 ### `suuz-dged` · Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so
 
 | Tags                | Status | Depends on |
@@ -3735,7 +3801,8 @@ label, so a season with two reads as two identical options on every public fixtu
 **Widening the reduction is refused here**: `fl_backend/app/api/spiele/schemas.py :: public_referee_name`
 exists to keep the surname off the base tier (`READ-REFEREE-001`), and a disambiguator built from
 the surname publishes what the rule withholds.
-Done is a facet whose options are distinguishable without it.
+
+**Done when** the facet's options are distinguishable without it.
 
 ### `uayf-u7g4` · The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
@@ -4334,6 +4401,31 @@ identity §1.6 claims between the forms is measured rather than asserted.
 `scripts/tests/test_image_assertions.py` shows what makes that affordable: a scope whose tools are
 stubbed, driven through the forms, rather than a fixture paying for a real gate run.
 
+### `yhbx-v974` · A markdown anchor resolves against any run of characters in the file
+
+| Tags             | Status | Depends on |
+| ---------------- | ------ | ---------- |
+| Ops, gate, tests | Open   | —          |
+
+**`scripts/checks/docs_gate/checks.py :: _check_citation` proves a Python anchor by the module's
+definitions and an invariant id by the table that defines it, and proves everything else by whether the
+anchor's characters appear anywhere in the target's raw text.** For a markdown target that admits an anchor
+naming no heading: a phrase in a table cell, a sentence in body prose, a run inside a fenced block the read
+does not strip.
+
+**A renamed heading keeps its citation alive.** The old wording usually survives somewhere on the page — a
+contents row, a cross-reference, a paragraph — so the one edit a section citation exists to catch is the
+one it does not catch, and COR-6's promise that a section is cited by anchor rather than described holds
+only while nobody renames one.
+
+**Tightening it is a corpus change before it is a resolver change.** A markdown anchor held to headings
+alone would newly fail every citation naming a bold key, a table row or an invariant-style phrase, several
+of which are correct and deliberate, so the widening is classified over the real corpus and each newly
+failing citation dispositioned before the rule is wired.
+
+**Done when** a markdown anchor is held to something a reader can navigate to, the classification over the
+corpus having run first, and a case in `scripts/tests/test_check_docs.py` drives a renamed heading red.
+
 ### `yjsf-uc2y` · Acceptance copies a school's postal address into the club, where an anonymous read serves it
 
 | Tags                                 | Status  | Depends on |
@@ -4574,3 +4666,33 @@ neither.
 season resolution and the shape ceiling were read off `UNIQUE_INDEXES`, `pull_current_saison_id` and
 `TeamsPerGroup` rather than executed. **The explain was not re-run for this entry**, so the two rows
 stand on that measurement rather than on anything the gate repeats.
+
+### `zurr-kde5` · A source line carrying a comment marker inside a string is kept whole and read as prose
+
+| Tags             | Status | Depends on |
+| ---------------- | ------ | ---------- |
+| Ops, gate, tests | Open   | —          |
+
+**`scripts/checks/docs_gate/kernel.py :: comments_only` reads a c-style file a line at a time, keeping any
+line on which `//` or `/*` appears anywhere**, so a line assigning a URL string survives the blanking whole
+and every reader downstream takes it for a comment. That is the case the function's own docstring names as
+the reason it exists — a path inside executable code is a string the program uses, not a claim to a reader
+— so the reader defeats its own purpose on exactly the lines that carry a marker. What holds it up is the
+same docstring's second sentence: reading TypeScript exactly costs a node launch per file, a cost weighed and
+refused.
+
+**What the kept line then reaches** is everything armed on the scan body: the citation and path readers,
+`scripts/checks/docs_gate/checks.py :: BARE_PATH_RE`, the SHA finding, and the word bound
+`scripts/checks/docs_gate/kernel.py :: comment_runs` feeds. A URL in a string can draw a path finding
+against a file that names no path, and a code line beside a real comment joins that comment's run and is
+counted against INC-9's bound.
+
+**The other three readers do not have this shape.** `scripts/checks/docs_gate/kernel.py :: _jsonc_comments`
+walks character by character and tracks whether it is inside a string; the Python reader tokenizes; the
+shell reader is line-grain over a language whose marker no literal at the margin can carry. The c-style
+reader is the one place where the population is decided by a substring test.
+
+**Done when** a line whose only marker sits inside a string literal reaches no reader as a comment, at a
+cost this repository has weighed against the exact read — a narrower same-line test that tracks quoting,
+or the node launch measured rather than assumed — with a case in `scripts/tests/test_check_docs.py` that
+plants such a line and drives the difference red.
