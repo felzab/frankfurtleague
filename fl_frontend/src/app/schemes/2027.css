@@ -34,16 +34,15 @@
        word and a link separate from the sentence around them; neither is underlined here. */
     --accent-brand: #216c2d;
 
-    /* THE focus colour. A ring departs from it only where it sits INSET on the
-       control's own fill and that fill fails WCAG 1.4.11 — `StufenPicker.tsx ::
-       STUFE_CHIP` selected is the one bearer. */
+    /* THE focus colour. A ring departs from it only where it sits INSET on the control's own
+       fill and that fill fails WCAG 1.4.11 — every selected brand-fill chip, which a search for
+       `ring-brand-solid-foreground` finds. */
     --focus: var(--fg-base);
     /* Solid fills behind --fg-on-brand. Deliberately does NOT flip -- 12.19:1 in both themes --
        while --accent-brand does, for foreground use on dark surfaces. */
     --accent-brand-solid: #033f11;
-    /* Lindengrün on the brand fill alone, 6.07:1 on it — `BrandHero.tsx :: BrandHero` sets its
-       wordmark and its mark in it. Unflipped like the fill; on a page ground it is 2.01:1 in
-       light and never text there. */
+    /* Lindengrün on the brand fill, 6.07:1 on it. Unflipped like the fill: 2.01:1 on a light
+       page, so never text there — a dark ground is the one exception, as a link's hover. */
     --accent-on-brand: #8fc752;
 
     /* The conventional hue per family — amber, red, green, blue: a result reads before its label

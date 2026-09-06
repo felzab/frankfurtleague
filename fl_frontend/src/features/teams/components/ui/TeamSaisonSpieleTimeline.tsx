@@ -25,6 +25,8 @@ const badgeColor = (ergebnisFor: FLSpielErgebnisFor): string => {
     case "L":
       return "bg-danger-solid text-danger-solid-foreground ring-danger/30";
     default:
+      // The outcome grammar's own null, never the category chip `TeamSaisonVerlauf` gives the
+      // same fixture: a `?` here says nothing is claimed, and W, D and L carry the tones.
       return "bg-muted text-foreground-muted ring-border";
   }
 };

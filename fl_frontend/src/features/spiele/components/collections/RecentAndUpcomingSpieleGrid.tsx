@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 
+import { getCurrentSaisonOrNull } from "@/features/saisons/queries";
 import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { CARDS_CASCADE } from "@/shared/components/ui/motion";
@@ -28,6 +29,9 @@ const SECTION_GRID = `${CARDS_CASCADE} grid w-full grid-cols-1 gap-4 sm:grid-col
  * ends far shorter than expected, and the footer rides up into view.
  */
 const SECTION_MIN_HEIGHT = "min-h-44";
+
+/** A read that was never made, which `SectionBody` must not read as one that failed. */
+const KEINE_SPIELE: Pick<FLSpieleListResponse, "spiele"> = { spiele: [] };
 
 /**
  * The landing page's `Suspense` fallback. Its count matches the `limit` below, so the skeleton
@@ -59,7 +63,7 @@ export function RecentAndUpcomingSpieleGridSkeleton() {
  * past results because the upcoming query timed out. `res === null` is a failed fetch and an empty
  * `spiele` a successful one — only one is worth retrying.
  */
-function SectionBody({ res, today, emptyTitle }: { res: FLSpieleListResponse | null; today: string; emptyTitle: string }) {
+function SectionBody({ res, today, emptyTitle }: { res: Pick<FLSpieleListResponse, "spiele"> | null; today: string; emptyTitle: string }) {
   if (!res) {
     return (
       <EmptyState
@@ -93,10 +97,16 @@ function SectionBody({ res, today, emptyTitle }: { res: FLSpieleListResponse | n
 
 export async function RecentAndUpcomingSpieleGrid() {
   await connection();
-  const [upcomingSpieleRes, recentSpieleRes] = await Promise.all([
-    getSpiele({ spiel_status: "ausstehend", limit: 6 }).catch(() => null),
-    getSpiele({ spiel_status: "vergangen", sort_by: "datum", order: "desc", limit: 6 }).catch(() => null),
-  ]);
+  // The season first: with none active `/spiele` answers 404 for want of a default, and the catch
+  // below would render that as a failed load rather than as a league with nothing scheduled.
+  const saison = await getCurrentSaisonOrNull();
+  const [upcomingSpieleRes, recentSpieleRes] =
+    saison === null
+      ? [KEINE_SPIELE, KEINE_SPIELE]
+      : await Promise.all([
+          getSpiele({ spiel_status: "ausstehend", limit: 6 }).catch(() => null),
+          getSpiele({ spiel_status: "vergangen", sort_by: "datum", order: "desc", limit: 6 }).catch(() => null),
+        ]);
 
   // Safe to read the clock: `connection()` above already made this dynamic.
   const today = getGermanTodayStr();

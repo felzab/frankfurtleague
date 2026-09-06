@@ -63,9 +63,11 @@ describe("the brand assets that cannot read a stylesheet", () => {
     // 16px against a 512 viewBox is 1/32, so 48 units is 1.5 device pixels -- the floor below which
     // a stroke or a bar aliases into the tile it sits on.
     const strokes = [...ICON.matchAll(/stroke-width="(\d+)"/g)].map((m) => Number(m[1]));
-    // Both axes, because a narrow bar aliases at a favicon's size exactly as a short one does and
-    // a height-only walk reads it as absent.
-    const bars = [...ICON.matchAll(/<rect[^>]*\b(?:width|height)="(\d+)"/g)].map((m) => Number(m[1])).filter((n) => n < 512);
+    // Each tag first, then both attributes inside it: one pattern over the whole file yields one
+    // capture per tag, which is whichever axis the drawing happens to spell last.
+    const bars = [...ICON.matchAll(/<rect\b[^>]*>/g)]
+      .flatMap((tag) => [...tag[0].matchAll(/\b(?:width|height)="(\d+)"/g)].map((m) => Number(m[1])))
+      .filter((n) => n < 512);
 
     assert.ok(strokes.length > 0 && bars.length > 0, "the icon was not parsed, so this case proves nothing");
     for (const width of [...strokes, ...bars]) assert.ok(width >= 48, `a feature of ${String(width)} units disappears at 16px`);

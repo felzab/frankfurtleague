@@ -69,6 +69,7 @@ rather show is a question no surface has to answer.
 | `getTeam`                                      | teams     | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
 | `getSaisons`                                   | saisons   | `days`    | `saisons`                                        |
 | `getCurrentSaison`                             | saisons   | `days`    | `saisons`                                        |
+| `getCurrentSaisonOrNull`                       | saisons   | `days`    | `saisons`                                        |
 | `getSpieler`                                   | spieler   | `days`    | `spieler`                                        |
 | `getSpieltage`                                 | spieltage | `days`    | `spieltage`                                      |
 | `checkIsLive`, `checkIsReady`, `getSystemInfo` | system    | `minutes` | `system`                                         |
@@ -768,6 +769,11 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   `Mannschaft`. `Team` is neuter, and the word that has to agree often sits in the NEXT sentence,
   which no grep for the noun will find; `sideLabel` also numbers a fixture's two seats `Team`, so a
   sentence naming both says the club by name.
+- **The league is „Frankfurt League"; the project is `Frankfurtleague`** (my rule, 2026-09-04):
+  every place naming the league — a page, an email, the manifest, a document — spells it as two
+  words, and every place naming the repository, the package, the domain, an image or a logger
+  spells it as one. The reservation enumerations are the exception and keep both, plus the
+  hyphenated variant, because what they protect is the set.
 - **_Already_ is `schon`** (my rule, 2026-08-31): never `bereits`, which takes a capital at the
   head of a sentence, so a case-sensitive sweep leaves those occurrences standing; `bereit` and
   `bereiten` are other words and stay.
@@ -1046,7 +1052,7 @@ screen reader reads the title out as an initialism (I160).
 | Step         | Takes                                                                                                              |
 | ------------ | ------------------------------------------------------------------------------------------------------------------ |
 | `fluid-4xl`  | The `<h1>` inside `fl_frontend/src/shared/components/ui/BrandHero.tsx :: BrandHero`, and nothing else              |
-| `fluid-3xl`  | The `<h1>` of every other public page, in Anton; never a two-step `lg:` pair                                       |
+| `fluid-3xl`  | The `<h1>` of every other public page bar the sign-in card, in Anton; never a two-step `lg:` pair                  |
 | `fluid-2xl`  | A dashboard or meta section title and the sign-in `<h1>`, in Anton; an admin sheet's title `<h2>`, in Raleway      |
 | `fluid-xl`   | A dashboard view's `<h2>`: Anton where it is copy, Raleway where it carries a name. The display face's floor       |
 | `fluid-lg`   | A result or closed-state `<h2>`, a modal heading, the value of an entry-condition fact; the wordmark in the navbar |
@@ -1082,14 +1088,14 @@ its utility. What no declaration can say is which surface may spend it:
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `brand` — flips per theme                                   | One accent word in a title, an eyebrow, an inline link, a focus or hover highlight, a dot ornament, a selected row's tint | A fill behind text; a run longer than one word                                                     |
 | `brand-solid` with `-foreground` — one value per theme pair | The primary control, a selected chip or day, the entry-condition block, a tile, the hero                                  | Text or a dot on a dark ground: unflipped, it sinks into the dark theme's grounds and its own tint |
-| `brand-solid-accent` — one value per theme pair             | The wordmark and the mark on the brand fill                                                                               | Any other ground; on a light one it fails as text                                                  |
+| `brand-solid-accent` — one value per theme pair             | The wordmark and the mark on the brand fill, and a link's hover on a dark ground                                          | A light ground, where it fails as text                                                             |
 | `surface` / `muted`                                         | A box's ground / a recessed track — a tab strip, a table header, a control at rest                                        | `muted` as a panel's ground                                                                        |
 | `border`                                                    | Every neutral box and field, at an alpha for a divider inside one                                                         | A tinted box, whose edge is its own tone                                                           |
 | `{tone}` plain                                              | A dot, a bar, a border, the ground of a tint                                                                              | Text: it is tuned for a fill and fails on its own tint                                             |
 | `{tone}-strong`                                             | Text, on a tint, on `muted` or on `surface`                                                                               | A fill                                                                                             |
 | `{tone}-solid` with `-foreground`                           | A fill that must read as one — the destructive button, a result badge — under its paired on-colour                        | A tint, or text                                                                                    |
 | `hover*`                                                    | Every hover, one declared token per family                                                                                | An alpha at a call site, which composites against its ground and lands differently on each         |
-| `--focus`                                                   | Every ring HeroUI does not draw itself, as the foreground                                                                 | HeroUI's `--accent`, which the scheme declares for a `Switch`'s fill and a picker's day            |
+| `--focus`                                                   | Every ring HeroUI does not draw itself, as the foreground                                                                 | HeroUI's `--accent`, which the scheme declares for a `Switch`'s track and the squad `Avatar`       |
 | `phase-*`                                                   | A phase badge and its `/15` tint                                                                                          | A state: the sequence is an order, not a meaning                                                   |
 
 Which tone a message takes is fixed at `fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`,
@@ -1123,14 +1129,15 @@ arriving, not a deficit to fill:
 is its own tone at an alpha (`fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`, the
 `danger` variant of `formPanel`). Never a borderless card, never a neutral edge on a tinted box: in
 the dark theme the hairline is what parts a box from a near-black page. Depth is one of the grades
-this list closes — `shadow-xs` a band, `shadow-sm` a box on the page, `shadow-md` the brand fill,
-`shadow-lg` a floating surface (`fl_frontend/src/shared/components/ui/overlayPanel.ts :: overlayPanel`,
+this list closes — `shadow-xs` a band, `shadow-sm` a box on the page, `shadow-md` the primary control
+and the entry-condition block, `shadow-lg` a floating surface (`fl_frontend/src/shared/components/ui/overlayPanel.ts :: overlayPanel`,
 `fl_frontend/src/shared/components/ui/hintSurface.ts :: HINT_SURFACE`), `shadow-2xl` a modal or the
 sign-in panel (`fl_frontend/src/shared/components/ui/ModalShell.tsx`,
 `fl_frontend/src/shared/components/ui/StatusPanel.tsx`,
 `fl_frontend/src/features/auth/components/forms/SignInForm.tsx`), `shadow-inner` a well inside one
-(`fl_frontend/src/features/spiele/components/modals/SpielDetailsModal.tsx`) — and no box wears blur
-or translucency: on a neutral ground there is nothing for a card to float over.
+(`fl_frontend/src/features/spiele/components/modals/SpielDetailsModal.tsx`) — and a box in the page
+column wears no blur or translucency: on a neutral ground there is nothing for a card to float
+over. The two full-viewport panels are the exception, over a watermark rather than over a page.
 
 **The corner ladder steps down one rung per nesting** (I166), so a box beside a panel in the page
 column is `2xl` and a box inside one is `xl` or lower; two boxes at one rung never nest:
@@ -1179,8 +1186,8 @@ holds whether a conditional block renders or not
 - **A decorative glyph never stands alone** (I169). It is `aria-hidden` beside the words carrying the
   fact, coloured by the text beside it or by the `-strong` grade of its box's tone; an icon-only
   element is a labelled control. Brand on a glyph is a row marker's hover
-  (`fl_frontend/src/shared/components/ui/RowActions.tsx :: ACTION_LINK_CLASS`) and the
-  `bg-brand` dot ornaments, and nothing else.
+  (`fl_frontend/src/shared/components/ui/RowActions.tsx :: ACTION_LINK_CLASS`), the `bg-brand` dot
+  ornaments and a landing card's own affordance arrow, and nothing else.
 - **A social mark wears the foreground of the ground it sits on, never brand** (I168): `bg-foreground`
   on `surface` (`fl_frontend/src/shared/components/layout/footer/Footer.tsx`,
   `fl_frontend/src/features/bewerbungen/components/ui/BewerbungInstagramBand.tsx`),
@@ -1298,9 +1305,9 @@ holds whether a conditional block renders or not
 | I148 | **The confirmation page's stored wording label is the registry's, stamped by the route handler**: a label the browser sends is read and dropped                                                                                            | `fl_frontend/src/features/bewerbungen/utils.ts :: stampEinwilligungFassung`, called by `fl_frontend/src/app/api/bestaetigung/route.ts`; `fl_frontend/src/features/bewerbungen/utils.test.ts :: replaces whatever label the request carried with the registry's own`                             |
 | I159 | **In the display face, no weight utility beyond the shared recipe's own reset, no `italic`, no `tracking-tight`**                                                                                                                          | review — `fl_frontend/src/app/layout.tsx :: anton` loads the one weight, and `fl_frontend/src/app/globals.css` makes a stray utility inert rather than faked                                                                                                                                    |
 | I160 | **Uppercase comes from the utility and never from the source string**: an all-caps string is read out as an initialism                                                                                                                     | review — `fl_frontend/src/features/bewerbungen/components/views/BestaetigungView.tsx :: TITEL` states it at one site                                                                                                                                                                            |
-| I161 | **`brand-solid-accent` paints on the brand fill and nowhere else**: a dark-surface colour, it fails as text on a light ground                                                                                                              | review — `fl_frontend/src/app/schemes/2027.css :: --accent-on-brand`                                                                                                                                                                                                                            |
+| I161 | **`brand-solid-accent` paints on the brand fill, and on a dark ground as a link's hover**: it fails as text on a light one                                                                                                                 | review — `fl_frontend/src/app/schemes/2027.css :: --accent-on-brand`, `fl_frontend/src/shared/components/ui/textLink.ts :: textLink`                                                                                                                                                            |
 | I162 | **A hover is a declared token, never an alpha at a call site**: an alpha composites against its ground and lands differently on every surface                                                                                              | review — `fl_frontend/src/app/globals.css :: --color-hover` names the tokens                                                                                                                                                                                                                    |
-| I163 | **A focus ring is the foreground, never HeroUI's `--accent`**, which the scheme declares for a `Switch`'s fill and a picker's selected day                                                                                                 | `fl_frontend/src/app/schemes/2027.css :: --focus`; review for a ring drawn past it                                                                                                                                                                                                              |
+| I163 | **A focus ring is the foreground, never HeroUI's `--accent`**, which the scheme declares for a checked `Switch`'s track and the squad page's `Avatar`                                                                                      | `fl_frontend/src/app/schemes/2027.css :: --focus`; review for a ring drawn past it                                                                                                                                                                                                              |
 | I164 | **One `bg-brand-solid` block per screen, one `text-brand` word inside a title**: brand colours are accents, and the budget is salience rather than count                                                                                   | review                                                                                                                                                                                                                                                                                          |
 | I165 | **Every box has an edge and a shadow, and the edge names the tone**: `border` when neutral, its own tone when tinted                                                                                                                       | review — `fl_frontend/src/shared/components/ui/formPanel.ts :: formPanel`, `fl_frontend/src/shared/components/ui/card.ts :: card`, `fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`                                                                                                |
 | I166 | **The corner ladder steps down one rung per nesting, and `rounded-3xl` is a page's outermost box alone**                                                                                                                                   | review — `fl_frontend/src/shared/components/ui/badges.ts :: PILL_RADIUS` is the bottom rung                                                                                                                                                                                                     |

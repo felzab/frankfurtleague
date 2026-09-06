@@ -125,6 +125,9 @@ def scheme_files() -> tuple[Path, ...]:
 
 IMPORT_RE: Final = re.compile(r"""@import\s+["']([^"']*schemes/[^"']+)["']""")
 BRIDGE_RE: Final = re.compile(r"^\s*--color-[a-z0-9-]+\s*:\s*var\((--[a-z0-9-]+)\)\s*;", re.MULTILINE)
+THEME_OPENER: Final = re.compile(r"@theme\s*\{")
+COLOUR_DECL_RE: Final = re.compile(r"^\s*(--color-[a-z0-9-]+)\s*:\s*(.+?)\s*;", re.MULTILINE)
+VAR_ONLY_RE: Final = re.compile(r"var\(--[a-z0-9-]+\)")
 
 
 def _globals_text() -> str | None:
@@ -132,15 +135,30 @@ def _globals_text() -> str | None:
     return None if page is None else _read_text(page)[0]
 
 
+def _imports(text: str) -> list[str]:
+    """Every scheme `globals.css` imports, in source order."""
+    return IMPORT_RE.findall(text)
+
+
 def _designated(text: str) -> str | None:
     """The scheme file the site is wired to, as `globals.css` spells the import."""
-    match = IMPORT_RE.search(text)
-    return None if match is None else match.group(1)
+    return next(iter(_imports(text)), None)
+
+
+def _theme_body(text: str) -> str:
+    """The `@theme` block alone: Tailwind emits a utility for nothing outside it."""
+    block = _block(text, THEME_OPENER)
+    return "" if block is None else block[0]
 
 
 def _bridged(text: str) -> frozenset[str]:
     """Every token the `@theme` colour bridge resolves, which is the token list's second route."""
-    return frozenset(BRIDGE_RE.findall(text))
+    return frozenset(BRIDGE_RE.findall(_theme_body(text)))
+
+
+def _literal_bridges(text: str) -> list[str]:
+    """A `--color-*` holding a value rather than a `var()`, which no season answers for."""
+    return sorted(name for name, value in COLOUR_DECL_RE.findall(_theme_body(text)) if VAR_ONLY_RE.fullmatch(value) is None)
 
 
 # --- colour --------------------------------------------------------------------------------------
@@ -333,10 +351,17 @@ class Ordering:
     darker: str
 
 
-# The first is the one the file states in a comment and asserted nowhere; the four below it are the
-# text grades, which invert against their fills on a dark surface.
+# The one the scheme file states in a comment and asserted nowhere.
 ORDERINGS: Final[tuple[Ordering, ...]] = (
     Ordering("dark", "--accent-brand", "dark", "--accent-brand-solid"),
+    # The inversion the scheme states beside them: on a dark surface a text grade is LIGHTER
+    # than the fill it answers to.
+    Ordering("dark", "--accent-success-strong", "dark", "--accent-success"),
+    Ordering("dark", "--accent-warn-strong", "dark", "--accent-warn"),
+    Ordering("dark", "--accent-danger-strong", "dark", "--accent-danger"),
+    Ordering("dark", "--accent-info-strong", "dark", "--accent-info"),
+    # A different claim, which a theme merely lightened already passes: each dark text grade
+    # above its own light twin.
     Ordering("dark", "--accent-success-strong", "light", "--accent-success-strong"),
     Ordering("dark", "--accent-warn-strong", "light", "--accent-warn-strong"),
     Ordering("dark", "--accent-danger-strong", "light", "--accent-danger-strong"),
@@ -498,8 +523,11 @@ def check_scheme_tokens() -> list[Finding]:
     text = _globals_text()
     files = scheme_files()
     if text is None:
-        # `inputs` fails a corpus missing its own page and `unreadable` one that cannot be read.
-        return []
+        # Its own finding, never a delegation: `checks.py :: REQUIRED_INPUTS` does not name this
+        # page, so returning empty would take every arm below silent with it.
+        if not files:
+            return []
+        return [_fail(GLOBALS_PAGE, f"is not in the corpus, so `{SCHEME_DIR}`'s files were held against no token list")]
     designated = _designated(text)
     if designated is None and not files:
         return []
@@ -516,6 +544,14 @@ def check_scheme_tokens() -> list[Finding]:
     # The season in force is the token list; without it there is no list, and every arm below would
     # be measuring one file against itself.
     roster = frozenset() if season is None else frozenset(_read(season).light)
+    found.extend(
+        _fail(GLOBALS_PAGE, f"bridges `{name}` to a value rather than to a season token -- the scheme answers for it nowhere")
+        for name in _literal_bridges(text)
+    )
+    found.extend(
+        _fail(GLOBALS_PAGE, f"imports `{extra}` as well -- the last import wins, so the season in force is not the designated one")
+        for extra in _imports(text)[1:]
+    )
     if season is not None:
         found.extend(_bridge_findings(_bridged(text), roster))
 

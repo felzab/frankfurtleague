@@ -14,7 +14,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import type { Key } from "@heroui/react";
 import type { SaisonSelectorOption } from "../../types";
 
-export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSelectorOption[]; currentSaison: SaisonSelectorOption }) {
+export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSelectorOption[]; currentSaison: SaisonSelectorOption | null }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -28,11 +28,16 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSele
   // Validated against the list, never taken raw from the user-editable `?saison_id=`: an unknown id
   // shows nothing selected while the range below falls back to the current season.
   const requestedSaisonId = searchParams.get("saison_id");
-  const activeSaisonData = saisons.find((saison) => saison.id === requestedSaisonId) ?? currentSaison;
-  const activeSaisonId = activeSaisonData.id;
+  const activeSaisonData =
+    saisons.find((saison) => saison.id === requestedSaisonId) ??
+    currentSaison ??
+    // The last resort, for the window between seasons where the backend has no current one.
+    saisons[0];
+  const activeSaisonId = activeSaisonData?.id;
 
   // A bis-Strich rather than the word, which the trigger's `uppercase` renders as "BIS".
-  const timespan = `${formatSpielDatum(activeSaisonData.start_date)} – ${formatSpielDatum(activeSaisonData.end_date)}`;
+  const timespan =
+    activeSaisonData === undefined ? "" : `${formatSpielDatum(activeSaisonData.start_date)} – ${formatSpielDatum(activeSaisonData.end_date)}`;
 
   const handleSelectionChange = (key: Key | null) => {
     if (!key) return;
@@ -42,7 +47,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSele
 
     // The current season is the backend's default, so it is the ABSENCE of the parameter rather than
     // a value. Keeps the common URL clean and shareable.
-    if (selectedId !== currentSaison.id) {
+    if (selectedId !== currentSaison?.id) {
       params.set("saison_id", selectedId);
     } else {
       params.delete("saison_id");
@@ -62,6 +67,9 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSele
   // Until React attaches, the trigger below is inert: this streams in as finished markup long before
   // hydration reaches it. The server renders this branch too, so there is no mismatch.
   if (!isMounted) return <SaisonSlotSkeleton />;
+
+  // Nothing to switch between: no season exists, so a switcher would offer an empty list.
+  if (activeSaisonData === undefined) return null;
 
   return (
     <div className="w-full">

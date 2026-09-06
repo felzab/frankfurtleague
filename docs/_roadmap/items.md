@@ -93,6 +93,7 @@ deliverable.
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                         | FE, Docs, tests                                                             | Open     |
 | `cu59-4gqt` | Nothing announces that a season rollover is due                                                                             | Ops, Docs, ci                                                               | Standing |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                           | FE, meta                                                                    | Open     |
+| `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                          | FE, Ops, gate, admin                                                        | Open     |
 | `duhh-xcsh` | Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von` | FE, BE, Docs, bewerbungen, teams                                            | Standing |
 | `ewf2-e2f3` | A confirmation or reminder link that bounces is written to the log and told to nobody                                       | FE, Docs, bewerbungen                                                       | Open     |
 | `ex2m-qjkg` | The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range        | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
@@ -771,6 +772,36 @@ becomes wrong on the day the register entry lands.
 
 **Done when** who holds the source copyright is decided, `NOTICE` says so, and, if the answer
 changes at registration, the condition is written where whoever files the registration meets it.
+
+### `dq3b-mgpq` · Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there
+
+| Tags                 | Status | Depends on |
+| -------------------- | ------ | ---------- |
+| FE, Ops, gate, admin | Open   | —          |
+
+**`fl_frontend/src/shared/components/ui/badges.ts :: PILL_TINT` states that a pill sits on
+`surface` or `background` and never on `muted`, and one live surface does exactly that.**
+`fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.tsx` gives its tab
+strip `fl_frontend/src/shared/components/ui/formFieldStyles.ts :: TAB_TRACK`, whose ground is
+`bg-muted`, and puts a `COUNT_BADGE` wearing a `/15` tone tint inside each tab. Recomposited over
+that ground the four light inks measure 4.20:1 to 4.48:1 against the 4.5:1 a badge at this step
+answers to.
+
+**Why it matters.** `scripts/checks/docs_gate/scheme.py :: PAIRS` measures every pill on `surface`,
+which is the tighter of the two grounds a pill is allowed and therefore the right floor — but
+nothing measures a pill on a ground the rule forbids, so the rule is prose and the next tab strip
+carrying a count is the next instance.
+
+**The trap, which is why no repair is obvious.** Moving the track to `bg-surface` costs the strip
+its recessed reading AND kills the hover, because
+`fl_frontend/src/shared/components/ui/formFieldStyles.ts :: TAB_ITEM`'s hover fill is `bg-surface`
+and would then equal the track. Keeping the track and dropping those badges to `/10` clears the floor
+but puts two tint strengths in the system, which the palette spent a round removing. Giving the
+unselected tabs their own opaque fill is a third answer and the largest change of the three. The
+figures predate this scheme, which moved them toward the floor without reaching it.
+
+**Done when** either a badge on a `muted` ground clears its floor, or a check refuses one and the
+rule stops being prose.
 
 ### `duhh-xcsh` · Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`
 
@@ -2296,32 +2327,6 @@ rethrow were read off the query, `_fenster`, the filter semantics and the two fr
 list-wrapped season was seeded and no request was made against `/fenster`, and what the start page
 renders on that throw was not exercised. The commit dating the validator was read from `git log -S`.
 
-### `w9tq-4bnd` · A missing result and a cancelled one are one colour, because the card reads the result and never the status
-
-| Tags              | Status | Depends on |
-| ----------------- | ------ | ---------- |
-| FE, admin, spiele | Open   | —          |
-
-**Four components paint a null `ergebnis` from the field alone**, so every fixture without a result
-wears one colour whatever the reason: `fl_frontend/src/features/spiele/components/ui/SpielCard.tsx`,
-`fl_frontend/src/features/spiele/components/ui/SpielCardCompact.tsx`,
-`fl_frontend/src/features/spiele/components/ui/SpielCardUltraCompact.tsx` and
-`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/SpielDraftPreview.tsx`.
-A fixture merely not yet played and a fixture called off are the same null.
-
-**Today that colour is the warning grade, which is right for the pending case and wrong for the
-cancelled one.** It was the danger grade until the palette work, where four of seven bracket slots
-rendered as red placeholders with nothing wrong and a Halbfinale card put a red score over a chip
-reading `Ausstehend`. Warning is the smaller error of the two and matches how the admin queue
-already grades a missing result
-(`fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.tsx :: results`),
-but a called-off fixture now shows a warning placeholder beneath a danger chip.
-
-**Done looks like the placeholder branching on the status rather than on the field**, which
-`fl_frontend/src/features/spiele/utils.ts :: computeSpielStatus` already derives and
-`SpielStatusChip` already renders beside it. The chip and the score would then agree, which is the
-whole of the defect: two elements on one card grading the same fact from two different inputs.
-
 ### `w4tm-9khd` · A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population
 
 | Tags               | Status | Depends on |
@@ -2349,6 +2354,32 @@ inside the construct it governs is one the next reader breaks.
 **Done when** the reader finds a tag's real close rather than its first `>` — comments and attribute
 values skipped, so attribute order carries nothing — and has been driven against a control whose
 arrow function is written first.
+
+### `w9tq-4bnd` · A missing result and a cancelled one are one colour, because the card reads the result and never the status
+
+| Tags              | Status | Depends on |
+| ----------------- | ------ | ---------- |
+| FE, admin, spiele | Open   | —          |
+
+**Four components paint a null `ergebnis` from the field alone**, so every fixture without a result
+wears one colour whatever the reason: `fl_frontend/src/features/spiele/components/ui/SpielCard.tsx`,
+`fl_frontend/src/features/spiele/components/ui/SpielCardCompact.tsx`,
+`fl_frontend/src/features/spiele/components/ui/SpielCardUltraCompact.tsx` and
+`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/SpielDraftPreview.tsx`.
+A fixture merely not yet played and a fixture called off are the same null.
+
+**Today that colour is the warning grade, which is right for the pending case and wrong for the
+cancelled one.** It was the danger grade until the palette work, where four of seven bracket slots
+rendered as red placeholders with nothing wrong and a Halbfinale card put a red score over a chip
+reading `Ausstehend`. Warning is the smaller error of the two and matches how the admin queue
+already grades a missing result
+(`fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.tsx :: results`),
+but a called-off fixture now shows a warning placeholder beneath a danger chip.
+
+**Done looks like the placeholder branching on the status rather than on the field**, which
+`fl_frontend/src/features/spiele/utils.ts :: computeSpielStatus` already derives and
+`SpielStatusChip` already renders beside it. The chip and the score would then agree, which is the
+whole of the defect: two elements on one card grading the same fact from two different inputs.
 
 ### `wszt-rpmy` · Wiring the write path refuses stands unreported once it is in storage
 
