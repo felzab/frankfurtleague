@@ -1619,6 +1619,20 @@ def test_the_resolver_places_a_tracked_file_at_the_repository_root() -> None:
     assert kernel.repo_path("docs") is None
 
 
+def test_one_file_s_four_spellings_each_draw_their_own_verdict() -> None:
+    """The three spellings the resolver admits, and the fourth, from inside the package's source root, which it refuses on purpose."""
+    _reset()
+    checks = _module("docs_gate.checks")
+    _clear_caches(_gate().root / SCRIPTS_COPY)
+    inside = SPIELER_PANEL.partition("src/")[2]
+    for spelling in (SPIELER_PANEL, SPIELER_PANEL.partition("/")[2], SPIELER_PANEL.rsplit("/", 1)[1]):
+        found = checks._check_citation(spelling + " :: Panel", NOTES)
+        assert not found, spelling + " did not resolve: " + repr([finding.human() for finding in found])
+    refused = [finding.detail for finding in checks._check_citation(inside + " :: Panel", NOTES)]
+    assert refused == ["cited path is neither repository-relative nor package-relative: " + inside], repr(refused)
+    _assert_corpus_restored()
+
+
 def test_a_block_this_branch_lengthened_is_measured_and_an_older_one_is_not() -> None:
     """A block the branch lengthened past a bound is measured, and the older one beside it is not.
 

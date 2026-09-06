@@ -162,7 +162,6 @@ deliverable.
 | `c8rx-gqun` | An invariant citation resolves to a string, not to a definition                                                             | Ops, Docs, gate                                                             | Open     |
 | `cckv-edvy` | The published document's drift check fails with the command that accepts the drift                                          | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `crwn-qfp7` | The opening comment block of every file read as a shell script is measured by neither bound                                 | Ops, Docs, gate                                                             | Open     |
-| `d5j8-js4n` | A real file in an unaccepted spelling reads as a missing file                                                               | Ops, gate                                                                   | Open     |
 | `db2a-9qu3` | The local edge claims to mirror production, unchecked                                                                       | Ops, Docs, gate, edge                                                       | Open     |
 | `efnu-cq79` | A case asserts that its own fixture minted a usable hash, so hash luck decides the run                                      | Ops, Docs, gate, tests                                                      | Open     |
 | `eg48-8863` | Two db-tier runs at once fail in a way that names nothing                                                                   | BE, Ops, gate, ci, tests                                                    | Open     |
@@ -3589,37 +3588,6 @@ contracts at the wrong rung rather than passages to shorten.
 **Done when** the scope reaches the kinds `scripts/checks/docs_gate/kernel.py :: comment_style` sends
 to the `#` reader, with those blocks brought under a bound in the same change — or the exemption is a
 decision `docs/_standard/standard.md` states rather than the residue of two scopes not meeting.
-
-### `d5j8-js4n` · A citation naming a real file in an unaccepted spelling is reported as a file that does not exist
-
-| Tags      | Status | Depends on |
-| --------- | ------ | ---------- |
-| Ops, gate | Open   | —          |
-
-**`scripts/checks/docs_gate/checks.py :: _resolve` refuses a slashed token that is neither
-repository-relative nor package-root-relative, and never reaches the name index behind it.** The
-function tries the repository path, then `scripts/checks/docs_gate/kernel.py :: repo_path`, then a
-bare-name lookup — but the bare-name route is guarded by a test for a `/` in the token, so a token
-holding one returns the empty list rather than falling through. Exercised 2026-08-30 over one real
-file written four ways: the repository path, the package-root-relative spelling and the bare filename
-all resolve, and the intermediate spelling — the file's path from inside its own package's source
-root, without that root — resolves to nothing.
-
-**The finding it produces names the wrong fault.** An empty resolution is reported as `cited file not
-found`, so a citation whose file is present and whose symbol is right is reported as naming a file
-that is not there. **The reader is sent to look for a deleted file when what is wrong is a
-spelling**, and the shortest route out of the finding — deleting the citation — is the one repair
-that loses a true claim. This holds whether or not the file is tracked: the fault is the spelling
-rather than the listing the name is looked up in.
-
-**Done when** the decision is taken, and it is not obvious which way. COR-6 asks for an anchored path
-and refusing a spelling the standard does not sanction is defensible —
-`scripts/checks/docs_gate/kernel.py :: repo_path`'s own docstring records that existence is what
-keeps a token naming a KIND of file out of the check — so the answer may be to keep refusing and say
-so, in a message that names the spelling rather than the file, which costs one line and teaches the
-rule at the point of failure. The alternative is to let the package-root fallback that already serves
-a token like `src/core/...` serve a deeper one too, which resolves more spellings and weakens the
-pressure toward the one COR-6 asks for.
 
 ### `db2a-9qu3` · The local edge claims to mirror production, and nothing reads either half of the claim
 

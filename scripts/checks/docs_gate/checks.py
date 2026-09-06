@@ -1328,7 +1328,9 @@ def _check_citation(citation: str, rel: str) -> list[Finding]:
         # after a file nobody named.
         if not names_a_file(file_part):
             return []
-        return [Finding("fail", "citation", rel, f"cited file not found: {file_part}")]
+        # Never `cited file not found`: the file may be present under a spelling this refuses, and
+        # a reader told it is missing deletes a claim that was true.
+        return [Finding("fail", "citation", rel, f"cited path is neither repository-relative nor package-relative: {file_part}")]
     if len(matches) > 1:
         names = ", ".join(sorted(m.relative_to(REPO_ROOT).as_posix() for m in matches)[:4])
         return [Finding("fail", "citation", rel, f"ambiguous file '{file_part}' matches: {names}")]

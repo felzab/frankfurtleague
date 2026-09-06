@@ -927,10 +927,10 @@ def is_gitignored(token: str) -> bool:
 
 
 def repo_path(token: str) -> str | None:
-    """The repository path a backticked token names, or None.
+    """The repository path a backticked token names, or None, spelled as a git listing spells it.
 
-    Existence decides, so a token naming a KIND of file stays prose. A traversal is refused, not
-    normalised: what comes back must be a git listing's spelling.
+    The forms are COR-6's and no wider: a resolver answering more spellings takes the pressure off
+    the one a reader can grep for.
     """
     # A dot-only SEGMENT, never the substring: `..` traverses, and Windows strips a trailing `...`
     # back to the directory above it, a spelling no Linux runner holds. `[...nextauth]` is a real
