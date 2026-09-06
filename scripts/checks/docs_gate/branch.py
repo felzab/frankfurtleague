@@ -704,6 +704,8 @@ def _bounded(rel: str) -> bool:
     `comment_style` answers every kind rather than refusing one, so selecting by tree would hand the
     images under `fl_frontend/src/` to the `#` reader.
     """
+    # Never the prose register: `comment_runs` would skip a prose file's `#`-opening run as a header
+    # that no header check measures, so its lines would be held to neither bound.
     return rel.endswith(SCANNED_SUFFIXES) or rel.rsplit("/", 1)[-1] in OPS_FILENAMES
 
 

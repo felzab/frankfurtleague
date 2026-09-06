@@ -1499,7 +1499,7 @@ def check_module_header(rel: str, raw: str, suffix: str) -> list[Finding]:
         if misplaced is None:
             return []
         first_line, header = misplaced
-        # By kind, because the two rules place a header differently: a workflow, a manifest and a
+        # By kind, because the two rules place a header differently: a workflow, a TOML manifest and a
         # Dockerfile are in this check's scope and have no import for INC-7's clause to sit above.
         placement = (
             "the module header sits below the first statement -- INC-7 places it above the imports"

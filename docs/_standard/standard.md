@@ -417,7 +417,8 @@ README and every template.
   table (COR-7), then carries exactly four sections: `1. Contract`, holding as many `1.<n>`
   subsections as the surface needs, numbered from `1.1` upward with no gap; `2. Invariants`;
   `3. Violation → remedy`; and `4. Known-open`. The invariant table is three columns — the number,
-  the invariant, and what enforces it. Numbers are `I<n>` on a surface sheet and `L<n>` on the logging sheet, permanent and
+  the invariant, and what enforces it. Numbers are `I<n>` on a surface sheet and `L<n>` on the
+  logging sheet, permanent and
   never reused; **the `I<n>` band is one namespace across every surface sheet**, so a new row takes
   one past the highest number any sheet defines and a citation crossing sheets still names its
   sheet, while `L<n>` is the logging sheet's own band and is allocated against that. **Section 2

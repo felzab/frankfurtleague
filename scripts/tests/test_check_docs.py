@@ -152,8 +152,8 @@ SHELL_FILE: Final = "nginx/entrypoint.sh"
 # Under `.claude/hooks/` (the shell scope) and outside `PRESERVED`, so `_reset` removes it.
 HOOK_SAMPLE: Final = ".claude/hooks/probe.sh"
 DOCKERFILE: Final = "fl_backend/Dockerfile"
-# The corpus' one root-level file a citation names: every other cited path sits under a prefix the
-# resolver lists, so moving this one leaves the root-level arm driven by nothing.
+# A root-level file a citation names, beside the attributes file: every other cited path sits under a
+# prefix the resolver lists, so the root-level arm is driven by those two and nothing else.
 COMPOSE_FILE: Final = "docker-compose.yml"
 # The one file read whole as prose by name: no suffix, and the paths in it written bare.
 NOTICE_FILE: Final = "NOTICE"
