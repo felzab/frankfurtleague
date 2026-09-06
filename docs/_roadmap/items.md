@@ -185,7 +185,6 @@ deliverable.
 | `mmcv-aa6g` | The comment-citation check reads two shapes of outside reference and INC-6 bars more                                        | Ops, Docs, gate, tests                                                      | Open     |
 | `nce5-j467` | A comment claims two files hold one pattern, unchecked                                                                      | FE, BE, tests                                                               | Open     |
 | `p2y9-p9za` | Four helpers every script calls are checked by nothing                                                                      | Ops, Docs, gate                                                             | Open     |
-| `q2de-43qd` | A declared-permitted state's reason is checked by nothing                                                                   | BE, Ops, gate, tests                                                        | Open     |
 | `qbzd-xrcu` | A scope sweep asserts against a rebuilt predicate rather than the gate's own                                                | Ops, Docs, gate, tests                                                      | Open     |
 | `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                                   | FE, Docs, tests                                                             | Open     |
 | `qw6j-scru` | The CSP's style directive is wider than it needs to be                                                                      | FE, Ops, Docs, edge                                                         | Open     |
@@ -4472,31 +4471,6 @@ something. The remedy is a second table on the same sheet, under its own bold le
 helpers a script leans on that are not output verbs, with step 4's reader arming on both lead-ins.
 **Resolving every single-word command word against `PATH` instead is the route the reader's bound
 exists to avoid, and this entry does not reopen it.**
-
-### `q2de-43qd` · A declared-permitted state carries its reason in prose, and no checker reads it
-
-| Tags                 | Status | Depends on |
-| -------------------- | ------ | ---------- |
-| BE, Ops, gate, tests | Open   | —          |
-
-**`fl_backend/app/core/domain.py :: UNENFORCED` is the repository's record of states it permits on
-purpose**, and each entry argues why in a `reason=` string — often naming an index, a validator or a
-call site as the thing that makes refusing the state expensive or impossible.
-
-**Those arguments are held by review alone.** `scripts/checks/check_docs.py` scans comments and
-docstrings, and a `reason=` is neither, being a data string inside a tuple;
-`fl_backend/tests/core/test_domain.py` resolves `near`, `surfaced_by` and `proven_by`, and reads
-`reason` only for being non-empty — `:: test_every_declaration_carries_its_reason` asserts
-`entry.reason.strip()` and never what the string claims. An index name inside one can be replaced
-with a name that exists nowhere and every check still passes.
-
-**Why it is worth closing rather than accepting.** An `UNENFORCED` entry exists to stop a later
-reader re-litigating a decision, so a reason that has drifted is worse than none: it argues
-confidently from something false, and the states it covers are the ones nobody revisits.
-
-**Done when** every anchor and every index name a `reason=` mentions is resolved the way the three
-neighbouring fields already are, in `fl_backend/tests/core/test_domain.py`, which already walks
-`UNENFORCED` and so has both a host and a precedent.
 
 ### `qbzd-xrcu` · A scope sweep asserts against a rebuilt predicate rather than the gate's own
 
