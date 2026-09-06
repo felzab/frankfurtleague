@@ -141,7 +141,7 @@ deliverable.
 | `jn8g-etjk` | `NOTICE` maps to no gate scope, so a dead asset path in it survives a green gate                                                                                  | Docs, Ops, gate                                                             | Open     |
 | `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                                                                   | FE, BE, DB, Docs, kontakte                                                  | Open     |
 | `kajk-z7nu` | A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it                                                                    | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
-| `kpkb-y5d8` | A refusal code's meaning is written three times in prose, and nothing resolves any pair of them                                                                   | FE, BE, Docs, tests, bewerbungen                                            | Open     |
+| `kpkb-y5d8` | A refusal code's meaning is written three times in prose, and nothing resolves any pair of them                                                                   | FE, BE, Ops, Docs, gate, tests, bewerbungen                                 | Open     |
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                                                                | FE, BE, admin, spieler                                                      | Open     |
 | `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                                                                      | FE, BE, Docs, spieler                                                       | Open     |
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                                                              | FE, Docs                                                                    | Open     |
@@ -2742,9 +2742,9 @@ register's email bound being one such.
 
 ### `kpkb-y5d8` · A refusal code's meaning is written three times in prose, and nothing resolves any pair of them
 
-| Tags                             | Status | Depends on |
-| -------------------------------- | ------ | ---------- |
-| FE, BE, Docs, tests, bewerbungen | Open   | —          |
+| Tags                                        | Status | Depends on |
+| ------------------------------------------- | ------ | ---------- |
+| FE, BE, Ops, Docs, gate, tests, bewerbungen | Open   | —          |
 
 **One refusal code carries its meaning in three written statements, and no check reads any of them.**
 `fl_backend/app/core/domain.py :: RULES` gives each rule a `summary`;
