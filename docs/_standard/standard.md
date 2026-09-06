@@ -270,10 +270,10 @@ every file this Scope names.
   type the signature declares: no `@param`/`@returns` blocks, no `Args:`/`Returns:` sections.
   _Enforced by_ unenforced — review judgment.
 - **INC-2:** a module header survives in any file that
-  `scripts/checks/docs_gate/kernel.py :: comment_style` reads as shell or Python, a markdown page
-  apart, carrying a fact that attaches to no symbol: an exit contract, a one-cache-per-run rule, a
-  carve-out the whole module rests on; `scripts/checks/docs_gate/checks.py :: _header_scoped` is
-  that test.
+  `scripts/checks/docs_gate/kernel.py :: comment_style` reads as shell or Python, a file read whole
+  as prose apart, carrying a fact that attaches to no symbol: an exit contract, a one-cache-per-run
+  rule, a carve-out the whole module rests on;
+  `scripts/checks/docs_gate/checks.py :: _header_scoped` is the kind half of that test.
   TypeScript and JavaScript modules carry none: a comment sits at the thing it explains. Where one
   survives it is a plain block — a title line `<TOKEN> · <what this module is>`, at most three
   sentences why-first, a sentence of plain "what" where the file's contents do not carry it, optional
@@ -291,11 +291,12 @@ every file this Scope names.
   `.dockerignore`, an nginx configuration, a compose file, a workflow and a manifest each open
   either way, and the one opening on a marker keeps this rule's shape and bound while the one
   opening on a key has its first comment run bounded by INC-9 like any other block.
-  _Enforced by_ gate check
-  `module-header`, over every file `scripts/checks/docs_gate/checks.py :: _header_scoped` admits,
-  for the word bound, the title line, the banned vocabulary and a header placed below the imports;
-  gate check `header-see`, which resolves every file a `See:` entry names; the three-sentence bound
-  and which files carry a header at all are review judgment.
+  _Enforced by_ gate check `module-header`, over every file
+  `scripts/checks/docs_gate/checks.py :: _header_scoped` admits that
+  `scripts/checks/docs_gate/kernel.py :: is_prose` leaves, for the word bound, the title line, the
+  banned vocabulary and a header below the file's opening; gate check `header-see`, which resolves
+  every file a `See:` entry names; the three-sentence bound and which files carry a header at all
+  are review judgment.
 - **INC-4:** a docstring is required in exactly two places — every FastAPI endpoint, published as the
   operation description in `/openapi.json` and written for a reader of the API; and anywhere with a
   why worth recording. There is no every-exported-symbol rule, because a coverage rule manufactures
@@ -312,13 +313,15 @@ every file this Scope names.
   link to code outside this repository is pinned to a commit — one naming a branch and a range of
   lines drifts silently. The gate reads comments in the files
   `scripts/checks/check_docs.py :: SCANNED_SUFFIXES` names, Dockerfiles included, and not executable
-  code, where a path-shaped string is data; an unbackticked path is read too, because an unmarked
-  path is how a dead one survives a green gate. A roadmap id, a review reference and an issue number
-  are narrower: `scripts/checks/docs_gate/branch.py :: check_added_citations` reads the branch's added
-  comments in `scripts/checks/docs_gate/kernel.py :: SOURCE_SUFFIXES` alone, so none of the three is
-  caught in a Dockerfile, a workflow, an nginx configuration or a manifest. _Enforced by_ gate checks `citation`,
-  `line-citation`, `comment-citation`, `path`, `bare-path`, `link`, `anchor` and `rule-id`; an
-  unpinned outside link is review judgment.
+  code, where a path-shaped string is data, while the files
+  `scripts/checks/docs_gate/kernel.py :: PROSE_FILENAMES` names are read whole, as a page is; an
+  unbackticked path is read in both, because an unmarked path is how a dead one survives a green
+  gate. A roadmap id, a review reference and an issue number are narrower:
+  `scripts/checks/docs_gate/branch.py :: check_added_citations` reads the branch's added comments
+  in `scripts/checks/docs_gate/kernel.py :: SOURCE_SUFFIXES` alone, so none of the three is caught
+  in a Dockerfile, a workflow, an nginx configuration or a manifest. _Enforced by_ gate checks
+  `citation`, `line-citation`, `comment-citation`, `path`, `bare-path`, `link`, `anchor` and
+  `rule-id`; an unpinned outside link is review judgment.
 - **INC-7:** directive first line · a Python docstring is the first statement, above the imports ·
   summary line, then a blank line, then prose. Docstring enforcement is a formatting subset only: the
   selected ruff `D` codes live in `fl_backend/pyproject.toml`, and the missing-docstring `D1xx`
@@ -343,13 +346,13 @@ every file this Scope names.
   so the shape COR-8 asks for never costs a block anything — one number for every shape, inline
   comment, symbol doc and test docstring alike, so it cannot be avoided by moving a paragraph from
   beside a symbol to above it; an opening block is skipped here as a module header and keeps INC-2's
-  bound instead. **The bound does not
-  reach a docstring the API publishes** (INC-4), which is a contract read by someone with no code
-  open and so not this rung at all (COR-14); every other docstring is a block like any other. **A
-  blank line separates two runs of line comments, or the checker reads them as one block**: a bare
-  `#` between them joins the run rather than ending it, and a formatter can delete the blank line
-  inside an argument list, so a two-paragraph comment moves above the statement, where the break
-  survives. **A docstring is one block whatever blank lines it holds**, its paragraphs joined before
+  bound instead exactly where INC-2's scope admits the kind, and is an ordinary block under this rule
+  in every other kind. **The bound does not reach a docstring the API publishes** (INC-4), which is a
+  contract read by someone with no code open and so not this rung at all (COR-14); every other
+  docstring is a block like any other. **A blank line separates two runs of line comments, or the
+  checker reads them as one block**: a bare `#` between them joins the run rather than ending it,
+  and a formatter can delete the blank line inside an argument list, so a two-paragraph comment
+  moves above the statement, where the break survives. **A docstring is one block whatever blank lines it holds**, its paragraphs joined before
   the count, and so is a TypeScript `/** … */` doc comment, which a blank line cannot part either:
   the blank would detach it from the declaration beneath it, which is the whole of what a doc
   comment is. Two independent constraints inside either are parted by moving one to the line it is

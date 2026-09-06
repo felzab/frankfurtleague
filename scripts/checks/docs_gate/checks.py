@@ -53,6 +53,7 @@ from .kernel import (
     OPS_FILENAMES,
     OPS_SPEC_PAGE,
     OVERVIEW_GLOB,
+    PROSE_FILENAMES,
     PROTOCOL_PAGE,
     QUOTED_SPAN_RE,
     REPO_PREFIXES,
@@ -212,6 +213,9 @@ REQUIRED_INPUTS: Final[tuple[str, ...]] = (
     GLOSSARY_PAGE,
     SWEEP_PAGE,
     ERROR_CODES_PAGE,
+    # The register's own name is the path: the notice a distribution reads sits at the root.
+    # Renamed, it drops out of the corpus listing while every check that reads it stays wired.
+    *PROSE_FILENAMES,
 )
 
 # The file both byte checks answer to, and what each names when the fault is the listing rather
@@ -1454,8 +1458,8 @@ HEADER_LABEL_RE: Final = re.compile(r"[A-Z][A-Za-z]*( [A-Za-z]+)?:")
 HEADER_LABELS: Final[tuple[str, ...]] = ("Invariants:", "See:")
 
 
-# A property of the kind and never of the tree: a Dockerfile has no suffix for a prefix list to pair
-# with, and one left every kind under no prefix measured by neither bound.
+# A property of the kind and never of the tree: a Dockerfile has no suffix for a prefix list to
+# pair with.
 def _header_scoped(style: str) -> bool:
     """True where INC-2 binds a file's header to its shape: the kinds `_module_header` reads one from."""
     return style in HEADER_SUFFIXES
@@ -1493,15 +1497,14 @@ def check_module_header(rel: str, raw: str, suffix: str) -> list[Finding]:
         if misplaced is None:
             return []
         first_line, header = misplaced
-        found.append(
-            Finding(
-                "fail",
-                "module-header",
-                rel,
-                "the module header sits below the first statement -- INC-7 places it above the imports",
-                first_line,
-            )
+        # By kind, because the two rules place a header differently: a workflow, a manifest and a
+        # Dockerfile are in this check's scope and have no import for INC-7's clause to sit above.
+        placement = (
+            "the module header sits below the first statement -- INC-7 places it above the imports"
+            if suffix == ".py"
+            else "the module header sits below the file's opening -- INC-2 puts it first, below a shebang alone"
         )
+        found.append(Finding("fail", "module-header", rel, placement, first_line))
     stripped = [_header_line(line, suffix) for line in header]
     # `unlisted`, so INC-2's own `Invariants:` and `See:` lists are not charged a word per entry
     # for taking the shape COR-8 asks for -- the reason INC-9 already strips them.
@@ -1871,8 +1874,13 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
         found.extend(check_metadata_breaks(rel, body))
         found.extend(check_diagrams(rel, raw))
     else:
-        found.extend(check_comment_citations(rel, body))
+        # `is_markdown` rather than `prose` here: a notice spells its paths bare, and only a PAGE
+        # is held to COR-6's backticks instead.
         found.extend(check_bare_paths(rel, body))
+    # `prose` rather than markdown on the two citation readers: each judges a COMMENT, and a file
+    # read whole carries none, so its sentences would answer for a rule they are not under (INC-6).
+    if not prose:
+        found.extend(check_comment_citations(rel, body))
 
     for rule_id in sorted(set(RULE_ID_RE.findall(body))):
         homes = rules.get(rule_id, [])
@@ -1882,7 +1890,7 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
             detail = f"{rule_id} has more than one home in docs/_standard/standard.md ({' and '.join(homes)}) -- a citation cannot say which"
             found.append(Finding("fail", "rule-id", rel, detail))
 
-    if not is_markdown:
+    if not prose:
         found.extend(check_invariant_citations(rel, body, invariants))
 
     # Prefilters, sound because `_wrap_re` joins with a SPACE: no wrap spells a `::` or `:`digit the

@@ -642,8 +642,9 @@ def is_prose(path: Path) -> bool:
 DIRECTIVE_RE: Final = re.compile(r"^\s*([\"'])use (client|server|strict)\1;?\s*$")
 PY_DOCSTRING_OPEN_RE: Final = re.compile(r"^[rRuU]?(\"\"\"|''')")
 
-# The only two kinds INC-2 lets a module header survive in. Anywhere else an opening block is an
-# ordinary comment block, so `comment_runs` yields it and INC-9's bound measures it.
+# Comment STYLES rather than kinds: `comment_style` hands a suffix it does not know to the shell
+# reader, so a hook and a Dockerfile arrive here as `.sh`. A style outside this register has its
+# opening block measured by INC-9 instead.
 HEADER_SUFFIXES: Final[tuple[str, ...]] = (".py", ".sh")
 
 

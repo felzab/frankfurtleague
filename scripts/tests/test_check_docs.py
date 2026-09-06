@@ -152,10 +152,10 @@ SHELL_FILE: Final = "nginx/entrypoint.sh"
 # Under `.claude/hooks/` (the shell scope) and outside `PRESERVED`, so `_reset` removes it.
 HOOK_SAMPLE: Final = ".claude/hooks/probe.sh"
 DOCKERFILE: Final = "fl_backend/Dockerfile"
-# The corpus' one file at the repository root: every other path sits under a prefix the resolver
-# lists, so moving this one leaves the root-level arm driven by nothing.
+# The corpus' one root-level file a citation names: every other cited path sits under a prefix the
+# resolver lists, so moving this one leaves the root-level arm driven by nothing.
 COMPOSE_FILE: Final = "docker-compose.yml"
-# The one file read whole as prose by name: no suffix, no comment marker, and paths written bare.
+# The one file read whole as prose by name: no suffix, and the paths in it written bare.
 NOTICE_FILE: Final = "NOTICE"
 # A live file and a directory, the two shapes the file names that must stay silent.
 NOTICE_LIVE_PATH: Final = SAMPLE
@@ -788,8 +788,10 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "  fixture:",
             "    image: scratch",
         ),
+        # The marker opens it, where the `#` reader takes the first line for a module header: the
+        # prose test in `check_file` is the only thing holding INC-2's shape off a file read whole.
         NOTICE_FILE: _page(
-            "Fixture League",
+            HASH + " Fixture League",
             "",
             "The following are published here and are not part of the Software:",
             "",
@@ -1365,6 +1367,15 @@ def _plant_history() -> None:
     )
     # A second file, or the case cannot tell a per-file finding from one naming no file at all.
     _append(NOTES, "The page was renamed after the draw, and no longer answers the old question.")
+    # The third is read whole rather than for its comments, which is the population the branch
+    # reader has to select by name to reach.
+    _append(NOTICE_FILE, "The mark was renamed when the brand changed.")
+
+
+def _plant_missing_inputs() -> None:
+    """Both shapes the required listing holds: a page a check names by hand, and the notice a kind register names."""
+    _delete(ROADMAP)
+    _delete(NOTICE_FILE)
 
 
 _KEPT_CHECKS: list[dict[str, object]] = []
@@ -1653,8 +1664,8 @@ CASES: Final[tuple[Case, ...]] = (
     Case("error-codes", _fails("error-codes", *[ERROR_CODES] * 5), _plant_error_codes),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
     Case("header-see", _fails("header-see", *[SAMPLE] * 4), _plant_header_see),
-    Case("history", _fails("history", NOTES, SECOND_SAMPLE), _plant_history),
-    Case("inputs", _fails("inputs", ROADMAP), lambda: _delete(ROADMAP)),
+    Case("history", _fails("history", NOTES, NOTICE_FILE, SECOND_SAMPLE), _plant_history),
+    Case("inputs", _fails("inputs", NOTICE_FILE, ROADMAP), _plant_missing_inputs),
     Case(
         "invariant-id",
         _fails("invariant-id", BACKEND_SPEC),
@@ -2371,13 +2382,39 @@ def test_a_header_in_a_kind_the_hash_reader_answers_for_is_found_and_bounded() -
     _assert_corpus_restored()
 
 
+def test_a_misplaced_header_is_told_the_placement_its_own_kind_keeps() -> None:
+    """Above the imports is INC-7's, and Python's alone; the widened scope reaches kinds that have no imports at all.
+
+    Both messages, because one wording covering the pair reads as right for whichever kind the
+    reader happens to be holding.
+    """
+    checks = _module("docs_gate.checks")
+    below = HASH + " OPS · a header sitting under the first line of content"
+    titled = QUOTES + "BACKEND · a header sitting under the first statement" + QUOTES
+    # The placement arm alone: it is the one carrying a line, the shape arms judging the whole block.
+    placed = [
+        [finding for finding in checks.check_module_header(rel, raw, suffix) if finding.line is not None]
+        for rel, raw, suffix in (
+            (CONF_FILE, _page("server { listen 80; }", "", below), ".sh"),
+            (SAMPLE, _page("import sys", "", titled), ".py"),
+        )
+    ]
+    hashed, pythonic = (found[0] for found in placed)
+    assert [len(found) for found in placed] == [1, 1], "the misplaced block drew more than one placement finding"
+    assert "INC-7" in pythonic.detail, pythonic.detail
+    assert "INC-7" not in hashed.detail, "a Dockerfile, a workflow and an nginx block were sent to move a header above absent imports"
+    assert "INC-2" in hashed.detail, hashed.detail
+
+
 def test_a_dead_path_in_the_notice_file_is_reported_and_a_live_one_or_a_directory_is_not() -> None:
-    """The file is read whole as prose, its bare paths reaching `bare-path`; read for comment markers it holds none.
+    """The file is read whole as prose, its bare paths reaching `bare-path` and its sentences reaching no comment reader.
 
     The corpus copy names a live file and a directory, so the plant's one dead path is the one finding.
     """
     _reset()
-    _append(NOTICE_FILE, "  docs/gone-from-the-notice.md")
+    # The two shapes beside the dead path are what a COMMENT is refused for, and this file holds
+    # none: an ambiguous invariant number and an audit id.
+    _append(NOTICE_FILE, "  docs/gone-from-the-notice.md", "It records I1, and § S2 alongside it.")
     try:
         _, reported = _run()
     finally:

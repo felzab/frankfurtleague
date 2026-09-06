@@ -612,8 +612,7 @@ the check reads but cannot fail on.
 **The documentation gate** (`scripts/checks/check_docs.py`) reads `/docs` and `NOTICE`, the source
 comments beside the code and the configuration files scanned with them, and its byte-level checks
 read every tracked text file — so a finding this scope raises need not be about a document at all.
-Its checks
-are registered in `scripts/checks/docs_gate/kernel.py :: CHECKS` and nowhere else.
+Its checks are registered in `scripts/checks/docs_gate/kernel.py :: CHECKS` and nowhere else.
 
 **Two of its checks read code rather than prose** (`scripts/checks/docs_gate/platform.py`), and I15 and
 I16 are what they hold. `platform-branch` holds four clauses. PLAT-1: a Python read of the platform

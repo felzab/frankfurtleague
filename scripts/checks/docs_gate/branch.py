@@ -15,6 +15,7 @@ from .kernel import (
     DOCS_DIR,
     INVARIANT_ROW_RE,
     OPS_FILENAMES,
+    PROSE_FILENAMES,
     QUOTED_SPAN_RE,
     REPO_ROOT,
     SCANNED_SUFFIXES,
@@ -648,10 +649,10 @@ def branch_additions(branch: Branch) -> dict[str, list[str]]:
     """
     additions: dict[str, list[str]] = {}
     for rel, lines in ((_added_by_file(branch.fork) if branch.fork is not None else None) or {}).items():
-        # By whole name, as `_bounded` and `kernel.py :: _of_kind` select the same population: an
-        # `endswith` also admits a page whose own name merely ENDS in one, `docs/<page>-pre-commit`,
-        # which neither of those two holds.
-        if not (rel.endswith((*SCANNED_SUFFIXES, ".md")) or rel.rsplit("/", 1)[-1] in OPS_FILENAMES):
+        # The corpus `kernel.py :: _of_kind` lists, by whole name as it selects: an `endswith`
+        # admits a page whose name merely ENDS in one, `docs/<page>-pre-commit`. A file read whole
+        # is here for `history`, which reads a sentence rather than a comment.
+        if not (rel.endswith((*SCANNED_SUFFIXES, ".md")) or rel.rsplit("/", 1)[-1] in (*OPS_FILENAMES, *PROSE_FILENAMES)):
             continue
         scanned = _scan_body(REPO_ROOT / rel).split("\n")
         for number, _ in lines:
