@@ -22,7 +22,9 @@ const MANIFEST = readFileSync(path.resolve(import.meta.dirname, "manifest.ts"), 
 
 /** Every hex the icon spells, deduplicated: the mark is two colours and a third is a drift. */
 function iconColours(): Set<string> {
-  return new Set([...ICON.matchAll(/#[0-9a-f]{6}/g)].map((m) => m[0]));
+  // Case-insensitive and every hex length: an upper-case or three-digit literal is a drift the
+  // lower-case six-digit pattern reads as absent rather than as wrong.
+  return new Set([...ICON.matchAll(/#[0-9a-fA-F]{3,8}\b/g)].map((m) => m[0].toLowerCase()));
 }
 
 describe("the brand assets that cannot read a stylesheet", () => {
@@ -61,7 +63,9 @@ describe("the brand assets that cannot read a stylesheet", () => {
     // 16px against a 512 viewBox is 1/32, so 48 units is 1.5 device pixels -- the floor below which
     // a stroke or a bar aliases into the tile it sits on.
     const strokes = [...ICON.matchAll(/stroke-width="(\d+)"/g)].map((m) => Number(m[1]));
-    const bars = [...ICON.matchAll(/<rect[^>]*height="(\d+)"/g)].map((m) => Number(m[1])).filter((h) => h < 512);
+    // Both axes, because a narrow bar aliases at a favicon's size exactly as a short one does and
+    // a height-only walk reads it as absent.
+    const bars = [...ICON.matchAll(/<rect[^>]*\b(?:width|height)="(\d+)"/g)].map((m) => Number(m[1])).filter((n) => n < 512);
 
     assert.ok(strokes.length > 0 && bars.length > 0, "the icon was not parsed, so this case proves nothing");
     for (const width of [...strokes, ...bars]) assert.ok(width >= 48, `a feature of ${String(width)} units disappears at 16px`);
