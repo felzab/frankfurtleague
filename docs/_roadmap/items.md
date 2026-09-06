@@ -1372,6 +1372,10 @@ vendored selectors overridden in the same file, and no clause governs them. §1.
 spec sheet is what governs both cases, and it already asks a stylesheet rule to name the HeroUI
 version it was written against.
 
+**Done when** the clause's first half reads as I57 does, and the stylesheet's toast comment, the
+block opening `THE TOAST, deliberately small:` and the one block in that file still past INC-9's
+bound, has been read once against COR-5 and COR-14 and taken to the lines it constrains.
+
 ### `jn8g-etjk` · `NOTICE` maps to no gate scope, so a dead asset path in it survives a green gate
 
 | Tags            | Status | Depends on |
