@@ -157,6 +157,9 @@ DOCKERFILE: Final = "fl_backend/Dockerfile"
 COMPOSE_FILE: Final = "docker-compose.yml"
 # The one-file standard, carrying both of the shapes a rule may take (PRE-4).
 STANDARD: Final = "docs/_standard/standard.md"
+# What that standard's rules claim, and the registry under test is re-made to claim the same: the
+# real registry names this repository's rules and pages, which the corpus below does not hold.
+FIXTURE_CLAIMS: Final[dict[str, tuple[str, ...]]] = {"citation": ("COR-1",), "path": ("COR-1",), "glossary-entry": ("COR-2",)}
 GLOSSARY: Final = "docs/glossary.md"
 BACKEND_SPEC: Final = "docs/backend/spec.md"
 FRONTEND_SPEC: Final = "docs/frontend/spec.md"
@@ -241,6 +244,9 @@ UNTRACKED_TWIN: Final = UNTRACKED_DIR + "/glossary.md"
 # What a branch-wide finding names in place of a file, because the phrases it counts are the diff's
 # rather than any one page's.
 BRANCH_DIFF: Final = "(branch diff)"
+# What a finding about a registered claim names: the registry, which the fixture holds only as the
+# gitignored copy it imports the gate from.
+KERNEL: Final = "scripts/checks/docs_gate/kernel.py"
 
 # The partition, anchored on folder names rather than `**/*`: a path git spelled in quotes, which a
 # listing without `-z` returns for a name outside ASCII, then matches no segment and reads as
@@ -817,6 +823,12 @@ def _load() -> Fixture:
     assert Path(platform.__file__ or "").resolve().is_relative_to(root), "the platform module is not the copy"
     platform.PLATFORM_ALLOW.clear()
     platform.TEXT_WRITE_ALLOW.clear()
+    # The registry's claims, for the same reason: every check keeps its verdicts and answers to the
+    # fixture standard's own rules, or to the gate.
+    kernel = importlib.import_module("docs_gate.kernel")
+    assert Path(kernel.__file__ or "").resolve().is_relative_to(root), "the kernel module is not the copy"
+    for name, check in list(kernel.CHECKS.items()):
+        kernel.CHECKS[name] = kernel.Check(check.severities, kernel.claimed(*FIXTURE_CLAIMS.get(name, (kernel.GATE,))))
     _build(root, _corpus(body_gate.TEMPLATE_FRAGMENTS))
     return Fixture(gate, body_gate, root)
 
@@ -1305,6 +1317,9 @@ def _plant_history() -> None:
     _append(NOTES, "The page was renamed after the draw, and no longer answers the old question.")
 
 
+_KEPT_CHECKS: list[dict[str, object]] = []
+
+
 def _plant_enforced_by() -> None:
     """PRE-4's enforcement claim naming a check the gate does not emit.
 
@@ -1313,6 +1328,46 @@ def _plant_enforced_by() -> None:
     """
     _replace(STANDARD, "_Enforced by_ `glossary-entry`.", "_Enforced by_ `no-such-check`.")
     _replace(STANDARD, "_Enforced by_ review judgment.", "_Enforced by_ gate check `absent-check`.")
+    _plant_registry_claims()
+
+
+def _plant_registry_claims() -> None:
+    """Four registry rows the fields do not make back, one producer each.
+
+    No claim; a rule whose field names another check; `GATE` where a rule names it; a contract
+    resolving to nothing.
+    """
+    kernel = _module("docs_gate.kernel")
+    _KEPT_CHECKS.append(dict(kernel.CHECKS))
+    kernel.CHECKS["sha"] = kernel.Check(kernel.FAIL, kernel.claimed())
+    kernel.CHECKS["path"] = kernel.Check(kernel.FAIL, kernel.claimed("COR-2"))
+    kernel.CHECKS["citation"] = kernel.Check(kernel.FAIL, kernel.claimed(kernel.GATE))
+    kernel.CHECKS["echo"] = kernel.Check(kernel.FAIL, kernel.claimed("docs/gone.md :: I1"))
+
+
+def _undo_enforced_by() -> None:
+    """The reset restores files, never a module's table."""
+    kernel = _module("docs_gate.kernel")
+    kernel.CHECKS.clear()
+    kernel.CHECKS.update(_KEPT_CHECKS.pop())
+
+
+def _plant_diagrams() -> None:
+    """OUT-7's two decidable clauses on the fixture's overview: a fence nothing here renders, and a bracket inside a quoted label.
+
+    The clean label beside it parts a reader of the quote from one reading the whole line.
+    """
+    _append(
+        OVERVIEW,
+        FENCE + "plantuml",
+        "A -> B",
+        FENCE,
+        "",
+        FENCE + "mermaid",
+        "graph LR",
+        '    a["a label [with a bracket]"] --> b[("a label in a cylinder")]',
+        FENCE,
+    )
 
 
 def _plant_scheme_token() -> None:
@@ -1524,10 +1579,13 @@ CASES: Final[tuple[Case, ...]] = (
     Case("copy-informal", _fails("copy-informal", COPY_SAMPLE), _plant_copy_informal),
     Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
     Case("crlf-write", _fails("crlf-write", SAMPLE), _plant_text_write),
+    Case("diagram", _fails("diagram", OVERVIEW, OVERVIEW), _plant_diagrams),
     # The corpus is walked in path order, so the twin under `docs/frontend/` is the home the two
     # copies below it are told to cite.
     Case("echo", _fails("echo", NOTES), _plant_echo),
-    Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD), _plant_enforced_by),
+    # Five on the registry: the four planted rows, and `glossary-entry`, whose one claiming field
+    # the page-side plant rewrote to name an absent check.
+    Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD, *[KERNEL] * 5), _plant_enforced_by, _undo_enforced_by),
     Case("error-codes", _fails("error-codes", *[ERROR_CODES] * 5), _plant_error_codes),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
     Case("header-see", _fails("header-see", *[SAMPLE] * 4), _plant_header_see),
@@ -1619,10 +1677,10 @@ def test_every_registered_check_and_verdict_has_a_plant() -> None:
     The verdicts are held to as well as the names: a check that reports and fails would leave the
     rarer half unproven.
     """
-    checks: dict[str, frozenset[str]] = _gate().gate.CHECKS
+    checks = _gate().gate.CHECKS
     assert {case.check for case in CASES} == set(checks)
     assert len({case.check for case in CASES}) == len(CASES)
-    registered = {(severity, name) for name, severities in checks.items() for severity in severities}
+    registered = {(severity, name) for name, check in checks.items() for severity in check.severities}
     planted = {(severity, check) for case in CASES for severity, check, _ in case.expected}
     assert planted == registered, "unplanted: " + repr(sorted(registered - planted))
 

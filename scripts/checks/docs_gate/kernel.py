@@ -102,53 +102,78 @@ SWEEP_PAGE: Final = ".claude/commands/docs/audit.md"
 # One severity: a check fails, or it does not exist. A tier nobody had to clear was read as a list
 # of things somebody else would get to, so every check here is one the run stops for.
 Severity = Literal["fail"]
+FAIL: Final[frozenset[Severity]] = frozenset({"fail"})
 
-# `enforced-by` resolves the standard's claims against this; `Finding` refuses a name outside it.
-CHECKS: Final[dict[str, frozenset[Severity]]] = {
-    "anchor": frozenset({"fail"}),
-    "bare-path": frozenset({"fail"}),
-    "binary-byte": frozenset({"fail"}),
-    "branch-scope": frozenset({"fail"}),
-    "cell-prose": frozenset({"fail"}),
-    "citation": frozenset({"fail"}),
-    "comment-citation": frozenset({"fail"}),
-    "comment-length": frozenset({"fail"}),
-    "copy-corpus": frozenset({"fail"}),
-    "copy-dash": frozenset({"fail"}),
-    "copy-formal": frozenset({"fail"}),
-    "copy-informal": frozenset({"fail"}),
-    "copy-term": frozenset({"fail"}),
-    "crlf-write": frozenset({"fail"}),
-    "echo": frozenset({"fail"}),
-    "enforced-by": frozenset({"fail"}),
-    "error-codes": frozenset({"fail"}),
-    "glossary-entry": frozenset({"fail"}),
-    "header-see": frozenset({"fail"}),
-    "history": frozenset({"fail"}),
-    "inputs": frozenset({"fail"}),
-    "invariant-id": frozenset({"fail"}),
-    "invariant-number": frozenset({"fail"}),
-    "invariant-row": frozenset({"fail"}),
-    "line-citation": frozenset({"fail"}),
-    "line-endings": frozenset({"fail"}),
-    "link": frozenset({"fail"}),
-    "metadata-break": frozenset({"fail"}),
-    "module-header": frozenset({"fail"}),
-    "output-verbs": frozenset({"fail"}),
-    "overview-spine": frozenset({"fail"}),
-    "owner-voice": frozenset({"fail"}),
-    "path": frozenset({"fail"}),
-    "platform-branch": frozenset({"fail"}),
-    "readme-cap": frozenset({"fail"}),
-    "roadmap-shape": frozenset({"fail"}),
-    "rule-id": frozenset({"fail"}),
-    "rule-shape": frozenset({"fail"}),
-    "scheme-token": frozenset({"fail"}),
-    "segment-map": frozenset({"fail"}),
-    "sha": frozenset({"fail"}),
-    "spec-spine": frozenset({"fail"}),
-    "template-fragment": frozenset({"fail"}),
-    "unreadable": frozenset({"fail"}),
+# The claim of a check answering to no rule and no page: what it stops is this gate reading
+# nothing, or the wrong thing, and calling that a pass.
+GATE: Final = "the gate"
+
+
+@dataclass(frozen=True, slots=True)
+class Check:
+    """One registered check, and what claims it.
+
+    A rule id whose field names the check, a citation of the contract it holds outside the
+    standard, or `GATE`; `enforced-by` resolves each, a rule both ways.
+    """
+
+    severities: frozenset[Severity]
+    claims: frozenset[str]
+
+
+def claimed(*claims: str) -> frozenset[str]:
+    """One registry row's claims."""
+    return frozenset(claims)
+
+
+# `enforced-by` holds the standard's claims and these to each other; `Finding` refuses a name
+# outside it.
+CHECKS: Final[dict[str, Check]] = {
+    "anchor": Check(FAIL, claimed("COR-6", "INC-6")),
+    "bare-path": Check(FAIL, claimed("INC-6")),
+    "binary-byte": Check(FAIL, claimed(".claude/CLAUDE.md :: 6. Repo-specific traps")),
+    "branch-scope": Check(FAIL, claimed(GATE)),
+    "cell-prose": Check(FAIL, claimed("OUT-4")),
+    "citation": Check(FAIL, claimed("COR-6", "INC-6", "OUT-4", "CUR-1")),
+    "comment-citation": Check(FAIL, claimed("COR-1", "INC-6")),
+    "comment-length": Check(FAIL, claimed("INC-4", "INC-8", "INC-9")),
+    "copy-corpus": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
+    "copy-dash": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
+    "copy-formal": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
+    "copy-informal": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
+    "copy-term": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
+    "crlf-write": Check(FAIL, claimed("docs/ops/spec.md :: I16")),
+    "diagram": Check(FAIL, claimed("OUT-7")),
+    "echo": Check(FAIL, claimed("COR-2")),
+    "enforced-by": Check(FAIL, claimed("PRE-4")),
+    "error-codes": Check(FAIL, claimed("docs/ops/spec.md :: I176")),
+    "glossary-entry": Check(FAIL, claimed("COR-12", "OUT-6")),
+    "header-see": Check(FAIL, claimed("INC-2")),
+    "history": Check(FAIL, claimed("COR-3")),
+    "inputs": Check(FAIL, claimed(GATE)),
+    "invariant-id": Check(FAIL, claimed("OUT-4")),
+    "invariant-number": Check(FAIL, claimed("OUT-4")),
+    "invariant-row": Check(FAIL, claimed("COR-12", "OUT-4")),
+    "line-citation": Check(FAIL, claimed("COR-4", "COR-6", "INC-6")),
+    "line-endings": Check(FAIL, claimed(".claude/CLAUDE.md :: 6. Repo-specific traps")),
+    "link": Check(FAIL, claimed("COR-6", "INC-6")),
+    "metadata-break": Check(FAIL, claimed("COR-8")),
+    "module-header": Check(FAIL, claimed("COR-12", "INC-2")),
+    "output-verbs": Check(FAIL, claimed(GATE)),
+    "overview-spine": Check(FAIL, claimed("COR-12", "OUT-5")),
+    "owner-voice": Check(FAIL, claimed("COR-11")),
+    "path": Check(FAIL, claimed("COR-6", "INC-6", "OUT-4", "CUR-1")),
+    "platform-branch": Check(FAIL, claimed("docs/ops/spec.md :: I15")),
+    "readme-cap": Check(FAIL, claimed("COR-12", "OUT-3")),
+    "roadmap-shape": Check(FAIL, claimed("docs/_roadmap/protocol.md :: 1. The shape of the page")),
+    "rule-id": Check(FAIL, claimed("PRE-4", "COR-6", "INC-6", "OUT-4")),
+    "rule-shape": Check(FAIL, claimed("PRE-4", "COR-12")),
+    "scheme-token": Check(FAIL, claimed("docs/frontend/spec.md :: 1.17 Colour roles and the brand budget")),
+    "segment-map": Check(FAIL, claimed(".claude/commands/docs/audit.md :: Partition it into segments")),
+    "sha": Check(FAIL, claimed("COR-6")),
+    "spec-spine": Check(FAIL, claimed("COR-12", "OUT-4")),
+    "template-fragment": Check(FAIL, claimed("OUT-9")),
+    "unreadable": Check(FAIL, claimed(GATE)),
 }
 
 
@@ -183,7 +208,8 @@ class Finding:
 
     def __post_init__(self) -> None:
         # Or the registry falls behind the code.
-        if self.severity not in CHECKS.get(self.check, frozenset()):
+        registered = CHECKS.get(self.check)
+        if registered is None or self.severity not in registered.severities:
             raise ValueError(f"check `{self.check}` is not registered in CHECKS at severity `{self.severity}`")
 
     @property

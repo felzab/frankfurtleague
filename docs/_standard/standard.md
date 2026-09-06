@@ -320,8 +320,8 @@ narrower than this Scope in a way INC-2 states.
   are narrower: `scripts/checks/docs_gate/branch.py :: check_added_citations` reads the branch's added
   comments in `scripts/checks/docs_gate/kernel.py :: SOURCE_SUFFIXES` alone, so none of the three is
   caught in a Dockerfile, a workflow, an nginx configuration or a manifest. _Enforced by_ gate checks `citation`,
-  `line-citation`, `comment-citation`, `path`, `bare-path`, `link` and `rule-id`; an unpinned outside
-  link is review judgment.
+  `line-citation`, `comment-citation`, `path`, `bare-path`, `link`, `anchor` and `rule-id`; an
+  unpinned outside link is review judgment.
 - **INC-7:** directive first line · a Python docstring is the first statement, above the imports ·
   summary line, then a blank line, then prose. Docstring enforcement is a formatting subset only: the
   selected ruff `D` codes live in `fl_backend/pyproject.toml`, and the missing-docstring `D1xx`
@@ -447,7 +447,9 @@ README and every template.
 - **OUT-7:** diagrams are mermaid, so they render in-repo; C4 levels 1–3, mirroring the C4 model's
   own levels, which move without us; never a code diagram; no square brackets inside a quoted node
   label. They live in overviews, plus a spec sheet where a data flow is hard in prose. _Enforced by_
-  unenforced — review judgment.
+  gate check `diagram`, for a fence naming a diagram language that is not mermaid and for a square
+  bracket inside a quoted node label; the C4 levels, where a diagram lives and whether it is a code
+  diagram are review judgment.
 - **OUT-8:** a surface is one of the three parts of the system a reader goes to as a whole — frontend
   (`fl_frontend/`), backend (`fl_backend/`), and ops (the compose files, `nginx/`, `scripts/`, the
   Dockerfiles). Ops owns the scripts and what they guarantee; `docs/_git/` owns the pipeline that

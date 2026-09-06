@@ -44,6 +44,8 @@ from .kernel import (
     DOCS_DIR,
     ENTRY_TOKEN_ALPHABET,
     ENTRY_TOKEN_PATTERN,
+    FENCE_RE,
+    GATE,
     GLOSSARY_PAGE,
     OPS_FILENAMES,
     OPS_SPEC_PAGE,
@@ -57,6 +59,7 @@ from .kernel import (
     STANDARD_PAGE,
     SWEEP_PAGE,
     TEMPLATES_PAGE,
+    Check,
     Finding,
     _header_line,
     _module_header,
@@ -127,6 +130,19 @@ SEGMENT_SAMPLE: Final = 8
 # The checker whose quoted fragments `template-fragment` confirms, named so a fault in the list
 # itself points at the file to fix rather than at the form it reads.
 PR_BODY_CHECKER: Final = "scripts/checks/check_pr_body.py"
+# Where a finding about a registered claim is filed: the row to repair is there.
+KERNEL_PAGE: Final = "scripts/checks/docs_gate/kernel.py"
+
+# Fence info strings a diagram renderer other than mermaid reads. GitHub draws none of them, so a
+# diagram written in one is a diagram nobody sees (OUT-7).
+DIAGRAM_LANGUAGES: Final[frozenset[str]] = frozenset(
+    {"plantuml", "puml", "dot", "graphviz", "d2", "ditaa", "nomnoml", "svgbob", "structurizr", "c4plantuml", "wavedrom", "kroki"}
+)
+MERMAID: Final = "mermaid"
+# Mermaid's own quoting of a node label. A square bracket inside one is shape syntax to its
+# parser, so the label OUT-7 refuses is exactly what a renderer refuses.
+QUOTED_LABEL_RE: Final = re.compile(r'"([^"\n]*)"')
+BRACKETS: Final = "[]"
 
 # A page that is not there yields nothing, so an absent input degrades the check reading it to
 # silence with the run green. Named here so the absence itself fails.
@@ -1094,11 +1110,11 @@ def check_binary_bytes() -> list[Finding]:
     return found
 
 
-def check_enforced_by() -> list[Finding]:
-    """A rule's enforcement claim names gate checks this script actually emits.
+def check_enforced_by(invariants: dict[str, list[str]]) -> list[Finding]:
+    """A rule's enforcement claim and a check's registered claim name each other (PRE-4).
 
-    Read from the one shape PRE-4 admits, a list line's `_Enforced by_`. A drifted claim is worse
-    than an unenforced rule: it reads as covered.
+    Both directions: a field naming a check the gate does not emit reads as covered, and a check
+    nothing claims is one nobody would miss.
     """
     text = _tracked_text(STANDARD_PAGE)
     if text is None:
@@ -1107,17 +1123,71 @@ def check_enforced_by() -> list[Finding]:
         return []
 
     found: list[Finding] = []
-
-    def resolve(field: str) -> None:
-        field = " ".join(field.split())
+    named: dict[str, set[str]] = {}
+    for rule_id, block in _rule_lines(text):
+        if (claim := INDEX_ENFORCED_RE.search(block)) is None:
+            continue
+        field = " ".join(claim.group(1).split())
         for name in CHECK_NAME_RE.findall(field):
-            if name not in CHECKS:
+            if name in CHECKS:
+                named.setdefault(name, set()).add(rule_id)
+            else:
                 detail = f"claims enforcement by gate check `{name}`, which this gate does not emit: {field[:80]}"
                 found.append(Finding("fail", "enforced-by", STANDARD_PAGE, detail))
+    for name, check in CHECKS.items():
+        found.extend(_check_claims(name, check, named.get(name, set()), invariants))
+    return found
 
-    for block in RULE_INDEX_BLOCK_RE.findall(text):
-        if (claim := INDEX_ENFORCED_RE.search(block)) is not None:
-            resolve(claim.group(1))
+
+def _check_claims(name: str, check: Check, named: set[str], invariants: dict[str, list[str]]) -> list[Finding]:
+    """One registered check's claims: its rule ids against the standard's fields, its citations against the corpus."""
+    if not check.claims:
+        detail = f"`{name}` is registered with no claim -- name the rule whose field names it, the contract it holds, or `GATE`"
+        return [Finding("fail", "enforced-by", KERNEL_PAGE, detail)]
+    rules = {claim for claim in check.claims if RULE_ID_RE.fullmatch(claim)}
+    found: list[Finding] = []
+    if rules != named:
+        registry, standard = ", ".join(sorted(rules)) or "no rule", ", ".join(sorted(named)) or "no rule"
+        detail = f"`{name}` is claimed by {registry} here and by {standard} in the standard's fields -- the two listings must agree"
+        found.append(Finding("fail", "enforced-by", KERNEL_PAGE, detail))
+    for contract in sorted(check.claims - rules - {GATE}):
+        # Asked of the resolver first: the citation check passes a left half that reads as no file.
+        if not _resolve(contract.partition(" :: ")[0].strip()):
+            found.append(Finding("fail", "enforced-by", KERNEL_PAGE, f"`{name}` claims `{contract}`, which names no file"))
+            continue
+        for dead in _check_citation(contract, KERNEL_PAGE, invariants):
+            found.append(Finding("fail", "enforced-by", KERNEL_PAGE, f"`{name}` claims `{contract}`, which does not resolve: {dead.detail}"))
+    return found
+
+
+def _fence_info(line: str) -> str:
+    """The language a fence line names, lower-cased, or the empty string."""
+    return line.strip().lstrip("`~").strip().split(" ")[0].lower()
+
+
+def check_diagrams(rel: str, raw: str) -> list[Finding]:
+    """OUT-7's two decidable clauses: a diagram is mermaid, and a quoted node label holds no bracket.
+
+    Read off the raw page: the scan body arrives with every fence blanked.
+    """
+    found: list[Finding] = []
+    language: str | None = None
+    for number, line in enumerate(raw.split("\n"), start=1):
+        # `FENCE_RE`, so this reader and the one blanking fences open and close on the same lines.
+        if FENCE_RE.match(line):
+            if language is not None:
+                language = None
+                continue
+            language = _fence_info(line)
+            if language in DIAGRAM_LANGUAGES:
+                detail = f"a `{language}` fence -- OUT-7 draws a diagram in mermaid, which renders in-repo"
+                found.append(Finding("fail", "diagram", rel, detail, number))
+            continue
+        if language != MERMAID:
+            continue
+        for label in QUOTED_LABEL_RE.findall(line):
+            if any(bracket in label for bracket in BRACKETS):
+                found.append(Finding("fail", "diagram", rel, f'a square bracket inside the quoted node label "{label}" (OUT-7)', number))
     return found
 
 
@@ -1672,6 +1742,7 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     found.extend(check_owner_voice(rel, body))
     if is_markdown:
         found.extend(check_metadata_breaks(rel, body))
+        found.extend(check_diagrams(rel, raw))
     else:
         found.extend(check_comment_citations(rel, body))
         found.extend(check_bare_paths(rel, body))
@@ -1972,7 +2043,7 @@ def main() -> int:
     findings.extend(check_invariant_tables())
     findings.extend(check_overviews())
     findings.extend(check_glossary())
-    findings.extend(check_enforced_by())
+    findings.extend(check_enforced_by(existing_invariants))
     findings.extend(check_rule_shape())
     findings.extend(check_cell_prose())
     findings.extend(check_echo())

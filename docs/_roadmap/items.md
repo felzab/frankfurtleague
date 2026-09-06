@@ -163,7 +163,6 @@ deliverable.
 | `r5xm-ac7m` | A hook probe reads the status only where the verdict was empty                                                                                                    | Ops, Docs, gate                                                             | Open     |
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                                                            | FE, BE, DB, admin, bewerbungen                                              | Standing |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                                                        | FE, BE, Docs, tests, saisons                                                | Open     |
-| `sqwz-xyxg` | An enforcement claim is resolved in one direction only                                                                                                            | Ops, gate                                                                   | Open     |
 | `srec-8jxj` | Naming the files that required the image build costs a process per file                                                                                           | Ops, Docs, gate                                                             | Open     |
 | `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                                                    | FE, tests, versions                                                         | Open     |
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject                                                   | FE, Docs, tests                                                             | Open     |
@@ -3588,37 +3587,6 @@ group shape guessed wrong — true in the planning window it was written for, an
 **The German is a hand-written second copy** (`fl_frontend/src/features/saisons/actions.ts`, its
 `REQ-RULES-011` arm), so a repair that stops at the backend leaves an admin reading the old
 instruction.
-
-### `sqwz-xyxg` · An enforcement claim is resolved in one direction only
-
-| Tags      | Status | Depends on |
-| --------- | ------ | ---------- |
-| Ops, gate | Open   | —          |
-
-**`scripts/checks/check_docs.py :: check_enforced_by` fails a rule naming a gate check that does not
-exist, and nothing resolves the opposite direction.** A rule may omit a check that enforces it, and a
-rule may state something a parser can decide while its field reads that it is unenforced. **Either
-shape leaves the field claiming less than the gate delivers, which is the reading nobody verifies** —
-and the field is where the standard says what is mechanically defended.
-
-**The clear instance is `anchor`.** It is emitted in the same pass as `link`, over a markdown page
-and over a source comment alike, and it is what resolves the heading a link's fragment names. INC-6
-names `link` and stops there; COR-6 names `citation`, `path`, `rule-id` and `line-citation` and stops
-there. A reader of either rule learns that a link's target is verified and never that its anchor is.
-**The clear unenforced clause is OUT-7's.** It fixes what a diagram may be, and part of that is
-decidable by reading the page — a fence naming a diagram language that is not mermaid, and a `[`
-inside a quoted node label — while the level clause is not decidable in general; its `Enforced by`
-field claims review judgment for the whole rule, so the part a parser could settle is settled by
-nobody.
-
-**This direction cannot be closed by requiring every check to be claimed.** Most of what no rule
-claims defends the gate itself rather than a rule — its own registry, its inputs, the repository's
-line endings — and that is correct.
-
-**Done when** each rule's `Enforced by` names every check that enforces it, the clauses a parser can
-decide carry one, and the direction the gate does not resolve is either mechanised or written down as
-deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check added
-for OUT-7 lands with the field that claims it.
 
 ### `srec-8jxj` · Naming the files that required the image build costs a process per file
 
