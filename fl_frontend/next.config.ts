@@ -7,13 +7,6 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        // The people's page was `/team`, which named a club everywhere else on the site. The old
-        // address shipped in the sitemap, so it moves rather than 404s.
-        source: "/team",
-        destination: "/organisation",
-        permanent: true, // HTTP 308 (permanent, method-preserving) -- not 301
-      },
-      {
         source: "/dashboard",
         destination: "/dashboard/spielplan#top",
         permanent: true, // HTTP 308 (permanent, method-preserving) -- not 301
