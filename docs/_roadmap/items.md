@@ -149,7 +149,6 @@ deliverable.
 | `54yr-fgun` | A changed citation target puts no page in front of the session                                                              | Ops, Docs, gate                                                             | Open     |
 | `556b-nxen` | The roadmap states each entry twice, and the check comparing the two listings' tags reads no other cell                     | Ops, Docs, gate                                                             | Open     |
 | `5qzd-ubrg` | A test's name counts the cases beside it, and the table has outgrown the count                                              | Ops, gate, tests                                                            | Open     |
-| `5tnp-5uff` | A python constant's closing quotes open a comment run                                                                       | Ops, Docs, gate, tests                                                      | Open     |
 | `645h-nj9q` | The linter runs a version past its end of life                                                                              | FE, Docs, versions                                                          | Standing |
 | `6zuv-9tkx` | No check can render a Server Component, so the render-prop rule is unenforced                                               | FE, Docs, tests                                                             | Open     |
 | `79y5-vdpq` | Two gate functions are rewritten in miniature inside the test that drives them                                              | Ops, gate, tests                                                            | Open     |
@@ -3162,40 +3161,6 @@ over, which answers the size question in seconds and stays right on its own (COR
 **Done when** neither the name nor the docstring carries a number, the name saying instead what the
 constructs have in common — every one a shape the call-site reader in
 `scripts/gate/selfcheck.sh` once mis-lexed.
-
-### `5tnp-5uff` · A python constant's closing delimiter opens a comment run, so code is measured as prose
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| Ops, Docs, gate, tests | Open   | —          |
-
-**`scripts/checks/docs_gate/kernel.py :: comment_runs` reads python by line rather than by token, and
-`:: PY_DOCSTRING_OPEN_RE` matches `"""` at the start of any stripped line.** A module-level
-triple-quoted CONSTANT opens on a line the pattern cannot match — the quotes sit after `NAME = ` —
-and closes on a line holding the delimiter alone, which the pattern matches exactly, so the CLOSING
-delimiter is read as an opening and every line below it up to the next `"""` is collected as prose
-and measured against INC-9's bound.
-
-**What it costs is a wrong REFUSAL, which is the expensive direction.** A run over the bound is a
-failing finding, so a branch is refused over a line nobody wrote as a comment, against a rule its
-author cannot satisfy by editing any comment; and the quiet half is wrong in the same way, a genuine
-comment following such a constant being measured joined to the code above it and graded on a length
-it does not have. One instance stands in the tree and it is under the bound by luck:
-`scripts/tests/test_copy_corpus.py` closes its `MEASURE` constant on such a line, the run that opens
-there swallows the `def` beneath it and that function's docstring, and it measures 151 characters
-against a bound of 250 — **nothing the checker does keeps it there**, a longer signature or a
-two-sentence docstring putting it over.
-
-**The repair changes what the runs ARE for every python file in the corpus**, which is why this is
-not an afternoon: deriving a file's runs from `tokenize` re-measures the whole corpus, and a block
-that has been passing because it was mis-split becomes a real finding the moment the split is right.
-Those must not be confused with the pre-existing INC-9 blocks `.claude/commands/docs/audit.md`
-already owns.
-
-**Done when** `comment_runs` reads python through a tokenizer, the corpus is re-measured and every
-verdict that moved is read and dispositioned, and `scripts/tests/test_check_docs.py` plants a
-module-level triple-quoted constant with a long function beneath it and asserts that nothing is
-found.
 
 ### `645h-nj9q` · The linter runs a version past its end of life, and the documentation for it describes another
 
