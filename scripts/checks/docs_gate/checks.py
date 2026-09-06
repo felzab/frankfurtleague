@@ -1484,7 +1484,9 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
             continue
         if LINE_CITATION_RE.fullmatch(f"`{token}`"):
             continue
-        if not (REPO_ROOT / token).exists() and not is_gitignored(token):
+        # Placed by the resolver rather than by a second `exists`, so this arm answers for a
+        # spelling the day the resolver does, and refuses a traversal it would.
+        if repo_path(token) is None and not is_gitignored(token):
             found.append(Finding("fail", "path", rel, f"path named but not present: {token}"))
 
     return found

@@ -152,6 +152,9 @@ SHELL_FILE: Final = "nginx/entrypoint.sh"
 # Under `.claude/hooks/` (the shell scope) and outside `PRESERVED`, so `_reset` removes it.
 HOOK_SAMPLE: Final = ".claude/hooks/probe.sh"
 DOCKERFILE: Final = "fl_backend/Dockerfile"
+# The corpus' one file at the repository root: every other path sits under a prefix the resolver
+# lists, so moving this one leaves the root-level arm driven by nothing.
+COMPOSE_FILE: Final = "docker-compose.yml"
 # The one-file standard, carrying both of the shapes a rule may take (PRE-4).
 STANDARD: Final = "docs/_standard/standard.md"
 GLOSSARY: Final = "docs/glossary.md"
@@ -616,6 +619,12 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "# An image, reached by whole filename rather than by suffix.",
             "FROM scratch",
         ),
+        COMPOSE_FILE: _page(
+            "# A service definition, sitting where no prefix reaches it.",
+            "services:",
+            "  fixture:",
+            "    image: scratch",
+        ),
         JSON_CONFIG: _page(
             "{",
             "  // A configuration file, scanned for its comments and nothing else.",
@@ -953,6 +962,11 @@ def _plant_roadmap() -> None:
             _heading(2, ROADMAP_TAIL),
         ).rstrip("\n"),
     )
+
+
+def _plant_compose_entry() -> None:
+    """The docs entry given a compose file as a second subject, its index row left as it stands."""
+    _replace(ROADMAP, "`docs/notes.md` that plants", "`docs/notes.md` and `" + COMPOSE_FILE + "` that plant")
 
 
 def _plant_segment_map() -> None:
@@ -1571,6 +1585,38 @@ def test_a_bare_name_reaches_an_unstaged_file_and_the_index_still_answers_first(
     assert reported[("fail", "citation", SAMPLE)] == 1, "a bare name did not reach the unstaged file it names: " + _shape(reported)
     assert reported[("fail", "citation", NOTES)] == 0, "an untracked copy answered a bare name the index holds: " + _shape(reported)
     _assert_corpus_restored()
+
+
+def test_an_entry_naming_a_compose_file_earns_the_ops_and_edge_tags() -> None:
+    """Driven through the whole gate rather than through the derivation alone.
+
+    The derivation reads what the resolver placed, so a case handing it paths of its own would pass
+    with the resolver unchanged.
+    """
+    _reset()
+    _plant_compose_entry()
+    try:
+        code, output = _main()
+    finally:
+        _reset()
+    assert code == 1, output
+    assert "entry " + DOCS_ENTRY + " names Ops, edge work" in output, output
+    _assert_corpus_restored()
+
+
+def test_the_resolver_places_a_tracked_file_at_the_repository_root() -> None:
+    """Asked of the resolver as well as of the case above.
+
+    That case stays green with this arm narrowed to the two compose filenames the derivation reads,
+    leaving every other root-level path resolving to nothing.
+    """
+    _reset()
+    kernel = _module("docs_gate.kernel")
+    assert kernel.repo_path(COMPOSE_FILE) == COMPOSE_FILE
+    assert kernel.repo_path(GITATTRIBUTES) == GITATTRIBUTES
+    # A KIND of file, and a directory: neither is one path, and the root arm answers for neither.
+    assert kernel.repo_path("queries.ts") is None
+    assert kernel.repo_path("docs") is None
 
 
 def test_a_block_this_branch_lengthened_is_measured_and_an_older_one_is_not() -> None:

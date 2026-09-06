@@ -932,12 +932,18 @@ def repo_path(token: str) -> str | None:
     Existence decides, so a token naming a KIND of file stays prose. A traversal is refused, not
     normalised: what comes back must be a git listing's spelling.
     """
-    if token.startswith(("/", "./")) or ".." in token:
+    # A dot-only SEGMENT, never the substring: `..` traverses, and Windows strips a trailing `...`
+    # back to the directory above it, a spelling no Linux runner holds. `[...nextauth]` is a real
+    # route segment a substring test refuses.
+    if token.startswith("/") or any(set(part) == {"."} for part in token.split("/")):
         return None
     if token.startswith(REPO_PREFIXES) and (REPO_ROOT / token).exists():
         return token
     if "/" not in token:
-        return None
+        # A prefix list names the next root-level file only after something has cited it, and COR-6
+        # admits a bare backticked path wherever the file sits. A file, not a directory: `scripts`
+        # standing alone is a tree's name in prose.
+        return token if (REPO_ROOT / token).is_file() else None
     return next((f"{root}{token}" for root in PACKAGE_ROOTS if (REPO_ROOT / root / token).exists()), None)
 
 

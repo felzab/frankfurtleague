@@ -118,7 +118,7 @@ deliverable.
 | `pt4h-b6tf` | Renaming an anonymised referee undoes the erasure, and nothing refuses it                                                   | BE, DB, Docs, schiedsrichter, spiele                                        | Open     |
 | `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                 | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
 | `q7jv-hskm` | The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep                  | BE, DB, tests, saisons                                                      | Standing |
-| `qp88-3t35` | A cached read's backend call joins to no render, and telemetry has nowhere to go                                            | FE, BE, Ops, Docs, versions                                                 | Open     |
+| `qp88-3t35` | A cached read's backend call joins to no render, and telemetry has nowhere to go                                            | FE, BE, Ops, Docs, edge, versions                                           | Open     |
 | `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                               | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                      | FE, BE, DB, admin, bewerbungen                                              | Standing |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                  | FE, BE, Docs, tests, saisons                                                | Open     |
@@ -169,11 +169,10 @@ deliverable.
 | `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing           | FE, Docs, tests                                                             | Open     |
 | `f4uf-jape` | A copy test pins what its own author wrote                                                                                  | FE, BE, Docs, tests, saisons, teams                                         | Open     |
 | `fha5-k95h` | A projection's coupling is guarded in one direction only                                                                    | BE, tests, saisons                                                          | Open     |
-| `frxr-w4j2` | A citation naming a root-level file resolves to no path, so the tag derivation reading one cannot fire                      | Ops, Docs, gate, tests                                                      | Open     |
 | `g98z-k4cp` | Two hook watchdogs sit under a registration in another file, and nothing compares the pair                                  | Ops, Docs, gate                                                             | Open     |
 | `gbjj-9wfh` | A test fixture asserts the type nothing else checks                                                                         | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
 | `gkp4-q3q9` | The unique-index test pairs by ordinal position                                                                             | BE, DB, tests                                                               | Open     |
-| `gm9c-2du4` | Every link the local stack mails points at production                                                                       | FE, Docs, bewerbungen                                                       | Open     |
+| `gm9c-2du4` | Every link the local stack mails points at production                                                                       | FE, Ops, Docs, edge, bewerbungen                                            | Open     |
 | `h4wq-p7ct` | A block carried into a file the fork does not hold is charged to the branch                                                 | Ops, Docs, gate, tests                                                      | Open     |
 | `hnx7-zbb9` | One field list is drift-guarded on one side only                                                                            | FE, BE, tests, saisons                                                      | Open     |
 | `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                      | FE, tests                                                                   | Open     |
@@ -1951,9 +1950,9 @@ removes the cost above rather than paying it.
 
 ### `qp88-3t35` · A cached read's backend call joins to no render, and telemetry has nowhere to go
 
-| Tags                        | Status | Depends on |
-| --------------------------- | ------ | ---------- |
-| FE, BE, Ops, Docs, versions | Open   | —          |
+| Tags                              | Status | Depends on |
+| --------------------------------- | ------ | ---------- |
+| FE, BE, Ops, Docs, edge, versions | Open   | —          |
 
 **Implement the industry-standard shape of the correlation scope this repository runs a subset of**
 (my item, 2026-08-05). What runs today is **one id per request, propagated by an ordinary header,
@@ -3636,7 +3635,7 @@ file is parsed — `nginx/redaction_test.sh` serves it in the pinned image in th
 typo in it fails the gate — but what stands unread is the comparison.
 `scripts/checks/check_compose_mirror.py` compares `docker-compose.yml` against
 `docker-compose.local.yml` and stops there, the two nginx files appearing in it only as the mount
-paths `:: DECLARED_DELTAS` names as an allowed difference: the checker knows both files exist, knows
+paths `scripts/checks/check_compose_mirror.py :: DECLARED_DELTAS` names as an allowed difference: the checker knows both files exist, knows
 they deliberately differ, and reads neither. **The argument for the check that exists is the argument
 for the missing one, word for word** — the compose comparison reasons at the line that both files
 parse whatever they say, so nothing else holds the local stack to production's shape and a setting
@@ -3884,38 +3883,6 @@ covered by name, and every key `fl_backend/app/api/saisons/services.py :: holds_
 `:: _a_side_is_off_the_draw` read today is fetched by the projection. What is missing is anything
 holding them to it.
 
-### `frxr-w4j2` · A citation naming a root-level file resolves to no path, so the tag derivation reading one cannot fire
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| Ops, Docs, gate, tests | Open   | —          |
-
-**`scripts/checks/docs_gate/kernel.py :: repo_path` answers only for a token under a directory prefix
-or a package root.** A token starting with one of the prefixes resolves where the file exists; a
-token carrying a slash is retried under each package root; a bare filename returns nothing. Every
-tracked file at the repository root is therefore a path the resolver declines, and the compose files
-are the ones a document has reason to cite.
-
-**One branch of the roadmap's tag derivation is unreachable because of it.**
-`scripts/checks/docs_gate/checks.py :: _derived_tags` takes the basenames of the paths an entry
-resolved and adds `Ops` and `edge` where one of them is in
-`scripts/checks/docs_gate/checks.py :: COMPOSE_FILENAMES`. Since a compose file never resolves, that
-membership is never true, and an entry whose subject is a compose override earns neither tag — while
-`scripts/checks/docs_gate/checks.py :: _check_derived_tags` fails the row that carries them anyway,
-as unearned. The author's only passing move is to drop the two tags that describe the entry
-correctly. The `Dockerfile` branch beside it is reachable, both Dockerfiles sitting inside package
-roots, which is why this reads as a resolver gap rather than as a rule about compose files.
-
-**The repair is in the resolver rather than in the derivation.** Adding compose filenames to the
-prefix list answers this one pair and leaves the next root-level file — a lockfile, a manifest, an
-ignore file — in the same position, and `docs/_standard/standard.md :: COR-6` makes a bare backticked
-repository path a citation form wherever the file sits. A resolver that answers for any tracked path
-at the root is the shape that closes the class.
-
-**Done when** a citation naming a tracked root-level file resolves, the derivation reading its
-basename fires, and a case in `scripts/tests/` pins both — the tag that an entry citing a compose
-file earns, and that the resolver answers for a root-level path at all.
-
 ### `g98z-k4cp` · Two hook watchdogs sit under a registration in another file, and nothing compares the pair
 
 | Tags            | Status | Depends on |
@@ -4030,9 +3997,9 @@ field tuple at module level, so an unpaired field fails at import.
 
 ### `gm9c-2du4` · Every link the local stack mails points at production
 
-| Tags                  | Status | Depends on |
-| --------------------- | ------ | ---------- |
-| FE, Docs, bewerbungen | Open   | —          |
+| Tags                             | Status | Depends on |
+| -------------------------------- | ------ | ---------- |
+| FE, Ops, Docs, edge, bewerbungen | Open   | —          |
 
 **`fl_frontend/src/core/brand.ts :: SITE_URL` is a module constant, and every absolute link is built
 from it.** `fl_frontend/src/app/api/bewerbung/route.ts` and
