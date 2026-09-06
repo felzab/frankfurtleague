@@ -90,7 +90,6 @@ deliverable.
 | `3pb5-7qyc` | `--accent-info` has no `-solid` grade and no on-colour, and nothing records why                                                                                   | FE, Ops, Docs, gate                                                         | Open     |
 | `3s6w-kndn` | The gate saturates the machine, then spends its whole tail unable to use it                                                                                       | BE, Ops, gate, tests                                                        | Open     |
 | `4enu-5xx9` | The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied                                                              | BE, DB, Docs, bewerbungen, kontakte, teams                                  | Open     |
-| `54yr-fgun` | A branch changes what a page cites, and nothing puts that page in front of the session                                                                            | Ops, Docs, gate                                                             | Open     |
 | `5qzd-ubrg` | A test's name counts the cases beside it, and the table has outgrown the count                                                                                    | Ops, gate, tests                                                            | Open     |
 | `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                                                    | FE, Docs, versions                                                          | Standing |
 | `6mch-qx2c` | A retention sweep that never runs looks exactly like one that found nothing                                                                                       | FE, Docs, bewerbungen                                                       | Open     |
@@ -661,32 +660,6 @@ actually changed.
 **Done when** a concurrent erasure cannot be undone by a save — with the guarantee stated where a
 reader with no code open meets it (`docs/backend/spec.md`), and a test that fails on the interleaving
 rather than on the shape of the update.
-
-### `54yr-fgun` · A branch changes what a page cites, and nothing puts that page in front of the session
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Ops, Docs, gate | Open   | —          |
-
-**Nothing mechanical asks a branch to re-read the pages describing what it changed.** CUR-2's
-same-commit rule is answered by the author, and the author here is almost always an assistant
-session — the writer most likely to update the code it is touching and to miss the prose it is not.
-The repair is the retired restamp cascade's arming computation without the stamps: intersect each
-documentation page's resolved citations with the branch's materially changed files, the classifier in
-`scripts/checks/check_scope.py` already deciding what counts as material, and print the pages whose
-subjects moved.
-
-**A list to read, never a failure.** The hard-failing version was satisfiable by ritual, one stamp
-move clearing a branch for good, so failing was the wrong verdict rather than the wrong idea. It
-lands beside the branch-scoped checks in `scripts/checks/docs_gate/branch.py`, in the same tier as
-`history`: no line to falsify, no bookkeeping to go stale, nothing to suppress. The
-gate's output lands in the session transcript, which is exactly where the author is; the review reads
-the same list in the run the pull request records, and `.claude/commands/docs/audit-pr.md` consumes
-it once it exists.
-
-**Done when** that list is produced and proven against a planted violation first (PRE-4): a fixture
-page citing a fixture source file, the source materially edited on the branch, the page named in the
-report — together with the negative, a comment-only edit to the cited file arming nothing.
 
 ### `5qzd-ubrg` · A test's name counts the cases beside it, and the table has outgrown the count
 

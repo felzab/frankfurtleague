@@ -106,7 +106,8 @@ SWEEP_PAGE: Final = ".claude/commands/docs/audit.md"
 
 
 # One severity: a check fails, or it does not exist. A tier nobody had to clear was read as a list
-# of things somebody else would get to, so every check here is one the run stops for.
+# of things somebody else would get to; a citation-drift warning a branch need not clear was refused
+# too.
 Severity = Literal["fail"]
 FAIL: Final[frozenset[Severity]] = frozenset({"fail"})
 
