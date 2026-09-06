@@ -370,7 +370,7 @@ The consequences, each of which otherwise costs a rebase to discover:
   (`scripts/tests/test_branch_checks.py :: test_a_block_copied_into_a_second_file_spends_no_part_of_the_first_s_ceiling`),
   while two copies pasted into one are charged against that single standing
   (`scripts/tests/test_branch_checks.py :: test_a_fresh_file_holding_the_fork_s_pair_inherits_one_standing_between_the_two`).
-- **A rename git no longer recognises is charged as a fresh file.** The line walk keeps rename
+- **A rename git does not recognise is charged as a fresh file.** The line walk keeps rename
   detection off, so the pairing comes from the diff's own rename headers; rewrite more than half of a
   file's lines while moving it and git records a deletion and an addition, so a duplicated over-bound
   block in it inherits one standing between its copies and the branch fails, loudly, where a silent
