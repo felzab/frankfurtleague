@@ -6,8 +6,8 @@
 export const DISPLAY_HEADING = "font-heading font-normal tracking-display uppercase";
 
 /**
- * The logo's own letterform as live text, which is why this is the one display site below
- * `fluid-xl`. `tracking-widest` is the label voice's value rather than a fifth tracking step, the
- * mark being a label-sized string of condensed capitals.
+ * The logo's own letterform as live text, which is why the display face goes under `fluid-xl`
+ * here. `tracking-wide` sits one step under the label voice's widest: a logotype is set tighter
+ * than a label.
  */
 export const WORDMARK = "font-heading font-normal tracking-wide uppercase";

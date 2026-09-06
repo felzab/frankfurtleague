@@ -11,18 +11,18 @@ site performs names the symbol that performs it, and one it does not says what s
 two** — which is what a reviewer needs before reading the published notice
 (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) against this page.
 
-| Section                                                                                                    | Answers                                                   |
-| ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| [1. Responsibility and the request route](#1-responsibility-and-the-request-route)                         | Who the controller is, and where a request goes           |
-| [2. Consent comes from the person, from 16](#2-consent-comes-from-the-person-from-16)                      | The sign-up flow every ruling on consent assumes          |
-| [3. The current pupil records are reset once](#3-the-current-pupil-records-are-reset-once)                 | What happens to the backfilled consents                   |
-| [4. What is published, and on what basis](#4-what-is-published-and-on-what-basis)                          | Addresses, names, the team page, crawlers, the notice     |
-| [5. Erasure reaches everyone who asks](#5-erasure-reaches-everyone-who-asks)                               | Who can be erased, what erasure reaches, what it does not |
-| [6. Retention is bounded where a bound was chosen](#6-retention-is-bounded-where-a-bound-was-chosen)       | The action log, applications, contacts, access logs       |
-| [7. Processors and third parties](#7-processors-and-third-parties)                                         | Who receives data, under which agreement, and the gaps    |
-| [9. A local copy of production expires](#9-a-local-copy-of-production-expires)                             | The development practice the rulings bound                |
-| [10. Adjacent decisions were accepted as recommended](#10-adjacent-decisions-were-accepted-as-recommended) | Roadmap items that needed no expert                       |
-| [11. Open, and owed a decision](#11-open-and-owed-a-decision)                                              | What the rulings above do not settle                      |
+| Section                                                                                                    | Answers                                                      |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [1. Responsibility and the request route](#1-responsibility-and-the-request-route)                         | Who the controller is, and where a request goes              |
+| [2. Consent comes from the person, from 16](#2-consent-comes-from-the-person-from-16)                      | The sign-up flow every ruling on consent assumes             |
+| [3. The current pupil records are reset once](#3-the-current-pupil-records-are-reset-once)                 | What happens to the backfilled consents                      |
+| [4. What is published, and on what basis](#4-what-is-published-and-on-what-basis)                          | Addresses, names, the organisers' page, crawlers, the notice |
+| [5. Erasure reaches everyone who asks](#5-erasure-reaches-everyone-who-asks)                               | Who can be erased, what erasure reaches, what it does not    |
+| [6. Retention is bounded where a bound was chosen](#6-retention-is-bounded-where-a-bound-was-chosen)       | The action log, applications, contacts, access logs          |
+| [7. Processors and third parties](#7-processors-and-third-parties)                                         | Who receives data, under which agreement, and the gaps       |
+| [9. A local copy of production expires](#9-a-local-copy-of-production-expires)                             | The development practice the rulings bound                   |
+| [10. Adjacent decisions were accepted as recommended](#10-adjacent-decisions-were-accepted-as-recommended) | Roadmap items that needed no expert                          |
+| [11. Open, and owed a decision](#11-open-and-owed-a-decision)                                              | What the rulings above do not settle                         |
 
 ## 1. Responsibility and the request route
 
@@ -108,7 +108,7 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   sentence sits on the arm that creates the club
   (`fl_frontend/src/features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx`), and
   the admin club forms need none. Ruled 2026-09-01.
-- **The organisers named on the public team page each fully agreed to be listed**, having confirmed
+- **The organisers named on the public Organisation page each fully agreed to be listed**, having confirmed
   it to me directly on 2026-09-02. The page carries a forename apiece
   (`fl_frontend/src/features/meta/constants.ts :: TEAM_MEMBERS`), and those are source code in a
   public repository, so removal is a code change plus a deploy and a name stays in the repository's

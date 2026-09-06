@@ -80,7 +80,7 @@ export const formButton = tv({
     stacks: { true: "h-auto min-h-12 w-full py-2 text-center whitespace-normal sm:w-auto" },
     /**
      * Height alone, so page chrome stays under the action bar's — except `xs`, which takes the
-     * badge's type step too: it stands in a row of `LABEL_BADGE` chips, where a taller control is
+     * badge's type step too: it stands in a row of `labelBadge` chips, where a taller control is
      * what makes the row read as ragged.
      */
     size: { sm: "h-10", xs: "fluid-xxs h-7 px-3" },

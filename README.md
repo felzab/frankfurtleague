@@ -116,4 +116,4 @@ beyond that, get in touch via [frankfurtleague.de/kontakt](https://frankfurtleag
 ## Links
 
 [Website](https://frankfurtleague.de) · [About](https://frankfurtleague.de/about) ·
-[The team](https://frankfurtleague.de/team) · [Contact](https://frankfurtleague.de/kontakt)
+[Organisation](https://frankfurtleague.de/organisation) · [Contact](https://frankfurtleague.de/kontakt)

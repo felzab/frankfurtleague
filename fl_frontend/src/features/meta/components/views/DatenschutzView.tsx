@@ -89,7 +89,7 @@ const VEROEFFENTLICHT = [
     grundlage: "Art. 6 Abs. 1 lit. f DSGVO, Durchführung und Darstellung des Wettbewerbs",
   },
   {
-    was: "Vornamen der Organisatorinnen und Organisatoren auf der Team-Seite",
+    was: "Vornamen der Organisatorinnen und Organisatoren auf der Seite „Organisation“",
     grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklichem Einverständnis",
   },
   {

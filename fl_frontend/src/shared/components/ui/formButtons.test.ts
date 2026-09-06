@@ -117,7 +117,7 @@ function buttonRules(root: Root, prop: string): { selector: string; value: strin
 }
 
 describe("the step that stands in a row of chips", () => {
-  /* The base's `h-12` next to a `LABEL_BADGE` is what makes such a row read as ragged, and the two
+  /* The base's `h-12` next to a `labelBadge` pill is what makes such a row read as ragged, and the two
      heights are one decision: the strip's chips are pinned to the same step. */
   it("takes the chips' own height rather than the base's", async () => {
     const inline = classesOf(formButton({ intent: "nav", size: "xs" }));
