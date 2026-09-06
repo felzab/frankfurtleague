@@ -278,7 +278,8 @@ directions, so an entry nothing runs fails and a test class no entry claims fail
 names is resolved against the frontend tree, so an entry cannot go on claiming a person can see a state after
 the page showing it has gone; and every anchor the reason argues from — a rule code, an invariant, a route, a
 repository path, an index — is resolved as well, so a reason arguing from something renamed away fails rather
-than reading as the evidence it is not.
+than reading as the evidence it is not. A bare name is resolved weakly on purpose, against every word either
+source tree spells, so one still written anywhere in either tree passes whatever it names there.
 
 **Most of what a model change owes is caught at the gate**, `test_domain.py` resolving what the declaration
 names and holding the claims it makes rather than merely the addresses. Three obligations are not, because no

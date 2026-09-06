@@ -46,8 +46,8 @@ PROTOCOL_CODES = frozenset({"REQ-AUTH-001", "REQ-AUTH-002", "REQ-AUTH-003", "REQ
 
 _CODE_PATTERN = "REQ-"
 
-# The declaration's own module, dropped from every listing a reason is resolved against: one built
-# from the file under test answers for whatever a reason invented
+# The declaration's own module, which never answers for a reason's own text: it is dropped from
+# every listing built out of the source trees, and a citation naming it resolves against nothing
 # (`docs/_standard/standard.md :: PRE-4`).
 DECLARATION = APP_ROOT / "core" / "domain.py"
 
@@ -166,7 +166,12 @@ def _classify(token: str) -> tuple[str, bool | None]:
     if citation := _CITATION.match(token):
         file = _resolved_path(citation.group(1))
         anchor = re.escape(citation.group(2))
-        cited = file is not None and file.is_file() and re.search(rf"(?<!\w){anchor}(?!\w)", file.read_text(encoding="utf-8")) is not None
+        cited = (
+            file is not None
+            and file != DECLARATION
+            and file.is_file()
+            and re.search(rf"(?<!\w){anchor}(?!\w)", file.read_text(encoding="utf-8")) is not None
+        )
         return "citation", cited
 
     if endpoint := _ENDPOINT.match(token):
@@ -513,15 +518,27 @@ def test_every_anchor_a_reason_names_resolves(entry):
     assert not unresolved, f"'{entry.subject}' argues from {unresolved}, which this repository answers for nowhere"
 
 
-def test_the_reason_sweep_reaches_something_it_resolves():
-    """A token pattern that stopped matching would pass every entry over an empty set.
+def test_every_kind_of_anchor_a_reason_names_resolves_at_least_once():
+    """Per kind: one arm resolving whatever the trees spell satisfies a bare floor for all of them.
 
-    The sweep above cannot tell that from a corpus with nothing wrong in it.
+    A listing that answers nothing is then named here, rather than reaching
+    `fl_backend/tests/core/test_domain.py :: test_every_anchor_a_reason_names_resolves` alone, as
+    reasons that invented their evidence.
     """
 
-    resolved = [token for entry in UNENFORCED for token in _REASON_TOKEN.findall(entry.reason) if _classify(token)[1]]
+    present: set[str] = set()
+    resolved: set[str] = set()
+    for entry in UNENFORCED:
+        for token in _REASON_TOKEN.findall(entry.reason):
+            kind, answer = _classify(token)
+            if answer is None:
+                continue
+            present.add(kind)
+            if answer:
+                resolved.add(kind)
 
-    assert resolved, "no reason names anything that resolved, so the per-entry sweep passed over nothing"
+    assert present, "no reason names anything with an address, so the per-entry sweep passed over nothing"
+    assert present == resolved, f"nothing resolved for {sorted(present - resolved)}, so the listing behind that kind answers for nothing"
 
 
 def test_every_unenforced_entry_is_paired_with_the_test_that_proves_it():

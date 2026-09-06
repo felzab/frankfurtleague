@@ -360,8 +360,14 @@ def test_an_allow_row_is_held_to_the_tree_it_excuses() -> None:
     code, found = _run(rows={ABSENT_HOOK + " :: work": "a hook of a path this corpus holds no file at"})
     assert code == RED
     _only(found, PLATFORM, ABSENT_HOOK, "names a file outside the scanned population")
-    code, found = _run()
-    assert (code, found) == (GREEN, []), found
+
+
+def test_a_row_whose_file_the_scan_could_not_read_is_not_reported_as_absent() -> None:
+    """The two remedies are opposite: a file in the population is repaired, a path outside it is repointed or dropped."""
+    with _planted(TOOL, _lines('"""SCRIPTS · a module the parser cannot read."""', "def stop(")):
+        code, found = _run(rows={TOOL + " :: stop": "a row whose file stopped parsing"})
+        assert code == RED
+        _only(found, PLATFORM, TOOL, "could not read")
 
 
 def test_a_text_mode_write_without_newline_is_red_and_removing_it_is_green() -> None:
