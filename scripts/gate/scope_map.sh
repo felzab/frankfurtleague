@@ -132,9 +132,13 @@ else
       # excuses (`scripts/checks/docs_gate/kernel.py :: is_gitignored`), so widening it narrows what
       # --docs proves while nothing else reads the widening.
       .gitignore) docs=true ;;
+      # NOTICE is read whole by the documentation gate and by nothing else
+      # (`scripts/checks/docs_gate/kernel.py :: PROSE_FILENAMES`), so an edit to it selects that
+      # scope alone: a dead asset path written there fails on the branch that wrote it.
+      NOTICE) docs=true ;;
       # No automated check exists for these. A deliberate, named list — anything NOT named here
       # falls through to the conservative default below.
-      certs/*|LICENSE|NOTICE) ;;
+      certs/*|LICENSE) ;;
       docs/*) docs=true ;;
       # selfcheck.sh lints and probes these, so a hook edit selects the scripts scope — matched before
       # the .claude/* arm, which would leave the hook probes unrun on the change that needs them.

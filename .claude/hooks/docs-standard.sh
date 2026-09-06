@@ -68,7 +68,8 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
   const base = path.basename(rel).toLowerCase();
   const ext = path.extname(base);
   let isDocs = false;
-  if (ext === ".md" || ext === ".mdx") {
+  // NOTICE is read whole as a page by the documentation gate (`kernel.py :: PROSE_FILENAMES`).
+  if (ext === ".md" || ext === ".mdx" || base === "notice") {
     isDocs = true;
   } else if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].indexOf(ext) !== -1) {
     isDocs = fresh.indexOf("//") !== -1 || fresh.indexOf("/*") !== -1;

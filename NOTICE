@@ -30,7 +30,7 @@ this notice.
      fl_frontend/src/app/icon.svg
      fl_frontend/src/app/favicon.ico
      fl_frontend/src/app/apple-icon.png
-     fl_frontend/public/icons/**
+     fl_frontend/public/icons/
      fl_frontend/src/shared/components/ui/FLLogo.tsx
 
 3. LEAGUE DATA AND WRITTEN CONTENT

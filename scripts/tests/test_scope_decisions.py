@@ -359,6 +359,8 @@ SELECTED: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     (".gitattributes", ("scripts", "docs")),
     # .gitignore decides which paths that same gate scans, and which citations it excuses.
     (".gitignore", ("docs",)),
+    # The documentation gate resolves the asset paths NOTICE names, and nothing else reads the file.
+    ("NOTICE", ("docs",)),
 )
 
 
@@ -371,6 +373,18 @@ def test_a_path_selects_every_scope_that_would_check_it() -> None:
         assert answered is not None, "scripts/gate/scope_map.sh could not be run"
         missed += [path + " selected no " + name for name in wanted if not answered.get(name)]
     assert not missed, "\n".join(missed)
+
+
+def test_the_notice_file_selects_the_documentation_scope_and_nothing_else() -> None:
+    """`SELECTED` reads its scopes as a subset, so a scope left true fails nothing there.
+
+    An arm that stopped matching would turn every scope on through the conservative default, and
+    only a set comparison catches that.
+    """
+    scope = _fixture().scope
+    answered = scope.scope_map(["NOTICE"])
+    assert answered is not None, "scripts/gate/scope_map.sh could not be run"
+    assert {name for name, selected in answered.items() if selected} == {"docs"}, repr(answered)
 
 
 def _mapping_for_base(root: Path, base: str) -> dict[str, bool]:

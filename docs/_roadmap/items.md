@@ -135,7 +135,6 @@ deliverable.
 | `ja32-9rpv` | A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches                                                           | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
 | `jcpc-dee5` | Two routes sharing a path and a method collapse to one before the guard sweep reads them                                                                          | BE, tests                                                                   | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                                                       | BE, tests, saisons                                                          | Open     |
-| `jn8g-etjk` | `NOTICE` maps to no gate scope, so a dead asset path in it survives a green gate                                                                                  | Docs, Ops, gate                                                             | Open     |
 | `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                                                                   | FE, BE, DB, Docs, kontakte                                                  | Open     |
 | `kajk-z7nu` | A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it                                                                    | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
 | `kpkb-y5d8` | A refusal code's meaning is written three times in prose, and nothing resolves any pair of them                                                                   | FE, BE, Ops, Docs, gate, tests, bewerbungen                                 | Open     |
@@ -2531,26 +2530,6 @@ guards deletable.
 
 **Not verified here:** the database tier was not run for this entry. That dropping the argument
 leaves it green is a report; the mechanism above is what the code says would allow it.
-
-### `jn8g-etjk` · `NOTICE` maps to no gate scope, so a dead asset path in it survives a green gate
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Docs, Ops, gate | Open   | —          |
-
-**`scripts/checks/check_scope.py` derives a scope from the paths a diff touches, and `NOTICE`
-at the repository root falls under none of them.** A change to it runs no checker, and neither does
-a change elsewhere that invalidates it: the file names asset paths and third-party attributions, and
-nothing resolves either.
-
-**Why it matters.** `NOTICE` is the file a reader of a public repository opens to find out what may
-be reused. An attribution naming an asset the tree does not hold is worse than none, because it
-claims a licence obligation is being met. The corpus's own citation checkers already resolve
-`path :: symbol` for every document under `docs/`; this file gets none of that for the sole reason
-that it sits one directory up.
-
-**Done when** an edit to `NOTICE` selects a scope that resolves its paths, and a planted dead path in
-it turns the gate red.
 
 ### `k3g7-cqx7` · An erasure is confirmed without naming whom the address matches
 

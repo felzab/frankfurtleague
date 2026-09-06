@@ -41,6 +41,9 @@ OPS_SUFFIXES: Final[tuple[str, ...]] = (".conf", ".yml", ".yaml", ".toml", ".jso
 # A dotfile and a hook have no suffix for `Path.suffix` to dispatch on, so INC-6 reaches them by
 # whole name here or the In-code section's Scope would name files no check reads.
 OPS_FILENAMES: Final[tuple[str, ...]] = ("Dockerfile", ".dockerignore", "pre-commit", "commit-msg", "pre-push")
+# Read whole as prose by name, as a page is: no suffix, no comment marker, and the asset paths it
+# names written bare, so the `#` reader keeps nothing of it and `bare-path` has to see the text.
+PROSE_FILENAMES: Final[tuple[str, ...]] = ("NOTICE",)
 SCANNED_SUFFIXES: Final[tuple[str, ...]] = SOURCE_SUFFIXES + OPS_SUFFIXES
 
 # Anything else in backticks is prose: a bare `queries.ts` names a KIND of file, not one file.
@@ -620,6 +623,15 @@ def comment_style(path: Path) -> str:
     return path.suffix if path.suffix in SOURCE_SUFFIXES or path.suffix == ".json" else ".sh"
 
 
+def is_prose(path: Path) -> bool:
+    """Whether a file is read whole, as a page is, rather than for its comments.
+
+    By name as well as by kind: handed to `comment_style`, a prose file is read for `#` lines and
+    passes every check in silence.
+    """
+    return path.suffix == ".md" or path.name in PROSE_FILENAMES
+
+
 # A directive stays above the header (INC-7), so the header scan steps over it.
 DIRECTIVE_RE: Final = re.compile(r"^\s*([\"'])use (client|server|strict)\1;?\s*$")
 PY_DOCSTRING_OPEN_RE: Final = re.compile(r"^[rRuU]?(\"\"\"|''')")
@@ -820,14 +832,15 @@ def _of_kind(candidates: Iterable[Path]) -> tuple[Path, ...]:
     `is_file` drops a path the index holds and the tree does not, which a branch mid-rename carries.
     """
     suffixes = {".md", *SCANNED_SUFFIXES}
-    return tuple(sorted({p for p in candidates if p.is_file() and not _skipped(p) and (p.suffix in suffixes or p.name in OPS_FILENAMES)}))
+    names = {*OPS_FILENAMES, *PROSE_FILENAMES}
+    return tuple(sorted({p for p in candidates if p.is_file() and not _skipped(p) and (p.suffix in suffixes or p.name in names)}))
 
 
 @cache
 def _kind_patterns() -> tuple[str, ...]:
     """The `ls-files` patterns that prefilter a listing to the scanned kinds."""
     # `*Dockerfile`, or an unanchored name matches the root file alone; `_of_kind` narrows the widening.
-    return ("*.md", *(f"*{suffix}" for suffix in SCANNED_SUFFIXES), *(f"*{name}" for name in OPS_FILENAMES))
+    return ("*.md", *(f"*{suffix}" for suffix in SCANNED_SUFFIXES), *(f"*{name}" for name in (*OPS_FILENAMES, *PROSE_FILENAMES)))
 
 
 @cache
@@ -1092,4 +1105,4 @@ def _scan_body(path: Path) -> str:
     raw = _read_text(path)[0]
     if raw is None:
         return ""
-    return strip_fences(raw) if path.suffix == ".md" else comments_only(raw, comment_style(path))
+    return strip_fences(raw) if is_prose(path) else comments_only(raw, comment_style(path))

@@ -155,6 +155,11 @@ DOCKERFILE: Final = "fl_backend/Dockerfile"
 # The corpus' one file at the repository root: every other path sits under a prefix the resolver
 # lists, so moving this one leaves the root-level arm driven by nothing.
 COMPOSE_FILE: Final = "docker-compose.yml"
+# The one file read whole as prose by name: no suffix, no comment marker, and paths written bare.
+NOTICE_FILE: Final = "NOTICE"
+# A live file and a directory, the two shapes the file names that must stay silent.
+NOTICE_LIVE_PATH: Final = SAMPLE
+NOTICE_DIRECTORY: Final = "fl_frontend/src/"
 # The one-file standard, carrying both of the shapes a rule may take (PRE-4).
 STANDARD: Final = "docs/_standard/standard.md"
 # What that standard's rules claim, and the registry under test is re-made to claim the same: the
@@ -760,6 +765,14 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "services:",
             "  fixture:",
             "    image: scratch",
+        ),
+        NOTICE_FILE: _page(
+            "Fixture League",
+            "",
+            "The following are published here and are not part of the Software:",
+            "",
+            "  " + NOTICE_LIVE_PATH,
+            "  " + NOTICE_DIRECTORY,
         ),
         JSON_CONFIG: _page(
             "{",
@@ -2313,6 +2326,22 @@ def test_a_header_in_a_kind_the_hash_reader_answers_for_is_found_and_bounded() -
         _reset()
     assert reported[("fail", "module-header", DOCKERFILE)] == 2, "a suffixless file's header was measured by nothing: " + _shape(reported)
     assert reported[("fail", "module-header", CONF_FILE)] == 2, "a header under no scoped tree was measured by nothing: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_dead_path_in_the_notice_file_is_reported_and_a_live_one_or_a_directory_is_not() -> None:
+    """The file is read whole as prose, its bare paths reaching `bare-path`; read for comment markers it holds none.
+
+    The corpus copy names a live file and a directory, so the plant's one dead path is the one finding.
+    """
+    _reset()
+    _append(NOTICE_FILE, "  docs/gone-from-the-notice.md")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    about = {key: count for key, count in reported.items() if key[2] == NOTICE_FILE}
+    assert about == {("fail", "bare-path", NOTICE_FILE): 1}, "the notice file was read by nothing, or by the wrong reader: " + _shape(reported)
     _assert_corpus_restored()
 
 

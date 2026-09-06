@@ -609,9 +609,10 @@ and the clause are one mechanism's three parts, and `scripts/tests/test_check_ga
 drives the committed table red and green against its own budgets so the file can never become one
 the check reads but cannot fail on.
 
-**The documentation gate** (`scripts/checks/check_docs.py`) reads `/docs`, the source comments
-beside the code and the configuration files scanned with them, and its byte-level checks read every
-tracked text file — so a finding this scope raises need not be about a document at all. Its checks
+**The documentation gate** (`scripts/checks/check_docs.py`) reads `/docs` and `NOTICE`, the source
+comments beside the code and the configuration files scanned with them, and its byte-level checks
+read every tracked text file — so a finding this scope raises need not be about a document at all.
+Its checks
 are registered in `scripts/checks/docs_gate/kernel.py :: CHECKS` and nowhere else.
 
 **Two of its checks read code rather than prose** (`scripts/checks/docs_gate/platform.py`), and I15 and

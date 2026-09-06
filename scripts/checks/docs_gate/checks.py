@@ -80,6 +80,7 @@ from .kernel import (
     is_entry_token,
     is_gitignored,
     is_placeholder,
+    is_prose,
     line_of,
     repo_path,
     scanned_files,
@@ -1831,6 +1832,9 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     """
     rel = path.relative_to(REPO_ROOT).as_posix()
     is_markdown = path.suffix == ".md"
+    # Prose is wider than markdown by the files read whole by name: those take a page's readers
+    # for what is written bare in them, and markdown's alone for what its syntax carries.
+    prose = is_prose(path)
     # The style rather than `path.suffix` on both sides of the header check: read for a suffix a
     # Dockerfile does not have, the reader answers no header and the check runs over nothing.
     style = comment_style(path)
@@ -1843,7 +1847,7 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
 
     # A page's H1 opens on the marker the `#` reader takes for a header, so the kind test alone
     # would hold every page to INC-2's shape.
-    if not is_markdown and _header_scoped(style):
+    if not prose and _header_scoped(style):
         found.extend(check_module_header(rel, raw, style))
         found.extend(check_header_see(rel, raw, style))
 
@@ -1852,7 +1856,7 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
         found.append(Finding("fail", "readme-cap", rel, detail))
 
     found.extend(check_owner_voice(rel, body))
-    found.extend(check_wrapped_paths(rel, body, () if is_markdown else continuation_markers(style)))
+    found.extend(check_wrapped_paths(rel, body, () if prose else continuation_markers(style)))
     if is_markdown:
         found.extend(check_metadata_breaks(rel, body))
         found.extend(check_diagrams(rel, raw))
@@ -1876,7 +1880,7 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     cites = "::" in body
     cites_lines = LINE_CITATION_HINT_RE.search(body) is not None
     if cites or cites_lines:
-        joined = unwrapped(body, () if is_markdown else continuation_markers(style))
+        joined = unwrapped(body, () if prose else continuation_markers(style))
         if cites:
             for citation in sorted(set(CITATION_RE.findall(joined))):
                 if not is_placeholder(citation):
@@ -1935,10 +1939,10 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
 
 
 def check_bare_paths(rel: str, body: str) -> list[Finding]:
-    """A repository path named in a comment without backticks, resolving to nothing.
+    """A repository path named without backticks, in a comment or a prose file, resolving to nothing.
 
-    Comments only, a document being held to COR-6's backticks instead. A token is resolved from
-    every directory above the file, as a reader would.
+    Never a page, which is held to COR-6's backticks instead. A token is resolved from every
+    directory above the file, as a reader would.
     """
     found: list[Finding] = []
     prefixes = ["", *(f"{parent.as_posix()}/" for parent in Path(rel).parents if parent.as_posix() != ".")]
@@ -2059,7 +2063,7 @@ def _prose_blocks(path: Path) -> list[tuple[int, str]]:
     clause keeps a one-sentence claim at every constrained line. A restated argument is
     `/docs:audit`'s to read.
     """
-    if path.suffix != ".md":
+    if not is_prose(path):
         return []
     blocks: list[tuple[int, str]] = []
     current: list[str] = []
@@ -2180,7 +2184,7 @@ def main() -> int:
     else:
         _print_human(findings)
 
-    docs = sum(1 for f in files if f.suffix == ".md")
+    docs = sum(1 for f in files if is_prose(f))
     sources = len(files) - docs
     print(f"\n      scanned {docs} documents and {sources} source files against {len(existing_rules)} rules")
     return checker_kernel.EXIT_FINDINGS if findings else checker_kernel.EXIT_OK
