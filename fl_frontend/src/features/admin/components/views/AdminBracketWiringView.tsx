@@ -27,6 +27,7 @@ type FLSlotTintKey = Exclude<FLSlotHerkunft, "quelle"> | FLSpielQuelle["type"];
  * A chip by the KIND of its source, for wherever a feeding round cannot answer. `gruppe` reads
  * `PHASE_TINTS` rather than spelling the token; warm means the slot needs an admin.
  */
+// Never `brand` here: the league's own mark does not grade a wiring slot.
 const HERKUNFT_TINTS: Record<FLSlotTintKey, PillTone> = {
   gruppe: PHASE_TINTS.gruppenphase,
   spiel: "info",

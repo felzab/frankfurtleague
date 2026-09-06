@@ -119,7 +119,7 @@ export function FormAustragenSection({
                   "Der Spieler steht nicht mehr im Kader dieser Saison.",
                 )
               }
-              className="border-danger/40 bg-surface text-danger data-hovered:bg-hover-danger data-hovered:text-danger-strong fluid-sm flex h-10 w-fit items-center rounded-lg border px-4 font-bold shadow-sm transition-colors">
+              className="border-danger/40 bg-surface text-danger-strong data-hovered:bg-hover-danger fluid-sm flex h-10 w-fit items-center rounded-lg border px-4 font-bold shadow-sm transition-colors">
               {isPending ? "Speichert..." : `Aus Kader ${saisonId} austragen`}
             </Button>
           </>

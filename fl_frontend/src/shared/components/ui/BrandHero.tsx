@@ -28,9 +28,8 @@ export function BrandHero({ title, lead }: { title: string; lead: string }) {
   );
 }
 
-// The block's padding plus the mark's width at `h-20`, `h-28` and `h-40`, and 20px of air, so the
-// goal never sits under the trophy. A margin inside the viewBox would scale with the block's height
-// instead.
+// The block's padding plus the mark's width at `h-20`, `h-28` and `h-40`, floored to the spacing
+// step, which leaves about 17px of air at each.
 const TRACE_INSET = "right-15 sm:right-22 lg:right-28";
 
 /**
@@ -41,8 +40,8 @@ function PitchTrace() {
   return (
     <svg
       aria-hidden="true"
-      // Metres, with the origin at the goal line's centre, so every figure is the Laws of the Game's
-      // own and is checked against them rather than against each other.
+      // Metres, with the origin at the goal line's centre, so every marking is the Laws of the Game's
+      // own figure. The frame is not: it crops a 68m pitch to 52m, having no touchline to draw.
       viewBox="-63.65 -26 67.09 52"
       fill="none"
       stroke="currentColor"
@@ -52,8 +51,8 @@ function PitchTrace() {
       // over four times it: a drawing filling the width loses the penalty area's top and bottom on
       // the wide end.
       className={`pointer-events-none absolute top-0 h-full w-auto ${TRACE_INSET}`}>
-      {/* `non-scaling-stroke` on each shape, because the SVG is sized off the block: without it the
-          stroke thickens with the hero's own height instead of staying a drawn line. */}
+      {/* `non-scaling-stroke` on every stroked shape, because the SVG is sized off the block: without
+          it the stroke thickens with the hero's own height instead of staying a drawn line. */}
       <line
         x1="-52.5"
         y1="-26"

@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
 
 /**
- * The season badge both public entry points wear — the landing hero and the application page.
- *
  * One component rather than the classes twice: the tint below is contrast-measured, and a second
  * spelling of it is one nobody re-measures.
  */
