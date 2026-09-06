@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cache, partial
 from pathlib import Path, PurePosixPath
-from typing import Final, Iterable
+from typing import Final, Iterable, NamedTuple
 
 from checker_kernel import git, git_input
 
@@ -107,16 +107,26 @@ def _endpoint_docstrings(raw: str) -> frozenset[int]:
     return frozenset(lines)
 
 
-def _blocks_over_bound(text: str, style: str) -> list[tuple[frozenset[str], int]]:
-    """Each over-bound block in some text, as the lines it holds and the words it runs to."""
+class Ancestor(NamedTuple):
+    """One block the fork held over the bound, and the path it filed it at.
+
+    The path is part of the value: counting copies across files would let a block grow by being
+    duplicated into another.
+    """
+
+    file: str
+    lines: frozenset[str]
+    words: int
+
+
+def _blocks_over_bound(rel: str, text: str, style: str) -> list[Ancestor]:
+    """Each over-bound block in one fork file, as the lines it holds and the words it runs to."""
     return [
-        (frozenset(line for line in block if line), word_count(_block_text(block)))
+        Ancestor(rel, frozenset(line for line in block if line), word_count(_block_text(block)))
         for _, block in comment_runs(text, style)
         if _over_bound(block)
     ]
 
-
-Ancestor = tuple[frozenset[str], int]
 
 BATCH_HEADER: Final = " blob "
 
@@ -164,7 +174,7 @@ def _fork_pool(fork: str) -> list[Ancestor] | None:
         end = len(batch) if following is None else batch.find("\n" + following + BATCH_HEADER, start)
         if end == -1:
             return None
-        pool.extend(_blocks_over_bound(batch[start:end].rstrip("\n"), comment_style(REPO_ROOT / rel)))
+        pool.extend(_blocks_over_bound(rel, batch[start:end].rstrip("\n"), comment_style(REPO_ROOT / rel)))
         at = end + 1
     return pool
 
@@ -175,26 +185,35 @@ def _fork_ancestor(block: list[str], older: list[Ancestor]) -> Ancestor | None:
     # Never the opening line as a key: it drops the exemption the moment a writer improves that
     # sentence, which pays them to leave the worst prose in the file exactly as it stands.
     return max(
-        (candidate for candidate in older if candidate[0] & lines),
-        key=lambda candidate: (len(candidate[0] & lines), candidate[1]),
+        (candidate for candidate in older if candidate.lines & lines),
+        key=lambda candidate: (len(candidate.lines & lines), candidate.words),
         default=None,
     )
 
 
-def _fork_charges(runs: list[tuple[int, list[str]]], older: list[Ancestor]) -> dict[Ancestor, int]:
-    """What the blocks sharing one ancestor run to together, which is what its ceiling buys.
+def _fork_charges(runs: list[tuple[int, list[str]]], older: list[Ancestor]) -> dict[Ancestor, list[int]]:
+    """What each block sharing one ancestor runs to, whose sum is what its ceiling buys.
 
     A ceiling handed out per block pays a writer to split an over-bound block and keep both
     halves over it.
     """
-    charges: dict[Ancestor, int] = {}
+    charges: dict[Ancestor, list[int]] = {}
     for _, block in runs:
         # Every over-bound block, touched or not: leaving the original standing while copying it
         # doubles the prose one ceiling was written for.
         ancestor = _fork_ancestor(block, older) if _over_bound(block) else None
         if ancestor is not None:
-            charges[ancestor] = charges.get(ancestor, 0) + word_count(_block_text(block))
+            charges.setdefault(ancestor, []).append(word_count(_block_text(block)))
     return charges
+
+
+def _fork_ceiling(ancestor: Ancestor, arrived: int, older: list[Ancestor]) -> int:
+    """What the blocks matching one ancestor may run to together.
+
+    One standing per copy that arrived, never more than the fork filed in one file: a copy it
+    filed elsewhere is inherited rather than added (INC-9).
+    """
+    return ancestor.words * min(arrived, older.count(ancestor))
 
 
 def check_comment_length(path: Path, raw: str, added: set[int], fork_blocks: Callable[[], list[Ancestor] | None]) -> list[Finding]:
@@ -212,7 +231,7 @@ def check_comment_length(path: Path, raw: str, added: set[int], fork_blocks: Cal
 
     found: list[Finding] = []
     runs = comment_runs(raw, style)
-    charges: dict[Ancestor, int] = {}
+    charges: dict[Ancestor, list[int]] = {}
     older: list[Ancestor] | None = None
     for first_line, block in runs:
         numbers = range(first_line, first_line + len(block))
@@ -233,10 +252,9 @@ def check_comment_length(path: Path, raw: str, added: set[int], fork_blocks: Cal
             charges = _fork_charges(runs, older)
         words = word_count(text)
         ancestor = _fork_ancestor(block, older)
-        # Times the fork's own copies of it: two identical blocks collapse to one key, and a file
-        # holding both would be charged for the pair against the standing of one.
-        ceiling = None if ancestor is None else ancestor[1] * older.count(ancestor)
-        charged = words if ancestor is None else charges.get(ancestor, words)
+        matching = [words] if ancestor is None else charges[ancestor]
+        ceiling = None if ancestor is None else _fork_ceiling(ancestor, len(matching), older)
+        charged = sum(matching)
         if ceiling is not None and charged <= ceiling:
             continue
         found.append(Finding("fail", "comment-length", rel, _bound_detail(words, ceiling, charged, routed, publishes), first_line))
@@ -298,9 +316,25 @@ LOOSE_ID_RE: Final = re.compile(r"\b[a-z0-9]{4}-[a-z0-9]{4}\b")
 
 
 # An issue number's spelling, whose tracker sits outside this history (INC-6). Three shapes carry
-# the same run and name no issue: `&#39;` an entity, `spec.md#2-invariants` an anchor, and `#000;`
+# the same run and name no issue: `&#39;` an entity, `#2-invariants` a hyphenated slug, and `#000;`
 # or `#000)` a hex colour.
 ISSUE_REF_RE: Final = re.compile(r"(?<!&)#\d+(?![\w\-;)])")
+
+# A fourth and a fifth, which the run in FRONT of the hash is what separates: a scheme anywhere in
+# it makes a URL fragment, and a corpus suffix at its end makes an anchor into a page.
+LOCATION_SUFFIXES: Final[tuple[str, ...]] = (".md", *SCANNED_SUFFIXES)
+RUN_BREAK_RE: Final = re.compile(r"\s")
+
+
+def _locates(before: str) -> bool:
+    """Whether the run in front of a `#<digits>` points at a location rather than a tracker.
+
+    Read to the last space rather than by a lookbehind: the two shapes run to any length, and
+    `re` takes no variable-width one.
+    """
+    run = RUN_BREAK_RE.split(before)[-1]
+    return "://" in run or run.endswith(LOCATION_SUFFIXES)
+
 
 # Taken off before `QUOTED_SPAN_RE`'s spans: a one-line docstring opens and closes on a pair of
 # them, so the whole of it reads as quoted and nothing inside it is ever seen.
@@ -329,7 +363,8 @@ def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
         # This pattern alone reads the body with its quoted runs taken out, as `check_owner_voice`
         # reads one for COR-11: a comment naming the shape to ban it is a mention rather than a use.
         mentions = QUOTED_SPAN_RE.sub("", TRIPLE_QUOTE_RE.sub("", body))
-        for issue in sorted(set(ISSUE_REF_RE.findall(mentions))):
+        issues = {hit.group(0) for hit in ISSUE_REF_RE.finditer(mentions) if not _locates(mentions[: hit.start()])}
+        for issue in sorted(issues):
             found.append(Finding("fail", "comment-citation", rel, f"issue number {issue} in an added comment -- state the constraint (INC-6)"))
     return found
 

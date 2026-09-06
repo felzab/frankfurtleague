@@ -73,6 +73,10 @@ QUALIFIED_ISSUE: Final = "owner/repo" + ISSUE_REF
 ENTITY: Final = "&" + HASH + "39;"
 ANCHOR: Final = "docs/backend/spec.md" + HASH + "2-invariants"
 QUOTED_BAN: Final = "`closes " + HASH + "12`"
+# Two runs carrying the shape and pointing at a location: a URL's fragment, and a numeric anchor
+# into a page, which the hyphenated slug's lookahead does not reach.
+URL_FRAGMENT: Final = "https://example.com/page" + HASH + "12"
+NUMBERED_ANCHOR: Final = BACKEND_SPEC + HASH + "3"
 # A hex colour, whose digits-only spelling is the one shape a stylesheet writes that reads as an
 # issue number. The two closers are what a rule declaration and a colour function put after it.
 HEX: Final = HASH + "000"
@@ -95,6 +99,10 @@ SPURIOUS_WORDS: Final = len(" ".join([SPURIOUS_TEXT] * 3).split())
 TWIN_TEXT: Final = "a line of the block a module carries word for word twice over, in two runs"
 TWIN_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + TWIN_TEXT for _ in range(3))
 TWIN_WORDS: Final = len(" ".join([TWIN_TEXT] * 3).split())
+# A block only this branch writes: five of the twin's line, so it matches the pair the fixture
+# module carries and runs to well past what either of them does.
+WIDE_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + TWIN_TEXT for _ in range(5))
+WIDE_WORDS: Final = len(" ".join([TWIN_TEXT] * 5).split())
 LEGACY_OPEN: Final = "an opening line of a committed comment block that already runs far past what a comment may hold"
 LEGACY_MID: Final = "a middle line a scenario amends in place, to prove the fork text exempts the block it opens"
 LEGACY_END: Final = "a closing line that keeps the committed block over the bound before any scenario touches it"
@@ -512,6 +520,24 @@ def test_a_hash_shaped_run_that_names_no_issue_stays_silent() -> None:
     assert _findings(data) == [("fail", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)")]
 
 
+def test_a_url_fragment_and_a_numbered_anchor_point_at_a_location_rather_than_an_issue() -> None:
+    """The run in front decides: a scheme makes a fragment, a corpus suffix makes a page anchor.
+
+    Neither carries the hyphen the slug spelling is held out by, so the shape alone reads both as
+    issue numbers.
+    """
+    _reset()
+    _append(MOD, HASH + " " + URL_FRAGMENT + " and " + NUMBERED_ANCHOR + " point into a page")
+    # The review reference beside them is the evidence the check read the file at all.
+    _append(MOD, HASH + " drawn up in the last session")
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert MOD in data["additions"]
+    assert _findings(data) == [("fail", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)")]
+
+
 def test_an_id_shaped_token_the_roadmap_cannot_resolve_stays_silent() -> None:
     """Resolving a hit against the roadmap table is what separates a citation from an ordinary word.
 
@@ -916,6 +942,23 @@ def test_a_block_copied_into_a_second_file_spends_no_part_of_the_first_s_ceiling
     assert _findings(data, "comment-length") == []
 
 
+def test_a_second_copy_in_another_file_buys_a_new_block_no_ceiling() -> None:
+    """A standing is the fork's copies in ONE file, so a pair it filed elsewhere doubles nothing here.
+
+    Counted over the fork's whole tree the twin's pair would wave it through.
+    """
+    _reset()
+    _append(SIDE, *WIDE_BLOCK)
+    line = _line_of(SIDE, WIDE_BLOCK[0])
+    try:
+        data = _run()
+    finally:
+        _reset()
+    detail = f"the comment block runs {WIDE_WORDS} words, up from {TWIN_WORDS} where the branch forked -- INC-9 lets neither number rise"
+    assert _findings(data, "comment-length") == [("fail", "comment-length", SIDE, detail)]
+    assert _lines(data, "comment-length") == [line]
+
+
 def test_a_renamed_file_holding_two_identical_blocks_keeps_a_standing_for_each() -> None:
     """One ceiling for the pair would charge a rename that changed neither of them for both.
 
@@ -975,6 +1018,30 @@ def test_a_fork_blob_the_object_store_lost_is_refused_rather_than_read_as_no_cei
         loose.write_bytes(kept)
         _reset()
     assert data["diffed"] == [LEGACY]
+    assert _findings(data) == [_pool_refusal()]
+
+
+def test_one_lost_fork_blob_is_one_refusal_however_many_files_the_branch_touched() -> None:
+    """The pool is one cached read, so a second file repeating its refusal names nothing new.
+
+    Two touched files, each carrying a block the pool would have had to answer for.
+    """
+    _reset()
+    root = _root()
+    _replace(LEGACY, "amends", "adjusts")
+    _append(SIDE, *LONG_BLOCK)
+    oid = git(root, "rev-parse", "HEAD:" + MOD)
+    loose = root / ".git" / "objects" / oid[:2] / oid[2:]
+    kept = loose.read_bytes()
+    try:
+        # git writes a loose object read-only, which Windows will not unlink.
+        loose.chmod(stat.S_IWRITE)
+        loose.unlink()
+        data = _run()
+    finally:
+        loose.write_bytes(kept)
+        _reset()
+    assert data["diffed"] == [LEGACY, SIDE]
     assert _findings(data) == [_pool_refusal()]
 
 

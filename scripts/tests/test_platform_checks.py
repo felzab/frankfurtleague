@@ -181,6 +181,18 @@ def _planted(rel: str, text: str) -> Iterator[None]:
             path.write_bytes(before)
 
 
+@contextlib.contextmanager
+def _bytes_planted(rel: str, raw: bytes) -> Iterator[None]:
+    """One corpus file's bytes swapped for a case: `_planted`, where what a case writes is not text."""
+    path = _gate().root / rel
+    before = path.read_bytes()
+    path.write_bytes(raw)
+    try:
+        yield
+    finally:
+        path.write_bytes(before)
+
+
 def _appended(rel: str, *lines: str) -> contextlib.AbstractContextManager[None]:
     return _planted(rel, (_gate().root / rel).read_text(encoding="utf-8") + _lines(*lines))
 
@@ -368,6 +380,17 @@ def test_a_row_whose_file_the_scan_could_not_read_is_not_reported_as_absent() ->
         code, found = _run(rows={TOOL + " :: stop": "a row whose file stopped parsing"})
         assert code == RED
         _only(found, PLATFORM, TOOL, "could not read")
+
+
+def test_a_row_whose_shell_file_the_scan_could_not_read_is_not_reported_as_absent() -> None:
+    """The shell half of that pair: a row is held to a file the scan opened, whatever kind it is.
+
+    Undecodable bytes rather than a syntax error, a shell file having no parse step to fail in.
+    """
+    with _bytes_planted(RUN_SH, b"#!/usr/bin/env bash\nprintf '\xff\xfe'\n"):
+        code, found = _run(rows={RUN_SH + " :: printf": "a row whose file stopped decoding"})
+        assert code == RED
+        _only(found, PLATFORM, RUN_SH, "could not read")
 
 
 def test_a_text_mode_write_without_newline_is_red_and_removing_it_is_green() -> None:
