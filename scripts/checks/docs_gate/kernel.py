@@ -60,6 +60,12 @@ PACKAGE_ROOTS: Final[tuple[str, ...]] = ("fl_frontend/", "fl_backend/")
 
 
 BACKTICK_SPAN_RE: Final = re.compile(r"`[^`\n]*`")
+# Quoted and backticked spans come out first: naming the phrase to ban it, as the rule itself
+# does, is a mention rather than a use.
+QUOTED_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|`[^`\n]*`|“[^”\n]*”")
+# A row of the invariant shape wherever it sits, for a reader of diff lines, which carry no
+# section; `checks.py :: _invariant_rows` reads the table alone.
+INVARIANT_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*(I\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
 
 
 FENCE_RE: Final = re.compile(r"^\s*(```|~~~)")
@@ -174,6 +180,7 @@ CHECKS: Final[dict[str, Check]] = {
     "spec-spine": Check(FAIL, claimed("COR-12", "OUT-4")),
     "template-fragment": Check(FAIL, claimed("OUT-9")),
     "unreadable": Check(FAIL, claimed(GATE)),
+    "wrapped-path": Check(FAIL, claimed("COR-6")),
 }
 
 

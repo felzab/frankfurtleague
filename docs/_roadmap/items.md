@@ -172,7 +172,6 @@ deliverable.
 | `tnvw-4cqz` | One bash guard runs its twin's scan with no watchdog under it                                                                                                     | Docs                                                                        | Open     |
 | `tutf-44dk` | Three non-text pairs sit under 3:1 in the dark theme, and no row measures one                                                                                     | FE, Ops, gate                                                               | Open     |
 | `txef-hz2b` | Two referees reduced to one published name are one option in the fixture facet                                                                                    | FE, BE, spiele                                                              | Open     |
-| `ua29-4s7q` | COR-6's checks read one spelling of a citation and one of a SHA, and the rule reaches past both                                                                   | Ops, gate                                                                   | Open     |
 | `uayf-u7g4` | The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other                                                                  | FE, Ops, Docs, edge                                                         | Standing |
 | `v7bs-d859` | The frontend keeps a visual system that no document states                                                                                                        | FE, Docs                                                                    | Open     |
 | `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                                                                 | FE, Docs                                                                    | Open     |
@@ -3852,51 +3851,6 @@ label, so a season with two reads as two identical options on every public fixtu
 exists to keep the surname off the base tier (`READ-REFEREE-001`), and a disambiguator built from
 the surname publishes what the rule withholds.
 Done is a facet whose options are distinguishable without it.
-
-### `ua29-4s7q` · COR-6's checks read one spelling of a citation and one of a SHA, and the rule reaches past both
-
-| Tags      | Status | Depends on |
-| --------- | ------ | ---------- |
-| Ops, gate | Open   | —          |
-
-**`scripts/checks/docs_gate/kernel.py :: BACKTICK_RE` and `:: BACKTICK_SPAN_RE` exclude a newline
-from a code span, so a citation a line wrap splits matches neither.** A renderer turns the soft break
-into a space, so the citation reads correctly on the page while staying invisible to `citation`,
-`path` and `anchor`, which take their subjects from those two patterns and from nothing else. A
-wrapped citation naming a file that has gone is as green as one naming a file that is there, and
-`scripts/checks/docs_gate/checks.py :: _named_paths` misses it too, so an entry on this page whose
-only path is wrapped derives no tag from it.
-
-**`scripts/checks/docs_gate/branch.py :: PROSE_SHA_RE` reaches the backticked spelling alone, where
-COR-6 bans a SHA in any form.** An unbackticked one in prose or in a comment passes untouched, and
-`scripts/checks/docs_gate/branch.py :: check_prose_shas`' own docstring reads as though the check were
-exhaustive: it promises every SHA and not only a dangling one, which answers the resolution question
-it was written for and says nothing about which spellings it sees. A reader of that docstring stops
-looking.
-
-**Each narrowing carries an argument, and they are different arguments.** The comment beside
-`:: PROSE_SHA_RE` records that the backticks are what stop a short run of hex matching inside an
-action's pin or an image's `sha256:` digest — and measured over the tracked corpus on 2026-09-03, the
-bodies `scripts/checks/docs_gate/kernel.py :: _scan_body` hands these checks hold neither, a pin and a
-digest both being code rather than prose or comment, so a boundary-anchored pattern finds nothing
-there to be wrong about. `scripts/checks/docs_gate/checks.py :: check_bare_paths` scrubs backticked
-spans out of a body and then reports offsets into what is left, and the comment beside it states that
-a span holding no newline is what keeps an offset on its own line, so widening the span pattern moves
-every line number that check reports.
-
-**In a comment the wrapped citation fails loudly and wrongly rather than silently.** The span
-survives the scrub, so its path reaches `:: check_bare_paths`, which reports a dead one as
-unbackticked — telling an author to add backticks that are already there.
-
-**Both spellings are clean in the corpus today (2026-09-03)**, so what this buys is the guarantee
-rather than a repair to make. The sibling for the unmarked spelling already exists on the path side:
-INC-6 has the gate read an unbackticked path, on the ground that an unmarked path is how a dead one
-survives a green gate, and nothing reads an unmarked SHA.
-
-**Done when** each pattern's reach either matches the rule it enforces or is stated in the check's own
-docstring, `:: check_bare_paths`' reported line numbers are proved unmoved by whichever route the span
-pattern takes, and each spelling has driven its check red from a violation planted in a real
-position.
 
 ### `uayf-u7g4` · The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 

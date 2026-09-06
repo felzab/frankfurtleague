@@ -13,7 +13,9 @@ from checker_kernel import git, git_input
 
 from .kernel import (
     DOCS_DIR,
+    INVARIANT_ROW_RE,
     OPS_FILENAMES,
+    QUOTED_SPAN_RE,
     REPO_ROOT,
     SCANNED_SUFFIXES,
     SOURCE_SUFFIXES,
@@ -300,11 +302,8 @@ LOOSE_ID_RE: Final = re.compile(r"\b[a-z0-9]{4}-[a-z0-9]{4}\b")
 # or `#000)` a hex colour.
 ISSUE_REF_RE: Final = re.compile(r"(?<!&)#\d+(?![\w\-;)])")
 
-# `checks.py :: QUOTED_SPAN_RE`'s spans, spelled again rather than imported: `checks.py` reads this
-# module, so an import back would close a cycle.
-MENTION_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|`[^`\n]*`|“[^”\n]*”")
-# Taken off before those spans: a one-line docstring opens and closes on a pair of them, so the
-# whole of it reads as quoted and nothing inside it is ever seen.
+# Taken off before `QUOTED_SPAN_RE`'s spans: a one-line docstring opens and closes on a pair of
+# them, so the whole of it reads as quoted and nothing inside it is ever seen.
 TRIPLE_QUOTE_RE: Final = re.compile(r"\"{3}|'{3}")
 
 
@@ -329,7 +328,7 @@ def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
             )
         # This pattern alone reads the body with its quoted runs taken out, as `check_owner_voice`
         # reads one for COR-11: a comment naming the shape to ban it is a mention rather than a use.
-        mentions = MENTION_SPAN_RE.sub("", TRIPLE_QUOTE_RE.sub("", body))
+        mentions = QUOTED_SPAN_RE.sub("", TRIPLE_QUOTE_RE.sub("", body))
         for issue in sorted(set(ISSUE_REF_RE.findall(mentions))):
             found.append(Finding("fail", "comment-citation", rel, f"issue number {issue} in an added comment -- state the constraint (INC-6)"))
     return found
@@ -357,11 +356,6 @@ def _branch_scope_skipped(checks: str, missing: str) -> Finding:
     # Failing rather than reported: a checkout too shallow to hold the base ref proves nothing
     # about the branch, and a run that proved nothing must not be read as a run that passed.
     return Finding("fail", "branch-scope", "(branch diff)", f"{checks} did not run: git could not {missing}")
-
-
-# `checks.py :: INVARIANT_ROW_RE`, spelled again rather than imported for `MENTION_SPAN_RE`'s
-# reason: `checks.py` reads this module, so an import back would close a cycle.
-INVARIANT_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*(I\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
 
 
 def _spec_sheet(rel: str) -> bool:
@@ -435,10 +429,10 @@ def check_added_invariant_rows(branch: Branch, additions: dict[str, list[str]]) 
 
 
 def check_prose_shas(paths: Iterable[Path]) -> list[Finding]:
-    """No commit SHA is named in prose or in a comment (COR-6).
+    """No backticked commit SHA in prose or a comment, the spelling COR-6 narrows `sha` to.
 
-    Every SHA and not only a dangling one: resolving each against the clone would enforce "no
-    dangling SHA" under this check's name while every SHA written today passed.
+    Every one, not only a dangling one: resolving each against the clone would enforce "no
+    dangling SHA" under this name while every SHA passed.
     """
     found: list[Finding] = []
     for path in paths:

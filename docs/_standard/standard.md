@@ -187,7 +187,8 @@ These bind every written artifact. A comment is documentation and carries every 
   and can be again, so a commit is reached by its content (COR-14) rather than by its name. Never a
   line number, in any form — nothing tells a correct one from a stale one — except a finding in a
   gitignored audit report, read once against the tree it came from. _Enforced by_ gate checks
-  `citation`, `path`, `anchor`, `link`, `rule-id` and `line-citation`; gate check `sha`, which fails
+  `citation`, `path`, `anchor`, `link`, `rule-id` and `line-citation`; gate check `wrapped-path`,
+  for a backticked path a line wrap parts, which renders with a space inside it; gate check `sha`, which fails
   a backticked run of seven or eight hex characters carrying both a digit and a letter whether or not
   this clone resolves it, resolution being exactly what a rewritten history takes away — a run of hex
   alone is a value and stays review's; `/docs:audit`.

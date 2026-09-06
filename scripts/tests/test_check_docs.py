@@ -1628,6 +1628,13 @@ CASES: Final[tuple[Case, ...]] = (
         lambda: _drop(TEMPLATES, "- " + _gate().body_gate.TEMPLATE_FRAGMENTS[0]),
     ),
     Case("unreadable", _fails("unreadable", NOTES), _plant_unreadable),
+    # Wrapped inside the path, which is the only place a wrap breaks a span: one parted at its
+    # separator still names its file whole, and the corpus above carries that shape.
+    Case(
+        "wrapped-path",
+        _fails("wrapped-path", NOTES),
+        lambda: _append(NOTES, "A path wrapped inside itself: `docs/gloss", "ary.md` renders with a space."),
+    ),
 )
 
 

@@ -51,6 +51,7 @@ from .kernel import (
     OPS_SPEC_PAGE,
     OVERVIEW_GLOB,
     PROTOCOL_PAGE,
+    QUOTED_SPAN_RE,
     REPO_PREFIXES,
     REPO_ROOT,
     ROADMAP_PAGE,
@@ -240,9 +241,6 @@ GLOSSARY_FIELD_RE: Final = re.compile(r"^[ \t]*\*\*([A-Za-z][A-Za-z ]*):\*\*", r
 GLOSSARY_FIELDS: Final[tuple[str, ...]] = ("Is", "In code", "Trap", "See")
 
 
-INVARIANT_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*(I\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
-
-
 # `check_commits.py :: ENTRY_HEADING_DIFF_RE` reads this same heading out of a diff. The id is
 # captured loose so a malformed one is caught against the alphabet rather than dropping out of a
 # listing the alphabet selected (PRE-4).
@@ -316,10 +314,8 @@ TAG_SEPARATOR_RE: Final = re.compile(r"[,·]")
 # the line are resolved.
 BATCH_LINE_RE: Final = re.compile(r"^[ \t]*Lands with:[ \t]*(.+?)[ \t]*$", re.MULTILINE)
 
-# Quoted and backticked spans come out first: naming the phrase to ban it, as the rule itself
-# does, is a mention rather than a use.
+# Read with `QUOTED_SPAN_RE`'s spans taken out, for that pattern's reason.
 OWNER_PHRASE_RE: Final = re.compile(r"\bthe owner\b", re.IGNORECASE)
-QUOTED_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|`[^`\n]*`|“[^”\n]*”")
 OWNER_EXEMPT_PREFIX: Final = ".claude/"
 
 
@@ -1581,6 +1577,37 @@ def continuation_markers(style: str) -> tuple[str, ...]:
     return ("//", "*") if style in CSTYLE_SUFFIXES or style == ".json" else ("#",)
 
 
+# Ticks paired in order, as a renderer pairs them: a whole span on one line is consumed unread, so
+# a wrapped one never opens on the closing tick before it. One break, never a blank line, for
+# `_wrap_re`'s reason.
+@cache
+def _span_re(markers: tuple[str, ...]) -> re.Pattern[str]:
+    """A backticked span whole on its line, or one parted by a wrap, with the continuation's marker off."""
+    tail = "(?:(?:" + "|".join(re.escape(m) for m in markers) + ")+[ \t]*)?" if markers else ""
+    return re.compile(r"`[^`\n]*`|`([^`\n]*)\n(?![ \t]*\n)[ \t]*" + tail + r"([^`\n]*)`")
+
+
+def check_wrapped_paths(rel: str, body: str, markers: tuple[str, ...]) -> list[Finding]:
+    """A backticked repository path a line wrap parts, which a code span renders with a space inside it.
+
+    Only one resolving once the join is closed, the shape a writer meant; `path` never sees a
+    wrapped span either way.
+    """
+    found: list[Finding] = []
+    for match in _span_re(markers).finditer(body):
+        head = (match.group(1) or "").rstrip()
+        # Inside the path alone: a citation parted at its separator still names its file whole.
+        if match.group(1) is None or not head or "::" in head:
+            continue
+        token = (head + match.group(2).lstrip()).partition(" :: ")[0]
+        if is_placeholder(token) or repo_path(token) is None:
+            continue
+        rendered = head + " " + match.group(2).lstrip()
+        detail = f"`{rendered}` wraps inside the path, which a code span renders with a space in it -- keep a path on one line (COR-6)"
+        found.append(Finding("fail", "wrapped-path", rel, detail, line_of(body, match.start())))
+    return found
+
+
 # Two segments and a short number, so the backend's three-segment refusal codes cannot collide
 # whatever the families: their middle segment is letters (`error_codes.py :: CODE_RE`), which the
 # digits refuse.
@@ -1802,6 +1829,7 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
         found.append(Finding("fail", "readme-cap", rel, detail))
 
     found.extend(check_owner_voice(rel, body))
+    found.extend(check_wrapped_paths(rel, body, () if is_markdown else continuation_markers(comment_style(path))))
     if is_markdown:
         found.extend(check_metadata_breaks(rel, body))
         found.extend(check_diagrams(rel, raw))
