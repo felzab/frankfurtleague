@@ -411,7 +411,9 @@ README and every template.
   `2. Invariants`; `3. Violation → remedy`; and `4. Known-open`. The invariant table is three
   columns — the number, the invariant, and what
   enforces it. Numbers are `I<n>` on a surface sheet and `L<n>` on the logging sheet, permanent and
-  never reused **within their own sheet**, so a citation crossing sheets names the sheet. **Section 2
+  never reused; **the `I<n>` band is one namespace across every surface sheet**, so a new row takes
+  one past the highest number any sheet defines and a citation crossing sheets still names its
+  sheet, while `L<n>` is the logging sheet's own band and is allocated against that. **Section 2
   holds that table and nothing else**; a symptom a reader would observe is a row in section 3.
   Section 4 holds the accepted gaps in the sheet's own words, so a known limitation never reads as an
   oversight and gets "fixed"; **its shape is the writer's** (COR-8), and a gap carrying a finding, a
@@ -419,6 +421,8 @@ README and every template.
   bound reaching a table cell and nothing else. Every claim carries an anchored citation (COR-6). _Enforced by_ gate
   checks `cell-prose`, `spec-spine`, `invariant-row`, `citation` and `path`; `invariant-id` for a
   cited number no sheet's table defines, which is a dead citation rather than an ambiguous one;
+  `invariant-number` for a number an added row takes from another sheet, which reads the branch's
+  own diff and so leaves a number two sheets already share standing (CUR-6);
   gate check `rule-id`, which fails a bare number two sheets both define — **in a comment alone, and
   not where a surface word sits in the same block**, so a page naming the wrong sheet or no sheet is
   `/docs:audit`'s, as contract over mechanism is.
@@ -478,7 +482,8 @@ README and every template.
   record to satisfy it. _Enforced by_ unenforced — the close-out question, and review.
 - **CUR-6:** **a branch is failed only for a finding it can fix** — a gate failing branches over
   pages they never touched trains people to override it. This is not a promise that every check is
-  branch-scoped: `comment-length`, `history`, `branch-scope` and the half of `comment-citation`
+  branch-scoped: `comment-length`, `history`, `branch-scope`, `invariant-number` and the half of
+  `comment-citation`
   `scripts/checks/docs_gate/branch.py :: check_added_citations` emits read the branch's own diff,
   while `scripts/checks/docs_gate/checks.py :: check_comment_citations` emits that name's other half
   over every scanned file, as every check not listed here does. What holds the promise instead is that the

@@ -85,7 +85,6 @@ deliverable.
 | `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                                                            | FE                                                                          | Open     |
 | `2zah-pvu2` | The unit that sets the gate's wall clock costs substantially more inside a full run than it costs alone, and nothing establishes why                              | Ops, gate, tests                                                            | Open     |
 | `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                                                               | FE, BE, DB, Docs, spiele                                                    | Open     |
-| `3gag-st7h` | Invariant numbers are permanent per sheet and allocated as though one namespace held all three                                                                    | Ops, Docs, gate                                                             | Open     |
 | `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                                                              | FE, Ops, gate, tests, saisons                                               | Open     |
 | `3hdg-3r59` | The replace and the undraw each write the season's clearing, and each is proved separately                                                                        | BE, DB, Docs, tests, saisons                                                | Open     |
 | `3pb5-7qyc` | `--accent-info` has no `-solid` grade and no on-colour, and nothing records why                                                                                   | FE, Ops, Docs, gate                                                         | Open     |
@@ -487,34 +486,6 @@ work inside it.
 **How far the log page can reach past its one read is not this entry's** — the filters it sends, the
 client-side search and facets over the loaded rows, and the copy toast that promises more than
 either can give are `fau5-jtph`.
-
-### `3gag-st7h` · Invariant numbers are permanent per sheet and allocated as though one namespace held all three
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Ops, Docs, gate | Open   | —          |
-
-**OUT-4 makes an `I<n>` permanent within its own sheet and has a citation crossing sheets name the
-sheet; the sheets are numbered as though one namespace held them.** `docs/backend/spec.md` and
-`docs/frontend/spec.md` each define low numbers the other defines too, while each sheet's later rows
-sit in a band no other sheet touches. Two conventions are live at once, nothing records which one the
-next row follows, and `scripts/checks/docs_gate/checks.py :: invariant_ids` is written for the rule
-rather than for the practice: it maps a number to every sheet defining it and treats the overlap as
-ordinary.
-
-**Nothing reports the ambiguity where it is created.** `:: check_invariant_tables` refuses one number
-twice on one sheet and goes no further. `:: check_invariant_citations` fires on a bare id two sheets
-define, in a comment alone, and only where no surface word stands in the same block — so the cost
-falls on whoever writes the citation, after the row has been numbered, and never on whoever numbered
-it.
-
-**Neither convention is wrong, and each costs something.** Per sheet is what OUT-4 states and what the
-low numbers already are, and it makes every cross-sheet citation carry its sheet. One namespace is
-what the high bands already are, and it makes a bare id unambiguous everywhere, at the price of an
-allocator reading three files.
-
-**Done when** one convention is stated where somebody adding a row will read it, and the next free
-number is derived rather than counted off three pages by hand.
 
 ### `3hb2-3d9q` · One test file dies under the gate's parallel load and names no cause
 

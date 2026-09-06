@@ -1015,6 +1015,15 @@ def _plant_invariant_rows() -> None:
     )
 
 
+def _plant_invariant_numbers() -> None:
+    """One number reached for by both sheets on one branch, which the fork's population holds neither of."""
+    raced = "| I9 | A number this branch reached for twice | Its own test |"
+    backend_row = "| I1 | The write path validates its input | The sample module's own suite |"
+    frontend_row = "| I1 | A route names its own data | The route's own test |"
+    _replace(BACKEND_SPEC, backend_row, backend_row + "\n" + raced)
+    _replace(FRONTEND_SPEC, frontend_row, frontend_row + "\n" + raced)
+
+
 def _plant_overviews() -> None:
     """A page that does not close on OUT-5's heading, and one that does not open on it."""
     _replace(OVERVIEW, _heading(2, "Read next"), _heading(2, "Where next"))
@@ -1330,7 +1339,7 @@ def _plant_cell_prose() -> None:
     _replace(
         BACKEND_SPEC,
         "| I1 | The write path validates its input | The sample module's own suite |",
-        "| I1 | " + PARAGRAPH_CELL + " | The sample module's own suite |\n| I2 | `" + PARAGRAPH_CELL + "` | The same suite |",
+        "| I1 | " + PARAGRAPH_CELL + " | The sample module's own suite |\n| I77 | `" + PARAGRAPH_CELL + "` | The same suite |",
     )
 
 
@@ -1528,6 +1537,7 @@ CASES: Final[tuple[Case, ...]] = (
         _fails("invariant-id", BACKEND_SPEC),
         lambda: _append(BACKEND_SPEC, "The read path also rests on I7."),
     ),
+    Case("invariant-number", _fails("invariant-number", BACKEND_SPEC, FRONTEND_SPEC), _plant_invariant_numbers),
     Case("invariant-row", _fails("invariant-row", BACKEND_SPEC, BACKEND_SPEC, FRONTEND_SPEC), _plant_invariant_rows),
     Case("line-citation", _fails("line-citation", NOTES, SAMPLE), _plant_line_citations),
     Case("line-endings", _fails("line-endings", NOTES, UMLAUT_MODULE), _plant_crlf),

@@ -127,6 +127,7 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "history": frozenset({"fail"}),
     "inputs": frozenset({"fail"}),
     "invariant-id": frozenset({"fail"}),
+    "invariant-number": frozenset({"fail"}),
     "invariant-row": frozenset({"fail"}),
     "line-citation": frozenset({"fail"}),
     "line-endings": frozenset({"fail"}),

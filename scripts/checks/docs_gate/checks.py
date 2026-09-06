@@ -27,6 +27,7 @@ from .branch import (
     Branch,
     branch_additions,
     check_added_citations,
+    check_added_invariant_rows,
     check_branch_diff,
     check_comment_bounds,
     check_history_phrases,
@@ -308,8 +309,8 @@ def rule_ids() -> dict[str, list[str]]:
 def invariant_ids() -> dict[str, list[str]]:
     """Every `I<n>` an invariant table defines, mapped to the sheets defining it.
 
-    OUT-4 makes a number permanent per sheet, not unique across them, so one id names different
-    rules on different sheets -- hence the list.
+    The list survives the one namespace OUT-4 now fixes: the low band two sheets each define
+    predates it, and renumbering it would invalidate every citation.
     """
     ids: dict[str, list[str]] = {}
     for spec in tracked_glob(SPEC_GLOB):
@@ -1941,6 +1942,7 @@ def main() -> int:
     findings.extend(check_prose_shas(files))
     findings.extend(check_history_phrases(additions))
     findings.extend(check_added_citations(additions))
+    findings.extend(check_added_invariant_rows(branch, additions))
     findings.extend(check_comment_bounds(branch))
     findings.extend(check_copy_rules())
     findings.extend(check_platform_branches())

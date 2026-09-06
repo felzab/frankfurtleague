@@ -6,16 +6,18 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cache, partial
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Final, Iterable
 
 from checker_kernel import git, git_input
 
 from .kernel import (
+    DOCS_DIR,
     OPS_FILENAMES,
     REPO_ROOT,
     SCANNED_SUFFIXES,
     SOURCE_SUFFIXES,
+    SPEC_GLOB,
     UNPARSEABLE,
     Finding,
     _read_text,
@@ -338,6 +340,81 @@ def _branch_scope_skipped(checks: str, missing: str) -> Finding:
     return Finding("fail", "branch-scope", "(branch diff)", f"{checks} did not run: git could not {missing}")
 
 
+# `checks.py :: INVARIANT_ROW_RE`, spelled again rather than imported for `MENTION_SPAN_RE`'s
+# reason: `checks.py` reads this module, so an import back would close a cycle.
+INVARIANT_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*(I\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
+
+
+def _spec_sheet(rel: str) -> bool:
+    """Whether a repository-relative path is one `kernel.py :: SPEC_GLOB` names.
+
+    Anchored with a leading slash: a relative pattern matches from the RIGHT, which takes a
+    `spec.md` one directory deep under any tree at all.
+    """
+    return PurePosixPath("/" + rel).match("/" + SPEC_GLOB)
+
+
+@cache
+def _fork_invariants(fork: str) -> dict[str, frozenset[str]] | None:
+    """Every invariant number each spec sheet defined at the fork.
+
+    Never the working tree: it already holds the row under test, and would answer that every number
+    a branch adds is taken.
+    """
+    listing = git("-c", "core.quotePath=false", "ls-tree", "-r", "--name-only", "-z", fork, "--", DOCS_DIR)
+    if listing is None:
+        return None
+    sheets: dict[str, frozenset[str]] = {}
+    for rel in listing.split("\0"):
+        if not _spec_sheet(rel):
+            continue
+        if (text := git("show", f"{fork}:{rel}")) is None:
+            return None
+        sheets[rel] = frozenset(INVARIANT_ROW_RE.findall(text))
+    return sheets
+
+
+def _added_invariants(additions: dict[str, list[str]]) -> dict[str, frozenset[str]]:
+    """The invariant numbers a branch's added rows declare, per spec sheet."""
+    declared = {
+        rel: frozenset(match.group(1) for line in lines if (match := INVARIANT_ROW_RE.match(line)))
+        for rel, lines in additions.items()
+        if _spec_sheet(rel)
+    }
+    return {rel: numbers for rel, numbers in declared.items() if numbers}
+
+
+def check_added_invariant_rows(branch: Branch, additions: dict[str, list[str]]) -> list[Finding]:
+    """An invariant row this branch adds takes a number no other sheet defines (OUT-4).
+
+    Branch-scoped rather than over the corpus: failing a branch for a row it did not write is the
+    standing tax CUR-6 refuses.
+    """
+    added = _added_invariants(additions)
+    # Read only where a row arrived: the listing and a blob per sheet buy nothing on a branch that
+    # touches no invariant table.
+    if not added or branch.fork is None:
+        return []
+    at_fork = _fork_invariants(branch.fork)
+    if at_fork is None:
+        return [_branch_scope_skipped("added invariant rows", "read the fork's spec sheets")]
+    found: list[Finding] = []
+    for rel in sorted(added):
+        # A number this sheet already carried is the fork's own row reflowed or reordered, and the
+        # shared low band rides in on that arm rather than on an allowlist somebody keeps current.
+        for number in sorted(added[rel] - at_fork.get(rel, frozenset())):
+            elsewhere = {sheet for sheet, numbers in at_fork.items() if number in numbers}
+            # The branch's own other sheets too: two rows added under one number are both new, so
+            # neither is in the fork's population to catch the other.
+            elsewhere |= {sheet for sheet, numbers in added.items() if number in numbers}
+            if not (homes := sorted(elsewhere - {rel})):
+                continue
+            named = ", ".join(f"`{home}`" for home in homes)
+            detail = f"{number} is defined by {named} already -- OUT-4 takes one past the highest number any sheet defines"
+            found.append(Finding("fail", "invariant-number", rel, detail))
+    return found
+
+
 def check_prose_shas(paths: Iterable[Path]) -> list[Finding]:
     """No commit SHA is named in prose or in a comment (COR-6).
 
@@ -468,7 +545,7 @@ def check_history_phrases(additions: dict[str, list[str]]) -> list[Finding]:
     return found
 
 
-DIFF_READERS: Final = "history, added comment citations and comment length"
+DIFF_READERS: Final = "history, added comment citations, added invariant rows and comment length"
 
 
 def check_branch_diff(branch: Branch) -> list[Finding]:

@@ -31,6 +31,8 @@ MOVED: Final = "fl_backend/app/moved.py"
 OPENAPI: Final = "fl_backend/openapi.json"
 NOTES: Final = "docs/notes.md"
 SPARE: Final = "docs/spare.md"
+BACKEND_SPEC: Final = "docs/backend/spec.md"
+FRONTEND_SPEC: Final = "docs/frontend/spec.md"
 # A German page name, which `core.quotePath` spells back as an escaped run this diff walk cannot
 # key on. The domain vocabulary is German, so this path is the ordinary case and not the exotic one.
 UMLAUT_PAGE: Final = "docs/prüfung.md"
@@ -61,6 +63,14 @@ ISSUE_REF: Final = HASH + "412"
 ENTITY: Final = "&" + HASH + "39;"
 ANCHOR: Final = "docs/backend/spec.md" + HASH + "2-invariants"
 QUOTED_BAN: Final = "`closes " + HASH + "12`"
+# The number both fixture sheets define at the fork: the shape of the low band the real sheets
+# share, which OUT-4's allocation rule leaves standing.
+SHARED_ID: Final = "I1"
+BACKEND_ID: Final = "I2"
+FRONTEND_ID: Final = "I3"
+FREE_ID: Final = "I4"
+# Neither sheet holds it at the fork, so only the branch's own rows can catch the second one.
+RACED_ID: Final = "I9"
 DROPPABLE: Final = "A droppable line the deletion scenario removes."
 LONG_TEXT: Final = "a line of a block that runs past what a comment may hold"
 LEGACY_OPEN: Final = "an opening line of a committed comment block that already runs far past what a comment may hold"
@@ -91,7 +101,7 @@ ADDED_CLAUSE: Final = "a further clause a scenario writes into a block that was 
 # What every diff-reading check's refusal names, and that refusal's own shape
 # (`scripts/checks/docs_gate/branch.py :: check_branch_diff`). Spelled here as a pin: the wording is
 # behaviour a consolidation must preserve.
-DIFF_READERS: Final = "history, added comment citations and comment length"
+DIFF_READERS: Final = "history, added comment citations, added invariant rows and comment length"
 
 # The driver composes the branch checks in the gate's own order, read from whichever module wires
 # the run rather than listed here: a check dropped from that wiring has to fail this net, and a
@@ -124,6 +134,7 @@ calls = {
     "check_branch_diff": lambda: branch.check_branch_diff(state),
     "check_history_phrases": lambda: branch.check_history_phrases(additions),
     "check_added_citations": lambda: branch.check_added_citations(additions),
+    "check_added_invariant_rows": lambda: branch.check_added_invariant_rows(state, additions),
     "check_comment_bounds": lambda: branch.check_comment_bounds(state),
     "check_prose_shas": lambda: branch.check_prose_shas(scanned_files()),
 }
@@ -161,6 +172,41 @@ def _module(title: str) -> str:
     return _page(QUOTES + "BACKEND · " + title + QUOTES, "", "VALUE = 1")
 
 
+def _row(number: str, invariant: str) -> str:
+    return "| " + number + " | " + invariant + " | Its own test |"
+
+
+def _sheet(surface: str, *rows: str) -> str:
+    """One spec sheet in OUT-4's four sections, holding the invariant rows it is given."""
+    return _page(
+        HASH + " " + surface + " — spec",
+        "",
+        "The contract this surface answers to.",
+        "",
+        HASH * 2 + " 1. Contract",
+        "",
+        HASH * 3 + " 1.1 The one path",
+        "",
+        "It answers once.",
+        "",
+        HASH * 2 + " 2. Invariants",
+        "",
+        "| ID | Invariant | Enforced by |",
+        "| --- | --- | --- |",
+        *rows,
+        "",
+        HASH * 2 + " 3. Violation → remedy",
+        "",
+        "| Symptom | Remedy |",
+        "| --- | --- |",
+        "| A value nothing names | Name it |",
+        "",
+        HASH * 2 + " 4. Known-open",
+        "",
+        "Nothing is open.",
+    )
+
+
 def _corpus() -> dict[str, str]:
     return {
         GITIGNORE: _page("/" + SCRIPTS_COPY + "/", "/" + IGNORED.partition("/")[0] + "/"),
@@ -173,6 +219,8 @@ def _corpus() -> dict[str, str]:
             "| --- | --- | --- | --- |",
             "| `" + ROADMAP_ID + "` | A scenario item | Docs | Open |",
         ),
+        BACKEND_SPEC: _sheet("Backend", _row(SHARED_ID, "The write path validates its input"), _row(BACKEND_ID, "One document comes back")),
+        FRONTEND_SPEC: _sheet("Frontend", _row(SHARED_ID, "A route names its own data"), _row(FRONTEND_ID, "One page renders")),
         MOD: _module("a module the scenarios write comments into."),
         SIDE: _module("a module kept beside the first, so per-file answers separate."),
         LEGACY: _page(
@@ -380,6 +428,72 @@ def test_an_id_shaped_token_the_roadmap_cannot_resolve_stays_silent() -> None:
         _reset()
     assert MOD in data["additions"]
     assert _findings(data) == [("fail", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)")]
+
+
+def _number_fail(rel: str, number: str, *homes: str) -> tuple[str, str, str, str]:
+    named = ", ".join("`" + home + "`" for home in homes)
+    detail = number + " is defined by " + named + " already -- OUT-4 takes one past the highest number any sheet defines"
+    return ("fail", "invariant-number", rel, detail)
+
+
+def test_an_added_invariant_row_taking_another_sheet_s_number_fails_and_the_move_clears_it() -> None:
+    """OUT-4's allocation rule reaches the branch that breaks it, at the row rather than at a citation.
+
+    The second run is the repair the finding asks for: the same row under a number no sheet defines.
+    """
+    _reset()
+    kept = _row(FRONTEND_ID, "One page renders")
+    try:
+        _replace(FRONTEND_SPEC, kept, kept + "\n" + _row(BACKEND_ID, "A row reaching for a number the other sheet holds"))
+        collided = _run()
+        _reset()
+        _replace(FRONTEND_SPEC, kept, kept + "\n" + _row(FREE_ID, "A row reaching for a number no sheet holds"))
+        moved = _run()
+    finally:
+        _reset()
+    assert FRONTEND_SPEC in collided["additions"]
+    assert _findings(collided) == [_number_fail(FRONTEND_SPEC, BACKEND_ID, BACKEND_SPEC)]
+    assert FRONTEND_SPEC in moved["additions"]
+    assert _findings(moved) == []
+
+
+def test_a_number_this_sheet_defined_at_the_fork_stays_silent_when_its_row_is_rewritten() -> None:
+    """A reflowed or reordered row arrives as an addition, and the shared band is not the branch's.
+
+    The second run is the evidence the check armed here: the same row under the other sheet's own
+    number fails.
+    """
+    _reset()
+    shared = _row(SHARED_ID, "A route names its own data")
+    try:
+        _replace(FRONTEND_SPEC, shared, _row(SHARED_ID, "A route names the data it renders"))
+        rewritten = _run()
+        _reset()
+        _replace(FRONTEND_SPEC, shared, _row(BACKEND_ID, "A route names its own data"))
+        renumbered = _run()
+    finally:
+        _reset()
+    assert FRONTEND_SPEC in rewritten["additions"]
+    assert _findings(rewritten) == []
+    assert _findings(renumbered) == [_number_fail(FRONTEND_SPEC, BACKEND_ID, BACKEND_SPEC)]
+
+
+def test_two_sheets_reaching_for_one_number_on_one_branch_each_name_the_other() -> None:
+    """A number neither sheet held at the fork sits in no fork population, so only the branch's own rows catch it."""
+    _reset()
+    raced = _row(RACED_ID, "A number this branch reached for twice")
+    backend_kept = _row(BACKEND_ID, "One document comes back")
+    frontend_kept = _row(FRONTEND_ID, "One page renders")
+    try:
+        _replace(BACKEND_SPEC, backend_kept, backend_kept + "\n" + raced)
+        _replace(FRONTEND_SPEC, frontend_kept, frontend_kept + "\n" + raced)
+        data = _run()
+    finally:
+        _reset()
+    assert _findings(data) == [
+        _number_fail(BACKEND_SPEC, RACED_ID, FRONTEND_SPEC),
+        _number_fail(FRONTEND_SPEC, RACED_ID, BACKEND_SPEC),
+    ]
 
 
 def test_an_added_block_over_the_bound_fails_and_a_short_one_stays_silent() -> None:
