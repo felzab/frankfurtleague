@@ -138,7 +138,6 @@ deliverable.
 | `zeer-rnu5` | An unknown season answers a Bewerbung URL with 200 and a sentence about a missing deadline                                  | FE, BE, Docs, bewerbungen                                                   | Open     |
 | `zp46-yt3p` | The certainty walk gives up in a group of six or more                                                                       | BE, teams                                                                   | Standing |
 | `zr2y-4uwj` | A tie-break that provably cannot fire is what stops the index being walked                                                  | BE, DB, tests, bewerbungen, saisons, spiele, spieltage                      | Standing |
-| `2d76-kydk` | A citation is resolved by asking the filesystem, so a mis-cased path fails only on the runner                               | Ops, Docs, gate, ci                                                         | Open     |
 | `2eec-8qa9` | The hook fixture's builder writes into a directory it never creates, and reports success                                    | Ops, Docs, gate                                                             | Open     |
 | `2pqm-yxyu` | The origin trusts every source inside Cloudflare's ranges                                                                   | Ops, Docs, edge                                                             | Open     |
 | `2zah-pvu2` | The gate's binding unit costs more inside a run than it does alone                                                          | Ops, gate, tests                                                            | Open     |
@@ -194,6 +193,7 @@ deliverable.
 | `srec-8jxj` | Naming the image build's culprits costs a process per file                                                                  | Ops, Docs, gate                                                             | Open     |
 | `suuz-dged` | Process-wide test hooks close the runner's one-process mode                                                                 | FE, tests, versions                                                         | Open     |
 | `tc3c-nudr` | Nothing validates the contents of a restored `.env`                                                                         | FE, BE, Ops, Docs, edge                                                     | Standing |
+| `tfyy-hg3y` | A mis-cased suffix drops a citation out of the population instead of failing it                                             | Ops, gate                                                                   | Open     |
 | `tnvw-4cqz` | One bash guard runs its twin's scan with no watchdog under it                                                               | Docs                                                                        | Open     |
 | `ua29-4s7q` | COR-6's checks read one spelling of a citation and one of a SHA, and the rule reaches past both                             | Ops, gate                                                                   | Open     |
 | `uayf-u7g4` | Crawler policy split between robots.txt and Cloudflare                                                                      | FE, Ops, Docs, edge                                                         | Standing |
@@ -2190,6 +2190,33 @@ on every phone, which is louder and agrees with the installed app. Next takes bo
 by the same route `fl_frontend/src/app/brandAssets.test.ts` pins the manifest — parsed from the
 stylesheet rather than restated.
 
+### `tfyy-hg3y` · A mis-cased suffix drops a citation out of the population instead of failing it
+
+| Tags      | Status | Depends on |
+| --------- | ------ | ---------- |
+| Ops, gate | Open   | —          |
+
+**`scripts/checks/docs_gate/checks.py :: names_a_file` decides whether a run that resolved to
+nothing reads as a citation at all, and it asks the file part to end in one of `:: CITABLE_SUFFIXES`,
+a tuple of lower-case suffixes.** A citation whose suffix is upper-cased resolves to nothing, fails
+that test, and draws no finding: the run is read as prose that happens to carry the separator. A
+mis-cased directory or basename whose suffix still matches is dead on both platforms, and
+`scripts/tests/test_check_docs.py :: test_a_citation_whose_case_differs_from_the_tracked_spelling_is_dead_here_too`
+holds it there; the suffix is the half that half-passes.
+
+**The class is wider than one tuple.** The gate's shape registers — `:: CITABLE_SUFFIXES`,
+`scripts/checks/docs_gate/kernel.py :: SCANNED_SUFFIXES` and `:: OPS_FILENAMES` — are each compared
+exactly while the filesystem the corpus is written on is not, so a file or a citation spelled in
+another case falls out of a population rather than failing it, and nothing reports the fall.
+
+**Folding the suffix test to one case is a corpus change, not a resolver change.** A quoted fragment
+or an error string ending in a capitalised suffix would newly read as a dead file, so the widening
+is classified over the real corpus before it is wired, with each newly read run dispositioned.
+
+**Done when** a citation or a scanned file whose case differs from its register's spelling is a
+finding rather than an absence, the widening having been classified over the corpus first, and a
+case in `scripts/tests/test_check_docs.py` drives an upper-cased suffix red.
+
 ### `tutf-44dk` · Three non-text pairs sit under 3:1 in the dark theme, and no row measures one
 
 | Tags          | Status | Depends on |
@@ -2748,52 +2775,6 @@ neither.
 season resolution and the shape ceiling were read off `UNIQUE_INDEXES`, `pull_current_saison_id` and
 `TeamsPerGroup` rather than executed. **The explain was not re-run for this entry**, so the two rows
 stand on that measurement rather than on anything the gate repeats.
-
-### `2d76-kydk` · Every site resolving a citation asks the filesystem, so a mis-cased path passes here and fails on the runner
-
-| Tags                | Status | Depends on |
-| ------------------- | ------ | ---------- |
-| Ops, Docs, gate, ci | Open   | —          |
-
-**Five call sites decide whether a cited path is real, and each asks the filesystem rather than
-git.** `scripts/checks/docs_gate/checks.py :: _resolve` tries `REPO_ROOT / file_part` directly;
-`:: check_file` asks `.exists()` of every backticked repository path, and again of every link target
-it has already resolved; `:: check_bare_paths` asks it of the token under the repository root and
-under every parent directory of the file holding it; `:: _continuations` asks it of a file named
-after `::` and expected beside its antecedent. Each carries its own base, so there is no single line
-to change — and all five lean on `scripts/checks/docs_gate/kernel.py :: repo_path`, which asks the
-same question a sixth time and is what `checks.py :: _named_paths` derives an entry's tags
-through.
-
-**The filesystem answers that question differently on the two platforms.** A path spelled
-`DOCS/readme.MD` resolves on this machine and does not on the Linux runner, so a citation whose case
-has drifted is green through the whole local gate and red in CI with a `path`, `link` or `citation`
-finding naming the token.
-
-**The listing that answers identically on both platforms is git's, unfiltered.**
-`kernel.py :: _listed` called with no pattern, merged with `:: _untracked_paths` — the merge
-`:: scanned_files` already performs, because the gate runs before the commit and a file the branch
-has yet to stage is corpus rather than an absence.
-
-**`kernel.py :: tracked_files` is the wrong listing, and the cost of reaching for it is measured.**
-It is `:: _of_kind`-filtered to `.md`, `SCANNED_SUFFIXES` and `OPS_FILENAMES`, which drops 28 of the
-976 tracked paths in this repository — every stylesheet, icon and manifest image, and
-`.github/gate-wall-clock.tsv`, which `docs/ops/spec.md`, `docs/backend/spec.md` and
-`.claude/rules/ops.md` all cite. Resolved against it, each of those citations becomes a dead-path
-finding.
-
-**The bare-filename arm has to move in the same change.** `checks.py :: _resolve` falls back to
-`kernel.py :: _tree_index` and `:: _untracked_index`, both keyed by `os.path.normcase` of a file's
-name — a no-op on Linux and a lowercasing on Windows, which is the same divergence at a second site.
-A change that swaps the existence tests and leaves that keying alone narrows the defect rather than
-closing it.
-
-**What this costs today is a loud failure rather than a silent one**, the platform that diverges
-being the one that fails in CI naming the finding, which is why it is filed rather than taken as a
-cycle's closing act.
-
-**Done when** every site deciding a citation's target answers from one unfiltered listing built off
-git, and the bare-filename lookup keys against that same listing.
 
 ### `2eec-8qa9` · The hook fixture's builder writes into a directory it never creates, and the failure reaches nobody
 

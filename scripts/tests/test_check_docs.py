@@ -1633,6 +1633,41 @@ def test_one_file_s_four_spellings_each_draw_their_own_verdict() -> None:
     _assert_corpus_restored()
 
 
+def test_a_citation_whose_case_differs_from_the_tracked_spelling_is_dead_here_too() -> None:
+    """The case the filesystem forgives, refused on both platforms.
+
+    Windows answers a mis-cased path yes where the Linux runner answers no, so a citation the gate
+    passes here fails the branch on CI and nothing local says why.
+    """
+    _reset()
+    checks = _module("docs_gate.checks")
+    _clear_caches(_gate().root / SCRIPTS_COPY)
+    # The repository path and the bare name, which reach the listing by different routes: the second
+    # is what the name index folding its keys to one case would go on resolving.
+    for spelling in ("docs/Glossary.md", "Glossary.md"):
+        found = [finding.check for finding in checks._check_citation(spelling + " :: " + GLOSSARY_ANCHOR, NOTES)]
+        assert found == ["citation"], spelling + " resolved anyway: " + repr(found)
+    _assert_corpus_restored()
+
+
+def test_a_file_the_branch_wrote_and_never_staged_resolves_by_its_repository_path() -> None:
+    """The listing is git's, and a branch's new modules are in no index yet.
+
+    Left to the tracked half alone, every citation a branch adds to a file it also adds reads as dead.
+    """
+    _reset()
+    root = _gate().root
+    write(root, UNSTAGED_MODULE, _module_named("a module this branch wrote and never staged."))
+    checks = _module("docs_gate.checks")
+    _clear_caches(root / SCRIPTS_COPY)
+    try:
+        found = checks._check_citation(UNSTAGED_MODULE + " :: VALUE", NOTES)
+    finally:
+        _reset()
+    assert not found, [finding.human() for finding in found]
+    _assert_corpus_restored()
+
+
 def test_a_block_this_branch_lengthened_is_measured_and_an_older_one_is_not() -> None:
     """A block the branch lengthened past a bound is measured, and the older one beside it is not.
 

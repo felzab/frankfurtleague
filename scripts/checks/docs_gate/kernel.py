@@ -1,9 +1,10 @@
 """SCRIPTS · the documentation gate's readers, caches and vocabulary.
 
-Nothing here imports a sibling, so each `functools.cache` exists once per run. Two listings, and
+Nothing here imports a sibling, so each `functools.cache` exists once per run. Three listings, and
 what a caller does with the answer picks between them: a file a check READS comes from
 `scanned_files`, which is the working tree; a glob or a page a document NAMES resolves through
-`tracked_files`, which is the index CI checks out.
+`tracked_files`, which is the index CI checks out; and whether one path is THERE at all is
+`holds_file`, which is unfiltered by kind because a citation names an image as readily as a page.
 """
 
 from __future__ import annotations
@@ -270,10 +271,12 @@ def _listed(*args: str) -> tuple[Path, ...] | None:
 
 
 def _by_name(paths: Iterable[Path]) -> dict[str, tuple[Path, ...]]:
+    # Case-exact, for `holds_file`'s reason: a name folded to one case resolves a citation here that
+    # the Linux runner cannot resolve at all.
     index: dict[str, list[Path]] = {}
     for path in paths:
         if not _skipped(path):
-            index.setdefault(os.path.normcase(path.name), []).append(path)
+            index.setdefault(path.name, []).append(path)
     return {name: tuple(sorted(found)) for name, found in index.items()}
 
 
@@ -305,6 +308,47 @@ def _untracked_paths() -> tuple[Path, ...]:
     return _listed("--others", "--exclude-standard") or ()
 
 
+@cache
+def _listed_files() -> frozenset[str] | None:
+    """Every path git lists, tracked or unstaged, as the repo-relative spelling git holds.
+
+    Unfiltered by kind, which `scanned_files` is not: a citation names an image, a lockfile and an
+    ignore file as readily as a document.
+    """
+    listed = _listed()
+    if listed is None:
+        return None
+    return frozenset(path.relative_to(REPO_ROOT).as_posix() for path in (*listed, *_untracked_paths()))
+
+
+@cache
+def _listed_paths() -> frozenset[str] | None:
+    """`_listed_files` and every folder above one: a listing spells no folder, and a path names one."""
+    files = _listed_files()
+    if files is None:
+        return None
+    return files | frozenset(str(parent) for rel in files for parent in PurePosixPath(rel).parents if str(parent) != ".")
+
+
+def holds_file(rel: str) -> bool:
+    """Whether the repository holds this file, by git's listing rather than by the filesystem.
+
+    Windows answers a mis-cased path yes where the Linux runner answers no, so only git's own
+    spelling makes the two agree.
+    """
+    listing = _listed_files()
+    # A git that cannot answer leaves the disk deciding, for `gitignored`'s reason: a refusal
+    # narrows what is proved rather than calling every citation in the corpus dead.
+    return (REPO_ROOT / rel).is_file() if listing is None else rel in listing
+
+
+def holds_path(token: str) -> bool:
+    """`holds_file` widened to a folder, and tolerant of the trailing slash a folder is written with."""
+    rel = token.rstrip("/")
+    listing = _listed_paths()
+    return (REPO_ROOT / rel).exists() if listing is None else rel in listing
+
+
 def _walked_index() -> dict[str, tuple[Path, ...]]:
     """The same index where git could not answer it.
 
@@ -322,7 +366,7 @@ def _walked_index() -> dict[str, tuple[Path, ...]]:
             kept = [name for name in kept if rels[name] not in dropped]
         directories[:] = kept
         for name in names:
-            index.setdefault(os.path.normcase(name), []).append(parent / name)
+            index.setdefault(name, []).append(parent / name)
     return {name: tuple(sorted(paths)) for name, paths in index.items()}
 
 
@@ -937,14 +981,14 @@ def repo_path(token: str) -> str | None:
     # route segment a substring test refuses.
     if token.startswith("/") or any(set(part) == {"."} for part in token.split("/")):
         return None
-    if token.startswith(REPO_PREFIXES) and (REPO_ROOT / token).exists():
+    if token.startswith(REPO_PREFIXES) and holds_path(token):
         return token
     if "/" not in token:
         # A prefix list names the next root-level file only after something has cited it, and COR-6
-        # admits a bare backticked path wherever the file sits. A file, not a directory: `scripts`
+        # admits a bare backticked path wherever the file sits. A file, not a folder: `scripts`
         # standing alone is a tree's name in prose.
-        return token if (REPO_ROOT / token).is_file() else None
-    return next((f"{root}{token}" for root in PACKAGE_ROOTS if (REPO_ROOT / root / token).exists()), None)
+        return token if holds_file(token) else None
+    return next((f"{root}{token}" for root in PACKAGE_ROOTS if holds_path(f"{root}{token}")), None)
 
 
 # --- what a cited anchor has to be, in a file whose definitions can be listed exactly ------------

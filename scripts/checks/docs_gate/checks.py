@@ -12,7 +12,7 @@ alone; the readers, caches and vocabulary are `kernel.py`'s; the German copy rul
 from __future__ import annotations
 
 import argparse
-import os
+import posixpath
 import re
 import sys
 from functools import cache
@@ -66,6 +66,8 @@ from .kernel import (
     comment_runs,
     comment_style,
     defined_symbols,
+    holds_file,
+    holds_path,
     is_entry_token,
     is_gitignored,
     is_placeholder,
@@ -1278,21 +1280,19 @@ def unwrapped(body: str, markers: tuple[str, ...] = ()) -> str:
 
 def _resolve(file_part: str) -> list[Path]:
     """A citation may give a repo path, a package-relative one, or an unambiguous bare filename."""
-    direct = REPO_ROOT / file_part
-    if direct.is_file():
-        return [direct]
+    if holds_file(file_part):
+        return [REPO_ROOT / file_part]
     # A comment beside the code cites the way its own package spells a path, and reporting that as
     # a dead file is the false positive that gets a citation rewritten to something looser.
-    if (resolved := repo_path(file_part)) is not None and (REPO_ROOT / resolved).is_file():
+    if (resolved := repo_path(file_part)) is not None and holds_file(resolved):
         return [REPO_ROOT / resolved]
     if "/" in file_part:
         return []
     # The index answers first, so a stray copy can neither shadow a tracked file nor make one
     # ambiguous; the tree answers a name the index lacks. Calling a file just written dead invites
     # repointing the citation at a similar name, which then passes.
-    key = os.path.normcase(file_part)
-    named = _tree_index().get(key) or _untracked_index().get(key, ())
-    return [p for p in named if p.is_file()][:5]
+    named = _tree_index().get(file_part) or _untracked_index().get(file_part, ())
+    return list(named[:5])
 
 
 def names_a_file(file_part: str) -> bool:
@@ -1327,6 +1327,10 @@ def _check_citation(citation: str, rel: str) -> list[Finding]:
         # is not evidence: a quoted error carries ` :: ` too, and calling it dead sends a reader
         # after a file nobody named.
         if not names_a_file(file_part):
+            return []
+        # A gitignored file is absent from a clone by design, so no listing can hold it and its
+        # citation is not a dead one -- the `path` arm below excuses one for the same reason.
+        if is_gitignored(file_part):
             return []
         # Never `cited file not found`: the file may be present under a spelling this refuses, and
         # a reader told it is missing deletes a claim that was true.
@@ -1389,8 +1393,8 @@ def _continuations(joined: str, rel: str) -> list[Finding]:
         pairs.add((antecedent, anchor))
     for antecedent, anchor in sorted(pairs):
         if anchor.endswith(CITABLE_SUFFIXES):
-            folder = PurePosixPath(antecedent).parent
-            if not (REPO_ROOT / folder / anchor).is_file():
+            sibling = (PurePosixPath(antecedent).parent / anchor).as_posix()
+            if not holds_file(sibling) and not is_gitignored(sibling):
                 found.append(Finding("fail", "citation", rel, f"`:: {anchor}` names no file beside {antecedent}"))
             continue
         found.extend(_check_citation(f"{antecedent} :: {anchor}", rel))
@@ -1470,8 +1474,12 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
             if is_markdown and anchor and anchor not in anchors:
                 found.append(Finding("fail", "anchor", rel, f"no heading in this file yields #{anchor}"))
             continue
-        target = (path.parent / raw_target).resolve()
-        if not target.exists():
+        # Joined on the repo-relative spelling rather than through `Path.resolve`, which hands back
+        # the filesystem's own casing on Windows and would answer a mis-cased link yes.
+        joined = posixpath.normpath(posixpath.join(posixpath.dirname(rel), raw_target))
+        outside = joined == ".." or joined.startswith("../")
+        target = (path.parent / raw_target).resolve() if outside else REPO_ROOT / joined
+        if not (target.exists() if outside else holds_path(joined)):
             found.append(Finding("fail", "link", rel, f"link target does not exist: {raw_target}"))
             continue
         # The file resolves and the heading it names does not, so the link opens the right page at
@@ -1501,7 +1509,7 @@ def check_bare_paths(rel: str, body: str) -> list[Finding]:
     every directory above the file, as a reader would.
     """
     found: list[Finding] = []
-    bases = [REPO_ROOT, *(REPO_ROOT / parent for parent in Path(rel).parents if parent.as_posix() != ".")]
+    prefixes = ["", *(f"{parent.as_posix()}/" for parent in Path(rel).parents if parent.as_posix() != ".")]
     # Backticked spans out first, or one dead path yields a `path` finding and a `bare-path` one. A
     # span holds no newline, so removing one moves an offset along its line and never off it.
     scrubbed = BACKTICK_SPAN_RE.sub("", body)
@@ -1510,7 +1518,7 @@ def check_bare_paths(rel: str, body: str) -> list[Finding]:
         first_seen.setdefault(match.group(0), match.start())
     for token in sorted(first_seen):
         # `is_gitignored` shells out, so it stays behind the tests that answer without one.
-        if is_placeholder(token) or any((base / token).exists() for base in bases) or is_gitignored(token):
+        if is_placeholder(token) or any(holds_path(prefix + token) for prefix in prefixes) or is_gitignored(token):
             continue
         detail = f"path named but not present: {token} -- and unbackticked, so `path` never saw it"
         found.append(Finding("fail", "bare-path", rel, detail, line_of(scrubbed, first_seen[token])))
