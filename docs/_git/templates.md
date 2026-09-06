@@ -63,9 +63,12 @@ than one surface combines them — `Backend + Frontend` — each component resol
 vocabulary on its own.
 
 `scripts/checks/check_commits.py` refuses a `Co-authored-by` or a `Signed-off-by` trailer
-(`:: BANNED`), every trailer name but `Closes` and every `Closes:` value that is not a token
+(`:: BANNED`), every trailer name but `Closes` in a closing paragraph it reads as trailers
+(`:: TRAILER_EVIDENCE_RE`) and every `Closes:` value that is not a token
 (`:: CLOSES_RE`), and a subject or a body line past the hard maximum (`:: LINE_MAX`) — unless that
 line is one unbroken token or carries a long URL, which wrapping would break (`:: UNWRAPPABLE`).
+A closing sentence wearing a colon is prose, so a trailer name whose value is a sentence rather than
+a reference passes here.
 
 A commit Dependabot wrote — matched on an exact author identity
 (`scripts/checks/check_commits.py :: BOT_IDENTITIES`), never a substring — is released from the sign-off

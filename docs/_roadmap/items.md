@@ -183,7 +183,6 @@ deliverable.
 | `jcpc-dee5` | Two routes on one path and method collapse to one                                                                           | BE, tests                                                                   | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is untested                                                                       | BE, tests, saisons                                                          | Open     |
 | `jky6-k3te` | The refusal-code table is held to the backend by nothing                                                                    | BE, Ops, Docs, gate                                                         | Open     |
-| `knku-4fr2` | The commit checker reads a hyphenless trailer as prose, so the name rule it enforces has a hole                             | Ops, Docs, gate, tests                                                      | Open     |
 | `kpkb-y5d8` | A refusal's meaning is written three times, unresolved                                                                      | FE, BE, Docs, tests, bewerbungen                                            | Open     |
 | `mmcv-aa6g` | The comment-citation check reads two shapes of outside reference and INC-6 bars more                                        | Ops, Docs, gate, tests                                                      | Open     |
 | `nce5-j467` | A comment claims two files hold one pattern, unchecked                                                                      | FE, BE, tests                                                               | Open     |
@@ -4367,30 +4366,6 @@ no tolerance for a partly-spelled code; what a check reading the backend by SHAP
 declaration would have to tolerate is a glob in prose — `fl_backend/app/core/domain.py` writes
 `REQ-STATE-*` inside an `Unenforced` reason, naming the pair rather than a code the table could carry
 a row for.
-
-### `knku-4fr2` · The commit checker reads a hyphenless trailer as prose, so the name rule it enforces has a hole
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| Ops, Docs, gate, tests | Open   | —          |
-
-**`docs/_git/templates.md` says every trailer name but `Closes` is refused, and
-`scripts/checks/check_commits.py :: TRAILER_EVIDENCE_RE` reads a closing paragraph as trailers only
-where a name carries a hyphen or spells `Closes`.** So a last paragraph of `Refs: something` is read
-as prose and passes unread, while `Refs-Issue: something` is read as trailers and reaches the refusal
-in `:: check_message`. Both are the thing the template says is refused; one of them is.
-
-**The hole is what makes the rest of the rule usable.** The same test is what lets a body close on a
-`Verified: ... exit 0.` line, which is a sentence wearing a colon rather than a trailer, so narrowing
-the pattern to a bare `Name:` would refuse that closing line on every commit carrying one.
-
-**The repair is a choice and not a fix.** Either the checker parts a trailer from a sentence by
-something other than the hyphen, or `docs/_git/templates.md` stops claiming a reach the checker does
-not have and names which spellings it actually refuses. Choosing the first without a second
-discriminator costs every body its closing evidence line.
-
-**Done when** the checker and `docs/_git/templates.md` agree on which trailer names are refused, and
-a case in `scripts/tests/test_message_gates.py` fails if the two come apart again.
 
 ### `kpkb-y5d8` · A refusal code's meaning is written three times in prose, and nothing resolves any pair of them
 

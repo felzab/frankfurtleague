@@ -97,10 +97,16 @@ BOT_IDENTITIES: Final[frozenset[tuple[str, str]]] = frozenset(
 # A trailer is read in the message's LAST paragraph alone, where git reads one, and the paragraph
 # has to be nothing else.
 TRAILER_LINE_RE: Final = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*:[ \t]\S")
-# What parts a trailer from a sentence. A body closing `Verified: ... exit 0.` is prose, and
-# failing that spelling switches the check off. `Closes` in either case, so a mis-cased one is
-# refused rather than read as prose.
-TRAILER_EVIDENCE_RE: Final = re.compile(r"^(?:[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+|[Cc]loses):[ \t]\S")
+# What parts a trailer from a sentence. Reading a body's closing `Verified: ... exit 0.` line as a
+# trailer would refuse every commit carrying one, so the paragraph is read as trailers only on
+# evidence.
+TRAILER_EVIDENCE_RE: Final = re.compile(
+    # `Closes` in either case, so a mis-cased one is refused rather than read as prose.
+    r"^(?:[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+|[Cc]loses):[ \t]\S"
+    # A hyphenless name earns it on the value instead: a reference is one unbroken token ending no
+    # sentence, which no closing line of prose is.
+    r"|^[A-Za-z][A-Za-z0-9]*:[ \t]\S*[^\s.!?][ \t]*$"
+)
 
 # An id is read aloud, so `i`, `l`, `o`, `0` and `1` are out.
 ENTRY_ALPHABET: Final = "[abcdefghjkmnpqrstuvwxyz23456789]"
