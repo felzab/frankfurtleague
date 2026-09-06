@@ -1500,7 +1500,15 @@ def _resolve(file_part: str) -> list[Path]:
     # ambiguous; the tree answers a name the index lacks. Calling a file just written dead invites
     # repointing the citation at a similar name, which then passes.
     named = _tree_index().get(file_part) or _untracked_index().get(file_part, ())
+    # Not filtered by presence on disk: a name the index holds and the tree lacks is a rename half
+    # done, and the read below then reports it, as the listing arms above do for a full path.
     return list(named[:5])
+
+
+def _listed_by_name(file_part: str) -> bool:
+    """Whether any file git lists, tracked or not, carries this basename."""
+    name = PurePosixPath(file_part).name
+    return name in _tree_index() or name in _untracked_index()
 
 
 def names_a_file(file_part: str) -> bool:
@@ -1536,13 +1544,21 @@ def _check_citation(citation: str, rel: str) -> list[Finding]:
         # after a file nobody named.
         if not names_a_file(file_part):
             return []
-        # A gitignored file is absent from a clone by design, so no listing can hold it and its
-        # citation is not a dead one -- the `path` arm below excuses one for the same reason.
+        # A gitignored file is absent from a clone by design, so no listing holds it: one here is
+        # read off the disk, its anchor still a claim; an absent one is excused as the `path` arm
+        # excuses one.
         if is_gitignored(file_part):
-            return []
-        # Never `cited file not found`: the file may be present under a spelling this refuses, and
-        # a reader told it is missing deletes a claim that was true.
-        return [Finding("fail", "citation", rel, f"cited path is neither repository-relative nor package-relative: {file_part}")]
+            if not (ignored := REPO_ROOT / file_part).is_file():
+                return []
+            matches = [ignored]
+        elif _listed_by_name(file_part):
+            # Never `not found` here: the file is present under a spelling this refuses, and a
+            # reader told it is missing deletes a claim that was true.
+            return [Finding("fail", "citation", rel, f"cited path is neither repository-relative nor package-relative: {file_part}")]
+        else:
+            # Nothing of that name anywhere, so the reader is sent after a rename or a deletion
+            # rather than after another spelling.
+            return [Finding("fail", "citation", rel, f"cited path names no file in the repository, under any spelling: {file_part}")]
     if len(matches) > 1:
         names = ", ".join(sorted(m.relative_to(REPO_ROOT).as_posix() for m in matches)[:4])
         return [Finding("fail", "citation", rel, f"ambiguous file '{file_part}' matches: {names}")]
@@ -1688,8 +1704,11 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
         outside = joined == ".." or joined.startswith("../")
         target = (path.parent / raw_target).resolve() if outside else REPO_ROOT / joined
         if not (target.exists() if outside else holds_path(joined)):
-            found.append(Finding("fail", "link", rel, f"link target does not exist: {raw_target}"))
-            continue
+            # A gitignored target is absent from a clone by design, as the `path` arm below excuses
+            # one; where it is here, the anchor check beneath still reads it.
+            if not is_gitignored(joined):
+                found.append(Finding("fail", "link", rel, f"link target does not exist: {raw_target}"))
+                continue
         # The file resolves and the heading it names does not, so the link opens the right page at
         # the top and looks correct.
         if anchor and target.suffix == ".md" and (reachable := anchors_of(target)) is not None and anchor not in reachable:

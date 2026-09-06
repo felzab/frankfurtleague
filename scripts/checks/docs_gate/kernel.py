@@ -982,8 +982,8 @@ def is_gitignored(token: str) -> bool:
 def repo_path(token: str) -> str | None:
     """The repository path a backticked token names, or None, spelled as a git listing spells it.
 
-    The forms are COR-6's and no wider: a resolver answering more spellings takes the pressure off
-    the one a reader can grep for.
+    Wider than COR-6's forms by the package-relative spelling alone, and every answer is still one
+    path a reader can grep for.
     """
     # A dot-only SEGMENT, never the substring: `..` traverses, and Windows strips a trailing `...`
     # back to the directory above it, a spelling no Linux runner holds. `[...nextauth]` is a real
@@ -992,10 +992,11 @@ def repo_path(token: str) -> str | None:
         return None
     if token.startswith(REPO_PREFIXES) and holds_path(token):
         return token
+    # A root arm rather than a prefix list, which names the next root-level file only after
+    # something has cited it: COR-6 admits a bare backticked path wherever the file sits.
     if "/" not in token:
-        # A prefix list names the next root-level file only after something has cited it, and COR-6
-        # admits a bare backticked path wherever the file sits. A file, not a folder: `scripts`
-        # standing alone is a tree's name in prose.
+        # Existence decides, so `queries.ts`, a KIND of file, stays prose. A file, not a folder:
+        # `scripts` standing alone is a tree's name in prose.
         return token if holds_file(token) else None
     return next((f"{root}{token}" for root in PACKAGE_ROOTS if holds_path(f"{root}{token}")), None)
 

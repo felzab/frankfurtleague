@@ -254,6 +254,7 @@ GITIGNORE: Final = ".gitignore"
 # What a plant parks where the corpus reaches, to be told it does not. The ignored one models a
 # scratch file somebody left in the tree; the skipped one a running audit programme's working notes.
 IGNORED_MODULE: Final = "ignored/scratch.py"
+IGNORED_PAGE: Final = "ignored/scratch.md"
 SKIPPED_MODULE: Final = "docs/audit/scratch.py"
 # A module python refuses to tokenize, so the comment reader falls back to its marker scan. Planted
 # rather than committed: the corpus every other case is measured against holds no such file.
@@ -1848,6 +1849,7 @@ def test_the_resolver_places_a_tracked_file_at_the_repository_root() -> None:
     """
     _reset()
     kernel = _module("docs_gate.kernel")
+    _clear_caches(_gate().root / SCRIPTS_COPY)
     assert kernel.repo_path(COMPOSE_FILE) == COMPOSE_FILE
     assert kernel.repo_path(GITATTRIBUTES) == GITATTRIBUTES
     # A KIND of file, and a directory: neither is one path, and the root arm answers for neither.
@@ -1883,6 +1885,65 @@ def test_a_citation_whose_case_differs_from_the_tracked_spelling_is_dead_here_to
     for spelling in ("docs/Glossary.md", "Glossary.md"):
         found = [finding.check for finding in checks._check_citation(spelling + " :: " + GLOSSARY_ANCHOR, NOTES)]
         assert found == ["citation"], spelling + " resolved anyway: " + repr(found)
+    _assert_corpus_restored()
+
+
+def test_a_dead_citation_is_told_apart_from_a_present_file_in_a_refused_spelling() -> None:
+    """Both fail, and the reader is sent two ways: after a rename or a deletion, or after the spelling the gate admits.
+
+    One message for both sent the common case, a typo or a deleted module, hunting for another spelling.
+    """
+    _reset()
+    checks = _module("docs_gate.checks")
+    _clear_caches(_gate().root / SCRIPTS_COPY)
+    dead = [finding.detail for finding in checks._check_citation("docs/gone.md :: symbol", NOTES)]
+    assert dead == ["cited path names no file in the repository, under any spelling: docs/gone.md"], repr(dead)
+    inside = SPIELER_PANEL.partition("src/")[2]
+    spelled = [finding.detail for finding in checks._check_citation(inside + " :: Panel", NOTES)]
+    assert spelled == ["cited path is neither repository-relative nor package-relative: " + inside], repr(spelled)
+    _assert_corpus_restored()
+
+
+def test_a_present_gitignored_file_still_answers_for_its_anchor() -> None:
+    """The listing declines an ignored file; where the disk holds it, its anchor is a claim like any other.
+
+    Only an ignored file that is absent is excused, a clone holding none by design.
+    """
+    _reset()
+    root = _gate().root
+    write(root, IGNORED_MODULE, _page("VALUE = 1"))
+    checks = _module("docs_gate.checks")
+    _clear_caches(root / SCRIPTS_COPY)
+    try:
+        live = checks._check_citation(IGNORED_MODULE + " :: VALUE", NOTES)
+        dead = [finding.detail for finding in checks._check_citation(IGNORED_MODULE + " :: MISSING", NOTES)]
+        absent = checks._check_citation("ignored/absent.py :: VALUE", NOTES)
+    finally:
+        (root / IGNORED_MODULE).unlink()
+        _reset()
+    assert not live, "a live anchor in an ignored file was reported: " + repr([finding.human() for finding in live])
+    assert dead == ["anchor 'MISSING' is not defined in " + IGNORED_MODULE], repr(dead)
+    assert not absent, "an absent ignored file was reported: " + repr([finding.human() for finding in absent])
+    _assert_corpus_restored()
+
+
+def test_a_link_to_a_present_gitignored_page_is_not_dead_and_its_anchor_is_still_read() -> None:
+    """The link arm excuses an ignored target as its sibling arms do, and reads one that is here.
+
+    Three links, one finding: a heading the ignored page carries, one it does not, and an absent
+    ignored page.
+    """
+    _reset()
+    root = _gate().root
+    write(root, IGNORED_PAGE, _page(_heading(1, "Scratch"), "", "Notes nobody commits."))
+    _append(NOTES, "[live](../ignored/scratch.md#scratch), [stale](../ignored/scratch.md#nowhere) and [absent](../ignored/absent.md).")
+    try:
+        _, reported = _run()
+    finally:
+        (root / IGNORED_PAGE).unlink()
+        _reset()
+    assert reported[("fail", "link", NOTES)] == 0, "a link to an ignored page was read as dead: " + _shape(reported)
+    assert reported[("fail", "anchor", NOTES)] == 1, "a dead anchor into an ignored page went unread: " + _shape(reported)
     _assert_corpus_restored()
 
 
@@ -2061,7 +2122,7 @@ def test_a_check_that_knows_where_it_looked_prints_the_line_beside_the_file() ->
     block = [HASH + " a line of a block that runs past what a comment may hold" for _ in range(6)]
     raw = _page("FROM scratch", "", *block)
     bounds = _module("docs_gate.branch").check_comment_length
-    found = bounds(_gate().root / DOCKERFILE, raw, set(range(1, len(block) + 3)))
+    found = bounds(_gate().root / DOCKERFILE, raw, set(range(1, len(block) + 3)), lambda: [])
     assert [finding.line for finding in found] == [3], "the block's opening line did not reach the finding"
     assert _subject(found[0].human().strip()) == (DOCKERFILE, 3), found[0].human()
 
