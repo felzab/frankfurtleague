@@ -113,7 +113,6 @@ deliverable.
 | `db2a-9qu3` | The local edge claims to mirror production, and nothing reads either half of the claim                                                                            | Ops, Docs, gate, edge                                                       | Open     |
 | `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                                                                | FE, Ops, gate, admin                                                        | Open     |
 | `duhh-xcsh` | Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`                                       | FE, BE, Docs, bewerbungen, teams                                            | Standing |
-| `efnu-cq79` | A case asserts that its own fixture minted a usable hash, so hash luck decides the run                                                                            | Ops, Docs, gate, tests                                                      | Open     |
 | `eg48-8863` | Two db-tier runs at once fail in a way that names nothing                                                                                                         | BE, Ops, gate, ci, tests                                                    | Open     |
 | `ewf2-e2f3` | A confirmation or reminder link that bounces is written to the log and told to nobody                                                                             | FE, Docs, bewerbungen                                                       | Open     |
 | `ex2m-qjkg` | The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range                                              | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
@@ -1446,41 +1445,6 @@ survive either ruling and is the reason to rename nothing before the ruling land
 **Done when** the basis is ruled and the three names are settled against it: recorded as correct
 where the next reader meets them, or renamed together with the validator, the Zod mirror, the
 published document and the stored keys, in one migration rather than three edits.
-
-### `efnu-cq79` · A case asserts that its own fixture minted a usable hash, so hash luck decides the run
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| Ops, Docs, gate, tests | Open   | —          |
-
-**The case needs a real commit whose short form carries both a digit and a letter, and it looks for
-one rather than making one.**
-`scripts/tests/test_branch_checks.py :: test_a_prose_sha_reports_every_mixed_hex_run_resolvable_or_not`
-proves that `scripts/checks/docs_gate/branch.py`'s sha finding fires on a resolvable prefix as well
-as a dangling one, so it needs a hash the fixture repository actually holds. It walks that
-repository's own commits for a prefix that is mixed, and asserts one was found. Whether any is
-depends on what the hashes happen to spell.
-
-**Two things decide that, and neither is the property under test.** The fixture is built with a
-single commit and the scenarios that add one add it for their own reasons, so how many candidates
-this case sees depends on which scenarios ran before it in the same process — and each candidate is
-mixed or not by luck. The run therefore has a verdict that its own arrangement and the hashes it
-drew decide, which is why it passes alone, passes under the gate's per-file distribution, and can
-fail where the modules are ordered differently.
-
-**A failure here reports nothing about the branch under it.** The guard's own message says as much —
-it says the case proves nothing — but it is an assertion, so the section goes red, and it goes red on
-a tree that touched neither the checker nor the test. That is the signal
-`docs/_standard/standard.md :: CUR-8` asks about from the other side: a check that fails when it
-should not is what teaches people to re-run a red gate rather than read it.
-
-**The fixture can mint what the case needs instead of hoping for it.** A commit whose message is
-changed until its short form is mixed costs a retry loop and no realism — the hash is an input to the
-assertion, not part of what is asserted — and it turns the guard into a fact the fixture establishes
-rather than a condition it checks for.
-
-**Done when** the case obtains a mixed short form by construction, so it proves what it claims on
-every run and its remaining assertions are the only way it can fail.
 
 ### `eg48-8863` · Two db-tier runs at once fail in a way that names nothing
 
