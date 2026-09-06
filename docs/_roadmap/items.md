@@ -148,7 +148,6 @@ deliverable.
 | `3s6w-kndn` | The gate saturates the machine, then idles through its tail                                                                 | BE, Ops, gate, tests                                                        | Open     |
 | `54yr-fgun` | A changed citation target puts no page in front of the session                                                              | Ops, Docs, gate                                                             | Open     |
 | `556b-nxen` | The roadmap states each entry twice, and the check comparing the two listings' tags reads no other cell                     | Ops, Docs, gate                                                             | Open     |
-| `5h9m-nntd` | A formatter reshapes a comment before INC-9 measures it                                                                     | BE, Ops, Docs, gate, teams                                                  | Open     |
 | `5qzd-ubrg` | A test's name counts the cases beside it, and the table has outgrown the count                                              | Ops, gate, tests                                                            | Open     |
 | `5tnp-5uff` | A python constant's closing quotes open a comment run                                                                       | Ops, Docs, gate, tests                                                      | Open     |
 | `645h-nj9q` | The linter runs a version past its end of life                                                                              | FE, Docs, versions                                                          | Standing |
@@ -3146,44 +3145,6 @@ never derives the rest**: §4's second and third rules turn on whether a finding
 on where an argument is recorded, neither of which is mechanical, so agreement between two listings
 reached by different routes is the whole of what one can hold past the vocabulary — which is also
 what keeps its population independent of the property it asserts (PRE-4).
-
-### `5h9m-nntd` · The formatter rewrites a comment between the author and the checker, so the shape INC-9 measures is not the shape anyone wrote
-
-| Tags                       | Status | Depends on |
-| -------------------------- | ------ | ---------- |
-| BE, Ops, Docs, gate, teams | Open   | —          |
-
-**`ruff format` removes a blank line inside an argument list and keeps one at statement level.**
-Exercised 2026-08-30 through `ruff format -` on two inputs differing only in where the blank line
-sat: between two comment paragraphs inside a call it is stripped and the paragraphs become
-contiguous, and between the same two paragraphs in a function body it survives. So a comment written
-as several paragraphs inside a call reaches `scripts/checks/docs_gate/kernel.py :: comment_runs` as
-one block, and INC-9's bound is applied to that. **The obvious way round it does not work either**: a
-bare `#` between paragraphs survives the formatter, but `comment_runs` yields it as an empty entry
-INSIDE the run rather than ending the run, so the block stays one block and only its character count
-is unchanged. **The author's instinct and the formatter's behaviour fail in the same direction, and
-nothing tells them so** — anyone writing a long comment inside a call produces a block INC-9 refuses,
-learns nothing at the time, and, if the block is wholly theirs, is failed by a measurement of a shape
-they did not write.
-
-**The live instance is invisible, and by a decision that is right.** The comment at
-`fl_backend/app/api/teams/admin_router.py :: patch_saison_team`'s replacement write measures 443
-characters against the 250-character cap, read through the gate's own functions on 2026-08-30;
-`scripts/checks/docs_gate/branch.py :: check_comment_length` measures a block only where every one of
-its lines is in the branch's added set, and its docstring records why — failing a branch for a word
-changed inside an older block is what gets a check suppressed, and a partly rewritten block is
-`/docs:audit-pr`'s under CUR-6. That reasoning holds; the consequence is that the one place the trap
-has already bitten is the one place nothing will report.
-
-**Done when** one of three answers is taken. Teach `comment_runs` that a run the formatter collapsed
-is several, which needs a rule for what separates them and the formatter has removed the evidence. Or
-measure comment length over the whole file rather than the added lines, which finds every old block
-at once and gives up the reason the added-set narrowing exists. **Or rest on the trap now recorded at
-INC-9** — [`docs/_standard/standard.md`](../_standard/standard.md) states the blank-line rule and the
-move-above-the-statement answer, which is what the one author who met this did. The third costs
-nothing further and leaves the measurement wrong; the first two are a mechanism. **Deciding that a
-written-down trap is sufficient is a real answer**, and this entry exists because that is a judgement
-rather than a defect.
 
 ### `5qzd-ubrg` · A test's name counts the cases beside it, and the table has outgrown the count
 
