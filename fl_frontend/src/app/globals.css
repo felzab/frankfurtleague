@@ -95,147 +95,18 @@
 @import "@heroui/styles/utilities";
 @import "@heroui/styles/variants";
 
+/* Exactly one season scheme, and last: an `@import` may follow only `@charset`, a `@layer`
+   statement and another `@import`, and HeroUI's run above takes no entry that is not HeroUI's. */
+@import "./schemes/2027.css";
+
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @layer base {
-  :root,
-  [data-theme="light"] {
-    --bg-base: #ffffff;
-    --bg-surface: #f5f5f5;
-    --bg-muted: #e5e5e5;
-    --fg-base: #0a0a0a;
-    --fg-muted: #525252;
-    /* Paired foreground for --accent-brand-solid. --fg-base cannot serve: it is near-black here,
-       which measures 1.97:1 on the maroon. Re-check the pair if the fill ever moves. */
-    --fg-on-brand: #ffffff;
-    --border-base: #d4d4d4;
-
-    /* THE HOVER FILLS. One declared colour per family, 6.7 OKLab L points off the
-       page's own lightness. Never an alpha — it composites against what is behind,
-       so the same class lands differently on every surface. */
-    --bg-hover: #dfdfdf;
-    /* For a control resting on --bg-muted, not the page. --bg-hover sits BETWEEN the
-       two, so from --bg-muted it moves 1.83 points — under the floor, and the wrong
-       way in the dark theme. */
-    --bg-hover-muted: #cfcfcf;
-    --bg-hover-danger: #f2d8d8;
-    /* Named --bg-hover-*, never --field-hover: that name is what HeroUI's own field
-       stylesheets read, and this `@layer base` outranks its theme — so declaring it
-       here would turn every input's hover green. */
-    --bg-hover-field: oklch(49.9% 0.095 166.913);
-    /* One value for both themes, because the fills they answer to do not flip either. */
-    --accent-brand-solid-hover: #982f2d;
-    /* 4.86:1 against the white it carries, the tightest pair here — re-measure if either half moves. */
-    --accent-danger-solid-hover: #d13832;
-
-    --accent-brand: #82181a;
-
-    /* THE focus colour. A ring departs from it only where it sits INSET on the
-       control's own fill and that fill fails WCAG 1.4.11 — `StufenPicker.tsx ::
-       STUFE_CHIP` selected is the one bearer. */
-    --focus: var(--fg-base);
-    /* Solid fills behind --fg-on-brand. Deliberately does NOT flip -- 10:1 in both themes --
-       while --accent-brand does, for foreground use on dark surfaces. */
-    --accent-brand-solid: #82181a;
-    --accent-warn: #eab308;
-    --accent-danger: #dc2626;
-    --accent-success: #16a34a;
-    --accent-info: #2563eb;
-
-    /* Text grade for the four feedback accents, which are tuned for fills:
-       `text-warning` measures 1.61:1 on a tint against 5.96 here. The 800 step,
-       because on --bg-muted the 700s reach only 3.99. */
-    --accent-success-strong: #065f46;
-    --accent-info-strong: #1d4ed8;
-    --accent-warn-strong: #92400e;
-    --accent-danger-strong: #b91c1c;
-
-    /* Fill grade: one deep value that does NOT flip, so white stays legible in both
-       themes — on the plain warning accent it measured 1.32:1 in the dark. */
-    --accent-success-solid: #047857;
-    --accent-warn-solid: #b45309;
-    --accent-danger-solid: #b91c1c;
-    --fg-on-success: #ffffff;
-    --fg-on-warn: #ffffff;
-    --fg-on-danger: #ffffff;
-
-    /* Tournament rounds — an ordered sequence, not a semantic state, so no feedback
-       accent fits. Tailwind's sky/blue/indigo/purple/rose 700, in hue-wheel order
-       so the colours run in step with the phases. */
-    --accent-phase-gruppenphase: oklch(50% 0.134 242.749);
-    --accent-phase-achtelfinale: oklch(48.8% 0.243 264.376);
-    --accent-phase-viertelfinale: oklch(45.7% 0.24 277.023);
-    --accent-phase-halbfinale: oklch(49.6% 0.265 301.924);
-    --accent-phase-finale: oklch(51.4% 0.222 16.935);
-
-    /* The soccer-field motif on the `(meta)` pages stays green in both themes — the design, not an
-       oversight. Tokens rather than `bg-emerald-*` literals the token layer cannot reach. */
-    --field-base: oklch(50.8% 0.118 165.612);
-    --field-card: oklch(43.2% 0.095 166.913);
-    --field-fg: #ffffff;
-    --field-border: color-mix(in srgb, #ffffff 40%, transparent);
-    /* One value per theme rather than a shared alpha: the sweep has to out-lighten the
-       `--bg-muted` block under it in both. */
-    --skeleton-sweep: color-mix(in srgb, #ffffff 55%, transparent);
-  }
-
-  [data-theme="dark"] {
-    --bg-base: #030303;
-    --bg-surface: #121212;
-    --bg-muted: #262626;
-    --fg-base: #ffffff;
-    --fg-muted: #a3a3a3;
-    /* Same value as the light theme: the fill it sits on does not flip either. */
-    --fg-on-brand: #ffffff;
-    --border-base: #333333;
-
-    /* The same 6.7-point step in the other direction, so a hover reads identically in both themes. */
-    --bg-hover: #212121;
-    /* LIGHTER than --bg-hover above, and has to be: the rest fill it answers to is lighter than the
-       page here too. */
-    --bg-hover-muted: #373737;
-    --bg-hover-danger: #321919;
-    --bg-hover-field: #29573e;
-    --accent-brand-solid-hover: #982f2d;
-    --accent-danger-solid-hover: #d13832;
-
-    /* Lightened for dark surfaces: the light value is 1.88:1 on --bg-surface, this is ~5.6:1. */
-    --accent-brand: #e05b5e;
-    --accent-brand-solid: #82181a;
-    --accent-warn: #fde047;
-    --accent-danger: #ef4444;
-    --accent-success: #22c55e;
-    --accent-info: #3b82f6;
-
-    /* On dark surfaces the relationship inverts: the text variant is LIGHTER than the fill accent. */
-    --accent-success-strong: #34d399;
-    --accent-info-strong: #60a5fa;
-    --accent-warn-strong: #fbbf24;
-    --accent-danger-strong: #f87171;
-
-    /* Unflipped, like --accent-brand-solid: these are fills carrying white text, and flipping one
-       would break the pair it exists to hold. */
-    --accent-success-solid: #047857;
-    --accent-warn-solid: #b45309;
-    --accent-danger-solid: #b91c1c;
-    --fg-on-success: #ffffff;
-    --fg-on-warn: #ffffff;
-    --fg-on-danger: #ffffff;
-
-    /* Tailwind's sky/blue/indigo/purple/rose 400, one step lighter for the dark surface. */
-    --accent-phase-gruppenphase: oklch(74.6% 0.16 232.661);
-    --accent-phase-achtelfinale: oklch(70.7% 0.165 254.624);
-    --accent-phase-viertelfinale: oklch(67.3% 0.182 276.935);
-    --accent-phase-halbfinale: oklch(71.4% 0.203 305.504);
-    --accent-phase-finale: oklch(71.2% 0.194 13.428);
-
-    /* The foreground stays white, because the surface stays green. */
-    --field-base: #0b3820;
-    --field-card: #124529;
-    --field-fg: #ffffff;
-    --field-border: color-mix(in srgb, #ffffff 20%, transparent);
-    /* Far lower alpha than the light theme: the same 55% would read as a white bar, not a sheen. */
-    --skeleton-sweep: color-mix(in srgb, #ffffff 9%, transparent);
+  /* Anton ships one weight and no italic, so without this a stray weight or an `italic` on it is
+     smeared rather than inert, and nothing reports either. The cost: a face wanting an italic must
+     load one. */
+  html {
+    font-synthesis: none;
   }
 
   /* The focus indicator for everything HeroUI does not style itself, matching the
@@ -251,8 +122,19 @@
 }
 
 @theme {
-  --font-primary: var(--font-inter), ui-sans-serif, system-ui;
-  --font-sans: var(--font-inter);
+  --font-heading: var(--font-anton), ui-sans-serif, system-ui;
+  --font-primary: var(--font-raleway), ui-sans-serif, system-ui;
+  --font-sans: var(--font-raleway);
+  /* Inter stays loaded for numerals alone: Raleway carries no tabular figures. */
+  --font-numeric: var(--font-inter), ui-sans-serif, system-ui;
+  /* Lining figures site-wide: Tailwind resolves this onto `html` through
+     --default-font-feature-settings. Never `"lnum", "tnum"` — Raleway has no `tnum`, so the
+     declaration would compile, pass every check and deliver half of what it says. */
+  --font-sans--font-feature-settings: "lnum";
+
+  /* Anton's one letterfit at every size: it is drawn to set nearly solid, and the site's negative
+     values were chosen for Inter's looser capitals. */
+  --tracking-display: 0.02em;
 
   --color-background: var(--bg-base);
   --color-surface: var(--bg-surface);
@@ -264,13 +146,13 @@
   --color-hover: var(--bg-hover);
   --color-hover-muted: var(--bg-hover-muted);
   --color-hover-danger: var(--bg-hover-danger);
-  --color-hover-field: var(--bg-hover-field);
 
   /* brand = foreground (text/border/ring/tints), brand-solid = opaque fill behind text */
   --color-brand: var(--accent-brand);
   --color-brand-solid: var(--accent-brand-solid);
   --color-brand-solid-hover: var(--accent-brand-solid-hover);
   --color-brand-solid-foreground: var(--fg-on-brand);
+  --color-brand-solid-accent: var(--accent-on-brand);
   /* Spelled `warning`, not `warn`: this shadows HeroUI's own --color-warning rather than competing. */
   --color-warning: var(--accent-warn);
   --color-danger: var(--accent-danger);
@@ -292,10 +174,6 @@
   --color-phase-viertelfinale: var(--accent-phase-viertelfinale);
   --color-phase-halbfinale: var(--accent-phase-halbfinale);
   --color-phase-finale: var(--accent-phase-finale);
-  --color-field-base: var(--field-base);
-  --color-field-card: var(--field-card);
-  --color-field-fg: var(--field-fg);
-  --color-field-border: var(--field-border);
 
   /* Fluid sizes, declared OUTSIDE Tailwind's `--text-*` namespace so they emit no
      utility: a `text-*` class tailwind-merge cannot classify falls into the COLOUR
@@ -325,13 +203,17 @@
   --fl-type-3xl: clamp(1.875rem, 1.53rem + 1.7vw, 2.625rem);
   --fl-type-3xl--leading: 1.2;
 
+  /* The hero's `<h1>` alone: Anton is condensed, so a title set in it reads a step smaller than
+     the same size set in Raleway. */
+  --fl-type-4xl: clamp(2.5rem, 1.9rem + 3vw, 4rem);
+  --fl-type-4xl--leading: 1.02;
+
   /* Page-width archetypes. Pick one rather than spelling a cap inline: a page and
      the toolbar above it have to resolve to the SAME number. NOT `prose` —
      Tailwind ships --max-width-prose, and both namespaces feed max-w-*. */
   --container-page: 1400px; /* dashboard + admin content */
   --container-toolbar: 1200px; /* sticky tab and search bars */
   --container-meta: 1100px;
-  --container-field: 1500px; /* the soccer-field backdrop, which frames the meta pages */
 
   --navbar-height: 54px;
   /* max-h-* resolves from --height-*, not from a --max-height-* namespace. */
@@ -432,6 +314,11 @@ html:has([data-app-shell]) {
   line-height: var(--fl-type-3xl--leading);
 }
 
+@utility fluid-4xl {
+  font-size: var(--fl-type-4xl);
+  line-height: var(--fl-type-4xl--leading);
+}
+
 /* Two muted-text recipes: `hint` explains a control, `meta` captions or counts. NEVER name one
    `text-*` — tailwind-merge reads that prefix as a colour and drops the whole recipe when one is
    combined with it, where the spelled-out form loses only the colour. */
@@ -494,13 +381,6 @@ html:has([data-app-shell]) {
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb) transparent;
   }
-}
-
-/* currentColor rather than a white literal, so the dots invert with whatever text colour the consumer
-   sets instead of vanishing on a light surface. */
-@utility dotted-bg {
-  background-image: radial-gradient(color-mix(in srgb, currentColor 16%, transparent) 1px, transparent 1px);
-  background-size: 32px 32px;
 }
 
 /* An over-long PLACEHOLDER ends in an ellipsis, declared once because the
@@ -923,57 +803,6 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   .toast-region:focus-within .toast__timer,
   .toast:hover .toast__timer {
     animation-play-state: paused;
-  }
-
-  /* The soccer-field motif, built on --color-field-* so it is one decision rather
-     than 40 literals. `text-field-fg` is load-bearing: `dotted-bg` derives its dots
-     from currentColor, which would otherwise render near-black on the green. */
-  .soccer-field-base {
-    @apply border-field-fg/85 bg-field-base text-field-fg max-w-field relative h-full min-h-[120dvh] w-full flex-1 overflow-hidden border-[3px] shadow-2xl;
-  }
-
-  .corner-arc-base {
-    @apply border-field-fg/85 absolute h-14 w-14 lg:h-20 lg:w-20;
-  }
-
-  .corner-arc-tl {
-    @apply top-0 left-0 rounded-br-full border-r-[3px] border-b-[3px] xl:border-r-[4px] xl:border-b-[4px];
-  }
-
-  .corner-arc-tr {
-    @apply top-0 right-0 rounded-bl-full border-b-[3px] border-l-[3px] xl:border-b-[4px] xl:border-l-[4px];
-  }
-
-  .corner-arc-bl {
-    @apply bottom-0 left-0 rounded-tr-full border-t-[3px] border-r-[3px] xl:border-t-[4px] xl:border-r-[4px];
-  }
-
-  .corner-arc-br {
-    @apply right-0 bottom-0 rounded-tl-full border-t-[3px] border-l-[3px] xl:border-t-[4px] xl:border-l-[4px];
-  }
-
-  .penalty-area-base {
-    @apply border-field-fg/85 absolute left-1/3 h-16 w-1/3 border-r-[3px] border-l-[3px] sm:h-24 xl:h-36 xl:border-r-[4px] xl:border-l-[4px];
-  }
-
-  .penalty-area-top {
-    @apply top-0 border-b-[3px] xl:border-b-[4px];
-  }
-
-  .penalty-area-bottom {
-    @apply bottom-0 border-t-[3px] xl:border-t-[4px];
-  }
-
-  .soccer-field-separator {
-    @apply bg-field-fg/25 my-4 h-[2px] w-full;
-  }
-
-  .soccer-field-card-bg {
-    @apply bg-field-card/90 backdrop-blur-md;
-  }
-
-  .soccer-field-card-border {
-    @apply border-field-border;
   }
 
   /* TIER 2 OF THREE, the other two being class strings in

@@ -4,7 +4,7 @@ import type { MetadataRoute } from "next";
 
 // A live `new Date()` is a dynamic read under cacheComponents, which would make this a dynamic
 // route. Bump it by hand when the page content changes.
-const CONTENT_LAST_MODIFIED = new Date("2026-09-04");
+const CONTENT_LAST_MODIFIED = new Date("2026-09-06");
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
@@ -57,7 +57,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.4,
     },
     {
-      url: `${SITE_URL}/team`,
+      url: `${SITE_URL}/organisation`,
       lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "monthly",
       priority: 0.4,

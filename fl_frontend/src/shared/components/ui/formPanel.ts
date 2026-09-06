@@ -26,7 +26,7 @@ export const formPanel = tv({
         root: "border-danger/30",
         header: "border-danger/20 bg-danger/5",
         heading: "text-danger-strong",
-        switchContent: "text-danger",
+        switchContent: "text-danger-strong",
         // `in-`, never a flag the call site passes down: `data-selected` sits on the switch above
         // the track, so the track cannot read whether it is on.
         switchControl: "in-data-selected:bg-danger",

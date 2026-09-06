@@ -19,10 +19,10 @@ const VISIBLE_OPTIONS = 5;
 
 /**
  * A picked row's whole fill, HeroUI shipping an empty selected block. Tint off `--accent-brand-solid`, never
- * `--accent-brand`: only the solid token holds one value in both themes, the flipping one measuring 1.81:1 in dark.
+ * `--accent-brand`: only the solid token holds one value in both themes.
  */
 const OPTION_SELECTED =
-  "data-[selected=true]:bg-brand-solid/20 data-[selected=true]:text-foreground data-[selected=true]:data-hovered:bg-brand-solid/30 data-[selected=true]:data-hovered:text-brand";
+  "data-[selected=true]:bg-brand-solid/20 data-[selected=true]:text-foreground data-[selected=true]:data-hovered:bg-brand-solid/30 data-[selected=true]:data-hovered:text-foreground";
 
 /** `40k + 46` for `k` = `VISIBLE_OPTIONS`: rows of 36px on 4px gaps, plus header, gap and padding. The `rem` form scales with the type. */
 const CELL_CAP = "max-h-[15.375rem]";
@@ -147,7 +147,9 @@ function FacetCell<TItem>({
               textValue={option.label}
               // A picked option stays enabled at zero, or it could not be deselected.
               isDisabled={count === 0 && !isPicked}
-              // `bg-hover` is the token `globals.css`'s keyboard indicator paints, and the two must stay one colour.
+              // `bg-hover` is the token `globals.css`'s keyboard indicator paints, and the two must stay one
+              // colour. A selected row overrides the hover ink below at two variants, because brand ink on
+              // that fill measures 3.31:1.
               className={`${OPTION_SELECTED} fluid-sm data-hovered:bg-hover data-hovered:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-1.5 font-bold transition-colors duration-(--motion-fast) ${
                 count === 0 ? "text-foreground-muted" : "text-foreground"
               }`}>

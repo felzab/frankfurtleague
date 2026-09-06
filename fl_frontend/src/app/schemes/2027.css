@@ -1,0 +1,167 @@
+/* One season's colours. A scheme carries no HeroUI import (`docs/frontend/spec.md :: 1.11 Adding a
+   HeroUI component`), and its `:root` block declares custom properties alone: a `transform`,
+   `filter` or `contain` here would make the document root a containing block (`:: I29`). */
+
+@layer base {
+  :root,
+  [data-theme="light"] {
+    --bg-base: #ffffff;
+    --bg-surface: #f5f5f5;
+    --bg-muted: #e5e5e5;
+    --fg-base: #0a0a0a;
+    --fg-muted: #525252;
+    /* Paired foreground for --accent-brand-solid. --fg-base cannot serve: it is near-black here,
+       which measures 1.62:1 on that fill. Re-check the pair if the fill ever moves. */
+    --fg-on-brand: #ffffff;
+    --border-base: #d4d4d4;
+
+    /* THE HOVER FILLS. One declared colour per family, 6.7 OKLab L points off the
+       page's own lightness. Never an alpha — it composites against what is behind,
+       so the same class lands differently on every surface. */
+    --bg-hover: #dfdfdf;
+    /* For a control resting on --bg-muted, not the page. --bg-hover sits BETWEEN the
+       two, so from --bg-muted it moves 1.83 points — under the floor, and the wrong
+       way in the dark theme. */
+    --bg-hover-muted: #cfcfcf;
+    /* The danger hue at the page's step, so a hovered destructive control and its ink read as one family. */
+    --bg-hover-danger: #f2d8d6;
+    /* One value for both themes, because the fills they answer to do not flip either. */
+    --accent-brand-solid-hover: #1b5123;
+    /* 5.03:1 against the white it carries — re-measure if either half moves. */
+    --accent-danger-solid-hover: #d22e30;
+
+    /* Lifted off the fill's own lightness to 3.06:1 against --fg-base (WCAG G183), so an accent
+       word and a link separate from the sentence around them; neither is underlined here. */
+    --accent-brand: #216c2d;
+
+    /* THE focus colour. A ring departs from it only where it sits INSET on the control's own
+       fill and that fill fails WCAG 1.4.11 — every selected brand-fill chip, which a search for
+       `ring-brand-solid-foreground` finds. */
+    --focus: var(--fg-base);
+    /* Solid fills behind --fg-on-brand. Deliberately does NOT flip -- 12.19:1 in both themes --
+       while --accent-brand does, for foreground use on dark surfaces. */
+    --accent-brand-solid: #033f11;
+    /* Lindengrün on the brand fill, 6.07:1 on it. Unflipped like the fill: 2.01:1 on a light
+       page, so never text there — a dark ground is the one exception, as a link's hover. */
+    --accent-on-brand: #8fc752;
+
+    /* The conventional hue per family — amber, red, green, blue: a result reads before its label
+       does, and a hue moved off convention costs that reading. */
+    /* Near the sRGB ceiling for their lightness, because a tint takes its colour from these at 15%
+       and a grey accent leaves a grey tint. */
+    --accent-warn: #bb7e00;
+    --accent-danger: #d2272b;
+    /* Emerald at the brand's lightness, which is the brand ink to the eye: every green on a page
+       here means "good", and the dark grades keep the two apart where they must. */
+    --accent-success: #028b4f;
+    --accent-info: #2d69de;
+
+    /* Text grade for the four feedback accents, which are tuned for fills: `text-warning`
+       measures 2.70:1 on its /15 tint against this grade's 5.01:1. */
+    /* Each sits at or near the sRGB ceiling for the lightness 4.5:1 on --bg-muted allows: full
+       chroma reads deep, half chroma reads grey. Amber has no room; at this lightness its
+       ceiling is a brown. */
+    --accent-success-strong: #006a3e;
+    --accent-info-strong: #1853c6;
+    --accent-warn-strong: #865400;
+    --accent-danger-strong: #b71920;
+
+    /* Fill grade: one value per family that does NOT flip, each carrying the on-colour paired to
+       it, so the pair holds in both themes — white on the plain warning accent is 2.70:1 dark. */
+    --accent-success-solid: #007742;
+    --accent-warn-solid: #ecae30;
+    --accent-danger-solid: #b71920;
+    --fg-on-success: #ffffff;
+    /* Near-black, alone among the three, and a literal because an on-colour does not flip: white
+       on this fill measures 1.96:1, and an amber dark enough to carry white reads as brown. */
+    --fg-on-warn: #0a0a0a;
+    --fg-on-danger: #ffffff;
+
+    /* Tournament rounds are an ordered sequence, not a semantic state, so no feedback accent
+       fits. A hue arc from 205° to 357°, so they run in hue order with the phases. */
+    --accent-phase-gruppenphase: #026a73;
+    --accent-phase-achtelfinale: #026799;
+    --accent-phase-viertelfinale: #5d4ebb;
+    --accent-phase-halbfinale: #903996;
+    --accent-phase-finale: #a52f64;
+
+    /* One value per theme rather than a shared alpha: the sweep has to out-lighten the
+       `--bg-muted` block under it in both. */
+    --skeleton-sweep: color-mix(in srgb, #ffffff 55%, transparent);
+
+    /* HeroUI's --accent fills a checked `Switch`'s track under --accent-foreground on its thumb,
+       and tints the squad page's `Avatar`; nothing else here reaches it. Taken as a token because
+       a CSS rule may not reach past a toast's shell. */
+    /* The brand text grade restated, and it moves with --accent-brand: a checked control wears the
+       primary colour, and on the info blue every switch read as a notice. */
+    --accent: #216c2d;
+    --accent-foreground: #ffffff;
+  }
+
+  [data-theme="dark"] {
+    --bg-base: #030303;
+    --bg-surface: #121212;
+    --bg-muted: #262626;
+    --fg-base: #ffffff;
+    --fg-muted: #a3a3a3;
+    /* Same value as the light theme: the fill it sits on does not flip either. */
+    --fg-on-brand: #ffffff;
+    --border-base: #333333;
+
+    /* The same 6.7-point step in the other direction, so a hover reads identically in both themes. */
+    --bg-hover: #212121;
+    /* LIGHTER than --bg-hover above, and has to be: the rest fill it answers to is lighter than the
+       page here too. */
+    --bg-hover-muted: #373737;
+    --bg-hover-danger: #321918;
+    --accent-brand-solid-hover: #1b5123;
+    --accent-danger-solid-hover: #d22e30;
+
+    /* Lightened for dark surfaces: the light value is 2.90:1 on --bg-surface, this is 8.74:1.
+       Lindengrün's hue under the chroma `--accent-on-brand` carries: full chroma glows on a
+       near-black ground, and this grade is text. */
+    --accent-brand: #8dbf6c;
+    --accent-brand-solid: #033f11;
+    --accent-on-brand: #8fc752;
+    /* Every accent below sits at the lowest lightness its floors allow and at two thirds to four
+       fifths of the sRGB ceiling there. Both halves matter on near-black: full chroma at high
+       lightness glows, half chroma there is pastel. */
+    --accent-warn: #c99436;
+    --accent-danger: #e64340;
+    --accent-success: #36a467;
+    --accent-info: #4c82e8;
+
+    /* On dark surfaces the relationship inverts: the text variant is LIGHTER than the fill accent. */
+    /* Seven OKLab L points above danger, so a table row's S and N digits, and a positive and a
+       negative goal difference, part by lightness for a reader who cannot part the hues. */
+    --accent-success-strong: #57c886;
+    --accent-info-strong: #7ea7f3;
+    --accent-warn-strong: #ecae30;
+    --accent-danger-strong: #e96c64;
+
+    /* Unflipped, like --accent-brand-solid: each is a fill carrying the on-colour paired to it, and
+       flipping one would break the pair it exists to hold. */
+    --accent-success-solid: #007742;
+    --accent-warn-solid: #ecae30;
+    --accent-danger-solid: #b71920;
+    --fg-on-success: #ffffff;
+    --fg-on-warn: #0a0a0a;
+    --fg-on-danger: #ffffff;
+
+    /* The same arc, lifted for the dark surface: each at the lightness its own /15 tint pair
+       needs, and the chroma its hue's ceiling leaves there. */
+    --accent-phase-gruppenphase: #36bdcb;
+    --accent-phase-achtelfinale: #45b4f8;
+    --accent-phase-viertelfinale: #a19cf9;
+    --accent-phase-halbfinale: #d886dd;
+    --accent-phase-finale: #f27eab;
+
+    /* Far lower alpha than the light theme: the same 55% would read as a white bar, not a sheen. */
+    --skeleton-sweep: color-mix(in srgb, #ffffff 9%, transparent);
+
+    /* The foreground flips although the app's own on-colours do not: it is the thumb on a checked
+       `Switch`'s track, where white on this lighter green measures 2.14:1 and near-black 9.24:1. */
+    --accent: #8dbf6c;
+    --accent-foreground: #0a0a0a;
+  }
+}

@@ -66,10 +66,14 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   const renderKontakt = (schiedsrichter: FLSchiedsrichter) => (
     <div className="flex flex-col gap-0.5">
       <span className="fluid-sm text-foreground">
-        {schiedsrichter.kontakt.email || <span className="text-foreground-muted/50 italic">Keine E-Mail</span>}
+        {schiedsrichter.kontakt.email || <span className="text-foreground-muted italic">Keine E-Mail</span>}
       </span>
       <span className="fluid-xs text-foreground-muted">
-        {schiedsrichter.kontakt.telefon || <span className="text-foreground-muted/50 italic">Keine Telefonnummer</span>}
+        {schiedsrichter.kontakt.telefon ? (
+          <span className="font-numeric tabular-nums">{schiedsrichter.kontakt.telefon}</span>
+        ) : (
+          <span className="text-foreground-muted italic">Keine Telefonnummer</span>
+        )}
       </span>
     </div>
   );
@@ -80,7 +84,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     schiedsrichter.inactive_since === null ? null : <RetiredBadge since={schiedsrichter.inactive_since} />;
 
   const renderHonorar = (schiedsrichter: FLSchiedsrichter) => (
-    <span className="bg-muted text-foreground fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">
+    <span className="bg-muted text-foreground font-numeric fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide tabular-nums">
       {formatEuro(schiedsrichter.default_payment)}
     </span>
   );
@@ -217,7 +221,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
                     <Table.Cell className="px-6 py-4">
                       <span className="fluid-sm text-foreground">
-                        {schiedsrichter.schule || <span className="text-foreground-muted/50 italic">Keine Schule</span>}
+                        {schiedsrichter.schule || <span className="text-foreground-muted italic">Keine Schule</span>}
                       </span>
                     </Table.Cell>
 

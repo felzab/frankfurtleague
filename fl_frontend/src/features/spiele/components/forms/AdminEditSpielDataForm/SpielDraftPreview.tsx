@@ -50,7 +50,7 @@ export function SpielDraftPreview({ previewSpiel, today, isDirty }: { previewSpi
           ergebnis={ergebnis}
           elfmeterschiessen={elfmeterschiessen}
           className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold ${
-            previewSpiel.ergebnis !== null ? "text-success-strong" : "text-danger-strong"
+            previewSpiel.ergebnis !== null ? "text-success-strong" : "text-warning-strong"
           }`}
         />
         <span className="fluid-xs text-foreground min-w-0 truncate text-left font-bold">{team2Name}</span>

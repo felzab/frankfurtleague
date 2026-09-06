@@ -1,3 +1,4 @@
+import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLAktion, FLAktor } from "./schemas";
 
 // Its own module: every export of a `"use client"` view becomes a client reference.
@@ -43,16 +44,16 @@ export const AKTION_OPERATION_LABELS: Record<FLAktion["operation"], string> = {
 };
 
 /**
- * The pairs `AdminSaisonsTable` carries, at the same `/15` fill. The fan-out and the bulk create take warning, having
- * touched records nobody named. Both removals take danger: they differ in what the log kept, never in severity.
+ * The fan-out and the bulk create take `warning`, having touched records nobody named. Both removals
+ * take `danger`: they differ in what the log kept, never in severity.
  */
-export const AKTION_OPERATION_TINTS: Record<FLAktion["operation"], string> = {
-  insert: "bg-success/15 text-success-strong",
-  insert_many: "bg-warning/15 text-warning-strong",
-  patch_one: "bg-info/15 text-info-strong",
-  patch_many: "bg-warning/15 text-warning-strong",
-  delete_many: "bg-danger/15 text-danger-strong",
-  erase_many: "bg-danger/15 text-danger-strong",
+export const AKTION_OPERATION_TINTS: Record<FLAktion["operation"], PillTone> = {
+  insert: "success",
+  insert_many: "warning",
+  patch_one: "info",
+  patch_many: "warning",
+  delete_many: "danger",
+  erase_many: "danger",
 };
 
 /**

@@ -1,4 +1,4 @@
-Frankfurt-League
+Frankfurt League
 Copyright (c) 2026 Felix Zabudkin
 
 The source code in this repository is licensed under the Elastic License 2.0.
@@ -16,15 +16,15 @@ this notice.
 
 1. NAMES
 
-   "Frankfurt-League" and "frankfurtleague", in any capitalisation or spacing,
-   and any confusingly similar name.
+   "Frankfurt League", and the variants "Frankfurt-League" and "frankfurtleague",
+   in any capitalisation or spacing, and any confusingly similar name.
 
    The Elastic License 2.0 grants no trademark rights. This notice records that
    no such rights are granted by any other means either.
 
 2. LOGO AND BRAND ASSETS
 
-   The Frankfurt-League mark and every asset derived from it, including but not
+   The Frankfurt League mark and every asset derived from it, including but not
    limited to:
 
      fl_frontend/src/app/icon.svg

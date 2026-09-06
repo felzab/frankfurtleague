@@ -71,11 +71,11 @@ export function TopNav() {
             </Dropdown.Item>
 
             <Dropdown.Item
-              id="team"
-              textValue="Team"
-              href="/team"
+              id="organisation"
+              textValue="Organisation"
+              href="/organisation"
               className="data-hovered:bg-muted flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
-              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Team</Label>
+              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Organisation</Label>
               <Persons className="text-foreground-muted size-4" />
             </Dropdown.Item>
 

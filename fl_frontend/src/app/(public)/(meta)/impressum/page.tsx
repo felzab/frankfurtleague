@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Impressum",
-  description: "Anbieterkennzeichnung der Frankfurt-League nach § 5 DDG und § 18 Abs. 2 MStV.",
+  description: "Anbieterkennzeichnung der Frankfurt League nach § 5 DDG und § 18 Abs. 2 MStV.",
   openGraph: openGraphFor("/impressum"),
   alternates: {
     canonical: "/impressum",

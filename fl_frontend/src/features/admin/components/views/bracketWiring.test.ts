@@ -5,7 +5,12 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
+import { PILL_TINT } from "@/shared/components/ui/badges.ts";
+
 const VIEW = "AdminBracketWiringView.tsx";
+
+/** A `Map` and not the record itself, so a tone name the view invented reads back as absent rather than as `any`. */
+const TONE_PAIRS = new Map<string, string>(Object.entries(PILL_TINT));
 
 /**
  * The view as written and not as rendered: a recipe call and its expansion render alike. Parsed
@@ -242,10 +247,13 @@ describe("the bracket wiring review", () => {
     );
 
     for (const [origin, tint] of tints) {
-      // A borrow from `PHASE_TINTS` is a pair by construction, that map's own home carrying the grade.
+      // A borrow from `PHASE_TINTS` is a tone by construction, that map's own annotation naming it.
       if (tint.startsWith("PHASE_TINTS.")) continue;
 
-      const tokens = tint.split(/\s+/);
+      const pair = TONE_PAIRS.get(tint.slice(1, -1)) ?? "";
+      assert.notEqual(pair, "", `${VIEW}: the ${origin} origin is ${tint}, which names no member of \`PILL_TINT\``);
+
+      const tokens = pair.split(/\s+/);
       assert.ok(
         tokens.some((token) => token.includes("bg-")) && tokens.some((token) => token.includes("text-")),
         `${VIEW}: the ${origin} origin is ${tint}, which paints no chip`,
@@ -256,7 +264,7 @@ describe("the bracket wiring review", () => {
   /* A Chip's `color` resolves against HeroUI's own tokens, which this app maps none of, and a Tag
      renders unstyled — `tag.css` is imported nowhere. Both compile, lint and build. */
   it("paints the origin with the app's label pill and a class string", () => {
-    assert.ok(namedImportsFrom("@/shared/components/ui/badges").has("LABEL_BADGE"), `${VIEW}: the origin no longer wears the app's label pill`);
+    assert.ok(namedImportsFrom("@/shared/components/ui/badges").has("labelBadge"), `${VIEW}: the origin no longer wears the app's label pill`);
     assert.ok(namedImportsFrom("@/features/saisons/constants").has("PHASE_TINTS"), `${VIEW}: the phase palette is no longer read here`);
 
     const vendored = [...tags].filter((tag) => tag === "Chip" || tag === "Tag");

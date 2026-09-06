@@ -9,7 +9,7 @@ import { Button } from "@heroui/react";
 
 import { einwilligungErneutSendenAction } from "@/features/bewerbungen/actions";
 import { istOffen, linkAngebot } from "@/features/bewerbungen/bestaetigungStand";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { labelBadge } from "@/shared/components/ui/badges";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -19,29 +19,30 @@ import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { KontaktRolle } from "@/features/teams/constants";
+import type { PillTone } from "@/shared/components/ui/badges";
 
 /**
  * One height for every chip on this readout and for the control beside them, so a row carrying a
  * button does not stand taller than the rows that do not. `formButton`'s `xs` step is the other half.
  */
-const STRIP_CHIP = `${LABEL_BADGE} h-7 shrink-0`;
+const STRIP_CHIP = "h-7 shrink-0";
 
 /** Named rather than muted: a grey chip on a coloured row reads as disabled (my rule, 2026-09-04). */
-const ROLLEN_TINT = "bg-info/15 text-info-strong";
+const ROLLEN_TINT: PillTone = "info";
 
 /**
  * Never `warning`, which is what the rows beneath give an outstanding SEAT: one tone for the summary
  * and the thing it summarises reads as one state (my rule, 2026-09-04).
  */
-const ZAEHLER_TINT = { offen: "bg-brand/10 text-brand-solid", vollstaendig: "bg-success/15 text-success-strong" };
+const ZAEHLER_TINT: Record<"offen" | "vollstaendig", PillTone> = { offen: "brand", vollstaendig: "success" };
 
-const STAND_TINT: Record<SitzBestaetigung["stand"]["art"], string> = {
-  bestaetigt: "bg-success/15 text-success-strong",
-  ausstehend: "bg-warning/15 text-warning-strong",
-  abgelehnt: "bg-danger/15 text-danger-strong",
+const STAND_TINT: Record<SitzBestaetigung["stand"]["art"], PillTone> = {
+  bestaetigt: "success",
+  ausstehend: "warning",
+  abgelehnt: "danger",
   // A decline's grade for a seat that ends the same way: neither can be confirmed, and both leave
   // the Absage as the one decision the application still takes.
-  geloescht: "bg-danger/15 text-danger-strong",
+  geloescht: "danger",
 };
 
 const STAND_ICON = {
@@ -107,7 +108,7 @@ export function BewerbungBestaetigungStrip({
             title="Einwilligungen"
           />
           <span className="shrink-0">
-            <span className={`${STRIP_CHIP} ${bestaetigt === staende.length ? ZAEHLER_TINT.vollstaendig : ZAEHLER_TINT.offen}`}>
+            <span className={`${labelBadge(bestaetigt === staende.length ? ZAEHLER_TINT.vollstaendig : ZAEHLER_TINT.offen)} ${STRIP_CHIP}`}>
               {String(bestaetigt)} von {String(staende.length)} bestätigt
             </span>
           </span>
@@ -124,14 +125,14 @@ export function BewerbungBestaetigungStrip({
               <div
                 key={sitz.rolle}
                 className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1.5">
-                <span className={`${STRIP_CHIP} ${ROLLEN_TINT}`}>{sitz.label}</span>
-                {sitz.zugleichTrainer && <span className={`${STRIP_CHIP} bg-brand/10 text-brand-solid`}>Zugleich Trainer</span>}
+                <span className={`${labelBadge(ROLLEN_TINT)} ${STRIP_CHIP}`}>{sitz.label}</span>
+                {sitz.zugleichTrainer && <span className={`${labelBadge("info")} ${STRIP_CHIP}`}>Zugleich Trainer</span>}
 
                 <span className="fluid-sm text-foreground min-w-0 font-medium">
                   {sitz.name === null ? <span className="text-foreground-muted italic">{sitz.nameSatz}</span> : sitz.nameSatz}
                 </span>
 
-                <span className={`${STRIP_CHIP} ${STAND_TINT[sitz.stand.art]} ml-auto gap-x-1`}>
+                <span className={`${labelBadge(STAND_TINT[sitz.stand.art])} ${STRIP_CHIP} ml-auto gap-x-1`}>
                   <Glyph
                     aria-hidden="true"
                     width={14}

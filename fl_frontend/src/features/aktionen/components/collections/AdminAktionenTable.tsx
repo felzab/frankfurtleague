@@ -8,7 +8,7 @@ import { ClockArrowRotateLeft, Cpu, Globe, Person } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
@@ -19,18 +19,19 @@ import { AKTION_HERKUNFT_LABELS, AKTION_OPERATION_LABELS, AKTION_OPERATION_TINTS
 import { describeAktionDatensatz, formatAktionZeitpunkt, herkunftOfAktor, labelForCollection } from "../../utils";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
+import type { PillTone } from "@/shared/components/ui/badges";
 import type { AktionHerkunft } from "../../constants";
 import type { AdminAktionRow } from "../../types";
 
 /**
- * The two origins a row cannot name a person for, each with the symbol and tint that names it instead.
+ * The two origins a row cannot name a person for, each with the symbol and tone that names it instead.
  * Exhaustive over them, so an origin added beside these fails here rather than rendering an empty cell.
  */
-const AKTEUR_OHNE_ADRESSE: Record<Exclude<AktionHerkunft, "person">, { Icon: typeof Person; iconClass: string; badge: string }> = {
-  system: { Icon: Cpu, iconClass: "text-foreground-muted", badge: "bg-muted text-foreground-muted" },
-  // Tinted where the system's row is grey: a write the league itself made needs no second look, and a
-  // request that came in from outside is the row an admin is scanning the log for.
-  public: { Icon: Globe, iconClass: "text-info-strong", badge: "bg-info/15 text-info-strong" },
+const AKTEUR_OHNE_ADRESSE: Record<Exclude<AktionHerkunft, "person">, { Icon: typeof Person; iconClass: string; badge: PillTone }> = {
+  // One tone for both: each answers who acted rather than grading what the write did, and the glyph
+  // beside the chip takes its ink.
+  system: { Icon: Cpu, iconClass: "text-info-strong", badge: "info" },
+  public: { Icon: Globe, iconClass: "text-info-strong", badge: "info" },
 };
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
@@ -69,7 +70,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     const { datum, uhrzeit } = formatAktionZeitpunkt(aktion.at);
 
     return (
-      <div className="flex flex-col gap-0.5 tabular-nums">
+      <div className="font-numeric flex flex-col gap-0.5 tabular-nums">
         <span className="fluid-sm text-foreground font-bold">{datum}</span>
         {uhrzeit !== null && <span className="muted-meta">{uhrzeit} Uhr</span>}
       </div>
@@ -103,24 +104,22 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
           width={18}
           height={18}
         />
-        <span className={`${LABEL_BADGE} ${badge}`}>{AKTION_HERKUNFT_LABELS[herkunft]}</span>
+        <span className={labelBadge(badge)}>{AKTION_HERKUNFT_LABELS[herkunft]}</span>
       </div>
     );
   };
 
   const renderArtTag = (aktion: AdminAktionRow) => (
-    <span className={`${LABEL_BADGE} ${AKTION_OPERATION_TINTS[aktion.operation]}`}>{AKTION_OPERATION_LABELS[aktion.operation]}</span>
+    <span className={labelBadge(AKTION_OPERATION_TINTS[aktion.operation])}>{AKTION_OPERATION_LABELS[aktion.operation]}</span>
   );
 
   // A tag of its own and never a word inside a sentence: the nine area names carry three grammatical
   // genders, so any article or pronoun agreeing with the value is wrong for most of them.
-  const renderBereichTag = (aktion: AdminAktionRow) => (
-    <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>{labelForCollection(aktion.collection)}</span>
-  );
+  const renderBereichTag = (aktion: AdminAktionRow) => <span className={labelBadge("info")}>{labelForCollection(aktion.collection)}</span>;
 
   const renderAufruf = (aktion: AdminAktionRow) =>
     aktion.request === null ? (
-      <span className="fluid-xs text-foreground-muted/50 italic">Ohne Aufruf</span>
+      <span className="fluid-xs text-foreground-muted italic">Ohne Aufruf</span>
     ) : (
       <span className="fluid-xs text-foreground-muted flex flex-row flex-wrap gap-x-1.5 font-mono break-all">
         <span className="font-bold">{aktion.request.method}</span>
@@ -132,7 +131,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     const datensatz = describeAktionDatensatz(aktion);
 
     if (datensatz.kind === "dokument") return <span className="fluid-xs text-foreground font-mono break-all">{datensatz.id}</span>;
-    if (datensatz.kind === "ohne") return <span className="fluid-xs text-foreground-muted/50 italic">Kein Datensatz benannt</span>;
+    if (datensatz.kind === "ohne") return <span className="fluid-xs text-foreground-muted italic">Kein Datensatz benannt</span>;
 
     return (
       <div className="flex flex-col gap-0.5">
@@ -147,7 +146,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
         {/* A readout rather than a sentence: "12 Datensätze" would have to agree with a count of one. */}
         {datensatz.betroffen !== null && (
           <span className="muted-meta">
-            Betroffen: <span className="text-foreground font-bold tabular-nums">{datensatz.betroffen}</span>
+            Betroffen: <span className="text-foreground font-numeric font-bold tabular-nums">{datensatz.betroffen}</span>
           </span>
         )}
       </div>
@@ -160,14 +159,10 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
    */
   const renderStandBadge = (aktion: AdminAktionRow) => {
     if (aktion.redacted_at !== null) {
-      return (
-        <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>
-          Werte gelöscht am {formatAktionZeitpunkt(aktion.redacted_at).datum}
-        </span>
-      );
+      return <span className={labelBadge("danger")}>Werte gelöscht am {formatAktionZeitpunkt(aktion.redacted_at).datum}</span>;
     }
 
-    if (aktion.stand_gesichert) return <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stand gesichert</span>;
+    if (aktion.stand_gesichert) return <span className={labelBadge("success")}>Stand gesichert</span>;
 
     return null;
   };

@@ -67,7 +67,7 @@ const flat = (text: string): string => text.replace(/\s+/g, " ").trim();
 const MODULE_SOURCE = readFileSync(path.resolve(import.meta.dirname, "bewerbungEmail.ts"), "utf8");
 
 /** Restated, never imported: a colour checked against its own source moves with it. Asserted below to be the module's. */
-const BRAND_COLOR = "#82181a";
+const BRAND_COLOR = "#216c2d";
 
 /** The panel, which stands between the heading and the first prose paragraph. Its position is part of what it is. */
 function faktenBereich(html: string): string {
@@ -81,7 +81,7 @@ function stylesheet(html: string): string {
   return html.slice(html.indexOf("<style"), html.indexOf("</style>"));
 }
 
-/** The shared shell as text: the palette it declares is pinned against `globals.css` in its own test. */
+/** The shared shell as text: the palette it declares is pinned against the season scheme in its own test. */
 const SHELL_SOURCE = readFileSync(path.resolve(import.meta.dirname, "emailShell.ts"), "utf8");
 
 /** The controls, which stand alone between the rule that sets them off and the one above the close. */
@@ -204,7 +204,7 @@ const FOOTER_SENTENCES = [EMPFAENGER_SATZ.kontaktpersonen, "Antworten an die Abs
 
 /** Spelled out here for the reason above: copy checked against its own source moves with it. */
 const IGNORIER_SATZ =
-  "Du weißt nichts von einer Bewerbung bei der Frankfurt-League? Dann ignoriere diese E-Mail einfach. Für Dich ist nichts zu tun.";
+  "Du weißt nichts von einer Bewerbung bei der Frankfurt League? Dann ignoriere diese E-Mail einfach. Für Dich ist nichts zu tun.";
 
 /** The text branch's close as a block, the delimiter included: its order is part of what it says. */
 const textFooter = (empfaenger: keyof typeof EMPFAENGER_SATZ): string =>
@@ -247,7 +247,7 @@ describe("buildBewerbungZusageEmail", () => {
   it("leaves the prose the sentences the panel does not carry, and none it does", () => {
     const prose = readable(proseBereich(buildBewerbungZusageEmail(ZUSAGE).html));
 
-    assert.ok(prose.includes(`${ZUSAGE.teamName} ist für die Saison ${ZUSAGE.saisonId} der Frankfurt-League aufgenommen.`));
+    assert.ok(prose.includes(`${ZUSAGE.teamName} ist für die Saison ${ZUSAGE.saisonId} der Frankfurt League aufgenommen.`));
     assert.ok(prose.includes("Wir freuen uns auf die gemeinsame Saison."));
     assert.ok(prose.includes(WEBSITE_SENTENCE));
     // Stated once. A fact restated in prose is the burial the panel exists to undo.
@@ -263,7 +263,7 @@ describe("buildBewerbungZusageEmail", () => {
       ZUSAGE.teamName,
       `Zusage für die Saison ${ZUSAGE.saisonId}`,
       KONTAKT_EMAIL,
-      `${ZUSAGE.teamName} ist für die Saison ${ZUSAGE.saisonId} der Frankfurt-League aufgenommen.`,
+      `${ZUSAGE.teamName} ist für die Saison ${ZUSAGE.saisonId} der Frankfurt League aufgenommen.`,
       "Wir freuen uns auf die gemeinsame Saison.",
       WEBSITE_SENTENCE,
       ...FOOTER_SENTENCES,
@@ -274,7 +274,7 @@ describe("buildBewerbungZusageEmail", () => {
   });
 
   it("carries its own decision word in the subject", () => {
-    assert.equal(buildBewerbungZusageEmail(ZUSAGE).subject, `Zusage: Frankfurt-League, Saison ${ZUSAGE.saisonId}`);
+    assert.equal(buildBewerbungZusageEmail(ZUSAGE).subject, `Zusage: Frankfurt League, Saison ${ZUSAGE.saisonId}`);
   });
 
   it("states that no kit colour is set rather than naming one", () => {
@@ -367,7 +367,7 @@ describe("buildBewerbungAbsageEmail", () => {
   it("leaves the prose the sentences the panel does not carry, and none it does", () => {
     const prose = readable(proseBereich(buildBewerbungAbsageEmail(ABSAGE).html));
 
-    assert.ok(prose.includes(`Danke, dass ${ABSAGE.teamName} sich für die Saison ${ABSAGE.saisonId} der Frankfurt-League beworben hat.`));
+    assert.ok(prose.includes(`Danke, dass ${ABSAGE.teamName} sich für die Saison ${ABSAGE.saisonId} der Frankfurt League beworben hat.`));
     assert.ok(prose.includes("Für diese Saison können wir das Team nicht aufnehmen."));
     assert.ok(prose.includes("Die Entscheidung betrifft diese Bewerbung, nicht die Schule und nicht die Menschen dahinter."));
     for (const gestellt of ["Angegebener Grund", "Eingetragen als", ABSAGE.grund]) {
@@ -383,7 +383,7 @@ describe("buildBewerbungAbsageEmail", () => {
       `Absage für die Saison ${ABSAGE.saisonId}`,
       ABSAGE.grund,
       KONTAKT_EMAIL,
-      `Danke, dass ${ABSAGE.teamName} sich für die Saison ${ABSAGE.saisonId} der Frankfurt-League beworben hat.`,
+      `Danke, dass ${ABSAGE.teamName} sich für die Saison ${ABSAGE.saisonId} der Frankfurt League beworben hat.`,
       "Angegebener Grund",
       "Für diese Saison können wir das Team nicht aufnehmen.",
       "Die Entscheidung betrifft diese Bewerbung, nicht die Schule und nicht die Menschen dahinter.",
@@ -397,7 +397,7 @@ describe("buildBewerbungAbsageEmail", () => {
   it("carries its own decision word in the subject, and never the free text", () => {
     const mail = buildBewerbungAbsageEmail(ABSAGE);
 
-    assert.equal(mail.subject, `Absage: Frankfurt-League, Saison ${ABSAGE.saisonId}`);
+    assert.equal(mail.subject, `Absage: Frankfurt League, Saison ${ABSAGE.saisonId}`);
     assert.ok(!mail.subject.includes(ABSAGE.grund));
   });
 
@@ -915,7 +915,7 @@ describe("buildBewerbungBestaetigungEmail", () => {
   it("states the school, the season, the reader's seat and the link's own deadline", () => {
     const mail = buildBewerbungBestaetigungEmail(BESTAETIGUNG);
 
-    assert.equal(mail.subject, `Bitte bestätigen: Frankfurt-League, Saison ${BESTAETIGUNG.saisonId}`);
+    assert.equal(mail.subject, `Bitte bestätigen: Frankfurt League, Saison ${BESTAETIGUNG.saisonId}`);
     assert.deepEqual(faktListe(mail.html), [
       ["Schule", BESTAETIGUNG.schule],
       ["Saison", BESTAETIGUNG.saisonId],
@@ -928,7 +928,7 @@ describe("buildBewerbungBestaetigungEmail", () => {
     const mail = buildBewerbungBestaetigungEmail(BESTAETIGUNG);
 
     for (const satz of [
-      `Für die Schule ${BESTAETIGUNG.schule} wurde eine Bewerbung zur Saison ${BESTAETIGUNG.saisonId} der Frankfurt-League eingereicht.`,
+      `Für die Schule ${BESTAETIGUNG.schule} wurde eine Bewerbung zur Saison ${BESTAETIGUNG.saisonId} der Frankfurt League eingereicht.`,
       `Darin bist Du als ${ERIKA.rolleText} eingetragen.`,
       "Bitte bestätige, dass das stimmt: Erst dann führt die Liga Dich als Kontaktperson.",
       "Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: Kontaktperson kann sein, wer mindestens 16 ist.",
@@ -1038,7 +1038,7 @@ describe("buildBewerbungErinnerungEmail", () => {
   it("names the deadline by what the reader owes on it, and carries the first message's link", () => {
     const mail = buildBewerbungErinnerungEmail(BESTAETIGUNG);
 
-    assert.equal(mail.subject, `Erinnerung: Frankfurt-League, Saison ${BESTAETIGUNG.saisonId}`);
+    assert.equal(mail.subject, `Erinnerung: Frankfurt League, Saison ${BESTAETIGUNG.saisonId}`);
     assert.deepEqual(faktListe(mail.html), [
       ["Schule", BESTAETIGUNG.schule],
       ["Saison", BESTAETIGUNG.saisonId],
@@ -1110,7 +1110,7 @@ describe("buildBewerbungEingangOffenEmail", () => {
   it("names who is still open and the reader's own link, and no school", () => {
     const mail = buildBewerbungEingangOffenEmail(EINGANG_OFFEN);
 
-    assert.equal(mail.subject, `Bewerbung eingegangen: Frankfurt-League, Saison ${EINGANG_OFFEN.saisonId}`);
+    assert.equal(mail.subject, `Bewerbung eingegangen: Frankfurt League, Saison ${EINGANG_OFFEN.saisonId}`);
     assert.deepEqual(faktListe(mail.html), [
       ["Status", "Eingegangen, Bestätigungen offen"],
       ["Saison", EINGANG_OFFEN.saisonId],
@@ -1129,7 +1129,7 @@ describe("buildBewerbungEingangOffenEmail", () => {
     const mail = buildBewerbungEingangOffenEmail(EINGANG_OFFEN);
 
     for (const satz of [
-      `Deine Bewerbung für die Saison ${EINGANG_OFFEN.saisonId} der Frankfurt-League ist bei uns eingegangen.`,
+      `Deine Bewerbung für die Saison ${EINGANG_OFFEN.saisonId} der Frankfurt League ist bei uns eingegangen.`,
       "Vollständig ist sie, sobald jede Kontaktperson ihren Eintrag selbst bestätigt hat.",
       "Nach drei Tagen erinnern wir alle, die noch nicht bestätigt haben.",
       `Ist die Bewerbung am ${FRIST} noch unvollständig, löschen wir sie mit allen Angaben und sagen Dir Bescheid.`,
@@ -1172,7 +1172,7 @@ describe("buildBewerbungVollstaendigEmail", () => {
   it("states that every contact confirmed, and offers the pair the decisions offer", () => {
     const mail = buildBewerbungVollstaendigEmail(VOLLSTAENDIG);
 
-    assert.equal(mail.subject, `Bewerbung vollständig: Frankfurt-League, Saison ${VOLLSTAENDIG.saisonId}`);
+    assert.equal(mail.subject, `Bewerbung vollständig: Frankfurt League, Saison ${VOLLSTAENDIG.saisonId}`);
     assert.deepEqual(faktListe(mail.html), [
       ["Status", "Vollständig, in Prüfung"],
       ["Saison", VOLLSTAENDIG.saisonId],
@@ -1190,7 +1190,7 @@ describe("buildBewerbungVollstaendigEmail", () => {
     for (const satz of [
       `Vollständig: Bewerbung für die Saison ${VOLLSTAENDIG.saisonId}`,
       "Alle Kontaktpersonen haben ihren Eintrag bestätigt.",
-      `Deine Bewerbung für die Saison ${VOLLSTAENDIG.saisonId} der Frankfurt-League ist damit vollständig, und wir schauen sie uns an.`,
+      `Deine Bewerbung für die Saison ${VOLLSTAENDIG.saisonId} der Frankfurt League ist damit vollständig, und wir schauen sie uns an.`,
       "Wir melden uns bei allen drei Kontaktpersonen, sobald wir entschieden haben.",
       "Du musst nichts weiter tun.",
       WEBSITE_SENTENCE,
@@ -1207,7 +1207,7 @@ describe("buildBewerbungGeloeschtEmail", () => {
   it("names who did not confirm and offers the way to start again", () => {
     const mail = buildBewerbungGeloeschtEmail(GELOESCHT);
 
-    assert.equal(mail.subject, `Bewerbung wird gelöscht: Frankfurt-League, Saison ${GELOESCHT.saisonId}`);
+    assert.equal(mail.subject, `Bewerbung wird gelöscht: Frankfurt League, Saison ${GELOESCHT.saisonId}`);
     assert.deepEqual(faktListe(mail.html), [
       ["Status", "Wird gelöscht, nicht vollständig geworden"],
       ["Saison", GELOESCHT.saisonId],
@@ -1245,7 +1245,7 @@ describe("buildBewerbungAblehnungEmail", () => {
     const mail = buildBewerbungAblehnungEmail(ABLEHNUNG);
     const wer = `${ABLEHNUNG.abgelehnt.vorname} (${ABLEHNUNG.abgelehnt.rolleText})`;
 
-    assert.equal(mail.subject, `Widerspruch zum Eintrag: Frankfurt-League, Saison ${ABLEHNUNG.saisonId}`);
+    assert.equal(mail.subject, `Widerspruch zum Eintrag: Frankfurt League, Saison ${ABLEHNUNG.saisonId}`);
     assert.deepEqual(faktListe(mail.html), [
       ["Status", "Nicht vollständig, eine Bestätigung fehlt"],
       ["Saison", ABLEHNUNG.saisonId],
@@ -1303,9 +1303,9 @@ describe("the confirmation workflow's messages", () => {
      submitter can only wait, and after the deletion there is nothing left to promise. */
   it("tell a reader who never applied what ignoring the message actually costs", () => {
     const auftakt =
-      "Du weißt nichts von einer Bewerbung bei der Frankfurt-League? Dann ignoriere diese E-Mail einfach. Für Dich ist nichts zu tun";
+      "Du weißt nichts von einer Bewerbung bei der Frankfurt League? Dann ignoriere diese E-Mail einfach. Für Dich ist nichts zu tun";
     const auftaktMehrere =
-      "Weiß hier niemand von einer Bewerbung bei der Frankfurt-League? Dann ignoriert diese E-Mail einfach. Für Euch ist nichts zu tun";
+      "Weiß hier niemand von einer Bewerbung bei der Frankfurt League? Dann ignoriert diese E-Mail einfach. Für Euch ist nichts zu tun";
     const eintrag = `${auftakt}: Deine Angaben werden nach 14 Tagen gelöscht. Oder widersprich dem Eintrag über den Link, dann entfernen wir sie sofort.`;
     const eintragMehrere = `${auftaktMehrere}: Eure Angaben werden nach 14 Tagen gelöscht. Oder widersprecht den Einträgen über die Links, dann entfernen wir sie sofort.`;
     const NOTIZ: Record<string, string> = {
@@ -1313,10 +1313,10 @@ describe("the confirmation workflow's messages", () => {
       "Bestätigung (Postfach)": eintragMehrere,
       Erinnerung: eintrag,
       "Erinnerung (Postfach)": eintragMehrere,
-      "Eingang offen": `${auftakt}: die Bewerbung wird nach 14 Tagen gelöscht.`,
+      "Eingang offen": `${auftakt}: Die Bewerbung wird nach 14 Tagen gelöscht.`,
       Vollständig: `${auftakt}.`,
-      Gelöscht: `${auftakt}: die Bewerbung wird jetzt gelöscht.`,
-      Ablehnung: `${auftakt}: die Bewerbung wird nach 14 Tagen gelöscht.`,
+      Gelöscht: `${auftakt}: Die Bewerbung wird jetzt gelöscht.`,
+      Ablehnung: `${auftakt}: Die Bewerbung wird nach 14 Tagen gelöscht.`,
     };
 
     for (const { name, mail } of alleWorkflow()) {

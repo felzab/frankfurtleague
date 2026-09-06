@@ -117,7 +117,7 @@ function buttonRules(root: Root, prop: string): { selector: string; value: strin
 }
 
 describe("the step that stands in a row of chips", () => {
-  /* The base's `h-12` next to a `LABEL_BADGE` is what makes such a row read as ragged, and the two
+  /* The base's `h-12` next to a `labelBadge` pill is what makes such a row read as ragged, and the two
      heights are one decision: the strip's chips are pinned to the same step. */
   it("takes the chips' own height rather than the base's", async () => {
     const inline = classesOf(formButton({ intent: "nav", size: "xs" }));
@@ -125,7 +125,12 @@ describe("the step that stands in a row of chips", () => {
 
     assert.ok(inline.has("h-7"), "the inline step declares no height of the chip row's own");
     assert.ok(!inline.has("h-12"), "the base height survives the inline step, so the control towers over the chips beside it");
-    assert.match(strip, /const STRIP_CHIP = `\$\{LABEL_BADGE\} h-7/, "the chips this step is measured against no longer stand at it");
+    assert.match(strip, /const STRIP_CHIP = "h-7/, "the chips this step is measured against no longer stand at it");
+    assert.equal(
+      strip.match(/labelBadge\(/g)?.length,
+      4,
+      "the chips this step is measured against are no longer composed as the app's label pill",
+    );
   });
 });
 
@@ -176,6 +181,20 @@ describe("the press HeroUI scales and the recipe has to suppress", () => {
       );
     });
   }
+
+  it("carries the season scheme's own tokens, so the import is proven to have landed", async () => {
+    const root = await compiled;
+
+    // `--accent-brand` is declared in the scheme file alone, so its presence here is the only evidence the
+    // one-line import resolved: a sheet that never loads leaves every element on HeroUI's defaults and
+    // passes every other case in this file.
+    const declared = new Set<string>();
+    root.walkDecls((decl) => {
+      if (decl.prop.startsWith("--")) declared.add(decl.prop);
+    });
+
+    assert.ok(declared.has("--accent-brand"), "the season scheme's tokens never reached the compiled sheet");
+  });
 
   it("finds the layer order that lets the cancellation outrank it", async () => {
     const root = await compiled;

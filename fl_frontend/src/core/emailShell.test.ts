@@ -58,15 +58,21 @@ const SHELL_SOURCE = readFileSync(path.resolve(import.meta.dirname, "emailShell.
 
 /** One colour the shell declares, read off its source so a rename cannot quietly pass. */
 function constant(name: string): string {
-  return SHELL_SOURCE.match(new RegExp(`const ${name} = "(#[0-9a-f]{3,8})";`))?.[1] ?? `${name} is not declared`;
+  const declared = SHELL_SOURCE.match(new RegExp(`const ${name} = "(#[0-9a-f]{3,8})";`))?.[1];
+
+  // Throws rather than answering a sentence no colour matches: every reader below builds a pattern
+  // from this, and a pattern matching nothing passes each of them having compared nothing.
+  if (declared === undefined) throw new Error(`${name} is not declared as a lower-case hex literal`);
+
+  return declared;
 }
 
 /**
- * The site's own tokens, read out of `globals.css` rather than restated here. Nothing else pins the
- * email's palette to the app's: both are hand-written hex, and a token moving alone is invisible.
+ * The site's own tokens, read out of the season scheme rather than restated here. Nothing else pins
+ * the email's palette to the app's: both are hand-written hex, and a token moving alone is invisible.
  */
 function tokens(theme: "light" | "dark"): Map<string, string> {
-  const css = readFileSync(path.resolve(import.meta.dirname, "..", "app", "globals.css"), "utf8");
+  const css = readFileSync(path.resolve(import.meta.dirname, "..", "app", "schemes", "2027.css"), "utf8");
   const opener = theme === "light" ? ":root," : `[data-theme="dark"] {`;
   const block = css.slice(css.indexOf(opener));
 
@@ -212,14 +218,14 @@ describe("the shared email shell", () => {
     }
   });
 
-  /* I asked for the site's dark mode rather than a dark mode of the email's own. Both palettes are
-     read from `globals.css` so the two cannot drift: a token moved in the app and not here would
-     otherwise ship silently. */
+  /* I asked for the site's dark mode rather than a dark mode of the email's own. */
   it("draws both themes in the site's own tokens", () => {
     const hell = tokens("light");
     const dunkel = tokens("dark");
 
-    assert.ok(hell.size > 5 && dunkel.size > 5, "globals.css was not parsed, so this test proves nothing");
+    // Far above the eight the register below reads: a scheme declares its whole set in both blocks,
+    // so a parse finding a handful has stopped at the first thing it matched.
+    assert.ok(hell.size > 30 && dunkel.size > 30, "the season scheme was not parsed, so this test proves nothing");
     for (const [name, token, palette] of [
       ["CARD_COLOR", "--bg-base", hell],
       ["SURFACE_COLOR", "--bg-surface", hell],
@@ -240,7 +246,7 @@ describe("the shared email shell", () => {
       assert.equal(constant(name), palette.get(token), `${name} has drifted from ${token}`);
     }
     // The button fill is `--accent-brand-solid`, which deliberately does NOT flip; the dark rules
-    // must therefore leave it alone, or a maroon pill turns pink on one theme only.
+    // must therefore leave it alone, or the button's pill takes a second colour in one theme.
     assert.equal(hell.get("--accent-brand-solid"), dunkel.get("--accent-brand-solid"));
     // `ON_BRAND_COLOR` is checked against the light token alone, which is safe only while the label
     // on that unflipping fill does not flip either.
@@ -306,8 +312,13 @@ describe("the shared email shell", () => {
         }
       }
       /* `--fg-on-brand` is white in BOTH themes and sits on a fill that does not flip, so the button's
-         label must carry no hook at all -- one would turn it grey on a maroon pill. */
-      for (const tag of tags.filter((einzeln) => /[;"]color:#ffffff;/.test(einzeln))) {
+         label must carry no hook at all -- one would turn it grey on the brand pill. */
+      const unflipped = tags.filter((einzeln) => new RegExp(`[;"]color:${constant("ON_BRAND_COLOR")};`).test(einzeln));
+
+      // The filter is the population, so without this an empty one passes the loop below having
+      // compared nothing -- which is what a respelt foreground or a dropped button would leave.
+      assert.ok(unflipped.length > 0, `${name} declares the unflipped foreground nowhere, so this check proves nothing`);
+      for (const tag of unflipped) {
         assert.ok(!tag.includes("fl-"), `${name} hooks the unflipped foreground: ${tag.slice(0, 90)}`);
       }
     }

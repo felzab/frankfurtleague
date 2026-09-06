@@ -9,7 +9,7 @@ import { Button } from "@heroui/react";
 
 import { bestaetigungsStand, zusageHindernis } from "@/features/bewerbungen/bestaetigungStand";
 import { BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { labelBadge } from "@/shared/components/ui/badges";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -79,7 +79,7 @@ export function AdminBewerbungView({
             {teamName ?? `Bewerbung für die Saison ${bewerbung.saison_id}`}
           </h2>
           <span className="shrink-0">
-            <span className={`${LABEL_BADGE} ${BEWERBUNG_STATUS_TINT[bewerbung.status]}`}>{bewerbungStatusLabel(bewerbung.status)}</span>
+            <span className={labelBadge(BEWERBUNG_STATUS_TINT[bewerbung.status])}>{bewerbungStatusLabel(bewerbung.status)}</span>
           </span>
         </header>
 

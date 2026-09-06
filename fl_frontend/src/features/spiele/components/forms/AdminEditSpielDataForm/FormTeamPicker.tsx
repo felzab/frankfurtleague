@@ -13,7 +13,7 @@ import {
   toStoredSide,
 } from "@/features/spiele/utils";
 import { austrittZustand } from "@/features/teams/constants";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { labelBadge } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
@@ -24,6 +24,7 @@ import { ExpectedMarker } from "./ExpectedMarker";
 
 import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
+import type { PillTone } from "@/shared/components/ui/badges";
 import type { Key } from "@heroui/react";
 import type { SpielBanner } from "./banners";
 
@@ -283,9 +284,7 @@ export function FormTeamPicker({
         </span>
         {/* A SIBLING of the truncating span: the free space above parks it at the trailing edge,
             so the clear button does not move when a team has left the season. */}
-        {selectedAustritt !== null && (
-          <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong ms-2 shrink-0`}>{austrittZustand(selectedAustritt.type)}</span>
-        )}
+        {selectedAustritt !== null && <span className={`${labelBadge("danger")} ms-2 shrink-0`}>{austrittZustand(selectedAustritt.type)}</span>}
         {/* Withheld while this side carries goals: emptying it would take them and the composed
             `ergebnis` with it, which `REQ-RESULT-001` refuses. Switching the team stays available
             through the list. */}
@@ -334,13 +333,13 @@ export function FormTeamPicker({
               const occupiedBy = spieltagOccupancy.get(item.id);
               // One chip per row, blocking reasons before the advisory one. The unqualified team
               // stays pickable: correcting a hand-run season needs it.
-              const chip =
+              const chip: { text: string; tone: PillTone } | null =
                 item.austritt !== null
-                  ? { text: austrittZustand(item.austritt.type), cls: "bg-danger/15 text-danger-strong" }
+                  ? { text: austrittZustand(item.austritt.type), tone: "danger" }
                   : occupiedBy !== undefined
-                    ? { text: `Schon in Spiel ${occupiedBy}`, cls: "bg-danger/15 text-danger-strong" }
+                    ? { text: `Schon in Spiel ${occupiedBy}`, tone: "danger" }
                     : isKnockout && !knockoutTeamIds.has(item.id)
-                      ? { text: "Nicht für diese Runde qualifiziert", cls: "bg-warning/15 text-warning-strong" }
+                      ? { text: "Nicht für diese Runde qualifiziert", tone: "warning" }
                       : null;
 
               return (
@@ -350,7 +349,7 @@ export function FormTeamPicker({
                   textValue={chip === null ? item.name : `${item.name} (${chip.text})`}
                   className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 data-disabled:cursor-not-allowed data-disabled:opacity-60">
                   <span className="min-w-0 truncate">{item.name}</span>
-                  {chip !== null && <span className={`${LABEL_BADGE} ml-auto shrink-0 ${chip.cls}`}>{chip.text}</span>}
+                  {chip !== null && <span className={`${labelBadge(chip.tone)} ml-auto shrink-0`}>{chip.text}</span>}
                 </ListBox.Item>
               );
             })}
@@ -408,7 +407,7 @@ export function FormTeamPicker({
                   <span className="min-w-0 truncate">{item.label}</span>
                   {/* Success-tinted, not brand: brand on brand was the least readable chip here.
                       `ml-auto` like every list chip, or two lists park it in two places. */}
-                  {isRecommended && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong ml-auto shrink-0`}>Empfohlen</span>}
+                  {isRecommended && <span className={`${labelBadge("success")} ml-auto shrink-0`}>Empfohlen</span>}
                 </ListBox.Item>
               );
             })}
@@ -552,7 +551,7 @@ export function FormTeamPicker({
                     className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
                     <span className="min-w-0 truncate">{describeFeeder(spiel)}</span>
                     {isDirectlyPrecedingRound(spiel, spielData) && (
-                      <span className={`${LABEL_BADGE} bg-success/15 text-success-strong ml-auto shrink-0`}>Empfohlen</span>
+                      <span className={`${labelBadge("success")} ml-auto shrink-0`}>Empfohlen</span>
                     )}
                   </ListBox.Item>
                 ))}

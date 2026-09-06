@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { einwilligungHerkunftLabel, KONTAKT_ROLLEN, schulformLabel, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { labelBadge } from "@/shared/components/ui/badges";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -29,7 +29,7 @@ function Angabe({ label, children }: { label: string; children: ReactNode }) {
 
 /** A value the school did not fill in, in the one grade every empty field here takes. */
 function Leer() {
-  return <span className="text-foreground-muted/50 italic">{NOT_RECORDED}</span>;
+  return <span className="text-foreground-muted italic">{NOT_RECORDED}</span>;
 }
 
 /**
@@ -151,12 +151,10 @@ export function BewerbungAngabenPanel({
                 <div className="flex flex-row flex-wrap items-center gap-2">
                   {/* Named rather than muted, as the strip tints the same seat: a grey chip reads as
                       a disabled one (my rule, 2026-09-04). */}
-                  <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>{label}</span>
+                  <span className={labelBadge("info")}>{label}</span>
                   {/* Stored rather than derived by comparing the two blocks: what the school
                       asserted is not the same claim as what happens to match. */}
-                  {kontakte.trainer_ist_zugleich === value && (
-                    <span className={`${LABEL_BADGE} bg-brand/10 text-brand-solid`}>Zugleich Trainer</span>
-                  )}
+                  {kontakte.trainer_ist_zugleich === value && <span className={labelBadge("info")}>Zugleich Trainer</span>}
                 </div>
 
                 {person === null ? (

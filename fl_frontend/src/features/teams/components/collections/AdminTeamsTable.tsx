@@ -10,7 +10,7 @@ import { Table } from "@heroui/react";
 import { reactivateTeamAction } from "@/features/teams/actions";
 import { austrittZustand } from "@/features/teams/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
@@ -64,15 +64,15 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   const renderStatusBadges = (team: AdminTeamRow) => (
     <div className="flex flex-wrap items-center gap-1.5">
       {team.inactive_since !== null && <RetiredBadge since={team.inactive_since} />}
-      {team.selected === null && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Nicht aufgenommen</span>}
-      {team.selected?.austritt != null && (
-        <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>{austrittZustand(team.selected.austritt.type)}</span>
-      )}
+      {/* An absence and not an exit: a club nobody took into the season takes the label tone, where
+          the two Austritt words beside it grade a club that was in it and left. */}
+      {team.selected === null && <span className={labelBadge("info")}>Nicht aufgenommen</span>}
+      {team.selected?.austritt != null && <span className={labelBadge("danger")}>{austrittZustand(team.selected.austritt.type)}</span>}
       {team.inactive_since === null && team.selected !== null && team.selected.austritt === null && (
         /* The CLUB's standing, never the season's status: `fl_frontend/src/features/teams/facets.ts`'s
            `aktiv` bucket is this same state and ignores the season's tense, so the filter and the
            row cannot disagree. */
-        <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Aktiv</span>
+        <span className={labelBadge("success")}>Aktiv</span>
       )}
     </div>
   );

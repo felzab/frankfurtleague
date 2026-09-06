@@ -1,6 +1,6 @@
 # Documentation
 
-**Folder purpose:** everything written down about Frankfurt-League.
+**Folder purpose:** everything written down about this project.
 
 ## Folder overview
 

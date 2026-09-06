@@ -25,7 +25,7 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
 
   return {
     title: `Kader ${teamData.name}`,
-    description: `Der Kader von ${teamData.name} in der Frankfurt-League: alle Spielerinnen und Spieler der gewählten Saison.`,
+    description: `Der Kader von ${teamData.name} in der Frankfurt League: alle Spielerinnen und Spieler der gewählten Saison.`,
     openGraph: openGraphFor(`/dashboard/spieler/${team_id}`),
     alternates: { canonical: `/dashboard/spieler/${team_id}` },
   };

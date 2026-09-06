@@ -1,3 +1,4 @@
+import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLSaisonPhase, FLSaisonTiebreakOrder } from "./schemas";
 
 export const SAISONS_CRUD_COPY = {
@@ -26,15 +27,16 @@ export const PHASE_LABELS: Record<FLSaisonPhase, string> = {
 };
 
 /**
- * The fill is the ink at `/10`, and the grade is measured rather than picked: at `/15` the tightest
- * light-theme pair falls below the 4.5:1 floor on `--bg-surface`.
+ * A phase added to `FLSaisonPhase` with no member in
+ * `fl_frontend/src/shared/components/ui/badges.ts :: PillTone` fails this annotation, which is what
+ * pins the two sets together without `badges.ts` importing a feature.
  */
-export const PHASE_TINTS: Record<FLSaisonPhase, string> = {
-  gruppenphase: "bg-phase-gruppenphase/10 text-phase-gruppenphase",
-  achtelfinale: "bg-phase-achtelfinale/10 text-phase-achtelfinale",
-  viertelfinale: "bg-phase-viertelfinale/10 text-phase-viertelfinale",
-  halbfinale: "bg-phase-halbfinale/10 text-phase-halbfinale",
-  finale: "bg-phase-finale/10 text-phase-finale",
+export const PHASE_TINTS: Record<FLSaisonPhase, PillTone> = {
+  gruppenphase: "gruppenphase",
+  achtelfinale: "achtelfinale",
+  viertelfinale: "viertelfinale",
+  halbfinale: "halbfinale",
+  finale: "finale",
 };
 
 /** One step of the chain, as the picker renders it under the trigger. */

@@ -1,7 +1,8 @@
 import { Card, Chip } from "@heroui/react";
 
-import { PILL_RADIUS } from "@/shared/components/ui/badges";
+import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
+import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 
 import type { FLTeam } from "../../schemas";
 
@@ -9,7 +10,7 @@ import type { FLTeam } from "../../schemas";
  * **Never `variant`/`color` on a Chip here**: those resolve against HeroUI's own theme tokens, which
  * this app maps none of, so the chip renders in HeroUI's stock palette rather than this one's.
  */
-const STAT_CHIP_CLASSES = `${PILL_RADIUS} bg-success/15 text-success-strong`;
+const STAT_CHIP_CLASSES = `${PILL_RADIUS} ${PILL_TINT.success}`;
 
 /** `value` rather than a precomputed number, so each row stays one declaration. */
 const STAT_CHIPS: { label: string; value: (team: FLTeam) => number }[] = [
@@ -28,7 +29,8 @@ export function TeamCard({ teamData }: { teamData: FLTeam }) {
           <Card.Title className="fluid-base font-bold">{teamData.name}</Card.Title>
           <Card.Description className="fluid-xxs text-foreground-muted font-medium">{teamData.address.stadtteil}</Card.Description>
         </div>
-        <div className="bg-brand-solid text-brand-solid-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-extrabold shadow-sm">
+        <div
+          className={`${DISPLAY_HEADING} bg-brand-solid text-brand-solid-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm`}>
           {teamData.shorthand}
         </div>
       </Card.Header>

@@ -3,16 +3,16 @@ import "server-only";
 import { KONTAKT_EMAIL, SITE_URL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "./brand";
 
 /** The league's name as every message spells it, in one place so no two messages can spell it apart. */
-export const BRAND_NAME = "Frankfurt-League";
+export const BRAND_NAME = "Frankfurt League";
 
 /**
- * `fl_frontend/src/app/globals.css`'s light theme, hardcoded because email has no CSS variables.
+ * `fl_frontend/src/app/schemes/2027.css`'s light theme, hardcoded because email has no CSS variables.
  * Light first: a client ignoring the dark query inverts dark grounds too, so a dark-first message
  * would come out light with dark-palette text.
  */
-export const BRAND_COLOR = "#82181a";
+export const BRAND_COLOR = "#216c2d";
 /** `--accent-brand-solid`, the fill under a button label. It does not flip, so no dark rule may reach it. */
-const BRAND_SOLID_COLOR = "#82181a";
+const BRAND_SOLID_COLOR = "#033f11";
 export const SURFACE_COLOR = "#f5f5f5";
 const CARD_COLOR = "#ffffff";
 export const TEXT_COLOR = "#525252";
@@ -25,8 +25,9 @@ export const RULE_COLOR = "#d4d4d4";
 const ON_BRAND_COLOR = "#ffffff";
 
 /**
- * `globals.css`'s `[data-theme="dark"]` block, token for token. `emailShell.test.ts` reads BOTH
- * palettes out of that file and compares them to these, so neither can drift from the site's.
+ * `fl_frontend/src/app/schemes/2027.css`'s `[data-theme="dark"]` block, token for token.
+ * `fl_frontend/src/core/emailShell.test.ts` reads BOTH palettes out of that file and compares them
+ * to these, so neither can drift from the site's.
  */
 const DARK_SURFACE_COLOR = "#121212";
 const DARK_CARD_COLOR = "#030303";
@@ -34,7 +35,7 @@ const DARK_TEXT_COLOR = "#a3a3a3";
 const DARK_HEADING_COLOR = "#ffffff";
 const DARK_RULE_COLOR = "#333333";
 /** `--accent-brand`, lightened for a dark ground. The button fill is `BRAND_SOLID_COLOR`, which does not flip. */
-const DARK_BRAND_COLOR = "#e05b5e";
+const DARK_BRAND_COLOR = "#8dbf6c";
 
 /**
  * Hooks for the one stylesheet. An inline style outranks a rule, so every dark declaration carries

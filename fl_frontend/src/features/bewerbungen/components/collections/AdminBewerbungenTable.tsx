@@ -10,7 +10,7 @@ import { bestaetigungsStand, endstand, istOffen } from "@/features/bewerbungen/b
 import { BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
 import { BEWERBUNG_DUBLETTE_LABEL, BEWERBUNG_DUBLETTE_TINT } from "@/features/bewerbungen/duplicates";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -51,13 +51,13 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
   // row or its controls.
   const renderName = (bewerbung: AdminBewerbungRow) =>
     bewerbung.teamName === null ? (
-      <span className="fluid-sm text-foreground-muted/50 italic">{NO_TEAM}</span>
+      <span className="fluid-sm text-foreground-muted italic">{NO_TEAM}</span>
     ) : (
       <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{bewerbung.teamName}</span>
     );
 
   const renderStatus = (bewerbung: AdminBewerbungRow) => (
-    <span className={`${LABEL_BADGE} ${BEWERBUNG_STATUS_TINT[bewerbung.status]}`}>{bewerbungStatusLabel(bewerbung.status)}</span>
+    <span className={labelBadge(BEWERBUNG_STATUS_TINT[bewerbung.status])}>{bewerbungStatusLabel(bewerbung.status)}</span>
   );
 
   // The Ansprechperson is who the league writes to first; the Trainer stands in where that seat is
@@ -70,14 +70,10 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
       // address, and an overflowing one draws itself across the column beside it.
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="fluid-sm text-foreground min-w-0 truncate">
-          {person === null ? (
-            <span className="text-foreground-muted/50 italic">Keine Kontaktperson</span>
-          ) : (
-            `${person.vorname} ${person.nachname}`
-          )}
+          {person === null ? <span className="text-foreground-muted italic">Keine Kontaktperson</span> : `${person.vorname} ${person.nachname}`}
         </span>
         <span className="fluid-xs text-foreground-muted min-w-0 truncate">
-          {person === null || person.email === "" ? <span className="text-foreground-muted/50 italic">Keine E-Mail</span> : person.email}
+          {person === null || person.email === "" ? <span className="text-foreground-muted italic">Keine E-Mail</span> : person.email}
         </span>
       </div>
     );
@@ -85,11 +81,13 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
 
   // A new school and an existing club are decided differently — the first one gets created — so the
   // row says which it is before it is opened.
+
+  // One tone for both: a Herkunft is a kind and not a standing, so the word tells the two apart.
   const renderHerkunft = (bewerbung: AdminBewerbungRow) =>
     bewerbung.schule !== null ? (
-      <span className={`${LABEL_BADGE} bg-brand/10 text-brand-solid`}>Neue Schule</span>
+      <span className={labelBadge("info")}>Neue Schule</span>
     ) : (
-      <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Bestehendes Team</span>
+      <span className={labelBadge("info")}>Bestehendes Team</span>
     );
 
   // Beside the Herkunft badge in both layouts: a second application for one club is a fact about
@@ -99,7 +97,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
 
     if (art === undefined) return null;
 
-    return <span className={`${LABEL_BADGE} ${BEWERBUNG_DUBLETTE_TINT}`}>{BEWERBUNG_DUBLETTE_LABEL[art]}</span>;
+    return <span className={labelBadge(BEWERBUNG_DUBLETTE_TINT)}>{BEWERBUNG_DUBLETTE_LABEL[art]}</span>;
   };
 
   // The count and never a fourth `status` value: an application waits on its contacts inside
@@ -116,14 +114,13 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
     const endgueltig = endstand(staende);
 
     if (endgueltig !== null) {
-      return <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>{endgueltig}</span>;
+      return <span className={labelBadge("danger")}>{endgueltig}</span>;
     }
 
     const bestaetigt = staende.filter((sitz) => !istOffen(sitz)).length;
-    const tint = bestaetigt === staende.length ? "bg-success/15 text-success-strong" : "bg-warning/15 text-warning-strong";
 
     return (
-      <span className={`${LABEL_BADGE} ${tint}`}>
+      <span className={labelBadge(bestaetigt === staende.length ? "success" : "warning")}>
         {String(bestaetigt)} von {String(staende.length)} bestätigt
       </span>
     );
@@ -168,7 +165,11 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
               {renderHerkunft(bewerbung)}
               {renderDublette(bewerbung)}
               {renderBestaetigung(bewerbung)}
-              <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Saison {bewerbung.saison_id}</span>
+              {/* Words rather than a pill: the season is the card's ordinary case, which the date
+                  beside it already states in the same register. */}
+              <span className="fluid-xs text-foreground-muted">
+                Saison <span className="font-numeric tabular-nums">{bewerbung.saison_id}</span>
+              </span>
               <span className="fluid-xs text-foreground-muted">Eingereicht {formatSpielDatum(bewerbung.eingereicht_am)}</span>
             </div>
             {renderKontakt(bewerbung)}
@@ -198,7 +199,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                   Team
                 </Table.Column>
                 {/* PINNED to the widest PILL each carries rather than to its heading, which may
-                    wrap: `LABEL_BADGE` holds one line, so a column under its pill's width pushes
+                    wrap: a label pill holds one line, so a column under its pill's width pushes
                     the pill across the one beside it. */}
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Herkunft
@@ -206,8 +207,8 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-24 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Saison
                 </Table.Column>
-                {/* A calendar date is fixed-format, so this width is a measurement rather than a
-                    guess, and the cell never truncates: a clipped year is a different date. */}
+                {/* `w-36` fits the fixed-format date and is measured rather than guessed, so it
+                    holds only while the cell below sets that date in tabular figures. */}
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Eingereicht
                 </Table.Column>
@@ -267,11 +268,14 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
                     </Table.Cell>
 
                     <Table.Cell className="px-6 py-4">
-                      <span className="fluid-sm text-foreground font-semibold">{bewerbung.saison_id}</span>
+                      <span className="font-numeric fluid-sm text-foreground font-semibold tabular-nums">{bewerbung.saison_id}</span>
                     </Table.Cell>
 
                     <Table.Cell className="px-6 py-4">
-                      <span className="fluid-sm text-foreground">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
+                      {/* `font-numeric tabular-nums` is what makes a fixed-format date a fixed WIDTH
+                          under a proportional page face, and the Eingereicht column's `w-36` is
+                          measured against it. Never truncate: a clipped year is a different date. */}
+                      <span className="font-numeric fluid-sm text-foreground tabular-nums">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
                     </Table.Cell>
 
                     <Table.Cell className="px-6 py-4">{renderKontakt(bewerbung)}</Table.Cell>

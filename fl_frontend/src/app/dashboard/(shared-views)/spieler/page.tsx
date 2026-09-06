@@ -10,7 +10,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Spieler",
-  description: "Die Kader aller Teams der laufenden Saison der Frankfurt-League.",
+  description: "Die Kader aller Teams der laufenden Saison der Frankfurt League.",
   openGraph: openGraphFor("/dashboard/spieler"),
   alternates: {
     canonical: "/dashboard/spieler",

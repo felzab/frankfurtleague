@@ -6,6 +6,7 @@ import { BewerbungForm } from "@/features/bewerbungen/components/forms/Bewerbung
 import { BewerbungInstagramBand } from "@/features/bewerbungen/components/ui/BewerbungInstagramBand";
 import { abiJahrgang, fensterZustand } from "@/features/bewerbungen/utils";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
+import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -63,14 +64,14 @@ export function BewerbungView({
 
         <SaisonChip>Saison {saisonId}</SaisonChip>
 
-        <h1 className="fluid-3xl font-black tracking-tight uppercase">
+        <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>
           Mit Deiner Schule <span className="text-brand">mitspielen</span>
         </h1>
 
         {/* The invitation is the RUNNING state's alone: every other state renders no form, and „Trag
             Dein Team hier ein“ above a panel saying the window is shut is the page contradicting itself. */}
         <p className="muted-hint max-w-xl">
-          Die Frankfurt-League ist das Fußballturnier der Frankfurter Oberstufen.{" "}
+          Die Frankfurt League ist das Fußballturnier der Frankfurter Oberstufen.{" "}
           {zustand === "laeuft"
             ? "Trag Dein Team hier ein. Nach dem Abschicken bekommt jede Kontaktperson eine E-Mail mit einem Link, über den sie ihren Eintrag bestätigt."
             : "Auf dieser Seite melden Schulen ihr Team für eine Saison an."}
@@ -147,7 +148,7 @@ export function BewerbungView({
       {zustand === "vorbei" && (
         <ZustandPanel
           titel="Die Bewerbungsfrist ist abgelaufen"
-          text={`Für die Saison ${saisonId} nehmen wir keine Bewerbungen mehr an. Schreib uns trotzdem: wir sagen Dir, was noch geht und wann die nächste Saison öffnet.`}
+          text={`Für die Saison ${saisonId} nehmen wir keine Bewerbungen mehr an. Schreib uns trotzdem: Wir sagen Dir, was noch geht und wann die nächste Saison öffnet.`}
           aktion={ZUM_KONTAKT}
         />
       )}
@@ -189,10 +190,10 @@ function FensterFakten({ saisonId, bis }: { saisonId: string; bis: string }) {
 function Fakt({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-y-0.5">
-      {/* The site's eyebrow in the fill's paired foreground at 75%, which composites to 6.2:1 on it —
+      {/* The site's eyebrow in the fill's paired foreground at 75%, which composites to 7.52:1 on it —
           `text-brand` is the TINT of this fill and would read as a smudge on it. */}
       <dt className="fluid-xxs text-brand-solid-foreground/75 font-extrabold tracking-widest uppercase">{label}</dt>
-      <dd className="fluid-lg font-black">{children}</dd>
+      <dd className="fluid-lg font-extrabold">{children}</dd>
     </div>
   );
 }

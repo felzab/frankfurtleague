@@ -1,5 +1,6 @@
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
+import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLBewerbungStatus } from "./schemas";
 
 // Its own module and not an export of a `"use client"` view: every export of a client module becomes
@@ -30,14 +31,14 @@ export function bewerbungStatusLabel(status: FLBewerbungStatus): string {
 }
 
 /**
- * The tint each state wears beside its label, so a badge cannot read one way in the list and another
- * on the application's own page. `abgelehnt` is neutral rather than red: a decline is a decision the
- * league took, not a fault anybody has to act on.
+ * The tone each state wears, so the queue and the application's own page cannot read it two ways.
+ * `abgelehnt` is `danger` and not `warning`: the league's Absage is final, and takes the grade a
+ * seat's Widerspruch already wears.
  */
-export const BEWERBUNG_STATUS_TINT: Record<FLBewerbungStatus, string> = {
-  eingereicht: "bg-info/15 text-info-strong",
-  angenommen: "bg-success/15 text-success-strong",
-  abgelehnt: "bg-muted text-foreground-muted",
+export const BEWERBUNG_STATUS_TINT: Record<FLBewerbungStatus, PillTone> = {
+  eingereicht: "info",
+  angenommen: "success",
+  abgelehnt: "danger",
 };
 
 /**

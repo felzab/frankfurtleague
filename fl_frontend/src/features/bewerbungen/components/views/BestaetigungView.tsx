@@ -7,6 +7,7 @@ import { KONTAKT_EMAIL } from "@/core/brand";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/constants";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -87,7 +88,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
     <section className={SEITE}>
       <header className="flex w-full flex-col gap-3">
         {saison !== null && <SaisonChip>Saison {saison}</SaisonChip>}
-        <h1 className="fluid-3xl font-black tracking-tight uppercase">{TITEL[stand.zustand]}</h1>
+        <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
 
         {/* The facts the mail led with, in the mail's own panel: standing in a sentence under the
             heading they were what a reader skimmed past on the way to the button. */}

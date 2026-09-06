@@ -1,18 +1,31 @@
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { labelBadge } from "@/shared/components/ui/badges";
 
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
+import type { PillTone } from "@/shared/components/ui/badges";
 
 // A record rather than a chain: `FLSaisonStatus` is a closed enum, so a fourth state fails to
-// compile here rather than falling through to `past`'s grey.
-const TINT: Record<FLSaisonStatus, string> = {
-  active: "bg-success/15 text-success-strong",
-  future: "bg-info/15 text-info-strong",
-  past: "bg-muted text-foreground-muted",
+// compile here rather than taking a live state's tone.
+const TINT: Record<FLSaisonStatus, PillTone> = {
+  // The running season wears the brand, as `fl_frontend/src/features/saisons/components/ui/SaisonChip.tsx`
+  // already does for that same season on the public pages. Never `success`, which `past` holds.
+  active: "brand",
+  future: "info",
+  // Done, as a played fixture is
+  // (`fl_frontend/src/features/spiele/components/ui/SpielStatusChip.tsx :: STATUS_TINT`).
+  past: "success",
 };
 
 const WORT: Record<FLSaisonStatus, string> = { active: "Laufend", future: "Geplant", past: "Abgeschlossen" };
 
 /** The app's one wording and one palette for a season's state. */
 export function SaisonBadge({ status, className = "" }: { status: FLSaisonStatus; className?: string }) {
-  return <span className={`${LABEL_BADGE} ${TINT[status]} ${className}`}>{WORT[status]}</span>;
+  return (
+    <span className={`${labelBadge(TINT[status])} gap-1.5 ${className}`}>
+      {/* The live dot `SaisonChip` gives this season on the public pages: in the light theme the
+          brand tint and `past`'s success tint are one colour, so the state cannot ride on hue
+          alone. */}
+      {status === "active" && <span className="bg-brand size-1.5 animate-ping rounded-full" />}
+      {WORT[status]}
+    </span>
+  );
 }

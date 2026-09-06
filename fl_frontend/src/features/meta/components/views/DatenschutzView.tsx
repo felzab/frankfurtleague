@@ -2,8 +2,11 @@ import Link from "next/link";
 
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME, VERTRETUNGSBERECHTIGTE } from "@/core/brand";
 import { card } from "@/shared/components/ui/card";
+import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { textLink } from "@/shared/components/ui/textLink";
+
+import { LegalSection } from "../ui/LegalSection";
 
 import type { ReactNode } from "react";
 
@@ -86,7 +89,7 @@ const VEROEFFENTLICHT = [
     grundlage: "Art. 6 Abs. 1 lit. f DSGVO, Durchführung und Darstellung des Wettbewerbs",
   },
   {
-    was: "Vornamen der Organisatorinnen und Organisatoren auf der Team-Seite",
+    was: "Vornamen der Organisatorinnen und Organisatoren auf der Seite „Organisation“",
     grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklichem Einverständnis",
   },
   {
@@ -114,15 +117,6 @@ const FRISTEN = [
   },
 ];
 
-function Abschnitt({ titel, children }: { titel: string; children: ReactNode }) {
-  return (
-    <section className="flex flex-col gap-y-2">
-      <h2 className="fluid-base text-foreground font-extrabold tracking-wide uppercase">{titel}</h2>
-      {children}
-    </section>
-  );
-}
-
 /** A `<dl>` is this pair's only valid parent: the pairing is what makes the value a fact about the label. */
 function Angabe({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -145,18 +139,16 @@ function MailLink() {
 
 export function DatenschutzView() {
   return (
-    <div className={`${PAGE_RISE} max-w-meta flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8`}>
-      <div className="flex flex-col items-center px-2 text-center">
-        <h1 className="fluid-2xl lg:fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">Datenschutzerklärung</h1>
-      </div>
+    <div className={`${PAGE_RISE} flex w-full flex-col gap-5`}>
+      <header className="flex w-full flex-col gap-3">
+        <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>Datenschutzerklärung</h1>
+      </header>
 
-      {/* Neutral rather than the green pitch card the sibling meta views wear: this is a page somebody
-          reads end to end, and the field foreground carries a paragraph badly at any length. */}
-      <article className={`${card()} flex w-full flex-col gap-y-6 p-5 shadow-xl sm:p-6 lg:gap-y-8 lg:p-8`}>
-        <Abschnitt titel="Kurz gesagt">
+      <article className={`${card()} flex w-full flex-col gap-y-6 p-4 sm:p-6 lg:gap-y-8 lg:p-8`}>
+        <LegalSection title="Kurz gesagt">
           <ul className="flex list-disc flex-col gap-y-2 pl-5">
             <li className={ABSATZ}>
-              Für die Teilnahme an der Frankfurt-League brauchen wir ein paar Daten von Dir. Mehr als nötig fragen wir nicht ab.
+              Für die Teilnahme an der Frankfurt League brauchen wir ein paar Daten von Dir. Mehr als nötig fragen wir nicht ab.
             </li>
             <li className={ABSATZ}>Wenn Dein Name auf dieser Website steht, dann als Vorname und erster Buchstabe des Nachnamens.</li>
             <li className={ABSATZ}>Wer als Kontaktperson einer Bewerbung eingetragen wird, muss mindestens 16 Jahre alt sein.</li>
@@ -164,12 +156,12 @@ export function DatenschutzView() {
               Wir messen nicht, was Du auf dieser Website tust. Es gibt keine Analyse, kein Tracking, keine Werbung und kein Profiling.
             </li>
             <li className={ABSATZ}>
-              Auskunft, Berichtigung, Löschung, Widerspruch, Widerruf: eine E-Mail an <MailLink /> genügt, und Du musst nichts begründen.
+              Auskunft, Berichtigung, Löschung, Widerspruch, Widerruf: Eine E-Mail an <MailLink /> genügt, und Du musst nichts begründen.
             </li>
           </ul>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="1. Wer verantwortlich ist">
+        <LegalSection title="1. Wer verantwortlich ist">
           <p className={ABSATZ}>Verantwortlich für die Verarbeitung Deiner Daten auf dieser Website ist:</p>
           <p className={ABSATZ}>
             {VEREIN_NAME}
@@ -183,17 +175,17 @@ export function DatenschutzView() {
             Der Verein befindet sich in Gründung und ist noch in keinem Vereinsregister eingetragen. Eine Telefonnummer für den Verein gibt es
             nicht; wir sind über die E-Mail-Adresse oben erreichbar.
           </p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="2. Wohin Deine Datenschutzanfrage geht">
+        <LegalSection title="2. Wohin Deine Datenschutzanfrage geht">
           <p className={ABSATZ}>
             An <MailLink />. Diese eine Adresse gilt für alles: Auskunft, Berichtigung, Löschung, Einschränkung, Datenübertragbarkeit,
             Widerspruch und den Widerruf einer Einwilligung. Du musst kein Formular ausfüllen und keinen Grund angeben, und ein formloser Satz
             reicht.
           </p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="3. Hosting, Zugriffsdaten und Auslieferung">
+        <LegalSection title="3. Hosting, Zugriffsdaten und Auslieferung">
           <p className={ABSATZ}>
             Die Website läuft auf einem Server der Hetzner Online GmbH in einem Rechenzentrum in Nürnberg. Hetzner verarbeitet die Daten für uns
             als Auftragsverarbeiter nach Art. 28 DSGVO.
@@ -208,7 +200,7 @@ export function DatenschutzView() {
           <p className={ABSATZ}>
             Bei jedem Aufruf entsteht ein Eintrag im Zugriffsprotokoll des Servers. Er enthält Deine IP-Adresse, den Zeitpunkt, die aufgerufene
             Seite, den Statuscode der Antwort, die Kennung Deines Browsers und die Seite, von der Du gekommen bist. Wie lange ein Eintrag
-            bleibt, richtet sich nach dem Umfang des Protokolls: der Server hält die jüngsten Einträge bis zu einer festen Gesamtgröße und
+            bleibt, richtet sich nach dem Umfang des Protokolls: Der Server hält die jüngsten Einträge bis zu einer festen Gesamtgröße und
             überschreibt die älteren. Die Einträge werden nicht ausgewertet, nicht mit anderen Daten zusammengeführt und an keinen
             Auswertungsdienst weitergegeben.
           </p>
@@ -219,9 +211,9 @@ export function DatenschutzView() {
             Nutzungsprofil verbindet, sie ausschließlich technischen Zwecken dienen und der Bestand durch die Rotation begrenzt bleibt. Du
             kannst dieser Verarbeitung nach Art. 21 DSGVO widersprechen; Abschnitt 14 sagt, wie.
           </p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="4. Datenbank und Sicherungskopien">
+        <LegalSection title="4. Datenbank und Sicherungskopien">
           <p className={ABSATZ}>
             Die Daten der Liga liegen in einer verwalteten Datenbank bei MongoDB, Inc. (MongoDB Atlas). Der Cluster steht in Frankfurt am Main.
             Grundlage ist die Standardvereinbarung zur Auftragsverarbeitung, die MongoDB in seine Cloud-Bedingungen einbezieht.
@@ -231,9 +223,9 @@ export function DatenschutzView() {
             liegen in derselben Region wie der Cluster. Wenn wir Daten auf Deinen Wunsch löschen, sind sie aus der laufenden Datenbank sofort
             verschwunden; in den Sicherungskopien laufen sie innerhalb dieser acht Tage aus.
           </p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="5. E-Mail-Versand">
+        <LegalSection title="5. E-Mail-Versand">
           <p className={ABSATZ}>
             Die E-Mails der Liga, also Eingangsbestätigungen, Bestätigungslinks, Erinnerungen, Entscheidungen über eine Bewerbung und die
             Anmeldelinks der Administratorinnen und Administratoren, versenden wir über Resend, Inc. mit Sitz in den Vereinigten Staaten.
@@ -245,9 +237,9 @@ export function DatenschutzView() {
             Standardvertragsklauseln der Europäischen Kommission nach Art. 46 Abs. 2 lit. c DSGVO, die Bestandteil des
             Auftragsverarbeitungsvertrags mit Resend sind.
           </p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="6. Wenn eine Schule sich bewirbt">
+        <LegalSection title="6. Wenn eine Schule sich bewirbt">
           <p className={ABSATZ}>
             Über das Bewerbungsformular kann eine Schule ihre Aufnahme in die Liga beantragen. Bewerben darf sich, wer mindestens 16 Jahre alt
             ist.
@@ -304,9 +296,9 @@ export function DatenschutzView() {
             nicht nach der Aufnahme des Teams.
           </p>
           <p className={ABSATZ}>Wie lange wir eine Bewerbung aufbewahren, steht in Abschnitt 13.</p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="7. Wenn Du uns schreibst">
+        <LegalSection title="7. Wenn Du uns schreibst">
           <p className={ABSATZ}>
             Wenn Du uns an <MailLink /> schreibst, verarbeiten wir Deine Nachricht und Deine Adresse, um zu antworten. Rechtsgrundlage ist Art.
             6 Abs. 1 lit. b DSGVO, soweit es um Deine Teilnahme geht, sonst Art. 6 Abs. 1 lit. f DSGVO mit unserem Interesse, Anfragen zu
@@ -328,9 +320,9 @@ export function DatenschutzView() {
               Wer diesen Weg nicht will, wird ausschließlich per E-Mail und Telefon erreicht.
             </li>
           </ul>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="8. Wer Deine Daten außer uns bekommt">
+        <LegalSection title="8. Wer Deine Daten außer uns bekommt">
           <div
             role="list"
             className="grid w-full grid-cols-1 gap-4 md:grid-cols-2">
@@ -338,7 +330,7 @@ export function DatenschutzView() {
               <div
                 role="listitem"
                 key={empfaenger.name}
-                className="border-border flex flex-col gap-y-3 rounded-2xl border p-4">
+                className="border-border flex flex-col gap-y-3 rounded-xl border p-4">
                 <div className="fluid-sm text-foreground font-extrabold tracking-wide uppercase">{empfaenger.name}</div>
                 <dl className="flex flex-col gap-y-2">
                   <Angabe label="Rolle">{empfaenger.rolle}</Angabe>
@@ -353,9 +345,9 @@ export function DatenschutzView() {
             Darüber hinaus geben wir keine Daten weiter. Es gibt keinen Verkauf, keine Werbepartner und keine Weitergabe an andere Vereine oder
             Verbände.
           </p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="9. Was auf dieser Website veröffentlicht wird">
+        <LegalSection title="9. Was auf dieser Website veröffentlicht wird">
           <dl className="flex flex-col gap-y-3">
             {VEROEFFENTLICHT.map((eintrag) => (
               <Angabe
@@ -384,9 +376,9 @@ export function DatenschutzView() {
             ausgenommen. Den bekannten Sammelprogrammen für KI-Training untersagen wir das Erfassen dieser Website vollständig, und dieselbe
             Sperre gilt am Rand unseres Netzes.
           </p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="10. Spielerinnen, Spieler, Schiedsrichterinnen und Schiedsrichter">
+        <LegalSection title="10. Spielerinnen, Spieler, Schiedsrichterinnen und Schiedsrichter">
           <p className={ABSATZ}>
             Wer im Kader eines Teams steht oder ein Spiel pfeift, wird von der Verwaltung der Liga eingetragen. Veröffentlicht werden dann
             Vorname und erster Buchstabe des Nachnamens, bei einer Spielerin und einem Spieler dazu das Team, die Rückennummer und die Position,
@@ -400,9 +392,9 @@ export function DatenschutzView() {
             Du kannst jederzeit verlangen, dass Dein Name von dieser Website verschwindet, formlos an <MailLink />. Danach nehmen wir ihn
             zeitnah heraus; an einem vergangenen Spiel steht dann ein neutraler Eintrag statt des Namens.
           </p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="11. Cookies und Speicherung in Deinem Browser">
+        <LegalSection title="11. Cookies und Speicherung in Deinem Browser">
           <p className={ABSATZ}>Diese Website setzt zwei Dinge im Browser, und beide sind für den Betrieb notwendig:</p>
           <ul className="flex list-disc flex-col gap-y-2 pl-5">
             <li className={ABSATZ}>
@@ -424,9 +416,9 @@ export function DatenschutzView() {
             Anbietern wird nichts in unsere Seiten eingebettet und nichts nachgeladen. Erst wenn Du auf einen dieser Links klickst, erfährt der
             jeweilige Anbieter davon, und ab dann gilt dessen Datenschutzerklärung.
           </p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="12. Keine Analyse, kein Tracking, keine automatisierte Entscheidung">
+        <LegalSection title="12. Keine Analyse, kein Tracking, keine automatisierte Entscheidung">
           <p className={ABSATZ}>
             Wir setzen keine Analysedienste ein, keine Zählpixel, keine Werbenetzwerke und keine Dienste, die Dich über Websites hinweg
             wiedererkennen. Wir erstellen keine Profile und verkaufen keine Daten.
@@ -435,9 +427,9 @@ export function DatenschutzView() {
             Es findet keine automatisierte Entscheidungsfindung einschließlich Profiling im Sinne des Art. 22 DSGVO statt. Über eine Bewerbung
             entscheidet ein Mensch.
           </p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="13. Wie lange wir was speichern">
+        <LegalSection title="13. Wie lange wir was speichern">
           <dl className="flex flex-col gap-y-3">
             {FRISTEN.map((eintrag) => (
               <Angabe
@@ -456,9 +448,9 @@ export function DatenschutzView() {
             zurückgenommen werden kann. Dieses Protokoll kann deshalb auch Deine Daten enthalten. Es wird nach zwölf Monaten gelöscht, und bei
             einer Löschung auf Wunsch werden Deine Einträge darin sofort geleert.
           </p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="14. Deine Rechte">
+        <LegalSection title="14. Deine Rechte">
           <p className={ABSATZ}>Du hast uns gegenüber die folgenden Rechte:</p>
           <ul className="flex list-disc flex-col gap-y-2 pl-5">
             <li className={ABSATZ}>Auskunft darüber, ob und welche Daten wir über Dich verarbeiten (Art. 15 DSGVO).</li>
@@ -498,9 +490,9 @@ export function DatenschutzView() {
             Änderungsprotokolls stehen, die ihre eigenen Änderungen festhalten, auch nach einer Löschung. Das Protokoll hat nur dann einen Sinn,
             wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden nach zwölf Monaten wie alle anderen gelöscht.
           </p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="15. Beschwerderecht">
+        <LegalSection title="15. Beschwerderecht">
           <p className={ABSATZ}>Du kannst Dich jederzeit bei einer Datenschutzaufsichtsbehörde beschweren. Für uns zuständig ist:</p>
           <p className={ABSATZ}>
             Der Hessische Beauftragte für Datenschutz und Informationsfreiheit
@@ -509,18 +501,18 @@ export function DatenschutzView() {
             <br />
             65189 Wiesbaden
           </p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="16. Datenschutzbeauftragter">
+        <LegalSection title="16. Datenschutzbeauftragter">
           <p className={ABSATZ}>
             Wir haben keinen Datenschutzbeauftragten bestellt. Nach unserer Einschätzung besteht dazu keine Pflicht, weil bei uns nicht
             mindestens zwanzig Personen ständig mit der automatisierten Verarbeitung personenbezogener Daten beschäftigt sind und wir weder
             umfangreich besondere Datenkategorien verarbeiten noch eine Tätigkeit ausüben, die eine regelmäßige und systematische Überwachung
             erfordert. Alle Anfragen zum Datenschutz gehen an <MailLink />.
           </p>
-        </Abschnitt>
+        </LegalSection>
 
-        <Abschnitt titel="17. Änderungen dieser Erklärung">
+        <LegalSection title="17. Änderungen dieser Erklärung">
           <p className={ABSATZ}>
             Wenn sich ändert, was wir verarbeiten, ändern wir diese Erklärung mit. Der Stand unten sagt Dir, welche Fassung Du gerade liest.
             Eine Änderung, die eine Einwilligung von Dir betrifft, holen wir gesondert ein; wir stützen uns nicht darauf, dass Du eine neue
@@ -537,7 +529,7 @@ export function DatenschutzView() {
             .
           </p>
           <p className="muted-meta">Stand: {STAND}</p>
-        </Abschnitt>
+        </LegalSection>
       </article>
     </div>
   );

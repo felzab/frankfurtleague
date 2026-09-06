@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 
-import { getAdminSaisons, getCurrentSaison, getSaisons } from "../../queries";
+import { getAdminSaisons, getCurrentSaisonOrNull, getSaisons } from "../../queries";
 import { SaisonSelector } from "./SaisonSelector";
 
 import type { FLSaison } from "../../schemas";
@@ -18,12 +18,17 @@ export async function SaisonMetadataDisplay({ tier }: { tier: "base" | "admin" }
   await connection();
   // The admin branch is guarded by `proxy.ts` alone: the shell's chrome is the layout's, rendered
   // beside `AdminAuthGuard` rather than under it, which every other admin-tier read sits inside.
-  const [currentSaisonRes, saisonsRes] = await Promise.all([getCurrentSaison(), tier === "admin" ? getAdminSaisons() : getSaisons()]);
+  const [currentSaisonRes, saisonsRes] = await Promise.all([
+    // `OrNull`, never the throwing read: this is layout chrome, so a 404 between seasons would
+    // take every dashboard and admin page down with it.
+    getCurrentSaisonOrNull(),
+    tier === "admin" ? getAdminSaisons() : getSaisons(),
+  ]);
 
   return (
     <SaisonSelector
       saisons={saisonsRes.saisons.map(asOption)}
-      currentSaison={asOption(currentSaisonRes.saison)}
+      currentSaison={currentSaisonRes === null ? null : asOption(currentSaisonRes.saison)}
     />
   );
 }

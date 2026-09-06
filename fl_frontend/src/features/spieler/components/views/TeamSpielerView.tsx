@@ -7,7 +7,7 @@ import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 
 import { Avatar, Button, Chip, Table } from "@heroui/react";
 
-import { PILL_RADIUS } from "@/shared/components/ui/badges";
+import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
@@ -44,7 +44,7 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
           <h2 className="fluid-xl text-foreground font-extrabold tracking-tight">Kader von {teamName}</h2>
           <Chip
             size="sm"
-            className={`${PILL_RADIUS} bg-success/15 text-success-strong font-bold`}>
+            className={`${PILL_RADIUS} ${PILL_TINT.success} font-bold`}>
             {teamSpieler.length} Spieler
           </Chip>
         </div>
@@ -105,7 +105,7 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
                       {spielerData.position ? (
                         <Chip
                           size="sm"
-                          className={`${PILL_RADIUS} bg-info/15 text-info-strong fluid-xxs font-semibold capitalize`}>
+                          className={`${PILL_RADIUS} ${PILL_TINT.info} fluid-xxs font-semibold capitalize`}>
                           {spielerData.position}
                         </Chip>
                       ) : (

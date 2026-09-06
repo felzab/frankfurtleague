@@ -12,7 +12,7 @@ import { LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON, rolleKuerzel, rolleLabel } fr
 import { SHORTHAND_CHIP } from "@/features/spieler/shorthandChip";
 import { TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
@@ -79,20 +79,22 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   const renderStatusBadges = (spieler: AdminSpielerRow) => (
     <div className="flex flex-wrap items-center gap-1.5">
       {spieler.inactive_since !== null && <RetiredBadge since={spieler.inactive_since} />}
-      {spieler.selected === null && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Nicht im Kader</span>}
+      {/* An absence and not an exit: a person with no squad row this season takes the label tone,
+          where „ausgetragen“ beside it grades a row that was in the Kader and came out. */}
+      {spieler.selected === null && <span className={labelBadge("info")}>Nicht im Kader</span>}
       {spieler.selected?.inactive_since != null && (
-        <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong`}>
-          Ausgetragen seit {formatSpielDatum(spieler.selected.inactive_since)}
+        <span className={labelBadge("warning")}>
+          Ausgetragen seit&nbsp;<span className="font-numeric tabular-nums">{formatSpielDatum(spieler.selected.inactive_since)}</span>
         </span>
       )}
       {spieler.inactive_since === null && spieler.selected !== null && spieler.selected.inactive_since === null && (
         /* The ROW's standing, never the season's status: it holds only while the person, the squad
            row and the season entry are all live, so it is narrower than
            `fl_frontend/src/features/spieler/facets.ts`'s „Person“ bucket. */
-        <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Aktiv</span>
+        <span className={labelBadge("success")}>Aktiv</span>
       )}
       {spieler.selected?.is_nachgetragen === true && spieler.selected.inactive_since === null && (
-        <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Nachgetragen</span>
+        <span className={labelBadge("info")}>Nachgetragen</span>
       )}
     </div>
   );
@@ -167,9 +169,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   const renderRolle = (spieler: AdminSpielerRow) => {
     const rolle = spieler.selected?.rolle;
 
-    return rolle == null ? null : (
-      <span className={`${LABEL_BADGE} bg-brand-solid text-brand-solid-foreground shrink-0`}>{rolleLabel(rolle)}</span>
-    );
+    return rolle == null ? null : <span className={`${labelBadge("brandSolid")} shrink-0`}>{rolleLabel(rolle)}</span>;
   };
 
   /**
@@ -200,7 +200,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
       aria-label={spieler.selected?.nummer ? undefined : "Keine Nummer"}
       // A fixed height rather than padding: `py-1.5` sizes the chip from its line box, and an empty
       // span has none, so the empty chip would collapse.
-      className={`fluid-xs inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-extrabold tracking-wide ${
+      className={`font-numeric fluid-xs inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-extrabold tracking-wide tabular-nums ${
         spieler.selected?.nummer ? "bg-muted text-foreground" : "bg-muted/50"
       }`}>
       {spieler.selected?.nummer ?? ""}

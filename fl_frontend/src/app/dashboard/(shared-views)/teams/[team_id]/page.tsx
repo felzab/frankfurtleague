@@ -32,7 +32,7 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
 
   return {
     title: teamData.name,
-    description: `Teamdaten, Statistiken und Saisonspiele von ${teamData.full_name || teamData.name} in der Frankfurt-League.`,
+    description: `Teamdaten, Statistiken und Saisonspiele von ${teamData.full_name || teamData.name} in der Frankfurt League.`,
     openGraph: openGraphFor(`/dashboard/teams/${team_id}`),
     alternates: { canonical: `/dashboard/teams/${team_id}` },
   };

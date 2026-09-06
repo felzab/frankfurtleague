@@ -2,18 +2,21 @@ import { Calendar, CircleCheckFill, CircleQuestion, Clock, XmarkShapeFill } from
 
 import { Chip } from "@heroui/react";
 
-import { PILL_RADIUS } from "@/shared/components/ui/badges";
+import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
 
+import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLSpielStatus } from "../../schemas";
 
 // Module scope so they do not rebuild per render, and `Record<FLSpielStatus,...>` so a backend
 // enum change is a compile error rather than a raw API value in the UI.
-const STATUS_CLASSES: Record<FLSpielStatus, string> = {
-  vergangen: "bg-success/15 text-success-strong",
-  heute: "bg-info/15 text-info-strong",
-  ausstehend: "bg-warning/15 text-warning-strong",
-  unbekannt: "bg-muted text-foreground-muted",
-  abgesagt: "bg-danger/15 text-danger-strong",
+const STATUS_TINT: Record<FLSpielStatus, PillTone> = {
+  vergangen: "success",
+  heute: "info",
+  ausstehend: "warning",
+  // An undated fixture is a state to leave, as a season with no Spielplan is, and not a kind of
+  // fixture: the season cannot be played until somebody dates it.
+  unbekannt: "warning",
+  abgesagt: "danger",
 };
 
 const STATUS_ICONS: Record<FLSpielStatus, React.ReactElement> = {
@@ -39,7 +42,7 @@ export function SpielStatusChip({ spielStatus }: { spielStatus: FLSpielStatus })
   return (
     <Chip
       size="sm"
-      className={`${PILL_RADIUS} border-none px-1.5 py-0.5 ${STATUS_CLASSES[spielStatus]}`}>
+      className={`${PILL_RADIUS} border-none px-1.5 py-0.5 ${PILL_TINT[STATUS_TINT[spielStatus]]}`}>
       <div className="fluid-xxs flex items-center gap-1 font-extrabold tracking-wide uppercase">
         {STATUS_ICONS[spielStatus]}
         {STATUS_LABELS[spielStatus]}

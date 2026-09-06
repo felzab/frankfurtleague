@@ -12,7 +12,7 @@ import { SaisonRuleNumberField } from "@/features/saisons/components/forms/Saiso
 import { STUFE_CHIP } from "@/features/saisons/components/forms/StufenPicker";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { buildSpielplanVorschau, describeAngesetzteSpiele, describeSpielplanUmfang } from "@/features/saisons/utils";
-import { LABEL_BADGE } from "@/shared/components/ui/badges";
+import { labelBadge } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
@@ -189,11 +189,11 @@ export function FormSpielplanSection({
             panel established the treatment. */}
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
           {holdsADraw ? (
-            <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Spielplan steht</span>
+            <span className={labelBadge("success")}>Spielplan steht</span>
           ) : (
-            /* Warning rather than the neutral grey: a season with no fixtures cannot be played, so this
-               is a state to leave rather than one of two equal ones. */
-            <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong`}>Kein Spielplan</span>
+            /* Warning rather than a label tone: a season with no fixtures cannot be played, so this is
+               a state to leave rather than one of two equal ones. */
+            <span className={labelBadge("warning")}>Kein Spielplan</span>
           )}
         </span>
         <PanelHeading

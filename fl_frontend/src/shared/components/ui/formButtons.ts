@@ -59,7 +59,7 @@ export const formButton = tv({
        */
       nav: "border-border bg-surface text-foreground data-hovered:bg-hover fluid-xs border px-4 font-bold shadow-sm",
       // `-solid` plus its paired foreground: `bg-danger` is a tint, and under `text-foreground` it falls
-      // below 4.5:1 in both themes, where this pair clears it in both.
+      // to 4.00:1 in the dark theme, where this pair clears 4.5:1 in both.
       destructive: "bg-danger-solid data-hovered:bg-danger-solid-hover text-danger-solid-foreground",
       /**
        * The CRUD header's create button. Its height mirrors `SearchBar`'s group at every breakpoint, since the
@@ -80,7 +80,7 @@ export const formButton = tv({
     stacks: { true: "h-auto min-h-12 w-full py-2 text-center whitespace-normal sm:w-auto" },
     /**
      * Height alone, so page chrome stays under the action bar's — except `xs`, which takes the
-     * badge's type step too: it stands in a row of `LABEL_BADGE` chips, where a taller control is
+     * badge's type step too: it stands in a row of `labelBadge` chips, where a taller control is
      * what makes the row read as ragged.
      */
     size: { sm: "h-10", xs: "fluid-xxs h-7 px-3" },

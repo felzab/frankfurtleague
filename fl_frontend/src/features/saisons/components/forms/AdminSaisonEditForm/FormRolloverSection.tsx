@@ -173,7 +173,9 @@ export function FormRolloverSection({
                     </span>
                     <Link
                       href={saisonHref(`/admin/spiele/${spiel.id}`)}
-                      className="text-brand hover:text-brand-solid fluid-xxs shrink-0 font-bold transition-colors">
+                      // `textLink({ tone: "brand" })`'s own grades: the fill does not flip, so a bare
+                      // `hover:text-brand-solid` sinks into the dark card it sits on.
+                      className="text-brand hover:text-brand-solid dark:hover:text-brand-solid-accent fluid-xxs shrink-0 font-bold transition-colors">
                       Öffnen
                     </Link>
                   </li>

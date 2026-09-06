@@ -60,7 +60,7 @@ export const TAB_TRACK = "border-border bg-muted rounded-xl border";
 export const TAB_INDICATOR = "bg-brand-solid rounded-lg shadow-sm";
 
 /** The one field-error appearance, so every form reports at the field rather than only through a toast. */
-export const FIELD_ERROR = "fluid-xxs text-danger mt-1 font-bold";
+export const FIELD_ERROR = "fluid-xxs text-danger-strong mt-1 font-bold";
 
 /**
  * A field error under a `Switch`. HeroUI reserves the track's width ahead of it, for a label written

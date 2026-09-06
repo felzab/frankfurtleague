@@ -1,35 +1,34 @@
 import { Chip } from "@heroui/react";
 
 import { PHASE_LABELS, PHASE_TINTS } from "@/features/saisons/constants";
-import { PILL_RADIUS } from "@/shared/components/ui/badges";
+import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 
 import { computeSaisonVerlauf } from "../../utils";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
+import type { PillTone } from "@/shared/components/ui/badges";
 import type { SaisonPhaseOutcome, SaisonPhaseVerlauf } from "../../utils";
 
 /**
- * A tint per outcome, none for decoration. `level` takes the timeline's draw amber.
+ * A tone per outcome, none for decoration. `level` takes the timeline's draw amber.
  *
- * **`pending` is not here**: a round nobody has played names a ROUND, not an outcome, so it takes
+ * **Neither `pending` nor `unknown` is here**: each names a ROUND rather than an outcome, and takes
  * `PHASE_TINTS` instead — see `chipTint`.
  */
-const OUTCOME_TINTS: Record<Exclude<SaisonPhaseOutcome, "pending">, string> = {
-  won: "bg-success/15 text-success-strong",
-  advanced: "bg-success/15 text-success-strong",
-  out: "bg-danger/15 text-danger-strong",
-  level: "bg-warning/15 text-warning-strong",
-  // The timeline's `?` dot pairing, so grey means "nothing is claimed" on both halves of the page.
-  unknown: "bg-muted text-foreground-muted",
+const OUTCOME_TINTS: Record<Exclude<SaisonPhaseOutcome, "pending" | "unknown">, PillTone> = {
+  won: "success",
+  advanced: "success",
+  out: "danger",
+  level: "warning",
 };
 
 /**
- * An outcome chip keeps its semantic colour; a standing chip takes its round's. "Steht im Halbfinale"
- * reports nothing about how anything went, so a feedback accent would colour a result the season
- * does not have.
+ * A chip with no outcome to report takes its round's own ink rather than a feedback grade, which
+ * would colour a result the season does not have.
  */
-const chipTint = ({ phase, outcome }: SaisonPhaseVerlauf): string => (outcome === "pending" ? PHASE_TINTS[phase] : OUTCOME_TINTS[outcome]);
+const chipTint = ({ phase, outcome }: SaisonPhaseVerlauf): PillTone =>
+  outcome === "pending" || outcome === "unknown" ? PHASE_TINTS[phase] : OUTCOME_TINTS[outcome];
 
 /**
  * Each chip is a whole sentence, because the row wraps and one may land alone on a line.
@@ -77,7 +76,7 @@ export function TeamSaisonVerlauf({ teamSpiele, teamId }: { teamSpiele: FLSpiel[
             <li key={phaseVerlauf.phase}>
               <Chip
                 size="sm"
-                className={`${PILL_RADIUS} fluid-xxs border-none px-2 py-1 font-bold ${chipTint(phaseVerlauf)}`}>
+                className={`${PILL_RADIUS} fluid-xxs border-none px-2 py-1 font-bold ${PILL_TINT[chipTint(phaseVerlauf)]}`}>
                 {outcomeLabel(phaseVerlauf)}
               </Chip>
             </li>

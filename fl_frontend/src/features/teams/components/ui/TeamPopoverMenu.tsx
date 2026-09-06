@@ -84,12 +84,13 @@ export function TeamPopoverMenu({
 
             <Popover.Heading className="fluid-base flex w-full flex-row items-center justify-between font-bold">
               <span className="truncate pr-2">{teamName}</span>
-              {/* `-strong` on the tint, as `SaisontabelleView`'s badge does: at this size the
-                  fill-grade accent measures 3.80:1 on this panel in light. */}
+              {/* `-strong` on the tint, as `SaisontabelleView`'s badge does: the plain accent measures
+                  3.76:1 on this panel in light and 4.06:1 in dark, both under the 4.5:1 this size
+                  answers to. */}
               {teamAustritt !== null && (
                 <span
                   aria-label={austrittZustand(teamAustritt)}
-                  className="bg-danger/10 text-danger-strong fluid-xxs rounded-md px-2 py-0.5 font-extrabold uppercase">
+                  className="bg-danger/15 text-danger-strong fluid-xxs rounded-md px-2 py-0.5 font-extrabold uppercase">
                   {austrittKuerzel(teamAustritt)}
                 </span>
               )}

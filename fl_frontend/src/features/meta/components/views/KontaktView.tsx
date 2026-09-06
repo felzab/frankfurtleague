@@ -1,14 +1,45 @@
 import Link from "next/link";
 
-import { ArrowsExpand, Envelope } from "@gravity-ui/icons";
+import { Envelope } from "@gravity-ui/icons";
 
-import { Card } from "@heroui/react";
-
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { BrandHero } from "@/shared/components/ui/BrandHero";
+import { card } from "@/shared/components/ui/card";
+import { ctaButton } from "@/shared/components/ui/formButtons";
+import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 
 import { KONTAKT_CHANNELS } from "../../constants";
+import { MetaSection } from "../ui/MetaSection";
 
 import type { ReactNode } from "react";
+import type { KontaktChannelId } from "../../types";
+
+const TILE = "bg-brand-solid text-brand-solid-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm";
+
+const MASK = "bg-brand-solid-foreground inline-block size-6 mask-contain mask-center mask-no-repeat";
+
+// A record rather than a chain: `KontaktChannelId` is a closed set, so a fourth channel fails to
+// compile here rather than rendering an empty tile nothing reports.
+const GLYPH: Record<KontaktChannelId, ReactNode> = {
+  email: (
+    <Envelope
+      aria-hidden="true"
+      className="size-6"
+    />
+  ),
+  instagram: (
+    <span
+      aria-hidden="true"
+      title="Instagram by Pixel Icons"
+      className={`${MASK} mask-[url('/icons/footer/instagram/instagram_logo_black.svg')]`}
+    />
+  ),
+  threads: (
+    <span
+      aria-hidden="true"
+      className={`${MASK} mask-[url('/icons/footer/threads/threads_logo_black.svg')]`}
+    />
+  ),
+};
 
 /**
  * `bewerbungSlot` is injected rather than read here: the band's read needs a request scope and its
@@ -16,101 +47,52 @@ import type { ReactNode } from "react";
  * then — a boundary resolving to `null` renders no box.
  */
 export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
-  const getIcon = (id: string) => {
-    switch (id) {
-      case "email":
-        return (
-          <Envelope
-            aria-hidden="true"
-            width={32}
-            height={32}
-          />
-        );
-      case "instagram":
-        return (
-          <span
-            aria-hidden="true"
-            title="Instagram by Pixel Icons"
-            className="bg-field-fg inline-block size-8 mask-[url('/icons/footer/instagram/instagram_logo_black.svg')] mask-contain mask-center mask-no-repeat"
-          />
-        );
-      case "threads":
-        return (
-          // `bg-field-fg`, not `bg-foreground` as in the Footer: this icon sits on the green field
-          // card, where the foreground is white in both themes.
-          <span
-            aria-hidden="true"
-            className="bg-field-fg inline-block size-8 mask-[url('/icons/footer/threads/threads_logo_black.svg')] mask-contain mask-center mask-no-repeat"
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
-    <div className={`${PAGE_RISE} max-w-meta flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8`}>
-      <div className="flex flex-col items-center px-2 text-center">
-        <h1 className="fluid-2xl lg:fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">Frankfurt-League Kontakt</h1>
-        <p className="fluid-sm sm:fluid-sm text-field-fg/80 mt-2 font-medium">Wir haben immer ein offenes Ohr für Dein Anliegen.</p>
-      </div>
+    <div className={`${PAGE_RISE} flex w-full flex-col gap-y-8 sm:gap-y-12`}>
+      <BrandHero
+        title="Kontakt"
+        lead="Wir haben immer ein offenes Ohr für Dein Anliegen. Fragen oder Anregungen zur Liga? Schreib uns. Wir melden uns schnellstmöglich bei Dir."
+      />
 
       {/* No wrapper and no margin of its own: it takes the column's `gap-y` like every block here, so
           the rhythm holds whether it renders or not. */}
       {bewerbungSlot}
 
-      <div className="soccer-field-separator w-full" />
-
-      <section className="flex w-full flex-col gap-y-3 sm:gap-y-4">
-        <div className="text-field-fg flex flex-row items-center gap-x-3">
-          <ArrowsExpand className="size-5 drop-shadow sm:size-6 lg:size-7" />
-          <h2 className="fluid-base sm:fluid-lg font-extrabold tracking-wide uppercase">Wir sind für alles offen</h2>
-        </div>
-
-        <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-5 shadow-xl sm:p-6 lg:p-8">
-          <p className="fluid-xs sm:fluid-sm text-field-fg/95 leading-relaxed font-medium text-pretty">
-            Fragen oder Anregungen zur Liga? Schreib uns. Wir melden uns schnellstmöglich bei Dir.
-          </p>
-        </div>
-      </section>
-
-      <div className="soccer-field-separator w-full" />
-
-      <section
-        role="list"
-        className="grid w-full grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {KONTAKT_CHANNELS.map((channel) => (
-          <Card
-            role="listitem"
-            key={channel.id}
-            className="soccer-field-card-bg soccer-field-card-border flex flex-col justify-between rounded-2xl border p-5 shadow-xl sm:p-6">
-            <div>
-              <Card.Header className="flex flex-row items-center gap-x-3.5 p-0 sm:gap-x-4">
-                <div className="bg-field-fg/10 flex size-11 shrink-0 items-center justify-center rounded-xl p-2 shadow-inner sm:size-12">
-                  {getIcon(channel.id)}
+      <MetaSection
+        eyebrow="So erreichst Du uns"
+        title="Kanäle">
+        <div
+          role="list"
+          className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3`}>
+          {KONTAKT_CHANNELS.map((channel) => (
+            <div
+              role="listitem"
+              key={channel.id}
+              className={`${card()} flex flex-col justify-between gap-y-5 p-5 sm:p-6`}>
+              <div className="flex flex-col gap-y-4">
+                <div className="flex flex-row items-center gap-x-3">
+                  <span
+                    aria-hidden="true"
+                    className={TILE}>
+                    {GLYPH[channel.id]}
+                  </span>
+                  <span className="fluid-base text-foreground font-bold">{channel.name}</span>
                 </div>
-                <div className="fluid-sm sm:fluid-base text-field-fg font-extrabold tracking-wider uppercase">{channel.name}</div>
-              </Card.Header>
 
-              <div className="soccer-field-separator my-3 sm:my-4" />
+                <span className="fluid-sm text-foreground font-semibold break-words">{channel.value}</span>
+              </div>
 
-              <Card.Content className="p-0">
-                <span className="fluid-sm text-field-fg/90 font-mono font-bold tracking-tight break-all">{channel.value}</span>
-              </Card.Content>
-            </div>
-
-            <Card.Footer className="p-0 pt-5 sm:pt-6">
               <Link
                 href={channel.action}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="fluid-xs border-field-fg/30 bg-field-fg/10 text-field-fg hover:border-field-fg hover:bg-field-fg/25 flex w-full items-center justify-center rounded-xl border py-3 font-bold uppercase backdrop-blur-sm transition-[scale,background-color,border-color] duration-200 active:scale-95">
-                Jetzt kontaktieren
+                // Never onto the `mailto:`: the mail client opens and an empty tab stays behind it.
+                {...(channel.action.startsWith("mailto:") ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+                className={`${ctaButton({ intent: "outline", size: "sm", hover: "css" })} w-full`}>
+                {channel.cta}
               </Link>
-            </Card.Footer>
-          </Card>
-        ))}
-      </section>
+            </div>
+          ))}
+        </div>
+      </MetaSection>
     </div>
   );
 }

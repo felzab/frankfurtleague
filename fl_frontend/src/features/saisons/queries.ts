@@ -2,6 +2,7 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
+import { APIBadStatusError } from "@/core/errors";
 import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
 
 import { FLSaisonsListResponseSchema, FLSaisonsSingleResponseSchema } from "./schemas";
@@ -39,4 +40,24 @@ export async function getCurrentSaison(): Promise<FLSaisonsSingleResponse> {
   cacheLife("days");
 
   return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema);
+}
+
+/**
+ * `null` where no season is marked active: the backend answers that with a 404 rather than an
+ * empty body (`fl_backend/app/api/saisons/crud.py :: pull_current_saison`). A stored absence
+ * clears on the next season write, which every activation is.
+ */
+export async function getCurrentSaisonOrNull(): Promise<FLSaisonsSingleResponse | null> {
+  "use cache";
+
+  cacheTag("saisons");
+  cacheLife("days");
+
+  return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema).catch((error: unknown) => {
+    // Inside the cache scope: an error thrown out of one reaches the caller redacted to a digest,
+    // so a catch at the call site cannot recognise it
+    // (`fl_frontend/src/features/teams/queries.ts :: getTeam`).
+    if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+    throw error;
+  });
 }

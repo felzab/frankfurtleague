@@ -62,7 +62,7 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
             ergebnis={spielErgebnis}
             elfmeterschiessen={spielElfmeterschiessen}
             className={`fluid-xs flex flex-col items-center rounded-md px-1.5 py-0.5 text-center font-extrabold ${
-              spielData.ergebnis !== null ? "bg-success/15 text-success-strong" : "bg-danger/15 text-danger-strong"
+              spielData.ergebnis !== null ? "bg-success/15 text-success-strong" : "bg-warning/15 text-warning-strong"
             }`}
           />
 

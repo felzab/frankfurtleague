@@ -79,6 +79,60 @@ SPIELER_PANEL: Final = "fl_frontend/src/features/spieler/Panel.tsx"
 # A file sitting directly under a slice root, so a named segment can be one the tree defines no
 # slice for. Every other fixture path under these roots names a folder.
 SLICE_STRAY: Final = "fl_frontend/src/features/registry.ts"
+SCHEME: Final = "fl_frontend/src/app/schemes/2025-26.css"
+# A second season, planted rather than committed: the past scheme a file-to-file drift needs.
+PAST_SCHEME: Final = "fl_frontend/src/app/schemes/2024-25.css"
+APP_GLOBALS: Final = "fl_frontend/src/app/globals.css"
+# Spelled out rather than lifted from the checker's own roster: a corpus built from what it asserts
+# would follow the roster wherever it went, and a token dropped from both would stay green.
+SCHEME_TOKENS: Final[tuple[tuple[str, str, str], ...]] = (
+    ("--bg-base", "#ffffff", "#030303"),
+    ("--bg-surface", "#f5f5f5", "#121212"),
+    ("--bg-muted", "#e5e5e5", "#262626"),
+    ("--fg-base", "#0a0a0a", "#ffffff"),
+    ("--fg-muted", "#525252", "#a3a3a3"),
+    ("--fg-on-brand", "#ffffff", "#ffffff"),
+    ("--border-base", "#d4d4d4", "#333333"),
+    ("--bg-hover", "#dfdfdf", "#212121"),
+    ("--bg-hover-muted", "#cfcfcf", "#373737"),
+    ("--bg-hover-danger", "#f2d9d2", "#321a14"),
+    ("--bg-hover-field", "#3f7043", "#2f5633"),
+    ("--accent-brand-solid-hover", "#1b5123", "#1b5123"),
+    ("--accent-danger-solid-hover", "#c74434", "#c74434"),
+    ("--accent-brand", "#216c2d", "#8fc752"),
+    # The one token the light block alone declares, and the reason the two blocks differ by one.
+    ("--focus", "var(--fg-base)", ""),
+    ("--accent-brand-solid", "#033f11", "#033f11"),
+    ("--accent-on-brand", "#8fc752", "#8fc752"),
+    ("--accent-warn", "#ad8900", "#f2c94c"),
+    ("--accent-danger", "#e16a4c", "#e76f51"),
+    ("--accent-success", "#00a085", "#02c0a0"),
+    ("--accent-info", "#466fbd", "#719def"),
+    ("--accent-success-strong", "#006a58", "#01d5b2"),
+    ("--accent-info-strong", "#3560b3", "#90b7ff"),
+    ("--accent-warn-strong", "#855b00", "#fbd76e"),
+    ("--accent-danger-strong", "#b02d1f", "#f89177"),
+    ("--accent-success-solid", "#007864", "#007864"),
+    ("--accent-warn-solid", "#f2c94c", "#f2c94c"),
+    ("--accent-danger-solid", "#b02d1f", "#b02d1f"),
+    ("--fg-on-success", "#ffffff", "#ffffff"),
+    ("--fg-on-warn", "#0a0a0a", "#0a0a0a"),
+    ("--fg-on-danger", "#ffffff", "#ffffff"),
+    ("--accent-phase-gruppenphase", "#026a73", "#00c1d1"),
+    ("--accent-phase-achtelfinale", "#026799", "#47b5fa"),
+    ("--accent-phase-viertelfinale", "#5d53ae", "#a29dff"),
+    ("--accent-phase-halbfinale", "#8a428e", "#d78adb"),
+    ("--accent-phase-finale", "#a13958", "#f3829f"),
+    ("--field-base", "#38753f", "#16371a"),
+    ("--field-card", "#2c5d31", "#1d4422"),
+    ("--field-fg", "#ffffff", "#ffffff"),
+    ("--field-border", "color-mix(in srgb, #ffffff 40%, transparent)", "color-mix(in srgb, #ffffff 20%, transparent)"),
+    ("--skeleton-sweep", "color-mix(in srgb, #ffffff 55%, transparent)", "color-mix(in srgb, #ffffff 9%, transparent)"),
+)
+# Reached by no Tailwind utility, so the bridge below carries neither: the focus-visible rule reads
+# one and the shimmer's own gradient the other.
+UNBRIDGED_TOKENS: Final = ("--focus", "--skeleton-sweep")
+
 # The one file carrying German a reader would see. It holds the date range as well, that being the
 # only dash §1.12 permits and the only thing keeping the formatter exemption from reading as stale.
 COPY_SAMPLE: Final = "fl_frontend/src/copy.tsx"
@@ -186,6 +240,27 @@ def _heading(level: int, text: str) -> str:
 
 def _page(*lines: str) -> str:
     return "\n".join(lines) + "\n"
+
+
+def _scheme_page() -> str:
+    """One season's scheme file: the light block, then the dark one minus what it never declares.
+
+    The bare `:root` at the end is a third block, which a reader scanning for one would take.
+    """
+    lines = ["@layer base {", "  :root,", '  [data-theme="light"] {']
+    lines += [f"    {token}: {light};" for token, light, _ in SCHEME_TOKENS]
+    lines += ["  }", "", '  [data-theme="dark"] {']
+    lines += [f"    {token}: {dark};" for token, _, dark in SCHEME_TOKENS if dark]
+    lines += ["  }", "}", "", "@media (prefers-reduced-motion: reduce) {", "  :root {", "    --card-enter-shift: 0;", "  }", "}"]
+    return _page(*lines)
+
+
+def _globals_page() -> str:
+    """The stylesheet importing the season, carrying the bridge the roster is resolved against."""
+    lines = ["@layer theme, base, components, utilities;", '@import "tailwindcss";', '@import "./schemes/2025-26.css";', "", "@theme {"]
+    lines += [f"  --color-{token[2:]}: var({token});" for token, _, _ in SCHEME_TOKENS if token not in UNBRIDGED_TOKENS]
+    lines += ["}"]
+    return _page(*lines)
 
 
 def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
@@ -509,6 +584,8 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "  return <output>a component the corpus scans</output>;",
             "}",
         ),
+        SCHEME: _scheme_page(),
+        APP_GLOBALS: _globals_page(),
         COPY_SAMPLE: _page(
             "export function Copy() {",
             "  const zeitraum = `${formatSpielDatum(start)} – ${formatSpielDatum(ende)}`;",
@@ -1022,6 +1099,22 @@ def _plant_enforced_by() -> None:
     _replace(STANDARD, "_Enforced by_ review judgment.", "_Enforced by_ gate check `absent-check`.")
 
 
+def _plant_scheme_token() -> None:
+    """One violation per arm the scheme check carries, planted together.
+
+    A plant breaking one arm would leave the rest reading as driven. The import stays resolvable,
+    or the arms resting on a token list fall silent beside it.
+    """
+    # Written from the pristine page and before the edits below, or the past season inherits them.
+    write(_gate().root, PAST_SCHEME, _scheme_page().replace("    --border-base: #d4d4d4;\n", "", 1))
+    _replace(SCHEME, '  [data-theme="dark"] {', '  [data-theme="dark"] {\n    --focus: var(--fg-base);')
+    _replace(SCHEME, "    --bg-hover: #dfdfdf;", "    --bg-hover: #dfdfdf80;")
+    _replace(SCHEME, "    --bg-hover-muted: #cfcfcf;", "    --bg-hover-muted: #e5e5e5;")
+    _replace(SCHEME, "    --fg-on-success: #ffffff;", "    --fg-on-success: #9ad9c9;")
+    _replace(SCHEME, "    --accent-brand: #8fc752;", "    --accent-brand: #011f08;")
+    _replace(APP_GLOBALS, "  --color-bg-base: var(--bg-base);", "  --color-bg-base: var(--bg-invented);")
+
+
 def _plant_cell_prose() -> None:
     """A spec-sheet cell carrying a paragraph, beside one that is a verbatim fragment.
 
@@ -1246,6 +1339,9 @@ CASES: Final[tuple[Case, ...]] = (
     # a multiply homed id fails, and the definition lines are themselves citations.
     Case("rule-id", _fails("rule-id", NOTES, SAMPLE, STANDARD), _plant_rule_ids),
     Case("rule-shape", _fails("rule-shape", STANDARD, STANDARD), _plant_rule_shapes),
+    # Ten on the season: the dark brand darkened for the ordering arm fails five floored pairs on
+    # the way, and a plant dodging that would be one no scheme file could ever carry.
+    Case("scheme-token", _fails("scheme-token", *[SCHEME] * 10, PAST_SCHEME, APP_GLOBALS), _plant_scheme_token),
     Case("segment-map", _fails("segment-map", SWEEP, SWEEP), _plant_segment_map),
     Case("sha", _fails("sha", NOTES), lambda: _append(NOTES, "The commit `abc1234` is gone.")),
     Case("spec-spine", _fails("spec-spine", BACKEND_SPEC, FRONTEND_SPEC), _plant_spec_spines),
@@ -1310,6 +1406,23 @@ def test_every_registered_check_and_verdict_has_a_plant() -> None:
     registered = {(severity, name) for name, severities in checks.items() for severity in severities}
     planted = {(severity, check) for case in CASES for severity, check, _ in case.expected}
     assert planted == registered, "unplanted: " + repr(sorted(registered - planted))
+
+
+def test_a_season_nothing_imports_leaves_the_token_list_unanchored() -> None:
+    """The import arm cannot share the scheme case's plant: with no season there is no token list.
+
+    Driven directly for that reason, and the count is what parts the one finding from the parity
+    arms falling silent beside it.
+    """
+    _reset()
+    _replace(APP_GLOBALS, '@import "./schemes/2025-26.css";', '@import "./schemes/1999-00.css";')
+    try:
+        code, reported = _run()
+    finally:
+        _reset()
+    assert reported == Counter({("fail", "scheme-token", APP_GLOBALS): 1}), "an unimported season: " + _shape(reported)
+    assert code == 1
+    _assert_corpus_restored()
 
 
 def test_a_check_naming_one_page_reads_the_tracked_one() -> None:

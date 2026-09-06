@@ -2,15 +2,15 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Frankfurt-League",
+    name: "Frankfurt League",
     short_name: "FL",
-    description: "Die Frankfurt-League ist die Oberstufenliga der Frankfurter Schulen. Finde heraus, welche Schule gewinnt!",
+    description: "Die Frankfurt League ist die Oberstufenliga der Frankfurter Schulen. Finde heraus, welche Schule gewinnt!",
     start_url: "/",
     display: "standalone",
     // Not white: `background_color` paints the splash before the first frame, so an installed app
     // would open on a white flash.
-    theme_color: "#82181a",
-    background_color: "#82181a",
+    theme_color: "#033f11",
+    background_color: "#033f11",
     icons: [
       // Both purposes stay: without the `any` pair, platforms honouring it show the padded image.
       { src: "/icons/manifest/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

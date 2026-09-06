@@ -29,9 +29,11 @@ export function ContentLoader({ fills }: { fills?: "region" | "viewport" } = {})
       role="status"
       aria-label="Inhalte werden geladen"
       className={contentLoader({ fills })}>
-      <span className="bg-brand-solid animate-loader-dot size-2.5 rounded-full [animation-delay:-0.4s]" />
-      <span className="bg-brand-solid animate-loader-dot size-2.5 rounded-full [animation-delay:-0.2s]" />
-      <span className="bg-brand-solid animate-loader-dot size-2.5 rounded-full" />
+      {/* `bg-brand`, which flips: the solid fill sinks into the dark page, and a loader nobody
+          can see is a blank region. */}
+      <span className="bg-brand animate-loader-dot size-2.5 rounded-full [animation-delay:-0.4s]" />
+      <span className="bg-brand animate-loader-dot size-2.5 rounded-full [animation-delay:-0.2s]" />
+      <span className="bg-brand animate-loader-dot size-2.5 rounded-full" />
     </div>
   );
 }

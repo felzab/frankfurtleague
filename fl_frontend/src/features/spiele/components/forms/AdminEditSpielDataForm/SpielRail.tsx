@@ -2,7 +2,7 @@
 
 import { ArrowRight } from "@gravity-ui/icons";
 
-import { COUNT_BADGE, LABEL_BADGE } from "@/shared/components/ui/badges";
+import { COUNT_BADGE, labelBadge } from "@/shared/components/ui/badges";
 import { RailChangesSection, RailHinweiseSection } from "@/shared/components/ui/DraftRail";
 import { useDraftStatus } from "@/shared/components/ui/DraftStatusContext";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -58,7 +58,7 @@ export function SpielRail({
             body={{ lead: "Das Spiel, wie es nach dem Speichern erscheint." }}
           />
         }
-        badge={status.isDirty ? <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong`}>Nicht gespeichert</span> : undefined}>
+        badge={status.isDirty ? <span className={labelBadge("warning")}>Nicht gespeichert</span> : undefined}>
         <SpielDraftPreview
           previewSpiel={previewSpiel}
           today={today}

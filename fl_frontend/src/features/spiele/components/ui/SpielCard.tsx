@@ -112,7 +112,7 @@ export function SpielCard({
         <SpielScore
           ergebnis={spielErgebnis}
           elfmeterschiessen={spielElfmeterschiessen}
-          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}
+          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success-strong" : "text-warning-strong"}`}
         />
 
         <span className="flex min-w-0 justify-start">

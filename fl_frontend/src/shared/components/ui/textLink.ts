@@ -5,7 +5,9 @@ export const textLink = tv({
   base: "underline underline-offset-2 transition-colors",
   variants: {
     tone: {
-      brand: "text-brand hover:text-brand-solid",
+      // The hover grade flips: `brand-solid` is one value in both themes, so hovering to it in the
+      // dark theme sank a link into its own card at 1.53:1 (`docs/frontend/spec.md` §1.17).
+      brand: "text-brand hover:text-brand-solid dark:hover:text-brand-solid-accent",
       /** Quieter, for a link ranked below a primary action rather than one carrying the page's own. */
       muted: "text-foreground-muted hover:text-foreground",
     },

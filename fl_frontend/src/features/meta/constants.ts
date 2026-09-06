@@ -7,11 +7,11 @@ import type { KontaktChannel, QaQuestion, TeamMember } from "./types";
 const TEAM_MEMBERS: TeamMember[] = [
   { id: 1, name: "David", role: "Vorstand", desc: "Ligaleitung & Orga", tag: "vorstand" },
   { id: 2, name: "Maria-Lucia", role: "Vorstand", desc: "Ligaleitung & Orga", tag: "vorstand" },
-  { id: 3, name: "Matin", role: "Organisation", desc: "Orga & Verwaltung", tag: "orga" },
-  { id: 4, name: "Mana", role: "Organisation", desc: "Orga & Verwaltung", tag: "orga" },
-  { id: 5, name: "Nick", role: "Organisation", desc: "Orga & Verwaltung", tag: "orga" },
-  { id: 6, name: "Vincent", role: "Organisation", desc: "Orga & Verwaltung", tag: "orga" },
-  { id: 7, name: "Felix", role: "Development", desc: "Website & Infrastruktur", tag: "web" },
+  { id: 3, name: "Matin", role: "Spielbetrieb", desc: "Orga & Verwaltung", tag: "orga" },
+  { id: 4, name: "Mana", role: "Spielbetrieb", desc: "Orga & Verwaltung", tag: "orga" },
+  { id: 5, name: "Nick", role: "Spielbetrieb", desc: "Orga & Verwaltung", tag: "orga" },
+  { id: 6, name: "Vincent", role: "Spielbetrieb", desc: "Orga & Verwaltung", tag: "orga" },
+  { id: 7, name: "Felix", role: "Entwicklung", desc: "Website & Infrastruktur", tag: "web" },
   { id: 8, name: "Nikolas", role: "Design", desc: "Design & Kommunikation", tag: "web" },
   { id: 9, name: "Cornelia", role: "Design", desc: "Layout & Design", tag: "web" },
   { id: 10, name: "Jonathan", role: "Kommunikation", desc: "Kommunikation & Orga", tag: "web" },
@@ -20,8 +20,15 @@ const TEAM_MEMBERS: TeamMember[] = [
 /** Section heading per tag. Keyed by the union, so a new tag is a compile error here. */
 export const TAG_TITLES: Record<TeamMember["tag"], string> = {
   vorstand: "Vorstand",
-  orga: "Organisation",
+  orga: "Spielbetrieb",
   web: "Web, Design & Kommunikation",
+};
+
+/** The eyebrow over each section's heading, keyed by the union like `TAG_TITLES` and for the same reason. */
+export const TAG_EYEBROWS: Record<TeamMember["tag"], string> = {
+  vorstand: "Ligaleitung",
+  orga: "Verwaltung",
+  web: "Website und Auftritt",
 };
 
 /**
@@ -44,14 +51,22 @@ export const KONTAKT_CHANNELS: KontaktChannel[] = [
     // sends a visitor somewhere nobody is.
     value: KONTAKT_EMAIL,
     action: `mailto:${KONTAKT_EMAIL}`,
+    cta: "E-Mail schreiben",
   },
   {
     id: "instagram",
     name: "Instagram",
     value: INSTAGRAM_HANDLE,
     action: INSTAGRAM_URL,
+    cta: "Profil öffnen",
   },
-  { id: "threads", name: "Threads", value: "@frankfurt.league", action: "https://www.threads.com/@frankfurt.league" },
+  {
+    id: "threads",
+    name: "Threads",
+    value: "@frankfurt.league",
+    action: "https://www.threads.com/@frankfurt.league",
+    cta: "Profil öffnen",
+  },
 ];
 
 export const QA_QUESTIONS: QaQuestion[] = [
@@ -63,7 +78,7 @@ export const QA_QUESTIONS: QaQuestion[] = [
   {
     id: "organisation",
     q: "Wer organisiert die Liga?",
-    a: "Ehrenamtliche Schülerinnen, Schüler und Helfer. Wer dazugehört, steht auf der Team-Seite.",
+    a: "Ehrenamtliche Schülerinnen, Schüler und Helfer. Wer dazugehört, steht auf der Seite „Organisation“.",
   },
   {
     id: "regeln",
@@ -73,7 +88,7 @@ export const QA_QUESTIONS: QaQuestion[] = [
   {
     id: "teilnahme",
     q: "Wer darf in den Teams mitspielen?",
-    a: "Nur Schülerinnen und Schüler des Abijahrgangs, für den das Team antritt.",
+    a: "Nur Schülerinnen und Schüler des Abi-Jahrgangs, für den das Team antritt.",
   },
   {
     id: "bewerbung",
@@ -88,12 +103,12 @@ export const QA_QUESTIONS: QaQuestion[] = [
   {
     id: "preise",
     q: "Was bekommt der Gewinner?",
-    a: "Das meiste Geld, dazu Ruhm und Ehre als bester Abijahrgang des Jahres.",
+    a: "Das meiste Geld, dazu Ruhm und Ehre als bester Abi-Jahrgang des Jahres.",
   },
   {
     id: "lehrer",
     q: "Dürfen auch Lehrer mitspielen?",
-    a: "Nein, die Frankfurt-League ist eine reine Schülerliga. Als Fans an der Seitenlinie sind Lehrer willkommen.",
+    a: "Nein, die Frankfurt League ist eine reine Schülerliga. Als Fans an der Seitenlinie sind Lehrer willkommen.",
   },
   {
     id: "schiedsrichter-platzgebühr",
