@@ -208,6 +208,14 @@ MESSAGE_CASES: Final[tuple[Case, ...]] = (
         (("fail", "is the only trailer the convention carries"),),
         departed=frozenset({TOKEN}),
     ),
+    # The entries and the trailer lines are compared as sets, where one line written twice is one
+    # member: without this refusal a doubled trailer agrees with a diff retiring the entry once.
+    Case(
+        "a Closes trailer written out twice",
+        _message("Ops: the gate proves it", CLEAN_BODY, f"Closes: {TOKEN}\nCloses: {TOKEN}"),
+        (("fail", "the message repeats the trailer"),),
+        departed=frozenset({TOKEN}),
+    ),
     Case(
         "a commit retiring two entries at once",
         _message("Ops: the gate proves it", CLEAN_BODY, f"Closes: {TOKEN}\nCloses: {OTHER_TOKEN}"),

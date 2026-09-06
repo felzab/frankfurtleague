@@ -362,12 +362,14 @@ narrower than this Scope in a way INC-2 states.
   where the published document carries it AND a route decorator sits above it. **The two are one
   population, not two**: that document is generated from these same docstrings, so PRE-4's
   independence is not what this pair buys — what it buys is that a docstring the API does not
-  publish keeps this bound, the decorator alone never deciding. A block the branch found already over the bound keeps that standing while the
-  branch does not lengthen it, matched to its earlier self — at whatever path the fork's tree filed
-  it under — by the lines the two versions share rather than by its first line, so improving an
-  over-bound block's opening sentence costs nothing and adding to one fails; one standing is spent
-  between every block matching it, so splitting or copying a block buys no second ceiling; a block
-  over the bound that no branch has touched is `/docs:audit`'s (CUR-6).
+  publish keeps this bound, the decorator alone never deciding. A block the branch found already
+  over the bound keeps that standing while the branch does not lengthen it, matched to its earlier
+  self — at whatever path the fork's tree filed it under — by the lines the two versions share
+  rather than by its first line, so improving an over-bound block's opening sentence costs nothing
+  and adding to one fails; one standing is spent between every block in the same file matching it,
+  so splitting or copying a block inside that file buys no second ceiling, while a match in another
+  file inherits the standing and spends none of it; a block over the bound that no branch has
+  touched is `/docs:audit`'s (CUR-6).
 
 ## Corpus
 

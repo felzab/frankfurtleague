@@ -81,7 +81,9 @@ Four things a body carries that the diff cannot:
 No issue-closing keywords and no emoji. **One trailer kind, `Closes: <token>`**, one line per
 roadmap entry the commit retires, in the last paragraph where git reads a trailer at all and with
 nothing else in that paragraph — the lines and the entries the diff retires are compared as sets, so
-a commit retiring two carries two and one carrying a line it did not retire is refused alike. It is **required** of a commit whose diff retires an entry — a heading it removes
+a commit retiring two carries two and one carrying a line it did not retire is refused alike, and a
+line written twice is refused on its own, one member of that set saying nothing about the second
+copy. It is **required** of a commit whose diff retires an entry — a heading it removes
 from the roadmap and does not put back — and **refused** of a commit whose diff retires none, the
 second half being what stops the convention drifting back toward general-purpose trailers. The token
 is the entry's own id and nothing else validates

@@ -2,8 +2,12 @@
 
 `docs/_standard/standard.md`'s Scope line names the trees and
 `scripts/checks/docs_gate/kernel.py`'s suffix registers name the kinds; this file sweeps the first
-for a file whose kind the second leaves unread. The two are reached by different routes and required
-to agree (PRE-4), so narrowing either breaks the agreement.
+for a file whose kind the second leaves unread. What the sweep catches is a tree the Scope names and
+this repository does not hold, a Dockerfile, workflow or manifest the Scope reaches by kind while
+`scripts/checks/docs_gate/branch.py :: _bounded` does not, and one of those three drifting inside a
+named tree. Narrowing `_bounded` itself is `scripts/tests/test_scope_agreement.py :: _bounded_of`'s,
+which refuses a selection by tree and reads the register out of that function rather than naming one
+here.
 """
 
 from __future__ import annotations

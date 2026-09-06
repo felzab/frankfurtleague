@@ -341,7 +341,7 @@ bound to the word count it ran to there rather than to the bound.
 content lines the two share — **any one shared line is a match**, the largest overlap wins, and a tie
 goes to the largest fork word count. The candidates are the blocks the fork held **over** the bound,
 anywhere in its tree, so a block carried into a file the fork has no version of keeps its standing.
-Five consequences, each of which otherwise costs a rebase to discover:
+Six consequences, each of which otherwise costs a rebase to discover:
 
 - **Improving this block's opening sentence costs it nothing.** An overlap of lines is not a key on
   the first one, so the edit an over-bound block most invites is free
@@ -355,10 +355,14 @@ Five consequences, each of which otherwise costs a rebase to discover:
   length the bound would refuse. Read a pass as the check's answer about matching rather than as a
   verdict on the prose: COR-5's test and INC-9's three questions decide the block, and the ceiling
   only says what the gate will let through.
-- **One standing is spent between every block matching it.** Split this block in two and the halves
-  are charged together against the one count it ran to at the fork; copy it and leave the original
-  standing, and the pair is charged the same way. The block reported is the one the branch's own
-  diff touched, which is the half a rebase can fix (CUR-6).
+- **One standing is spent between every block in the same file matching it.** Split this block in
+  two and the halves are charged together against the one count it ran to at the fork; copy it
+  inside that file and leave the original standing, and the pair is charged the same way. The block
+  reported is the one the branch's own diff touched, which is the half a rebase can fix (CUR-6).
+- **A copy in another file inherits the standing and spends none of it.** Charging the pair across
+  files would fail a branch for a file it never opened, so a block carried into a second file passes
+  at the length its earlier self ran to and the pair is `/docs:audit`'s
+  (`scripts/tests/test_branch_checks.py :: test_a_block_copied_into_a_second_file_spends_no_part_of_the_first_s_ceiling`).
 - **A truly new block comes under the bound or the gate stays red**, INC-9's stay-over-it clause
   being no answer to a gate that has already refused. Where the fact will not compress, it is at the
   wrong rung: take INC-9's first question again and move the contract half out, as the example above

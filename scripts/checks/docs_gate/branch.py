@@ -118,6 +118,10 @@ Ancestor = tuple[frozenset[str], int]
 
 BATCH_HEADER: Final = " blob "
 
+# What the pool's own refusal names. Alone rather than inside `DIFF_READERS`: the pool is a second
+# read this one check makes, and the three beside it answer from the diff whatever it does.
+POOL_READER: Final = "comment length"
+
 
 @cache
 def _fork_pool(fork: str) -> list[Ancestor] | None:
@@ -147,7 +151,13 @@ def _fork_pool(fork: str) -> list[Ancestor] | None:
         # index a decoded stream, and a looser split takes a content line for a header.
         if not batch.startswith(oid + BATCH_HEADER, at):
             return None
-        start = batch.find("\n", at) + 1
+        opened = batch.find("\n", at)
+        # `git_input` right-strips the stream, so a final blob that is empty or all whitespace ends
+        # it on its own header, where an offset of 0 would take the whole batch. Earlier the stream
+        # is short of a record.
+        if opened == -1:
+            return pool if index == len(named) - 1 else None
+        start = opened + 1
         following = named[index + 1][0] if index + 1 < len(named) else None
         end = len(batch) if following is None else batch.find("\n" + following + BATCH_HEADER, start)
         if end == -1:
@@ -185,9 +195,7 @@ def _fork_charges(runs: list[tuple[int, list[str]]], older: list[Ancestor]) -> d
     return charges
 
 
-def check_comment_length(
-    path: Path, raw: str, added: set[int], fork_blocks: Callable[[], list[Ancestor] | None] | None = None
-) -> list[Finding]:
+def check_comment_length(path: Path, raw: str, added: set[int], fork_blocks: Callable[[], list[Ancestor] | None]) -> list[Finding]:
     """A comment block this branch touched, unless the branch found it over the bound already.
 
     Requiring the WHOLE block to be added missed every one a branch lengthened; failing a word
@@ -215,11 +223,17 @@ def check_comment_length(
         if older is None:
             # Read here rather than per call: the pool costs one listing and one batch, and a file
             # whose touched blocks all keep the bound never needs either.
-            older = (fork_blocks() if fork_blocks is not None else None) or []
+            older = fork_blocks()
+            if older is None:
+                # Refused rather than read as an empty pool: with no ceilings at all every block the
+                # fork already carried is failed for prose this branch never wrote.
+                return [_branch_scope_skipped(POOL_READER, "read the blocks the fork's tree held over the bound")]
             charges = _fork_charges(runs, older)
         words = word_count(text)
         ancestor = _fork_ancestor(block, older)
-        ceiling = None if ancestor is None else ancestor[1]
+        # Times the fork's own copies of it: two identical blocks collapse to one key, and a file
+        # holding both would be charged for the pair against the standing of one.
+        ceiling = None if ancestor is None else ancestor[1] * older.count(ancestor)
         charged = words if ancestor is None else charges.get(ancestor, words)
         if ceiling is not None and charged <= ceiling:
             continue
@@ -281,13 +295,17 @@ REVIEW_REF_RE: Final = re.compile(
 LOOSE_ID_RE: Final = re.compile(r"\b[a-z0-9]{4}-[a-z0-9]{4}\b")
 
 
-# An issue number's spelling, whose tracker sits outside this history (INC-6). The qualified form
-# goes unread: a repository path before the hash is the citation COR-6 asks a comment for.
-ISSUE_REF_RE: Final = re.compile(r"(?<![&\w])#\d+(?![\w-])")
+# An issue number's spelling, whose tracker sits outside this history (INC-6). Three shapes carry
+# the same run and name no issue: `&#39;` an entity, `spec.md#2-invariants` an anchor, and `#000;`
+# or `#000)` a hex colour.
+ISSUE_REF_RE: Final = re.compile(r"(?<!&)#\d+(?![\w\-;)])")
 
 # `checks.py :: QUOTED_SPAN_RE`'s spans, spelled again rather than imported: `checks.py` reads this
 # module, so an import back would close a cycle.
 MENTION_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|`[^`\n]*`|“[^”\n]*”")
+# Taken off before those spans: a one-line docstring opens and closes on a pair of them, so the
+# whole of it reads as quoted and nothing inside it is ever seen.
+TRIPLE_QUOTE_RE: Final = re.compile(r"\"{3}|'{3}")
 
 
 def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
@@ -311,7 +329,8 @@ def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
             )
         # This pattern alone reads the body with its quoted runs taken out, as `check_owner_voice`
         # reads one for COR-11: a comment naming the shape to ban it is a mention rather than a use.
-        for issue in sorted(set(ISSUE_REF_RE.findall(MENTION_SPAN_RE.sub("", body)))):
+        mentions = MENTION_SPAN_RE.sub("", TRIPLE_QUOTE_RE.sub("", body))
+        for issue in sorted(set(ISSUE_REF_RE.findall(mentions))):
             found.append(Finding("fail", "comment-citation", rel, f"issue number {issue} in an added comment -- state the constraint (INC-6)"))
     return found
 
@@ -446,10 +465,11 @@ def _added_by_file(fork: str) -> dict[str, list[tuple[int, str]]] | None:
 
 @cache
 def _added_ignoring_renames(fork: str) -> dict[str, list[tuple[int, str]]] | None:
-    """The same walk with rename detection off, which `check_comment_length` alone reads.
+    """The same walk, rename detection off, for `check_comment_length`.
 
-    A detected rename emits hunks for the edited lines alone, so a block carried into the
-    destination is skipped at any length.
+    A detected rename emits hunks for the edited lines, so a carried block goes unmeasured.
+    `branch_additions` keeps the rename-detecting map, where a moved file's history phrases would
+    read as this branch's own.
     """
     return _walk_added(_diff_at(fork, "--no-renames"))
 
@@ -577,9 +597,6 @@ def check_comment_bounds(branch: Branch) -> list[Finding]:
         return []
     # The one diff, rather than a second `--name-only` call: a file changed by deletions alone has
     # no added line for a block to sit inside.
-
-    # Rename detection off for this reader alone: `branch_additions` keeps the map beside it, where
-    # every history phrase in a moved file would otherwise read as the branch's own prose.
     added = _added_ignoring_renames(fork)
     if added is None:
         return []
@@ -591,5 +608,10 @@ def check_comment_bounds(branch: Branch) -> list[Finding]:
         raw = _read_text(path)[0]
         if raw is None:
             continue
-        found.extend(check_comment_length(path, raw, {number for number, _ in added[rel]}, partial(_fork_pool, fork)))
+        measured = check_comment_length(path, raw, {number for number, _ in added[rel]}, partial(_fork_pool, fork))
+        # One cached read answers every file alike, so a refusal from it is the run's whole answer
+        # rather than the same sentence once per file.
+        if measured and measured[0].check == "branch-scope":
+            return measured
+        found.extend(measured)
     return found

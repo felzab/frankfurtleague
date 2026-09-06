@@ -2048,7 +2048,7 @@ def test_the_comment_bounds_read_a_file_by_its_format_not_its_suffix() -> None:
     # bounds instead and which `comment_runs` therefore steps over.
     raw = _page("FROM scratch", *block)
     bounds = _module("docs_gate.branch").check_comment_length
-    found = bounds(_gate().root / DOCKERFILE, raw, set(range(1, len(block) + 2)))
+    found = bounds(_gate().root / DOCKERFILE, raw, set(range(1, len(block) + 2)), lambda: [])
     assert [finding.check for finding in found] == ["comment-length"], "the block was read by the wrong format's reader"
 
 

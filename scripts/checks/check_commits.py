@@ -302,6 +302,10 @@ def check_message(message: str, short: str, *, is_bot: bool = False, departed: f
         fail(f"the message carries {what}")
     # Only where none of the named patterns matched: a Co-authored-by line is both.
     block = [] if named else trailer_block(message)
+    # Before the arms below, which compare the entries as sets: a line written twice is one member
+    # there, so a doubled trailer would agree with a diff retiring the entry once.
+    if repeated := sorted({line.strip() for line in block if block.count(line) > 1}):
+        fail(f"the message repeats the trailer `{repeated[0]}` - one line per entry retired")
     closes = [match.group(1) for line in block if (match := CLOSES_RE.match(line))]
     if len(closes) != len(block):
         names = [line.split(":", 1)[0] for line in block]
