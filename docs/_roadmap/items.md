@@ -121,6 +121,7 @@ deliverable.
 | `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                           | FE, Docs                                                                    | Open     |
 | `vyr6-uk2p` | The open-window read filters into arrays and subscripts whatever comes back                                                 | FE, BE, tests, bewerbungen                                                  | Open     |
 | `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                       | FE, tests, spieler                                                          | Open     |
+| `w9tq-4bnd` | A missing result and a cancelled one are one colour, because the card reads the result and never the status                 | FE, admin, spiele                                                           | Open     |
 | `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                       | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
 | `x7pk-g4bh` | Three entry refusals are rendered twice, and nothing holds either half to the other                                         | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
 | `xe5b-v4nu` | A fourth rendering of the retired-club refusal sits outside the helper that grades the other three                          | FE, tests, bewerbungen, teams                                               | Open     |
@@ -2122,6 +2123,32 @@ query, and the test's own comment already claims the class it belongs to.
 rethrow were read off the query, `_fenster`, the filter semantics and the two frontend files; no
 list-wrapped season was seeded and no request was made against `/fenster`, and what the start page
 renders on that throw was not exercised. The commit dating the validator was read from `git log -S`.
+
+### `w9tq-4bnd` · A missing result and a cancelled one are one colour, because the card reads the result and never the status
+
+| Tags              | Status | Depends on |
+| ----------------- | ------ | ---------- |
+| FE, admin, spiele | Open   | —          |
+
+**Four components paint a null `ergebnis` from the field alone**, so every fixture without a result
+wears one colour whatever the reason: `fl_frontend/src/features/spiele/components/ui/SpielCard.tsx`,
+`fl_frontend/src/features/spiele/components/ui/SpielCardCompact.tsx`,
+`fl_frontend/src/features/spiele/components/ui/SpielCardUltraCompact.tsx` and
+`fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/SpielDraftPreview.tsx`.
+A fixture merely not yet played and a fixture called off are the same null.
+
+**Today that colour is the warning grade, which is right for the pending case and wrong for the
+cancelled one.** It was the danger grade until the palette work, where four of seven bracket slots
+rendered as red placeholders with nothing wrong and a Halbfinale card put a red score over a chip
+reading `Ausstehend`. Warning is the smaller error of the two and matches how the admin queue
+already grades a missing result
+(`fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.tsx :: results`),
+but a called-off fixture now shows a warning placeholder beneath a danger chip.
+
+**Done looks like the placeholder branching on the status rather than on the field**, which
+`fl_frontend/src/features/spiele/utils.ts :: computeSpielStatus` already derives and
+`SpielStatusChip` already renders beside it. The chip and the score would then agree, which is the
+whole of the defect: two elements on one card grading the same fact from two different inputs.
 
 ### `w4tm-9khd` · A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population
 

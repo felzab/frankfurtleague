@@ -1090,7 +1090,7 @@ its utility. What no declaration can say is which surface may spend it:
 | `{tone}-solid` with `-foreground`                           | A fill that must read as one — the destructive button, a result badge — under its paired on-colour                 | A tint, or text                                                                            |
 | `hover*`                                                    | Every hover, one declared token per family                                                                         | An alpha at a call site, which composites against its ground and lands differently on each |
 | `--focus`                                                   | Every ring HeroUI does not draw itself, as the foreground                                                          | HeroUI's `--accent`, which the scheme declares for a `Switch`'s fill and a picker's day    |
-| `phase-*`                                                   | A phase badge and its `/10` tint                                                                                   | A state: the sequence is an order, not a meaning                                           |
+| `phase-*`                                                   | A phase badge and its `/15` tint                                                                                   | A state: the sequence is an order, not a meaning                                           |
 
 Which tone a message takes is fixed at `fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`,
 and a state chip reads the same mapping
@@ -1158,10 +1158,10 @@ holds whether a conditional block renders or not
   (`fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton`, whose `hover` says which host
   it sits on), never a text link; a whole box is pressable only as `card({ interactive: true })`
   (`fl_frontend/src/shared/components/ui/card.ts :: card`).
-- **One pill** (`fl_frontend/src/shared/components/ui/badges.ts :: labelBadge`): a tone at `/15`
-  under its `-strong` text, brand at `/10` under `text-brand`
-  (`fl_frontend/src/features/saisons/components/ui/SaisonChip.tsx`), a tournament phase at `/10`
-  under its own hue, and the solid brand fill under its paired foreground where the pill is a
+- **One pill** (`fl_frontend/src/shared/components/ui/badges.ts :: labelBadge`): every tint at
+  `/15` — a tone under its `-strong` text, brand under `text-brand`
+  (`fl_frontend/src/features/saisons/components/ui/SaisonChip.tsx`), a tournament phase
+  under its own hue — and the solid brand fill under its paired foreground where the pill is a
   badge of office rather than a grade; a row of pills shares one height with the `xs` button. A HeroUI `Chip`
   takes `PILL_RADIUS` and the app's classes, never `variant` or `color`
   (`fl_frontend/src/features/teams/components/ui/TeamCard.tsx :: STAT_CHIP_CLASSES`).

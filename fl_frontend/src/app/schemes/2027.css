@@ -52,7 +52,8 @@
        and a grey accent leaves a grey tint. */
     --accent-warn: #bb7e00;
     --accent-danger: #d2272b;
-    /* Emerald rather than the brand's yellow-green, so a score and an eyebrow stay two colours. */
+    /* Emerald at the brand's lightness, which is the brand ink to the eye: every green on a page
+       here means "good", and the dark grades keep the two apart where they must. */
     --accent-success: #028b4f;
     --accent-info: #2d69de;
 
@@ -79,8 +80,8 @@
 
     /* Tournament rounds are an ordered sequence, not a semantic state, so no feedback accent
        fits. A hue arc from 205° to 357°, so they run in hue order with the phases. */
-    --accent-phase-gruppenphase: #006e77;
-    --accent-phase-achtelfinale: #00689b;
+    --accent-phase-gruppenphase: #026a73;
+    --accent-phase-achtelfinale: #026799;
     --accent-phase-viertelfinale: #5d4ebb;
     --accent-phase-halbfinale: #903996;
     --accent-phase-finale: #a52f64;
@@ -132,8 +133,8 @@
     --accent-info: #4c82e8;
 
     /* On dark surfaces the relationship inverts: the text variant is LIGHTER than the fill accent. */
-    /* Success sits seven OKLab L points above danger, so a reader who cannot tell the two hues
-       apart still tells a played score from an unplayed one by lightness. */
+    /* Seven OKLab L points above danger, so a table row's S and N digits, and a positive and a
+       negative goal difference, part by lightness for a reader who cannot part the hues. */
     --accent-success-strong: #57c886;
     --accent-info-strong: #7ea7f3;
     --accent-warn-strong: #ecae30;

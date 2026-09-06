@@ -78,7 +78,7 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
           <SpielScore
             ergebnis={spielErgebnis}
             elfmeterschiessen={spielElfmeterschiessen}
-            className={`fluid-base flex flex-col items-center px-2 py-1 text-center font-extrabold ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}
+            className={`fluid-base flex flex-col items-center px-2 py-1 text-center font-extrabold ${spielData.ergebnis !== null ? "text-success-strong" : "text-warning-strong"}`}
           />
 
           <span className="flex min-w-0 justify-start">

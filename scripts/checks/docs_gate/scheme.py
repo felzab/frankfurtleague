@@ -259,7 +259,7 @@ PAIRS: Final[tuple[Pair, ...]] = (
     # being lighter than the body text rather than darker.
     Pair("a link told from its sentence, G183", Layer("--accent-brand"), Layer("--fg-base"), 3.0, ("light",)),
     Pair("calendar today outline", Layer("--accent-brand"), Layer("--bg-surface"), 3.0),
-    Pair("SaisonChip", Layer("--accent-brand"), Layer("--accent-brand", 10, "--bg-surface"), 4.5),
+    Pair("SaisonChip", Layer("--accent-brand"), Layer("--accent-brand", 15, "--bg-surface"), 4.5),
     Pair("BewerbungView eyebrow", Layer("--fg-on-brand", 75, "--accent-brand-solid"), Layer("--accent-brand-solid"), 4.5),
     Pair("BrandHero wordmark", Layer("--accent-on-brand"), Layer("--accent-brand-solid"), 4.5),
     Pair("FilterPanel selected row", Layer("--fg-base"), Layer("--accent-brand-solid", 20, "--bg-surface"), 4.5),
@@ -288,11 +288,11 @@ PAIRS: Final[tuple[Pair, ...]] = (
     Pair("badge, Callout", Layer("--accent-info-strong"), Layer("--accent-info", 15, "--bg-surface"), 4.5),
     Pair("popover badge", Layer("--accent-info-strong"), Layer("--accent-info", 10, "--bg-surface"), 4.5),
     Pair("dot, timer bar", Layer("--accent-info"), Layer("--bg-surface"), 3.0),
-    Pair("phase badge", Layer("--accent-phase-gruppenphase"), Layer("--accent-phase-gruppenphase", 10, "--bg-surface"), 4.5),
-    Pair("phase badge", Layer("--accent-phase-achtelfinale"), Layer("--accent-phase-achtelfinale", 10, "--bg-surface"), 4.5),
-    Pair("phase badge", Layer("--accent-phase-viertelfinale"), Layer("--accent-phase-viertelfinale", 10, "--bg-surface"), 4.5),
-    Pair("phase badge", Layer("--accent-phase-halbfinale"), Layer("--accent-phase-halbfinale", 10, "--bg-surface"), 4.5),
-    Pair("phase badge", Layer("--accent-phase-finale"), Layer("--accent-phase-finale", 10, "--bg-surface"), 4.5),
+    Pair("phase badge", Layer("--accent-phase-gruppenphase"), Layer("--accent-phase-gruppenphase", 15, "--bg-surface"), 4.5),
+    Pair("phase badge", Layer("--accent-phase-achtelfinale"), Layer("--accent-phase-achtelfinale", 15, "--bg-surface"), 4.5),
+    Pair("phase badge", Layer("--accent-phase-viertelfinale"), Layer("--accent-phase-viertelfinale", 15, "--bg-surface"), 4.5),
+    Pair("phase badge", Layer("--accent-phase-halbfinale"), Layer("--accent-phase-halbfinale", 15, "--bg-surface"), 4.5),
+    Pair("phase badge", Layer("--accent-phase-finale"), Layer("--accent-phase-finale", 15, "--bg-surface"), 4.5),
 )
 
 
