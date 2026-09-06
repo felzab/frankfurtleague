@@ -2773,19 +2773,20 @@ defect.
 
 **Done when** the decision is taken about what a repair can reach. A check can hold the three sets
 together — every rule's code takes a row, every code a surface renders takes a sentence — and that is
-the error-code check's shape extended by one side. **What it cannot do is judge a meaning**, so the rest is a
-place where the three statements are read side by side and a rule about when they are re-read: a
+`scripts/checks/docs_gate/error_codes.py`'s shape extended by one side. **What it cannot do is judge a
+meaning**, so the rest is a place where the three statements are read side by side and a rule about
+when they are re-read: a
 fourth column on the table, or a generated comparison a reader walks.
 `docs/_auditing/prompts/crosscut/1-contracts-and-seams.md`'s sixth check already asks a pass to trace
 each error class through to the German it renders, so the reading exists and happens when a programme
 runs rather than when a refusal changes. **Choosing between those is the work**, and the entry is
 here rather than decided because the cheapest of them is also the one nothing enforces.
 
-**Why this files beside the error-code check rather than widening it.** That one's repair is a set comparison
-between two enumerations: complete, mechanical, and an afternoon. This one has no such form — nothing
-decides whether a German sentence states the fact a predicate tests. Under one id the cheap half
-would close the entry and the half that matters would leave with it. Taken in that order, a check
-written for that one enumerates the codes this one needs.
+**Why this stays its own entry rather than widening the error-code check.** That check is a set
+comparison between two enumerations, complete and mechanical, and it already holds the codes this
+entry needs. This one has no such form — nothing decides whether a German sentence states the fact a
+predicate tests — so folding it into that check would close the cheap half under one id and let the
+half that matters leave with it.
 
 ### `kwfu-48sm` · Two surfaces offer a squad-row return the season's cap will refuse
 
