@@ -179,7 +179,6 @@ deliverable.
 | `jcs8-4ste` | An in-transaction read's session argument is untested                                                                       | BE, tests, saisons                                                          | Open     |
 | `jky6-k3te` | The refusal-code table is held to the backend by nothing                                                                    | BE, Ops, Docs, gate                                                         | Open     |
 | `kpkb-y5d8` | A refusal's meaning is written three times, unresolved                                                                      | FE, BE, Docs, tests, bewerbungen                                            | Open     |
-| `mmcv-aa6g` | The comment-citation check reads two shapes of outside reference and INC-6 bars more                                        | Ops, Docs, gate, tests                                                      | Open     |
 | `nce5-j467` | A comment claims two files hold one pattern, unchecked                                                                      | FE, BE, tests                                                               | Open     |
 | `p2y9-p9za` | Four helpers every script calls are checked by nothing                                                                      | Ops, Docs, gate                                                             | Open     |
 | `qbzd-xrcu` | A scope sweep asserts against a rebuilt predicate rather than the gate's own                                                | Ops, Docs, gate, tests                                                      | Open     |
@@ -4268,39 +4267,6 @@ between two enumerations: complete, mechanical, and an afternoon. This one has n
 decides whether a German sentence states the fact a predicate tests. Under one id the cheap half
 would close the entry and the half that matters would leave with it. Taken in that order, a check
 written for that one enumerates the codes this one needs.
-
-### `mmcv-aa6g` · The comment-citation check reads two shapes of outside reference and INC-6 bars more
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| Ops, Docs, gate, tests | Open   | —          |
-
-**`scripts/checks/docs_gate/branch.py :: check_added_citations` refuses exactly two shapes, and a
-pointer to a numbered ruling or to a session register's own label is neither.**
-`scripts/checks/docs_gate/branch.py :: REVIEW_REF_RE` matches a session named by position — this,
-last, previous or earlier, and an ordinal before review, sweep or session — while
-`scripts/checks/docs_gate/branch.py :: LOOSE_ID_RE` matches a roadmap token's shape and then resolves
-it against the roadmap's own table. A comment closing on a decision's number, or on the label a
-programme filed it under, matches neither, passes the docs scope, and reaches a reader with no way to
-resolve it.
-
-**`docs/_standard/standard.md :: INC-6` is wider than what is caught.** It bars an audit id, a ledger
-row, a roadmap id, a session and an issue number alike, on the ground that the tracker sits outside
-this repository's history — and a ruling number and a register label are that same thing under other
-names. Two of those members are enforced and the rest are review's, which is exactly the pair of
-questions `docs/_standard/standard.md :: CUR-8` asks of the machinery: who enforces it where the gate
-cannot, and when that last happened.
-
-**A list of vocabularies is the wrong shape for the repair.** Each programme invents its own label,
-so a pattern per vocabulary is a list somebody has to keep current, and the property every such
-reference actually shares is that it resolves to nothing in the repository. Reading that instead — an
-authority offered for a decision with no path, symbol or rule id beside it — is a population derived
-independently of the property asserted, which is what `docs/_standard/standard.md :: PRE-4` asks of a
-new check.
-
-**Done when** an added comment offering an unresolvable reference as its authority fails the gate,
-the check proven first against a violation planted in its real position, with its own case in
-`scripts/tests/test_branch_checks.py`.
 
 ### `nce5-j467` · A comment claims two files hold the same pattern, and nothing holds them to it
 

@@ -54,6 +54,12 @@ ROADMAP_ID: Final = "q7mf-zd4x"
 # citation from either.
 PLAIN_WORD: Final = "read-only"
 UNFILED_TOKEN: Final = "zzzz-9999"
+# The issue shape INC-6 bars, and three runs shaped like it that name no issue: an HTML entity, a
+# page anchor, and the ban's own form quoted to name it.
+ISSUE_REF: Final = HASH + "412"
+ENTITY: Final = "&" + HASH + "39;"
+ANCHOR: Final = "docs/backend/spec.md" + HASH + "2-invariants"
+QUOTED_BAN: Final = "`closes " + HASH + "12`"
 DROPPABLE: Final = "A droppable line the deletion scenario removes."
 LONG_TEXT: Final = "a line of a block that runs past what a comment may hold"
 LEGACY_OPEN: Final = "an opening line of a committed comment block that already runs far past what a comment may hold"
@@ -311,6 +317,37 @@ def test_an_added_comment_citation_fails_on_the_review_reference_and_the_roadmap
         ("fail", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)"),
         ("fail", "comment-citation", MOD, "roadmap id " + ROADMAP_ID + " in an added comment -- state the constraint (INC-6)"),
     ]
+
+
+def test_an_added_comment_citation_fails_on_the_issue_number_too() -> None:
+    """INC-6 bars five families and this is the fifth: a tracker sitting outside this history."""
+    _reset()
+    _append(MOD, HASH + " " + ISSUE_REF + " explains the shape")
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert MOD in data["additions"]
+    assert _findings(data) == [
+        ("fail", "comment-citation", MOD, "issue number " + ISSUE_REF + " in an added comment -- state the constraint (INC-6)")
+    ]
+
+
+def test_a_hash_shaped_run_that_names_no_issue_stays_silent() -> None:
+    """An HTML entity, a page anchor and the ban quoted to name it each carry the shape and no issue.
+
+    The quoted run is what lets a file documenting the ban spell the very form it bans.
+    """
+    _reset()
+    _append(MOD, HASH + " " + ENTITY + " and " + ANCHOR + " and " + HASH + "2-invariants and " + QUOTED_BAN)
+    # The review reference beside them is the evidence the check read the file at all.
+    _append(MOD, HASH + " drawn up in the last session")
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert MOD in data["additions"]
+    assert _findings(data) == [("fail", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)")]
 
 
 def test_an_id_shaped_token_the_roadmap_cannot_resolve_stays_silent() -> None:

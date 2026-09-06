@@ -316,10 +316,10 @@ narrower than this Scope in a way INC-2 states.
   lines drifts silently. The gate reads comments in the files
   `scripts/checks/check_docs.py :: SCANNED_SUFFIXES` names, Dockerfiles included, and not executable
   code, where a path-shaped string is data; an unbackticked path is read too, because an unmarked
-  path is how a dead one survives a green gate. A roadmap id and a review reference are narrower:
-  `scripts/checks/docs_gate/branch.py :: check_added_citations` reads the branch's added comments in
-  `scripts/checks/docs_gate/kernel.py :: SOURCE_SUFFIXES` alone, so neither is caught in a Dockerfile,
-  a workflow, an nginx configuration or a manifest. _Enforced by_ gate checks `citation`,
+  path is how a dead one survives a green gate. A roadmap id, a review reference and an issue number
+  are narrower: `scripts/checks/docs_gate/branch.py :: check_added_citations` reads the branch's added
+  comments in `scripts/checks/docs_gate/kernel.py :: SOURCE_SUFFIXES` alone, so none of the three is
+  caught in a Dockerfile, a workflow, an nginx configuration or a manifest. _Enforced by_ gate checks `citation`,
   `line-citation`, `comment-citation`, `path`, `bare-path`, `link` and `rule-id`; an unpinned outside
   link is review judgment.
 - **INC-7:** directive first line · a Python docstring is the first statement, above the imports ·

@@ -222,8 +222,17 @@ REVIEW_REF_RE: Final = re.compile(
 LOOSE_ID_RE: Final = re.compile(r"\b[a-z0-9]{4}-[a-z0-9]{4}\b")
 
 
+# An issue number's spelling, whose tracker sits outside this history (INC-6). The qualified form
+# goes unread: a repository path before the hash is the citation COR-6 asks a comment for.
+ISSUE_REF_RE: Final = re.compile(r"(?<![&\w])#\d+(?![\w-])")
+
+# `checks.py :: QUOTED_SPAN_RE`'s spans, spelled again rather than imported: `checks.py` reads this
+# module, so an import back would close a cycle.
+MENTION_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|`[^`\n]*`|“[^”\n]*”")
+
+
 def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
-    """A roadmap id or a review round in a comment this branch added (INC-6).
+    """INC-6's bans that read a diff, over the lines this branch added.
 
     Branch-scoped: the branch that wrote the line is the one place the constraint behind it is
     still known, and the standing backlog is `/docs:audit`'s (CUR-6).
@@ -241,6 +250,10 @@ def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
             found.append(
                 Finding("fail", "comment-citation", rel, f"roadmap id {roadmap_id} in an added comment -- state the constraint (INC-6)")
             )
+        # This pattern alone reads the body with its quoted runs taken out, as `check_owner_voice`
+        # reads one for COR-11: a comment naming the shape to ban it is a mention rather than a use.
+        for issue in sorted(set(ISSUE_REF_RE.findall(MENTION_SPAN_RE.sub("", body)))):
+            found.append(Finding("fail", "comment-citation", rel, f"issue number {issue} in an added comment -- state the constraint (INC-6)"))
     return found
 
 
