@@ -21,10 +21,17 @@ export function BrandHero({ title, lead }: { title: string; lead: string }) {
         <p className="fluid-lg text-brand-solid-foreground/85 max-w-2xl font-medium text-pretty">{lead}</p>
       </div>
 
+      {/* `TRACE_INSET` is derived from these three heights and the block's padding; a change to
+          either moves it too. */}
       <FLLogo className="text-brand-solid-accent relative h-20 w-auto shrink-0 sm:h-28 lg:h-40" />
     </header>
   );
 }
+
+// The block's padding plus the mark's width at `h-20`, `h-28` and `h-40`, and 20px of air, so the
+// goal never sits under the trophy. A margin inside the viewBox would scale with the block's height
+// instead.
+const TRACE_INSET = "right-15 sm:right-22 lg:right-28";
 
 /**
  * A trace inside the block rather than a ground behind the page: it reads as football without
@@ -32,56 +39,72 @@ export function BrandHero({ title, lead }: { title: string; lead: string }) {
  */
 function PitchTrace() {
   return (
-    // Drawn at the block's own 2:1 and `slice`, so the motif is centred at every width rather than
-    // sized off its height. Every shape is symmetric about the midline, so a wide block crops empty
-    // grass rather than art.
     <svg
       aria-hidden="true"
-      viewBox="0 0 400 200"
-      preserveAspectRatio="xMidYMid slice"
+      // Metres, with the origin at the goal line's centre, so every figure is the Laws of the Game's
+      // own and is checked against them rather than against each other.
+      viewBox="-63.65 -26 67.09 52"
       fill="none"
       stroke="currentColor"
       strokeOpacity={0.13}
       strokeWidth={2}
-      className="pointer-events-none absolute inset-0 h-full w-full">
+      // Sized off the block's height, because its width runs from little more than its height to
+      // over four times it: a drawing filling the width loses the penalty area's top and bottom on
+      // the wide end.
+      className={`pointer-events-none absolute top-0 h-full w-auto ${TRACE_INSET}`}>
       {/* `non-scaling-stroke` on each shape, because the SVG is sized off the block: without it the
           stroke thickens with the hero's own height instead of staying a drawn line. */}
       <line
-        x1="10"
-        y1="0"
-        x2="10"
-        y2="200"
+        x1="-52.5"
+        y1="-26"
+        x2="-52.5"
+        y2="26"
         vectorEffect="non-scaling-stroke"
       />
       <circle
-        cx="10"
-        cy="100"
-        r="46"
+        cx="-52.5"
+        cy="0"
+        r="9.15"
         vectorEffect="non-scaling-stroke"
       />
       <circle
-        cx="10"
-        cy="100"
-        r="2.5"
+        cx="-52.5"
+        cy="0"
+        r="0.55"
+        fill="currentColor"
+        fillOpacity={0.13}
+        stroke="none"
+      />
+      <line
+        x1="0"
+        y1="-26"
+        x2="0"
+        y2="26"
+        vectorEffect="non-scaling-stroke"
+      />
+      <path
+        d="M0 -20.16H-16.5V20.16H0"
+        vectorEffect="non-scaling-stroke"
+      />
+      <path
+        d="M0 -9.16H-5.5V9.16H0"
+        vectorEffect="non-scaling-stroke"
+      />
+      <circle
+        cx="-11"
+        cy="0"
+        r="0.55"
         fill="currentColor"
         fillOpacity={0.13}
         stroke="none"
       />
       <path
-        d="M400 45H300V155H400"
+        d="M-16.5 -7.31A9.15 9.15 0 0 0 -16.5 7.31"
         vectorEffect="non-scaling-stroke"
       />
       <path
-        d="M400 80H360V120H400"
+        d="M0 -3.66H2.44V3.66H0"
         vectorEffect="non-scaling-stroke"
-      />
-      <circle
-        cx="322"
-        cy="100"
-        r="2.5"
-        fill="currentColor"
-        fillOpacity={0.13}
-        stroke="none"
       />
     </svg>
   );
