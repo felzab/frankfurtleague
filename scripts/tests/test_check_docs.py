@@ -184,6 +184,34 @@ DOCS_ITEM: Final = "Give the gate a fixture net"
 SLICE_ITEM: Final = "Serve a fixture through the slice"
 DOCS_ROW: Final = "| " + _tick(DOCS_ENTRY) + " | " + DOCS_ITEM + " | Docs | Open |"
 SLICE_ROW: Final = "| " + _tick(SLICE_ENTRY) + " | " + SLICE_ITEM + " | BE, spiele | Open |"
+# The page derives its status vocabulary here, and the fixture holds the table it derives it from.
+PROTOCOL: Final = "docs/_roadmap/protocol.md"
+STATUS_COLUMN_ROW: Final = "| # | When | Status |"
+# One entry per agreement arm, so a plant breaking one leaves the others answering. The tokens
+# ascend as the page's own listings do, `2xkq-7bnm` sorting below every one of them: it is appended
+# by a plant, which is what ends the run.
+STATUS_ENTRY: Final = "bqxs-4dtn"
+VOCAB_ENTRY: Final = "dm93-7kvz"
+BLOCKED_ENTRY: Final = "gtz5-9wqr"
+ORDER_ENTRY: Final = "2xkq-7bnm"
+STATUS_ITEM: Final = "Hold both listings' status cells to each other"
+VOCAB_ITEM: Final = "Hold a status to the vocabulary deriving it"
+BLOCKED_ITEM: Final = "Hold a blocked entry to the column beside it"
+ORDER_ITEM: Final = "File an entry below the run it belongs to"
+# One effort apiece, a value nothing reads, so a plant naming a field row reaches the entry it means.
+STATUS_FIELDS: Final = "| Docs | Open | L | — |"
+VOCAB_FIELDS: Final = "| Docs | Open | XL | — |"
+BLOCKED_FIELDS: Final = "| Docs | Open | XS | — |"
+ORDER_FIELDS: Final = "| Docs | Open | XXL | — |"
+# One line of prose apiece, each naming the page every fixture entry's tag derives from.
+STATUS_PROSE: Final = "A status arm needs an entry beside `docs/notes.md` whose two cells a plant can part."
+VOCAB_PROSE: Final = "A vocabulary arm needs an entry beside `docs/notes.md` carrying a word to put outside the set."
+BLOCKED_PROSE: Final = "A blocked arm needs an entry beside `docs/notes.md` whose dependency column stays an em dash."
+ORDER_PROSE: Final = "An order arm needs an entry beside `docs/notes.md` filed below the run above it."
+STATUS_ROW: Final = "| " + _tick(STATUS_ENTRY) + " | " + STATUS_ITEM + " | Docs | Open |"
+VOCAB_ROW: Final = "| " + _tick(VOCAB_ENTRY) + " | " + VOCAB_ITEM + " | Docs | Open |"
+BLOCKED_ROW: Final = "| " + _tick(BLOCKED_ENTRY) + " | " + BLOCKED_ITEM + " | Docs | Open |"
+ORDER_ROW: Final = "| " + _tick(ORDER_ENTRY) + " | " + ORDER_ITEM + " | Docs | Open |"
 # The heading closing the page. Every plant that APPENDS to this page lands under it, so nothing a
 # case appends is read as the last entry's own prose.
 ROADMAP_TAIL: Final = "Appendix"
@@ -243,6 +271,23 @@ def _heading(level: int, text: str) -> str:
 
 def _page(*lines: str) -> str:
     return "\n".join(lines) + "\n"
+
+
+def _roadmap_entry(token: str, item: str, fields: str, prose: str) -> str:
+    """One agreement arm's entry, in the shape the page's committed entries carry.
+
+    The claim is spelled once and written into the heading and the index row alike, so a plant
+    parting the two has to say so.
+    """
+    return _page(
+        _heading(3, _tick(token) + " · " + item),
+        "",
+        "| Tags | Status | Effort | Depends on |",
+        "| --- | --- | --- | --- |",
+        fields,
+        "",
+        prose,
+    ).rstrip("\n")
 
 
 def _scheme_page() -> str:
@@ -454,8 +499,17 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "",
             "| ID | Item | Tags | Status |",
             "| --- | --- | --- | --- |",
+            STATUS_ROW,
+            VOCAB_ROW,
+            BLOCKED_ROW,
             DOCS_ROW,
             SLICE_ROW,
+            "",
+            _roadmap_entry(STATUS_ENTRY, STATUS_ITEM, STATUS_FIELDS, STATUS_PROSE),
+            "",
+            _roadmap_entry(VOCAB_ENTRY, VOCAB_ITEM, VOCAB_FIELDS, VOCAB_PROSE),
+            "",
+            _roadmap_entry(BLOCKED_ENTRY, BLOCKED_ITEM, BLOCKED_FIELDS, BLOCKED_PROSE),
             "",
             _heading(3, _tick(DOCS_ENTRY) + " · " + DOCS_ITEM),
             "",
@@ -478,6 +532,20 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             _heading(2, ROADMAP_TAIL),
             "",
             "A closing section, so a line a plant appends lands outside every entry rather than inside the last one.",
+        ),
+        PROTOCOL: _page(
+            _heading(1, "Protocol"),
+            "",
+            "**Purpose:** what a status may say, in one file.",
+            "",
+            _heading(2, "4. Re-derive every status"),
+            "",
+            STATUS_COLUMN_ROW,
+            "| --- | --- | --- |",
+            "| 1 | An entry this one waits on is still filed here | **Blocked** |",
+            "| 2 | A caution, or a finding carrying a recorded trigger | **Standing** |",
+            "| 3 | The argument is settled where the next reader stands | **Decided** |",
+            "| 4 | Otherwise | **Open** |",
         ),
         TEMPLATES: _page(
             _heading(1, "Templates"),
@@ -968,6 +1036,40 @@ def _plant_roadmap() -> None:
             _heading(2, ROADMAP_TAIL),
         ).rstrip("\n"),
     )
+    _plant_roadmap_agreement()
+
+
+def _plant_roadmap_agreement() -> None:
+    """The arms holding one listing to the other, each planted where nothing else reads.
+
+    A status arm is planted in BOTH listings wherever the value itself is the defect: changing one
+    of them alone parts the two cells as well, and a plant answering two arms proves neither.
+    """
+    # A token below every one above it, in both listings, so each ends a run of its own.
+    _replace(ROADMAP, SLICE_ROW, SLICE_ROW + "\n" + ORDER_ROW)
+    _replace(
+        ROADMAP,
+        _heading(2, ROADMAP_TAIL),
+        _page(
+            _roadmap_entry(ORDER_ENTRY, ORDER_ITEM, ORDER_FIELDS, ORDER_PROSE),
+            "",
+            _heading(2, ROADMAP_TAIL),
+        ).rstrip("\n"),
+    )
+    # The two cells parted, both values still inside the vocabulary, so this arm answers alone.
+    _replace(ROADMAP, STATUS_FIELDS, STATUS_FIELDS.replace("| Open |", "| Standing |"))
+    # A claim the heading beside it does not carry.
+    _replace(ROADMAP, STATUS_ROW, STATUS_ROW.replace(STATUS_ITEM, "A claim the heading beside it does not carry"))
+    # A word the derivation does not produce.
+    _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", "| Parked |"))
+    _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", "| Parked |"))
+    # The same arm at its near miss: a value differing from one of the four in case alone, which a
+    # comparison folding case would pass.
+    _replace(ROADMAP, SLICE_ROW, SLICE_ROW.replace("| Open |", "| open |"))
+    _replace(ROADMAP, "| BE, spiele | Open | M | — |", "| BE, spiele | open | M | — |")
+    # Blocked in both listings with an em dash beside it, which names no entry at all.
+    _replace(ROADMAP, BLOCKED_ROW, BLOCKED_ROW.replace("| Open |", "| Blocked |"))
+    _replace(ROADMAP, BLOCKED_FIELDS, BLOCKED_FIELDS.replace("| Open |", "| Blocked |"))
 
 
 def _plant_compose_entry() -> None:
@@ -1354,7 +1456,7 @@ CASES: Final[tuple[Case, ...]] = (
     # Prose lines, not table rows: OUT-3 counts the words a table does not hold, so a plant made of
     # rows would leave the bound unreached however long the page grew.
     Case("readme-cap", _fails("readme-cap", ROOT_README), lambda: _append(ROOT_README, *["A line of README prose." for _ in range(160)])),
-    Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 7), _plant_roadmap),
+    Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 16), _plant_roadmap),
     # The standard names its own duplicated id, which is what reports the collision: every citer of
     # a multiply homed id fails, and the definition lines are themselves citations.
     Case("rule-id", _fails("rule-id", NOTES, SAMPLE, STANDARD), _plant_rule_ids),
@@ -1493,6 +1595,22 @@ def test_an_untracked_roadmap_is_read_as_a_page_nobody_added() -> None:
     finally:
         _reset()
     assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an untracked roadmap passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_status_table_that_yields_no_vocabulary_is_reported_rather_than_passed_over() -> None:
+    """An empty vocabulary silences the arm reading it, so the silence is a finding of its own.
+
+    Driven alone: the plant this shares a check name with puts two statuses outside that vocabulary,
+    and reaching it from there would prove the arm on a corpus where it is switched off.
+    """
+    _reset()
+    _replace(PROTOCOL, STATUS_COLUMN_ROW, STATUS_COLUMN_ROW.replace("Status", "Verdict"))
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "roadmap-shape", PROTOCOL)] == 1, "a moved status table passed: " + _shape(reported)
     _assert_corpus_restored()
 
 

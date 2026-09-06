@@ -45,6 +45,7 @@ from .kernel import (
     GLOSSARY_PAGE,
     OPS_FILENAMES,
     OVERVIEW_GLOB,
+    PROTOCOL_PAGE,
     REPO_PREFIXES,
     REPO_ROOT,
     ROADMAP_PAGE,
@@ -129,6 +130,7 @@ PR_BODY_CHECKER: Final = "scripts/checks/check_pr_body.py"
 REQUIRED_INPUTS: Final[tuple[str, ...]] = (
     STANDARD_PAGE,
     ROADMAP_PAGE,
+    PROTOCOL_PAGE,
     TEMPLATES_PAGE,
     GLOSSARY_PAGE,
     SWEEP_PAGE,
@@ -176,19 +178,33 @@ INVARIANT_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*(I\d{1,3}[a-z]?)\s*\|", re.MU
 # `check_commits.py :: ENTRY_HEADING_DIFF_RE` reads this same heading out of a diff. The id is
 # captured loose so a malformed one is caught against the alphabet rather than dropping out of a
 # listing the alphabet selected (PRE-4).
-ROADMAP_ENTRY_RE: Final = re.compile(r"^ {0,3}###[ \t]+`?([^\s`]+)`?[ \t]+·", re.MULTILINE)
+ROADMAP_HEADING_SEPARATOR: Final = "·"
+ROADMAP_ENTRY_RE: Final = re.compile(rf"^ {{0,3}}###[ \t]+`?([^\s`]+)`?[ \t]+{ROADMAP_HEADING_SEPARATOR}[ \t]*(.*?)[ \t]*$", re.MULTILINE)
 # An index row is a table row opening on an id. The token's shape is what separates one from the
 # file's other tables, and a heading is where a malformed id is caught instead.
 ROADMAP_INDEX_ROW_RE: Final = re.compile(rf"^[ \t]*\|\s*`({ENTRY_TOKEN_PATTERN})`\s*\|(.*)$", re.MULTILINE)
 # The index row's columns past the id, in the order `docs/_roadmap/protocol.md` states: a column
 # order read out of the row instead would be whatever the row happened to carry.
+ROADMAP_CLAIM_CELL: Final = 0
 ROADMAP_TAGS_CELL: Final = 1
+ROADMAP_STATUS_CELL: Final = 2
 ROADMAP_ROW_CELLS: Final = 3
 # Closed exists for no commit at all: the `Closes:` trailer concluding an entry deletes it.
 ROADMAP_TRANSIENT_STATUS: Final = "Closed"
+# The one status that is a claim about another entry, which is why it is held to the column beside
+# it rather than to the vocabulary alone.
+ROADMAP_BLOCKED_STATUS: Final = "Blocked"
+# The two field columns read by name. A position would read the neighbouring field where a sheet
+# adds a column, and both tables here have carried different ones.
+STATUS_COLUMN: Final = "Status"
+DEPENDS_COLUMN: Final = "Depends on"
+# Which rows of `PROTOCOL_PAGE`'s status table carry a value: the derivation numbers its rules, and
+# the delimiter row's dashes are what this parts them from.
+PROTOCOL_RULE_RE: Final = re.compile(r"^\d+$")
 
 # One table row's cells, the outer pipes' empty halves dropped.
 TABLE_LINE_RE: Final = re.compile(r"^[ \t]*\|(.*)\|[ \t]*$")
+TABLE_DELIMITER_RE: Final = re.compile(r"^:?-+:?$")
 
 # `docs/_roadmap/items.md`'s tag derivation table, as far as a path can carry it. A path is
 # resolved before it is matched, so a prefix here is a real subtree rather than a spelling.
@@ -355,30 +371,35 @@ def check_roadmap() -> list[Finding]:
 
     Nothing here reads a position: entries are categorised by their tags rather than ordered.
     """
+    found = _check_status_vocabulary()
     rel = ROADMAP_PAGE
     page = tracked_page(rel)
     if page is None:
         # Absence is `check_inputs`' alone. A page on disk but untracked is neither absent nor
         # selected by anything reading the corpus, so this is the one place it is not green.
         if (REPO_ROOT / rel).exists():
-            return [Finding("fail", "roadmap-shape", rel, "untracked, so the roadmap was read against nothing")]
-        return []
+            found.append(Finding("fail", "roadmap-shape", rel, "untracked, so the roadmap was read against nothing"))
+        return found
     if (body := _readable(page)) is None:
-        return [Finding("fail", "roadmap-shape", rel, "unreadable, so the roadmap was read against nothing")]
-    return _check_roadmap_page(rel, body)
+        found.append(Finding("fail", "roadmap-shape", rel, "unreadable, so the roadmap was read against nothing"))
+        return found
+    return found + _check_roadmap_page(rel, body)
 
 
-def _entry_sections(body: str) -> list[tuple[str, str]]:
-    """Each entry as the id its heading carries and the lines under it, in the page's own order."""
+def _entry_sections(body: str) -> list[tuple[str, str, str]]:
+    """Each entry as the id its heading carries, the claim beside it, and the lines under it.
+
+    In the page's own order, which is what the run check reads.
+    """
     lines = body.split("\n")
     # Every heading carrying the separator, whatever the id looks like: this is the listing the id
     # itself is judged from, so selecting by a well-formed id would leave a malformed one unjudged
     # (PRE-4).
-    opened = [(match.group(1), number) for number, line in enumerate(lines) if (match := ROADMAP_ENTRY_RE.match(line))]
-    sections: list[tuple[str, str]] = []
-    for token, start in opened:
+    opened = [(match.group(1), match.group(2), number) for number, line in enumerate(lines) if (match := ROADMAP_ENTRY_RE.match(line))]
+    sections: list[tuple[str, str, str]] = []
+    for token, claim, start in opened:
         end = next((n for n in range(start + 1, len(lines)) if _leaves_entry(lines[n])), len(lines))
-        sections.append((token, "\n".join(lines[start:end])))
+        sections.append((token, claim, "\n".join(lines[start:end])))
     return sections
 
 
@@ -396,6 +417,72 @@ def _table_rows(text: str) -> list[list[str]]:
     return rows
 
 
+@cache
+def protocol_statuses() -> frozenset[str]:
+    """The statuses `PROTOCOL_PAGE` §4 derives, read from the table deriving them.
+
+    A vocabulary retyped in the checker goes stale with the gate green either way (COR-4), which is
+    also `slice_names`' argument. The bold is stripped because the derivation marks its answer.
+    """
+    text = _tracked_text(PROTOCOL_PAGE)
+    if text is None:
+        return frozenset()
+    values: set[str] = set()
+    column: int | None = None
+    for cells in _table_rows(text):
+        # The header arms the read and fixes the column, so a table with no `Status` heading over it
+        # contributes nothing however its rows are numbered.
+        if STATUS_COLUMN in cells:
+            column = cells.index(STATUS_COLUMN)
+        elif column is not None and column < len(cells) and PROTOCOL_RULE_RE.match(cells[0]):
+            values.add(cells[column].strip("*").strip())
+    return frozenset(values)
+
+
+def _check_status_vocabulary() -> list[Finding]:
+    """§4's table still yields a vocabulary, or every status cell below was compared with nothing.
+
+    Absence of the page is `check_inputs`' finding; this is the table moving out from under a
+    reader that would otherwise pass in silence.
+    """
+    if _tracked_text(PROTOCOL_PAGE) is None or protocol_statuses():
+        return []
+    detail = f"§4's table yields no status, so `{ROADMAP_PAGE}`'s status cells were held to nothing"
+    return [Finding("fail", "roadmap-shape", PROTOCOL_PAGE, detail)]
+
+
+def _entry_table(section: str) -> dict[str, str]:
+    """One entry's field table, its column names mapped to the values row beneath them.
+
+    By name and never by position: the two tables this gate reads carry different columns, and a
+    position would read the neighbouring field on whichever one grows first.
+    """
+    rows = _table_rows(section)
+    head = next((index for index, cells in enumerate(rows) if STATUS_COLUMN in cells), None)
+    if head is None:
+        return {}
+    for cells in rows[head + 1 :]:
+        if cells and all(TABLE_DELIMITER_RE.match(cell) for cell in cells):
+            continue
+        return dict(zip(rows[head], cells, strict=False))
+    return {}
+
+
+def _filed_once(tokens: list[str]) -> list[str]:
+    """The well-formed tokens in page order, a repeat dropped.
+
+    A malformed id and a second entry under one id are each reported above, and reporting them here
+    too would give one defect two findings.
+    """
+    seen: set[str] = set()
+    run: list[str] = []
+    for token in tokens:
+        if is_entry_token(token) and token not in seen:
+            seen.add(token)
+            run.append(token)
+    return run
+
+
 def _check_roadmap_page(rel: str, body: str) -> list[Finding]:
     """The file's entries against its index table, its ids, its batches and the tags they name."""
     found: list[Finding] = []
@@ -403,7 +490,7 @@ def _check_roadmap_page(rel: str, body: str) -> list[Finding]:
     rows = {match.group(1): match.group(2) for match in ROADMAP_INDEX_ROW_RE.finditer(body)}
 
     seen: set[str] = set()
-    for token, _ in sections:
+    for token, _, _ in sections:
         if not is_entry_token(token):
             detail = f"entry id `{token}` is not four characters of `{ENTRY_TOKEN_ALPHABET}`, a hyphen, and four more"
             found.append(Finding("fail", "roadmap-shape", rel, detail))
@@ -419,11 +506,20 @@ def _check_roadmap_page(rel: str, body: str) -> list[Finding]:
     for token in sorted(set(rows) - valid):
         found.append(Finding("fail", "roadmap-shape", rel, f"index row {token} has no entry below it"))
 
-    paired = [(token, section) for token, section in sections if token in valid and token in rows]
+    paired = [(token, section) for token, _, section in sections if token in valid and token in rows]
+    # One entry per id, the first: the arms below hold a row to an entry, and a second entry under
+    # that id would hold the one row twice.
+    filed: dict[str, tuple[str, str]] = {}
+    for token, claim, section in sections:
+        if token in valid and token in rows:
+            filed.setdefault(token, (claim, section))
     found.extend(_check_flat_run(rel, body))
     found.extend(_check_batches(rel, valid, paired))
     found.extend(_check_transient_status(rel, rows, paired))
     found.extend(_check_derived_tags(rel, rows, paired))
+    found.extend(_check_status_agreement(rel, rows, filed))
+    found.extend(_check_claim_agreement(rel, rows, filed))
+    found.extend(_check_token_order(rel, [token for token, _, _ in sections], rows, filed))
     return found
 
 
@@ -489,6 +585,74 @@ def _check_transient_status(rel: str, rows: dict[str, str], paired: list[tuple[s
         for token, section in paired
         if any(ROADMAP_TRANSIENT_STATUS in cells for cells in _table_rows(section))
     )
+    return found
+
+
+def _check_status_agreement(rel: str, rows: dict[str, str], filed: dict[str, tuple[str, str]]) -> list[Finding]:
+    """Both listings' status cells, against each other and against `PROTOCOL_PAGE` §4's closed set.
+
+    `Blocked` is a claim about another entry rather than about this one, so it is held to the
+    `Depends on` beside it: a status repaired in one listing and left in the other tells a reader
+    filtering the index one thing and a reader who opened the entry another.
+    """
+    vocabulary = protocol_statuses()
+    found: list[Finding] = []
+    for token, (_, section) in filed.items():
+        cells = _row_cells(rows[token])
+        # A row of another width is `_check_derived_tags`' finding, and its cells place nothing.
+        if len(cells) != ROADMAP_ROW_CELLS:
+            continue
+        fields = _entry_table(section)
+        row_status = cells[ROADMAP_STATUS_CELL]
+        entry_status = fields.get(STATUS_COLUMN, "")
+        if row_status != entry_status:
+            detail = f"index row {token} states `{row_status}` where its entry states `{entry_status}` -- one status, written twice"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
+        for where, value in (("index row", row_status), ("entry", entry_status)):
+            # The transient value is `_check_transient_status`' finding, and an empty one is a cell
+            # the entry has yet to write: reporting either here would give one defect two findings.
+            if vocabulary and value and value != ROADMAP_TRANSIENT_STATUS and value not in vocabulary:
+                detail = f"{where} {token} states `{value}`, which is no status `{PROTOCOL_PAGE}` §4 derives"
+                found.append(Finding("fail", "roadmap-shape", rel, detail))
+        if ROADMAP_BLOCKED_STATUS in (row_status, entry_status) and fields.get(DEPENDS_COLUMN, "").strip(" `") not in rows:
+            detail = f"entry {token} is {ROADMAP_BLOCKED_STATUS} and its `{DEPENDS_COLUMN}` names no entry this page holds"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
+    return found
+
+
+def _check_claim_agreement(rel: str, rows: dict[str, str], filed: dict[str, tuple[str, str]]) -> list[Finding]:
+    """The index row's claim against the heading it files.
+
+    Held identical rather than free to shorten, because nothing mechanical separates a shortening
+    from a claim that has drifted -- which is what a reader filtering the index acts on.
+    """
+    found: list[Finding] = []
+    for token, (claim, _) in filed.items():
+        cells = _row_cells(rows[token])
+        if len(cells) != ROADMAP_ROW_CELLS:
+            continue
+        if cells[ROADMAP_CLAIM_CELL] != claim:
+            detail = f"index row {token} states a claim its entry's heading does not repeat -- one claim, written twice"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
+    return found
+
+
+def _check_token_order(rel: str, opened: list[str], rows: dict[str, str], filed: dict[str, tuple[str, str]]) -> list[Finding]:
+    """Each listing is one ascending run of tokens, the order `sorted()` gives.
+
+    Two concatenated runs read as one, so a reader who reached the end of the first took a token's
+    absence for an answer; the finding names the pair that ends the run rather than every token
+    below it. A token the pairing above already reported is in neither run, or one defect there
+    would end a run here as well.
+    """
+    entries = [token for token in _filed_once(opened) if token in filed]
+    indexed = [token for token in rows if token in filed]
+    found: list[Finding] = []
+    for one, many, tokens in (("entry", "entries", entries), ("index row", "index rows", indexed)):
+        pair = next(((this, next_one) for this, next_one in zip(tokens, tokens[1:], strict=False) if this > next_one), None)
+        if pair is not None:
+            detail = f"{one} {pair[1]} follows {pair[0]} -- the {many} are one run in token order"
+            found.append(Finding("fail", "roadmap-shape", rel, detail))
     return found
 
 

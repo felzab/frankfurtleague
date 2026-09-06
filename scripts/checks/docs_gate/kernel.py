@@ -89,6 +89,9 @@ STANDARD_PAGE: Final = f"{DOCS_DIR}/_standard/standard.md"
 # `ROADMAP_GLOB` also matches the folder's other pages, so presence and tracking are asked of this
 # one by name instead.
 ROADMAP_PAGE: Final = f"{ROADMAP_DIR}/items.md"
+# Where the status vocabulary is derived, so the checker compares against a read rather than a
+# retyped list (COR-4).
+PROTOCOL_PAGE: Final = f"{ROADMAP_DIR}/protocol.md"
 TEMPLATES_PAGE: Final = f"{DOCS_DIR}/_git/templates.md"
 SWEEP_PAGE: Final = ".claude/commands/docs/audit.md"
 

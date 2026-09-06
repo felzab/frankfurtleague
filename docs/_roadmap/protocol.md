@@ -9,10 +9,16 @@ it — always, without exception**, because the tracker is the channel they can 
 ## 1. The shape of the page
 
 **One index table at the top — token, the claim, tags, status — then a flat run of entries, every one
-identical in shape.** Nothing is ranked or grouped under a heading, and where an entry sits on the
-page carries nothing: the tag column is the category, and a heading over a group would be a second
-one to keep true as entries arrive and leave
-(`scripts/checks/docs_gate/checks.py :: _check_flat_run`).
+identical in shape.** Nothing is ranked or grouped under a heading, and an entry's position says only
+where its token sorts: both listings are one ascending run of the token strings, so a reader who has
+reached the end of one has read the whole page. The tag column is the category, and a heading over a
+group would be a second one to keep true as entries arrive and leave
+(`scripts/checks/docs_gate/checks.py :: _check_flat_run`, `:: _check_token_order`).
+
+**The index row's claim is the entry heading's, word for word**
+(`scripts/checks/docs_gate/checks.py :: _check_claim_agreement`). Nothing mechanical separates a row
+that shortens its heading from one that has drifted, so a row free to shorten is a second claim
+nobody can hold to the first.
 
 ### What the page deliberately does not carry
 
@@ -64,7 +70,10 @@ changes rows nobody edited. **A closing commit walks the entire table and re-der
 
 **`Decided` is not done**: the entry has become an instruction rather than a question, and the work
 remains. A status that contradicts the `Depends on` beside it is the failure this rule exists to
-catch, so read the two columns together.
+catch, so read the two columns together. **Both listings carry the same word, that word is one of the
+four above, and a `Blocked` names an entry the page still holds**
+(`scripts/checks/docs_gate/checks.py :: _check_status_agreement`), which reads the four out of the
+table above rather than repeating them.
 
 **Rule 3's three homes are the whole set.** An argument recorded anywhere else — a page holding it
 until it reaches its own destination, a commit body, a report — leaves the entry at rule 4, because
