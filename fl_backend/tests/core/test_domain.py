@@ -479,7 +479,7 @@ def test_every_unenforced_entry_names_the_rule_a_reader_would_expect(entry):
 
     assert entry.near, f"'{entry.subject}' names no adjacent rule and so clears no entry bar"
 
-    defined = _codes_in(APP_ROOT)
+    defined = _codes_in(APP_ROOT, skip=DECLARATION)
     unknown = [code for code in entry.near if code not in defined]
 
     assert not unknown, f"'{entry.subject}' sits near {unknown}, which the application defines nowhere"
