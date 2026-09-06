@@ -165,7 +165,6 @@ deliverable.
 | `qw6j-scru` | The style directive concedes more than the reason recorded for it needs                                                                                           | FE, Ops, Docs, edge                                                         | Open     |
 | `r5xm-ac7m` | A hook probe reads the status only where the verdict was empty                                                                                                    | Ops, Docs, gate                                                             | Open     |
 | `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                                                            | FE, BE, DB, admin, bewerbungen                                              | Standing |
-| `s28h-m39z` | A moved vocabulary table is a skip on the next `scripts` branch, and nothing on the branch that moved it                                                          | Ops, Docs, gate, ci, tests                                                  | Open     |
 | `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                                                        | FE, BE, Docs, tests, saisons                                                | Open     |
 | `sqwz-xyxg` | An enforcement claim is resolved in one direction only                                                                                                            | Ops, gate                                                                   | Open     |
 | `srec-8jxj` | Naming the files that required the image build costs a process per file                                                                                           | Ops, Docs, gate                                                             | Open     |
@@ -3192,8 +3191,6 @@ that makes permanent, and has been driven red against a row flipped in place.
 | --------------- | ------ | ---------- |
 | Ops, Docs, gate | Open   | —          |
 
-Lands with: `s28h-m39z`
-
 **`scripts/gate/selfcheck.sh` step 4 proves a helper by two routes, and each has a bound it states.**
 The call-site reader walks every runnable script and reports every UNDERSCORED name in command
 position that neither `scripts/lib/_lib.sh` nor the script itself defines; **it stops at underscored
@@ -3647,43 +3644,6 @@ from unreachable into the ordinary path and makes the plan above the one an admi
 **What was measured and what was not** (COR-9). The plans were measured, at a row count the
 collection does not hold. That no caller sends `sort_by` was read off the page and the absence of
 another consumer rather than proven by instrumenting the endpoint.
-
-### `s28h-m39z` · A moved vocabulary table is a skip on the next `scripts` branch, and nothing on the branch that moved it
-
-| Tags                       | Status | Depends on |
-| -------------------------- | ------ | ---------- |
-| Ops, Docs, gate, ci, tests | Open   | —          |
-
-Lands with: `p2y9-p9za`
-
-**`scripts/gate/selfcheck.sh` step 4 reads the output vocabulary out of
-[`docs/ops/spec.md`](../ops/spec.md) by shape.** Its reader arms on the line opening `**The output
-standard.**`, takes the first table below it, and keeps each row whose first cell is a backticked
-lowercase name. Reword the lead-in, put a paragraph between it and the table, or drop the backticks
-from that column, and the reader yields nothing.
-
-**Yielding nothing is a ledgered skip, and that grade is right.** `scripts/gate/scope_map.sh` maps
-`docs/ops/spec.md` to `docs` and `format` and never to `scripts`, and
-`.github/workflows/verify.yml` runs its `scripts` job only on that output, so a finding there would
-redden a job the editing branch cannot run, on the next unrelated branch that selects `scripts`.
-
-**What the right grade leaves is a report on the wrong branch.** The branch that moved the table
-passes `--docs --format` with nothing said. The next branch selecting `scripts` carries a skip it did
-not cause and cannot clear without editing a page outside its change. And the vocabulary arm is not a
-check until somebody with a reason to open a documentation branch restores the shape — during which a
-verb the sheet documents and `_lib.sh` has dropped is found by nothing.
-
-**Done when** rewording the lead-in or un-backticking the first column of that table fails `python
-scripts/checks/check_docs.py` on the branch that did it — a check in
-`scripts/checks/docs_gate/checks.py`, registered in `scripts/checks/docs_gate/kernel.py :: CHECKS`,
-reading the same shape — `scripts/tests/test_check_docs.py` plants both, and step 4's skip arm is
-reached only by a sheet the documentation gate has already refused. **The definition half stays in
-step 4**: a `scripts/lib/_lib.sh` edit selects the full form so that half already reports on its own
-branch, and `scripts/checks/docs_gate/kernel.py :: defined_symbols` reads python alone, so the
-documentation gate could take it only with a bash reader it has no other use for. **Two readers of
-one shape is the doubt this leaves**, and what holds the awk and the python to one another is the
-closing session's decision; the cheap form is the check owning the lead-in as a constant and a
-`scripts/tests/` case asserting the step's reader carries the same literal.
 
 ### `skyx-nrgh` · A refusal composes a repair the product refuses to perform
 

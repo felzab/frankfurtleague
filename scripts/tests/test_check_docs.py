@@ -187,12 +187,18 @@ SLICE_ROW: Final = "| " + _tick(SLICE_ENTRY) + " | " + SLICE_ITEM + " | BE, spie
 # The page derives its status vocabulary here, and the fixture holds the table it derives it from.
 PROTOCOL: Final = "docs/_roadmap/protocol.md"
 STATUS_COLUMN_ROW: Final = "| # | When | Status |"
-# One entry per agreement arm, so a plant breaking one leaves the others answering. The tokens
-# ascend as the page's own listings do, `2xkq-7bnm` sorting below every one of them: it is appended
-# by a plant, which is what ends the run.
+# The sheet `scripts/gate/selfcheck.sh` reads its output vocabulary out of, with the lead-in that
+# arms that reader and one row under it in the shape it keeps.
+OPS_SPEC: Final = "docs/ops/spec.md"
+OUTPUT_LEAD_IN: Final = "**The output standard.** One vocabulary, one verb per meaning."
+OUTPUT_VERB_ROW: Final = "| `step` | Opens a step and starts its timer |"
+# One entry per agreement arm, so a plant breaking one leaves the others answering. They ascend as
+# the page's own listings do.
 STATUS_ENTRY: Final = "bqxs-4dtn"
 VOCAB_ENTRY: Final = "dm93-7kvz"
 BLOCKED_ENTRY: Final = "gtz5-9wqr"
+# Sorting below every one of them, and appended by a plant rather than committed: it is what ends
+# the run the other three are in.
 ORDER_ENTRY: Final = "2xkq-7bnm"
 STATUS_ITEM: Final = "Hold both listings' status cells to each other"
 VOCAB_ITEM: Final = "Hold a status to the vocabulary deriving it"
@@ -532,6 +538,37 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             _heading(2, ROADMAP_TAIL),
             "",
             "A closing section, so a line a plant appends lands outside every entry rather than inside the last one.",
+        ),
+        OPS_SPEC: _page(
+            _heading(1, "Ops — spec"),
+            "",
+            "The contract the scripts answer to.",
+            "",
+            _heading(2, "1. Contract"),
+            "",
+            _heading(3, "1.1 Script conventions"),
+            "",
+            OUTPUT_LEAD_IN,
+            "",
+            "| Verb | Means |",
+            "| --- | --- |",
+            OUTPUT_VERB_ROW,
+            "",
+            _heading(2, "2. Invariants"),
+            "",
+            "| ID | Invariant | Enforced by |",
+            "| --- | --- | --- |",
+            "| I2 | Every script speaks one output vocabulary | The self-check's verb reader |",
+            "",
+            _heading(2, "3. Violation → remedy"),
+            "",
+            "| Symptom | Remedy |",
+            "| --- | --- |",
+            "| A script printing formatting of its own | Call the verb instead |",
+            "",
+            _heading(2, "4. Known-open"),
+            "",
+            "No verb is unread.",
         ),
         PROTOCOL: _page(
             _heading(1, "Protocol"),
@@ -1040,10 +1077,10 @@ def _plant_roadmap() -> None:
 
 
 def _plant_roadmap_agreement() -> None:
-    """The arms holding one listing to the other, each planted where nothing else reads.
+    """The arms holding one listing to the other.
 
-    A status arm is planted in BOTH listings wherever the value itself is the defect: changing one
-    of them alone parts the two cells as well, and a plant answering two arms proves neither.
+    A value that is itself the defect is planted in BOTH listings: changing one alone parts the two
+    cells as well, and a plant answering two arms proves neither.
     """
     # A token below every one above it, in both listings, so each ends a run of its own.
     _replace(ROADMAP, SLICE_ROW, SLICE_ROW + "\n" + ORDER_ROW)
@@ -1070,6 +1107,15 @@ def _plant_roadmap_agreement() -> None:
     # Blocked in both listings with an em dash beside it, which names no entry at all.
     _replace(ROADMAP, BLOCKED_ROW, BLOCKED_ROW.replace("| Open |", "| Blocked |"))
     _replace(ROADMAP, BLOCKED_FIELDS, BLOCKED_FIELDS.replace("| Open |", "| Blocked |"))
+
+
+def _plant_output_verbs() -> None:
+    """The first column un-backticked, which is the shape `selfcheck.sh`'s awk keeps a row for.
+
+    Alone: the lead-in arm returns before this one is reached, so a run carrying both would count
+    one finding and leave the other unproven.
+    """
+    _replace(OPS_SPEC, OUTPUT_VERB_ROW, OUTPUT_VERB_ROW.replace("`step`", "step"))
 
 
 def _plant_compose_entry() -> None:
@@ -1449,6 +1495,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case("link", _fails("link", NOTES), lambda: _append(NOTES, "[gone](gone.md)")),
     Case("metadata-break", _fails("metadata-break", NOTES, TWIN_NOTES, STANDARD), _plant_metadata_breaks),
     Case("module-header", _fails("module-header", *[SAMPLE] * 3, *[SECOND_SAMPLE] * 2, THIRD_SAMPLE, LABEL_SAMPLE), _plant_module_headers),
+    Case("output-verbs", _fails("output-verbs", OPS_SPEC), _plant_output_verbs),
     Case("overview-spine", _fails("overview-spine", OVERVIEW, FRONTEND_OVERVIEW), _plant_overviews),
     Case("owner-voice", _fails("owner-voice", NOTES), lambda: _append(NOTES, "The owner reads it.")),
     Case("path", _fails("path", NOTES), lambda: _append(NOTES, "`docs/gone.md` is named here.")),
@@ -1599,10 +1646,10 @@ def test_an_untracked_roadmap_is_read_as_a_page_nobody_added() -> None:
 
 
 def test_a_status_table_that_yields_no_vocabulary_is_reported_rather_than_passed_over() -> None:
-    """An empty vocabulary silences the arm reading it, so the silence is a finding of its own.
+    """Driven alone rather than from the case sharing this check name.
 
-    Driven alone: the plant this shares a check name with puts two statuses outside that vocabulary,
-    and reaching it from there would prove the arm on a corpus where it is switched off.
+    That case puts two statuses outside the vocabulary, so reaching this arm from there would prove
+    it on a corpus where it is switched off.
     """
     _reset()
     _replace(PROTOCOL, STATUS_COLUMN_ROW, STATUS_COLUMN_ROW.replace("Status", "Verdict"))
@@ -1611,6 +1658,22 @@ def test_a_status_table_that_yields_no_vocabulary_is_reported_rather_than_passed
     finally:
         _reset()
     assert reported[("fail", "roadmap-shape", PROTOCOL)] == 1, "a moved status table passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_reworded_lead_in_leaves_the_verb_reader_with_nothing_to_arm_on() -> None:
+    """Driven alone rather than from this check's own case.
+
+    This arm returns before that case's plant is reached, so a shared run would count one finding
+    for two plants and leave whichever spoke second unproven.
+    """
+    _reset()
+    _replace(OPS_SPEC, OUTPUT_LEAD_IN, OUTPUT_LEAD_IN.replace("The output standard.", "The verbs."))
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "output-verbs", OPS_SPEC)] == 1, "a moved lead-in passed: " + _shape(reported)
     _assert_corpus_restored()
 
 

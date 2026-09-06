@@ -44,6 +44,7 @@ from .kernel import (
     ENTRY_TOKEN_PATTERN,
     GLOSSARY_PAGE,
     OPS_FILENAMES,
+    OPS_SPEC_PAGE,
     OVERVIEW_GLOB,
     PROTOCOL_PAGE,
     REPO_PREFIXES,
@@ -161,6 +162,12 @@ INVARIANT_ID_RE: Final = re.compile(r"^[ \t]*\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.
 INVARIANT_REF_RE: Final = re.compile(r"(?<![A-Za-z0-9])([IL]\d{1,3}[a-z]?)(?![A-Za-z0-9])")
 # The invariant table's other rows: what `INVARIANT_ID_RE` skips reaches no arm keyed on an id.
 TABLE_ROW_RE: Final = re.compile(r"^[ \t]*\|")
+
+# The two patterns `scripts/gate/selfcheck.sh` step 4 arms its verb reader on, in that script's own
+# dialect: the spellings compare literal for literal once each side's escaping is dropped
+# (`scripts/tests/test_selfcheck_guards.py :: test_the_verb_table_is_read_off_the_same_two_literals`).
+OUTPUT_STANDARD_LEAD_IN: Final = r"^\*\*The output standard\."
+OUTPUT_VERB_COLUMN: Final = r"^\| `[a-z_]+`"
 
 OVERVIEW_OPENING: Final = "How it is organised"
 OVERVIEW_CLOSING: Final = "Read next"
@@ -421,8 +428,8 @@ def _table_rows(text: str) -> list[list[str]]:
 def protocol_statuses() -> frozenset[str]:
     """The statuses `PROTOCOL_PAGE` §4 derives, read from the table deriving them.
 
-    A vocabulary retyped in the checker goes stale with the gate green either way (COR-4), which is
-    also `slice_names`' argument. The bold is stripped because the derivation marks its answer.
+    A vocabulary retyped here would go stale with the gate green either way (COR-4). The bold is
+    stripped because the derivation marks its answer.
     """
     text = _tracked_text(PROTOCOL_PAGE)
     if text is None:
@@ -452,10 +459,10 @@ def _check_status_vocabulary() -> list[Finding]:
 
 
 def _entry_table(section: str) -> dict[str, str]:
-    """One entry's field table, its column names mapped to the values row beneath them.
+    """One entry's field table, its columns mapped to the values row beneath them.
 
-    By name and never by position: the two tables this gate reads carry different columns, and a
-    position would read the neighbouring field on whichever one grows first.
+    Read by name: the two tables here carry different columns, so a position would read the
+    neighbouring field on whichever grows first.
     """
     rows = _table_rows(section)
     head = next((index for index, cells in enumerate(rows) if STATUS_COLUMN in cells), None)
@@ -589,11 +596,10 @@ def _check_transient_status(rel: str, rows: dict[str, str], paired: list[tuple[s
 
 
 def _check_status_agreement(rel: str, rows: dict[str, str], filed: dict[str, tuple[str, str]]) -> list[Finding]:
-    """Both listings' status cells, against each other and against `PROTOCOL_PAGE` §4's closed set.
+    """Both listings' status cells, held to each other and to `PROTOCOL_PAGE` §4's closed set.
 
-    `Blocked` is a claim about another entry rather than about this one, so it is held to the
-    `Depends on` beside it: a status repaired in one listing and left in the other tells a reader
-    filtering the index one thing and a reader who opened the entry another.
+    A value repaired in one listing and left in the other leaves the index saying one thing and the
+    entry another.
     """
     vocabulary = protocol_statuses()
     found: list[Finding] = []
@@ -614,6 +620,7 @@ def _check_status_agreement(rel: str, rows: dict[str, str], filed: dict[str, tup
             if vocabulary and value and value != ROADMAP_TRANSIENT_STATUS and value not in vocabulary:
                 detail = f"{where} {token} states `{value}`, which is no status `{PROTOCOL_PAGE}` §4 derives"
                 found.append(Finding("fail", "roadmap-shape", rel, detail))
+        # `Blocked` is a claim about another entry, so it is held to the `Depends on` beside it.
         if ROADMAP_BLOCKED_STATUS in (row_status, entry_status) and fields.get(DEPENDS_COLUMN, "").strip(" `") not in rows:
             detail = f"entry {token} is {ROADMAP_BLOCKED_STATUS} and its `{DEPENDS_COLUMN}` names no entry this page holds"
             found.append(Finding("fail", "roadmap-shape", rel, detail))
@@ -641,14 +648,15 @@ def _check_token_order(rel: str, opened: list[str], rows: dict[str, str], filed:
     """Each listing is one ascending run of tokens, the order `sorted()` gives.
 
     Two concatenated runs read as one, so a reader who reached the end of the first took a token's
-    absence for an answer; the finding names the pair that ends the run rather than every token
-    below it. A token the pairing above already reported is in neither run, or one defect there
-    would end a run here as well.
+    absence for an answer.
     """
+    # A token the pairing above already reported is in neither run, or one defect there would end a
+    # run here as well.
     entries = [token for token in _filed_once(opened) if token in filed]
     indexed = [token for token in rows if token in filed]
     found: list[Finding] = []
     for one, many, tokens in (("entry", "entries", entries), ("index row", "index rows", indexed)):
+        # The first out-of-order pair alone: what follows it is whatever the unfolded run left.
         pair = next(((this, next_one) for this, next_one in zip(tokens, tokens[1:], strict=False) if this > next_one), None)
         if pair is not None:
             detail = f"{one} {pair[1]} follows {pair[0]} -- the {many} are one run in token order"
@@ -1208,6 +1216,39 @@ def _sample(paths: list[str]) -> str:
     """The first few offending paths, and a count of whatever is left."""
     head = ", ".join(f"`{path}`" for path in sorted(paths)[:SEGMENT_SAMPLE])
     return head if len(paths) <= SEGMENT_SAMPLE else f"{head} and {len(paths) - SEGMENT_SAMPLE} more"
+
+
+# Reading `scripts/lib/_lib.sh`'s own definitions from here was refused: `kernel.py ::
+# defined_symbols` reads Python alone, and a bash reader this gate has no other use for is the
+# wrong price.
+def check_output_verbs() -> list[Finding]:
+    """The verb table is still where `scripts/gate/selfcheck.sh`'s awk looks for it.
+
+    That awk skips rather than fails, and this sheet selects no `scripts` scope, so the skip lands
+    on a later branch, not on the one that moved it.
+    """
+    rel = OPS_SPEC_PAGE
+    text = _tracked_text(rel)
+    if text is None:
+        detail = "untracked or unreadable, so the output standard's table was read against nothing"
+        return [Finding("fail", "output-verbs", rel, detail)]
+    lines = text.split("\n")
+    opened = next((number for number, line in enumerate(lines) if re.match(OUTPUT_STANDARD_LEAD_IN, line)), None)
+    if opened is None:
+        detail = f"no line opens `{OUTPUT_STANDARD_LEAD_IN}`, which is what arms `scripts/gate/selfcheck.sh`'s verb reader"
+        return [Finding("fail", "output-verbs", rel, detail)]
+    # The first table below the lead-in and no other, as the awk takes it: prose and blank lines are
+    # stepped over, and the first line that is not a row after one has been seen ends the table.
+    rows: list[str] = []
+    for line in lines[opened + 1 :]:
+        if line.startswith("|"):
+            rows.append(line)
+        elif rows:
+            break
+    if not any(re.match(OUTPUT_VERB_COLUMN, row) for row in rows):
+        detail = f"the table under `{OUTPUT_STANDARD_LEAD_IN}` opens no row matching `{OUTPUT_VERB_COLUMN}`, so that reader keeps no verb"
+        return [Finding("fail", "output-verbs", rel, detail)]
+    return []
 
 
 def check_template_fragments() -> list[Finding]:
@@ -1893,6 +1934,7 @@ def main() -> int:
     findings.extend(check_cell_prose())
     findings.extend(check_echo())
     findings.extend(check_segment_map())
+    findings.extend(check_output_verbs())
     findings.extend(check_template_fragments())
     findings.extend(check_prose_shas(files))
     findings.extend(check_history_phrases(additions))

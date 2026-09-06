@@ -93,6 +93,9 @@ ROADMAP_PAGE: Final = f"{ROADMAP_DIR}/items.md"
 # retyped list (COR-4).
 PROTOCOL_PAGE: Final = f"{ROADMAP_DIR}/protocol.md"
 TEMPLATES_PAGE: Final = f"{DOCS_DIR}/_git/templates.md"
+# Named rather than reached through `SPEC_GLOB`: one reader outside this package arms itself on a
+# line of this sheet in particular.
+OPS_SPEC_PAGE: Final = f"{DOCS_DIR}/ops/spec.md"
 SWEEP_PAGE: Final = ".claude/commands/docs/audit.md"
 
 
@@ -129,6 +132,7 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "link": frozenset({"fail"}),
     "metadata-break": frozenset({"fail"}),
     "module-header": frozenset({"fail"}),
+    "output-verbs": frozenset({"fail"}),
     "overview-spine": frozenset({"fail"}),
     "owner-voice": frozenset({"fail"}),
     "path": frozenset({"fail"}),
