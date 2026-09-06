@@ -11,10 +11,10 @@ wrong, `DB-*` the database refused or failed, `SRV-*` the server itself failed, 
 failure class. A new failure mode gets a new code, never a reused one.
 
 **What holds this page to the code is `scripts/checks/docs_gate/error_codes.py`**: every row is
-required to be spelled in the tree its area names — `FE-*` under `fl_frontend/src/`, the other three
-under `fl_backend/app/` — and every code those trees spell is required to have a row, each tree
-answering for its own prefixes so the backend codes the frontend words for a reader are not read as
-the frontend's own.
+required to be spelled in the tree its area names — `FE-*` under `fl_frontend/src/`, every other
+area under `fl_backend/app/` — and every code a tree spells under a prefix it answers for is
+required to have a row, so the backend codes the frontend words for a reader are not read as the
+frontend's own.
 
 **`READ-*` shares that shape and is not an error code.** A read rule refuses nothing, so it reaches no
 response body, no log line and no row on this page, and the `RULES` correspondence below is scanned over

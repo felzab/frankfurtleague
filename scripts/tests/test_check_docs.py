@@ -1126,6 +1126,9 @@ def _plant_roadmap_agreement() -> None:
     A value that is itself the defect is planted in BOTH listings: changing one alone parts the two
     cells as well, and a plant answering two arms proves neither.
     """
+    # One entry per arm, each planted where no other arm reads (PRE-4): a plant two arms could
+    # answer would leave one of them proven by the other's finding.
+
     # A token below every one above it, in both listings, so each ends a run of its own.
     _replace(ROADMAP, SLICE_ROW, SLICE_ROW + "\n" + ORDER_ROW)
     _replace(
@@ -1778,10 +1781,10 @@ def test_an_untracked_roadmap_is_read_as_a_page_nobody_added() -> None:
 
 
 def test_a_status_table_that_yields_no_vocabulary_is_reported_rather_than_passed_over() -> None:
-    """Driven alone rather than from the case sharing this check name.
+    """An empty vocabulary silences the arm reading it, so the silence is a finding of its own.
 
-    That case puts two statuses outside the vocabulary, so reaching this arm from there would prove
-    it on a corpus where it is switched off.
+    Driven alone: the case sharing this check name puts two statuses outside the vocabulary, so it
+    would prove this arm switched off.
     """
     _reset()
     _replace(PROTOCOL, STATUS_COLUMN_ROW, STATUS_COLUMN_ROW.replace("Status", "Verdict"))
@@ -1790,6 +1793,66 @@ def test_a_status_table_that_yields_no_vocabulary_is_reported_rather_than_passed
     finally:
         _reset()
     assert reported[("fail", "roadmap-shape", PROTOCOL)] == 1, "a moved status table passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_an_untracked_protocol_page_is_reported_rather_than_emptying_the_vocabulary() -> None:
+    """The page on disk and outside the index yields no vocabulary, which switched the status arm off in silence.
+
+    `inputs` asks the disk, so only the reader itself can say the index does not hold the page.
+    """
+    _reset()
+    git(_gate().root, "rm", "--cached", "-q", "--", PROTOCOL)
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "roadmap-shape", PROTOCOL)] == 1, "an untracked protocol page passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_status_table_outside_section_four_widens_no_vocabulary() -> None:
+    """A second `Status`-headed table on the page is not the derivation, and a reader re-arming on any header would take it.
+
+    Its word is planted as a status in both listings, so a reader taking it reports nothing.
+    """
+    _reset()
+    _append(
+        PROTOCOL,
+        "",
+        _heading(2, "5. A table that derives nothing"),
+        "",
+        STATUS_COLUMN_ROW,
+        "| --- | --- | --- |",
+        "| 1 | A row a reader scoped to section four never reads | **Parked** |",
+    )
+    _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", "| Parked |"))
+    _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", "| Parked |"))
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 2, "a table outside section four widened the vocabulary: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_blocked_entry_naming_two_dependencies_is_held_to_either_of_them() -> None:
+    """A `Depends on` cell naming two entries is read token by token, one of them filed being enough.
+
+    Read as one token it names no entry, and a true claim about another entry draws a finding.
+    """
+    _reset()
+    both = "| Docs | Blocked | XS | " + _tick(ORPHAN_ENTRY) + ", " + _tick(DOCS_ENTRY) + " |"
+    _replace(ROADMAP, BLOCKED_ROW, BLOCKED_ROW.replace("| Open |", "| Blocked |"))
+    _replace(ROADMAP, BLOCKED_FIELDS, both)
+    try:
+        _, reported = _run()
+        _replace(ROADMAP, both, both.replace(_tick(DOCS_ENTRY), _tick(MALFORMED_ENTRY)))
+        _, unfiled = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "a dependency filed beside an unfiled one was refused: " + _shape(reported)
+    assert unfiled[("fail", "roadmap-shape", ROADMAP)] == 1, "two unfiled dependencies passed: " + _shape(unfiled)
     _assert_corpus_restored()
 
 
@@ -1806,6 +1869,33 @@ def test_a_reworded_lead_in_leaves_the_verb_reader_with_nothing_to_arm_on() -> N
     finally:
         _reset()
     assert reported[("fail", "output-verbs", OPS_SPEC)] == 1, "a moved lead-in passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_row_under_an_area_no_pattern_spelled_is_held_to_the_trees() -> None:
+    """A code's shape is what selects it, so a fifth area's row is owed a spelling like the four's.
+
+    A closed alternation drops the row from both populations at once, and the check stays green.
+    """
+    _reset()
+    _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n| `OPS-SAMPLE-001` | A row under an area no pattern spelled |")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "error-codes", ERROR_CODES)] == 1, "a row under a fifth area was read by nothing: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_an_untracked_register_page_is_the_check_s_own_finding() -> None:
+    """The page on disk and outside the index satisfies `inputs` and yields no row, so the comparison ran over nothing."""
+    _reset()
+    git(_gate().root, "rm", "--cached", "-q", "--", ERROR_CODES)
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "error-codes", ERROR_CODES)] == 1, "an untracked register passed: " + _shape(reported)
     _assert_corpus_restored()
 
 

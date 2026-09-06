@@ -229,6 +229,8 @@ TABLE_ROW_RE: Final = re.compile(r"^[ \t]*\|")
 # dialect: the spellings compare literal for literal once each side's escaping is dropped
 # (`scripts/tests/test_selfcheck_guards.py :: test_the_verb_table_is_read_off_the_same_two_literals`).
 OUTPUT_STANDARD_LEAD_IN: Final = r"^\*\*The output standard\."
+# Retyped rather than read out of `scripts/lib/_lib.sh`: `kernel.py :: defined_symbols` reads
+# Python alone, and a bash reader this gate has no other use for is the wrong price.
 OUTPUT_VERB_COLUMN: Final = r"^\| `[a-z_]+`"
 
 OVERVIEW_OPENING: Final = "How it is organised"
@@ -267,6 +269,9 @@ DEPENDS_COLUMN: Final = "Depends on"
 # Which rows of `PROTOCOL_PAGE`'s status table carry a value: the derivation numbers its rules, and
 # the delimiter row's dashes are what this parts them from.
 PROTOCOL_RULE_RE: Final = re.compile(r"^\d+$")
+# The section that derives the statuses, by the number the page's own prose and every finding here
+# cite it under (§4); its heading's words are free to move.
+PROTOCOL_STATUS_SECTION: Final = "4."
 
 # One table row's cells, the outer pipes' empty halves dropped.
 TABLE_LINE_RE: Final = re.compile(r"^[ \t]*\|(.*)\|[ \t]*$")
@@ -508,24 +513,33 @@ def _table_rows(text: str) -> list[list[str]]:
     return rows
 
 
+def _protocol_section(text: str) -> str:
+    """The section of `PROTOCOL_PAGE` numbered `PROTOCOL_STATUS_SECTION`, or nothing where no heading carries the number."""
+    heading = next((head for head in _headings(text, 2) if head.startswith(PROTOCOL_STATUS_SECTION)), None)
+    return "" if heading is None else _section(text, heading)
+
+
 @cache
 def protocol_statuses() -> frozenset[str]:
     """The statuses `PROTOCOL_PAGE` §4 derives, read from the table deriving them.
 
-    A vocabulary retyped here would go stale with the gate green either way (COR-4). The bold is
-    stripped because the derivation marks its answer.
+    A vocabulary retyped here would go stale with the gate green either way (COR-4), the argument
+    `scripts/checks/docs_gate/checks.py :: slice_names` rests on too.
     """
     text = _tracked_text(PROTOCOL_PAGE)
     if text is None:
         return frozenset()
     values: set[str] = set()
     column: int | None = None
-    for cells in _table_rows(text):
+    # The one section: a `Status`-headed table elsewhere on the page is an example of the page's
+    # shape, and a reader re-arming on any header would widen the vocabulary by it.
+    for cells in _table_rows(_protocol_section(text)):
         # The header arms the read and fixes the column, so a table with no `Status` heading over it
         # contributes nothing however its rows are numbered.
         if STATUS_COLUMN in cells:
             column = cells.index(STATUS_COLUMN)
         elif column is not None and column < len(cells) and PROTOCOL_RULE_RE.match(cells[0]):
+            # The bold comes off because the derivation marks its answer.
             values.add(cells[column].strip("*").strip())
     return frozenset(values)
 
@@ -533,13 +547,21 @@ def protocol_statuses() -> frozenset[str]:
 def _check_status_vocabulary() -> list[Finding]:
     """§4's table still yields a vocabulary, or every status cell below was compared with nothing.
 
-    Absence of the page is `check_inputs`' finding; this is the table moving out from under a
-    reader that would otherwise pass in silence.
+    Absence is `check_inputs`' finding; an empty vocabulary switches the arm reading it off in
+    silence, so each way of emptying one is reported.
     """
-    if _tracked_text(PROTOCOL_PAGE) is None or protocol_statuses():
+    rel = PROTOCOL_PAGE
+    page = tracked_page(rel)
+    if page is None:
+        if (REPO_ROOT / rel).exists():
+            return [Finding("fail", "roadmap-shape", rel, "untracked, so the status vocabulary was derived from nothing")]
+        return []
+    if _readable(page) is None:
+        return [Finding("fail", "roadmap-shape", rel, "unreadable, so the status vocabulary was derived from nothing")]
+    if protocol_statuses():
         return []
     detail = f"§4's table yields no status, so `{ROADMAP_PAGE}`'s status cells were held to nothing"
-    return [Finding("fail", "roadmap-shape", PROTOCOL_PAGE, detail)]
+    return [Finding("fail", "roadmap-shape", rel, detail)]
 
 
 def _entry_table(section: str) -> dict[str, str]:
@@ -704,10 +726,13 @@ def _check_status_agreement(rel: str, rows: dict[str, str], filed: dict[str, tup
             if vocabulary and value and value != ROADMAP_TRANSIENT_STATUS and value not in vocabulary:
                 detail = f"{where} {token} states `{value}`, which is no status `{PROTOCOL_PAGE}` §4 derives"
                 found.append(Finding("fail", "roadmap-shape", rel, detail))
-        # `Blocked` is a claim about another entry, so it is held to the `Depends on` beside it.
-        if ROADMAP_BLOCKED_STATUS in (row_status, entry_status) and fields.get(DEPENDS_COLUMN, "").strip(" `") not in rows:
-            detail = f"entry {token} is {ROADMAP_BLOCKED_STATUS} and its `{DEPENDS_COLUMN}` names no entry this page holds"
-            found.append(Finding("fail", "roadmap-shape", rel, detail))
+        # `Blocked` is a claim about another entry, so it is held to the `Depends on` beside it --
+        # token by token, one filed being enough, since a cell names every blocker at once.
+        if ROADMAP_BLOCKED_STATUS in (row_status, entry_status):
+            cell = fields.get(DEPENDS_COLUMN, "")
+            if not any(named in rows for named in BACKTICK_RE.findall(cell) or [cell.strip()]):
+                detail = f"entry {token} is {ROADMAP_BLOCKED_STATUS} and its `{DEPENDS_COLUMN}` names no entry this page holds"
+                found.append(Finding("fail", "roadmap-shape", rel, detail))
     return found
 
 
@@ -1356,9 +1381,6 @@ def _sample(paths: list[str]) -> str:
     return head if len(paths) <= SEGMENT_SAMPLE else f"{head} and {len(paths) - SEGMENT_SAMPLE} more"
 
 
-# Reading `scripts/lib/_lib.sh`'s own definitions from here was refused: `kernel.py ::
-# defined_symbols` reads Python alone, and a bash reader this gate has no other use for is the
-# wrong price.
 def check_output_verbs() -> list[Finding]:
     """The verb table is still where `scripts/gate/selfcheck.sh`'s awk looks for it.
 
