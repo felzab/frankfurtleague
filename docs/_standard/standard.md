@@ -188,7 +188,8 @@ These bind every written artifact. A comment is documentation and carries every 
   line number, in any form — nothing tells a correct one from a stale one — except a finding in a
   gitignored audit report, read once against the tree it came from. _Enforced by_ gate checks
   `citation`, `path`, `anchor`, `link`, `rule-id` and `line-citation`; gate check `wrapped-path`,
-  for a backticked path a line wrap parts, which renders with a space inside it; gate check `sha`, which fails
+  for a backticked path a line wrap parts, which renders with a space inside it, whether or not the
+  join still names a file; gate check `sha`, which fails
   a backticked run of seven or eight hex characters carrying both a digit and a letter whether or not
   this clone resolves it, resolution being exactly what a rewritten history takes away — a run of hex
   alone is a value and stays review's; `/docs:audit`.
@@ -236,9 +237,9 @@ These bind every written artifact. A comment is documentation and carries every 
   does not fit, **the file changes**: the content that does not fit moves to a page whose shape holds
   it, or it goes. _Enforced by_ gate checks `spec-spine`, `invariant-row`, `overview-spine`,
   `glossary-entry`, `module-header` and `rule-shape`, each over the part of its shape its own rule
-  names — **a README's shape is checked by nothing**, `readme-cap` reading its word count alone
-  (OUT-3), so the title, the purpose line, the table and the one body section are `/docs:audit`'s;
-  whether a deviation was repaired by moving the content or by widening the shape is review judgment.
+  names, and `readme-cap` over OUT-3's word bound; **a README's own shape is read by no check**, so
+  its title, its purpose line, its table and its one body section are `/docs:audit`'s, as is
+  whether a deviation was repaired by moving the content or by widening the shape.
 - **COR-15:** a file whose only reader is a model — a command file, a rules file, `.claude/CLAUDE.md`,
   a skill page, an audit pass prompt — is written for that reader alone, and its length is judged per
   invocation rather than per file, because it is paid again on every run. What goes is everything
@@ -419,8 +420,9 @@ README and every template.
   bound reaching a table cell and nothing else. Every claim carries an anchored citation (COR-6). _Enforced by_ gate
   checks `cell-prose`, `spec-spine`, `invariant-row`, `citation` and `path`; `invariant-id` for a
   cited number no sheet's table defines, which is a dead citation rather than an ambiguous one;
-  `invariant-number` for a number an added row takes from another sheet, which reads the branch's
-  own diff and so leaves a number two sheets already share standing (CUR-6);
+  `invariant-number` for an added row's number, another sheet's already or outside the run this
+  branch fills one past the highest, which reads the branch's own diff and so leaves a number two
+  sheets already share standing (CUR-6);
   gate check `rule-id`, which fails a bare number two sheets both define — **in a comment alone, and
   not where a surface word sits in the same block**, so a page naming the wrong sheet or no sheet is
   `/docs:audit`'s, as contract over mechanism is.

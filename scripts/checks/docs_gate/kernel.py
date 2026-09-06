@@ -63,12 +63,18 @@ PACKAGE_ROOTS: Final[tuple[str, ...]] = ("fl_frontend/", "fl_backend/")
 
 
 BACKTICK_SPAN_RE: Final = re.compile(r"`[^`\n]*`")
-# Quoted and backticked spans come out first: naming the phrase to ban it, as the rule itself
-# does, is a mention rather than a use.
+# What a caller takes out before running a pattern of its own: naming a phrase to ban it, as a
+# rule itself does, is a mention rather than a use.
 QUOTED_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|`[^`\n]*`|“[^”\n]*”")
 # A row of the invariant shape wherever it sits, for a reader of diff lines, which carry no
-# section; `checks.py :: _invariant_rows` reads the table alone.
+# section; `invariant_rows` reads the table alone.
 INVARIANT_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*(I\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
+# `L` is the logging sheet's prefix and `I` every other sheet's. A citation crosses surfaces often
+# enough that an id is resolved against every sheet.
+INVARIANT_ID_RE: Final = re.compile(r"^[ \t]*\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
+# The closing sections are fixed so a growing contract cannot push Invariants down and silently
+# repoint every citation of section 3 — which is what makes an invariant number safe to cite.
+SPEC_SECTIONS: Final[tuple[str, ...]] = ("1. Contract", "2. Invariants", "3. Violation → remedy", "4. Known-open")
 
 
 FENCE_RE: Final = re.compile(r"^\s*(```|~~~)")
@@ -169,7 +175,7 @@ CHECKS: Final[dict[str, Check]] = {
     "link": Check(FAIL, claimed("COR-6", "INC-6")),
     "metadata-break": Check(FAIL, claimed("COR-8")),
     "module-header": Check(FAIL, claimed("COR-12", "INC-2")),
-    "output-verbs": Check(FAIL, claimed(GATE)),
+    "output-verbs": Check(FAIL, claimed("docs/ops/spec.md :: 1.7 Script conventions")),
     "overview-spine": Check(FAIL, claimed("COR-12", "OUT-5")),
     "owner-voice": Check(FAIL, claimed("COR-11")),
     "path": Check(FAIL, claimed("COR-6", "INC-6", "OUT-4", "CUR-1")),
@@ -948,6 +954,29 @@ def atx_heading(line: str, level: int | None = None) -> str | None:
     if match is None or (level is not None and len(match.group(1)) != level):
         return None
     return match.group(2)
+
+
+def _section(body: str, heading: str) -> str:
+    """One `## <heading>` section's body.
+
+    Matched through `atx_heading`: a verbatim line match empties the section on a trailing space,
+    and a subsection check over nothing passes.
+    """
+    lines = body.split("\n")
+    start = next((index for index, line in enumerate(lines) if atx_heading(line, 2) == heading), None)
+    if start is None:
+        return ""
+    end = next((index for index in range(start + 1, len(lines)) if atx_heading(lines[index], 2) is not None), len(lines))
+    return "\n".join(lines[start + 1 : end])
+
+
+def invariant_rows(body: str) -> list[str]:
+    """The ids a sheet's `## 2. Invariants` table defines, in row order, a repeat kept.
+
+    One reader behind the table check, the homes mapping and the fork's population: a row that
+    check does not prove is one nothing resolves against.
+    """
+    return INVARIANT_ID_RE.findall(_section(body, SPEC_SECTIONS[1]))
 
 
 def heading_anchors(body: str) -> set[str]:

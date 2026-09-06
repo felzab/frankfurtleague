@@ -32,6 +32,7 @@ from .branch import (
     check_comment_bounds,
     check_history_phrases,
     check_prose_shas,
+    fork_page,
 )
 from .copy_rules import check_copy_rules
 from .error_codes import ERROR_CODES_PAGE, check_error_codes
@@ -48,6 +49,7 @@ from .kernel import (
     GATE,
     GLOSSARY_PAGE,
     HEADER_SUFFIXES,
+    INVARIANT_ID_RE,
     OPS_FILENAMES,
     OPS_SPEC_PAGE,
     OVERVIEW_GLOB,
@@ -58,6 +60,7 @@ from .kernel import (
     ROADMAP_PAGE,
     SCANNED_SUFFIXES,
     SPEC_GLOB,
+    SPEC_SECTIONS,
     STANDARD_PAGE,
     SWEEP_PAGE,
     TEMPLATES_PAGE,
@@ -68,6 +71,7 @@ from .kernel import (
     _read_text,
     _readable,
     _scan_body,
+    _section,
     _tree_index,
     _untracked_index,
     anchors_of,
@@ -77,6 +81,7 @@ from .kernel import (
     defined_symbols,
     holds_file,
     holds_path,
+    invariant_rows,
     is_entry_token,
     is_gitignored,
     is_placeholder,
@@ -148,13 +153,20 @@ class RulePattern:
     def findall(self, text: str) -> list[Any]:
         return self._pattern().findall(text)
 
+    def __getattr__(self, name: str) -> Any:
+        """Every other attribute from the compiled pattern, so an export of one is a whole pattern.
+
+        The three methods above are typed for their callers; `search`, `finditer` and `sub` reach
+        one through here rather than failing at the export.
+        """
+        return getattr(self._pattern(), name)
+
 
 RULE_HEAD_RE: Final = RulePattern(r"^(<family>-\d{1,2})\b(.*)$")
-RULE_INDEX_LINE_RE: Final = RulePattern(r"^[ \t]*[-*]\s+\*\*(<family>-\d{1,2}):\*\*", re.MULTILINE)
 # Runs to the next rule bullet or heading, not to a blank line: a list item's continuation is
 # indented under it, so a blank line inside one ends nothing.
-RULE_INDEX_BLOCK_RE: Final = RulePattern(
-    r"^[ \t]*[-*]\s+\*\*<family>-\d{1,2}:\*\*(.*?)(?=^[ \t]*[-*][ \t]+\*\*<family>-|^#|\Z)",
+RULE_INDEX_RE: Final = RulePattern(
+    r"^[ \t]*[-*]\s+\*\*(<family>-\d{1,2}):\*\*(.*?)(?=^[ \t]*[-*][ \t]+\*\*<family>-|^#|\Z)",
     re.MULTILINE | re.DOTALL,
 )
 # Either emphasis marker: prettier rewrites `*text*` to `_text_`, so matching one spelling leaves
@@ -178,8 +190,9 @@ PR_BODY_CHECKER: Final = "scripts/checks/check_pr_body.py"
 # Where a finding about a registered claim is filed: the row to repair is there.
 KERNEL_PAGE: Final = "scripts/checks/docs_gate/kernel.py"
 
-# Fence info strings a diagram renderer other than mermaid reads. GitHub draws none of them, so a
-# diagram written in one is a diagram nobody sees (OUT-7).
+# Fence info strings a renderer other than mermaid reads, so a diagram in one is one GitHub draws
+# for nobody (OUT-7). Kept by hand: nothing this repository holds enumerates them, so no
+# derivation can stand in for the list (COR-4).
 DIAGRAM_LANGUAGES: Final[frozenset[str]] = frozenset(
     {"plantuml", "puml", "dot", "graphviz", "d2", "ditaa", "nomnoml", "svgbob", "structurizr", "c4plantuml", "wavedrom", "kroki"}
 )
@@ -215,14 +228,8 @@ CRLF_MANDATED: Final = "eol=crlf"
 # `check_binary_bytes`: content cannot decide it, the byte hunted there being what misleads git.
 DECLARED_BINARY: Final = "-text"
 
-# The closing sections are fixed so a growing contract cannot push Invariants down and silently
-# repoint every citation of section 3 — which is what makes an invariant number safe to cite.
-SPEC_SECTIONS: Final[tuple[str, ...]] = ("1. Contract", "2. Invariants", "3. Violation → remedy", "4. Known-open")
 SPEC_SUBSECTION_RE: Final = re.compile(r"^1\.(\d+)\b")
 SPEC_COLUMNS: Final = 3
-# `L` is the logging sheet's prefix and `I` every other sheet's. A citation crosses surfaces often
-# enough that an id is resolved against every sheet.
-INVARIANT_ID_RE: Final = re.compile(r"^[ \t]*\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
 INVARIANT_REF_RE: Final = re.compile(r"(?<![A-Za-z0-9])([IL]\d{1,3}[a-z]?)(?![A-Za-z0-9])")
 # The invariant table's other rows: what `INVARIANT_ID_RE` skips reaches no arm keyed on an id.
 TABLE_ROW_RE: Final = re.compile(r"^[ \t]*\|")
@@ -350,16 +357,28 @@ def rule_blocks(text: str) -> list[tuple[str, str, str]]:
     return blocks
 
 
+def _families(text: str) -> frozenset[str]:
+    """The rule families one copy of the standard states, as list lines or as sections."""
+    return frozenset(RULE_LINE_RE.findall(text)) | frozenset(RULE_HEADING_RE.findall(text))
+
+
 @cache
 def rule_prefixes() -> frozenset[str]:
-    """The rule families the standard states, as list lines or as sections, or none where no standard can be read."""
+    """The families the standard states, here and at the branch's fork, as list lines or sections.
+
+    A family this branch retires keeps its citations checked (PRE-4); with no fork readable, this
+    tree's families alone.
+    """
     text = _tracked_text(STANDARD_PAGE)
     if text is None:
         # The disk where the index declines the page: an untracked standard's ids still have to be
         # recognised, or every citation of one passes in silence instead of failing.
         raw = _read_text(REPO_ROOT / STANDARD_PAGE)[0]
         text = None if raw is None else strip_fences(raw)
-    return frozenset(RULE_LINE_RE.findall(text or "")) | frozenset(RULE_HEADING_RE.findall(text or ""))
+    # The fork's copy too: a family gone from this tree matches no pattern, so every citation of
+    # one drops out of `rule-id`'s listing rather than failing it (PRE-4).
+    earlier = fork_page(STANDARD_PAGE)
+    return _families(text or "") | _families("" if earlier is None else strip_fences(earlier))
 
 
 def rule_family() -> str:
@@ -380,18 +399,9 @@ def rule_ids() -> dict[str, list[str]]:
         return ids
     for rule_id, _, _ in rule_blocks(text):
         ids.setdefault(rule_id, []).append("a section")
-    for rule_id in RULE_INDEX_LINE_RE.findall(text):
+    for rule_id, _ in _rule_lines(text):
         ids.setdefault(rule_id, []).append("a list line")
     return ids
-
-
-def _invariant_rows(body: str) -> list[str]:
-    """The ids a sheet's `## 2. Invariants` table defines, in row order, a repeat kept.
-
-    One reader behind the table check and the homes mapping: a row the table check does not prove
-    is one no citation resolves against.
-    """
-    return INVARIANT_ID_RE.findall(_section(body, SPEC_SECTIONS[1]))
 
 
 def invariant_ids() -> dict[str, list[str]]:
@@ -405,7 +415,7 @@ def invariant_ids() -> dict[str, list[str]]:
         if (body := _readable(spec)) is None:
             continue
         rel = spec.relative_to(REPO_ROOT).as_posix()
-        for invariant in _invariant_rows(body):
+        for invariant in invariant_rows(body):
             homes = ids.setdefault(invariant, [])
             if rel not in homes:
                 homes.append(rel)
@@ -906,20 +916,6 @@ def _headings(body: str, level: int) -> list[str]:
     return [text for line in body.split("\n") if (text := atx_heading(line, level)) is not None]
 
 
-def _section(body: str, heading: str) -> str:
-    """One `## <heading>` section's body.
-
-    Matched through `atx_heading`: a verbatim line match empties the section on a trailing space,
-    and a subsection check over nothing passes.
-    """
-    lines = body.split("\n")
-    start = next((index for index, line in enumerate(lines) if atx_heading(line, 2) == heading), None)
-    if start is None:
-        return ""
-    end = next((index for index in range(start + 1, len(lines)) if atx_heading(lines[index], 2) is not None), len(lines))
-    return "\n".join(lines[start + 1 : end])
-
-
 def check_spec_sheets() -> list[Finding]:
     """OUT-4's spine over every spec sheet: its sections, and the contract's numbering.
 
@@ -975,7 +971,7 @@ def check_invariant_tables() -> list[Finding]:
         return [Finding("fail", "invariant-row", DOCS_DIR, "no tracked spec sheet, so no invariant table is checked")]
 
     bodies = {sheet: body for sheet in sheets if (body := _readable(sheet)) is not None}
-    defined = {invariant for body in bodies.values() for invariant in _invariant_rows(body)}
+    defined = {invariant for body in bodies.values() for invariant in invariant_rows(body)}
 
     found: list[Finding] = []
     for sheet, body in bodies.items():
@@ -1302,14 +1298,12 @@ def check_rule_shape() -> list[Finding]:
 
 
 def _rule_lines(text: str) -> list[tuple[str, str]]:
-    """Each rule the standard states as a list line, with the block running under it.
+    """Each rule the standard states as a list line, with the block under it.
 
-    Two patterns over one page, so a rule with nothing under it is still in the listing rather than
-    dropping out of it (PRE-4).
+    One pattern with both groups: paired by position, a swallowed bullet drops its id and credits
+    it with the next rule's field (PRE-4).
     """
-    ids = RULE_INDEX_LINE_RE.findall(text)
-    blocks = RULE_INDEX_BLOCK_RE.findall(text)
-    return list(zip(ids, blocks, strict=False))
+    return RULE_INDEX_RE.findall(text)
 
 
 def _glob_table(text: str, header: re.Pattern[str], glob_cell: int = 1) -> dict[str, list[str]] | None:
@@ -1606,11 +1600,16 @@ def _span_re(markers: tuple[str, ...]) -> re.Pattern[str]:
     return re.compile(r"`[^`\n]*`|`([^`\n]*)\n(?![ \t]*\n)[ \t]*" + tail + r"([^`\n]*)`")
 
 
-def check_wrapped_paths(rel: str, body: str, markers: tuple[str, ...]) -> list[Finding]:
-    """A backticked repository path a line wrap parts, which a code span renders with a space inside it.
+def _reads_as_path(token: str) -> bool:
+    """Whether `path` would judge this token, asked of one that check cannot see."""
+    return token.startswith(REPO_PREFIXES) and LINE_CITATION_RE.fullmatch(f"`{token}`") is None and not is_gitignored(token)
 
-    Only one resolving once the join is closed, the shape a writer meant; `path` never sees a
-    wrapped span either way.
+
+def check_wrapped_paths(rel: str, body: str, markers: tuple[str, ...]) -> list[Finding]:
+    """A backticked repository path a line wrap parts, rendering with a space inside it.
+
+    Whether or not the join names a file: `path` sees no wrapped span, so a dead one is loud here
+    or nowhere.
     """
     found: list[Finding] = []
     for match in _span_re(markers).finditer(body):
@@ -1619,10 +1618,15 @@ def check_wrapped_paths(rel: str, body: str, markers: tuple[str, ...]) -> list[F
         if match.group(1) is None or not head or "::" in head:
             continue
         token = (head + match.group(2).lstrip()).partition(" :: ")[0]
-        if is_placeholder(token) or repo_path(token) is None:
+        if is_placeholder(token):
             continue
         rendered = head + " " + match.group(2).lstrip()
-        detail = f"`{rendered}` wraps inside the path, which a code span renders with a space in it -- keep a path on one line (COR-6)"
+        if repo_path(token) is not None:
+            detail = f"`{rendered}` wraps inside the path, which a code span renders with a space in it -- keep a path on one line (COR-6)"
+        elif _reads_as_path(token):
+            detail = f"`{rendered}` wraps inside the path, and the join names no file -- keep a path on one line, and repoint it (COR-6)"
+        else:
+            continue
         found.append(Finding("fail", "wrapped-path", rel, detail, line_of(body, match.start())))
     return found
 
@@ -1692,10 +1696,16 @@ def _resolve(file_part: str) -> list[Path]:
     return list(named[:5])
 
 
-def _listed_by_name(file_part: str) -> bool:
-    """Whether any file git lists, tracked or not, carries this basename."""
+def _another_spelling(file_part: str) -> bool:
+    """Whether a file git lists ends with this cited path, as whole segments.
+
+    The basename alone calls `page.tsx` another spelling of every dead route path, and a reader
+    told a file is merely misspelled repoints the citation.
+    """
     name = PurePosixPath(file_part).name
-    return name in _tree_index() or name in _untracked_index()
+    tail = "/" + file_part.strip("/")
+    listed = (*_tree_index().get(name, ()), *_untracked_index().get(name, ()))
+    return any(("/" + path.relative_to(REPO_ROOT).as_posix()).endswith(tail) for path in listed)
 
 
 def names_a_file(file_part: str) -> bool:
@@ -1741,7 +1751,7 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]]) -
             if not (ignored := REPO_ROOT / file_part).is_file():
                 return []
             matches = [ignored]
-        elif _listed_by_name(file_part):
+        elif _another_spelling(file_part):
             # Never `not found` here: the file is present under a spelling this refuses, and a
             # reader told it is missing deletes a claim that was true.
             return [Finding("fail", "citation", rel, f"cited path is neither repository-relative nor package-relative: {file_part}")]

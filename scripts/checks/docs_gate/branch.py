@@ -9,7 +9,7 @@ from functools import cache, partial
 from pathlib import Path, PurePosixPath
 from typing import Final, Iterable, NamedTuple
 
-from checker_kernel import git, git_input
+from checker_kernel import git, git_input, resolve_base
 
 from .kernel import (
     DOCS_DIR,
@@ -27,7 +27,9 @@ from .kernel import (
     _skipped,
     comment_runs,
     comment_style,
+    invariant_rows,
     roadmap_ids,
+    strip_fences,
     unlisted,
     unmarked_line,
     untracked_files,
@@ -410,8 +412,19 @@ def _spec_sheet(rel: str) -> bool:
 
 
 @cache
+def fork_page(rel: str) -> str | None:
+    """One page as the branch's fork holds it, or None where fork or page will not resolve.
+
+    Resolved here rather than taken from `Branch`: the reader wanting one runs where no check has
+    it in hand.
+    """
+    fork = resolve_base()
+    return None if fork is None else git("show", f"{fork}:{rel}")
+
+
+@cache
 def _fork_invariants(fork: str) -> dict[str, frozenset[str]] | None:
-    """Every invariant number each spec sheet defined at the fork.
+    """Every invariant number each spec sheet's own table defined at the fork.
 
     Never the working tree: it already holds the row under test, and would answer that every number
     a branch adds is taken.
@@ -425,7 +438,9 @@ def _fork_invariants(fork: str) -> dict[str, frozenset[str]] | None:
             continue
         if (text := git("show", f"{fork}:{rel}")) is None:
             return None
-        sheets[rel] = frozenset(INVARIANT_ROW_RE.findall(text))
+        # Sectioned as the corpus reader sections it: a row of this shape outside `## 2. Invariants`
+        # defines nothing a citation resolves against, so it allocates nothing either.
+        sheets[rel] = frozenset(invariant_rows(strip_fences(text)))
     return sheets
 
 
@@ -439,8 +454,31 @@ def _added_invariants(additions: dict[str, list[str]]) -> dict[str, frozenset[st
     return {rel: numbers for rel, numbers in declared.items() if numbers}
 
 
+# The digits of an `I<n>` id, a suffix included. `L<n>` is the logging sheet's own band, allocated
+# against that sheet (OUT-4), so the ceiling below never counts one.
+INVARIANT_NUMBER_RE: Final = re.compile(r"^I(\d{1,3})")
+# A suffixed row (`I24a`) extends the number above it rather than allocating one, so it answers to
+# the collision arm alone and takes no place in the run.
+ALLOCATING_RE: Final = re.compile(r"^I\d{1,3}$")
+
+
+def _highest_at_fork(at_fork: dict[str, frozenset[str]]) -> int:
+    """The highest number the `I<n>` band reached at the fork, or 0 where none did.
+
+    One namespace across the surface sheets (OUT-4), so the ceiling is the whole band's and never
+    the sheet under test's.
+    """
+    found = (INVARIANT_NUMBER_RE.match(number) for sheet in at_fork.values() for number in sheet)
+    return max((int(match.group(1)) for match in found if match is not None), default=0)
+
+
+def _run_named(highest: int, count: int) -> str:
+    """The numbers OUT-4 leaves a branch adding this many rows, as a finding spells them."""
+    return f"I{highest + 1}" if count == 1 else f"I{highest + 1} to I{highest + count}"
+
+
 def check_added_invariant_rows(branch: Branch, additions: dict[str, list[str]]) -> list[Finding]:
-    """An invariant row this branch adds takes a number no other sheet defines (OUT-4).
+    """An invariant row this branch adds takes one past the fork's highest number, contiguously (OUT-4).
 
     Branch-scoped rather than over the corpus: failing a branch for a row it did not write is the
     standing tax CUR-6 refuses.
@@ -453,20 +491,31 @@ def check_added_invariant_rows(branch: Branch, additions: dict[str, list[str]]) 
     at_fork = _fork_invariants(branch.fork)
     if at_fork is None:
         return [_branch_scope_skipped("added invariant rows", "read the fork's spec sheets")]
+    # A number this sheet already carried is the fork's own row reflowed or reordered, and the
+    # shared low band rides in on that arm rather than on an allowlist somebody keeps current.
+    arrived = {rel: added[rel] - at_fork.get(rel, frozenset()) for rel in added}
     found: list[Finding] = []
-    for rel in sorted(added):
-        # A number this sheet already carried is the fork's own row reflowed or reordered, and the
-        # shared low band rides in on that arm rather than on an allowlist somebody keeps current.
-        for number in sorted(added[rel] - at_fork.get(rel, frozenset())):
+    # What the run is judged over, one sheet each: a number two sheets add is the collision arm's, a
+    # defect already told, and charging it again for its place in the run would be one defect twice.
+    allocating: dict[str, str] = {}
+    for rel in sorted(arrived):
+        for number in sorted(arrived[rel]):
             elsewhere = {sheet for sheet, numbers in at_fork.items() if number in numbers}
             # The branch's own other sheets too: two rows added under one number are both new, so
             # neither is in the fork's population to catch the other.
-            elsewhere |= {sheet for sheet, numbers in added.items() if number in numbers}
-            if not (homes := sorted(elsewhere - {rel})):
-                continue
-            named = ", ".join(f"`{home}`" for home in homes)
-            detail = f"{number} is defined by {named} already -- OUT-4 takes one past the highest number any sheet defines"
-            found.append(Finding("fail", "invariant-number", rel, detail))
+            elsewhere |= {sheet for sheet, numbers in arrived.items() if number in numbers}
+            if homes := sorted(elsewhere - {rel}):
+                named = ", ".join(f"`{home}`" for home in homes)
+                detail = f"{number} is defined by {named} already -- OUT-4 takes one past the highest number any sheet defines"
+                found.append(Finding("fail", "invariant-number", rel, detail))
+            elif ALLOCATING_RE.match(number) is not None:
+                allocating[number] = rel
+    highest = _highest_at_fork(at_fork)
+    run = {f"I{highest + offset}" for offset in range(1, len(allocating) + 1)}
+    span = _run_named(highest, len(allocating))
+    for number in sorted(set(allocating) - run):
+        detail = f"{number} is outside {span} -- OUT-4 allocates from one past I{highest}, the highest number any sheet defines at the fork"
+        found.append(Finding("fail", "invariant-number", allocating[number], detail))
     return found
 
 

@@ -162,6 +162,17 @@ NOTICE_LIVE_PATH: Final = SAMPLE
 NOTICE_DIRECTORY: Final = "fl_frontend/src/"
 # The one-file standard, carrying both of the shapes a rule may take (PRE-4).
 STANDARD: Final = "docs/_standard/standard.md"
+# A rule of a second family, so a plant can retire a whole family from the tree while the fork
+# still states it. Its field names no check, or the registry would have to claim it too.
+RETIRED_ID: Final = "PRE-1"
+FORK_ONLY_RULE: Final = "- **" + RETIRED_ID + ":** a rule whose family the fork alone states. _Enforced by_ review judgment."
+# A dead path whose basename two live pages carry, and a live module spelled from a root no
+# resolver reaches: the two halves of what "another spelling of this file" means.
+SHARED_BASENAME: Final = "docs/backend/notes.md"
+OTHER_SPELLING: Final = "spiele/router.py"
+# A run the notes page does not carry, so a registry claim naming it resolves to a file and not to
+# an anchor.
+ABSENT_ANCHOR: Final = "no such anchor"
 # What that standard's rules claim, and the registry under test is re-made to claim the same: the
 # real registry names this repository's rules and pages, which the corpus below does not hold.
 FIXTURE_CLAIMS: Final[dict[str, tuple[str, ...]]] = {"citation": ("COR-1",), "path": ("COR-1",), "glossary-entry": ("COR-2",)}
@@ -298,6 +309,16 @@ def _heading(level: int, text: str) -> str:
 
 def _page(*lines: str) -> str:
     return "\n".join(lines) + "\n"
+
+
+# A rule listing whose middle line opens on a bullet the block reader cannot end on, so that line
+# is swallowed by the block above it.
+SWALLOWING_STANDARD: Final = _page(
+    "- **COR-1:** first. _Enforced by_ `citation`.",
+    "-",
+    "  **COR-2:** second. _Enforced by_ `path`.",
+    "- **COR-13:** third. _Enforced by_ review judgment.",
+)
 
 
 def _roadmap_entry(token: str, item: str, fields: str, prose: str) -> str:
@@ -518,6 +539,7 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "- **COR-1:** write for a reader with no context. _Enforced by_ `citation` and `path`.",
             "- **COR-2:** a fact is stated in full in one place and cited from everywhere else. _Enforced by_ `glossary-entry`.",
             "- **COR-13:** a rule stated as a list line alone still claims enforcement. _Enforced by_ review judgment.",
+            FORK_ONLY_RULE,
         ),
         ROADMAP: _page(
             _heading(1, "Items"),
@@ -941,7 +963,12 @@ def _clear_caches(scripts_dir: Path) -> None:
                 clear()
 
 
-def _run() -> tuple[int, Counter[Reported]]:
+def _output() -> tuple[int, str]:
+    """One run's exit code and everything it printed, for a case that turns on a finding's words.
+
+    Two arms of one check reaching one file under one name leave the counted triples unable to
+    part them.
+    """
     fixture = _gate()
     _clear_caches(fixture.root / SCRIPTS_COPY)
     buffer = io.StringIO()
@@ -952,7 +979,12 @@ def _run() -> tuple[int, Counter[Reported]]:
             code = int(fixture.gate.main())
     finally:
         sys.argv = argv
-    return code, _reported(buffer.getvalue())
+    return code, buffer.getvalue()
+
+
+def _run() -> tuple[int, Counter[Reported]]:
+    code, output = _output()
+    return code, _reported(output)
 
 
 def _assert_corpus_restored() -> None:
@@ -1350,10 +1382,10 @@ def _plant_enforced_by() -> None:
 
 
 def _plant_registry_claims() -> None:
-    """Four registry rows the fields do not make back, one producer each.
+    """Five registry rows the fields do not make back, one producer each.
 
     No claim; a rule whose field names another check; `GATE` where a rule names it; a contract
-    resolving to nothing.
+    naming no file; one naming no anchor in it.
     """
     kernel = _module("docs_gate.kernel")
     _KEPT_CHECKS.append(dict(kernel.CHECKS))
@@ -1361,6 +1393,7 @@ def _plant_registry_claims() -> None:
     kernel.CHECKS["path"] = kernel.Check(kernel.FAIL, kernel.claimed("COR-2"))
     kernel.CHECKS["citation"] = kernel.Check(kernel.FAIL, kernel.claimed(kernel.GATE))
     kernel.CHECKS["echo"] = kernel.Check(kernel.FAIL, kernel.claimed("docs/gone.md :: I1"))
+    kernel.CHECKS["anchor"] = kernel.Check(kernel.FAIL, kernel.claimed(NOTES + " :: " + ABSENT_ANCHOR))
 
 
 def _undo_enforced_by() -> None:
@@ -1410,10 +1443,12 @@ def _plant_cell_prose() -> None:
     A check that measured the quoted one too would answer this case with two findings and read as
     working.
     """
+    # One past the band the fixture sheets reach: a row taking any other number draws
+    # `invariant-number` as well, and one plant would answer for two checks.
     _replace(
         BACKEND_SPEC,
         "| I1 | The write path validates its input | The sample module's own suite |",
-        "| I1 | " + PARAGRAPH_CELL + " | The sample module's own suite |\n| I77 | `" + PARAGRAPH_CELL + "` | The same suite |",
+        "| I1 | " + PARAGRAPH_CELL + " | The sample module's own suite |\n| I3 | `" + PARAGRAPH_CELL + "` | The same suite |",
     )
 
 
@@ -1557,6 +1592,17 @@ def _plant_platform_branch() -> None:
     write(_gate().root, HOOK_SAMPLE, _page("#!/usr/bin/env bash", "uname -s"))
 
 
+def _plant_wrapped_paths() -> None:
+    """One wrapped span per arm: a live path, one behind a comment marker, and a dead one.
+
+    A page alone leaves the marker arm driven by nothing, and no other check sees a join a wrap
+    parts.
+    """
+    _append(NOTES, "A path wrapped inside itself: `docs/gloss", "ary.md` renders with a space.")
+    _append(SAMPLE, HASH + " a path wrapped inside itself: `docs/gloss", HASH + " ary.md` renders with a space")
+    _append(TWIN_NOTES, "A dead path wrapped inside itself: `docs/gone-in-a-wr", "ap.md` names nothing.")
+
+
 def _fails(check: str, *files: str) -> tuple[Reported, ...]:
     """One failing finding per file named -- a file twice is a check that must speak twice about it."""
     return tuple(("fail", check, rel) for rel in files)
@@ -1573,8 +1619,8 @@ class Case:
     check: str
     expected: tuple[Reported, ...]
     plant: Callable[[], None]
-    # Run after the case whatever it did. Only a plant that moves a ref needs one: `_reset` restores
-    # files, and a repository left on another branch would be the corpus every case below it saw.
+    # Run after the case whatever it did. `_reset` restores files alone, so what it cannot reach --
+    # a ref a plant moved, a module table a plant rewrote -- is the corpus every case below sees.
     undo: Callable[[], None] | None = None
 
 
@@ -1601,9 +1647,9 @@ CASES: Final[tuple[Case, ...]] = (
     # The corpus is walked in path order, so the twin under `docs/frontend/` is the home the two
     # copies below it are told to cite.
     Case("echo", _fails("echo", NOTES), _plant_echo),
-    # Five on the registry: the four planted rows, and `glossary-entry`, whose one claiming field
-    # the page-side plant rewrote to name an absent check.
-    Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD, *[KERNEL] * 5), _plant_enforced_by, _undo_enforced_by),
+    # Six on the registry: the five planted rows, and `glossary-entry`, whose one claiming field
+    # the page-side plant names an absent check in.
+    Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD, *[KERNEL] * 6), _plant_enforced_by, _undo_enforced_by),
     Case("error-codes", _fails("error-codes", *[ERROR_CODES] * 5), _plant_error_codes),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
     Case("header-see", _fails("header-see", *[SAMPLE] * 4), _plant_header_see),
@@ -1648,11 +1694,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case("unreadable", _fails("unreadable", NOTES), _plant_unreadable),
     # Wrapped inside the path, which is the only place a wrap breaks a span: one parted at its
     # separator still names its file whole, and the corpus above carries that shape.
-    Case(
-        "wrapped-path",
-        _fails("wrapped-path", NOTES),
-        lambda: _append(NOTES, "A path wrapped inside itself: `docs/gloss", "ary.md` renders with a space."),
-    ),
+    Case("wrapped-path", _fails("wrapped-path", SAMPLE, NOTES, TWIN_NOTES), _plant_wrapped_paths),
 )
 
 
@@ -2771,6 +2813,106 @@ def test_a_module_that_will_not_tokenize_still_yields_its_comments() -> None:
     """Reading none would look like a file holding none, which every comment check then passes."""
     measured = _runs(UNTOKENIZABLE)
     assert [text for _, text in measured if "docs/gone.md" in text], measured
+
+
+def test_a_rule_pattern_reaches_past_the_three_methods_typed_on_it() -> None:
+    """`RULE_ID_RE` is exported as a pattern, so every method a caller reaches for is on it.
+
+    The three typed on it are the gate's own; a reader of the export reaches for `search`, which a
+    subset refuses at runtime.
+    """
+    _reset()
+    _clear_caches(_gate().root / SCRIPTS_COPY)
+    found = _gate().gate.RULE_ID_RE.search("a page citing COR-13 in passing")
+    assert found is not None and found.group(1) == "COR-13", found
+
+
+def test_a_wrapped_span_is_reported_by_what_its_closed_join_names() -> None:
+    """The marker comes off a comment's continuation, or the join names nothing and reads as dead.
+
+    A count reads a marker left in the join as the dead-path arm working, so the three plants are
+    told apart by their messages.
+    """
+    _reset()
+    _plant_wrapped_paths()
+    try:
+        code, output = _output()
+    finally:
+        _reset()
+    assert output.count("wraps inside the path, which a code span renders with a space in it") == 2, output
+    assert output.count("wraps inside the path, and the join names no file") == 1, output
+    assert code == 1
+    _assert_corpus_restored()
+
+
+def test_a_family_the_fork_states_keeps_its_citations_checked() -> None:
+    """A family read off this tree alone drops every citation of one the branch retires (PRE-4).
+
+    The fork's own copy of the standard is what leaves the id recognisable, so the citation fails
+    rather than passing unread.
+    """
+    _reset()
+    _drop(STANDARD, FORK_ONLY_RULE)
+    _append(NOTES, "A claim citing " + RETIRED_ID + ".")
+    try:
+        code, reported = _run()
+    finally:
+        _reset()
+    assert reported == Counter({("fail", "rule-id", NOTES): 1}), "a retired family: " + _shape(reported)
+    assert code == 1
+    _assert_corpus_restored()
+
+
+def test_a_dead_citation_and_another_spelling_of_one_are_told_apart_by_whole_segments() -> None:
+    """The basename alone calls a dead `notes.md` another spelling of the two pages the tree holds.
+
+    Both arms in one run: each is a `citation` finding about one page, so only the words part them.
+    """
+    _reset()
+    _append(NOTES, "`" + SHARED_BASENAME + " :: symbol` names nothing.")
+    _append(NOTES, "`" + OTHER_SPELLING + " :: symbol` is spelled from a root no resolver reaches.")
+    try:
+        code, output = _output()
+    finally:
+        _reset()
+    assert _reported(output) == Counter({("fail", "citation", NOTES): 2}), "the two arms: " + _shape(_reported(output))
+    assert "names no file in the repository, under any spelling: " + SHARED_BASENAME in output, output
+    assert "is neither repository-relative nor package-relative: " + OTHER_SPELLING in output, output
+    assert code == 1
+    _assert_corpus_restored()
+
+
+def test_a_registered_claim_names_a_missing_file_and_a_missing_anchor_apart() -> None:
+    """Both arms of a registry row's contract: no file of that name, and a file the anchor is not in.
+
+    One check and one file either way, so the counted triples cannot tell which arm answered.
+    """
+    _reset()
+    _plant_enforced_by()
+    try:
+        code, output = _output()
+    finally:
+        _undo_enforced_by()
+        _reset()
+    assert "`echo` claims `docs/gone.md :: I1`, which names no file" in output, output
+    assert "`anchor` claims `" + NOTES + " :: " + ABSENT_ANCHOR + "`, which does not resolve" in output, output
+    assert code == 1
+    _assert_corpus_restored()
+
+
+def test_a_rule_line_is_never_paired_with_another_rule_s_block() -> None:
+    """One pattern with both groups, never two listings zipped by position (PRE-4).
+
+    The middle line opens on a bullet the block reader cannot end on, so pairing by position hands
+    one id the field of the rule below it.
+    """
+    _reset()
+    checks = _module("docs_gate.checks")
+    _clear_caches(_gate().root / SCRIPTS_COPY)
+    paired = checks._rule_lines(SWALLOWING_STANDARD)
+    assert [rule_id for rule_id, _ in paired] == ["COR-1", "COR-13"], paired
+    assert "second" in paired[0][1], paired
+    assert "third" in paired[1][1], paired
 
 
 def _select(names: list[str]) -> int:

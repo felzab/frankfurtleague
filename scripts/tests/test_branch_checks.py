@@ -86,7 +86,15 @@ HEX: Final = HASH + "000"
 SHARED_ID: Final = "I1"
 BACKEND_ID: Final = "I2"
 FRONTEND_ID: Final = "I3"
-FREE_ID: Final = "I4"
+# The ceiling the band reaches at the fork, then the two numbers a branch adding two rows takes and
+# the one past them.
+HIGH_ID: Final = "I17"
+FREE_ID: Final = "I18"
+SECOND_ID: Final = "I19"
+GAPPED_ID: Final = "I20"
+# Under the ceiling and defined by no sheet, which is the shape a number allocated and never filled
+# leaves behind: no collision arm can see one.
+HOLE_ID: Final = "I5"
 # Neither sheet holds it at the fork, so only the branch's own rows can catch the second one.
 RACED_ID: Final = "I9"
 DROPPABLE: Final = "A droppable line the deletion scenario removes."
@@ -254,7 +262,12 @@ def _corpus() -> dict[str, str]:
             "| --- | --- | --- | --- |",
             "| `" + ROADMAP_ID + "` | A scenario item | Docs | Open |",
         ),
-        BACKEND_SPEC: _sheet("Backend", _row(SHARED_ID, "The write path validates its input"), _row(BACKEND_ID, "One document comes back")),
+        BACKEND_SPEC: _sheet(
+            "Backend",
+            _row(SHARED_ID, "The write path validates its input"),
+            _row(BACKEND_ID, "One document comes back"),
+            _row(HIGH_ID, "The number the band has reached"),
+        ),
         FRONTEND_SPEC: _sheet("Frontend", _row(SHARED_ID, "A route names its own data"), _row(FRONTEND_ID, "One page renders")),
         MOD: _module("a module the scenarios write comments into."),
         SIDE: _module("a module kept beside the first, so per-file answers separate."),
@@ -587,6 +600,13 @@ def _number_fail(rel: str, number: str, *homes: str) -> tuple[str, str, str, str
     return ("fail", "invariant-number", rel, detail)
 
 
+def _outside_fail(rel: str, number: str, span: str) -> tuple[str, str, str, str]:
+    detail = (
+        number + " is outside " + span + " -- OUT-4 allocates from one past " + HIGH_ID + ", the highest number any sheet defines at the fork"
+    )
+    return ("fail", "invariant-number", rel, detail)
+
+
 def test_an_added_invariant_row_taking_another_sheet_s_number_fails_and_the_move_clears_it() -> None:
     """OUT-4's allocation rule reaches the branch that breaks it, at the row rather than at a citation.
 
@@ -645,6 +665,68 @@ def test_two_sheets_reaching_for_one_number_on_one_branch_each_name_the_other() 
         _number_fail(BACKEND_SPEC, RACED_ID, FRONTEND_SPEC),
         _number_fail(FRONTEND_SPEC, RACED_ID, BACKEND_SPEC),
     ]
+
+
+def test_an_added_row_skipping_a_number_fails_and_the_run_spans_both_sheets() -> None:
+    """OUT-4's run is contiguous from one past the ceiling, so a skipped number is a gap.
+
+    The second run is the repair, with the two rows on different sheets: one namespace across the
+    surfaces (OUT-4).
+    """
+    _reset()
+    kept = _row(FRONTEND_ID, "One page renders")
+    backend_kept = _row(HIGH_ID, "The number the band has reached")
+    try:
+        added = kept + "\n" + _row(FREE_ID, "A row taking one past the ceiling") + "\n" + _row(GAPPED_ID, "A row skipping the number below it")
+        _replace(FRONTEND_SPEC, kept, added)
+        gapped = _run()
+        _reset()
+        _replace(FRONTEND_SPEC, kept, kept + "\n" + _row(FREE_ID, "A row taking one past the ceiling"))
+        _replace(BACKEND_SPEC, backend_kept, backend_kept + "\n" + _row(SECOND_ID, "The second of the run, on the other sheet"))
+        contiguous = _run()
+    finally:
+        _reset()
+    assert _findings(gapped) == [_outside_fail(FRONTEND_SPEC, GAPPED_ID, FREE_ID + " to " + SECOND_ID)]
+    assert sorted(contiguous["additions"]) == [BACKEND_SPEC, FRONTEND_SPEC]
+    assert _findings(contiguous) == []
+
+
+def test_an_added_row_reaching_below_the_ceiling_fails_where_no_sheet_defines_that_number() -> None:
+    """A number the band passed over is allocated and never reused, so no collision arm sees it.
+
+    The fork's sheets say where the band has reached, so the row under test is outside the
+    population judging it (PRE-4).
+    """
+    _reset()
+    kept = _row(FRONTEND_ID, "One page renders")
+    try:
+        _replace(FRONTEND_SPEC, kept, kept + "\n" + _row(HOLE_ID, "A row reaching for a number the band passed over"))
+        data = _run()
+    finally:
+        _reset()
+    assert FRONTEND_SPEC in data["additions"]
+    assert _findings(data) == [_outside_fail(FRONTEND_SPEC, HOLE_ID, FREE_ID)]
+
+
+def test_an_invariant_row_outside_the_fork_s_own_section_defines_nothing() -> None:
+    """The fork's sheets are read as the corpus reads them, `## 2. Invariants` and nothing else.
+
+    An unsectioned reader takes the remedy table's rows too, and every number a branch adds under
+    one of them then reads as taken.
+    """
+    _reset()
+    stray = _row(FREE_ID, "A row of the invariant shape under the remedy table")
+    kept = _row(FRONTEND_ID, "One page renders")
+    try:
+        _replace(BACKEND_SPEC, "| A value nothing names | Name it |", "| A value nothing names | Name it |\n" + stray)
+        git(_root(), "commit", "-aqm", "Corpus: a row of the invariant shape outside section 2")
+        _replace(FRONTEND_SPEC, kept, kept + "\n" + _row(FREE_ID, "A row taking one past the ceiling"))
+        data = _run()
+    finally:
+        git(_root(), "reset", "-q", "--soft", "HEAD~1")
+        _reset()
+    assert FRONTEND_SPEC in data["additions"]
+    assert _findings(data) == []
 
 
 def test_an_added_block_over_the_bound_fails_and_a_short_one_stays_silent() -> None:
