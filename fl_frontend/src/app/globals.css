@@ -326,7 +326,7 @@ html:has([data-app-shell]) {
   @apply fluid-sm text-foreground-muted font-medium;
 }
 
-/* `meta` captions or counts. */
+/* Not `text-*` either: tailwind-merge's colour prefix, as above. */
 @utility muted-meta {
   @apply fluid-xs text-foreground-muted font-medium;
 }
@@ -444,10 +444,10 @@ input:focus:placeholder-shown::placeholder {
 [data-slot="select-trigger"],
 [data-slot="textarea"] {
   /* THE RING GOES WITH NO STATE SELECTOR, so a state the arms below skip cannot let it back in —
-     a read-only field is such a state. */
+     a read-only field is such a state. Zeroed as a PAIR with the offset shadow below. */
   --tw-ring-shadow: 0 0 #0000;
-  /* Zeroed with it, for the list-box rule's reason: kill one and the offset band is left, which is
-     the white line. */
+  /* Kill one and the offset band is left, which is the white line
+     (`fl_frontend/src/app/globals.css :: BOTH ring properties have to be zeroed`). */
   --tw-ring-offset-shadow: 0 0 #0000;
 
   /* `:not([data-invalid="true"])` matters: without it this stripped HeroUI's danger
@@ -722,7 +722,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
     animation-delay: 0ms !important;
   }
 
-  /* The toast timer bar is not stopped here: it is a timer readout, and a 3px bar shortening is no
+  /* `.toast__timer` is not stopped here: it is a timer readout, and a 3px bar shortening is no
      slide or loop. */
 }
 
