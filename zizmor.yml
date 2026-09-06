@@ -1,6 +1,7 @@
-# zizmor's rules for this repository's GitHub Actions surface: the workflows, the composite actions
-# under `.github/actions/` and `.github/dependabot.yml`. zizmor discovers this file from the
-# repository root. The persona and `--offline` are the call site's to spell, never this file's.
+# GITHUB · zizmor's rules for this repository's Actions surface
+# That surface is the workflows, the composite actions under `.github/actions/` and
+# `.github/dependabot.yml`. zizmor discovers this file from the repository root, and the persona
+# and `--offline` are the call site's to spell, never this file's.
 #
 # At the root, not `.github/`: `scripts/gate/scope_map.sh` maps `.github/` to the docs scope alone, where
 # a root file reaches the conservative arm and every scope with it.

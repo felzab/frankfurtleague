@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# HOOKS · the standard's own file, on the file-tool route
 # PreToolUse hook on Edit|Write|NotebookEdit — a write to docs/_standard/standard.md asks the owner first.
 # The standard defines how every other document is written and checked, so a quiet edit changes the
 # rules everything else is held to. A payload whose target cannot be read asks too.

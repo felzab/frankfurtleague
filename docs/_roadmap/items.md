@@ -108,7 +108,6 @@ deliverable.
 | `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                                                          | FE, BE, Docs, admin, spiele                                                 | Open     |
 | `cckv-edvy` | The published document's drift check fails with the command that accepts the drift                                                                                | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                                                               | FE, Docs, tests                                                             | Open     |
-| `crwn-qfp7` | The opening comment block of every file read as a shell script is measured by neither bound                                                                       | Ops, Docs, gate                                                             | Open     |
 | `cu59-4gqt` | Nothing announces that a season rollover is due                                                                                                                   | Ops, Docs, ci                                                               | Standing |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                                                                 | FE, meta                                                                    | Open     |
 | `db2a-9qu3` | The local edge claims to mirror production, and nothing reads either half of the claim                                                                            | Ops, Docs, gate, edge                                                       | Open     |
@@ -1282,36 +1281,6 @@ against it.
 shown at, and a check refuses one that does — extending the roster's existing sums rather than
 adding a second reader of the same markup, with the bound recorded where a session adding a column
 meets it (`docs/frontend/spec.md`).
-
-### `crwn-qfp7` · The opening comment block of every file read as a shell script is measured by neither bound
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Ops, Docs, gate | Open   | —          |
-
-**`scripts/checks/docs_gate/kernel.py :: comment_runs` steps over a `#`-styled file's leading run
-before it yields a block, and `scripts/checks/docs_gate/checks.py :: HEADER_SCOPES` admits `.sh` under
-`scripts/` alone.** `scripts/checks/docs_gate/kernel.py :: comment_style` sends every kind carrying no
-source suffix to the `#` reader — a hook, a Dockerfile, a workflow, a manifest, a compose file — so
-each one's opening block is skipped as a module header by INC-9's checker and then declined as out of
-scope by INC-2's. Each bound leaves it to the other.
-
-**The gap is the opening block and no more.** A second block further down the same file comes back
-through `comment-length` like any other, which is why nothing about these files looks unguarded.
-
-**Measured over the tracked corpus on 2026-09-03: eighty opening blocks are measured by nothing**,
-twenty-two of them past INC-9's forty words and three past INC-2's 175. Twelve of the twenty-two sit
-in `.claude/hooks/` and `.githooks/`, which the In-code scope of `docs/_standard/standard.md` already claims;
-`.claude/hooks/guard-local-compose.sh` carries the longest of them.
-
-**Widening `scripts/checks/docs_gate/checks.py :: HEADER_SCOPES` is the decision, and it is prose work
-rather than a checker change.** The blocks it would start measuring were written against no bound, so
-the widening fails the first branch to touch any of them, and the three past INC-2's bound are
-contracts at the wrong rung rather than passages to shorten.
-
-**Done when** the scope reaches the kinds `scripts/checks/docs_gate/kernel.py :: comment_style` sends
-to the `#` reader, with those blocks brought under a bound in the same change — or the exemption is a
-decision `docs/_standard/standard.md` states rather than the residue of two scopes not meeting.
 
 ### `cu59-4gqt` · Nothing announces that a season rollover is due
 

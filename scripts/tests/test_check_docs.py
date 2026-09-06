@@ -729,32 +729,34 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             '  return <p title="Der Zeitraum dieser Saison, und nichts weiter.">{zeitraum}</p>;',
             "}",
         ),
+        # Each opens on a titled block: the `#` reader answers for every one of these kinds, so the
+        # opening block is a module header held to INC-2's shape, a page's H1 alone excepted.
         TOML_CONFIG: _page(
-            "# A configuration file, scanned for its comments and nothing else.",
+            "# BACKEND · a configuration file, scanned for its comments and nothing else.",
             "",
             "[project]",
             'name = "fixture"',
         ),
         YAML_CONFIG: _page(
-            "# A configuration file, scanned for its comments and nothing else.",
+            "# FRONTEND · a configuration file, scanned for its comments and nothing else.",
             "packages:",
             "  - fixture",
         ),
         CONF_FILE: _page(
-            "# A server block, scanned for its comments and nothing else.",
+            "# OPS · a server block, scanned for its comments and nothing else.",
             "server { listen 80; }",
         ),
         SHELL_FILE: _page(
             "#!/usr/bin/env bash",
-            "# An entry point, scanned for its comments and nothing else.",
+            "# OPS · an entry point, scanned for its comments and nothing else.",
             "exec nginx",
         ),
         DOCKERFILE: _page(
-            "# An image, reached by whole filename rather than by suffix.",
+            "# BACKEND · an image, reached by whole filename rather than by suffix.",
             "FROM scratch",
         ),
         COMPOSE_FILE: _page(
-            "# A service definition, sitting where no prefix reaches it.",
+            "# OPS · a service definition, sitting where no prefix reaches it.",
             "services:",
             "  fixture:",
             "    image: scratch",
@@ -2284,6 +2286,51 @@ def test_a_line_citation_that_wraps_across_a_line_is_still_found() -> None:
     finally:
         _reset()
     assert reported[("fail", "line-citation", NOTES)] == 2, "a line citation that wraps went unread: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_header_in_a_kind_the_hash_reader_answers_for_is_found_and_bounded() -> None:
+    """INC-2's scope is the kind `comment_style` reads as shell, never a tree: a Dockerfile has no suffix to admit it by.
+
+    Two files, one suffixless and one under no scoped tree; two findings apiece, the title and the
+    bound.
+    """
+    _reset()
+    over = [HASH + " a filler line carrying the header past the words a header may hold" for _ in range(18)]
+    _replace(
+        DOCKERFILE,
+        HASH + " BACKEND · an image, reached by whole filename rather than by suffix.",
+        "\n".join([HASH + " an image whose header opens on no token", *over]),
+    )
+    _replace(
+        CONF_FILE,
+        HASH + " OPS · a server block, scanned for its comments and nothing else.",
+        "\n".join([HASH + " a server block whose header opens on no token", *over]),
+    )
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "module-header", DOCKERFILE)] == 2, "a suffixless file's header was measured by nothing: " + _shape(reported)
+    assert reported[("fail", "module-header", CONF_FILE)] == 2, "a header under no scoped tree was measured by nothing: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_markdown_page_s_heading_is_no_module_header() -> None:
+    """`comment_style` sends a page to the `#` reader too, which reads its H1 as a header; the markdown guard is what keeps it out.
+
+    The premise is asserted first, or this passes on a reader that saw no header.
+    """
+    _reset()
+    kernel = _module("docs_gate.kernel")
+    checks = _module("docs_gate.checks")
+    _clear_caches(_gate().root / SCRIPTS_COPY)
+    page = _gate().root / NOTES
+    assert kernel._module_header(_read(NOTES), kernel.comment_style(page)) is not None, (
+        "the `#` reader no longer reads a page's H1 as a header, so the guard guards nothing"
+    )
+    found = [finding.check for finding in checks.check_file(page, {}, {}) if finding.check == "module-header"]
+    assert not found, "a page's H1 was held to INC-2's shape"
     _assert_corpus_restored()
 
 

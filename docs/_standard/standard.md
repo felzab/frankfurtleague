@@ -260,19 +260,19 @@ Scope: every tracked file of a kind `scripts/checks/docs_gate/kernel.py :: SCANN
 for those kinds and never whole**, because `scripts/checks/docs_gate/kernel.py :: comment_style`
 answers every kind rather than refusing one, handing an unrecognised suffix to the shell-comment
 reader; the kind register is the only thing keeping an image under `fl_frontend/src` out of it.
-The hooks are exempt from INC-2's shape alone — their uniform label rows keep the folder scannable
-side by side — and every other rule here binds them as written, INC-2's own checked reach being
-narrower than this Scope in a way INC-2 states.
+INC-2's checked reach is narrower than this Scope and INC-2 states it; every other rule here binds
+every file this Scope names.
 
 - **INC-1:** a comment is COR-13 at the line: it records what cannot be re-derived from the source —
   the constraint, the rejected alternative, the trap — and sits at the line of temptation, the line
   someone would change, never the top of the function. Never what the next line does, and never a
   type the signature declares: no `@param`/`@returns` blocks, no `Args:`/`Returns:` sections.
   _Enforced by_ unenforced — review judgment.
-- **INC-2:** a module header survives in a **shell script**, and in a Python module under
-  `fl_backend/app/`, `fl_backend/tests/` or `scripts/` — the tests in both trees included — carrying
-  a fact that attaches to no symbol: an exit contract, a one-cache-per-run rule, a carve-out the
-  whole module rests on; `scripts/checks/docs_gate/checks.py :: HEADER_SCOPES` is that scope.
+- **INC-2:** a module header survives in any file that
+  `scripts/checks/docs_gate/kernel.py :: comment_style` reads as shell or Python, a markdown page
+  apart, carrying a fact that attaches to no symbol: an exit contract, a one-cache-per-run rule, a
+  carve-out the whole module rests on; `scripts/checks/docs_gate/checks.py :: _header_scoped` is
+  that test.
   TypeScript and JavaScript modules carry none: a comment sits at the thing it explains. Where one
   survives it is a plain block — a title line `<TOKEN> · <what this module is>`, at most three
   sentences why-first, a sentence of plain "what" where the file's contents do not carry it, optional
@@ -282,24 +282,19 @@ narrower than this Scope in a way INC-2 states.
   with its markers stripped — a list's markers among them, as INC-9 strips them, so the two lists
   above never cost a header for taking the shape COR-8 asks for — and read as COR-5 reads every
   bound: a header still over it once every surviving sentence has an answer is holding a fact that
-  belongs at a lower rung, and that fact moves (COR-14). **Outside `HEADER_SCOPES` a header is
-  measured by no bound at all — where the file has one**:
+  belongs at a lower rung, and that fact moves (COR-14).
   `scripts/checks/docs_gate/kernel.py :: comment_runs` skips a leading run of comment lines, and it
   finds one only where the file's first non-blank line below any shebang begins with a marker.
-  **Whether it does is a property of the file and never of its tree, among the kinds
-  `scripts/checks/docs_gate/kernel.py :: comment_style` reads as shell or Python**, so what carries
-  an unmeasured opening block is named by that test rather than listed (COR-4): a hook, a
-  `.githooks/` file, a Dockerfile, a `.dockerignore`, an nginx configuration, a compose file, a
-  workflow and a manifest each open either way, and the one opening on a marker is held to COR-5's
-  test and to review alone while the one opening on a key has its first comment run bounded like any
-  other block. That gap is stated rather than
-  closed because a bound reaches a file only once someone has read it against COR-5 first, and a
-  header failing a bound nobody applied when it was written is a red gate rather than a repair.
+  **Whether it does is a property of the file and never of its tree**, so what carries a header is
+  named by that test rather than listed (COR-4): a hook, a `.githooks/` file, a Dockerfile, a
+  `.dockerignore`, an nginx configuration, a compose file, a workflow and a manifest each open
+  either way, and the one opening on a marker keeps this rule's shape and bound while the one
+  opening on a key has its first comment run bounded by INC-9 like any other block.
   _Enforced by_ gate check
-  `module-header`, inside `HEADER_SCOPES` alone, for the word bound, the title line, the banned
-  vocabulary and a header placed below the imports; gate check `header-see`, which resolves every
-  file a `See:` entry names; the three-sentence bound, which files carry a header at all, and every
-  header outside that scope, are review judgment.
+  `module-header`, over every file `scripts/checks/docs_gate/checks.py :: _header_scoped` admits,
+  for the word bound, the title line, the banned vocabulary and a header placed below the imports;
+  gate check `header-see`, which resolves every file a `See:` entry names; the three-sentence bound
+  and which files carry a header at all are review judgment.
 - **INC-4:** a docstring is required in exactly two places — every FastAPI endpoint, published as the
   operation description in `/openapi.json` and written for a reader of the API; and anywhere with a
   why worth recording. There is no every-exported-symbol rule, because a coverage rule manufactures
@@ -347,7 +342,7 @@ narrower than this Scope in a way INC-2 states.
   so the shape COR-8 asks for never costs a block anything — one number for every shape, inline
   comment, symbol doc and test docstring alike, so it cannot be avoided by moving a paragraph from
   beside a symbol to above it; an opening block is skipped here as a module header and keeps INC-2's
-  bound, or none where INC-2 says none is checked. **The bound does not
+  bound instead. **The bound does not
   reach a docstring the API publishes** (INC-4), which is a contract read by someone with no code
   open and so not this rung at all (COR-14); every other docstring is a block like any other. **A
   blank line separates two runs of line comments, or the checker reads them as one block**: a bare

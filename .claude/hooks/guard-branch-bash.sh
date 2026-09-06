@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# HOOKS · the branch rule, on the shell route
 # PreToolUse hook on Bash and PowerShell — refuses a write while HEAD is `main`, on the route
 # guard-branch.sh cannot see: a redirect, `sed -i`, a heredoc or an inline interpreter. It refuses
 # when it cannot tell; `git checkout -b` matches no write shape.

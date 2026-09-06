@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# HOOKS · the standard's rules, in the prompt rather than behind a citation
 # PreToolUse hook on Edit|Write — slices the Spine out of docs/_standard/standard.md before a
 # documentation-shaped write, small enough to arrive inline, and names both documents to read.
 # It informs rather than protects, so failure is silence.

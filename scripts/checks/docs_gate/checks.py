@@ -47,6 +47,7 @@ from .kernel import (
     FENCE_RE,
     GATE,
     GLOSSARY_PAGE,
+    HEADER_SUFFIXES,
     OPS_FILENAMES,
     OPS_SPEC_PAGE,
     OVERVIEW_GLOB,
@@ -1447,15 +1448,6 @@ SEE_ENTRY_RE: Final = re.compile(r"\s+")
 SUFFIXED_RE: Final = re.compile(r"\.[A-Za-z]{1,5}$")
 
 
-# INC-2's header shapes, checked only where that rule binds. Presence is never checked: INC-2 fixes
-# the shape of a header that exists, so a file with none passes unchecked.
-HEADER_SCOPES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
-    # TypeScript is out of scope: INC-2 permits no header there, so a block opening one of its
-    # files is an ordinary comment block, which `comment-length` bounds (INC-9).
-    ("fl_backend/app/", (".py",)),
-    ("fl_backend/tests/", (".py",)),
-    ("scripts/", (".py", ".sh")),
-)
 # Words rather than lines: a header reflowed to fewer lines carries the same facts (INC-2).
 HEADER_WORD_CAP: Final = 175
 # A label line is one or two capitalised words ending in a colon: anything longer is wrapped prose,
@@ -1467,9 +1459,11 @@ HEADER_LABEL_RE: Final = re.compile(r"[A-Z][A-Za-z]*( [A-Za-z]+)?:")
 HEADER_LABELS: Final[tuple[str, ...]] = ("Invariants:", "See:")
 
 
-def _header_scoped(rel: str, suffix: str) -> bool:
-    """True where INC-2 binds a file's header to its shape."""
-    return any(rel.startswith(prefix) and suffix in suffixes for prefix, suffixes in HEADER_SCOPES)
+# A property of the kind and never of the tree: a Dockerfile has no suffix for a prefix list to pair
+# with, and one left every kind under no prefix measured by neither bound.
+def _header_scoped(style: str) -> bool:
+    """True where INC-2 binds a file's header to its shape: the kinds `_module_header` reads one from."""
+    return style in HEADER_SUFFIXES
 
 
 def _misplaced_header(raw: str, suffix: str) -> tuple[int, list[str]] | None:
@@ -1497,6 +1491,8 @@ def check_module_header(rel: str, raw: str, suffix: str) -> list[Finding]:
     """
     found: list[Finding] = []
     header = _module_header(raw, suffix)
+    # Presence is never checked: INC-2 fixes the shape of a header that exists, so a file opening on
+    # none passes here unless a header-shaped block sits lower down.
     if header is None:
         misplaced = _misplaced_header(raw, suffix)
         if misplaced is None:
@@ -1835,6 +1831,9 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     """
     rel = path.relative_to(REPO_ROOT).as_posix()
     is_markdown = path.suffix == ".md"
+    # The style rather than `path.suffix` on both sides of the header check: read for a suffix a
+    # Dockerfile does not have, the reader answers no header and the check runs over nothing.
+    style = comment_style(path)
     raw, error = _read_text(path)
     if raw is None:
         return [Finding("fail", "unreadable", rel, error)]
@@ -1842,16 +1841,18 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
 
     found: list[Finding] = []
 
-    if not is_markdown and _header_scoped(rel, path.suffix):
-        found.extend(check_module_header(rel, raw, path.suffix))
-        found.extend(check_header_see(rel, raw, path.suffix))
+    # A page's H1 opens on the marker the `#` reader takes for a header, so the kind test alone
+    # would hold every page to INC-2's shape.
+    if not is_markdown and _header_scoped(style):
+        found.extend(check_module_header(rel, raw, style))
+        found.extend(check_header_see(rel, raw, style))
 
     if is_markdown and path.name == "README.md" and (words := _readme_words(raw)) > README_WORD_CAP:
         detail = f"a README of {words} words outside its tables and fences -- OUT-3 caps one at {README_WORD_CAP}"
         found.append(Finding("fail", "readme-cap", rel, detail))
 
     found.extend(check_owner_voice(rel, body))
-    found.extend(check_wrapped_paths(rel, body, () if is_markdown else continuation_markers(comment_style(path))))
+    found.extend(check_wrapped_paths(rel, body, () if is_markdown else continuation_markers(style)))
     if is_markdown:
         found.extend(check_metadata_breaks(rel, body))
         found.extend(check_diagrams(rel, raw))
@@ -1875,7 +1876,7 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     cites = "::" in body
     cites_lines = LINE_CITATION_HINT_RE.search(body) is not None
     if cites or cites_lines:
-        joined = unwrapped(body, () if is_markdown else continuation_markers(comment_style(path)))
+        joined = unwrapped(body, () if is_markdown else continuation_markers(style))
         if cites:
             for citation in sorted(set(CITATION_RE.findall(joined))):
                 if not is_placeholder(citation):

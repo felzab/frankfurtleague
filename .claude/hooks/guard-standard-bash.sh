@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# HOOKS · the standard's own file, on the shell route
 # PreToolUse hook on Bash and PowerShell — a shell command writing to docs/_standard/standard.md asks the
 # owner first, on every branch: guard-standard-edit.sh sees only the tools, and guard-branch-bash.sh
 # stands down off `main`. It asks whenever it cannot tell, a hole costing more than a question.

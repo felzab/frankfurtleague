@@ -1,3 +1,5 @@
+# BACKEND · the API image
+
 # A named stage rather than a bare `COPY --from=<image>`: Dependabot's docker ecosystem scans FROM
 # lines alone, so this is what puts the installer's version under the same review as every other
 # base image here.

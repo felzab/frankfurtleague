@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# HOOKS · the dead `text-fluid-*` spelling
 # PostToolUse hook on Edit|Write — sends back a `fl_frontend/src` file carrying a `text-fluid-*`
 # class. The scale is spelled `fluid-sm` and sits outside Tailwind's `--text-*` namespace, so the
 # prefixed spelling matches no rule and applies no size while tsc, eslint and the build all stay
