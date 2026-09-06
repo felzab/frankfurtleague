@@ -32,7 +32,7 @@ function AbgesagteSpieleHint({ anzahl }: { anzahl: number }) {
         lead: "Diese Zahl zählt die abgesagten Spiele dieses Teams.",
         points: [{ text: "Rechne sie nicht zur Zahl daneben dazu." }],
       }}
-      trigger={<span className="fluid-xxs bg-danger/10 text-danger-strong rounded-md px-1 py-0.5 font-extrabold">{anzahl}</span>}
+      trigger={<span className="fluid-xxs bg-danger/15 text-danger-strong rounded-md px-1 py-0.5 font-extrabold">{anzahl}</span>}
     />
   );
 }
@@ -150,7 +150,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                               size="sm"
                               placement="top-right"
                               aria-label={austrittZustand(teamData.austritt_type)}
-                              className="fluid-xxs! bg-danger/10 text-danger-strong translate-x-5 -translate-y-2 rounded-md border-none p-1 font-extrabold uppercase lg:translate-x-6">
+                              className="fluid-xxs! bg-danger/15 text-danger-strong translate-x-5 -translate-y-2 rounded-md border-none p-1 font-extrabold uppercase lg:translate-x-6">
                               {austrittKuerzel(teamData.austritt_type)}
                             </Badge>
                           )}
@@ -182,11 +182,10 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                       </Table.Cell>
 
                       <Table.Cell className="font-numeric fluid-xs px-1 py-4 text-center font-bold tabular-nums lg:px-2">
-                        {teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert > 0 ? (
-                          <span className="text-success-strong">+{teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert}</span>
-                        ) : (
-                          <span className="text-danger-strong">{teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert}</span>
-                        )}
+                        <Tordifferenz
+                          geschossen={teamData.statistik.tore_geschossen}
+                          kassiert={teamData.statistik.tore_kassiert}
+                        />
                       </Table.Cell>
 
                       <Table.Cell className="font-numeric fluid-sm text-foreground px-1 py-4 text-center font-extrabold tabular-nums lg:px-2">
@@ -202,4 +201,12 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
       })}
     </div>
   );
+}
+
+/** Three arms, not two: a level difference is neither a surplus nor a deficit. */
+function Tordifferenz({ geschossen, kassiert }: { geschossen: number; kassiert: number }) {
+  const differenz = geschossen - kassiert;
+  if (differenz === 0) return <span className="text-foreground">0</span>;
+
+  return differenz > 0 ? <span className="text-success-strong">+{differenz}</span> : <span className="text-danger-strong">{differenz}</span>;
 }

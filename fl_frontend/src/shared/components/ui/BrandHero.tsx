@@ -32,6 +32,9 @@ export function BrandHero({ title, lead }: { title: string; lead: string }) {
 // step, which leaves about 17px of air at each.
 const TRACE_INSET = "right-15 sm:right-22 lg:right-28";
 
+// The same three steps as the inset, so a change to one moves both (`docs/frontend/spec.md :: I172`).
+const TRACE_CAP = "max-w-[calc(100%-3.75rem)] sm:max-w-[calc(100%-5.5rem)] lg:max-w-[calc(100%-7rem)]";
+
 /**
  * A trace inside the block rather than a ground behind the page: it reads as football without
  * competing with the title. The alpha is an attribute and not a class, so it needs no token.
@@ -50,7 +53,7 @@ function PitchTrace() {
       // Sized off the block's height, because its width runs from little more than its height to
       // over four times it: a drawing filling the width loses the penalty area's top and bottom on
       // the wide end.
-      className={`pointer-events-none absolute top-0 h-full w-auto ${TRACE_INSET}`}>
+      className={`pointer-events-none absolute top-0 h-full w-auto ${TRACE_CAP} ${TRACE_INSET}`}>
       {/* `non-scaling-stroke` on every stroked shape, because the SVG is sized off the block: without
           it the stroke thickens with the hero's own height instead of staying a drawn line. */}
       <line

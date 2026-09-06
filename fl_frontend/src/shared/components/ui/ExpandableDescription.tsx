@@ -28,7 +28,7 @@ export function ExpandableDescription({ text }: { text: string }) {
       </p>
 
       <button
-        className="fluid-xs text-success-strong mt-1.5 cursor-pointer rounded border-none bg-transparent p-0 font-bold transition-opacity hover:opacity-80"
+        className="fluid-xs text-brand mt-1.5 cursor-pointer rounded border-none bg-transparent p-0 font-bold transition-opacity hover:opacity-80"
         onClick={() => {
           setIsExpanded(!isExpanded);
         }}>

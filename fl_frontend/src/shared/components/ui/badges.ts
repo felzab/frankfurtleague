@@ -27,6 +27,11 @@ export type PillTone =
   | "halbfinale"
   | "finale";
 
+/**
+ * Every pair below is measured on `surface` (`scripts/checks/docs_gate/scheme.py :: PAIRS`), and a
+ * pill sits on `surface` or `background`, never on `muted`: there the light inks fall under the
+ * floor.
+ */
 export const PILL_TINT: Record<PillTone, string> = {
   success: "bg-success/15 text-success-strong",
   warning: "bg-warning/15 text-warning-strong",

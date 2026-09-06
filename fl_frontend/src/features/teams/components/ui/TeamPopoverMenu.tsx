@@ -89,7 +89,7 @@ export function TeamPopoverMenu({
               {teamAustritt !== null && (
                 <span
                   aria-label={austrittZustand(teamAustritt)}
-                  className="bg-danger/10 text-danger-strong fluid-xxs rounded-md px-2 py-0.5 font-extrabold uppercase">
+                  className="bg-danger/15 text-danger-strong fluid-xxs rounded-md px-2 py-0.5 font-extrabold uppercase">
                   {austrittKuerzel(teamAustritt)}
                 </span>
               )}
