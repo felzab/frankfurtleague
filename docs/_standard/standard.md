@@ -367,10 +367,10 @@ narrower than this Scope in a way INC-2 states.
   over the bound keeps that standing while the branch does not lengthen it, matched to its earlier
   self — at whatever path the fork's tree filed it under — by the lines the two versions share
   rather than by its first line, so improving an over-bound block's opening sentence costs nothing
-  and adding to one fails; one standing is spent between every block in the same file matching it,
-  so splitting or copying a block inside that file buys no second ceiling, while a match in another
-  file inherits the standing and spends none of it; a block over the bound that no branch has
-  touched is `/docs:audit`'s (CUR-6).
+  and adding to one fails; the blocks in one file matching it spend one standing per copy the fork
+  filed in the file it forked from, so splitting or copying a block inside that file buys no second
+  ceiling, while a match in another file inherits one standing and spends none of it; a block over
+  the bound that no branch has touched is `/docs:audit`'s (CUR-6).
 
 ## Corpus
 

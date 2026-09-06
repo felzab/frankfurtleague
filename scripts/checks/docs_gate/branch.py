@@ -108,7 +108,7 @@ def _endpoint_docstrings(raw: str) -> frozenset[int]:
 
 
 class Ancestor(NamedTuple):
-    """One block the fork held over the bound, and the path it filed it at.
+    """One block the fork held over the bound, at the path the branch files it under.
 
     The path is part of the value: counting copies across files would let a block grow by being
     duplicated into another.
@@ -156,6 +156,7 @@ def _fork_pool(fork: str) -> list[Ancestor] | None:
     batch = git_input("cat-file", "--batch", stdin="\n".join(oid for oid, _ in named) + "\n")
     if batch is None:
         return None
+    renamed = _renamed_to(fork)
     pool: list[Ancestor] = []
     at = 0
     for index, (oid, rel) in enumerate(named):
@@ -174,7 +175,10 @@ def _fork_pool(fork: str) -> list[Ancestor] | None:
         end = len(batch) if following is None else batch.find("\n" + following + BATCH_HEADER, start)
         if end == -1:
             return None
-        pool.extend(_blocks_over_bound(rel, batch[start:end].rstrip("\n"), comment_style(REPO_ROOT / rel)))
+        # Filed under the branch's name for the path, never the fork's: `_fork_ceiling` asks whether
+        # THIS file is the one the fork filed the block in. The style stays the fork path's, whose
+        # blob this reads.
+        pool.extend(_blocks_over_bound(renamed.get(rel, rel), batch[start:end].rstrip("\n"), comment_style(REPO_ROOT / rel)))
         at = end + 1
     return pool
 
@@ -207,13 +211,16 @@ def _fork_charges(runs: list[tuple[int, list[str]]], older: list[Ancestor]) -> d
     return charges
 
 
-def _fork_ceiling(ancestor: Ancestor, arrived: int, older: list[Ancestor]) -> int:
+def _fork_ceiling(ancestor: Ancestor, arrived: int, older: list[Ancestor], rel: str) -> int:
     """What the blocks matching one ancestor may run to together.
 
-    One standing per copy that arrived, never more than the fork filed in one file: a copy it
-    filed elsewhere is inherited rather than added (INC-9).
+    One standing per copy that arrived, never more than the fork filed in the file this one came
+    from: a match anywhere else inherits one (INC-9).
     """
-    return ancestor.words * min(arrived, older.count(ancestor))
+    # Where git reads a rename as a fresh file, a duplicated over-bound block it carries draws a
+    # finding its author repairs: cheaper than letting any fresh file inherit copies it never forked.
+    copies = older.count(ancestor) if ancestor.file == rel else 1
+    return ancestor.words * min(arrived, copies)
 
 
 def check_comment_length(path: Path, raw: str, added: set[int], fork_blocks: Callable[[], list[Ancestor] | None]) -> list[Finding]:
@@ -253,7 +260,7 @@ def check_comment_length(path: Path, raw: str, added: set[int], fork_blocks: Cal
         words = word_count(text)
         ancestor = _fork_ancestor(block, older)
         matching = [words] if ancestor is None else charges[ancestor]
-        ceiling = None if ancestor is None else _fork_ceiling(ancestor, len(matching), older)
+        ceiling = None if ancestor is None else _fork_ceiling(ancestor, len(matching), older, rel)
         charged = sum(matching)
         if ceiling is not None and charged <= ceiling:
             continue
@@ -503,8 +510,36 @@ def _added_ignoring_renames(fork: str) -> dict[str, list[tuple[int, str]]] | Non
     return _walk_added(_diff_at(fork, "--no-renames"))
 
 
+RENAME_FROM: Final = "rename from "
+RENAME_TO: Final = "rename to "
+
+
+@cache
+def _renamed_to(fork: str) -> dict[str, str]:
+    """Where the branch files each fork path git reads as a rename, fork name to branch name.
+
+    The line walk keeps rename detection off, so alone it cannot part a moved file from a fresh copy.
+    """
+    pairs: dict[str, str] = {}
+    source, in_header = "", False
+    # The rename-detecting diff `_added_by_file` already takes, so the pairs and that walk can never
+    # disagree about which files git paired, whatever a developer's `diff.renames` says.
+    for line in (_diff_at(fork) or "").split("\n"):
+        if line.startswith("diff --git "):
+            source, in_header = "", True
+        elif HUNK_HEADER_RE.match(line):
+            in_header = False
+        elif in_header and line.startswith(RENAME_FROM):
+            source = line.removeprefix(RENAME_FROM).rstrip("\r")
+        elif in_header and source and line.startswith(RENAME_TO):
+            pairs[source] = line.removeprefix(RENAME_TO).rstrip("\r")
+            source = ""
+    return pairs
+
+
+@cache
 def _diff_at(fork: str, *extra: str) -> str | None:
-    """The branch's diff against the fork, in the one shape both walks read."""
+    """The branch's diff against the fork, in the one shape every reader of it takes."""
     # Both overrides beat a developer's own config, which silently drops a whole file otherwise:
     # `core.quotePath` spells a non-ASCII path `"b/f\303\274r.md"`, and `diff.noprefix` drops the
     # `b/` this walk keys on. `kernel.py :: _listed` reaches for `-z` against the same hazard.

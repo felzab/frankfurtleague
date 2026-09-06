@@ -341,7 +341,7 @@ bound to the word count it ran to there rather than to the bound.
 content lines the two share — **any one shared line is a match**, the largest overlap wins, and a tie
 goes to the largest fork word count. The candidates are the blocks the fork held **over** the bound,
 anywhere in its tree, so a block carried into a file the fork has no version of keeps its standing.
-Six consequences, each of which otherwise costs a rebase to discover:
+The consequences, each of which otherwise costs a rebase to discover:
 
 - **Improving this block's opening sentence costs it nothing.** An overlap of lines is not a key on
   the first one, so the edit an over-bound block most invites is free
@@ -355,14 +355,27 @@ Six consequences, each of which otherwise costs a rebase to discover:
   length the bound would refuse. Read a pass as the check's answer about matching rather than as a
   verdict on the prose: COR-5's test and INC-9's three questions decide the block, and the ceiling
   only says what the gate will let through.
-- **One standing is spent between every block in the same file matching it.** Split this block in
-  two and the halves are charged together against the one count it ran to at the fork; copy it
-  inside that file and leave the original standing, and the pair is charged the same way. The block
-  reported is the one the branch's own diff touched, which is the half a rebase can fix (CUR-6).
-- **A copy in another file inherits the standing and spends none of it.** Charging the pair across
-  files would fail a branch for a file it never opened, so a block carried into a second file passes
-  at the length its earlier self ran to and the pair is `/docs:audit`'s
-  (`scripts/tests/test_branch_checks.py :: test_a_block_copied_into_a_second_file_spends_no_part_of_the_first_s_ceiling`).
+- **The blocks in one file matching this one are charged together, against one standing for each
+  copy the fork filed in the file this one forked from — a rename git detects included.** Split this
+  block in two and the halves are charged against the single count it ran to at the fork; copy it
+  inside that file and leave the original standing, and the pair is charged the same way; a file the
+  fork itself filed the block in twice pays for two
+  (`scripts/tests/test_branch_checks.py :: test_a_renamed_file_holding_two_identical_blocks_keeps_a_standing_for_each`).
+  The block reported is the one the branch's own diff touched, which is the half a rebase can fix
+  (CUR-6).
+- **A copy in another file inherits one standing and spends none of it, whatever the fork filed
+  beside it.** Charging the pair across files would fail a branch for a file it never opened, so a
+  block carried into a second file passes at the length its earlier self ran to and the pair is
+  `/docs:audit`'s
+  (`scripts/tests/test_branch_checks.py :: test_a_block_copied_into_a_second_file_spends_no_part_of_the_first_s_ceiling`),
+  while two copies pasted into one are charged against that single standing
+  (`scripts/tests/test_branch_checks.py :: test_a_fresh_file_holding_the_fork_s_pair_inherits_one_standing_between_the_two`).
+- **A rename git no longer recognises is charged as a fresh file.** The line walk keeps rename
+  detection off, so the pairing comes from the diff's own rename headers; rewrite more than half of a
+  file's lines while moving it and git records a deletion and an addition, so a duplicated over-bound
+  block in it inherits one standing between its copies and the branch fails, loudly, where a silent
+  pass would have let the second copy through
+  (`scripts/tests/test_branch_checks.py :: test_a_rename_git_reads_as_a_fresh_file_charges_its_pair_against_one_standing`).
 - **A truly new block comes under the bound or the gate stays red**, INC-9's stay-over-it clause
   being no answer to a gate that has already refused. Where the fact will not compress, it is at the
   wrong rung: take INC-9's first question again and move the contract half out, as the example above

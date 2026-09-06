@@ -31,6 +31,7 @@ MOVED: Final = "fl_backend/app/moved.py"
 EMBEDDED: Final = "fl_backend/app/embedded.py"
 TWIN: Final = "fl_backend/app/twin.py"
 TWINNED: Final = "fl_backend/app/twinned.py"
+OTHER: Final = "fl_backend/app/other.py"
 STYLES: Final = "fl_frontend/src/styles.css"
 # Empty, and last in `ls-tree -r` order, so the batch the fork pool splits closes on a header line
 # with nothing under it. The scenario reading it asserts that position rather than assuming it.
@@ -103,6 +104,10 @@ TWIN_WORDS: Final = len(" ".join([TWIN_TEXT] * 3).split())
 # module carries and runs to well past what either of them does.
 WIDE_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + TWIN_TEXT for _ in range(5))
 WIDE_WORDS: Final = len(" ".join([TWIN_TEXT] * 5).split())
+# git reads a rename by how much of the source survives in the destination, so bulk the fork never
+# held is what hides one. The case asserts git missed it rather than trusting this count.
+REWRITE_TEXT: Final = "a distinct line the rewrite adds, so too little of the twin survives for git to read a rename"
+REWRITE_LINES: Final = 12
 LEGACY_OPEN: Final = "an opening line of a committed comment block that already runs far past what a comment may hold"
 LEGACY_MID: Final = "a middle line a scenario amends in place, to prove the fork text exempts the block it opens"
 LEGACY_END: Final = "a closing line that keeps the committed block over the bound before any scenario touches it"
@@ -287,6 +292,25 @@ def _corpus() -> dict[str, str]:
     }
 
 
+MIXED_FORM_TRIES: Final = 60
+
+
+def _mix_the_short_form(root: Path) -> None:
+    """Amend until HEAD's short form carries a digit and a letter both.
+
+    One commit's own does only by chance, and the sha scenario needs one that does; amending moves
+    the hash and leaves the tree alone.
+    """
+    for attempt in range(MIXED_FORM_TRIES):
+        short = git(root, "rev-parse", "HEAD")[:7]
+        if any(c.isdigit() for c in short) and any(c.isalpha() for c in short):
+            return
+        # The author date, the one field a commit takes from an argument rather than from the clock:
+        # a second amend inside one second is otherwise the same commit and the loop never ends.
+        git(root, "commit", "--amend", "--no-edit", "--date", "2026-01-01T00:00:" + str(attempt).rjust(2, "0") + "+00:00")
+    raise AssertionError("no amend of the corpus commit in " + str(MIXED_FORM_TRIES) + " gave it a mixed short form")
+
+
 def _build() -> tuple[Path, Path]:
     """One fixture repository beside the driver that reads it, built once per session."""
     parent = new_root("branch-checks-fixture-")
@@ -301,6 +325,7 @@ def _build() -> tuple[Path, Path]:
     # By name, never `add -A`: the scripts copy sits in this tree too, gitignored on top.
     git(root, "add", "--", *pages)
     git(root, "commit", "-m", "Corpus: the branch scenarios start from here")
+    _mix_the_short_form(root)
     return parent, root
 
 
@@ -662,18 +687,10 @@ def test_a_prose_sha_reports_every_mixed_hex_run_resolvable_or_not() -> None:
     one.
     """
     _reset()
-    # Whichever commit supplies it must be reachable, so the checker resolves it -- but a single
-    # commit's short form carries a digit and a letter only by chance, and this walks until one does.
-    resolvable = next(
-        (
-            sha[:n]
-            for sha in git(_root(), "rev-list", "--max-count=20", "HEAD").split("\n")
-            for n in (8, 7)
-            if any(c.isdigit() for c in sha[:n]) and any(c.isalpha() for c in sha[:n])
-        ),
-        None,
-    )
-    assert resolvable is not None, "no recent commit has a mixed short form, so this proves nothing here"
+    resolvable = git(_root(), "rev-parse", "HEAD")[:7]
+    # Asserted rather than assumed: `_mix_the_short_form` is what makes this hold, and without this
+    # line a fixture that stopped doing so fails below on a findings mismatch that names nothing.
+    assert any(c.isdigit() for c in resolvable) and any(c.isalpha() for c in resolvable), "the fixture's HEAD has no mixed short form"
     tick = "`"
     _append(
         NOTES,
@@ -976,6 +993,45 @@ def test_a_renamed_file_holding_two_identical_blocks_keeps_a_standing_for_each()
         _reset()
     assert touched == [TWIN, TWINNED]
     assert _findings(data, "comment-length") == []
+
+
+def test_a_fresh_file_holding_the_fork_s_pair_inherits_one_standing_between_the_two() -> None:
+    """A standing is the fork's copies in the file it filed them in, and no other file gets two.
+
+    Counted per copy that arrived instead, a branch pastes the pair anywhere and passes.
+    """
+    _reset()
+    body = _page(QUOTES + "BACKEND · the module the fork's pair is pasted into." + QUOTES, "", "VALUE = 1", "", *TWIN_BLOCK, "", *TWIN_BLOCK)
+    write(_root(), FRESH, body)
+    first = _line_of(FRESH, TWIN_BLOCK[0])
+    try:
+        data = _run()
+    finally:
+        _reset()
+    charged = TWIN_WORDS * 2
+    assert _findings(data, "comment-length") == [_shared_fail(FRESH, TWIN_WORDS, charged, TWIN_WORDS)] * 2
+    assert _lines(data, "comment-length") == [first, first + len(TWIN_BLOCK) + 1]
+
+
+def test_a_rename_git_reads_as_a_fresh_file_charges_its_pair_against_one_standing() -> None:
+    """The cost the ceiling accepts: a rename git cannot read draws a finding its author repairs.
+
+    A file carrying a duplicated over-bound block, rewritten past git's threshold, is what reaches it.
+    """
+    _reset()
+    root = _root()
+    git(root, "mv", TWIN, OTHER)
+    _append(OTHER, "FILLER = (", *('    "' + REWRITE_TEXT + " " + str(n) + '",' for n in range(REWRITE_LINES)), ")")
+    first = _line_of(OTHER, TWIN_BLOCK[0])
+    try:
+        status = git(root, "diff", "-M", "--name-status", "HEAD").split("\n")
+        data = _run()
+    finally:
+        _reset()
+    assert not [line for line in status if line.startswith("R")], "git read the rename after all, so this proves nothing: " + repr(status)
+    charged = TWIN_WORDS * 2
+    assert _findings(data, "comment-length") == [_shared_fail(OTHER, TWIN_WORDS, charged, TWIN_WORDS)] * 2
+    assert _lines(data, "comment-length") == [first, first + len(TWIN_BLOCK) + 1]
 
 
 def test_a_hash_run_a_string_holds_is_no_ancestor_when_the_fork_s_last_blob_is_empty() -> None:
