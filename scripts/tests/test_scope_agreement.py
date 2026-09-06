@@ -1,8 +1,9 @@
-"""SCRIPTS · the gate's scope register, held to the rule text it enforces.
+"""SCRIPTS · the In-code Scope, held to the gate that reads it.
 
-`scripts/checks/docs_gate/branch.py :: INCODE_SCOPES` spells the subtrees the In-code Scope names,
-and is what this file sweeps for a file whose kind the gate does not read. The two listings are
-reached by different routes and required to agree (PRE-4), so narrowing either breaks the agreement.
+`docs/_standard/standard.md`'s Scope line names the trees and
+`scripts/checks/docs_gate/kernel.py`'s suffix registers name the kinds; this file sweeps the first
+for a file whose kind the second leaves unread. The two are reached by different routes and required
+to agree (PRE-4), so narrowing either breaks the agreement.
 """
 
 from __future__ import annotations
@@ -23,7 +24,8 @@ STANDARD: Final = REPO_ROOT / "docs" / "_standard" / "standard.md"
 # spelling; a rename leaves the reader finding nothing, which fails rather than passing empty.
 IN_CODE_HEADING: Final = "## In-code"
 SCOPE_LABEL: Final = "Scope:"
-# The kernel holding the suffix registers, and the gate function that reads one of them.
+# The kernel holding the suffix registers, and the gate function that reads one of them. The tree
+# register `_bounded` may not read is named here so the rebuild below refuses it by name.
 KERNEL: Final = "checks/docs_gate/kernel.py"
 BRANCH: Final = "checks/docs_gate/branch.py"
 BOUNDED: Final = "_bounded"
@@ -44,7 +46,10 @@ def _declared(module: str, name: str) -> tuple[str, ...]:
 
 
 def _scoped_by_the_standard() -> tuple[str, ...]:
-    """The subtrees the In-code section names, as its scope line spells them."""
+    """The subtrees the In-code section names, as its scope line spells them, once each.
+
+    That line names one tree twice, to say what the kind register keeps out of it.
+    """
     lines = STANDARD.read_text(encoding="utf-8").split("\n")
     at = next((index for index, line in enumerate(lines) if line.strip() == IN_CODE_HEADING), None)
     assert at is not None, f"docs/_standard/standard.md no longer carries a {IN_CODE_HEADING!r} heading"
@@ -55,7 +60,7 @@ def _scoped_by_the_standard() -> tuple[str, ...]:
     tokens = BACKTICKED.findall("\n".join(lines[opening:end]))
     # A citation beside the trees names the by-kind registers, which is the Scope's other half
     # rather than a tree in it.
-    return tuple(token for token in tokens if "::" not in token)
+    return tuple(dict.fromkeys(token for token in tokens if "::" not in token))
 
 
 def _folder(token: str) -> str:
@@ -89,18 +94,11 @@ def _bounded_of() -> Callable[[str], bool]:
     return lambda rel: rel.endswith(suffixes) or rel.rsplit("/", 1)[-1] in names
 
 
-def test_the_comment_scopes_the_gate_checks_are_the_ones_the_standard_names() -> None:
-    """The register and the Scope line drift apart silently, and every case in the corpus still passes."""
-    checked = _declared(BRANCH, "INCODE_SCOPES")
+def test_every_tree_the_standard_names_is_a_path_this_repository_holds() -> None:
+    """A Scope line naming a path nobody has reaches no file, which reads exactly like a clean sweep."""
     named = _scoped_by_the_standard()
-    assert checked, "INCODE_SCOPES is empty, so every comment check iterates nothing and passes"
     assert named, "the standard's scope line names nothing"
-    assert {_folder(entry) for entry in checked} == {_folder(entry) for entry in named}
-
-
-def test_every_scope_the_gate_checks_is_a_path_this_repository_holds() -> None:
-    """A register naming a path nobody has reaches no file, which reads exactly like a clean sweep."""
-    missing = [entry for entry in _declared(BRANCH, "INCODE_SCOPES") if not (REPO_ROOT / entry).exists()]
+    missing = [entry for entry in named if not (REPO_ROOT / entry).exists()]
     assert not missing, f"no such path: {missing}"
 
 
@@ -109,9 +107,10 @@ def test_a_file_of_an_unread_kind_inside_a_named_tree_is_not_bounded() -> None:
     reads = _bounded_of()
     suffixes = _register("SCANNED_SUFFIXES")
     names = _declared(KERNEL, "OPS_FILENAMES")
+    named = _scoped_by_the_standard()
     unread = [
         rel
-        for tree in _declared(BRANCH, TREES)
+        for tree in named
         for path in (REPO_ROOT / tree).rglob("*")
         if path.is_file()
         and UNTRACKED_DIRS.isdisjoint(path.parts)
@@ -119,7 +118,7 @@ def test_a_file_of_an_unread_kind_inside_a_named_tree_is_not_bounded() -> None:
         and path.name not in names
     ]
     # Without one the sweep asserts nothing, and the tree half went unwatched for exactly that reason.
-    assert unread, f"no file of an unread kind sits under {_declared(BRANCH, TREES)}, so this proves nothing"
+    assert unread, f"no file of an unread kind sits under {named}, so this proves nothing"
     bounded = [rel for rel in unread if reads(rel)]
     assert not bounded, f"the `#` reader would measure these as comment blocks: {sorted(bounded)[:5]}"
 
@@ -127,7 +126,7 @@ def test_a_file_of_an_unread_kind_inside_a_named_tree_is_not_bounded() -> None:
 def test_the_by_kind_half_of_the_scope_reaches_the_files_the_standard_names_it_for() -> None:
     """The Scope reaches a Dockerfile, a workflow and a manifest that sit under no tree it names."""
     reads = _bounded_of()
-    trees = _declared(BRANCH, "INCODE_SCOPES")
+    trees = tuple(_folder(entry) + "/" for entry in _scoped_by_the_standard())
     # What the Scope line says the by-kind half exists to reach.
     by_kind = ("fl_backend/Dockerfile", ".github/workflows/verify.yml", "fl_backend/pyproject.toml")
     for rel in by_kind:

@@ -30,18 +30,6 @@ from .kernel import (
     word_count,
 )
 
-# The trees `docs/_standard/standard.md` In-code's Scope names, which `test_scope_agreement.py` holds it to
-# and sweeps. Nothing selects on them -- `_bounded` reads the kind, a tree admitting kinds the gate
-# cannot read.
-INCODE_SCOPES: Final[tuple[str, ...]] = (
-    "fl_frontend/src/",
-    "fl_backend/app/",
-    "fl_backend/tests/",
-    "scripts/",
-    ".claude/hooks/",
-    ".githooks/",
-)
-
 # INC-9's one bound, the same for every shape: inline comment, symbol doc and test docstring alike.
 # Words rather than characters, so reflowing a block cannot carry it under.
 COMMENT_WORD_CAP: Final = 40

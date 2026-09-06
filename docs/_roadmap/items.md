@@ -201,7 +201,6 @@ deliverable.
 | `y3jf-vwrs` | No check enters the gate's serial or streaming run form                                                                     | Ops, Docs, gate, ci, tests                                                  | Open     |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                       | FE, BE, tests                                                               | Open     |
 | `z9gx-tekp` | A README enumerates a suite's subjects, and the tree has moved past the list                                                | Ops, tests                                                                  | Open     |
-| `zp4w-tg6x` | No check selects by the trees the In-code Scope names, and its register stands on its tests alone                           | Ops, Docs, gate, ci, tests                                                  | Standing |
 
 ## The items
 
@@ -4988,34 +4987,3 @@ same debt on the next module.
 
 **Done when** the row says what the suite is for and leaves membership to the directory, which
 answers it in seconds.
-
-### `zp4w-tg6x` · No check selects a file by the trees the In-code Scope names, and the register spelling them is held in place by its own tests
-
-| Tags                       | Status   | Depends on |
-| -------------------------- | -------- | ---------- |
-| Ops, Docs, gate, ci, tests | Standing | —          |
-
-**`scripts/checks/docs_gate/branch.py :: INCODE_SCOPES` spells six trees, and nothing in the gate
-reads it to decide anything.** `:: _bounded` selects by kind alone — a suffix in
-`scripts/checks/docs_gate/kernel.py :: SCANNED_SUFFIXES`, or a whole name in `:: OPS_FILENAMES` —
-because a tree admits kinds the gate cannot read, and `kernel.py :: comment_style` hands an
-unrecognised kind to the `#` reader, which measures a CSS id selector as a comment run.
-
-**The two tests differ in both directions, which is what the decision turns on.** Of the 951 files
-`kernel.py :: scanned_files` reaches, 849 sit under one of the six trees; two of those are markdown
-READMEs the kind test leaves alone, and 35 files it does bound sit under no named tree at all —
-`.github/workflows/verify.yml` and its neighbours, and `.claude/settings.json` among them. The In-code
-Scope in `docs/_standard/standard.md` already states the kind as the selector and the trees as where those
-files mostly sit, so the rule and the code agree; what is left over is a register naming a population
-nothing selects by.
-
-**Retiring it takes two sweeps' population with it.** `scripts/tests/test_scope_agreement.py` reads
-the register three times: to compare its folders against the Scope line's, to assert every tree it
-names is a path this repository holds, and to walk each tree for a file of a kind the gate does not
-read and prove `_bounded` leaves that file alone. The last asserts its own population is non-empty,
-so it fails loudly rather than passing over nothing — but only while there are trees to walk.
-`docs/ops/spec.md` §1.5 cites the register as its example of a sweep pinned to this repository rather
-than to a fixture.
-
-**Done when** I have decided whether the register and the Scope's tree list stay, and, if they go,
-what population the unread-kind sweep walks instead.
