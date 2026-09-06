@@ -33,6 +33,7 @@ from .branch import (
     check_prose_shas,
 )
 from .copy_rules import check_copy_rules
+from .error_codes import ERROR_CODES_PAGE, check_error_codes
 from .kernel import (
     BACKTICK_RE,
     BACKTICK_SPAN_RE,
@@ -135,6 +136,7 @@ REQUIRED_INPUTS: Final[tuple[str, ...]] = (
     TEMPLATES_PAGE,
     GLOSSARY_PAGE,
     SWEEP_PAGE,
+    ERROR_CODES_PAGE,
 )
 
 # The file both byte checks answer to, and what each names when the fault is the listing rather
@@ -1235,7 +1237,7 @@ def check_output_verbs() -> list[Finding]:
     lines = text.split("\n")
     opened = next((number for number, line in enumerate(lines) if re.match(OUTPUT_STANDARD_LEAD_IN, line)), None)
     if opened is None:
-        detail = f"no line opens `{OUTPUT_STANDARD_LEAD_IN}`, which is what arms `scripts/gate/selfcheck.sh`'s verb reader"
+        detail = f"no line matches `{OUTPUT_STANDARD_LEAD_IN}`, the pattern `scripts/gate/selfcheck.sh` arms its verb reader on"
         return [Finding("fail", "output-verbs", rel, detail)]
     # The first table below the lead-in and no other, as the awk takes it: prose and blank lines are
     # stepped over, and the first line that is not a row after one has been seen ends the table.
@@ -1942,6 +1944,7 @@ def main() -> int:
     findings.extend(check_comment_bounds(branch))
     findings.extend(check_copy_rules())
     findings.extend(check_platform_branches())
+    findings.extend(check_error_codes())
     findings.extend(check_text_writes())
     findings.extend(check_scheme_tokens())
 

@@ -192,6 +192,15 @@ STATUS_COLUMN_ROW: Final = "| # | When | Status |"
 OPS_SPEC: Final = "docs/ops/spec.md"
 OUTPUT_LEAD_IN: Final = "**The output standard.** One vocabulary, one verb per meaning."
 OUTPUT_VERB_ROW: Final = "| `step` | Opens a step and starts its timer |"
+# The refusal register, one row per tree, and the two spellings that answer for them. Each code is
+# written twice on purpose: the page states it and the tree its area names raises it.
+ERROR_CODES: Final = "docs/logging/error-codes.md"
+BACKEND_CODE: Final = "REQ-SAMPLE-001"
+FRONTEND_CODE: Final = "FE-SAMPLE-001"
+BACKEND_ROW: Final = "| `" + BACKEND_CODE + "` | The sample module refused a write |"
+FRONTEND_ROW: Final = "| `" + FRONTEND_CODE + "` | The sample component could not read the answer |"
+BACKEND_RAISE: Final = 'RAISED = "' + BACKEND_CODE + '"'
+FRONTEND_RAISE: Final = '  const code = "' + FRONTEND_CODE + '";'
 # One entry per agreement arm, so a plant breaking one leaves the others answering. They ascend as
 # the page's own listings do.
 STATUS_ENTRY: Final = "bqxs-4dtn"
@@ -539,6 +548,16 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "",
             "A closing section, so a line a plant appends lands outside every entry rather than inside the last one.",
         ),
+        ERROR_CODES: _page(
+            _heading(1, "Logging — error codes"),
+            "",
+            "**Purpose:** every code either service raises.",
+            "",
+            "| Code | Meaning |",
+            "| --- | --- |",
+            BACKEND_ROW,
+            FRONTEND_ROW,
+        ),
         OPS_SPEC: _page(
             _heading(1, "Ops — spec"),
             "",
@@ -616,6 +635,8 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             # line-grain reader keeps the whole line and reports the literal; a tokenizer keeps the
             # comment alone. The comment is what makes the two readers disagree.
             'S = "docs/gone-in-a-literal.md"  # a real comment',
+            "",
+            BACKEND_RAISE,
         ),
         MARKER_SAMPLE: _page(
             QUOTES + "BACKEND · a module whose citations wrap, one per marker shape." + QUOTES,
@@ -689,6 +710,7 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
         ),
         TSX_SAMPLE: _page(
             "export function Sample() {",
+            FRONTEND_RAISE,
             "  return <output>a component the corpus scans</output>;",
             "}",
         ),
@@ -1118,6 +1140,22 @@ def _plant_output_verbs() -> None:
     _replace(OPS_SPEC, OUTPUT_VERB_ROW, OUTPUT_VERB_ROW.replace("`step`", "step"))
 
 
+def _plant_error_codes() -> None:
+    """Both directions, and the prefix split the whole shape rests on.
+
+    A row spelled only in the other tree is what a merged population would pass: it satisfies the
+    row from a spelling the area's own tree never carries.
+    """
+    # The register losing a row a tree still raises, and each tree raising a code with no row.
+    _drop(ERROR_CODES, BACKEND_ROW)
+    _append(SAMPLE, 'OTHER = "REQ-OTHER-002"')
+    _append(TSX_SAMPLE, 'const other = ["FE-OTHER-002"];')
+    # A row no tree spells at all, and one only the wrong tree spells.
+    _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n| `SRV-SAMPLE-009` | A code neither tree raises |")
+    _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n| `FE-CROSS-003` | A code only the backend tree spells |")
+    _append(SAMPLE, 'CROSSED = "FE-CROSS-003"')
+
+
 def _plant_compose_entry() -> None:
     """The docs entry given a compose file as a second subject, its index row left as it stands."""
     _replace(ROADMAP, "`docs/notes.md` that plants", "`docs/notes.md` and `" + COMPOSE_FILE + "` that plant")
@@ -1480,6 +1518,7 @@ CASES: Final[tuple[Case, ...]] = (
     # copies below it are told to cite.
     Case("echo", _fails("echo", NOTES), _plant_echo),
     Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD), _plant_enforced_by),
+    Case("error-codes", _fails("error-codes", *[ERROR_CODES] * 5), _plant_error_codes),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
     Case("header-see", _fails("header-see", *[SAMPLE] * 4), _plant_header_see),
     Case("history", _fails("history", NOTES, SECOND_SAMPLE), _plant_history),

@@ -121,6 +121,7 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "crlf-write": frozenset({"fail"}),
     "echo": frozenset({"fail"}),
     "enforced-by": frozenset({"fail"}),
+    "error-codes": frozenset({"fail"}),
     "glossary-entry": frozenset({"fail"}),
     "header-see": frozenset({"fail"}),
     "history": frozenset({"fail"}),

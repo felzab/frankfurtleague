@@ -631,6 +631,12 @@ cannot, and only this gate's Linux run in CI proves one. `crlf-write` holds
 redirect of a program's stdout leaves no call in the source to read, so that half of the trap stays
 with the reader.
 
+**One more of its checks reads code rather than prose** (`scripts/checks/docs_gate/error_codes.py`),
+and I176 is what it holds: [`../logging/error-codes.md`](../logging/error-codes.md)'s rows and the
+codes `fl_backend/app/` and `fl_frontend/src/` spell must agree in both directions, each tree
+answering for its own prefixes so that the backend codes the frontend words for a reader are not
+read as the frontend's own.
+
 **The backend steps** exist because the frontend's toolchain runs nothing against `fl_backend`
 ([`docs/backend/spec.md`](../backend/spec.md) §1.6); `pyright` is separate from `ruff` because ruff
 checks no types. **Both test tiers run**: the `db`-marked tests need a real `mongod`, so they are
@@ -747,6 +753,7 @@ its human-readable line on stderr, where it cannot reach the outputs.
 | I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/prod.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                 |
 | I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/prod.conf` names no `/docs` location, and nothing checks either                                                     |
 | I149 | One `frontend` service per compose file and no replica count is what lets the retention sweep hold one timer per process with no lease                                        | unenforced — `docker-compose.yml` and `docker-compose.local.yml` each declare the service once, and nothing refuses a second or a `deploy.replicas`                                                |
+| I176 | Every row of the refusal register is spelled in the tree its area names, and every code those trees spell has a row (§1.6)                                                    | gate check `error-codes`, over `scripts/checks/docs_gate/error_codes.py :: CODE_RE`; `fl_backend/tests/core/test_domain.py` holds the `REQ-*` half to `domain.py :: RULES` besides                 |
 
 ## 3. Violation → remedy
 

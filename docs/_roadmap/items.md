@@ -139,7 +139,6 @@ deliverable.
 | `ja32-9rpv` | A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches                                                           | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
 | `jcpc-dee5` | Two routes sharing a path and a method collapse to one before the guard sweep reads them                                                                          | BE, tests                                                                   | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                                                       | BE, tests, saisons                                                          | Open     |
-| `jky6-k3te` | Every refusal code is written twice, and nothing resolves one spelling against the other                                                                          | BE, Ops, Docs, gate                                                         | Open     |
 | `jn8g-etjk` | `NOTICE` maps to no gate scope, so a dead asset path in it survives a green gate                                                                                  | Docs, Ops, gate                                                             | Open     |
 | `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                                                                   | FE, BE, DB, Docs, kontakte                                                  | Open     |
 | `kajk-z7nu` | A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it                                                                    | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
@@ -2658,40 +2657,6 @@ guards deletable.
 **Not verified here:** the database tier was not run for this entry. That dropping the argument
 leaves it green is a report; the mechanism above is what the code says would allow it.
 
-### `jky6-k3te` · Every refusal code is written twice, and nothing resolves one spelling against the other
-
-| Tags                | Status | Depends on |
-| ------------------- | ------ | ---------- |
-| BE, Ops, Docs, gate | Open   | —          |
-
-**[`docs/logging/error-codes.md`](../logging/error-codes.md) is where a refusal code's meaning and its
-HTTP status are stated, and the codes themselves are string literals in the backend** — named
-constants in the `services.py` of every slice that refuses, and inline at the raise in
-`fl_backend/app/core/security.py` and `fl_backend/app/core/exception_handlers.py`. It is the one
-document a reader opens to learn what a code an admin surface just received means.
-
-**Nothing resolves the two spellings.** No file under `scripts/` opens the page, and the gate's
-identifier check reaches the documentation standard's own rule ids and stops:
-`scripts/checks/docs_gate/checks.py :: RULE_ID_RE` is a closed alternation of the standard's
-prefixes, and `v48b-waa5` records that it is closed **on purpose**, so that a backend error code —
-which carries an extra segment — can never be read as a rule id. A code added, renamed or retired in
-the backend and missed in the table is therefore a silent divergence, and a row for a code nothing
-raises is the same divergence read from the other end. **The two sides agree today**, compared
-2026-08-28, which is what makes this cheap rather than urgent — and the unwatched event is frequent,
-because a branch adding a refusal adds a row by hand and nothing reads the pair.
-
-**Done when** a set comparison runs in both directions between the codes the table's rows carry and
-the codes the backend spells, hosted in `scripts/checks/check_docs.py`, which already reads both of
-the trees such a check needs. `scripts/checks/docs_gate/kernel.py :: roadmap_ids` is the precedent: a
-set derived from the tables defining it rather than matched by shape. **The published document is not
-the second source** — measured 2026-08-28, `fl_backend/openapi.json` names seven of them, the rest
-reaching a caller without an endpoint ever declaring them, so the constants under `fl_backend/app/`
-are the only complete side. Every code is a whole string literal on both sides, so a comparison needs
-no tolerance for a partly-spelled code; what a check reading the backend by SHAPE rather than by
-declaration would have to tolerate is a glob in prose — `fl_backend/app/core/domain.py` writes
-`REQ-STATE-*` inside an `Unenforced` reason, naming the pair rather than a code the table could carry
-a row for.
-
 ### `jn8g-etjk` · `NOTICE` maps to no gate scope, so a dead asset path in it survives a green gate
 
 | Tags            | Status | Depends on |
@@ -2837,7 +2802,7 @@ defect.
 
 **Done when** the decision is taken about what a repair can reach. A check can hold the three sets
 together — every rule's code takes a row, every code a surface renders takes a sentence — and that is
-`jky6-k3te`'s shape extended by one side. **What it cannot do is judge a meaning**, so the rest is a
+the error-code check's shape extended by one side. **What it cannot do is judge a meaning**, so the rest is a
 place where the three statements are read side by side and a rule about when they are re-read: a
 fourth column on the table, or a generated comparison a reader walks.
 `docs/_auditing/prompts/crosscut/1-contracts-and-seams.md`'s sixth check already asks a pass to trace
@@ -2845,7 +2810,7 @@ each error class through to the German it renders, so the reading exists and hap
 runs rather than when a refusal changes. **Choosing between those is the work**, and the entry is
 here rather than decided because the cheapest of them is also the one nothing enforces.
 
-**Why this files beside `jky6-k3te` rather than widening it.** That one's repair is a set comparison
+**Why this files beside the error-code check rather than widening it.** That one's repair is a set comparison
 between two enumerations: complete, mechanical, and an afternoon. This one has no such form — nothing
 decides whether a German sentence states the fact a predicate tests. Under one id the cheap half
 would close the entry and the half that matters would leave with it. Taken in that order, a check
