@@ -10,11 +10,14 @@ rather than what; COR-5, the deletion test; COR-14, which rung.
 (COR-14).**
 
 **This file never arrives alone.** `.claude/hooks/docs-standard.sh` puts the Spine and the bounds,
-sliced out of it at the moment of writing, in front of a markdown edit and of a comment edit in the
-kinds its own `.claude/hooks/docs-standard.sh :: isDocs` test names, which is narrower than the
-corpus `scripts/checks/docs_gate/kernel.py :: SCANNED_SUFFIXES` and `:: OPS_FILENAMES` select — a
-`.json`, a `.css`, a `.dockerignore` and a `.githooks/` hook reach the gate and not the hook, so the
-rules below bind an edit that was never prompted with them. It names
+sliced out of it at the moment of writing, in front of a markdown edit, of a `NOTICE` edit, which it
+admits by name, and of a comment edit in the kinds its own
+`.claude/hooks/docs-standard.sh :: isDocs` test names. **Those kinds overlap the corpus
+`scripts/checks/docs_gate/kernel.py :: SCANNED_SUFFIXES` and `:: OPS_FILENAMES` select rather than
+sitting inside it**: a `.json`, a `.css`, a `.dockerignore` and a `.githooks/` hook reach the gate
+and not the hook, so the rules below bind an edit that was never prompted with them, while an
+`.mdx`, a `.jsx` and a `.bash` file are prompted with rules the gate reads neither their prose nor
+their comments against. It names
 this file and `docs/_standard/worked-examples.md` — these rules applied to real passages, each shown before and
 after — to be read in full; every agent brief names both, and the examples cite these rules rather
 than restating them (COR-2). The mechanical defence is `scripts/checks/check_docs.py`,
@@ -168,18 +171,18 @@ These bind every written artifact. A comment is documentation and carries every 
   catching people, and they illustrate the test rather than bound it. Name what selects a set instead
   of listing it, and an enumeration survives only where the gate resolves every member. **A date a
   commit already holds is the commit's** (COR-14), so a sentence dated because the work happened then
-  loses the date. Five things are not values in
-  this sense: a bound this file sets, which is a decision; a figure a test or a data file asserts,
-  which is the assertion; a fact copied from outside, at the line holding the copy, which says what it
-  mirrors, that the source moves without us, and the date it was read there, which dates the mirror
-  rather than the fact; a set the same sentence closes, which is a definition; and a date
-  that is itself the datum — a document whose subject is that date; **the date a measurement was
-  taken, which stays beside the figure**, because a figure nobody can date is a figure nobody can call
-  stale, and because `scripts/checks/check_gate_budget.py` refuses a raised budget whose stamp did not
-  move, making that stamp a value the repository reads rather than one it merely records; and **the
-  date a ruling was taken, with each date it was re-confirmed**, because a person weighing a decision
-  again and leaving it standing writes no commit for git to hold the date in. _Enforced by_ gate check `line-citation`
-  for the line-number class alone; every other class, and the exceptions, are `/docs:audit`'s.
+  loses the date. Not values in this sense: a bound this file sets, which is a decision; a figure a
+  test or a data file asserts, which is the assertion; a fact copied from outside, at the line
+  holding the copy, which says what it mirrors, that the source moves without us, and the date it was
+  read there, which dates the mirror rather than the fact; a set the same sentence closes, which is a
+  definition; a date that is itself the datum — a document whose subject is that date; **the date a
+  measurement was taken, which stays beside the figure**, because a figure nobody can date is a figure
+  nobody can call stale, and because `scripts/checks/check_gate_budget.py` refuses a raised budget
+  whose stamp did not move, making that stamp a value the repository reads rather than one it merely
+  records; and **the date a ruling was taken, with each date it was re-confirmed**, because a person
+  weighing a decision again and leaving it standing writes no commit for git to hold the date in.
+  _Enforced by_ gate check `line-citation` for the line-number class alone; every other class, and the
+  exceptions, are `/docs:audit`'s.
 - **COR-6:** a citation is a backticked `<path> :: <symbol>`, `<path> :: <short quoted fragment>`, a
   bare backticked repository path, a rule or invariant id, or the continuation `` `:: <anchor>` ``,
   which resolves against the nearest file named above it and fails where none is. A section is cited
@@ -269,11 +272,10 @@ every file this Scope names.
   someone would change, never the top of the function. Never what the next line does, and never a
   type the signature declares: no `@param`/`@returns` blocks, no `Args:`/`Returns:` sections.
   _Enforced by_ unenforced — review judgment.
-- **INC-2:** a module header survives in any file that
-  `scripts/checks/docs_gate/kernel.py :: comment_style` reads as shell or Python, a file read whole
+- **INC-2:** a module header survives in any file whose comment style
+  `scripts/checks/docs_gate/checks.py :: _header_scoped` admits, shell and Python, a file read whole
   as prose apart, carrying a fact that attaches to no symbol: an exit contract, a one-cache-per-run
-  rule, a carve-out the whole module rests on;
-  `scripts/checks/docs_gate/checks.py :: _header_scoped` is the kind half of that test.
+  rule, a carve-out the whole module rests on.
   TypeScript and JavaScript modules carry none: a comment sits at the thing it explains. Where one
   survives it is a plain block — a title line `<TOKEN> · <what this module is>`, at most three
   sentences why-first, a sentence of plain "what" where the file's contents do not carry it, optional
@@ -312,11 +314,13 @@ every file this Scope names.
   roadmap id, a session or an issue number, whose tracker sits outside this repository's history. A
   link to code outside this repository is pinned to a commit — one naming a branch and a range of
   lines drifts silently. The gate reads comments in the files
-  `scripts/checks/check_docs.py :: SCANNED_SUFFIXES` names, Dockerfiles included, and not executable
-  code, where a path-shaped string is data, while the files
-  `scripts/checks/docs_gate/kernel.py :: PROSE_FILENAMES` names are read whole, as a page is; an
-  unbackticked path is read in both, because an unmarked path is how a dead one survives a green
-  gate. A roadmap id, a review reference and an issue number are narrower:
+  `scripts/checks/check_docs.py :: SCANNED_SUFFIXES` names by suffix and in the Dockerfiles, ignore
+  files and hooks `scripts/checks/docs_gate/kernel.py :: OPS_FILENAMES` names by whole name, having
+  no suffix to be selected by, and not executable code, where a path-shaped string is data; the
+  files `scripts/checks/docs_gate/kernel.py :: PROSE_FILENAMES` names are the third population, read
+  whole as a page is. An unbackticked path is read in a comment and in a prose file alike, because
+  an unmarked path is how a dead one survives a green gate. A roadmap id, a review reference and an
+  issue number are narrower:
   `scripts/checks/docs_gate/branch.py :: check_added_citations` reads the branch's added comments
   in `scripts/checks/docs_gate/kernel.py :: SOURCE_SUFFIXES` alone, so none of the three is caught
   in a Dockerfile, a workflow, an nginx configuration or a manifest. _Enforced by_ gate checks
@@ -352,24 +356,25 @@ every file this Scope names.
   docstring is a block like any other. **A blank line separates two runs of line comments, or the
   checker reads them as one block**: a bare `#` between them joins the run rather than ending it,
   and a formatter can delete the blank line inside an argument list, so a two-paragraph comment
-  moves above the statement, where the break survives. **A docstring is one block whatever blank lines it holds**, its paragraphs joined before
-  the count, and so is a TypeScript `/** … */` doc comment, which a blank line cannot part either:
-  the blank would detach it from the declaration beneath it, which is the whole of what a doc
-  comment is. Two independent constraints inside either are parted by moving one to the line it is
-  about (COR-14), or by writing it as a `//` block above the doc comment, whose own attachment
-  survives that. _Enforced by_ gate check `comment-length`, which fails a block
-  past that same bound over every block a branch added a line to, and which exempts a docstring only
-  where the published document carries it AND a route decorator sits above it. **The two are one
-  population, not two**: that document is generated from these same docstrings, so PRE-4's
-  independence is not what this pair buys — what it buys is that a docstring the API does not
-  publish keeps this bound, the decorator alone never deciding. A block the branch found already
-  over the bound keeps that standing while the branch does not lengthen it, matched to its earlier
-  self — at whatever path the fork's tree filed it under — by the lines the two versions share
-  rather than by its first line, so improving an over-bound block's opening sentence costs nothing
-  and adding to one fails; the blocks in one file matching it spend one standing per copy the fork
-  filed in the file it forked from, so splitting or copying a block inside that file buys no second
-  ceiling, while a match in another file inherits one standing and spends none of it; a block over
-  the bound that no branch has touched is `/docs:audit`'s (CUR-6).
+  moves above the statement, where the break survives. **A docstring is one block whatever blank
+  lines it holds**, its paragraphs joined before the count, and so is a TypeScript `/** … */` doc
+  comment, which a blank line cannot part either: the blank would detach it from the declaration
+  beneath it, which is the whole of what a doc comment is. Two independent constraints inside either
+  are parted by moving one to the line it is about (COR-14), or by writing it as a `//` block above
+  the doc comment, whose own attachment survives that. _Enforced by_ gate check `comment-length`,
+  which fails a block past that same bound over every block a branch added a line to, and which
+  exempts a docstring only where the published document carries it AND a route decorator sits above
+  it. **The two are one population, not two**: that document is generated from these same
+  docstrings, so PRE-4's independence is not what this pair buys — what it buys is that a docstring
+  the API does not publish keeps this bound, the decorator alone never deciding. A block the branch
+  found already over the bound keeps that standing while the branch does not lengthen it, matched to
+  its earlier self — at whatever path the fork's tree filed it under — by the lines the two versions
+  share rather than by its first line, so improving an over-bound block's opening sentence costs
+  nothing and adding to one fails; the blocks in one file matching it spend **one standing per copy
+  that arrived there, and never more than the fork filed in the file it forked from**, so splitting
+  or copying a block inside that file buys no second ceiling, while a match in another file inherits
+  one standing and spends none of it; a block over the bound that no branch has touched is
+  `/docs:audit`'s (CUR-6).
 
 ## Corpus
 
@@ -408,11 +413,11 @@ README and every template.
   COR-5 never cuts it. The one cell exempt is a fragment something else consumes verbatim, quoted as
   it is spelled; **the check reads that shape rather than the consumption**, sparing a cell whose
   text outside its quoted and backticked spans runs to two words or fewer, so a cell dressed as a
-  fragment that nothing consumes passes and is review's. The sheet opens with its scope and section table (COR-7), then carries
-  exactly four sections: `1. Contract`, holding as many `1.<n>` subsections as the surface needs;
-  `2. Invariants`; `3. Violation → remedy`; and `4. Known-open`. The invariant table is three
-  columns — the number, the invariant, and what
-  enforces it. Numbers are `I<n>` on a surface sheet and `L<n>` on the logging sheet, permanent and
+  fragment that nothing consumes passes and is review's. The sheet opens with its scope and section
+  table (COR-7), then carries exactly four sections: `1. Contract`, holding as many `1.<n>`
+  subsections as the surface needs, numbered from `1.1` upward with no gap; `2. Invariants`;
+  `3. Violation → remedy`; and `4. Known-open`. The invariant table is three columns — the number,
+  the invariant, and what enforces it. Numbers are `I<n>` on a surface sheet and `L<n>` on the logging sheet, permanent and
   never reused; **the `I<n>` band is one namespace across every surface sheet**, so a new row takes
   one past the highest number any sheet defines and a citation crossing sheets still names its
   sheet, while `L<n>` is the logging sheet's own band and is allocated against that. **Section 2
@@ -420,12 +425,15 @@ README and every template.
   Section 4 holds the accepted gaps in the sheet's own words, so a known limitation never reads as an
   oversight and gets "fixed"; **its shape is the writer's** (COR-8), and a gap carrying a finding, a
   procedure and a refusal at once is a list entry rather than a cell losing one of the three, the
-  bound reaching a table cell and nothing else. Every claim carries an anchored citation (COR-6). _Enforced by_ gate
-  checks `cell-prose`, `spec-spine`, `invariant-row`, `citation` and `path`; `invariant-id` for a
-  cited number no sheet's table defines, which is a dead citation rather than an ambiguous one;
-  `invariant-number` for an added row's number, another sheet's already or outside the run this
+  bound reaching a table cell and nothing else. Every claim carries an anchored citation (COR-6).
+  _Enforced by_ gate checks `cell-prose`, `invariant-row`, `citation` and `path`; `spec-spine` for
+  the four sections and for the contract's numbering; `invariant-id` for a cited
+  number no sheet's table defines, which is a dead citation rather than an ambiguous one;
+  `invariant-number` for an added `I` row's number, another sheet's already or outside the run this
   branch fills one past the highest, which reads the branch's own diff and so leaves a number two
-  sheets already share standing (CUR-6);
+  sheets already share standing (CUR-6), and which matches `I` rows alone
+  (`scripts/checks/docs_gate/branch.py :: INVARIANT_ROW_RE`), so an added `L` row's number is
+  `/docs:audit`'s;
   gate check `rule-id`, which fails a bare number two sheets both define — **in a comment alone, and
   not where a surface word sits in the same block**, so a page naming the wrong sheet or no sheet is
   `/docs:audit`'s, as contract over mechanism is.

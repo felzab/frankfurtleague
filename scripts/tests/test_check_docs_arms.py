@@ -31,6 +31,7 @@ from test_check_docs import (
     ROADMAP,
     ROADMAP_TAIL,
     SCRIPTS_COPY,
+    SHORT_FORM,
     SLICE_DONE,
     SLICE_ROW,
     SLICE_STRAY,
@@ -174,8 +175,10 @@ def test_a_sha_this_clone_resolves_is_failed_like_any_other() -> None:
     branch = _module("docs_gate.branch")
     kernel = _module("docs_gate.kernel")
     head = git(_gate().root, "rev-parse", "HEAD")
-    live = next((head[:n] for n in (8, 7) if any(c.isdigit() for c in head[:n]) and any(c.isalpha() for c in head[:n])), None)
-    assert live is not None, "HEAD's short form carries no digit and letter, so it proves nothing here"
+    live = head[:SHORT_FORM]
+    # What the fixture builder mints, never what one commit's own hash carries: a run of digits
+    # alone is not the shape `sha` fails, so the case would prove nothing about the check.
+    assert any(c.isdigit() for c in live) and any(c.isalpha() for c in live), "the fixture no longer mints a mixed short form: " + live
     _append(NOTES, "The commit `" + live + "` is named here.")
     _clear_caches(_gate().root / SCRIPTS_COPY)
     try:

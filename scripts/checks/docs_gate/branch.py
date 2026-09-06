@@ -489,6 +489,9 @@ def check_added_invariant_rows(branch: Branch, additions: dict[str, list[str]]) 
     # touches no invariant table.
     if not added or branch.fork is None:
         return []
+    # A sheet git could not read as a rename arrives under a path the fork has no row for, so every
+    # row reads as newly allocated: the cost the comment-length ceiling accepts too, cheaper than
+    # pairing sheets by content.
     at_fork = _fork_invariants(branch.fork)
     if at_fork is None:
         return [_branch_scope_skipped("added invariant rows", "read the fork's spec sheets")]

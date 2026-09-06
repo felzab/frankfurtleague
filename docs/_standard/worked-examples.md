@@ -283,10 +283,10 @@ sheet's rung and not a comment's (COR-14). The ceiling's own sentence is the lin
 at whoever is about to change the number.
 
 **After**, the contract is an invariant row in [`backend/spec.md`](../backend/spec.md#2-invariants),
-taking that sheet's next free number, which OUT-4 then makes permanent:
+taking one past the highest number any sheet defines, which OUT-4 then makes permanent:
 
 ```markdown
-| I<n> | One age span bounds a public application's contact person at both tiers, in whole years against the German day the submission arrives on | `fl_backend/app/api/bewerbungen/schemas.py :: refuse_age_outside_the_bounds`, swept by `fl_backend/tests/api/test_bewerbung_submission_refusal.py :: TestTheAgeBound`; no test compares the frontend copy |
+| I<n> | One age span bounds a public application's contact person at both tiers, in whole years against the German day the submission arrives on | `fl_backend/app/api/bewerbungen/schemas.py :: refuse_age_outside_the_bounds`, swept by `fl_backend/tests/api/test_bewerbung_einwilligung_refusal.py :: TestTheAgeAtConfirmation` and compared to the frontend copy by `fl_backend/tests/shared/test_frontend_mirrors.py :: test_every_declared_pair_agrees_on_the_number` |
 ```
 
 and the comment is the line constraint plus the line citing the row:
@@ -304,8 +304,9 @@ under the bound instead leaves the contract at a rung nobody consults for one, w
 the bound reveals rather than the repair (COR-5).
 
 **The row's third column is where a move earns its keep.** It has to say what enforces the claim, and
-here that answer is uneven: the backend half is swept by a test, and the two numbers on the frontend
-are compared to these by nothing. A fact spread across two comments hides that; a row states it.
+here that is two tests: one sweeps the refusal, the other holds the frontend copy to the same two
+numbers. A fact spread across two comments leaves a reader to find both; a row states what they
+prove in one place.
 
 ## A block over the bound can be finished already
 
@@ -356,11 +357,14 @@ The consequences, each of which otherwise costs a rebase to discover:
   verdict on the prose: COR-5's test and INC-9's three questions decide the block, and the ceiling
   only says what the gate will let through.
 - **The blocks in one file matching this one are charged together, against one standing for each
-  copy the fork filed in the file this one forked from — a rename git detects included.** Split this
-  block in two and the halves are charged against the single count it ran to at the fork; copy it
-  inside that file and leave the original standing, and the pair is charged the same way; a file the
-  fork itself filed the block in twice pays for two
-  (`scripts/tests/test_branch_checks.py :: test_a_renamed_file_holding_two_identical_blocks_keeps_a_standing_for_each`).
+  copy that arrives there and never more than the fork filed in the file this one forked from — a
+  rename git detects included.** Split this block in two and the halves are charged against the
+  single count it ran to at the fork; copy it inside that file and leave the original standing, and
+  the pair is charged the same way; a file the fork itself filed the block in twice pays for two
+  where two arrive
+  (`scripts/tests/test_branch_checks.py :: test_a_renamed_file_holding_two_identical_blocks_keeps_a_standing_for_each`),
+  and for one where the branch deletes a copy and grows the one it keeps
+  (`scripts/tests/test_branch_checks.py :: test_a_deleted_copy_leaves_its_standing_behind_rather_than_lending_it_to_the_one_that_grew`).
   The block reported is the one the branch's own diff touched, which is the half a rebase can fix
   (CUR-6).
 - **A copy in another file inherits one standing and spends none of it, whatever the fork filed
@@ -406,7 +410,7 @@ After:
 | Slice         | queries | mutations | actions | schemas | Owns, beyond the four modules and `components/`                                                                                                |
 | ------------- | :-----: | :-------: | :-----: | :-----: | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `saisons`     |   ✅    |    ✅     |   ✅    |   ✅    | Create, edit, rollover, group swap, the Spielplan draw and its undraw — no delete, and the draw's `replace` where the season already holds one |
-| `bewerbungen` |   ✅    |    ✅     |   ✅    |   ✅    | Triage and the public application form — an acceptance and a decline, both irreversible, plus one unauthenticated create that decides nothing  |
+| `bewerbungen` |   ✅    |    ✅     |   ✅    |   ✅    | Triage, the public application form and the contact confirmation — two irreversible decisions, two unauthenticated writes                      |
 | `aktionen`    |   ✅    |     —     |    —    |   ✅    | Read-only: the backend writes the log on every recorded write, never this slice, and facets it by the actor's origin                           |
 | `admin`       |   ✅    |     —     |    —    |    —    | Aggregator                                                                                                                                     |
 ```

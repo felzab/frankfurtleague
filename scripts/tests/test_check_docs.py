@@ -815,6 +815,33 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
 # --- the fixture repository ----------------------------------------------------------------------
 
 
+# The shorter of the two lengths `sha` matches, and the one the fixture mints against: a prefix
+# carrying a digit and a letter at seven carries them at eight as well.
+SHORT_FORM: Final = 7
+# How many amends the short form is given. A hash carrying only digits or only letters is rare
+# enough that a bound this size never runs out, and an unbounded loop would hang instead of failing.
+MIXED_FORM_TRIES: Final = 60
+
+
+# The branch net mints its fixture's short form the same way
+# (`scripts/tests/test_branch_checks.py :: _mix_the_short_form`), over a fixture this module cannot
+# reach: the two nets build a repository each.
+def _mix_the_short_form(root: Path) -> None:
+    """Amend until HEAD's short form carries a digit and a letter both.
+
+    The sha arm needs one, and a commit's own hash carries it only by chance; amending moves the
+    hash and leaves the tree alone.
+    """
+    for attempt in range(MIXED_FORM_TRIES):
+        short = git(root, "rev-parse", "HEAD")[:SHORT_FORM]
+        if any(c.isdigit() for c in short) and any(c.isalpha() for c in short):
+            return
+        # The author date, the one field a commit takes from an argument rather than from the clock:
+        # a second amend inside one second is otherwise the same commit and the loop never ends.
+        git(root, "commit", "--amend", "--no-edit", "--date", "2026-01-01T00:00:" + str(attempt).rjust(2, "0") + "+00:00")
+    raise AssertionError("no amend of the corpus commit in " + str(MIXED_FORM_TRIES) + " gave it a mixed short form")
+
+
 def _build(root: Path, pages: dict[str, str]) -> None:
     """Write and commit the corpus."""
     for rel, text in pages.items():
@@ -829,6 +856,7 @@ def _build(root: Path, pages: dict[str, str]) -> None:
     # would put this repository's own documentation through a gate holding the fixture's corpus.
     git(root, "add", "--", *pages, UNDECODABLE)
     git(root, "commit", "-m", "Corpus: the gate finds nothing here")
+    _mix_the_short_form(root)
 
     # An untracked twin of a corpus page: the bare name the notes page cites must resolve past it.
     # `_reset` asserts it survives, because a deleted twin resolves that citation for the wrong reason.
@@ -1233,6 +1261,16 @@ def _plant_error_codes() -> None:
 def _plant_compose_entry() -> None:
     """The docs entry given a compose file as a second subject, its index row left as it stands."""
     _replace(ROADMAP, "`docs/notes.md` that plants", "`docs/notes.md` and `" + COMPOSE_FILE + "` that plant")
+
+
+def _plant_hook_entry() -> None:
+    """The docs entry given a hook as a second subject, its index row left as it stands.
+
+    The file is written rather than committed: the resolver lists an untracked path too, and the
+    reset takes it away again.
+    """
+    write(_gate().root, HOOK_SAMPLE, _page("#!/usr/bin/env bash", "exec true"))
+    _replace(ROADMAP, "`docs/notes.md` that plants", "`docs/notes.md` and `" + HOOK_SAMPLE + "` that plant")
 
 
 def _plant_segment_map() -> None:
@@ -1879,6 +1917,22 @@ def test_an_untracked_protocol_page_is_reported_rather_than_emptying_the_vocabul
     _assert_corpus_restored()
 
 
+def test_a_protocol_page_that_cannot_be_decoded_is_reported_rather_than_emptying_the_vocabulary() -> None:
+    """A page the reader refuses yields no table, the shape of a page deriving nothing.
+
+    Read from the words: the empty-table arm reports about this file under this name too, so a
+    count cannot say which spoke.
+    """
+    _reset()
+    _write_raw(PROTOCOL, UNDECODABLE_BYTES)
+    try:
+        _, output = _output()
+    finally:
+        _reset()
+    assert "unreadable, so the status vocabulary was derived from nothing" in output, output
+    _assert_corpus_restored()
+
+
 def test_a_status_table_outside_section_four_widens_no_vocabulary() -> None:
     """A second `Status`-headed table on the page is not the derivation, and a reader re-arming on any header would take it.
 
@@ -1964,6 +2018,22 @@ def test_an_untracked_register_page_is_the_check_s_own_finding() -> None:
     finally:
         _reset()
     assert reported[("fail", "error-codes", ERROR_CODES)] == 1, "an untracked register passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_register_page_that_cannot_be_decoded_is_the_check_s_own_finding() -> None:
+    """A page the reader refuses yields no row, so the register is compared against nothing.
+
+    Read from the words: with this finding gone the check is silent about a register it never
+    read.
+    """
+    _reset()
+    _write_raw(ERROR_CODES, UNDECODABLE_BYTES)
+    try:
+        _, output = _output()
+    finally:
+        _reset()
+    assert "unreadable, so the register was held to nothing" in output, output
     _assert_corpus_restored()
 
 
@@ -2064,6 +2134,27 @@ def test_a_bare_name_reaches_an_unstaged_file_and_the_index_still_answers_first(
     _assert_corpus_restored()
 
 
+def test_a_citation_a_file_makes_about_itself_is_proved_by_some_other_line_or_by_nothing() -> None:
+    """The citing line spells the anchor, so presence in the whole text certifies the citation against itself.
+
+    The second run is the evidence the arm reads the OTHER lines: the same shape with the anchor
+    spelled above stays silent.
+    """
+    _reset()
+    spelled = "an anchor the line above the citation spells"
+    try:
+        _append(SAMPLE, HASH + " see `" + SAMPLE + " :: an anchor no other line spells`")
+        _, alone = _run()
+        _reset()
+        _append(SAMPLE, HASH + " " + spelled, HASH + " see `" + SAMPLE + " :: " + spelled + "`")
+        _, elsewhere = _run()
+    finally:
+        _reset()
+    assert alone[("fail", "citation", SAMPLE)] == 1, "an anchor spelled only on its own citing line passed: " + _shape(alone)
+    assert elsewhere[("fail", "citation", SAMPLE)] == 0, "an anchor the file spells elsewhere was failed: " + _shape(elsewhere)
+    _assert_corpus_restored()
+
+
 def test_an_entry_naming_a_compose_file_earns_the_ops_and_edge_tags() -> None:
     """Driven through the whole gate rather than through the derivation alone.
 
@@ -2078,6 +2169,22 @@ def test_an_entry_naming_a_compose_file_earns_the_ops_and_edge_tags() -> None:
         _reset()
     assert code == 1, output
     assert "entry " + DOCS_ENTRY + " names Ops, edge work" in output, output
+    _assert_corpus_restored()
+
+
+def test_an_entry_naming_a_hook_earns_the_ops_and_gate_tags_beside_its_docs_one() -> None:
+    """A hook sits under the prefix `Docs` claims, so derived as documentation alone it is invisible to a `gate` filter.
+
+    Driven through the whole gate for the compose case's reason.
+    """
+    _reset()
+    _plant_hook_entry()
+    try:
+        code, output = _main()
+    finally:
+        _reset()
+    assert code == 1, output
+    assert "entry " + DOCS_ENTRY + " names Ops, gate work" in output, output
     _assert_corpus_restored()
 
 

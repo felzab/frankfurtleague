@@ -32,19 +32,19 @@ closing commit's trailer names it.
 
 **Tags come from three axes, and an entry carries every tag its own text earns.**
 
-| Axis        | Vocabulary                                                                      | Derived from a path or symbol under                              |
-| ----------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| **Surface** | `FE`                                                                            | `fl_frontend/`                                                   |
-|             | `BE`                                                                            | `fl_backend/` whole, `tests/` included                           |
-|             | `DB`                                                                            | a collection name, an index, `fl_backend/app/core/crud.py`       |
-|             | `Ops`                                                                           | `scripts/`, `nginx/`, `.githooks/`, a compose file, a Dockerfile |
-|             | `Docs`                                                                          | `docs/`, `.claude/`                                              |
-| **Concern** | `gate`                                                                          | `scripts/gate/`, `scripts/checks/`, `.githooks/`                 |
-|             | `ci`                                                                            | `.github/` whole, not its `workflows/` and `actions/` alone      |
-|             | `tests`                                                                         | `scripts/tests/`, `fl_backend/tests/`, a `*.test.ts`             |
-|             | `edge`                                                                          | `nginx/`, Cloudflare, a compose service definition               |
-|             | `versions`                                                                      | a manifest, a lockfile, a pin, a digest                          |
-| **Slice**   | the directory names under `fl_frontend/src/features/` and `fl_backend/app/api/` | a whole path segment matching one of them, anywhere in the path  |
+| Axis        | Vocabulary                                                                      | Derived from a path or symbol under                                                |
+| ----------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Surface** | `FE`                                                                            | `fl_frontend/`                                                                     |
+|             | `BE`                                                                            | `fl_backend/` whole, `tests/` included                                             |
+|             | `DB`                                                                            | a collection name, an index, `fl_backend/app/core/crud.py`                         |
+|             | `Ops`                                                                           | `scripts/`, `nginx/`, `.githooks/`, `.claude/hooks/`, a compose file, a Dockerfile |
+|             | `Docs`                                                                          | `docs/`, `.claude/`                                                                |
+| **Concern** | `gate`                                                                          | `scripts/gate/`, `scripts/checks/`, `.githooks/`, `.claude/hooks/`                 |
+|             | `ci`                                                                            | `.github/` whole, not its `workflows/` and `actions/` alone                        |
+|             | `tests`                                                                         | `scripts/tests/`, `fl_backend/tests/`, a `*.test.ts`                               |
+|             | `edge`                                                                          | `nginx/`, Cloudflare, a compose service definition                                 |
+|             | `versions`                                                                      | a manifest, a lockfile, a pin, a digest                                            |
+| **Slice**   | the directory names under `fl_frontend/src/features/` and `fl_backend/app/api/` | a whole path segment matching one of them, anywhere in the path                    |
 
 **`BE` reaches the whole package rather than its `app/`**, because a backend test otherwise carries
 `tests` and no surface at all, which hides a backend failure from a reader filtering on `BE`. `Docs` covers `docs/` and `.claude/` under one tag, and no second tag splits them: the two sets are
@@ -168,7 +168,7 @@ deliverable.
 | `tbh5-u4c3` | The browser's own chrome takes no colour from the season scheme                                                                                                   | FE, tests                                                                   | Open     |
 | `tc3c-nudr` | Nothing validates the contents of a restored `.env`                                                                                                               | FE, BE, Ops, Docs, edge                                                     | Standing |
 | `tfyy-hg3y` | A mis-cased suffix drops a citation out of the population instead of failing it                                                                                   | Ops, gate, tests                                                            | Open     |
-| `tnvw-4cqz` | One bash guard runs its twin's scan with no watchdog under it                                                                                                     | Docs                                                                        | Open     |
+| `tnvw-4cqz` | One bash guard runs its twin's scan with no watchdog under it                                                                                                     | Ops, Docs, gate                                                             | Open     |
 | `tutf-44dk` | Three non-text pairs sit under 3:1 in the dark theme, and no row measures one                                                                                     | FE, Ops, gate                                                               | Open     |
 | `txef-hz2b` | Two referees reduced to one published name are one option in the fixture facet                                                                                    | FE, BE, spiele                                                              | Open     |
 | `uayf-u7g4` | The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other                                                                  | FE, Ops, Docs, edge                                                         | Standing |
@@ -3733,9 +3733,9 @@ case in `scripts/tests/test_check_docs.py` drives an upper-cased suffix red.
 
 ### `tnvw-4cqz` · One bash guard runs its twin's scan with no watchdog under it
 
-| Tags | Status | Depends on |
-| ---- | ------ | ---------- |
-| Docs | Open   | —          |
+| Tags            | Status | Depends on |
+| --------------- | ------ | ---------- |
+| Ops, Docs, gate | Open   | —          |
 
 Lands with: `g98z-k4cp`
 

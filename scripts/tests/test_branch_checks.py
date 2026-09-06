@@ -42,6 +42,8 @@ NOTES: Final = "docs/notes.md"
 SPARE: Final = "docs/spare.md"
 BACKEND_SPEC: Final = "docs/backend/spec.md"
 FRONTEND_SPEC: Final = "docs/frontend/spec.md"
+# Where a scenario moves the frontend sheet: still a spec sheet, under a folder the fork holds none in.
+MOVED_SPEC: Final = "docs/ui/spec.md"
 # A German page name, which `core.quotePath` spells back as an escaped run this diff walk cannot
 # key on. The domain vocabulary is German, so this path is the ordinary case and not the exotic one.
 UMLAUT_PAGE: Final = "docs/prüfung.md"
@@ -729,6 +731,29 @@ def test_an_invariant_row_outside_the_fork_s_own_section_defines_nothing() -> No
     assert _findings(data) == []
 
 
+def test_a_sheet_git_cannot_read_as_a_rename_has_every_row_it_kept_charged_as_a_new_one() -> None:
+    """The accepted cost, pinned rather than left for a rebase to discover.
+
+    Additions come from the rename-detecting diff while the fork population is keyed on the fork's
+    path, so a sheet rewritten past git's threshold has no earlier self.
+    """
+    _reset()
+    root = _root()
+    (root / MOVED_SPEC).parent.mkdir(parents=True)
+    git(root, "mv", FRONTEND_SPEC, MOVED_SPEC)
+    _append(MOVED_SPEC, *(REWRITE_TEXT + " " + str(number) for number in range(REWRITE_LINES)))
+    try:
+        status = git(root, "diff", "-M", "--name-status", "HEAD").split("\n")
+        data = _run()
+    finally:
+        _reset()
+    assert not [line for line in status if line.startswith("R")], "git read the rename after all, so this proves nothing: " + repr(status)
+    assert _findings(data, "invariant-number") == [
+        _number_fail(MOVED_SPEC, SHARED_ID, BACKEND_SPEC, FRONTEND_SPEC),
+        _number_fail(MOVED_SPEC, FRONTEND_ID, FRONTEND_SPEC),
+    ]
+
+
 def test_an_added_block_over_the_bound_fails_and_a_short_one_stays_silent() -> None:
     _reset()
     _append(MOD, *LONG_BLOCK)
@@ -1075,6 +1100,25 @@ def test_a_renamed_file_holding_two_identical_blocks_keeps_a_standing_for_each()
         _reset()
     assert touched == [TWIN, TWINNED]
     assert _findings(data, "comment-length") == []
+
+
+def test_a_deleted_copy_leaves_its_standing_behind_rather_than_lending_it_to_the_one_that_grew() -> None:
+    """A standing the file has no copy for buys nothing, or one block spends what the pair was given.
+
+    Counted on the fork's copies alone, deleting one and growing the other passes at a length no
+    block here reaches.
+    """
+    _reset()
+    _replace(TWIN, "\n".join(TWIN_BLOCK) + "\n\n" + "\n".join(TWIN_BLOCK), "\n".join((*TWIN_BLOCK, HASH + " " + ADDED_CLAUSE)))
+    line = _line_of(TWIN, TWIN_BLOCK[0])
+    try:
+        data = _run()
+    finally:
+        _reset()
+    grown = TWIN_WORDS + len(ADDED_CLAUSE.split())
+    detail = f"the comment block runs {grown} words, up from {TWIN_WORDS} where the branch forked -- INC-9 lets neither number rise"
+    assert _findings(data, "comment-length") == [("fail", "comment-length", TWIN, detail)]
+    assert _lines(data, "comment-length") == [line]
 
 
 def test_a_fresh_file_holding_the_fork_s_pair_inherits_one_standing_between_the_two() -> None:

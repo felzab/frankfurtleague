@@ -571,9 +571,10 @@ so growth against it accumulates in the number rather than in the baseline.
 
 **A row appears only where that job's median has moved past that job's own floor**, and a report with
 nothing past a floor says so in one line. The floors are per job because one figure is wrong for most
-of them: measured by resampling whole runs, a 12-run median moves 8% on `docs` at p95, 10% on
-`frontend` and 22% on `backend-db`, so a single global figure dismisses a real move on the quiet
-jobs and cries wolf on the noisy ones. Each floor in the table is that job's own p95, so a delta under it is a reshuffle.
+of them: resampled over whole runs of the population `.github/gate-wall-clock.tsv`'s header stamps
+at 2026-09-01, a 12-run median moves 8% on `docs` at p95, 10% on `frontend` and 22% on
+`backend-db`, so a single global figure dismisses a real move on the quiet jobs and cries wolf on
+the noisy ones. Each floor in the table is that job's own p95, so a delta under it is a reshuffle.
 
 **The report decides nothing** — no threshold in it refuses anything and pull requests skip it, so
 the seconds it costs land where no merge is waiting; the budget below is where a figure refuses.
@@ -587,15 +588,17 @@ first step to its last, and `measured`, the completed runs the row was taken ove
 `--jobs` reads this run's own jobs from the runs API and fails the required check on a job over its budget,
 naming the job and both figures; on a job that ran with no row, so a check added to the gate arrives
 with its measured cost or goes red; and on a successful job the API carries no step timestamp for,
-a length nothing measured being no pass. A single run swings far wider than a median — inside the 24
-main runs the budgets were set from, `backend-db` reached 1.6 times its median and `ops` 2.3 times —
-so each budget is the population's highest single-run span plus a quarter of it or ten seconds,
+a length nothing measured being no pass. A single run swings far wider than a median — inside the
+main runs the budgets were set from, stamped 2026-09-01, `backend-db` reached 1.6 times its median
+and `ops` 2.3 times — so each budget is the population's highest single-run span plus a quarter of
+it or ten seconds,
 whichever is more, rounded up to the next five, a rule the table's header records. **One exceedance
 fails**: the ceiling sits above every run in the population it was set from, so a run over it is a
 re-run or a regression, and the re-run is the repeat measurement at the cost of a click rather than
 a commit. Two decisions sit beside the measurements. `images` is measured and not budgeted, its span
-being the layer cache's before it is the tree's — a cold cache costs five times the median, and the
-Dockerfile change most worth catching is the one that empties it — so the median report is its only
+being the layer cache's before it is the tree's — at that same 2026-09-01 stamp a cold cache costs
+five times the median, and the Dockerfile change most worth catching is the one that empties it —
+so the median report is its only
 guard. `commits` and `format` run on pull requests alone, so their rows are measured from
 pull-request runs and carry `-` where the report, cut from main runs, would read a reference.
 **Raising a budget or a reference costs a measurement.** In the `commits` job,
@@ -609,14 +612,22 @@ and the clause are one mechanism's three parts, and `scripts/tests/test_check_ga
 drives the committed table red and green against its own budgets so the file can never become one
 the check reads but cannot fail on.
 
-**The documentation gate** (`scripts/checks/check_docs.py`) reads `/docs` and `NOTICE`, the source
-comments beside the code and the configuration files scanned with them, and its byte-level checks
-read every tracked text file — so a finding this scope raises need not be about a document at all.
-Its checks are registered in `scripts/checks/docs_gate/kernel.py :: CHECKS` and nowhere else.
+**The documentation gate** (`scripts/checks/check_docs.py`) reads as prose every tracked markdown
+page wherever it sits — the [`docs/`](../README.md) tree, the root and package READMEs, the pages
+under `.claude/` — and `NOTICE` beside them, plus the source comments next to the code and the
+configuration files scanned with them; its byte-level checks read every tracked text file, so a
+finding this scope raises need not be about a document at all. Its checks are registered in
+`scripts/checks/docs_gate/kernel.py :: CHECKS` and nowhere else. **The modules reading code rather
+than prose** are `scripts/checks/docs_gate/platform.py` and
+`scripts/checks/docs_gate/error_codes.py`, below;
+`scripts/checks/docs_gate/copy_rules.py`, held by
+[frontend §1.12](../frontend/spec.md#112-the-copy-rules); and
+`scripts/checks/docs_gate/scheme.py`, held by
+[frontend §1.17](../frontend/spec.md#117-colour-roles-and-the-brand-budget).
 
-**Two of its checks read code rather than prose** (`scripts/checks/docs_gate/platform.py`), and I15 and
-I16 are what they hold. `platform-branch` holds four clauses. PLAT-1: a Python read of the platform
-is a module-level UPPER_CASE `Final`, or an allowlist row. PLAT-2: no test under
+**`scripts/checks/docs_gate/platform.py` is what I15 and I16 hold.** `platform-branch` holds four
+clauses. PLAT-1: a Python read of the platform is a module-level UPPER_CASE `Final`, or an
+allowlist row. PLAT-2: no test under
 `scripts/checks/docs_gate/platform.py :: TEST_SCOPES` skips, returns early or exits on the platform. PLAT-3:
 every admitted constant is bound to both values somewhere in that same test corpus. PLAT-4: a
 platform word in the _code_ of a shell script under `scripts/checks/docs_gate/platform.py :: SHELL_SCOPES`
@@ -631,8 +642,8 @@ cannot, and only this gate's Linux run in CI proves one. `crlf-write` holds
 redirect of a program's stdout leaves no call in the source to read, so that half of the trap stays
 with the reader.
 
-**One more of its checks reads code rather than prose** (`scripts/checks/docs_gate/error_codes.py`),
-and I176 is what it holds: [`../logging/error-codes.md`](../logging/error-codes.md)'s rows and the
+**`scripts/checks/docs_gate/error_codes.py` is what I176 holds:**
+[`../logging/error-codes.md`](../logging/error-codes.md)'s rows and the
 codes `fl_backend/app/` and `fl_frontend/src/` spell must agree in both directions, each tree
 answering for its own prefixes so that the backend codes the frontend words for a reader are not
 read as the frontend's own.
@@ -753,7 +764,7 @@ its human-readable line on stderr, where it cannot reach the outputs.
 | I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/prod.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                                              |
 | I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/prod.conf` names no `/docs` location, and nothing checks either                                                                                  |
 | I149 | One `frontend` service per compose file and no replica count is what lets the retention sweep hold one timer per process with no lease                                        | unenforced — `docker-compose.yml` and `docker-compose.local.yml` each declare the service once, and nothing refuses a second or a `deploy.replicas`                                                                             |
-| I174 | Production declares no database service; the managed cluster is the one store, and `mongo` in `docker-compose.local.yml` is a declared delta                                  | `scripts/checks/check_compose_mirror.py :: uncovered` — the `services.mongo` delta covers nothing once production declares one, and any other name is an undeclared difference                                                  |
+| I174 | Production declares no database service; the managed cluster is the one store, and `mongo` in `docker-compose.local.yml` is a declared delta                                  | `scripts/checks/check_compose_mirror.py :: uncovered`, where production declares a database and the `services.mongo` delta covers nothing; `:: declaring`, for a difference no row pins                                         |
 | I176 | Every refusal-register row is spelled in the tree its area names, and every code a tree spells under its own prefixes has a row (§1.6)                                        | gate check `error-codes`, over `scripts/checks/docs_gate/error_codes.py :: CODE_RE`; `fl_backend/tests/core/test_domain.py` holds the codes raised under `app/api/` to `domain.py :: RULES`, the protocol codes excused by name |
 
 ## 3. Violation → remedy

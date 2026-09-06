@@ -110,8 +110,9 @@ where the table does not already send the reader on.
 
 ## A module header
 
-A header keeps this shape in any file `scripts/checks/docs_gate/kernel.py :: comment_style` reads
-as Python or shell, a file read whole as prose apart, and only for a fact attaching to no symbol.
+A header keeps this shape in any file whose comment style
+`scripts/checks/docs_gate/checks.py :: _header_scoped` admits, Python and shell, a file read whole as
+prose apart, and only for a fact attaching to no symbol.
 The title's separator is a middle dot with a space on each side. `Invariants:` and `See:` are the
 only labels a header may carry, every `See:` entry resolves to a file that is there, and the block
 carries no drawn rule and no upper-case label row.

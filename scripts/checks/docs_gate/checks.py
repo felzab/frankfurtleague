@@ -296,10 +296,12 @@ TAG_PATH_SOURCES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("FE", ("fl_frontend/",)),
     ("BE", ("fl_backend/",)),
     ("DB", ("fl_backend/app/core/crud.py",)),
-    ("Ops", ("scripts/", "nginx/", ".githooks/")),
+    # `.claude/hooks/` sits under `Docs`' prefix as well, and a hook is a guard rather than a page:
+    # derived as documentation alone it is invisible to the filter its own work answers to.
+    ("Ops", ("scripts/", "nginx/", ".githooks/", ".claude/hooks/")),
     # A `corpus` row's paths would be this row's exactly, which is one fact stated twice (COR-2).
     ("Docs", ("docs/", ".claude/")),
-    ("gate", ("scripts/gate/", "scripts/checks/", ".githooks/")),
+    ("gate", ("scripts/gate/", "scripts/checks/", ".githooks/", ".claude/hooks/")),
     ("ci", (".github/",)),
     ("tests", ("scripts/tests/", "fl_backend/tests/")),
     ("edge", ("nginx/",)),
@@ -1789,8 +1791,13 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]]) -
             return []
         elsewhere = f"{' and '.join(homes)} defines it" if homes else "no tracked spec sheet's table defines it"
         return [Finding("fail", "citation", rel, f"anchor '{anchor}' is no invariant row of {where} -- {elsewhere}")]
-    if anchor not in content:
+    spellings = [line for line in content.split("\n") if anchor in line]
+    if not spellings:
         return [Finding("fail", "citation", rel, f"anchor '{anchor}' no longer appears in {where}")]
+    # A file citing itself proves the anchor with the citing line, so renaming the block it points
+    # at leaves this green. The Python and invariant arms above list definitions and never presence.
+    if where == rel and all(citation in line for line in spellings):
+        return [Finding("fail", "citation", rel, f"anchor '{anchor}' is spelled in {where} only on the line citing it")]
     return []
 
 
