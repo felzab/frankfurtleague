@@ -175,7 +175,6 @@ deliverable.
 | `gbjj-9wfh` | A test fixture asserts the type nothing else checks                                                                         | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
 | `gkp4-q3q9` | The unique-index test pairs by ordinal position                                                                             | BE, DB, tests                                                               | Open     |
 | `gm9c-2du4` | Every link the local stack mails points at production                                                                       | FE, Docs, bewerbungen                                                       | Open     |
-| `gvyr-3nws` | Stylesheet comment blocks stand over INC-9's bound, quiet only while nobody lengthens one                                   | FE, Ops, Docs, gate                                                         | Standing |
 | `h4wq-p7ct` | A block carried into a file the fork does not hold is charged to the branch                                                 | Ops, Docs, gate, tests                                                      | Open     |
 | `hnx7-zbb9` | One field list is drift-guarded on one side only                                                                            | FE, BE, tests, saisons                                                      | Open     |
 | `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                      | FE, tests                                                                   | Open     |
@@ -4091,33 +4090,6 @@ follow one variable, are different changes with different blast radii.
 **Done when** a link a message carries points at the stack that sent it, with whatever holds the
 published metadata to the real origin written where a deploy would otherwise break it
 (`docs/frontend/spec.md :: 1.7 Environment`).
-
-### `gvyr-3nws` · Stylesheet comment blocks stand over INC-9's bound, quiet only while nobody lengthens one
-
-| Tags                | Status   | Depends on |
-| ------------------- | -------- | ---------- |
-| FE, Ops, Docs, gate | Standing | —          |
-
-**Not a defect today, and what keeps it quiet is the fork each branch measures against.**
-[`docs/_standard/standard.md`](../_standard/standard.md#in-code)'s In-code Scope reaches
-`fl_frontend/src/app/globals.css` by kind, and blocks in it run past INC-9's forty words.
-`scripts/checks/docs_gate/branch.py :: check_comment_bounds` measures only a block the branch in hand
-added a line to, and `:: _fork_ceiling` keeps one that was already over at the fork for as long as
-nothing lengthens it. **The trigger is a branch that adds a word to such a block**, which then fails
-on prose it did not write, its author the first person to read that block against a bound.
-
-**How far a block runs past the bound is not the finding, and a pass driven by that is the wrong
-pass.** INC-9 lets a single line's irreducible constraint stand over the bound, so a block past it
-raises COR-14's questions rather than settling them: whether the block is a contract at the wrong
-rung, which moves to an invariant row, and whether it constrains more than one line, which makes it
-more than one constraint. Neither is answered by compression, and the runs recording a contrast
-ratio or citing a WCAG criterion are the longest in the file, so a shortening pass reaches them
-first. A measurement is INC-1's clearest case: nothing in the declaration beside it re-derives the
-number.
-
-**Done when** every block past the bound in that file has been read once against COR-5 and COR-14 —
-each one carrying more than one constraint split to the lines it is about, the rest left standing as
-INC-9 permits — so that no later branch meets that question for the first time in a red gate.
 
 ### `h4wq-p7ct` · A block carried into a file the fork does not hold is charged to the branch that only moved it
 
