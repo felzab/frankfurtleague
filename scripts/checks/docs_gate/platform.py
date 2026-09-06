@@ -441,9 +441,12 @@ def _resolve(check: str, sites: list[_Site], allow: Mapping[str, str], present: 
             used.add(row)
     for key in allow:
         rel, _, symbol = key.partition(" :: ")
-        # Judged only inside the population this check read: a row naming a file the gate's own
-        # fixture trees do not hold would read as stale inside each of them.
+        # A row is held to the file it names, so one outside this scan's population is held to
+        # nothing: a corpus that cannot answer for a row hands the checker an allowlist of its own.
         if rel not in present:
+            findings.append(
+                Finding("fail", check, rel, f"allowlist row `{key}` names a file outside the scanned population -- repoint or delete it")
+            )
             continue
         text = _read_text(REPO_ROOT / rel)[0] or ""
         if symbol not in text:

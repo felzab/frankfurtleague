@@ -683,6 +683,12 @@ def _load() -> Fixture:
     assert Path(gate.__file__ or "").resolve().parents[2] == root, "the gate under test is not the copy"
     body_gate = importlib.import_module("check_pr_body")
     assert vars(sys.modules["checker_kernel"])["REPO_ROOT"] == root, "the gate under test reads another fixture's tree"
+    # The platform check's rows name this repository's own files and the corpus below holds none of
+    # them: a row outside the scanned population is a finding, so this fixture answers for its own.
+    platform = importlib.import_module("docs_gate.platform")
+    assert Path(platform.__file__ or "").resolve().is_relative_to(root), "the platform module is not the copy"
+    platform.PLATFORM_ALLOW.clear()
+    platform.TEXT_WRITE_ALLOW.clear()
     _build(root, _corpus(body_gate.TEMPLATE_FRAGMENTS))
     return Fixture(gate, body_gate, root)
 

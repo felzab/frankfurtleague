@@ -189,7 +189,6 @@ deliverable.
 | `s28h-m39z` | A moved vocabulary table is reported on the wrong branch                                                                    | Ops, Docs, gate, ci, tests                                                  | Open     |
 | `spq6-zy2d` | A renamed file's comment blocks are never measured                                                                          | Ops, gate                                                                   | Open     |
 | `sqwz-xyxg` | An enforcement claim is resolved in one direction only                                                                      | Ops, gate                                                                   | Open     |
-| `srbc-6buy` | An allowlist row naming an absent file is passed over, not reported                                                         | Ops, Docs, gate, tests                                                      | Open     |
 | `srec-8jxj` | Naming the image build's culprits costs a process per file                                                                  | Ops, Docs, gate                                                             | Open     |
 | `suuz-dged` | Process-wide test hooks close the runner's one-process mode                                                                 | FE, tests, versions                                                         | Open     |
 | `tc3c-nudr` | Nothing validates the contents of a restored `.env`                                                                         | FE, BE, Ops, Docs, edge                                                     | Standing |
@@ -4596,51 +4595,6 @@ line endings — and that is correct.
 decide carry one, and the direction the gate does not resolve is either mechanised or written down as
 deliberate. PRE-4 closes that field's vocabulary at checks, commands and linters, so a check added
 for OUT-7 lands with the field that claims it.
-
-### `srbc-6buy` · An allowlist row naming a file outside the population the check read is passed over, so an excuse stands with nothing to excuse
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| Ops, Docs, gate, tests | Open   | —          |
-
-**`scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW` excuses a named site from the platform
-clauses, and it is held to the tree in one direction only.** Each row is keyed `<file> :: <anchor>`
-and carries the reason that branch is deliberate, so writing one is a diff a reviewer reads rather
-than an `if` nobody re-opens. `scripts/checks/docs_gate/platform.py :: _resolve` reports a row whose
-anchor its file does not spell, and a row that shields no site — **but a row whose FILE is absent
-from the population the check just read is passed over by `if rel not in present: continue`**, so a
-row naming a deleted or renamed file sits inert for as long as the allowlist lives, and nothing says
-so.
-
-**What that costs is an excuse nobody can see is dead.** [`docs/ops/spec.md`](../ops/spec.md) §1.6
-states without qualification that a row the tree does not bear out is itself a finding, so the corpus
-reads as though the guard holds in both directions. And an inert row is worse than wasted: a file
-written again at that path — a hook restored, a rename walked back — arrives already excused, with no
-diff for anyone to read, which is the one thing the allowlist exists to produce.
-
-**The rule cannot be written at this layer, and the reason is standing rather than incidental.** The gate's
-own fixture suites import a copy of `scripts/` built by `scripts/tests/conftest.py :: copy_scripts`, whose
-`:: IGNORED` list strips `tests` out of the copy, and each fixture plants a small corpus of its own instead of
-this repository's tree. Those fixtures' drivers merge the real `PLATFORM_ALLOW` into every run, so its rows
-for `scripts/tests/test_gate_pool.py` and `.githooks/pre-commit` name files the fixture trees do not hold. Any
-criterion that turns such a row into a finding therefore fires inside the fixtures rather than in this
-repository — absence from disk, absence from the scanned population and absence from git's index alike, and
-the last two reach every row, because each fixture's copied gate sits at a path that fixture's own
-`.gitignore` names.
-
-**Done when** a row naming a file outside the population is reported the way a row with an unresolvable anchor
-is; `scripts/tests/test_check_docs.py`, `scripts/tests/test_check_docs_cases.py` and
-`scripts/tests/test_platform_checks.py` each run the platform check over an allowlist their own fixture can
-answer for; `scripts/tests/test_platform_checks.py :: test_an_allow_row_is_held_to_the_tree_it_excuses`
-asserts the new verdict; and a drive plants a row naming a file its corpus does not hold and reads the finding
-back. **The repair gives up an assertion that is deliberate today**: that test asserts a row naming an absent
-file is green, and the comment at `:: GIT_HOOK` records that its corpus holds `.githooks/commit-msg` rather
-than a `pre-commit` precisely so the real row for the latter meets no file of that path. What that choice
-exercises has to be replaced rather than dropped.
-
-**`9r6p-z26g` moves the constraint rather than lifting it**: a copy taken from git's answer carries
-`scripts/tests/` into the fixture, which changes what absence from disk reaches there and leaves what
-git lists exactly as it is. Neither remedy is in the other's file.
 
 ### `srec-8jxj` · Naming the files that required the image build costs a process per file
 
