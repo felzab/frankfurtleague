@@ -1313,10 +1313,10 @@ describe("the confirmation workflow's messages", () => {
       "Bestätigung (Postfach)": eintragMehrere,
       Erinnerung: eintrag,
       "Erinnerung (Postfach)": eintragMehrere,
-      "Eingang offen": `${auftakt}: die Bewerbung wird nach 14 Tagen gelöscht.`,
+      "Eingang offen": `${auftakt}: Die Bewerbung wird nach 14 Tagen gelöscht.`,
       Vollständig: `${auftakt}.`,
-      Gelöscht: `${auftakt}: die Bewerbung wird jetzt gelöscht.`,
-      Ablehnung: `${auftakt}: die Bewerbung wird nach 14 Tagen gelöscht.`,
+      Gelöscht: `${auftakt}: Die Bewerbung wird jetzt gelöscht.`,
+      Ablehnung: `${auftakt}: Die Bewerbung wird nach 14 Tagen gelöscht.`,
     };
 
     for (const { name, mail } of alleWorkflow()) {

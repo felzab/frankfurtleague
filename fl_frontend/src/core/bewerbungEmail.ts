@@ -58,8 +58,8 @@ const IGNORIER_SATZ_EINTRAG = `${IGNORIER_VOR}: Deine Angaben werden nach 14 Tag
 /* Its own wording rather than the singular one over two links: „den Link“ names one of the two the
    message carries, and the reader cannot tell which of them is being offered. */
 const IGNORIER_SATZ_EINTRAG_MEHRERE = `Weiß hier niemand von einer Bewerbung bei der ${BRAND_NAME}? Dann ignoriert diese E-Mail einfach. Für Euch ist nichts zu tun: Eure Angaben werden nach 14 Tagen gelöscht. Oder widersprecht den Einträgen über die Links, dann entfernen wir sie sofort.`;
-const IGNORIER_SATZ_BEWERBUNG = `${IGNORIER_VOR}: die Bewerbung wird nach 14 Tagen gelöscht.`;
-const IGNORIER_SATZ_GELOESCHT = `${IGNORIER_VOR}: die Bewerbung wird jetzt gelöscht.`;
+const IGNORIER_SATZ_BEWERBUNG = `${IGNORIER_VOR}: Die Bewerbung wird nach 14 Tagen gelöscht.`;
+const IGNORIER_SATZ_GELOESCHT = `${IGNORIER_VOR}: Die Bewerbung wird jetzt gelöscht.`;
 
 /**
  * Who a message reached, in the words its close states it in. Per message and not one line for all

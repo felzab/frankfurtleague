@@ -11,39 +11,35 @@ import { KONTAKT_CHANNELS } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
 
 import type { ReactNode } from "react";
+import type { KontaktChannelId } from "../../types";
 
 const TILE = "bg-brand-solid text-brand-solid-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm";
 
 const MASK = "bg-brand-solid-foreground inline-block size-6 mask-contain mask-center mask-no-repeat";
 
-function glyph(id: string) {
-  switch (id) {
-    case "email":
-      return (
-        <Envelope
-          aria-hidden="true"
-          className="size-6"
-        />
-      );
-    case "instagram":
-      return (
-        <span
-          aria-hidden="true"
-          title="Instagram by Pixel Icons"
-          className={`${MASK} mask-[url('/icons/footer/instagram/instagram_logo_black.svg')]`}
-        />
-      );
-    case "threads":
-      return (
-        <span
-          aria-hidden="true"
-          className={`${MASK} mask-[url('/icons/footer/threads/threads_logo_black.svg')]`}
-        />
-      );
-    default:
-      return null;
-  }
-}
+// A record rather than a chain: `KontaktChannelId` is a closed set, so a fourth channel fails to
+// compile here rather than rendering an empty tile nothing reports.
+const GLYPH: Record<KontaktChannelId, ReactNode> = {
+  email: (
+    <Envelope
+      aria-hidden="true"
+      className="size-6"
+    />
+  ),
+  instagram: (
+    <span
+      aria-hidden="true"
+      title="Instagram by Pixel Icons"
+      className={`${MASK} mask-[url('/icons/footer/instagram/instagram_logo_black.svg')]`}
+    />
+  ),
+  threads: (
+    <span
+      aria-hidden="true"
+      className={`${MASK} mask-[url('/icons/footer/threads/threads_logo_black.svg')]`}
+    />
+  ),
+};
 
 /**
  * `bewerbungSlot` is injected rather than read here: the band's read needs a request scope and its
@@ -78,7 +74,7 @@ export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
                   <span
                     aria-hidden="true"
                     className={TILE}>
-                    {glyph(channel.id)}
+                    {GLYPH[channel.id]}
                   </span>
                   <span className="fluid-base text-foreground font-bold">{channel.name}</span>
                 </div>

@@ -148,7 +148,7 @@ export function BewerbungView({
       {zustand === "vorbei" && (
         <ZustandPanel
           titel="Die Bewerbungsfrist ist abgelaufen"
-          text={`Für die Saison ${saisonId} nehmen wir keine Bewerbungen mehr an. Schreib uns trotzdem: wir sagen Dir, was noch geht und wann die nächste Saison öffnet.`}
+          text={`Für die Saison ${saisonId} nehmen wir keine Bewerbungen mehr an. Schreib uns trotzdem: Wir sagen Dir, was noch geht und wann die nächste Saison öffnet.`}
           aktion={ZUM_KONTAKT}
         />
       )}

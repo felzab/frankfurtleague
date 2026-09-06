@@ -1078,19 +1078,19 @@ value is what it is, and the pair it is measured on, is the comment at its decla
 `fl_frontend/src/app/schemes/2027.css`; `fl_frontend/src/app/globals.css :: @theme` bridges each to
 its utility. What no declaration can say is which surface may spend it:
 
-| Grade                                                       | Spent on                                                                                                                  | Never on                                                                                          |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `brand` — flips per theme                                   | One accent word in a title, an eyebrow, an inline link, a focus or hover highlight, a dot ornament, a selected row's tint | A fill behind text; a run longer than one word                                                    |
-| `brand-solid` with `-foreground` — one value per theme pair | The primary control, a selected chip or day, the entry-condition block, a tile, the hero                                  | Text on any surface, or a dot: unflipped, it sinks into the dark theme's grounds and its own tint |
-| `brand-solid-accent` — one value per theme pair             | The wordmark and the mark on the brand fill                                                                               | Any other ground; on a light one it fails as text                                                 |
-| `surface` / `muted`                                         | A box's ground / a recessed track — a tab strip, a table header, a control at rest                                        | `muted` as a panel's ground                                                                       |
-| `border`                                                    | Every neutral box and field, at an alpha for a divider inside one                                                         | A tinted box, whose edge is its own tone                                                          |
-| `{tone}` plain                                              | A dot, a bar, a border, the ground of a tint                                                                              | Text: it is tuned for a fill and fails on its own tint                                            |
-| `{tone}-strong`                                             | Text, on a tint, on `muted` or on `surface`                                                                               | A fill                                                                                            |
-| `{tone}-solid` with `-foreground`                           | A fill that must read as one — the destructive button, a result badge — under its paired on-colour                        | A tint, or text                                                                                   |
-| `hover*`                                                    | Every hover, one declared token per family                                                                                | An alpha at a call site, which composites against its ground and lands differently on each        |
-| `--focus`                                                   | Every ring HeroUI does not draw itself, as the foreground                                                                 | HeroUI's `--accent`, which the scheme declares for a `Switch`'s fill and a picker's day           |
-| `phase-*`                                                   | A phase badge and its `/15` tint                                                                                          | A state: the sequence is an order, not a meaning                                                  |
+| Grade                                                       | Spent on                                                                                                                  | Never on                                                                                           |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `brand` — flips per theme                                   | One accent word in a title, an eyebrow, an inline link, a focus or hover highlight, a dot ornament, a selected row's tint | A fill behind text; a run longer than one word                                                     |
+| `brand-solid` with `-foreground` — one value per theme pair | The primary control, a selected chip or day, the entry-condition block, a tile, the hero                                  | Text or a dot on a dark ground: unflipped, it sinks into the dark theme's grounds and its own tint |
+| `brand-solid-accent` — one value per theme pair             | The wordmark and the mark on the brand fill                                                                               | Any other ground; on a light one it fails as text                                                  |
+| `surface` / `muted`                                         | A box's ground / a recessed track — a tab strip, a table header, a control at rest                                        | `muted` as a panel's ground                                                                        |
+| `border`                                                    | Every neutral box and field, at an alpha for a divider inside one                                                         | A tinted box, whose edge is its own tone                                                           |
+| `{tone}` plain                                              | A dot, a bar, a border, the ground of a tint                                                                              | Text: it is tuned for a fill and fails on its own tint                                             |
+| `{tone}-strong`                                             | Text, on a tint, on `muted` or on `surface`                                                                               | A fill                                                                                             |
+| `{tone}-solid` with `-foreground`                           | A fill that must read as one — the destructive button, a result badge — under its paired on-colour                        | A tint, or text                                                                                    |
+| `hover*`                                                    | Every hover, one declared token per family                                                                                | An alpha at a call site, which composites against its ground and lands differently on each         |
+| `--focus`                                                   | Every ring HeroUI does not draw itself, as the foreground                                                                 | HeroUI's `--accent`, which the scheme declares for a `Switch`'s fill and a picker's day            |
+| `phase-*`                                                   | A phase badge and its `/15` tint                                                                                          | A state: the sequence is an order, not a meaning                                                   |
 
 Which tone a message takes is fixed at `fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`,
 and a state chip reads the same mapping
@@ -1122,11 +1122,15 @@ arriving, not a deficit to fill:
 `fl_frontend/src/shared/components/ui/card.ts :: card`), or `shadow-xs` on a band; a tinted box's edge
 is its own tone at an alpha (`fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`, the
 `danger` variant of `formPanel`). Never a borderless card, never a neutral edge on a tinted box: in
-the dark theme the hairline is what parts a box from a near-black page. Depth is one of a few grades —
-`shadow-xs` a band, `shadow-sm` a box on the page, `shadow-md` the brand fill, `shadow-lg` a floating
-surface alone (`fl_frontend/src/shared/components/ui/overlayPanel.ts :: overlayPanel`,
-`fl_frontend/src/shared/components/ui/hintSurface.ts :: HINT_SURFACE`) — and a box wears blur or
-translucency: on a neutral ground there is nothing for a card to float over.
+the dark theme the hairline is what parts a box from a near-black page. Depth is one of the grades
+this list closes — `shadow-xs` a band, `shadow-sm` a box on the page, `shadow-md` the brand fill,
+`shadow-lg` a floating surface (`fl_frontend/src/shared/components/ui/overlayPanel.ts :: overlayPanel`,
+`fl_frontend/src/shared/components/ui/hintSurface.ts :: HINT_SURFACE`), `shadow-2xl` a modal or the
+sign-in panel (`fl_frontend/src/shared/components/ui/ModalShell.tsx`,
+`fl_frontend/src/shared/components/ui/StatusPanel.tsx`,
+`fl_frontend/src/features/auth/components/forms/SignInForm.tsx`), `shadow-inner` a well inside one
+(`fl_frontend/src/features/spiele/components/modals/SpielDetailsModal.tsx`) — and no box wears blur
+or translucency: on a neutral ground there is nothing for a card to float over.
 
 **The corner ladder steps down one rung per nesting** (I166), so a box beside a panel in the page
 column is `2xl` and a box inside one is `xl` or lower; two boxes at one rung never nest:

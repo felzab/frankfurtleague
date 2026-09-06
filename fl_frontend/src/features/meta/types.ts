@@ -1,5 +1,7 @@
+export type KontaktChannelId = "email" | "instagram" | "threads";
+
 export interface KontaktChannel {
-  id: string;
+  id: KontaktChannelId;
   name: string;
   value: string;
   action: string;

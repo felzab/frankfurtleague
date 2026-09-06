@@ -59,7 +59,7 @@ export function FLLogo({ className = "h-8 w-auto" }: { className?: string }) {
     // while the hero sits on that same green and needs the light one. A baked fill is invisible on
     // one of them.
     <svg
-      viewBox="184.4 46 143.1 420"
+      viewBox="184.4 46 143.2 420"
       xmlns="http://www.w3.org/2000/svg"
       className={`fill-current ${className}`}
       role="presentation">
