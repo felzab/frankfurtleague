@@ -165,7 +165,7 @@ export function SignInForm() {
                   type="email">
                   <Label className="fluid-xs text-foreground-muted font-bold tracking-wider uppercase">E-Mail-Adresse</Label>
                   <Input
-                    className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted/50 fluid-xs sm:fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
+                    className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
                     placeholder="Noch nicht verfügbar"
                     disabled
                   />

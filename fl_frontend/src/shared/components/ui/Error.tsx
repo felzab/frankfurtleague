@@ -25,7 +25,7 @@ export function Error({ error, reset }: { error: Error & { digest?: string }; re
   // the route and the time narrow it to one entry. A client crash has no digest, and saying so is the pointer.
   const reportSubject = `Fehlerbericht: ${error.digest ?? "Client-Fehler"} auf ${pathname}`;
   const reportBody = [
-    "Hallo Team der Frankfurt League,",
+    "Hallo Frankfurt League,",
     "",
     "[Beschreibe hier kurz, was Du gerade tun wolltest und was stattdessen passiert ist.]",
     "",

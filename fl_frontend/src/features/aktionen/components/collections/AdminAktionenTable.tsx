@@ -119,7 +119,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
 
   const renderAufruf = (aktion: AdminAktionRow) =>
     aktion.request === null ? (
-      <span className="fluid-xs text-foreground-muted/50 italic">Ohne Aufruf</span>
+      <span className="fluid-xs text-foreground-muted italic">Ohne Aufruf</span>
     ) : (
       <span className="fluid-xs text-foreground-muted flex flex-row flex-wrap gap-x-1.5 font-mono break-all">
         <span className="font-bold">{aktion.request.method}</span>
@@ -131,7 +131,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     const datensatz = describeAktionDatensatz(aktion);
 
     if (datensatz.kind === "dokument") return <span className="fluid-xs text-foreground font-mono break-all">{datensatz.id}</span>;
-    if (datensatz.kind === "ohne") return <span className="fluid-xs text-foreground-muted/50 italic">Kein Datensatz benannt</span>;
+    if (datensatz.kind === "ohne") return <span className="fluid-xs text-foreground-muted italic">Kein Datensatz benannt</span>;
 
     return (
       <div className="flex flex-col gap-0.5">

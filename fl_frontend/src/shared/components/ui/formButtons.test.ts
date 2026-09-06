@@ -126,7 +126,11 @@ describe("the step that stands in a row of chips", () => {
     assert.ok(inline.has("h-7"), "the inline step declares no height of the chip row's own");
     assert.ok(!inline.has("h-12"), "the base height survives the inline step, so the control towers over the chips beside it");
     assert.match(strip, /const STRIP_CHIP = "h-7/, "the chips this step is measured against no longer stand at it");
-    assert.match(strip, /labelBadge\(/, "the chips this step is measured against are no longer composed as the app's label pill");
+    assert.equal(
+      strip.match(/labelBadge\(/g)?.length,
+      4,
+      "the chips this step is measured against are no longer composed as the app's label pill",
+    );
   });
 });
 

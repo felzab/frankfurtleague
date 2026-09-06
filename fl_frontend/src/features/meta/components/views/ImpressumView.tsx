@@ -109,10 +109,11 @@ export function ImpressumView() {
 
         <LegalSection title="Name und Logo">
           <p className={ABSATZ}>
-            „Frankfurt League“ in jeder Schreibweise, auch „Frankfurt-League“ und „frankfurtleague“, sowie das Logo der Liga und alle davon
-            abgeleiteten Gestaltungen sind der Liga vorbehalten. Der Quellcode dieser Website ist zwar öffentlich einsehbar und lizenziert, der
-            Name und die Gestaltung sind es ausdrücklich nicht: die Lizenz des Quellcodes räumt daran keine Rechte ein, und auch sonst räumen
-            wir daran keine ein. Wenn Du Name oder Logo verwenden möchtest, frag uns unter {KONTAKT_EMAIL}.
+            Der Name „Frankfurt League“ in jeder Schreibweise, auch „Frankfurt-League“ und „frankfurtleague“, jede damit verwechselbar ähnliche
+            Bezeichnung sowie das Logo der Liga und alle davon abgeleiteten Gestaltungen sind der Liga vorbehalten. Der Quellcode dieser Website
+            ist zwar öffentlich einsehbar und lizenziert, der Name und die Gestaltung sind ausdrücklich nicht lizenziert: Die Lizenz des
+            Quellcodes räumt daran keine Rechte ein, und auch sonst räumen wir daran keine ein. Wenn Du den Namen oder das Logo verwenden
+            möchtest, frag uns unter {KONTAKT_EMAIL}.
           </p>
         </LegalSection>
 

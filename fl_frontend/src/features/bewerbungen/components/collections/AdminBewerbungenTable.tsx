@@ -51,7 +51,7 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
   // row or its controls.
   const renderName = (bewerbung: AdminBewerbungRow) =>
     bewerbung.teamName === null ? (
-      <span className="fluid-sm text-foreground-muted/50 italic">{NO_TEAM}</span>
+      <span className="fluid-sm text-foreground-muted italic">{NO_TEAM}</span>
     ) : (
       <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{bewerbung.teamName}</span>
     );
@@ -70,14 +70,10 @@ export const AdminBewerbungenTable = memo(function AdminBewerbungenTable({
       // address, and an overflowing one draws itself across the column beside it.
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="fluid-sm text-foreground min-w-0 truncate">
-          {person === null ? (
-            <span className="text-foreground-muted/50 italic">Keine Kontaktperson</span>
-          ) : (
-            `${person.vorname} ${person.nachname}`
-          )}
+          {person === null ? <span className="text-foreground-muted italic">Keine Kontaktperson</span> : `${person.vorname} ${person.nachname}`}
         </span>
         <span className="fluid-xs text-foreground-muted min-w-0 truncate">
-          {person === null || person.email === "" ? <span className="text-foreground-muted/50 italic">Keine E-Mail</span> : person.email}
+          {person === null || person.email === "" ? <span className="text-foreground-muted italic">Keine E-Mail</span> : person.email}
         </span>
       </div>
     );

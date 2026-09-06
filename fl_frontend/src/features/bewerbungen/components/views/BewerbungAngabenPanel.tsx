@@ -29,7 +29,7 @@ function Angabe({ label, children }: { label: string; children: ReactNode }) {
 
 /** A value the school did not fill in, in the one grade every empty field here takes. */
 function Leer() {
-  return <span className="text-foreground-muted/50 italic">{NOT_RECORDED}</span>;
+  return <span className="text-foreground-muted italic">{NOT_RECORDED}</span>;
 }
 
 /**

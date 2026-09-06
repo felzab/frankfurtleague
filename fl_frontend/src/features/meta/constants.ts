@@ -7,10 +7,10 @@ import type { KontaktChannel, QaQuestion, TeamMember } from "./types";
 const TEAM_MEMBERS: TeamMember[] = [
   { id: 1, name: "David", role: "Vorstand", desc: "Ligaleitung & Orga", tag: "vorstand" },
   { id: 2, name: "Maria-Lucia", role: "Vorstand", desc: "Ligaleitung & Orga", tag: "vorstand" },
-  { id: 3, name: "Matin", role: "Organisation", desc: "Orga & Verwaltung", tag: "orga" },
-  { id: 4, name: "Mana", role: "Organisation", desc: "Orga & Verwaltung", tag: "orga" },
-  { id: 5, name: "Nick", role: "Organisation", desc: "Orga & Verwaltung", tag: "orga" },
-  { id: 6, name: "Vincent", role: "Organisation", desc: "Orga & Verwaltung", tag: "orga" },
+  { id: 3, name: "Matin", role: "Spielbetrieb", desc: "Orga & Verwaltung", tag: "orga" },
+  { id: 4, name: "Mana", role: "Spielbetrieb", desc: "Orga & Verwaltung", tag: "orga" },
+  { id: 5, name: "Nick", role: "Spielbetrieb", desc: "Orga & Verwaltung", tag: "orga" },
+  { id: 6, name: "Vincent", role: "Spielbetrieb", desc: "Orga & Verwaltung", tag: "orga" },
   { id: 7, name: "Felix", role: "Entwicklung", desc: "Website & Infrastruktur", tag: "web" },
   { id: 8, name: "Nikolas", role: "Design", desc: "Design & Kommunikation", tag: "web" },
   { id: 9, name: "Cornelia", role: "Design", desc: "Layout & Design", tag: "web" },
@@ -88,7 +88,7 @@ export const QA_QUESTIONS: QaQuestion[] = [
   {
     id: "teilnahme",
     q: "Wer darf in den Teams mitspielen?",
-    a: "Nur Schülerinnen und Schüler des Abijahrgangs, für den das Team antritt.",
+    a: "Nur Schülerinnen und Schüler des Abi-Jahrgangs, für den das Team antritt.",
   },
   {
     id: "bewerbung",
@@ -103,7 +103,7 @@ export const QA_QUESTIONS: QaQuestion[] = [
   {
     id: "preise",
     q: "Was bekommt der Gewinner?",
-    a: "Das meiste Geld, dazu Ruhm und Ehre als bester Abijahrgang des Jahres.",
+    a: "Das meiste Geld, dazu Ruhm und Ehre als bester Abi-Jahrgang des Jahres.",
   },
   {
     id: "lehrer",

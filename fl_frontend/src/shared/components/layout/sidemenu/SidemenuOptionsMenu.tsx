@@ -113,7 +113,7 @@ function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormS
       /* One red at rest and one when armed, with no hover step to compete with the state that matters. The `!`
          is what beats an unlayered muted fill in `globals.css`. */
       className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
-        isConfirming ? "bg-danger/20!" : "bg-danger/10!"
+        isConfirming ? "bg-danger/15!" : "bg-danger/10!"
       }`}>
       {/* Armed, the row is its question alone. The tint and the label both shift, so the state never rests on colour. */}
       <Label className={`fluid-sm text-danger-strong min-w-0 flex-1 font-semibold ${isConfirming ? "text-center" : ""}`}>

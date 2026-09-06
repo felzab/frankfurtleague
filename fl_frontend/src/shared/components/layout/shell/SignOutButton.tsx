@@ -30,7 +30,7 @@ export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormStat
       /* One red at rest and one when armed, with no hover step: a control that only looks destructive on
          approach says nothing to a reader scanning the bar. */
       className={`text-danger-strong flex h-9 shrink-0 items-center justify-center rounded-md font-semibold transition-colors disabled:opacity-60 ${
-        isConfirming ? "bg-danger/20 px-3" : "bg-danger/10 px-2"
+        isConfirming ? "bg-danger/15 px-3" : "bg-danger/10 px-2"
       }`}>
       {/* Armed, the control is its question and nothing else; at rest it is the one glyph, so the bar stays quiet. */}
       {isConfirming ? (

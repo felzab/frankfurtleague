@@ -149,7 +149,7 @@
     --fg-on-warn: #0a0a0a;
     --fg-on-danger: #ffffff;
 
-    /* The same arc, lifted for the dark surface: each at the lightness its own /10 tint pair
+    /* The same arc, lifted for the dark surface: each at the lightness its own /15 tint pair
        needs, and the chroma its hue's ceiling leaves there. */
     --accent-phase-gruppenphase: #36bdcb;
     --accent-phase-achtelfinale: #45b4f8;

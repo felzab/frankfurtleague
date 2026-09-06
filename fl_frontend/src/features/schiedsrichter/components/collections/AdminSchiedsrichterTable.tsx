@@ -66,13 +66,13 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   const renderKontakt = (schiedsrichter: FLSchiedsrichter) => (
     <div className="flex flex-col gap-0.5">
       <span className="fluid-sm text-foreground">
-        {schiedsrichter.kontakt.email || <span className="text-foreground-muted/50 italic">Keine E-Mail</span>}
+        {schiedsrichter.kontakt.email || <span className="text-foreground-muted italic">Keine E-Mail</span>}
       </span>
       <span className="fluid-xs text-foreground-muted">
         {schiedsrichter.kontakt.telefon ? (
           <span className="font-numeric tabular-nums">{schiedsrichter.kontakt.telefon}</span>
         ) : (
-          <span className="text-foreground-muted/50 italic">Keine Telefonnummer</span>
+          <span className="text-foreground-muted italic">Keine Telefonnummer</span>
         )}
       </span>
     </div>
@@ -221,7 +221,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
                     <Table.Cell className="px-6 py-4">
                       <span className="fluid-sm text-foreground">
-                        {schiedsrichter.schule || <span className="text-foreground-muted/50 italic">Keine Schule</span>}
+                        {schiedsrichter.schule || <span className="text-foreground-muted italic">Keine Schule</span>}
                       </span>
                     </Table.Cell>
 

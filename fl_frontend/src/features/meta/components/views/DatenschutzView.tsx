@@ -156,7 +156,7 @@ export function DatenschutzView() {
               Wir messen nicht, was Du auf dieser Website tust. Es gibt keine Analyse, kein Tracking, keine Werbung und kein Profiling.
             </li>
             <li className={ABSATZ}>
-              Auskunft, Berichtigung, Löschung, Widerspruch, Widerruf: eine E-Mail an <MailLink /> genügt, und Du musst nichts begründen.
+              Auskunft, Berichtigung, Löschung, Widerspruch, Widerruf: Eine E-Mail an <MailLink /> genügt, und Du musst nichts begründen.
             </li>
           </ul>
         </LegalSection>
@@ -200,7 +200,7 @@ export function DatenschutzView() {
           <p className={ABSATZ}>
             Bei jedem Aufruf entsteht ein Eintrag im Zugriffsprotokoll des Servers. Er enthält Deine IP-Adresse, den Zeitpunkt, die aufgerufene
             Seite, den Statuscode der Antwort, die Kennung Deines Browsers und die Seite, von der Du gekommen bist. Wie lange ein Eintrag
-            bleibt, richtet sich nach dem Umfang des Protokolls: der Server hält die jüngsten Einträge bis zu einer festen Gesamtgröße und
+            bleibt, richtet sich nach dem Umfang des Protokolls: Der Server hält die jüngsten Einträge bis zu einer festen Gesamtgröße und
             überschreibt die älteren. Die Einträge werden nicht ausgewertet, nicht mit anderen Daten zusammengeführt und an keinen
             Auswertungsdienst weitergegeben.
           </p>

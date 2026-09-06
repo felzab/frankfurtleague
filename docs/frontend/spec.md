@@ -1043,17 +1043,17 @@ screen reader reads the title out as an initialism (I160).
 
 **Which step an element takes:**
 
-| Step         | Takes                                                                                                         |
-| ------------ | ------------------------------------------------------------------------------------------------------------- |
-| `fluid-4xl`  | The `<h1>` inside `fl_frontend/src/shared/components/ui/BrandHero.tsx :: BrandHero`, and nothing else         |
-| `fluid-3xl`  | The `<h1>` of every other public page, in Anton; never a two-step `lg:` pair                                  |
-| `fluid-2xl`  | A dashboard or meta section title and the sign-in `<h1>`, in Anton; an admin sheet's title `<h2>`, in Raleway |
-| `fluid-xl`   | A dashboard view's `<h2>`: Anton where it is copy, Raleway where it carries a name. The display face's floor  |
-| `fluid-lg`   | A result or closed-state `<h2>`, a modal heading, the value of an entry-condition fact; the wordmark          |
-| `fluid-base` | The anchor step: a panel heading, an empty state's title, a statement paragraph                               |
-| `fluid-sm`   | The reading grade: every paragraph, every input and trigger, a button's label, a fact's value                 |
-| `fluid-xs`   | The label grade: a field label, a caption, a table header, a footer link, a callout's title                   |
-| `fluid-xxs`  | The smallest: an eyebrow, a sub-group heading, a `<dt>`, an inline hint, a field error, every pill            |
+| Step         | Takes                                                                                                              |
+| ------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `fluid-4xl`  | The `<h1>` inside `fl_frontend/src/shared/components/ui/BrandHero.tsx :: BrandHero`, and nothing else              |
+| `fluid-3xl`  | The `<h1>` of every other public page, in Anton; never a two-step `lg:` pair                                       |
+| `fluid-2xl`  | A dashboard or meta section title and the sign-in `<h1>`, in Anton; an admin sheet's title `<h2>`, in Raleway      |
+| `fluid-xl`   | A dashboard view's `<h2>`: Anton where it is copy, Raleway where it carries a name. The display face's floor       |
+| `fluid-lg`   | A result or closed-state `<h2>`, a modal heading, the value of an entry-condition fact; the wordmark in the navbar |
+| `fluid-base` | The anchor step: a panel heading, an empty state's title, a statement paragraph                                    |
+| `fluid-sm`   | The reading grade: every paragraph, every input and trigger, a button's label, a fact's value                      |
+| `fluid-xs`   | The label grade: a field label, a caption, a table header, a footer link, a callout's title                        |
+| `fluid-xxs`  | The smallest: an eyebrow, a sub-group heading, a `<dt>`, an inline hint, a field error, every pill                 |
 
 **Raleway keeps four rungs, and `font-black` is not one of them**: at reading size 900 is not
 tellable from 800, and a rung nobody can tell from its neighbour exists only to be misapplied. Inter
@@ -1078,19 +1078,19 @@ value is what it is, and the pair it is measured on, is the comment at its decla
 `fl_frontend/src/app/schemes/2027.css`; `fl_frontend/src/app/globals.css :: @theme` bridges each to
 its utility. What no declaration can say is which surface may spend it:
 
-| Grade                                                       | Spent on                                                                                                           | Never on                                                                                   |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `brand` — flips per theme                                   | One accent word in a title, an eyebrow, an inline link, a focus or hover border, the `/10` tint under its own text | A fill behind text; a run longer than one word                                             |
-| `brand-solid` with `-foreground` — one value per theme pair | The primary control, a selected chip or day, the entry-condition block, a tile, a dot ornament, the hero           | Text on any surface: unflipped, it sinks into its own tint in the dark theme               |
-| `brand-solid-accent` — one value per theme pair             | The wordmark and the mark on the brand fill                                                                        | Any other ground; on a light one it fails as text                                          |
-| `surface` / `muted`                                         | A box's ground / a recessed track — a tab strip, a table header, a control at rest                                 | `muted` as a panel's ground                                                                |
-| `border`                                                    | Every neutral box and field, at an alpha for a divider inside one                                                  | A tinted box, whose edge is its own tone                                                   |
-| `{tone}` plain                                              | A dot, a bar, a border, the ground of a tint                                                                       | Text: it is tuned for a fill and fails on its own tint                                     |
-| `{tone}-strong`                                             | Text, on a tint, on `muted` or on `surface`                                                                        | A fill                                                                                     |
-| `{tone}-solid` with `-foreground`                           | A fill that must read as one — the destructive button, a result badge — under its paired on-colour                 | A tint, or text                                                                            |
-| `hover*`                                                    | Every hover, one declared token per family                                                                         | An alpha at a call site, which composites against its ground and lands differently on each |
-| `--focus`                                                   | Every ring HeroUI does not draw itself, as the foreground                                                          | HeroUI's `--accent`, which the scheme declares for a `Switch`'s fill and a picker's day    |
-| `phase-*`                                                   | A phase badge and its `/15` tint                                                                                   | A state: the sequence is an order, not a meaning                                           |
+| Grade                                                       | Spent on                                                                                                 | Never on                                                                                   |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `brand` — flips per theme                                   | One accent word in a title, an eyebrow, an inline link, a focus or hover border, a `/10` tint on chrome  | A fill behind text; a run longer than one word                                             |
+| `brand-solid` with `-foreground` — one value per theme pair | The primary control, a selected chip or day, the entry-condition block, a tile, a dot ornament, the hero | Text on any surface: unflipped, it sinks into its own tint in the dark theme               |
+| `brand-solid-accent` — one value per theme pair             | The wordmark and the mark on the brand fill                                                              | Any other ground; on a light one it fails as text                                          |
+| `surface` / `muted`                                         | A box's ground / a recessed track — a tab strip, a table header, a control at rest                       | `muted` as a panel's ground                                                                |
+| `border`                                                    | Every neutral box and field, at an alpha for a divider inside one                                        | A tinted box, whose edge is its own tone                                                   |
+| `{tone}` plain                                              | A dot, a bar, a border, the ground of a tint                                                             | Text: it is tuned for a fill and fails on its own tint                                     |
+| `{tone}-strong`                                             | Text, on a tint, on `muted` or on `surface`                                                              | A fill                                                                                     |
+| `{tone}-solid` with `-foreground`                           | A fill that must read as one — the destructive button, a result badge — under its paired on-colour       | A tint, or text                                                                            |
+| `hover*`                                                    | Every hover, one declared token per family                                                               | An alpha at a call site, which composites against its ground and lands differently on each |
+| `--focus`                                                   | Every ring HeroUI does not draw itself, as the foreground                                                | HeroUI's `--accent`, which the scheme declares for a `Switch`'s fill and a picker's day    |
+| `phase-*`                                                   | A phase badge and its `/15` tint                                                                         | A state: the sequence is an order, not a meaning                                           |
 
 Which tone a message takes is fixed at `fl_frontend/src/shared/components/ui/Callout.tsx :: Callout`,
 and a state chip reads the same mapping
