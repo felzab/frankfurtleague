@@ -188,7 +188,7 @@ deliverable.
 | `srec-8jxj` | Naming the image build's culprits costs a process per file                                                                  | Ops, Docs, gate                                                             | Open     |
 | `suuz-dged` | Process-wide test hooks close the runner's one-process mode                                                                 | FE, tests, versions                                                         | Open     |
 | `tc3c-nudr` | Nothing validates the contents of a restored `.env`                                                                         | FE, BE, Ops, Docs, edge                                                     | Standing |
-| `tfyy-hg3y` | A mis-cased suffix drops a citation out of the population instead of failing it                                             | Ops, gate                                                                   | Open     |
+| `tfyy-hg3y` | A mis-cased suffix drops a citation out of the population instead of failing it                                             | Ops, gate, tests                                                            | Open     |
 | `tnvw-4cqz` | One bash guard runs its twin's scan with no watchdog under it                                                               | Docs                                                                        | Open     |
 | `ua29-4s7q` | COR-6's checks read one spelling of a citation and one of a SHA, and the rule reaches past both                             | Ops, gate                                                                   | Open     |
 | `uayf-u7g4` | Crawler policy split between robots.txt and Cloudflare                                                                      | FE, Ops, Docs, edge                                                         | Standing |
@@ -2186,9 +2186,9 @@ stylesheet rather than restated.
 
 ### `tfyy-hg3y` · A mis-cased suffix drops a citation out of the population instead of failing it
 
-| Tags      | Status | Depends on |
-| --------- | ------ | ---------- |
-| Ops, gate | Open   | —          |
+| Tags             | Status | Depends on |
+| ---------------- | ------ | ---------- |
+| Ops, gate, tests | Open   | —          |
 
 **`scripts/checks/docs_gate/checks.py :: names_a_file` decides whether a run that resolved to
 nothing reads as a citation at all, and it asks the file part to end in one of `:: CITABLE_SUFFIXES`,
@@ -2198,7 +2198,7 @@ mis-cased directory or basename whose suffix still matches is dead on both platf
 `scripts/tests/test_check_docs.py :: test_a_citation_whose_case_differs_from_the_tracked_spelling_is_dead_here_too`
 holds it there; the suffix is the half that half-passes.
 
-**The class is wider than one tuple.** The gate's shape registers — `:: CITABLE_SUFFIXES`,
+**The class is wider than one tuple.** The gate's shape registers — `scripts/checks/docs_gate/checks.py :: CITABLE_SUFFIXES`,
 `scripts/checks/docs_gate/kernel.py :: SCANNED_SUFFIXES` and `:: OPS_FILENAMES` — are each compared
 exactly while the filesystem the corpus is written on is not, so a file or a citation spelled in
 another case falls out of a population rather than failing it, and nothing reports the fall.
