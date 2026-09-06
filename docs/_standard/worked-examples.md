@@ -337,10 +337,11 @@ of its two halves, so it stays over it (INC-9).
 **This lesson reaches an existing block, and which blocks count as existing is a matching rule
 rather than a judgment.** Gate check `comment-length` holds a block the fork already carried over the
 bound to the word count it ran to there rather than to the bound.
-`scripts/checks/docs_gate/branch.py :: _fork_ceiling` matches a block to its earlier self by the
+`scripts/checks/docs_gate/branch.py :: _fork_ancestor` matches a block to its earlier self by the
 content lines the two share — **any one shared line is a match**, the largest overlap wins, and a tie
-goes to the largest fork word count. The candidates are the blocks the fork held **over** the bound
-and no others. Four consequences, each of which otherwise costs a rebase to discover:
+goes to the largest fork word count. The candidates are the blocks the fork held **over** the bound,
+anywhere in its tree, so a block carried into a file the fork has no version of keeps its standing.
+Five consequences, each of which otherwise costs a rebase to discover:
 
 - **Improving this block's opening sentence costs it nothing.** An overlap of lines is not a key on
   the first one, so the edit an over-bound block most invites is free
@@ -349,19 +350,22 @@ and no others. Four consequences, each of which otherwise costs a rebase to disc
   so a clause added to it fails the branch at a number the bound alone never reaches, and the finding
   names both.
 - **A block is new only where it shares no content line with any block the fork held over the
-  bound.** Otherwise it inherits that block's ceiling however little else it has in common, so a
-  block written from scratch this branch can pass at a length the bound would refuse. Read a pass as
-  the check's answer about matching rather than as a verdict on the prose: COR-5's test and INC-9's
-  three questions decide the block, and the ceiling only says what the gate will let through.
+  bound, at whatever path the fork filed it under.** Otherwise it inherits that block's ceiling
+  however little else it has in common, so a block written from scratch this branch can pass at a
+  length the bound would refuse. Read a pass as the check's answer about matching rather than as a
+  verdict on the prose: COR-5's test and INC-9's three questions decide the block, and the ceiling
+  only says what the gate will let through.
+- **One standing is spent between every block matching it.** Split this block in two and the halves
+  are charged together against the one count it ran to at the fork; copy it and leave the original
+  standing, and the pair is charged the same way. The block reported is the one the branch's own
+  diff touched, which is the half a rebase can fix (CUR-6).
 - **A truly new block comes under the bound or the gate stays red**, INC-9's stay-over-it clause
   being no answer to a gate that has already refused. Where the fact will not compress, it is at the
   wrong rung: take INC-9's first question again and move the contract half out, as the example above
   does.
 
-**Splitting an over-bound block hands each half the whole original's ceiling**, both halves matching
-the original on the lines they kept, so two blocks as long as the one they came from pass. That is
-the matching rule reaching past what the exemption was written for rather than a licence: the split
-INC-9 asks for puts each half at the line it constrains, where neither half needs a ceiling to reach.
+**The split INC-9 asks for needs no ceiling to reach**: it puts each half at the line it constrains,
+where each is a single constraint under the bound on its own.
 
 ## A directory answers one column; a decision answers the other
 

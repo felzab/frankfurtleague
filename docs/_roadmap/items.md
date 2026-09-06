@@ -157,7 +157,6 @@ deliverable.
 | `b3c5-avuj` | One uv version is pinned twice and compared by nothing                                                                      | BE, Ops, gate, ci, versions                                                 | Open     |
 | `b732-rpvp` | Most of the database tier runs unconstrained                                                                                | BE, DB, tests                                                               | Open     |
 | `bfs4-ax6a` | The fixtures' drift guard cannot see a database view                                                                        | BE, DB, tests                                                               | Open     |
-| `bpve-vhag` | The fork exemption's ceiling is charged per block, and nothing caps the blocks one ancestor excuses                         | Ops, Docs, gate, tests                                                      | Open     |
 | `c8rx-gqun` | An invariant citation resolves to a string, not to a definition                                                             | Ops, Docs, gate                                                             | Open     |
 | `cckv-edvy` | The published document's drift check fails with the command that accepts the drift                                          | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `crwn-qfp7` | The opening comment block of every file read as a shell script is measured by neither bound                                 | Ops, Docs, gate                                                             | Open     |
@@ -171,7 +170,6 @@ deliverable.
 | `gbjj-9wfh` | A test fixture asserts the type nothing else checks                                                                         | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
 | `gkp4-q3q9` | The unique-index test pairs by ordinal position                                                                             | BE, DB, tests                                                               | Open     |
 | `gm9c-2du4` | Every link the local stack mails points at production                                                                       | FE, Ops, Docs, edge, bewerbungen                                            | Open     |
-| `h4wq-p7ct` | A block carried into a file the fork does not hold is charged to the branch                                                 | Ops, Docs, gate, tests                                                      | Open     |
 | `hnx7-zbb9` | One field list is drift-guarded on one side only                                                                            | FE, BE, tests, saisons                                                      | Open     |
 | `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                      | FE, tests                                                                   | Open     |
 | `ja32-9rpv` | A call site's key tier is held to its route by nothing                                                                      | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
@@ -186,7 +184,6 @@ deliverable.
 | `qw6j-scru` | The CSP's style directive is wider than it needs to be                                                                      | FE, Ops, Docs, edge                                                         | Open     |
 | `r5xm-ac7m` | A hook probe reads the status only where the verdict was empty                                                              | Ops, Docs, gate                                                             | Open     |
 | `s28h-m39z` | A moved vocabulary table is reported on the wrong branch                                                                    | Ops, Docs, gate, ci, tests                                                  | Open     |
-| `spq6-zy2d` | A renamed file's comment blocks are never measured                                                                          | Ops, gate                                                                   | Open     |
 | `sqwz-xyxg` | An enforcement claim is resolved in one direction only                                                                      | Ops, gate                                                                   | Open     |
 | `srec-8jxj` | Naming the image build's culprits costs a process per file                                                                  | Ops, Docs, gate                                                             | Open     |
 | `suuz-dged` | Process-wide test hooks close the runner's one-process mode                                                                 | FE, tests, versions                                                         | Open     |
@@ -3436,39 +3433,6 @@ enforcement the session did not build and reports it under the message that alre
 `fl_backend/tests/database.py :: _data` states that its filter answers what carries a validator and
 never what the database holds — so the next reader does not take the exclusion for coverage.
 
-### `bpve-vhag` · The fork exemption's ceiling is charged per block, and nothing caps the blocks one ancestor excuses
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| Ops, Docs, gate, tests | Open   | —          |
-
-Lands with: `h4wq-p7ct`, `spq6-zy2d`
-
-**`scripts/checks/docs_gate/branch.py :: _fork_ceiling` hands one ancestor's word count to every
-current block overlapping it, and nothing records that the ancestor has already been spent.** A block
-the fork held over INC-9's bound, split in two, gives each half that whole count as its ceiling: both
-halves pass at the original's length, so the pair passes at twice it. `docs/_standard/worked-examples.md` states
-the consequence for a writer, and nothing refuses it.
-
-**The same unit problem reaches a pair no fork produced.**
-`scripts/checks/docs_gate/kernel.py :: comment_runs` closes a run at `*/` and at a blank line, so two
-blocks stacked above one statement are two measurements where a reader meets one comment. INC-9's own
-third question asks whether a block constrains more than one line and splits it where it does, which
-leaves the evasion and the compliance identical at the checker's rung.
-
-**Charging the ceiling against the sum of the blocks matching one ancestor closes the first half and
-not the second**, which has no ancestor to charge against: that one needs adjacent runs joined before
-either bound is read, changing what `comment-length` reports over every file rather than over a fork
-alone. Whether the two are one repair or two is the decision.
-
-**Deliberately not taken beside the matching rule it sits on.** A logic change stacked on
-`scripts/checks/docs_gate/branch.py :: _fork_ceiling`'s overlap match would reach the gate before that
-match has refused anything, so a defect in either would be attributed to the other.
-
-**Done when** the checker measures what a reader counts as one block, and
-`scripts/tests/test_branch_checks.py` carries a scenario that splits an over-bound block and one that
-stacks two blocks above a single line.
-
 ### `c8rx-gqun` · A citation naming an invariant is proved by a substring, so one resolving to a sheet that does not define it passes
 
 | Tags            | Status | Depends on |
@@ -3973,47 +3937,6 @@ follow one variable, are different changes with different blast radii.
 published metadata to the real origin written where a deploy would otherwise break it
 (`docs/frontend/spec.md :: 1.7 Environment`).
 
-### `h4wq-p7ct` · A block carried into a file the fork does not hold is charged to the branch that only moved it
-
-| Tags                   | Status | Depends on |
-| ---------------------- | ------ | ---------- |
-| Ops, Docs, gate, tests | Open   | —          |
-
-Lands with: `bpve-vhag`, `spq6-zy2d`
-
-**INC-9 matches a block to its earlier self by the lines the two versions share, and
-`scripts/checks/docs_gate/branch.py :: check_comment_bounds` offers `:: check_comment_length` the
-candidates from one path.** It passes `partial(_blob_at, fork, rel)`, so a file the branch adds has no
-fork version at all, `:: _fork_ceiling` is handed an empty candidate list, and every block in that
-file already over the bound is reported as one the branch wrote.
-[`docs/_standard/standard.md`](../_standard/standard.md#in-code) and
-[`worked-examples.md`](../_standard/worked-examples.md#a-block-over-the-bound-can-be-finished-already)
-both describe the candidates as the blocks the fork held over the bound and name no path, so what is
-narrow here is the implementation and not the rule.
-
-**What it costs is the file split, not the prose.** Moving a group of cases out of a long module is
-the repair available where the suite distributes over `--dist loadfile` and sends each module whole
-to one worker; with the check as it stands, the region that may move is bounded by which blocks
-happen to sit under the bound rather than by which cases belong together. Compressing them instead
-is the repair INC-9 names as wrong, and what an over-bound docstring in a test module carries is
-INC-8's own content — which case is load-bearing, and the failure the name cannot state — which
-COR-5 refuses to cut.
-
-**`bpve-vhag` is the same function failing the other way**: there one ancestor's count is handed to
-every block matching it, here no ancestor is offered at all. Widening the candidate pool multiplies
-that double-spend, and closing `spq6-zy2d` on its own turns a rename's silence into this entry's
-charge over every block that rename carried, the fork holding the old path and not the new one —
-which is why the three are settled in one pass.
-
-**A git spawn per file is what the current shape buys, and what a widening spends.** The fork blob is
-read lazily, and only for a file whose touched blocks already stand over the bound; a pool drawn from
-the fork's tree pays once per run instead. Whether that pool should be the whole tree or only the
-paths this branch deleted from is the decision the pass takes.
-
-**Done when** a block carried unchanged into a file the fork does not hold keeps the ceiling it had,
-and `scripts/tests/test_branch_checks.py` carries a scenario that moves an over-bound block to a path
-the fork has no version of and reads the silence back.
-
 ### `hnx7-zbb9` · One field list is drift-guarded on the backend and hand-written on the frontend
 
 | Tags                   | Status | Depends on |
@@ -4500,36 +4423,6 @@ documentation gate could take it only with a bash reader it has no other use for
 one shape is the doubt this leaves**, and what holds the awk and the python to one another is the
 closing session's decision; the cheap form is the check owning the lead-in as a constant and a
 `scripts/tests/` case asserting the step's reader carries the same literal.
-
-### `spq6-zy2d` · A file that arrives as a rename brings its comment blocks in as context, so INC-9 measures none of them
-
-| Tags      | Status | Depends on |
-| --------- | ------ | ---------- |
-| Ops, gate | Open   | —          |
-
-Lands with: `bpve-vhag`, `h4wq-p7ct`
-
-**`scripts/checks/docs_gate/branch.py :: check_comment_length` reads a block only where the branch
-touched a line inside it, and a rename puts no line of a carried block in the branch's added set.**
-`scripts/checks/docs_gate/branch.py :: _added_by_file` derives that set from `git diff -U0` against
-the fork point, deliberately without a pathspec so git has something to detect a rename against — its
-own docstring says so — and a detected rename emits hunks for the edited lines alone, so every
-comment block that came across untouched is context and INC-9 measures nothing in it at any length.
-Verified 2026-08-28 by replaying that parse over a commit that renamed a 27-line
-component, where it yields ten added lines and the rest of the file, comments included, is context under the
-new path.
-
-**The fork-side exemption does not reach this case.** Its ground is that a branch must not be failed
-for prose it did not come to change. A file the branch moved is the branch's at its new path, and no
-line of a carried block is one the branch declined to touch — every line arrived with the move.
-
-**Turning rename detection off is not the repair.** `:: _added_by_file` also feeds
-`scripts/checks/docs_gate/branch.py :: branch_additions`, which `check_history_phrases` reads, so a
-moved file counted as wholly added would report every history phrase inside it as the branch's own
-prose.
-
-**Done when** the narrower question is decided: whether `check_comment_length` alone should treat a
-rename's destination as added while the set the other branch-scoped checks read stays as it is.
 
 ### `sqwz-xyxg` · An enforcement claim is resolved in one direction only
 

@@ -9,7 +9,7 @@ from functools import cache, partial
 from pathlib import Path
 from typing import Final, Iterable
 
-from checker_kernel import git
+from checker_kernel import git, git_input
 
 from .kernel import (
     OPS_FILENAMES,
@@ -124,20 +124,80 @@ def _blocks_over_bound(text: str, style: str) -> list[tuple[frozenset[str], int]
     ]
 
 
-def _fork_ceiling(block: list[str], older: list[tuple[frozenset[str], int]]) -> int | None:
-    """What this block ran to at the fork, or None where the fork carried no block of its."""
+Ancestor = tuple[frozenset[str], int]
+
+BATCH_HEADER: Final = " blob "
+
+
+@cache
+def _fork_pool(fork: str) -> list[Ancestor] | None:
+    """Every block the fork's tree held over the bound.
+
+    A read per path finds nothing where the fork holds no such file: a block carried into one
+    keeps its earlier self wherever the fork filed it.
+    """
+    listing = git("-c", "core.quotePath=false", "ls-tree", "-r", "-z", fork)
+    if listing is None:
+        return None
+    named: list[tuple[str, str]] = []
+    for record in listing.split("\0"):
+        meta, _, rel = record.partition("\t")
+        fields = meta.split(" ")
+        if len(fields) == 3 and fields[1] == "blob" and _bounded(rel):
+            named.append((fields[2], rel))
+    if not named:
+        return []
+    batch = git_input("cat-file", "--batch", stdin="\n".join(oid for oid, _ in named) + "\n")
+    if batch is None:
+        return None
+    pool: list[Ancestor] = []
+    at = 0
+    for index, (oid, rel) in enumerate(named):
+        # Each record opens where the last closed and on the oid asked for: a byte size cannot
+        # index a decoded stream, and a looser split takes a content line for a header.
+        if not batch.startswith(oid + BATCH_HEADER, at):
+            return None
+        start = batch.find("\n", at) + 1
+        following = named[index + 1][0] if index + 1 < len(named) else None
+        end = len(batch) if following is None else batch.find("\n" + following + BATCH_HEADER, start)
+        if end == -1:
+            return None
+        pool.extend(_blocks_over_bound(batch[start:end].rstrip("\n"), comment_style(REPO_ROOT / rel)))
+        at = end + 1
+    return pool
+
+
+def _fork_ancestor(block: list[str], older: list[Ancestor]) -> Ancestor | None:
+    """The fork block this one came from, or None where the fork carried none of its lines."""
     lines = frozenset(line for line in block if line)
     # Never the opening line as a key: it drops the exemption the moment a writer improves that
     # sentence, which pays them to leave the worst prose in the file exactly as it stands.
-    matched = max(
+    return max(
         (candidate for candidate in older if candidate[0] & lines),
         key=lambda candidate: (len(candidate[0] & lines), candidate[1]),
         default=None,
     )
-    return None if matched is None else matched[1]
 
 
-def check_comment_length(path: Path, raw: str, added: set[int], fork_text: Callable[[], str | None] | None = None) -> list[Finding]:
+def _fork_charges(runs: list[tuple[int, list[str]]], older: list[Ancestor]) -> dict[Ancestor, int]:
+    """What the blocks sharing one ancestor run to together, which is what its ceiling buys.
+
+    A ceiling handed out per block pays a writer to split an over-bound block and keep both
+    halves over it.
+    """
+    charges: dict[Ancestor, int] = {}
+    for _, block in runs:
+        # Every over-bound block, touched or not: leaving the original standing while copying it
+        # doubles the prose one ceiling was written for.
+        ancestor = _fork_ancestor(block, older) if _over_bound(block) else None
+        if ancestor is not None:
+            charges[ancestor] = charges.get(ancestor, 0) + word_count(_block_text(block))
+    return charges
+
+
+def check_comment_length(
+    path: Path, raw: str, added: set[int], fork_blocks: Callable[[], list[Ancestor] | None] | None = None
+) -> list[Finding]:
     """A comment block this branch touched, unless the branch found it over the bound already.
 
     Requiring the WHOLE block to be added missed every one a branch lengthened; failing a word
@@ -151,8 +211,10 @@ def check_comment_length(path: Path, raw: str, added: set[int], fork_text: Calla
     endpoints = _endpoint_docstrings(raw) if style == ".py" and rel.startswith(ENDPOINT_TREE) else frozenset()
 
     found: list[Finding] = []
-    older: list[tuple[frozenset[str], int]] | None = None
-    for first_line, block in comment_runs(raw, style):
+    runs = comment_runs(raw, style)
+    charges: dict[Ancestor, int] = {}
+    older: list[Ancestor] | None = None
+    for first_line, block in runs:
         numbers = range(first_line, first_line + len(block))
         if added.isdisjoint(numbers) or not _over_bound(block):
             continue
@@ -161,20 +223,27 @@ def check_comment_length(path: Path, raw: str, added: set[int], fork_text: Calla
         if routed and publishes:
             continue  # INC-4's contract, at a rung no bound written for a comment reaches
         if older is None:
-            # Read here rather than per call: the fork costs a git spawn per file, and a file whose
-            # touched blocks all keep the bound never needs one.
-            before = fork_text() if fork_text is not None else None
-            older = [] if before is None else _blocks_over_bound(before, style)
+            # Read here rather than per call: the pool costs one listing and one batch, and a file
+            # whose touched blocks all keep the bound never needs either.
+            older = (fork_blocks() if fork_blocks is not None else None) or []
+            charges = _fork_charges(runs, older)
         words = word_count(text)
-        ceiling = _fork_ceiling(block, older)
-        if ceiling is not None and words <= ceiling:
+        ancestor = _fork_ancestor(block, older)
+        ceiling = None if ancestor is None else ancestor[1]
+        charged = words if ancestor is None else charges.get(ancestor, words)
+        if ceiling is not None and charged <= ceiling:
             continue
-        found.append(Finding("fail", "comment-length", rel, _bound_detail(words, ceiling, routed, publishes), first_line))
+        found.append(Finding("fail", "comment-length", rel, _bound_detail(words, ceiling, charged, routed, publishes), first_line))
     return found
 
 
-def _bound_detail(words: int, ceiling: int | None, routed: bool, publishes: bool) -> str:
+def _bound_detail(words: int, ceiling: int | None, charged: int, routed: bool, publishes: bool) -> str:
     """What a block over the bound is told, which differs by why the exemptions did not reach it."""
+    if ceiling is not None and charged > words:
+        return (
+            f"the comment block runs {words} words, and the blocks matching its earlier self run {charged} together,"
+            f" up from {ceiling} where the branch forked -- INC-9 lets neither number rise"
+        )
     if ceiling is not None:
         return f"the comment block runs {words} words, up from {ceiling} where the branch forked -- INC-9 lets neither number rise"
     if routed:
@@ -281,15 +350,6 @@ def _branch_scope_skipped(checks: str, missing: str) -> Finding:
     return Finding("fail", "branch-scope", "(branch diff)", f"{checks} did not run: git could not {missing}")
 
 
-@cache
-def _blob_at(fork: str, rel: str) -> str | None:
-    """One file as the fork commit holds it, or None where the commit has no such file.
-
-    Cached: several checks ask for the same page's earlier version, and `git show` is a process each.
-    """
-    return git("show", f"{fork}:{rel}")
-
-
 def check_prose_shas(paths: Iterable[Path]) -> list[Finding]:
     """No commit SHA is named in prose or in a comment (COR-6).
 
@@ -316,10 +376,29 @@ def _added_by_file(fork: str) -> dict[str, list[tuple[int, str]]] | None:
     One diff, walked once: a lone pathspec leaves git nothing to detect a rename against. Against
     the working tree, the gate running before the commit exists.
     """
+    return _walk_added(_diff_at(fork))
+
+
+@cache
+def _added_ignoring_renames(fork: str) -> dict[str, list[tuple[int, str]]] | None:
+    """The same walk with rename detection off, which `check_comment_length` alone reads.
+
+    A detected rename emits hunks for the edited lines alone, so a block carried into the
+    destination is skipped at any length.
+    """
+    return _walk_added(_diff_at(fork, "--no-renames"))
+
+
+def _diff_at(fork: str, *extra: str) -> str | None:
+    """The branch's diff against the fork, in the one shape both walks read."""
     # Both overrides beat a developer's own config, which silently drops a whole file otherwise:
     # `core.quotePath` spells a non-ASCII path `"b/f\303\274r.md"`, and `diff.noprefix` drops the
     # `b/` this walk keys on. `kernel.py :: _listed` reaches for `-z` against the same hazard.
-    diff = git("-c", "core.quotePath=false", "diff", "-U0", "--src-prefix=a/", "--dst-prefix=b/", fork)
+    return git("-c", "core.quotePath=false", "diff", "-U0", *extra, "--src-prefix=a/", "--dst-prefix=b/", fork)
+
+
+def _walk_added(diff: str | None) -> dict[str, list[tuple[int, str]]] | None:
+    """One diff's added lines per file, or None where git would not give the diff."""
     if diff is None:
         return None
     added: dict[str, list[tuple[int, str]]] = {}
@@ -412,7 +491,7 @@ def check_branch_diff(branch: Branch) -> list[Finding]:
     """
     if branch.fork is None:
         return [_branch_scope_skipped(DIFF_READERS, branch.unresolved)]
-    if _added_by_file(branch.fork) is not None:
+    if _added_by_file(branch.fork) is not None and _added_ignoring_renames(branch.fork) is not None:
         return []
     return [_branch_scope_skipped(DIFF_READERS, "read this branch's diff")]
 
@@ -433,7 +512,10 @@ def check_comment_bounds(branch: Branch) -> list[Finding]:
         return []
     # The one diff, rather than a second `--name-only` call: a file changed by deletions alone has
     # no added line for a block to sit inside.
-    added = _added_by_file(fork)
+
+    # Rename detection off for this reader alone: `branch_additions` keeps the map beside it, where
+    # every history phrase in a moved file would otherwise read as the branch's own prose.
+    added = _added_ignoring_renames(fork)
     if added is None:
         return []
     found: list[Finding] = []
@@ -444,5 +526,5 @@ def check_comment_bounds(branch: Branch) -> list[Finding]:
         raw = _read_text(path)[0]
         if raw is None:
             continue
-        found.extend(check_comment_length(path, raw, {number for number, _ in added[rel]}, partial(_blob_at, fork, rel)))
+        found.extend(check_comment_length(path, raw, {number for number, _ in added[rel]}, partial(_fork_pool, fork)))
     return found

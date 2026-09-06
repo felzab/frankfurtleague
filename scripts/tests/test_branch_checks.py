@@ -26,6 +26,7 @@ MOD: Final = "fl_backend/app/mod.py"
 SIDE: Final = "fl_backend/app/side.py"
 LEGACY: Final = "fl_backend/app/legacy.py"
 FRESH: Final = "fl_backend/app/fresh.py"
+MOVED: Final = "fl_backend/app/moved.py"
 # The document INC-4's exemption is taken from, and the tree the second listing is read out of.
 OPENAPI: Final = "fl_backend/openapi.json"
 NOTES: Final = "docs/notes.md"
@@ -291,6 +292,19 @@ def _scope_refusal(missing: str) -> tuple[str, str, str, str]:
 
 LONG_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + LONG_TEXT for _ in range(6))
 LONG_WORDS: Final = len(" ".join([LONG_TEXT] * 6).split())
+
+# The committed over-bound block, as the fixture spells it and as the ceiling scenarios move it.
+LEGACY_LINES: Final[tuple[str, ...]] = (LEGACY_OPEN, LEGACY_MID, LEGACY_END)
+LEGACY_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + line for line in LEGACY_LINES)
+LEGACY_WORDS: Final = len(" ".join(LEGACY_LINES).split())
+
+
+def _shared_fail(rel: str, words: int, charged: int, ceiling: int) -> tuple[str, str, str, str]:
+    detail = (
+        f"the comment block runs {words} words, and the blocks matching its earlier self run {charged} together,"
+        f" up from {ceiling} where the branch forked -- INC-9 lets neither number rise"
+    )
+    return ("fail", "comment-length", rel, detail)
 
 
 def test_a_clean_branch_arms_nothing_and_reports_nothing() -> None:
@@ -654,6 +668,53 @@ def test_lengthening_an_older_block_fails_and_names_both_numbers() -> None:
     grown = committed + len(ADDED_CLAUSE.split())
     detail = f"the comment block runs {grown} words, up from {committed} where the branch forked -- INC-9 lets neither number rise"
     assert _findings(data, "comment-length") == [("fail", "comment-length", LEGACY, detail)]
+
+
+def test_a_split_block_spends_its_earlier_self_s_ceiling_once_between_the_halves() -> None:
+    """Two blocks as long as the one they came from are what a per-block ceiling waves through."""
+    _reset()
+    _replace(LEGACY, "\n".join(LEGACY_BLOCK), "\n".join(LEGACY_BLOCK) + "\n\n" + "\n".join(LEGACY_BLOCK))
+    first = _line_of(LEGACY, LEGACY_BLOCK[0])
+    try:
+        data = _run()
+    finally:
+        _reset()
+    charged = LEGACY_WORDS * 2
+    # The half the diff leaves as context is charged and not reported: what the branch can fix is
+    # the half it wrote (CUR-6).
+    assert _findings(data, "comment-length") == [_shared_fail(LEGACY, LEGACY_WORDS, charged, LEGACY_WORDS)]
+    assert _lines(data, "comment-length") == [first + len(LEGACY_BLOCK) + 1]
+
+
+def test_a_block_moved_to_a_path_the_fork_has_no_version_of_keeps_its_standing() -> None:
+    """Drawn from the one path, the pool is empty at the destination and a carried block reads as new."""
+    _reset()
+    root = _root()
+    _replace(LEGACY, "\n" + "\n".join(LEGACY_BLOCK), "")
+    write(root, FRESH, _page(QUOTES + "BACKEND · the module the block moved into." + QUOTES, "", "VALUE = 1", "", *LEGACY_BLOCK))
+    try:
+        data = _run()
+    finally:
+        _reset()
+    # The source file leaves no addition behind, the move being a deletion there.
+    assert sorted(data["additions"]) == [FRESH]
+    assert _findings(data, "comment-length") == []
+
+
+def test_a_renamed_file_s_carried_block_is_charged_beside_the_copy_added_next_to_it() -> None:
+    """A rename's carried lines arrive as context, so the block holding them spends none of its ceiling."""
+    _reset()
+    root = _root()
+    git(root, "mv", LEGACY, MOVED)
+    _append(MOVED, *LEGACY_BLOCK)
+    first = _line_of(MOVED, LEGACY_BLOCK[0])
+    try:
+        data = _run()
+    finally:
+        _reset()
+    charged = LEGACY_WORDS * 2
+    assert _findings(data, "comment-length") == [_shared_fail(MOVED, LEGACY_WORDS, charged, LEGACY_WORDS)] * 2
+    assert _lines(data, "comment-length") == [first, first + len(LEGACY_BLOCK) + 1]
 
 
 def test_a_list_s_markers_cost_a_block_nothing() -> None:
