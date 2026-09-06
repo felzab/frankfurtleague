@@ -169,7 +169,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                       </Table.Cell>
 
                       {/* `-strong`, not the plain accents: a figure this size is text and answers to
-                          4.5:1, where the plain accents measure 3.15:1 to 4.44:1 on the card's ground
+                          4.5:1, where the plain accents measure 3.15:1 to 4.73:1 on the card's ground
                           in the light theme. */}
                       <Table.Cell className="font-numeric fluid-xs px-1 py-4 text-center font-medium tabular-nums lg:px-2">
                         <span className="text-success-strong font-semibold">{teamData.statistik.siege}</span>-

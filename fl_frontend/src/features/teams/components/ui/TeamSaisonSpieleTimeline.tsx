@@ -13,7 +13,7 @@ import type { FLSpielErgebnisFor } from "@/features/spiele/utils";
 
 /**
  * The `-solid` fills rather than the tint accents: these are small bold glyphs on an opaque fill,
- * and a white "D" on the plain accent measured 3.44:1 in light and 1.77:1 in dark. The ring keeps
+ * and a white "D" on the plain accent measured 3.44:1 in light and 2.70:1 in dark. The ring keeps
  * the tint accent, being decoration.
  */
 const badgeColor = (ergebnisFor: FLSpielErgebnisFor): string => {

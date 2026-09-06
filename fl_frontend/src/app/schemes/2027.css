@@ -27,8 +27,8 @@
     --bg-hover-danger: #f2d8d6;
     /* One value for both themes, because the fills they answer to do not flip either. */
     --accent-brand-solid-hover: #1b5123;
-    /* 4.89:1 against the white it carries — re-measure if either half moves. */
-    --accent-danger-solid-hover: #c5453d;
+    /* 5.03:1 against the white it carries — re-measure if either half moves. */
+    --accent-danger-solid-hover: #d22e30;
 
     /* Lifted off the fill's own lightness to 3.06:1 against --fg-base (WCAG G183), so an accent
        word and a link separate from the sentence around them; neither is underlined here. */
@@ -46,29 +46,34 @@
        light and never text there. */
     --accent-on-brand: #8fc752;
 
-    /* The conventional hue per family — amber, red, green, blue — at moderate chroma: a result
-       reads before its label does, and a hue moved off convention costs that reading. */
+    /* The conventional hue per family — amber, red, green, blue: a result reads before its label
+       does, and a hue moved off convention costs that reading. */
+    /* Near the sRGB ceiling for their lightness, because a tint takes its colour from these at 15%
+       and a grey accent leaves a grey tint. */
     --accent-warn: #bb7e00;
-    --accent-danger: #c84341;
+    --accent-danger: #d2272b;
     /* Emerald rather than the brand's yellow-green, so a score and an eyebrow stay two colours. */
-    --accent-success: #048752;
-    --accent-info: #466fbd;
+    --accent-success: #028b4f;
+    --accent-info: #2d69de;
 
-    /* Text grade for the four feedback accents, which are tuned for fills:
-       `text-warning` measures 2.70:1 on its /15 tint against this grade's 5.01:1. */
-    --accent-success-strong: #116741;
-    --accent-info-strong: #325caf;
+    /* Text grade for the four feedback accents, which are tuned for fills: `text-warning`
+       measures 2.70:1 on its /15 tint against this grade's 5.01:1. */
+    /* Each sits at or near the sRGB ceiling for the lightness 4.5:1 on --bg-muted allows: full
+       chroma reads deep, half chroma reads grey. Amber has no room; at this lightness its
+       ceiling is a brown. */
+    --accent-success-strong: #006a3e;
+    --accent-info-strong: #1853c6;
     --accent-warn-strong: #865400;
-    --accent-danger-strong: #b02a2a;
+    --accent-danger-strong: #b71920;
 
     /* Fill grade: one value per family that does NOT flip, each carrying the on-colour paired to
-       it, so the pair holds in both themes — white on the plain warning accent is 1.77:1 dark. */
-    --accent-success-solid: #1e7c50;
-    --accent-warn-solid: #eebb58;
-    --accent-danger-solid: #b02a2a;
+       it, so the pair holds in both themes — white on the plain warning accent is 2.70:1 dark. */
+    --accent-success-solid: #007742;
+    --accent-warn-solid: #ecae30;
+    --accent-danger-solid: #b71920;
     --fg-on-success: #ffffff;
     /* Near-black, alone among the three, and a literal because an on-colour does not flip: white
-       on this fill measures 1.77:1, and an amber dark enough to carry white reads as brown. */
+       on this fill measures 1.96:1, and an amber dark enough to carry white reads as brown. */
     --fg-on-warn: #0a0a0a;
     --fg-on-danger: #ffffff;
 
@@ -76,18 +81,20 @@
        fits. A hue arc from 205° to 357°, so they run in hue order with the phases. */
     --accent-phase-gruppenphase: #006e77;
     --accent-phase-achtelfinale: #00689b;
-    --accent-phase-viertelfinale: #5d53ae;
-    --accent-phase-halbfinale: #8a428e;
-    --accent-phase-finale: #9e3a64;
+    --accent-phase-viertelfinale: #5d4ebb;
+    --accent-phase-halbfinale: #903996;
+    --accent-phase-finale: #a52f64;
 
     /* One value per theme rather than a shared alpha: the sweep has to out-lighten the
        `--bg-muted` block under it in both. */
     --skeleton-sweep: color-mix(in srgb, #ffffff 55%, transparent);
 
-    /* HeroUI's --accent is a blue, and it fills a checked `Switch`'s track with
-       --accent-foreground on its thumb. Taken as a token because a CSS rule may not reach past a
-       toast's shell. */
-    --accent: #466fbd;
+    /* HeroUI's --accent fills a checked `Switch`'s track under --accent-foreground on its thumb,
+       and tints the squad page's `Avatar`; nothing else here reaches it. Taken as a token because
+       a CSS rule may not reach past a toast's shell. */
+    /* The brand text grade restated, and it moves with --accent-brand: a checked control wears the
+       primary colour, and on the info blue every switch read as a notice. */
+    --accent: #216c2d;
     --accent-foreground: #ffffff;
   }
 
@@ -108,7 +115,7 @@
     --bg-hover-muted: #373737;
     --bg-hover-danger: #321918;
     --accent-brand-solid-hover: #1b5123;
-    --accent-danger-solid-hover: #c5453d;
+    --accent-danger-solid-hover: #d22e30;
 
     /* Lightened for dark surfaces: the light value is 2.90:1 on --bg-surface, this is 8.74:1.
        Lindengrün's hue under the chroma `--accent-on-brand` carries: full chroma glows on a
@@ -116,43 +123,45 @@
     --accent-brand: #8dbf6c;
     --accent-brand-solid: #033f11;
     --accent-on-brand: #8fc752;
-    /* Chroma held under the light theme's for every accent below: a saturated colour on a
-       near-black ground reads as a glow rather than as a colour. */
-    --accent-warn: #eebb58;
-    --accent-danger: #db6c66;
-    --accent-success: #60ba87;
-    --accent-info: #779ee6;
+    /* Every accent below sits at the lowest lightness its floors allow and at two thirds to four
+       fifths of the sRGB ceiling there. Both halves matter on near-black: full chroma at high
+       lightness glows, half chroma there is pastel. */
+    --accent-warn: #c99436;
+    --accent-danger: #e64340;
+    --accent-success: #36a467;
+    --accent-info: #4c82e8;
 
     /* On dark surfaces the relationship inverts: the text variant is LIGHTER than the fill accent. */
-    /* Success sits eight OKLab L points above danger, so a reader who cannot tell the two hues
+    /* Success sits seven OKLab L points above danger, so a reader who cannot tell the two hues
        apart still tells a played score from an unplayed one by lightness. */
-    --accent-success-strong: #84d2a5;
-    --accent-info-strong: #97bbfb;
-    --accent-warn-strong: #f4cf7d;
-    --accent-danger-strong: #ed8079;
+    --accent-success-strong: #57c886;
+    --accent-info-strong: #7ea7f3;
+    --accent-warn-strong: #ecae30;
+    --accent-danger-strong: #e96c64;
 
     /* Unflipped, like --accent-brand-solid: each is a fill carrying the on-colour paired to it, and
        flipping one would break the pair it exists to hold. */
-    --accent-success-solid: #1e7c50;
-    --accent-warn-solid: #eebb58;
-    --accent-danger-solid: #b02a2a;
+    --accent-success-solid: #007742;
+    --accent-warn-solid: #ecae30;
+    --accent-danger-solid: #b71920;
     --fg-on-success: #ffffff;
     --fg-on-warn: #0a0a0a;
     --fg-on-danger: #ffffff;
 
-    /* The same arc, lifted for the dark surface at the chroma the accents above hold. */
-    --accent-phase-gruppenphase: #48beca;
-    --accent-phase-achtelfinale: #60b4ec;
-    --accent-phase-viertelfinale: #a3a0f3;
-    --accent-phase-halbfinale: #d190d4;
-    --accent-phase-finale: #e78aac;
+    /* The same arc, lifted for the dark surface: each at the lightness its own /10 tint pair
+       needs, and the chroma its hue's ceiling leaves there. */
+    --accent-phase-gruppenphase: #36bdcb;
+    --accent-phase-achtelfinale: #45b4f8;
+    --accent-phase-viertelfinale: #a19cf9;
+    --accent-phase-halbfinale: #d886dd;
+    --accent-phase-finale: #f27eab;
 
     /* Far lower alpha than the light theme: the same 55% would read as a white bar, not a sheen. */
     --skeleton-sweep: color-mix(in srgb, #ffffff 9%, transparent);
 
     /* The foreground flips although the app's own on-colours do not: it is the thumb on a checked
-       `Switch`'s track, where white on this lighter blue measures 2.69:1 and near-black 7.37:1. */
-    --accent: #779ee6;
+       `Switch`'s track, where white on this lighter green measures 2.14:1 and near-black 9.24:1. */
+    --accent: #8dbf6c;
     --accent-foreground: #0a0a0a;
   }
 }
