@@ -47,8 +47,9 @@ closing commit's trailer names it.
 | **Slice**   | the directory names under `fl_frontend/src/features/` and `fl_backend/app/api/` | a whole path segment matching one of them, anywhere in the path                    |
 
 **`BE` reaches the whole package rather than its `app/`**, because a backend test otherwise carries
-`tests` and no surface at all, which hides a backend failure from a reader filtering on `BE`. `Docs` covers `docs/` and `.claude/` under one tag, and no second tag splits them: the two sets are
-identical, so a split would state one fact twice (COR-2). `DB` and `versions` are the two a path
+`tests` and no surface at all, which hides a backend failure from a reader filtering on `BE`. `Docs` covers `docs/` and `.claude/` under one tag, and no second tag splits them: both trees are
+documentation to the reader filtering on it. A hook under `.claude/hooks/` earns `Ops` and `gate`
+beside it, being a guard the gate probes. `DB` and `versions` are the two a path
 need not produce — a collection name and a manifest are named in prose — so either may stand where
 no path derives it, and neither may be missing where one does.
 
@@ -3238,8 +3239,9 @@ removes the cost above rather than paying it.
 sweep walking the In-code Scope's trees for a file of a kind the gate cannot read asserts against
 the rebuild rather than against the gate's own answer.
 
-**Two guards bound the shapes it can follow silently**: the rebuild refuses a `_bounded` reading more
-than one suffix register, and one selecting by tree. Neither catches a condition added to `_bounded`
+**One guard bounds the shapes it can follow silently**: the rebuild admits a `_bounded` whose body
+reads exactly the two registers it names and refuses every other module-level name, a tree register
+under any spelling among them. It does not catch a condition added to `_bounded`
 that widens what it bounds — the rebuild then bounds less than the gate does, the sweep finds nothing
 and passes, and a file the gate hands to the `#` reader goes unreported. Widening in the other
 direction fails loudly, so the quiet half is the one to close.

@@ -231,7 +231,8 @@ platform.
 
 **The local stack points both application services at its own database through compose's
 `environment`**, so no `.env` is edited and no run is left aimed at the wrong cluster
-(`docker-compose.local.yml`, whose invariant block holds the argument for each override). The same
+(`docker-compose.local.yml`, whose invariant block lists the overrides while each argument sits at
+the line it constrains). The same
 block sets `BEWERBUNG_SWEEP` off, because the database is a copy of production and
 `fl_frontend/.env` holds the real `AUTH_RESEND_KEY`: an armed sweep here mails the league's actual
 contact people, and one checked-in line is what a developer flips to exercise it (§1.1).

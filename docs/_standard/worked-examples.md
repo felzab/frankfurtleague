@@ -339,8 +339,8 @@ of its two halves, so it stays over it (INC-9).
 rather than a judgment.** Gate check `comment-length` holds a block the fork already carried over the
 bound to the word count it ran to there rather than to the bound.
 `scripts/checks/docs_gate/branch.py :: _fork_ancestor` matches a block to its earlier self by the
-content lines the two share — **any one shared line is a match**, the largest overlap wins, and a tie
-goes to the largest fork word count. The candidates are the blocks the fork held **over** the bound,
+content lines the two share — **half of this block's own lines is a match**, the largest overlap
+wins, and a tie goes to the largest fork word count. The candidates are the blocks the fork held **over** the bound,
 anywhere in its tree, so a block carried into a file the fork has no version of keeps its standing.
 The consequences, each of which otherwise costs a rebase to discover:
 
@@ -350,12 +350,12 @@ The consequences, each of which otherwise costs a rebase to discover:
 - **This block may not grow.** Its ceiling is the count it ran to at the fork rather than the bound,
   so a clause added to it fails the branch at a number the bound alone never reaches, and the finding
   names both.
-- **A block is new only where it shares no content line with any block the fork held over the
-  bound, at whatever path the fork filed it under.** Otherwise it inherits that block's ceiling
-  however little else it has in common, so a block written from scratch this branch can pass at a
-  length the bound would refuse. Read a pass as the check's answer about matching rather than as a
-  verdict on the prose: COR-5's test and INC-9's three questions decide the block, and the ceiling
-  only says what the gate will let through.
+- **A block is new where fewer than half its own content lines sit in any one block the fork held
+  over the bound, at whatever path the fork filed it under.** Padding a fresh block with a line
+  lifted from a legacy one therefore buys nothing, while a block that keeps half of itself inherits
+  that ceiling however differently the rest of it reads. Read a pass as the check's answer about
+  matching rather than as a verdict on the prose: COR-5's test and INC-9's three questions decide
+  the block, and the ceiling only says what the gate will let through.
 - **The blocks in one file matching this one are charged together, against one standing for each
   copy that arrives there and never more than the fork filed in the file this one forked from — a
   rename git detects included.** Split this block in two and the halves are charged against the

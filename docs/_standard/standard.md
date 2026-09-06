@@ -258,9 +258,10 @@ These bind every written artifact. A comment is documentation and carries every 
 ## In-code
 
 Scope: every tracked file of a kind `scripts/checks/docs_gate/kernel.py :: SCANNED_SUFFIXES` or
-`:: OPS_FILENAMES` selects, wherever it sits — the source trees `fl_frontend/src`,
+`:: OPS_FILENAMES` selects, and, for the rules here that read prose rather than comments, every file
+`:: PROSE_FILENAMES` names, wherever it sits — the source trees `fl_frontend/src`,
 `fl_backend/app`, `fl_backend/tests` and `scripts/`, the hook folders `.claude/hooks/` and
-`.githooks/`, and the Dockerfile, workflow and manifest outside all of them. **A tree is in scope
+`.githooks/`, and the Dockerfile, workflow, manifest and notice outside all of them. **A tree is in scope
 for those kinds and never whole**, because `scripts/checks/docs_gate/kernel.py :: comment_style`
 answers every kind rather than refusing one, handing an unrecognised suffix to the shell-comment
 reader; the kind register is the only thing keeping an image under `fl_frontend/src` out of it.
@@ -419,10 +420,14 @@ README and every template.
   `3. Violation → remedy`; and `4. Known-open`. The invariant table is three columns — the number,
   the invariant, and what enforces it. Numbers are `I<n>` on a surface sheet and `L<n>` on the
   logging sheet, permanent and
-  never reused; **the `I<n>` band is one namespace across every surface sheet**, so a new row takes
-  one past the highest number any sheet defines and a citation crossing sheets still names its
-  sheet, while `L<n>` is the logging sheet's own band and is allocated against that. **Section 2
-  holds that table and nothing else**; a symptom a reader would observe is a row in section 3.
+  never reused; **the `I<n>` band is one namespace across every sheet at `docs/*/spec.md`** — OUT-8's
+  three surfaces, the pipeline sheet and the logging sheet, which is the set
+  `scripts/checks/docs_gate/branch.py :: _spec_sheet` reads — so a new row takes one past the highest
+  number any sheet defines and a citation crossing sheets still names its
+  sheet, while `L<n>` is the logging sheet's own band and is allocated against that. **A number more
+  than one sheet already defines stands**: the namespace binds what a branch allocates rather than
+  what the sheets hold, and renumbering a shared one would repoint every citation of it for nothing.
+  **Section 2 holds that table and nothing else**; a symptom a reader would observe is a row in section 3.
   Section 4 holds the accepted gaps in the sheet's own words, so a known limitation never reads as an
   oversight and gets "fixed"; **its shape is the writer's** (COR-8), and a gap carrying a finding, a
   procedure and a refusal at once is a list entry rather than a cell losing one of the three, the

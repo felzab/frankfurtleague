@@ -15,6 +15,8 @@ import argparse
 import posixpath
 import re
 import sys
+from bisect import bisect_right
+from collections.abc import Callable
 from functools import cache
 from pathlib import Path, PurePosixPath
 from typing import Any, Final
@@ -739,16 +741,24 @@ def _check_status_agreement(rel: str, rows: dict[str, str], filed: dict[str, tup
             detail = f"index row {token} states `{row_status}` where its entry states `{entry_status}` -- one status, written twice"
             found.append(Finding("fail", "roadmap-shape", rel, detail))
         for where, value in (("index row", row_status), ("entry", entry_status)):
-            # The transient value is `_check_transient_status`' finding, and an empty one is a cell
-            # the entry has yet to write: reporting either here would give one defect two findings.
-            if vocabulary and value and value != ROADMAP_TRANSIENT_STATUS and value not in vocabulary:
+            # An empty cell is reported here or nowhere: it agrees with the empty cell beside it, so
+            # the arm above passes a page emptied on both sides. The transient value is
+            # `_check_transient_status`' finding, which this arm therefore leaves alone.
+            if not value:
+                found.append(Finding("fail", "roadmap-shape", rel, f"{where} {token} states no status"))
+            elif vocabulary and value != ROADMAP_TRANSIENT_STATUS and value not in vocabulary:
                 detail = f"{where} {token} states `{value}`, which is no status `{PROTOCOL_PAGE}` §4 derives"
                 found.append(Finding("fail", "roadmap-shape", rel, detail))
         # `Blocked` is a claim about another entry, so it is held to the `Depends on` beside it --
         # token by token, one filed being enough, since a cell names every blocker at once.
         if ROADMAP_BLOCKED_STATUS in (row_status, entry_status):
             cell = fields.get(DEPENDS_COLUMN, "")
-            if not any(named in rows for named in BACKTICK_RE.findall(cell) or [cell.strip()]):
+            named = BACKTICK_RE.findall(cell) or [cell.strip()]
+            # Its own token resolves against the index like any other, so the arm below reads a
+            # blocker where the entry named nothing.
+            if token in named:
+                found.append(Finding("fail", "roadmap-shape", rel, f"entry {token} is {ROADMAP_BLOCKED_STATUS} on itself"))
+            elif not any(one in rows for one in named):
                 detail = f"entry {token} is {ROADMAP_BLOCKED_STATUS} and its `{DEPENDS_COLUMN}` names no entry this page holds"
                 found.append(Finding("fail", "roadmap-shape", rel, detail))
     return found
@@ -1682,6 +1692,26 @@ def unwrapped(body: str, markers: tuple[str, ...] = ()) -> str:
     return _wrap_re(markers).sub(" ", body)
 
 
+def _source_line(body: str, markers: tuple[str, ...]) -> Callable[[int], int]:
+    """An offset in the joined body read back to its line in the file.
+
+    `line_of` answers wrongly here: the join replaces each wrap with a space, so the joined text is
+    short of a line at every one of them.
+    """
+    opens = [(0, 0)]
+    shift = 0
+    for match in _wrap_re(markers).finditer(body):
+        shift += match.end() - match.start() - 1
+        opens.append((match.end() - shift, match.end()))
+    starts = [joined for joined, _ in opens]
+
+    def at(offset: int) -> int:
+        run = bisect_right(starts, offset) - 1
+        return line_of(body, opens[run][1] + offset - starts[run])
+
+    return at
+
+
 def _resolve(file_part: str) -> list[Path]:
     """A citation may give a repo path, a package-relative one, or an unambiguous bare filename."""
     if holds_file(file_part):
@@ -1732,7 +1762,7 @@ def _anchor_names(anchor: str) -> tuple[str, ...] | None:
     return parts if all(part.isidentifier() for part in parts) else None
 
 
-def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]]) -> list[Finding]:
+def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], citing: frozenset[int] | None = None) -> list[Finding]:
     """A <file> :: <anchor> citation: the file must exist, and the anchor must be defined there.
 
     By name in Python, by a table row for an invariant id, and by presence anywhere else.
@@ -1791,13 +1821,19 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]]) -
             return []
         elsewhere = f"{' and '.join(homes)} defines it" if homes else "no tracked spec sheet's table defines it"
         return [Finding("fail", "citation", rel, f"anchor '{anchor}' is no invariant row of {where} -- {elsewhere}")]
-    spellings = [line for line in content.split("\n") if anchor in line]
+    lines = content.split("\n")
+    spellings = {number for number, line in enumerate(lines, start=1) if anchor in line}
     if not spellings:
         return [Finding("fail", "citation", rel, f"anchor '{anchor}' no longer appears in {where}")]
     # A file citing itself proves the anchor with the citing line, so renaming the block it points
     # at leaves this green. The Python and invariant arms above list definitions and never presence.
-    if where == rel and all(citation in line for line in spellings):
-        return [Finding("fail", "citation", rel, f"anchor '{anchor}' is spelled in {where} only on the line citing it")]
+    if where == rel:
+        # Where the citation sits, by line rather than by its text: a continuation and a wrapped
+        # citation resolve to a run no line spells. A caller with no offsets leaves it None, the
+        # lines spelling the citation standing in.
+        on = citing if citing is not None else {number for number in spellings if citation in lines[number - 1]}
+        if not spellings - on:
+            return [Finding("fail", "citation", rel, f"anchor '{anchor}' is spelled in {where} only on the line citing it")]
     return []
 
 
@@ -1815,32 +1851,38 @@ def _files_named(joined: str) -> list[tuple[int, str]]:
     return sorted(named)
 
 
-def _continuations(joined: str, rel: str, invariants: dict[str, list[str]]) -> list[Finding]:
+def _continuations(joined: str, rel: str, invariants: dict[str, list[str]], source_line: Callable[[int], int]) -> list[Finding]:
     """Every `:: <anchor>` continuation, resolved against the last file named above it.
 
     An anchor that is itself a filename names a SIBLING of that file rather than a symbol in it,
     which is how a table cell lists two modules of one folder.
     """
-    carried = [(match.start(), match.group(1).strip()) for match in CONTINUATION_RE.finditer(joined) if not is_placeholder(match.group(1))]
+    carried = [
+        (match.start(1), match.end(1), match.group(1).strip())
+        for match in CONTINUATION_RE.finditer(joined)
+        if not is_placeholder(match.group(1))
+    ]
     if not carried:
         return []
     named = _files_named(joined)
     found: list[Finding] = []
-    pairs: set[tuple[str, str]] = set()
-    for at, anchor in carried:
+    pairs: dict[tuple[str, str], set[int]] = {}
+    for at, ends, anchor in carried:
         antecedent = next((spelling for offset, spelling in reversed(named) if offset < at), None)
         if antecedent is None:
             detail = f"`:: {anchor}` continues a citation, and no file is named above it"
-            found.append(Finding("fail", "citation", rel, detail, line_of(joined, at)))
+            found.append(Finding("fail", "citation", rel, detail, source_line(at)))
             continue
-        pairs.add((antecedent, anchor))
-    for antecedent, anchor in sorted(pairs):
+        # A continuation's citing line is its OWN, never the antecedent's: the file it resolves
+        # against can be named paragraphs above, where the anchor has nothing to prove.
+        pairs.setdefault((antecedent, anchor), set()).update(range(source_line(at), source_line(ends - 1) + 1))
+    for (antecedent, anchor), lines in sorted(pairs.items()):
         if anchor.endswith(CITABLE_SUFFIXES):
             sibling = (PurePosixPath(antecedent).parent / anchor).as_posix()
             if not holds_file(sibling) and not is_gitignored(sibling):
                 found.append(Finding("fail", "citation", rel, f"`:: {anchor}` names no file beside {antecedent}"))
             continue
-        found.extend(_check_citation(f"{antecedent} :: {anchor}", rel, invariants))
+        found.extend(_check_citation(f"{antecedent} :: {anchor}", rel, invariants, frozenset(lines)))
     return found
 
 
@@ -1905,12 +1947,18 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
     cites = "::" in body
     cites_lines = LINE_CITATION_HINT_RE.search(body) is not None
     if cites or cites_lines:
-        joined = unwrapped(body, () if prose else continuation_markers(style))
+        markers = () if prose else continuation_markers(style)
+        joined = unwrapped(body, markers)
         if cites:
-            for citation in sorted(set(CITATION_RE.findall(joined))):
-                if not is_placeholder(citation):
-                    found.extend(_check_citation(citation, rel, invariants))
-            found.extend(_continuations(joined, rel, invariants))
+            source_line = _source_line(body, markers)
+            citing: dict[str, set[int]] = {}
+            for match in CITATION_RE.finditer(joined):
+                if not is_placeholder(match.group(1)):
+                    lines = range(source_line(match.start(1)), source_line(match.end(1) - 1) + 1)
+                    citing.setdefault(match.group(1), set()).update(lines)
+            for citation in sorted(citing):
+                found.extend(_check_citation(citation, rel, invariants, frozenset(citing[citation])))
+            found.extend(_continuations(joined, rel, invariants, source_line))
 
         # Nothing else can detect one: it stays syntactically valid and merely stops pointing at what
         # it names, so it has to be caught at the form.

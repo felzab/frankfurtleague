@@ -1,7 +1,7 @@
 """SCRIPTS · the refusal-code register, held to the two source trees that spell its codes.
 
-Nothing under `scripts/` opened that page before this check, so a row for a code no tree raises and
-a code no row explains were both silent. The comparison is PREFIX-AWARE because the frontend spells
+This module is the page's one reader under `scripts/`, so a row for a code no tree raises, and a
+code no row explains, are caught here or nowhere. The comparison is PREFIX-AWARE because the frontend spells
 the backend's codes to word them for a reader: a shared population would read every one of those as
 the frontend's own and demand nothing of the backend at all.
 

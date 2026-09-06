@@ -66,8 +66,8 @@ vocabulary on its own.
 (`:: BANNED`), every trailer name but `Closes` in a closing paragraph it reads as trailers
 (`:: TRAILER_EVIDENCE_RE`), a line that paragraph carries twice, every `Closes:` value that is
 not a token (`:: CLOSES_RE`), and a line past the hard maximum (`:: LINE_MAX`) — a subject over it
-unconditionally, a body line unless it is one unbroken token or carries a long URL, which wrapping
-would break (`:: UNWRAPPABLE`). A hyphenless name earns that reading on its value: one unbroken token ending in
+unless git wrote the message (`:: GENERATED_SUBJECT`), a body line unless it is one unbroken token or
+carries a long URL, which wrapping would break (`:: UNWRAPPABLE`). A hyphenless name earns that reading on its value: one unbroken token ending in
 no sentence punctuation, so `Verified: green` is read as a trailer and refused while a closing
 `Verified: the gate returned exit 0.` is prose.
 

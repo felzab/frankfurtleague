@@ -16,7 +16,6 @@ from .kernel import (
     INVARIANT_ROW_RE,
     OPS_FILENAMES,
     PROSE_FILENAMES,
-    QUOTED_SPAN_RE,
     REPO_ROOT,
     SCANNED_SUFFIXES,
     SOURCE_SUFFIXES,
@@ -187,12 +186,16 @@ def _fork_pool(fork: str) -> list[Ancestor] | None:
 
 
 def _fork_ancestor(block: list[str], older: list[Ancestor]) -> Ancestor | None:
-    """The fork block this one came from, or None where the fork carried none of its lines."""
+    """The fork block this one came from, or None where too little of it is the fork's.
+
+    Half its own lines: a moved or edited block shares most of itself; one padded with a borrowed
+    line does not.
+    """
     lines = frozenset(line for line in block if line)
     # Never the opening line as a key: it drops the exemption the moment a writer improves that
     # sentence, which pays them to leave the worst prose in the file exactly as it stands.
     return max(
-        (candidate for candidate in older if candidate.lines & lines),
+        (candidate for candidate in older if 2 * len(candidate.lines & lines) >= len(lines)),
         key=lambda candidate: (len(candidate.lines & lines), candidate.words),
         default=None,
     )
@@ -325,10 +328,12 @@ REVIEW_REF_RE: Final = re.compile(
 LOOSE_ID_RE: Final = re.compile(r"\b[a-z0-9]{4}-[a-z0-9]{4}\b")
 
 
-# An issue number's spelling, whose tracker sits outside this history (INC-6). Three shapes carry
-# the same run and name no issue: `&#39;` an entity, `#2-invariants` a hyphenated slug, and `#000;`
-# or `#000)` a hex colour.
-ISSUE_REF_RE: Final = re.compile(r"(?<!&)#\d+(?![\w\-;)])")
+# An issue number's spelling, whose tracker sits outside this history (INC-6). Two runs carry the
+# shape and name no issue whatever the kind: `&#39;` an entity, `#2-invariants` a hyphenated slug.
+ISSUE_REF_RE: Final = re.compile(r"(?<!&)#\d+(?![\w\-])")
+# The third belongs to the file kind rather than to the punctuation: "#000;" and "#000)" are a
+# colour where a stylesheet writes them, and "(#412)" is what GitHub appends to a squash subject.
+STYLESHEET_ISSUE_REF_RE: Final = re.compile(r"(?<!&)#\d+(?![\w\-;)])")
 
 # A fourth and a fifth, which the run in FRONT of the hash is what separates: a scheme anywhere in
 # it makes a URL fragment, and a corpus suffix at its end makes an anchor into a page.
@@ -346,9 +351,13 @@ def _locates(before: str) -> bool:
     return "://" in run or run.endswith(LOCATION_SUFFIXES)
 
 
-# Taken off before `QUOTED_SPAN_RE`'s spans: a one-line docstring opens and closes on a pair of
+# Taken off before `SPOKEN_SPAN_RE`'s spans: a one-line docstring opens and closes on a pair of
 # them, so the whole of it reads as quoted and nothing inside it is ever seen.
 TRIPLE_QUOTE_RE: Final = re.compile(r"\"{3}|'{3}")
+
+# The runs a mention sits in, which is `kernel.py :: QUOTED_SPAN_RE` without its backtick arm: a
+# number marked up as code is being cited rather than named, so backticks spare nothing here.
+SPOKEN_SPAN_RE: Final = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”")
 
 
 def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
@@ -372,8 +381,9 @@ def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
             )
         # This pattern alone reads the body with its quoted runs taken out, as `check_owner_voice`
         # reads one for COR-11: a comment naming the shape to ban it is a mention rather than a use.
-        mentions = QUOTED_SPAN_RE.sub("", TRIPLE_QUOTE_RE.sub("", body))
-        issues = {hit.group(0) for hit in ISSUE_REF_RE.finditer(mentions) if not _locates(mentions[: hit.start()])}
+        mentions = SPOKEN_SPAN_RE.sub("", TRIPLE_QUOTE_RE.sub("", body))
+        pattern = STYLESHEET_ISSUE_REF_RE if rel.endswith(".css") else ISSUE_REF_RE
+        issues = {hit.group(0) for hit in pattern.finditer(mentions) if not _locates(mentions[: hit.start()])}
         for issue in sorted(issues):
             found.append(Finding("fail", "comment-citation", rel, f"issue number {issue} in an added comment -- state the constraint (INC-6)"))
     return found
@@ -446,13 +456,21 @@ def _fork_invariants(fork: str) -> dict[str, frozenset[str]] | None:
 
 
 def _added_invariants(additions: dict[str, list[str]]) -> dict[str, frozenset[str]]:
-    """The invariant numbers a branch's added rows declare, per spec sheet."""
-    declared = {
-        rel: frozenset(match.group(1) for line in lines if (match := INVARIANT_ROW_RE.match(line)))
-        for rel, lines in additions.items()
-        if _spec_sheet(rel)
-    }
-    return {rel: numbers for rel, numbers in declared.items() if numbers}
+    """The invariant numbers a branch's added rows declare, per spec sheet.
+
+    Sectioned as `_fork_invariants` sections the fork's side: a row under the remedy table defines
+    nothing, so judging its number fails a branch at an allocation it never made.
+    """
+    declared: dict[str, frozenset[str]] = {}
+    for rel, lines in additions.items():
+        if not _spec_sheet(rel):
+            continue
+        numbers = frozenset(match.group(1) for line in lines if (match := INVARIANT_ROW_RE.match(line)))
+        raw = _read_text(REPO_ROOT / rel)[0]
+        tabled = frozenset() if raw is None else frozenset(invariant_rows(strip_fences(raw)))
+        if allocated := numbers & tabled:
+            declared[rel] = allocated
+    return declared
 
 
 # The digits of an `I<n>` id, a suffix included. `L<n>` is the logging sheet's own band, allocated

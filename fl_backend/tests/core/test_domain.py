@@ -66,8 +66,17 @@ _ENDPOINT = re.compile(r"^(GET|POST|PUT|PATCH|DELETE) (/\S*)$")
 _SURFACE = re.compile(r"^/\S*$")
 _REPO_PATH = re.compile(r"^[\w.\-]+(?:/[\w.\-]*)+$")
 _INDEX_KEY = re.compile(r"^\(([a-z_]+(?:, [a-z_]+)+)\)$")
+# Ahead of the name shape, which every letter-and-digit token satisfies: an `I<n>` resolves against
+# the invariant tables, one namespace across the surface sheets with the logging band beside it
+# (OUT-4).
+_INVARIANT = re.compile(r"^[IL]\d{1,3}[a-z]?$")
 _NAME = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$")
 _WORD = re.compile(r"[A-Za-z_]\w*")
+
+_SPEC_SHEETS = "docs/*/spec.md"
+_INVARIANTS_HEADING = re.compile(r"^## 2\. Invariants *$", re.MULTILINE)
+_SECTION_HEADING = re.compile(r"^## ", re.MULTILINE)
+_INVARIANT_ROW = re.compile(r"^\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
 
 # The kinds that name no address, spared by shape and never by a list of tokens: a stored value, a
 # field beside the value it holds, and a type expression.
@@ -154,6 +163,25 @@ def _names_the_source_trees_spell() -> frozenset[str]:
     return frozenset(words)
 
 
+@functools.cache
+def _invariants_the_spec_sheets_define() -> frozenset[str]:
+    """Every number a sheet's own `## 2. Invariants` table declares.
+
+    Read here rather than through the documentation gate: `scripts/` is another package, and this
+    suite runs with the backend virtualenv alone on its path.
+    """
+
+    numbers: set[str] = set()
+    for sheet in sorted(REPO_ROOT.glob(_SPEC_SHEETS)):
+        text = sheet.read_text(encoding="utf-8")
+        opened = _INVARIANTS_HEADING.search(text)
+        if opened is None:
+            continue
+        closing = _SECTION_HEADING.search(text, opened.end())
+        numbers.update(_INVARIANT_ROW.findall(text[opened.end() : closing.start() if closing else len(text)]))
+    return frozenset(numbers)
+
+
 def _classify(token: str) -> tuple[str, bool | None]:
     """The kind, and whether it resolves -- `None` where the kind has no address, parting a spared value from one nothing answers for."""
 
@@ -186,6 +214,9 @@ def _classify(token: str) -> tuple[str, bool | None]:
 
     if key := _INDEX_KEY.match(token):
         return "index key", tuple(key.group(1).split(", ")) in _declared_index_keys()
+
+    if _INVARIANT.match(token):
+        return "invariant", token in _invariants_the_spec_sheets_define()
 
     if _NAME.match(token):
         return "name", all(segment in _names_the_source_trees_spell() for segment in token.split("."))
@@ -516,6 +547,14 @@ def test_every_anchor_a_reason_names_resolves(entry):
             unresolved.append(f"`{token}` ({kind})")
 
     assert not unresolved, f"'{entry.subject}' argues from {unresolved}, which this repository answers for nowhere"
+
+
+def test_an_invariant_number_resolves_against_the_spec_sheets_rather_than_the_source_trees():
+    """A letter and a digit is a word either tree spells, so read as a bare name a renamed row resolves."""
+
+    assert _classify("I1") == ("invariant", True)
+    assert _classify("L1") == ("invariant", True)
+    assert _classify("I999") == ("invariant", False)
 
 
 def test_every_kind_of_anchor_a_reason_names_resolves_at_least_once():

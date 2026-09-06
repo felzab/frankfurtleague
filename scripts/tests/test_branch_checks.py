@@ -75,7 +75,12 @@ ISSUE_REF: Final = HASH + "412"
 QUALIFIED_ISSUE: Final = "owner/repo" + ISSUE_REF
 ENTITY: Final = "&" + HASH + "39;"
 ANCHOR: Final = "docs/backend/spec.md" + HASH + "2-invariants"
-QUOTED_BAN: Final = "`closes " + HASH + "12`"
+QUOTED_BAN: Final = '"closes ' + HASH + '12"'
+# Three spellings of one number, each an issue number outside a stylesheet: the form GitHub appends
+# to a squash subject, the terminated one, and the one a comment marks up as code.
+PAREN_ISSUE: Final = "(" + ISSUE_REF + ")"
+TERMINATED_ISSUE: Final = ISSUE_REF + ";"
+BACKTICKED_ISSUE: Final = "`" + ISSUE_REF + "`"
 # Two runs carrying the shape and pointing at a location: a URL's fragment, and a numeric anchor
 # into a page, which the hyphenated slug's lookahead does not reach.
 URL_FRAGMENT: Final = "https://example.com/page" + HASH + "12"
@@ -444,6 +449,14 @@ LEGACY_LINES: Final[tuple[str, ...]] = (LEGACY_OPEN, LEGACY_MID, LEGACY_END)
 LEGACY_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + line for line in LEGACY_LINES)
 LEGACY_WORDS: Final = len(" ".join(LEGACY_LINES).split())
 
+# One of that block's three lines under two the fork never held, and short of the words the legacy
+# block runs to: the shape a ceiling keyed on any single shared line waves through.
+PADDED_FIRST: Final = "a fresh line the padded block writes, sharing nothing with any block the fork committed"
+PADDED_SECOND: Final = "a second fresh line of the padded block, so its own lines outnumber the one it shares"
+PADDED_LINES: Final[tuple[str, ...]] = (LEGACY_OPEN, PADDED_FIRST, PADDED_SECOND)
+PADDED_BLOCK: Final[tuple[str, ...]] = tuple(HASH + " " + line for line in PADDED_LINES)
+PADDED_WORDS: Final = len(" ".join(PADDED_LINES).split())
+
 
 def _shared_fail(rel: str, words: int, charged: int, ceiling: int) -> tuple[str, str, str, str]:
     detail = (
@@ -519,6 +532,21 @@ def test_an_issue_number_inside_a_one_line_docstring_is_read_too() -> None:
     """
     _reset()
     _append(MOD, "", "def read():", "    " + QUOTES + "The shape " + ISSUE_REF + " asks for." + QUOTES, "    return VALUE")
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert MOD in data["additions"]
+    assert _findings(data) == [_issue_fail(MOD)]
+
+
+def test_a_closer_or_a_backtick_after_the_number_leaves_it_an_issue_number() -> None:
+    """The three spellings the colour exemption spared while it keyed on punctuation.
+
+    One finding between them: the check reports the number rather than each run carrying it.
+    """
+    _reset()
+    _append(MOD, HASH + " " + PAREN_ISSUE + " and " + TERMINATED_ISSUE + " and " + BACKTICKED_ISSUE)
     try:
         data = _run()
     finally:
@@ -729,6 +757,27 @@ def test_an_invariant_row_outside_the_fork_s_own_section_defines_nothing() -> No
         _reset()
     assert FRONTEND_SPEC in data["additions"]
     assert _findings(data) == []
+
+
+def test_an_added_invariant_row_outside_this_sheet_s_own_section_allocates_nothing() -> None:
+    """The added side is sectioned as the fork side is, so the two are one reader.
+
+    Unsectioned it draws an allocation finding for a row the sheet's own table never defines.
+    """
+    _reset()
+    stray = _row(GAPPED_ID, "A row of the invariant shape under the remedy table")
+    kept = _row(FRONTEND_ID, "One page renders")
+    try:
+        _replace(FRONTEND_SPEC, "| A value nothing names | Name it |", "| A value nothing names | Name it |\n" + stray)
+        outside = _run()
+        _reset()
+        _replace(FRONTEND_SPEC, kept, kept + "\n" + stray)
+        inside = _run()
+    finally:
+        _reset()
+    assert FRONTEND_SPEC in outside["additions"] and FRONTEND_SPEC in inside["additions"]
+    assert _findings(outside) == []
+    assert _findings(inside) == [_outside_fail(FRONTEND_SPEC, GAPPED_ID, FREE_ID)]
 
 
 def test_a_sheet_git_cannot_read_as_a_rename_has_every_row_it_kept_charged_as_a_new_one() -> None:
@@ -1064,6 +1113,23 @@ def test_a_block_copied_into_a_second_file_spends_no_part_of_the_first_s_ceiling
         _reset()
     assert sorted(data["additions"]) == [SIDE]
     assert _findings(data, "comment-length") == []
+
+
+def test_a_block_padded_with_one_borrowed_line_inherits_no_ceiling() -> None:
+    """A moved or edited block shares most of itself; one line lifted from a legacy block is not that.
+
+    Its total stays under the legacy block's own count, so any ceiling it inherits waves it through.
+    """
+    _reset()
+    _append(SIDE, *PADDED_BLOCK)
+    line = _line_of(SIDE, PADDED_BLOCK[0])
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert PADDED_WORDS < LEGACY_WORDS, "the padded block outgrew the ceiling it must not reach"
+    assert _findings(data, "comment-length") == [_bound_fail(SIDE, PADDED_WORDS)]
+    assert _lines(data, "comment-length") == [line]
 
 
 def test_a_second_copy_in_another_file_buys_a_new_block_no_ceiling() -> None:

@@ -2155,6 +2155,47 @@ def test_a_citation_a_file_makes_about_itself_is_proved_by_some_other_line_or_by
     _assert_corpus_restored()
 
 
+def test_a_continuation_a_file_makes_about_itself_is_read_as_a_self_citation() -> None:
+    """A continuation is joined from an antecedent, so its joined form sits on no line of the file.
+
+    The second run is the evidence the arm reads the OTHER lines, as the whole citation's case is.
+    """
+    _reset()
+    spelled = "a continued anchor the line above spells"
+    try:
+        _append(SAMPLE, HASH + " see `" + SAMPLE + "` and `:: a continued anchor no other line spells`")
+        _, alone = _run()
+        _reset()
+        _append(SAMPLE, HASH + " " + spelled, HASH + " see `" + SAMPLE + "` and `:: " + spelled + "`")
+        _, elsewhere = _run()
+    finally:
+        _reset()
+    assert alone[("fail", "citation", SAMPLE)] == 1, "a continuation resolving only against its own line passed: " + _shape(alone)
+    assert elsewhere[("fail", "citation", SAMPLE)] == 0, "a continued anchor the file spells elsewhere was failed: " + _shape(elsewhere)
+    _assert_corpus_restored()
+
+
+def test_a_self_citation_a_wrap_parts_is_read_as_one_citation_over_both_its_lines() -> None:
+    """Wrapped at the separator, so the joined citation sits on neither line whole.
+
+    The anchor is on the SECOND line, which the citing line has to reach or the arm reports the
+    same pass a whole-line citation would fail.
+    """
+    _reset()
+    spelled = "a wrapped anchor the line above spells"
+    try:
+        _append(SAMPLE, HASH + " see `" + SAMPLE + " ::", HASH + " a wrapped anchor no other line spells`")
+        _, alone = _run()
+        _reset()
+        _append(SAMPLE, HASH + " " + spelled, HASH + " see `" + SAMPLE + " ::", HASH + " " + spelled + "`")
+        _, elsewhere = _run()
+    finally:
+        _reset()
+    assert alone[("fail", "citation", SAMPLE)] == 1, "a wrapped self-citation proved by its own tail passed: " + _shape(alone)
+    assert elsewhere[("fail", "citation", SAMPLE)] == 0, "a wrapped anchor the file spells elsewhere was failed: " + _shape(elsewhere)
+    _assert_corpus_restored()
+
+
 def test_an_entry_naming_a_compose_file_earns_the_ops_and_edge_tags() -> None:
     """Driven through the whole gate rather than through the derivation alone.
 

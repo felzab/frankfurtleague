@@ -21,6 +21,9 @@ from typing import Final
 
 from conftest import git, write
 from test_check_docs import (
+    BLOCKED_ENTRY,
+    BLOCKED_FIELDS,
+    BLOCKED_ROW,
     COPY_SAMPLE,
     DOCS_ENTRY,
     HASH,
@@ -38,6 +41,8 @@ from test_check_docs import (
     SPIELER_PANEL,
     UNDECODABLE_BYTES,
     UNTOKENIZABLE_MODULE,
+    VOCAB_FIELDS,
+    VOCAB_ROW,
     Reported,
     _append,
     _assert_corpus_restored,
@@ -143,6 +148,35 @@ def test_a_batch_naming_an_entry_this_file_holds_stays_silent() -> None:
     """The batching line resolves rather than judges: a token that names an entry is the whole test."""
     reported = _roadmap_findings(lambda: _replace(ROADMAP, SLICE_DONE, SLICE_DONE + "\n\nLands with: " + DOCS_ENTRY))
     assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "a resolvable batch reported anyway: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+EMPTY_STATUS: Final = "|  |"
+
+
+def test_a_status_cell_left_empty_is_reported_in_the_listing_that_holds_it() -> None:
+    """An empty cell agrees with an empty cell, so a page emptied on both sides reads as one that agrees."""
+
+    def emptied() -> None:
+        _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", EMPTY_STATUS))
+        _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", EMPTY_STATUS))
+
+    both = _roadmap_findings(emptied)
+    one = _roadmap_findings(lambda: _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", EMPTY_STATUS)))
+    assert both[("fail", "roadmap-shape", ROADMAP)] == 2, "two empty status cells agreed with each other: " + _shape(both)
+    assert one[("fail", "roadmap-shape", ROADMAP)] == 2, "one empty status cell drew the disagreement alone: " + _shape(one)
+    _assert_corpus_restored()
+
+
+def test_a_blocked_entry_naming_itself_is_blocked_by_nothing() -> None:
+    """Its own token resolves against the index, so the arm reading the column finds an entry and passes."""
+
+    def itself() -> None:
+        _replace(ROADMAP, BLOCKED_ROW, BLOCKED_ROW.replace("| Open |", "| Blocked |"))
+        _replace(ROADMAP, BLOCKED_FIELDS, "| Docs | Blocked | XS | " + _tick(BLOCKED_ENTRY) + " |")
+
+    reported = _roadmap_findings(itself)
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an entry blocked on itself passed: " + _shape(reported)
     _assert_corpus_restored()
 
 
