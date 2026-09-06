@@ -1718,6 +1718,23 @@ def test_a_check_naming_one_page_reads_the_tracked_one() -> None:
     _assert_corpus_restored()
 
 
+def test_a_rule_family_the_patterns_never_spelled_is_read_off_the_standard() -> None:
+    """Read off the list lines, a rule under a new prefix is held to PRE-4 and its citations resolve.
+
+    Two citations, one finding: the planted rule resolves, and the neighbour nobody wrote fails
+    rather than falling outside every pattern.
+    """
+    _reset()
+    _append(STANDARD, "- **DOC-7:** a rule under a family the patterns never spelled. _Enforced by_ review judgment.")
+    _append(NOTES, "A claim citing DOC-7, and one citing DOC-8.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "rule-id", NOTES)] == 1, "a family the standard states was read by no pattern: " + _shape(reported)
+    _assert_corpus_restored()
+
+
 def test_the_standard_leaving_the_index_empties_its_readers_rather_than_raising() -> None:
     """A page out of the index reaches its readers as None, and one that hands it on raises.
 

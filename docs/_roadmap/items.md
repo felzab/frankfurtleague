@@ -174,7 +174,6 @@ deliverable.
 | `txef-hz2b` | Two referees reduced to one published name are one option in the fixture facet                                                                                    | FE, BE, spiele                                                              | Open     |
 | `ua29-4s7q` | COR-6's checks read one spelling of a citation and one of a SHA, and the rule reaches past both                                                                   | Ops, gate                                                                   | Open     |
 | `uayf-u7g4` | The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other                                                                  | FE, Ops, Docs, edge                                                         | Standing |
-| `v48b-waa5` | A rule pattern in the documentation gate reaches less than the rule it enforces                                                                                   | Ops, gate                                                                   | Standing |
 | `v7bs-d859` | The frontend keeps a visual system that no document states                                                                                                        | FE, Docs                                                                    | Open     |
 | `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                                                                 | FE, Docs                                                                    | Open     |
 | `vspa-r35v` | One commit imports a frontend module the commit after it adds                                                                                                     | FE, Docs, ci, tests, saisons                                                | Standing |
@@ -3933,39 +3932,6 @@ the argument for writing it down somewhere.
 **Trigger to revisit:** any Cloudflare bot-protection change, or a report of broken previews.
 Re-running the measurement takes one `curl` per agent and distinguishes an edge block from a markup
 problem immediately.
-
-### `v48b-waa5` · A rule pattern in the documentation gate reaches less than the rule it enforces
-
-| Tags      | Status   | Depends on |
-| --------- | -------- | ---------- |
-| Ops, gate | Standing | —          |
-
-**Not a defect today, and the corpus is why.** Each pattern below matches everything the repository
-currently holds. Each is also narrower than the rule it serves, and where it falls short the gate
-answers with silence rather than a finding.
-
-**The rule families are spelt into the patterns.** `scripts/checks/check_docs.py :: RULE_ID_RE` carries the
-standard's prefixes as a closed alternation, and `scripts/checks/docs_gate/checks.py :: RULE_HEAD_RE` and
-`:: RULE_INDEX_LINE_RE` repeat the same list. A rule family added under a prefix none of them carries falls
-outside all of them at once: citations of its rules resolve to nothing and dangle unreported, and its rules
-are not held to PRE-4's anatomy. **Widening the alternation by hand is not the answer**, because the list is
-closed so that the backend's error codes — which carry an extra segment — can never be read as rule ids. A
-pattern whose prefixes disagree with the standard is a divergence the gate could resolve on its own, the way
-`scripts/checks/check_docs.py :: roadmap_ids` derives the roadmap's ids from the tables defining them instead
-of matching a shape.
-
-**The metadata pattern is anchored at column 0.** `scripts/checks/check_docs.py :: METADATA_LINE_RE` requires
-its bold label to open the line, so `scripts/checks/check_docs.py :: check_metadata_breaks` cannot see a
-metadata block nested inside a list item or a blockquote, and COR-8's hard break goes unchecked there.
-`scripts/checks/check_docs.py :: RULE_FIELD_RE` is that pattern with the anchor relaxed and no check calls
-it, so what it admits reaches nothing: it shows the shape an answer takes rather than being one.
-**Widening the anchored pattern is not free**: this is a discovery pattern run across every page, an
-indented bold label is a shape ordinary prose also takes, and a check that reports prose is a check that
-gets ignored. What an answer has to find is a way to reach the indented block without reaching indented
-prose.
-
-**Trigger to revisit:** a rule family added to the standard under a prefix the patterns do not carry,
-or the first page that needs a metadata block indented.
 
 ### `v7bs-d859` · The frontend keeps a visual system that no document states
 

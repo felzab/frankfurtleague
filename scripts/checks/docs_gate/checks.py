@@ -17,7 +17,7 @@ import re
 import sys
 from functools import cache
 from pathlib import Path, PurePosixPath
-from typing import Final
+from typing import Any, Final
 
 import check_pr_body
 import checker_kernel
@@ -94,22 +94,64 @@ from .scheme import check_scheme_tokens
 
 # The label is bounded because a bold sentence ending in a colon is prose, and holding prose to a
 # layout rule gets a check ignored.
-METADATA_LINE_RE: Final = re.compile(r"^\*\*([A-Z][A-Za-z ]{0,30}):\*\*(?:\s|$)")
+METADATA_LABEL: Final = r"\*\*([A-Z][A-Za-z ]{0,30}):\*\*"
+# Column 0 on purpose: indented, a discovery pattern run over every page meets the bold sentence a
+# list item opens with, and reports prose. An answer would have to tell a nested metadata block
+# from one.
+METADATA_LINE_RE: Final = re.compile(rf"^{METADATA_LABEL}(?:\s|$)")
 # Whitespace before the second label is spared: a report header may carry fields on one physical
 # line on purpose.
-METADATA_JOIN_RE: Final = re.compile(r"(?:(\\n)\s*|(?<=\S))\*\*([A-Z][A-Za-z ]{0,30}):\*\*")
+METADATA_JOIN_RE: Final = re.compile(rf"(?:(\\n)\s*|(?<=\S)){METADATA_LABEL}")
 
 
-RULE_HEAD_RE: Final = re.compile(r"^((?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2})\b(.*)$")
-# The indent-tolerant twin of `METADATA_LINE_RE`, which no check calls: it exists for the corpus to
-# cite through `check_docs.py`'s re-export when arguing what an anchored pattern cannot reach.
-RULE_FIELD_RE: Final = re.compile(r"^[ \t]*\*\*([A-Z][A-Za-z ]{0,30}):\*\*", re.MULTILINE)
-RULE_INDEX_LINE_RE: Final = re.compile(r"^[ \t]*[-*]\s+\*\*((?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2}):\*\*", re.MULTILINE)
+# The families the standard states, read off its list lines by a reader closed on none of them
+# (PRE-4), so a family added under a new prefix is checked from the commit that adds it.
+RULE_LINE_RE: Final = re.compile(r"^[ \t]*[-*]\s+\*\*([A-Z]+)-\d{1,2}:\*\*", re.MULTILINE)
+# Its headings too: a rule written as a section under a new family is the shape `rule-shape`
+# exists to refuse, and a family read off the list lines alone never sees it.
+RULE_HEADING_RE: Final = re.compile(r"^ {0,3}###[ \t]+([A-Z]+)-\d{1,2}\b", re.MULTILINE)
+# Where a pattern below takes the derived alternation.
+FAMILY_SLOT: Final = "<family>"
+
+
+class RulePattern:
+    """A pattern over rule ids, compiled on first use from the families the standard states.
+
+    Lazy, the standard being read per run and never at import; `cache_clear` is what the fixture
+    net's cache reset calls on every memo here.
+    """
+
+    __slots__ = ("_compiled", "_flags", "_template")
+
+    def __init__(self, template: str, flags: int = 0) -> None:
+        self._template = template
+        self._flags = flags
+        self._compiled: re.Pattern[str] | None = None
+
+    def _pattern(self) -> re.Pattern[str]:
+        if self._compiled is None:
+            self._compiled = re.compile(self._template.replace(FAMILY_SLOT, rule_family()), self._flags)
+        return self._compiled
+
+    def cache_clear(self) -> None:
+        self._compiled = None
+
+    def match(self, text: str) -> re.Match[str] | None:
+        return self._pattern().match(text)
+
+    def fullmatch(self, text: str) -> re.Match[str] | None:
+        return self._pattern().fullmatch(text)
+
+    def findall(self, text: str) -> list[Any]:
+        return self._pattern().findall(text)
+
+
+RULE_HEAD_RE: Final = RulePattern(r"^(<family>-\d{1,2})\b(.*)$")
+RULE_INDEX_LINE_RE: Final = RulePattern(r"^[ \t]*[-*]\s+\*\*(<family>-\d{1,2}):\*\*", re.MULTILINE)
 # Runs to the next rule bullet or heading, not to a blank line: a list item's continuation is
 # indented under it, so a blank line inside one ends nothing.
-RULE_INDEX_BLOCK_RE: Final = re.compile(
-    r"^[ \t]*[-*]\s+\*\*(?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2}:\*\*(.*?)"
-    r"(?=^[ \t]*[-*][ \t]+\*\*(?:PRE|COR|INC|OUT|DEC|CUR)-|^#|\Z)",
+RULE_INDEX_BLOCK_RE: Final = RulePattern(
+    r"^[ \t]*[-*]\s+\*\*<family>-\d{1,2}:\*\*(.*?)(?=^[ \t]*[-*][ \t]+\*\*<family>-|^#|\Z)",
     re.MULTILINE | re.DOTALL,
 )
 # Either emphasis marker: prettier rewrites `*text*` to `_text_`, so matching one spelling leaves
@@ -303,6 +345,24 @@ def rule_blocks(text: str) -> list[tuple[str, str, str]]:
         end = next((index for index in range(number + 1, end) if atx_heading(lines[index]) is not None), end)
         blocks.append((match.group(1), match.group(2), "\n".join(lines[number + 1 : end])))
     return blocks
+
+
+@cache
+def rule_prefixes() -> frozenset[str]:
+    """The rule families the standard states, as list lines or as sections, or none where no standard can be read."""
+    text = _tracked_text(STANDARD_PAGE)
+    if text is None:
+        # The disk where the index declines the page: an untracked standard's ids still have to be
+        # recognised, or every citation of one passes in silence instead of failing.
+        raw = _read_text(REPO_ROOT / STANDARD_PAGE)[0]
+        text = None if raw is None else strip_fences(raw)
+    return frozenset(RULE_LINE_RE.findall(text or "")) | frozenset(RULE_HEADING_RE.findall(text or ""))
+
+
+def rule_family() -> str:
+    """The derived families as one alternation, matching nothing where there are none."""
+    prefixes = sorted(rule_prefixes())
+    return "(?:" + "|".join(prefixes) + ")" if prefixes else "(?!)"
 
 
 def rule_ids() -> dict[str, list[str]]:
@@ -1521,8 +1581,10 @@ def continuation_markers(style: str) -> tuple[str, ...]:
     return ("//", "*") if style in CSTYLE_SUFFIXES or style == ".json" else ("#",)
 
 
-# Two segments and a short number, so the backend's three-segment error codes cannot collide.
-RULE_ID_RE: Final = re.compile(r"\b((?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2})\b")
+# Two segments and a short number, so the backend's three-segment refusal codes cannot collide
+# whatever the families: their middle segment is letters (`error_codes.py :: CODE_RE`), which the
+# digits refuse.
+RULE_ID_RE: Final = RulePattern(r"\b(<family>-\d{1,2})\b")
 
 
 INVARIANT_CITE_RE: Final = re.compile(r"(?<![A-Za-z0-9])(I\d{1,3}[a-z]?)(?![A-Za-z0-9])")
