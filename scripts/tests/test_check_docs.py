@@ -1864,9 +1864,9 @@ def test_one_file_s_four_spellings_each_draw_their_own_verdict() -> None:
     _clear_caches(_gate().root / SCRIPTS_COPY)
     inside = SPIELER_PANEL.partition("src/")[2]
     for spelling in (SPIELER_PANEL, SPIELER_PANEL.partition("/")[2], SPIELER_PANEL.rsplit("/", 1)[1]):
-        found = checks._check_citation(spelling + " :: Panel", NOTES)
+        found = checks._check_citation(spelling + " :: Panel", NOTES, {})
         assert not found, spelling + " did not resolve: " + repr([finding.human() for finding in found])
-    refused = [finding.detail for finding in checks._check_citation(inside + " :: Panel", NOTES)]
+    refused = [finding.detail for finding in checks._check_citation(inside + " :: Panel", NOTES, {})]
     assert refused == ["cited path is neither repository-relative nor package-relative: " + inside], repr(refused)
     _assert_corpus_restored()
 
@@ -1883,7 +1883,7 @@ def test_a_citation_whose_case_differs_from_the_tracked_spelling_is_dead_here_to
     # The repository path and the bare name, which reach the listing by different routes: the second
     # is what the name index folding its keys to one case would go on resolving.
     for spelling in ("docs/Glossary.md", "Glossary.md"):
-        found = [finding.check for finding in checks._check_citation(spelling + " :: " + GLOSSARY_ANCHOR, NOTES)]
+        found = [finding.check for finding in checks._check_citation(spelling + " :: " + GLOSSARY_ANCHOR, NOTES, {})]
         assert found == ["citation"], spelling + " resolved anyway: " + repr(found)
     _assert_corpus_restored()
 
@@ -1896,11 +1896,28 @@ def test_a_dead_citation_is_told_apart_from_a_present_file_in_a_refused_spelling
     _reset()
     checks = _module("docs_gate.checks")
     _clear_caches(_gate().root / SCRIPTS_COPY)
-    dead = [finding.detail for finding in checks._check_citation("docs/gone.md :: symbol", NOTES)]
+    dead = [finding.detail for finding in checks._check_citation("docs/gone.md :: symbol", NOTES, {})]
     assert dead == ["cited path names no file in the repository, under any spelling: docs/gone.md"], repr(dead)
     inside = SPIELER_PANEL.partition("src/")[2]
-    spelled = [finding.detail for finding in checks._check_citation(inside + " :: Panel", NOTES)]
+    spelled = [finding.detail for finding in checks._check_citation(inside + " :: Panel", NOTES, {})]
     assert spelled == ["cited path is neither repository-relative nor package-relative: " + inside], repr(spelled)
+    _assert_corpus_restored()
+
+
+def test_an_invariant_citation_is_proved_by_the_sheet_s_table_and_not_by_its_prose() -> None:
+    """A sheet mentions a neighbour's number in prose, and presence would resolve a citation of it there.
+
+    Three citations, one finding: the id the frontend sheet defines, the id two sheets define,
+    and the id it only mentions.
+    """
+    _reset()
+    _replace(FRONTEND_SPEC, "It renders one page.", "It renders one page, and rests on I2 for its output vocabulary.")
+    _append(NOTES, "`docs/frontend/spec.md :: I1`, `docs/backend/spec.md :: I1` and `docs/frontend/spec.md :: I2` are cited.")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 1, "an invariant the sheet only mentions resolved there: " + _shape(reported)
     _assert_corpus_restored()
 
 
@@ -1915,9 +1932,9 @@ def test_a_present_gitignored_file_still_answers_for_its_anchor() -> None:
     checks = _module("docs_gate.checks")
     _clear_caches(root / SCRIPTS_COPY)
     try:
-        live = checks._check_citation(IGNORED_MODULE + " :: VALUE", NOTES)
-        dead = [finding.detail for finding in checks._check_citation(IGNORED_MODULE + " :: MISSING", NOTES)]
-        absent = checks._check_citation("ignored/absent.py :: VALUE", NOTES)
+        live = checks._check_citation(IGNORED_MODULE + " :: VALUE", NOTES, {})
+        dead = [finding.detail for finding in checks._check_citation(IGNORED_MODULE + " :: MISSING", NOTES, {})]
+        absent = checks._check_citation("ignored/absent.py :: VALUE", NOTES, {})
     finally:
         (root / IGNORED_MODULE).unlink()
         _reset()
@@ -1958,7 +1975,7 @@ def test_a_file_the_branch_wrote_and_never_staged_resolves_by_its_repository_pat
     checks = _module("docs_gate.checks")
     _clear_caches(root / SCRIPTS_COPY)
     try:
-        found = checks._check_citation(UNSTAGED_MODULE + " :: VALUE", NOTES)
+        found = checks._check_citation(UNSTAGED_MODULE + " :: VALUE", NOTES, {})
     finally:
         _reset()
     assert not found, [finding.human() for finding in found]

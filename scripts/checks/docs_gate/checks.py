@@ -306,19 +306,28 @@ def rule_ids() -> dict[str, list[str]]:
     return ids
 
 
+def _invariant_rows(body: str) -> list[str]:
+    """The ids a sheet's `## 2. Invariants` table defines, in row order, a repeat kept.
+
+    One reader behind the table check and the homes mapping: a row the table check does not prove
+    is one no citation resolves against.
+    """
+    return INVARIANT_ID_RE.findall(_section(body, SPEC_SECTIONS[1]))
+
+
 def invariant_ids() -> dict[str, list[str]]:
-    """Every `I<n>` an invariant table defines, mapped to the sheets defining it.
+    """Every id an invariant table defines, mapped to the sheets defining it.
 
     The list survives the one namespace OUT-4 now fixes: the low band two sheets each define
     predates it, and renumbering it would invalidate every citation.
     """
     ids: dict[str, list[str]] = {}
     for spec in tracked_glob(SPEC_GLOB):
-        if (text := _read_text(spec)[0]) is None:
+        if (body := _readable(spec)) is None:
             continue
         rel = spec.relative_to(REPO_ROOT).as_posix()
-        for match in INVARIANT_ROW_RE.finditer(text):
-            homes = ids.setdefault(match.group(1), [])
+        for invariant in _invariant_rows(body):
+            homes = ids.setdefault(invariant, [])
             if rel not in homes:
                 homes.append(rel)
     return ids
@@ -867,7 +876,7 @@ def check_invariant_tables() -> list[Finding]:
         return [Finding("fail", "invariant-row", DOCS_DIR, "no tracked spec sheet, so no invariant table is checked")]
 
     bodies = {sheet: body for sheet in sheets if (body := _readable(sheet)) is not None}
-    defined = {match for body in bodies.values() for match in INVARIANT_ID_RE.findall(_section(body, SPEC_SECTIONS[1]))}
+    defined = {invariant for body in bodies.values() for invariant in _invariant_rows(body)}
 
     found: list[Finding] = []
     for sheet, body in bodies.items():
@@ -1530,8 +1539,11 @@ def _anchor_names(anchor: str) -> tuple[str, ...] | None:
     return parts if all(part.isidentifier() for part in parts) else None
 
 
-def _check_citation(citation: str, rel: str) -> list[Finding]:
-    """A <file> :: <anchor> citation: the file must exist and the anchor must appear inside it."""
+def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]]) -> list[Finding]:
+    """A <file> :: <anchor> citation: the file must exist, and the anchor must be defined there.
+
+    By name in Python, by a table row for an invariant id, and by presence anywhere else.
+    """
     file_part, _, anchor = citation.partition(" :: ")
     file_part, anchor = file_part.strip(), anchor.strip()
     if not file_part or not anchor:
@@ -1577,6 +1589,15 @@ def _check_citation(citation: str, rel: str) -> list[Finding]:
         if defined.isdisjoint(names):
             return [Finding("fail", "citation", rel, f"anchor '{anchor}' is not defined in {where}")]
         return []
+    # An invariant id is proved by the sheets whose table defines it, never by presence: a sheet
+    # names a neighbour's number in prose as readily as its own. Among the homes, the low band
+    # being defined twice.
+    if INVARIANT_CITE_RE.fullmatch(anchor):
+        homes = invariants.get(anchor, [])
+        if where in homes:
+            return []
+        elsewhere = f"{' and '.join(homes)} defines it" if homes else "no tracked spec sheet's table defines it"
+        return [Finding("fail", "citation", rel, f"anchor '{anchor}' is no invariant row of {where} -- {elsewhere}")]
     if anchor not in content:
         return [Finding("fail", "citation", rel, f"anchor '{anchor}' no longer appears in {where}")]
     return []
@@ -1596,7 +1617,7 @@ def _files_named(joined: str) -> list[tuple[int, str]]:
     return sorted(named)
 
 
-def _continuations(joined: str, rel: str) -> list[Finding]:
+def _continuations(joined: str, rel: str, invariants: dict[str, list[str]]) -> list[Finding]:
     """Every `:: <anchor>` continuation, resolved against the last file named above it.
 
     An anchor that is itself a filename names a SIBLING of that file rather than a symbol in it,
@@ -1621,7 +1642,7 @@ def _continuations(joined: str, rel: str) -> list[Finding]:
             if not holds_file(sibling) and not is_gitignored(sibling):
                 found.append(Finding("fail", "citation", rel, f"`:: {anchor}` names no file beside {antecedent}"))
             continue
-        found.extend(_check_citation(f"{antecedent} :: {anchor}", rel))
+        found.extend(_check_citation(f"{antecedent} :: {anchor}", rel, invariants))
     return found
 
 
@@ -1675,8 +1696,8 @@ def check_file(path: Path, rules: dict[str, list[str]], invariants: dict[str, li
         if cites:
             for citation in sorted(set(CITATION_RE.findall(joined))):
                 if not is_placeholder(citation):
-                    found.extend(_check_citation(citation, rel))
-            found.extend(_continuations(joined, rel))
+                    found.extend(_check_citation(citation, rel, invariants))
+            found.extend(_continuations(joined, rel, invariants))
 
         # Nothing else can detect one: it stays syntactically valid and merely stops pointing at what
         # it names, so it has to be caught at the form.

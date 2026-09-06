@@ -107,7 +107,6 @@ deliverable.
 | `b732-rpvp` | Most of the database tier runs against collections production would not accept                                                                                    | BE, DB, tests                                                               | Open     |
 | `bfs4-ax6a` | The database fixtures' drift guard cannot see a view, so a body that creates one has a safety net that is not there                                               | BE, DB, tests                                                               | Open     |
 | `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                                                          | FE, BE, Docs, admin, spiele                                                 | Open     |
-| `c8rx-gqun` | A citation naming an invariant is proved by a substring, so one resolving to a sheet that does not define it passes                                               | Ops, Docs, gate                                                             | Open     |
 | `cckv-edvy` | The published document's drift check fails with the command that accepts the drift                                                                                | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                                                               | FE, Docs, tests                                                             | Open     |
 | `crwn-qfp7` | The opening comment block of every file read as a shell script is measured by neither bound                                                                       | Ops, Docs, gate                                                             | Open     |
@@ -1242,40 +1241,6 @@ outside a page-owned editor — so what moves is the payloads rather than where 
 today, so the window is a single administrator's page visit; a second writer arrives in the season
 plan this year (confirmed 2026-08-12), which is what turns that window into a shape two people can
 meet inside.
-
-### `c8rx-gqun` · A citation naming an invariant is proved by a substring, so one resolving to a sheet that does not define it passes
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Ops, Docs, gate | Open   | —          |
-
-**`scripts/checks/docs_gate/checks.py :: _check_citation` proves a symbol is DEFINED where the cited file's
-language can be read for definitions (`scripts/checks/docs_gate/kernel.py :: defined_symbols`), and falls back
-to whether the anchor appears anywhere in the file where it cannot.** A markdown sheet is the case that
-cannot, so a citation naming a spec sheet and an invariant id is still proved by a substring — **which proves
-the id's characters are somewhere in the sheet and nothing more**, whether or not the sheet defines an
-invariant by that number and whether or not that invariant means what the citing page says it means. **The
-live demonstration is already in the corpus:** `docs/frontend/spec.md` defines no invariant in the forties and
-mentions backend invariants from that range in its prose, so a citation naming that sheet and one of those ids
-resolves cleanly against a definition it does not hold.
-
-**Two failure modes, and the second is the dangerous one.** The first is containment: a shorter id is a
-substring of a longer one, so a citation to an invariant a sheet does not define passes as long as one
-starting with the same digits does. The second is collision: a new invariant given a number the sheet already
-uses resolves perfectly, from both directions, while the sheet now defines one number twice. **Nothing detects
-the duplicate either** — `scripts/checks/docs_gate/checks.py :: invariant_ids` walks `:: INVARIANT_ROW_RE`
-over every sheet and appends a sheet to an id's home list only where the sheet is not already in it, so a
-sheet defining one id in two rows is indistinguishable from a sheet defining it once.
-
-**Done when** a citation whose anchor is exactly an invariant id requires the cited sheet to be among
-that id's homes rather than testing for a substring, and a duplicate row within one sheet is reported
-as a finding of its own. The machinery already exists and is already passed in:
-`scripts/checks/check_docs.py` computes the invariant homes and hands them to the per-file check,
-which uses them for `scripts/checks/docs_gate/checks.py :: check_invariant_citations`. **The
-substring fallback stays** for what no reader can index — a shell symbol, a markdown heading, a
-config key — so this narrows the check for one anchor shape rather than replacing the fallback, and
-`scripts/checks/docs_gate/checks.py :: INVARIANT_CITE_RE` is the pattern that already recognises that
-shape.
 
 ### `cckv-edvy` · The published document's drift check fails with the command that accepts the drift
 
