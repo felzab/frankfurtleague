@@ -21,8 +21,10 @@ const REGENERATE = "cd fl_backend && uv run python -m tests.openapi_document --w
 const ABSATZ_DIGESTS: Readonly<Record<string, string>> = {
   "2026-08": "d1e56ea29e00f2d6b76ccd47694f86b268e06024817ed24f7b457c4e22879edd",
   "2026-09-bestaetigung": "b503d29ff41e70cdf5b129b43e0f95568a2849fd0b88d01443b367d07a12d818",
+  "2026-09-bestaetigung-2": "9d075e3f8b6f38e2e70577134c22dc1a2f6c31ddb5390b803e76cf6c510d6a05",
   "2026-09-bestaetigungsseite": "ab6374350b018d60e77cacd226e9f0985ccff24d267d526d594f7abe6858df72",
   "2026-09-bestaetigungsseite-2": "d2fc19ec6a1cb60c4f85c608a706840457f523991f0d86e607323c3861f133b5",
+  "2026-09-bestaetigungsseite-3": "204e3fc9b18349aa1cadf76f30a61298343784214ffa882c655a19dc202fe402",
 };
 
 const absaetzeDigest = (absaetze: readonly string[]): string => createHash("sha256").update(absaetze.join("\n"), "utf8").digest("hex");

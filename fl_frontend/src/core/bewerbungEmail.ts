@@ -54,11 +54,15 @@ const IGNORIER_SATZ = `${IGNORIER_VOR}.`;
 /* What ignoring costs: a contact can end their seat through the link, the submitter can only wait,
    and after the deletion nothing is left to promise. One wording for all three offers a route
    somebody has not got. */
-const IGNORIER_SATZ_EINTRAG = `${IGNORIER_VOR}: Deine Angaben werden nach 14 Tagen gelöscht. Oder widersprich dem Eintrag über den Link, dann entfernen wir sie sofort.`;
+/* Dated, not counted: the reminder and the decline notice go out inside the window, where a day
+   count read from the message at hand is already wrong by however long it has run. */
+const ignorierSatzEintrag = (frist: string): string =>
+  `${IGNORIER_VOR}: Ist die Bewerbung am ${frist} noch unvollständig, löschen wir Deine Angaben mit ihr. Oder widersprich dem Eintrag über den Link, dann entfernen wir sie sofort.`;
 /* Its own wording rather than the singular one over two links: „den Link“ names one of the two the
    message carries, and the reader cannot tell which of them is being offered. */
-const IGNORIER_SATZ_EINTRAG_MEHRERE = `Weiß hier niemand von einer Bewerbung bei der ${BRAND_NAME}? Dann ignoriert diese E-Mail einfach. Für Euch ist nichts zu tun: Eure Angaben werden nach 14 Tagen gelöscht. Oder widersprecht den Einträgen über die Links, dann entfernen wir sie sofort.`;
-const IGNORIER_SATZ_BEWERBUNG = `${IGNORIER_VOR}: Die Bewerbung wird nach 14 Tagen gelöscht.`;
+const ignorierSatzEintragMehrere = (frist: string): string =>
+  `Weiß hier niemand von einer Bewerbung bei der ${BRAND_NAME}? Dann ignoriert diese E-Mail einfach. Für Euch ist nichts zu tun: Ist die Bewerbung am ${frist} noch unvollständig, löschen wir Eure Angaben mit ihr. Oder widersprecht den Einträgen über die Links, dann entfernen wir sie sofort.`;
+const ignorierSatzBewerbung = (frist: string): string => `${IGNORIER_VOR}: Ist die Bewerbung am ${frist} noch unvollständig, löschen wir sie.`;
 const IGNORIER_SATZ_GELOESCHT = `${IGNORIER_VOR}: Die Bewerbung wird jetzt gelöscht.`;
 
 /**
@@ -255,7 +259,7 @@ function renderHtml(nachricht: Nachricht, bloecke: readonly string[]): string {
   return renderKarte({
     titel: ueberschrift(nachricht),
     ueberschrift: `${escapeHtml(headingVor)} ${saisonPhrase(saisonId)}`,
-    bloecke: [renderFakten(fakten), ...bloecke, paragraph(ignorierSatz, "0", ASIDE_TEXT)],
+    bloecke: [renderFakten(fakten), ...bloecke, paragraph(escapeHtml(ignorierSatz), "0", ASIDE_TEXT)],
     aktionen: aktionen,
     fuss: `${EMPFAENGER_SATZ[empfaenger]} ${ANTWORT_SATZ_HTML}`,
   });
@@ -513,7 +517,7 @@ export function buildBewerbungBestaetigungEmail({ saisonId, schule, seats, frist
     // Nothing under the note: every link this message offers already stands in its body, where the
     // text branch's reader has met it in the prose.
     textAktionen: [],
-    ignorierSatz: mehrere ? IGNORIER_SATZ_EINTRAG_MEHRERE : IGNORIER_SATZ_EINTRAG,
+    ignorierSatz: mehrere ? ignorierSatzEintragMehrere(frist) : ignorierSatzEintrag(frist),
   };
 
   const html = renderHtml(nachricht, [
@@ -529,8 +533,8 @@ export function buildBewerbungBestaetigungEmail({ saisonId, schule, seats, frist
     ),
     paragraph(
       mehrere
-        ? "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal; ist die Bewerbung nach 14 Tagen noch unvollständig, löschen wir sie mit allen Angaben."
-        : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal; ist die Bewerbung nach 14 Tagen noch unvollständig, löschen wir sie mit allen Angaben.",
+        ? "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal; ist sie vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben. Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist von vorn."
+        : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal; ist sie vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben. Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist von vorn.",
     ),
     ...fallbackBloecke(seatFallbacks(seats), mehrere ? FALLBACK_SATZ_MEHRERE : FALLBACK_SATZ),
   ]);
@@ -554,7 +558,10 @@ export function buildBewerbungBestaetigungEmail({ saisonId, schule, seats, frist
     mehrere
       ? "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal;"
       : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal;",
-    "ist die Bewerbung nach 14 Tagen noch unvollständig, löschen wir sie mit allen Angaben.",
+    mehrere
+      ? "ist sie vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben."
+      : "ist sie vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben.",
+    "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist von vorn.",
   ]);
 
   return { subject: `Bitte bestätigen: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
@@ -585,7 +592,7 @@ export function buildBewerbungErinnerungEmail({ saisonId, schule, seats, fristTe
     // the link somebody is still looking at would punish the reader it is chasing.
     aktionen: seatAktionen(seats),
     textAktionen: [],
-    ignorierSatz: mehrere ? IGNORIER_SATZ_EINTRAG_MEHRERE : IGNORIER_SATZ_EINTRAG,
+    ignorierSatz: mehrere ? ignorierSatzEintragMehrere(frist) : ignorierSatzEintrag(frist),
   };
 
   const gebeten = mehrere
@@ -688,7 +695,7 @@ export function buildBewerbungEingangOffenEmail({
       { href: FRAGE_AKTION.href, label: FRAGE_AKTION.label, ton: "outline" },
     ],
     textAktionen: [`${FRAGE_AKTION.label}: ${KONTAKT_EMAIL}`],
-    ignorierSatz: IGNORIER_SATZ_BEWERBUNG,
+    ignorierSatz: ignorierSatzBewerbung(frist),
   };
 
   const html = renderHtml(nachricht, [
@@ -799,7 +806,7 @@ export function buildBewerbungGeloeschtEmail({ saisonId, rollenText, ausstehend 
 
   const html = renderHtml(nachricht, [
     paragraph(
-      `14 Tage lang haben nicht alle Kontaktpersonen ihren Eintrag bestätigt. Deshalb löschen wir Deine Bewerbung für die ${saisonPhrase(saisonId)} jetzt ${strong("mit allen Angaben")}, wie angekündigt.`,
+      `Die Frist für die Bestätigungen ist abgelaufen, und nicht alle Kontaktpersonen haben ihren Eintrag bestätigt. Deshalb löschen wir Deine Bewerbung für die ${saisonPhrase(saisonId)} jetzt ${strong("mit allen Angaben")}, wie angekündigt.`,
     ),
     paragraph(
       "Solange die Bewerbungsfrist läuft, kann sich Deine Schule neu bewerben. Frag die Kontaktpersonen am besten vorher, dann klappt es beim zweiten Mal schneller.",
@@ -807,7 +814,7 @@ export function buildBewerbungGeloeschtEmail({ saisonId, rollenText, ausstehend 
   ]);
 
   const text = renderText(nachricht, [
-    "14 Tage lang haben nicht alle Kontaktpersonen ihren Eintrag bestätigt.",
+    "Die Frist für die Bestätigungen ist abgelaufen, und nicht alle Kontaktpersonen haben ihren Eintrag bestätigt.",
     `Deshalb löschen wir Deine Bewerbung für die Saison ${saisonId} jetzt mit allen Angaben, wie angekündigt.`,
     "",
     "Solange die Bewerbungsfrist läuft, kann sich Deine Schule neu bewerben.",
@@ -845,7 +852,7 @@ export function buildBewerbungAblehnungEmail({ saisonId, rollenText, abgelehnt, 
     ],
     aktionen: neuBewerbenAktionen(saisonId),
     textAktionen: neuBewerbenZeilen(saisonId),
-    ignorierSatz: IGNORIER_SATZ_BEWERBUNG,
+    ignorierSatz: ignorierSatzBewerbung(frist),
   };
 
   const html = renderHtml(nachricht, [
