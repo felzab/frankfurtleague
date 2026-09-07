@@ -1,11 +1,11 @@
 """SCRIPTS · the throwaway repository the gate-facing suites build, and the readers that drive one
 
-Five modules copy scripts/ into a temporary tree and import the gate out of the copy, so the checker
-under test roots at a planted corpus rather than at this repository. Of that tree only the building
-and the removal are shared: each module keeps its own corpus, its own plants and its own reset,
-because a fixture shared where a case mutates it would let a planted violation stop being found. The
-readers below hold no state and are shared whole -- a module spelling one for itself answers a
-question nothing else is held to, which is how two copies of one reader come to disagree.
+The gate-facing modules copy scripts/ into a temporary tree and import the gate out of the copy, so
+the checker under test roots at a planted corpus rather than at this repository. Of that tree only
+the building and the removal are shared: each module keeps its own corpus, its own plants and its
+own reset, because a fixture shared where a case mutates it would let a planted violation stop being
+found. The readers below hold no state and are shared whole -- a module spelling one for itself
+answers a question nothing else is held to, which is how two copies of one reader come to disagree.
 
 Invariants:
   Nothing here imports pytest: `scripts/pyrightconfig.json` declares no virtualenv, so it would not resolve.
@@ -38,15 +38,34 @@ IDENTITY: Final[tuple[tuple[str, str], ...]] = (
 _OWNED: list[Path] = []
 
 
+def _failure(args: tuple[str, ...], said: str) -> RuntimeError:
+    """The failure both readers below raise, carrying git's own words.
+
+    Without them the next case fails for a reason nothing explains.
+    """
+    return RuntimeError("git " + " ".join(args) + " failed: " + said)
+
+
 def git(root: Path, *args: str) -> str:
-    """One git command inside a fixture repository, answering its stdout."""
+    """One git command answering its stdout as a message, inside a fixture repository or this one."""
     # `errors="replace"`: a non-utf-8 byte in a fixture's path or message would end the run in a
     # decode error rather than in the finding.
     done = subprocess.run(("git", *args), cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
     if done.returncode != 0:
-        # With git's message, or the next case fails for a reason nothing explains.
-        raise RuntimeError("git " + " ".join(args) + " failed: " + (done.stderr.strip() or done.stdout.strip()))
+        raise _failure(args, done.stderr.strip() or done.stdout.strip())
     return done.stdout.strip()
+
+
+def _listed(root: Path, *args: str) -> list[str]:
+    """One git listing's NUL-separated paths, decoded as a filename.
+
+    `git` above reads a message: it strips a leading space off a path and replaces a byte it cannot
+    decode, either of which rewrites a name a caller opens.
+    """
+    done = subprocess.run(("git", *args), cwd=root, capture_output=True, check=False)
+    if done.returncode != 0:
+        raise _failure(args, done.stderr.decode("utf-8", "replace").strip())
+    return [os.fsdecode(entry) for entry in done.stdout.split(b"\0") if entry]
 
 
 def write(root: Path, rel: str, text: str) -> None:
@@ -64,16 +83,22 @@ def copy_scripts(destination: Path, *, source: Path = REPO_ROOT / "scripts") -> 
     reading this tree while a fixture copies it.
     """
     destination.mkdir(parents=True, exist_ok=True)
-    # `--others` beside `--cached`: a module a branch has only just written is one the suite must
-    # still test through the copy, and `--exclude-standard` is what leaves the caches behind.
-    for rel in git(source, "ls-files", "--cached", "--others", "--exclude-standard", "-z").split("\0"):
+    # `--others` beside `--cached`: a module a branch has only just written is one the copy must
+    # still hold. The tree's own ignore files and never `--exclude-standard`, whose global half
+    # would leave a fixture holding what one developer's configuration says.
+    for rel in _listed(source, "ls-files", "--cached", "--others", "--exclude-per-directory=.gitignore", "-z"):
         # The fixture holds the gate's own corpus, and the suite that drives the gate is no part of it.
-        if not rel or rel.startswith("tests/"):
+        if rel.startswith("tests/"):
+            continue
+        origin = source / rel
+        # A tracked path the working tree has dropped is still in the index, and git reads it as
+        # deleted: copying it would take out every module's fixture at build time, naming no cause.
+        if not origin.is_file():
             continue
         target = destination / rel
         target.parent.mkdir(parents=True, exist_ok=True)
         # copy2 rather than a read and a write: it copies bytes and carries the executable bit.
-        shutil.copy2(source / rel, target)
+        shutil.copy2(origin, target)
 
 
 def configure(root: Path, hooks: str) -> None:

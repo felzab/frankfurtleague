@@ -5,8 +5,9 @@
 for a file whose kind the second leaves unread. What the sweep catches is a tree the Scope names and
 this repository does not hold, a Dockerfile, workflow or manifest the Scope reaches by kind while
 `scripts/checks/docs_gate/branch.py :: _bounded` does not, and one of those three drifting inside a
-named tree. That predicate is asked rather than rebuilt, so a condition widening it cannot leave the
-sweep narrower than the gate.
+named tree. That predicate is asked rather than rebuilt, so the grading is the gate's own; the
+population is those trees alone, which is why the last case below asks about the paths outside every
+one of them.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Final
 
-from conftest import declared
+from conftest import declared, git
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 SCRIPTS: Final = REPO_ROOT / "scripts"
@@ -32,13 +33,13 @@ SCOPE_LABEL: Final = "Scope:"
 # The kernel holding the suffix registers, and the gate function that reads them.
 KERNEL: Final = "checks/docs_gate/kernel.py"
 BOUNDED: Final = "_bounded"
-# The gate's own package, and the shared kernel its imports resolve from a sibling directory.
+# The gate's own package, and the only path a driver needs: `scripts/checks/docs_gate/__init__.py`
+# puts `lib/` on the path itself, before a sibling of it is compiled.
 CHECKS: Final = SCRIPTS / "checks"
-LIB: Final = SCRIPTS / "lib"
 _ASK: Final = "\n".join(
     (
         "import json, sys",
-        "sys.path[:0] = sys.argv[1:3]",
+        "sys.path.insert(0, sys.argv[1])",
         f"from docs_gate.branch import {BOUNDED}",
         f"json.dump([rel for rel in json.load(sys.stdin) if {BOUNDED}(rel)], sys.stdout)",
     )
@@ -85,6 +86,17 @@ def _scanned_suffixes() -> tuple[str, ...]:
     return _declared(KERNEL, "SOURCE_SUFFIXES") + _declared(KERNEL, "OPS_SUFFIXES")
 
 
+def _tracked() -> tuple[str, ...]:
+    """Every path this repository's index holds, which is the population the Scope line reads.
+
+    `core.quotePath=false`: a path outside ascii arrives escaped otherwise, and a caller below reads
+    the suffix it ends on.
+    """
+    return tuple(rel for rel in git(REPO_ROOT, "-c", "core.quotePath=false", "ls-files").split("\n") if rel)
+
+
+# `package` points the ask at a copy of this package whose `_bounded` was widened by hand, which is
+# how a case here is shown to fail; every call below asks the tree.
 def _bounded_by_the_gate(paths: Iterable[str], *, package: Path = CHECKS) -> frozenset[str]:
     """Which of the paths asked about the gate's own `_bounded` bounds, in one subprocess.
 
@@ -92,7 +104,7 @@ def _bounded_by_the_gate(paths: Iterable[str], *, package: Path = CHECKS) -> fro
     which of the two trees `scripts/tests/test_check_docs.py` measures.
     """
     done = subprocess.run(
-        (sys.executable, "-c", _ASK, str(package), str(LIB)),
+        (sys.executable, "-c", _ASK, str(package)),
         input=json.dumps(list(paths)),
         capture_output=True,
         encoding="utf-8",
@@ -140,3 +152,14 @@ def test_the_by_kind_half_of_the_scope_reaches_the_files_the_standard_names_it_f
     for rel in by_kind:
         assert not rel.startswith(trees), f"{rel} is inside a named tree, so it proves nothing about the by-kind half"
         assert rel in bounded, f"the Scope line reaches {rel} by kind and no comment check opens it"
+
+
+def test_a_file_of_an_unread_kind_outside_every_named_tree_is_not_bounded() -> None:
+    """The sweep above samples the named trees alone, so a tree `_bounded` gains is caught here or nowhere."""
+    trees = tuple(_folder(entry) + "/" for entry in _scoped_by_the_standard())
+    unread = (*_scanned_suffixes(), ".md")
+    names = _declared(KERNEL, "OPS_FILENAMES")
+    outside = [rel for rel in _tracked() if not rel.startswith(trees) and not rel.endswith(unread) and rel.rsplit("/", 1)[-1] not in names]
+    assert outside, f"every tracked file of an unread kind sits under {trees}, so this proves nothing"
+    bounded = _bounded_by_the_gate(outside)
+    assert not bounded, f"the gate bounds these by the tree they sit in rather than by their kind: {sorted(bounded)[:5]}"
