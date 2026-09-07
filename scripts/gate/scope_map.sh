@@ -142,6 +142,10 @@ else
       # excuses (`scripts/checks/docs_gate/kernel.py :: is_gitignored`), so widening it narrows what
       # --docs proves while nothing else reads the widening.
       .gitignore) docs=true ;;
+      # `scripts/tests/test_check_gate_budget.py` parses this file itself and drives every budgeted
+      # row red and green, so the scripts scope is what proves an edit here; ahead of the
+      # `.github/*` arm, which would map it to `docs` alone.
+      .github/gate-wall-clock.tsv) scripts=true; docs=true ;;
       # NOTICE is read whole by the documentation gate and by nothing else
       # (`scripts/checks/docs_gate/kernel.py :: PROSE_FILENAMES`), so an edit to it selects that
       # scope alone: a dead asset path written there fails on the branch that wrote it.

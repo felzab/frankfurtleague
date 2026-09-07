@@ -367,6 +367,9 @@ SELECTED: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     # `COPY . .` is what reads this file, so the image and the comments in it are all an edit here
     # can reach; the `scripts` scope the Dockerfile beside it takes is the uv comparison's.
     ("fl_backend/.dockerignore", ("images", "docs")),
+    # `scripts/tests/test_check_gate_budget.py` parses this table itself and drives every budgeted
+    # row red and green, so an edit to it is proved in the scripts scope and nowhere else.
+    (".github/gate-wall-clock.tsv", ("scripts", "docs")),
 )
 
 
@@ -414,6 +417,17 @@ def test_the_backend_dockerfile_stops_short_of_the_backend_scope() -> None:
     answered = scope.scope_map(["fl_backend/Dockerfile"])
     assert answered is not None, "scripts/gate/scope_map.sh could not be run"
     assert {name for name, selected in answered.items() if selected} == {"images", "docs", "scripts"}, repr(answered)
+
+
+def test_the_wall_clock_table_selects_the_scripts_scope_and_stops_there() -> None:
+    """`SELECTED` reads its scopes as a subset, so its row here passes with every scope left true.
+
+    Only a set comparison catches the arm widening to the conservative default the fallback gives.
+    """
+    scope = _fixture().scope
+    answered = scope.scope_map([".github/gate-wall-clock.tsv"])
+    assert answered is not None, "scripts/gate/scope_map.sh could not be run"
+    assert {name for name, selected in answered.items() if selected} == {"scripts", "docs"}, repr(answered)
 
 
 def test_the_backend_ignore_file_stops_short_of_the_scripts_scope() -> None:

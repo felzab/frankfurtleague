@@ -112,7 +112,6 @@ deliverable.
 | `f86w-7nsp` | A markdown fence inside a fenced block flips both fence readers together                                                     | Ops, gate, tests                                                            | Open     |
 | `fau5-jtph` | The action log's page narrows one capped read, and a toast promises more than search can show                                | FE, BE, Docs, admin, aktionen                                               | Open     |
 | `fha5-k95h` | A projection and the predicate reading it are coupled in one direction, and the open one fails quietly                       | BE, tests, saisons                                                          | Open     |
-| `g489-8ptk` | The frontend job's median has risen in two steps, and neither lands on a merge that names a cause                            | FE, Ops, gate, ci, versions                                                 | Open     |
 | `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                             | BE, DB, Docs, saisons                                                       | Standing |
 | `gbjj-9wfh` | A test fixture asserts its own type, and the assertion is the only thing holding it to the model                             | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
 | `ggng-8m7v` | The confirmation link's two anonymous endpoints read a whole application unprojected                                         | BE, DB, Docs, bewerbungen                                                   | Open     |
@@ -1647,57 +1646,6 @@ from the guards around it.
 covered by name, and every key `fl_backend/app/api/saisons/services.py :: holds_a_recorded_fact` and
 `:: _a_side_is_off_the_draw` read today is fetched by the projection. What is missing is anything
 holding them to it.
-
-### `g489-8ptk` · The frontend job's median has risen in two steps, and neither lands on a merge that names a cause
-
-| Tags                        | Status | Depends on |
-| --------------------------- | ------ | ---------- |
-| FE, Ops, gate, ci, versions | Open   | —          |
-
-**The `frontend` row in `.github/gate-wall-clock.tsv` carries the reference it now carries because
-the job got slower, and nothing says why.** Measured 2026-09-07 over the completed `main` push runs
-of `.github/workflows/verify.yml`, a job's span taken from its first step's start to its last step's
-end, that row's median sat near 99 s over the pushes of 2026-08-20 and 21 and near 108 s over the
-stretch after them before reaching the 122 s the row now states. The first of those steps is 9 s and
-sits under the 10 percent floor the same row declares, whichever of the two levels it is taken
-against; the second is 14 s, which is 11.5 percent of the reference — over the floor, and not far
-over it. Neither falls on a merge this repository can point at, where the `backend-db` row's own move
-in the same measurement sits exactly on the merge that redistributed the database tier.
-
-**Why an unattributed rise costs more than the seconds.** The row's floor is what makes the advisory
-report worth reading: a movement under it is noise and a movement over it is a change somebody made.
-A move over the floor with no cause attached teaches the next reader that the report moves on its
-own, which is the whole of what the floor exists to refuse — and the step under the floor is the same
-rise arriving in a size the report is built to ignore, so the 23 s between the two ends is accounted
-for at neither. The budget beside it stands at 180 s, derived from the widest single run in the same
-stamped population, so the ceiling this row is held to already sits above a level nobody has named a
-cause for.
-
-**What the span covers is wider than the gate, which is where a search for the cause goes wrong.**
-The figure is first-step-to-last-step, so the job's virtualenv creation, its toolchain install and
-its Next build-cache restore are all inside it, as is the last step, which is the `git diff` over
-`fl_frontend/tsconfig.json` that fails the job where the scope rewrote it. The gate is the step
-before that one, the gate's frontend scope, whose units are scripts in
-`fl_frontend/package.json`, some started together by `scripts/gate/verify.sh :: FRONTEND_POOL`
-and the rest run alone. Four
-candidates, not one: more work in
-those scripts, less concurrency among them, a setup step that got slower, and the build cache, whose
-key in `.github/workflows/verify.yml` carries a hash of `fl_frontend/src`, so an exact hit is
-whatever the source tree did that week.
-
-**The window that would answer it is expiring.** The runs API serves a bounded recent history, so
-the per-step spans on either side of each step are readable now and will not be later; a
-re-measurement six weeks from now can say the level and cannot say when it moved.
-
-**Done when the rise is attributed to a change, to the runner, or to neither with that stated** —
-per-step spans across the two boundaries are the cheapest read that separates the candidates, since
-a step that grew names itself. Attribution alone closes this: the reference is already measured and
-already stamped, and no figure moves on the strength of an explanation.
-
-**Not verified.** No per-step timing was read; the two levels above are medians read from the runs
-API for this entry and recorded nowhere in the repository, whose table carries the 122 s reference
-alone, and nothing here establishes that the runner image or the pool width was constant
-across them.
 
 ### `g7hr-c8bn` · The replace and the undraw judge their window from a capped read
 

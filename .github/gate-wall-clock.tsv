@@ -25,7 +25,7 @@
 # so a ceiling that never cries wolf on a quiet runner sits well above the reference, and a run
 # over it is a re-run or a regression, in that order. Raising one costs the runs that justify it: a
 # budget or a reference that rises against main carries a new stamp, refused otherwise by
-# scripts/checks/check_gate_budget.py in the pull request's `commits` job. Lowering one is free.
+# `scripts/checks/check_gate_budget.py` in the pull request's `commits` job. Lowering one is free.
 #
 # A check joining the gate records its measured cost here, the **gate** clause in
 # `.claude/rules/ops.md` being what asks for it. A cost that sits inside its job's floor moves
@@ -42,18 +42,36 @@
 # reference columns are `-`: the report is cut from main runs, where neither ever appears. Their
 # stamps move on their own runs and never with the rows above them.
 #
-# `ops` answers to a shorter population than the rows above it, counted in its own stamp:
-# `nginx/redaction_test.sh` joined that scope partway through their window, and a run from before
-# that merge measures a gate this one is not. A population that short cannot be cut into two
-# windows of twelve, so its floor is the p95 movement between two 12-run medians drawn with
-# replacement from it. On the three rows computable both ways that draw lands within a point of the
-# reshuffle -- once narrower -- and on `images` about half again as wide, so it is the method a
-# short population leaves rather than a systematically looser one.
+# `ops` answers to a shorter population than every other row cut from main runs, counted in its own
+# stamp -- `commits` and `format`, carved out just above, are shorter still and are pull-request
+# runs. `nginx/redaction_test.sh` joined that scope partway through those rows' window, and a run
+# from before that merge measures a gate this one is not. A population that short cannot be cut
+# into two windows of twelve, so its floor is the p95 movement between two 12-run medians drawn
+# with replacement from it. On the three rows computable both ways that draw lands within a point
+# of the reshuffle -- once narrower -- and on `images` about half again as wide, so it is the
+# method a short population leaves rather than a systematically looser one.
 #
 # `backend-db`'s floor is wide because its window straddles the database tier's move to PyMongo and
 # its distribution over workers: a reshuffle drawing runs from both sides of that merge moves the
 # median about as far as the merge itself did. It narrows once the window clears the merge, and
 # until then only a large change reaches the report on that row.
+#
+# `frontend`'s reference stands where it does because the gate step grew, and not the setup around
+# it. Medians over the completed main push runs of `.github/workflows/verify.yml`, 66 successful
+# frontend jobs from 2026-08-12 to 2026-09-07, each span taken first step to last: 98 s through
+# 2026-08-21, 110 s over the pushes to 2026-08-31, 118 s from 2026-09-01 -- windows cut by date
+# rather than by the row's own stamped population, so that last figure is not the reference beside
+# it. The `Run the frontend scope` step reads 69 s, 83 s and 86.5 s over those same three windows,
+# tracking the job almost exactly, while the toolchain action got faster across them, 23 s to 18 s,
+# and the steps the last window added cost 0-4 s each: neither a runner change nor pool width is
+# needed to explain the move. Inside the step, two runs -- run 32450493617 job 96678012838 on
+# 2026-08-21 against run 34085018333 job 101627272597 on 2026-09-07 -- put the growth in the unit
+# tests above all, 7.0 s against 35 s, with eslint 18 s against 28 s and tsc 9.9 s against 17 s on a
+# larger source tree, offset by a build that fell from 30 s to 8.4 s once `next typegen` was split
+# out ahead of it. Those two are runs and not medians, the first above its window's median and the
+# second below its own, so they say which units grew and not how far the reference moved. Neither
+# the reference nor the budget moves on any of it and neither takes a new stamp: an attribution is
+# not a measurement of the row.
 #
 # `docs` gained two checks: `cell-prose` costs 0.05 s and `echo` 1.01 s over the whole corpus,
 # measured locally on 2026-09-02 with the file listing already warmed, so the figures are the
@@ -92,10 +110,10 @@
 #
 # `docs` gained a check: `check_public_routes.py` costs 110-129 ms end to end, of which 73 ms is the
 # check rather than this interpreter's own start, over seven interleaved rounds after one warm run,
-# each returning exit 0. Measured locally on 2026-09-07 on a sixteen-core machine carrying the agent
-# fleet this branch is built by, so both ends are upper bounds reading that contention as much as
-# the check. It is pooled with the docs scope's other five units, so the job pays that span only
-# where the pool cannot start all six at once, and either way it sits inside the floor the docs
+# each returning exit 0. Measured locally on 2026-09-07 on a sixteen-core machine carrying a fleet
+# of concurrent agent sessions, so both ends are upper bounds reading that contention as much as
+# the check. It is pooled with the docs scope's other six units, so the job pays that span only
+# where the pool cannot start all seven at once, and either way it sits inside the floor the docs
 # row carries, so neither reference nor budget moves and neither takes a new stamp.
 #
 # `scripts` gained a check: `selfcheck.sh` step 14 reads every hook registration in
@@ -128,12 +146,12 @@
 # `docs` gained a check: `check_regenerate_spelling.py` costs 201-243 ms end to end, of which
 # 98-104 ms is the sweep rather than this interpreter's own start, over seven interleaved rounds
 # after one warm run, each returning exit 0. Measured locally on 2026-09-07 on a sixteen-core
-# machine carrying the agent fleet this branch is built by, so both ends are upper bounds reading
+# machine carrying a fleet of concurrent agent sessions, so both ends are upper bounds reading
 # that contention as much as the check; `check_public_routes.py`, interleaved with it, read 117-120
 # ms against the 110-129 ms its own paragraph records, which is what places this machine beside that
 # measurement. The sweep reads every tracked file's bytes, so its span follows the size of the tree
-# rather than of the branch. It is pooled with the docs scope's other five units, so the job pays
-# that span only where the pool cannot start all six at once, and either way it sits inside the
+# rather than of the branch. It is pooled with the docs scope's other six units, so the job pays
+# that span only where the pool cannot start all seven at once, and either way it sits inside the
 # floor the docs row carries, so neither reference nor budget moves and neither takes a new stamp.
 #
 # `scripts`' binding unit measured three ways on 2026-09-07 on the sixteen-core machine: alone and
@@ -147,7 +165,7 @@
 # `docs` gained a check: `check_log_quoting_class.py` costs 97-141 ms end to end, of which about
 # 60 ms is the comparison rather than this interpreter's own start, over two spreads of ten
 # interleaved rounds after one warm run, each returning exit 0. Measured locally on 2026-09-07 on a
-# sixteen-core machine carrying the agent fleet this branch is built by, so both ends are upper
+# sixteen-core machine carrying a fleet of concurrent agent sessions, so both ends are upper
 # bounds reading that contention as much as the check; `check_regenerate_spelling.py`, interleaved
 # with it, read 197-236 ms against the 201-243 ms its own paragraph records, which is what places
 # this machine beside that measurement. It opens two files and expands two character classes, so
