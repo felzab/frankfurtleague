@@ -547,9 +547,9 @@ _ADOPTED_FINDINGS=0
 _ADOPTED_WORST=0
 _ADOPTED_UNPROVEN=0
 
-# Prints nothing: bytes and ledger travel apart, so a line here appears twice or out of order. An
-# adopted row must stay indistinguishable from one run in-process, or a parallel run's table
-# stops matching the serial one byte for byte.
+# Prints nothing: bytes and ledger travel apart, so a line appears twice or out of order. An
+# adopted row must stay indistinguishable from an in-process one, or a parallel run's table stops
+# matching the serial one but for its durations.
 adopt_section() {
   local name="$1" rank="$2" ms="$3" findings="$4" advisories="${5:-0}" value
   # A worker reports these through a file, so they are input, not literals: an unchecked one indexes

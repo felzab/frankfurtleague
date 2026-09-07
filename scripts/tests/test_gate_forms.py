@@ -7,6 +7,7 @@ two-scope run costs a second rather than minutes.
 
 Invariants:
   The fixture tree stays committed-clean: the scope check reads its own diff before a scope opens.
+  A green run replays a tool's own output: `audit:prod`'s advisory is what puts it in both forms.
 """
 
 from __future__ import annotations
@@ -31,11 +32,15 @@ BASH: Final = shutil.which("bash")
 # is `pnpm`, so one stub covers both and no daemon, virtualenv or node_modules is involved.
 FLAGS: Final = "--frontend"
 
-# `audit:prod` alone answers 1: the frontend scope grades that as an advisory, so the run stays
-# green while `quietly` prints the capture -- which puts a replayed tool's output in both forms.
+# `audit:prod` alone answers 1, which the frontend scope grades as an advisory; `FL_STUB_FAIL`
+# names the one subcommand answering a failure no scope grades away.
 STUB_PNPM: Final = """#!/usr/bin/env bash
 set -u
 printf 'worker=%s step=%s\\n' "${FL_GATE_WORKER:-}" "${FL_GATE_STEP:-}" > "${FL_STUB_LOG}/${1//:/-}-$$-${RANDOM}"
+if [[ -n "${FL_STUB_FAIL:-}" && "${1:-}" == "${FL_STUB_FAIL}" ]]; then
+  printf '%s\\n' "the stub failed ${1}"
+  exit 1
+fi
 if [[ "${1:-}" == "audit:prod" ]]; then
   printf '%s\\n' "an advisory the stub reports"
   exit 1
@@ -54,6 +59,12 @@ PASSING_TOOL: Final = "the stub ran format:check"
 
 # A tool the gate itself ran, rather than one a pool started as its own process.
 IN_THE_PARENT: Final = "worker= step="
+
+# The last unit of the last scope `--frontend` selects, so both forms run everything either would.
+# One failing earlier stops the serial form where the pooled one carried on, a difference
+# `docs/ops/spec.md` §1.6 allows rather than a drift.
+FAILING_TOOL: Final = "build"
+WHAT_IT_WROTE: Final = "the stub failed build"
 
 # A duration comes from `scripts/lib/_lib.sh :: fmt_ms` at three sites -- a step's suffix, the
 # table's cell, the closing elapsed -- and no two runs agree on one. Its padding goes with it: the
@@ -91,10 +102,11 @@ def _fixture() -> Fixture:
 
 
 @cache
-def _run(*flags: str) -> tuple[subprocess.CompletedProcess[str], tuple[str, ...]]:
+def _run(*flags: str, fails: str = "") -> tuple[subprocess.CompletedProcess[str], tuple[str, ...]]:
     """One gate run over the fixture, its streams beside one row per tool the run started.
 
-    Cached on its flags: the cases below read three runs between them and each costs a second.
+    Cached on its flags and on which tool answers a failure: the cases below read six runs between
+    them and each costs a second.
     """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     fixture = _fixture()
@@ -106,6 +118,7 @@ def _run(*flags: str) -> tuple[subprocess.CompletedProcess[str], tuple[str, ...]
     environment.pop("CI", None)
     environment["PATH"] = str(fixture.stubs) + os.pathsep + environment["PATH"]
     environment["FL_STUB_LOG"] = str(fixture.started)
+    environment["FL_STUB_FAIL"] = fails
     # Keeps the tree committed-clean: the scope check reads its diff, and a `__pycache__` an import
     # leaves under `scripts/` is a change asking for a scope this run does not name.
     environment["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -138,6 +151,26 @@ def test_the_multi_scope_serial_form_runs_every_tool_in_the_gates_own_process() 
     assert done.returncode == 0, done.stdout + done.stderr
     assert started, "no tool ran at all, so nothing here says where they ran"
     assert set(started) == {IN_THE_PARENT}, f"a serial run started a unit as its own process: {sorted(set(started))}"
+
+
+def test_the_two_forms_read_alike_on_the_failure_path_too() -> None:
+    """A green comparison exercises `quietly`'s discarding arm alone.
+
+    Failing, the forms reconcile a replayed capture against their ledger rows, which is where a
+    pooled run can drift from the serial one and no green run would say so.
+    """
+    streamed, _ = _run(FLAGS, "--verbose", fails=FAILING_TOOL)
+    pooled, started = _run(FLAGS, fails=FAILING_TOOL)
+    serial, _ = _run(FLAGS, "--serial", fails=FAILING_TOOL)
+    for form, done in (("verbose", streamed), ("pooled", pooled), ("serial", serial)):
+        # 1, not 2: a tool that ran and answered is a finding about the tree, and a form answering
+        # anything else here is comparing runs that failed for different reasons.
+        assert done.returncode == 1, f"the {form} form answered {done.returncode}:\n{done.stdout}{done.stderr}"
+        assert WHAT_IT_WROTE in done.stdout + done.stderr, f"the {form} form dropped the failing tool's own output"
+    assert any(row.startswith("worker=1") for row in started), "no pool ran, so this compared one form with itself"
+    for stream, one, two in (("stdout", pooled.stdout, serial.stdout), ("stderr", pooled.stderr, serial.stderr)):
+        drift = "\n".join(difflib.unified_diff(_masked(one).splitlines(), _masked(two).splitlines(), "pooled", "serial"))
+        assert not drift, f"the two forms' {stream} differ on the failure path:\n{drift}"
 
 
 def test_the_pooled_run_replays_what_the_serial_run_printed_byte_for_byte() -> None:

@@ -403,20 +403,22 @@ surfaces and combine, and `--frontend` implies `--format`, the frontend scope re
 files the formatter governs.
 
 Scopes **run concurrently by default**, one worker process each, and `verify.sh` replays their
-captured output in written order — so a parallel run reads as the serial one, byte for byte, per
-stream: a terminal merging stdout and stderr sees a scope's error lines after its output rather
+captured output in written order — so a parallel run reads as the serial one per stream, on the
+terms below: a terminal merging stdout and stderr sees a scope's error lines after its output rather
 than between it, which is the merge and not a defect. A failing scope still ends the run at its
 own replay, but only after every later scope that finished with a verdict has its ledger rows
 adopted — rows alone, never the captured output — so the closing table tells a passing scope from
 one that never ran, and a session fixing the failure knows what it need not pay for again.
-Byte-identity with the serial run is a green run's property, a failing serial run having stopped
-where the parallel one did not, and `--serial` is what that comparison is measured against — **on
-everything but the run's own timing**, which `scripts/lib/_lib.sh :: fmt_ms` writes into each step's
-suffix, into the closing table's duration cell and into the ending's elapsed, and which no two runs
-of the same work share. The pair is held to that by
-`scripts/tests/test_gate_forms.py :: test_the_pooled_run_replays_what_the_serial_run_printed_byte_for_byte`,
-which drives two stub-tooled scopes once each way, masks those three sites and compares the rest per
-stream.
+Byte-identity with the serial run holds wherever both forms ran the same work — every green run, and
+a failing one whose failure is in the last unit either form would reach, a failure earlier than that
+stopping the serial run where the parallel one carried on — and `--serial` is what that comparison is
+measured against, **on everything but the run's own timing**, which `scripts/lib/_lib.sh :: fmt_ms`
+writes into each step's suffix, into the closing table's duration cell and into the ending's elapsed,
+and which no two runs of the same work share. The pair is held to that by
+`scripts/tests/test_gate_forms.py :: test_the_pooled_run_replays_what_the_serial_run_printed_byte_for_byte`
+and by `:: test_the_two_forms_read_alike_on_the_failure_path_too`, which drive two stub-tooled scopes
+once each way, green and then failing at the last unit, mask those three sites and compare the rest
+per stream.
 **No scope waits on another**, so every scope starts at once and the run's floor is its longest.
 
 **A worker's exit status and the rows it sent home are two accounts of one run, and the parent holds
