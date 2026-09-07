@@ -104,7 +104,7 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   **Datenschutzexperte consulted.** Ruled 2026-08.
 - **The address sentence stands on the acceptance screen as well as on the application form.** The
   acceptance screen is where the administrator takes the action that publishes it, which
-  `docs/backend/spec.md :: Acceptance publishes a school's address as the club's` names; the
+  `docs/backend/spec.md :: WRITE-CLUB-001` states; the
   sentence sits on the arm that creates the club
   (`fl_frontend/src/features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx`), and
   the admin club forms need none. Ruled 2026-09-01.

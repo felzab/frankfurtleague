@@ -155,7 +155,6 @@ deliverable.
 | `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                        | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
 | `x7pk-g4bh` | Three entry refusals are rendered twice, and nothing holds either half to the other                                          | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
 | `xe5b-v4nu` | A fourth rendering of the retired-club refusal sits outside the helper that grades the other three                           | FE, tests, bewerbungen, teams                                               | Open     |
-| `yjsf-uc2y` | Acceptance copies a school's postal address into the club, where an anonymous read serves it                                 | FE, BE, DB, Docs, bewerbungen, teams                                        | Decided  |
 | `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                        | FE, BE, tests                                                               | Open     |
 | `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                                | BE, Docs, versions                                                          | Decided  |
 | `zeer-rnu5` | An unknown season answers a Bewerbung URL with 200 and a sentence about a missing deadline                                   | FE, BE, Docs, bewerbungen                                                   | Open     |
@@ -3389,43 +3388,6 @@ than a slice of text — the honest shape, costing the helper a second mode, and
 reaches the title at all, a template literal being invisible to a match written for quoted
 sentences. **Either route pays for the „Reaktiviere" rule's widening**, and neither may skip it: a
 battery pointed at this banner unchanged fails on a sentence that is right.
-
-### `yjsf-uc2y` · Acceptance copies a school's postal address into the club, where an anonymous read serves it
-
-| Tags                                 | Status  | Depends on |
-| ------------------------------------ | ------- | ---------- |
-| FE, BE, DB, Docs, bewerbungen, teams | Decided | —          |
-
-**`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung` builds a club out of the
-school's own block and inserts it into `teams`, the address included.**
-`fl_backend/app/api/bewerbungen/services.py :: compose_new_club` maps the school's `address`
-straight into the club document through `_CLUB_FIELDS_FROM_SCHULE`, beside `team_name`, `full_name`,
-`shorthand`, `schulform` and `website_url`, and the acceptance writes that document inside its
-transaction.
-
-**Ruled 2026-08, Datenschutzexperte consulted: the address stays public, and the form says so where
-it is asked for** (`docs/datenschutz.md` §4). The rule stands at the read that serves the field
-(`fl_backend/app/api/teams/schemas.py :: _TeamWritable`), the application form states beside its
-address block that the address will stand on the public team page
-(`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx`), and
-`docs/backend/spec.md`'s known-open row records the crossing as accepted. **The alternatives —
-narrowing the public model, or not copying the field at acceptance — are rejected by that
-decision**, so neither is to be proposed again without overturning it.
-
-**Ruled 2026-09-01: the acceptance screen carries that sentence too**, where the administrator
-takes the action that publishes it
-(`fl_frontend/src/features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx`, on the
-arm that creates the club); the admin club forms need none.
-
-**What remains is the crossing itself.** The read registry answers for both ends: `READ-CONTACT-001`
-withholds the application that carries the school's address, and `READ-ADDRESS-002` declares a club's
-public. Each governs ONE read and the acceptance sits between them, so whether a school's
-correspondence address is the league's to copy into a club is a question about the write, which no
-read rule can answer — and the registry runs to `READ-` rules alone, so there is no write family to
-put the answer in.
-
-**Done** is a write rule in the registry saying the acceptance may copy the field. Nothing in it
-reopens the decision.
 
 ### `z82x-us4y` · A contract sweep's caller set is every file naming the client, its own tests included
 
