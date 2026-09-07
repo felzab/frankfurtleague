@@ -26,6 +26,10 @@
 # Build output. The builder writes its own; the host's copy could only shadow it.
 .next/
 
+# The schema's key set the builder emits for the deploy's preflight (`Dockerfile`); a host copy
+# would be read in place of the one this build declares.
+environment-names.json
+
 # tsc's cache would put `pnpm typecheck` into `COPY . .`'s layer key. `**/`, as `.gitignore` spells
 # it: tsc names the file after its config, so a nested config writes a nested cache.
 **/*.tsbuildinfo

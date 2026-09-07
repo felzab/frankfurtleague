@@ -121,6 +121,7 @@ def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
         _assignment("ENV_NAME_CHECK"),
         _lifted("service_cid"),
         _lifted("copy_streams"),
+        _lifted("read_env_names"),
         _lifted("check_env_names"),
         body,
         "",

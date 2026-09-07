@@ -113,4 +113,10 @@ describe("the names a failed validation is reduced to", () => {
   it("stands `<unknown>` in for an issue naming no variable", () => {
     assert.deepEqual(failingVariableNames([{ message: "the object was refused" }]), ["<unknown>"]);
   });
+
+  /* The other shape Standard Schema admits for a segment, which a validator may emit for the same
+     variable the plain key names: read as a whole it renders `[object Object]`. */
+  it("reads a variable wrapped as a path segment object", () => {
+    assert.deepEqual(failingVariableNames([{ message: "invalid", path: [{ key: "AUTH_SECRET" }] }]), ["AUTH_SECRET"]);
+  });
 });

@@ -9,6 +9,10 @@
 *.tsbuildinfo
 next-env.d.ts
 
+# The key set `emit-environment-names.mjs` writes for the image; a tracked copy would be a second
+# artefact to keep current with the schema.
+/environment-names.json
+
 # eslint's lint-result cache. Untracked by design: the gate reads and writes it on every
 # --frontend run, and its key is `eslint.config.mjs :: crossFileDigest` plus eslint's own.
 /.eslintcache

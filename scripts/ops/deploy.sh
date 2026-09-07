@@ -120,18 +120,27 @@ except Exception as unexpected:
     raise SystemExit(4)
 '
 
+# One mount, one user and one filter for either package's reader: the two judge different things and
+# each says so itself, but a second copy of this is how one arm's mount drifts from the other's.
+read_env_names() {
+  local package="$1" image="$2"; shift 2
+  local rc=0 said=""
+  # The caller's own identity, never the image's user, whose uid this host does not have: the file is
+  # readable by whoever runs this script. `--network none` because a reader reaching one would reach
+  # it holding the file.
+  said="$(docker run --rm --network none --user "$(id -u):$(id -g)" \
+    -v "${PWD}/${package}/.env:/app/.env:ro" "$image" "$@" 2>&1)" || rc=$?
+  # Through the filter every container log this script surfaces goes through (`docs/ops/spec.md` §1.7).
+  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  return "$rc"
+}
+
 # The one place the environment file is read AS A FILE, and so the only place a name nothing declares
 # can be seen: compose hands the container its keys as variables instead
 # (`fl_backend/app/core/config.py :: model_config`, `docs/ops/spec.md :: I181`).
 check_env_names() {
-  local rc=0 said=""
-  # The caller's own identity, never the image's user, whose uid this host does not have: the file is
-  # readable by whoever runs this script. `--network none` because a settings class reaching one
-  # would reach it holding the file.
-  said="$(docker run --rm --network none --user "$(id -u):$(id -g)" \
-    -v "${PWD}/fl_backend/.env:/app/.env:ro" "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" 2>&1)" || rc=$?
-  # Through the filter every container log this script surfaces goes through (`docs/ops/spec.md` §1.7).
-  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  local rc=0
+  read_env_names fl_backend "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" || rc=$?
   if (( rc == 3 )); then
     refuse "the backend refuses this host's environment file, and the line above is its own answer: the
 variables it could not accept, or the type of a read that failed before it reached one. No value is
@@ -146,6 +155,25 @@ NOTHING has been recreated, and the site is untouched."
 here says whether the backend accepts what it holds. Its own answer is above."
   else
     ok "the backend accepts every name and value in fl_backend/.env, as python-dotenv parses it"
+  fi
+}
+
+# Its own arm, because the frontend's reader judges names alone: the image carries the schema's key
+# set (`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES`) rather than the schema itself.
+check_frontend_env_names() {
+  local rc=0
+  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs || rc=$?
+  if (( rc == 3 )); then
+    refuse "the frontend refuses this host's environment file, and the line above names the variables
+its schema does not declare. Nothing in a container ever looks an undeclared name up, so such a line
+reads as omitted and the shipped default serves production -- delete it, or correct its spelling.
+NOTHING has been recreated, and the site is untouched."
+  elif (( rc )); then
+    # An advisory rather than a refusal, for the reason `check_env_names` carries.
+    warn "the pulled frontend image could not be asked to read fl_frontend/.env (exit ${rc}), so nothing
+here says whether every name in it is one the frontend declares. Its own answer is above."
+  else
+    ok "every name in fl_frontend/.env is one the frontend's schema declares"
   fi
 }
 
@@ -678,10 +706,11 @@ if [[ -n "$NEW_FE_IMG" && "$NEW_FE_IMG" == "$PREV_FE_IMG" && "$NEW_BE_IMG" == "$
   SAME_BUILD=1
 fi
 
-# Asked of the build about to run rather than of the one being replaced: the field set is the pulled
-# image's, so a variable this release renamed is a variable only this release can judge.
-step "The environment file, read by the build about to run"
+# Asked of the builds about to run rather than of the ones being replaced: the field set is each
+# pulled image's, so a variable this release renamed is a variable only this release can judge.
+step "The environment files, read by the builds about to run"
 check_env_names
+check_frontend_env_names
 
 # --- the streams the recreate destroys, copied off first ---------------------------------------------
 

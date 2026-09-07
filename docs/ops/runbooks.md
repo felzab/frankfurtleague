@@ -39,6 +39,12 @@ the machine is outside the repository. What it does tell you:
   past. Two things it does not catch: a misspelling whose value is EMPTY, which the settings reader
   drops before the check judges it ([`../backend/spec.md`](../backend/spec.md) §1.5), and a quoting
   form the two parsers read differently ([`spec.md`](spec.md) §1.5).
+- **The pulled frontend image is asked the same of `fl_frontend/.env`**
+  (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: the image
+  carries the schema's key set rather than the schema, so **a name the frontend does not declare
+  refuses the deploy at exit 2 with nothing recreated** and the remedy is the same every time —
+  delete the line, or correct its spelling. A value it holds is judged at boot and nowhere else. It
+  does catch the misspelling whose value is EMPTY that the backend's reader drops.
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`). The edge keeps running across the swap, so a deploy that
   succeeds costs seconds of 502 rather than a refused connection. The reload is also the only thing in the
