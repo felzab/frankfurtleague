@@ -122,7 +122,6 @@ deliverable.
 | `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                  | BE, tests, saisons                                                          | Open     |
 | `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                              | FE, BE, DB, Docs, kontakte                                                  | Open     |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
-| `kajk-z7nu` | A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it                               | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
 | `kpkb-y5d8` | A refusal code's meaning is written three times in prose, and nothing resolves any pair of them                              | FE, BE, Ops, Docs, gate, tests, bewerbungen                                 | Open     |
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                           | FE, BE, admin, spieler                                                      | Open     |
 | `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                                 | FE, BE, Docs, spieler                                                       | Open     |
@@ -2067,65 +2066,6 @@ which is an order change on both surfaces and lands in one commit with both suit
 and `fl_frontend/src/core/logFormat.test.ts`, and `.claude/rules/cross-surface.md`'s **openapi**
 clause keeps the two packages from sharing a declaration, so the class enumeration is spelled once
 per surface with a comparator, the shape `scripts/checks/check_log_quoting_class.py` already takes.
-
-### `kajk-z7nu` · A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it
-
-| Tags                                    | Status | Depends on |
-| --------------------------------------- | ------ | ---------- |
-| FE, BE, Docs, tests, bewerbungen, teams | Open   | —          |
-
-**`fl_frontend/src/features/bewerbungen/payloadBounds.test.ts :: CAPPED_CONTROLS` maps a constant to
-a form module and a box count, and the loop under it turns each row into one case.** The register is
-named in that file and in no other, so its rows are the whole population it is judged over: a bound
-absent from it generates no case, and the suite is as green with the row as without it.
-
-**Nothing marks a bound as belonging here.**
-`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx` caps the
-Kürzel box with `KUERZEL_LAENGE`, which
-`fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS` pairs against the backend's own
-length; the register carries its row, and would read exactly as complete without it. The prose
-declares one bound deliberately outside — `KONTAKT_EMAIL_MAX_LENGTH`, which bounds schemas and binds
-no input anywhere — and that is the only stated exception, so a row nobody wrote and a row nobody
-wanted are indistinguishable by reading.
-
-**Severity is low and worth stating rather than inflating.** The Zod mirror still refuses an
-over-long Kürzel, so an uncapped box costs the applicant a refusal at the submit rather than a stop
-at the keystroke, which is the whole of what a cap on the control buys. What makes it worth an entry
-is that the rule the register enforces — each ceiling reaches the control as well as the schema — is
-enforced over the rows somebody remembered.
-
-**The same file refuses a hand-kept list for its other register.**
-`fl_frontend/src/features/bewerbungen/payloadBounds.test.ts :: MIRRORS` takes its ceilings off
-`fl_backend/openapi.json` rather than naming them, on the stated ground that a ceiling a test file
-names is one somebody remembered, and a floor over what that read finds stops an empty discovery
-passing. `CAPPED_CONTROLS` is the half kept by hand.
-
-**The repair's shape is next door.** `fl_backend/tests/shared/test_frontend_mirrors.py` keeps a
-register of this kind and closes it from both ends —
-`:: test_every_module_claiming_a_mirror_is_one_this_register_covers` and
-`:: test_every_constant_a_module_says_it_mirrors_is_declared_here` — which is why a row taken out of
-that one fails.
-
-**Done when** every constant a module under
-`fl_frontend/src/features/bewerbungen/components/forms/BewerbungForm/` applies to a box is one
-`CAPPED_CONTROLS` names, or when the claim leaves the source text and the register with it. **The
-second route is the one `.claude/rules/frontend.md`'s tests clause points at**, and it is available
-in this slice already: `fl_frontend/src/features/bewerbungen/form.test.ts` renders
-`FormSchuleSection` through `fl_frontend/src/shared/testing/renderTest.ts :: renderMarkup`, and a cap
-asserted against the rendered control takes its population from the boxes that came back rather than
-from a list somebody keeps. **Either route still declares what is deliberately uncapped**, the
-register's email bound being one such.
-
-**Three shapes in that directory refuse a sweep keyed on a bare identifier:**
-
-- the website box caps at `TEAM_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME.length`, so one match
-  yields two names
-- the strong-player box caps at `strongPlayerCeiling`, a function the cases under the register hold
-  to the schema by parsing instead
-- the caps the form applies are declared across
-  `fl_frontend/src/features/bewerbungen/constants.ts` and
-  `fl_frontend/src/features/teams/constants.ts` alike, so a reader rooted at one slice sees half of
-  them
 
 ### `kpkb-y5d8` · A refusal code's meaning is written three times in prose, and nothing resolves any pair of them
 

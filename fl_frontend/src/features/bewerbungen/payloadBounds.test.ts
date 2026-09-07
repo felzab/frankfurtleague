@@ -3,8 +3,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { renderMarkup } from "@/shared/testing/renderTest";
+
 import { strongPlayerCeiling } from "./components/forms/BewerbungForm/kaderBounds.ts";
-import { BEWERBUNG_KADER_GROESSE_MAX } from "./constants.ts";
+import { BEWERBUNG_KADER_GROESSE_MAX, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
 import {
   FLBewerbungKaderPayloadSchema,
   FLBewerbungKontaktpersonPayloadSchema,
@@ -31,7 +33,8 @@ const MIRRORS: Record<string, ZodType> = {
   FLBewerbungKontaktpersonPayload: FLBewerbungKontaktpersonPayloadSchema,
 };
 
-type Capped = { component: string; field: string; at: unknown; over: unknown };
+/** `characters` is `null` where the field is bounded by a `maximum` instead, which caps a count and no box's width. */
+type Capped = { component: string; field: string; characters: number | null; at: unknown; over: unknown };
 
 /** A host of exactly this many characters: `z.regexes.domain` caps ONE label at 63, so past that it dots. */
 function dottedHost(length: number): string {
@@ -85,8 +88,14 @@ function cappedFields(): Capped[] {
       if (typeof maxLength === "number") {
         const filler = FILLERS.find((candidate) => candidate.min <= maxLength && fieldAccepts(component, field, candidate.build(maxLength)));
 
-        found.push({ component, field, at: filler?.build(maxLength) ?? null, over: filler === undefined ? null : filler.build(maxLength + 1) });
-      } else if (typeof maximum === "number") found.push({ component, field, at: maximum, over: maximum + 1 });
+        found.push({
+          component,
+          field,
+          characters: maxLength,
+          at: filler?.build(maxLength) ?? null,
+          over: filler === undefined ? null : filler.build(maxLength + 1),
+        });
+      } else if (typeof maximum === "number") found.push({ component, field, characters: null, at: maximum, over: maximum + 1 });
     }
   }
 
@@ -135,62 +144,176 @@ describe("every ceiling the backend publishes is one the mirror refuses", () => 
 const FORM_DIR = path.join(import.meta.dirname, "components", "forms", "BewerbungForm");
 const readForm = (file: string) => readFileSync(path.join(FORM_DIR, file), "utf8");
 
+/*
+ Every module below is reached AFTER the harness above has evaluated, because that is when the JSX
+ compile step is registered; a static import beside this one resolves first and dies on the extension.
+*/
+const { BewerbungForm } = await import("./components/forms/BewerbungForm/BewerbungForm.tsx");
+const { FormSchuleSection } = await import("./components/forms/BewerbungForm/FormSchuleSection.tsx");
+const { buildEmptyBewerbungSchule } = await import("./utils.ts");
+const { WEBSITE_URL_SCHEME } = await import("@/features/teams/constants.ts");
+
+const SCHULEN = [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }];
+
 /**
- * Each ceiling reaches the CONTROL as well as the schema. `KONTAKT_EMAIL_MAX_LENGTH` is the one that does not:
- * it binds no input anywhere, and binding it here alone would split the public form from the editors.
+ * Both arms, because neither reaches every box: the form opens with nothing picked, so the new-school
+ * block only the picker's sentinel reaches is rendered beside it.
  */
-const CAPPED_CONTROLS: Record<string, { file: string; boxes: number }> = {
-  TEAM_NAME_MAX_LENGTH: { file: "FormSchuleSection.tsx", boxes: 1 },
-  TEAM_FULL_NAME_MAX_LENGTH: { file: "FormSchuleSection.tsx", boxes: 1 },
-  // The one constant here that is an exact length and not a ceiling: the box refuses a third
-  // character rather than letting the schema report one.
-  KUERZEL_LAENGE: { file: "FormSchuleSection.tsx", boxes: 1 },
-  // Two boxes each: both name fields, and both counts. A presence check is satisfied by either alone.
-  KONTAKT_NAME_MAX_LENGTH: { file: "FormKontaktpersonenSection.tsx", boxes: 2 },
-  // Its box holds the URL WITHOUT the scheme, so the cap is composed rather than the constant alone.
-  TEAM_WEBSITE_URL_MAX_LENGTH: { file: "FormSchuleSection.tsx", boxes: 1 },
-  BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH: { file: "FormTeamSection.tsx", boxes: 1 },
-  BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH: { file: "FormTeamSection.tsx", boxes: 1 },
-  // One box: the strong-player box takes its ceiling from `strongPlayerCeiling`, which the cases
-  // below compare against the schema by parsing rather than by counting a constant in the JSX.
-  BEWERBUNG_KADER_GROESSE_MAX: { file: "FormTeamSection.tsx", boxes: 1 },
-  // On the school's panel and not the team's: the number counts the Abi-Jahrgang the team comes from
-  // rather than the squad, and every applicant answers it whichever arm of the picker they are in.
-  BEWERBUNG_STUFENGROESSE_MAX: { file: "FormSchuleSection.tsx", boxes: 1 },
-};
+const RENDERED = [
+  renderMarkup(BewerbungForm, { saisonId: "2026", schulen: SCHULEN, isSchulenLesbar: true, vergebeneFarben: [] }),
+  renderMarkup(FormSchuleSection, {
+    schulen: SCHULEN,
+    auswahl: SCHULE_NICHT_IN_LISTE,
+    schule: buildEmptyBewerbungSchule(),
+    stufengroesse: null,
+    onAuswahlPicked: () => undefined,
+    onSchuleChange: () => undefined,
+    onStufengroesseChange: () => undefined,
+    onFieldLeft: () => undefined,
+    onSchulformPicked: () => undefined,
+    onKuerzelLeft: () => undefined,
+    kuerzelHinweis: null,
+    isSchulenLesbar: true,
+  }),
+];
 
-describe("where a ceiling reaches the box the applicant types in", () => {
-  for (const [constant, { file, boxes }] of Object.entries(CAPPED_CONTROLS)) {
-    it(`${file} caps every box that shares ${constant}`, () => {
-      // The constant, never a retyped number: a literal on the input is a second ceiling that drifts. `[^}]*`
-      // admits a cap COMPOSED with another bound, as `gute_spieler`'s is. The brace's backslash is doubled
-      // past the template literal's own escaping.
-      const capped = readForm(file).match(new RegExp(`(maxLength|maxValue)=\\{[^}]*${constant}`, "g")) ?? [];
+type Box = { path: string; cap: number | null; scheme: number };
 
-      // COUNTED, never merely present: a pair whose second box is uncapped satisfies a presence check.
-      assert.equal(capped.length, boxes, `${file} caps ${String(capped.length)} of ${String(boxes)} boxes with ${constant}`);
+/**
+ * What the group prints in front of a box and the applicant never types. Read off the same render:
+ * named here instead, a prefix that changed spelling would be measured against a number nobody re-read.
+ */
+function schemeBefore(html: string, at: number): number {
+  const group = html.lastIndexOf('data-slot="input-group"', at);
+
+  return group < 0 ? 0 : (/data-slot="input-group-prefix"[^>]*>([^<]*)</.exec(html.slice(group, at))?.[1] ?? "").length;
+}
+
+/**
+ * Named inputs alone: a `NumberField`'s visible box carries no `name`, and the hidden input beside it
+ * that does carries no cap either, so neither is a box a character ceiling could reach.
+ */
+function boxesIn(html: string): Box[] {
+  const found: Box[] = [];
+
+  for (const treffer of html.matchAll(/<input\b([^>]*)>/g)) {
+    const attrs = treffer[1] ?? "";
+    const feldpfad = /(?<![-\w])name="([^"]*)"/.exec(attrs)?.[1];
+
+    if (feldpfad === undefined) continue;
+
+    const gedeckelt = /(?<![-\w])maxlength="(\d+)"/i.exec(attrs)?.[1];
+
+    found.push({
+      path: feldpfad,
+      cap: gedeckelt === undefined ? null : Number(gedeckelt),
+      // A group's own input alone: a plain box further down the markup would otherwise be handed the
+      // prefix of a group it does not sit in.
+      scheme: /data-slot="input-group-input"/.test(attrs) ? schemeBefore(html, treffer.index) : 0,
     });
   }
 
-  /* The presence check above is satisfied by the constant alone. */
-  it("subtracts the scheme from the one cap whose box does not hold it", () => {
-    // The website box holds the URL WITHOUT the scheme, which the group renders as furniture.
-    // Capped at the payload's own ceiling it would accept the scheme's length in characters the
-    // submit then refuses.
-    assert.match(
-      readForm("FormSchuleSection.tsx"),
-      /maxLength=\{TEAM_WEBSITE_URL_MAX_LENGTH - WEBSITE_URL_SCHEME\.length\}/,
-      "the website box is capped at the whole payload's ceiling, scheme included",
+  return found;
+}
+
+const BOXES = RENDERED.flatMap(boxesIn);
+
+/** The last segment alone: no two published components cap a field of one name, which a case below holds. */
+const feld = (pfad: string): string => pfad.split(".").at(-1) ?? pfad;
+
+const boxesFor = (field: string): Box[] => BOXES.filter((box) => feld(box.path) === field);
+
+/** A ceiling reaches the applicant only where EVERY box writing that field carries a cap of its own. */
+function reachesABox(field: string): boolean {
+  const own = boxesFor(field);
+
+  return own.length > 0 && own.every((box) => box.cap !== null);
+}
+
+/*
+ A ceiling reaching no box, declared: a box somebody uncapped and a box deliberately left uncapped
+ render alike, so a sweep that merely found nothing would read a deleted cap as a decision.
+*/
+const OHNE_KASTEN = [
+  // The season is the route's own segment, and no box on this form writes it.
+  "FLPostBewerbungPayload.saison_id",
+  // Capping the address here alone would split the public form from the editors, which cap none.
+  "FLBewerbungKontaktpersonPayload.email",
+];
+
+describe("where a published ceiling reaches the box the applicant types in", () => {
+  it("renders boxes to judge at all", () => {
+    // Anti-vacuity: a section that stopped rendering leaves every case below true of an empty population.
+    assert.ok(BOXES.length >= 20, `expected at least 20 named boxes, rendered ${String(BOXES.length)}`);
+  });
+
+  it("names each published ceiling by a field no other component publishes", () => {
+    // A box is matched to its ceiling by the last segment of the path it writes, so two components
+    // publishing one field name would each be judged against the other's boxes.
+    const namen = capped.filter(({ characters }) => characters !== null).map(({ field }) => field);
+
+    assert.equal(new Set(namen).size, namen.length, `two published components cap a field among ${namen.join(", ")}`);
+  });
+
+  it("declares exactly the published ceilings that reach no box", () => {
+    // The half a hand-kept register cannot carry: a ceiling nobody ever wired to a control arrives
+    // here on the day the backend publishes it, under no row anybody wrote.
+    assert.deepEqual(
+      capped
+        .filter(({ characters, field }) => characters !== null && !reachesABox(field))
+        .map(({ component, field }) => `${component}.${field}`)
+        .sort(),
+      [...OHNE_KASTEN].sort(),
     );
   });
 
-  /* A cap the field accepts and never applies is a prop that reads as enforcement. */
-  it("applies the cap it is given to the box the applicant types in", () => {
-    const feld = readFileSync(path.resolve(import.meta.dirname, "..", "teams", "components", "forms", "WebsiteUrlField.tsx"), "utf8");
+  it("measures the furniture as the scheme the submitted value carries", () => {
+    const box = BOXES.find((eintrag) => eintrag.path === "schule.website_url");
 
-    assert.match(feld, /maxLength\?: number;/, "the field takes no cap");
-    assert.match(feld, /<InputGroup\.Input\s+maxLength=\{maxLength\}/, "the field takes a cap it never puts on the input");
+    assert.ok(box !== undefined, "no rendered box writes the school's website, so this case compares nothing");
+    // Without it an emptied prefix beside a box raised to the whole ceiling passes the sweep, and the
+    // applicant types the scheme's length in characters the submit then refuses.
+    assert.equal(box.scheme, WEBSITE_URL_SCHEME.length, "the group prints something other than the scheme in front of the box");
   });
+
+  for (const { component, field, characters } of capped) {
+    if (characters === null || OHNE_KASTEN.includes(`${component}.${field}`)) continue;
+
+    it(`${component}.${field} caps every box that writes it, at the ceiling minus the group's prefix`, () => {
+      const own = boxesFor(field);
+
+      assert.ok(own.length > 0, `no rendered box writes ${field}`);
+      // Every box rather than one: three seats share `vorname` and `nachname`, and a pair whose second
+      // box is uncapped satisfies a presence check.
+      for (const box of own) {
+        assert.ok(box.cap !== null, `${box.path} carries no cap, so the applicant types past a ceiling only the submit refuses`);
+        assert.equal(
+          box.cap + box.scheme,
+          characters,
+          `${box.path} caps at ${String(box.cap)} where the backend publishes ${String(characters)}`,
+        );
+      }
+    });
+  }
+});
+
+/*
+ Read as source because a render carries none of it: a `NumberField` emits neither `max` nor
+ `aria-valuemax`, and a toast is built at the press (`.claude/rules/frontend.md`).
+*/
+describe("the claims no rendered markup carries", () => {
+  /* One box each: the Abi-Jahrgang is asked on the school's panel whichever arm of the picker the
+     applicant is in, and the squad's own ceiling is asked on the team's. */
+  for (const [file, constant] of [
+    ["FormSchuleSection.tsx", "BEWERBUNG_STUFENGROESSE_MAX"],
+    ["FormTeamSection.tsx", "BEWERBUNG_KADER_GROESSE_MAX"],
+  ] as const) {
+    it(`${file} caps its number box with ${constant}`, () => {
+      const gedeckelt = readForm(file).match(new RegExp(`maxValue=\\{${constant}\\}`, "g")) ?? [];
+
+      assert.equal(gedeckelt.length, 1, `${file} caps ${String(gedeckelt.length)} number boxes with ${constant}`);
+    });
+  }
 
   it("says the unchecked-Kürzel promise once, however the toast introduces it", () => {
     // Both render together on a rate-limited blur, so one promise in two wordings reads as two promises.
