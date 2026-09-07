@@ -15,6 +15,8 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_SEAT_ALREADY_ANSWERED,
     BEWERBUNG_TOKEN_EXPIRED,
     BEWERBUNG_TOKEN_UNKNOWN,
+    EINWILLIGUNG_ANSICHT_FIELDS,
+    EINWILLIGUNG_ANTWORT_FIELDS,
     KONTAKT_SEATS,
     TOKEN_HASH_FIELDS,
     WITHOUT_TOKEN_HASHES,
@@ -37,7 +39,7 @@ from app.api.bewerbungen.services import (
     zustand_of,
 )
 from app.api.kontakte.services import KONTAKT_SLOTS
-from app.core.constraints import _BEWERBUNG_BESTAETIGUNG
+from app.core.constraints import _BEWERBUNG_BESTAETIGUNG, _BEWERBUNG_BESTAETIGUNGEN
 from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_TOKEN_MAX_LENGTH
 
 TODAY = "2026-04-01"
@@ -141,6 +143,50 @@ class TestTheTokenAndItsHash:
 
         assert declared == sorted(TOKEN_HASH_FIELDS)
         assert WITHOUT_TOKEN_HASHES == {f"bestaetigungen.{seat}.{field}": 0 for seat in KONTAKT_SEATS for field in declared}
+
+
+PROJECTIONS = [
+    pytest.param(EINWILLIGUNG_ANSICHT_FIELDS, id="the view's projection"),
+    pytest.param(EINWILLIGUNG_ANTWORT_FIELDS, id="the answer's projection"),
+]
+
+
+def per_seat_paths(projection: Mapping[str, int]) -> list[tuple[str, str, str]]:
+    """Each `<block>.<seat>.<leaf>` key parted in three.
+
+    Selected by the key's SHAPE, never by `KONTAKT_SEATS`: a fourth seat drawn from that tuple would
+    otherwise drop out of this population and pass.
+    """
+
+    parted = [key.split(".", 2) for key in projection if key.startswith(("bestaetigungen.", "kontakte."))]
+
+    return [(key[0], key[1], key[2]) for key in parted if len(key) == 3]
+
+
+class TestTheAnonymousProjectionsAreDerivedPerSeat:
+    """Both projections read off the validator rather than off the tuples they are built from."""
+
+    @pytest.mark.parametrize("projection", PROJECTIONS)
+    def test_every_per_seat_path_names_every_seat_the_validator_declares(self, projection: Mapping[str, int]):
+        """A seat declared on one side alone fails here, whichever side that is."""
+
+        named: dict[tuple[str, str], set[str]] = {}
+        for block, seat, leaf in per_seat_paths(projection):
+            named.setdefault((block, leaf), set()).add(seat)
+        declared = set(_BEWERBUNG_BESTAETIGUNGEN["properties"])
+
+        assert named, "the projection names no seat at all"
+        assert all(seats == declared for seats in named.values())
+
+    @pytest.mark.parametrize("projection", PROJECTIONS)
+    def test_every_hash_field_the_validator_declares_is_projected(self, projection: Mapping[str, int]):
+        """A field the validator declares and `TOKEN_HASH_FIELDS` forgets leaves the link opening no seat."""
+
+        declared = {field for field in _BEWERBUNG_BESTAETIGUNG["properties"] if field.startswith("token_hash")}
+        projected = {leaf for block, _, leaf in per_seat_paths(projection) if block == "bestaetigungen"}
+
+        assert declared
+        assert declared <= projected
 
 
 class TestTheDeadline:

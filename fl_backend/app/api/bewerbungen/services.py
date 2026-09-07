@@ -349,8 +349,7 @@ def _per_seat(block: str, *fields: str) -> dict[str, int]:
 
 # An INCLUSION, and never the exclusion above inverted: these two answer a closed handful, so the
 # rest of the document is what a base-tier read must not hold
-# (`docs/backend/spec.md :: READ-CONTACT-001`). Both hashes, which
-# `fl_backend/app/api/bewerbungen/services.py :: seat_holding` compares.
+# (`docs/backend/spec.md :: READ-CONTACT-001`). Both hashes, which `seat_holding` compares.
 EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
     **_per_seat("kontakte", "vorname", "einwilligung.bestaetigt_am", "einwilligung.text_version"),
@@ -359,11 +358,13 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     "bestaetigungsfrist": 1,
     "schule.team_name": 1,
     "team_id": 1,
+    # Suppressed here alone: an inclusion projection answers `_id` unasked, and only the answer's
+    # read below has a patch filter to key on it.
+    "_id": 0,
 }
 
 # Narrower than the view's, and `trainer_ist_zugleich` besides: the answer takes its wording from the
-# payload, names no school, and `fl_backend/app/api/bewerbungen/services.py :: paired_seat` reads
-# that key.
+# payload, names no school, and `paired_seat` reads that key.
 EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
     **_per_seat("kontakte", "vorname", "einwilligung.bestaetigt_am"),

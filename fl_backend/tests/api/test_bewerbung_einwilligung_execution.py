@@ -18,6 +18,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_TOKEN_EXPIRED,
     BEWERBUNG_TOKEN_UNKNOWN,
     KONTAKT_SEATS,
+    TOKEN_HASH_FIELDS,
     compose_bestaetigungen,
     hash_token,
 )
@@ -60,9 +61,27 @@ ADDRESS: Mapping[str, Any] = {
     "stadt": "Frankfurt am Main",
 }
 
-# Seeded on the application below and answered by neither anonymous endpoint: a surname, a mailbox, a
-# telephone number, a street, and the school's registered name beside the short one that IS served.
-WITHHELD_FROM_A_LINK = ("Mustermann", "example.com", "1234567", "Hanauer", "Gesamtschule")
+
+def _seat_paths(block: str, *leaves: str) -> set[str]:
+    return {f"{block}.{seat}.{leaf}" for seat in KONTAKT_SEATS for leaf in leaves}
+
+
+# What each handler resolves off the document its token filter found. Reached from the HANDLERS
+# rather than from `app/api/bewerbungen/services.py :: _per_seat`, so a projection widened by a field
+# no handler reads fails here.
+ANSICHT_RESOLVES = frozenset(
+    _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
+    | _seat_paths("kontakte", "vorname", "einwilligung.bestaetigt_am", "einwilligung.text_version")
+    | {"saison_id", "status", "bestaetigungsfrist", "schule.team_name", "team_id"}
+)
+
+# `_id` is here and not in the view's, whose own line says why
+# (`app/api/bewerbungen/services.py :: EINWILLIGUNG_ANSICHT_FIELDS`).
+ANTWORT_RESOLVES = frozenset(
+    _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
+    | _seat_paths("kontakte", "vorname", "einwilligung.bestaetigt_am")
+    | {"_id", "kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist"}
+)
 
 
 def person(vorname: str) -> dict[str, Any]:
@@ -213,10 +232,23 @@ def loaded_by_the_link(recorder: _ReadsRecorded) -> list[Any]:
     """Every document the TOKEN filter found.
 
     `fl_backend/app/core/crud.py :: patch_one_in_db` reads the same application twice more, on `_id`
-    and unprojected, its pre-image being the log's (`docs/backend/spec.md :: I42`).
+    and unprojected, its pre-image being the log's (`docs/backend/spec.md :: I39`).
     """
 
     return [document for db_filter, document in recorder.answered if "$or" in db_filter]
+
+
+def leaf_paths(document: Any, prefix: str = "") -> set[str]:
+    """Every dotted path this document holds a value at.
+
+    An empty block counts as one: it would otherwise vanish from the comparison, and a projection
+    widened onto a block this seed leaves empty would pass.
+    """
+
+    if not isinstance(document, Mapping) or not document:
+        return {prefix} if prefix else set()
+
+    return {path for key, value in document.items() for path in leaf_paths(value, f"{prefix}.{key}" if prefix else key)}
 
 
 class TestWhatALinkOpens:
@@ -270,7 +302,7 @@ class TestWhatAnAnonymousReadLoads:
         loaded = on_a_league(mongo_replica_set_url, body)
 
         assert loaded, "the link's own read did not run"
-        assert [value for value in WITHHELD_FROM_A_LINK if value in str(loaded)] == []
+        assert set().union(*(leaf_paths(document) for document in loaded)) <= ANSICHT_RESOLVES
 
     def test_the_answer_never_holds_the_application_beyond_the_fields_it_judges_and_writes_on(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
@@ -282,7 +314,7 @@ class TestWhatAnAnonymousReadLoads:
         loaded = on_a_league(mongo_replica_set_url, body)
 
         assert loaded, "the link's own read did not run"
-        assert [value for value in WITHHELD_FROM_A_LINK if value in str(loaded)] == []
+        assert set().union(*(leaf_paths(document) for document in loaded)) <= ANTWORT_RESOLVES
 
 
 class TestWhatAConfirmationWrites:
