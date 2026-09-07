@@ -145,20 +145,43 @@ fi
 # interleaved readings each of `scripts/tests` -- `-n 16` gave 94.7/47.1/80.6s, `-n 8` gave
 # 99.2/88.3/66.6s, overlapping outright, and `-n 4` gave 177.1s.
 GATE_WIDTH_SCRIPTS_PYTEST=8
+# MEASURED 2026-09-07 on the same machine idle, one run at a time: 8, 12 and 16 landed within 2.2s
+# of one another (53.9-56.1s), 6 cost 12.7s more and 4 cost 33s more, twice.
+
+# Below this a worker costs more than it collects: it pays its own process start, its own
+# interpreter and this suite's fixture repository before it takes a case -- the reason `do_pytest`
+# distributes over `--dist loadfile`.
+GATE_WIDTH_SCRIPTS_PYTEST_FLOOR=8
 
 # MEASURED 2026-09-02, two interleaved pairs of the db tier: `--maxprocesses 8` gave 55.9/40.3s and
 # `6` gave 47.2/28.5s, six faster in both. A cap on `auto`, never a floor: a two-core runner
 # resolves `auto` below it and takes nothing up.
 GATE_WIDTH_DB_PYTEST=6
+# MEASURED 2026-09-07 idle, each width a converged pair: 4 gave 21.0/20.9s against 18.5/18.5s at
+# 6 and 19.2/19.4s at 8, while 3, 2 and 1 gave 24.0, 30.1 and 48-49s -- flat above, steep below.
 
-gate_width() { # $1 the tool's own measured optimum
-  local want="$1" budget="${FL_GATE_BUDGET:-0}" demand="${FL_GATE_DEMAND:-0}" share
+# Below this the tier's workers stop paying for themselves against the two shared mongods they
+# already queue on, so a narrower share buys nothing back.
+GATE_WIDTH_DB_PYTEST_FLOOR=4
+
+gate_width() { # $1 the tool's own measured optimum · $2 the floor declared beside it
+  local want="$1" floor="$2" budget="${FL_GATE_BUDGET:-0}" demand="${FL_GATE_DEMAND:-0}" share
   if (( budget <= 0 || demand <= 0 || budget >= demand )); then printf '%s' "$want"; return 0; fi
   # In proportion, never in equal shares: an equal split takes the most from the tool asking for the
   # most, which is the section already setting the run's wall clock.
   share=$(( want * budget / demand ))
-  if (( share < 1 )); then share=1; fi
+  # The consumer's own floor rather than one worker: under it a runner is slower than at the floor
+  # rather than merely narrower, and `gate_widths_fit` has already refused the pool where the
+  # floors do not fit together.
+  if (( share < floor )); then share="$floor"; fi
   printf '%s' "$share"
+}
+
+gate_widths_fit() { # every enabled consumer's floor against the budget, before a pool is opened
+  local budget="${FL_GATE_BUDGET:-0}" floors="${FL_GATE_FLOOR_DEMAND:-0}"
+  # A section narrowed under its floor runs slower for the whole run, while one that waits its turn
+  # runs at a width that works. So a budget too small to hold every floor sequences the scopes.
+  (( budget <= 0 || floors <= 0 || budget >= floors ))
 }
 
 # --- what a unit runs --------------------------------------------------------------------------------
@@ -180,7 +203,7 @@ do_pyright() { ( cd "${REPO_ROOT}/scripts" && "$PY" -m pyright ); }
 # copytree and its `git init` once per worker that draws a case from the module.
 do_pytest() {
   "$PY" -m pytest scripts/tests -n auto --dist loadfile \
-    --maxprocesses "$(gate_width "$GATE_WIDTH_SCRIPTS_PYTEST")"
+    --maxprocesses "$(gate_width "$GATE_WIDTH_SCRIPTS_PYTEST" "$GATE_WIDTH_SCRIPTS_PYTEST_FLOOR")"
 }
 
 # Only `check_docs.py` writes `.git/index` (`scripts/checks/docs_gate/branch.py :: _added_by_file`), so
@@ -632,6 +655,36 @@ fi
 
 # --- the scopes, concurrently ------------------------------------------------------------------------
 
+# Ahead of the block below, because what it answers is whether there is a pool at all. A run this
+# clears reaches the same serial sections a CI job takes, each section alone with the machine.
+if (( PARALLEL )); then
+  FL_GATE_BUDGET="$(nproc 2>/dev/null || printf '%s' "${NUMBER_OF_PROCESSORS:-0}")"
+  if [[ ! "$FL_GATE_BUDGET" =~ ^[1-9][0-9]*$ ]]; then FL_GATE_BUDGET=0; fi
+  # The self-check's 16 workers stay out of this sum. MEASURED 2026-09-02: counting them makes
+  # demand 30 against 16 cores, cutting these two to 4 and 3, under the width each was measured
+  # at, while the self-check still sets the scripts section.
+  FL_GATE_DEMAND=0
+  FL_GATE_FLOOR_DEMAND=0
+  if (( RUN_SCRIPTS )); then
+    FL_GATE_DEMAND=$(( FL_GATE_DEMAND + GATE_WIDTH_SCRIPTS_PYTEST ))
+    FL_GATE_FLOOR_DEMAND=$(( FL_GATE_FLOOR_DEMAND + GATE_WIDTH_SCRIPTS_PYTEST_FLOOR ))
+  fi
+  if (( RUN_DB )); then
+    FL_GATE_DEMAND=$(( FL_GATE_DEMAND + GATE_WIDTH_DB_PYTEST ))
+    FL_GATE_FLOOR_DEMAND=$(( FL_GATE_FLOOR_DEMAND + GATE_WIDTH_DB_PYTEST_FLOOR ))
+  fi
+  if ! gate_widths_fit; then
+    # Reported rather than taken quietly, as the pool's own fallback is: a run whose scopes
+    # never overlapped is one whose wall clock nobody can account for.
+    info "a budget of ${FL_GATE_BUDGET} cannot hold the ${FL_GATE_FLOOR_DEMAND} workers the enabled scopes floor at, so the scopes run in sequence, each alone with the machine at its own measured width"
+    # Unset rather than left standing: a scope's call site is a command substitution, which
+    # reads these as shell variables whether or not they were ever exported, so a budget
+    # surviving the decision would divide a pool that never opened.
+    unset FL_GATE_BUDGET FL_GATE_DEMAND FL_GATE_FLOOR_DEMAND
+    PARALLEL=0
+  fi
+fi
+
 if (( PARALLEL )); then
   # Closed before the pool, or the scope section's row reports the whole run's wall clock.
   end_section
@@ -643,14 +696,6 @@ if (( PARALLEL )); then
 
   # Exported here alone: the scopes compete only in a pool, and elsewhere -- serial, verbose, a
   # worker, CI's one job per runner -- a tool keeps the optimum it was measured at.
-  FL_GATE_BUDGET="$(nproc 2>/dev/null || printf '%s' "${NUMBER_OF_PROCESSORS:-0}")"
-  if [[ ! "$FL_GATE_BUDGET" =~ ^[1-9][0-9]*$ ]]; then FL_GATE_BUDGET=0; fi
-  # The self-check's 16 workers stay out of this sum. MEASURED 2026-09-02: counting them makes
-  # demand 30 against 16 cores, cutting these two to 4 and 3, under the width each was measured
-  # at, while the self-check still sets the scripts section.
-  FL_GATE_DEMAND=0
-  if (( RUN_SCRIPTS )); then FL_GATE_DEMAND=$(( FL_GATE_DEMAND + GATE_WIDTH_SCRIPTS_PYTEST )); fi
-  if (( RUN_DB )); then FL_GATE_DEMAND=$(( FL_GATE_DEMAND + GATE_WIDTH_DB_PYTEST )); fi
   export FL_GATE_BUDGET FL_GATE_DEMAND
 
   pool_open
@@ -1268,7 +1313,7 @@ if (( RUN_DB )); then
   # Both mongods are shared (`fl_backend/tests/conftest.py :: pytest_configure_node`), so past
   # `GATE_WIDTH_DB_PYTEST` the workers fight over the same servers whatever the core count.
   step "db · pytest -m db, distributed over the two shared mongods"
-  DB_WIDTH="$(gate_width "$GATE_WIDTH_DB_PYTEST")"
+  DB_WIDTH="$(gate_width "$GATE_WIDTH_DB_PYTEST" "$GATE_WIDTH_DB_PYTEST_FLOOR")"
   # pytest answers its own codes, not this gate's: 2 is a collection error, 4 a usage error and 5
   # no test collected, and none is a db-tier failure. The width flag is the live route to a 4, an
   # empty one otherwise reading as the tests having failed.

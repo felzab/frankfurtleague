@@ -431,7 +431,10 @@ files the formatter governs.
 Scopes **run concurrently by default**, one worker process each, and `verify.sh` replays their
 captured output in written order — so a parallel run reads as the serial one per stream, on the
 terms below: a terminal merging stdout and stderr sees a scope's error lines after its output rather
-than between it, which is the merge and not a defect. A failing scope still ends the run at its
+than between it, which is the merge and not a defect. **That default holds only where the machine
+can hold every width-taking section's declared floor** (`scripts/gate/verify.sh :: gate_widths_fit`);
+under it the scopes run one at a time, each alone with the machine at the width its own work was
+measured at. A failing scope still ends the run at its
 own replay, but only after every later scope that finished with a verdict has its ledger rows
 adopted — rows alone, never the captured output — so the closing table tells a passing scope from
 one that never ran, and a session fixing the failure knows what it need not pay for again.
@@ -445,7 +448,8 @@ and which no two runs of the same work share. The pair is held to that by
 and by `:: test_the_two_forms_read_alike_on_the_failure_path_too`, which drive two stub-tooled scopes
 once each way, green and then failing at the last unit, mask those three sites and compare the rest
 per stream.
-**No scope waits on another**, so every scope starts at once and the run's floor is its longest.
+**No scope depends on another's result**, so a concurrent run's floor is its longest scope and a
+sequenced one's is their sum.
 
 **A worker's exit status and the rows it sent home are two accounts of one run, and the parent holds
 them to each other** (`scripts/lib/_lib.sh :: adopt_ending`): one whose rows name neither a finding
@@ -573,7 +577,7 @@ alone where nothing imports the application, on the uv `fl_backend/pyproject.tom
 | `--format`   | prettier in check mode over the whole repository                                                                                                                                                                                                                                    | pnpm install                                                                                                                                 |
 | `--frontend` | the frozen lockfile check, `next typegen`, then tsc, eslint and the dependency audit as one pool, then the unit tests, then `next build` alone                                                                                                                                      | pnpm install                                                                                                                                 |
 | `--ops`      | both compose files parse; `check_compose_mirror.py`, `check_nginx_mirror.py` and `check_csp_identity.py` compare what `nginx -t` cannot; nginx accepts `prod.conf`; its access line carries no credential                                                                           | Docker, and an interpreter at the checkers' floor for the three python checks                                                                |
-| `--db`       | `pytest -m db -n auto --dist loadfile`, capped at `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST`, against the two real `mongod`s the xdist controller starts (`docs/backend/spec.md` §1.6)                                                                                        | venv + Docker                                                                                                                                |
+| `--db`       | `pytest -m db -n auto --dist loadfile`, capped at `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` and floored beside it, against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6)                                                                           | venv + Docker                                                                                                                                |
 | `--images`   | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                                              | Docker                                                                                                                                       |
 
 **Each of the images scope's three probes answers three ways, and the third is a refusal**: an

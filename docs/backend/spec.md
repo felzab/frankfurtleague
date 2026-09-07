@@ -421,8 +421,9 @@ asks for it. Which of the two a test takes — `fl_backend/tests/conftest.py :: 
 #### The tier distributed
 
 **The `db` tier runs over worker processes** — `pytest -m db -n auto --dist loadfile --maxprocesses`,
-the cap being `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST`. **A bare `pytest -m db` still runs it
-serially and is the first thing to try against a failure that only appears distributed.**
+the cap being `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` and the floor
+`:: GATE_WIDTH_DB_PYTEST_FLOOR`. **A bare `pytest -m db` still runs it serially and is the first
+thing to try against a failure that only appears distributed.**
 **`loadfile` is a cost choice and not a correctness one**: it keeps a module-scoped corpus built once
 rather than once per worker holding a slice of it, and the per-worker naming below is what would hold
 a run correct under `--dist load`, which splits a file, as well.
