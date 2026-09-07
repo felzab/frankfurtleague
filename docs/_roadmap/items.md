@@ -118,7 +118,6 @@ deliverable.
 | `ja32-9rpv` | A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches                      | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                  | BE, tests, saisons                                                          | Open     |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
-| `kpkb-y5d8` | A refusal code's meaning is written three times in prose, and nothing resolves any pair of them                              | FE, BE, Ops, Docs, gate, tests, bewerbungen                                 | Open     |
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                           | FE, BE, admin, spieler                                                      | Open     |
 | `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                         | FE, Docs                                                                    | Open     |
 | `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                            | FE, auth, spiele, spielorte, teams                                          | Open     |
@@ -1926,54 +1925,6 @@ which is an order change on both surfaces and lands in one commit with both suit
 and `fl_frontend/src/core/logFormat.test.ts`, and `.claude/rules/cross-surface.md`'s **openapi**
 clause keeps the two packages from sharing a declaration, so the class enumeration is spelled once
 per surface with a comparator, the shape `scripts/checks/check_log_quoting_class.py` already takes.
-
-### `kpkb-y5d8` · A refusal code's meaning is written three times in prose, and nothing resolves any pair of them
-
-| Tags                                        | Status | Depends on |
-| ------------------------------------------- | ------ | ---------- |
-| FE, BE, Ops, Docs, gate, tests, bewerbungen | Open   | —          |
-
-**One refusal code carries its meaning in three written statements, and no check reads any of them.**
-`fl_backend/app/core/domain.py :: RULES` gives each rule a `summary`;
-[`docs/logging/error-codes.md`](../logging/error-codes.md) gives each code a row stating what it
-refuses and with which status; and the frontend turns the code into the German sentence an admin or
-an applicant actually reads, naming it as a string literal in each slice's `actions.ts`, in
-`fl_frontend/src/shared/utils/actionError.ts`, and in
-`fl_frontend/src/features/bewerbungen/utils.ts` for the public application form.
-
-**What the checks that exist do reach.** `fl_backend/tests/core/test_domain.py` resolves each rule's
-`implemented_by` and `tested_by` and asserts the code appears in both; it opens no `summary`. On the
-frontend the assertions are that a code maps to something at all and which field path it lands on,
-`fl_frontend/src/core/refusalPaths.test.ts` holding that path to a rendered input. **Not one of them
-compares a sentence with the condition the backend refuses on**, so a sentence describing a
-neighbouring fact passes every test, ships, and is read by the person the refusal is for. **How close
-those facts sit is recorded in the code itself**: the comment above
-`fl_frontend/src/features/bewerbungen/utils.ts :: mapBewerbungSubmitRefusal`'s arm for a club already
-in the season warns that a second application and a club already playing read alike and only one of
-them is what the backend refused.
-
-**No figure is quoted for how many, deliberately**: every branch that adds a refusal adds to all
-three listings and has no reason to open this page, so a dated count here is stale by the branch
-after the one that takes it — and the three listings named above ARE the count, each a grep from a
-reader who wants it. The three sets agree today, which is what makes this a class rather than a
-defect.
-
-**Done when** the decision is taken about what a repair can reach. A check can hold the three sets
-together — every rule's code takes a row, every code a surface renders takes a sentence — and that is
-`scripts/checks/docs_gate/error_codes.py`'s shape extended by one side. **What it cannot do is judge a
-meaning**, so the rest is a place where the three statements are read side by side and a rule about
-when they are re-read: a
-fourth column on the table, or a generated comparison a reader walks.
-`docs/_auditing/prompts/crosscut/1-contracts-and-seams.md`'s sixth check already asks a pass to trace
-each error class through to the German it renders, so the reading exists and happens when a programme
-runs rather than when a refusal changes. **Choosing between those is the work**, and the entry is
-here rather than decided because the cheapest of them is also the one nothing enforces.
-
-**Why this stays its own entry rather than widening the error-code check.** That check is a set
-comparison between two enumerations, complete and mechanical, and it already holds the codes this
-entry needs. This one has no such form — nothing decides whether a German sentence states the fact a
-predicate tests — so folding it into that check would close the cheap half under one id and let the
-half that matters leave with it.
 
 ### `kwfu-48sm` · Two surfaces offer a squad-row return the season's cap will refuse
 

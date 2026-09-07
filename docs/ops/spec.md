@@ -816,6 +816,12 @@ codes `fl_backend/app/` and `fl_frontend/src/` spell must agree in both directio
 answering for its own prefixes so that the backend codes the frontend words for a reader are not
 read as the frontend's own.
 
+**That register's `Worded by` column is held by the same checker**: every code
+`fl_backend/app/core/domain.py :: RULES` declares carries a citation naming a `fl_frontend/src/`
+module that spells the code outside a comment, and a row no rule declares carries none. The
+citation's resolution is the whole of it
+([`docs/logging/error-codes.md`](../logging/error-codes.md#1-backend-codes)).
+
 **The backend steps** exist because the frontend's toolchain runs nothing against `fl_backend`
 ([`docs/backend/spec.md`](../backend/spec.md) §1.6); `pyright` is separate from `ruff` because ruff
 checks no types. **Both test tiers run**: the `db`-marked tests need a real `mongod`, so they are
@@ -991,6 +997,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I181 | The pulled backend image reads `fl_backend/.env` in preflight, refusing at exit 2 any name or value `get_config` rejects, a missing required one included                     | `scripts/ops/deploy.sh :: check_env_names`, whose refusal and advisory arms `scripts/tests/test_deploy_streams.py` drives, the snippet run for real                                                                                                                            |
 | I182 | Every file under `fl_frontend/src/app/` answering a URL is accounted for: a handler against the edge's locations, a metadata convention against its recorded decision         | `scripts/checks/check_public_routes.py :: METADATA` and `:: METADATA_IMAGES`, driven red in `scripts/tests/test_check_public_routes.py`; a reserved name it cannot place refuses                                                                                               |
 | I183 | The pulled frontend image reads `fl_frontend/.env` in preflight, refusing at exit 2 a name its schema does not declare; every value stays the boot gate's                     | `scripts/ops/deploy.sh :: check_frontend_env_names` over the key set `fl_frontend/emit-environment-names.mjs` writes into the image; driven by `scripts/tests/test_deploy_env_names.py` and `fl_frontend/check-environment-names.test.mjs`                                     |
+| I187 | Every domain rule's row in the refusal register cites the frontend module answering its code (§1.6)                                                                           | gate check `error-codes`, whose population is `fl_backend/app/core/domain.py :: RULES`; `scripts/tests/test_check_docs.py :: _plant_error_codes` drives each way a cell can miss                                                                                               |
 
 ## 3. Violation → remedy
 
