@@ -448,7 +448,7 @@ values, as one `CRITICAL` line in the stream's own format before it throws.
 | `MONGODB_URI`                                  | must start `mongodb://` or `mongodb+srv://`                                                                                          |
 | `AUTH_URL`                                     | URL; **must be https** unless it points at localhost                                                                                 |
 | `AUTH_SECRET`, `AUTH_RESEND_KEY`               | string                                                                                                                               |
-| `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 characters                                                                                                                |
+| `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space                                                                                  |
 | `ALLOWED_ADMIN_EMAILS`                         | comma-separated, each a valid email                                                                                                  |
 | `LOG_FORMAT`                                   | `json` \| `console`, case-normalised                                                                                                 |
 | `LOG_LEVEL`                                    | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR` \| `CRITICAL`, case-normalised, `INFO` where the server sets nothing                       |

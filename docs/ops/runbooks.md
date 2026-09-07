@@ -85,8 +85,9 @@ docker run --rm --network <compose-network> -v "$PWD/fl_backend/app:/app/app:ro"
 ```
 
 **Seven variables are required and two carry real values.** `BackendConfig` declares seven fields with no
-default, one per variable above, so `-e MONGODB_URI=` alone exits 1 on a validation error naming the
-internal keys rather than anything about the database. `--check` reads the database and nothing else, so the hosts,
+default, one per variable above, so `-e MONGODB_URI=` alone exits 1 on a validation error naming all
+seven — an empty value being no URI, and `DB_BASE_NAME` being as much about the database as the URI
+is. `--check` reads the database and nothing else, so the hosts,
 the origins and the three keys need only take the shape the gate requires — **do not go looking for
 the production ones**, and keep the origin's `http://`, which is the one placeholder above that a
 constraint reads.
@@ -511,7 +512,7 @@ them is either in the Cloudflare dashboard or in front of `deploy.sh`. A later d
    `fl_backend/.env` against [`../backend/spec.md`](../backend/spec.md) §1.5 and `fl_frontend/.env`
    against [`../frontend/spec.md`](../frontend/spec.md) §1.7 — the key lengths and the origin lists
    especially, since both are pinned exactly and neither is checked by `deploy.sh`
-   ([`spec.md`](spec.md) §1.2). A value either startup gate refuses surfaces after step 3 has
+   (`docs/ops/spec.md :: I178`). A value either startup gate refuses surfaces after step 3 has
    removed the containers that were serving, inside the dark window step 5 is about.
 3. **Take the stack down first:** `docker compose -f docker-compose.yml down`. The network on the
    host was created before any subnet was declared and before Compose began recording a

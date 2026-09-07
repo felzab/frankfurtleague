@@ -193,8 +193,16 @@ code is the whole join key, which is why a boot failure gets one at all
 ([`spec.md`](spec.md#12-the-stream-contract) §1.2 makes `error_code` a field of every failure line).
 
 `SRV-*` rather than `DB-*`: the side that must act is whoever runs the service, and on
-`SRV-BOOT-002` the database is not at fault at all. The container exits, so a code seen here is
-followed by reading the same container's remaining lines rather than by a trace.
+`SRV-BOOT-002` the database is not at fault at all. The container exits and the engine starts it
+again on a growing backoff (`docker-compose.yml :: restart`), so `docker ps` shows the backend
+restarting rather than stopped and `docker compose logs backend` carries the code once per attempt;
+a code seen here is followed by reading those lines rather than by a trace.
+
+**The refusal an operator hits first carries no code at all.** The environment gate fails while the
+settings the logger is configured from are still being built, so it leaves the process as a Python
+traceback on stderr, outside the stream contract ([`spec.md`](spec.md#12-the-stream-contract) §1.2)
+and outside this table: what identifies it is the variable names
+`fl_backend/app/core/config.py :: get_config` prints.
 
 | Code           | Meaning                                                             |
 | -------------- | ------------------------------------------------------------------- |

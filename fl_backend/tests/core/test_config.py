@@ -187,6 +187,24 @@ class TestTheInternalKeys:
         with pytest.raises(ValidationError):
             build(**{field: SecretStr("k" * length)})
 
+    @pytest.mark.parametrize("field", ["internal_api_key_base", "internal_api_key_system", "internal_api_key_admin"])
+    @pytest.mark.parametrize("odd_character", ["ü", "\U0001f600", " "], ids=["non-ascii", "astral", "space"])
+    def test_a_key_of_the_right_length_carrying_anything_but_printable_ascii_fails_the_boot(self, field, odd_character):
+        """The three the length alone admits: `compare_digest` RAISES on the first two, and the astral one is also 65 units to the frontend."""
+        key = odd_character + "k" * (INTERNAL_API_KEY_LENGTH - 1)
+
+        assert len(key) == INTERNAL_API_KEY_LENGTH
+
+        with pytest.raises(ValidationError):
+            build(**{field: SecretStr(key)})
+
+    @pytest.mark.parametrize("field", ["internal_api_key_base", "internal_api_key_system", "internal_api_key_admin"])
+    def test_the_placeholder_shape_the_runbook_prints_still_boots(self, field):
+        """`docs/ops/runbooks.md` §2 hands an operator 64 `x` for the constraint check, so a class refusing it would refuse the procedure."""
+        placeholder = "x" * INTERNAL_API_KEY_LENGTH
+
+        assert getattr(build(**{field: SecretStr(placeholder)}), field).get_secret_value() == placeholder
+
 
 class TestTheNamesOnlyErrorPath:
     def test_the_refusal_names_the_variables_and_carries_no_rejected_value(self, monkeypatch, tmp_path):

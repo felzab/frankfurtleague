@@ -2,7 +2,7 @@ import re
 from functools import lru_cache
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import Field, SecretStr, ValidationError, field_validator, model_validator
+from pydantic import AfterValidator, Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -25,7 +25,24 @@ ORIGIN = re.compile(r"https?://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::\d{1
 # alone would refuse is a deployment already broken.
 INTERNAL_API_KEY_LENGTH: Final = 64
 
-InternalAPIKey = Annotated[SecretStr, Field(min_length=INTERNAL_API_KEY_LENGTH, max_length=INTERNAL_API_KEY_LENGTH)]
+# `security.py :: verify_api_key` compares a key with `secrets.compare_digest`, which RAISES for a
+# non-ASCII `str`: a key the length alone admits answers every internal request 500 rather than 401.
+# Pinned identically in `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` (`docs/ops/spec.md :: I11`).
+INTERNAL_API_KEY_CHARACTERS = re.compile(r"[\x21-\x7e]+")
+
+
+def _only_printable_ascii(key: SecretStr) -> SecretStr:
+    """A validator rather than `Field(pattern=)`, which pydantic refuses to apply to a `SecretStr`."""
+    if INTERNAL_API_KEY_CHARACTERS.fullmatch(key.get_secret_value()) is None:
+        raise ValueError("every character must be printable ASCII, and none may be a space")
+    return key
+
+
+InternalAPIKey = Annotated[
+    SecretStr,
+    Field(min_length=INTERNAL_API_KEY_LENGTH, max_length=INTERNAL_API_KEY_LENGTH),
+    AfterValidator(_only_printable_ascii),
+]
 
 
 class EnvironmentValidationError(Exception):

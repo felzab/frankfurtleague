@@ -313,24 +313,37 @@ unreachable.
 Declared once as a pydantic-settings model (`fl_backend/app/core/config.py :: BackendConfig`);
 fields without a default are required at boot and the process refuses to start without them.
 
-| Variable                      | Constraint                                                               | Default    |
-| ----------------------------- | ------------------------------------------------------------------------ | ---------- |
-| `API_TRUSTED_HOSTS`           | comma-separated, each a hostname or a `*` wildcard                       | — required |
-| `API_CORS_ALLOWED_ORIGINS`    | comma-separated, each a scheme, host and port only; no `*`               | — required |
-| `MONGODB_URI`                 | must start `mongodb://` or `mongodb+srv://`                              | — required |
-| `DB_BASE_NAME`                | the characters MongoDB accepts in a database name                        | — required |
-| `DB_SERVER_SELECTION_TIMEOUT` | int, ms, above zero and at most 60000                                    | `15000`    |
-| `DB_MIN_CONNECTIONS`          | int, not negative and not above `DB_MAX_CONNECTIONS`                     | `5`        |
-| `DB_MAX_CONNECTIONS`          | int, at least one                                                        | `100`      |
-| `INTERNAL_API_KEY_*`          | `BASE` / `SYSTEM` / `ADMIN`, each a `SecretStr` of exactly 64 characters | — required |
-| `LOG_LEVEL_APP`               | `DEBUG`…`CRITICAL`, case-normalised                                      | `INFO`     |
-| `LOG_LEVEL_DB`                | same vocabulary, for pymongo                                             | `WARNING`  |
-| `LOG_FORMAT`                  | `json` \| `console`, case-normalised                                     | **`json`** |
+| Variable                      | Constraint                                                                                                     | Default    |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------- |
+| `API_TRUSTED_HOSTS`           | comma-separated, each a hostname or a `*` wildcard                                                             | — required |
+| `API_CORS_ALLOWED_ORIGINS`    | comma-separated, each a scheme, host and port only; no `*`                                                     | — required |
+| `MONGODB_URI`                 | must start `mongodb://` or `mongodb+srv://`                                                                    | — required |
+| `DB_BASE_NAME`                | the characters MongoDB accepts in a database name                                                              | — required |
+| `DB_SERVER_SELECTION_TIMEOUT` | int, ms, above zero and at most 60000                                                                          | `15000`    |
+| `DB_MIN_CONNECTIONS`          | int, not negative and not above `DB_MAX_CONNECTIONS`                                                           | `5`        |
+| `DB_MAX_CONNECTIONS`          | int, at least one                                                                                              | `100`      |
+| `INTERNAL_API_KEY_*`          | `BASE` / `SYSTEM` / `ADMIN`, each a `SecretStr` of exactly 64 printable ASCII characters, none of them a space | — required |
+| `LOG_LEVEL_APP`               | `DEBUG`…`CRITICAL`, case-normalised                                                                            | `INFO`     |
+| `LOG_LEVEL_DB`                | same vocabulary, for pymongo                                                                                   | `WARNING`  |
+| `LOG_FORMAT`                  | `json` \| `console`, case-normalised                                                                           | **`json`** |
 
 `API_CORS_ALLOWED_ORIGINS` refuses the bare `*` that `API_TRUSTED_HOSTS` accepts, and the refusal is
 deliberate: this API is reached server-side from the frontend's own origin, never from a browser at
 an origin we do not already name, and `Access-Control-Allow-Origin: *` is invalid for a credentialed
 request in any case. `fl_backend/tests/core/test_config.py :: TestCorsAllowedOrigins` pins it.
+
+**The internal keys' character class is what `secrets.compare_digest` can read.**
+`fl_backend/app/core/security.py :: verify_api_key` compares a bearer token against a key with it,
+and it raises rather than answering false for a `str` holding anything outside ASCII — so a key the
+length bound alone admits boots and then answers every internal request 500. The class is printable
+ASCII with no space, pinned identically on the frontend (`docs/ops/spec.md :: I11`), which is also
+what holds the two length checks to one answer: this side counts code points and zod counts UTF-16
+units, and only ASCII makes those the same number.
+
+**`DB_MIN_CONNECTIONS` and `DB_MAX_CONNECTIONS` are judged against each other only once every field
+has parsed**, that pair being a model validator rather than a field one: an operator holding a
+malformed origin as well as an inverted pool is refused for the origin alone, and refused a second
+time for the pool after fixing it.
 
 `LOG_FORMAT` defaults to the **production** format on purpose: a `.env` that omits it must not
 colourise the container stream ([`docs/logging/spec.md`](../logging/spec.md)). `API_VERSION` is deliberately

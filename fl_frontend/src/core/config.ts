@@ -5,6 +5,14 @@ import { z } from "zod";
 
 import { formatLogLine } from "./logFormat";
 
+// Printable ASCII with no space, the class `fl_backend/app/core/config.py :: InternalAPIKey` pins:
+// `secrets.compare_digest` there raises for a non-ASCII key, and `length` counts UTF-16 units here
+// against that side's code points, so only ASCII makes the two agree (`docs/ops/spec.md :: I11`).
+export const INTERNAL_API_KEY = z
+  .string()
+  .length(64)
+  .regex(/^[\x21-\x7e]+$/, "every character must be printable ASCII, and none may be a space");
+
 export const frontend_config = createEnv({
   server: {
     // The public origin reaches FastAPI on the liveness path alone, so an API_URL sharing
@@ -28,9 +36,9 @@ export const frontend_config = createEnv({
     AUTH_SECRET: z.string(),
     AUTH_RESEND_KEY: z.string(),
 
-    INTERNAL_API_KEY_BASE: z.string().length(64),
-    INTERNAL_API_KEY_SYSTEM: z.string().length(64),
-    INTERNAL_API_KEY_ADMIN: z.string().length(64),
+    INTERNAL_API_KEY_BASE: INTERNAL_API_KEY,
+    INTERNAL_API_KEY_SYSTEM: INTERNAL_API_KEY,
+    INTERNAL_API_KEY_ADMIN: INTERNAL_API_KEY,
 
     ALLOWED_ADMIN_EMAILS: z
       .string()
