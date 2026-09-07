@@ -32,11 +32,26 @@ span_id_var: ContextVar[str] = ContextVar("span_id", default=NO_REQUEST_SENTINEL
 # (`docs/logging/spec.md :: L9`).
 STRUCTURED_EXTRAS = ("error_code", "method", "path", "status", "duration_ms")
 
+# The code on a failure line no call site of ours wrote -- uvicorn's, pymongo's, the reloader's.
+FORWARDED_FAILURE_CODE = "SRV-LOG-001"
+
 
 class TraceContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         record.trace_id = trace_id_var.get()
         record.span_id = span_id_var.get()
+        return True
+
+
+class ForwardedFailureFilter(logging.Filter):
+    """A code on a failure line a library's own logger wrote, which has no call site of ours to take one from."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Scoped to the OTHER loggers rather than to a missing code: a default for whichever caller
+        # forgot one would hide exactly the omission `docs/logging/spec.md` §1.2 exists to refuse.
+        own = record.name == FL_LOGGER_NAME or record.name.startswith(f"{FL_LOGGER_NAME}.")
+        if not own and record.levelno >= logging.WARNING and getattr(record, "error_code", None) is None:
+            record.error_code = FORWARDED_FAILURE_CODE
         return True
 
 
@@ -141,7 +156,10 @@ def setup_custom_logger(config: BackendConfig):
         "filters": {
             "trace_context_filter": {
                 "()": TraceContextFilter,
-            }
+            },
+            "forwarded_failure_filter": {
+                "()": ForwardedFailureFilter,
+            },
         },
         "formatters": {
             "level_aware": {
@@ -156,7 +174,9 @@ def setup_custom_logger(config: BackendConfig):
                 "class": "logging.StreamHandler",
                 "stream": sys.stdout,
                 "formatter": selected_formatter,
-                "filters": ["trace_context_filter"],
+                # On the HANDLER rather than on a logger: a library's records reach the stream by
+                # propagating to the root, so a filter on ours would never see one.
+                "filters": ["trace_context_filter", "forwarded_failure_filter"],
             },
         },
         "root": {"handlers": ["console"], "level": config.log_level_app},

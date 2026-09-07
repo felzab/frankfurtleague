@@ -7,7 +7,15 @@ import pytest
 from pydantic import SecretStr
 
 from app.core.config import INTERNAL_API_KEY_LENGTH, BackendConfig
-from app.core.logging import JSONFormatter, LevelAwareFormatter, span_id_var, trace_id_var
+from app.core.logging import (
+    FL_LOGGER_NAME,
+    FORWARDED_FAILURE_CODE,
+    ForwardedFailureFilter,
+    JSONFormatter,
+    LevelAwareFormatter,
+    span_id_var,
+    trace_id_var,
+)
 from app.core.middlewares import mint_span_id, resolve_trace_id
 
 TIMESTAMP_SHAPE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\Z")
@@ -22,8 +30,8 @@ SPAN = "b" * 16
 WELL_FORMED = f"00-{TRACE}-{SPAN}-01"
 
 
-def make_record(message: str = "hello", level: int = logging.INFO, **attrs) -> logging.LogRecord:
-    record = logging.LogRecord(name="frankfurtleague", level=level, pathname=__file__, lineno=1, msg=message, args=(), exc_info=None)
+def make_record(message: str = "hello", level: int = logging.INFO, logger_name: str = FL_LOGGER_NAME, **attrs) -> logging.LogRecord:
+    record = logging.LogRecord(name=logger_name, level=level, pathname=__file__, lineno=1, msg=message, args=(), exc_info=None)
     for key, value in attrs.items():
         setattr(record, key, value)
     return record
@@ -86,6 +94,45 @@ class TestJSONFormatter:
         assert document["error"]["name"] == "ValueError"
         assert document["error"]["message"] == "boom"
         assert "Traceback" in document["error"]["stack"]
+
+
+class TestForwardedFailureFilter:
+    @pytest.mark.parametrize("logger_name", ["uvicorn.error", "pymongo.topology", "watchfiles.main"])
+    @pytest.mark.parametrize("level", [logging.WARNING, logging.ERROR, logging.CRITICAL])
+    def test_a_failure_record_from_another_library_takes_the_forwarded_code(self, logger_name, level):
+        """The lifespan refusal's `uvicorn.error` line is the one an operator meets; the others share its shape."""
+        record = make_record(level=level, logger_name=logger_name)
+
+        ForwardedFailureFilter().filter(record)
+
+        assert getattr(record, "error_code", None) == FORWARDED_FAILURE_CODE
+
+    @pytest.mark.parametrize("level", [logging.DEBUG, logging.INFO])
+    def test_a_record_below_warning_takes_no_code(self, level):
+        record = make_record(level=level, logger_name="uvicorn.error")
+
+        ForwardedFailureFilter().filter(record)
+
+        assert getattr(record, "error_code", None) is None
+
+    @pytest.mark.parametrize("logger_name", [FL_LOGGER_NAME, f"{FL_LOGGER_NAME}.db"])
+    def test_an_application_record_is_left_uncoded(self, logger_name):
+        """The filter is not a default: a writer of ours that forgot a code stays visible as an uncoded line."""
+        record = make_record(level=logging.ERROR, logger_name=logger_name)
+
+        ForwardedFailureFilter().filter(record)
+
+        assert getattr(record, "error_code", None) is None
+
+    def test_a_code_a_record_already_carries_survives(self):
+        record = make_record(level=logging.ERROR, logger_name="uvicorn.error", error_code="SRV-BOOT-004")
+
+        ForwardedFailureFilter().filter(record)
+
+        assert getattr(record, "error_code", None) == "SRV-BOOT-004"
+
+    def test_the_record_still_reaches_the_handler(self):
+        assert ForwardedFailureFilter().filter(make_record(level=logging.ERROR, logger_name="uvicorn.error")) is True
 
 
 class TestConsoleFormatter:

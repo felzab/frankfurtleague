@@ -21,11 +21,12 @@ response body, no log line and no row on this page, and the `RULES` corresponden
 `REQ-` alone. What a read rule governs is which tier a field is served
 ([`docs/backend/spec.md`](../backend/spec.md#17-read-rules) §1.7).
 
-| Section                             | Answers                                                                                   |
-| ----------------------------------- | ----------------------------------------------------------------------------------------- |
-| [Backend codes](#1-backend-codes)   | Every code FastAPI raises, and its status                                                 |
-| [Frontend codes](#2-frontend-codes) | Every code the Next surface raises, and why an admin write's never reaches the error page |
-| [Startup codes](#3-startup-codes)   | Every code a boot refusal carries, none of which answers a request                        |
+| Section                               | Answers                                                                                   |
+| ------------------------------------- | ----------------------------------------------------------------------------------------- |
+| [Backend codes](#1-backend-codes)     | Every code FastAPI raises, and its status                                                 |
+| [Frontend codes](#2-frontend-codes)   | Every code the Next surface raises, and why an admin write's never reaches the error page |
+| [Startup codes](#3-startup-codes)     | Every code a boot refusal carries, none of which answers a request                        |
+| [Forwarded codes](#4-forwarded-codes) | The code a line neither service raised carries, on both surfaces                          |
 
 ## 1. Backend codes
 
@@ -165,6 +166,10 @@ freeze is absolute on the patch and is not a dead end, and which route leads bac
 Declared in `fl_frontend/src/core/errors.ts`, plus the call sites named. Unlike section 1's, this set has no
 declaration a test holds it against, so a code added at a call site reaches this table only by hand.
 
+**Two frontend codes sit outside this table**, each grouped with the backend code of its own class: the
+environment gate's in [section 3](#3-startup-codes), and the console shim's in
+[section 4](#4-forwarded-codes).
+
 **None of them reaches the error page from an admin write.** `runAdminMutation` wraps both entry points — the
 admin server actions and the page-owned editors' undo route handlers — logging the failure with its codes and
 returning the `FormState` the caller toasts, because a 409 is an ordinary outcome of a create rather than a
@@ -187,8 +192,9 @@ crash ([`spec.md`](spec.md#2-invariants) L6).
 
 ## 3. Startup codes
 
-Raised before the application serves anything, by `fl_backend/app/core/db.py :: lifespan`. Each
-reaches a log line and no response, so it carries no status and its `trace_id` is `SYSTEM` — the
+Raised before either service serves anything — the backend's by `fl_backend/app/core/db.py :: lifespan`,
+the frontend's by `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`. Each reaches a log line
+and no response, so it carries no status and its `trace_id` is `SYSTEM` — the
 code is the whole join key, which is why a boot failure gets one at all
 ([`spec.md`](spec.md#12-the-stream-contract) §1.2 makes `error_code` a field of every failure line).
 
@@ -198,18 +204,39 @@ again on a growing backoff (`docker-compose.yml :: restart`), so `docker ps` sho
 restarting rather than stopped and `docker compose logs backend` carries the code once per attempt;
 a code seen here is followed by reading those lines rather than by a trace.
 
-**The refusal an operator hits first carries no code at all.** The environment gate fails while the
-settings the logger is configured from are still being built, so it leaves the process as a Python
-traceback on stderr, outside the stream contract ([`spec.md`](spec.md#12-the-stream-contract) §1.2)
-and outside this table: what identifies it is the variable names
-`fl_backend/app/core/config.py :: get_config` prints.
+**The refusal an operator hits first is the environment gate's, and only the frontend's reaches this
+table.** The backend gate fails while the settings the logger is configured from are still being
+built, so it leaves the process as a Python traceback on stderr rather than a log line at all
+([`spec.md`](spec.md#12-the-stream-contract) §1.2), and what identifies it is the variable names
+`fl_backend/app/core/config.py :: get_config` prints. The frontend gate reaches its formatter
+directly, so its refusal is a document in the envelope and carries a code like any other failure
+line.
 
-| Code           | Meaning                                                             |
-| -------------- | ------------------------------------------------------------------- |
-| `SRV-BOOT-001` | The MongoDB server could not be reached                             |
-| `SRV-BOOT-002` | `MONGODB_URI` yielded no server to connect to                       |
-| `SRV-BOOT-003` | The server refused to authenticate the credentials in `MONGODB_URI` |
-| `SRV-BOOT-004` | The database constraints could not be applied                       |
+| Code           | Meaning                                                                                      |
+| -------------- | -------------------------------------------------------------------------------------------- |
+| `SRV-BOOT-001` | The MongoDB server could not be reached                                                      |
+| `SRV-BOOT-002` | `MONGODB_URI` yielded no server to connect to                                                |
+| `SRV-BOOT-003` | The server refused to authenticate the credentials in `MONGODB_URI`                          |
+| `SRV-BOOT-004` | The database constraints could not be applied                                                |
+| `FE-BOOT-001`  | A frontend environment variable failed validation; the line names the variables and no value |
 
-The first three are one decision — `db.py :: _refusal_for`, which pairs each cause's sentence with
-its code — so a fourth cause added there takes a fourth row here.
+The first three `SRV-BOOT-*` rows are one decision — `db.py :: _refusal_for`, which pairs each
+cause's sentence with its code — so a fourth cause added there takes a fourth row here.
+
+## 4. Forwarded codes
+
+A line neither service raised: output a dependency wrote, put into the envelope by
+`fl_frontend/src/core/consoleShim.ts :: installConsoleShim` or propagated to the root handler
+`fl_backend/app/core/logging.py :: setup_custom_logger` configures. The writer has no call site of
+ours to take a code from, and borrowing the nearest one would file a library's warning under an
+application failure, so each route gives what it forwards a code of its own.
+
+**A forwarded code names the route rather than the failure**, so a line carrying one is followed by
+reading its `message` and the writer beside it — `source` on the frontend, `module` on the backend —
+and never by looking the code up for a cause. A failure worth its own code gets a call site of ours
+and a row above.
+
+| Code             | Meaning                                                                                                    |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- |
+| `FE-CONSOLE-001` | A warning or error reaching `console.*` under the json format, Next's own `⨯ Error` dumps included         |
+| `SRV-LOG-001`    | A warning or error from a logger that is not the application's — uvicorn's, PyMongo's, the file reloader's |

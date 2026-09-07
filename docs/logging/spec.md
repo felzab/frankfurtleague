@@ -154,13 +154,16 @@ How each surface keeps its stream to one format:
   log alone and the host can bound the access log's age without touching the container.
 
 **Boot lines are outside the contract, knowingly** — what a process prints before its logging is
-configured cannot be governed by it. uvicorn's pre-import lines fall back to plain stderr and Next's
-startup banner prints before `register()` installs the shim. **Two of the backend's failure lines
-therefore carry no `error_code`**: the environment refusal, which fails while building the settings
-the logger is configured from and so leaves the process as a traceback on stderr rather than a
-document (`fl_backend/app/core/config.py :: get_config`); and the `uvicorn.error` record that
-follows a lifespan refusal onto the stream in the envelope, which the framework writes rather than
-the application.
+configured cannot be governed by it. uvicorn's pre-import lines fall back to plain stderr, Next's
+startup banner prints before `register()` installs the shim, and the backend's environment refusal
+fails while building the settings the logger is configured from, so it leaves the process as a
+traceback on stderr rather than a document (`fl_backend/app/core/config.py :: get_config`). **What
+reaches the envelope at all carries a code, whoever wrote it**: the frontend's environment refusal
+reaches the formatter directly and takes one (`fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`),
+and a line the application did not write takes the forwarding route's own rather than the nearest
+call site's — the console shim's on the frontend, and on the backend a filter on the handler every
+other logger propagates to (`fl_backend/app/core/logging.py :: ForwardedFailureFilter`), which is
+what puts one on the `uvicorn.error` record that follows a lifespan refusal.
 
 Retention is Docker's `json-file` driver, 3 × 10 MB per service
 (`docker-compose.yml :: x-logging`), and for a container's own stream that size is the whole bound —

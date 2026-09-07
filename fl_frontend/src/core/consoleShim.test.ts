@@ -109,31 +109,31 @@ describe("installConsoleShim", () => {
 
   /* Each call is graded on the stream, not on the method: one parseable document, at the level of
      the stream Node would have written to, carrying `source` so a reader can tell it from the app's. */
-  it("turns each method's output into one document per call", () => {
+  it("turns each method's output into one document per call, coded where the level is a failure", () => {
     installConsoleShim();
 
-    const cases: [string, () => void, string | undefined, RegExp | undefined][] = [
-      ["log", () => console.log("a %s", "b"), "INFO", /^a b$/],
-      ["info", () => console.info("i"), "INFO", /^i$/],
-      ["debug", () => console.debug("d"), "DEBUG", /^d$/],
-      ["warn", () => console.warn("w"), "WARNING", /^w$/],
-      ["error", () => console.error("e"), "ERROR", /^e$/],
-      ["trace", () => console.trace("t"), "ERROR", /^Trace: t\n {4}at /],
-      ["assert", () => console.assert(false, "boom"), "ERROR", /^Assertion failed: boom$/],
-      ["dir", () => console.dir({ a: 1 }), "INFO", /^\{ a: 1 \}$/],
-      ["dirxml", () => console.dirxml({ a: 1 }), "INFO", /^\{ a: 1 \}$/],
-      ["table", () => console.table([{ a: 1 }]), "INFO", /^┌.*\n.*\n.*\n.*\n└.*┘$/s],
-      ["group", () => console.group("g"), "INFO", /^g$/],
-      ["groupEnd", () => console.groupEnd(), undefined, undefined],
-      ["count", () => console.count("c"), "INFO", /^c: 1$/],
-      ["countReset", () => console.countReset("c"), undefined, undefined],
-      ["time", () => console.time("k"), undefined, undefined],
-      ["timeLog", () => console.timeLog("k"), "INFO", /^k: \d/],
-      ["timeEnd", () => console.timeEnd("k"), "INFO", /^k: \d/],
-      ["clear", () => console.clear(), undefined, undefined],
+    const cases: [string, () => void, string | undefined, RegExp | undefined, string | undefined][] = [
+      ["log", () => console.log("a %s", "b"), "INFO", /^a b$/, undefined],
+      ["info", () => console.info("i"), "INFO", /^i$/, undefined],
+      ["debug", () => console.debug("d"), "DEBUG", /^d$/, undefined],
+      ["warn", () => console.warn("w"), "WARNING", /^w$/, "FE-CONSOLE-001"],
+      ["error", () => console.error("e"), "ERROR", /^e$/, "FE-CONSOLE-001"],
+      ["trace", () => console.trace("t"), "ERROR", /^Trace: t\n {4}at /, "FE-CONSOLE-001"],
+      ["assert", () => console.assert(false, "boom"), "ERROR", /^Assertion failed: boom$/, "FE-CONSOLE-001"],
+      ["dir", () => console.dir({ a: 1 }), "INFO", /^\{ a: 1 \}$/, undefined],
+      ["dirxml", () => console.dirxml({ a: 1 }), "INFO", /^\{ a: 1 \}$/, undefined],
+      ["table", () => console.table([{ a: 1 }]), "INFO", /^┌.*\n.*\n.*\n.*\n└.*┘$/s, undefined],
+      ["group", () => console.group("g"), "INFO", /^g$/, undefined],
+      ["groupEnd", () => console.groupEnd(), undefined, undefined, undefined],
+      ["count", () => console.count("c"), "INFO", /^c: 1$/, undefined],
+      ["countReset", () => console.countReset("c"), undefined, undefined, undefined],
+      ["time", () => console.time("k"), undefined, undefined, undefined],
+      ["timeLog", () => console.timeLog("k"), "INFO", /^k: \d/, undefined],
+      ["timeEnd", () => console.timeEnd("k"), "INFO", /^k: \d/, undefined],
+      ["clear", () => console.clear(), undefined, undefined, undefined],
     ];
 
-    for (const [method, call, level, message] of cases) {
+    for (const [method, call, level, message, code] of cases) {
       const { documents } = writtenBy(call);
 
       if (level === undefined) {
@@ -143,6 +143,7 @@ describe("installConsoleShim", () => {
       assert.equal(documents.length, 1, method);
       assert.equal(documents[0]?.level, level, method);
       assert.equal(documents[0]?.source, "console", method);
+      assert.equal(documents[0]?.error_code, code, method);
       assert.match(String(documents[0]?.message), message ?? /^/, method);
     }
   });

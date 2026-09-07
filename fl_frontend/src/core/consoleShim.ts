@@ -9,13 +9,18 @@ import type { LogLevel } from "./logFormat";
 
 const SOURCE = { source: "console" } as const;
 
+// A code of the shim's own rather than a caller's: what arrives here — Next's `⨯ Error` dumps among
+// it — has no call site of ours to take one from, and a failure line carries one
+// (`docs/logging/spec.md` §1.2).
+const FORWARDED_FAILURE = { error_code: "FE-CONSOLE-001", ...SOURCE } as const;
+
 // Through the logger rather than a second envelope: a dependency's `console.debug` then falls
 // under the same `LOG_LEVEL` threshold as the app's own lines.
 const WRITERS: Record<Exclude<LogLevel, "CRITICAL">, (message: string) => void> = {
   DEBUG: (message) => logger.debug(message, SOURCE),
   INFO: (message) => logger.info(message, SOURCE),
-  WARNING: (message) => logger.warn(message, SOURCE),
-  ERROR: (message) => logger.error(message, undefined, SOURCE),
+  WARNING: (message) => logger.warn(message, FORWARDED_FAILURE),
+  ERROR: (message) => logger.error(message, undefined, FORWARDED_FAILURE),
 };
 
 // The five methods that carry a level of their own.

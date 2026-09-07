@@ -13,6 +13,20 @@ export const INTERNAL_API_KEY = z
   .length(64)
   .regex(/^[\x21-\x7e]+$/, "every character must be printable ASCII, and none may be a space");
 
+export function refuseInvalidEnvironment(names: readonly string[]): never {
+  // Read off the raw variable, which may itself be the invalid one, so anything but `json` falls
+  // to the console shape.
+  const format = process.env.LOG_FORMAT?.toLowerCase() === "json" ? "json" : "console";
+  // A code of its own, in the class the backend's boot refusals take: this line answers no request,
+  // so the code is the whole join key (`docs/logging/error-codes.md`).
+  const meta = { error_code: "FE-BOOT-001", variables: names.join(", ") };
+  // The formatter rather than the logger: `logging.ts` imports this module, and importing it back
+  // would close the cycle.
+  process.stdout.write(formatLogLine(format, "CRITICAL", "Invalid environment variables", meta) + "\n");
+
+  throw new Error(`Invalid environment variables: ${names.join(", ")}`);
+}
+
 export const frontend_config = createEnv({
   server: {
     // The public origin reaches FastAPI on the liveness path alone, so an API_URL sharing
@@ -76,18 +90,7 @@ export const frontend_config = createEnv({
 
   // Names only: the default handler prints the whole issue array, one schema change away from
   // echoing a rejected value into a container log.
-  onValidationError: (issues) => {
-    const names = [...new Set(issues.map((issue) => String(issue.path?.[0] ?? "<unknown>")))].sort();
-
-    // Read off the raw variable, which may itself be the invalid one, so anything but `json` falls
-    // to the console shape.
-    const format = process.env.LOG_FORMAT?.toLowerCase() === "json" ? "json" : "console";
-    // The formatter rather than the logger: `logging.ts` imports this module, and importing it back
-    // would close the cycle.
-    process.stdout.write(formatLogLine(format, "CRITICAL", "Invalid environment variables", { variables: names.join(", ") }) + "\n");
-
-    throw new Error(`Invalid environment variables: ${names.join(", ")}`);
-  },
+  onValidationError: (issues) => refuseInvalidEnvironment([...new Set(issues.map((issue) => String(issue.path?.[0] ?? "<unknown>")))].sort()),
 
   runtimeEnv: {
     API_URL: process.env.API_URL,
