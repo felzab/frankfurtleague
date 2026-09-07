@@ -90,6 +90,14 @@
 # floor the `docs` row carries; the figures are one machine's upper bound, and the runner's own
 # median is what the report compares.
 #
+# `docs` gained a check: `check_public_routes.py` costs 110-129 ms end to end, of which 73 ms is the
+# check rather than this interpreter's own start, over seven interleaved rounds after one warm run,
+# each returning exit 0. Measured locally on 2026-09-07 on a sixteen-core machine carrying the agent
+# fleet this branch is built by, so both ends are upper bounds reading that contention as much as
+# the check. It is pooled with the docs scope's other four units, so the job pays that span only
+# where the pool cannot start all five at once, and either way it sits inside the floor the docs
+# row carries, so neither reference nor budget moves and neither takes a new stamp.
+#
 # `scripts` gained a check: `selfcheck.sh` step 14 now reads each `PreToolUse` registration in
 # `.claude/settings.json` against the kill budget the hook it registers gives its own child. It
 # costs 0.88-0.97 s over six interleaved rounds against six of the same harness with the comparison

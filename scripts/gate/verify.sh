@@ -187,6 +187,7 @@ do_docs_gate() {
   else "$PY" scripts/checks/check_docs.py; fi
 }
 do_commit_messages() { "$PY" scripts/checks/check_commits.py; }
+do_public_routes() { "$PY" scripts/checks/check_public_routes.py; }
 # `PYTHONPATH` rather than a `cd`, which `run_checker` cannot do: a subshell around it would run
 # `fail` in a child, and the finding it counts would die with that child.
 do_openapi() { env "PYTHONPATH=${REPO_ROOT}/fl_backend" "$PY" -m tests.openapi_document --check; }
@@ -311,7 +312,7 @@ run_writer() { # $1 unit
 # The other two scopes' phases, as data for the same reason. `uv lock --check` stands apart: it
 # proves the lockfile before any tool runs out of the virtualenv, so a pool would run them
 # beside that proof rather than behind it.
-DOCS_POOL=(conflict_markers docs_gate commit_messages openapi)
+DOCS_POOL=(conflict_markers docs_gate commit_messages public_routes openapi)
 BACKEND_SERIAL=(backend_lock)
 BACKEND_POOL=(backend_ruff backend_pyright backend_pytest backend_estate)
 
@@ -827,6 +828,20 @@ check's own name. Checks: scripts/checks/docs_gate/kernel.py :: CHECKS" \
 commit and what is wrong with it. The form is docs/_git/templates.md." \
     unit_replay commit_messages; then
     ok "commit messages follow the convention"
+  else
+    DOCS_OK=0
+  fi
+
+  # This scope rather than `ops`: the check reads the App Router tree and `nginx/prod.conf`, whose
+  # scopes are `frontend docs` and `ops docs`, and `docs` is the one a diff touching either selects.
+
+  step "docs · every route handler is metered or accounted for"
+  unit_join public_routes
+  if run_checker collect "scripts/checks/check_public_routes.py" "The route accounting is out. Above is a handler whose exact match meters nothing, one no
+location names, a dynamic subtree no prefix covers, a prefix or an exact path charged to no
+recorded reason, a reason charging nothing, or a metered path with no trailing-slash twin." \
+    unit_replay public_routes; then
+    ok "every route handler is accounted for at the edge"
   else
     DOCS_OK=0
   fi
