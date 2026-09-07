@@ -153,6 +153,20 @@ the public route handlers below can, and it answers a neutral sentence rather th
 carrying a verdict — a distinguishable refusal there is a membership oracle. `signOutAction` ends
 the session it would otherwise check.
 
+**The sign-in form's send carries a boundary of its own**
+(`fl_frontend/src/features/auth/components/ui/SignInActionFallback.tsx`, wired by `catchError` in
+`fl_frontend/src/features/auth/components/forms/SignInForm.tsx`): an edge answering that POST with
+anything but a Flight stream throws before any application code runs
+([`docs/ops/spec.md`](../ops/spec.md) I177), and a route-segment `error.tsx` would answer a send the
+visitor can simply repeat with the whole page. **Nothing of the response reaches the panel** — a
+rejected server action arrives carrying no status and no body — so it says the answer was not ours,
+offers the send again, and names no cause. The typed address is held outside the boundary, every
+mount inside it being replaced by the reset. **Nothing else about a sign-in is held in the page**:
+`redirectTo` is a literal `handleSignIn` re-supplies on every POST and reaches the browser only
+inside the emailed link's own `callbackUrl`, which outranks the cookie, and next-auth's server-side
+`signIn` skips the CSRF check, so no cookie is owed before the POST and a reload of `/signin` costs
+nothing but what was typed.
+
 **That `getAdminSession()` call is also what makes the write attributable**: it records the
 session's address in the request scope `runAdminMutation` has just seeded, and `apiClient` sends it
 as `X-FL-Actor` on admin-tier calls alone — the ordering is load-bearing. A write reaching the
