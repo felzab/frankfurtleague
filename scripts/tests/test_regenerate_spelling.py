@@ -17,7 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final
 
-from conftest import REPO_ROOT, declared, git
+from conftest import REPO_ROOT, _listed, declared
 
 COMMAND_TAIL: Final = "python -m tests." + "openapi_document --write"
 
@@ -40,7 +40,9 @@ def regenerate() -> str:
 def naming_the_command() -> set[str]:
     """Every tracked file carrying the command, derived from git rather than from the register it is compared to."""
     tail = COMMAND_TAIL.encode("utf-8")
-    tracked = (REPO_ROOT / rel for rel in git(REPO_ROOT, "ls-files", "-z").split("\0") if rel)
+    # The listing reader, never the message one: a name it rewrote would fail `is_file()` below and
+    # leave the file out of the population this register is closed against.
+    tracked = (REPO_ROOT / rel for rel in _listed(REPO_ROOT, "ls-files", "-z"))
     return {path.relative_to(REPO_ROOT).as_posix() for path in tracked if path.is_file() and tail in path.read_bytes()}
 
 

@@ -64,3 +64,22 @@ def test_the_fixture_builder_leaves_out_a_tracked_file_the_working_tree_no_longe
     copy_scripts(copy, source=source)
     assert (copy / "gate" / "demo.sh").is_file(), "the copy stopped at the deleted path"
     assert not (copy / "checks" / "check_gone.py").exists(), "a path the working tree has dropped reached the copy"
+
+
+def test_the_fixture_builder_copies_a_tracked_file_whose_name_opens_with_a_space() -> None:
+    """A reader stripping the whole listing rewrites its head, and the name it then opens is tracked nowhere.
+
+    The two assertions separate that from a copy which listed nothing at all.
+    """
+    source = new_root("fixture-builder-space-")
+    configure(source, str(source / ".no-hooks"))
+    # A space sorts ahead of every printable byte, so this name is the listing's head -- the one
+    # position a strip of the whole answer can reach.
+    write(source, " leading.py", "LEADING = 1\n")
+    write(source, "gate/demo.sh", "#!/usr/bin/env bash\n")
+    git(source, "add", ".")
+    git(source, "commit", "-m", "Fixture: a name opening with a space")
+    copy = new_root("fixture-builder-space-copy-") / "scripts"
+    copy_scripts(copy, source=source)
+    assert (copy / " leading.py").is_file(), "the space opening a tracked name was lost before the copy"
+    assert (copy / "gate" / "demo.sh").is_file(), "the copy dropped the whole listing rather than its head"
