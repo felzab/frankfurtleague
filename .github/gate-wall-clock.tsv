@@ -136,6 +136,14 @@
 # that span only where the pool cannot start all six at once, and either way it sits inside the
 # floor the docs row carries, so neither reference nor budget moves and neither takes a new stamp.
 #
+# `scripts`' binding unit measured three ways on 2026-09-07 on the sixteen-core machine: alone and
+# idle, `selfcheck.sh` took 45.2-45.9 s over five runs; inside one full-form run it took 97 s beside
+# the section's pytest, ruff and pyright; under a process spinning every core it took 236 s. The
+# gap between alone and in-run is contention, the unit waiting on the machine rather than working,
+# so the row's reference is the run's figure and not the unit's, and what would pay is reducing
+# what the run competes for rather than splitting the unit or removing work from it. The section
+# itself binds the run at 122 s, its pytest unit the last to close; no figure here moves a row.
+#
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
 # file at parse, in either of its modes, and compares nothing at all.

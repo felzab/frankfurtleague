@@ -77,112 +77,111 @@ deliverable.
 
 ## The items at a glance
 
-| Token       | Item                                                                                                                                 | Tags                                                                        | Status   |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- | -------- |
-| `2cff-xeqr` | Three metadata routes serve public URLs the route accounting cannot see                                                              | FE, Ops, Docs, gate, tests, edge                                            | Open     |
-| `2qae-xcut` | A rule declared multi-document reads only the row its own endpoint writes                                                            | BE, spiele                                                                  | Open     |
-| `2rz3-a754` | Deciding an application does not drain the queue, and duplicates are marked only across one read's rows                              | FE, BE, Ops, Docs, edge, admin, bewerbungen                                 | Open     |
-| `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                               | FE                                                                          | Open     |
-| `2zah-pvu2` | The unit that sets the gate's wall clock costs substantially more inside a full run than it costs alone, and nothing establishes why | Ops, gate, tests                                                            | Open     |
-| `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                                  | FE, BE, DB, Docs, spiele                                                    | Open     |
-| `3ffa-s9dg` | A root-level directory outside the repository prefixes is a path the resolver cannot see                                             | Ops, gate, tests                                                            | Open     |
-| `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                                 | FE, Ops, gate, tests, saisons                                               | Open     |
-| `3hdg-3r59` | The replace and the undraw each write the season's clearing, and each is proved separately                                           | BE, DB, Docs, tests, saisons                                                | Open     |
-| `3pb5-7qyc` | `--accent-info` has no `-solid` grade and no on-colour, and nothing records why                                                      | FE, Ops, Docs, gate                                                         | Open     |
-| `3s6w-kndn` | The gate saturates the machine, then spends its whole tail unable to use it                                                          | BE, Ops, gate, tests                                                        | Open     |
-| `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package                     | BE, ci, tests, versions                                                     | Standing |
-| `4enu-5xx9` | The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied                                 | BE, DB, Docs, bewerbungen, kontakte, teams                                  | Open     |
-| `4hvr-d9xa` | A checker's findings go to the stream the kernel bound at import, so a test capturing output reads none of them                      | Ops, gate, tests                                                            | Open     |
-| `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                       | FE, Docs, versions                                                          | Standing |
-| `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite             | FE, Docs, versions                                                          | Open     |
-| `6mch-qx2c` | A retention sweep that never runs looks exactly like one that found nothing                                                          | FE, Docs, bewerbungen                                                       | Open     |
-| `6zuv-9tkx` | Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states                      | FE, Docs, tests                                                             | Open     |
-| `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                           | FE, tests, saisons, spiele, teams                                           | Open     |
-| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                        | FE, BE, Docs, meta, spieler                                                 | Blocked  |
-| `8y7c-rstr` | No birthdate is stored, and every age rule guesses from `stufe`                                                                      | FE, BE, DB, Docs, spieler                                                   | Blocked  |
-| `9rcr-jd89` | The league table is proved over fixture documents the shipped validator would refuse                                                 | BE, DB, Docs, tests, spiele, teams                                          | Open     |
-| `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                                      | FE, Ops, gate, tests                                                        | Open     |
-| `9yx3-7yy4` | One self-check probe feeds its guard down a pipe and drops the status its neighbours read                                            | Ops, Docs, gate                                                             | Open     |
-| `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                                  | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
-| `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                             | FE, BE, Docs, admin, spiele                                                 | Open     |
-| `c2fn-9rfe` | The gate's two run forms are documented as one output, and one interpreter short they are not                                        | Ops, Docs, gate, tests                                                      | Open     |
-| `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                                  | FE, Docs, tests                                                             | Open     |
-| `cmth-3z5x` | A misspelled environment variable is dropped in silence, and the source that would refuse it is not the one a container reads        | BE, Ops, edge                                                               | Open     |
-| `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                                    | FE, meta                                                                    | Open     |
-| `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                                   | FE, Ops, gate, admin                                                        | Open     |
-| `dqek-fhjx` | `Vorgangsnummer` is the word on screen for a trace id, and the glossary has no entry for it                                          | FE, BE, Docs, tests, admin, aktionen                                        | Open     |
-| `duhh-xcsh` | Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`          | FE, BE, Docs, bewerbungen, teams                                            | Standing |
-| `ewf2-e2f3` | A confirmation or reminder link that bounces is written to the log and told to nobody                                                | FE, Docs, bewerbungen                                                       | Open     |
-| `ex2m-qjkg` | The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range                 | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
-| `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing                    | FE, Docs, tests                                                             | Open     |
-| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                                      | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
-| `f4uf-jape` | A copy test compares source text against a literal its own author typed                                                              | FE, BE, Docs, tests, saisons, teams                                         | Open     |
-| `f86w-7nsp` | A markdown fence inside a fenced block flips both fence readers together                                                             | Ops, gate, tests                                                            | Open     |
-| `f99h-bnyc` | The plaintext redirect server answers a port nothing outside the compose network can dial                                            | Ops, Docs, gate, edge                                                       | Open     |
-| `fau5-jtph` | The action log's page narrows one capped read, and a toast promises more than search can show                                        | FE, BE, Docs, admin, aktionen                                               | Open     |
-| `fha5-k95h` | A projection and the predicate reading it are coupled in one direction, and the open one fails quietly                               | BE, tests, saisons                                                          | Open     |
-| `g489-8ptk` | The frontend job's median has risen in two steps, and neither lands on a merge that names a cause                                    | FE, Ops, gate, ci, versions                                                 | Open     |
-| `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                                     | BE, DB, Docs, saisons                                                       | Standing |
-| `gbjj-9wfh` | A test fixture asserts its own type, and the assertion is the only thing holding it to the model                                     | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
-| `ggng-8m7v` | The confirmation link's two anonymous endpoints read a whole application unprojected                                                 | BE, DB, Docs, bewerbungen                                                   | Open     |
-| `gm9c-2du4` | Every link the local stack mails points at production                                                                                | FE, Ops, Docs, edge, bewerbungen                                            | Open     |
-| `hnx7-zbb9` | One field list is drift-guarded on the backend and hand-written on the frontend                                                      | FE, BE, tests, saisons                                                      | Open     |
-| `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                               | FE, tests                                                                   | Open     |
-| `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                                        | BE, Docs, spiele, teams                                                     | Open     |
-| `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                          | FE, Docs                                                                    | Open     |
-| `ja32-9rpv` | A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches                              | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
-| `jbzy-d5g4` | Two guard sweeps declare the same mutation floor, and a sentence in each is all that pairs them                                      | BE, tests                                                                   | Open     |
-| `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                          | BE, tests, saisons                                                          | Open     |
-| `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                                      | FE, BE, DB, Docs, kontakte                                                  | Open     |
-| `kajk-z7nu` | A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it                                       | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
-| `kpkb-y5d8` | A refusal code's meaning is written three times in prose, and nothing resolves any pair of them                                      | FE, BE, Ops, Docs, gate, tests, bewerbungen                                 | Open     |
-| `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                                   | FE, BE, admin, spieler                                                      | Open     |
-| `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                                         | FE, BE, Docs, spieler                                                       | Open     |
-| `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                                 | FE, Docs                                                                    | Open     |
-| `mgsh-v9c9` | The helper that reads a shell function out of the gate mis-reads a one-line one and says nothing                                     | Ops, Docs, gate, tests                                                      | Open     |
-| `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                                    | FE, auth, spiele, spielorte, teams                                          | Open     |
-| `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                                     | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
-| `nce5-j467` | A comment claims two files hold the same pattern, and nothing holds them to it                                                       | FE, BE, tests                                                               | Open     |
-| `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                                          | FE, Docs                                                                    | Open     |
-| `nr85-vwnj` | A rule declares whether it reads a second document, and nothing resolves the claim                                                   | BE, Docs, tests, bewerbungen, saisons                                       | Blocked  |
-| `pa6f-ksu4` | A season id that is no year is refused nowhere, and first noticed by an hourly sweep failure                                         | BE, DB, Docs, bewerbungen, saisons                                          | Open     |
-| `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                                    | FE, BE, spiele                                                              | Open     |
-| `pndk-uquh` | Two mirror checkers carry one mechanism in two copies, and the list of what was copied is short of it                                | Ops, Docs, gate, tests                                                      | Open     |
-| `pt4h-b6tf` | Renaming an anonymised referee undoes the erasure, and nothing refuses it                                                            | BE, DB, Docs, schiedsrichter, spiele                                        | Open     |
-| `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                          | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
-| `q7jv-hskm` | The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep                           | BE, DB, tests, saisons                                                      | Standing |
-| `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                                            | FE, Docs, tests                                                             | Open     |
-| `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                        | FE, BE, Docs, admin, spiele                                                 | Open     |
-| `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                         | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
-| `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                               | FE, BE, DB, admin, bewerbungen                                              | Standing |
-| `scxn-9dcd` | The fork match's distinct-line ratio is stated on the page and pinned by no case                                                     | Ops, Docs, gate, tests                                                      | Open     |
-| `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                           | FE, BE, Docs, tests, saisons                                                | Open     |
-| `sspn-uje4` | The worked examples' before passages still stand in the code they illustrate cutting                                                 | BE, DB, Docs, tests                                                         | Open     |
-| `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                       | FE, tests, versions                                                         | Open     |
-| `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject                      | FE, Docs, tests                                                             | Open     |
-| `tbh5-u4c3` | The browser's own chrome takes no colour from the season scheme                                                                      | FE, tests                                                                   | Open     |
-| `tfyy-hg3y` | A mis-cased suffix drops a citation out of the population instead of failing it                                                      | Ops, gate, tests                                                            | Open     |
-| `tutf-44dk` | Three non-text pairs sit under 3:1 in the dark theme, and no row measures one                                                        | FE, Ops, gate                                                               | Open     |
-| `txef-hz2b` | Two referees reduced to one published name are one option in the fixture facet                                                       | FE, BE, spiele                                                              | Open     |
-| `uayf-u7g4` | The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other                                     | FE, Ops, Docs, edge                                                         | Standing |
-| `v7bs-d859` | The frontend keeps a visual system that no document states                                                                           | FE, Docs                                                                    | Open     |
-| `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                                    | FE, Docs                                                                    | Open     |
-| `vspa-r35v` | One commit imports a frontend module the commit after it adds                                                                        | FE, Docs, ci, tests, saisons                                                | Standing |
-| `vyr6-uk2p` | The open-window read filters into arrays and subscripts whatever comes back                                                          | FE, BE, tests, bewerbungen                                                  | Open     |
-| `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                                 | FE, tests, saisons                                                          | Open     |
-| `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                                | FE, tests, spieler                                                          | Open     |
-| `w9tq-4bnd` | A missing result and a cancelled one are one colour, because the card reads the result and never the status                          | FE, admin, spiele                                                           | Open     |
-| `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                                | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
-| `x7pk-g4bh` | Three entry refusals are rendered twice, and nothing holds either half to the other                                                  | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
-| `xe5b-v4nu` | A fourth rendering of the retired-club refusal sits outside the helper that grades the other three                                   | FE, tests, bewerbungen, teams                                               | Open     |
-| `yhbx-v974` | A markdown anchor resolves against any run of characters in the file                                                                 | Ops, gate, tests                                                            | Open     |
-| `yjsf-uc2y` | Acceptance copies a school's postal address into the club, where an anonymous read serves it                                         | FE, BE, DB, Docs, bewerbungen, teams                                        | Decided  |
-| `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                                | FE, BE, tests                                                               | Open     |
-| `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                                        | BE, Docs, versions                                                          | Decided  |
-| `zeer-rnu5` | An unknown season answers a Bewerbung URL with 200 and a sentence about a missing deadline                                           | FE, BE, Docs, bewerbungen                                                   | Open     |
-| `zp46-yt3p` | The certainty walk gives up in a group of six or more                                                                                | BE, teams                                                                   | Standing |
-| `zr2y-4uwj` | A tie-break that provably cannot fire is what stops the index being walked                                                           | BE, DB, tests, bewerbungen, saisons, spiele, spieltage                      | Standing |
-| `zurr-kde5` | A source line carrying a comment marker inside a string is kept whole and read as prose                                              | Ops, gate, tests                                                            | Open     |
+| Token       | Item                                                                                                                          | Tags                                                                        | Status   |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
+| `2cff-xeqr` | Three metadata routes serve public URLs the route accounting cannot see                                                       | FE, Ops, Docs, gate, tests, edge                                            | Open     |
+| `2qae-xcut` | A rule declared multi-document reads only the row its own endpoint writes                                                     | BE, spiele                                                                  | Open     |
+| `2rz3-a754` | Deciding an application does not drain the queue, and duplicates are marked only across one read's rows                       | FE, BE, Ops, Docs, edge, admin, bewerbungen                                 | Open     |
+| `2v3g-9g2y` | The root not-found page renders without the shell every other page has                                                        | FE                                                                          | Open     |
+| `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                           | FE, BE, DB, Docs, spiele                                                    | Open     |
+| `3ffa-s9dg` | A root-level directory outside the repository prefixes is a path the resolver cannot see                                      | Ops, gate, tests                                                            | Open     |
+| `3hb2-3d9q` | One test file dies under the gate's parallel load and names no cause                                                          | FE, Ops, gate, tests, saisons                                               | Open     |
+| `3hdg-3r59` | The replace and the undraw each write the season's clearing, and each is proved separately                                    | BE, DB, Docs, tests, saisons                                                | Open     |
+| `3pb5-7qyc` | `--accent-info` has no `-solid` grade and no on-colour, and nothing records why                                               | FE, Ops, Docs, gate                                                         | Open     |
+| `3s6w-kndn` | The gate's wall clock is the scripts suite, and the one lever left is inside its own scope                                    | Ops, Docs, gate, ci, tests                                                  | Open     |
+| `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package              | BE, ci, tests, versions                                                     | Standing |
+| `4enu-5xx9` | The junction editor replaces the whole contact block, reinstating a seat an erasure has just emptied                          | BE, DB, Docs, bewerbungen, kontakte, teams                                  | Open     |
+| `4hvr-d9xa` | A checker's findings go to the stream the kernel bound at import, so a test capturing output reads none of them               | Ops, gate, tests                                                            | Open     |
+| `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                | FE, Docs, versions                                                          | Standing |
+| `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite      | FE, Docs, versions                                                          | Open     |
+| `6mch-qx2c` | A retention sweep that never runs looks exactly like one that found nothing                                                   | FE, Docs, bewerbungen                                                       | Open     |
+| `6zuv-9tkx` | Nothing here can render a Server Component, so no check reaches the boundary rule the repository already states               | FE, Docs, tests                                                             | Open     |
+| `7wne-u6hm` | Three test modules each open a cache scope through the same React internal                                                    | FE, tests, saisons, spiele, teams                                           | Open     |
+| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                 | FE, BE, Docs, meta, spieler                                                 | Blocked  |
+| `8y7c-rstr` | No birthdate is stored, and every age rule guesses from `stufe`                                                               | FE, BE, DB, Docs, spieler                                                   | Blocked  |
+| `9rcr-jd89` | The league table is proved over fixture documents the shipped validator would refuse                                          | BE, DB, Docs, tests, spiele, teams                                          | Open     |
+| `9s24-rvgc` | The email shell's token floor is a fixed number well under what its parse finds                                               | FE, Ops, gate, tests                                                        | Open     |
+| `9yx3-7yy4` | One self-check probe feeds its guard down a pipe and drops the status its neighbours read                                     | Ops, Docs, gate                                                             | Open     |
+| `anh6-etwn` | States the domain declaration reaches from neither of its two lists                                                           | BE, DB, Docs, tests, spiele, spieler, spieltage, teams                      | Open     |
+| `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                      | FE, BE, Docs, admin, spiele                                                 | Open     |
+| `c2fn-9rfe` | The gate's two run forms are documented as one output, and one interpreter short they are not                                 | Ops, Docs, gate, tests                                                      | Open     |
+| `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                           | FE, Docs, tests                                                             | Open     |
+| `cmth-3z5x` | A misspelled environment variable is dropped in silence, and the source that would refuse it is not the one a container reads | BE, Ops, edge                                                               | Open     |
+| `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                             | FE, meta                                                                    | Open     |
+| `dq3b-mgpq` | Every tone tint falls under the text floor on a `muted` ground, and one tab strip puts pills there                            | FE, Ops, gate, admin                                                        | Open     |
+| `dqek-fhjx` | `Vorgangsnummer` is the word on screen for a trace id, and the glossary has no entry for it                                   | FE, BE, Docs, tests, admin, aktionen                                        | Open     |
+| `duhh-xcsh` | Three identifiers say consent where the text says confirmation: `LIGA_EINWILLIGUNG`, `FLKontaktEinwilligung`, `erteilt_von`   | FE, BE, Docs, bewerbungen, teams                                            | Standing |
+| `ewf2-e2f3` | A confirmation or reminder link that bounces is written to the log and told to nobody                                         | FE, Docs, bewerbungen                                                       | Open     |
+| `ex2m-qjkg` | The season's shape is offered wider than it can be saved, and two of its three fields have no contiguous legal range          | FE, BE, Docs, tests, saisons, spiele, teams                                 | Open     |
+| `f38s-y3hj` | A sweep taking `.tsx` alone decides no test file, and the spelling keeping its fixtures out is refused by nothing             | FE, Docs, tests                                                             | Open     |
+| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                               | FE, BE, DB, Ops, Docs, edge, bewerbungen, kontakte, saisons, spieler, teams | Open     |
+| `f4uf-jape` | A copy test compares source text against a literal its own author typed                                                       | FE, BE, Docs, tests, saisons, teams                                         | Open     |
+| `f86w-7nsp` | A markdown fence inside a fenced block flips both fence readers together                                                      | Ops, gate, tests                                                            | Open     |
+| `f99h-bnyc` | The plaintext redirect server answers a port nothing outside the compose network can dial                                     | Ops, Docs, gate, edge                                                       | Open     |
+| `fau5-jtph` | The action log's page narrows one capped read, and a toast promises more than search can show                                 | FE, BE, Docs, admin, aktionen                                               | Open     |
+| `fha5-k95h` | A projection and the predicate reading it are coupled in one direction, and the open one fails quietly                        | BE, tests, saisons                                                          | Open     |
+| `g489-8ptk` | The frontend job's median has risen in two steps, and neither lands on a merge that names a cause                             | FE, Ops, gate, ci, versions                                                 | Open     |
+| `g7hr-c8bn` | The replace and the undraw judge their window from a capped read                                                              | BE, DB, Docs, saisons                                                       | Standing |
+| `gbjj-9wfh` | A test fixture asserts its own type, and the assertion is the only thing holding it to the model                              | FE, tests, admin, saisons, spiele, spieltage, teams                         | Open     |
+| `ggng-8m7v` | The confirmation link's two anonymous endpoints read a whole application unprojected                                          | BE, DB, Docs, bewerbungen                                                   | Open     |
+| `gm9c-2du4` | Every link the local stack mails points at production                                                                         | FE, Ops, Docs, edge, bewerbungen                                            | Open     |
+| `hnx7-zbb9` | One field list is drift-guarded on the backend and hand-written on the frontend                                               | FE, BE, tests, saisons                                                      | Open     |
+| `hq7d-2vnm` | The required-mark guard reads literal names only, so a shared field block is unguarded                                        | FE, tests                                                                   | Open     |
+| `hstg-rnqj` | The certainty walk never hypothesises a called-off fixture, and a call-off can move a placing                                 | BE, Docs, spiele, teams                                                     | Open     |
+| `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                   | FE, Docs                                                                    | Open     |
+| `ja32-9rpv` | A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches                       | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
+| `jbzy-d5g4` | Two guard sweeps declare the same mutation floor, and a sentence in each is all that pairs them                               | BE, tests                                                                   | Open     |
+| `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                   | BE, tests, saisons                                                          | Open     |
+| `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                               | FE, BE, DB, Docs, kontakte                                                  | Open     |
+| `kajk-z7nu` | A register pairs each bound with the boxes it caps, and nothing says which bounds belong in it                                | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
+| `kpkb-y5d8` | A refusal code's meaning is written three times in prose, and nothing resolves any pair of them                               | FE, BE, Ops, Docs, gate, tests, bewerbungen                                 | Open     |
+| `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                            | FE, BE, admin, spieler                                                      | Open     |
+| `kyc4-75k5` | A pupil's consent is stored and served, and shown by nothing                                                                  | FE, BE, Docs, spieler                                                       | Open     |
+| `m4m3-hxmj` | The shared editor shell's widest layout step has never been rendered                                                          | FE, Docs                                                                    | Open     |
+| `mgsh-v9c9` | The helper that reads a shell function out of the gate mis-reads a one-line one and says nothing                              | Ops, Docs, gate, tests                                                      | Open     |
+| `nadg-bnjb` | Every admin write states its success twice, and the second sentence cannot render                                             | FE, auth, spiele, spielorte, teams                                          | Open     |
+| `nbcn-zvdk` | The panel a triage decision is taken from is rendered by no test                                                              | FE, BE, Docs, tests, admin, bewerbungen                                     | Decided  |
+| `nce5-j467` | A comment claims two files hold the same pattern, and nothing holds them to it                                                | FE, BE, tests                                                               | Open     |
+| `njhn-pmtn` | Every call site writes a fallback for a failure message that always arrives                                                   | FE, Docs                                                                    | Open     |
+| `nr85-vwnj` | A rule declares whether it reads a second document, and nothing resolves the claim                                            | BE, Docs, tests, bewerbungen, saisons                                       | Blocked  |
+| `pa6f-ksu4` | A season id that is no year is refused nowhere, and first noticed by an hourly sweep failure                                  | BE, DB, Docs, bewerbungen, saisons                                          | Open     |
+| `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                             | FE, BE, spiele                                                              | Open     |
+| `pndk-uquh` | Two mirror checkers carry one mechanism in two copies, and the list of what was copied is short of it                         | Ops, Docs, gate, tests                                                      | Open     |
+| `pt4h-b6tf` | Renaming an anonymised referee undoes the erasure, and nothing refuses it                                                     | BE, DB, Docs, schiedsrichter, spiele                                        | Open     |
+| `pw5c-zps5` | A referee gets no consent record, where a contact person confirms their own                                                   | FE, BE, DB, Docs, meta, schiedsrichter, spieler, teams                      | Open     |
+| `q7jv-hskm` | The replace and the undraw remove the same two collections, and sharing the removal leaves the write sweep                    | BE, DB, tests, saisons                                                      | Standing |
+| `qg8u-tbd6` | One test module is named for a function and holds the cases of two others                                                     | FE, Docs, tests                                                             | Open     |
+| `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                 | FE, BE, Docs, admin, spiele                                                 | Open     |
+| `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                  | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams       | Open     |
+| `rt37-sv33` | A sort option nothing sends scans the archive it sorts                                                                        | FE, BE, DB, admin, bewerbungen                                              | Standing |
+| `scxn-9dcd` | The fork match's distinct-line ratio is stated on the page and pinned by no case                                              | Ops, Docs, gate, tests                                                      | Open     |
+| `skyx-nrgh` | A refusal composes a repair the product refuses to perform                                                                    | FE, BE, Docs, tests, saisons                                                | Open     |
+| `sspn-uje4` | The worked examples' before passages still stand in the code they illustrate cutting                                          | BE, DB, Docs, tests                                                         | Open     |
+| `suuz-dged` | Frontend test modules hook their whole process, so the runner's one-process mode is closed and nothing says so                | FE, tests, versions                                                         | Open     |
+| `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject               | FE, Docs, tests                                                             | Open     |
+| `tbh5-u4c3` | The browser's own chrome takes no colour from the season scheme                                                               | FE, tests                                                                   | Open     |
+| `tfyy-hg3y` | A mis-cased suffix drops a citation out of the population instead of failing it                                               | Ops, gate, tests                                                            | Open     |
+| `tutf-44dk` | Three non-text pairs sit under 3:1 in the dark theme, and no row measures one                                                 | FE, Ops, gate                                                               | Open     |
+| `txef-hz2b` | Two referees reduced to one published name are one option in the fixture facet                                                | FE, BE, spiele                                                              | Open     |
+| `uayf-u7g4` | The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other                              | FE, Ops, Docs, edge                                                         | Standing |
+| `v7bs-d859` | The frontend keeps a visual system that no document states                                                                    | FE, Docs                                                                    | Open     |
+| `vgk8-btxt` | What decides whether a module belongs in `core` or in `shared` is written nowhere                                             | FE, Docs                                                                    | Open     |
+| `vspa-r35v` | One commit imports a frontend module the commit after it adds                                                                 | FE, Docs, ci, tests, saisons                                                | Standing |
+| `vyr6-uk2p` | The open-window read filters into arrays and subscripts whatever comes back                                                   | FE, BE, tests, bewerbungen                                                  | Open     |
+| `w2c2-xc9j` | One tag strip repeats until it is done, and every other reader of markup as text makes a single pass                          | FE, tests, saisons                                                          | Open     |
+| `w4tm-9khd` | A sweep reads a JSX opening tag by its first angle bracket, so attribute order decides its population                         | FE, tests, spieler                                                          | Open     |
+| `w9tq-4bnd` | A missing result and a cancelled one are one colour, because the card reads the result and never the status                   | FE, admin, spiele                                                           | Open     |
+| `wszt-rpmy` | Wiring the write path refuses stands unreported once it is in storage                                                         | FE, BE, DB, Docs, saisons, spiele                                           | Open     |
+| `x7pk-g4bh` | Three entry refusals are rendered twice, and nothing holds either half to the other                                           | FE, BE, Docs, tests, bewerbungen, teams                                     | Open     |
+| `xe5b-v4nu` | A fourth rendering of the retired-club refusal sits outside the helper that grades the other three                            | FE, tests, bewerbungen, teams                                               | Open     |
+| `yhbx-v974` | A markdown anchor resolves against any run of characters in the file                                                          | Ops, gate, tests                                                            | Open     |
+| `yjsf-uc2y` | Acceptance copies a school's postal address into the club, where an anonymous read serves it                                  | FE, BE, DB, Docs, bewerbungen, teams                                        | Decided  |
+| `z82x-us4y` | A contract sweep's caller set is every file naming the client, its own tests included                                         | FE, BE, tests                                                               | Open     |
+| `z8nf-7nzd` | `typing` imports instead of `collections.abc`                                                                                 | BE, Docs, versions                                                          | Decided  |
+| `zeer-rnu5` | An unknown season answers a Bewerbung URL with 200 and a sentence about a missing deadline                                    | FE, BE, Docs, bewerbungen                                                   | Open     |
+| `zp46-yt3p` | The certainty walk gives up in a group of six or more                                                                         | BE, teams                                                                   | Standing |
+| `zr2y-4uwj` | A tie-break that provably cannot fire is what stops the index being walked                                                    | BE, DB, tests, bewerbungen, saisons, spiele, spieltage                      | Standing |
+| `zurr-kde5` | A source line carrying a comment marker inside a string is kept whole and read as prose                                       | Ops, gate, tests                                                            | Open     |
 
 ## The items
 
@@ -345,45 +344,6 @@ one-line change, which is why this is filed rather than folded into the brand re
 **Done when** an unmatched URL renders the public navigation and footer, and a test pins that it
 does.
 
-### `2zah-pvu2` · The unit that sets the gate's wall clock costs substantially more inside a full run than it costs alone, and nothing establishes why
-
-| Tags             | Status | Depends on |
-| ---------------- | ------ | ---------- |
-| Ops, gate, tests | Open   | —          |
-
-**`scripts/gate/selfcheck.sh` binds the `scripts` section and that section binds a full-form run**,
-with the pytest run over `scripts/tests/` — `scripts/gate/verify.sh :: do_pytest` — close enough
-behind it to become the wall the moment the self-check moves. Every reading of the self-check that
-exists was taken with something else running and they disagree with one another, so the gap between
-its in-run and its alone cost is settled in direction and unknown in size. **Which repair is correct
-turns entirely on that answer**: if what the unit spends is contention, what pays is reducing what
-the run competes for; if it is not, what pays is splitting the self-check into units a pool can place
-or removing work from it, both reaching the file that owns the gate's exit contract. **Naming a cause
-before measuring sends the next reader at the wrong repair**, and contention is exactly what must not
-be assumed while every reading carries a different amount of it.
-
-**There is no concurrency left to add at either level**, which is the reflex to head off: the
-sections run beside one another in one pool, `scripts/gate/verify.sh :: start_steps` queues the
-self-check beside `ruff`, `pyright` and the pytest run, and `scripts/gate/selfcheck.sh :: par_run`
-fans each queued group out over `:: PAR_WIDTH`. No schedule reaches inside the unit either — it is
-one process to the pool. **`scripts/gate/gate_pool.py :: TYPICAL_MS` is not the missing
-alone-figure**: its own comment records that its numbers were taken on a contended machine and are
-upper bounds, which puts them outside the comparison altogether.
-
-**The `scripts/` reorganisation did not cause this.** The self-check was read inside a full run
-immediately before that move and immediately after it, and the readings sit within noise of each
-other — a standing property of the check rather than a regression to go looking for.
-
-**How a declared width is divided among the pool's consumers is the neighbouring question about
-the same budget rather than this one** (`scripts/gate/verify.sh :: gate_width`), and the width this
-unit takes is kept out of that division altogether. Neither answer settles the other.
-
-**Done when** the gap has a size and an explanation, in that order: the unit read on a machine with
-nothing else in flight, the disagreeing readings already taken reconciled against it, and the in-run
-cost separated into what the unit spends working and what it spends waiting on the rest of the run,
-with the cause established rather than inferred. The optimisation that follows is not this entry's
-subject.
-
 ### `32bs-nhzd` · Every write is recorded, and nothing restores one past the editor's fifteen seconds
 
 | Tags                     | Status | Depends on |
@@ -537,66 +497,67 @@ must not be made casually.
 **Done when** either the pair exists and `scripts/checks/docs_gate/scheme.py :: PAIRS` measures it,
 or a comment in the scheme file says which surfaces are meant to go without it.
 
-### `3s6w-kndn` · The gate saturates the machine, then spends its whole tail unable to use it
+### `3s6w-kndn` · The gate's wall clock is the scripts suite, and the one lever left is inside its own scope
 
-| Tags                 | Status | Depends on |
-| -------------------- | ------ | ---------- |
-| BE, Ops, gate, tests | Open   | —          |
+| Tags                       | Status | Depends on |
+| -------------------------- | ------ | ---------- |
+| Ops, Docs, gate, ci, tests | Open   | —          |
 
-**Nothing passes `--width`, so `scripts/gate/gate_pool.py` opens one slot per scope, every scope starts at
-once, and what remains of the wall clock is the longest section itself.** Measured across one full-form run on
-2026-08-26: the machine is pinned at 100% through roughly the first thirty seconds with seven sections
-competing, and the last forty-odd seconds are the `db` section by itself at six to twenty per cent —
-single-threaded, waiting on replica-set round trips through `session.with_transaction` against the single-node
-replica set `fl_backend/tests/conftest.py :: mongo_replica_set_url` starts. **Adding cores or memory buys
-nothing**: the machine holds 8 physical cores, 16 logical and 31 GB, `~/.wslconfig` sets neither a processor
-nor a memory key, and the tail already cannot use the ones there are — that idle capacity is precisely what
-concurrency inside the tier would consume.
+**The profile re-taken on 2026-09-07, two full-form runs on the idle 16-core machine, `ps` sampled
+every two seconds:** every worker was first seen within seven seconds of the start, the runs took
+139 and 131 seconds, and the `scripts` section bound both at 122 and 126, the pytest run over
+`scripts/tests/` (`scripts/gate/verify.sh :: do_pytest`) being the unit still running when every
+other section had closed; `frontend` closed at 134 and 90, `images` at 95 and 45 (a cold and a warm
+layer cache), `format` at 88 and 91, `backend` and `db` at 42 to 45, `docs` at 27, `ops` at 15 and 36. The tail the 2026-08-26 profile described, forty seconds of `db` alone at six to twenty per
+cent, is gone: the tier closes inside the scripts section's span. `scripts/gate/gate_pool.py ::
+TYPICAL_MS` now agrees with the profile on which section binds.
 
-Three levers, each recorded with what stands in front of it:
+**Lever 1, the distributed database tier, is taken and measured.** On the idle machine, each width a
+pair of runs within a fifth of a second of each other, the tier took 30.1 seconds at two workers,
+24.0 at three, 21.0 at four, 18.5 at six and 19.3 at eight, against 48 to 49 at one worker over five
+runs of which no pair converged, so the distribution took thirty seconds off the tier and the cap
+and floor `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` and `:: GATE_WIDTH_DB_PYTEST_FLOOR`
+carry sit on those readings. Whether the shared server becomes the
+new tail past eight, and whether `WriteConflict` appears at a wider width, is unmeasured and
+belongs inside the width question.
 
-1. **Distribute the database tier — built, and owed the measurement that says what it was worth.** It
-   is aimed at the tail the trace shows, and latency-bound work overlaps rather than divides. No
-   timing taken so far is trustworthy, the machine having been contended throughout, and a db-tier
-   figure counts only as a pair of runs within a fifth of a second of each other on an idle machine
-   (the ops sheet's §1.6 rule). Two questions ride with it: what `auto` should be, sixteen workers sharing one
-   `mongod` being a guess rather than a finding, and whether the shared server becomes the new tail
-   once the workers stop waiting on their own. **`WriteConflict` at a wider width is plausible and
-   unproven**, and it belongs inside the width question rather than beside it.
-2. **Distribute the fixture net — a lever on one scope, not yet on the gate.**
-   `scripts/tests/test_check_docs.py :: _load` copies `scripts/` into a throwaway repository and
-   imports the gate from the copy, `:: _STATE` memoising it so the build is paid once per process. It
-   binds its own scope, but what it gives back reaches the gate's wall clock only once the unit ahead
-   of it moves, which is `2zah-pvu2`'s — and a worker is a process, so it carries lever 1's second
-   problem in miniature, as many fixture builds as workers.
-3. **Distribute the default tier — last, and probably never.** Recorded here so it is rejected
-   against the profile rather than reached for as the obvious first move: the section running it
-   closes well inside `db`, and a tier with no database and no container spends a real fraction of
-   itself in interpreter startup, which a worker pays again per process.
+**Lever 2 is the one left, and it is now the live one.** `scripts/tests/test_check_docs.py :: _load`
+copies `scripts/` into a throwaway repository and imports the gate from the copy, `:: _STATE`
+memoising it so the build is paid once per process; the scripts suite that carries it binds the run
+at 122 seconds inside a full form against 54 alone at eight workers. A worker is a process, so the
+lever carries lever 1's second problem in miniature, as many fixture builds as workers, and what it
+gives back is bounded by the self-check running beside it in the same pool, which costs 45 seconds
+alone and 97 inside a run because it waits on the machine rather than works
+(`.github/gate-wall-clock.tsv`'s `scripts` paragraph carries the readings).
+
+**Lever 3, distributing the default tier, is rejected against this profile.** The section running
+it closes at 45 seconds, well inside the scripts section, and a tier with no database and no
+container spends a real fraction of itself in interpreter startup, which a worker pays again per
+process. `.claude/CLAUDE.md` §7's `tests` clause closes the other obvious answer to any tail: no
+db-marked test leaves the gate.
 
 **Two scopes writing one `__pycache__` is not a coupling, and a chain must not be added on that
 reasoning.** `docs` and `scripts` have shared two of those directories unconstrained since the pool
 was written: CPython writes a bytecode file to a temporary name and renames it, nothing in this
 repository reads pytest's `nodeids`, and `lastfailed` is written only when its value changes and
-steers only `--lf`, which the gate never passes. The argument in full is in the commit that left the
-two scopes sharing those directories, which `git log -S` on `__pycache__` reaches, and it is worth
-reading before any scope here is made to wait on another.
+steers only `--lf`, which the gate never passes. The argument in full is in the commit
+`git log --all --grep lastfailed` returns, and it is worth reading before any scope here is made to
+wait on another.
 
-**What a change to any of this owes.** `scripts/gate/selfcheck.sh` owns the four-code exit contract's
-classifier, so anything reaching that file re-opens the contract's measured rank, finding and exit
-combinations; anything reaching how the probes execute owes a before-baseline, a verdict-set diff and
-a required zero, **because a probe that has stopped firing looks exactly like a probe that passes**. A
+**What a change to any of this owes.** `scripts/lib/_lib.sh :: finish` owns the four-code exit
+contract's classifier, its ladder is `:: _RANK_LABELS` and its codes are declared in
+`scripts/lib/checker_kernel.py` and driven by `scripts/tests/test_exit_contract.py`, so anything
+reaching that file re-opens the contract's measured rank, finding and exit combinations; anything
+reaching how the self-check's probes execute owes a before-baseline, a verdict-set diff and a
+required zero, **because a probe that has stopped firing looks exactly like a probe that passes**. A
 db-tier change owes the harder version of the same: those verdicts are what a branch rests on, and a
 worker that silently cleared a neighbour's seeds fails somewhere else entirely.
 
-**Done when** lever 1 has been taken or rejected against a re-taken profile of the same shape, levers
-2 and 3 are re-judged against whatever binds the run once the tail moves, and any figure quoted
-carries its spread and its run count. Seven consecutive full-form runs on one tree gave 88 to 95
-seconds, mean 91.9, **so a lever worth taking has to beat the spread rather than one sample inside
-it**. **How a start is read off a run rather than inferred:** sample `ps` while a full-form run is
-going and record when each worker's process first appears, which separates a scope that is slow from
-one that started late — a per-scope duration cannot, a section reported at two seconds being two
-seconds of work at the end of a wait the closing table never names.
+**Done when** lever 2 has been taken or rejected against a profile of the same shape, every figure
+quoted carrying its spread and its run count, and a lever worth taking beats the run's own spread
+rather than one sample inside it. **How a start is read off a run rather than inferred:** sample
+`ps` while a full-form run is going and record when each worker's process first appears, which
+separates a scope that is slow from one that started late.
 
 ### `4ad2-vz8k` · The test client reaches anyio through a deprecated alias, and no line in this repository declares either package
 
