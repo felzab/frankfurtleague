@@ -9,8 +9,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
-from app.api.kontakte.admin_router import erase_kontaktperson
-from app.api.kontakte.schemas import FLKontaktErasurePayload, FLKontaktErasureResponse
+from app.api.kontakte.admin_router import erase_kontaktperson, get_kontakt_erasure_ansicht
+from app.api.kontakte.schemas import FLKontaktErasureAnsichtResponse, FLKontaktErasurePayload, FLKontaktErasureResponse
 from app.api.kontakte.services import KONTAKT_SLOTS, build_clearing_update
 from app.api.teams.schemas import FLSaisonTeamKontakte
 from app.core.collections import Collection
@@ -272,6 +272,14 @@ async def call_erasure(database: AsyncDatabase, client: AsyncMongoClient, email:
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         germany_now=NOW,
+    )
+
+
+async def call_ansicht(database: AsyncDatabase, email: str = ERASED_EMAIL) -> FLKontaktErasureAnsichtResponse:
+    return await get_kontakt_erasure_ansicht(
+        erasure_data=FLKontaktErasurePayload(email=email),
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
     )
 
 
@@ -829,3 +837,59 @@ def test_a_log_row_of_an_application_holding_no_image_of_them_is_stamped_anyway(
     assert len(rows) == 2
     assert [row["redacted_at"] for row in rows] == [REDACTED_AT, REDACTED_AT]
     assert [row["before"] for row in rows] == [None, None]
+
+
+# Two colleagues on ONE school mailbox, a season apart -- the case the confirmation exists for. The
+# panel it is opened from names one of them, and the write empties both seats.
+SHARED_INBOX = "sekretariat.quastenflosser@example.com"
+SHARED_EARLIER_OID = ObjectId("6890a1b2c3d4e5f607816001")
+SHARED_LATER_OID = ObjectId("6890a1b2c3d4e5f607816002")
+
+
+def sharing_the_inbox(nachname: str, telefon: str) -> dict[str, Any]:
+    return {**person(nachname, telefon), "email": SHARED_INBOX}
+
+
+def after_revealing_a_shared_inbox(url: str) -> FLKontaktErasureAnsichtResponse:
+    """Its own league rather than the seeded one, whose people each hold an address nobody else does."""
+
+    async def _run() -> Any:
+        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [
+                    a_junction_row(SHARED_EARLIER_OID, EARLIER_SAISON, a_block_holding(sharing_the_inbox(ERASED_NACHNAME, ERASED_TELEFON))),
+                    a_junction_row(SHARED_LATER_OID, LATER_SAISON, a_block_holding(sharing_the_inbox(BYSTANDER_NACHNAME, BYSTANDER_TELEFON))),
+                ]
+            )
+
+            return await call_ansicht(database, SHARED_INBOX)
+
+    return on_the_seed_loop(_run())
+
+
+@pytest.mark.db
+def test_both_colleagues_on_one_shared_inbox_are_named(mongo_replica_set_url: str):
+    """Kills a reveal answering for the seat it was opened from: two PEOPLE hold this address, one season apart."""
+
+    ansicht = after_revealing_a_shared_inbox(mongo_replica_set_url)
+
+    assert [(sitz.nachname, sitz.saison_id) for sitz in ansicht.saison_teams] == [
+        (ERASED_NACHNAME, EARLIER_SAISON),
+        (BYSTANDER_NACHNAME, LATER_SAISON),
+    ]
+    assert ansicht.bewerbungen == []
+
+
+@pytest.mark.db
+def test_the_reveal_lists_exactly_the_seats_the_erasure_then_clears(mongo_replica_set_url: str):
+    """What one matcher buys: a confirmation naming a different set from the one the write reaches is worse than none."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        return await call_ansicht(database), await call_erasure(database, client)
+
+    ansicht, response = on_a_league(mongo_replica_set_url, body)
+    named = len(ansicht.saison_teams) + len(ansicht.bewerbungen)
+
+    # Against the table above as well as the echo: two figures agreeing on zero agree on nothing.
+    assert named == sum(EXPECTED_SLOTS.values())
+    assert named == response.cleared_kontakt_slots

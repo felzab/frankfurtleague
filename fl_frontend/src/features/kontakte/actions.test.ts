@@ -165,7 +165,7 @@ describe("the erasure against the backend's refusal register", () => {
     assert.ok(ERASE_MUTATION.includes('"/kontakte/erasure"'), "the erasure's mutation is outside its slice");
     assert.ok(!ERASE_MUTATION.includes("/saisons/"), "the erasure's mutation slice runs on into the seats' write");
     assert.ok(
-      ACTION_HEADER.includes('eraseKontaktperson, patchSaisonTeamKontakte } from "./mutations"'),
+      ACTION_HEADER.includes('eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations"'),
       "the header's slice no longer holds the import",
     );
     assert.ok(RESPONSE_SCHEMA.includes("redacted_aktionen"), "the response schema's slice does not reach its fields");
@@ -212,11 +212,11 @@ describe("what the erasure moves", () => {
      unattributable both. What is asserted is the tier every write DECLARES; a call would report one
      request's outcome rather than the set. */
   it("leaves at the admin tier and at no other", () => {
-    // Every write in the module, not the erasure alone: both are admin-tier and a second one added
-    // at any other tier is refused 401 and unattributable both.
+    // Every request the module makes, not the writes alone: the reveal's read serves contact records
+    // too, and one sent at any other tier is refused 401 and unattributable both.
     const tiers = [...MUTATIONS.matchAll(/authType: "(\w+)"/g)].map((match) => match[1]);
 
-    assert.deepEqual(tiers, ["admin", "admin"], `the module's writes are sent at: ${tiers.join(", ") || "no tier at all"}`);
+    assert.deepEqual(tiers, ["admin", "admin", "admin"], `the module's requests are sent at: ${tiers.join(", ") || "no tier at all"}`);
   });
 
   /* The response carries counts and no person, and nothing on this side may put one back. */

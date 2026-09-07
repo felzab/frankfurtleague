@@ -1,8 +1,9 @@
 import { apiClient } from "@/core/api";
 
-import { FLKontaktErasureResponseSchema, FLPatchSaisonTeamKontakteResponseSchema } from "./schemas";
+import { FLKontaktErasureAnsichtResponseSchema, FLKontaktErasureResponseSchema, FLPatchSaisonTeamKontakteResponseSchema } from "./schemas";
 
 import type {
+  FLKontaktErasureAnsichtResponse,
   FLKontaktErasurePayload,
   FLKontaktErasureResponse,
   FLPatchSaisonTeamKontaktePayload,
@@ -16,6 +17,18 @@ import type {
  */
 export async function eraseKontaktperson(payload: FLKontaktErasurePayload): Promise<FLKontaktErasureResponse> {
   return apiClient<FLKontaktErasureResponse>("/kontakte/erasure", FLKontaktErasureResponseSchema, {
+    method: "POST",
+    authType: "admin",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * A POST that reads, for the erasure's own reason above. It takes that write's payload rather than
+ * one of its own, so a confirmation cannot be shown for one address and performed for another.
+ */
+export async function readKontaktErasureAnsicht(payload: FLKontaktErasurePayload): Promise<FLKontaktErasureAnsichtResponse> {
+  return apiClient<FLKontaktErasureAnsichtResponse>("/kontakte/erasure/ansicht", FLKontaktErasureAnsichtResponseSchema, {
     method: "POST",
     authType: "admin",
     body: JSON.stringify(payload),

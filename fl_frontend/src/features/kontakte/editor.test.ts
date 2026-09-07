@@ -1014,12 +1014,16 @@ describe("what the two destructive controls do to the page", () => {
 
   /* The whole safety of moving this control off a page that showed an address onto a page that shows
      one season: without the reach spelled out it reads as clearing this seat. */
-  it("states the erasure's reach where it is confirmed", () => {
-    // What the SECOND press reveals, which is a state the resting control has not reached.
-    for (const label of ["Saison-Zugehörigkeiten", "Bewerbungen", "Änderungsprotokoll"]) {
-      assert.ok(ERASURE.includes(`label="${label}"`), `the confirmation does not say it reaches ${label}`);
-    }
-    assert.match(ERASURE, /jede, in der diese Adresse steht/, "the confirmation does not say the reach is every season");
+  it("reads whom the address holds before the write can be confirmed", () => {
+    /* The wiring between the panel and the read is the subject here; what the list itself renders is
+       `fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktReveal.test.ts`'s. */
+    assert.match(ERASURE, /if \(!isConfirming\) void readAnsicht\(\);/, "the panel arms without asking whom the address holds");
+    assert.match(ERASURE, /<FormKontaktReveal\b/, "the armed panel names none of the seats the write would clear");
+    assert.match(
+      ERASURE,
+      /isDisabled=\{isPending \|\| \(isConfirming && ansicht\?\.status !== "read"\)\}/,
+      "the write can be confirmed before the names it is confirmed over are on screen",
+    );
   });
 });
 

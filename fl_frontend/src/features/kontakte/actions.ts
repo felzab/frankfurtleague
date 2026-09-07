@@ -5,12 +5,17 @@ import { ADMIN_FORBIDDEN, runAdminMutation, VALIDATION_FAILED } from "@/shared/u
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { eraseKontaktperson, patchSaisonTeamKontakte } from "./mutations";
+import { eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations";
 import { FLKontaktErasurePayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { describeKontaktErasureUmfang } from "./utils";
 
 import type { ActionResult } from "@/shared/types/types";
-import type { FLKontaktErasurePayload, FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamKontakteResponse } from "./schemas";
+import type {
+  FLKontaktErasureAnsichtResponse,
+  FLKontaktErasurePayload,
+  FLPatchSaisonTeamKontaktePayload,
+  FLPatchSaisonTeamKontakteResponse,
+} from "./schemas";
 
 /**
  * Clears one contact person from every season's junction row, every application, and the log's saved
@@ -92,5 +97,31 @@ export async function patchSaisonTeamKontakteAction(
       // not expect to have to check for.
       message: validated.data.kontakte === null ? "Kontakte entfernt" : "Kontakte gespeichert",
     };
+  });
+}
+
+/**
+ * Whom `eraseKontaktpersonAction` would clear, read before it runs. It refuses nothing: an address
+ * matching nobody answers two empty lists rather than a failure the panel would have to word.
+ */
+export async function readKontaktErasureAnsichtAction(
+  rawPayload: FLKontaktErasurePayload,
+): Promise<ActionResult<{ ansicht?: FLKontaktErasureAnsichtResponse }>> {
+  return runAdminMutation("readKontaktErasureAnsichtAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: ADMIN_FORBIDDEN };
+    }
+
+    const validated = FLKontaktErasurePayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return {
+        success: false,
+        error: VALIDATION_FAILED,
+        fieldErrors: toFieldErrors(validated.error),
+      };
+    }
+
+    return { success: true, ansicht: await readKontaktErasureAnsicht(validated.data) };
   });
 }

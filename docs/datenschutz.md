@@ -130,14 +130,12 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   while an anonymisation runs refuse it (`REQ-ANONYMISE-001`,
   `docs/backend/spec.md :: I118`) rather than answering a success it did not achieve, so the run is
   repeated and nobody is told a person's details are gone while they stand.
-- **An erasure keyed on an email address warns first.** Colleagues sharing a school inbox are one
-  subject to the match, so the matched names are shown for confirmation before the write. A
-  person id across seasons is not introduced: contact persons are season-scoped by design. Today
-  the confirmation names the person whose panel it was opened from and states the reach as a class
-  rather than listing whom the address matches
-  (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`),
-  so an administrator confirms a write whose subjects they have not seen
-  (`docs/_roadmap/items.md :: k3g7-cqx7`).
+- **An erasure keyed on an email address names whom it reaches.** Colleagues sharing a school inbox
+  are one subject to the match, so every seat the address holds is listed for confirmation before the
+  write — by name and by the season it sits in, read through `POST /kontakte/erasure/ansicht` rather
+  than inferred on the client
+  (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktReveal.tsx :: FormKontaktReveal`).
+  A person id across seasons is not introduced: contact persons are season-scoped by design.
 - **The administrator's own email on every log row stays, outside every redaction.** The log
   exists to say who did what; the asymmetry is deliberate and is stated at the invariant once it
   leaves here (`docs/backend/spec.md :: I42` is the redaction it sits beside, and `:: I48` what a

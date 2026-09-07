@@ -110,6 +110,9 @@ ADMIN_READS = [
     ("/api/v0/schiedsrichter/{schiedsrichter_id}", "get"),
     ("/api/v0/bewerbungen", "get"),
     ("/api/v0/bewerbungen/{bewerbung_id}", "get"),
+    # A POST because the address travels in a body, so `MUTATIONS` covers it too -- and would
+    # stop covering it the day somebody makes the reveal a GET.
+    ("/api/v0/kontakte/erasure/ansicht", "post"),
 ]
 
 

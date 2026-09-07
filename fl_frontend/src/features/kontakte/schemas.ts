@@ -1,6 +1,9 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
+// The wire's three seats, mirrored once: a second enum here would let the reveal name a seat no
+// other response of this API publishes.
+import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { FLSaisonTeamKontaktePayloadSchema, FLSaisonTeamKontakteSchema } from "@/features/teams/schemas";
 import { CustomObjectIdStringSchema, KONTAKT_EMAIL_MAX_LENGTH } from "@/shared/schemas";
 
@@ -16,6 +19,31 @@ export const FLKontaktErasurePayloadSchema = z.object({
     .max(KONTAKT_EMAIL_MAX_LENGTH, { error: `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.` }),
 });
 export type FLKontaktErasurePayload = z.infer<typeof FLKontaktErasurePayloadSchema>;
+
+/**
+ * Mirrors `FLKontaktSitz` — one seat, by name and by the season it sits in, and no contact record:
+ * the confirmation answers WHOM, never what the request exists to destroy.
+ */
+export const FLKontaktSitzSchema = z.object({
+  saison_id: z.string(),
+  // Beside the name because a person seated twice in one season is otherwise two rows a reader
+  // cannot tell apart, which is what `trainer_ist_zugleich` produces.
+  rolle: FLKontaktRolleSchema,
+  vorname: z.string(),
+  nachname: z.string(),
+});
+export type FLKontaktSitz = z.infer<typeof FLKontaktSitzSchema>;
+
+/**
+ * Mirrors `FLKontaktErasureAnsichtResponse` — whom `POST /kontakte/erasure` would reach, before it
+ * runs. The two lists stay apart: an application is a request to join, and a junction row is a
+ * season already played.
+ */
+export const FLKontaktErasureAnsichtResponseSchema = BaseAPIResponseSchema.extend({
+  saison_teams: z.array(FLKontaktSitzSchema),
+  bewerbungen: z.array(FLKontaktSitzSchema),
+});
+export type FLKontaktErasureAnsichtResponse = z.infer<typeof FLKontaktErasureAnsichtResponseSchema>;
 
 /**
  * Mirrors `FLKontaktErasureResponse` — counts alone, and deliberately no echo of the person. The

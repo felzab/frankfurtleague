@@ -119,7 +119,6 @@ deliverable.
 | `huzh-hdfx` | A never-clause bounds what a stylesheet may say about a toast, and the stylesheet says more                                  | FE, Docs                                                                    | Open     |
 | `ja32-9rpv` | A call site declares which key tier it sends, and nothing holds the declaration to the route it reaches                      | FE, BE, Docs, tests, bewerbungen, kontakte, spielorte                       | Open     |
 | `jcs8-4ste` | An in-transaction read's session argument is held to its comment by nothing                                                  | BE, tests, saisons                                                          | Open     |
-| `k3g7-cqx7` | An erasure is confirmed without naming whom the address matches                                                              | FE, BE, DB, Docs, kontakte                                                  | Open     |
 | `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                           | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `kpkb-y5d8` | A refusal code's meaning is written three times in prose, and nothing resolves any pair of them                              | FE, BE, Ops, Docs, gate, tests, bewerbungen                                 | Open     |
 | `kwfu-48sm` | Two surfaces offer a squad-row return the season's cap will refuse                                                           | FE, BE, admin, spieler                                                      | Open     |
@@ -1961,39 +1960,6 @@ guards deletable.
 
 **Not verified here:** the database tier was not run for this entry. That dropping the argument
 leaves it green is a report; the mechanism above is what the code says would allow it.
-
-### `k3g7-cqx7` · An erasure is confirmed without naming whom the address matches
-
-| Tags                       | Status | Depends on |
-| -------------------------- | ------ | ---------- |
-| FE, BE, DB, Docs, kontakte | Open   | —          |
-
-**Ruled: an erasure keyed on an email address shows the matched names for confirmation before the
-write** (`docs/datenschutz.md :: 5. Erasure reaches everyone who asks`). The code is the regression,
-and the ruling stands.
-
-**The confirmation names one person and describes the rest as a class.**
-`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx` is
-opened from inside one seat's own panel, names that seat's person, and says the write reaches them
-everywhere rather than only here. Everyone else the address holds is left to the administrator's
-memory, and the counts saying how far the write actually went arrive in the result afterwards.
-
-**A shared school inbox is the case the ruling was made for, and it is the case that reads best.**
-The panel names a real person, the sentence is plainly worded, and nothing on screen suggests
-anything is missing — so the confirmation is most convincing exactly where it is least complete, and
-an administrator clearing one departing Trainer can empty two colleagues' seats across every season
-that inbox appears in.
-
-**Nothing on the backend answers the question either.**
-`fl_backend/app/api/kontakte/admin_router.py` publishes the erasure and no read beside it, so what an
-address matches is knowable only by performing the write. Whatever renders the names needs a read
-that does not exist yet, and that read is the part to design first: it serves contact records to an
-administrator, so it is admin-tier and carries the same withholding every other read of the block
-does.
-
-**Done when** the confirm reveal lists every person the address matches, by name and by the season
-each seat sits in, before the write — read from a route added for it rather than inferred on the
-client, with a case pinning that a second matched person appears in the reveal.
 
 ### `k4wq-8mvr` · Every failure carries a closed class beside its code, and the register's kinds are held by a check
 
