@@ -1,27 +1,19 @@
+import json
+from copy import deepcopy
+
 import pytest
 
-from tests.openapi_document import DOCUMENT_PATH, build_document, read_document
+from app.shared.schemas.addresses import HAUSNUMMER_PATTERN
+from tests.openapi_document import DOCUMENT_PATH, DRIFT_REPAIR, REGENERATE, build_document, describe_drift, read_document
 
-REGENERATE = "cd fl_backend && python -m tests.openapi_document --write"
+# The exact narrowing this failure exists for: every value `fl_backend/tests/shared/test_addresses.py`
+# names is decided as it is decided now, and the published pattern still moves.
+NARROWED_HAUSNUMMER = r"^([0-9][0-9\-abcABC]*)?$"
 
 
 def summarize_drift(committed: dict, built: dict) -> str:
-    """Name what moved, so the failure is actionable without diffing the whole document by eye."""
-    lines: list[str] = []
-
-    for section in ("paths", "components"):
-        committed_keys = set(committed.get(section, {}))
-        built_keys = set(built.get(section, {}))
-        if section == "components":
-            committed_keys = set(committed.get(section, {}).get("schemas", {}))
-            built_keys = set(built.get(section, {}).get("schemas", {}))
-        if added := sorted(built_keys - committed_keys):
-            lines.append(f"  Only in the models: {added}")
-        if removed := sorted(committed_keys - built_keys):
-            lines.append(f"  Only in the committed document: {removed}")
-
-    # Both key sets can match while a field inside one changed, which a set difference cannot say.
-    return "\n".join(lines) or "  The same paths and components, so a field inside one of them changed."
+    """Composed from `fl_backend/tests/openapi_document.py`'s pieces, so this failure and the `--check` run never become two shapes."""
+    return f"{DOCUMENT_PATH.name} has drifted from the models.\n{describe_drift(committed, built)}\n{DRIFT_REPAIR}"
 
 
 def test_the_committed_document_is_the_one_the_service_publishes():
@@ -31,9 +23,24 @@ def test_the_committed_document_is_the_one_the_service_publishes():
     committed = read_document()
     built = build_document()
 
-    drift = f"{DOCUMENT_PATH.name} has drifted from the models.\n{summarize_drift(committed, built)}\nRefresh it with:  {REGENERATE}"
+    assert committed == built, summarize_drift(committed, built)
 
-    assert committed == built, drift
+
+def test_the_drift_summary_names_the_field_whose_value_moved():
+    """The narrowing that reaches no other check: it moves no key, so a set difference reports nothing and only the field's path locates it."""
+    committed = read_document()
+    narrowed = deepcopy(committed)
+    hausnummer = narrowed["components"]["schemas"]["FLAddress"]["properties"]["hausnummer"]
+    hausnummer["pattern"] = NARROWED_HAUSNUMMER
+
+    summary = summarize_drift(committed, narrowed)
+
+    assert "components.schemas.FLAddress.properties.hausnummer.pattern" in summary
+    # Both patterns as the document spells them, so the reader compares two strings rather than
+    # opening the document for the committed one.
+    assert json.dumps(HAUSNUMMER_PATTERN) in summary
+    assert json.dumps(NARROWED_HAUSNUMMER) in summary
+    assert DRIFT_REPAIR in summary
 
 
 @pytest.mark.parametrize("section", ["paths", "components"])

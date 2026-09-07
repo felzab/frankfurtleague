@@ -108,7 +108,6 @@ deliverable.
 | `b732-rpvp` | Most of the database tier runs against collections production would not accept                                                                                    | BE, DB, tests                                                               | Open     |
 | `bfs4-ax6a` | The database fixtures' drift guard cannot see a view, so a body that creates one has a safety net that is not there                                               | BE, DB, tests                                                               | Open     |
 | `buut-5cyw` | An undo restores a whole stored fixture from a list read before the save                                                                                          | FE, BE, Docs, admin, spiele                                                 | Open     |
-| `cckv-edvy` | The published document's drift check fails with the command that accepts the drift                                                                                | FE, BE, Ops, Docs, gate, tests                                              | Open     |
 | `ceqd-e4aq` | An admin table's declared floor can be wider than the viewport its layout starts at                                                                               | FE, Docs, tests                                                             | Open     |
 | `cu59-4gqt` | Nothing announces that a season rollover is due                                                                                                                   | Ops, Docs, ci                                                               | Standing |
 | `cvub-qx5s` | `NOTICE` asserts the source copyright of a natural person while an association publishes the site                                                                 | FE, meta                                                                    | Open     |
@@ -1227,41 +1226,6 @@ outside a page-owned editor — so what moves is the payloads rather than where 
 today, so the window is a single administrator's page visit; a second writer arrives in the season
 plan this year (confirmed 2026-08-12), which is what turns that window into a shape two people can
 meet inside.
-
-### `cckv-edvy` · The published document's drift check fails with the command that accepts the drift
-
-| Tags                           | Status | Depends on |
-| ------------------------------ | ------ | ---------- |
-| FE, BE, Ops, Docs, gate, tests | Open   | —          |
-
-**`fl_backend/tests/api/test_openapi_document.py :: test_the_committed_document_is_the_one_the_service_publishes`
-compares the tracked `fl_backend/openapi.json` with what the models publish, and the message it fails
-with names the command that overwrites the document.** `scripts/gate/verify.sh` prints the same
-instruction beside its own `--check` run of `fl_backend/tests/openapi_document.py`. Following either
-turns the run green, the document now saying whatever the models say — so a check whose stated remedy
-is to accept what moved cannot separate a document left behind by an intended change from a model
-change nobody meant to make.
-
-**Some narrowings have nowhere else to fail.** A field's `pattern` can be tightened so that every
-value its own tests accept is still accepted and every value they refuse is still refused, while the
-published string changes: a house number's charset is such a constraint, and
-`fl_backend/tests/shared/test_addresses.py` names values on both sides of it that a pattern
-additionally requiring a leading digit would decide exactly as they are decided now. What the reader
-gets in that case is the closing line of
-`fl_backend/tests/api/test_openapi_document.py :: summarize_drift`, which says a field inside one of
-the components changed and cannot say which — and then the instruction to accept it.
-
-**Nothing objects afterwards**, because every other reader takes the committed file rather than the
-models: `fl_frontend/src/core/apiContract.test.ts` reads the document that was just rewritten, and
-the `--check` run compares the rewritten document with the models it was built from.
-
-**Widening the frontend's comparison is refused already and is not the repair.**
-`.claude/rules/cross-surface.md`'s **openapi** clause holds the Zod mirror to presence, required,
-nullable, type and enum, so a narrowed pattern is not that comparison's to catch.
-
-**Done when** the failure separates the two readings it now collapses — naming the field whose value
-moved rather than reporting that one did, and offering the rewrite for a change the session meant
-while saying that the repair for one it did not mean is in the models.
 
 ### `ceqd-e4aq` · An admin table's declared floor can be wider than the viewport its layout starts at
 
