@@ -126,14 +126,14 @@ def squad_rows() -> list[dict[str, Any]]:
     return rows
 
 
-def spiel_document(**overrides: Any) -> dict[str, Any]:
+def spiel_document(*, spiel_nr: int, **overrides: Any) -> dict[str, Any]:
     """Every key the shipped validator requires, null where this suite has no opinion.
 
     A null side and a null booking are what a drawn fixture holds until somebody fills them in.
     """
 
     return {
-        "_id": ObjectId(SPIEL_ID.format(1)),
+        "_id": ObjectId(),
         "team1": None,
         "team2": None,
         "team1_quelle": None,
@@ -145,7 +145,9 @@ def spiel_document(**overrides: Any) -> dict[str, Any]:
         "ergebnis": None,
         "elfmeterschiessen": None,
         "spieltag_id": SPIELTAG_OID,
-        "spiel_nr": 1,
+        # Required of the caller rather than defaulted: `uniq_saison_id_spiel_nr` refuses a second
+        # fixture in this season reusing a number, and a default is what a caller forgets to override.
+        "spiel_nr": spiel_nr,
         "sonderereignis": None,
         "saison_phase": "gruppenphase",
         "saison_id": SAISON_ID,
@@ -156,10 +158,7 @@ def spiel_document(**overrides: Any) -> dict[str, Any]:
 def drawn_spiele() -> list[dict[str, Any]]:
     """One matchday's fixtures. A null `quelle` on either side, so nothing here can be read as a wired placing."""
 
-    return [
-        spiel_document(_id=ObjectId(SPIEL_ID.format(nr)), spiel_nr=nr, datum="2026-03-15")
-        for nr in range(1, DRAWN_FIXTURES + 1)
-    ]
+    return [spiel_document(_id=ObjectId(SPIEL_ID.format(nr)), spiel_nr=nr, datum="2026-03-15") for nr in range(1, DRAWN_FIXTURES + 1)]
 
 
 def knockout_spieltag_document() -> dict[str, Any]:

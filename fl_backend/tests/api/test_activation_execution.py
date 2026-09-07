@@ -91,13 +91,10 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 def on_a_league(
     url: str, body: Body, *, saisons: list[dict[str, Any]], spiele: list[dict[str, Any]] | None = None, mutates_schema: bool = False
 ) -> Any:
-    """`saisons` by hand, a transaction being unable to create a collection.
-
-    `mutates_schema=True` where the body attaches a validator (`tests/database.py :: a_clean_database`).
-    """
+    """`mutates_schema=True` where the body attaches a validator (`tests/database.py :: a_clean_database`)."""
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, collections=(Collection.SAISONS,), mutates_schema=mutates_schema) as (client, database):
+        async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema) as (client, database):
             # Process-global and keyed by season id, so an entry another module left would answer for this one.
             invalidate_saison_cache()
 

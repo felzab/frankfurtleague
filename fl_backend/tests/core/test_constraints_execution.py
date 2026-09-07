@@ -69,8 +69,9 @@ CONFLICTING_TTL_INDEX = "aktionen_retention"
 # build one.
 STALE_RETENTION_SECONDS = 60
 
-# A name no collection holds: a view taking one would break the next caller's `delete_many` before
-# the guard could name it, which is the failure the guard exists to arrive ahead of.
+# A name no collection holds, the case only `tests/database.py :: _foreign` catches: a view over a
+# dropped collection's name is already in `_moved`'s `gone` set, and one over a live name is a
+# namespace MongoDB refuses.
 LEFTOVER_VIEW = "leftover_view"
 
 # Enough junction rows that the unique build over them outlasts the two-document build beside it.
@@ -435,8 +436,9 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     ),
 }
 
-# Both directions at import: a declared index missing a pair is the `KeyError` the walk below raises,
-# and this is what catches a pair no declared index answers to.
+# At import, and set equality rather than the `KeyError` the walk below would raise: that names a
+# declared index with no pair and nothing else, leaving a pair no declared index answers to as a
+# case nothing runs.
 assert DUPLICATE_PAIRS.keys() == {index.name for index in UNIQUE_INDEXES}
 
 

@@ -130,8 +130,7 @@ def on_a_season(
     """
 
     async def _run() -> Any:
-        # `spiele` by hand: the group move reads it, and nothing here seeds it in every case.
-        async with a_clean_database(url, DATABASE_NAME, collections=(Collection.SPIELE,)) as (_, database):
+        async with a_clean_database(url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(
                 {"_id": SAISON_ID, "start_date": SAISON_START, "end_date": SAISON_END, "status": saison_status, "rules": dict(RULES)}
             )

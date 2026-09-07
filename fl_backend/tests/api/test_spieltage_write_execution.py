@@ -105,7 +105,7 @@ def spieltag_document(**overrides: Any) -> dict[str, Any]:
     }
 
 
-def spiel_document(**overrides: Any) -> dict[str, Any]:
+def spiel_document(*, spiel_nr: int, **overrides: Any) -> dict[str, Any]:
     """Every key the shipped validator requires, nulled where this suite has no opinion: only the date is ever read here."""
 
     return {
@@ -121,7 +121,9 @@ def spiel_document(**overrides: Any) -> dict[str, Any]:
         "ergebnis": None,
         "elfmeterschiessen": None,
         "spieltag_id": SPIELTAG_OID,
-        "spiel_nr": 1,
+        # Required of the caller rather than defaulted: `uniq_saison_id_spiel_nr` refuses a second
+        # fixture in this season reusing a number, and a default is what a caller forgets to override.
+        "spiel_nr": spiel_nr,
         "sonderereignis": None,
         "saison_phase": "gruppenphase",
         "saison_id": SAISON_ID,
@@ -240,7 +242,7 @@ class TestAMatchdayKeepsCoveringItsFixtures:
     """`REQ-DATE-003` through the endpoint: only a database proves the dates it judges are read out of `spiele` at all."""
 
     async def _with_a_fixture_on(self, database: AsyncDatabase, datum: str | None) -> None:
-        await database.spiele.insert_one(spiel_document(datum=datum))
+        await database.spiele.insert_one(spiel_document(spiel_nr=1, datum=datum))
 
     def test_a_shrink_past_a_dated_fixture_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> DocumentConflictException:

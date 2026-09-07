@@ -132,7 +132,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 def on_a_league(url: str, body: Body, *, saison_status: str = "future") -> Any:
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, collections=(Collection.SAISON_TEAMS,)) as (_, database):
+        async with a_clean_database(url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(
                 # The span is the shipped validator's, not this suite's: no body here reads a date,
                 # and a row without one is a season the product cannot hold.

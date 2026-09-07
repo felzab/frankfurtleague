@@ -192,13 +192,10 @@ def on_a_seeded_season(
     saison_status: str = "active",
     mutates_schema: bool = False,
 ) -> Any:
-    """`spiele` by hand, a transaction being unable to create a collection.
-
-    `mutates_schema=True` where the body attaches a validator (`tests/database.py :: a_clean_database`).
-    """
+    """`mutates_schema=True` where the body attaches a validator (`tests/database.py :: a_clean_database`)."""
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, collections=(Collection.SPIELE,), mutates_schema=mutates_schema) as (client, database):
+        async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.SAISONS].insert_one(
                 # The span and the rules are the shipped validator's; the swap reads the status alone.
                 {"_id": SAISON_ID, "start_date": "2026-01-01", "end_date": "2026-06-30", "status": saison_status, "rules": dict(RULES)}

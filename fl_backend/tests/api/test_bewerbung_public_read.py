@@ -29,6 +29,9 @@ CORPUS_DATABASE = build_test_config().db_base_name
 
 # `seeded_with`'s own, for `tests/api/conftest.py :: config_for`'s reason: it clears where it seeds.
 WINDOW_DATABASE = worker_database("fl_bewerbung_window_test")
+# Its own name: `a_clean_database_sync` records one schema per name, and alternating constrained and
+# unconstrained callers on one would rebuild at every switch.
+UNCONSTRAINED_WINDOW_DATABASE = worker_database("fl_bewerbung_unconstrained_window_test")
 
 PREFIX = f"/api/v{API_VERSION}/bewerbungen"
 
@@ -201,20 +204,23 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
 
 def seeded_with(mongo_url: str, saisons: list[dict[str, Any]], *, constrained: bool = True) -> str:
-    """A corpus of exactly the seasons handed in, in `WINDOW_DATABASE`, for a case that decides which one `/fenster` picks.
+    """The database name holding exactly the seasons handed in, for a case that decides which one `/fenster` picks.
 
     `seeded_url` cannot serve those: a boundary season would sort behind its fixed answer and never
     be the one returned.
     """
 
+    name = WINDOW_DATABASE if constrained else UNCONSTRAINED_WINDOW_DATABASE
     client = MongoClient(mongo_url)
     try:
         # `constrained=False` is for a season whose window the shipped validator refuses -- one
         # stored before that validator arrived.
-        database = a_clean_database_sync(client, mongo_url, WINDOW_DATABASE, constraints=constrained)
+        database = a_clean_database_sync(client, mongo_url, name, constraints=constrained)
         database[Collection.SAISONS].insert_many(saisons)
 
-        return mongo_url
+        # The name rather than the url handed in: what a caller pairs with `answered` is the database
+        # this seeded, and a pairing it has to assemble is one it can get wrong.
+        return name
     finally:
         client.close()
 
@@ -346,9 +352,9 @@ class TestTheAssignedColoursRead:
     def test_a_season_taking_applications_with_nothing_assigned_answers_the_empty_set(self, mongo_url: str):
         """Its own corpus, `seeded_url` holding no season that both takes applications and has assigned nothing."""
 
-        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW))])
+        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW))])
 
-        response = answered(url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=WINDOW_DATABASE)
+        response = answered(mongo_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=database)
 
         assert response.status_code == 200
         assert response.json()["vergeben"] == []
@@ -374,9 +380,9 @@ class TestTheAssignedColoursRead:
     def test_a_season_this_tier_may_read_is_refused_all_the_same(self, mongo_url: str, status: str):
         """The gate judges the WINDOW and never the status, so a season `docs/backend/spec.md :: I47` does not withhold is refused too."""
 
-        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=None, status=status)])
+        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=None, status=status)])
 
-        assert answered(url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=WINDOW_DATABASE).status_code == 404
+        assert answered(mongo_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}", database_name=database).status_code == 404
 
 
 # Present and not an object: what `app/core/constraints.py :: _SAISON_BEWERBUNG` refuses, and what
@@ -418,9 +424,9 @@ class TestAStoredWindowThatIsNotAnObject:
 
         # UNCONSTRAINED: `_SAISON_BEWERBUNG` is what refuses these windows, so the rows this case is
         # about are rows only a database predating the validator can hold.
-        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)], constrained=False)
+        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)], constrained=False)
 
-        assert answered(url, path, database_name=WINDOW_DATABASE).status_code == 404
+        assert answered(mongo_url, path, database_name=database).status_code == 404
 
 
 class TestAStoredWindowShortOfAFieldTheReadNeeds:
@@ -435,9 +441,9 @@ class TestAStoredWindowShortOfAFieldTheReadNeeds:
         """Non-vacuous: the season exists and its window IS an object, so the 404 is the missing key rather than the id or the shape."""
 
         # UNCONSTRAINED for the class above's reason: `_SAISON_BEWERBUNG` requires every key.
-        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)], constrained=False)
+        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)], constrained=False)
 
-        assert answered(url, path, database_name=WINDOW_DATABASE).status_code == 404
+        assert answered(mongo_url, path, database_name=database).status_code == 404
 
 
 # Each window TOUCHES today on one end or both, so the query's `$lte` and `$gte` are what admit it.
@@ -466,9 +472,9 @@ class TestTheOpenWindowQueryIsInclusiveAtBothEnds:
     def test_a_window_touching_today_is_found(self, mongo_url: str, bewerbung: dict[str, Any]):
         """Narrow either comparison to `$lt` or `$gt` and one of these three answers 404."""
 
-        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
+        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
 
-        response = answered(url, f"{PREFIX}/fenster", database_name=WINDOW_DATABASE)
+        response = answered(mongo_url, f"{PREFIX}/fenster", database_name=database)
 
         assert response.status_code == 200
         assert response.json()["saison_id"] == OPEN_SAISON
@@ -478,9 +484,9 @@ class TestTheOpenWindowQueryIsInclusiveAtBothEnds:
     def test_a_window_a_day_outside_is_not(self, mongo_url: str, bewerbung: dict[str, Any]):
         """The control: without it every case above would pass on a query that matched everything."""
 
-        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
+        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
 
-        assert answered(url, f"{PREFIX}/fenster", database_name=WINDOW_DATABASE).status_code == 404
+        assert answered(mongo_url, f"{PREFIX}/fenster", database_name=database).status_code == 404
 
     @pytest.mark.parametrize("bewerbung", BOUNDARY_WINDOWS)
     def test_the_query_and_the_served_judgement_agree_on_the_edge(self, mongo_url: str, bewerbung: dict[str, Any]):
@@ -490,6 +496,6 @@ class TestTheOpenWindowQueryIsInclusiveAtBothEnds:
         the last day must not see one say open and the other shut.
         """
 
-        url = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
+        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=bewerbung)])
 
-        assert answered(url, f"{PREFIX}/fenster/{OPEN_SAISON}", database_name=WINDOW_DATABASE).json()["laeuft"] is True
+        assert answered(mongo_url, f"{PREFIX}/fenster/{OPEN_SAISON}", database_name=database).json()["laeuft"] is True
