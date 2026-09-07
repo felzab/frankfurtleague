@@ -394,7 +394,14 @@ def _agent_definition(seconds: int, hook: str = "guard.sh") -> str:
 
 
 def _compare_budgets(settings: Path, hooks: Path, tmp_path: Path, agents: Path | None = None) -> str:
-    """The step-14 comparison over a fixture pair, its verbs stubbed."""
+    """The step-14 comparison over a fixture pair, its verbs stubbed.
+
+    The default agents directory is there and empty, which registers nothing: a directory that is
+    not there is a finding of its own.
+    """
+    if agents is None:
+        agents = tmp_path / "no-agents"
+        agents.mkdir(exist_ok=True)
     _, out, err = _bash(
         (
             SHEBANG,
@@ -405,7 +412,7 @@ def _compare_budgets(settings: Path, hooks: Path, tmp_path: Path, agents: Path |
             _function("hook_reenters", "  "),
             _function("agent_registrations", "  "),
             _function("compare_hook_budgets", "  "),
-            f"compare_hook_budgets {settings.as_posix()!r} {hooks.as_posix()!r} {(agents or tmp_path / 'no-agents').as_posix()!r}",
+            f"compare_hook_budgets {settings.as_posix()!r} {hooks.as_posix()!r} {agents.as_posix()!r}",
         ),
         tmp_path,
     )
@@ -473,14 +480,29 @@ def test_every_spelling_of_one_watchdog_is_compared_and_no_other_is_read_as_seco
         assert _said(said) in out, f"{dispatch!r}: {out!r}"
 
 
+# The last two rows are load-bearing: a reader keyed to `$0` and `--decide` reads a guard spelling
+# `${BASH_SOURCE[0]}` under a sentinel of its own as one deciding in process, which is an `info`.
+RE_ENTRIES: Final[tuple[str, ...]] = (
+    'bash "$0" --decide',
+    'bash "$0" --verdict',
+    'bash "${BASH_SOURCE[0]}" --decide',
+    'bash "${BASH_SOURCE[0]}" --verdict',
+    'sh "$BASH_SOURCE" --verdict',
+)
+
+
 def test_a_guard_that_re_enters_itself_under_no_watchdog_is_a_finding(tmp_path: Path) -> None:
-    """Deleting the dispatch is the cheapest way to leave this comparison green, and nothing else asks whether a guard has a watchdog."""
+    """Deleting the dispatch is the cheapest way to leave this comparison green, and nothing else asks whether a guard has a watchdog.
+
+    Every row re-enters under nothing at all, so a row answering differently answers on the spelling.
+    """
     hooks = tmp_path / "hooks"
     hooks.mkdir()
-    write_shell(hooks / "guard.sh", _guard(""))
     settings = write_shell(tmp_path / "settings.json", _registration(10))
-    out = _compare_budgets(settings, hooks, tmp_path)
-    assert _said("FAIL guard.sh hands its decision to a child under no timeout of its own") in out, out
+    for re_entry in RE_ENTRIES:
+        write_shell(hooks / "guard.sh", f'#!/usr/bin/env bash\nanswer="$({re_entry})"\n')
+        out = _compare_budgets(settings, hooks, tmp_path)
+        assert _said("FAIL guard.sh hands its decision to a child under no timeout of its own") in out, f"{re_entry!r}: {out!r}"
 
 
 def test_a_hook_an_agent_definition_registers_is_compared_like_a_settings_one(tmp_path: Path) -> None:
@@ -494,11 +516,49 @@ def test_a_hook_an_agent_definition_registers_is_compared_like_a_settings_one(tm
     write_shell(agents / "fixture.md", _agent_definition(10))
     settings = write_shell(tmp_path / "settings.json", _registration(30, hook="plain.sh"))
     out = _compare_budgets(settings, hooks, tmp_path, agents)
-    assert _said("FAIL guard.sh decides under 15s") in out, out
-    # The event too: it selects what the finding says a kill costs, and a bare frontmatter key read
-    # as one names the wrong price on a `PreToolUse` registration.
-    assert _said("10s on PreToolUse, so the harness kills it first and the silence reads as permission") in out, out
+    # The whole line, its verb included: read from the middle it is satisfied by the same words
+    # downgraded to an `info`. The event names the price a kill costs, which a bare frontmatter key
+    # read as one gets wrong.
+    said = (
+        f"FAIL guard.sh decides under 15s while {agents.as_posix()}/fixture.md gives the hook 10s on PreToolUse, "
+        "so the harness kills it first and the silence reads as permission."
+    )
+    assert _said(said) in out, out
     assert _said("INFO plain.sh: decides in the hook process") in out, out
+
+
+# What an agent read answers with when it read nothing: no directory at all, a definition renamed off
+# the suffix the glob names, and a directory holding neither.
+AGENT_READS: Final[tuple[tuple[str, str | None], ...]] = (
+    ("gone", None),
+    ("renamed", "fixture.markdown"),
+    ("empty", ""),
+)
+
+
+def test_an_agent_read_that_answered_nothing_is_named_rather_than_left_at_zero(tmp_path: Path) -> None:
+    """A definition renamed off `.md` drops every hook an agent registers, and reads as a tree carrying none.
+
+    The empty row is the control: failing a directory that registers nothing would fail every
+    fixture here carrying no agent.
+    """
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    write_shell(hooks / "plain.sh", "#!/usr/bin/env bash\nexit 0\n")
+    settings = write_shell(tmp_path / "settings.json", _registration(30, hook="plain.sh"))
+    for label, entry in AGENT_READS:
+        agents = tmp_path / label
+        if entry is not None:
+            agents.mkdir()
+        if entry:
+            write_shell(agents / entry, _agent_definition(10))
+        out = _compare_budgets(settings, hooks, tmp_path, agents)
+        said = f"FAIL no agent registration was read out of {agents.as_posix()}"
+        if entry == "":
+            assert said not in out, f"{label}: {out!r}"
+            assert _said("INFO plain.sh: decides in the hook process") in out, f"{label}: {out!r}"
+        else:
+            assert _said(said) in out, f"{label}: {out!r}"
 
 
 # Three characters the fixtures below cannot spell in a line literal without an escape a reader of

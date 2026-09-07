@@ -98,13 +98,17 @@
 # where the pool cannot start all five at once, and either way it sits inside the floor the docs
 # row carries, so neither reference nor budget moves and neither takes a new stamp.
 #
-# `scripts` gained a check: `selfcheck.sh` step 14 now reads each `PreToolUse` registration in
-# `.claude/settings.json` against the kill budget the hook it registers gives its own child. It
-# costs 0.88-0.97 s over six interleaved rounds against six of the same harness with the comparison
-# left out, measured locally on 2026-09-07 on a sixteen-core machine carrying a fleet of agent
-# sessions, so both ends are upper bounds reading that contention as much as the check; one node
-# start over eight registrations is most of the figure, and a Linux runner starts node faster than
-# this one does. It sits inside the floor the `scripts` row carries.
+# `scripts` gained a check: `selfcheck.sh` step 14 reads every hook registration in
+# `.claude/settings.json` and in `.claude/agents/`, on every event rather than `PreToolUse` alone,
+# against the kill budget the hook it registers gives its own child. Eleven registrations cost
+# 0.73-0.80 s, taken as the difference against six interleaved rounds of the same harness with the
+# comparison left out, whose own span was 0.140-0.157 s. The node start over the settings file is
+# 0.053-0.082 s of that and the per-registration process starts are the rest -- an awk over every
+# registered hook, and a grep besides for each that decides in its own process. Measured locally on
+# 2026-09-07 on a sixteen-core machine carrying fifteen agent sessions and an editor, so both ends
+# are upper bounds reading that contention as much as the check, and a Linux runner starts a process
+# faster than this one does. It sits inside the floor the `scripts` row carries, so neither the
+# reference nor the budget moves and neither takes a new stamp.
 #
 # `ops` gained a check: `check_nginx_mirror.py` costs 0.141-0.167 s over eight interleaved runs in
 # two spreads, each returning exit 0, measured locally on 2026-09-07 on a sixteen-core machine

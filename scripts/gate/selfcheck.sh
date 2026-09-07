@@ -1613,6 +1613,8 @@ else
       # node string and in a word list of command prefixes, and none of those runs anything.
       function opened(before) {
         sub(/[[:space:]]+$/, "", before)
+        # An embedded program has statement positions of its own: a `timeout = 5` opening a line
+        # inside a node string would be read here as a command, which no guard in the pair spells.
         return (before == "" || before ~ /[({`;|&!]$/ || before ~ /(^|[^A-Za-z0-9_])(then|do|else)$/)
       }
       /^[[:space:]]*#/ { next }
@@ -1642,14 +1644,27 @@ else
   # Asked of the dispatch rather than of the budget beneath it: deleting the block entirely would
   # otherwise read as a guard deciding in process, which is the shape this comparison lets past.
   hook_reenters() { # $1 hook path — whether its verdict comes from a child it re-enters
+    # Both re-entry spellings, `$0` and `${BASH_SOURCE[0]}`: a sentinel other than `--decide` reads
+    # here as a guard deciding in its own process.
     # shellcheck disable=SC2016  # the dollar is the hook's own re-entry, matched rather than run
-    grep -qE '^[^#]*((bash|sh)[[:space:]]+"?\$0|--decide)' "$1"
+    grep -qE '^[^#]*((bash|sh)[[:space:]]+"?\$(0|\{?BASH_SOURCE)|--decide)' "$1"
   }
 
   # An agent definition registers hooks of its own that no settings file carries, and the harness
   # kills one of those the same way.
   agent_registrations() { # $1 the agents directory — one `<file>	<event>	<hook>	<seconds>` per entry
-    [[ -d "$1" ]] || return 0
+    [[ -d "$1" ]] || return 1
+    # A glob matching nothing expands to the pattern itself, so `-e` on the first name is what
+    # separates a definition read from none matched.
+    local -a definitions=( "$1"/*.md )
+    if [[ ! -e "${definitions[0]}" ]]; then
+      local -a present=( "$1"/* )
+      # Entries the `.md` glob passed over are a definition renamed off it, whose registrations would
+      # otherwise leave no trace here; an empty directory registers nothing, and git carries no
+      # empty one.
+      if [[ -e "${present[0]}" ]]; then return 1; fi
+      return 0
+    fi
     awk '
       FNR == 1 { fence = 0; event = ""; named = ""; budget = "" }
       /^---[[:space:]]*$/ { fence++; next }
@@ -1669,13 +1684,13 @@ else
           named = ""; budget = ""
         }
       }
-    ' "$1"/*.md 2>/dev/null || true
+    ' "${definitions[@]}" 2>/dev/null
   }
 
   # Read here rather than asserted in a test module: the numbers sit in two files, and a copy of
   # the pair one directory over is the thing that drifts.
   compare_hook_budgets() { # $1 the settings file · $2 the hooks directory · $3 the agents directory
-    local registrations agents rc=0 from event hook budget at spelled child unreadable lost
+    local registrations agents agents_rc=0 rc=0 from event hook budget at spelled child unreadable lost
     if [[ ! -f "$1" ]]; then
       note_fail "the hook watchdogs could not be compared — ${1} is not there."
       return 0
@@ -1697,8 +1712,15 @@ for (const [event, entry] of registered) {
       note_fail "no hook registration was read out of ${1} (node exit ${rc}), so no watchdog was compared against one."
       return 0
     fi
-    agents="$(agent_registrations "$3")"
-    if [[ -n "$agents" ]]; then registrations+=$'\n'"$agents"; fi
+    agents="$(agent_registrations "$3")" || agents_rc=$?
+    # Named rather than dropped, as the node read above is: an unreadable definition and a directory
+    # holding none answer alike, and the silence would take every hook an agent registers out of the
+    # comparison.
+    if (( agents_rc != 0 )); then
+      note_fail "no agent registration was read out of ${3} (exit ${agents_rc}), so no watchdog an agent definition registers was compared against one."
+    elif [[ -n "$agents" ]]; then
+      registrations+=$'\n'"$agents"
+    fi
     while IFS=$'\t' read -r from event hook budget; do
       [[ -n "$hook" ]] || continue
       if [[ ! -f "${2}/${hook}" ]]; then
