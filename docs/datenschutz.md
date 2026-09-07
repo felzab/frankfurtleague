@@ -71,7 +71,7 @@ Every ruling below assumes the sign-up flow settled for the next season, which d
   pupil row that exists today counts as fully consented, since those rows go at the season's end
   ([section 3](#3-the-current-pupil-records-are-reset-once)) and the gate must not empty the public
   squad lists meanwhile. The predicate is written into
-  [`backend/spec.md`](backend/spec.md#17-read-rules) before any code. Today no read consults the
+  [`backend/spec.md`](backend/spec.md#17-tier-rules) before any code. Today no read consults the
   stored consent, and the published notice claims the narrower basis it can honestly claim
   meanwhile: a squad row and a referee at a fixture stand there on a legitimate interest rather than
   on a consent (`DatenschutzView.tsx :: VEROEFFENTLICHT`). That wording returns to consent in the

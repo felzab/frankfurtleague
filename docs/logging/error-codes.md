@@ -34,7 +34,7 @@ would owe a row like any other rather than dropping out of both populations unse
 **`READ-*` shares that shape and is not an error code.** A read rule refuses nothing, so it reaches no
 response body, no log line and no row on this page, and the `RULES` correspondence below is scanned over
 `REQ-` alone. What a read rule governs is which tier a field is served
-([`docs/backend/spec.md`](../backend/spec.md#17-read-rules) §1.7).
+([`docs/backend/spec.md`](../backend/spec.md#17-tier-rules) §1.7).
 
 | Section                               | Answers                                                                                   |
 | ------------------------------------- | ----------------------------------------------------------------------------------------- |

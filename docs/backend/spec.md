@@ -2,18 +2,18 @@
 
 **Scope:** `fl_backend/`
 
-| Section                                                                        | Answers                                                           |
-| ------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| [1.1 Endpoint inventory](#11-endpoint-inventory)                               | Which endpoints exist, and behind which guard                     |
-| [1.2 `GET /spiele` parameters](#12-get-spiele-parameters)                      | Which filters and sorts the fixtures read accepts                 |
-| [1.3 The match write path](#13-the-match-write-path)                           | What one match write does, step by step                           |
-| [1.4 Error codes and failure responses](#14-error-codes-and-failure-responses) | What a failure body carries, and what each code refuses           |
-| [1.5 Environment](#15-environment)                                             | Which variables the process requires, and what each defaults to   |
-| [1.6 The test suite](#16-the-test-suite)                                       | What the two tiers cover, and which marker separates them         |
-| [1.7 Read rules](#17-read-rules)                                               | Which fields the base tier is not served, and what withholds each |
-| [2. Invariants](#2-invariants)                                                 | The rules that must hold                                          |
-| [3. Violation → remedy](#3-violation--remedy)                                  | A symptom, its cause, and what to do about it                     |
-| [4. Known-open](#4-known-open)                                                 | The accepted gaps                                                 |
+| Section                                                                        | Answers                                                                                             |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| [1.1 Endpoint inventory](#11-endpoint-inventory)                               | Which endpoints exist, and behind which guard                                                       |
+| [1.2 `GET /spiele` parameters](#12-get-spiele-parameters)                      | Which filters and sorts the fixtures read accepts                                                   |
+| [1.3 The match write path](#13-the-match-write-path)                           | What one match write does, step by step                                                             |
+| [1.4 Error codes and failure responses](#14-error-codes-and-failure-responses) | What a failure body carries, and what each code refuses                                             |
+| [1.5 Environment](#15-environment)                                             | Which variables the process requires, and what each defaults to                                     |
+| [1.6 The test suite](#16-the-test-suite)                                       | What the two tiers cover, and which marker separates them                                           |
+| [1.7 Tier rules](#17-tier-rules)                                               | Which fields the base tier is not served, which a write moves into its reach, and what decides each |
+| [2. Invariants](#2-invariants)                                                 | The rules that must hold                                                                            |
+| [3. Violation → remedy](#3-violation--remedy)                                  | A symptom, its cause, and what to do about it                                                       |
+| [4. Known-open](#4-known-open)                                                 | The accepted gaps                                                                                   |
 
 ---
 
@@ -518,7 +518,7 @@ and cannot suffer same-basename collisions.
   needs a population with an edge: one dedicated file gives that pair one, and a column citing the
   whole tests tree has none.
 
-### 1.7 Read rules
+### 1.7 Tier rules
 
 A `REQ-*` rule raised under `app/api/` refuses a write and answers 409, so it has a row in
 `fl_backend/app/core/domain.py :: RULES` and a status in [`docs/logging/error-codes.md`](../logging/error-codes.md),
@@ -534,10 +534,12 @@ each describing a single read.
 The base key IS the public/admin distinction, whatever the network topology: a base-tier
 response is what an anonymous visitor is shown. The system key is a third tier, held by the
 frontend process alone: the retention sweep's responses carry raw confirmation tokens and
-mailboxes, which reach no other tier (`READ-BEWERBUNG-004`). Two mechanisms carry these rules, and the difference matters when adding one --
-a **guard** decides who may make the read at all, a **response model** decides what that read serves.
+mailboxes, which reach no other tier (`READ-BEWERBUNG-004`). Three mechanisms carry these rules, and the difference matters when adding one --
+a **guard** decides who may make the read at all, a **response model** decides what that read serves,
+and a **projection** decides what leaves the database, which is the only one of the three a widening
+does not surface anywhere.
 
-| Code                 | What the base tier is not served                                                                                                                       | Enforced by                                                                                                                                                                                                                                                                                                                                                                 |
+| Code                 | What the base tier is not served, or what a write moves into its reach                                                                                 | Enforced by                                                                                                                                                                                                                                                                                                                                                                 |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `READ-PUPIL-001`     | A pupil's surname, which reaches it as a forename plus an initial                                                                                      | `fl_backend/app/api/spieler/services.py :: PUBLIC_NACHNAME` for the list and `:: public_initial` for the single read                                                                                                                                                                                                                                                        |
 | `READ-PUPIL-002`     | `saison_spieler.stufe`, which stays stored, admin-visible and validator-enforced, and every other squad-row field the public table does not render     | `fl_backend/app/api/spieler/schemas.py :: FLSpielerPublic` and `fl_backend/app/api/spieler/services.py :: build_spieler_pipeline`'s `$project`, the same allow-list one layer down                                                                                                                                                                                          |
@@ -685,7 +687,7 @@ rather than by the handler remembering to conceal one.
 | I138 | The draw writes no date or kickoff time: an undraw destroys hand-assigned ones without refusing (I109), and only the log's images hold them (I48)                                                  | `fl_backend/app/api/saisons/spielplan.py :: _spiel` writes both null, pinned by `fl_backend/tests/api/test_spielplan.py :: test_nothing_is_scheduled_and_nothing_has_happened`; `fl_backend/tests/api/test_undraw_execution.py :: TestTheRemovalKeepsEveryImage`                                                                                                                                                                              |
 | I180 | One age span bounds a public application's contact person at both tiers, in whole years against the German day the submission arrives on                                                           | `fl_backend/app/api/bewerbungen/schemas.py :: refuse_age_outside_the_bounds`, swept by `fl_backend/tests/api/test_bewerbung_einwilligung_refusal.py :: TestTheAgeAtConfirmation` and compared to the frontend copy by `fl_backend/tests/shared/test_frontend_mirrors.py :: test_every_declared_pair_agrees_on_the_number`                                                                                                                     |
 | I184 | A name or a contact detail is never written back onto an anonymised referee, on any season's fixtures                                                                                              | `fl_backend/app/api/schiedsrichter/services.py :: find_anonymisation_undo_refusal`; `fl_backend/tests/api/test_schiedsrichter_anonymisierung.py :: TestAnEditPuttingTheDetailsBackAfterTheErasureIsRefused`, whose archived case drives a closed season against a replica set                                                                                                                                                                 |
-| I185 | Neither anonymous confirmation read loads a field its handler does not read, both projections being derived per seat rather than typed out                                                         | `fl_backend/app/api/bewerbungen/services.py :: EINWILLIGUNG_ANSICHT_FIELDS` and `:: EINWILLIGUNG_ANTWORT_FIELDS`, derived from `:: KONTAKT_SEATS` and `:: TOKEN_HASH_FIELDS`; `fl_backend/tests/api/test_bewerbung_einwilligung_execution.py :: TestWhatAnAnonymousReadLoads`, whose eighteen field-group drops each fail on their own                                                                                                        |
+| I185 | A confirmation link's own read loads only the fields its handler resolves, both projections derived per seat rather than typed out                                                                 | `fl_backend/app/api/bewerbungen/services.py :: EINWILLIGUNG_ANSICHT_FIELDS` and `:: EINWILLIGUNG_ANTWORT_FIELDS`, derived from `:: KONTAKT_SEATS` and `:: TOKEN_HASH_FIELDS`; `fl_backend/tests/api/test_bewerbung_einwilligung_execution.py :: TestWhatAnAnonymousReadLoads`                                                                                                                                                                 |
 
 ## 3. Violation → remedy
 
