@@ -162,7 +162,6 @@ deliverable.
 | `t3xf-s5hy` | The confirm-panel sweep discovers its roster by the hook a panel calls, so a hand-rolled one is never a subject                                                   | FE, Docs, tests                                                             | Open     |
 | `tbh5-u4c3` | The browser's own chrome takes no colour from the season scheme                                                                                                   | FE, tests                                                                   | Open     |
 | `tfyy-hg3y` | A mis-cased suffix drops a citation out of the population instead of failing it                                                                                   | Ops, gate, tests                                                            | Open     |
-| `tnvw-4cqz` | One bash guard runs its twin's scan with no watchdog under it                                                                                                     | Ops, Docs, gate                                                             | Open     |
 | `tutf-44dk` | Three non-text pairs sit under 3:1 in the dark theme, and no row measures one                                                                                     | FE, Ops, gate                                                               | Open     |
 | `txef-hz2b` | Two referees reduced to one published name are one option in the fixture facet                                                                                    | FE, BE, spiele                                                              | Open     |
 | `uayf-u7g4` | The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other                                                                  | FE, Ops, Docs, edge                                                         | Standing |
@@ -3670,30 +3669,6 @@ is classified over the real corpus before it is wired, with each newly read run 
 **Done when** a citation or a scanned file whose case differs from its register's spelling is a
 finding rather than an absence, the widening having been classified over the corpus first, and a
 case in `scripts/tests/test_check_docs.py` drives an upper-cased suffix red.
-
-### `tnvw-4cqz` · One bash guard runs its twin's scan with no watchdog under it
-
-| Tags            | Status | Depends on |
-| --------------- | ------ | ---------- |
-| Ops, Docs, gate | Open   | —          |
-
-**`.claude/hooks/guard-standard-bash.sh` carries the write-shape scan byte for byte from
-`.claude/hooks/guard-branch-bash.sh`, parses its payload through node and asks git for the
-repository root — and runs all of it in the hook process.** Its twin runs the same work in a child
-under a kill budget and denies on anything but an answer; this one has no child, and its
-registration in `.claude/settings.json` is the shorter of the two.
-
-**The twin records at that budget that its child came close to exhausting it under full core
-occupancy** — a child doing more than the shared scan, and already a duration above this hook's
-whole registration. The twin also reaches its scan on `main` alone, while this guard reaches its
-scan on every branch and every shell command. A hook the harness
-kills prints nothing, and for a guard whose only verdict is a question, silence is the write to
-`docs/_standard/standard.md` going through without one being asked.
-
-**Done when** the asymmetry is decided either way — a child with its own budget and a refusal on
-anything else, or the reason this guard needs none recorded where the twin records the opposite.
-Factoring the shared scan into one file is not on the table: `.claude/CLAUDE.md` §7 keeps the two
-copies deliberately.
 
 ### `tutf-44dk` · Three non-text pairs sit under 3:1 in the dark theme, and no row measures one
 
