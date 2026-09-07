@@ -1,12 +1,13 @@
 """SCRIPTS · what a pooled run's parent makes of a unit that reached no verdict.
 
-`scripts/gate/verify.sh :: unit_replay`, `:: unit_verdict`, `:: adopt_finished` and `:: pool_wait` all
-read a worker's handoff, and a status the pool could not report has to reach a caller as a crash
-rather than as the byte `return` would mask it to or as a scope quietly missing from the table.
-Each is lifted out of verify.sh and evaluated here, sourcing it being a whole gate run. So are two
-sites on the other side of the handoff: `:: do_backend_ruff`, whose status is all the parent gets
-of ruff, and `:: start_steps`, whose call to `:: pool_units_replayed` is the guard over a unit
-nothing replays.
+`scripts/gate/verify.sh :: unit_replay`, `:: unit_verdict`, `:: replay_scope`, `:: adopt_finished` and
+`:: pool_wait` all read a worker's handoff, and a status the pool could not report has to reach a
+caller as a crash rather than as the byte `return` would mask it to or as a scope quietly missing
+from the table. Each is lifted out of verify.sh and evaluated here, sourcing it being a whole gate
+run, and so is the loop deciding which of the readers a scope reaches, a later failure's own text
+reaching nobody through any other run. So are two sites on the other side of the handoff:
+`:: do_backend_ruff`, whose status is all the parent gets of ruff, and `:: start_steps`, whose call
+to `:: pool_units_replayed` is the guard over a unit nothing replays.
 """
 
 from __future__ import annotations
@@ -50,6 +51,9 @@ def _parent(
     lifted: tuple[tuple[str, str], ...] = STEP_READERS,
     statuses: dict[str, str] | None = None,
     captured: dict[str, str] | None = None,
+    errors: dict[str, str] | None = None,
+    ledgers: dict[str, str] | None = None,
+    scopes: tuple[str, ...] = (),
     manifest: str = "",
     units: str = "",
     jobs: int = 1,
@@ -62,8 +66,9 @@ def _parent(
         pool.mkdir()
         # Bytes throughout, because a Windows text-mode write turns every newline into a carriage
         # return pair, and these are read back by `cat` and by a tab-splitting `read`.
-        for unit, text in (captured or {}).items():
-            (pool / f"{unit}.out").write_bytes(text.encode("utf-8"))
+        for suffix, written in (("out", captured), ("err", errors), ("ledger", ledgers)):
+            for unit, text in (written or {}).items():
+                (pool / f"{unit}.{suffix}").write_bytes(text.encode("utf-8"))
         if units:
             (pool / "units.tsv").write_bytes(units.encode("utf-8"))
         if manifest:
@@ -77,6 +82,7 @@ def _parent(
             f'POOL_DIR="{pool.as_posix()}"',
             f"declare -A UNIT_STATUS=({rows})",
             "declare -A UNIT_MS=()",
+            f"SCOPE_ORDER=({' '.join(scopes)})",
             *(_lifted(name, indent) for name, indent in lifted),
             body,
             "",
@@ -383,3 +389,82 @@ def test_the_ruff_body_hands_on_every_status_the_tool_answers_with() -> None:
         if code != 0 or f"rc={expected}\n" not in output:
             wrong.append(f"ruff check at {check} and format at {fmt} came back as {output.strip()!r}, and the body owes rc={expected}")
     assert not wrong, "\n".join(wrong)
+
+
+# --- the later failure the run did not stop at ---------------------------------------------------------
+
+# The loop itself, not a call by hand: which of the two readers a scope reaches is the arm under
+# test, and a case picking the reader for it would pass while the loop handed over the wrong scopes.
+REPLAY_LOOP: Final[tuple[str, str]] = ('for u_scope in "${SCOPE_ORDER[@]}"; do', "done")
+
+# `adopt_rows` among them: it turns a ledger file into the rows `adopt_ending` grades the first
+# failure's status against, and a stub for it would decide that grading here.
+LATER: Final[tuple[tuple[str, str], ...]] = (("adopt_rows", "  "), ("replay_scope", "  "), ("adopt_finished", "  "))
+
+# Four scopes, in the order the loop takes them: one failure to end the run at, then a scope that
+# passed, a second failure and a refusal.
+ORDER: Final[tuple[str, ...]] = ("first", "passed", "later", "refused")
+STATUSES: Final[dict[str, str]] = {"first": "1", "passed": "0", "later": "1", "refused": "2"}
+# rank, ms, findings, advisories, name -- `scripts/lib/_lib.sh :: emit_section_ledger`'s row.
+LEDGERS: Final[dict[str, str]] = {
+    "first": "5\t10\t1\t0\tfirst\n",
+    "passed": "2\t10\t0\t0\tpassed\n",
+    "later": "5\t10\t1\t0\tlater\n",
+    "refused": "4\t10\t0\t0\trefused\n",
+}
+
+
+def _shell_constant(name: str) -> tuple[str, str]:
+    """One double-quoted assignment out of verify.sh, as its line and as the text bash reads.
+
+    Read out of the gate rather than spelled twice: a copy here would keep passing after the
+    heading it stands for changed.
+    """
+    for line in VERIFY.read_text(encoding="utf-8").splitlines():
+        body = line.strip()
+        if body.startswith(f'{name}="'):
+            assert body.endswith('"'), f"scripts/gate/verify.sh's {name} does not close on its own line"
+            return body, body[len(name) + 2 : -1]
+    raise AssertionError(f"scripts/gate/verify.sh no longer declares {name}")
+
+
+def test_a_later_failing_scope_is_replayed_after_the_first_failures_own_output() -> None:
+    """Rows count a later failure without quoting it, and no partial re-run reaches the text.
+
+    The scope that passed is the twin: an arm replaying every later one would head a green scope
+    as a failure.
+    """
+    declaration, heading = _shell_constant("LATER_FAILURE_HEADING")
+    code, output = _parent(
+        "\n".join((declaration, "REPLAY_STATUS=0", "ENDING=0", _lifted_block(*REPLAY_LOOP), "if (( ENDING )); then finish; fi")),
+        lifted=LATER,
+        statuses=STATUSES,
+        captured={scope: f"{scope} wrote this to stdout\n" for scope in ORDER},
+        errors={scope: f"{scope} wrote this to stderr\n" for scope in ORDER},
+        ledgers=LEDGERS,
+        scopes=ORDER,
+    )
+    wrong: list[str] = []
+    # 1 is the first failure's own ending: the later scopes add rows and text, and `adopt_ending` is
+    # never called for one, so nothing here may move the exit status.
+    if code != 1:
+        wrong.append(f"the run ended at {code}, and the first failure gives it 1")
+    for scope in ("first", "later", "refused"):
+        for stream in ("stdout", "stderr"):
+            if f"{scope} wrote this to {stream}" not in output:
+                wrong.append(f"the {scope} scope's {stream} was not replayed")
+    for scope in ("later", "refused"):
+        if f"the {scope} scope {heading}" not in output:
+            wrong.append(f"the {scope} scope's text carries no heading naming it")
+    for stream in ("stdout", "stderr"):
+        if f"passed wrote this to {stream}" in output:
+            wrong.append(f"a scope that passed had its {stream} replayed")
+    if f"the passed scope {heading}" in output:
+        wrong.append("a scope that passed was headed as a failure")
+    # Both markers are on stdout, which the capture holds whole before any of stderr, so their order
+    # here is the order the terminal saw. `find`, so an absent one is reported above rather than raising.
+    ended_at = output.find("first wrote this to stdout")
+    later = output.find(f"the later scope {heading}")
+    if ended_at >= 0 and later >= 0 and ended_at > later:
+        wrong.append("the later failure was replayed ahead of the failure the run ended at")
+    assert not wrong, "\n".join(wrong) + "\n" + output

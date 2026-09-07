@@ -733,12 +733,28 @@ if (( PARALLEL )); then
     REPLAY_STATUS="$status"
   }
 
-  # Past the first failure, rows alone: the table still tells a pass from a scope that never ran,
-  # while the ending stays the failure's. A crash's rank-5 row would read as findings.
+  # A later failure's own text, which rows count but never quote. A branch whose diff asks for every
+  # scope cannot re-run one alone (`scripts/checks/check_scope.py`), so text left unread here costs a
+  # second full run.
+  LATER_FAILURE_HEADING="also failed, and the run ended at the failure above rather than at this one — its own output follows"
+
+  # Past the first failure the ending stays that failure's, and the table still tells a pass from a
+  # scope that never ran. A crash's rank-5 row would read as findings, so it takes the arm below.
   adopt_finished() { # $1 scope
     local scope="$1" status="${UNIT_STATUS[$1]:-}"
     case "$status" in
-      0|1|2) adopt_rows "$scope" ;;
+      0|1|2)
+        adopt_rows "$scope"
+        # Only where there is text to show: the heading promises output, and a scope that failed
+        # having written none would get a heading over nothing.
+        if (( status )) && [[ -s "${POOL_DIR}/${scope}.out" || -s "${POOL_DIR}/${scope}.err" ]]; then
+          info "the ${scope} scope ${LATER_FAILURE_HEADING}"
+          # Split as `replay_scope` splits it: `docs/ops/spec.md` §1.6 states what a terminal
+          # merging the two sees, and sending both to stdout here would change that.
+          if [[ -s "${POOL_DIR}/${scope}.out" ]]; then cat "${POOL_DIR}/${scope}.out"; fi
+          if [[ -s "${POOL_DIR}/${scope}.err" ]]; then cat "${POOL_DIR}/${scope}.err" >&2; fi
+        fi
+        ;;
       # Rank 0, for `adopt_rows`' reason: no row at all drops the scope out of the table.
       *)     adopt_section "$scope" 0 "${UNIT_MS[$scope]:-0}" 0 0 ;;
     esac
